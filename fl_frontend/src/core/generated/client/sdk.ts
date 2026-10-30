@@ -48,8 +48,8 @@ import type {
   FLBewerbungKontaktEmailResponse,
   FLBewerbungKontaktSitzPayload,
   FLBewerbungKontaktSitzResponse,
+  FLBewerbungKontoEinwilligungResponse,
   FLBewerbungKuerzelResponse,
-  FLBewerbungPersonEinwilligungResponse,
   FLBewerbungSchulenResponse,
   FLBewerbungSingleResponse,
   FLBewerbungSweepResponse,
@@ -78,11 +78,13 @@ import type {
   FLKontoAdresswechselPayload,
   FLKontoAdresswechselResponse,
   FLKontoEinwilligungenResponse,
+  FLKontoEinwilligungPayload,
+  FLKontoLoeschungAnsichtResponse,
   FLLoeschungAdressePayload,
   FLLoeschungAnsichtResponse,
-  FLLoeschungLaufResponse,
   FLLoeschungPayload,
   FLLoeschungResponse,
+  FLLoeschungSweepResponse,
   FLLoeschungVorschauResponse,
   FLOffeneRegistrierungenResponse,
   FLPatchBerechtigungPayload,
@@ -136,7 +138,7 @@ import type {
   FLRegistrierungBestaetigungPayload,
   FLRegistrierungBestaetigungResponse,
   FLRegistrierungenListResponse,
-  FLRegistrierungSelbstEinwilligungResponse,
+  FLRegistrierungKontoEinwilligungResponse,
   FLRegistrierungSweepResponse,
   FLReplaceSaisonTeamPayload,
   FLReplaceSaisonTeamResponse,
@@ -145,26 +147,24 @@ import type {
   FLSaisonSpielerResponse,
   FLSaisonsSingleResponse,
   FLSaisonTeamEinwilligungAntwortResponse,
-  FLSaisonTeamPersonEinwilligungResponse,
+  FLSaisonTeamKontoEinwilligungResponse,
   FLSaisonTeamResponse,
   FLSchiedsrichterBestaetigungAnsichtResponse,
   FLSchiedsrichterBestaetigungPayload,
   FLSchiedsrichterBestaetigungResponse,
+  FLSchiedsrichterKontoEinwilligungResponse,
   FLSchiedsrichterListResponse,
   FLSchiedsrichterMintResponse,
   FLSchiedsrichterReactivateResponse,
-  FLSchiedsrichterSelbstEinwilligungResponse,
-  FLSchiedsrichterSelbstResponse,
+  FLSchiedsrichterSelfResponse,
   FLSchiedsrichterSingleResponse,
   FLSchiedsrichterWriteResponse,
-  FLSelbstEinwilligungPayload,
-  FLSelbstLoeschungAnsichtResponse,
   FLSitzEinwilligungPayload,
   FLSperrlisteListResponse,
   FLSperrlisteWriteResponse,
   FLSpielberichtAdminResponse,
-  FLSpielberichtePersonResponse,
   FLSpielberichteSaisonResponse,
+  FLSpielberichteSelfResponse,
   FLSpielberichtPayload,
   FLSpielberichtSchiedsrichterResponse,
   FLSpielbestaetigungAnsichtResponse,
@@ -172,7 +172,7 @@ import type {
   FLSpielbestaetigungAntwortResponse,
   FLSpielbestaetigungEintragenPayload,
   FLSpielbestaetigungenListResponse,
-  FLSpielbestaetigungenSelbstResponse,
+  FLSpielbestaetigungenSelfResponse,
   FLSpielbestaetigungSchiedsrichterAntwortPayload,
   FLSpielbestaetigungSchiedsrichterAntwortResponse,
   FLSpielbestaetigungSweepResponse,
@@ -183,11 +183,11 @@ import type {
   FLSpieleAdminSingleResponse,
   FLSpieleListResponse,
   FLSpielerAdminSingleResponse,
+  FLSpielerKontoEinwilligungResponse,
   FLSpielerListResponse,
-  FLSpielerMembershipsResponse,
   FLSpielerNachnominierungResponse,
-  FLSpielerSelbstEinwilligungResponse,
-  FLSpielerSelbstResponse,
+  FLSpielerSaisonsResponse,
+  FLSpielerSelfResponse,
   FLSpielerSingleResponse,
   FLSpieleSingleResponse,
   FLSpielorteListResponse,
@@ -203,7 +203,7 @@ import type {
   FLTeamsGroupedResponse,
   FLTeamSitzeResponse,
   FLTeamsListResponse,
-  FLTeamsMembershipsResponse,
+  FLTeamsSaisonsResponse,
   FLTeamsSingleResponse,
   FLTeamWriteResponse,
   FLTokenPayload,
@@ -1465,7 +1465,7 @@ export const bewerbungenPatchEinwilligung = async (
   bewerbungId: string,
   fLSitzEinwilligungPayload: FLSitzEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLBewerbungPersonEinwilligungResponse> => {
+): Promise<FLBewerbungKontoEinwilligungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -1478,7 +1478,7 @@ export const bewerbungenPatchEinwilligung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLBewerbungPersonEinwilligungResponse>(getBewerbungenPatchEinwilligungUrl(bewerbungId), {
+  return adminKeyTransport<FLBewerbungKontoEinwilligungResponse>(getBewerbungenPatchEinwilligungUrl(bewerbungId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1669,8 +1669,8 @@ export const getIdentitaetGetKontoLoeschungAnsichtUrl = () => {
  */
 export const identitaetGetKontoLoeschungAnsicht = async (
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSelbstLoeschungAnsichtResponse> => {
-  return adminKeyTransport<FLSelbstLoeschungAnsichtResponse>(getIdentitaetGetKontoLoeschungAnsichtUrl(), {
+): Promise<FLKontoLoeschungAnsichtResponse> => {
+  return adminKeyTransport<FLKontoLoeschungAnsichtResponse>(getIdentitaetGetKontoLoeschungAnsichtUrl(), {
     ...options,
     method: "GET",
   });
@@ -1825,8 +1825,8 @@ export const getIdentitaetSweepLoeschungUrl = (params?: IdentitaetSweepLoeschung
 export const identitaetSweepLoeschung = async (
   params?: IdentitaetSweepLoeschungParams,
   options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLLoeschungLaufResponse> => {
-  return systemKeyTransport<FLLoeschungLaufResponse>(getIdentitaetSweepLoeschungUrl(params), {
+): Promise<FLLoeschungSweepResponse> => {
+  return systemKeyTransport<FLLoeschungSweepResponse>(getIdentitaetSweepLoeschungUrl(params), {
     ...options,
     method: "POST",
   });
@@ -2406,9 +2406,9 @@ export const getRegistrierungenPatchEinwilligungUrl = (registrierungId: string) 
  */
 export const registrierungenPatchEinwilligung = async (
   registrierungId: string,
-  fLSelbstEinwilligungPayload: FLSelbstEinwilligungPayload,
+  fLKontoEinwilligungPayload: FLKontoEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLRegistrierungSelbstEinwilligungResponse> => {
+): Promise<FLRegistrierungKontoEinwilligungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -2421,11 +2421,11 @@ export const registrierungenPatchEinwilligung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLRegistrierungSelbstEinwilligungResponse>(getRegistrierungenPatchEinwilligungUrl(registrierungId), {
+  return adminKeyTransport<FLRegistrierungKontoEinwilligungResponse>(getRegistrierungenPatchEinwilligungUrl(registrierungId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSelbstEinwilligungPayload),
+    body: JSON.stringify(fLKontoEinwilligungPayload),
   });
 };
 
@@ -3125,9 +3125,9 @@ export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string) 
  */
 export const schiedsrichterPatchEinwilligung = async (
   schiedsrichterId: string,
-  fLSelbstEinwilligungPayload: FLSelbstEinwilligungPayload,
+  fLKontoEinwilligungPayload: FLKontoEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSchiedsrichterSelbstEinwilligungResponse> => {
+): Promise<FLSchiedsrichterKontoEinwilligungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -3140,11 +3140,11 @@ export const schiedsrichterPatchEinwilligung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLSchiedsrichterSelbstEinwilligungResponse>(getSchiedsrichterPatchEinwilligungUrl(schiedsrichterId), {
+  return adminKeyTransport<FLSchiedsrichterKontoEinwilligungResponse>(getSchiedsrichterPatchEinwilligungUrl(schiedsrichterId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSelbstEinwilligungPayload),
+    body: JSON.stringify(fLKontoEinwilligungPayload),
   });
 };
 
@@ -3161,8 +3161,8 @@ export const getSchiedsrichterGetSelfUrl = () => {
  * Refuses an address holding no confirmed referee record (`funktion_nicht_gehalten`).
  * @summary A signed-in referee's own records
  */
-export const schiedsrichterGetSelf = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSchiedsrichterSelbstResponse> => {
-  return adminKeyTransport<FLSchiedsrichterSelbstResponse>(getSchiedsrichterGetSelfUrl(), {
+export const schiedsrichterGetSelf = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSchiedsrichterSelfResponse> => {
+  return adminKeyTransport<FLSchiedsrichterSelfResponse>(getSchiedsrichterGetSelfUrl(), {
     ...options,
     method: "GET",
   });
@@ -3453,8 +3453,8 @@ export const getSpielberichteGetSelfUrl = () => {
  * Refused `funktion_nicht_gehalten` where the address holds no confirmed, live referee record.
  * @summary The fixtures a signed-in referee reports on
  */
-export const spielberichteGetSelf = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielberichtePersonResponse> => {
-  return adminKeyTransport<FLSpielberichtePersonResponse>(getSpielberichteGetSelfUrl(), {
+export const spielberichteGetSelf = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielberichteSelfResponse> => {
+  return adminKeyTransport<FLSpielberichteSelfResponse>(getSpielberichteGetSelfUrl(), {
     ...options,
     method: "GET",
   });
@@ -3757,8 +3757,8 @@ export const getSpielbestaetigungenGetSelfUrl = () => {
  */
 export const spielbestaetigungenGetSelf = async (
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielbestaetigungenSelbstResponse> => {
-  return adminKeyTransport<FLSpielbestaetigungenSelbstResponse>(getSpielbestaetigungenGetSelfUrl(), {
+): Promise<FLSpielbestaetigungenSelfResponse> => {
+  return adminKeyTransport<FLSpielbestaetigungenSelfResponse>(getSpielbestaetigungenGetSelfUrl(), {
     ...options,
     method: "GET",
   });
@@ -4254,9 +4254,9 @@ export const getSpielerPatchEinwilligungUrl = () => {
  * @summary Change a signed-in pupil's own publication and media consent
  */
 export const spielerPatchEinwilligung = async (
-  fLSelbstEinwilligungPayload: FLSelbstEinwilligungPayload,
+  fLKontoEinwilligungPayload: FLKontoEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielerSelbstEinwilligungResponse> => {
+): Promise<FLSpielerKontoEinwilligungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -4269,11 +4269,11 @@ export const spielerPatchEinwilligung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLSpielerSelbstEinwilligungResponse>(getSpielerPatchEinwilligungUrl(), {
+  return adminKeyTransport<FLSpielerKontoEinwilligungResponse>(getSpielerPatchEinwilligungUrl(), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSelbstEinwilligungPayload),
+    body: JSON.stringify(fLKontoEinwilligungPayload),
   });
 };
 
@@ -4313,8 +4313,8 @@ export const getSpielerGetSpielerSaisonsUrl = () => {
  * `adresswechsel_einsehbar_verwehrt` why the tool refuses it this administrator, null where it opens it.
  * @summary Every Spieler with their squad rows
  */
-export const spielerGetSpielerSaisons = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerMembershipsResponse> => {
-  return adminKeyTransport<FLSpielerMembershipsResponse>(getSpielerGetSpielerSaisonsUrl(), {
+export const spielerGetSpielerSaisons = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerSaisonsResponse> => {
+  return adminKeyTransport<FLSpielerSaisonsResponse>(getSpielerGetSpielerSaisonsUrl(), {
     ...options,
     method: "GET",
   });
@@ -4333,8 +4333,8 @@ export const getSpielerGetSelfUrl = () => {
  * Refuses an address holding no confirmed pupil record (`funktion_nicht_gehalten`).
  * @summary A signed-in pupil's own record
  */
-export const spielerGetSelf = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerSelbstResponse> => {
-  return adminKeyTransport<FLSpielerSelbstResponse>(getSpielerGetSelfUrl(), {
+export const spielerGetSelf = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerSelfResponse> => {
+  return adminKeyTransport<FLSpielerSelfResponse>(getSpielerGetSelfUrl(), {
     ...options,
     method: "GET",
   });
@@ -4937,8 +4937,8 @@ export const getTeamsGetTeamSaisonsUrl = () => {
  * ever owed.
  * @summary Every team with its season memberships
  */
-export const teamsGetTeamSaisons = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLTeamsMembershipsResponse> => {
-  return adminKeyTransport<FLTeamsMembershipsResponse>(getTeamsGetTeamSaisonsUrl(), {
+export const teamsGetTeamSaisons = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLTeamsSaisonsResponse> => {
+  return adminKeyTransport<FLTeamsSaisonsResponse>(getTeamsGetTeamSaisonsUrl(), {
     ...options,
     method: "GET",
   });
@@ -5352,7 +5352,7 @@ export const teamsPatchEinwilligung = async (
   saisonId: string,
   fLSitzEinwilligungPayload: FLSitzEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSaisonTeamPersonEinwilligungResponse> => {
+): Promise<FLSaisonTeamKontoEinwilligungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -5365,7 +5365,7 @@ export const teamsPatchEinwilligung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLSaisonTeamPersonEinwilligungResponse>(getTeamsPatchEinwilligungUrl(teamId, saisonId), {
+  return adminKeyTransport<FLSaisonTeamKontoEinwilligungResponse>(getTeamsPatchEinwilligungUrl(teamId, saisonId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },

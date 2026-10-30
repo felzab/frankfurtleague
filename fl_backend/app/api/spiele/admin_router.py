@@ -6,7 +6,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.saisons.crud import pull_current_saison_id, pull_saison_id_and_rules
+from app.api.saisons.crud import pull_active_saison_id, pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielberichte.crud import pull_zustaende, stamp_the_adoption
 from app.api.spielberichte.schemas import FLSpieleActionRequiredResponse
@@ -110,7 +110,7 @@ async def get_spiele_verwaltung(
     # Mirrors `app/api/spiele/public_router.py :: get_spiele`, which cannot be called here: the gate is
     # inside it, and emptying the planned season is the one thing this must not do.
     if filters.saison_id is None:
-        filters.saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)
+        filters.saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
 
     # The joined pipeline, for `get_spiele_action_required`'s reason: a plain `find` drops `austritt`.
     spiele_raw = await aggregate_many_from_db(
@@ -154,7 +154,7 @@ async def get_spiele_action_required(
     # Resolved as every other admin read resolves an omitted season: the selector sends none for the
     # running one, so spanning the archive here would bury its queue under every other season's.
     if saison_id is None:
-        saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)
+        saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
 
     # The joined pipeline, as the public reads use: the raw shape carries no `austritt`, so
     # this list would silently omit a badge the grids show.

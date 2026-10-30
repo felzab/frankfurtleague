@@ -1238,7 +1238,7 @@ matches** — empty, not in the form sign-in folds it to, or refused by the addr
 a hand edit of the record leaves.
 The run passes those pupils over on every pass until their address is stored in that form. **No
 route repairs one**: the address tool and the account page find a pupil by the folded address alone
-(`fl_backend/app/api/spieler/services.py :: build_selbst_pupil_filter`), so a change started for it
+(`fl_backend/app/api/spieler/services.py :: build_self_pupil_filter`), so a change started for it
 finds nothing to move (`adresswechsel_nichts`), and the tool takes no address the rule refuses.
 Rewrite it by hand as a MongoDB Playground paste kept in the operator's checklist (§2): a spelling
 that differs from its fold only in case, surrounding spaces or the domain's form to that fold, and

@@ -9,7 +9,7 @@ import { Chip } from "@heroui/react/chip";
 
 import { ABOUT_TITEL } from "@/core/seitenNamen";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
-import { getCurrentSaisonOrNull } from "@/features/saisons/queries";
+import { getActiveSaisonOrNull } from "@/features/saisons/queries";
 import { AustrittKuerzel } from "@/features/teams/components/ui/AustrittKuerzel";
 import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { getTeams } from "@/features/teams/queries";
@@ -128,7 +128,7 @@ export function AboutView() {
 
 async function AktuelleSaison() {
   await connection();
-  const current = await getCurrentSaisonOrNull();
+  const current = await getActiveSaisonOrNull();
   if (current === null) return null;
 
   // `/saisons/active` answers the active season alone, so this chip always names a running one.

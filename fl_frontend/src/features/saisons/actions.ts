@@ -8,8 +8,8 @@ import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/uti
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { REGELN_ABSCHNITT } from "./constants";
-import { loeschungLaufen } from "./loeschung";
-import { activateSaison, generateSpielplan, patchSaison, postLoeschungLauf, postSaison, swapGruppen, undrawSpielplan } from "./mutations";
+import { sweepLoeschung } from "./loeschung";
+import { activateSaison, generateSpielplan, patchSaison, postLoeschungSweep, postSaison, swapGruppen, undrawSpielplan } from "./mutations";
 import { mapActivateRefusal, mapRulesRefusal, mapSaisonIdRefusal, mapSpielplanRefusal, mapSwapRefusal, mapUndrawRefusal } from "./refusals";
 import {
   FLActivateSaisonPayloadSchema,
@@ -25,7 +25,7 @@ import type {
   FLActivateSaisonResponse,
   FLGenerateSpielplanPayload,
   FLGenerateSpielplanResponse,
-  FLLoeschungLaufResponse,
+  FLLoeschungSweepResponse,
   FLPatchSaisonPayload,
   FLPatchSaisonResponse,
   FLSwapGruppenPayload,
@@ -34,7 +34,7 @@ import type {
 } from "@/core/generated/client/types";
 import type { FLSaisonRulesDraft, SaisonCreateDraft } from "@/features/saisons/types";
 import type { ActionResult } from "@/shared/types/types";
-import type { LoeschungLauf } from "./loeschung";
+import type { LoeschungSweep } from "./loeschung";
 
 export async function postSaisonAction(
   // The DRAFT shape: an emptied rule count submits `null`, and the schema below is what turns that into a
@@ -135,7 +135,7 @@ export async function activateSaisonAction(rawPayload: { id: string }): Promise<
 
     // Called here rather than handed on bare: the step-up reader attributes a request only where an action's own body
     // calls it.
-    const geloescht = await loeschenNachUmstellung((nach) => postLoeschungLauf(nach));
+    const geloescht = await loeschenNachUmstellung((nach) => postLoeschungSweep(nach));
 
     return { success: true, saison: activateOperation, message: [message, ...geloescht].join(" ") };
   });
@@ -145,11 +145,11 @@ export async function activateSaisonAction(rawPayload: { id: string }): Promise<
  * AWAITED inside the action's body, so the spine clears the site's cache tag after the last deletion: a run behind the
  * answer lands after that clear, and a squad page names deleted pupils until the `minutes` lifetime has passed.
  */
-async function loeschenNachUmstellung(senden: (nach: string | null) => Promise<FLLoeschungLaufResponse>): Promise<string[]> {
+async function loeschenNachUmstellung(senden: (nach: string | null) => Promise<FLLoeschungSweepResponse>): Promise<string[]> {
   let vonDerFristBeendet = false;
   // Each call answering its own cut: one the deadline ends would otherwise answer the whole press as of unknown
   // outcome, sending the administrator to check an activation that stands.
-  const lauf = await loeschungLaufen((nach) =>
+  const lauf = await sweepLoeschung((nach) =>
     runAnsweringOwnCut(async () => {
       try {
         return await senden(nach);
@@ -173,7 +173,7 @@ async function loeschenNachUmstellung(senden: (nach: string | null) => Promise<F
 }
 
 /** Singular and plural spelled out, and nothing said where nobody was due. */
-function loeschungsSaetze(lauf: LoeschungLauf): string[] {
+function loeschungsSaetze(lauf: LoeschungSweep): string[] {
   const saetze: string[] = [];
   const seit = lauf.abgeschlossene_saison_id;
 

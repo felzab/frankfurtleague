@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { funktionenOf } from "@/core/funktionen";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { logPageVerweigert } from "@/features/funktionen/verweigert";
-import { SchiedsrichterSelbstView } from "@/features/schiedsrichter/components/views/SchiedsrichterSelbstView";
-import { getSchiedsrichterSelbst } from "@/features/schiedsrichter/queries";
+import { SchiedsrichterSelfView } from "@/features/schiedsrichter/components/views/SchiedsrichterSelfView";
+import { getSchiedsrichterSelf } from "@/features/schiedsrichter/queries";
 import { getSchiedsrichterSpielberichte } from "@/features/spielberichte/queries";
 import { getEigeneSpielbestaetigungen } from "@/features/spielbestaetigungen/queries";
 import { isFunktionLost } from "@/shared/utils/actionError";
@@ -27,7 +27,7 @@ export default async function PersoenlichSchiedsrichterPage() {
   try {
     // Side by side: no read waits on another, and each answers the same lost record alike.
     [selbst, einsaetze, spielberichte] = await Promise.all([
-      getSchiedsrichterSelbst(),
+      getSchiedsrichterSelf(),
       getEigeneSpielbestaetigungen(),
       // A failed report read is its section's own state, so the answers to an Einteilung stand; a lost record still
       // lands through the two reads beside it.
@@ -46,7 +46,7 @@ export default async function PersoenlichSchiedsrichterPage() {
   }
 
   return (
-    <SchiedsrichterSelbstView
+    <SchiedsrichterSelfView
       schiedsrichter={selbst.schiedsrichter}
       einsaetze={einsaetze.spielbestaetigungen}
       spielberichte={spielberichte}

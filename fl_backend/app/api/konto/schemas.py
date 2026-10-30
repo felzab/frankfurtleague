@@ -2,8 +2,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.adresswechsel.schemas import FLAdresswechselGenehmigungStand
 from app.api.berechtigungen.schemas import FLUtcInstant
-from app.api.schiedsrichter.schemas import FLSchiedsrichterSelbst
-from app.api.spieler.schemas import FLEinwilligung, FLSpielerKontext, FLSpielerSelbst
+from app.api.schiedsrichter.schemas import FLSchiedsrichterSelf
+from app.api.spieler.schemas import FLEinwilligung, FLSpielerKontext, FLSpielerSelf
 from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomEmail
@@ -29,7 +29,7 @@ class FLSitzKontext(BaseModel):
     saison: str
 
 
-class FLKontoSpielerEinwilligung(FLSpielerSelbst):
+class FLKontoSpielerEinwilligung(FLSpielerSelf):
     """The pupil's record on the account page: its stored data and the consent the page moves."""
 
     inactive_since: CustomOptionalDateString
@@ -49,7 +49,7 @@ class FLKontoSpielerEinwilligung(FLSpielerSelbst):
     kontext: FLSpielerKontext
 
 
-class FLKontoSchiedsrichterEinwilligung(FLSchiedsrichterSelbst, BaseReadModel):
+class FLKontoSchiedsrichterEinwilligung(FLSchiedsrichterSelf, BaseReadModel):
     """One referee record on the account page: its stored data and the consent the page moves."""
 
     inactive_since: CustomOptionalDateString
@@ -88,7 +88,7 @@ class FLKontoSitzEinwilligung(BaseModel):
     # Each on where any held slot's is, so a withdrawal stays offered.
     umfang: FLKontaktKenntnisnahmeUmfang
     medien: bool
-    # Over every held slot, for `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
+    # Over every held slot, for `app/api/spieler/schemas.py :: FLSpielerSelf`'s reason.
     nachweis_stand: FLEinwilligungStand
     medien_angeboten: bool
     erteilbar: bool
@@ -133,9 +133,9 @@ class FLKontoRegistrierungEinwilligung(BaseModel):
     umfang: FLEinwilligungUmfang | None
     medien: bool | None
     nachweis_stand: FLEinwilligungStand
-    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
+    # For `app/api/spieler/schemas.py :: FLSpielerSelf`'s reason.
     mindestalter: int
-    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
+    # For `app/api/spieler/schemas.py :: FLSpielerSelf`'s reason.
     medien_mindestalter: int = Field(gt=0)
     # What the pupil's confirmation page filled its words with, read today.
     kontext: FLSpielerKontext

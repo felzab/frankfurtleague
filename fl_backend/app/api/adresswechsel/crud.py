@@ -59,7 +59,7 @@ from app.api.postausgang.schemas import (
 )
 from app.api.postausgang.services import ANMELDE_ARTEN, enqueue_mail
 from app.api.registrierungen.services import build_loeschung_registrierung_filter, registrierung_ist_bestaetigt
-from app.api.schiedsrichter.services import build_selbst_referee_filter, vorname_of
+from app.api.schiedsrichter.services import build_self_referee_filter, vorname_of
 from app.api.sperrliste.lookup import BanList, Saison, adressen_gesperrt
 from app.api.spielbestaetigungen.services import (
     build_contact_reason_images_filter,
@@ -69,7 +69,7 @@ from app.api.spielbestaetigungen.services import (
     seat_void_of,
 )
 from app.api.spieler.crud import another_pupil_holds
-from app.api.spieler.services import build_selbst_pupil_filter
+from app.api.spieler.services import build_self_pupil_filter
 from app.api.teams.crud import void_moved_seats
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, loeschen_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
@@ -142,13 +142,11 @@ async def read_the_bestand(
     """
 
     identifier = sign_in_identifier(identifier)
-    spieler = await records.spieler_collection.find_one(
-        build_selbst_pupil_filter(identifier), projection=dict(_SPIELER_FIELDS), session=session
-    )
+    spieler = await records.spieler_collection.find_one(build_self_pupil_filter(identifier), projection=dict(_SPIELER_FIELDS), session=session)
     referees = await aggregate_many_from_db(
         collection=records.schiedsrichter_collection,
         pipeline=[
-            {"$match": build_selbst_referee_filter(identifier)},
+            {"$match": build_self_referee_filter(identifier)},
             {"$project": dict(_SCHIEDSRICHTER_FIELDS)},
             {"$sort": {"_id": 1}},
         ],
@@ -204,8 +202,8 @@ async def adresse_belegt(email: str, *, records: RecordCollections, belegung: Be
 
     folded = sign_in_identifier(email)
     reads: list[tuple[AsyncCollection, Mapping[str, Any]]] = [
-        (records.spieler_collection, build_selbst_pupil_filter(folded)),
-        (records.schiedsrichter_collection, build_selbst_referee_filter(folded)),
+        (records.spieler_collection, build_self_pupil_filter(folded)),
+        (records.schiedsrichter_collection, build_self_referee_filter(folded)),
         (records.saison_teams_collection, rows_seating(folded)),
         (records.bewerbungen_collection, rows_seating(folded)),
         (records.registrierungen_collection, build_loeschung_registrierung_filter(folded)),
@@ -831,7 +829,7 @@ async def move_the_address_in_session(
             row["_id"]
             for row in await aggregate_many_from_db(
                 collection=schiedsrichter_collection,
-                pipeline=[{"$match": build_selbst_referee_filter(alt, neu)}, {"$project": {"_id": 1}}],
+                pipeline=[{"$match": build_self_referee_filter(alt, neu)}, {"$project": {"_id": 1}}],
                 session=session,
             )
         },

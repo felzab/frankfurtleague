@@ -253,12 +253,12 @@ class FLRegistrierungBestaetigungResponse(BaseAPIResponse):
 # --- The pupil's own WITHDRAWAL on the account page, between the confirmation and the admission.
 
 
-class FLRegistrierungSelbstEinwilligungResponse(BaseAPIResponse):
+class FLRegistrierungKontoEinwilligungResponse(BaseAPIResponse):
     """The registration's consent record as it stands after the write, everything the pupil did not move unchanged."""
 
     registrierung_id: CustomObjectId
     einwilligung: FLRegistrierungEinwilligung
-    # For `app/api/spieler/schemas.py :: FLSpielerSelbstEinwilligungResponse`'s reason.
+    # For `app/api/spieler/schemas.py :: FLSpielerKontoEinwilligungResponse`'s reason.
     nachweis_stand: FLEinwilligungStand
 
 

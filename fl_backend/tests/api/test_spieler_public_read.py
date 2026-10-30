@@ -25,7 +25,7 @@ from app.api.spieler.schemas import (
     FLSpielerSingleResponse,
     FLSpielerSortOptions,
 )
-from app.api.spieler.services import build_real_spieler_filter, build_spieler_memberships_pipeline, build_spieler_pipeline, public_initial
+from app.api.spieler.services import build_real_spieler_filter, build_spieler_pipeline, build_spieler_saisons_pipeline, public_initial
 from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
@@ -275,7 +275,7 @@ class TestTheProjection:
 
     def test_only_the_admin_read_tiebreaks_on_the_surname(self):
         """The contrast is the assertion: the admin list orders people by full name and is entitled to."""
-        assert build_spieler_memberships_pipeline()[-1]["$sort"] == {"vorname": 1, "nachname": 1}
+        assert build_spieler_saisons_pipeline()[-1]["$sort"] == {"vorname": 1, "nachname": 1}
 
     @pytest.mark.parametrize("key", ["nachname", "stufe"])
     def test_the_base_tier_refuses_to_order_by_a_key_it_will_not_serve(self, key: str):

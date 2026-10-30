@@ -19,7 +19,7 @@ from app.api.konto.services import (
     widerruf_line,
 )
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
-from app.api.teams.schemas import FLSaisonTeamPersonEinwilligungResponse, FLTeamSitz, FLTeamSitzeResponse
+from app.api.teams.schemas import FLSaisonTeamKontoEinwilligungResponse, FLTeamSitz, FLTeamSitzeResponse
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
@@ -94,7 +94,7 @@ async def get_team_sitze(
 
 @router.patch(
     "/{team_id:objectid}/saisons/{saison_id}/konto/einwilligung",
-    response_model=FLSaisonTeamPersonEinwilligungResponse,
+    response_model=FLSaisonTeamKontoEinwilligungResponse,
     summary="Change a seat holder's own WhatsApp and media consent on one team's season",
 )
 async def patch_einwilligung(
@@ -108,7 +108,7 @@ async def patch_einwilligung(
     config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLSaisonTeamPersonEinwilligungResponse:
+) -> FLSaisonTeamKontoEinwilligungResponse:
     """
     Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.
 
@@ -133,7 +133,7 @@ async def patch_einwilligung(
     journal = Journal()
 
     @journal.attempted
-    async def write(session: AsyncClientSession) -> FLSaisonTeamPersonEinwilligungResponse:
+    async def write(session: AsyncClientSession) -> FLSaisonTeamKontoEinwilligungResponse:
         row = await saison_teams_collection.find_one(
             {"saison_id": saison_id, "team_id": team_id},
             {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "geburtsdatum", "einwilligung")},
@@ -193,7 +193,7 @@ async def patch_einwilligung(
         bloecke = [kontakte[slot]["einwilligung"] for slot in rollen]
 
         # The row as the next read serves it: an unpressed choice its seats answered apart stays apart.
-        return FLSaisonTeamPersonEinwilligungResponse.model_validate(
+        return FLSaisonTeamKontoEinwilligungResponse.model_validate(
             {
                 "team_id": team_id,
                 "saison_id": saison_id,

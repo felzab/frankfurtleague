@@ -197,10 +197,10 @@ class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     zustellung: FLPostausgangLage | None
 
 
-class FLSchiedsrichterSelbst(BaseReadModel):
+class FLSchiedsrichterSelf(BaseReadModel):
     """One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.
 
-    For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason, the account page's entry extends it.
+    For `app/api/spieler/schemas.py :: FLSpielerSelf`'s reason, the account page's entry extends it.
     """
 
     schiedsrichter_id: CustomObjectId
@@ -212,16 +212,16 @@ class FLSchiedsrichterSelbst(BaseReadModel):
     geburtsdatum: CustomOptionalDateString = None
 
 
-class FLSchiedsrichterSelbstResponse(BaseAPIResponse):
+class FLSchiedsrichterSelfResponse(BaseAPIResponse):
     """Every confirmed referee record the signed-in address holds, the ghost never among them."""
 
-    schiedsrichter: list[FLSchiedsrichterSelbst]
+    schiedsrichter: list[FLSchiedsrichterSelf]
 
 
-class FLSchiedsrichterSelbstEinwilligungResponse(BaseAPIResponse):
+class FLSchiedsrichterKontoEinwilligungResponse(BaseAPIResponse):
     """The record as it stands after the write, everything the person did not move unchanged."""
 
     schiedsrichter_id: CustomObjectId
     einwilligung: FLEinwilligung
-    # For `app/api/spieler/schemas.py :: FLSpielerSelbstEinwilligungResponse`'s reason.
+    # For `app/api/spieler/schemas.py :: FLSpielerKontoEinwilligungResponse`'s reason.
     nachweis_stand: FLEinwilligungStand

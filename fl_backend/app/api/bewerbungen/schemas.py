@@ -753,7 +753,7 @@ class FLBewerbungSweepSaisonsResponse(BaseAPIResponse):
     saison_ids: list[str]
 
 
-class FLBewerbungPersonEinwilligungResponse(BaseAPIResponse):
+class FLBewerbungKontoEinwilligungResponse(BaseAPIResponse):
     """Which of the application's seats the withdrawal reached, and the two answers they now all hold."""
 
     bewerbung_id: CustomObjectId

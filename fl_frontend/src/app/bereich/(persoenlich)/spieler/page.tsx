@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { funktionenOf } from "@/core/funktionen";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { logPageVerweigert } from "@/features/funktionen/verweigert";
-import { SpielerSelbstView } from "@/features/spieler/components/views/SpielerSelbstView";
-import { getSpielerSelbst } from "@/features/spieler/queries";
+import { SpielerSelfView } from "@/features/spieler/components/views/SpielerSelfView";
+import { getSpielerSelf } from "@/features/spieler/queries";
 import { isFunktionLost } from "@/shared/utils/actionError";
 
 export default async function PersoenlichSpielerPage() {
@@ -19,7 +19,7 @@ export default async function PersoenlichSpielerPage() {
 
   let selbst;
   try {
-    selbst = await getSpielerSelbst();
+    selbst = await getSpielerSelf();
   } catch (error) {
     // The row went between the page's own check and the backend's, which is the check above failing
     // late: the same landing. Every other failure is the area's boundary's.
@@ -27,5 +27,5 @@ export default async function PersoenlichSpielerPage() {
     redirect("/bereich");
   }
 
-  return <SpielerSelbstView spieler={selbst.spieler} />;
+  return <SpielerSelfView spieler={selbst.spieler} />;
 }

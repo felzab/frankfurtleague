@@ -14,7 +14,7 @@ from app.api.konto.crud import press_einwilligung
 from app.api.konto.services import (
     KONTO_SEITE_SPIELER,
     compose_person_move,
-    compose_spieler_selbst,
+    compose_spieler_self,
     find_eigener_eintrag_refusal,
     widerruf_line,
 )
@@ -25,13 +25,13 @@ from app.api.spieler.schemas import (
     FLKaderResponse,
     FLKaderZeile,
     FLPatchKaderZeilePayload,
-    FLSpielerSelbstEinwilligungResponse,
-    FLSpielerSelbstResponse,
+    FLSpielerKontoEinwilligungResponse,
+    FLSpielerSelfResponse,
 )
 from app.api.spieler.services import (
     build_kader_pipeline,
-    build_selbst_pupil_filter,
-    build_selbst_pupil_pipeline,
+    build_self_pupil_filter,
+    build_self_pupil_pipeline,
     find_kader_stufe_refusal,
     mark_shared_nummern,
 )
@@ -53,7 +53,7 @@ from app.core.security import loeschung_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
-from app.shared.schemas.einwilligung import FLSelbstEinwilligungPayload
+from app.shared.schemas.einwilligung import FLKontoEinwilligungPayload
 from app.shared.schemas.literals import FLSpielerStufe
 
 # The person lane's binder IN PLACE of `bind_actor` and the grants check, which a seat holder holding
@@ -278,8 +278,8 @@ spieler_router = APIRouter(
 )
 
 
-@spieler_router.get("/self", response_model=FLSpielerSelbstResponse, summary="A signed-in pupil's own record")
-async def get_self(identifier: SpielerIdentifier, spieler_collection: SpielerCollection) -> FLSpielerSelbstResponse:
+@spieler_router.get("/self", response_model=FLSpielerSelfResponse, summary="A signed-in pupil's own record")
+async def get_self(identifier: SpielerIdentifier, spieler_collection: SpielerCollection) -> FLSpielerSelfResponse:
     """
     Answer the signed-in address's own pupil record's stored data with every squad row it holds.
 
@@ -289,21 +289,21 @@ async def get_self(identifier: SpielerIdentifier, spieler_collection: SpielerCol
     Refuses an address holding no confirmed pupil record (`funktion_nicht_gehalten`).
     """
 
-    rows = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_selbst_pupil_pipeline(identifier))
+    rows = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_self_pupil_pipeline(identifier))
     row = rows[0] if rows else None
     refuse(find_eigener_eintrag_refusal(gehalten=row is not None and ist_eigener_spieler(row)))
     assert row is not None
 
-    return FLSpielerSelbstResponse.model_validate({"spieler": compose_spieler_selbst(row)})
+    return FLSpielerSelfResponse.model_validate({"spieler": compose_spieler_self(row)})
 
 
 @spieler_router.patch(
     "/konto/einwilligung",
-    response_model=FLSpielerSelbstEinwilligungResponse,
+    response_model=FLSpielerKontoEinwilligungResponse,
     summary="Change a signed-in pupil's own publication and media consent",
 )
 async def patch_einwilligung(
-    einwilligung_data: Annotated[FLSelbstEinwilligungPayload, Body()],
+    einwilligung_data: Annotated[FLKontoEinwilligungPayload, Body()],
     identifier: SpielerIdentifier,
     spieler_collection: SpielerCollection,
     records: SubjektLookup,
@@ -311,7 +311,7 @@ async def patch_einwilligung(
     config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLSpielerSelbstEinwilligungResponse:
+) -> FLSpielerKontoEinwilligungResponse:
     """
     Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.
 
@@ -331,14 +331,14 @@ async def patch_einwilligung(
     name is served, and nothing here can.
     """
 
-    eigener_eintrag = build_selbst_pupil_filter(identifier)
+    eigener_eintrag = build_self_pupil_filter(identifier)
     gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
     # One instant for the evidence and its journal line, so a replay stamps the moment the person pressed.
     am = log_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted
-    async def write(session: AsyncClientSession) -> FLSpielerSelbstEinwilligungResponse:
+    async def write(session: AsyncClientSession) -> FLSpielerKontoEinwilligungResponse:
         row = await spieler_collection.find_one(eigener_eintrag, projection={"einwilligung": 1, "geburtsdatum": 1}, session=session)
         refuse(find_eigener_eintrag_refusal(gehalten=row is not None and ist_eigener_spieler(row)))
         assert row is not None
@@ -384,7 +384,7 @@ async def patch_einwilligung(
         # A press moving neither choice is no act, so nothing was written and the record answers as stored.
         einwilligung = gespeichert if updated is None else updated["einwilligung"]
 
-        return FLSpielerSelbstEinwilligungResponse.model_validate(
+        return FLSpielerKontoEinwilligungResponse.model_validate(
             {"spieler_id": row["_id"], "einwilligung": einwilligung, "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung])}
         )
 

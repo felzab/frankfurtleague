@@ -15,8 +15,8 @@ from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.schemas import (
     FLAnmeldungResponse,
     FLLoeschung,
-    FLLoeschungLaufParams,
-    FLLoeschungLaufResponse,
+    FLLoeschungSweepParams,
+    FLLoeschungSweepResponse,
     FLReferenzenPayload,
     FLReferenzenResponse,
     FLSubjektPayload,
@@ -226,11 +226,11 @@ async def _loeschen_one(
 
 @router.post(
     "/loeschung/sweep",
-    response_model=FLLoeschungLaufResponse,
+    response_model=FLLoeschungSweepResponse,
     summary="Delete one share of the pupils the season-after rule makes due",
 )
 async def sweep_loeschung(
-    params: Annotated[FLLoeschungLaufParams, Query()],
+    params: Annotated[FLLoeschungSweepParams, Query()],
     saisons_collection: SaisonsCollection,
     spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
@@ -253,7 +253,7 @@ async def sweep_loeschung(
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
-) -> FLLoeschungLaufResponse:
+) -> FLLoeschungSweepResponse:
     """
     Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.
 
@@ -372,7 +372,7 @@ async def sweep_loeschung(
         saison_spieler += geloeschte.saison_spieler
         registrierungen += geloeschte.registrierungen
 
-    return FLLoeschungLaufResponse(
+    return FLLoeschungSweepResponse(
         abgeschlossene_saison_id=abgeschlossene_saison_id(statuses),
         spieler=spieler,
         saison_spieler=saison_spieler,

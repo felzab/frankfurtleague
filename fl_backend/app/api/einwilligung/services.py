@@ -71,7 +71,7 @@ def medien_angeboten(*, geburtsdatum: Any, today: str) -> bool:
         return False
 
 
-def find_selbst_medien_refusal(*, gespeichert: Any, medien: bool, geburtsdatum: Any, today: str) -> WriteRefusal | None:
+def find_self_medien_refusal(*, gespeichert: Any, medien: bool, geburtsdatum: Any, today: str) -> WriteRefusal | None:
     """Why a media consent moving to `true` is refused, judged on the birthdate the write leaves.
 
     Only a move off the stored block is judged, so a resent `true` never blocks the other switch; a

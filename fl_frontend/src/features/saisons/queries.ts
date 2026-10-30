@@ -45,10 +45,10 @@ export async function getLoeschungVorschau(saisonId: string): Promise<FLLoeschun
 
 /**
  * `null` where no season is marked active: the backend answers that with a 404 rather than an
- * empty body (`fl_backend/app/api/saisons/crud.py :: pull_current_saison`). A stored absence
+ * empty body (`fl_backend/app/api/saisons/crud.py :: pull_active_saison`). A stored absence
  * clears on the next season write, which every activation is.
  */
-export async function getCurrentSaisonOrNull(): Promise<FLSaisonsSingleResponse | null> {
+export async function getActiveSaisonOrNull(): Promise<FLSaisonsSingleResponse | null> {
   "use cache";
 
   cacheTag(SITE_CACHE_TAG);

@@ -6,12 +6,12 @@ import {
 } from "@/core/generated/client/sdk";
 
 import type {
-  FLBewerbungPersonEinwilligungResponse,
+  FLBewerbungKontoEinwilligungResponse,
   FLKontaktEinladenResponse,
   FLKontaktRolle,
   FLPatchSaisonTeamKontaktePayload,
   FLPatchSaisonTeamKontakteResponse,
-  FLSaisonTeamPersonEinwilligungResponse,
+  FLSaisonTeamKontoEinwilligungResponse,
   FLSitzEinwilligungPayload,
 } from "@/core/generated/client/types";
 
@@ -45,7 +45,7 @@ export async function patchSitzEinwilligung(
   teamId: string,
   saisonId: string,
   payload: FLSitzEinwilligungPayload,
-): Promise<FLSaisonTeamPersonEinwilligungResponse> {
+): Promise<FLSaisonTeamKontoEinwilligungResponse> {
   return teamsPatchEinwilligung(teamId, saisonId, payload);
 }
 
@@ -54,6 +54,6 @@ export async function patchSitzEinwilligung(
 export async function patchBewerbungEinwilligung(
   bewerbungId: string,
   payload: FLSitzEinwilligungPayload,
-): Promise<FLBewerbungPersonEinwilligungResponse> {
+): Promise<FLBewerbungKontoEinwilligungResponse> {
   return bewerbungenPatchEinwilligung(bewerbungId, payload);
 }

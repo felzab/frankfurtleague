@@ -64,15 +64,15 @@ from app.api.teams.schemas import (
     FLTeamsFilterParams,
     FLTeamsGroupedResponse,
     FLTeamsListResponse,
-    FLTeamsMembershipsResponse,
     FLTeamsResponse,
+    FLTeamsSaisonsResponse,
     FLTeamWithMembershipsListAdapter,
     FLTeamWriteResponse,
 )
 from app.api.teams.services import (
     build_gruppen,
-    build_team_memberships_pipeline,
     build_team_pipeline,
+    build_team_saisons_pipeline,
     compose_bestaetigungen_mit,
     compose_bestaetigungen_nach,
     compose_kontakt_bestaetigung,
@@ -191,7 +191,7 @@ async def _rewrite_the_outgoing_clubs_sides(
 
 # A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
 # capture this one whatever the declaration order.
-@router.get("/saisons", response_model=FLTeamsMembershipsResponse, summary="Every team with its season memberships")
+@router.get("/saisons", response_model=FLTeamsSaisonsResponse, summary="Every team with its season memberships")
 async def get_team_saisons(
     teams_collection: TeamsCollection,
     adresswechsel_collection: AdresswechselCollection,
@@ -201,7 +201,7 @@ async def get_team_saisons(
     today: str = Depends(get_german_date_str),
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
-) -> FLTeamsMembershipsResponse:
+) -> FLTeamsSaisonsResponse:
     """
     Every team, retired ones included, each with every season membership it holds. Sorted by name.
 
@@ -211,9 +211,7 @@ async def get_team_saisons(
     ever owed.
     """
 
-    teams_raw = await aggregate_many_from_db(
-        collection=teams_collection, pipeline=build_team_memberships_pipeline(), collation=GERMAN_COLLATION
-    )
+    teams_raw = await aggregate_many_from_db(collection=teams_collection, pipeline=build_team_saisons_pipeline(), collation=GERMAN_COLLATION)
     adressen = seated_identifiers(teams_raw)
     live = (
         {
@@ -237,7 +235,7 @@ async def get_team_saisons(
 
     lagen = await lagen_of(postausgang_collection=postausgang_collection, sammlung=Collection.SAISON_TEAMS, ids=membership_row_ids(teams_raw))
 
-    return FLTeamsMembershipsResponse(
+    return FLTeamsSaisonsResponse(
         teams=FLTeamWithMembershipsListAdapter.validate_python(
             mit_adresswechseln(mit_linkstand(teams_raw, today=today, lagen=lagen), live=live, verwehrt=verwehrt)
         )

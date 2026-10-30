@@ -240,7 +240,7 @@ SPIELE = [
 def league(mongo_database: Database) -> SeededLeague:
     """Collections dropped singly: `fl_test` is shared, not owned.
 
-    `squads` in `test_spieler_memberships_read.py` seeds the rest of it, so a clear reaching past
+    `squads` in `test_spieler_saisons_read.py` seeds the rest of it, so a clear reaching past
     what this fixture seeds empties that corpus, and the reverse.
     """
 

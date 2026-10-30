@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.saisons.crud import pull_current_saison
+from app.api.saisons.crud import pull_active_saison
 from app.api.saisons.schemas import (
     FLSaison,
     FLSaisonListAdapter,
@@ -50,7 +50,7 @@ async def get_active_saison(
 ) -> FLSaisonsSingleResponse:
     """Return the season currently marked active -- what every other endpoint resolves an omitted `saison_id` against."""
 
-    saison_raw = await pull_current_saison(saisons_collection=saisons_collection)
+    saison_raw = await pull_active_saison(saisons_collection=saisons_collection)
 
     saison = FLSaison.model_validate(with_schedule(saison_raw))
 

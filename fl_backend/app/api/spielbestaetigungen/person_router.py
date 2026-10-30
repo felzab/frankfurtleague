@@ -16,10 +16,10 @@ from app.api.spielbestaetigungen.crud import (
     pull_spielorte_public,
 )
 from app.api.spielbestaetigungen.schemas import (
-    FLSpielbestaetigungenSelbstResponse,
+    FLSpielbestaetigungenSelfResponse,
     FLSpielbestaetigungSchiedsrichterAntwortPayload,
     FLSpielbestaetigungSchiedsrichterAntwortResponse,
-    FLSpielbestaetigungSelbst,
+    FLSpielbestaetigungSelf,
 )
 from app.api.spielbestaetigungen.services import (
     ansetzung_verlassen_refusal,
@@ -65,7 +65,7 @@ router = APIRouter(
 )
 
 
-@router.get("/self", response_model=FLSpielbestaetigungenSelbstResponse, summary="A signed-in referee's own fixture assignments")
+@router.get("/self", response_model=FLSpielbestaetigungenSelfResponse, summary="A signed-in referee's own fixture assignments")
 async def get_self(
     identifier: SchiedsrichterIdentifier,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
@@ -77,7 +77,7 @@ async def get_self(
     records: SubjektLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> FLSpielbestaetigungenSelbstResponse:
+) -> FLSpielbestaetigungenSelfResponse:
     """
     Answer each fixture's newest confirmation row naming one of the signed-in address's live, confirmed referee records.
 
@@ -134,7 +134,7 @@ async def get_self(
             session=session,
         )
 
-    def eintrag_of(row: Mapping[str, Any]) -> FLSpielbestaetigungSelbst:
+    def eintrag_of(row: Mapping[str, Any]) -> FLSpielbestaetigungSelf:
         lage = lagen[row["_id"]]
         ansetzung = (
             ansicht_snapshot_of(
@@ -144,7 +144,7 @@ async def get_self(
             else ansicht_ansetzung_of(lage.spiel)
         )
 
-        return FLSpielbestaetigungSelbst.model_validate(
+        return FLSpielbestaetigungSelf.model_validate(
             {
                 "_id": row["_id"],
                 "spiel_id": row["spiel_id"],
@@ -161,7 +161,7 @@ async def get_self(
     kommend = sorted((e for e in eintraege if not e.vergangen), key=lambda e: (e.zustand != "gueltig", e.ansetzung.datum, str(e.id)))
     vergangen = sorted((e for e in eintraege if e.vergangen), key=lambda e: (e.ansetzung.datum, str(e.id)), reverse=True)
 
-    return FLSpielbestaetigungenSelbstResponse(spielbestaetigungen=[*kommend, *vergangen])
+    return FLSpielbestaetigungenSelfResponse(spielbestaetigungen=[*kommend, *vergangen])
 
 
 @router.post(

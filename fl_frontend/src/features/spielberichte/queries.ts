@@ -11,8 +11,8 @@ import { runPersonRead } from "@/shared/utils/personRead";
 
 import type {
   FLSpielberichtAdminResponse,
-  FLSpielberichtePersonResponse,
   FLSpielberichteSaisonResponse,
+  FLSpielberichteSelfResponse,
   FLSpielberichtSchiedsrichterResponse,
   SpielberichteGetSpielberichteParams,
   SpielberichteGetSpielberichtVerwaltungParams,
@@ -40,6 +40,6 @@ export async function getSchiedsrichterSpielbericht(spielId: string): Promise<FL
 }
 
 /** The played fixtures booked to the signed-in referee, the panel's list. */
-export const getSchiedsrichterSpielberichte = cache(async (): Promise<FLSpielberichtePersonResponse> =>
+export const getSchiedsrichterSpielberichte = cache(async (): Promise<FLSpielberichteSelfResponse> =>
   runPersonRead(() => spielberichteGetSelf()),
 );

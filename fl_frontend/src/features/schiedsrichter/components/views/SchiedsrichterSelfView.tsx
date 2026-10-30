@@ -9,20 +9,20 @@ import { textLink } from "@/shared/components/ui/textLink";
 
 import { SchiedsrichterAngaben } from "../ui/SchiedsrichterAngaben";
 
-import type { FLSchiedsrichterSelbst, FLSpielbestaetigungSelbst } from "@/core/generated/client/types";
+import type { FLSchiedsrichterSelf, FLSpielbestaetigungSelf } from "@/core/generated/client/types";
 import type { SchiedsrichterSpielberichte } from "@/features/spielberichte/types";
 
 /**
  * A referee's fixtures and reports above their own read-only data, a panel per referee row the address holds: whether
  * the name stands in the Spielplan is changed on the account page, which this page links to, offering no second control.
  */
-export function SchiedsrichterSelbstView({
+export function SchiedsrichterSelfView({
   schiedsrichter,
   einsaetze,
   spielberichte,
 }: {
-  schiedsrichter: readonly FLSchiedsrichterSelbst[];
-  einsaetze: readonly FLSpielbestaetigungSelbst[];
+  schiedsrichter: readonly FLSchiedsrichterSelf[];
+  einsaetze: readonly FLSpielbestaetigungSelf[];
   spielberichte: SchiedsrichterSpielberichte;
 }) {
   const panel = formPanel();

@@ -12,7 +12,7 @@ import type {
   FLActivateSaisonResponse,
   FLGenerateSpielplanPayload,
   FLGenerateSpielplanResponse,
-  FLLoeschungLaufResponse,
+  FLLoeschungSweepResponse,
   FLPatchSaisonPayload,
   FLPatchSaisonResponse,
   FLPostSaisonPayload,
@@ -92,7 +92,7 @@ export async function swapGruppen({
  * The system tier, whoever presses: the season-after rule deletes, never the administrator who activated a
  * season. No season in the call, which reads the statuses itself; `nach` is the previous call's answer.
  */
-export async function postLoeschungLauf(nach: string | null): Promise<FLLoeschungLaufResponse> {
+export async function postLoeschungSweep(nach: string | null): Promise<FLLoeschungSweepResponse> {
   // Left out on a pass's first call: the server takes `nach` as an id wherever it is present.
   return identitaetSweepLoeschung(nach === null ? {} : { nach: nach });
 }

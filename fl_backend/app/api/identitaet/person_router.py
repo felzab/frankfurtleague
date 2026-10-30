@@ -7,7 +7,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.adresswechsel.crud import known_to_the_new_mailbox, others_naming
 from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, LoeschungJournal, loeschen_everything, resolve_subject
-from app.api.identitaet.schemas import FLLoeschungResponse, FLSelbstLoeschungAnsichtResponse
+from app.api.identitaet.schemas import FLKontoLoeschungAnsichtResponse, FLLoeschungResponse
 from app.api.identitaet.services import (
     build_season_team_pipeline,
     compose_loeschung_ansicht,
@@ -167,7 +167,7 @@ async def post_konto_loeschung(
 
 @router.get(
     "/loeschung/ansicht",
-    response_model=FLSelbstLoeschungAnsichtResponse,
+    response_model=FLKontoLoeschungAnsichtResponse,
     summary="Show what an erasure of the signed-in address would remove",
 )
 async def get_konto_loeschung_ansicht(
@@ -181,7 +181,7 @@ async def get_konto_loeschung_ansicht(
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
-) -> FLSelbstLoeschungAnsichtResponse:
+) -> FLKontoLoeschungAnsichtResponse:
     """
     Answer what `POST /identitaet/konto/loeschung` would remove for the signed-in address, by kind and by name.
 
@@ -254,6 +254,6 @@ async def get_konto_loeschung_ansicht(
         team_rows=team_rows,
     )
 
-    return FLSelbstLoeschungAnsichtResponse(
+    return FLKontoLoeschungAnsichtResponse(
         **ansicht.model_dump(), verwaltung=None if own is None else own["verwaltung"], letzter_inhaber=letzter_inhaber
     )

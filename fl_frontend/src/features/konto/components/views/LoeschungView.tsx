@@ -29,7 +29,7 @@ import { loescheKontoAction } from "../../personActions";
 import { LETZTE_INHABERIN } from "../../refusals";
 import { registrierungTitel, schiedsrichterTitel, sitzTitel, SPIELER_TITEL } from "../forms/EinwilligungForm/kontoWorte";
 
-import type { FLSelbstLoeschungAnsichtResponse } from "@/core/generated/client/types";
+import type { FLKontoLoeschungAnsichtResponse } from "@/core/generated/client/types";
 import type { StepUp } from "@/shared/components/ui/stepUp";
 import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
 import type { ReactNode } from "react";
@@ -39,7 +39,7 @@ import type { ReactNode } from "react";
  * completes nothing here, and is sent to sign in and open the link again.
  */
 export type LoeschungStart =
-  | { zustand: "bereit"; token: string; email: string; ansicht: FLSelbstLoeschungAnsichtResponse }
+  | { zustand: "bereit"; token: string; email: string; ansicht: FLKontoLoeschungAnsichtResponse }
   | { zustand: "anmelden" }
   | { zustand: "ohnePasskey" }
   | { zustand: "unvollstaendig" };
@@ -75,7 +75,7 @@ function zeilenOf({
   registrierungen,
   adresswechsel,
   verwaltung,
-}: FLSelbstLoeschungAnsichtResponse): string[] {
+}: FLKontoLoeschungAnsichtResponse): string[] {
   return [
     ...spieler.map(({ vorname, nachname }) => `${SPIELER_TITEL}: ${nachname === null ? vorname : `${vorname} ${nachname}`}`),
     ...schiedsrichter.map(({ name }) => (name === null ? "Als Schiedsrichterin oder Schiedsrichter" : schiedsrichterTitel({ name: name }))),

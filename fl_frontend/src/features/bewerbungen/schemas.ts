@@ -2,7 +2,7 @@
 import z from "zod";
 
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
-import { FLSpielerSelbstEinwilligungPayloadSchema, LinkAntwortTextVersionSchema, WAHL_UNBEKANNT } from "@/features/spieler/schemas";
+import { FLSpielerKontoEinwilligungPayloadSchema, LinkAntwortTextVersionSchema, WAHL_UNBEKANNT } from "@/features/spieler/schemas";
 import {
   EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
   KONTAKT_NAME_MAX_LENGTH,
@@ -351,7 +351,7 @@ export const FLEinwilligungErneutPayloadSchema = z.object({
  * application's seats and a season row's alike. A pending application's seats take a withdrawal alone,
  * which the backend judges; the page offers no grant there.
  */
-export const FLBewerbungPersonEinwilligungPayloadSchema = FLSpielerSelbstEinwilligungPayloadSchema.extend({
+export const FLBewerbungPersonEinwilligungPayloadSchema = FLSpielerKontoEinwilligungPayloadSchema.extend({
   // Both choices on every press, so moving one never leaves the other judged by nothing.
   umfang: z.enum(FLKontaktKenntnisnahmeSchema.shape.umfang.options, { error: WAHL_UNBEKANNT }),
 });

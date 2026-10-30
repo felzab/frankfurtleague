@@ -2188,7 +2188,7 @@
       "count": 22
     }
   },
-  "src/features/schiedsrichter/components/views/SchiedsrichterSelbstView.tsx": {
+  "src/features/schiedsrichter/components/views/SchiedsrichterSelfView.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     },
@@ -3221,7 +3221,7 @@
       "count": 2
     }
   },
-  "src/features/spieler/components/views/SpielerSelbstView.tsx": {
+  "src/features/spieler/components/views/SpielerSelfView.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     },

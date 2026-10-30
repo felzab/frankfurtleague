@@ -331,7 +331,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   `DatenschutzView.tsx :: Bist Du jünger als`); each confirmation refuses a
   `true` from anyone younger (`fl_backend/app/api/registrierungen/services.py :: find_medien_refusal`,
   `fl_backend/app/api/schiedsrichter/services.py :: find_medien_refusal`,
-  `fl_backend/app/api/einwilligung/services.py :: find_selbst_medien_refusal` for a contact person, against
+  `fl_backend/app/api/einwilligung/services.py :: find_self_medien_refusal` for a contact person, against
   `fl_backend/app/shared/schemas/bounds.py :: MEDIEN_MIN_AGE_YEARS`). Such media is published on this
   website and on the league's Instagram account; ruled 2026-09-23.
 - **The organisers named on the public Organisation page each fully agreed to be listed**, having confirmed

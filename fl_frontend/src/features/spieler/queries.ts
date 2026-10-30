@@ -15,9 +15,9 @@ import { runPersonRead } from "@/shared/utils/personRead";
 import type {
   FLKaderResponse,
   FLSpielerListResponse,
-  FLSpielerMembershipsResponse,
   FLSpielerNachnominierungResponse,
-  FLSpielerSelbstResponse,
+  FLSpielerSaisonsResponse,
+  FLSpielerSelfResponse,
   SpielerGetSpielerParams,
 } from "@/core/generated/client/types";
 
@@ -34,10 +34,10 @@ export async function getSpieler(filters: SpielerGetSpielerParams = {}): Promise
  * `getSpieler` cannot serve the admin surfaces at any filter setting.
  */
 // Never `"use cache"` here, which keys on the arguments rather than the caller.
-export const getSpielerMemberships = cache(async (): Promise<FLSpielerMembershipsResponse> => runAdminRead(() => spielerGetSpielerSaisons()));
+export const getSpielerSaisons = cache(async (): Promise<FLSpielerSaisonsResponse> => runAdminRead(() => spielerGetSpielerSaisons()));
 
 /** Whether the squad create would mark an entry into this season a Nachnominierung today. */
-// Never `"use cache"`, for `getSpielerMemberships`' reason, and because the answer turns over at midnight.
+// Never `"use cache"`, for `getSpielerSaisons`' reason, and because the answer turns over at midnight.
 export const getSpielerNachnominierung = cache(async (saisonId: string): Promise<FLSpielerNachnominierungResponse> =>
   runAdminRead(() => spielerGetSpielerNachnominierung(saisonId)),
 );
@@ -46,7 +46,7 @@ export const getSpielerNachnominierung = cache(async (saisonId: string): Promise
  * One team's squad as its seat holder reads it, refused `funktion_nicht_gehalten` where the backend does not
  * find the seat the page's own check found.
  */
-// Never `"use cache"`, for `getSpielerMemberships`' reason: what it answers is the reading person's.
+// Never `"use cache"`, for `getSpielerSaisons`' reason: what it answers is the reading person's.
 export const getKader = cache(async (teamId: string, saisonId: string): Promise<FLKaderResponse> =>
   runPersonRead(() => spielerGetKader(teamId, saisonId)),
 );
@@ -55,5 +55,5 @@ export const getKader = cache(async (teamId: string, saisonId: string): Promise<
  * The signed-in pupil's own record, refused `funktion_nicht_gehalten` where the backend holds no confirmed
  * pupil row for the address the page's own check passed.
  */
-// Never `"use cache"`, for `getSpielerMemberships`' reason: what it answers is the reading person's.
-export const getSpielerSelbst = cache(async (): Promise<FLSpielerSelbstResponse> => runPersonRead(() => spielerGetSelf()));
+// Never `"use cache"`, for `getSpielerSaisons`' reason: what it answers is the reading person's.
+export const getSpielerSelf = cache(async (): Promise<FLSpielerSelfResponse> => runPersonRead(() => spielerGetSelf()));

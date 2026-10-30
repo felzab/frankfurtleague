@@ -58,7 +58,7 @@ CustomEinwilligungTextVersion = Annotated[
 ]
 
 
-class FLSelbstEinwilligungPayload(BaseModel):
+class FLKontoEinwilligungPayload(BaseModel):
     """A pupil's, a referee's or a registration's own two choices on their record.
 
     Both choices on every press, and no member defaulted: a default would let a page that forgot one

@@ -164,7 +164,7 @@ async def read_teams(database: AsyncDatabase, filters: Any) -> Any:
     )
 
 
-async def read_teams_for_admin(database: AsyncDatabase, filters: FLTeamsFilterParams) -> Any:
+async def read_teams_verwaltung(database: AsyncDatabase, filters: FLTeamsFilterParams) -> Any:
     return await get_teams_verwaltung(
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -253,7 +253,7 @@ class TestARetiredClubStaysOutOfTheBaseTierReads:
     def test_the_admin_read_still_un_hides_it(self, seeded_url: str):
         """Non-vacuity as well as the rule: the same corpus, one tier along, answers with the club every case above refused."""
         filters = FLTeamsFilterParams(saison_id=SAISON, in_gruppen=True, include_inactive=True)
-        response = on_a_league(seeded_url, lambda database: read_teams_for_admin(database, filters))
+        response = on_a_league(seeded_url, lambda database: read_teams_verwaltung(database, filters))
 
         assert sorted(standing_names(response)) == ["Helmholtz", "Lessing"]
 

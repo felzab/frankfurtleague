@@ -35,7 +35,7 @@ const READS: Readonly<Record<string, () => Promise<unknown>>> = {
   getBewerbungById: () => bewerbungen.getBewerbungById(freshId()),
   getOffenesBewerbungFenster: () => bewerbungen.getOffenesBewerbungFenster(),
   getBewerbungFenster: () => bewerbungen.getBewerbungFenster(freshId()),
-  getCurrentSaisonOrNull: () => saisons.getCurrentSaisonOrNull(),
+  getActiveSaisonOrNull: () => saisons.getActiveSaisonOrNull(),
   getSchiedsrichterById: () => schiedsrichter.getSchiedsrichterById(freshId()),
   getAdminSpiel: () => spiele.getAdminSpiel(freshId()),
   getAdminSpieltagById: () => spieltage.getAdminSpieltagById(freshId()),

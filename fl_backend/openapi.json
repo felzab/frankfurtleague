@@ -3459,6 +3459,42 @@
         "title": "FLBewerbungKontaktpersonPayload",
         "type": "object"
       },
+      "FLBewerbungKontoEinwilligungResponse": {
+        "description": "Which of the application's seats the withdrawal reached, and the two answers they now all hold.",
+        "properties": {
+          "bewerbung_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Bewerbung Id",
+            "type": "string"
+          },
+          "medien": {
+            "title": "Medien",
+            "type": "boolean"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLEinwilligungStand"
+          },
+          "rollen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktRolle"
+            },
+            "title": "Rollen",
+            "type": "array"
+          },
+          "umfang": {
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
+          }
+        },
+        "required": [
+          "bewerbung_id",
+          "rollen",
+          "umfang",
+          "medien",
+          "nachweis_stand"
+        ],
+        "title": "FLBewerbungKontoEinwilligungResponse",
+        "type": "object"
+      },
       "FLBewerbungKuerzelResponse": {
         "description": "Whether a proposed Kürzel is already a club's, active or retired, naming no club.",
         "properties": {
@@ -3586,42 +3622,6 @@
           "rollen"
         ],
         "title": "FLBewerbungPerson",
-        "type": "object"
-      },
-      "FLBewerbungPersonEinwilligungResponse": {
-        "description": "Which of the application's seats the withdrawal reached, and the two answers they now all hold.",
-        "properties": {
-          "bewerbung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Bewerbung Id",
-            "type": "string"
-          },
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStand"
-          },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "title": "Rollen",
-            "type": "array"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
-          }
-        },
-        "required": [
-          "bewerbung_id",
-          "rollen",
-          "umfang",
-          "medien",
-          "nachweis_stand"
-        ],
-        "title": "FLBewerbungPersonEinwilligungResponse",
         "type": "object"
       },
       "FLBewerbungSchule": {
@@ -6279,6 +6279,37 @@
         "title": "FLKontoBewerbungSitzEinwilligung",
         "type": "object"
       },
+      "FLKontoEinwilligungPayload": {
+        "additionalProperties": false,
+        "description": "A pupil's, a referee's or a registration's own two choices on their record.\n\nBoth choices on every press, and no member defaulted: a default would let a page that forgot one\nreset the person's other choice.",
+        "properties": {
+          "medien": {
+            "title": "Medien",
+            "type": "boolean"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
+          },
+          "text_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Text Version",
+            "type": "string"
+          },
+          "umfang": {
+            "$ref": "#/components/schemas/FLEinwilligungUmfang"
+          }
+        },
+        "required": [
+          "umfang",
+          "medien",
+          "text_version",
+          "nachweis_stand"
+        ],
+        "title": "FLKontoEinwilligungPayload",
+        "type": "object"
+      },
       "FLKontoEinwilligungenResponse": {
         "description": "Every confirmed consent record the signed-in address holds, for the account page; empty where it holds none.\n\nThe referees a list where the pupil is one: `spieler.email` is unique, a referee's typed address is not.",
         "properties": {
@@ -6331,6 +6362,104 @@
         "title": "FLKontoEinwilligungenResponse",
         "type": "object"
       },
+      "FLKontoLoeschungAnsichtResponse": {
+        "properties": {
+          "adresswechsel": {
+            "minimum": 0.0,
+            "title": "Adresswechsel",
+            "type": "integer"
+          },
+          "bewerbungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontoLoeschungBewerbung"
+            },
+            "title": "Bewerbungen",
+            "type": "array"
+          },
+          "letzter_inhaber": {
+            "title": "Letzter Inhaber",
+            "type": "boolean"
+          },
+          "registrierungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontoLoeschungRegistrierung"
+            },
+            "title": "Registrierungen",
+            "type": "array"
+          },
+          "schiedsrichter": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontoLoeschungSchiedsrichter"
+            },
+            "title": "Schiedsrichter",
+            "type": "array"
+          },
+          "sitze": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontoLoeschungSitz"
+            },
+            "title": "Sitze",
+            "type": "array"
+          },
+          "spieler": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontoLoeschungSpieler"
+            },
+            "title": "Spieler",
+            "type": "array"
+          },
+          "verwaltung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLVerwaltung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "spieler",
+          "schiedsrichter",
+          "sitze",
+          "bewerbungen",
+          "registrierungen",
+          "adresswechsel",
+          "verwaltung",
+          "letzter_inhaber"
+        ],
+        "title": "FLKontoLoeschungAnsichtResponse",
+        "type": "object"
+      },
+      "FLKontoLoeschungBewerbung": {
+        "description": "One seat on an application, of any status.",
+        "properties": {
+          "nachname": {
+            "title": "Nachname",
+            "type": "string"
+          },
+          "rolle": {
+            "$ref": "#/components/schemas/FLKontaktRolle"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "vorname": {
+            "title": "Vorname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "saison_id",
+          "rolle",
+          "vorname",
+          "nachname"
+        ],
+        "title": "FLKontoLoeschungBewerbung",
+        "type": "object"
+      },
       "FLKontoLoeschungDaten": {
         "properties": {
           "art": {
@@ -6343,6 +6472,120 @@
           "art"
         ],
         "title": "FLKontoLoeschungDaten",
+        "type": "object"
+      },
+      "FLKontoLoeschungRegistrierung": {
+        "description": "One registration, pending or declined.",
+        "properties": {
+          "nachname": {
+            "title": "Nachname",
+            "type": "string"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "team_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Name"
+          },
+          "vorname": {
+            "title": "Vorname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "saison_id",
+          "team_name",
+          "vorname",
+          "nachname"
+        ],
+        "title": "FLKontoLoeschungRegistrierung",
+        "type": "object"
+      },
+      "FLKontoLoeschungSchiedsrichter": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "FLKontoLoeschungSchiedsrichter",
+        "type": "object"
+      },
+      "FLKontoLoeschungSitz": {
+        "description": "One seat on a team's season row, named as the row names it.",
+        "properties": {
+          "nachname": {
+            "title": "Nachname",
+            "type": "string"
+          },
+          "rolle": {
+            "$ref": "#/components/schemas/FLKontaktRolle"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "team_name": {
+            "title": "Team Name",
+            "type": "string"
+          },
+          "vorname": {
+            "title": "Vorname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "saison_id",
+          "team_name",
+          "rolle",
+          "vorname",
+          "nachname"
+        ],
+        "title": "FLKontoLoeschungSitz",
+        "type": "object"
+      },
+      "FLKontoLoeschungSpieler": {
+        "properties": {
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          },
+          "vorname": {
+            "title": "Vorname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vorname",
+          "nachname"
+        ],
+        "title": "FLKontoLoeschungSpieler",
         "type": "object"
       },
       "FLKontoRegistrierungEinwilligung": {
@@ -6694,7 +6937,7 @@
           },
           "kader": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielerSelbstKaderZeile"
+              "$ref": "#/components/schemas/FLSpielerSelfKaderZeile"
             },
             "title": "Kader",
             "type": "array"
@@ -7189,70 +7432,6 @@
         "title": "FLLoeschungAnsichtSpieler",
         "type": "object"
       },
-      "FLLoeschungLaufResponse": {
-        "description": "One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due.",
-        "properties": {
-          "abgeschlossene_saison_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Abgeschlossene Saison Id"
-          },
-          "fehlgeschlagen": {
-            "title": "Fehlgeschlagen",
-            "type": "integer"
-          },
-          "nach": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{24}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nach"
-          },
-          "registrierungen": {
-            "title": "Registrierungen",
-            "type": "integer"
-          },
-          "saison_spieler": {
-            "title": "Saison Spieler",
-            "type": "integer"
-          },
-          "spieler": {
-            "title": "Spieler",
-            "type": "integer"
-          },
-          "uebersprungen": {
-            "title": "Uebersprungen",
-            "type": "integer"
-          },
-          "verbleibend": {
-            "title": "Verbleibend",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "abgeschlossene_saison_id",
-          "spieler",
-          "saison_spieler",
-          "registrierungen",
-          "uebersprungen",
-          "fehlgeschlagen",
-          "verbleibend",
-          "nach"
-        ],
-        "title": "FLLoeschungLaufResponse",
-        "type": "object"
-      },
       "FLLoeschungPayload": {
         "additionalProperties": false,
         "description": "The mailbox, and the request the erasure answers, which every log row the erasure files keeps.",
@@ -7338,6 +7517,70 @@
           "berechtigungen_antraege"
         ],
         "title": "FLLoeschungResponse",
+        "type": "object"
+      },
+      "FLLoeschungSweepResponse": {
+        "description": "One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due.",
+        "properties": {
+          "abgeschlossene_saison_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abgeschlossene Saison Id"
+          },
+          "fehlgeschlagen": {
+            "title": "Fehlgeschlagen",
+            "type": "integer"
+          },
+          "nach": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{24}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nach"
+          },
+          "registrierungen": {
+            "title": "Registrierungen",
+            "type": "integer"
+          },
+          "saison_spieler": {
+            "title": "Saison Spieler",
+            "type": "integer"
+          },
+          "spieler": {
+            "title": "Spieler",
+            "type": "integer"
+          },
+          "uebersprungen": {
+            "title": "Uebersprungen",
+            "type": "integer"
+          },
+          "verbleibend": {
+            "title": "Verbleibend",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "abgeschlossene_saison_id",
+          "spieler",
+          "saison_spieler",
+          "registrierungen",
+          "uebersprungen",
+          "fehlgeschlagen",
+          "verbleibend",
+          "nach"
+        ],
+        "title": "FLLoeschungSweepResponse",
         "type": "object"
       },
       "FLLoeschungVorschauResponse": {
@@ -10229,6 +10472,29 @@
         "title": "FLRegistrierungEntscheidungZeile",
         "type": "object"
       },
+      "FLRegistrierungKontoEinwilligungResponse": {
+        "description": "The registration's consent record as it stands after the write, everything the pupil did not move unchanged.",
+        "properties": {
+          "einwilligung": {
+            "$ref": "#/components/schemas/FLRegistrierungEinwilligung"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLEinwilligungStand"
+          },
+          "registrierung_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Registrierung Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "registrierung_id",
+          "einwilligung",
+          "nachweis_stand"
+        ],
+        "title": "FLRegistrierungKontoEinwilligungResponse",
+        "type": "object"
+      },
       "FLRegistrierungLinkDaten": {
         "description": "A pupil's confirmation link, first or as the one reminder, which joins the first link rather than replacing it.",
         "properties": {
@@ -10299,29 +10565,6 @@
           "weicht_ab"
         ],
         "title": "FLRegistrierungPerson",
-        "type": "object"
-      },
-      "FLRegistrierungSelbstEinwilligungResponse": {
-        "description": "The registration's consent record as it stands after the write, everything the pupil did not move unchanged.",
-        "properties": {
-          "einwilligung": {
-            "$ref": "#/components/schemas/FLRegistrierungEinwilligung"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStand"
-          },
-          "registrierung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Registrierung Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "registrierung_id",
-          "einwilligung",
-          "nachweis_stand"
-        ],
-        "title": "FLRegistrierungSelbstEinwilligungResponse",
         "type": "object"
       },
       "FLRegistrierungStatus": {
@@ -11297,7 +11540,7 @@
         "title": "FLSaisonTeamKontaktePayload",
         "type": "object"
       },
-      "FLSaisonTeamPersonEinwilligungResponse": {
+      "FLSaisonTeamKontoEinwilligungResponse": {
         "description": "Which of the row's seats the press reached, and the two answers they now all hold.",
         "properties": {
           "medien": {
@@ -11335,7 +11578,7 @@
           "medien",
           "nachweis_stand"
         ],
-        "title": "FLSaisonTeamPersonEinwilligungResponse",
+        "title": "FLSaisonTeamKontoEinwilligungResponse",
         "type": "object"
       },
       "FLSaisonTeamResponse": {
@@ -11690,6 +11933,29 @@
         "title": "FLSchiedsrichterBestaetigungResponse",
         "type": "object"
       },
+      "FLSchiedsrichterKontoEinwilligungResponse": {
+        "description": "The record as it stands after the write, everything the person did not move unchanged.",
+        "properties": {
+          "einwilligung": {
+            "$ref": "#/components/schemas/FLEinwilligung"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLEinwilligungStand"
+          },
+          "schiedsrichter_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Schiedsrichter Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schiedsrichter_id",
+          "einwilligung",
+          "nachweis_stand"
+        ],
+        "title": "FLSchiedsrichterKontoEinwilligungResponse",
+        "type": "object"
+      },
       "FLSchiedsrichterListResponse": {
         "properties": {
           "schiedsrichter": {
@@ -11764,8 +12030,8 @@
         "title": "FLSchiedsrichterReactivateResponse",
         "type": "object"
       },
-      "FLSchiedsrichterSelbst": {
-        "description": "One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.\n\nFor `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason, the account page's entry extends it.",
+      "FLSchiedsrichterSelf": {
+        "description": "One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.\n\nFor `app/api/spieler/schemas.py :: FLSpielerSelf`'s reason, the account page's entry extends it.",
         "properties": {
           "geburtsdatum": {
             "anyOf": [
@@ -11816,38 +12082,15 @@
           "honorar",
           "geburtsdatum"
         ],
-        "title": "FLSchiedsrichterSelbst",
+        "title": "FLSchiedsrichterSelf",
         "type": "object"
       },
-      "FLSchiedsrichterSelbstEinwilligungResponse": {
-        "description": "The record as it stands after the write, everything the person did not move unchanged.",
-        "properties": {
-          "einwilligung": {
-            "$ref": "#/components/schemas/FLEinwilligung"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStand"
-          },
-          "schiedsrichter_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Schiedsrichter Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "schiedsrichter_id",
-          "einwilligung",
-          "nachweis_stand"
-        ],
-        "title": "FLSchiedsrichterSelbstEinwilligungResponse",
-        "type": "object"
-      },
-      "FLSchiedsrichterSelbstResponse": {
+      "FLSchiedsrichterSelfResponse": {
         "description": "Every confirmed referee record the signed-in address holds, the ghost never among them.",
         "properties": {
           "schiedsrichter": {
             "items": {
-              "$ref": "#/components/schemas/FLSchiedsrichterSelbst"
+              "$ref": "#/components/schemas/FLSchiedsrichterSelf"
             },
             "title": "Schiedsrichter",
             "type": "array"
@@ -11856,7 +12099,7 @@
         "required": [
           "schiedsrichter"
         ],
-        "title": "FLSchiedsrichterSelbstResponse",
+        "title": "FLSchiedsrichterSelfResponse",
         "type": "object"
       },
       "FLSchiedsrichterSingleResponse": {
@@ -11934,249 +12177,6 @@
           "oberstufengymnasium"
         ],
         "type": "string"
-      },
-      "FLSelbstEinwilligungPayload": {
-        "additionalProperties": false,
-        "description": "A pupil's, a referee's or a registration's own two choices on their record.\n\nBoth choices on every press, and no member defaulted: a default would let a page that forgot one\nreset the person's other choice.",
-        "properties": {
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
-          },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Text Version",
-            "type": "string"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLEinwilligungUmfang"
-          }
-        },
-        "required": [
-          "umfang",
-          "medien",
-          "text_version",
-          "nachweis_stand"
-        ],
-        "title": "FLSelbstEinwilligungPayload",
-        "type": "object"
-      },
-      "FLSelbstLoeschungAnsichtResponse": {
-        "properties": {
-          "adresswechsel": {
-            "minimum": 0.0,
-            "title": "Adresswechsel",
-            "type": "integer"
-          },
-          "bewerbungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLSelbstLoeschungBewerbung"
-            },
-            "title": "Bewerbungen",
-            "type": "array"
-          },
-          "letzter_inhaber": {
-            "title": "Letzter Inhaber",
-            "type": "boolean"
-          },
-          "registrierungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLSelbstLoeschungRegistrierung"
-            },
-            "title": "Registrierungen",
-            "type": "array"
-          },
-          "schiedsrichter": {
-            "items": {
-              "$ref": "#/components/schemas/FLSelbstLoeschungSchiedsrichter"
-            },
-            "title": "Schiedsrichter",
-            "type": "array"
-          },
-          "sitze": {
-            "items": {
-              "$ref": "#/components/schemas/FLSelbstLoeschungSitz"
-            },
-            "title": "Sitze",
-            "type": "array"
-          },
-          "spieler": {
-            "items": {
-              "$ref": "#/components/schemas/FLSelbstLoeschungSpieler"
-            },
-            "title": "Spieler",
-            "type": "array"
-          },
-          "verwaltung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLVerwaltung"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "spieler",
-          "schiedsrichter",
-          "sitze",
-          "bewerbungen",
-          "registrierungen",
-          "adresswechsel",
-          "verwaltung",
-          "letzter_inhaber"
-        ],
-        "title": "FLSelbstLoeschungAnsichtResponse",
-        "type": "object"
-      },
-      "FLSelbstLoeschungBewerbung": {
-        "description": "One seat on an application, of any status.",
-        "properties": {
-          "nachname": {
-            "title": "Nachname",
-            "type": "string"
-          },
-          "rolle": {
-            "$ref": "#/components/schemas/FLKontaktRolle"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "rolle",
-          "vorname",
-          "nachname"
-        ],
-        "title": "FLSelbstLoeschungBewerbung",
-        "type": "object"
-      },
-      "FLSelbstLoeschungRegistrierung": {
-        "description": "One registration, pending or declined.",
-        "properties": {
-          "nachname": {
-            "title": "Nachname",
-            "type": "string"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team Name"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "team_name",
-          "vorname",
-          "nachname"
-        ],
-        "title": "FLSelbstLoeschungRegistrierung",
-        "type": "object"
-      },
-      "FLSelbstLoeschungSchiedsrichter": {
-        "properties": {
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          }
-        },
-        "required": [
-          "name"
-        ],
-        "title": "FLSelbstLoeschungSchiedsrichter",
-        "type": "object"
-      },
-      "FLSelbstLoeschungSitz": {
-        "description": "One seat on a team's season row, named as the row names it.",
-        "properties": {
-          "nachname": {
-            "title": "Nachname",
-            "type": "string"
-          },
-          "rolle": {
-            "$ref": "#/components/schemas/FLKontaktRolle"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team_name": {
-            "title": "Team Name",
-            "type": "string"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "team_name",
-          "rolle",
-          "vorname",
-          "nachname"
-        ],
-        "title": "FLSelbstLoeschungSitz",
-        "type": "object"
-      },
-      "FLSelbstLoeschungSpieler": {
-        "properties": {
-          "nachname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nachname"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
-          }
-        },
-        "required": [
-          "vorname",
-          "nachname"
-        ],
-        "title": "FLSelbstLoeschungSpieler",
-        "type": "object"
       },
       "FLSitzBestaetigt": {
         "description": "One confirmation a person gave on a row: the seats it answered, its words and the floor its page named.",
@@ -14409,7 +14409,24 @@
         "title": "FLSpielberichtZustandEintrag",
         "type": "object"
       },
-      "FLSpielberichtePersonResponse": {
+      "FLSpielberichteSaisonResponse": {
+        "description": "Every report of one season that holds a block, each with its state.",
+        "properties": {
+          "spielberichte": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtZustandEintrag"
+            },
+            "title": "Spielberichte",
+            "type": "array"
+          }
+        },
+        "required": [
+          "spielberichte"
+        ],
+        "title": "FLSpielberichteSaisonResponse",
+        "type": "object"
+      },
+      "FLSpielberichteSelfResponse": {
         "description": "`spiele` of the running season, which the referee reports on; `fruehere` of ended ones, each holding a report they only read.",
         "properties": {
           "fruehere": {
@@ -14431,24 +14448,7 @@
           "spiele",
           "fruehere"
         ],
-        "title": "FLSpielberichtePersonResponse",
-        "type": "object"
-      },
-      "FLSpielberichteSaisonResponse": {
-        "description": "Every report of one season that holds a block, each with its state.",
-        "properties": {
-          "spielberichte": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielberichtZustandEintrag"
-            },
-            "title": "Spielberichte",
-            "type": "array"
-          }
-        },
-        "required": [
-          "spielberichte"
-        ],
-        "title": "FLSpielberichteSaisonResponse",
+        "title": "FLSpielberichteSelfResponse",
         "type": "object"
       },
       "FLSpielbestaetigung": {
@@ -15021,7 +15021,7 @@
         "title": "FLSpielbestaetigungSchiedsrichterAntwortResponse",
         "type": "object"
       },
-      "FLSpielbestaetigungSelbst": {
+      "FLSpielbestaetigungSelf": {
         "description": "One of the signed-in referee's rows, as their panel lists it.",
         "properties": {
           "ansetzung": {
@@ -15085,7 +15085,7 @@
           "eingetragen",
           "vergangen"
         ],
-        "title": "FLSpielbestaetigungSelbst",
+        "title": "FLSpielbestaetigungSelf",
         "type": "object"
       },
       "FLSpielbestaetigungSitz": {
@@ -15295,11 +15295,11 @@
         "title": "FLSpielbestaetigungenListResponse",
         "type": "object"
       },
-      "FLSpielbestaetigungenSelbstResponse": {
+      "FLSpielbestaetigungenSelfResponse": {
         "properties": {
           "spielbestaetigungen": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigungSelbst"
+              "$ref": "#/components/schemas/FLSpielbestaetigungSelf"
             },
             "title": "Spielbestaetigungen",
             "type": "array"
@@ -15308,7 +15308,7 @@
         "required": [
           "spielbestaetigungen"
         ],
-        "title": "FLSpielbestaetigungenSelbstResponse",
+        "title": "FLSpielbestaetigungenSelfResponse",
         "type": "object"
       },
       "FLSpieleActionRequiredResponse": {
@@ -15499,6 +15499,29 @@
         "title": "FLSpielerKontext",
         "type": "object"
       },
+      "FLSpielerKontoEinwilligungResponse": {
+        "description": "The record as it stands after the write, everything the person did not move unchanged.",
+        "properties": {
+          "einwilligung": {
+            "$ref": "#/components/schemas/FLEinwilligung"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLEinwilligungStand"
+          },
+          "spieler_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spieler Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spieler_id",
+          "einwilligung",
+          "nachweis_stand"
+        ],
+        "title": "FLSpielerKontoEinwilligungResponse",
+        "type": "object"
+      },
       "FLSpielerListResponse": {
         "properties": {
           "spieler": {
@@ -15604,23 +15627,6 @@
         "title": "FLSpielerMembership",
         "type": "object"
       },
-      "FLSpielerMembershipsResponse": {
-        "description": "Every player, retired ones included, each with their squad rows. Sorted by name.",
-        "properties": {
-          "spieler": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielerWithMemberships"
-            },
-            "title": "Spieler",
-            "type": "array"
-          }
-        },
-        "required": [
-          "spieler"
-        ],
-        "title": "FLSpielerMembershipsResponse",
-        "type": "object"
-      },
       "FLSpielerNachnominierungResponse": {
         "description": "Whether an entry into this season's squads today would be marked a Nachnominierung.",
         "properties": {
@@ -15712,7 +15718,24 @@
         ],
         "type": "string"
       },
-      "FLSpielerSelbst": {
+      "FLSpielerSaisonsResponse": {
+        "description": "Every player, retired ones included, each with their squad rows. Sorted by name.",
+        "properties": {
+          "spieler": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielerWithMemberships"
+            },
+            "title": "Spieler",
+            "type": "array"
+          }
+        },
+        "required": [
+          "spieler"
+        ],
+        "title": "FLSpielerSaisonsResponse",
+        "type": "object"
+      },
+      "FLSpielerSelf": {
         "description": "One pupil record's stored data as its own person reads it: the whole surname and the birthdate, never masked.\n\nIts consent is the account page's, whose entry extends this (`app/api/konto/schemas.py :: FLKontoSpielerEinwilligung`).",
         "properties": {
           "geburtsdatum": {
@@ -15722,7 +15745,7 @@
           },
           "kader": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielerSelbstKaderZeile"
+              "$ref": "#/components/schemas/FLSpielerSelfKaderZeile"
             },
             "title": "Kader",
             "type": "array"
@@ -15756,33 +15779,10 @@
           "geburtsdatum",
           "kader"
         ],
-        "title": "FLSpielerSelbst",
+        "title": "FLSpielerSelf",
         "type": "object"
       },
-      "FLSpielerSelbstEinwilligungResponse": {
-        "description": "The record as it stands after the write, everything the person did not move unchanged.",
-        "properties": {
-          "einwilligung": {
-            "$ref": "#/components/schemas/FLEinwilligung"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStand"
-          },
-          "spieler_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spieler Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spieler_id",
-          "einwilligung",
-          "nachweis_stand"
-        ],
-        "title": "FLSpielerSelbstEinwilligungResponse",
-        "type": "object"
-      },
-      "FLSpielerSelbstKaderZeile": {
+      "FLSpielerSelfKaderZeile": {
         "description": "One squad row as its own pupil reads it, with the name the club played that season under.",
         "properties": {
           "inactive_since": {
@@ -15867,20 +15867,20 @@
           "ist_nachnominiert",
           "inactive_since"
         ],
-        "title": "FLSpielerSelbstKaderZeile",
+        "title": "FLSpielerSelfKaderZeile",
         "type": "object"
       },
-      "FLSpielerSelbstResponse": {
+      "FLSpielerSelfResponse": {
         "description": "The signed-in address's own pupil record: one at most, `spieler.email` being unique.",
         "properties": {
           "spieler": {
-            "$ref": "#/components/schemas/FLSpielerSelbst"
+            "$ref": "#/components/schemas/FLSpielerSelf"
           }
         },
         "required": [
           "spieler"
         ],
-        "title": "FLSpielerSelbstResponse",
+        "title": "FLSpielerSelfResponse",
         "type": "object"
       },
       "FLSpielerSingleResponse": {
@@ -16385,7 +16385,7 @@
         "type": "object"
       },
       "FLSubjektSitz": {
-        "description": "One contact seat the mailbox holds on a season's junction row.\n\nPer seat and never per person, as the erasure's `FLSelbstLoeschungSitz` is: one row seats one\nperson twice where `trainer_ist_zugleich` says so.",
+        "description": "One contact seat the mailbox holds on a season's junction row.\n\nPer seat and never per person, as the erasure's `FLKontoLoeschungSitz` is: one row seats one\nperson twice where `trainer_ist_zugleich` says so.",
         "properties": {
           "rolle": {
             "$ref": "#/components/schemas/FLKontaktRolle"
@@ -17040,7 +17040,7 @@
         "title": "FLTeamsListResponse",
         "type": "object"
       },
-      "FLTeamsMembershipsResponse": {
+      "FLTeamsSaisonsResponse": {
         "description": "Every club, retired ones included, each with its memberships. Sorted by name.",
         "properties": {
           "teams": {
@@ -17054,7 +17054,7 @@
         "required": [
           "teams"
         ],
-        "title": "FLTeamsMembershipsResponse",
+        "title": "FLTeamsSaisonsResponse",
         "type": "object"
       },
       "FLTeamsSingleResponse": {
@@ -20449,7 +20449,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungPersonEinwilligungResponse"
+                  "$ref": "#/components/schemas/FLBewerbungKontoEinwilligungResponse"
                 }
               }
             },
@@ -20882,7 +20882,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSelbstLoeschungAnsichtResponse"
+                  "$ref": "#/components/schemas/FLKontoLoeschungAnsichtResponse"
                 }
               }
             },
@@ -21122,7 +21122,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLLoeschungLaufResponse"
+                  "$ref": "#/components/schemas/FLLoeschungSweepResponse"
                 }
               }
             },
@@ -22589,7 +22589,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLSelbstEinwilligungPayload"
+                "$ref": "#/components/schemas/FLKontoEinwilligungPayload"
               }
             }
           },
@@ -22600,7 +22600,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLRegistrierungSelbstEinwilligungResponse"
+                  "$ref": "#/components/schemas/FLRegistrierungKontoEinwilligungResponse"
                 }
               }
             },
@@ -24439,7 +24439,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLSelbstEinwilligungPayload"
+                "$ref": "#/components/schemas/FLKontoEinwilligungPayload"
               }
             }
           },
@@ -24450,7 +24450,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSchiedsrichterSelbstEinwilligungResponse"
+                  "$ref": "#/components/schemas/FLSchiedsrichterKontoEinwilligungResponse"
                 }
               }
             },
@@ -24517,7 +24517,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSchiedsrichterSelbstResponse"
+                  "$ref": "#/components/schemas/FLSchiedsrichterSelfResponse"
                 }
               }
             },
@@ -25291,7 +25291,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpielberichtePersonResponse"
+                  "$ref": "#/components/schemas/FLSpielberichteSelfResponse"
                 }
               }
             },
@@ -25973,7 +25973,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungenSelbstResponse"
+                  "$ref": "#/components/schemas/FLSpielbestaetigungenSelfResponse"
                 }
               }
             },
@@ -27597,7 +27597,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLSelbstEinwilligungPayload"
+                "$ref": "#/components/schemas/FLKontoEinwilligungPayload"
               }
             }
           },
@@ -27608,7 +27608,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpielerSelbstEinwilligungResponse"
+                  "$ref": "#/components/schemas/FLSpielerKontoEinwilligungResponse"
                 }
               }
             },
@@ -27753,7 +27753,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpielerMembershipsResponse"
+                  "$ref": "#/components/schemas/FLSpielerSaisonsResponse"
                 }
               }
             },
@@ -27820,7 +27820,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpielerSelbstResponse"
+                  "$ref": "#/components/schemas/FLSpielerSelfResponse"
                 }
               }
             },
@@ -30197,7 +30197,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLTeamsMembershipsResponse"
+                  "$ref": "#/components/schemas/FLTeamsSaisonsResponse"
                 }
               }
             },
@@ -31387,7 +31387,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSaisonTeamPersonEinwilligungResponse"
+                  "$ref": "#/components/schemas/FLSaisonTeamKontoEinwilligungResponse"
                 }
               }
             },

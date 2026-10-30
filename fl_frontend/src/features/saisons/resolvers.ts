@@ -17,7 +17,7 @@ const saisonIdSchema = z.string().length(SAISON_ID_LENGTH).optional().catch(unde
 
 /**
  * The season named in the URL, or `undefined` so the backend applies its default — one round-trip
- * rather than the two a `getCurrentSaisonOrNull()` prefetch costs. **An admin page must pass `"admin"`.**
+ * rather than the two a `getActiveSaisonOrNull()` prefetch costs. **An admin page must pass `"admin"`.**
  */
 export async function resolveSaisonId(
   searchParamsPromise: NextPageProps["searchParams"],

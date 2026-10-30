@@ -12,6 +12,7 @@ import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 
 import type {
   FLEinladungAnsichtResponse,
+  FLKontoEinwilligungPayload,
   FLPostRegistrierungPayload,
   FLPostRegistrierungResponse,
   FLRegistrierungAblehnenPayload,
@@ -21,9 +22,8 @@ import type {
   FLRegistrierungBestaetigungAnsichtResponse,
   FLRegistrierungBestaetigungPayload,
   FLRegistrierungBestaetigungResponse,
-  FLRegistrierungSelbstEinwilligungResponse,
+  FLRegistrierungKontoEinwilligungResponse,
   FLRegistrierungSweepResponse,
-  FLSelbstEinwilligungPayload,
   FLTokenPayload,
 } from "@/core/generated/client/types";
 
@@ -82,7 +82,7 @@ export async function postRegistrierungSweep(saisonId: string): Promise<FLRegist
 // judges the registration theirs and takes a withdrawal alone until the team admits it.
 export async function patchRegistrierungEinwilligung(
   registrierungId: string,
-  payload: FLSelbstEinwilligungPayload,
-): Promise<FLRegistrierungSelbstEinwilligungResponse> {
+  payload: FLKontoEinwilligungPayload,
+): Promise<FLRegistrierungKontoEinwilligungResponse> {
   return registrierungenPatchEinwilligung(registrierungId, payload);
 }

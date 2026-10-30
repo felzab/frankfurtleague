@@ -14,14 +14,14 @@ from bson import ObjectId
 
 from app.api.berechtigungen.services import OWNER, holds_an_owners_power, verwaltung_des
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
-from app.api.identitaet.schemas import FLLoeschungAnsicht, FLSelbstLoeschungAnsicht, FLSubjekt, FLSubjektSitz
+from app.api.identitaet.schemas import FLKontoLoeschungAnsicht, FLLoeschungAnsicht, FLSubjekt, FLSubjektSitz
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_loeschung_registrierung_filter
 from app.api.schiedsrichter.services import (
-    build_selbst_referee_filter,
+    build_self_referee_filter,
     build_unplayed_assignment_filter,
 )
-from app.api.spieler.services import build_selbst_pupil_filter
+from app.api.spieler.services import build_self_pupil_filter
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
@@ -59,7 +59,7 @@ def build_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """The stored address rides along so `folds_to` can judge it, and the stamp so the confirmation can; nothing else of the person does."""
 
     return [
-        {"$match": build_selbst_referee_filter(identifier)},
+        {"$match": build_self_referee_filter(identifier)},
         {"$project": {"kontakt.email": 1, "einwilligung.bestaetigt_am": 1, "inactive_since": 1}},
         {"$sort": {"_id": 1}},
     ]
@@ -97,14 +97,14 @@ def build_loeschung_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
 def build_loeschung_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     return [
-        {"$match": build_selbst_referee_filter(identifier)},
+        {"$match": build_self_referee_filter(identifier)},
         {"$project": {"name": 1, "kontakt.email": 1, "inactive_since": 1}},
         {"$sort": {"_id": 1}},
     ]
 
 
 def build_loeschung_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    return [{"$match": build_selbst_pupil_filter(identifier)}, {"$project": {"vorname": 1, "nachname": 1}}, {"$sort": {"_id": 1}}]
+    return [{"$match": build_self_pupil_filter(identifier)}, {"$project": {"vorname": 1, "nachname": 1}}, {"$sort": {"_id": 1}}]
 
 
 def build_loeschung_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
@@ -208,12 +208,12 @@ def compose_loeschung_ansicht(
     registrierung_rows: Sequence[Mapping[str, Any]],
     adresswechsel_rows: Sequence[Mapping[str, Any]],
     team_rows: Sequence[Mapping[str, Any]],
-) -> FLSelbstLoeschungAnsicht:
+) -> FLKontoLoeschungAnsicht:
     """The preview, from the rows the erasure's own subject read holds; no address and no birthdate reaches it."""
 
     team_names = _team_names(team_rows)
 
-    return FLSelbstLoeschungAnsicht.model_validate(
+    return FLKontoLoeschungAnsicht.model_validate(
         {
             "spieler": [_pupil_entry(row) for row in pupil_rows],
             "schiedsrichter": [_referee_entry(row) for row in referee_rows],
@@ -299,7 +299,7 @@ def build_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Equality and no pattern: `spieler.email` stores the folded form."""
 
     return [
-        {"$match": build_selbst_pupil_filter(identifier)},
+        {"$match": build_self_pupil_filter(identifier)},
         {"$project": {"einwilligung.bestaetigt_am": 1, "inactive_since": 1}},
         {"$sort": {"_id": 1}},
     ]
@@ -646,13 +646,13 @@ def build_referee_references_pipeline(identifiers: Iterable[str]) -> list[Mappin
     """Retired rows too: a retired referee's account signs in to take back a consent."""
 
     return [
-        {"$match": build_selbst_referee_filter(*identifiers)},
+        {"$match": build_self_referee_filter(*identifiers)},
         {"$project": {"kontakt.email": 1}},
     ]
 
 
 def build_pupil_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
-    """`build_selbst_pupil_filter`'s equality over a batch, its `$type` term the unique index's partial filter, which `$in` does not imply."""
+    """`build_self_pupil_filter`'s equality over a batch, its `$type` term the unique index's partial filter, which `$in` does not imply."""
 
     return [
         {"$match": {"email": {"$in": sorted(set(identifiers)), "$type": "string"}}},

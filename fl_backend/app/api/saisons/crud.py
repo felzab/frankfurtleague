@@ -11,7 +11,7 @@ from app.core.exceptions import DocumentNotFoundError
 CURRENT_SAISON_FILTER = {"status": "active"}
 
 
-async def pull_current_saison(saisons_collection: AsyncCollection) -> Mapping[str, Any]:
+async def pull_active_saison(saisons_collection: AsyncCollection) -> Mapping[str, Any]:
     """The season marked `active`.
 
     Raises 404 when none is active rather than degrading to an unfiltered query.
@@ -20,7 +20,7 @@ async def pull_current_saison(saisons_collection: AsyncCollection) -> Mapping[st
     return await pull_one_from_db(collection=saisons_collection, db_filter=CURRENT_SAISON_FILTER)
 
 
-async def pull_current_saison_id(saisons_collection: AsyncCollection) -> str:
+async def pull_active_saison_id(saisons_collection: AsyncCollection) -> str:
     """The current season's id."""
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter=CURRENT_SAISON_FILTER, projection=["_id"])

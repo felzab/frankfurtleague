@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.schemas import FLBewerbungPersonEinwilligungResponse
+from app.api.bewerbungen.schemas import FLBewerbungKontoEinwilligungResponse
 from app.api.identitaet.services import eigene_sitze
 from app.api.konto.crud import press_widerruf
 from app.api.konto.services import (
@@ -40,7 +40,7 @@ router = APIRouter(
 # `/konto/einwilligung`, its own segment, for `app/api/teams/person_router.py :: get_team_sitze`'s reason.
 @router.patch(
     "/{bewerbung_id:objectid}/konto/einwilligung",
-    response_model=FLBewerbungPersonEinwilligungResponse,
+    response_model=FLBewerbungKontoEinwilligungResponse,
     summary="Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung",
 )
 async def patch_einwilligung(
@@ -51,7 +51,7 @@ async def patch_einwilligung(
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
-) -> FLBewerbungPersonEinwilligungResponse:
+) -> FLBewerbungKontoEinwilligungResponse:
     """Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
 
     A grant is refused. Refuses, writing nothing: `funktion_nicht_gehalten`, `fassung_unzulaessig` (the choices moved since the
@@ -64,7 +64,7 @@ async def patch_einwilligung(
     journal = Journal()
 
     @journal.attempted
-    async def write(session: AsyncClientSession) -> FLBewerbungPersonEinwilligungResponse:
+    async def write(session: AsyncClientSession) -> FLBewerbungKontoEinwilligungResponse:
         # Pending alone: an accepted application's seats are its season row's, and a declined one is decided.
         bewerbung = await bewerbungen_collection.find_one(
             {"_id": bewerbung_id, "status": "eingereicht"},
@@ -118,7 +118,7 @@ async def patch_einwilligung(
         bloecke = [kontakte[slot]["einwilligung"] for slot in rollen]
 
         # For `app/api/teams/person_router.py :: patch_einwilligung`'s reason.
-        return FLBewerbungPersonEinwilligungResponse.model_validate(
+        return FLBewerbungKontoEinwilligungResponse.model_validate(
             {
                 "bewerbung_id": bewerbung_id,
                 "rollen": rollen,

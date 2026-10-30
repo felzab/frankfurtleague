@@ -13,12 +13,12 @@ from app.api.spieler.schemas import (
     FLSpieler,
     FLSpielerFilterParams,
     FLSpielerMembership,
-    FLSpielerMembershipsResponse,
     FLSpielerPublic,
+    FLSpielerSaisonsResponse,
     FLSpielerSingleResponse,
     FLSpielerWithMemberships,
 )
-from app.api.spieler.services import build_real_spieler_filter, build_spieler_memberships_pipeline, build_spieler_pipeline
+from app.api.spieler.services import build_real_spieler_filter, build_spieler_pipeline, build_spieler_saisons_pipeline
 from app.shared.folding import sign_in_identifier
 from tests.documents import eigene_einwilligung_document, saison_spieler_document, spieler_document
 
@@ -44,23 +44,23 @@ SPIELER_OIDS = {
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607190001")
 
 
-class TestTheMembershipsPipeline:
+class TestTheSaisonsPipeline:
     def test_it_filters_out_the_sentinel_alone(self):
         # No `$match` but the sentinel's, the lookup included: a retired person, a retired row and a
         # player in no squad all belong in the admin list.
-        matches = [stage["$match"] for stage in build_spieler_memberships_pipeline() if "$match" in stage]
+        matches = [stage["$match"] for stage in build_spieler_saisons_pipeline() if "$match" in stage]
         assert matches == [build_real_spieler_filter()]
 
-        lookup = next(stage["$lookup"] for stage in build_spieler_memberships_pipeline() if "$lookup" in stage)
+        lookup = next(stage["$lookup"] for stage in build_spieler_saisons_pipeline() if "$lookup" in stage)
         assert all("$match" not in inner for inner in lookup["pipeline"])
 
     def test_it_does_not_unwind(self):
         """Unwinding turns one player with two squad rows into two rows nothing can tell apart, because `FLSpieler` carries no `saison_id`."""
-        stages = [next(iter(stage)) for stage in build_spieler_memberships_pipeline()]
+        stages = [next(iter(stage)) for stage in build_spieler_saisons_pipeline()]
         assert "$unwind" not in stages
 
     def test_the_lookup_projects_the_junction_row_including_its_retirement(self):
-        lookup = next(stage["$lookup"] for stage in build_spieler_memberships_pipeline() if "$lookup" in stage)
+        lookup = next(stage["$lookup"] for stage in build_spieler_saisons_pipeline() if "$lookup" in stage)
         assert lookup["from"] == "saison_spieler"
         assert lookup["pipeline"][0]["$project"] == {
             "_id": 0,
@@ -77,7 +77,7 @@ class TestTheMembershipsPipeline:
         }
 
     def test_it_sorts_by_forename_then_surname(self):
-        assert build_spieler_memberships_pipeline()[-1] == {"$sort": {"vorname": 1, "nachname": 1}}
+        assert build_spieler_saisons_pipeline()[-1] == {"$sort": {"vorname": 1, "nachname": 1}}
 
 
 class TestWhyTheSeasonScopedReadCannotAnswerIt:
@@ -116,7 +116,7 @@ class TestWhyTheSeasonScopedReadCannotAnswerIt:
 
 class TestTheResponseModel:
     def test_a_player_with_no_squad_row_is_valid(self):
-        response = FLSpielerMembershipsResponse.model_validate(
+        response = FLSpielerSaisonsResponse.model_validate(
             {
                 "spieler": [
                     {
@@ -324,9 +324,9 @@ def squads(mongo_database: Database) -> Database:
 
 
 @pytest.mark.db
-class TestTheMembershipsPipelineExecuted:
+class TestTheSaisonsPipelineExecuted:
     def _by_surname(self, squads: Database) -> dict[str, FLSpielerWithMemberships]:
-        raw = list(squads.spieler.aggregate(build_spieler_memberships_pipeline()))
+        raw = list(squads.spieler.aggregate(build_spieler_saisons_pipeline()))
         # With the key the read composes after the pipeline (`app/api/spieler/admin_router.py :: get_spieler_saisons`).
         parsed = (FLSpielerWithMemberships.model_validate({**row, "adresswechsel_einsehbar_verwehrt": None}) for row in raw)
         return {player.nachname or "": player for player in parsed}
@@ -359,7 +359,7 @@ class TestTheMembershipsPipelineExecuted:
 
     def test_the_order_is_by_forename_then_surname(self, squads: Database):
         """Two people share a forename here, so the second key really decides an order rather than being carried untested."""
-        raw = list(squads.spieler.aggregate(build_spieler_memberships_pipeline()))
+        raw = list(squads.spieler.aggregate(build_spieler_saisons_pipeline()))
 
         assert [row["vorname"] for row in raw] == ["A", "A", "B", "C", "O"]
         assert [row["nachname"] for row in raw][:2] == ["Abel", "Alt"]

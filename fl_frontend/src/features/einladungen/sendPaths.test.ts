@@ -12,7 +12,7 @@ let apiAnswer: (endpoint: string) => unknown = () => undefined;
 const calls = doubleApiClient(({ endpoint }) => apiAnswer(endpoint));
 /** The club list the action reads, which each case names. */
 let sendTeams: () => unknown = () => undefined;
-const TEAMS = { getTeamMemberships: async () => sendTeams() };
+const TEAMS = { getTeamSaisons: async () => sendTeams() };
 
 // `drainSoon` a no-op, as the double makes it in every suite: the mails are the backend's to owe and the drain's to send.
 doublePostausgang();

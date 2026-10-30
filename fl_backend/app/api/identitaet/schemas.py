@@ -28,7 +28,7 @@ class FLSubjektPayload(BaseModel):
 class FLSubjektSitz(BaseModel):
     """One contact seat the mailbox holds on a season's junction row.
 
-    Per seat and never per person, as the erasure's `FLSelbstLoeschungSitz` is: one row seats one
+    Per seat and never per person, as the erasure's `FLKontoLoeschungSitz` is: one row seats one
     person twice where `trainer_ist_zugleich` says so.
     """
 
@@ -142,16 +142,16 @@ class FLLoeschungResponse(FLLoeschung, BaseAPIResponse):
     pass
 
 
-class FLSelbstLoeschungSpieler(BaseModel):
+class FLKontoLoeschungSpieler(BaseModel):
     vorname: str
     nachname: str | None
 
 
-class FLSelbstLoeschungSchiedsrichter(BaseModel):
+class FLKontoLoeschungSchiedsrichter(BaseModel):
     name: str | None
 
 
-class FLSelbstLoeschungSitz(BaseModel):
+class FLKontoLoeschungSitz(BaseModel):
     """One seat on a team's season row, named as the row names it."""
 
     saison_id: str
@@ -162,7 +162,7 @@ class FLSelbstLoeschungSitz(BaseModel):
     nachname: str
 
 
-class FLSelbstLoeschungBewerbung(BaseModel):
+class FLKontoLoeschungBewerbung(BaseModel):
     """One seat on an application, of any status."""
 
     saison_id: str
@@ -171,7 +171,7 @@ class FLSelbstLoeschungBewerbung(BaseModel):
     nachname: str
 
 
-class FLSelbstLoeschungRegistrierung(BaseModel):
+class FLKontoLoeschungRegistrierung(BaseModel):
     """One registration, pending or declined."""
 
     saison_id: str
@@ -181,19 +181,19 @@ class FLSelbstLoeschungRegistrierung(BaseModel):
     nachname: str
 
 
-class FLSelbstLoeschungAnsicht(BaseModel):
+class FLKontoLoeschungAnsicht(BaseModel):
     """What an erasure of one address would remove, by kind and by name, and never an address or a birthdate."""
 
-    spieler: list[FLSelbstLoeschungSpieler]
-    schiedsrichter: list[FLSelbstLoeschungSchiedsrichter]
-    sitze: list[FLSelbstLoeschungSitz]
-    bewerbungen: list[FLSelbstLoeschungBewerbung]
-    registrierungen: list[FLSelbstLoeschungRegistrierung]
+    spieler: list[FLKontoLoeschungSpieler]
+    schiedsrichter: list[FLKontoLoeschungSchiedsrichter]
+    sitze: list[FLKontoLoeschungSitz]
+    bewerbungen: list[FLKontoLoeschungBewerbung]
+    registrierungen: list[FLKontoLoeschungRegistrierung]
     # A count and no name: each is another address's pending change whose link reached this mailbox.
     adresswechsel: int = Field(ge=0)
 
 
-class FLSelbstLoeschungAnsichtResponse(FLSelbstLoeschungAnsicht, BaseAPIResponse):
+class FLKontoLoeschungAnsichtResponse(FLKontoLoeschungAnsicht, BaseAPIResponse):
     # The tier of the live grant the address holds, read in the preview's snapshot as the press reads it.
     verwaltung: FLVerwaltung | None
     # Advisory: read apart from the erasure's transaction, whose own `letzter_inhaber_loeschung` alone decides.
@@ -280,13 +280,13 @@ class FLLoeschungAnsichtKader(BaseModel):
     inactive_since: CustomOptionalDateString
 
 
-class FLLoeschungAnsichtSpieler(FLSelbstLoeschungSpieler):
+class FLLoeschungAnsichtSpieler(FLKontoLoeschungSpieler):
     spieler_id: CustomObjectId
     # A retired row too: the pupil's step removes every squad row of the person.
     kader: list[FLLoeschungAnsichtKader]
 
 
-class FLLoeschungAnsichtSchiedsrichter(FLSelbstLoeschungSchiedsrichter):
+class FLLoeschungAnsichtSchiedsrichter(FLKontoLoeschungSchiedsrichter):
     schiedsrichter_id: CustomObjectId
     # Null on a live row: a ban's dialog offers to retire only a referee still active.
     inactive_since: CustomOptionalDateString
@@ -295,15 +295,15 @@ class FLLoeschungAnsichtSchiedsrichter(FLSelbstLoeschungSchiedsrichter):
     spiele_ohne_ergebnis_saison_ids: list[str]
 
 
-class FLLoeschungAnsichtSitz(FLSelbstLoeschungSitz):
+class FLLoeschungAnsichtSitz(FLKontoLoeschungSitz):
     team_id: CustomObjectId
 
 
-class FLLoeschungAnsichtBewerbung(FLSelbstLoeschungBewerbung):
+class FLLoeschungAnsichtBewerbung(FLKontoLoeschungBewerbung):
     bewerbung_id: CustomObjectId
 
 
-class FLLoeschungAnsichtRegistrierung(FLSelbstLoeschungRegistrierung):
+class FLLoeschungAnsichtRegistrierung(FLKontoLoeschungRegistrierung):
     registrierung_id: CustomObjectId
     team_id: CustomObjectId
     # The administrator's registrations list serves the pending ones alone, so a ban's dialog links no declined one.
@@ -362,13 +362,13 @@ class FLAbmeldungResponse(BaseAPIResponse):
     """The envelope alone: the log row it filed names no address to answer with."""
 
 
-class FLLoeschungLaufParams(BaseModel):
+class FLLoeschungSweepParams(BaseModel):
     """Where in one pass the call starts: after the pupil the call before it reached, or at the lowest id where none is named."""
 
     nach: CustomObjectId | None = None
 
 
-class FLLoeschungLaufResponse(BaseAPIResponse):
+class FLLoeschungSweepResponse(BaseAPIResponse):
     """One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due."""
 
     # The latest `past` season, which the rule keeps a squad row in; null where none is `past`, nobody then being due.

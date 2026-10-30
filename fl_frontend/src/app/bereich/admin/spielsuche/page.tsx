@@ -6,7 +6,7 @@ import { getAdminSpiele } from "@/features/spiele/queries";
 import { getSpielorte } from "@/features/spielorte/queries";
 import { getAdminSpieltage } from "@/features/spieltage/queries";
 import { spieltagLabels } from "@/features/spieltage/utils";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
@@ -21,7 +21,7 @@ export default async function AdminSpielsuchePage(props: NextPageProps) {
   const [spieleRes, spieltageRes, teamsRes, spielorteRes, schiedsrichterRes, bestaetigungenRes] = await Promise.all([
     getAdminSpiele({ saison_id: saison.id }),
     getAdminSpieltage({ saison_id: saison.id }),
-    getTeamMemberships(),
+    getTeamSaisons(),
     getSpielorte({ include_inactive: true }),
     getSchiedsrichter({ include_inactive: true }),
     // The cards' answers, degraded rather than awaited whole: the search stands without them.

@@ -6,9 +6,9 @@ import { runPersonMutation, runPersonRecordMutation } from "@/shared/utils/perso
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { KADER_AUSTRAGEN_FOLGE } from "./constants";
-import { deleteKaderZeile, patchKaderZeile, patchSpielerSelbstEinwilligung } from "./mutations";
+import { deleteKaderZeile, patchKaderZeile, patchSpielerKontoEinwilligung } from "./mutations";
 import { mapKaderZeileRefusal } from "./refusals";
-import { FLKaderZeileKeyPayloadSchema, FLPatchKaderZeilePayloadSchema, FLSpielerSelbstEinwilligungPayloadSchema } from "./schemas";
+import { FLKaderZeileKeyPayloadSchema, FLPatchKaderZeilePayloadSchema, FLSpielerKontoEinwilligungPayloadSchema } from "./schemas";
 
 import type { FLEinwilligungStand, FLKaderZeile } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
@@ -59,11 +59,11 @@ export async function deleteKaderZeileAction(rawPayload: FLKaderZeileKeyPayload)
  */
 export async function patchSpielerEinwilligungAction(
   medienMindestalter: number,
-  rawPayload: z.input<typeof FLSpielerSelbstEinwilligungPayloadSchema>,
+  rawPayload: z.input<typeof FLSpielerKontoEinwilligungPayloadSchema>,
 ): Promise<ActionResult<{ nachweis_stand: FLEinwilligungStand }>> {
   return runPersonRecordMutation("patchSpielerEinwilligungAction", async () => {
     const boden = MedienMindestalterSchema.safeParse(medienMindestalter);
-    const validated = FLSpielerSelbstEinwilligungPayloadSchema.safeParse(rawPayload);
+    const validated = FLSpielerKontoEinwilligungPayloadSchema.safeParse(rawPayload);
 
     if (!boden.success || !validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: validated.success ? undefined : toFieldErrors(validated.error) };
@@ -71,7 +71,7 @@ export async function patchSpielerEinwilligungAction(
 
     let antwort;
     try {
-      antwort = await patchSpielerSelbstEinwilligung(validated.data);
+      antwort = await patchSpielerKontoEinwilligung(validated.data);
     } catch (error) {
       const refusal = mapEigeneEinwilligungRefusal(error, boden.data);
       if (refusal !== null) return refusalResult(refusal);

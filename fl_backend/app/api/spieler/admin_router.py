@@ -18,13 +18,13 @@ from app.api.spieler.schemas import (
     FLPostSaisonSpielerPayload,
     FLSaisonSpielerResponse,
     FLSpielerAdminSingleResponse,
-    FLSpielerMembershipsResponse,
     FLSpielerNachnominierungResponse,
+    FLSpielerSaisonsResponse,
     FLSpielerWithMemberships,
 )
 from app.api.spieler.services import (
     build_spieler_filter,
-    build_spieler_memberships_pipeline,
+    build_spieler_saisons_pipeline,
     find_squad_refusal,
 )
 from app.api.spieltage.crud import nachnominierung_laeuft_in
@@ -91,14 +91,14 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
 
 # A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
 # capture this one whatever the declaration order.
-@router.get("/saisons", response_model=FLSpielerMembershipsResponse, summary="Every Spieler with their squad rows")
+@router.get("/saisons", response_model=FLSpielerSaisonsResponse, summary="Every Spieler with their squad rows")
 async def get_spieler_saisons(
     spieler_collection: SpielerCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
-) -> FLSpielerMembershipsResponse:
+) -> FLSpielerSaisonsResponse:
     """
     Every player, retired ones included, each with every squad row they hold.
 
@@ -110,7 +110,7 @@ async def get_spieler_saisons(
     """
 
     spieler_raw = await aggregate_many_from_db(
-        collection=spieler_collection, pipeline=build_spieler_memberships_pipeline(), collation=GERMAN_COLLATION
+        collection=spieler_collection, pipeline=build_spieler_saisons_pipeline(), collation=GERMAN_COLLATION
     )
     verwehrt = await verwehrte_adressen(
         (str(spieler["email"]) for spieler in spieler_raw if spieler.get("adresswechsel_id") is not None),
@@ -121,7 +121,7 @@ async def get_spieler_saisons(
         session=None,
     )
 
-    return FLSpielerMembershipsResponse(
+    return FLSpielerSaisonsResponse(
         spieler=[
             FLSpielerWithMemberships.model_validate({**spieler, "adresswechsel_einsehbar_verwehrt": verwehrt.get(str(spieler.get("email")))})
             for spieler in spieler_raw

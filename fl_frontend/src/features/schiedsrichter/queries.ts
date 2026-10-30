@@ -14,7 +14,7 @@ import { postSchiedsrichterBestaetigungAnsicht } from "./mutations";
 
 import type {
   FLSchiedsrichterListResponse,
-  FLSchiedsrichterSelbstResponse,
+  FLSchiedsrichterSelfResponse,
   FLSchiedsrichterSingleResponse,
   SchiedsrichterGetSchiedsrichterParams,
 } from "@/core/generated/client/types";
@@ -165,4 +165,4 @@ export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promi
  * referee row for the address the page's own check passed.
  */
 // Never `"use cache"`, which keys on the arguments rather than the caller.
-export const getSchiedsrichterSelbst = cache(async (): Promise<FLSchiedsrichterSelbstResponse> => runPersonRead(() => schiedsrichterGetSelf()));
+export const getSchiedsrichterSelf = cache(async (): Promise<FLSchiedsrichterSelfResponse> => runPersonRead(() => schiedsrichterGetSelf()));

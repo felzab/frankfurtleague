@@ -28,7 +28,7 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungAblehnungResponse,
     FLRegistrierungAufnahmeResponse,
     FLRegistrierungAufnehmenPayload,
-    FLRegistrierungSelbstEinwilligungResponse,
+    FLRegistrierungKontoEinwilligungResponse,
 )
 from app.api.registrierungen.services import (
     compose_ablehnung_update,
@@ -74,7 +74,7 @@ from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
-from app.shared.schemas.einwilligung import FLSelbstEinwilligungPayload
+from app.shared.schemas.einwilligung import FLKontoEinwilligungPayload
 
 # The person lane's binder in place of `bind_actor`: a seat holder signs in by code and holds no
 # grant, so the administrator's actor check would refuse every one of them.
@@ -431,18 +431,18 @@ spieler_router = APIRouter(
 
 @spieler_router.patch(
     f"{by_id('registrierung_id')}/einwilligung",
-    response_model=FLRegistrierungSelbstEinwilligungResponse,
+    response_model=FLRegistrierungKontoEinwilligungResponse,
     summary="Withdraw a pupil's own publication and media consent on their pending registration",
 )
 async def patch_einwilligung(
     registrierung_id: CustomRouteObjectId,
-    einwilligung_data: Annotated[FLSelbstEinwilligungPayload, Body()],
+    einwilligung_data: Annotated[FLKontoEinwilligungPayload, Body()],
     identifier: SpielerIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
-) -> FLRegistrierungSelbstEinwilligungResponse:
+) -> FLRegistrierungKontoEinwilligungResponse:
     """Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
 
     A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `funktion_nicht_gehalten`,
@@ -455,7 +455,7 @@ async def patch_einwilligung(
     journal = Journal()
 
     @journal.attempted
-    async def write(session: AsyncClientSession) -> FLRegistrierungSelbstEinwilligungResponse:
+    async def write(session: AsyncClientSession) -> FLRegistrierungKontoEinwilligungResponse:
         # By the id alone: the predicate judges the status, the fold, the confirmation and the choices.
         row = await registrierungen_collection.find_one(
             {"_id": registrierung_id}, projection={"status": 1, "email": 1, "einwilligung": 1}, session=session
@@ -504,7 +504,7 @@ async def patch_einwilligung(
         # A press moving neither choice is no act, so nothing was written and the record answers as stored.
         einwilligung = gespeichert if updated is None else updated["einwilligung"]
 
-        return FLRegistrierungSelbstEinwilligungResponse.model_validate(
+        return FLRegistrierungKontoEinwilligungResponse.model_validate(
             {
                 "registrierung_id": row["_id"],
                 "einwilligung": einwilligung,

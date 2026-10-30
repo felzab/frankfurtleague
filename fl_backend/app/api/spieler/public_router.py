@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.saisons.crud import pull_current_saison_id
+from app.api.saisons.crud import pull_active_saison_id
 from app.api.saisons.visibility import saison_is_withheld, withheld_saison_ids
 from app.api.spieler.schemas import (
     FLSpielerFilterParams,
@@ -43,7 +43,7 @@ async def get_spieler(
     # Resolved here, never as a field default, and only beside a team: a squad is one season's
     # (`saison_spieler`), and a season-less one lists a player once per season they stood in it.
     if filters.saison_id is None and filters.team_id is not None:
-        filters.saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)
+        filters.saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
 
     # Only where the caller NAMED one: the resolve above answers with the `active` season or 404s.
     elif filters.saison_id is not None:

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Body, Depends, Query
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.saisons.crud import pull_current_saison_id
+from app.api.saisons.crud import pull_active_saison_id
 from app.api.spielberichte.crud import (
     anchor_the_pupils_named,
     anchor_the_season_reported_in,
@@ -85,7 +85,7 @@ async def get_spielberichte(
 
     # Resolved as every other admin read resolves an omitted season: the season selector sends none for the running one.
     if saison_id is None:
-        saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)
+        saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
 
     return FLSpielberichteSaisonResponse(
         spielberichte=await pull_zustaende(spielberichte_collection=spielberichte_collection, saison_id=saison_id)

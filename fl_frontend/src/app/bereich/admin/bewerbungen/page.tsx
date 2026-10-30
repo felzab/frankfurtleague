@@ -5,7 +5,7 @@ import { BEWERBUNGEN_CRUD_COPY } from "@/features/bewerbungen/constants";
 import { getBewerbungenQueue } from "@/features/bewerbungen/queries";
 import { buildBewerbungRows } from "@/features/bewerbungen/utils";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
@@ -44,7 +44,7 @@ async function BewerbungenTable({ searchParams }: { searchParams: NextPageProps[
 
   const [teamsRes, selectedSaison] = await Promise.all([
     // The clubs, because a picked one is stored as an id.
-    getTeamMemberships(),
+    getTeamSaisons(),
     resolveAdminSaison(searchParams),
   ]);
   const selectedSaisonId = selectedSaison?.id;

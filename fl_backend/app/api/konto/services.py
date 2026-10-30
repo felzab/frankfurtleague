@@ -206,8 +206,8 @@ def build_kontext_teams_pipeline(team_ids: Collection[Any]) -> list[Mapping[str,
     return [{"$match": {"_id": {"$in": sorted(set(team_ids))}}}, {"$project": {"name": 1, "full_name": 1}}]
 
 
-def compose_spieler_selbst(row: Mapping[str, Any]) -> dict[str, Any]:
-    """One pupil row's stored data, as `app/api/spieler/services.py :: build_selbst_pupil_pipeline` reads it."""
+def compose_spieler_self(row: Mapping[str, Any]) -> dict[str, Any]:
+    """One pupil row's stored data, as `app/api/spieler/services.py :: build_self_pupil_pipeline` reads it."""
 
     return {
         "spieler_id": row["_id"],
@@ -224,7 +224,7 @@ def compose_spieler_konto(row: Mapping[str, Any], *, erteilbar: bool, today: str
     zeile = kontext_zeile(row)
 
     return {
-        **compose_spieler_selbst(row),
+        **compose_spieler_self(row),
         "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
         "bestaetigt_text_version": row["einwilligung"]["text_version"],
@@ -241,7 +241,7 @@ def compose_spieler_konto(row: Mapping[str, Any], *, erteilbar: bool, today: str
     }
 
 
-def compose_schiedsrichter_selbst(row: Mapping[str, Any]) -> dict[str, Any]:
+def compose_schiedsrichter_self(row: Mapping[str, Any]) -> dict[str, Any]:
     """One referee row's stored data, as `app/api/schiedsrichter/services.py :: SELBST_FIELDS` projects it."""
 
     return {
@@ -258,7 +258,7 @@ def compose_schiedsrichter_konto(row: Mapping[str, Any], *, erteilbar: bool, tod
     """One referee row's account entry: its stored data and its consent."""
 
     return {
-        **compose_schiedsrichter_selbst(row),
+        **compose_schiedsrichter_self(row),
         "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
         "bestaetigt_text_version": row["einwilligung"]["text_version"],
@@ -270,7 +270,7 @@ def compose_schiedsrichter_konto(row: Mapping[str, Any], *, erteilbar: bool, tod
     }
 
 
-def build_selbst_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every season row one of whose seats names the address, `app/api/identitaet/services.py :: eigene_sitze` judging each slot.
 
     No `austritt` term: a withdrawal reaches a withdrawn team's seat too.
@@ -387,7 +387,7 @@ def _bestaetigt(kontakte: Mapping[str, Any], gruppe: Sequence[str], *, team: str
     }
 
 
-def compose_sitze_selbst(
+def compose_sitze_self(
     rows: Sequence[Mapping[str, Any]],
     identifier: str,
     *,
@@ -438,7 +438,7 @@ def compose_sitze_selbst(
 # confirmation page's alone.
 
 
-def build_selbst_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+def build_self_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every pending application with a seat at the address, `eigene_sitze` then keeping the confirmed ones as on a season row."""
 
     return [
@@ -455,10 +455,10 @@ def build_selbst_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     ]
 
 
-def compose_bewerbungssitze_selbst(
+def compose_bewerbungssitze_self(
     rows: Sequence[Mapping[str, Any]], identifier: str, *, teams: Mapping[Any, Mapping[str, Any]]
 ) -> list[dict[str, Any]]:
-    """One entry per pending application on which this address holds a confirmed seat, as `compose_sitze_selbst` answers a row."""
+    """One entry per pending application on which this address holds a confirmed seat, as `compose_sitze_self` answers a row."""
 
     eintraege = []
     for row in rows:
@@ -489,7 +489,7 @@ def compose_bewerbungssitze_selbst(
 # --- The pending registrations a pupil confirmed: withdraw-only until the admission, a returning pupil's read-only.
 
 
-def build_selbst_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+def build_self_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every pending registration at the address, `ist_eigene_registrierung` then keeping the confirmed ones as the gate does."""
 
     return [
@@ -516,7 +516,7 @@ def build_selbst_registrierung_pipeline(identifier: str) -> list[Mapping[str, An
     ]
 
 
-def compose_registrierungen_selbst(
+def compose_registrierungen_self(
     rows: Sequence[Mapping[str, Any]], identifier: str, *, teams: Mapping[Any, Mapping[str, Any]]
 ) -> list[dict[str, Any]]:
     """One entry per pending registration of this address its pupil confirmed; a returning pupil's serves no choice and offers no control."""

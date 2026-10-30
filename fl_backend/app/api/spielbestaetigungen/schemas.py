@@ -318,7 +318,7 @@ class FLSpielbestaetigungAntwortResponse(BaseAPIResponse):
 FLSpielbestaetigungSchiedsrichterZustand = Literal["gueltig", "zugesagt", "abgelehnt", "abgelaufen", "ungueltig", "abgesagt"]
 
 
-class FLSpielbestaetigungSelbst(BaseModel):
+class FLSpielbestaetigungSelf(BaseModel):
     """One of the signed-in referee's rows, as their panel lists it."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -336,8 +336,8 @@ class FLSpielbestaetigungSelbst(BaseModel):
     vergangen: bool
 
 
-class FLSpielbestaetigungenSelbstResponse(BaseAPIResponse):
-    spielbestaetigungen: list[FLSpielbestaetigungSelbst]
+class FLSpielbestaetigungenSelfResponse(BaseAPIResponse):
+    spielbestaetigungen: list[FLSpielbestaetigungSelf]
 
 
 class FLSpielbestaetigungSchiedsrichterAntwortPayload(BaseModel):

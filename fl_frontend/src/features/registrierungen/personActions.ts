@@ -4,7 +4,7 @@ import z from "zod";
 
 import { drainSoon } from "@/core/afterResponse";
 import { mapRegistrierungEinwilligungRefusal, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
-import { FLSpielerSelbstEinwilligungPayloadSchema } from "@/features/spieler/schemas";
+import { FLSpielerKontoEinwilligungPayloadSchema } from "@/features/spieler/schemas";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import { refusalResult } from "@/shared/utils/adminMutation";
 import { runPersonMutation, runPersonRecordMutation } from "@/shared/utils/personMutation";
@@ -91,11 +91,11 @@ export async function ablehnenRegistrierungAction(rawPayload: RegistrierungAdres
  */
 export async function patchRegistrierungEinwilligungAction(
   registrierungId: string,
-  rawPayload: z.input<typeof FLSpielerSelbstEinwilligungPayloadSchema>,
+  rawPayload: z.input<typeof FLSpielerKontoEinwilligungPayloadSchema>,
 ): Promise<ActionResult<{ nachweis_stand: FLEinwilligungStand }>> {
   return runPersonRecordMutation("patchRegistrierungEinwilligungAction", async () => {
     const id = CustomObjectIdStringSchema.safeParse(registrierungId);
-    const validated = FLSpielerSelbstEinwilligungPayloadSchema.safeParse(rawPayload);
+    const validated = FLSpielerKontoEinwilligungPayloadSchema.safeParse(rawPayload);
 
     if (!id.success || !validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: validated.success ? undefined : toFieldErrors(validated.error) };

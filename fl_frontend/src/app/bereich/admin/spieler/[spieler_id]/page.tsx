@@ -5,10 +5,10 @@ import { istFassungBekannt } from "@/core/einwilligung";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { AdminSpielerEditView } from "@/features/spieler/components/views/AdminSpielerEditView";
 import { orderStufen } from "@/features/spieler/constants";
-import { getSpielerMemberships, getSpielerNachnominierung } from "@/features/spieler/queries";
+import { getSpielerNachnominierung, getSpielerSaisons } from "@/features/spieler/queries";
 import { resolveSpielerId } from "@/features/spieler/resolvers";
 import { collectHeldRollen, countLiveSquadRows, squadIsFull } from "@/features/spieler/utils";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullAfterLoggingUnexplained } from "@/shared/utils/degradedRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
@@ -41,9 +41,9 @@ async function AdminSpielerEditContent({
   const spielerId = await resolveSpielerId(params);
 
   const [membershipsRes, selectedSaison, teamsRes] = await Promise.all([
-    getSpielerMemberships(),
+    getSpielerSaisons(),
     resolveAdminSaison(searchParams),
-    getTeamMemberships(),
+    getTeamSaisons(),
   ]);
   if (!selectedSaison) {
     notFound();

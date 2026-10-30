@@ -25,7 +25,7 @@ from app.core.collections import Collection
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
 from app.shared.schemas.bestaetigung import FLTokenPayload
-from app.shared.schemas.einwilligung import FLSelbstEinwilligungPayload
+from app.shared.schemas.einwilligung import FLKontoEinwilligungPayload
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
@@ -191,7 +191,7 @@ async def the_own_record_read(database: AsyncDatabase, client: AsyncMongoClient,
 
 async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
     return await patch_einwilligung(
-        einwilligung_data=FLSelbstEinwilligungPayload.model_validate(
+        einwilligung_data=FLKontoEinwilligungPayload.model_validate(
             {
                 "umfang": "intern",
                 "medien": False,

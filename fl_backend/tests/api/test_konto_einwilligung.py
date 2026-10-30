@@ -1,7 +1,7 @@
 """
 API · a referee's own consent record, read and changed by its own person on the account page
 
-The pupil's twin is `tests/api/test_spieler_selbst.py`, which also pins that the two PATCHes take one
+The pupil's twin is `tests/api/test_spieler_self.py`, which also pins that the two PATCHes take one
 payload shape; this file holds what differs on a referee row: the ghost, and a record the
 confirmation has not yet written.
 """

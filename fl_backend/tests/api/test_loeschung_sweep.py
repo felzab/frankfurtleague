@@ -26,7 +26,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.crud import faellige_seite, saison_statuses
-from app.api.identitaet.schemas import FLLoeschungLaufParams
+from app.api.identitaet.schemas import FLLoeschungSweepParams
 from app.api.identitaet.system_router import LOESCHUNGEN_PER_PASS, sweep_loeschung
 from app.api.registrierungen.public_router import post_registrierung
 from app.api.registrierungen.schemas import FLPostRegistrierungPayload
@@ -166,7 +166,7 @@ def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAGUE, mu
 
 async def run(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any = None, **replaced: Any) -> Any:
     return await sweep_loeschung(
-        params=FLLoeschungLaufParams(nach=nach),
+        params=FLLoeschungSweepParams(nach=nach),
         **loeschung_collections(database, **({"saisons_collection": database[Collection.SAISONS]} | replaced)),
         sperrliste=ban_list(database),
         db=client,

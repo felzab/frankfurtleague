@@ -34,7 +34,7 @@ from tests.worker import worker_database
 
 from .conftest import config_for
 
-DATABASE_NAME = worker_database("fl_spieler_selbst_test")
+DATABASE_NAME = worker_database("fl_spieler_self_test")
 
 CONFIG = config_for(DATABASE_NAME)
 

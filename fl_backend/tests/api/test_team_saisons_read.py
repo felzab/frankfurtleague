@@ -11,8 +11,8 @@ from app.api.postausgang.schemas import FLPostausgangEreignisPayload, FLPostausg
 from app.api.postausgang.services import enqueue_mails
 from app.api.postausgang.system_router import post_ereignis
 from app.api.teams.admin_router import get_team_saisons
-from app.api.teams.schemas import FLTeamMembership, FLTeamsMembershipsResponse
-from app.api.teams.services import build_team_memberships_pipeline, compose_kontakt_bestaetigung, owed_kontakt_link
+from app.api.teams.schemas import FLTeamMembership, FLTeamsSaisonsResponse
+from app.api.teams.services import build_team_saisons_pipeline, compose_kontakt_bestaetigung, owed_kontakt_link
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db
 from app.shared.schemas.literals import FLKontaktRolle
@@ -23,16 +23,16 @@ from tests.postausgang import MAIL_NOW, drained
 from tests.worker import worker_database
 
 
-class TestTheMembershipsPipeline:
+class TestTheSaisonsPipeline:
     def test_it_filters_nothing_out(self):
         # No `$match` at all: retired teams and teams in no season are what the admin list must show.
-        stages = [next(iter(stage)) for stage in build_team_memberships_pipeline()]
+        stages = [next(iter(stage)) for stage in build_team_saisons_pipeline()]
         assert "$match" not in stages
 
     def test_the_lookup_projects_exactly_what_the_membership_model_declares(self):
         """Against the MODEL, not a hand-copied list: a field added to the junction reaches this read only by being named on both."""
 
-        lookup = next(stage["$lookup"] for stage in build_team_memberships_pipeline() if "$lookup" in stage)
+        lookup = next(stage["$lookup"] for stage in build_team_saisons_pipeline() if "$lookup" in stage)
         assert lookup["from"] == "saison_teams"
         projection = lookup["pipeline"][0]["$project"]
         # Composed after the read, off the seats' addresses; the row's id keys the read of its links' mails.
@@ -40,12 +40,12 @@ class TestTheMembershipsPipeline:
         assert projection == {"_id": 1} | {name: 1 for name in FLTeamMembership.model_fields if name not in composed}
 
     def test_it_sorts_by_name(self):
-        assert build_team_memberships_pipeline()[-1] == {"$sort": {"name": 1}}
+        assert build_team_saisons_pipeline()[-1] == {"$sort": {"name": 1}}
 
 
 class TestTheResponseModel:
     def test_an_empty_membership_list_is_a_valid_club(self):
-        response = FLTeamsMembershipsResponse.model_validate(
+        response = FLTeamsSaisonsResponse.model_validate(
             {
                 "teams": [
                     {
@@ -66,7 +66,7 @@ class TestTheResponseModel:
         assert response.teams[0].memberships == []
 
 
-DATABASE_NAME = worker_database("fl_team_memberships_test")
+DATABASE_NAME = worker_database("fl_team_saisons_test")
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607990001")
 ROW_OID = ObjectId("6890a1b2c3d4e5f607990011")
 TODAY = "2026-03-01"
@@ -117,7 +117,7 @@ def read_the_links(
                 if event is not None:
                     ereignis = FLPostausgangEreignisPayload(id=mail.id, stand=event, grund=None, am=MAIL_NOW)
                     await post_ereignis(ereignis_data=ereignis, postausgang_collection=database[Collection.POSTAUSGANG])
-            roh = await aggregate_many_from_db(collection=database[Collection.TEAMS], pipeline=build_team_memberships_pipeline())
+            roh = await aggregate_many_from_db(collection=database[Collection.TEAMS], pipeline=build_team_saisons_pipeline())
             return roh, await get_team_saisons(
                 teams_collection=database[Collection.TEAMS],
                 adresswechsel_collection=database[Collection.ADRESSWECHSEL],

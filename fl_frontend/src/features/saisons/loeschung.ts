@@ -1,15 +1,15 @@
 import { ContractBreakError } from "@/core/errors";
 
-import type { FLLoeschungLaufResponse } from "@/core/generated/client/types";
+import type { FLLoeschungSweepResponse } from "@/core/generated/client/types";
 
 /**
  * Every call of one pass summed, the last answered call's season and remainder beside the sums. A pass reaches each
  * person once, so the sums count persons; one who failed stays due for the next pass.
  */
-type LoeschungSumme = Omit<FLLoeschungLaufResponse, "nach">;
+type LoeschungSumme = Omit<FLLoeschungSweepResponse, "nach">;
 
 /** A pass that ended on a call's answer, or on a call that threw: what remains is then unknown. */
-export type LoeschungLauf =
+export type LoeschungSweep =
   (LoeschungSumme & { abgebrochen: false }) | (Omit<LoeschungSumme, "verbleibend"> & { abgebrochen: true; fehler: unknown });
 
 // A loop and no request, so outside `mutations.ts`, whose every export the step-up reader takes for one.
@@ -17,7 +17,7 @@ export type LoeschungLauf =
  * One pass, each call handed the `nach` the call before it answered. Settles rather than throws, so a caller words
  * what the calls before a failure erased.
  */
-export async function loeschungLaufen(lauf: (nach: string | null) => Promise<FLLoeschungLaufResponse>): Promise<LoeschungLauf> {
+export async function sweepLoeschung(lauf: (nach: string | null) => Promise<FLLoeschungSweepResponse>): Promise<LoeschungSweep> {
   let summe: LoeschungSumme = {
     abgeschlossene_saison_id: null,
     spieler: 0,

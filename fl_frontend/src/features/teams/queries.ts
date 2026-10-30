@@ -9,7 +9,7 @@ import { runAdminRead } from "@/shared/utils/adminRead";
 import type {
   FLTeamsGroupedResponse,
   FLTeamsListResponse,
-  FLTeamsMembershipsResponse,
+  FLTeamsSaisonsResponse,
   FLTeamsSingleResponse,
   TeamsGetTeamParams,
   TeamsGetTeamsParams,
@@ -71,4 +71,4 @@ export function getAdminTeams(filters: TeamsGetTeamsVerwaltungParams = {}): Prom
  * club-centric question.
  */
 // Never `"use cache"` here, which keys on the arguments rather than the caller.
-export const getTeamMemberships = cache(async (): Promise<FLTeamsMembershipsResponse> => runAdminRead(() => teamsGetTeamSaisons()));
+export const getTeamSaisons = cache(async (): Promise<FLTeamsSaisonsResponse> => runAdminRead(() => teamsGetTeamSaisons()));

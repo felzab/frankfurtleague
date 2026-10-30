@@ -51,20 +51,20 @@ from app.api.konto.schemas import (
 from app.api.konto.services import (
     build_angenommene_bewerbungen_pipeline,
     build_kontext_teams_pipeline,
-    build_selbst_bewerbung_pipeline,
-    build_selbst_registrierung_pipeline,
-    build_selbst_seat_pipeline,
-    compose_bewerbungssitze_selbst,
-    compose_registrierungen_selbst,
+    build_self_bewerbung_pipeline,
+    build_self_registrierung_pipeline,
+    build_self_seat_pipeline,
+    compose_bewerbungssitze_self,
+    compose_registrierungen_self,
     compose_schiedsrichter_konto,
-    compose_sitze_selbst,
+    compose_sitze_self,
     compose_spieler_konto,
     kontext_zeile,
 )
-from app.api.schiedsrichter.services import build_selbst_referee_pipeline
+from app.api.schiedsrichter.services import build_self_referee_pipeline
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
-from app.api.spieler.services import build_selbst_pupil_pipeline
+from app.api.spieler.services import build_self_pupil_pipeline
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
@@ -136,18 +136,18 @@ async def get_einwilligungen(
     # A snapshot, so every record is answered as of one moment; never a transaction, which a read
     # writing nothing has no conflict to retry for.
     async with db.start_session(snapshot=True) as session:
-        pupils = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_selbst_pupil_pipeline(identifier), session=session)
+        pupils = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_self_pupil_pipeline(identifier), session=session)
         referees = await aggregate_many_from_db(
-            collection=schiedsrichter_collection, pipeline=build_selbst_referee_pipeline(identifier), session=session
+            collection=schiedsrichter_collection, pipeline=build_self_referee_pipeline(identifier), session=session
         )
         seat_rows = await aggregate_many_from_db(
-            collection=saison_teams_collection, pipeline=build_selbst_seat_pipeline(identifier), session=session
+            collection=saison_teams_collection, pipeline=build_self_seat_pipeline(identifier), session=session
         )
         bewerbung_rows = await aggregate_many_from_db(
-            collection=bewerbungen_collection, pipeline=build_selbst_bewerbung_pipeline(identifier), session=session
+            collection=bewerbungen_collection, pipeline=build_self_bewerbung_pipeline(identifier), session=session
         )
         registrierung_rows = await aggregate_many_from_db(
-            collection=registrierungen_collection, pipeline=build_selbst_registrierung_pipeline(identifier), session=session
+            collection=registrierungen_collection, pipeline=build_self_registrierung_pipeline(identifier), session=session
         )
         # From the rows read above, which the subject's own selections choose: a second read would answer the same.
         subjekt = await funktionen_aus(
@@ -198,11 +198,11 @@ async def get_einwilligungen(
                     for row in referees
                     if ist_eigener_schiedsrichter(row, identifier)
                 ],
-                "sitze": compose_sitze_selbst(
+                "sitze": compose_sitze_self(
                     seat_rows, identifier, sitze_mit_panel=subjekt.sitze, today=today, teams=teams, bewerbungen=bewerbungen
                 ),
-                "bewerbungen": compose_bewerbungssitze_selbst(bewerbung_rows, identifier, teams=teams),
-                "registrierungen": compose_registrierungen_selbst(registrierung_rows, identifier, teams=teams),
+                "bewerbungen": compose_bewerbungssitze_self(bewerbung_rows, identifier, teams=teams),
+                "registrierungen": compose_registrierungen_self(registrierung_rows, identifier, teams=teams),
             }
         )
 

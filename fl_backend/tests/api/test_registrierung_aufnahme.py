@@ -36,7 +36,7 @@ from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
 from app.shared.schemas.bestaetigung import FLTokenPayload
-from app.shared.schemas.einwilligung import FLSelbstEinwilligungPayload
+from app.shared.schemas.einwilligung import FLKontoEinwilligungPayload
 from tests import documents
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
@@ -768,7 +768,7 @@ class TestThePersonAnAdmissionNames:
             registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
             await patch_registrierung_einwilligung(
                 registrierung_id=registrierung_id,
-                einwilligung_data=FLSelbstEinwilligungPayload.model_validate(
+                einwilligung_data=FLKontoEinwilligungPayload.model_validate(
                     {
                         "umfang": "intern",
                         "medien": False,

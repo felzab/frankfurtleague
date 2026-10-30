@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.saisons.crud import pull_current_saison_id
+from app.api.saisons.crud import pull_active_saison_id
 from app.api.saisons.visibility import refuse_withheld_saison, saison_is_withheld
 from app.api.spiele.schemas import (
     FLSpieleFilterParams,
@@ -40,7 +40,7 @@ async def get_spiele(
 
     # Resolved here, never as a field default, which cannot reach the database.
     if filters.saison_id is None:
-        filters.saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)
+        filters.saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
 
     # Only where the caller NAMED one: the resolve above answers with the `active` season or 404s.
     # Empty rather than 404, because an id naming no season already lists nothing here and a

@@ -535,7 +535,7 @@ class FLTeamWithMemberships(FLTeamRecord):
 FLTeamWithMembershipsListAdapter = TypeAdapter(list[FLTeamWithMemberships])
 
 
-class FLTeamsMembershipsResponse(BaseAPIResponse):
+class FLTeamsSaisonsResponse(BaseAPIResponse):
     """Every club, retired ones included, each with its memberships. Sorted by name."""
 
     teams: list[FLTeamWithMemberships]
@@ -850,7 +850,7 @@ class FLTeamSitzeResponse(BaseAPIResponse):
     sitze: list[FLTeamSitz]
 
 
-class FLSaisonTeamPersonEinwilligungResponse(BaseAPIResponse):
+class FLSaisonTeamKontoEinwilligungResponse(BaseAPIResponse):
     """Which of the row's seats the press reached, and the two answers they now all hold."""
 
     team_id: CustomObjectId

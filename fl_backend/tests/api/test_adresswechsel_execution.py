@@ -40,7 +40,7 @@ from app.api.registrierungen.services import compose_ablehnung_update, erinnerun
 from app.api.schiedsrichter.admin_router import get_schiedsrichter_by_id
 from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.admin_router import get_spieler_saisons
-from app.api.spieler.services import build_spieler_memberships_pipeline
+from app.api.spieler.services import build_spieler_saisons_pipeline
 from app.api.teams.admin_router import get_team_saisons
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -2563,7 +2563,7 @@ class TestTheLiveReadsTheIndexServes:
             await start(database, client)
             return await database.command(
                 {
-                    "explain": {"aggregate": Collection.SPIELER, "pipeline": build_spieler_memberships_pipeline(), "cursor": {}},
+                    "explain": {"aggregate": Collection.SPIELER, "pipeline": build_spieler_saisons_pipeline(), "cursor": {}},
                     "verbosity": "executionStats",
                 }
             )
@@ -2578,7 +2578,7 @@ class TestTheLiveReadsTheIndexServes:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def listed() -> dict[Any, Any]:
-                rows = await (await database[Collection.SPIELER].aggregate(build_spieler_memberships_pipeline())).to_list()
+                rows = await (await database[Collection.SPIELER].aggregate(build_spieler_saisons_pipeline())).to_list()
                 return {row["_id"]: row["adresswechsel_id"] for row in rows}
 
             minted = await start(database, client)

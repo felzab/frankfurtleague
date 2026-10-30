@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 
-import { getAdminSaisons, getCurrentSaisonOrNull, getSaisons } from "../../queries";
+import { getActiveSaisonOrNull, getAdminSaisons, getSaisons } from "../../queries";
 import { selectSaison } from "../../resolvers";
 import { SaisonSelector } from "./SaisonSelector";
 
@@ -34,17 +34,17 @@ export async function SaisonMetadataDisplay({ tier }: { tier: "base" | "admin" }
     );
   }
 
-  const [currentSaisonRes, saisonsRes] = await Promise.all([
+  const [activeSaisonRes, saisonsRes] = await Promise.all([
     // `OrNull`, never the throwing read: this is layout chrome, so a 404 between seasons would
     // take every dashboard page down with it.
-    getCurrentSaisonOrNull(),
+    getActiveSaisonOrNull(),
     getSaisons(),
   ]);
 
   return (
     <SaisonSelector
       saisons={saisonsRes.saisons.map(asOption)}
-      defaultSaison={currentSaisonRes === null ? null : asOption(currentSaisonRes.saison)}
+      defaultSaison={activeSaisonRes === null ? null : asOption(activeSaisonRes.saison)}
     />
   );
 }

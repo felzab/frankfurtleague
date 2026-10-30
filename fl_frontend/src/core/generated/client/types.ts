@@ -1680,6 +1680,28 @@ export interface FLBewerbungKontaktePayload {
 }
 
 /**
+ * Each choice's stand where the account page was served, null where the record carried no evidence for it.
+ *
+ * A consent PATCH's precondition, echoed back as served, never a secret.
+ */
+export interface FLEinwilligungStand {
+  medien: string | null;
+  umfang: string | null;
+}
+
+/**
+ * Which of the application's seats the withdrawal reached, and the two answers they now all hold.
+ */
+export interface FLBewerbungKontoEinwilligungResponse {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  bewerbung_id: string;
+  medien: boolean;
+  nachweis_stand: FLEinwilligungStand;
+  rollen: FLKontaktRolle[];
+  umfang: FLKontaktKenntnisnahmeUmfang;
+}
+
+/**
  * Whether a proposed Kürzel is already a club's, active or retired, naming no club.
  */
 export interface FLBewerbungKuerzelResponse {
@@ -1718,28 +1740,6 @@ export interface FLBewerbungLoeschungDaten {
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
   saison_id: string;
-}
-
-/**
- * Each choice's stand where the account page was served, null where the record carried no evidence for it.
- *
- * A consent PATCH's precondition, echoed back as served, never a secret.
- */
-export interface FLEinwilligungStand {
-  medien: string | null;
-  umfang: string | null;
-}
-
-/**
- * Which of the application's seats the withdrawal reached, and the two answers they now all hold.
- */
-export interface FLBewerbungPersonEinwilligungResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  bewerbung_id: string;
-  medien: boolean;
-  nachweis_stand: FLEinwilligungStand;
-  rollen: FLKontaktRolle[];
-  umfang: FLKontaktKenntnisnahmeUmfang;
 }
 
 /**
@@ -2723,6 +2723,24 @@ export interface FLKontoBewerbungSitzEinwilligung {
 }
 
 /**
+ * A pupil's, a referee's or a registration's own two choices on their record.
+ *
+ * Both choices on every press, and no member defaulted: a default would let a page that forgot one
+ * reset the person's other choice.
+ */
+export interface FLKontoEinwilligungPayload {
+  medien: boolean;
+  nachweis_stand: FLEinwilligungStandPayload;
+  /**
+   * @minLength 1
+   * @maxLength 64
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  text_version: string;
+  umfang: FLEinwilligungUmfang;
+}
+
+/**
  * What the pupil confirmation page's slots name for this record today, so its agreed words render whole.
  *
  * Null where no squad row names a team and season; the words then render without them.
@@ -2808,7 +2826,7 @@ export interface FLKontoSitzEinwilligung {
 /**
  * One squad row as its own pupil reads it, with the name the club played that season under.
  */
-export interface FLSpielerSelbstKaderZeile {
+export interface FLSpielerSelfKaderZeile {
   inactive_since: string | null;
   ist_nachnominiert: boolean;
   nummer: string | null;
@@ -2831,7 +2849,7 @@ export interface FLKontoSpielerEinwilligung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   geburtsdatum: string;
   inactive_since: string | null;
-  kader: FLSpielerSelbstKaderZeile[];
+  kader: FLSpielerSelfKaderZeile[];
   kontext: FLSpielerKontext;
   medien_angeboten: boolean;
   /** @exclusiveMinimum 0 */
@@ -2856,6 +2874,58 @@ export interface FLKontoEinwilligungenResponse {
   schiedsrichter: FLKontoSchiedsrichterEinwilligung[];
   sitze: FLKontoSitzEinwilligung[];
   spieler: FLKontoSpielerEinwilligung | null;
+}
+
+/**
+ * One seat on an application, of any status.
+ */
+export interface FLKontoLoeschungBewerbung {
+  nachname: string;
+  rolle: FLKontaktRolle;
+  saison_id: string;
+  vorname: string;
+}
+
+/**
+ * One registration, pending or declined.
+ */
+export interface FLKontoLoeschungRegistrierung {
+  nachname: string;
+  saison_id: string;
+  team_name: string | null;
+  vorname: string;
+}
+
+export interface FLKontoLoeschungSchiedsrichter {
+  name: string | null;
+}
+
+/**
+ * One seat on a team's season row, named as the row names it.
+ */
+export interface FLKontoLoeschungSitz {
+  nachname: string;
+  rolle: FLKontaktRolle;
+  saison_id: string;
+  team_name: string;
+  vorname: string;
+}
+
+export interface FLKontoLoeschungSpieler {
+  nachname: string | null;
+  vorname: string;
+}
+
+export interface FLKontoLoeschungAnsichtResponse {
+  /** @minimum 0 */
+  adresswechsel: number;
+  bewerbungen: FLKontoLoeschungBewerbung[];
+  letzter_inhaber: boolean;
+  registrierungen: FLKontoLoeschungRegistrierung[];
+  schiedsrichter: FLKontoLoeschungSchiedsrichter[];
+  sitze: FLKontoLoeschungSitz[];
+  spieler: FLKontoLoeschungSpieler[];
+  verwaltung: FLVerwaltung | null;
 }
 
 export const FLKontoLoeschungDatenValue = {
@@ -2987,20 +3057,6 @@ export interface FLLoeschungAnsichtResponse {
 }
 
 /**
- * One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due.
- */
-export interface FLLoeschungLaufResponse {
-  abgeschlossene_saison_id: string | null;
-  fehlgeschlagen: number;
-  nach: string | null;
-  registrierungen: number;
-  saison_spieler: number;
-  spieler: number;
-  uebersprungen: number;
-  verbleibend: number;
-}
-
-/**
  * The mailbox, and the request the erasure answers, which every log row the erasure files keeps.
  */
 export interface FLLoeschungPayload {
@@ -3036,6 +3092,20 @@ export interface FLLoeschungResponse {
   spiele: number;
   /** @minimum 0 */
   spieler: number;
+}
+
+/**
+ * One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due.
+ */
+export interface FLLoeschungSweepResponse {
+  abgeschlossene_saison_id: string | null;
+  fehlgeschlagen: number;
+  nach: string | null;
+  registrierungen: number;
+  saison_spieler: number;
+  spieler: number;
+  uebersprungen: number;
+  verbleibend: number;
 }
 
 /**
@@ -4162,7 +4232,7 @@ export interface FLRegistrierungBestaetigungResponse {
 /**
  * The registration's consent record as it stands after the write, everything the pupil did not move unchanged.
  */
-export interface FLRegistrierungSelbstEinwilligungResponse {
+export interface FLRegistrierungKontoEinwilligungResponse {
   einwilligung: FLRegistrierungEinwilligung;
   nachweis_stand: FLEinwilligungStand;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -4312,7 +4382,7 @@ export interface FLSaisonTeamEinwilligungAntwortResponse {
 /**
  * Which of the row's seats the press reached, and the two answers they now all hold.
  */
-export interface FLSaisonTeamPersonEinwilligungResponse {
+export interface FLSaisonTeamKontoEinwilligungResponse {
   medien: boolean;
   nachweis_stand: FLEinwilligungStand;
   rollen: FLKontaktRolle[];
@@ -4400,6 +4470,16 @@ export interface FLSchiedsrichterBestaetigungResponse {
   umfang: FLEinwilligungUmfang;
 }
 
+/**
+ * The record as it stands after the write, everything the person did not move unchanged.
+ */
+export interface FLSchiedsrichterKontoEinwilligungResponse {
+  einwilligung: FLEinwilligung;
+  nachweis_stand: FLEinwilligungStand;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  schiedsrichter_id: string;
+}
+
 export interface FLSchiedsrichterListResponse {
   schiedsrichter: FLSchiedsrichter[];
 }
@@ -4422,9 +4502,9 @@ export interface FLSchiedsrichterReactivateResponse {
 /**
  * One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.
  *
- * For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason, the account page's entry extends it.
+ * For `app/api/spieler/schemas.py :: FLSpielerSelf`'s reason, the account page's entry extends it.
  */
-export interface FLSchiedsrichterSelbst {
+export interface FLSchiedsrichterSelf {
   geburtsdatum: string | null;
   honorar: number;
   kontakt: FLKontakt;
@@ -4436,20 +4516,10 @@ export interface FLSchiedsrichterSelbst {
 }
 
 /**
- * The record as it stands after the write, everything the person did not move unchanged.
- */
-export interface FLSchiedsrichterSelbstEinwilligungResponse {
-  einwilligung: FLEinwilligung;
-  nachweis_stand: FLEinwilligungStand;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  schiedsrichter_id: string;
-}
-
-/**
  * Every confirmed referee record the signed-in address holds, the ghost never among them.
  */
-export interface FLSchiedsrichterSelbstResponse {
-  schiedsrichter: FLSchiedsrichterSelbst[];
+export interface FLSchiedsrichterSelfResponse {
+  schiedsrichter: FLSchiedsrichterSelf[];
 }
 
 export interface FLSchiedsrichterSingleResponse {
@@ -4465,76 +4535,6 @@ export interface FLSchiedsrichterSingleResponse {
  */
 export interface FLSchiedsrichterWriteResponse {
   updated_document: FLSchiedsrichter;
-}
-
-/**
- * A pupil's, a referee's or a registration's own two choices on their record.
- *
- * Both choices on every press, and no member defaulted: a default would let a page that forgot one
- * reset the person's other choice.
- */
-export interface FLSelbstEinwilligungPayload {
-  medien: boolean;
-  nachweis_stand: FLEinwilligungStandPayload;
-  /**
-   * @minLength 1
-   * @maxLength 64
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  text_version: string;
-  umfang: FLEinwilligungUmfang;
-}
-
-/**
- * One seat on an application, of any status.
- */
-export interface FLSelbstLoeschungBewerbung {
-  nachname: string;
-  rolle: FLKontaktRolle;
-  saison_id: string;
-  vorname: string;
-}
-
-/**
- * One registration, pending or declined.
- */
-export interface FLSelbstLoeschungRegistrierung {
-  nachname: string;
-  saison_id: string;
-  team_name: string | null;
-  vorname: string;
-}
-
-export interface FLSelbstLoeschungSchiedsrichter {
-  name: string | null;
-}
-
-/**
- * One seat on a team's season row, named as the row names it.
- */
-export interface FLSelbstLoeschungSitz {
-  nachname: string;
-  rolle: FLKontaktRolle;
-  saison_id: string;
-  team_name: string;
-  vorname: string;
-}
-
-export interface FLSelbstLoeschungSpieler {
-  nachname: string | null;
-  vorname: string;
-}
-
-export interface FLSelbstLoeschungAnsichtResponse {
-  /** @minimum 0 */
-  adresswechsel: number;
-  bewerbungen: FLSelbstLoeschungBewerbung[];
-  letzter_inhaber: boolean;
-  registrierungen: FLSelbstLoeschungRegistrierung[];
-  schiedsrichter: FLSelbstLoeschungSchiedsrichter[];
-  sitze: FLSelbstLoeschungSitz[];
-  spieler: FLSelbstLoeschungSpieler[];
-  verwaltung: FLVerwaltung | null;
 }
 
 /**
@@ -4981,18 +4981,18 @@ export interface FLSpielberichtZustandEintrag {
 }
 
 /**
- * `spiele` of the running season, which the referee reports on; `fruehere` of ended ones, each holding a report they only read.
- */
-export interface FLSpielberichtePersonResponse {
-  fruehere: FLSpielberichtPersonFruehererEintrag[];
-  spiele: FLSpielberichtPersonEintrag[];
-}
-
-/**
  * Every report of one season that holds a block, each with its state.
  */
 export interface FLSpielberichteSaisonResponse {
   spielberichte: FLSpielberichtZustandEintrag[];
+}
+
+/**
+ * `spiele` of the running season, which the referee reports on; `fruehere` of ended ones, each holding a report they only read.
+ */
+export interface FLSpielberichteSelfResponse {
+  fruehere: FLSpielberichtPersonFruehererEintrag[];
+  spiele: FLSpielberichtPersonEintrag[];
 }
 
 /**
@@ -5249,9 +5249,9 @@ export interface FLSpielbestaetigungSchiedsrichterAntwortResponse {
   zustand: FLSpielbestaetigungAntwortArt;
 }
 
-export type FLSpielbestaetigungSelbstZustand = (typeof FLSpielbestaetigungSelbstZustand)[keyof typeof FLSpielbestaetigungSelbstZustand];
+export type FLSpielbestaetigungSelfZustand = (typeof FLSpielbestaetigungSelfZustand)[keyof typeof FLSpielbestaetigungSelfZustand];
 
-export const FLSpielbestaetigungSelbstZustand = {
+export const FLSpielbestaetigungSelfZustand = {
   gueltig: "gueltig",
   zugesagt: "zugesagt",
   abgelehnt: "abgelehnt",
@@ -5263,7 +5263,7 @@ export const FLSpielbestaetigungSelbstZustand = {
 /**
  * One of the signed-in referee's rows, as their panel lists it.
  */
-export interface FLSpielbestaetigungSelbst {
+export interface FLSpielbestaetigungSelf {
   ansetzung: FLSpielbestaetigungAnsichtAnsetzung;
   begruendung: string | null;
   eingetragen: boolean;
@@ -5274,7 +5274,7 @@ export interface FLSpielbestaetigungSelbst {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
   vergangen: boolean;
-  zustand: FLSpielbestaetigungSelbstZustand;
+  zustand: FLSpielbestaetigungSelfZustand;
 }
 
 /**
@@ -5311,8 +5311,8 @@ export interface FLSpielbestaetigungenListResponse {
   vollstaendig: boolean;
 }
 
-export interface FLSpielbestaetigungenSelbstResponse {
-  spielbestaetigungen: FLSpielbestaetigungSelbst[];
+export interface FLSpielbestaetigungenSelfResponse {
+  spielbestaetigungen: FLSpielbestaetigungSelf[];
 }
 
 /**
@@ -5366,6 +5366,16 @@ export interface FLSpielerAdminSingleResponse {
 }
 
 /**
+ * The record as it stands after the write, everything the person did not move unchanged.
+ */
+export interface FLSpielerKontoEinwilligungResponse {
+  einwilligung: FLEinwilligung;
+  nachweis_stand: FLEinwilligungStand;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spieler_id: string;
+}
+
+/**
  * One squad row as the BASE TIER serves it -- all an anonymous visitor may read.
  *
  * `build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the
@@ -5402,6 +5412,14 @@ export interface FLSpielerMembership {
 }
 
 /**
+ * Whether an entry into this season's squads today would be marked a Nachnominierung.
+ */
+export interface FLSpielerNachnominierungResponse {
+  nachnominierung: boolean;
+  saison_id: string;
+}
+
+/**
  * The person as stored, plus every squad row they hold.
  *
  * A DIFFERENT question from `FLSpieler`, not a projection: that one is FLATTENED against one
@@ -5427,16 +5445,8 @@ export interface FLSpielerWithMemberships {
 /**
  * Every player, retired ones included, each with their squad rows. Sorted by name.
  */
-export interface FLSpielerMembershipsResponse {
+export interface FLSpielerSaisonsResponse {
   spieler: FLSpielerWithMemberships[];
-}
-
-/**
- * Whether an entry into this season's squads today would be marked a Nachnominierung.
- */
-export interface FLSpielerNachnominierungResponse {
-  nachnominierung: boolean;
-  saison_id: string;
 }
 
 /**
@@ -5444,10 +5454,10 @@ export interface FLSpielerNachnominierungResponse {
  *
  * Its consent is the account page's, whose entry extends this (`app/api/konto/schemas.py :: FLKontoSpielerEinwilligung`).
  */
-export interface FLSpielerSelbst {
+export interface FLSpielerSelf {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   geburtsdatum: string;
-  kader: FLSpielerSelbstKaderZeile[];
+  kader: FLSpielerSelfKaderZeile[];
   nachname: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieler_id: string;
@@ -5456,20 +5466,10 @@ export interface FLSpielerSelbst {
 }
 
 /**
- * The record as it stands after the write, everything the person did not move unchanged.
- */
-export interface FLSpielerSelbstEinwilligungResponse {
-  einwilligung: FLEinwilligung;
-  nachweis_stand: FLEinwilligungStand;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spieler_id: string;
-}
-
-/**
  * The signed-in address's own pupil record: one at most, `spieler.email` being unique.
  */
-export interface FLSpielerSelbstResponse {
-  spieler: FLSpielerSelbst;
+export interface FLSpielerSelfResponse {
+  spieler: FLSpielerSelf;
 }
 
 /**
@@ -5551,7 +5551,7 @@ export interface FLSubjektSchiedsrichter {
 /**
  * One contact seat the mailbox holds on a season's junction row.
  *
- * Per seat and never per person, as the erasure's `FLSelbstLoeschungSitz` is: one row seats one
+ * Per seat and never per person, as the erasure's `FLKontoLoeschungSitz` is: one row seats one
  * person twice where `trainer_ist_zugleich` says so.
  */
 export interface FLSubjektSitz {
@@ -5732,7 +5732,7 @@ export interface FLTeamsListResponse {
 /**
  * Every club, retired ones included, each with its memberships. Sorted by name.
  */
-export interface FLTeamsMembershipsResponse {
+export interface FLTeamsSaisonsResponse {
   teams: FLTeamWithMemberships[];
 }
 

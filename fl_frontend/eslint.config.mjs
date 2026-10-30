@@ -310,7 +310,7 @@ const BACKGROUND_PASSES = [
   },
   {
     operations: ["identitaet_sweep_loeschung"],
-    wrapper: { file: "src/features/saisons/mutations.ts", regex: moduleNamed("mutations"), names: ["postLoeschungLauf"] },
+    wrapper: { file: "src/features/saisons/mutations.ts", regex: moduleNamed("mutations"), names: ["postLoeschungSweep"] },
     runners: ["src/features/saisons/sweep.ts", "src/features/saisons/actions.ts"],
   },
   {

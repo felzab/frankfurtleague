@@ -9,7 +9,7 @@ from app.api.spieler.services import (
     build_ghost_spieler,
     build_live_rolle_filter,
     build_live_squad_filter,
-    build_selbst_pupil_filter,
+    build_self_pupil_filter,
     build_spieler_filter,
     find_squad_capacity_refusal,
     find_squad_rolle_refusal,
@@ -146,7 +146,7 @@ async def another_pupil_holds(
 
     # One holder at most, `uniq_spieler_email` being unique, so the one read is compared rather than
     # narrowed by an `_id` term the composed filter would part from the address under `$and`.
-    holder = await spieler_collection.find_one(build_selbst_pupil_filter(identifier), projection={"_id": 1}, session=session)
+    holder = await spieler_collection.find_one(build_self_pupil_filter(identifier), projection={"_id": 1}, session=session)
 
     return holder is not None and holder["_id"] != spieler_id
 

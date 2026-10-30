@@ -7,14 +7,14 @@ import { textLink } from "@/shared/components/ui/textLink";
 
 import { SpielerAngaben } from "../ui/SpielerAngaben";
 
-import type { FLSpielerSelbst } from "@/core/generated/client/types";
+import type { FLSpielerSelf } from "@/core/generated/client/types";
 
 /**
  * A pupil's own data, read-only: the consent the record holds is changed on the account page, which
  * the stamped wording names as the place to change it, so this page links there rather than offering
  * a second control.
  */
-export function SpielerSelbstView({ spieler }: { spieler: FLSpielerSelbst }) {
+export function SpielerSelfView({ spieler }: { spieler: FLSpielerSelf }) {
   const panel = formPanel();
 
   return (

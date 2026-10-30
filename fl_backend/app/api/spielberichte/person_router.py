@@ -20,7 +20,7 @@ from app.api.spielberichte.crud import (
     write_bericht,
 )
 from app.api.spielberichte.schemas import (
-    FLSpielberichtePersonResponse,
+    FLSpielberichteSelfResponse,
     FLSpielberichtPayload,
     FLSpielberichtPersonEintrag,
     FLSpielberichtPersonFruehererEintrag,
@@ -68,7 +68,7 @@ PERSON_EINTRAG_FIELDS = ["datum", "uhrzeit", "team1.name", "team2.name"]
 SPIELE_NEUESTE_ZUERST = [("datum", -1), ("uhrzeit", -1), ("_id", 1)]
 
 
-@router.get("/self", response_model=FLSpielberichtePersonResponse, summary="The fixtures a signed-in referee reports on")
+@router.get("/self", response_model=FLSpielberichteSelfResponse, summary="The fixtures a signed-in referee reports on")
 async def get_self(
     identifier: SchiedsrichterIdentifier,
     spiele_collection: SpieleCollection,
@@ -77,7 +77,7 @@ async def get_self(
     records: SubjektLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> FLSpielberichtePersonResponse:
+) -> FLSpielberichteSelfResponse:
     """
     The `active` season's fixtures booked to the signed-in referee whose day has come, newest first.
 
@@ -149,7 +149,7 @@ async def get_self(
             "eingereicht_am": eingereicht.get(spiel["_id"]),
         }
 
-    return FLSpielberichtePersonResponse(
+    return FLSpielberichteSelfResponse(
         spiele=[FLSpielberichtPersonEintrag.model_validate(eintrag(spiel)) for spiel in laufende],
         # An ended season's fixture holding no report has nothing for its read-only page to show.
         fruehere=[FLSpielberichtPersonFruehererEintrag.model_validate(eintrag(spiel)) for spiel in fruehere if spiel["_id"] in eingereicht],
