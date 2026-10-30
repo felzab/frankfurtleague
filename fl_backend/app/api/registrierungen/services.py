@@ -15,6 +15,7 @@ from app.api.bewerbungen.services import ZUSTELLUNG_ABGEWIESEN, days_after, late
 # every `laeuft` a link is shown with and this flow's refusal, so a link and the write it opens
 # cannot disagree.
 from app.api.einladungen.services import registrierungsfenster_laeuft
+from app.api.postausgang.schemas import FLPostausgangLink
 from app.api.registrierungen.schemas import FLRegistrierungEntscheidung, FLRegistrierungSeite
 
 # The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
@@ -178,6 +179,11 @@ def compose_registrierung(
         # Null until a decline writes it; an admission deletes the row instead.
         "entscheidung": None,
     }
+
+
+# Where a registration's mailed link lives, and the address it is minted for while the row still holds it. Never
+# superseding: a reminder's link joins the first one, so a pupil still reading the first mail is not punished by the chase.
+REGISTRIERUNG_LINK: Final = FLPostausgangLink(pfade=["bestaetigung.token_hashes"], adressen=["email"], ersetzt=False)
 
 
 def compose_bestaetigung(*, today: str, frist: str) -> dict[str, Any]:

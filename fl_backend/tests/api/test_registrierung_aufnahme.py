@@ -295,10 +295,16 @@ async def decline(
         identifier=identifier,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN] if registrierungen is None else registrierungen,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         records=record_collections(database),
         db=client,
         today=TODAY,
+        germany_now=NOW,
     )
+
+
+async def notes_owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:
+    return await database[Collection.POSTAUSGANG].find({"art": "registrierung_absage"}).to_list(length=None)
 
 
 async def read(
@@ -1162,14 +1168,15 @@ class TestTheDecline:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             registrierung_id = await seed(database, registrierung_document())
             before = await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id})
-            answer = await decline(database, client, registrierung_id, grund=grund, identifier=THEO)
+            await decline(database, client, registrierung_id, grund=grund, identifier=THEO)
 
-            return before, await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id}), answer
+            return before, await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id}), await notes_owed(database)
 
-        before, after, answer = on_a_league(mongo_replica_set_url, body)
+        before, after, owed = on_a_league(mongo_replica_set_url, body)
 
         assert after == {**before, "status": "abgelehnt", "entscheidung": {"getroffen_am": TODAY, "von": THEO, "grund": grund}}
-        assert (answer.email, answer.bestaetigt, answer.team, answer.grund) == (FOLDED_EMAIL, True, "Zorbanax", grund)
+        # The confirmed pupil's note, owed in the decline's own transaction.
+        assert [(row["an"], row["daten"]["team"], row["daten"]["grund"]) for row in owed] == [(FOLDED_EMAIL, "Zorbanax", grund)]
 
     def test_a_decided_registration_answers_404_to_either_press(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1186,11 +1193,15 @@ class TestTheDecline:
 
         assert after == before
 
-    def test_an_unconfirmed_registration_may_be_declined_and_says_so(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return (await decline(database, client, await seed(database, registrierung_document(confirmed=False)))).bestaetigt
+    def test_an_unconfirmed_registration_may_be_declined_and_owes_nobody_a_note(self, mongo_replica_set_url: str):
+        """An unconfirmed address is anybody's typing, and a note to it tells a stranger about a team's decision."""
 
-        assert on_a_league(mongo_replica_set_url, body) is False
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await decline(database, client, await seed(database, registrierung_document(confirmed=False)))
+
+            return await notes_owed(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == []
 
 
 @functools.cache

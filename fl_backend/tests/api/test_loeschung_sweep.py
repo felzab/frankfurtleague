@@ -549,15 +549,16 @@ async def a_registration_submitted(
             }
         ),
         idempotency_key=None,
-        teams_collection=database[Collection.TEAMS],
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         einladungen_collection=database[Collection.EINLADUNGEN] if einladungen_collection is None else einladungen_collection,
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
+        germany_now=NOW,
     )
 
 

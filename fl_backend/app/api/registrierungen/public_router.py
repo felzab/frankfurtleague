@@ -8,7 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import build_schluessel_filter, days_after, hash_token, payload_fingerabdruck
 from app.api.einladungen.services import find_live_einladung_filter, find_unknown_einladung_refusal
-from app.api.postausgang.schemas import FLPostausgangBezug, FLPostausgangLink, FLRegistrierungLinkDaten
+from app.api.postausgang.schemas import FLPostausgangBezug, FLRegistrierungLinkDaten
 from app.api.postausgang.services import enqueue_mail
 from app.api.registrierungen.schemas import (
     FLEinladungAnsichtResponse,
@@ -16,6 +16,7 @@ from app.api.registrierungen.schemas import (
     FLPostRegistrierungResponse,
 )
 from app.api.registrierungen.services import (
+    REGISTRIERUNG_LINK,
     compose_bestaetigung,
     compose_registrierung,
     find_abweichender_fingerabdruck_refusal,
@@ -305,7 +306,7 @@ async def post_registrierung(
             ),
             now=germany_now,
             bezug=FLPostausgangBezug(sammlung=Collection.REGISTRIERUNGEN, id=registrierung_id, sitz=None),
-            link=FLPostausgangLink(pfad="bestaetigung.token_hashes", ersetzt=False),
+            link=REGISTRIERUNG_LINK,
         )
 
         return FLPostRegistrierungResponse(registrierung_id=registrierung_id)

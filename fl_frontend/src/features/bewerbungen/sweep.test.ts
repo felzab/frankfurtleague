@@ -542,17 +542,6 @@ describe("the line a failed call files", () => {
   });
 });
 
-/** Registration ids as the mirror demands them: `CustomObjectIdStringSchema` takes 24 hex characters and nothing else. */
-const ID_PUPIL = `${"d".repeat(23)}4`;
-
-const reminder = (registrierungId: string, email: string, token: string) => ({
-  registrierung_id: registrierungId,
-  saison_id: "2627",
-  team: "Adler",
-  email: email,
-  token: token,
-});
-
 describe("the registration half of one pass", () => {
   /* The detail the shape invites getting wrong: the application half returns early where it has
      nothing to erase, and a registration call inside that arm runs for no season with a quiet queue. */
@@ -575,29 +564,6 @@ describe("the registration half of one pass", () => {
       "/registrierungen/sweep/2627",
       ADRESSWECHSEL,
     ]);
-  });
-
-  it("mails the pupil's reminder with the fresh link and no idempotency key", async () => {
-    sweepAnswers({
-      saisonIds: ["2627"],
-      registrierungErinnerungen: { "2627": [reminder(ID_PUPIL, "quillhilde@schule.de", "token-frisch")] },
-    });
-
-    await runBewerbungSweep();
-
-    const chase = events.find((event) => event.kind === "mail");
-    expect(chase?.to).toBe("quillhilde@schule.de");
-    // The CONFIGURED origin and never the published one: a link built on the latter sends a reader
-    // of this stack into production.
-    assert.ok(
-      chase?.text.includes("http://localhost:3000/bestaetigung/spieler?token=token-frisch"),
-      "the message carries the link the pass just minted, on the origin this run is configured with",
-    );
-    // The window the first message named: the sentence says the deadline has not moved, and seven is
-    // the mirrored bound rather than a number this file spells.
-    assert.ok(chase?.text.includes("7 Tagen"), "the reminder states the window the first message named");
-    expect(chase?.idempotencyKey, "a fresh token in the body makes a reused key a refusal rather than a collapse").toBe(undefined);
-    expect(chase?.tags).toStrictEqual({ ziel: "registrierung", ziel_id: ID_PUPIL, anlass: "erinnerung" });
   });
 
   /* The half that starved the other: a throw anywhere in the application's clocks skips no

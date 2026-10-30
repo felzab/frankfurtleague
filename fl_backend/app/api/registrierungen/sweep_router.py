@@ -7,10 +7,11 @@ from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import season_has_ended
-from app.api.postausgang.schemas import FLPostausgangBezug, FLPostausgangLink, FLRegistrierungLinkDaten
+from app.api.postausgang.schemas import FLPostausgangBezug, FLRegistrierungLinkDaten
 from app.api.postausgang.services import enqueue_mail
 from app.api.registrierungen.schemas import FLRegistrierungSweepResponse
 from app.api.registrierungen.services import (
+    REGISTRIERUNG_LINK,
     SWEEP_PAGE,
     bestaetigung_erasure_is_due,
     build_decline_filter,
@@ -50,10 +51,10 @@ router = APIRouter(
 
 _TEAM_UNBEKANNT = ""
 
-# Three commands a row (the stamp, the outbox's key lookup and its insert) beside the sixteen of the worst call erasing
-# one page per clock: 259 commands at a 37 ms round trip plus 1.27 ms take 9.91 s of
+# Five commands a row (the stamp, its read-back and its log row, the Postausgang's key lookup and its insert) beside the
+# fourteen of the worst call erasing one page per clock: 259 commands at a 37 ms round trip plus 1.27 ms take 9.91 s of
 # `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
-REMINDERS_PER_PASS: Final = 81
+REMINDERS_PER_PASS: Final = 49
 
 
 async def _redact(*, aktionen_collection: AktionenCollection, ids: Sequence[Any], stamp: str, session: AsyncClientSession) -> int:
@@ -227,8 +228,7 @@ async def sweep_registrierungen(
                 ),
                 now=germany_now,
                 bezug=FLPostausgangBezug(sammlung=Collection.REGISTRIERUNGEN, id=row["_id"], sitz=None),
-                # Beside the first link, never in its place: a pupil still reading the first mail is not punished by the chase.
-                link=FLPostausgangLink(pfad="bestaetigung.token_hashes", ersetzt=False),
+                link=REGISTRIERUNG_LINK,
             )
 
         return len(taken)

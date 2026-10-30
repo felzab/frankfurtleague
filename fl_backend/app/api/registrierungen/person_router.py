@@ -8,9 +8,9 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.identitaet.crud import refuse_without_a_seat
+from app.api.identitaet.lookup import SubjektLookup
 from app.api.postausgang.schemas import FLPostausgangBezug, FLRegistrierungAbsageDaten
 from app.api.postausgang.services import enqueue_mail
-from app.api.identitaet.lookup import SubjektLookup
 from app.api.registrierungen.crud import (
     nummern_rows,
     persons_at,
