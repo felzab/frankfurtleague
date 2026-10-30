@@ -1347,14 +1347,6 @@ export interface FLBerechtigungAntragAbgelehntResponse {
 }
 
 /**
- * The grant an approval wrote or promoted.
- */
-export interface FLBerechtigungAntragGenehmigtResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  berechtigung_id: string;
-}
-
-/**
  * One request as the list serves it, while it may still be decided.
  */
 export interface FLBerechtigungAntragZeile {
@@ -1382,7 +1374,7 @@ export interface FLBerechtigungStufeResponse {
 }
 
 /**
- * The grant a revoke removed: the removal is hard, so the id is all there is to answer with.
+ * The grant a revoke removed or an approval wrote or promoted.
  */
 export interface FLBerechtigungWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */

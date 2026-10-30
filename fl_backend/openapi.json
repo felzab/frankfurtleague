@@ -2430,21 +2430,6 @@
         "title": "FLBerechtigungAntragAbgelehntResponse",
         "type": "object"
       },
-      "FLBerechtigungAntragGenehmigtResponse": {
-        "description": "The grant an approval wrote or promoted.",
-        "properties": {
-          "berechtigung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Berechtigung Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "berechtigung_id"
-        ],
-        "title": "FLBerechtigungAntragGenehmigtResponse",
-        "type": "object"
-      },
       "FLBerechtigungAntragZeile": {
         "description": "One request as the list serves it, while it may still be decided.",
         "properties": {
@@ -2585,7 +2570,7 @@
         "type": "object"
       },
       "FLBerechtigungWriteResponse": {
-        "description": "The grant a revoke removed: the removal is hard, so the id is all there is to answer with.",
+        "description": "The grant a revoke removed or an approval wrote or promoted.",
         "properties": {
           "berechtigung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -19576,7 +19561,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLBerechtigungAntragGenehmigtResponse"
+                  "$ref": "#/components/schemas/FLBerechtigungWriteResponse"
                 }
               }
             },

@@ -37,7 +37,6 @@ import type {
   FLBerechtigungAngekuendigtPayload,
   FLBerechtigungAngekuendigtResponse,
   FLBerechtigungAntragAbgelehntResponse,
-  FLBerechtigungAntragGenehmigtResponse,
   FLBerechtigungenListResponse,
   FLBerechtigungStufeResponse,
   FLBerechtigungWriteResponse,
@@ -939,8 +938,8 @@ export const getBerechtigungenPostAntragGenehmigungUrl = (antragId: string) => {
 export const berechtigungenPostAntragGenehmigung = async (
   antragId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLBerechtigungAntragGenehmigtResponse> => {
-  return adminKeyTransport<FLBerechtigungAntragGenehmigtResponse>(getBerechtigungenPostAntragGenehmigungUrl(antragId), {
+): Promise<FLBerechtigungWriteResponse> => {
+  return adminKeyTransport<FLBerechtigungWriteResponse>(getBerechtigungenPostAntragGenehmigungUrl(antragId), {
     ...options,
     method: "POST",
   });

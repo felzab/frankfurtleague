@@ -26,7 +26,6 @@ from app.api.berechtigungen.schemas import (
     FLBerechtigung,
     FLBerechtigungAdresswechsel,
     FLBerechtigungAntragAbgelehntResponse,
-    FLBerechtigungAntragGenehmigtResponse,
     FLBerechtigungAntragZeile,
     FLBerechtigungenListResponse,
     FLBerechtigungStand,
@@ -668,7 +667,7 @@ async def _move_the_tier_in_session(
 
 @router.post(
     f"/antraege{by_id('antrag_id')}/genehmigung",
-    response_model=FLBerechtigungAntragGenehmigtResponse,
+    response_model=FLBerechtigungWriteResponse,
     summary="Approve a grant or a promotion another administrator asked for",
     # The enrolment window a grant takes, not the step-up's: the approval hands access to the administration over.
     dependencies=[Depends(verify_recent_confirmation)],
@@ -684,7 +683,7 @@ async def post_antrag_genehmigung(
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
     now: datetime = Depends(get_germany_now),
-) -> FLBerechtigungAntragGenehmigtResponse:
+) -> FLBerechtigungWriteResponse:
     """
     Approve a request, the second pair of eyes a grant or a promotion waits on.
 
@@ -772,7 +771,7 @@ async def post_antrag_genehmigung(
     async with transaction_session(db) as session:
         berechtigung_id = await session.with_transaction(approve_the_antrag)
 
-    return FLBerechtigungAntragGenehmigtResponse(berechtigung_id=berechtigung_id)
+    return FLBerechtigungWriteResponse(berechtigung_id=berechtigung_id)
 
 
 @router.delete(

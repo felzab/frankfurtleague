@@ -73,9 +73,8 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# The largest share inside `app/core/middlewares.py :: REQUEST_DEADLINE_S` for the
-# dearest change over a 40,000-row action log a due change reads whole; the arithmetic is
-# `fl_backend/tests/api/test_adresswechsel_sweep_refusal.py`'s, its counts pinned on the wire; a dearer change meets the deadline.
+# The largest share inside `app/core/middlewares.py :: REQUEST_DEADLINE_S` for the dearest change over a 40,000-row
+# action log a due change reads whole; a dearer change meets the deadline.
 ADRESSWECHSEL_PER_PASS: Final = 4
 
 

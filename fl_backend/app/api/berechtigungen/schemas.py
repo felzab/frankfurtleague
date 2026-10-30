@@ -186,7 +186,7 @@ class FLPostBerechtigungResponse(BaseAPIResponse):
 
 
 class FLBerechtigungWriteResponse(BaseAPIResponse):
-    """The grant a revoke removed: the removal is hard, so the id is all there is to answer with."""
+    """The grant a revoke removed or an approval wrote or promoted."""
 
     berechtigung_id: CustomObjectId
 
@@ -196,12 +196,6 @@ class FLBerechtigungStufeResponse(BaseAPIResponse):
 
     berechtigung_id: CustomObjectId
     beantragt: bool
-
-
-class FLBerechtigungAntragGenehmigtResponse(BaseAPIResponse):
-    """The grant an approval wrote or promoted."""
-
-    berechtigung_id: CustomObjectId
 
 
 class FLBerechtigungAntragAbgelehntResponse(BaseAPIResponse):
