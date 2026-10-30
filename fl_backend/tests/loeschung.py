@@ -10,7 +10,7 @@ from app.api.identitaet.person_router import post_konto_loeschung
 from app.api.identitaet.schemas import FLLoeschungResponse
 from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
-from tests.actor_tokens import FRESH_ADMIN_ACTOR
+from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list
 from tests.config import build_test_config
 
@@ -41,7 +41,7 @@ async def geloescht(
         **loeschung_collections(database, **replaced),
         sperrliste=ban_list(database),
         # Refusing none: a grant holder's passkey is held over HTTP, in `tests/api/test_step_up_execution.py`.
-        actor=FRESH_ADMIN_ACTOR,
+        actor=fresh_admin_actor(),
         db=client,
         config=_CONFIG,
         germany_now=germany_now,

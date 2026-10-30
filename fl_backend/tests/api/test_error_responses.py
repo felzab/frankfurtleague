@@ -13,7 +13,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 from httpx2 import Response
 from pydantic import BaseModel, Field, ValidationError
-from pymongo.errors import BulkWriteError, PyMongoError, WriteError
+from pymongo.errors import BulkWriteError, PyMongoError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.codes import Code
@@ -70,9 +70,15 @@ class NestedPayload(BaseModel):
 
 
 # A second app: `APP`'s routes all 503 on the database dependency before parsing can fail, so a
-# payload refusal needs a route that depends on nothing.
+# payload refusal needs a route that depends on nothing, and so does a success that writes its access line.
 VALIDATION_APP = TracedApp()
 register_exception_handlers(VALIDATION_APP)
+ANSWERED_PATH = "/answered"
+
+
+@VALIDATION_APP.get(ANSWERED_PATH)
+async def answer() -> dict[str, bool]:
+    return {"ok": True}
 
 
 @VALIDATION_APP.post("/nested")
@@ -230,73 +236,28 @@ class TestTheAccessLineCarriesTheRefusal:
         assert access_codes(caplog, lambda: client().get("/api/v0/spiele")) == [Code.ACCESS_KEY_REFUSED]
 
     def test_a_success_s_access_line_carries_no_code(self, caplog):
-        assert access_codes(caplog, lambda: client().get("/")) == [None]
+        assert access_codes(caplog, lambda: TestClient(VALIDATION_APP).get(ANSWERED_PATH)) == [None]
 
 
-# The values the two reports below carry. Distinctive, so absence from a whole log document is
+# The values the report below carries. Distinctive, so absence from a whole log document is
 # evidence rather than coincidence.
-REFUSED_CONSENT_SCOPE = "Quillfeather-Kaderoeffentlich"
+REFUSED_VORNAME = "Quillfeather"
 REFUSED_SPIELER_OID = "6890a1b2c3d4e5f60fff0016"
 
-# A refusal in the shape `mongod` 8 reports it, taken from a real one. A hand-shortened copy would
-# prove the handler against a report the server never sends.
-REFUSED_DOCUMENT_REPORT: dict[str, Any] = {
-    "index": 0,
-    "code": 121,
-    "errmsg": "Document failed validation",
-    "errInfo": {
-        "failingDocumentId": ObjectId("6890a1b2c3d4e5f60fff0011"),
-        "details": {
-            "operatorName": "$jsonSchema",
-            "schemaRulesNotSatisfied": [
-                {
-                    "operatorName": "properties",
-                    "propertiesNotSatisfied": [
-                        {
-                            "propertyName": "einwilligung",
-                            "details": [
-                                {
-                                    "operatorName": "properties",
-                                    "propertiesNotSatisfied": [
-                                        {
-                                            "propertyName": "umfang",
-                                            "details": [
-                                                {
-                                                    "operatorName": "enum",
-                                                    "specifiedAs": {"enum": ["kader_oeffentlich", "intern"]},
-                                                    "reason": "value was not found in enum",
-                                                    "consideredValue": REFUSED_CONSENT_SCOPE,
-                                                }
-                                            ],
-                                        }
-                                    ],
-                                }
-                            ],
-                        }
-                    ],
-                },
-                {
-                    "operatorName": "required",
-                    "specifiedAs": {"required": ["_id", "vorname", "nachname", "einwilligung", "inactive_since"]},
-                    "missingProperties": ["nachname"],
-                },
-            ],
-        },
-    },
-}
-
-# A validator's refusal inside a batch, carrying the `op` the driver adds: the whole document it
-# tried to write.
+# A unique index refusing one document of a batch: the server's message and `keyValue` quote the
+# key, and the `op` the driver adds is the whole document it tried to write.
 REFUSED_BULK_INSERT_REPORT: dict[str, Any] = {
     "writeErrors": [
         {
-            **REFUSED_DOCUMENT_REPORT,
-            "op": {
-                "_id": ObjectId(REFUSED_SPIELER_OID),
-                "vorname": "Anna",
-                "einwilligung": {"umfang": REFUSED_CONSENT_SCOPE},
-                "inactive_since": None,
-            },
+            "index": 0,
+            "code": 11000,
+            "errmsg": (
+                "E11000 duplicate key error collection: frankfurtleague.spieler index: _id_ dup key: "
+                f"{{ _id: ObjectId('{REFUSED_SPIELER_OID}') }}"
+            ),
+            "keyPattern": {"_id": 1},
+            "keyValue": {"_id": ObjectId(REFUSED_SPIELER_OID)},
+            "op": {"_id": ObjectId(REFUSED_SPIELER_OID), "vorname": REFUSED_VORNAME, "inactive_since": None},
         }
     ],
     "writeConcernErrors": [],
@@ -306,39 +267,6 @@ REFUSED_BULK_INSERT_REPORT: dict[str, Any] = {
     "nModified": 0,
     "nRemoved": 0,
     "upserted": [],
-}
-
-# The same refusal with an ARRAY of documents as the refused value, each shaped like a report: a walk
-# reading every key would descend into these, where a value of any other shape would slip past unseen.
-REFUSED_SUBDOCUMENT_REPORT: dict[str, Any] = {
-    "index": 0,
-    "code": 121,
-    "errmsg": "Document failed validation",
-    "errInfo": {
-        "failingDocumentId": ObjectId("6890a1b2c3d4e5f60fff0011"),
-        "details": {
-            "operatorName": "$jsonSchema",
-            "schemaRulesNotSatisfied": [
-                {
-                    "operatorName": "properties",
-                    "propertiesNotSatisfied": [
-                        {
-                            "propertyName": "einwilligung",
-                            "details": [
-                                {
-                                    "operatorName": "bsonType",
-                                    "specifiedAs": {"bsonType": "object"},
-                                    "reason": "type did not match",
-                                    "consideredValue": [{"propertyName": "umfang", "reason": REFUSED_CONSENT_SCOPE}],
-                                    "consideredType": "object",
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ],
-        },
-    },
 }
 
 
@@ -369,31 +297,12 @@ class TestAServerFaultsLineWithholdsTheValue:
         assert REJECTED_NAME not in document and REJECTED_MARKUP not in document
         assert "vorname" in document and "string_pattern_mismatch" in document and Code.STORED_DATA_INVALID in document
 
-    def test_a_validator_s_refusal_names_its_property_and_never_its_value(self, caplog):
-        document = database_crash_document(caplog, WriteError("Document failed validation", 121, REFUSED_DOCUMENT_REPORT))
-
-        assert REFUSED_CONSENT_SCOPE not in document
-        # The key the server puts the value under: naming it would fail this even for a value the test cannot guess.
-        assert "consideredValue" not in document
-        # The dotted path, not the leaf, and the second rule in the same report.
-        assert "einwilligung.umfang" in document and "value was not found in enum" in document and "nachname" in document
-        assert Code.DATABASE_FAILED in document
-
-    def test_the_walk_never_descends_into_the_refused_value(self, caplog):
-        """Catches widening the report keys walked to the ones a refused value sits under."""
-
-        document = database_crash_document(caplog, WriteError("Document failed validation", 121, REFUSED_SUBDOCUMENT_REPORT))
-
-        assert REFUSED_CONSENT_SCOPE not in document
-        # Still reported, so this cannot pass by the walk having found nothing at all.
-        assert "einwilligung" in document and "type did not match" in document
-
     def test_a_bulk_write_s_refused_document_never_reaches_the_line(self, caplog):
         document = database_crash_document(caplog, BulkWriteError(REFUSED_BULK_INSERT_REPORT))
 
-        # `op` holds the refused value a second time, beside the validator's `consideredValue`.
-        assert REFUSED_SPIELER_OID not in document and REFUSED_CONSENT_SCOPE not in document
-        assert "einwilligung.umfang" in document
+        assert REFUSED_SPIELER_OID not in document and REFUSED_VORNAME not in document
+        # Still the handler's own line, so this cannot pass by no line having been written.
+        assert Code.DATABASE_FAILED in document and "BulkWriteError" in document
 
 
 TRACEPARENT = f"00-{'c0ffee00' * 4}-{'ab' * 8}-01"
@@ -428,13 +337,13 @@ class TestTraceContext:
 class TestAccessLine:
     def test_every_request_writes_one_line_with_its_trace_id_and_timing(self, caplog):
         with caplog.at_level(logging.INFO, logger="frankfurtleague"):
-            client().get("/", headers={"traceparent": TRACEPARENT})
+            TestClient(VALIDATION_APP).get(ANSWERED_PATH, headers={"traceparent": TRACEPARENT})
 
         lines = [record for record in caplog.records if getattr(record, "method", None) is not None]
         assert len(lines) == 1
         line = lines[0]
         assert line.method == "GET"
-        assert line.path == "/"
+        assert line.path == ANSWERED_PATH
         assert line.status == 200
         assert isinstance(line.duration_ms, float)
         assert line.trace_id == "c0ffee00" * 4

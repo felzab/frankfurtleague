@@ -15,14 +15,12 @@ from pymongo.client_session_shared import _EmptyServerSession
 from pymongo.errors import OperationFailure, PyMongoError
 
 from app.core.codes import Code
-from app.core.exception_handlers import (
-    NO_DATA_TEXT,
-    refused_properties_of,
-    rejected_fields_of,
-)
+from app.core.exception_handlers import rejected_fields_of
 from app.core.exceptions import APIError
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
+
+NO_DATA_TEXT: Final = "//- No Data -//"
 
 # Shared by every abort a request sends past its deadline, or a loop of cut transactions waits out
 # one apiece; far above a round trip, and inside the page's margin.
@@ -224,10 +222,7 @@ def diagnosis_of(failure: Exception) -> tuple[str, str]:
     """
 
     if isinstance(failure, PyMongoError):
-        return (
-            Code.DATABASE_FAILED,
-            f"{type(failure).__name__}, code {getattr(failure, 'code', None)}: {refused_properties_of(failure) or NO_DATA_TEXT}",
-        )
+        return Code.DATABASE_FAILED, f"{type(failure).__name__}, code {getattr(failure, 'code', None)}"
     if isinstance(failure, ValidationError):
         return Code.STORED_DATA_INVALID, f"{type(failure).__name__}: {rejected_fields_of(failure.errors()) or NO_DATA_TEXT}"
 
