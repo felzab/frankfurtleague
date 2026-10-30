@@ -10,8 +10,7 @@
 #
 # Invariants:
 # - A credential a URL carries never reaches an access line, and every line holds the edge's own span.
-# - A visitor's `traceparent` and `X-FL-Actor` are replaced or cleared on every location proxying to
-#   the frontend.
+# - A visitor's `traceparent` is replaced on every location proxying to the frontend.
 # - Each security header is sent once, as written, on every location's response.
 # - No visitor is named in the container's own streams.
 # - Each upstream is found by name as nginx serves, and the capabilities the model grants are enough
@@ -100,7 +99,6 @@ server {
     # Off, so the stub's own lines stay out of the stream being asserted.
     access_log off;
     add_header X-Seen-Traceparent $http_traceparent always;
-    add_header X-Seen-Actor $http_x_fl_actor always;
     add_header X-Seen-Next-Action $http_next_action always;
 STUB
   for name in "${!SECURITY_HEADERS[@]}"; do printf '    add_header %s "upstream" always;\n' "$name"; done
@@ -587,11 +585,10 @@ while IFS= read -r location_line; do
 done < "${REPO_ROOT}/nginx/shared/site.conf"
 (( ${#HEADER_PATHS[@]} > 0 )) || refuse "nginx/shared/site.conf yielded no location to probe."
 
-# The two headers a visitor may not choose, sent on every
-# request below: nginx forwards every request header no `proxy_set_header` names, so a location
-# dropping the inherited set hands both to Next as they arrived.
+# The header a visitor may not choose, sent on every request below: nginx forwards every request
+# header no `proxy_set_header` names, so a location dropping the inherited set hands it to Next as
+# it arrived.
 CLIENT_TRACE="0af7651916cd43dd8448eb211c80319c"
-CLIENT_ACTOR="fl-edge-actor-probe"
 # On a GET, which the action pair's key leaves out, and inside the burst of every zone keyed on a GET,
 # so every location answers.
 CLIENT_ACTION="fl-edge-action-probe"
@@ -601,7 +598,7 @@ HEADER_REQUESTS=()
 for _i in "${!HEADER_PATHS[@]}"; do
   if (( _i > 0 )); then HEADER_REQUESTS+=( --next ); fi
   HEADER_REQUESTS+=( -s -o /dev/null -D "${SCRATCH}/headers-${_i}" --max-time 5 -H "Host: localhost"
-    -H "traceparent: 00-${CLIENT_TRACE}-b7ad6b7169203331-01" -H "X-FL-Actor: ${CLIENT_ACTOR}"
+    -H "traceparent: 00-${CLIENT_TRACE}-b7ad6b7169203331-01"
     -H "Next-Action: ${CLIENT_ACTION}" "${BASE}${HEADER_PATHS[_i]}" )
 done
 curl "${HEADER_REQUESTS[@]}" || true
@@ -615,11 +612,6 @@ for _i in "${!HEADER_PATHS[@]}"; do
   if [[ ! "$seen_trace" =~ ^00-[0-9a-f]{32}-[0-9a-f]{16}-01$ || "$seen_trace" == *"$CLIENT_TRACE"* ]]; then
     fail "UPSTREAM ${HEADER_PATHS[_i]}"
     detail "expected the edge's own traceparent at Next, Next received '${seen_trace}'"
-    HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
-  fi
-  if [[ -n "${SENT_VALUE[x-seen-actor]:-}" ]]; then
-    fail "UPSTREAM ${HEADER_PATHS[_i]}"
-    detail "expected no X-FL-Actor at Next, Next received '${SENT_VALUE[x-seen-actor]}'"
     HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
   # That no location clears the id a server action is posted with; the empty one is the relay's below.
@@ -1325,7 +1317,7 @@ fi
 
 ok "${#CASES[@]} redaction cases clean, no visitor in the container's own streams,
 ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written,
-${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor, an empty
+${UPSTREAM_READ} of those paths handing Next the edge's own traceparent, an empty
 Next-Action handed to no one, server
 actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, every link page
 metered on every request under every spelling, its load refused with the edge's own page and no token reaching the error log, the

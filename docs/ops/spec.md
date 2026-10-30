@@ -36,7 +36,7 @@ settings are dashboard state (§1.8).
 `frankfurtleague-net`, which it shares with the connector, and `frankfurtleague-app`, which it
 shares with `frontend` and `backend`. An origin set in the dashboard is read by nothing in this
 repository, so without the split a hostname pointed at `backend:8000` would publish the whole API
-past nginx, its routing and its blanking of `X-FL-Actor`; with it, that origin does not resolve.
+past nginx and its routing; with it, that origin does not resolve.
 
 Each service's image, resource limits and health check are `docker-compose.yml`'s own, at its
 `image:`, its `deploy.resources` and its `healthcheck:`.
@@ -448,12 +448,12 @@ control that fits**, because a status code is an answer the caller can read; `li
 paths is that control at the origin.
 
 **A `location` declaring any `proxy_set_header` REPLACES that whole inherited set rather than
-extending it** — the mechanism `add_header` follows, and what decides which of the two
-edge-controlled headers, `traceparent` and `X-FL-Actor`, reaches an upstream
+extending it** — the mechanism `add_header` follows, and what decides whether the
+edge-controlled `traceparent` reaches an upstream
 (`nginx/shared/site.conf`). The liveness location restates the set in full
 so that FastAPI is addressed as the upstream `proxy_pass` names, as the frontend's own calls address
 it. It is the only location declaring one, and
-`nginx/edge_test.sh` fails any location proxying to the frontend that hands Next either header as
+`nginx/edge_test.sh` fails any location proxying to the frontend that hands Next that header as
 a visitor sent it.
 
 ### 1.4 Security headers
@@ -865,7 +865,7 @@ time. What the nginx half does have is `nginx/edge_test.sh`, which drives a real
 through a real edge started as `docker-compose.yml` starts it, reads the access line back,
 asks every location and the www redirect for its security headers,
 each compared with `nginx/shared/security_headers.conf`, fails a frontend location handing
-Next a visitor's `traceparent` or `X-FL-Actor`, and drives
+Next a visitor's `traceparent`, and drives
 the Control API the deploy reloads through: an applied reload, a refused one, the dump, and a
 worker user it refuses.
 
