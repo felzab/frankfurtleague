@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { person, sitz } from "@/test-support/subjectFixtures.ts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -8,12 +9,12 @@ import { COPY } from "./copy";
 import { APIBadStatusError } from "./errors";
 
 import type { Code } from "./generated/client/types";
+import type { SubjectSession } from "./subject";
 
 /** What each double answers, and what reached it. */
 const stand = vi.hoisted(() => ({
   admin: { session: {} } as { session: object } | { refused: string },
-  subject: null as object | null,
-  seats: [] as { team_id: string; saison_id: string }[],
+  subject: null as SubjectSession | null,
   botCheck: null as string | null,
   /** Every step in the order it ran. */
   steps: [] as string[],
@@ -33,10 +34,6 @@ vi.mock("./subject", () => ({
     stand.steps.push("person guard");
     return stand.subject;
   },
-}));
-vi.mock("./funktionen", () => ({
-  funktionenOf: () => ({ funktionen: stand.seats }),
-  isSeatAt: (seat: { team_id: string; saison_id: string }, team: string, saison: string) => seat.team_id === team && seat.saison_id === saison,
 }));
 vi.mock("./turnstile", () => ({
   turnstileRefusal: async (token: string | null) => {
@@ -84,7 +81,6 @@ function anlegen(wirft?: unknown) {
 beforeEach(() => {
   stand.admin = { session: {} };
   stand.subject = null;
-  stand.seats = [];
   stand.botCheck = null;
   stand.steps = [];
   stand.lines = [];
@@ -203,7 +199,10 @@ function catchRedirect(): unknown {
   }
 }
 
-const Sitz = z.object({ team_id: z.string(), saison_id: z.string() });
+const Sitz = z.object({ team_id: z.string().min(1), saison_id: z.string().min(1) });
+
+/** A signed-in person holding a contact seat at each team and season named, in seasons that grant a panel. */
+const sitzend = (...sitze: { team_id: string; saison_id: string }[]) => person({ sitze: sitze.map((at) => sitz(at)) });
 
 describe("the person lane", () => {
   const melden = action({
@@ -218,16 +217,19 @@ describe("the person lane", () => {
   });
 
   it("turns away a caller with no session, logging why, before the input is read", async () => {
-    expect(await melden({ team_id: "t1", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.fehler.abgelaufen });
+    // An input the schema refuses: read first, it would answer with the box's message.
+    expect(await melden({ team_id: "", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.fehler.abgelaufen });
     expect(stand.steps).toStrictEqual(["person guard"]);
     expect(stand.lines).toStrictEqual([
       { level: "info", message: "funktion.verweigert", meta: { operation: "melden", grund: "keine_sitzung" } },
     ]);
   });
 
-  it("refuses a seat the person holds in another season, naming nothing of the address", async () => {
-    stand.subject = { email: "lena@example.com" };
-    stand.seats = [{ team_id: "t1", saison_id: "2026" }];
+  it.each([
+    ["in another season", { team_id: "t1", saison_id: "2026" }],
+    ["at another team in the same season", { team_id: "t2", saison_id: "2027" }],
+  ])("refuses a seat the person holds %s, naming nothing of the address", async (_where, held) => {
+    stand.subject = sitzend(held);
 
     expect(await melden({ team_id: "t1", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.fehler.veraltet });
     expect(stand.steps).toStrictEqual(["person guard"]);
@@ -235,8 +237,7 @@ describe("the person lane", () => {
   });
 
   it("runs the body for a seat held at both halves of the address, handing it the seat", async () => {
-    stand.subject = { email: "lena@example.com" };
-    stand.seats = [{ team_id: "t1", saison_id: "2027" }];
+    stand.subject = sitzend({ team_id: "t2", saison_id: "2027" }, { team_id: "t1", saison_id: "2027" });
 
     expect(await melden({ team_id: "t1", saison_id: "2027" })).toStrictEqual({ ok: true, value: undefined });
     expect(stand.steps).toStrictEqual(["person guard", "body 1", "updateTag site"]);
