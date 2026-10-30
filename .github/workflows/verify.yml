@@ -60,13 +60,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The application too, though no step of this scope imports it: the uv cache's one writer
-      # installs it, since every caller restores the cache under one key.
+      # The route checker's interpreter.
       - uses: ./.github/actions/backend-toolchain
         with:
-          application: true
-          # The uv cache's one writer: on a miss every saving job would archive the whole cache.
-          save-cache: true
+          application: false
       - name: Run the docs scope
         run: ./scripts/gate/verify.sh --docs
 
@@ -94,6 +91,10 @@ jobs:
       - uses: ./.github/actions/backend-toolchain
         with:
           application: true
+          # The uv cache's one writer: on a miss every saving job would archive the whole cache. Its key
+          # carries the runner's OS release, so a writer on the db job's ubuntu-22.04 would serve no
+          # ubuntu-latest job.
+          save-cache: true
       - name: Run the backend scope
         run: ./scripts/gate/verify.sh --backend
 
