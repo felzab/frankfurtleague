@@ -176,6 +176,10 @@ const environment = {
     return protocol === "https:" || hostname === "localhost" || hostname === "127.0.0.1";
   }, "AUTH_URL must use https:// unless it points at localhost"),
 
+  // The image's version from its build argument (`fl_frontend/Dockerfile`), which the start-up line logs; absent
+  // from a build handed none and from `next dev`.
+  APP_VERSION: z.string().min(1).optional(),
+
   // Public: the bot check's widget prints it into the page. No default, so a host's file leaving it out
   // is refused before the recreate rather than at the boot.
   TURNSTILE_SITE_KEY: z.string().min(1),

@@ -10,6 +10,7 @@ const ran: string[] = [];
 const answers = new Map<string, () => Promise<number | void>>();
 
 const lines: { level: string; event: string; fields: unknown }[] = [];
+const schedulerLines = () => lines.filter(({ event }) => event.startsWith("scheduler."));
 
 /** The monitor's address the boot reads, absent where a case sets none, as on every stack but production. */
 let heartbeat: string | undefined;
@@ -33,7 +34,7 @@ vi.doMock("@/core/config.ts", () => ({
   refuseInvalidEnvironment: (): never => {
     throw new Error("the doubled config refuses no environment");
   },
-  frontend_config: { APP_ENV: "production" },
+  frontend_config: { APP_ENV: "production", APP_VERSION: "sha-1234567" },
   heartbeatUrl: () => heartbeat,
 }));
 vi.doMock("@/core/logging.ts", () => ({
@@ -119,6 +120,15 @@ it("words every server parse in the German map once the server starts, below a m
   expect(z.string().max(2, { error: "Höchstens 2 in der Reihe" }).safeParse("abc").error?.issues[0]?.message).toBe("Höchstens 2 in der Reihe");
 });
 
+/* Docker's json-file driver records no image version, so this line is the one record of which build started. */
+it("logs one start line naming the image's version", async () => {
+  await bootAndStep("production", []);
+
+  expect(lines.filter(({ event }) => event === "system.started")).toStrictEqual([
+    { level: "info", event: "system.started", fields: { version: "sha-1234567" } },
+  ]);
+});
+
 describe("the one scheduler", () => {
   /* Nothing at the boot, where the backend may not answer yet after a deploy; the first pass a minute in, so a
      container recreated daily still runs one; then hourly. Every job each pass, the drain last, sending what they owed. */
@@ -155,7 +165,7 @@ describe("the one scheduler", () => {
     await settle();
 
     expect(second, "the second hour started a pass beside the first").toStrictEqual(["bewerbungen"]);
-    expect(lines.map(({ event }) => event)).toStrictEqual(["scheduler.pass_skipped"]);
+    expect(schedulerLines().map(({ event }) => event)).toStrictEqual(["scheduler.pass_skipped"]);
     expect(ran).toStrictEqual(EVERY_JOB);
   });
 });
@@ -187,7 +197,7 @@ describe("the heartbeat after each pass", () => {
     await bootAndStep("production", [MINUTE_MS, HOUR_MS]);
 
     expect(ran).toStrictEqual([...EVERY_JOB, ...EVERY_JOB]);
-    expect(lines.map(({ event, fields }) => [event, fields])).toStrictEqual([
+    expect(schedulerLines().map(({ event, fields }) => [event, fields])).toStrictEqual([
       ["scheduler.heartbeat_failed", { name: "TypeError" }],
       ["scheduler.heartbeat_failed", { name: "TypeError" }],
     ]);

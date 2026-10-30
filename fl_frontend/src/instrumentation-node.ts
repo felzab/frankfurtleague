@@ -8,7 +8,7 @@ import { HOUR_MS } from "./core/timeUnits";
 const REFUSED = 3;
 
 export async function registerOnNode() {
-  const { checkedAs, heartbeatUrl } = await passBootGates().catch((refusal: unknown) => {
+  const { checkedAs, frontend_config, heartbeatUrl } = await passBootGates().catch((refusal: unknown) => {
     // Next logs a throwing hook and serves on, every page a 500; a dead container is what a restart
     // policy and the deploy's rollback read. The empty write's
     // callback runs once the CRITICAL line has left.
@@ -20,6 +20,9 @@ export async function registerOnNode() {
   // Before anything below is armed: a one-off container would otherwise sweep and announce beside the
   // service it is judging for.
   if (checkedAs !== undefined) process.exit(0);
+
+  // The one line per start that says which build runs: the json-file driver records no image version of its own.
+  logger.info("system.started", { version: frontend_config.APP_VERSION ?? null });
 
   // `next dev` never sets NODE_ENV to production, and a developer's machine holds a real transport
   // and the league's real people.
@@ -175,5 +178,5 @@ async function passBootGates() {
   // file says `local` passes every gate holding none of them: the preflight names the deployment instead.
   if (checkedAs !== undefined && frontend_config.APP_ENV !== checkedAs) refuseInvalidEnvironment(["APP_ENV"]);
 
-  return { checkedAs, heartbeatUrl };
+  return { checkedAs, frontend_config, heartbeatUrl };
 }
