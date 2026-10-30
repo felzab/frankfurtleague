@@ -2,7 +2,7 @@ import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants
 
 import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
 import type { FLSpiel } from "@/features/spiele/types";
-import type { FLSpieltagWithSpiele } from "./schemas";
+import type { FLSpieltagWithSpiele } from "./types";
 
 /**
  * `PlayoffsView` draws its lines by index parity, true only if this has made it true — the Spiele

@@ -1,52 +1,10 @@
+// Redesign: goes with its last importer.
 import z from "zod";
 
-import { BaseAPIResponseSchema } from "@/core/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
-import { SAISON_ID_LENGTH } from "../saisons/constants";
-import { FLSaisonPhaseSchema } from "../saisons/schemas";
-
-import type { FLSpielJoined, FLSpielJoinedAdmin } from "@/core/generated/client/types";
-import type { FLSpiel } from "../spiele/types";
-
-export const FLSpieltagSchema = z.object({
-  id: CustomObjectIdStringSchema,
-
-  // Nullable because a matchday arrives without dates: the season's generator writes the round and
-  // its place, and a person dates it afterwards. Every reader has to say so rather than format null.
-  beginn: CustomDateStringSchema.nullable(),
-  ende: CustomDateStringSchema.nullable(),
-  // Derived from the season's rules, stored nowhere. Zero is legitimate for a phase the bracket does
-  // not reach, hence `nonnegative`.
-  anzahl_spiele: z.int().nonnegative(),
-  // Stored, unique within one phase of one season, and the ordinal `spieltagLabel` renders — so it
-  // starts at one rather than at zero.
-  position: z.int().min(1),
-  saison_phase: FLSaisonPhaseSchema,
-  saison_id: z.string().length(SAISON_ID_LENGTH),
-});
-export type FLSpieltag = z.infer<typeof FLSpieltagSchema>;
-
-export const FLSpieltagWithSpieleSchema = FLSpieltagSchema.extend({ spiele: z.array(z.custom<FLSpielJoined>()) });
-// The admin tier's join, whose referee block carries the fee and no publication verdict: the base parse refuses it.
-export const FLSpieltagWithAdminSpieleSchema = FLSpieltagSchema.extend({ spiele: z.array(z.custom<FLSpielJoinedAdmin>()) });
-// Either tier's fixtures, as `fl_frontend/src/features/spiele/types.ts :: FLSpiel` types them.
-export type FLSpieltagWithSpiele = Omit<z.infer<typeof FLSpieltagWithSpieleSchema>, "spiele"> & { spiele: FLSpiel[] };
-
-export const FLSpielplanSchema = z.object({
-  spieltage: z.array(FLSpieltagWithSpieleSchema),
-});
-export type FLSpielplan = z.infer<typeof FLSpielplanSchema>;
-
-export const FLSpieltageListResponseSchema = BaseAPIResponseSchema.extend({
-  spieltage: z.array(FLSpieltagSchema),
-});
-export type FLSpieltageListResponse = z.infer<typeof FLSpieltageListResponseSchema>;
-
-export const FLSpieltageSingleResponseSchema = BaseAPIResponseSchema.extend({
-  spieltag: FLSpieltagSchema,
-});
-export type FLSpieltageSingleResponse = z.infer<typeof FLSpieltageSingleResponseSchema>;
+// The old matchday form's own judgement of its draft, in words an administrator reads, before its action sends the
+// write through the generated client, which types the body against the write's published contract.
 
 // The message names `ende`, the field to fix.
 const endsAfterItBegins = {
@@ -85,10 +43,3 @@ export function buildPatchSpieltagPayloadSchema(saisonSpan?: { start: string; en
     path: ["ende"],
   });
 }
-
-export const FLSpieltagWriteResponseSchema = BaseAPIResponseSchema.extend({
-  spieltag_id: CustomObjectIdStringSchema,
-  // Not nullable: the PATCH is the only write left, and it always echoes what it stored.
-  updated_document: FLSpieltagSchema,
-});
-export type FLSpieltagWriteResponse = z.infer<typeof FLSpieltagWriteResponseSchema>;

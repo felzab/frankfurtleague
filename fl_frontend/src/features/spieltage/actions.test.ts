@@ -54,7 +54,6 @@ describe("the matchday's write", () => {
     const id = "6890a1b2c3d4e5f607182931";
     answerWith(() =>
       Promise.resolve({
-        acknowledged: 1,
         spieltag_id: id,
         updated_document: { id, ...span, anzahl_spiele: 4, position: 1, saison_phase: "gruppenphase", saison_id: "2026" },
       }),
