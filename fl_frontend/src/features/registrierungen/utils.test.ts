@@ -324,20 +324,6 @@ describe("what one refused confirmation shows", () => {
     });
   });
 
-  /* Only the league can date the person, so the mail's link, which `REQ-REGISTRIERUNG-017` sends a pupil back to,
-     would take the same undated person on every reopening. */
-  it("sends a returning pupil the league holds no birthdate for to the league, never back to the link", async () => {
-    const mapped = await mapBestaetigungRefusal(refused("REQ-REGISTRIERUNG-019"), { geburtsdatum: null }, () =>
-      Promise.reject(new Error("the view was read")),
-    );
-
-    expect(mapped).toStrictEqual({
-      error:
-        "Zu Deinem Eintrag haben wir kein Geburtsdatum gespeichert, deshalb können wir Deine Registrierung hier nicht bestätigen. " +
-        `Schreib uns an ${KONTAKT_EMAIL}, damit wir es eintragen.`,
-    });
-  });
-
   /* Both directions against the published document, as the submission's twin has: a code the
      confirmation raises and this mapper does not know falls through to the shared fallback. */
   it("maps every code the confirmation publishes, and no rule it does not", async () => {
@@ -350,7 +336,6 @@ describe("what one refused confirmation shows", () => {
       "REQ-REGISTRIERUNG-010",
       "REQ-REGISTRIERUNG-012",
       "REQ-REGISTRIERUNG-017",
-      "REQ-REGISTRIERUNG-019",
     );
     const mapped = [
       "REQ-EINWILLIGUNG-001",
@@ -361,7 +346,6 @@ describe("what one refused confirmation shows", () => {
       "REQ-REGISTRIERUNG-010",
       "REQ-REGISTRIERUNG-012",
       "REQ-REGISTRIERUNG-017",
-      "REQ-REGISTRIERUNG-019",
     ];
 
     for (const code of new Set([...published, ...mapped])) {

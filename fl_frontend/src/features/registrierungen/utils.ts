@@ -154,12 +154,6 @@ const GESPEICHERTES_GEBURTSDATUM_AUSSERHALB = buildRefusal({
   repair: `Du siehst es in Deinem Konto. Stimmt es nicht, schreib uns an ${KONTAKT_EMAIL}`,
 });
 
-/** The returning pupil's page meeting a person the league holds no birthdate for: the page has no field, so the league is the repair. */
-const GESPEICHERTES_GEBURTSDATUM_FEHLT = buildRefusal({
-  reason: "Zu Deinem Eintrag haben wir kein Geburtsdatum gespeichert, deshalb können wir Deine Registrierung hier nicht bestätigen",
-  repair: `Schreib uns an ${KONTAKT_EMAIL}, damit wir es eintragen`,
-});
-
 /** What one refused confirmation asks its caller to do. */
 export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: SpielerLinkZustand };
 
@@ -207,9 +201,6 @@ export async function mapBestaetigungRefusal(
     // changed since it opened first. The mail's link reopens it.
     case "REQ-REGISTRIERUNG-017":
       return { error: ANTWORT_NEU_OEFFNEN };
-    // Never the mail's link: every reopening takes the same undated person.
-    case "REQ-REGISTRIERUNG-019":
-      return { error: GESPEICHERTES_GEBURTSDATUM_FEHLT };
     // The backend's judgement of the label: a page opened before a
     // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
     case "REQ-EINWILLIGUNG-001":
