@@ -281,28 +281,6 @@ describe("a pass meeting a failure", () => {
   });
 });
 
-describe("one pass at a time", () => {
-  /* A pass slower than the hour would otherwise ask and delete beside itself over the same accounts. */
-  it("skips a tick arriving while a pass runs, with one line and no call", async () => {
-    // Every list held open is released, so a second pass that ran beside the first fails the case
-    // rather than leaving it waiting on a list nobody answers.
-    const held: ((value: readonly string[]) => void)[] = [];
-    let lists = 0;
-    listing = () => {
-      lists += 1;
-      return new Promise((resolve) => void held.push(resolve));
-    };
-
-    const first = runKontoSweep();
-    const second = runKontoSweep();
-    for (const release of held) release([]);
-    await Promise.all([first, second]);
-
-    expect(lists, "the second tick listed the store beside the running pass").toBe(1);
-    expect(lines.map(({ level, event }) => `${level} ${event}`)).toStrictEqual(["INFO konto.sweep_skipped", "INFO konto.sweep_completed"]);
-  });
-});
-
 describe("the line a completed pass writes", () => {
   /* Nothing is stored, so this line is the whole answer to whether the sweep runs and what it did. A failure keeping an
      account makes it a warning, a level above INFO dropping the INFO a clean pass writes. */

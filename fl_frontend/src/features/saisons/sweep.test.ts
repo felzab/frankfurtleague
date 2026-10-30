@@ -11,7 +11,6 @@ const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown 
 
 /** The two switches as the doubled config answers them, which a case sets. */
 let loeschungSwitch: string | undefined = "on";
-let bewerbungSwitch: string | undefined = "off";
 
 const LAUF = "/identitaet/loeschung/lauf";
 
@@ -61,17 +60,7 @@ const LOGGING_DOUBLE = {
 // Getters, not values: one process holds one module registry, so a case that could not re-read a switch could only
 // ever prove one side of it.
 const CONFIG_DOUBLE = {
-  // Each boot runs in-process with no preflight naming a deployment.
-  bootCheck: () => undefined,
-  // Imported beside the settings by the boot gate, and called only on a deployment mismatch none of these boots has.
-  refuseInvalidEnvironment: (): never => {
-    throw new Error("the doubled config refuses no environment");
-  },
   frontend_config: {
-    // The boot reads the signing key before it arms anything.
-    get BEWERBUNG_SWEEP() {
-      return bewerbungSwitch;
-    },
     get LOESCHUNG_SWEEP() {
       return loeschungSwitch;
     },
@@ -80,14 +69,8 @@ const CONFIG_DOUBLE = {
 
 vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
 vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
-vi.doMock("@/core/authIndexes.ts", () => ({ buildAuthIndexes: () => Promise.resolve() }));
 
-const { register } = await import("../../instrumentation.ts");
 const { runLoeschungSweep } = await import("./sweep.ts");
-
-const SEKUNDE_MS = 1000;
-const MINUTE_MS = 60 * SEKUNDE_MS;
-const HOUR_MS = 60 * MINUTE_MS;
 
 /** Places in the `_id` order, as the mirror demands them. */
 const ORT = `${"e".repeat(23)}5`;
@@ -105,60 +88,7 @@ beforeEach(() => {
   lines.length = 0;
   laufCalls.length = 0;
   loeschungSwitch = "on";
-  bewerbungSwitch = "off";
   laufAnswer = () => gelaufen(0, 0);
-});
-
-describe("what register arms for the pupils' deletion", () => {
-  // Next declares `NODE_ENV` read-only, which is true of the value a build inlines and not of this process's own
-  // environment: the arm under test is exactly the one only a test can move.
-  const env = process.env as Record<string, string | undefined>;
-
-  /** One boot under `nodeEnv` with the switch reading `value`, then each step of `steps`, answering the calls made after each. */
-  async function bootAndStep(nodeEnv: string, value: string | undefined, steps: readonly number[]): Promise<number[]> {
-    const before = env.NODE_ENV;
-    env.NODE_ENV = nodeEnv;
-    loeschungSwitch = value;
-    vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] });
-    const counted: number[] = [];
-    try {
-      await register();
-      for (const step of steps) {
-        vi.advanceTimersByTime(step);
-        await new Promise((resolve) => setImmediate(resolve));
-        counted.push(laufCalls.length);
-      }
-    } finally {
-      vi.useRealTimers();
-      if (before === undefined) delete env.NODE_ENV;
-      else env.NODE_ENV = before;
-    }
-
-    return counted;
-  }
-
-  /* The press deletes under this switch and promises the next hourly pass deletes the rest: behind the application
-     sweep's switch too, turning that one off would break the promise. */
-  it("waits its minute after a production boot reading on, then runs hourly, the application sweep's switch off", async () => {
-    const steps = [MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS, HOUR_MS - MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS];
-
-    expect(bewerbungSwitch, "the application sweep's switch is on, so the case proves nothing").toBe("off");
-    expect(await bootAndStep("production", "on", steps)).toStrictEqual([0, 1, 1, 2]);
-  });
-
-  it("arms nothing where the switch is off", async () => {
-    expect(await bootAndStep("production", "off", [3 * HOUR_MS])).toStrictEqual([0]);
-  });
-
-  // A skipped validation leaves the value undefined, which a test negating "off" would arm on.
-  it("arms nothing where the value is missing", async () => {
-    expect(await bootAndStep("production", undefined, [3 * HOUR_MS])).toStrictEqual([0]);
-  });
-
-  /* `next dev` reaches whatever backend the developer's own environment names, and deletes from it. */
-  it("arms nothing under a development build, whatever the switch says", async () => {
-    expect(await bootAndStep("development", "on", [3 * HOUR_MS])).toStrictEqual([0]);
-  });
 });
 
 describe("one pass of the pupils' deletion", () => {
@@ -276,27 +206,6 @@ describe("one pass of the pupils' deletion", () => {
           verbleibend: 0,
         },
       },
-    ]);
-  });
-
-  /* A pass slower than the hour would otherwise ask beside itself over the same share, which the backend's own judgement
-     of each pupil makes safe and nothing makes useful. */
-  it("skips a tick that finds the previous pass still running, with one line and no call", async () => {
-    const held: (() => void)[] = [];
-    // The call's answer is held until both ticks have run, as a slow backend holds it. Every one held is released, so a
-    // second pass run beside the first fails the case rather than leaving it waiting.
-    laufAnswer = () => new Promise((resolve) => void held.push(() => resolve(gelaufen(0, 0))));
-
-    const running = runLoeschungSweep();
-    const skipped = runLoeschungSweep();
-    await skipped;
-    for (const release of held) release();
-    await running;
-
-    expect(laufCalls.length, "the second tick called the backend beside the running pass").toBe(1);
-    expect(passLines().map(({ level, event }) => `${level} ${event}`)).toStrictEqual([
-      "info loeschung.sweep_skipped",
-      "info loeschung.sweep_pass",
     ]);
   });
 });

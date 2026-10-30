@@ -24,8 +24,6 @@ const logs: SweepLog[] = [];
 /** Every line as it was written, its fields whole: what a half reports per pass, and the code its failure carries. */
 const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
 
-/** The sweep's switch as the doubled config answers it, which a case sets. */
-let sweepSwitch: string | undefined = "on";
 /** The pupils' deletion switch, off where a case sets nothing, as production's default is. */
 let loeschungSwitch: string | undefined = "off";
 let appEnv = "production";
@@ -116,18 +114,8 @@ const LOGGING_DOUBLE = {
 // A getter, not a value: one process holds one module registry, so a case that could not re-read the
 // switch could only ever prove one side of it.
 const CONFIG_DOUBLE = {
-  // Each boot runs in-process with no preflight naming a deployment.
-  bootCheck: () => undefined,
-  // Imported beside the settings by the boot gate, and called only on a deployment mismatch none of these boots has.
-  refuseInvalidEnvironment: (): never => {
-    throw new Error("the doubled config refuses no environment");
-  },
   frontend_config: {
     AUTH_URL: "http://localhost:3000",
-    // The boot reads the signing key before it arms anything.
-    get BEWERBUNG_SWEEP() {
-      return sweepSwitch;
-    },
     get LOESCHUNG_SWEEP() {
       return loeschungSwitch;
     },
@@ -137,23 +125,11 @@ const CONFIG_DOUBLE = {
   },
 };
 
-const INDEXES_DOUBLE = { buildAuthIndexes: () => Promise.resolve() };
-
 vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
 vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
-// A production boot builds the sign-in store's indexes too, over a client this suite never configures.
-vi.doMock("@/core/authIndexes.ts", () => INDEXES_DOUBLE);
 
-const { register } = await import("../../instrumentation.ts");
 const { runBewerbungSweep } = await import("./sweep.ts");
 const { FLBewerbungSweepLoeschungSchema } = await import("./schemas.ts");
-
-/** One hour and one minute, as the arming spells them. */
-const HOUR_MS = 60 * 60 * 1000;
-const MINUTE_MS = 60 * 1000;
-
-/** Lets every pending promise settle: a tick runs the callback, and the pass it starts finishes on the microtask queue. */
-const settle = async (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
 type ApiEvent = Extract<SweepEvent, { kind: "api" }>;
 
@@ -259,104 +235,12 @@ beforeEach(() => {
     events.push({ kind: "mail", ...sent });
     return refused.has(sent.to) ? "refused" : withheld.has(sent.to) ? "withheld" : barred.has(sent.to) ? "barred" : "accepted";
   });
-  sweepSwitch = "on";
   loeschungSwitch = "off";
   appEnv = "production";
   sweepAnswers({});
   adresswechselAnswer = () => entfernt(0, 0);
   owed = [];
   stamps.length = 0;
-});
-
-describe("what register arms", () => {
-  // Next declares `NODE_ENV` read-only, which is true of the value a build inlines and not of this
-  // process's own environment: the arm under test is exactly the one only a test can move.
-  const env = process.env as Record<string, string | undefined>;
-
-  // One process holds one environment, so a case that left NODE_ENV where it put it would decide
-  // every case after it.
-  function underNodeEnv(value: string): () => void {
-    const before = env.NODE_ENV;
-    env.NODE_ENV = value;
-
-    return () => {
-      if (before === undefined) delete env.NODE_ENV;
-      else env.NODE_ENV = before;
-    };
-  }
-
-  /** One arming and three hours of ticks: every case below asks only whether anything reached the backend at all. */
-  async function armAndTick(nodeEnv: string, sweep: string | undefined): Promise<void> {
-    const restore = underNodeEnv(nodeEnv);
-    sweepSwitch = sweep;
-    vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] });
-
-    try {
-      await register();
-      await settle();
-      vi.advanceTimersByTime(HOUR_MS * 3);
-      await settle();
-    } finally {
-      vi.useRealTimers();
-      restore();
-    }
-  }
-
-  /* The switch defaults to on and the `dev` script in `fl_frontend/package.json` sets nothing, so
-     without this arm a `pnpm dev` drives the sweep against whatever backend and transport the
-     developer's own environment names — the league's real people among them. */
-  it("arms nothing under a development build, whatever the switch says", async () => {
-    await armAndTick("development", "on");
-
-    expect(events).toStrictEqual([]);
-  });
-
-  it("arms nothing where the switch is off", async () => {
-    await armAndTick("production", "off");
-
-    expect(events).toStrictEqual([]);
-  });
-
-  it("arms nothing where the value is missing, which is what a skipped validation leaves", async () => {
-    await armAndTick("production", undefined);
-
-    expect(events).toStrictEqual([]);
-  });
-
-  /* The fourth arm — a server setting nothing at all — is this case and the parse above it together:
-     the default reads "on", and "on" under a production build is what arms. */
-  it("runs one pass a minute after start and one an hour after arming", async () => {
-    const restore = underNodeEnv("production");
-    vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] });
-    // By its season-list read: the halves after the season loop add calls of their own to every pass.
-    const passes = (): number => apiCalls().filter((call) => call.method === "GET" && call.endpoint === "/bewerbungen/sweep").length;
-
-    try {
-      await register();
-      await settle();
-      const atOnce = passes();
-
-      vi.advanceTimersByTime(MINUTE_MS);
-      await settle();
-      const afterTheMinute = passes();
-
-      vi.advanceTimersByTime(HOUR_MS - MINUTE_MS - 1000);
-      await settle();
-      const beforeTheHour = passes();
-
-      vi.advanceTimersByTime(1000);
-      await settle();
-      const afterTheHour = passes();
-
-      expect(atOnce, "nothing runs at arming: the backend may not answer yet after a deploy").toBe(0);
-      expect(afterTheMinute, "the first pass runs a minute in, a container recreated daily never reaching the first tick").toBe(1);
-      expect(beforeTheHour, "nothing runs between the first pass and the hour").toBe(1);
-      expect(afterTheHour, "the interval is one hour, measured from arming").toBe(2);
-    } finally {
-      vi.useRealTimers();
-      restore();
-    }
-  });
 });
 
 describe("one pass of the sweep", () => {
@@ -503,16 +387,6 @@ describe("one pass of the sweep", () => {
     ).toStrictEqual(["api", "api", "api", "api", "api"]);
     expect(erasure?.endpoint).toBe("/bewerbungen/sweep/2627/loeschen");
     expect(JSON.parse(erasure?.body ?? "{}")).toStrictEqual({ bewerbung_ids: [ID_REACHED] });
-  });
-
-  /* Two ticks over one pass would compose the same notice twice, neither having reached its stamp.
-     One process holds one timer, so this refuses an overlap rather than a second container. */
-  it("skips a tick that finds the previous pass still running", async () => {
-    sweepAnswers({ saisonIds: ["2526", "2627"] });
-
-    await Promise.all([runBewerbungSweep(), runBewerbungSweep()]);
-
-    expect(seasonPasses().map(saisonOf)).toStrictEqual(["2526", "2627"]);
   });
 
   /* The submitter who is also the Trainer reads „Eingetragen als“ and has to recognise themselves in

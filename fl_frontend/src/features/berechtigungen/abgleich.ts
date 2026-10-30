@@ -20,28 +20,6 @@ import type { Mail } from "@/core/emailShell";
 import type { FLBerechtigungAenderung } from "./schemas";
 
 /**
- * Five minutes: this is the lane that says who may administer, and a pass is one claim over a handful of
- * rows. A change made in the application is announced at once besides (`runBerechtigungenAbgleich`).
- */
-const ABGLEICH_INTERVAL_MS = 5 * 60 * 1000;
-
-/** A minute after start, for the application sweep's reason: a deploy recreates this container before the backend answers. */
-const ABGLEICH_START_DELAY_MS = 60 * 1000;
-
-/**
- * Arms the reconciliation pass for the life of this process. Every change to the grants reaches it,
- * a change made in the database directly included, through the claim's outbox.
- */
-export function armBerechtigungenAbgleich(): void {
-  const erster = setTimeout(() => void runBerechtigungenAbgleich(), ABGLEICH_START_DELAY_MS);
-  const handle = setInterval(() => void runBerechtigungenAbgleich(), ABGLEICH_INTERVAL_MS);
-
-  // Unreferenced, so neither holds a shutdown open: the listening socket keeps this process alive.
-  erster.unref();
-  handle.unref();
-}
-
-/**
  * Whether a pass is running, and whether a change arrived while it ran, per module instance: Next may
  * load one for the boot and one for the actions, and the claim hands a second pass none of the first's rows.
  */
@@ -56,7 +34,10 @@ let gewarntUebersprungen = 0;
 
 /**
  * One pass, or a second one queued behind the pass already running: a change written after that pass
- * claimed would otherwise wait for the next tick. Settles rather than throws, nothing awaiting it.
+ * claimed would otherwise wait for the next one. Run by the hourly scheduler
+ * (`fl_frontend/src/instrumentation-node.ts :: armScheduler`), which reaches every change to the grants, one made
+ * in the database directly included, and behind each response that made one. Settles rather than throws: nothing
+ * awaits it behind a response.
  */
 export async function runBerechtigungenAbgleich(): Promise<void> {
   if (laeuft) {

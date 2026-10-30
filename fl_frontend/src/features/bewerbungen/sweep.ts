@@ -6,7 +6,6 @@ import { ContractBreakError, requestOf } from "@/core/errors";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
 import { buildRegistrierungErinnerungEmail } from "@/core/registrierungEmail";
-import { HOUR_MS } from "@/core/timeUnits";
 import { postAdresswechselSweep } from "@/features/adresswechsel/mutations";
 import { runAdresswechselPostausgang } from "@/features/adresswechsel/postausgang";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants";
@@ -24,19 +23,6 @@ import type { FLRegistrierungSweepErinnerung } from "@/features/registrierungen/
 import type { BewerbungEmpfaenger, BewerbungLinkEmpfaenger } from "./notifications";
 import type { FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung } from "./schemas";
 
-/**
- * One hour. Every clock selects on a date, so the interval decides only how late in the day a
- * deadline is acted on, and a shorter one buys a punctuality nobody has asked for.
- */
-const SWEEP_INTERVAL_MS = HOUR_MS;
-
-/**
- * A minute after start rather than at once: a deploy recreates this container before the backend
- * answers, so an immediate pass would log a failure for nothing. The first tick alone would skip a
- * container recreated daily.
- */
-const SWEEP_START_DELAY_MS = 60 * 1000;
-
 /** The action the mail fan-out logs a refused address under. */
 const SWEEP_OPERATION = "bewerbungSweep";
 
@@ -50,47 +36,14 @@ type Uebergangen = { bewerbung: number; registrierung: number };
 const SEAT_OHNE_NAMEN = "Ohne Namen";
 
 /**
- * Arms the retention sweep for the life of this process.
- *
- * Production runs one frontend container, so one process holds one timer and no cross-process lease
- * is built; a second `frontend` service or a replica count would end that.
- */
-export function armBewerbungSweep(): void {
-  const erster = setTimeout(() => void runBewerbungSweep(), SWEEP_START_DELAY_MS);
-  const handle = setInterval(() => void runBewerbungSweep(), SWEEP_INTERVAL_MS);
-
-  // Unreferenced, so neither a pending first pass nor a tick holds a shutdown open behind it: the
-  // listening socket is what keeps this process alive.
-  erster.unref();
-  handle.unref();
-}
-
-/** Whether a pass is still running. Module state, which is per process, and one process holds the timer. */
-let laeuft = false;
-
-/**
- * One pass over every season, then the clock no season holds (`docs/datenschutz.md :: 6`).
- *
- * Settles rather than throws: nothing awaits this, so a rejection would surface as an unhandled one
- * an hour after the tick that caused it.
+ * One pass over every season, then the clock no season holds (`docs/datenschutz.md :: 6`), for the scheduler
+ * (`fl_frontend/src/instrumentation-node.ts :: armScheduler`), which runs one pass at a time.
  */
 export async function runBewerbungSweep(): Promise<void> {
-  if (laeuft) {
-    // A pass slower than the hour would otherwise run beside itself over the same rows, mailing one
-    // person twice before either half reached its stamp. No application and no address is named.
-    logger.info("bewerbung.sweep_skipped");
-    return;
-  }
-
-  laeuft = true;
-  try {
-    await sweepAlleSaisons();
-    // Catching its own throw, as a season's two halves do: a shared `try` would leave a lapsed address standing every
-    // hour the seasons' loop fails.
-    await sweepAdresswechsel();
-  } finally {
-    laeuft = false;
-  }
+  await sweepAlleSaisons();
+  // Catching its own throw, as a season's two halves do: a shared `try` would leave a lapsed address standing every
+  // hour the seasons' loop fails.
+  await sweepAdresswechsel();
 }
 
 /**

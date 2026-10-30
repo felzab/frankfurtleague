@@ -1,11 +1,14 @@
 import { BootRefusal } from "./core/bootRefusal";
+import { requestOf } from "./core/errors";
+import { logger } from "./core/logging";
+import { HOUR_MS } from "./core/timeUnits";
 
 // The code `scripts/lib/_lib.sh :: check_frontend_boot_config` reads as a refusal, apart from a fault's 1:
 // collapsed into one, a host's bad file would read as a check the deploy could not make, and go on.
 const REFUSED = 3;
 
 export async function registerOnNode() {
-  const { frontend_config, checkedAs } = await passBootGates().catch((refusal: unknown) => {
+  const { checkedAs } = await passBootGates().catch((refusal: unknown) => {
     // Next logs a throwing hook and serves on, every page a 500; a dead container is what a restart
     // policy and the deploy's rollback read. The empty write's
     // callback runs once the CRITICAL line has left.
@@ -19,40 +22,8 @@ export async function registerOnNode() {
   if (checkedAs !== undefined) process.exit(0);
 
   // `next dev` never sets NODE_ENV to production, and a developer's machine holds a real transport
-  // and the league's real people. Compared to "on" rather than "off": a skipped validation leaves it
-  // undefined, where a negated test would arm.
-  if (process.env.NODE_ENV === "production" && frontend_config.BEWERBUNG_SWEEP === "on") {
-    const { armBewerbungSweep } = await import("./features/bewerbungen/sweep");
-    armBewerbungSweep();
-  }
-
-  // Its own switch and timer, never the application sweep's: an operator stops account deletion alone,
-  // and a slow application pass skips none of it. Compared to "on" for the reason above.
-  if (process.env.NODE_ENV === "production" && frontend_config.KONTO_SWEEP === "on") {
-    const { armKontoSweep } = await import("./features/funktionen/sweep");
-    armKontoSweep();
-  }
-
-  // Under the switch the activation's press deletes under, and never behind the application sweep's: the press tells
-  // the administrator the next hourly pass deletes what it left. Compared to "on" for the reason above.
-  if (process.env.NODE_ENV === "production" && frontend_config.LOESCHUNG_SWEEP === "on") {
-    const { armLoeschungSweep } = await import("./features/saisons/sweep");
-    armLoeschungSweep();
-  }
-
-  // Its own switch, never another sweep's: arming it starts the league's fixture mail, and an operator stops every
-  // season's at once with it alone. Compared to "on" for the reason above.
-  if (process.env.NODE_ENV === "production" && frontend_config.SPIEL_SWEEP === "on") {
-    const { armSpielSweep } = await import("./features/spielbestaetigungen/sweep");
-    armSpielSweep();
-  }
-
-  // Never behind the sweep's switch, which a local stack sets off: a change to who administers is
-  // announced wherever a production build runs, and a stack that mails nothing counts it as told.
-  if (process.env.NODE_ENV === "production") {
-    const { armBerechtigungenAbgleich } = await import("./features/berechtigungen/abgleich");
-    armBerechtigungenAbgleich();
-  }
+  // and the league's real people.
+  if (process.env.NODE_ENV === "production") armScheduler(await loadJobs());
 
   // Unawaited: Next serves nothing until this hook returns, and the site serves without these
   // indexes, where an outage of the store would otherwise hold every page.
@@ -60,6 +31,113 @@ export async function registerOnNode() {
     const { buildAuthIndexes } = await import("./core/authIndexes");
     void buildAuthIndexes();
   }
+}
+
+/**
+ * One background job. It rejects where it could not finish what it owes, and resolves to the number of owed deletions
+ * or erasures it left, none where it returns nothing; each job is idempotent, so a pass after a failed one repeats
+ * nothing that went.
+ */
+type Job = { readonly name: string; readonly run: () => Promise<number | void> };
+
+/**
+ * Every job, run in this order each pass and then the Postausgang's drain, which sends what they owed. Imported here,
+ * never at the top of the module: a boot that judges and ends loads none of them.
+ */
+async function loadJobs(): Promise<{ jobs: readonly Job[]; drain: () => Promise<{ aufgegeben: number }> }> {
+  const [bewerbungen, konto, loeschung, spiele, berechtigungen, mail] = await Promise.all([
+    import("./features/bewerbungen/sweep"),
+    import("./features/funktionen/sweep"),
+    import("./features/saisons/sweep"),
+    import("./features/spielbestaetigungen/sweep"),
+    import("./features/berechtigungen/abgleich"),
+    import("./core/mail"),
+  ]);
+
+  return {
+    jobs: [
+      { name: "bewerbungen", run: bewerbungen.runBewerbungSweep },
+      { name: "konto", run: konto.runKontoSweep },
+      { name: "loeschung", run: loeschung.runLoeschungSweep },
+      { name: "spielbestaetigungen", run: spiele.runSpielSweep },
+      { name: "berechtigungen", run: berechtigungen.runBerechtigungenAbgleich },
+    ],
+    drain: mail.drainPostausgang,
+  };
+}
+
+/**
+ * Every job is idempotent and selects on a date or a lapse, so the hour decides only how late in the day a deadline is
+ * acted on; a write that owes a mail drains at once besides (`fl_frontend/src/core/afterResponse.ts :: drainSoon`).
+ */
+const PASS_INTERVAL_MS = HOUR_MS;
+
+/**
+ * A minute after start rather than at once: a deploy recreates this container before the backend answers. The interval
+ * alone would skip a container recreated daily.
+ */
+const FIRST_PASS_DELAY_MS = 60 * 1000;
+
+/**
+ * The one scheduler, for the life of this process: production runs one frontend container, so one process holds the
+ * timer and no cross-process lease is built. Armed and returned at once, the first pass never awaited: Next serves
+ * nothing until `register` returns (installed `03-file-conventions/instrumentation.md`).
+ */
+function armScheduler({ jobs, drain }: Awaited<ReturnType<typeof loadJobs>>): void {
+  let laeuft = false;
+  const tick = async () => {
+    // A pass slower than the hour would otherwise run beside itself over the same rows.
+    if (laeuft) {
+      logger.warn("scheduler.pass_skipped");
+      return;
+    }
+
+    laeuft = true;
+    try {
+      await runPass(jobs, drain);
+    } finally {
+      laeuft = false;
+    }
+  };
+
+  const erster = setTimeout(() => void tick(), FIRST_PASS_DELAY_MS);
+  const handle = setInterval(() => void tick(), PASS_INTERVAL_MS);
+  // Unreferenced, so neither holds a shutdown open: the listening socket keeps this process alive.
+  erster.unref();
+  handle.unref();
+}
+
+/** Every job, each whatever the one before it did, then the drain; answers what the heartbeat names, empty for a pass that did all it owed. */
+async function runPass(jobs: readonly Job[], drain: () => Promise<{ aufgegeben: number }>): Promise<readonly string[]> {
+  const ausfaelle: string[] = [];
+
+  const run = async (name: string, job: () => Promise<string | undefined>) => {
+    try {
+      const ausfall = await job();
+      if (ausfall !== undefined) ausfaelle.push(`${name} ${ausfall}`);
+    } catch (error) {
+      // The job's name and the error's, never a person: a failure on any job's path can carry an address.
+      logger.error("scheduler.job_failed", undefined, {
+        job: name,
+        name: error instanceof Error ? error.name : undefined,
+        ...requestOf(error),
+      });
+      ausfaelle.push(`${name} failed`);
+    }
+  };
+
+  for (const { name, run: job } of jobs) {
+    await run(name, async () => {
+      const offen = await job();
+      return typeof offen === "number" && offen > 0 ? `left ${String(offen)}` : undefined;
+    });
+  }
+  await run("postausgang", async () => {
+    const { aufgegeben } = await drain();
+    return aufgegeben > 0 ? `gave up ${String(aufgegeben)}` : undefined;
+  });
+
+  return ausfaelle;
 }
 
 /** The boot gates, each writing its own CRITICAL line before it throws: the environment and the secret files, the deployment a preflight names, then the signing key. */
@@ -73,5 +151,5 @@ async function passBootGates() {
   // file says `local` passes every gate holding none of them: the preflight names the deployment instead.
   if (checkedAs !== undefined && frontend_config.APP_ENV !== checkedAs) refuseInvalidEnvironment(["APP_ENV"]);
 
-  return { frontend_config, checkedAs };
+  return { checkedAs };
 }

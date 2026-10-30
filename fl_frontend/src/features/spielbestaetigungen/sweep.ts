@@ -16,7 +16,6 @@ import {
   buildSpielVorschlagVerworfenEmail,
 } from "@/core/spielEmail";
 import { SPIELLEITUNG_HINWEIS, SPIELLEITUNG_TAG } from "@/core/spielleitungTag";
-import { HOUR_MS } from "@/core/timeUnits";
 import { versandAusfallOf } from "@/core/versandAusfall";
 import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -45,15 +44,6 @@ import type {
   FLSpielbestaetigungSweepVorschlagVerworfen,
 } from "./schemas";
 
-/** One hour, as the other sweeps': every clock here selects on a date, so a shorter interval only asks the backend more often. */
-const SWEEP_INTERVAL_MS = HOUR_MS;
-
-/**
- * A minute after start rather than at once: a deploy recreates this container before the backend
- * answers, so an immediate pass would log a failure for nothing.
- */
-const SWEEP_START_DELAY_MS = 60 * 1000;
-
 /** The action the mail fan-out logs a refused address under. */
 const SWEEP_OPERATION = "spielbestaetigungSweep";
 
@@ -68,43 +58,12 @@ type Zaehler = {
 };
 
 /**
- * Arms the fixture confirmations' timer for the life of this process.
- *
- * Production runs one frontend container, so one process holds one timer and no cross-process lease
- * is built.
- */
-export function armSpielSweep(): void {
-  const erster = setTimeout(() => void runSpielSweep(), SWEEP_START_DELAY_MS);
-  const handle = setInterval(() => void runSpielSweep(), SWEEP_INTERVAL_MS);
-
-  // Unreferenced, so neither a pending first pass nor a tick holds a shutdown open behind it.
-  erster.unref();
-  handle.unref();
-}
-
-/** Whether a pass is still running. Module state, which is per process, and one process holds the timer. */
-let laeuft = false;
-
-/**
- * One pass over every season the listing answers. The fixture pages show what it closed within the `minutes`
- * lifetime their cached read keeps.
- *
- * Settles rather than throws: nothing awaits this, so a rejection would surface as an unhandled one
- * an hour after the tick that caused it.
+ * One pass over every season the listing answers, for the scheduler
+ * (`fl_frontend/src/instrumentation-node.ts :: armScheduler`), which runs one pass at a time. The fixture pages show
+ * what it closed within the `minutes` lifetime their cached read keeps.
  */
 export async function runSpielSweep(): Promise<void> {
-  if (laeuft) {
-    // A pass slower than the hour would otherwise mail beside itself before either reached its stamp.
-    logger.info("spielbestaetigung.sweep_skipped");
-    return;
-  }
-
-  laeuft = true;
-  try {
-    await sweepAlleSaisons();
-  } finally {
-    laeuft = false;
-  }
+  await sweepAlleSaisons();
 }
 
 async function sweepAlleSaisons(): Promise<void> {
