@@ -22,7 +22,7 @@ import type { z } from "zod";
 import type { AdminRefusal } from "./auth";
 import type { Copy } from "./copy";
 import type { Funktion } from "./funktionen";
-import type { Code } from "./generated/client/types";
+import type { Code, FLRefusedField } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
 /**
@@ -38,6 +38,9 @@ export type ActionAnswer<Value = undefined> =
 
 /** A code the catalogue words in a person's own terms, `COPY.shared.ablehnung`'s keys. */
 type WordedCode = keyof typeof COPY.shared.ablehnung;
+
+/** A rule the catalogue words, by the kind a refused payload's field names it with, `COPY.shared.regel`'s keys. */
+type WordedRule = keyof typeof COPY.shared.regel;
 
 /** The dotted path of every leaf of an input, a list counting as one leaf: the key its box's message is answered by. */
 type Field<T, Above extends string = ""> = T extends readonly unknown[]
@@ -63,10 +66,12 @@ type Declared<Schema extends z.ZodType> = {
   /** The generated request schema, or a draft built from its fields, so every published bound holds the input. */
   readonly input: Schema;
   /**
-   * The codes this screen words in their own words, a person causing each knowingly from it: on the box it names,
-   * or, with `true`, as the status line's reason. Every other code answers a shared failure line.
+   * The codes and the rules this screen words in their own words, a person causing each knowingly from it: on the
+   * box it names, or, with `true`, as the status line's reason. A rule is placed by the screen, not by the refused
+   * field's path, which for a rule over several fields names their whole block. Every other code, and a refused
+   * payload breaking any rule the screen does not word, answers a shared failure line.
    */
-  readonly ownWords?: { readonly [C in WordedCode]?: Field<z.output<Schema>> | true };
+  readonly ownWords?: { readonly [C in WordedCode | WordedRule]?: Field<z.output<Schema>> | true };
   /** The example a box's „Format: …“ message names, by the box. */
   readonly examples?: { readonly [F in Field<z.output<Schema>>]?: Copy };
 };
@@ -116,7 +121,7 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "spieltag_occupied",
   "spieltag_occupied_by_the_resolution",
   "eligibility_team_not_in_saison",
-  // The input passed the API's own rules as this page knows them: the page is older than the API.
+  // A rule the screen does not word, its input holding every rule the API publishes: the page is older than the API.
   "payload_refused",
   "body_unreadable",
 ]);
@@ -195,8 +200,35 @@ function parsed<Schema extends z.ZodType>(
   return { answer: unplaced ? UNEXPECTED : { ok: false, fieldErrors } };
 }
 
+const isWordedRule = (kind: string): kind is WordedRule => Object.hasOwn(COPY.shared.regel, kind);
+
+/**
+ * A refused payload in this screen's words, each broken rule on the box the screen names for it, or `undefined` where
+ * the screen does not word every rule the payload broke.
+ */
+function brokenRules<Schema extends z.ZodType>(declared: Declared<Schema>, fields: readonly FLRefusedField[]): ActionAnswer<never> | undefined {
+  if (fields.length === 0) return undefined;
+  const fieldErrors: Record<string, Copy> = {};
+  let reason: Copy | undefined;
+  for (const { kind } of fields) {
+    const placed = isWordedRule(kind) ? declared.ownWords?.[kind] : undefined;
+    if (placed === undefined || !isWordedRule(kind)) return undefined;
+    // The first rule a box broke is the one it shows.
+    if (typeof placed === "string") fieldErrors[placed] ??= COPY.shared.regel[kind];
+    else reason ??= COPY.shared.regel[kind];
+  }
+  return {
+    ok: false,
+    errorCode: "payload_refused",
+    ...(Object.keys(fieldErrors).length > 0 ? { fieldErrors } : {}),
+    ...(reason === undefined ? {} : { reason }),
+  };
+}
+
 /** The backend's refusal in this screen's words where it words the code, else the shared line its kind answers. */
-function refused<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code): ActionAnswer<never> {
+function refused<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code, fields: readonly FLRefusedField[]): ActionAnswer<never> {
+  const rules = code === "payload_refused" ? brokenRules(declared, fields) : undefined;
+  if (rules !== undefined) return rules;
   const placed = isWorded(code) ? declared.ownWords?.[code] : undefined;
   if (placed !== undefined && isWorded(code)) {
     const text = COPY.shared.ablehnung[code];
@@ -281,7 +313,7 @@ async function body<Schema extends z.ZodType, Value>(
     // Next's redirect and not-found are how a body leads on, never a failure.
     unstable_rethrow(error);
     if (error instanceof APIBadStatusError && error.serverErrorCode !== undefined) {
-      return refused(lane, error.serverErrorCode);
+      return refused(lane, error.serverErrorCode, error.refusedFields);
     }
     logFailure(lane.name, error);
     return UNEXPECTED;

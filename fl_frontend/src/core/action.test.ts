@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
 import { person, sitz } from "@/test-support/subjectFixtures.ts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -159,6 +160,41 @@ describe("the admin lane", () => {
       errorCode: "spiel_double_booked",
       reason: COPY.shared.ablehnung["spiel_double_booked"],
     });
+  });
+
+  it("places each rule a refused payload broke where its screen words it, and answers the stale line where it does not", async () => {
+    const kontakte = (wirft: unknown) =>
+      action({
+        lane: "admin",
+        name: "kontakte",
+        input: z.object({ kontakte: z.array(z.object({ email: z.string() })), datum: z.string() }),
+        ownWords: { kontakt_email_twice: "kontakte", date_not_in_calendar: "datum", gute_spieler_exceed_kader: true },
+        run: async () => {
+          throw wirft;
+        },
+      });
+    const input = { kontakte: [{ email: "lena@example.com" }], datum: "2027-02-30" };
+
+    // A rule over several fields reports the block holding them, here the whole payload: the screen names its box.
+    const zweiRegeln = refusedPayload([bodyField([], "kontakt_email_twice"), bodyField(["datum"], "date_not_in_calendar")]);
+    expect(await kontakte(zweiRegeln)(input)).toStrictEqual({
+      ok: false,
+      errorCode: "payload_refused",
+      fieldErrors: { kontakte: COPY.shared.regel.kontakt_email_twice, datum: COPY.shared.regel.date_not_in_calendar },
+    });
+    expect(await kontakte(refusedPayload([bodyField([], "gute_spieler_exceed_kader")]))(input)).toStrictEqual({
+      ok: false,
+      errorCode: "payload_refused",
+      reason: COPY.shared.regel.gute_spieler_exceed_kader,
+    });
+    // One rule the screen does not word, a published bound among them: the page is older than the API.
+    for (const kind of ["kontakt_telefon_twice", "string_too_long"]) {
+      expect(await kontakte(refusedPayload([bodyField([], "kontakt_email_twice"), bodyField(["datum"], kind)]))(input), kind).toStrictEqual({
+        ok: false,
+        errorCode: "payload_refused",
+        reason: COPY.shared.fehler.veraltet,
+      });
+    }
   });
 
   it("answers every other code on the shared line its kind takes, and clears the tag behind each", async () => {
