@@ -104,7 +104,7 @@ const isNoShow = (sonderereignis: FLSpielberichtSonderereignis | null): boolean 
   sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2";
 
 /** Whether an entry credits `seite`: its own side without an own goal, the other side with one. */
-export const credits = (eintrag: { seite: FLSpielSeite; eigentor: boolean }, seite: FLSpielSeite): boolean =>
+const credits = (eintrag: { seite: FLSpielSeite; eigentor: boolean }, seite: FLSpielSeite): boolean =>
   (eintrag.seite === seite) !== eintrag.eigentor;
 
 // Each rule the backend's `every_goal_has_one_entry` raises, in its words, placed on the field that repairs it.

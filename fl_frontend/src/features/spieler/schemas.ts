@@ -22,7 +22,7 @@ export const FLSpielerStufeSchema = z.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"],
  * Mirrors `FLSpielerRolle`. Slugs, so `ROLLE_OPTIONS` owns the German the reader sees; a squad holds
  * each of these once, which the write path refuses on (`REQ-SQUAD-004`).
  */
-export const FLSpielerRolleSchema = z.enum(["kapitaen", "co_kapitaen"], { error: "Bitte wähle eine Rolle." });
+const FLSpielerRolleSchema = z.enum(["kapitaen", "co_kapitaen"], { error: "Bitte wähle eine Rolle." });
 
 // Redesign: goes with its last importer.
 /**
