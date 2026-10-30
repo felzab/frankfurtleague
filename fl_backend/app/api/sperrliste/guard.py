@@ -5,7 +5,7 @@ Here beside the ban list they read, so `app/core/security.py`, which verifies th
 judge, depends on no slice.
 """
 
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from http import HTTPStatus
 from typing import Annotated, Final, get_args
 
@@ -19,27 +19,16 @@ from app.core.recording import AktorFunktion, PersonActor
 from app.core.security import Attribution, SessionActor, actor_binder, akteur_pseudonym, verify_person_actor
 from app.shared.folding import sign_in_identifier
 
-# Whether a folded identifier is on the ban list: what a person's route asks beside the session.
-BanLookup = Callable[[str], Awaitable[bool]]
-
-
-def get_ban_lookup(sperrliste: SperrlisteLookup) -> BanLookup:
-    """The person check's read, keyed as the grant check keys its own ban read."""
-
-    async def is_gesperrt(identifier: str) -> bool:
-        return bool(await adressen_gesperrt(sperrliste, [identifier]))
-
-    return is_gesperrt
-
 
 async def verify_person_is_unbarred(
     # First, so a request naming nobody is refused before the ban read opens the database.
     actor: Annotated[SessionActor, Depends(verify_person_actor)],
-    is_gesperrt: Annotated[BanLookup, Depends(get_ban_lookup)],
+    sperrliste: SperrlisteLookup,
 ) -> SessionActor:
     """Refuse a person the ban list holds, read per request: the frontend's guard misses a ban entered since."""
 
-    if await is_gesperrt(sign_in_identifier(actor.email)):
+    # Keyed as the grant check keys its own ban read.
+    if await adressen_gesperrt(sperrliste, [sign_in_identifier(actor.email)]):
         raise APIError(HTTPStatus.FORBIDDEN, Code.PERSON_BARRED)
 
     return actor

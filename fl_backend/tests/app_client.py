@@ -9,7 +9,7 @@ Invariants:
   next case serving through it meets none of this one's.
 """
 
-from collections.abc import AsyncIterator, Iterable
+from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime
 
@@ -21,7 +21,6 @@ from app.core.config import BackendConfig
 from app.core.dependencies import get_germany_now
 from app.main import create_app
 from tests.config import TEST_BASE_URL, build_test_config
-from tests.grants import admit
 
 
 @asynccontextmanager
@@ -30,7 +29,6 @@ async def app_client(
     *,
     config: BackendConfig | None = None,
     now: datetime | None = None,
-    admitting: Iterable[str] | None = None,
     app: FastAPI | None = None,
 ) -> AsyncIterator[AsyncClient]:
     """No `serverSelectionTimeoutMS`: inside a request the app's own deadline replaces it.
@@ -55,9 +53,6 @@ async def app_client(
     # came: an override applied ahead of a client that failed to build would otherwise meet the next case.
     async with AsyncExitStack() as undo:
         undo.callback(restore_the_overrides)
-        # For a case whose server never answers: the actor check is answered from these addresses instead.
-        if admitting is not None:
-            admit(served, admitting)
         if now is not None:
             served.dependency_overrides[get_germany_now] = lambda: now
         client = AsyncMongoClient(url)

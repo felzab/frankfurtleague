@@ -5,8 +5,6 @@ Here beside the grants it reads, so `app/core/security.py`, which verifies the s
 depends on no slice.
 """
 
-from collections.abc import Awaitable, Callable
-from datetime import datetime
 from http import HTTPStatus
 from typing import Annotated
 
@@ -20,29 +18,20 @@ from app.core.exceptions import APIError
 from app.core.security import SessionActor, refused_session, signed_in_since, verify_admin_actor
 from app.shared.folding import sign_in_identifier
 
-# When the live grant a folded identifier holds took effect, `None` for none: the one question the actor check asks.
-GrantLookup = Callable[[str], Awaitable[datetime | None]]
-
-
-def get_grant_lookup(berechtigungen_collection: BerechtigungenCollection, sperrliste: SperrlisteLookup) -> GrantLookup:
-    """The actor check's read: a live grant, and no ban on its address."""
-
-    async def grant_since(identifier: str) -> datetime | None:
-        return await live_unbarred_grant_since(identifier, berechtigungen_collection=berechtigungen_collection, sperrliste=sperrliste)
-
-    return grant_since
-
 
 async def verify_actor_is_admin(
     # First, so a request naming nobody is refused before the grant read opens the database.
     actor: Annotated[SessionActor, Depends(verify_admin_actor)],
-    grant_since: Annotated[GrantLookup, Depends(get_grant_lookup)],
+    berechtigungen_collection: BerechtigungenCollection,
+    sperrliste: SperrlisteLookup,
 ) -> None:
-    """Refuse an actor who holds no live grant, read per request, or signed in before it."""
+    """Refuse an actor who holds no live grant or whose address is banned, read per request, or one who signed in before the grant."""
 
     # Folded, as every grant is stored, or a mixed-case identifier locks an administrator out of the
     # panel. Either tier admits: `owner` holds every power `administration` does.
-    seit = await grant_since(sign_in_identifier(actor.email))
+    seit = await live_unbarred_grant_since(
+        sign_in_identifier(actor.email), berechtigungen_collection=berechtigungen_collection, sperrliste=sperrliste
+    )
     if seit is None:
         raise APIError(HTTPStatus.FORBIDDEN, Code.ACTOR_NOT_ADMIN)
 

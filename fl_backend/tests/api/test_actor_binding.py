@@ -1,53 +1,54 @@
 """
-API · who a request acts for: the session headers behind the admin key, the grants, the step-up and the binders
+API · who a request acts for: the session headers behind the admin key, the step-up and the binders
 
 Which routes carry which binder is `tests/api/test_admin_guard.py`'s sweep; this file proves what each
-binder does with a request.
+binder and each check does with a request. The grants and the ban list each check reads are the db
+tier's (`tests/api/test_actor_grants_execution.py`, `tests/api/test_person_ban_execution.py`): here a
+request clearing every session check meets the missing database at the first of those reads.
 """
 
 import asyncio
 import contextlib
-import functools
-import re
-from collections.abc import AsyncIterator, Callable, Mapping
-from datetime import UTC, datetime
-from typing import Annotated, Any, cast, get_args
+import inspect
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from typing import Any, cast, get_args
 
 import pytest
-from fastapi import Depends, FastAPI
-from fastapi.routing import APIRoute
+from fastapi import Depends, params
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from pymongo.asynchronous.collection import AsyncCollection
 from starlette.requests import Request
 
-from app.api.berechtigungen.guard import GrantLookup, get_grant_lookup
-from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, BanLookup, get_ban_lookup
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS
 from app.api.sperrliste.services import adresse_hash
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import ACTOR_TOKEN_CHALLENGE
+from app.core.exceptions import ACTOR_TOKEN_CHALLENGE, APIError
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, AktorFunktion, PersonActor, actor_var, record_write, request_var
 from app.core.security import (
     AUTH_TIME_HEADER,
     ENROLMENT_WINDOW_S,
     PASSKEY_FACTOR,
     STEP_UP_WINDOW_S,
+    Attribution,
     Factor,
+    SessionActor,
     akteur_pseudonym,
     attribute_the_administrator,
     bind_actor,
     bind_public_actor,
     get_actor_email,
     loeschung_journal_hash,
+    verify_recent_confirmation,
+    verify_recent_person_confirmation,
     verify_step_up,
 )
 from app.main import create_app
 from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, PERSON_WINDOW_DAYS
-from tests.actor_tokens import SESSION_AGE_S, SignedActor, actor_headers, session_headers, verified_actor
+from tests.actor_tokens import SESSION_AGE_S, SignedActor, actor_headers, verified_actor
 from tests.config import ADMIN_KEY, BASE_AUTH, build_test_config
 from tests.core.app_source import api_routes, application, dependency_calls
-from tests.grants import admit
 
 CONFIG = build_test_config()
 
@@ -55,42 +56,23 @@ TEAM_ID = "6890a1b2c3d4e5f607182930"
 WRITE_PATH = f"/api/v0/teams/{TEAM_ID}"
 ROUTE_TEMPLATE = "/api/v0/teams/{team_id}"
 
-# An admin-tier read on a router that writes nothing: the grants reach a read as they reach a write.
+# An admin-tier read on a router that writes nothing: the session reaches a read as it reaches a write.
 READ_PATH = "/api/v0/spielorte"
 
 ACTOR = "admin@example.com"
 
 # A route added to a case's own app, its handler reading what the binder bound.
 PUBLIC_PROBE = "/api/v0/public-probe"
-# Well-formed, and holding none of the grants `_served` answers from.
-NOT_AN_ADMINISTRATOR = "schueler@example.com"
 
 # Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure,
 # the harness's own included.
 UNREACHED_DATABASE = Code.NO_DATABASE_CLIENT
 
 
-# The mounted operations, keyed as Starlette spells them, and the methods that record nothing.
-ROUTES_BY_OPERATION = {(route.path, method): route for route in api_routes(application()) for method in (route.methods or ())}
-SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
-
-
-def binds_a_person(route: APIRoute) -> bool:
-    """Compared by identity: each Funktion's binder is one module-level object."""
-    return any(dependency.call is binder for dependency in route.dependant.dependencies for binder in PERSON_ACTOR_BINDERS.values())
-
-
-@functools.cache
-def _served() -> FastAPI:
-    """A case clearing the actor check meets the missing database at the handler: the check answers from `tests/config.py :: ADMINISTRATORS`."""
-
-    return admit(create_app(CONFIG))
-
-
 def client() -> TestClient:
-    """No lifespan, so nothing opens the database: a request clearing every check then fails on `DB-CONN-001`, which is observable."""
+    """No lifespan, so nothing opens the database: a request clearing every session check then fails on `DB-CONN-001`, which is observable."""
 
-    return TestClient(_served(), raise_server_exceptions=False)
+    return TestClient(create_app(CONFIG), raise_server_exceptions=False)
 
 
 def answer(response: Any) -> tuple[int, str]:
@@ -127,19 +109,19 @@ def test_a_request_without_the_admin_key_sets_no_actor():
     ],
 )
 def test_a_request_naming_no_session_is_refused_before_the_grant_read(headers: Mapping[str, str | bytes]):
-    """The real lookup and no database: a 503 here would mean the grants were asked before the session was read."""
+    """The real read and no database: a 503 here would mean the grants were asked before the session was read."""
 
     sent = {**ADMIN_KEY} if not headers else {**ADMIN_KEY, **actor_headers(ACTOR), **headers}
-    response = TestClient(create_app(CONFIG), raise_server_exceptions=False).get(READ_PATH, headers=sent)
+    response = client().get(READ_PATH, headers=sent)
 
     assert answer(response) == (400, Code.MISSING_ACTOR)
 
 
 class TestTheAdministratorsSession:
-    def test_a_passkey_session_holding_a_grant_reaches_the_database(self):
+    def test_a_passkey_session_reaches_the_grant_read(self):
         """The control: every refusal below would pass on a guard that refuses everything."""
 
-        assert answer(client().delete(WRITE_PATH, headers=SignedActor(ACTOR.upper(), ADMIN_KEY))) == (503, UNREACHED_DATABASE)
+        assert answer(client().delete(WRITE_PATH, headers=SignedActor(ACTOR, ADMIN_KEY))) == (503, UNREACHED_DATABASE)
 
     @pytest.mark.parametrize(
         "headers",
@@ -148,55 +130,22 @@ class TestTheAdministratorsSession:
             pytest.param(signed_in_before(ADMIN_WINDOW_HOURS * 3600 + 60), id="a session past the administrator's window"),
         ],
     )
-    def test_a_session_the_admin_tier_does_not_take_is_refused(self, headers: Mapping[str, str]):
-        """A granted address, and still refused: a person's session sent to an admin route meets this, not the grant alone."""
+    def test_a_session_the_admin_tier_does_not_take_is_refused_before_the_grant_read(self, headers: Mapping[str, str]):
+        """A person's session sent to an admin route meets this, whatever the grants hold."""
 
         response = client().delete(WRITE_PATH, headers=headers)
 
         assert answer(response) == (401, Code.ACTOR_TOKEN_REFUSED)
         assert response.headers["www-authenticate"] == ACTOR_TOKEN_CHALLENGE
 
-    @pytest.mark.parametrize(("method", "path"), [("delete", WRITE_PATH), ("get", READ_PATH)], ids=("a write", "a read"))
-    def test_an_address_off_the_list_is_refused(self, method: str, path: str):
-        response = getattr(client(), method)(path, headers=SignedActor(NOT_AN_ADMINISTRATOR, ADMIN_KEY))
 
-        assert answer(response) == (403, Code.ACTOR_NOT_ADMIN)
-        assert "www-authenticate" not in response.headers
-
-    @pytest.mark.parametrize(
-        ("granted_after_s", "expected"),
-        [
-            pytest.param(0.999, (503, UNREACHED_DATABASE), id="later inside the sign-in's second"),
-            pytest.param(1, (401, Code.ACTOR_TOKEN_REFUSED), id="the second after the sign-in"),
-        ],
-    )
-    def test_a_session_signed_in_before_its_grant_is_refused_to_the_second(self, granted_after_s: float, expected: tuple[int, str]):
-        """`auth_time` is a whole second, so a grant later inside it admits what the frontend's millisecond admitted."""
-
-        auth_time = int(datetime.now(UTC).timestamp()) - SESSION_AGE_S
-        seit = datetime.fromtimestamp(auth_time + granted_after_s, UTC)
-
-        def granted() -> GrantLookup:
-            async def grant_since(identifier: str) -> datetime | None:
-                return seit if identifier == ACTOR else None
-
-            return grant_since
-
-        app = create_app(CONFIG)
-        app.dependency_overrides[get_grant_lookup] = granted
-        headers = {**ADMIN_KEY, **session_headers(ACTOR, auth_time=auth_time, factor=PASSKEY_FACTOR)}
-
-        assert answer(TestClient(app, raise_server_exceptions=False).get(READ_PATH, headers=headers)) == expected
-
-
-GRANT_ID = "6890a1b2c3d4e5f607910002"
-# The writes held to the enrolment window.
+# The writes held to the enrolment window, each declaring the check.
 GRANT_WRITES = [
     pytest.param("post", "/api/v0/berechtigungen", id="a grant"),
-    pytest.param("delete", f"/api/v0/berechtigungen/{GRANT_ID}", id="a revoke"),
-    pytest.param("patch", f"/api/v0/berechtigungen/{GRANT_ID}", id="a tier change"),
-    pytest.param("post", f"/api/v0/adresswechsel/{GRANT_ID}/genehmigung", id="an approval of a grant's move"),
-    pytest.param("post", f"/api/v0/berechtigungen/antraege/{GRANT_ID}/genehmigung", id="an approval of a grant or a promotion"),
+    pytest.param("delete", "/api/v0/berechtigungen/{berechtigung_id}", id="a revoke"),
+    pytest.param("patch", "/api/v0/berechtigungen/{berechtigung_id}", id="a tier change"),
+    pytest.param("post", "/api/v0/adresswechsel/{adresswechsel_id}/genehmigung", id="an approval of a grant's move"),
+    pytest.param("post", "/api/v0/berechtigungen/antraege/{antrag_id}/genehmigung", id="an approval of a grant or a promotion"),
 ]
 
 # Every write the page steps up on every call: nothing reverses what it does, or it mints or voids a
@@ -230,60 +179,82 @@ STEP_UP_WRITES = [
     pytest.param("delete", "/api/v0/teams/{team_id}/saisons/{saison_id}/einladung", id="a club's link revoked"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/einladung/versand", id="a club's link mailed to its seats"),
 ]
-# What each path parameter is filled with: an id where the route converts one, the season or the seat otherwise.
-PATH_VALUES = {"saison_id": "2026", "seat": "trainer"}
-AN_OBJECT_ID = "6890a1b2c3d4e5f607910003"
 
+# The person's own address change, started or approved, held to the enrolment window by either factor.
+ADDRESS_CHANGE_WRITES = [
+    pytest.param("post", "/api/v0/konto/adresswechsel", id="a start"),
+    pytest.param("post", "/api/v0/konto/adresswechsel/freigabe", id="an approval"),
+]
 
-def url_of(template: str) -> str:
-    return re.sub(r"\{(\w+)\}", lambda match: PATH_VALUES.get(match[1], AN_OBJECT_ID), template)
+WindowCheck = Callable[[SessionActor], None]
+
+# Each window check and the window it holds a sign-in to.
+WINDOWS = [
+    pytest.param(verify_recent_confirmation, ENROLMENT_WINDOW_S, id="the grants' enrolment window"),
+    pytest.param(verify_step_up, STEP_UP_WINDOW_S, id="the step-up window"),
+    pytest.param(verify_recent_person_confirmation, ENROLMENT_WINDOW_S, id="the person's enrolment window"),
+]
+
+# Each window check and the writes declaring it.
+DECLARATIONS = [
+    pytest.param(verify_recent_confirmation, GRANT_WRITES, id="the grants' enrolment window"),
+    pytest.param(verify_step_up, STEP_UP_WRITES, id="the step-up window"),
+    pytest.param(verify_recent_person_confirmation, ADDRESS_CHANGE_WRITES, id="the person's enrolment window"),
+]
 
 
 def challenge(window_s: int) -> str:
     return f'{ACTOR_TOKEN_CHALLENGE} error="insufficient_user_authentication", max_age="{window_s}"'
 
 
+def refusal_of(check: WindowCheck, actor: SessionActor) -> APIError | None:
+    """What a window check raises for `actor`, called with a plain argument as FastAPI calls it once the session checks have answered."""
+
+    try:
+        check(actor)
+    except APIError as refused:
+        return refused
+
+    return None
+
+
 class TestTheStepUp:
-    """The grants' writes are held to the enrolment window and every other step-up write to the step-up window."""
+    """The grants' writes and a person's address change are held to the enrolment window, every other step-up write to the step-up window."""
 
-    @pytest.mark.parametrize(("method", "path"), GRANT_WRITES)
-    def test_a_grant_write_from_an_older_sign_in_is_refused(self, method: str, path: str):
-        response = getattr(client(), method)(path, headers=signed_in_before(ENROLMENT_WINDOW_S + 1))
+    @pytest.mark.parametrize(("check", "window_s"), WINDOWS)
+    def test_a_sign_in_older_than_the_window_is_refused_with_its_challenge(self, check: WindowCheck, window_s: int):
+        refused = refusal_of(check, verified_actor(ACTOR, signed_in_before_s=window_s + 1))
 
-        assert answer(response) == (401, Code.CONFIRMATION_REQUIRED)
-        assert response.headers["www-authenticate"] == challenge(ENROLMENT_WINDOW_S)
+        assert refused is not None
+        assert (refused.status_code, refused.error_code) == (401, Code.CONFIRMATION_REQUIRED)
+        assert refused.headers == {"WWW-Authenticate": challenge(window_s)}
 
-    @pytest.mark.parametrize(("method", "path"), STEP_UP_WRITES)
-    def test_a_step_up_write_from_an_older_sign_in_is_refused(self, method: str, path: str):
-        response = getattr(client(), method)(url_of(path), headers=signed_in_before(STEP_UP_WINDOW_S + 1))
-
-        assert answer(response) == (401, Code.CONFIRMATION_REQUIRED)
-        assert response.headers["www-authenticate"] == challenge(STEP_UP_WINDOW_S)
-
-    @pytest.mark.parametrize(
-        ("method", "path", "age_s"),
-        [
-            pytest.param("post", "/api/v0/berechtigungen", ENROLMENT_WINDOW_S - SESSION_AGE_S, id="a grant inside its window"),
-            pytest.param("post", "/api/v0/sperrliste", STEP_UP_WINDOW_S - SESSION_AGE_S, id="a ban inside its window"),
-            pytest.param("delete", WRITE_PATH, STEP_UP_WINDOW_S + 1, id="a write the page does not step up"),
-        ],
-    )
-    def test_a_write_its_window_admits_passes_the_check(self, method: str, path: str, age_s: int):
+    @pytest.mark.parametrize(("check", "window_s"), WINDOWS)
+    def test_a_sign_in_inside_the_window_passes(self, check: WindowCheck, window_s: int):
         """The control: every refusal above would pass on a check refusing everything."""
 
-        assert answer(getattr(client(), method)(path, headers=signed_in_before(age_s)))[1] in {UNREACHED_DATABASE, "REQ-VAL-001"}
+        assert refusal_of(check, verified_actor(ACTOR, signed_in_before_s=window_s - SESSION_AGE_S)) is None
 
-    def test_every_route_declaring_the_step_up_is_one_listed_above(self):
-        """A step-up write dropping its declaration fails here, where no request would."""
+    @pytest.mark.parametrize("factor", ["code", PASSKEY_FACTOR])
+    def test_a_person_s_address_change_takes_either_factor_inside_the_window(self, factor: Factor):
+        """The code goes to the address on file, the confirmation OWASP's process asks of it."""
+
+        actor = verified_actor(ACTOR, signed_in_before_s=ENROLMENT_WINDOW_S - SESSION_AGE_S, factor=factor)
+
+        assert refusal_of(verify_recent_person_confirmation, actor) is None
+
+    @pytest.mark.parametrize(("check", "writes"), DECLARATIONS)
+    def test_every_route_declaring_the_check_is_one_listed_above(self, check: WindowCheck, writes: list[Any]):
+        """Both ways: a listed write dropping its declaration fails here, and so does a write declaring it unlisted."""
 
         declared = {
             operation
             for route in api_routes(application())
-            if verify_step_up in set(dependency_calls(route.dependant))
+            if check in set(dependency_calls(route.dependant))
             for operation in [(route.path_format, method.lower()) for method in route.methods or ()]
         }
 
-        assert declared == {(param.values[1], param.values[0]) for param in STEP_UP_WRITES}
+        assert declared == {(param.values[1], param.values[0]) for param in writes}
 
 
 class _Route:
@@ -309,11 +280,16 @@ def request_for(method: str) -> Request:
 Bound = tuple[Actor | PersonActor, tuple[str, str] | None]
 
 
-async def through(binder: AsyncIterator[Any]) -> tuple[Any, Bound, Bound]:
-    """Driven as FastAPI's exit stack drives it, in one task, so what the binder sets and resets is visible here."""
+async def through(binder: AsyncIterator[Any], inside: Callable[[], Awaitable[Any]] | None = None) -> tuple[Any, Bound, Bound]:
+    """Driven as FastAPI's exit stack drives it, in one task, so what the binder sets and resets is visible here.
+
+    `inside` runs where the handler would.
+    """
 
     value = await anext(binder)
     during = (actor_var.get(), request_var.get())
+    if inside is not None:
+        await inside()
     with contextlib.suppress(StopAsyncIteration):
         await anext(binder)
 
@@ -354,15 +330,10 @@ KNOWN_IDENTIFIER = "anna@beispielschule.de"
 # HMAC-SHA256(HMAC-SHA256(master, "akteur-v1"), identifier), nothing under `app/` imported.
 KNOWN_PSEUDONYM = "a34dad0e53a78bc549a6035faaa0dd5febf37bb83ca1585a8109fc0e626f8722"
 
-PERSON_ROUTE = "/api/v0/teams/{team_id}/kader"
 MIXED_CASE = "Anna@BeispielSchule.DE"
 
 # Any one of the three: the cases below are about what every person binder does alike.
 SPIELER: AktorFunktion = "spieler"
-
-
-async def _unbarred(identifier: str) -> bool:
-    return False
 
 
 class _LogDouble:
@@ -378,30 +349,17 @@ class _LogDouble:
 
 
 PERSON_PROBE = "/api/v0/person-probe"
-BARRED_PERSON = "gesperrt@beispielschule.de"
 
 
 def _probe() -> dict[str, bool]:
     return {"erreicht": True}
 
 
-def person_client(*, barred: frozenset[str] | None = frozenset({BARRED_PERSON})) -> TestClient:
-    """The real application and one probe route declaring a person's binder, its handler reading no database.
-
-    The ban read is answered from `barred`, or left real where it is `None`, which reaches the missing database.
-    """
+def person_client() -> TestClient:
+    """The real application and one probe route declaring a person's binder, its ban read meeting the missing database."""
 
     app = create_app(CONFIG)
     app.add_api_route(PERSON_PROBE, _probe, methods=["GET"], dependencies=[Depends(PERSON_ACTOR_BINDERS[SPIELER])])
-    if barred is not None:
-
-        def answered_from_the_set() -> BanLookup:
-            async def is_gesperrt(identifier: str) -> bool:
-                return identifier in barred
-
-            return is_gesperrt
-
-        app.dependency_overrides[get_ban_lookup] = answered_from_the_set
 
     return TestClient(app, raise_server_exceptions=False)
 
@@ -410,72 +368,60 @@ def as_person(email: str = KNOWN_IDENTIFIER, *, age_s: int = SESSION_AGE_S, fact
     return actor_headers(email, signed_in_before_s=age_s, factor=factor)
 
 
+def attributed_person(funktion: AktorFunktion, email: str) -> Attribution[str]:
+    """What the Funktion's binder is handed for a person the ban check let through, by the attribute its own `Depends` names.
+
+    Called with plain arguments, as FastAPI calls it once that check has answered.
+    """
+
+    [declared] = [
+        marker
+        for marker in inspect.signature(PERSON_ACTOR_BINDERS[funktion]).parameters["attribution"].annotation.__metadata__
+        if isinstance(marker, params.Depends)
+    ]
+    assert declared.dependency is not None
+
+    return declared.dependency(actor=verified_actor(email, factor="code"), config=CONFIG)
+
+
 class TestThePersonsSession:
     @pytest.mark.parametrize("funktion", get_args(AktorFunktion))
     def test_a_person_is_bound_under_the_funktion_its_router_declares(self, funktion: AktorFunktion):
         """Folded before it is hashed or handed on, so one mailbox's two spellings cannot hold two answers."""
 
-        app = create_app(CONFIG)
-        seen: list[tuple[str, Bound]] = []
         binder = PERSON_ACTOR_BINDERS[funktion]
-
-        # The handler's identifier from its router's own binder, which FastAPI runs once a request.
-        def probe(identifier: Annotated[str, Depends(binder)]) -> dict[str, bool]:
-            seen.append((identifier, (actor_var.get(), request_var.get())))
-            return {"erreicht": True}
-
-        app.add_api_route(PERSON_PROBE, probe, methods=["GET"], dependencies=[Depends(binder)])
-        app.dependency_overrides[get_ban_lookup] = lambda: _unbarred
-        response = TestClient(app, raise_server_exceptions=False).get(PERSON_PROBE, headers=as_person(MIXED_CASE))
+        identifier, during, after = asyncio.run(through(binder(request_for("GET"), attributed_person(funktion, MIXED_CASE))))
 
         pseudonym = akteur_pseudonym(KNOWN_IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
-        assert response.status_code == 200
-        assert seen == [(KNOWN_IDENTIFIER, (PersonActor(pseudonym=pseudonym, funktion=funktion), ("GET", PERSON_PROBE)))]
+        assert identifier == KNOWN_IDENTIFIER
+        assert during == (PersonActor(pseudonym=pseudonym, funktion=funktion), ("GET", ROUTE_TEMPLATE))
+        assert after == (SYSTEM_ACTOR, None)
 
     def test_the_log_row_carries_the_pseudonym_and_no_address(self):
         """A person's route records a pseudonym, never an address, and hands no administrator to a field storing one."""
 
         log = _LogDouble()
-        app = create_app(CONFIG)
         asked: list[str] = []
 
-        async def probe() -> dict[str, bool]:
+        async def handler() -> None:
             await record_write(collection=cast(AsyncCollection, log), operation="patch_one", document_id=TEAM_ID)
             with contextlib.suppress(LookupError):
                 asked.append(get_actor_email())
-            return {"erreicht": True}
 
-        app.add_api_route(PERSON_PROBE, probe, methods=["PATCH"], dependencies=[Depends(PERSON_ACTOR_BINDERS[SPIELER])])
-        app.dependency_overrides[get_ban_lookup] = lambda: _unbarred
-        response = TestClient(app, raise_server_exceptions=False).patch(PERSON_PROBE, headers=as_person(MIXED_CASE))
+        binder = PERSON_ACTOR_BINDERS[SPIELER]
+        asyncio.run(through(binder(request_for("PATCH"), attributed_person(SPIELER, MIXED_CASE)), handler))
 
         [row] = log.rows
         pseudonym = akteur_pseudonym(KNOWN_IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
         # An equality, so an `email` beside the two is a failure rather than an extra key nobody reads.
         assert row["actor"] == {"kind": "person_session", "pseudonym": pseudonym, "funktion": SPIELER}
         assert "beispielschule" not in str(row).lower()
-        assert (response.status_code, asked) == (200, [])
+        assert asked == []
 
-    def test_a_person_the_list_does_not_hold_is_served(self):
-        """The control: every refusal below would pass on a check refusing everybody."""
+    def test_a_session_inside_the_person_s_window_reaches_the_ban_read(self):
+        """The control: the refusals below would pass on a check refusing everybody."""
 
-        response = person_client().get(PERSON_PROBE, headers=as_person())
-
-        assert (response.status_code, response.json()) == (200, {"erreicht": True})
-
-    @pytest.mark.parametrize("email", [BARRED_PERSON, BARRED_PERSON.upper()], ids=("as stored", "in another case"))
-    def test_a_barred_person_is_refused_before_the_route_runs(self, email: str):
-        response = person_client().get(PERSON_PROBE, headers=as_person(email))
-
-        assert answer(response) == (403, Code.PERSON_BARRED)
-        assert BARRED_PERSON not in response.text.lower()
-
-    def test_an_address_beyond_ascii_reaches_the_ban_read_decoded_and_folded(self):
-        """Percent-encoded as the frontend sends it, and asked in the punycode spelling every record stores."""
-
-        response = person_client(barred=frozenset({"käthe@xn--mller-kva.de"})).get(PERSON_PROBE, headers=as_person("käthe@müller.de"))
-
-        assert answer(response) == (403, Code.PERSON_BARRED)
+        assert answer(person_client().get(PERSON_PROBE, headers=as_person())) == (503, UNREACHED_DATABASE)
 
     def test_a_session_past_the_person_s_window_is_refused(self):
         response = person_client().get(PERSON_PROBE, headers=as_person(age_s=PERSON_WINDOW_DAYS * 86400 + 60))
@@ -485,32 +431,7 @@ class TestThePersonsSession:
     def test_a_request_naming_nobody_is_refused_before_the_ban_read_opens_the_database(self):
         """No database and the real read: a 503 here would mean the list was asked before the session was read."""
 
-        assert answer(person_client(barred=None).get(PERSON_PROBE)) == (400, Code.MISSING_ACTOR)
-
-
-# The person's own address change, started or approved, held to the enrolment window by either factor.
-ADDRESS_CHANGE_WRITES = [
-    pytest.param("/api/v0/konto/adresswechsel", {"email": "neu.postfach@anderswo.example"}, id="a start"),
-    pytest.param("/api/v0/konto/adresswechsel/freigabe", None, id="an approval"),
-]
-
-
-class TestTheAddressChangeAsksAFreshSignIn:
-    @pytest.mark.parametrize(("path", "body"), ADDRESS_CHANGE_WRITES)
-    def test_an_older_sign_in_is_refused(self, path: str, body: Any):
-        response = person_client().post(path, json=body, headers={**ADMIN_KEY, **as_person(age_s=ENROLMENT_WINDOW_S + 1)})
-
-        assert answer(response) == (401, Code.CONFIRMATION_REQUIRED)
-        assert response.headers["www-authenticate"] == challenge(ENROLMENT_WINDOW_S)
-
-    @pytest.mark.parametrize("factor", ["code", PASSKEY_FACTOR])
-    @pytest.mark.parametrize(("path", "body"), ADDRESS_CHANGE_WRITES)
-    def test_either_factor_inside_the_window_passes_the_check(self, path: str, body: Any, factor: Factor):
-        """The control: the code goes to the address on file, the confirmation OWASP's process asks of it."""
-
-        response = person_client().post(path, json=body, headers={**ADMIN_KEY, **as_person(factor=factor)})
-
-        assert answer(response)[1] == UNREACHED_DATABASE
+        assert answer(person_client().get(PERSON_PROBE)) == (400, Code.MISSING_ACTOR)
 
 
 class TestThePseudonym:

@@ -42,7 +42,7 @@ from app.core.transactions import ABORT_GRACE_S, transaction_session
 from app.main import create_app
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
-from tests.config import ADMIN_KEY, ADMINISTRATORS, TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
+from tests.config import ADMIN_KEY, TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
@@ -131,24 +131,8 @@ class TestAStoppedContainerOutlastsEveryRequest:
         assert COMMAND_OVERRIDES.findall(_backend_service()) == []
 
 
-def _erasure_answered() -> tuple[Response, float]:
-    """`POST /identitaet/erasure` against a server nothing answers, its first database call past the actor check inside its transaction."""
-
-    async def _answered() -> tuple[Response, float]:
-        async with app_client(UNANSWERED_URI, admitting=ADMINISTRATORS) as http:
-            started = time.monotonic()
-            response = await http.post(
-                f"/api/v{API_VERSION}/identitaet/erasure",
-                headers=ADMIN_HEADERS,
-                json={"email": "anna.mueller@schule.de", "anlass": "Mail vom 30.03.2026"},
-            )
-            return response, time.monotonic() - started
-
-    return asyncio.run(_answered())
-
-
 def _grants_list_answered(method: str) -> tuple[Response, float]:
-    """An admin-tier request against a server nothing answers, the actor check's grant read left real, and so its first."""
+    """An admin-tier request against a server nothing answers, the actor check's grant read its first database call."""
 
     async def _answered() -> tuple[Response, float]:
         async with app_client(UNANSWERED_URI) as http:
@@ -160,17 +144,9 @@ def _grants_list_answered(method: str) -> tuple[Response, float]:
 
 
 class TestAnUnreachableServerIsAnsweredWithinTheDeadline:
-    def test_the_route_answers_the_deadline_rather_than_retrying(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setattr(middlewares, "REQUEST_DEADLINE_S", SHORT_DEADLINE_S)
-
-        response, elapsed = _erasure_answered()
-
-        assert (response.status_code, response.json()["error_code"]) == (500, Code.UNKNOWN_OUTCOME)
-        assert elapsed < ANSWERED_WITHIN_S
-
     @pytest.mark.parametrize(("method", "error_code"), [("GET", FAILED), ("POST", Code.UNKNOWN_OUTCOME)])
     def test_the_actor_check_s_own_read_is_held_to_the_deadline(self, monkeypatch: pytest.MonkeyPatch, method: str, error_code: Code):
-        """The grant read runs as a dependency ahead of every handler, the case above answering it from a set."""
+        """The grant read runs as a dependency ahead of every handler, so the deadline cuts it before the handler starts."""
 
         monkeypatch.setattr(middlewares, "REQUEST_DEADLINE_S", SHORT_DEADLINE_S)
 
