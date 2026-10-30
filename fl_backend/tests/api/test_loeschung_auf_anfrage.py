@@ -43,7 +43,7 @@ from app.core.recording import Actor
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from app.shared.schemas.bounds import LOESCHUNG_ANLASS_MAX_LENGTH
-from tests.actor_tokens import FRESH_ADMIN_ACTOR, SignedActor
+from tests.actor_tokens import SignedActor, fresh_admin_actor
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
@@ -180,7 +180,7 @@ async def geloescht_by_the_handler(
         **loeschung_collections(database, **replaced),
         sperrliste=ban_list(database),
         # Refusing none: the window is held over HTTP, in `tests/api/test_step_up_execution.py`.
-        actor=FRESH_ADMIN_ACTOR,
+        actor=fresh_admin_actor(),
         db=client,
         config=CONFIG,
         operator=OPERATOR,

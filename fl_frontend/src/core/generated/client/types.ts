@@ -5813,11 +5813,6 @@ export type N410Response = FLFailureBody;
 export type N422Response = FLRefusedPayloadBody;
 
 /**
- * Too Many Requests
- */
-export type N429Response = FLFailureBody;
-
-/**
  * Internal Server Error
  */
 export type N500Response = FLFailureBody;

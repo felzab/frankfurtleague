@@ -367,7 +367,7 @@ class TestStringifyFilter:
         assert _stringify_filter({"_id": TEAM_OID})["_id"] == "6890a1b2c3d4e5f607500001"
 
     def test_an_operator_becomes_text_rather_than_a_nested_document(self):
-        """Stored for the reader rather than for replay: a validator admitting a nested operator admits anything at all."""
+        """Stored for the reader rather than for replay: a record model admitting a nested operator admits anything at all."""
         rendered = _stringify_filter({"_id": {"$in": [TEAM_OID]}})
 
         assert rendered == {"_id": str({"$in": [TEAM_OID]})}
