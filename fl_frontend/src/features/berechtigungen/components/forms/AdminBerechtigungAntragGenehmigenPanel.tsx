@@ -16,7 +16,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
-import type { FLBerechtigungAntragZeile } from "@/features/berechtigungen/schemas";
+import type { FLBerechtigungAntragZeile } from "@/core/generated/client/types";
 
 const ANTRAG_GENEHMIGEN = "Antrag genehmigen";
 

@@ -23,7 +23,7 @@ import { AdminBerechtigungEntziehenPanel } from "../forms/AdminBerechtigungEntzi
 import { AdminBerechtigungGenehmigenPanel } from "../forms/AdminBerechtigungGenehmigenPanel";
 import { AdminBerechtigungStufePanel } from "../forms/AdminBerechtigungStufePanel";
 
-import type { FLBerechtigungZeile } from "@/features/berechtigungen/schemas";
+import type { FLBerechtigungZeile } from "@/core/generated/client/types";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {

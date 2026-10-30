@@ -7,7 +7,7 @@ import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/a
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
-import type { FLGenehmigungVerwehrt } from "@/features/berechtigungen/schemas";
+import type { FLGenehmigungVerwehrt } from "@/core/generated/client/types";
 import type { RefusalParts } from "@/shared/utils/refusal";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { EinsehbarVerwehrt } from "./einsehbar";

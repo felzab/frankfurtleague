@@ -23,13 +23,9 @@ import {
   FLPostBerechtigungPayloadSchema,
 } from "./schemas";
 
+import type { FLPostBerechtigungPayload } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
-import type {
-  FLBerechtigungAntragKeyPayload,
-  FLBerechtigungKeyPayload,
-  FLPatchBerechtigungPayload,
-  FLPostBerechtigungPayload,
-} from "./schemas";
+import type { FLBerechtigungAntragKeyPayload, FLBerechtigungKeyPayload, FLPatchBerechtigungPayload } from "./schemas";
 
 /**
  * The enrolment's five-minute window rather than the step-up's: a

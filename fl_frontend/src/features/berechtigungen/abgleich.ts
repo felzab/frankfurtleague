@@ -17,7 +17,7 @@ import { postBerechtigungenAbgleich, postBerechtigungenAngekuendigt } from "./mu
 
 import type { Urheber, Vorenthalten, Zugangsaenderung } from "@/core/berechtigungEmail";
 import type { Mail } from "@/core/emailShell";
-import type { FLBerechtigungAenderung } from "./schemas";
+import type { FLBerechtigungAenderung } from "@/core/generated/client/types";
 
 /**
  * Five minutes: this is the lane that says who may administer, and a pass is one claim over a handful of
