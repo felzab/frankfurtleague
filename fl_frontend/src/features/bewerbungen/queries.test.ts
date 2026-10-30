@@ -102,8 +102,8 @@ describe("the four base-tier public reads", () => {
 
 describe("the one path segment a caller interpolates", () => {
   /* `fl_frontend/src/core/apiPath.ts :: isPathAsSpelled` cannot see an id carrying a plain `/`: it
-     survives parsing untouched and reads as a nested endpoint. Only the caller can refuse it, and
-     today's 24-hex id schema makes that positional. */
+     survives parsing untouched and reads as a nested endpoint, so the generated path builder
+     percent-encodes it before the client sees it. */
   it("encodes the id rather than letting it open a path segment", async () => {
     const before = calls.length;
 
