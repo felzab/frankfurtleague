@@ -10,7 +10,7 @@ import { TEAMS_EINTRAG } from "@/features/admin/constants.ts";
 import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, REGELN_ABSCHNITT, SPIELTAGE_UNDATED } from "./constants.ts";
 import { mapActivateRefusal, mapRulesRefusal, mapSaisonIdRefusal, mapSpielplanRefusal, mapSwapRefusal, mapUndrawRefusal } from "./refusals.ts";
 
-import type { FLSaisonRules } from "@/core/generated/client/types.ts";
+import type { Code, FLSaisonRules } from "@/core/generated/client/types.ts";
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 
 /* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
@@ -28,10 +28,10 @@ const RULES: FLSaisonRules = saisonRules();
 const SAISON = { id: SAISON_ID, start_date: "2026-03-01", end_date: "2026-07-01", rules: RULES, bewerbung: null, registrierung: null };
 
 /** The draw's answer on a first draw (`false`) or a replace carrying its own numbers (`true`). */
-const drawAnswer = (code: string, carriedShape: boolean): string => mapSpielplanRefusal(refused(code), carriedShape) ?? "";
+const drawAnswer = (code: Code, carriedShape: boolean): string => mapSpielplanRefusal(refused(code), carriedShape) ?? "";
 
 /** The editor's banner for one code, where it words one rather than seating it under a field. */
-const editBanner = (code: string): string => mapRulesRefusal(refused(code))?.error ?? "";
+const editBanner = (code: Code): string => mapRulesRefusal(refused(code))?.error ?? "";
 
 /* One German noun phrase per frozen field. The refusal states the freeze in one sentence, so a
    further shape field the write path adds and this table leaves out goes unnamed and fails nothing here. */

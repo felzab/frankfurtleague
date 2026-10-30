@@ -4,6 +4,7 @@ import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { isPathAsSpelled } from "./apiPath";
 import { frontend_config, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "./config";
 import { APIBadStatusError, APINetworkError, UnattributedAdminCallError } from "./errors";
+import { Code } from "./generated/client/types";
 import { boundCall, getRequestActor, getRequestTraceId } from "./requestScope";
 import { ACTOR_HEADER, AUTH_FACTOR_HEADER, AUTH_TIME_HEADER, formatTraceparent, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
@@ -55,6 +56,12 @@ const getFetchHeaders = (type: "base" | "system" | "admin" | "none" = "base"): R
   return headers;
 };
 
+/**
+ * Whether a failure body's code is one the contract publishes. Judged here once, so every reader compares a `Code`, and
+ * a comparison with a code the backend no longer answers fails the type check.
+ */
+const isCode = (value: unknown): value is Code => typeof value === "string" && Object.hasOwn(Code, value);
+
 /** Thrown for every status but a success: the code and the refused fields of the backend's own failure body. */
 const refusalOf = async ({ res, traceId, endpoint, sent }: { res: Response; traceId: string; endpoint: string; sent: SentRequest }) => {
   // An edge's own page, never the backend's body: nginx's and Cloudflare's answers are HTML.
@@ -77,7 +84,8 @@ const refusalOf = async ({ res, traceId, endpoint, sent }: { res: Response; trac
     message: "API returned a bad status.",
     url: res.url,
     statusCode: res.status,
-    serverErrorCode: failure.error_code === undefined ? undefined : String(failure.error_code),
+    // A code the contract does not name is none: the backend's own line still records it under the trace.
+    serverErrorCode: isCode(failure.error_code) ? failure.error_code : undefined,
     // The backend's `FLRefusedPayloadBody` lists them; any other body marks no field.
     refusedFields: Array.isArray(failure.fields) ? (failure.fields as FLRefusedField[]) : [],
     endpoint,

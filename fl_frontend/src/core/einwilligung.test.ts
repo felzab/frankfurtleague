@@ -14,7 +14,7 @@ import {
   SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL,
 } from "./einwilligungSeiten.ts";
 
-import type { FLEinwilligungFassung } from "./generated/client/types.ts";
+import type { Code, FLEinwilligungFassung } from "./generated/client/types.ts";
 
 /** What the backend answers one call; the registry's own answer unless a case names another. */
 type Answer = (endpoint: string) => Promise<unknown>;
@@ -65,7 +65,7 @@ const UMFANG = ["kader_oeffentlich", "intern"] as const;
 const gekeyt = (fassung: FLEinwilligungFassung) =>
   gekeyteFassung(fassung, fassung === SPIELER ? SPIELER_ABSATZ_SCHLUESSEL : SCHIEDSRICHTER_ABSATZ_SCHLUESSEL, UMFANG);
 
-const failure = (statusCode: number, serverErrorCode: string | undefined): APIBadStatusError =>
+const failure = (statusCode: number, serverErrorCode: Code | undefined): APIBadStatusError =>
   new APIBadStatusError({
     message: "refused",
     url: "http://backend/api/v0/einwilligung/fassungen/x",
@@ -118,7 +118,7 @@ describe("the words read", () => {
 
   // Only the record-missing code is an unknown label: a 404 carrying none is a route nothing served.
   it("throws every other failure rather than calling the label unknown", async () => {
-    for (const thrown of [failure(404, undefined), failure(500, "SYS-001")]) {
+    for (const thrown of [failure(404, undefined), failure(500, "SRV-FAIL-001")]) {
       api.answerWith(() => Promise.reject(thrown));
 
       await expect(getEinwilligungFassung("2026-10-spielerseite-5")).rejects.toSatisfy((error) => error === thrown);

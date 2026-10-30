@@ -18,7 +18,7 @@ import { ADRESSE_KORRIGIEREN, BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } 
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
 import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
 
-import type { FLBewerbung } from "@/core/generated/client/types.ts";
+import type { Code, FLBewerbung } from "@/core/generated/client/types.ts";
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 import type { TeamSaisonMembership } from "../teams/types.ts";
 
@@ -106,7 +106,7 @@ const ANNEHMEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/annehmen";
 const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/ablehnen";
 
 /** The season's entry rules, which `annehmen_bewerbung` reaches rather than restating, and so the ones an acceptance can answer. */
-const REUSED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"];
+const REUSED_ENTRY_CODES: Code[] = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"];
 
 describe("the triage's refusals against the codes its endpoints publish", () => {
   it("answers every code the acceptance publishes through the triage's mapper", async () => {
@@ -653,7 +653,7 @@ describe("the German one refusal code is given", () => {
  * The entry rules an acceptance and the club editor both answer. `REQ-ENTER-004` is not among them:
  * it guards a group MOVE, which no acceptance performs.
  */
-const SHARED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003"];
+const SHARED_ENTRY_CODES: Code[] = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003"];
 
 const ENTRY_RENDERINGS = SHARED_ENTRY_CODES.map((code) => ({
   code: code,

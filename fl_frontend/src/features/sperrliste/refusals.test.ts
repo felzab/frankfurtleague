@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import { mapAnsichtRefusal, mapSperreRefusal } from "./refusals.ts";
 
+import type { Code } from "@/core/generated/client/types.ts";
+
 const ON_THE_BOX = { fieldErrors: { email: "Diese Adresse ist schon gesperrt." } };
 
-const refusedWith = (statusCode: number, serverErrorCode: string) => refused(serverErrorCode, statusCode);
+const refusedWith = (statusCode: number, serverErrorCode: Code) => refused(serverErrorCode, statusCode);
 
 describe("the address a unique index already holds", () => {
   /* `uniq_sperrliste_adresse_hash` is this collection's only unique index, so the 409 it raises is
@@ -68,7 +70,7 @@ describe("the list read ahead of the ban", () => {
   /* Both refuse an administrator's address, which the ban then refuses as `REQ-SPERRLISTE-003`: one sentence on one
      box, whether the read foresees the refusal or the ban answers it. */
   it("lands the reader's own address and an owner's on the address box in the ban's words", () => {
-    for (const code of ["REQ-PURGE-003", "REQ-PURGE-005"]) {
+    for (const code of ["REQ-PURGE-003", "REQ-PURGE-005"] as const) {
       expect(mapAnsichtRefusal(refused(code)), code).toStrictEqual(mapSperreRefusal(refusedWith(409, "REQ-SPERRLISTE-003")));
     }
   });
