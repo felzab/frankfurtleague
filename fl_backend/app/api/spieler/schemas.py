@@ -1,6 +1,6 @@
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.bounds import (
@@ -232,8 +232,10 @@ class FLPostSaisonSpielerPayload(_SaisonSpielerPayload):
     rather than omitting, so the answer is theirs and not a default nobody chose.
     """
 
-    # Stripped before the width is counted, for `app/shared/schemas/custom.py :: CustomStrippedNonEmptyString`'s reason.
-    saison_id: Annotated[str, StringConstraints(strip_whitespace=True, min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)]
+    # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is what the write accepts.
+    saison_id: Annotated[
+        str, StringConstraints(max_length=SAISON_ID_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=SAISON_ID_LENGTH)
+    ]
 
 
 class FLPatchSaisonSpielerPayload(_SaisonSpielerPayload):
