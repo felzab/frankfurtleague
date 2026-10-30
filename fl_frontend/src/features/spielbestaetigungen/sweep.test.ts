@@ -25,12 +25,11 @@ const pass = (
   ...counts,
 });
 
-const calls = doubleApiClient(async (call: ApiCall, schema) => {
+const calls = doubleApiClient(async (call: ApiCall) => {
   const answer = call.endpoint === LISTE ? listeAnswer() : passAnswer(/^\/spielbestaetigungen\/sweep\/(\d+)$/.exec(call.endpoint)?.[1] ?? "");
   if (answer instanceof Error) throw answer;
   assert.ok(call.endpoint.startsWith(LISTE), `the pass reached a route nothing here answers: ${call.endpoint}`);
-  // Parsed by the schema the real client parses with, so an answer this file composes cannot drift.
-  return schema.parse(answer);
+  return answer;
 });
 
 vi.doMock("@/core/logging.ts", () => ({

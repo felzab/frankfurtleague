@@ -18,11 +18,11 @@ let adresswechselAnswer: () => Promise<number> = () => Promise.resolve(0);
 
 // Replaced at the module boundary rather than the sweep being reshaped to admit a seam: the real
 // client reaches a backend no test process runs.
-doubleApiClient(({ endpoint: requested, method }, schema) => {
+doubleApiClient(({ endpoint: requested, method }) => {
   const endpoint = new URL(requested, "http://backend").pathname;
   const call = { endpoint: endpoint, method: method ?? "GET" };
   events.push({ kind: "api", ...call });
-  return schema.parse(apiAnswer(call));
+  return apiAnswer(call);
 });
 
 vi.doMock("@/features/adresswechsel/sweep.ts", () => ({

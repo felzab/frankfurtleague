@@ -467,10 +467,10 @@ NAMES: Final = "check_env_names"
 
 def test_a_name_the_backend_does_not_declare_refuses_with_nothing_recreated() -> None:
     """Exit 3 is the snippet's own answer for the refusal, and nothing else may be graded as one."""
-    code, output, _ = _run(NAMES, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS="Invalid environment variables: LOG_FORMAT_")
+    code, output, _ = _run(NAMES, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS="Undeclared environment variables: 1")
 
     assert code == 2, output
-    assert "LOG_FORMAT_" in output, output
+    assert "Undeclared environment variables: 1" in output, output
     assert "NOTHING has been recreated" in output, output
 
 
@@ -656,16 +656,16 @@ def test_each_value_shape_the_schemas_declare_is_clean(line: str) -> None:
 @pytest.mark.parametrize(
     "line",
     [
-        pytest.param('LOG_FORMAT="vxq"', id="double-quoted"),
-        pytest.param("LOG_FORMAT='vxq'", id="single-quoted"),
-        pytest.param("LOG_FORMAT=`vxq`", id="backtick-quoted"),
-        pytest.param("log_format='vxq'", id="lower-case-name"),
+        pytest.param('DB_BASE_NAME="vxq"', id="double-quoted"),
+        pytest.param("DB_BASE_NAME='vxq'", id="single-quoted"),
+        pytest.param("DB_BASE_NAME=`vxq`", id="backtick-quoted"),
+        pytest.param("db_base_name='vxq'", id="lower-case-name"),
         pytest.param("API_TRUSTED_HOSTS=vxq, backend", id="space-inside"),
-        pytest.param("LOG_FORMAT = vxq", id="space-around-the-equals"),
-        pytest.param("  LOG_FORMAT=vxq", id="space-leading"),
-        pytest.param("LOG_FORMAT=vxq ", id="space-trailing"),
-        pytest.param("LOG_FORMAT=a\tvxq", id="tab"),
-        pytest.param("LOG_FORMAT=vxq # the stream", id="inline-comment"),
+        pytest.param("DB_BASE_NAME = vxq", id="space-around-the-equals"),
+        pytest.param("  DB_BASE_NAME=vxq", id="space-leading"),
+        pytest.param("DB_BASE_NAME=vxq ", id="space-trailing"),
+        pytest.param("DB_BASE_NAME=a\tvxq", id="tab"),
+        pytest.param("DB_BASE_NAME=vxq # the stream", id="inline-comment"),
         pytest.param("HASH=vxq#b", id="hash-unspaced"),
         pytest.param("SECRET=vxq$OTHER", id="dollar"),
         pytest.param("SECRET=${vxq}", id="dollar-braced"),
@@ -674,16 +674,16 @@ def test_each_value_shape_the_schemas_declare_is_clean(line: str) -> None:
         pytest.param("ANGLED=<vxq>", id="angle-bracket"),
         pytest.param("PIPED=vxq|b", id="pipe"),
         pytest.param("ACCENTED=jsön-vxq", id="non-ascii"),
-        pytest.param("export LOG_FORMAT=vxq", id="export"),
-        pytest.param("LOG_FORMAT: vxq", id="colon"),
-        pytest.param("LOG_FORMAT:vxq", id="colon-unspaced"),
-        pytest.param("LOG_FORMAT", id="bare-pass-through"),
+        pytest.param("export DB_BASE_NAME=vxq", id="export"),
+        pytest.param("DB_BASE_NAME: vxq", id="colon"),
+        pytest.param("DB_BASE_NAME:vxq", id="colon-unspaced"),
+        pytest.param("DB_BASE_NAME", id="bare-pass-through"),
         pytest.param("  # vxq", id="comment-indented"),
         # python-dotenv ends a line at a lone carriage return, `@next/env` at U+2028 and U+2029 too,
         # and compose at neither, so a comment holding one declares a name for some readers alone.
-        pytest.param("# vxq\rLOG_LEVEL_APP=DEBUG", id="comment-carriage-return"),
-        pytest.param("# vxq\u2028LOG_LEVEL_APP=DEBUG", id="comment-line-separator"),
-        pytest.param("# vxq\u2029LOG_LEVEL_APP=DEBUG", id="comment-paragraph-separator"),
+        pytest.param("# vxq\rDB_BASE_NAME=fl_db", id="comment-carriage-return"),
+        pytest.param("# vxq\u2028DB_BASE_NAME=fl_db", id="comment-line-separator"),
+        pytest.param("# vxq\u2029DB_BASE_NAME=fl_db", id="comment-paragraph-separator"),
         # `read` drops a NUL unseen, so the line would keep the shape to the shell alone.
         pytest.param("TURNSTILE_SITE_KEY=vxq\x00b", id="nul-in-a-value"),
         pytest.param("# vxq\x00", id="nul-in-a-comment"),
@@ -712,7 +712,7 @@ def test_a_value_running_over_several_lines_lists_its_lines_by_number_alone(quot
 
     Line 2 is shaped as a name, a key's data; line 3 keeps the whole shape and is no finding.
     """
-    text = f"NOTE={quote}first vxq\nKEYVXQ:MATERIAL\nDATAvxq=x\nlast vxq{quote}\nLOG_FORMAT=json\n"
+    text = f"NOTE={quote}first vxq\nKEYVXQ:MATERIAL\nDATAvxq=x\nlast vxq{quote}\nDB_BASE_NAME=fl_db\n"
     code, output = _env_spellings(text)
 
     assert code == 2, output
@@ -729,7 +729,7 @@ def test_a_pasted_key_s_lines_are_listed_by_number_alone() -> None:
 
     `vxqKEY==` keeps the shape, a declaration to every reader, so it is no finding here at all.
     """
-    code, output = _env_spellings("LOG_FORMAT=json\nvxqKEYMATERIAL0123\nvxqKEY==\nvxquser:pw@host\nvxqkey+part/x==\n")
+    code, output = _env_spellings("DB_BASE_NAME=fl_db\nvxqKEYMATERIAL0123\nvxqKEY==\nvxquser:pw@host\nvxqkey+part/x==\n")
 
     assert code == 2, output
     assert "fl_backend/.env:2\n" in output.replace("\r", ""), output
@@ -750,7 +750,7 @@ def test_a_last_line_of_nul_bytes_alone_is_refused() -> None:
 
 def test_a_shell_trace_prints_no_line_of_either_check() -> None:
     """`bash -x`, or an exported `SHELLOPTS` holding xtrace, would otherwise expand each line and each name read in any form."""
-    text = "LOG_FORMAT='vxq'\nvxqKEYMATERIAL0123\n"
+    text = "DB_BASE_NAME='vxq'\nvxqKEYMATERIAL0123\n"
     code, output, _ = _run(f"{_written('fl_backend/.env', text)}set -x\njudge_env_files fl_backend/.env\n")
 
     assert code == 2, output
@@ -760,7 +760,7 @@ def test_a_shell_trace_prints_no_line_of_either_check() -> None:
 
 def test_a_byte_order_mark_refuses_its_line_and_names_the_file() -> None:
     """Compose, python-dotenv 1.2.4 and `@next/env` drop the mark; `parseEnv`, driven, keeps it in the first name."""
-    code, output = _env_spellings("\ufeffAPI_URL=http://backend:8000\nLOG_FORMAT=json\n")
+    code, output = _env_spellings("\ufeffAPI_URL=http://backend:8000\nDB_BASE_NAME=fl_db\n")
 
     assert code == 2, output
     assert "fl_backend/.env:1\n" in output.replace("\r", ""), output
@@ -771,7 +771,7 @@ def test_a_byte_order_mark_refuses_its_line_and_names_the_file() -> None:
 
 def test_every_file_named_is_judged_before_the_refusal() -> None:
     """One refusal over both files, so one visit to the host corrects every line."""
-    code, output = _env_spellings("LOG_FORMAT='vxq'\n", frontend='APP_ENV=local\nAPI_URL="vxq"\n')
+    code, output = _env_spellings("DB_BASE_NAME='vxq'\n", frontend='APP_ENV=local\nAPI_URL="vxq"\n')
 
     assert code == 2, output
     assert "fl_frontend/.env:2\n" in output.replace("\r", ""), output
@@ -981,7 +981,7 @@ def test_the_rollback_names_the_tag_it_restored_or_asks_for_one(pin: str, named:
 
 # --- a credential's line in an environment file -------------------------------------------------------------
 
-CREDENTIAL_LINES: Final = """printf 'LOG_FORMAT=json\\nmongodb_uri=a value no case reads\\n' > fl_backend/.env
+CREDENTIAL_LINES: Final = """printf 'DB_BASE_NAME=fl_db\\nmongodb_uri=a value no case reads\\n' > fl_backend/.env
 mkdir -p fl_frontend
 printf 'INTERNAL_API_KEY_BASE=a value no case reads\\nAUTH_SECRET\\n' > fl_frontend/.env
 refuse_credential_lines fl_backend/.env fl_frontend/.env
@@ -999,7 +999,7 @@ def test_every_credential_line_refuses_naming_each_in_any_case_and_no_value() ->
     assert "mongodb_uri" not in output, output
     assert "fl_frontend/.env:1 INTERNAL_API_KEY_BASE" in output, output
     assert "fl_frontend/.env:2 AUTH_SECRET" in output, output
-    assert "LOG_FORMAT" not in output, output
+    assert "DB_BASE_NAME" not in output, output
     assert "a value no case reads" not in output, output
     assert "Delete them" in output, output
 
@@ -1086,7 +1086,7 @@ START_MODES: Final = [
 
 
 def _start(
-    script: str, uname: str, args: tuple[str, ...], frontend_env: str, *, stray: bool = False, backend_env: str = "LOG_FORMAT=json\n"
+    script: str, uname: str, args: tuple[str, ...], frontend_env: str, *, stray: bool = False, backend_env: str = "DB_BASE_NAME=fl_db\n"
 ) -> tuple[int, str, list[str]]:
     """One start mode, run whole from a checkout of its own, `stray` putting compose's own `.env` beside it.
 
@@ -1142,7 +1142,9 @@ def test_a_spelling_the_readers_disagree_on_stops_every_start_before_compose_is_
     script: str, uname: str, args: tuple[str, ...]
 ) -> None:
     """Both files in one refusal, so a refused frontend file never hides the backend file's lines."""
-    code, output, calls = _start(script, uname, args, "APP_ENV=local\nAPI_URL=http://backend:8000/$base\n", backend_env="LOG_FORMAT='json'\n")
+    code, output, calls = _start(
+        script, uname, args, "APP_ENV=local\nAPI_URL=http://backend:8000/$base\n", backend_env="DB_BASE_NAME='fl_db'\n"
+    )
 
     assert code == 2, output
     assert "fl_frontend/.env:2\n" in output.replace("\r", ""), output

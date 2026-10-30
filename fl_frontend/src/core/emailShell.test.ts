@@ -16,21 +16,9 @@ const MAIL: Mail = {
 
 describe("renderMail", () => {
   // A reader whose client shows the text version alone has no button to press.
-  it("prints the button's link and each named link in the text version", () => {
+  it("prints the button's link in the text version", () => {
     const knopf = renderMail({ ...MAIL, aktion: { label: "Zum Eintrag", href: `${ORIGIN}/eintrag?token=eins` } });
     assert.include(knopf.text, `${ORIGIN}/eintrag?token=eins`);
-
-    const links = renderMail({
-      ...MAIL,
-      aktion: {
-        links: [
-          { name: "Erika (Ansprechperson)", href: `${ORIGIN}/eintrag?token=eins` },
-          { name: "Jonas (Stellvertretung)", href: `${ORIGIN}/eintrag?token=zwei` },
-        ],
-      },
-    });
-    assert.include(links.text, `${ORIGIN}/eintrag?token=eins`);
-    assert.include(links.text, `${ORIGIN}/eintrag?token=zwei`);
   });
 
   // A link to pass on stands in its box as text a reader can copy, in both versions, and the mail draws no button.

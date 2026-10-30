@@ -100,7 +100,7 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAdressw
     landing.landed();
     onGeschrieben();
     // Graded as the start's press grades its link: the mail leaves behind the answer, and the earlier link dies with it.
-    meldeAdresswechselVersand({ versand: "gesendet" }, res.message);
+    meldeAdresswechselVersand(true, res.message);
   };
 
   const verwirf = () => {

@@ -335,7 +335,7 @@ where the row carries the stamp the expiry reads.\
 ### `wunschgegner` — the opponent a school wishes to meet on the first Spieltag
 
 **Is:** a school's free-text wish on its application, naming the side it would like to play first, or null where it named nobody. A wish recorded and repeated back, never a fixture: the Spielplan decides the pairings.\
-**In code:** `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung.wunschgegner`, trimmed and bounded on the write by `:: FLPostBewerbungPayload` against `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH`; the acceptance mail states it through `fl_frontend/src/core/bewerbungEmail.ts :: BewerbungZusageData`, where the field is required so no call site can leave it out.\
+**In code:** `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung.wunschgegner`, trimmed and bounded on the write by `:: FLPostBewerbungPayload` against `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH`; the acceptance mail states it from its Postausgang row's `fl_backend/app/api/postausgang/schemas.py :: FLBewerbungZusageDaten`, where the field has no default so no writer can leave it out.\
 **Trap:** a string, never a club reference — a school may name an applicant the league has not accepted yet, so no reading of it resolves to a `Team`, and nothing ever pairs on it; the acceptance mail says the draw decides for the same reason. An empty or blank entry is stored as null rather than as a wish, and the write payload defaults the key where its siblings require theirs, so a form that stops sending it ships a silent null.\
 **See:** the `Spielplan` entry above for what decides the pairings.
 
