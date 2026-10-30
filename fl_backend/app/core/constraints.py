@@ -129,6 +129,8 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # Two requests about one address meet here. Unfiltered, a lapsed row too: the write asking anew removes that one first
     # (`app/api/berechtigungen/antraege.py :: clear_the_address_in_session`), the TTL monitor passing up to a minute late.
     UniqueIndex(Collection.BERECHTIGUNGEN_ANTRAEGE, "uniq_berechtigung_antrag_adresse", ("adresse",), "one request per address"),
+    # Also the READ path of every enqueue, which finds a replay's row by it (`app/api/postausgang/services.py :: enqueue_mail`).
+    UniqueIndex(Collection.POSTAUSGANG, "uniq_postausgang_schluessel", ("schluessel",), "one row per owed mail"),
 )
 
 
@@ -354,6 +356,26 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("email", ASCENDING),),
         "the changes naming an address as their new one, which every erasure and its preview read",
     ),
+    # Equality on `stand` and the claim's own sort after it; the lease and the deadline are read off the open rows alone.
+    SupportIndex(
+        Collection.POSTAUSGANG,
+        "postausgang_offen",
+        (("stand", ASCENDING), ("erfasst_am", ASCENDING), ("_id", ASCENDING)),
+        "the drain's claim of the open rows, oldest first",
+    ),
+    # Plain: an unsent row's null key matches no event, every event naming a message the provider minted.
+    SupportIndex(
+        Collection.POSTAUSGANG,
+        "postausgang_nachricht_id",
+        (("nachricht_id", ASCENDING),),
+        "the provider's events, each naming its message, driven by the provider",
+    ),
+    SupportIndex(
+        Collection.POSTAUSGANG,
+        "postausgang_bezug",
+        (("bezug.sammlung", ASCENDING), ("bezug.id", ASCENDING), ("bezug.sitz", ASCENDING), ("erfasst_am", DESCENDING), ("_id", DESCENDING)),
+        "the newest mail about one record and seat, which says whether its holder's mail arrives",
+    ),
 )
 
 
@@ -413,6 +435,8 @@ TTL_INDEXES: Sequence[TTLIndex] = (
         0,
         "a request nobody decided is removed once the TTL monitor next passes after it lapsed",
     ),
+    # Zero: `loeschen_am` is the date itself, a retention after the row's final state or a secret's own lapse.
+    TTLIndex(Collection.POSTAUSGANG, "postausgang_loeschen_am", "loeschen_am", 0, "a mail's row is removed on its delete date"),
 )
 
 

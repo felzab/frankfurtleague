@@ -17,6 +17,7 @@ from app.api.aktionen.schemas import FLAktionRecord
 from app.api.berechtigungen.schemas import FLBerechtigung, FLBerechtigungAngekuendigt, FLBerechtigungAntrag, FLBerechtigungPostausgangZeile
 from app.api.bewerbungen.schemas import FLBewerbungRecord
 from app.api.einladungen.schemas import FLEinladungRecord
+from app.api.postausgang.schemas import FLPostausgangZeile
 from app.api.registrierungen.schemas import FLRegistrierungRecord
 from app.api.saisons.schemas import FLSaisonRecord
 from app.api.schiedsrichter.schemas import FLSchiedsrichterRecord
@@ -55,6 +56,7 @@ RECORD_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.ADRESSWECHSEL: FLAdresswechselRecord,
     Collection.ADRESSWECHSEL_POSTAUSGANG: FLAdresswechselPostausgang,
     Collection.BERECHTIGUNGEN_ANTRAEGE: FLBerechtigungAntrag,
+    Collection.POSTAUSGANG: FLPostausgangZeile,
 }
 
 # Collections leaving with their slices' write paths, which no read serves and so no model states.

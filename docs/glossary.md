@@ -160,6 +160,11 @@ where the row carries the stamp the expiry reads.\
 **Trap:** it is not the referee's own: `eingereicht_von` names whoever wrote it first, `admin` where an administrator did, and every later write keeps it, while the referee who reads it, and after the season reads it alone, is the one booked now. A null scorer is one nobody named and nothing else: an erasure never nulls an entry, which would read as one. A report on a fixture called off or struck out after it was sent reads `abgesagt`, awaiting nobody. Its goals and entries are by side, and `seiten` holds the clubs each side was when it was last written: a knockout correction fielding another club since makes it read `teams_geaendert`, which no save adopts until the report is written again about the clubs playing. `version` counts the block's writes and the adoption stores the one it took (`uebernommene_version`); it is no `Fassung`, which is a consent wording. Its `ergebnis_vorschlag` is a result, never the date a club's `vorschlag` proposes, and adopting it (`uebernimmt_bericht`, `uebernommen_am`) is never carrying a club's proposed date into the Ansetzung, though the editor names both presses „Vorschlag übernehmen“. The public result stays `spiele.ergebnis` alone.\
 **See:** the `Ergebnis` entry for the result the administrator saves, and [`domain.md`](domain.md#what-is-held-true-together) for why the report stands outside the season's boundary.
 
+### `Postausgang` — every mail the league owes, one row per recipient
+
+**Is:** the one queue every mail leaves through: a row names the mail's kind, its recipient, the facts its builder renders and the record and seat it is about, and is written in the transaction of the write that owes it; the drain hands each row out under a lease of its own, minting any link the mail carries, and the row then records what became of the message.\
+**In code:** `fl_backend/app/core/collections.py :: Collection.POSTAUSGANG`, stored as `fl_backend/app/api/postausgang/schemas.py :: FLPostausgangZeile`, written by `fl_backend/app/api/postausgang/services.py :: enqueue_mail` and drained through `fl_backend/app/api/postausgang/router.py`.
+
 ---
 
 ## Attributes and values

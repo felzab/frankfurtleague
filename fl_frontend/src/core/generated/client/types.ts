@@ -1254,6 +1254,11 @@ export interface FLAktionenListResponse {
   vollstaendig: boolean;
 }
 
+export const FLAnmeldecodeDatenValue = {
+  art: "anmeldecode",
+} as const;
+export type FLAnmeldecodeDaten = typeof FLAnmeldecodeDatenValue;
+
 export type FLAnmeldungResponseVerwaltung = (typeof FLAnmeldungResponseVerwaltung)[keyof typeof FLAnmeldungResponseVerwaltung] | null;
 
 export const FLAnmeldungResponseVerwaltung = {
@@ -4008,6 +4013,11 @@ export interface FLKontoEinwilligungenResponse {
   spieler: FLKontoSpielerEinwilligung | null;
 }
 
+export const FLKontoLoeschungDatenValue = {
+  art: "konto_loeschung",
+} as const;
+export type FLKontoLoeschungDaten = typeof FLKontoLoeschungDatenValue;
+
 /**
  * One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due.
  */
@@ -4091,6 +4101,23 @@ export interface FLOffeneRegistrierungenResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   vollstaendig: boolean;
+}
+
+export type FLPasskeyDatenArt = (typeof FLPasskeyDatenArt)[keyof typeof FLPasskeyDatenArt];
+
+export const FLPasskeyDatenArt = {
+  passkey_hinzugefuegt: "passkey_hinzugefuegt",
+  passkey_geloescht: "passkey_geloescht",
+} as const;
+
+export interface FLPasskeyDaten {
+  art: FLPasskeyDatenArt;
+  /**
+   * @maxLength 256
+   * @pattern ^/[a-z0-9/_-]*$
+   */
+  konto: string;
+  zeitpunkt: string;
 }
 
 export type FLPatchBerechtigungPayloadVerwaltung =
@@ -4974,6 +5001,134 @@ export interface FLPostTeamPayload {
 export interface FLPostTeamResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   created_id: string;
+}
+
+/**
+ * One mail of the sign-in library, owed to the address it names.
+ */
+export interface FLPostausgangAnmeldungPayload {
+  /** @maxLength 254 */
+  an: string;
+  daten: FLAnmeldecodeDaten | FLPasskeyDaten | FLKontoLoeschungDaten;
+  geheim: string | null;
+  gueltig_bis: string | null;
+  /**
+   * @minLength 1
+   * @maxLength 256
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  schluessel: string;
+}
+
+export interface FLPostausgangAnmeldungResponse {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+}
+
+/**
+ * The ban's own notice, the one mail a ban does not stop (`app/api/postausgang/services.py :: UNGESPERRT`).
+ */
+export interface FLSperreDaten {
+  art: "sperre";
+  gesperrt_bis_saison_id: string;
+  grund: string;
+}
+
+/**
+ * One owed mail a claim hands out, server to server alone: it names its recipient and may carry a live link or secret.
+ */
+export interface FLPostausgangAusgabe {
+  an: string;
+  daten: FLAnmeldecodeDaten | FLPasskeyDaten | FLKontoLoeschungDaten | FLSperreDaten;
+  geheim: string | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  token: string | null;
+  /** @minimum 1 */
+  versuch: number;
+}
+
+/**
+ * The owed mails one claim holds, oldest first; `beanspruchung` and `beansprucht_bis` are null exactly where it holds none.
+ */
+export interface FLPostausgangAusgabeResponse {
+  /** @minimum 0 */
+  aufgegeben: number;
+  beansprucht_bis: string | null;
+  beanspruchung: string | null;
+  mails: FLPostausgangAusgabe[];
+}
+
+export type FLPostausgangEreignisPayloadStand = (typeof FLPostausgangEreignisPayloadStand)[keyof typeof FLPostausgangEreignisPayloadStand];
+
+export const FLPostausgangEreignisPayloadStand = {
+  zugestellt: "zugestellt",
+  verzoegert: "verzoegert",
+  unzustellbar: "unzustellbar",
+  unterdrueckt: "unterdrueckt",
+  beschwerde: "beschwerde",
+} as const;
+
+/**
+ * One delivery event about a message the provider accepted.
+ */
+export interface FLPostausgangEreignisPayload {
+  am: string;
+  grund: string | null;
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  nachricht_id: string;
+  stand: FLPostausgangEreignisPayloadStand;
+}
+
+/**
+ * Whether the event reached a row; false where no row names the message, or the row's state may not follow into it.
+ *
+ * False rather than a refusal: the provider repeats a settled event for hours if anything but a success answers it.
+ */
+export interface FLPostausgangEreignisResponse {
+  angewendet: boolean;
+}
+
+export type FLPostausgangErgebnisErgebnis = (typeof FLPostausgangErgebnisErgebnis)[keyof typeof FLPostausgangErgebnisErgebnis];
+
+export const FLPostausgangErgebnisErgebnis = {
+  gesendet: "gesendet",
+  wiederholen: "wiederholen",
+  aufgeben: "aufgeben",
+  zurueckgehalten: "zurueckgehalten",
+} as const;
+
+export interface FLPostausgangErgebnis {
+  ergebnis: FLPostausgangErgebnisErgebnis;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  nachricht_id: string | null;
+}
+
+export interface FLPostausgangErgebnisPayload {
+  /** @minLength 1 */
+  beanspruchung: string;
+  /**
+   * @minItems 1
+   * @maxItems 64
+   */
+  ergebnisse: FLPostausgangErgebnis[];
+}
+
+export interface FLPostausgangErgebnisResponse {
+  /** @minimum 0 */
+  aufgegeben: number;
+  /** @minimum 0 */
+  gesendet: number;
+  /** @minimum 0 */
+  ignoriert: number;
+  /** @minimum 0 */
+  wiederholt: number;
+  /** @minimum 0 */
+  zurueckgehalten: number;
 }
 
 /**

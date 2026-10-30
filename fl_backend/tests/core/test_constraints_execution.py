@@ -511,6 +511,7 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
             ),
         ),
     ),
+    "uniq_postausgang_schluessel": ({"_id": ObjectId(), "schluessel": "sperre/1"}, {"_id": ObjectId(), "schluessel": "sperre/1"}),
     # Two seasons, each `active`: a second row in any other status would pass while the filter matched nothing.
     "uniq_saison_active": (valid_documents()["saisons"], valid_document("saisons", _id="2027", start_date="2027-01-01", end_date="2027-06-30")),
 }

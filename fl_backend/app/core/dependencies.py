@@ -62,6 +62,8 @@ DrosselungCollection = Annotated[AsyncCollection, Depends(collection_dependency(
 
 BerechtigungenAntraegeCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.BERECHTIGUNGEN_ANTRAEGE))]
 
+PostausgangCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.POSTAUSGANG))]
+
 
 # Injected rather than read at the call site, which is what keeps "today" substitutable in tests.
 def get_germany_now() -> datetime:
