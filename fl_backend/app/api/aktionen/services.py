@@ -52,11 +52,7 @@ def document_id_term(value: str | None) -> dict[str, Any] | None:
 
 
 def build_aktionen_sort(*, order: str) -> list[tuple[str, int]]:
-    """The log page's order. `at` is the only key: every other ordering over a log of writes is a report.
-
-    Named rather than inline so the index test can assert on what the endpoint actually sends
-    (`fl_backend/tests/core/test_constraints_execution.py`).
-    """
+    """The log page's order. `at` is the only key: every other ordering over a log of writes is a report."""
 
     # `_id` breaks the tie in `order`'s OWN direction, so one transaction's rows read the way the log
     # does and the pair is `aktionen_queue`'s key or its exact inverse. Pinned descending,

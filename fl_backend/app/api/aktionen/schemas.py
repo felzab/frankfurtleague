@@ -42,7 +42,7 @@ FLAktionHerkunft = Literal["person", "system", "public"]
 
 
 class FLAktorMitAdresse(BaseModel):
-    """An actor the row names by `email`: an administrator's address, or a sentinel. Mirrors `app/core/recording.py :: Actor`."""
+    """An actor the row names by `email`: an administrator's address, or a sentinel."""
 
     kind: Literal["admin_session", "system", "public"]
     email: str
@@ -61,10 +61,7 @@ def _served_prefix(pseudonym: str) -> str:
 
 
 class FLAktorPerson(BaseModel):
-    """A signed-in person, named by a pseudonym and the kind of person the write was made as.
-
-    Mirrors `app/core/recording.py :: PersonActor`, and carries no address.
-    """
+    """A signed-in person, named by a pseudonym prefix and the kind of person the write was made as, and never by an address."""
 
     kind: Literal["person_session"]
     pseudonym: Annotated[str, AfterValidator(_served_prefix)]
@@ -109,13 +106,10 @@ class FLAktionRequest(BaseModel):
 
 
 class FLAktion(BaseModel):
-    """One recorded write.
+    """One recorded write."""
 
-    A read model, so nothing here refuses a stored value: this
-    collection holds copies of documents from every other one, and a row it cannot serve is a row
-    nobody can see was recorded.
-    """
-
+    # A read model, so nothing here refuses a stored value: the log holds copies of documents from
+    # every other collection, and a row it cannot serve is a write nobody can see was recorded.
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     at: str
     # As served, so a row reaches the wire only through
@@ -160,10 +154,7 @@ class FLAktion(BaseModel):
 
 
 class FLAktionMitStand(FLAktion):
-    """One row WITH the document its write replaced, which only `GET /aktionen/{aktion_id}` serves.
-
-    Its own model so the list cannot carry an image by accident.
-    """
+    """One recorded write with the document it replaced, which only the single-row read serves."""
 
     # A list is `delete_many`'s: a removal follows no write a restore could replay, so one row
     # carries every image it took.

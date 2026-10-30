@@ -1137,9 +1137,7 @@ export const FLAktorPersonFunktion = {
 } as const;
 
 /**
- * A signed-in person, named by a pseudonym and the kind of person the write was made as.
- *
- * Mirrors `app/core/recording.py :: PersonActor`, and carries no address.
+ * A signed-in person, named by a pseudonym prefix and the kind of person the write was made as, and never by an address.
  */
 export interface FLAktorPerson {
   funktion: FLAktorPersonFunktion;
@@ -1165,10 +1163,6 @@ export interface FLAktionRequest {
 
 /**
  * One recorded write.
- *
- * A read model, so nothing here refuses a stored value: this
- * collection holds copies of documents from every other one, and a row it cannot serve is a row
- * nobody can see was recorded.
  */
 export interface FLAktion {
   actor: FLAktorMitAdresseZeile | FLAktorPerson;
@@ -1192,9 +1186,7 @@ export type FLAktionMitStandBefore = { [key: string]: unknown } | { [key: string
 export type FLAktionMitStandDbFilter = { [key: string]: string } | null;
 
 /**
- * One row WITH the document its write replaced, which only `GET /aktionen/{aktion_id}` serves.
- *
- * Its own model so the list cannot carry an image by accident.
+ * One recorded write with the document it replaced, which only the single-row read serves.
  */
 export interface FLAktionMitStand {
   actor: FLAktorMitAdresseZeile | FLAktorPerson;
@@ -3845,7 +3837,7 @@ export interface FLKontoRegistrierungEinwilligung {
 }
 
 /**
- * One referee record on the account page, for `FLKontoSpielerEinwilligung`'s reasons.
+ * One referee record on the account page: its stored data and the consent the page moves.
  */
 export interface FLKontoSchiedsrichterEinwilligung {
   bestaetigt_text_version: string;

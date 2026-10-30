@@ -44,7 +44,7 @@ class FLKontoSpielerEinwilligung(FLSpielerSelbst):
 
 
 class FLKontoSchiedsrichterEinwilligung(FLSchiedsrichterSelbst):
-    """One referee record on the account page, for `FLKontoSpielerEinwilligung`'s reasons."""
+    """One referee record on the account page: its stored data and the consent the page moves."""
 
     inactive_since: CustomOptionalDateString
     einwilligung: FLEinwilligung

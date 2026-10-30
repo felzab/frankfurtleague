@@ -21,9 +21,8 @@ from app.core.dependencies import AdresswechselPostausgangCollection, Berechtigu
 from app.core.security import bind_system_actor, verify_access_system
 from app.shared.folding import sign_in_identifier
 
-# System tier and the system actor, as `app/api/bewerbungen/zustellung_router.py` declares them: the
-# key is held by the frontend process alone, which is exactly who may
-# ask which records a mailbox matches, and no session stands behind the caller.
+# System tier and the system actor: the key is held by the frontend process alone, which is exactly
+# who may ask which records a mailbox matches, and no session stands behind the caller.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/identitaet",
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
@@ -41,50 +40,10 @@ async def get_subjekt(
     sperrliste: SperrlisteLookup,
     berechtigungen_collection: BerechtigungenCollection,
 ) -> FLSubjektResponse:
-    """
-    Answer which confirmed contact seats, pupil records and referee records the league holds for one mailbox.
+    """Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its ban and its grant.
 
-    Stores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an
-    access line, which is `POST /identitaet/erasure/ansicht`'s reason too.
-
-    The address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival
-    and matched by equality, every record storing its address in that form: `Anna.Mueller@Schule.de` asked answers for the
-    `anna.mueller@schule.de` a contact seat stores, and a domain asked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß`
-    is not folded to `ss`, so `poststrasse.de` and `poststraße.de` are two domains here as they are at sign-in.
-
-    A record is answered only once its own person has confirmed it -- a seat's `einwilligung.bestaetigt_am`, judged per seat, and the
-    same stamp on a pupil's and a referee's consent record, an empty stamp confirming nothing -- and only while its row is live: a
-    retired pupil or referee is answered nothing, and so is the placeholder every erased referee's fixtures name. A seat on a season
-    its team withdrew from, by disqualification or withdrawal alike, is answered nothing either; its seats on other seasons stand.
-    A seat on a `past` season is still answered, carrying its `saison_status`: which seasons grant a panel is each caller's to decide.
-
-    `unbestaetigt` is true exactly where the mailbox holds records that could grant a panel -- a live pupil or referee row, or a seat
-    on an `active` or `future` season -- and none of them is confirmed, so an unconfirmed person is told apart from one the league
-    holds nothing for. A seat on a `past` season counts toward neither answer: confirming it would open nothing.
-
-    `gesperrt` says whether the address is on the ban list, judged as a sign-up is: the address in any spelling that folds to the same
-    mailbox, and a ban only while the running season is within its bound. It narrows none of the records beside it.
-
-    `verwaltung` is the grant the mailbox holds in `berechtigungen` -- `owner`, `administration`, or null for none -- matched on the
-    folded identifier alone, the one spelling a grant is stored in. It is the one stored answer here: whether a person is an
-    administrator is decided by a grant rather than derived from a league record, and it narrows none of the records beside it. A
-    promotion to `owner` made in the database is answered `administration` until `POST /berechtigungen/abgleich` finds it.
-
-    `berechtigt_seit` is when that grant took effect, null exactly where `verwaltung` is: the moment `POST /berechtigungen/abgleich`
-    first found a grant made in the database directly, the grant's own `erteilt_am` for one made through the application, and for one
-    made in the database that no call to that endpoint has read yet, its `erteilt_am` or the moment its id was generated, whichever is
-    later. A row changed in the database after that endpoint read it -- an address changed in place, a spelling no request matched
-    made one that does, a row put back after its removal was found -- is no grant, `verwaltung` null, until that endpoint finds the
-    change. A tier change leaves it standing. An admin-tier request from a sign-in older than it is refused.
-
-    `inhaber_seit` is when the `owner` tier took effect, null exactly where `verwaltung` is not `owner`: the moment the tier change
-    made the grant an owner's, or that endpoint found a promotion made in the database, and never earlier than `berechtigt_seit`. A
-    sign-in older than it administers and holds no owner's power, so the revoke and the tier change it asks for are refused. A
-    demotion takes the tier at once.
-
-    Each list may be empty and each may hold more than one entry: one person holds seats at two clubs, and nothing enforces one pupil
-    record per address.
-    An address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.
+    The address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with three empty lists rather
+    than a 404.
     """
 
     identifier = sign_in_identifier(str(subjekt_data.email))
@@ -118,21 +77,9 @@ async def get_anmeldung(
     sperrliste: SperrlisteLookup,
     berechtigungen_collection: BerechtigungenCollection,
 ) -> FLAnmeldungResponse:
-    """
-    Answer what the sign-in gate decides on for one mailbox: its own records, its pending confirmation, its ban and its grant.
+    """Answer what the sign-in gate decides on for one mailbox: two flags, its ban and its grant's tier, and never a record.
 
-    No record, name or id is answered, only flags and the grant's tier. Stores nothing, and a POST for `POST /identitaet/subjekt`'s
-    reason. The address is folded on arrival and compared as that endpoint compares it, and `unbestaetigt`, `gesperrt` and
-    `verwaltung` are that endpoint's own answers.
-
-    `konto` is true exactly where the mailbox holds a record its own person confirmed: a contact seat on any season row, a past
-    season's and a withdrawn team's included; a contact seat on a pending application; a pupil or referee record, a retired one
-    included, never the placeholder every erased referee's fixtures name; and a pending registration whose pupil confirmed it with
-    a choice. A decided application, a declined registration and every unconfirmed record count for nothing. It holds wherever
-    `POST /identitaet/subjekt` answers a record, and also where the only records are ones granting no panel.
-
-    The ban narrows neither flag: a barred address holding records is answered `gesperrt` and `konto` both, and refusing it is the
-    caller's. A mailbox the league holds nothing for is answered both flags false rather than a 404.
+    The address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with both flags false.
     """
 
     # Keyed as `get_subjekt` keys, for its reason.
@@ -187,36 +134,9 @@ async def get_referenzen(
     berechtigungen_collection: BerechtigungenCollection,
     adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
 ) -> FLReferenzenResponse:
-    """
-    Answer which of the addresses asked about no league record references, so the sign-in account each names may be deleted.
+    """Answer which of these sign-in addresses no league record references, each once and in the spelling it was asked in.
 
-    Stores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the addresses travel in the body.
-
-    An address is referenced, and so never answered, while any of these holds:
-
-    - a contact seat on any season row holds it, a `past` season's and a withdrawn team's included, confirmed or not;
-    - a contact seat on a pending application holds it, confirmed or not;
-    - a pupil or referee record holds it, confirmed or not and live or retired; the placeholder every erased referee's fixtures
-      name and the one every erased pupil's entries name hold nothing;
-    - a pending registration holds it that its pupil confirmed;
-    - a grant in `berechtigungen` holds it, as stored, before the comparison has seen it too;
-    - an address change that took effect replaced it, and the notice owing its sign-in account's carry to the new address is
-      not yet delivered.
-
-    A ban holds nothing: a barred address is answered as any other once none of these holds it. A pending address change holds
-    nothing either: its new address admits no sign-in until the change takes effect, and the address it replaces stays on the
-    records until then.
-
-    That is wider than what `POST /identitaet/anmeldung` admits a sign-in on, so no account answered here is one the sign-in
-    would admit again: an unconfirmed seat on a `past` season and an unconfirmed retired record keep an account the gate admits
-    no sign-in for, until the block is cleared or the row removed.
-
-    The whole batch is refused, `REQ-REFERENZEN-001`, while no live grant in `berechtigungen` is an `owner`'s. A league always
-    holds one, so such a database is empty or another one, and answering from it would call every address unreferenced.
-
-    Each address is compared as `POST /identitaet/subjekt` compares one, on the sign-in fold, and answered in the spelling it was
-    asked in, once however often it was asked. An address today's address rule refuses is judged as any other and never
-    refused, since one refused address would refuse the whole batch. A batch past its published ceiling is refused whole.
+    The whole batch is refused while no live grant is an owner's, since such a database would call every address unreferenced.
     """
 
     return FLReferenzenResponse(
