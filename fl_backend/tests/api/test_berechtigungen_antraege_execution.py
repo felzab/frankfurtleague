@@ -2,7 +2,7 @@
 API · four eyes on a grant and a promotion: the request, its lone paths, who decides it, its races, its lapse and its journal
 
 Against a replica set, every write in a transaction, each handler called directly with the actor its binder binds. A century
-ahead of the real clock where a case allows, as the day counts' cases are: a request lapses at `bis`, and the TTL monitor
+ahead of the real clock where a case allows: a request lapses at `bis`, and the TTL monitor
 deletes a lapsed one at its next pass, under a case reading it back.
 """
 
@@ -48,10 +48,8 @@ from app.core.crud import WritesSent, writes_sent_var
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.journal import JOURNAL_TOKEN, parse_line
 from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR, Actor, actor_var, log_stamp
-from app.core.security import admin_judge
-from app.core.transactions import actor_judge_var, transaction_session
+from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import GENEHMIGUNG_TAGE
-from tests.actor_tokens import verified_actor
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document
@@ -140,7 +138,7 @@ _ACTOR_PARAMETERS = frozenset({"erteilt_von", "geaendert_von", "entzogen_von", "
 
 
 async def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client: AsyncMongoClient, *, als: str, **given: Any) -> Any:
-    """The handler as one request of `als`: its actor and judge bound, every collection taken off `database` by its parameter's spelling."""
+    """The handler as one request of `als`: its actor bound, every collection taken off `database` by its parameter's spelling."""
 
     supplied: dict[str, Any] = {}
     for name in inspect.signature(handler).parameters:
@@ -161,13 +159,12 @@ async def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, 
         elif name in _ACTOR_PARAMETERS:
             supplied[name] = als
 
-    judge_token, sent_token = actor_judge_var.set(admin_judge(verified_actor(als), CONFIG)), writes_sent_var.set(WritesSent())
+    sent_token = writes_sent_var.set(WritesSent())
     actor_token = actor_var.set(Actor(kind="admin_session", email=als))
     try:
         return await handler(**supplied)
     finally:
         actor_var.reset(actor_token)
-        actor_judge_var.reset(judge_token)
         writes_sent_var.reset(sent_token)
 
 

@@ -7,7 +7,6 @@ from typing import Any, Final, NamedTuple
 from bson import ObjectId
 
 from app.api.bewerbungen.services import season_has_ended
-from app.api.identitaet.services import holds_a_name, namen_aus
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
@@ -18,7 +17,6 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtZustand,
 )
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielElfmeterschiessen
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import refuse
@@ -45,12 +43,11 @@ SPIEL_FIELDS: Final[Mapping[str, int]] = {
 
 
 class BerichtLage(NamedTuple):
-    """What one report is judged against: the fixture, both clubs' squad rows of the season, their season rows, and the season's status."""
+    """What one report is judged against: the fixture, both clubs' squad rows of the season, and the season's status."""
 
     spiel: Mapping[str, Any]
     # Every squad row of the two clubs in the season, ausgetragen ones too, each joined to its pupil's names.
     kader: Sequence[Mapping[str, Any]]
-    vereine: Sequence[Mapping[str, Any]]
     saison_status: str | None
 
 
@@ -333,44 +330,6 @@ def find_grund_fehlt_refusal(*, payload: FLSpielberichtBerichtPayload, gespeiche
     return None
 
 
-def bericht_namen(lage: BerichtLage) -> frozenset[str]:
-    """Every name the people of this fixture hold: both clubs' three seats, the booked referee, and every pupil of both squads.
-
-    Ausgetragen pupils too: a remark about the match can name a pupil who left the squad since.
-    """
-
-    fields = [
-        *(
-            ((row.get("kontakte") or {}).get(seat) or {}).get(part)
-            for row in lage.vereine
-            for seat in KONTAKT_ROLLEN
-            for part in ("vorname", "nachname")
-        ),
-        # Off the fixture's copy, which a rename rewrites in its own transaction; the ghost's is null.
-        (lage.spiel.get("schiedsrichter") or {}).get("name"),
-        *(row.get(part) for row in lage.kader for part in ("vorname", "nachname")),
-    ]
-
-    return namen_aus(fields)
-
-
-def find_name_in_bemerkungen_refusal(*, bemerkungen: str | None, names: Iterable[str]) -> WriteRefusal | None:
-    """`REQ-BERICHT-005`: no name of the fixture's people stands in the remarks, which outlive their erasure.
-
-    By `holds_a_name`: a common word equal to a name is refused with it, and the referee rephrases.
-    """
-
-    if bemerkungen is None or not holds_a_name(bemerkungen, names):
-        return None
-
-    # Naming none of them: the message reaches the refusal's log line.
-    return WriteRefusal(
-        error_code=Code.BERICHT_NAME_IN_BEMERKUNGEN,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        fields=(("bericht", "bemerkungen"),),
-    )
-
-
 def judge_bericht(
     *,
     lage: BerichtLage,
@@ -379,17 +338,13 @@ def judge_bericht(
     neu: Mapping[FLSpielberichtSeite, set[ObjectId]],
     today: str,
 ) -> None:
-    """Every refusal both writers of a report owe, in order.
-
-    The remarks last, so a write refused for anything else says nothing about a name.
-    """
+    """Every refusal both writers of a report owe, in order."""
 
     refuse(find_nicht_gespielt_refusal(datum=lage.spiel.get("datum"), today=today))
     refuse(find_abgesagt_refusal(sonderereignis=lage.spiel.get("sonderereignis")))
     refuse(find_elfmeter_in_der_gruppe_refusal(spiel_raw=lage.spiel, payload=payload))
     refuse(find_nicht_im_kader_refusal(lage=lage, neu=neu))
     refuse(find_grund_fehlt_refusal(payload=payload, gespeichert=gespeichert))
-    refuse(find_name_in_bemerkungen_refusal(bemerkungen=payload.bemerkungen, names=bericht_namen(lage)))
 
 
 def vorschlag_entspricht(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[str, Any]) -> bool:

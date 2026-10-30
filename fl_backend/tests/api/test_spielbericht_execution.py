@@ -194,7 +194,6 @@ def handles(database: AsyncDatabase, **replaced: Any) -> dict[str, Any]:
         "spiele_collection": database[Collection.SPIELE],
         "saisons_collection": database[Collection.SAISONS],
         "saison_spieler_collection": database[Collection.SAISON_SPIELER],
-        "saison_teams_collection": database[Collection.SAISON_TEAMS],
         "spieler_collection": database[Collection.SPIELER],
         "spielberichte_collection": database[Collection.SPIELBERICHTE],
         **replaced,
@@ -406,13 +405,6 @@ class TestEachRefusalWritesNothing:
             pytest.param(REFEREE_EMAIL, move_to_tomorrow, bericht(), Code.BERICHT_NICHT_GESPIELT, id="a day still to come"),
             pytest.param(
                 REFEREE_EMAIL, nothing, bericht(torschuetzen=[tor("team1", MIA)]), Code.BERICHT_NICHT_IM_KADER, id="the other side's pupil"
-            ),
-            pytest.param(
-                REFEREE_EMAIL,
-                nothing,
-                bericht(bemerkungen="Brettschneider stand am Rand."),
-                Code.BERICHT_NAME_IN_BEMERKUNGEN,
-                id="a name in the remarks",
             ),
         ],
     )

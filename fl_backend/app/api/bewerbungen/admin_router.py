@@ -46,11 +46,9 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.services import find_club_entry_refusal
-from app.core.adressanker import anchor_the_addresses
 from app.core.config import API_VERSION
 from app.core.crud import insert_live, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
-    AdressankerCollection,
     BewerbungenCollection,
     DBClient,
     SaisonsCollection,
@@ -399,7 +397,6 @@ async def korrigiere_kontakt_email(
     email_data: Annotated[FLBewerbungKontaktEmailPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     sperrliste: SperrlisteLookup,
-    adressanker_collection: AdressankerCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungKontaktEmailResponse:
@@ -475,10 +472,6 @@ async def korrigiere_kontakt_email(
         )
         # Off the image this write replaced, never the read above it: the address the link left is the one the write moved.
         alt = str(before["kontakte"][rolle]["email"])
-        # The address entering here, which an erasure of it running now never read.
-        await anchor_the_addresses(
-            [email_data.email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session
-        )
 
         return FLBewerbungKontaktEmailResponse(
             email=email_data.email,
@@ -507,7 +500,6 @@ async def besetze_kontakt_sitz(
     sitz_data: Annotated[FLBewerbungKontaktSitzPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     sperrliste: SperrlisteLookup,
-    adressanker_collection: AdressankerCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungKontaktSitzResponse:
@@ -584,10 +576,6 @@ async def besetze_kontakt_sitz(
             ),
             session=session,
             return_document=ReturnDocument.BEFORE,
-        )
-        # The address entering here, which an erasure of it running now never read.
-        await anchor_the_addresses(
-            [sitz_data.email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session
         )
 
         return FLBewerbungKontaktSitzResponse(email=sitz_data.email, rollen=list(seats), token=raw, bestaetigungsfrist=bestaetigungsfrist)

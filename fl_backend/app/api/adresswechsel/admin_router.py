@@ -46,7 +46,6 @@ from app.api.adresswechsel.services import (
     find_gesperrt_refusal,
     find_kein_genehmiger_refusal,
     find_keine_genehmigung_offen_refusal,
-    find_name_im_grund_refusal,
     find_nichts_refusal,
     find_unveraendert_refusal,
     find_vergeben_refusal,
@@ -60,13 +59,12 @@ from app.api.berechtigungen.schemas import FLAdresswechselWeg
 from app.api.berechtigungen.services import genehmiger_of, genehmigung_verwehrt, holds_an_owners_power, lebendige
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import SubjektLookup
-from app.api.identitaet.services import JEDE_VERWALTUNG, find_eigene_adresse_refusal, find_verwaltung_adresse_refusal, holds_a_name
+from app.api.identitaet.services import JEDE_VERWALTUNG, find_eigene_adresse_refusal, find_verwaltung_adresse_refusal
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.spieler.crud import another_pupil_holds
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
-    AdressankerCollection,
     AdresswechselCollection,
     AdresswechselPostausgangCollection,
     AktionenCollection,
@@ -76,7 +74,6 @@ from app.core.dependencies import (
     BerechtigungenPostausgangCollection,
     BewerbungenCollection,
     DBClient,
-    DrosselungCollection,
     EinladungenCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
@@ -278,7 +275,6 @@ async def post_adresswechsel_verwaltung(
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     sperrliste: SperrlisteLookup,
-    adressanker_collection: AdressankerCollection,
     aktionen_collection: AktionenCollection,
     db: DBClient,
     operator: str = Depends(get_actor_email),
@@ -299,8 +295,8 @@ async def post_adresswechsel_verwaltung(
     Refused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power
     (`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds
     (`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the
-    change moves a pupil (`-006`), a new address any entry names, confirmed or not (`-018`), a grant nobody could approve
-    (`-011`), and a reason naming a person of the records the change would move (`-008`).
+    change moves a pupil (`-006`), a new address any entry names, confirmed or not (`-018`), and a grant nobody could
+    approve (`-011`).
     """
 
     identifier, email, grund = sign_in_identifier(str(adresswechsel_data.adresse)), str(adresswechsel_data.email), adresswechsel_data.grund
@@ -359,7 +355,6 @@ async def post_adresswechsel_verwaltung(
                 bestand, akteur=akteur, grants=grants, announced=announced, sperrliste=sperrliste, now=germany_now, session=session
             )
         )
-        refuse(find_name_im_grund_refusal(nennt_namen=grund is not None and holds_a_name(grund, bestand.namen())))
 
         record = compose_record(
             adresse=identifier,
@@ -377,7 +372,6 @@ async def post_adresswechsel_verwaltung(
             record=record,
             adresswechsel_collection=adresswechsel_collection,
             aktionen_collection=aktionen_collection,
-            adressanker_collection=adressanker_collection,
             schluessel=sperrliste.schluessel,
             now=germany_now,
             journal=journal,
@@ -619,10 +613,8 @@ async def post_adresswechsel_genehmigung(
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
     adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
-    drosselung_collection: DrosselungCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
-    adressanker_collection: AdressankerCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
@@ -695,9 +687,7 @@ async def post_adresswechsel_genehmigung(
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
             adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
-            drosselung_collection=drosselung_collection,
             aktionen_collection=aktionen_collection,
-            adressanker_collection=adressanker_collection,
             schluessel=config.sperrliste_schluessel,
             now=germany_now,
             journal=journal,

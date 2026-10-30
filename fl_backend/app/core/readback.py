@@ -57,10 +57,7 @@ RECORD_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.BERECHTIGUNGEN_ANTRAEGE: FLBerechtigungAntrag,
 }
 
-# Collections leaving with their slices' write paths, which no read serves and so no model states.
-UNMODELLED = frozenset({Collection.DROSSELUNG, Collection.ADRESSANKER})
-
-if missing := set(Collection) - RECORD_MODELS.keys() - UNMODELLED:
+if missing := set(Collection) - RECORD_MODELS.keys():
     raise RuntimeError(f"No record model for {', '.join(sorted(missing))}: add one to RECORD_MODELS.")
 
 
@@ -76,7 +73,7 @@ async def read_back(client: AsyncMongoClient, database_name: str) -> int:
                 for detail in error.errors(include_input=False, include_context=False, include_url=False):
                     print(f"{collection} {document.get('_id')} {'.'.join(str(step) for step in detail['loc'])}")
 
-    print(f"{read} documents read, {refused} refused; not read: {', '.join(sorted(UNMODELLED))}.")
+    print(f"{read} documents read, {refused} refused.")
     return 1 if refused else 0
 
 

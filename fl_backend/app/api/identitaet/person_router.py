@@ -19,7 +19,6 @@ from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
-    AdressankerCollection,
     AdresswechselCollection,
     AdresswechselPostausgangCollection,
     AktionenCollection,
@@ -29,7 +28,6 @@ from app.core.dependencies import (
     BerechtigungenPostausgangCollection,
     BewerbungenCollection,
     DBClient,
-    DrosselungCollection,
     EinladungenCollection,
     RegistrierungenCollection,
     SaisonSpielerCollection,
@@ -76,14 +74,12 @@ async def erase_selbst(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
     registrierungen_collection: RegistrierungenCollection,
-    drosselung_collection: DrosselungCollection,
     aktionen_collection: AktionenCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
-    adressanker_collection: AdressankerCollection,
     adresswechsel_collection: AdresswechselCollection,
     adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
@@ -102,20 +98,20 @@ async def erase_selbst(
     precondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still
     to be played included. Nothing is counted against the person's day.
 
-    Removed: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every
-    fixture it was booked on moving to the one row that holds no person and keeping its own fee, and every confirmation it
-    was asked for, answered or not; every registration at the address, pending or declined; another address's pending
-    change naming this one as its new address, every record it would move standing at its own; every grant the address
-    holds, an `owner` grant and the last two among them, every administrator being told it ended; and the person's day
-    counts. Emptied: every contact seat the address holds on a team's season row and on an
-    application of any status, the row and its other seats standing, an emptied seat's links on its team's open match
-    confirmations stopping to answer. Every reason the person typed answering a match confirmation, from any seat they held,
-    goes from its row and its log images, the answer standing. Every match report the referee record sent stands, its
-    remarks and entries included, naming the row that holds no person in its place, in its log images too. Every record
-    the person made as an administrator or
-    decided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's decision -- and every
-    log row they wrote name a fixed marker in their place, this erasure's own rows included. The log images of the removed
-    records are emptied, and every other image holding the address loses it, the people beside them keeping theirs.
+    Removed: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record,
+    every fixture it was booked on moving to the one row that holds no person and keeping its own fee, and every
+    confirmation it was asked for, answered or not; every registration at the address, pending or declined; another
+    address's pending change naming this one as its new address, every record it would move standing at its own; every
+    grant the address holds, an `owner` grant and the last two among them, every administrator being told it ended.
+    Emptied: every contact seat the address holds on a team's season row and on an application of any status, the row
+    and its other seats standing, an emptied seat's links on its team's open match confirmations stopping to answer.
+    Every reason the person typed answering a match confirmation, from any seat they held, goes from its row and its log
+    images, the answer standing. Every match report the referee record sent stands, its remarks and entries included,
+    naming the row that holds no person in its place, in its log images too. Every record the person made as an
+    administrator or decided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's
+    decision -- and every log row they wrote name a fixed marker in their place, this erasure's own rows included. The
+    log images of the removed records are emptied, and every other image holding the address loses it, the people beside
+    them keeping theirs.
 
     An address holding nothing is answered with every count zero rather than refused. The 409 answers only a database
     changed by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by
@@ -149,14 +145,12 @@ async def erase_selbst(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             spielberichte_collection=spielberichte_collection,
             registrierungen_collection=registrierungen_collection,
-            drosselung_collection=drosselung_collection,
             aktionen_collection=aktionen_collection,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
             berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
-            adressanker_collection=adressanker_collection,
             adresswechsel_collection=adresswechsel_collection,
             adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
@@ -210,7 +204,7 @@ async def get_erasure_ansicht(
     the links their contact seats were mailed on their teams' match confirmations, answered and closed ones too, which stop
     answering, and those links and their mails' delivery records in the confirmations' log images, which go; every reason
     they typed answering a match confirmation, from any seat they held, which goes from its row and its log images, the
-    answer standing; what the person made or decided for others, which names a marker in their place; their day counts; every
+    answer standing; what the person made or decided for others, which names a marker in their place; every
     request for a grant about their address or made by it, which goes; their rows in the
     log; every log image of a record the erasure removes, emptied whole whether or not it holds the address, and every
     other log image holding the address; each grant's announced row, and an announced row holding the address under

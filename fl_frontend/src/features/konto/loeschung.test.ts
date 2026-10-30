@@ -59,7 +59,6 @@ const ERASED = {
   adresswechsel: 0,
   berechtigungen: 0,
   berechtigungen_antraege: 0,
-  drosselung: 0,
 };
 
 /** What the backend's erasure answers, and every erasure it was asked for, with the actor header each carried. */
