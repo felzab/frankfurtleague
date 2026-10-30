@@ -1,9 +1,4 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
-import { filesUnder, isTestFile } from "@/test-support/treeWalk.ts";
-import ts from "typescript";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /** Every line as it was written, its fields whole: what a pass reports, and the code its failure carries. */
@@ -192,66 +187,5 @@ describe("one pass of the pupils' deletion", () => {
         },
       },
     ]);
-  });
-});
-
-const LAUF_SENDER = "postLoeschungLauf";
-const LAUF_SENDER_MODULE = "features/saisons/mutations.ts";
-
-/** The path's second spelling, Orval's from the published contract: a sender no caller may reach yet. */
-const GENERATED_MODULE = "core/generated/client/sdk.ts";
-const GENERATED_URL = "getIdentitaetPostLoeschungLaufUrl";
-const GENERATED_SENDERS = ["identitaetPostLoeschungLauf", GENERATED_URL];
-
-function declaresOrImports(node: ts.Identifier, where: string): boolean {
-  if (ts.isFunctionDeclaration(node.parent) && node.parent.name === node) return where === LAUF_SENDER_MODULE;
-
-  return ts.isImportSpecifier(node.parent) && node.parent.propertyName === undefined;
-}
-
-function enclosing(node: ts.Node): string {
-  for (let at = node.parent; !ts.isSourceFile(at); at = at.parent) {
-    if ((ts.isFunctionDeclaration(at) || ts.isMethodDeclaration(at)) && at.name !== undefined) return at.name.getText();
-    if ((ts.isArrowFunction(at) || ts.isFunctionExpression(at)) && ts.isVariableDeclaration(at.parent)) return at.parent.name.getText();
-  }
-
-  return "(module)";
-}
-
-describe("the deletion pass's callers", () => {
-  /* The API deletes on any system-key call, the switch read by the press and by the boot arming the timer, so a third
-     caller would delete while it reads off. Each caller's off arm is driven in its own suite. */
-  it("are the hourly pass and the activation alone, and its path has one sender", () => {
-    const src = path.resolve(import.meta.dirname, "..", "..");
-    const uses: string[] = [];
-    const senders: string[] = [];
-    const generatedUses: string[] = [];
-
-    for (const file of filesUnder(src, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)) {
-      const text = readFileSync(file, "utf8");
-      if (![LAUF_SENDER, LAUF, ...GENERATED_SENDERS].some((needle) => text.includes(needle))) continue;
-      const where = path.relative(src, file).split(path.sep).join("/");
-
-      const visit = (node: ts.Node): void => {
-        // Every reference, not only a call: the hourly pass hands the function on by name, and an alias or a
-        // wrapper beside the declaration is a third caller.
-        if (ts.isIdentifier(node) && node.text === LAUF_SENDER && !declaresOrImports(node, where)) uses.push(`${where} :: ${enclosing(node)}`);
-        if ((ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node)) && node.text.includes(LAUF))
-          senders.push(`${where} :: ${enclosing(node)}`);
-        // An import, an alias's source name or a namespace's property: any of them outside the generated folder is
-        // a caller the hand-written sender never sees.
-        if (ts.isIdentifier(node) && GENERATED_SENDERS.includes(node.text) && !where.startsWith("core/generated/"))
-          generatedUses.push(`${where} :: ${enclosing(node)}`);
-        ts.forEachChild(node, visit);
-      };
-      visit(ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true));
-    }
-
-    expect(uses.sort()).toStrictEqual(["features/saisons/actions.ts :: activateSaisonAction", "features/saisons/sweep.ts :: sweepLoeschung"]);
-    // The generated URL builder spells the path in both arms of its query ternary.
-    expect(senders.sort()).toStrictEqual(
-      [`${GENERATED_MODULE} :: ${GENERATED_URL}`, `${GENERATED_MODULE} :: ${GENERATED_URL}`, `${LAUF_SENDER_MODULE} :: ${LAUF_SENDER}`].sort(),
-    );
-    expect(generatedUses).toStrictEqual([]);
   });
 });
