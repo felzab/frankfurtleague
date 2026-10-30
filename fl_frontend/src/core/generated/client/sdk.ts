@@ -3976,7 +3976,7 @@ export const getSpieleGetSpieleUrl = (params?: SpieleGetSpieleParams) => {
  * List the Spiele matching the filters, of the current season unless `saison_id` names another.
  *
  * A season this tier may not read lists nothing; `playoffs` means every phase but `gruppenphase`, and
- * `ausstehend` includes today.
+ * `ab_heute` includes today.
  * @summary List Spiele
  */
 export const spieleGetSpiele = async (

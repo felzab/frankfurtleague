@@ -2932,7 +2932,7 @@ export const SpielbestaetigungenVerwerfenSpielbestaetigungParams = zod.object({
  * List the Spiele matching the filters, of the current season unless `saison_id` names another.
  *
  * A season this tier may not read lists nothing; `playoffs` means every phase but `gruppenphase`, and
- * `ausstehend` includes today.
+ * `ab_heute` includes today.
  * @summary List Spiele
  */
 export const spieleGetSpieleQueryTeamIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2947,7 +2947,7 @@ export const SpieleGetSpieleQueryParams = zod.object({
   saison_phase: zod
     .union([zod.literal("playoffs"), zod.enum(["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]), zod.null()])
     .optional(),
-  spiel_status: zod.union([zod.enum(["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"]), zod.null()]).optional(),
+  spiel_status: zod.union([zod.enum(["ab_heute", "vergangen", "heute", "abgesagt", "unbekannt"]), zod.null()]).optional(),
   team_id: zod.union([zod.string().regex(spieleGetSpieleQueryTeamIdOneRegExp), zod.null()]).optional(),
   limit: zod.int().min(1).max(spieleGetSpieleQueryLimitMax).default(spieleGetSpieleQueryLimitDefault),
   sort_by: zod.enum(["datum", "uhrzeit", "spiel_nr", "saison_phase"]).default(spieleGetSpieleQuerySortByDefault),
@@ -2986,7 +2986,7 @@ export const SpieleGetSpieleVerwaltungQueryParams = zod.object({
   saison_phase: zod
     .union([zod.literal("playoffs"), zod.enum(["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]), zod.null()])
     .optional(),
-  spiel_status: zod.union([zod.enum(["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"]), zod.null()]).optional(),
+  spiel_status: zod.union([zod.enum(["ab_heute", "vergangen", "heute", "abgesagt", "unbekannt"]), zod.null()]).optional(),
   team_id: zod.union([zod.string().regex(spieleGetSpieleVerwaltungQueryTeamIdOneRegExp), zod.null()]).optional(),
   limit: zod.int().min(1).max(spieleGetSpieleVerwaltungQueryLimitMax).default(spieleGetSpieleVerwaltungQueryLimitDefault),
   sort_by: zod.enum(["datum", "uhrzeit", "spiel_nr", "saison_phase"]).default(spieleGetSpieleVerwaltungQuerySortByDefault),

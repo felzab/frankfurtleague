@@ -26,7 +26,7 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.literals import FLAustrittType, FLGruppenNames, FLSaisonPhase, FLSonderereignis, FLSortOrder, FLSpielSeite
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
-type FLSpielStatus = Literal["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"]
+type FLSpielStatus = Literal["ab_heute", "vergangen", "heute", "abgesagt", "unbekannt"]
 
 # Each tuple below answers ONE consumer's question. They are deliberately NOT one predicate: a single
 # boolean would make independent consumers agree by accident, and a field telling five events apart

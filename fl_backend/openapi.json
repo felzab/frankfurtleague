@@ -13379,7 +13379,7 @@
       },
       "FLSpielStatus": {
         "enum": [
-          "ausstehend",
+          "ab_heute",
           "vergangen",
           "heute",
           "abgesagt",
@@ -26435,7 +26435,7 @@
     },
     "/api/v0/spiele": {
       "get": {
-        "description": "List the Spiele matching the filters, of the current season unless `saison_id` names another.\n\nA season this tier may not read lists nothing; `playoffs` means every phase but `gruppenphase`, and\n`ausstehend` includes today.",
+        "description": "List the Spiele matching the filters, of the current season unless `saison_id` names another.\n\nA season this tier may not read lists nothing; `playoffs` means every phase but `gruppenphase`, and\n`ab_heute` includes today.",
         "operationId": "spiele_get_spiele",
         "parameters": [
           {

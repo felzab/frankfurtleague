@@ -4731,7 +4731,7 @@ export interface FLSpielJoinedAdmin {
 export type FLSpielStatus = (typeof FLSpielStatus)[keyof typeof FLSpielStatus];
 
 export const FLSpielStatus = {
-  ausstehend: "ausstehend",
+  ab_heute: "ab_heute",
   vergangen: "vergangen",
   heute: "heute",
   abgesagt: "abgesagt",

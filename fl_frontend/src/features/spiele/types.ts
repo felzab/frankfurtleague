@@ -18,6 +18,13 @@ export type FLSpiel = Omit<FLSpielJoined, "schiedsrichter"> & {
     | null;
 };
 
+/**
+ * A fixture's own status, the label the chip and the status facet read: the client's partition by date and
+ * event, never the server's `FLSpielStatus` filter, whose `ab_heute` includes today where `ausstehend`
+ * leaves it to `heute` (`docs/glossary.md` — spiel_status).
+ */
+export type SpielStatus = "ausstehend" | "heute" | "vergangen" | "abgesagt" | "unbekannt";
+
 /** One side as the document stores it, and as the editor's draft carries it: the pickers render the club by name. */
 export type FLSpielTeamField = Omit<FLSpielTeamFieldJoined, "austritt_type">;
 

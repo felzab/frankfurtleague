@@ -47,13 +47,13 @@ class TestSpieleFilter:
         assert build_spiele_filter(filters=filters, today=TODAY)["saison_phase"] == {"$ne": "gruppenphase"}
 
     def test_status_maps_to_a_date_comparison_against_today(self):
-        """`ausstehend` is `$gte` by intent: the upcoming list must show today's fixtures, so a tightening to `$gt` is the regression."""
+        """`ab_heute` is `$gte` by intent: the upcoming list must show today's fixtures, so a tightening to `$gt` is the regression."""
         vergangen = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "vergangen"}), today=TODAY)
-        ausstehend = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "ausstehend"}), today=TODAY)
+        ab_heute = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "ab_heute"}), today=TODAY)
         heute = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "heute"}), today=TODAY)
 
         assert vergangen["datum"] == {"$lt": TODAY}
-        assert ausstehend["datum"] == {"$gte": TODAY}
+        assert ab_heute["datum"] == {"$gte": TODAY}
         assert heute["datum"] == TODAY
 
     def test_team_id_matches_either_side_of_the_fixture_as_an_objectid(self):

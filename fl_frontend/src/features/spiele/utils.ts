@@ -18,12 +18,11 @@ import type {
   FLSpielJoinedAdmin,
   FLSpielQuelle,
   FLSpielReleasedSide,
-  FLSpielStatus,
   FLSpielTeamFieldJoined,
   FLSpielTeamFieldPayload,
 } from "@/core/generated/client/types";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
-import type { FLPatchSpielDataPayloadWithId, FLSpiel, FLSpielTeamField } from "./types";
+import type { FLPatchSpielDataPayloadWithId, FLSpiel, FLSpielTeamField, SpielStatus } from "./types";
 
 /**
  * **The four events meaning the fixture never took place**, written once for every surface grading a
@@ -48,7 +47,7 @@ export const computeSpielStatus = ({
   datum: string | null;
   sonderereignis: FLSonderereignis | null;
   today: string;
-}): FLSpielStatus => {
+}): SpielStatus => {
   // Above the null check as well as the comparisons: an undated fixture that was called off is
   // called off rather than merely undated.
   if (isAbgesagt(sonderereignis)) return "abgesagt";
