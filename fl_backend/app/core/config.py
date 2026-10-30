@@ -84,6 +84,10 @@ class _EnvironmentFields(BaseModel):
     # would otherwise open a namespace no other tool on this host can name.
     db_base_name: str = Field(pattern=r"^[A-Za-z0-9_-]+$", description="Base DB name")
 
+    # The image's version from its build argument (`fl_backend/Dockerfile`), which the start-up line logs; absent from a
+    # build handed none and from a run outside an image.
+    app_version: str | None = Field(default=None, min_length=1, description="The image's version")
+
 
 # Parsed rather than imported by `scripts/checks/check_compose_model.py :: backend_schema_files`, which
 # holds the compose files to these fields: a file named by any shape but a string or a module constant
