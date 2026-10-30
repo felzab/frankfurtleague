@@ -422,8 +422,8 @@ export interface RaisedToast {
   readonly variant: string;
   readonly title: string;
   readonly description: string | undefined;
-  /** Everything else the call passed: where an undo offer keeps its own `onPress`, and `failure` its marker. */
-  readonly options: { description?: string; actionProps?: { onPress?: () => void }; outcome?: ActionFailure["outcome"] } | undefined;
+  /** Everything else the call passed: where `failure` keeps its marker. */
+  readonly options: { description?: string; outcome?: ActionFailure["outcome"] } | undefined;
 }
 
 /**
@@ -442,26 +442,15 @@ export function doubleToasts(): { raised: RaisedToast[] } {
     };
   // Titled as the real module titles it, so a press marked partly saved or of unknown outcome reads so
   // in every suite rather than under the raising site's title.
-  const fail = (
-    title: string,
-    failure?: Pick<ActionFailure, "error" | "unplacedError" | "outcome">,
-    unklarTitle?: string,
-    teilweiseTitle?: string,
-  ): string =>
-    raise("danger")(failureToastTitle(title, failure?.outcome, unklarTitle, teilweiseTitle), {
+  const fail = (title: string, failure?: Pick<ActionFailure, "error" | "unplacedError" | "outcome">, unklarTitle?: string): string =>
+    raise("danger")(failureToastTitle(title, failure?.outcome, unklarTitle), {
       description: failure?.unplacedError ?? failure?.error,
       outcome: failure?.outcome,
     });
-  const inert = (): undefined => undefined;
-
   vi.doMock("@/shared/utils/appToast.ts", async (importOriginal) => {
     const { appToast } = await importOriginal<typeof AppToastModule>();
-    // `close` and `clear` raise nothing, and recording them would shift every index `raised` is read by.
-    const members = Object.keys(appToast).map((name) => [
-      name,
-      name === "close" || name === "clear" ? inert : name === "failure" ? fail : raise(name),
-    ]);
-    return { UNDO_TIMEOUT_MS: 1, appToast: Object.fromEntries(members) };
+    const members = Object.keys(appToast).map((name) => [name, name === "failure" ? fail : raise(name)]);
+    return { appToast: Object.fromEntries(members) };
   });
 
   return { raised };

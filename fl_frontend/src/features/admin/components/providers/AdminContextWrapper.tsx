@@ -1,5 +1,3 @@
-import { connection } from "next/server";
-
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { getSchiedsrichter } from "@/features/schiedsrichter/queries";
 import { getAdminSpiele } from "@/features/spiele/queries";
@@ -14,7 +12,6 @@ import { AdminProvider } from "./AdminContextProvider";
  * the routes that open the editor, never by `bereich/admin/layout.tsx`.
  */
 export async function AdminContextWrapper({ children, saison_id }: { children: React.ReactNode; saison_id?: string }) {
-  await connection();
   // The admin list rather than `GET /saisons/{saison_id}`: the editor's commonest season is a
   // `future` one, which the base tier withholds by filter.
   const [schiedsrichterRes, spielorteRes, teamsRes, spieleRes, saisonsRes] = await Promise.all([

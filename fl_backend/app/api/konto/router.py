@@ -67,7 +67,6 @@ from app.api.spieler.services import build_selbst_pupil_pipeline
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
-    AdressankerCollection,
     AdresswechselCollection,
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
@@ -83,7 +82,6 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.drosselung import adresswechsel_gedrosselt
 from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.recording import log_stamp
@@ -286,7 +284,7 @@ async def get_adresswechsel(
     "/adresswechsel",
     response_model=FLKontoAdresswechselMintResponse,
     summary="Start a change of the signed-in person's address",
-    dependencies=[Depends(verify_recent_person_confirmation), Depends(adresswechsel_gedrosselt)],
+    dependencies=[Depends(verify_recent_person_confirmation)],
 )
 async def post_adresswechsel(
     identifier: KontaktIdentifier,
@@ -298,7 +296,6 @@ async def post_adresswechsel(
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
-    adressanker_collection: AdressankerCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_person_confirmation_check)],
@@ -318,8 +315,7 @@ async def post_adresswechsel(
     Refused `REQ-AUTH-009` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
     address holds a grant;
     `REQ-ADRESSWECHSEL-010` where the address holds nothing a change moves; `-007` where the typed address is the one
-    signed in; `-011` where nobody could approve the grant's move, the last owner making another first; and
-    `REQ-DROSSELUNG-001` past the day's count of starts and approvals.
+    signed in; and `-011` where nobody could approve the grant's move, the last owner making another first.
     """
 
     email = adresswechsel_data.email
@@ -362,7 +358,6 @@ async def post_adresswechsel(
             record=record,
             adresswechsel_collection=adresswechsel_collection,
             aktionen_collection=aktionen_collection,
-            adressanker_collection=adressanker_collection,
             schluessel=config.sperrliste_schluessel,
             now=germany_now,
             journal=journal,
@@ -397,7 +392,7 @@ async def post_adresswechsel(
     "/adresswechsel/freigabe",
     response_model=FLKontoAdresswechselFreigabeResponse,
     summary="Approve the address change an administrator asked of the signed-in person",
-    dependencies=[Depends(verify_recent_person_confirmation), Depends(adresswechsel_gedrosselt)],
+    dependencies=[Depends(verify_recent_person_confirmation)],
 )
 async def post_adresswechsel_freigabe(
     identifier: KontaktIdentifier,
@@ -416,8 +411,7 @@ async def post_adresswechsel_freigabe(
     change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
 
     Refused `REQ-AUTH-009` as the start is; `REQ-ADRESSWECHSEL-002` where the change `id` names has ended; 404 where it
-    is no change of this address awaiting its approval; `REQ-ADRESSWECHSEL-003` past the approval's deadline; and
-    `REQ-DROSSELUNG-001` as the start is.
+    is no change of this address awaiting its approval; and `REQ-ADRESSWECHSEL-003` past the approval's deadline.
     """
 
     raw_token, token_hash = mint_token()

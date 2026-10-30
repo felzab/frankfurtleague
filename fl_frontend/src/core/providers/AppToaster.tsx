@@ -5,7 +5,6 @@ import { useSyncExternalStore } from "react";
 
 import { tv } from "tailwind-variants";
 
-import { Spinner } from "@heroui/react/spinner";
 import { Toast } from "@heroui/react/toast";
 
 import { dismissControl } from "@/core/dismissControl";
@@ -66,13 +65,12 @@ export function AppToaster() {
       maxVisibleToasts={3}
       placement="bottom">
       {({ toast: queued }) => {
-        const { actionProps, description, indicator, isLoading, title, variant = "default" } = queued.content;
+        const { description, indicator, title, variant = "default" } = queued.content;
         const styles = toastCard({ variant });
 
-        // Only a self-closing toast gets a bar. A pending one is closed by its own key
-        // (`appToast.pending`), so a bar there would promise a deadline nothing counts down.
+        // Only a self-closing toast gets a bar: one without a deadline has nothing to count down.
         const timeout = queued.timeout;
-        const hasTimer = !isLoading && typeof timeout === "number" && timeout > 0;
+        const hasTimer = typeof timeout === "number" && timeout > 0;
 
         return (
           <Toast
@@ -82,18 +80,11 @@ export function AppToaster() {
             placement="bottom">
             {/* Rendered conditionally rather than with `indicator === null`, so a settled toast has no
                 empty box and its text starts at the padding edge. */}
-            {(isLoading || indicator) && (
+            {indicator && (
               <Toast.Indicator
                 variant={variant}
                 className="flex size-5 shrink-0 items-center justify-center p-0 text-foreground-muted">
-                {isLoading ? (
-                  <Spinner
-                    color="current"
-                    size="sm"
-                  />
-                ) : (
-                  indicator
-                )}
+                {indicator}
               </Toast.Indicator>
             )}
 
@@ -105,16 +96,6 @@ export function AppToaster() {
                 <Toast.Description className="fluid-xs leading-normal font-medium text-foreground-muted opacity-100">
                   {description}
                 </Toast.Description>
-              )}
-              {!!actionProps?.children && (
-                <Toast.ActionButton
-                  {...actionProps}
-                  variant="primary"
-                  // A toast's one action is the way out of what it reported, so it takes the brand
-                  // fill -- never a severity colour, which reads as "this button is the danger".
-                  className="h-8 rounded-lg bg-brand-solid px-3.5 fluid-xs font-semibold text-brand-solid-foreground transition-colors data-hovered:bg-brand-solid-hover">
-                  {actionProps.children}
-                </Toast.ActionButton>
               )}
             </Toast.Content>
 

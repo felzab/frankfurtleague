@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { connection } from "next/server";
 
 import { funktionenOf } from "@/core/funktionen";
 import { FunktionenView } from "@/features/funktionen/components/views/FunktionenView";
@@ -8,7 +7,6 @@ import { zieleOf } from "@/features/funktionen/utils";
 
 /** Where a signed-in person lands, and the switch between everything they hold. */
 export default async function PersoenlichStartPage() {
-  await connection();
   const subject = await requireSubjectSession();
 
   // An address holding a grant, past the administrator's window or short of the passkey, owes a fresh

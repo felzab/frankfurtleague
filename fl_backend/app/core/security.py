@@ -2,33 +2,25 @@ import hashlib
 import hmac
 import secrets
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
-from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPStatus
 from typing import Annotated, Any, Final, Literal, get_args
 from urllib.parse import quote, unquote
 
-from bson import ObjectId
 from fastapi import Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import SecretStr
-from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.berechtigungen.crud import anchor_the_actors_grant, live_unbarred_grant_in, live_unbarred_grant_since
+from app.api.berechtigungen.crud import live_unbarred_grant_since
 from app.api.berechtigungen.services import signed_in_since
-from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, get_ban_list
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core import clock
-from app.core.adressanker import anchor_the_addresses
 from app.core.codes import Code
-from app.core.collections import Collection
 from app.core.config import BackendConfig, get_app_config
-from app.core.crud import a_write_may_stand
 from app.core.dependencies import BerechtigungenCollection
 from app.core.exceptions import ACTOR_TOKEN_CHALLENGE, APIError
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, AktorFunktion, PersonActor, actor_var, request_var
-from app.core.transactions import ActorJudge, actor_judge_var
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, ENROLMENT_WINDOW_MINUTES, PERSON_WINDOW_DAYS, STEP_UP_WINDOW_HOURS
 from app.shared.sub_keys import derive_sub_key
@@ -213,56 +205,6 @@ async def verify_actor_is_admin(
         raise refused_session()
 
 
-def _lists_on(session: AsyncClientSession, config: BackendConfig) -> tuple[AsyncCollection, BanList]:
-    """The grants and the ban list on the transaction's own client.
-
-    Not the request's collection dependencies: resolved at binding, they would open the database
-    ahead of every refusal a request meets before its handler.
-    """
-
-    database = session.client[config.db_base_name]
-
-    return database[Collection.BERECHTIGUNGEN], get_ban_list(database[Collection.SPERRLISTE], database[Collection.SAISONS], config)
-
-
-def admin_judge(actor: SessionActor, config: BackendConfig) -> ActorJudge:
-    """The actor check asked again in each attempt of every transaction the request opens."""
-
-    @asynccontextmanager
-    async def judging_the_administrator(session: AsyncClientSession) -> AsyncIterator[None]:
-        berechtigungen_collection, sperrliste = _lists_on(session, config)
-        # The row answering, for the anchor: one at most, the actor's own.
-        answering: list[ObjectId] = []
-
-        async def grant_since(identifier: str) -> datetime | None:
-            grant = await live_unbarred_grant_in(
-                identifier, berechtigungen_collection=berechtigungen_collection, sperrliste=sperrliste, session=session
-            )
-            if grant is None:
-                return None
-
-            answering.append(grant[0])
-            return grant[1]
-
-        # The very check the request passed before its handler, over this attempt's reads, so it
-        # refuses under the codes every admin-tier operation already publishes.
-        await verify_actor_is_admin(actor, grant_since)
-
-        yield
-
-        # Nothing sent by this request is an attempt that wrote nothing, which takes part in no write
-        # skew: its answer holds as of its snapshot, so a no-op logs no anchor.
-        if not a_write_may_stand():
-            return
-
-        # Last rather than first: written early, this row would stall every rival writing it -- a revoke,
-        # any judgement of the whole list -- until this attempt ends; written last, a rival committing
-        # meanwhile makes this attempt retry instead.
-        await anchor_the_actors_grant(berechtigungen_collection=berechtigungen_collection, berechtigung_id=answering[0], session=session)
-
-    return judging_the_administrator
-
-
 def get_actor_auth_time(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> int:
     """When the acting administrator signed in, which an owner's power is judged against inside the write."""
 
@@ -375,56 +317,22 @@ async def verify_person_is_unbarred(
     return actor
 
 
-def person_judge(actor: SessionActor, config: BackendConfig) -> ActorJudge:
-    """The ban check asked again in each attempt of every transaction a person's request opens."""
-
-    @asynccontextmanager
-    async def judging_the_person(session: AsyncClientSession) -> AsyncIterator[None]:
-        _, sperrliste = _lists_on(session, config)
-
-        async def is_gesperrt(identifier: str) -> bool:
-            return bool(await adressen_gesperrt(sperrliste, [identifier], session=session))
-
-        # The binder's own check over this attempt's read, as the administrator's judge asks its own.
-        await verify_person_is_unbarred(actor, is_gesperrt)
-
-        yield
-
-        # Last, and only where a write may stand, for the administrator's judge's reasons. The write may hold
-        # the person's address or pseudonym on a record their erasure, running now, never read.
-        if not a_write_may_stand():
-            return
-
-        # On the transaction's own client, for `_lists_on`'s reason.
-        await anchor_the_addresses(
-            [actor.email],
-            adressanker_collection=session.client[config.db_base_name][Collection.ADRESSANKER],
-            schluessel=config.sperrliste_schluessel,
-            session=session,
-        )
-
-    return judging_the_person
-
-
 @dataclass(frozen=True)
 class Attribution[T]:
-    """Who a request's writes are recorded under, the judge its transactions ask, and what its binder hands a handler."""
+    """Who a request's writes are recorded under, and what its binder hands a handler."""
 
     actor: Actor | PersonActor
-    judge: ActorJudge | None
     value: T
 
 
 def actor_binder[T](attribute: Callable[..., Attribution[T] | Awaitable[Attribution[T]]]) -> Callable[..., AsyncIterator[T]]:
-    """The one binder: `attribute`'s actor and judge set for the length of the request, beside the route it came through.
+    """The one binder: `attribute`'s actor set for the length of the request, beside the route it came through.
 
     Every method, a read included, at router level, so a later operation cannot miss it.
     """
 
     async def bind(request: Request, attribution: Annotated[Attribution[Any], Depends(attribute)]) -> AsyncIterator[T]:
         actor_token = actor_var.set(attribution.actor)
-        # Beside the actor, so no transaction this request opens runs unjudged.
-        judge_token = actor_judge_var.set(attribution.judge)
         # The route's template, not `request.url.path`: an id baked into the stored path would make one
         # row per document where the page wants one row per kind of action.
         route = request.scope.get("route")
@@ -438,7 +346,6 @@ def actor_binder[T](attribute: Callable[..., Attribution[T] | Awaitable[Attribut
             # Reset, or the actor bleeds onto whichever request the loop runs next -- the same hazard
             # `TraceContextMiddleware` resets its own ids for.
             actor_var.reset(actor_token)
-            actor_judge_var.reset(judge_token)
             request_var.reset(request_token)
 
     return bind
@@ -449,17 +356,17 @@ def attribute_the_administrator(
 ) -> Attribution[None]:
     # Folded, as the grant check read it: one administrator is one spelling in every stored actor
     # field, whatever case the session's address was typed in.
-    return Attribution(Actor(kind="admin_session", email=sign_in_identifier(actor.email)), admin_judge(actor, config), None)
+    return Attribution(Actor(kind="admin_session", email=sign_in_identifier(actor.email)), None)
 
 
 def _the_public() -> Attribution[None]:
     # No session at all: the headers are never read, so a forged one names nobody.
-    return Attribution(PUBLIC_ACTOR, None, None)
+    return Attribution(PUBLIC_ACTOR, None)
 
 
 def _the_application() -> Attribution[None]:
     # The sweep holds no session, and an invented address for a machine is what `SYSTEM_ACTOR` exists to avoid.
-    return Attribution(SYSTEM_ACTOR, None, None)
+    return Attribution(SYSTEM_ACTOR, None)
 
 
 # Module-level objects, as the three key guards are, so a router declares the same callable every
@@ -517,7 +424,7 @@ def person_actor_binder(funktion: AktorFunktion) -> Callable[..., AsyncIterator[
         identifier = sign_in_identifier(actor.email)
         pseudonym = akteur_pseudonym(identifier, schluessel=config.sperrliste_schluessel)
 
-        return Attribution(PersonActor(pseudonym=pseudonym, funktion=funktion), person_judge(actor, config), identifier)
+        return Attribution(PersonActor(pseudonym=pseudonym, funktion=funktion), identifier)
 
     return actor_binder(the_person)
 

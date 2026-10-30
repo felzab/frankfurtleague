@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { ADRESSWECHSEL_PFAD } from "@/core/adresswechselEmail";
 import { AdresswechselLinkView } from "@/features/adresswechsel/components/views/AdresswechselLinkView";
@@ -37,7 +36,6 @@ export default function AdresswechselPage(props: NextPageProps) {
 }
 
 async function AdresswechselContent(props: NextPageProps) {
-  await connection();
   const { token } = await props.searchParams;
 
   // A missing or repeated parameter is no link at all and reads as the dead link.

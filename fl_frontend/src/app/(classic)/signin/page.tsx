@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { getSignedInAddress } from "@/core/auth";
 import { frontend_config } from "@/core/config";
@@ -27,10 +26,8 @@ export default function AnmeldenPage() {
 }
 
 async function Anmelden() {
-  await connection();
-
   const address = await getSignedInAddress();
-  // The key off the request's settings, past `connection()`: a prerendered shell would carry the build's, which is none.
+  // The key off the request's settings, past the session read: a prerendered shell would carry the build's, which is none.
   return address === null ? (
     <SignInFlow
       next={SIGN_IN_LANDING}

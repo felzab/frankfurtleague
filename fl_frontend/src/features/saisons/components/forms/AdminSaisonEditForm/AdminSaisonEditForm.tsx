@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 
 import { parseDate } from "@internationalized/date";
 
-import { patchSaisonAction, undoAdminSaisonEditAction } from "@/features/saisons/actions";
+import { patchSaisonAction } from "@/features/saisons/actions";
 import { PLACING_RULES_FIELDS, RESCORING_RULES_FIELDS } from "@/features/saisons/constants";
 import { deriveSaisonDraftStatus } from "@/features/saisons/saisonDraftStatus";
 import { FLPatchSaisonPayloadSchema } from "@/features/saisons/schemas";
@@ -23,9 +22,9 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
+import { appToast } from "@/shared/utils/appToast";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { fieldStatus } from "@/shared/utils/draftStatus";
-import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSaisonBanners } from "./banners";
 import { spielplanUndrawBlockedReason } from "./blockedReasons";
@@ -100,7 +99,6 @@ export function AdminSaisonEditForm({
   isSaveExitAsked: boolean;
   onSaveExitAskedChange: (asked: boolean) => void;
 }) {
-  const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
 
@@ -286,17 +284,6 @@ export function AdminSaisonEditForm({
 
   const writeAfterBlock = () => {
     startSaving(async () => {
-      // Built BEFORE the write, from this render's props: they still carry what was stored, and the
-      // toast that offers the undo outlives this page.
-      const undoPayload: FLPatchSaisonPayload = {
-        id: saison.id,
-        start_date: saison.start_date,
-        end_date: saison.end_date,
-        rules: saison.rules,
-        bewerbung: saison.bewerbung,
-        registrierung: saison.registrierung,
-      };
-
       const payload = buildPayload();
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
       const res = await patchSaisonAction(payload).catch(unansweredAction);
@@ -314,27 +301,22 @@ export function AdminSaisonEditForm({
 
         // A warning, never a success, wherever the table moved: it is scored and ordered from `rules`
         // on read, so the move goes unnoticed.
-        const pointsMoved = undoPayload.rules.win_points !== rules.win_points || undoPayload.rules.draw_points !== rules.draw_points;
-        const tiebreakMoved = undoPayload.rules.tiebreak_order !== rules.tiebreak_order;
+        // `saison` is this render's prop, which still holds the rules stored before the write.
+        const pointsMoved = saison.rules.win_points !== rules.win_points || saison.rules.draw_points !== rules.draw_points;
+        const tiebreakMoved = saison.rules.tiebreak_order !== rules.tiebreak_order;
+        const warn = pointsMoved || tiebreakMoved;
+        const raise = warn ? appToast.warning : appToast.success;
 
-        offerUndo({
-          undo: () => undoAdminSaisonEditAction(undoPayload),
+        raise(warn ? "Mit Folgen gespeichert" : "Änderung gespeichert", {
           // The points first where both moved: a rescore subsumes a re-sort, and one toast holds one
           // sentence.
-          message: pointsMoved
+          description: pointsMoved
             ? "Die Punkte gelten ab sofort für jedes Spiel dieser Saison, auch für die längst gespielten."
             : tiebreakMoved
               ? "Punktgleiche Teams stehen ab sofort in einer anderen Reihenfolge, auch in längst gespielten Gruppen."
-              : undefined,
-          // Passed on the quiet branch too, where it all but restates the title: `offerUndo`'s
-          // `fallback` carries why the register asks for a sentence there anyway.
-          fallback: "Die Saisondaten wurden aktualisiert.",
-          warn: pointsMoved || tiebreakMoved,
-          router,
+              : "Die Saisondaten wurden aktualisiert.",
         });
 
-        // AFTER the undo payload is built: typed values left in state let a save-then-undo reopen on
-        // values the season does not hold.
         resetDraftToStored();
         // Asked rather than left over a moved redraw shape, and held above this editor's key: the refresh this
         // save ends on remounts the editor, which would close a dialog of its own.

@@ -63,30 +63,11 @@ async def get_bewerbungen(
     sperrliste: SperrlisteLookup,
     filters: FLBewerbungenFilters,
 ) -> FLBewerbungenListResponse:
-    """
-    Every application, newest first, narrowable by season and by any number of the three statuses.
+    """Every application, newest first, narrowed by `saison_id` with `saisonbezug` and by any of the three statuses.
 
-    Decided ones stay listed: what the league turned down, and why, is the record the decision was
-    taken against. `vollstaendig` is false where more rows exist than one read serves. A decision's
-    administrator is `null` beside `entscheidung.von_gesperrt` where the ban list holds that
-    address, as no barred address is served in plain.
-
-    `saisonbezug` says which side of `saison_id` this read covers — `diese_saison` for that season,
-    `andere_saison` for every other one — and is ignored without a `saison_id` to stand against.
-    Both values is every season, as omitting the parameter is; `saison_id` alone is that season.
-
-    `anzahl_je_status` counts every status over the seasons this request selected and never over the
-    statuses it named, and `anzahl_je_saisonbezug` counts each side of the season relation over those
-    statuses and never over the relation, so a caller narrowed to one of either still knows what
-    asking for the other would fetch. Repeating a parameter and comma-joining its values are one
-    request; omitting one is every value, and sending it empty is too.
-
-    `dubletten_schluessel` names every key two or more OPEN applications share, over every season the
-    request selected rather than over the rows served, so a colliding pair the cap parted is named at
-    both ends; a key carries its own season, so no selection can part one. A key
-    is the season and the club id, or the season and the upper-cased Kürzel, parted by the word
-    `team` or `kuerzel`; a caller composes a served row's own key and marks the row where the two
-    match.
+    `vollstaendig` is false where more rows exist than one read serves, and each count covers the values its facet left out.
+    `dubletten_schluessel` names every key two or more open applications share: the season and the club id or upper-cased
+    Kürzel, joined by `team` or `kuerzel`. A barred administrator is served as `null` beside `entscheidung.von_gesperrt`.
     """
 
     # The season term alone, because each count answers for the status it names: counted with the
@@ -102,7 +83,7 @@ async def get_bewerbungen(
         gather_cancelling(
             # `bewerbungen_saison_id_status_queue` carries both terms, so a count walks keys and
             # fetches nothing; measured, the complement loses the COUNT_SCAN and stays an IXSCAN.
-            *(bewerbungen_collection.count_documents({**beyond_status, "status": status}) for status in get_args(FLBewerbungStatus))
+            *(bewerbungen_collection.count_documents({**beyond_status, "status": status}) for status in get_args(FLBewerbungStatus.__value__))
         ),
         gather_cancelling(*(bewerbungen_collection.count_documents({**beyond_saison, **term}) for term in saisonbezug_terms.values())),
         aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_dubletten_pipeline(beyond_status)),
@@ -130,7 +111,7 @@ async def get_bewerbungen(
     return FLBewerbungenListResponse(
         bewerbungen=FLBewerbungListAdapter.validate_python(await _as_served(served, sperrliste=sperrliste)),
         vollstaendig=len(read) <= filters.limit,
-        anzahl_je_status=dict(zip(get_args(FLBewerbungStatus), counted, strict=True)),
+        anzahl_je_status=dict(zip(get_args(FLBewerbungStatus.__value__), counted, strict=True)),
         anzahl_je_saisonbezug=dict(zip(saisonbezug_terms, bezogen, strict=True)),
         dubletten_schluessel=dubletten_schluessel_of(cells),
     )
@@ -143,9 +124,9 @@ async def get_bewerbung_by_id(
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungSingleResponse:
-    """One application in full, which is what the triage decides against; its decision's administrator is withheld as the list withholds it.
+    """One application, its decision's administrator withheld as the list withholds it.
 
-    Answers whether its confirmation deadline has passed today, so the editor words the deletion without reading a day of its own.
+    `bestaetigungsfrist_abgelaufen` says whether its confirmation deadline has passed today.
     """
 
     bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=WITHOUT_TOKEN_HASHES)

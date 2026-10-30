@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { getLaufendesLabel } from "@/core/einwilligung";
 import { AdminKontakteEditView } from "@/features/kontakte/components/views/AdminKontakteEditView";
@@ -38,7 +37,6 @@ async function AdminKontakteEditContent({
   params: NextPageProps<{ team_id: string }>["params"];
   searchParams: NextPageProps["searchParams"];
 }) {
-  await connection();
   const teamId = await resolveTeamId(params);
 
   const [membershipsRes, selectedSaison, laufendesLabel] = await Promise.all([

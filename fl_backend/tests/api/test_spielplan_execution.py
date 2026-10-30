@@ -165,9 +165,9 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutates_schema: bool = False) -> Any:
-    """The SHIPPED validators and unique indexes, so a document MongoDB would refuse in production fails here.
+    """The shipped unique indexes, so a document MongoDB would refuse in production fails here.
 
-    `mutates_schema=True` where the body narrows one of those validators (`tests/database.py :: a_clean_database`).
+    `mutates_schema=True` where the body installs a validator (`tests/database.py :: a_clean_database`).
     """
 
     seeded = seed or Seed()
@@ -434,7 +434,7 @@ class TestACleanDrawWritesTheWholeSeason:
 
 
 class TestTheDrawnDocumentsSurviveMongoDB:
-    """The shipped `$jsonSchema` validators are attached before the call, so a document production would refuse is refused here."""
+    """The shipped indexes are built before the call, and each row reads back through the model serving it."""
 
     def test_every_row_reads_back_through_the_model_that_serves_it(self, mongo_replica_set_url: str):
         """`anzahl_spiele` is derived and on no matchday document, so a stored row reaches its model only through `with_expected_matches`."""
@@ -635,9 +635,9 @@ class TestEachRefusalIsReachedThroughTheRoute:
                 id="clubs in a group the season does not offer",
             ),
             # `find_rules_refusal`, the OTHER call, the groups matching the rules so nothing above answers
-            # first: six qualifiers make no bracket, and with no shape stated the draw twin answers.
+            # first: six qualifiers make no bracket.
             pytest.param(
-                Code.RULES_BRACKET_IMPOSSIBLE_AS_STORED,
+                Code.RULES_BRACKET_IMPOSSIBLE,
                 Seed(saison=saison_document(rules=rules_document(groups=2, qualifiers=3)), entered=entry_rows(groups=2)),
                 id="rules whose product is no bracket",
             ),
@@ -660,7 +660,7 @@ class TestEachRefusalIsReachedThroughTheRoute:
         assert refused.watermark is None
 
 
-# Each replaces the shipped validator on one collection, so the write named below is refused where it
+# Each installs a validator on one collection, so the write named below is refused where it
 # stands. `datum` is null on every drawn fixture and `spielplan` is an object on every watermark.
 NARROWED_VALIDATORS: dict[Collection, dict[str, Any]] = {
     Collection.SPIELE: {"$jsonSchema": {"bsonType": "object", "properties": {"datum": {"bsonType": "string"}}}},
@@ -1100,7 +1100,6 @@ async def an_admin_first_report(
             spiele_collection=database[Collection.SPIELE],
             saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
-            saison_teams_collection=database[Collection.SAISON_TEAMS],
             spieler_collection=database[Collection.SPIELER],
             spielberichte_collection=database[Collection.SPIELBERICHTE],
             db=client,

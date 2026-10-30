@@ -2,7 +2,6 @@
 
 import { isFreshlySignedIn } from "@/core/auth";
 import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { refusedReplay, restored, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -18,7 +17,6 @@ import {
   mapNameRefusal,
   mapReactivateRefusal,
   mapRetireRefusal,
-  SCHIEDSRICHTER_REPLAY_REFUSALS,
 } from "./refusals";
 import {
   FLPatchSchiedsrichterPayloadSchema,
@@ -29,9 +27,7 @@ import {
 } from "./schemas";
 
 import type { FLSchiedsrichterPayloadDraft } from "@/features/schiedsrichter/schemas";
-import type { FLKontakt } from "@/shared/schemas";
 import type { ActionResult } from "@/shared/types/types";
-import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type {
   FLPatchSchiedsrichterPayload,
@@ -145,56 +141,11 @@ export async function patchSchiedsrichterAction(
       success: true,
       updated_document: postOperation.updated_document,
       message: "Schiedsrichter bearbeitet",
-      // Its own field rather than folded into the message: the editor hands this to the undo offer,
-      // and a save that mailed nothing has no sentence to hand it.
+      // Its own field rather than folded into the message: the editor's toast says it in place of the
+      // save's sentence, and a save that mailed nothing has no sentence to hand it.
       versandSatz: mint !== null && versand !== null ? describeLinkMail(mint.email, versand) : undefined,
       versand: versand ?? undefined,
     };
-  });
-}
-
-export async function undoAdminSchiedsrichterEditAction(
-  // The STORED record as it stood, which the payload type cannot hold: the editor withholds an offer the schema refuses.
-  rawPayload: Omit<FLPatchSchiedsrichterPayload, "name" | "kontakt"> & {
-    name: string | null;
-    kontakt: FLKontakt;
-  },
-): Promise<UndoOutcome> {
-  return runAdminUndo("undoAdminSchiedsrichterEditAction", async (session) => {
-    const validated = FLPatchSchiedsrichterPayloadSchema.safeParse(rawPayload);
-    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
-    const payload = validated.data;
-
-    // The replay is a save, its mint judged as the save's own action judges one: without this the undo
-    // is a second door to that save with no step-up.
-    const stored = isFreshlySignedIn(session) ? null : await getSchiedsrichterById(payload.id);
-    const unconfirmed = stored !== null && saveMayMint(stored.schiedsrichter, payload.kontakt.email) ? refuseUnconfirmed(session) : null;
-    if (unconfirmed !== null) return unconfirmed;
-
-    let operation;
-    try {
-      operation = await patchSchiedsrichter(payload);
-    } catch (error) {
-      return refusedReplay(error, SCHIEDSRICHTER_REPLAY_REFUSALS);
-    }
-
-    // The replay puts the earlier address back, which the endpoint reads as a correction and mints
-    // for: unmailed, that token exists in the database alone and the referee's own link is dead.
-    const mint = operation.bestaetigung;
-    if (mint === null) return restored();
-
-    const versand = await mailSchiedsrichterLink({
-      operation: "undoAdminSchiedsrichterEditAction",
-      schiedsrichterId: payload.id,
-      // The address the MINT names, never the payload's: the replay is the older of the two reads.
-      email: mint.email,
-      mint: mint,
-      anlass: "erneut",
-    });
-
-    // A cost either way: the undo silently replaced a live link, which is a fact about the person
-    // rather than about the rows it put back.
-    return restored(describeLinkMail(mint.email, versand));
   });
 }
 

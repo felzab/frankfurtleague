@@ -4,6 +4,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import { cache } from "react";
 import { headers } from "next/headers";
+import { connection } from "next/server";
 
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { passkey } from "@better-auth/passkey";
@@ -1554,7 +1555,12 @@ export async function readServedSession(requestHeaders: Headers): Promise<Served
 // React's `cache`, never `"use cache"`, which would hand one request's session to another: the
 // account page's guard, the person guard and the administrator's guard of one render share one read.
 /** The session this request's cookie names, as every guard serves it. */
-export const readRequestSession = cache(async (): Promise<ServedSession | null> => readServedSession(await headers()));
+export const readRequestSession = cache(async (): Promise<ServedSession | null> => {
+  // A render's one wait for a real request, before the sign-in store: the image's build reaches no store, and a
+  // prefetched shell must carry nothing a session decides.
+  await connection();
+  return readServedSession(await headers());
+});
 
 /**
  * The session the code route's second tab counts as signed in: every guard's read, and none where the
@@ -1755,6 +1761,8 @@ type Landing = { readonly destination: SignInDestination; readonly served: Serve
  * again is ended, whatever missed ending it before.
  */
 async function landingOf(requestHeaders: Headers): Promise<Landing> {
+  // `readRequestSession`'s wait, for the sign-in pages' read past it.
+  await connection();
   const read = await readLibrarySession(requestHeaders, false);
   if (read === null) return { destination: "/signin", served: null };
 

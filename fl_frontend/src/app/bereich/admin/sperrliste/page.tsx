@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { AdminCreateSperreModal } from "@/features/sperrliste/components/modals/AdminCreateSperreModal";
 import { AdminSperrlisteView } from "@/features/sperrliste/components/views/AdminSperrlisteView";
@@ -38,8 +37,6 @@ export default function AdminSperrlistePage() {
  * season selector narrows nothing here.
  */
 async function Sperrliste() {
-  await connection();
-
   // Not `"use cache"`, a cross-request store keyed on arguments rather than the caller:
   // `fl_frontend/src/features/sperrliste/queries.ts :: getSperrliste`.
   const sperrlisteRes = await getSperrliste();

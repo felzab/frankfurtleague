@@ -4,10 +4,6 @@ from datetime import date
 from types import MappingProxyType
 from typing import Any, Final, Literal
 
-# `is_confirmed`'s "no" as a filter term: `None` alone matches a null and a missing path but never a
-# stored `""`, so a filter spelled with it passes over rows the predicate calls unconfirmed.
-UNCONFIRMED_STAMP: Final[Mapping[str, Any]] = {"$in": [None, ""]}
-
 
 def is_confirmed(einwilligung: Any) -> bool:
     """Whether a consent record carries its own person's confirmation.
@@ -16,12 +12,9 @@ def is_confirmed(einwilligung: Any) -> bool:
     to grant what another refuses.
     """
 
-    # `bestaetigt_am` alone: the one key a seat's `Kenntnisnahme` and a person's `Einwilligung` share.
-    stamp = einwilligung.get("bestaetigt_am") if isinstance(einwilligung, Mapping) else None
-
-    # Only a non-empty string confirms: the validator types the stamp as a string or null, so `""` is
-    # storable by a hand edit, and the public name read already withholds on it.
-    return isinstance(stamp, str) and stamp != ""
+    # `bestaetigt_am` alone: the one key a seat's `Kenntnisnahme` and a person's `Einwilligung` share. A seat's
+    # record is null until its person answers.
+    return isinstance(einwilligung, Mapping) and einwilligung.get("bestaetigt_am") is not None
 
 
 # `app/api/spieler/services.py :: name_is_public` as a Mongo expression, here for `is_confirmed`'s reason: a pupil's
@@ -31,9 +24,6 @@ NAME_IS_PUBLIC: Final[Mapping[str, Any]] = {
         {"$eq": [{"$type": "$einwilligung"}, "object"]},
         {"$eq": ["$einwilligung.umfang", "kader_oeffentlich"]},
         {"$eq": [{"$type": "$einwilligung.bestaetigt_am"}, "string"]},
-        # Beside the type test rather than instead of it: `$type` calls `""` a string, so an arm
-        # reading the type alone publishes a record nobody confirmed.
-        {"$ne": ["$einwilligung.bestaetigt_am", ""]},
     ]
 }
 

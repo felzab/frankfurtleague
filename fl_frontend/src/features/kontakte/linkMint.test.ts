@@ -29,7 +29,7 @@ const block = (ansprechperson: FLKontaktpersonPayload | null, stellvertretung: F
   trainer_ist_zugleich: null,
 });
 
-/* A save that mints or voids a bearer link is a step-up write, and one moving no link keeps its undo:
+/* A save that mints or voids a bearer link is a step-up write, and one moving no link is not:
    each arm a passkey asked too often or a link moved unasked. */
 describe("whether a contacts save may move a seat's link", () => {
   it("asks where a seat is filled, handed to another person, or emptied", () => {

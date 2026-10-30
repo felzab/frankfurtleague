@@ -1262,7 +1262,6 @@ async def correct(
         email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": email, "bisherige_email": shown}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         sperrliste=ban_list(database),
-        adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
         today=TODAY,
     )
@@ -1663,7 +1662,6 @@ class TestAResendRacingAnAnswer:
                     ),
                     bewerbungen_collection=database[Collection.BEWERBUNGEN],
                     sperrliste=ban_list(database),
-                    adressanker_collection=database[Collection.ADRESSANKER],
                     db=client,
                     today=TODAY,
                 )
@@ -1778,7 +1776,6 @@ async def reseat(
         sitz_data=FLBewerbungKontaktSitzPayload.model_validate({**RESEAT_PERSON, "email": email, "text_version": text_version}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         sperrliste=ban_list(database),
-        adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
         today=TODAY,
     )
@@ -1829,25 +1826,6 @@ async def seed_an_application_a_seat_was_declined_on(database: AsyncDatabase, cl
         )
     )
     await answer_for(database, client, "ansprechperson")
-
-
-@pytest.mark.db
-class TestAResendToASeatStampedEmpty:
-    """`is_confirmed` reads `""` as unconfirmed, and the re-send's filter reads it the same way."""
-
-    def test_the_link_is_minted_rather_than_answered_404(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            await seed_an_open_ansprechperson_seat(database)
-            await database[Collection.BEWERBUNGEN].update_one(
-                {"_id": ERNEUT_BEWERBUNG}, {"$set": {"kontakte.ansprechperson.einwilligung.bestaetigt_am": ""}}
-            )
-            response = await resend(database, "ansprechperson")
-
-            return response, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
-
-        response, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert stored["bestaetigungen"]["ansprechperson"]["token_hash"] == hash_token(response.token)
 
 
 @pytest.mark.db

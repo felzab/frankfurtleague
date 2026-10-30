@@ -31,7 +31,6 @@ from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.dependencies import get_germany_now
-from app.core.drosselung import build_counts_filter
 from app.core.journal import JOURNAL_TOKEN, JournalLine, parse_line
 from app.core.logging import JSONFormatter
 from app.core.recording import ERASED_ACTOR_MARKER
@@ -752,41 +751,38 @@ class TestAnErasedPersonsPseudonym:
     def test_the_rows_a_restore_brings_back_under_it_are_marked_again_once(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Where the restored database holds the address nowhere, the erasure's line alone finds what its pseudonym marks.
 
-        Restored as a snapshot holds a person whose records went before it: their rows' pseudonym and count, no address.
+        Restored as a snapshot holds a person whose records went before it: their rows' pseudonym, no address.
         """
 
         async def steps(http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             withdrawal = await _withdrawn_and_granted_again(http, database, caplog)
             rows = [row["_id"] async for row in database[Collection.AKTIONEN].find({"actor.pseudonym": PSEUDONYM}, {"_id": 1})]
-            counts = await database[Collection.DROSSELUNG].find(build_counts_filter(PSEUDONYM)).to_list()
             with caplog.at_level(logging.INFO):
                 erased = await http.post(ERASURE, headers=_person(PERSON))
             assert erased.status_code == 200, erased.text
             _, erasure = journalled(caplog)
 
-            # The restore: the attribution the erasure marked, and the count it erased.
+            # The restore: the attribution the erasure marked.
             await database[Collection.AKTIONEN].update_many({"_id": {"$in": rows}}, {"$set": {"actor.pseudonym": PSEUDONYM}})
-            await database[Collection.DROSSELUNG].insert_many(counts)
             day = _day_file(("2126-10-03T10:00:01+00:00", withdrawal), ("2126-10-03T11:00:01+00:00", erasure))
             runs = [await _listed(day, client, database, apply=apply) for apply in (False, True, True)]
 
             left = (
                 await database[Collection.AKTIONEN].count_documents({"actor.pseudonym": PSEUDONYM}),
                 await database[Collection.AKTIONEN].count_documents({"_id": {"$in": rows}, "actor.pseudonym": ERASED_ACTOR_MARKER}),
-                await database[Collection.DROSSELUNG].count_documents(build_counts_filter(PSEUDONYM)),
             )
             acts = await database[Collection.AKTIONEN].find({"collection": "pseudonyme"}).to_list()
-            return len(rows), len(counts), runs, left, acts
+            return len(rows), runs, left, acts
 
-        rows, counts, runs, left, acts = served(mongo_replica_set_url, steps)
+        rows, runs, left, acts = served(mongo_replica_set_url, steps)
         [(listed_code, listed), (applied_code, applied), (again_code, again)] = runs
 
-        # The withdrawal's row and the grant's, and the count the grant took.
-        assert (rows, counts) == (2, 1)
-        # None still attributed, each marked, no count left.
-        assert left == (0, rows, 0)
+        # The withdrawal's row and the grant's.
+        assert rows == 2
+        # None still attributed, each marked.
+        assert left == (0, rows)
         assert (listed_code, applied_code, again_code) == (1, 0, 0), listed
-        assert f"but its pseudonym still marks {rows} log row(s) (" in listed and "and 1 day count(s)" in listed
+        assert f"but its pseudonym still marks {rows} log row(s) (" in listed
         assert "    to replay" in listed and "    replayed" in applied and "    already done" in again
         # One row, the system's, naming the erasure's line: the second run found nothing and wrote nothing.
         assert [(row["actor"], row["request"]) for row in acts] == [
