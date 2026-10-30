@@ -67,6 +67,7 @@ import type {
   FLBewerbungZustellungAngenommenPayload,
   FLBewerbungZustellungEreignisPayload,
   FLBewerbungZustellungResponse,
+  FLCreatedResponse,
   FLEinladungAnsichtResponse,
   FLEinladungMintResponse,
   FLEinladungResponse,
@@ -129,7 +130,6 @@ import type {
   FLPostSperrlistePayload,
   FLPostSperrlisteResponse,
   FLPostSpielortPayload,
-  FLPostSpielortResponse,
   FLPostTeamPayload,
   FLPostTeamResponse,
   FLReferenzenPayload,
@@ -153,14 +153,12 @@ import type {
   FLSaisonTeamPersonEinwilligungPayload,
   FLSaisonTeamPersonEinwilligungResponse,
   FLSaisonTeamResponse,
-  FLSchiedsrichterBestaetigungAnsichtPayload,
   FLSchiedsrichterBestaetigungAnsichtResponse,
   FLSchiedsrichterBestaetigungPayload,
   FLSchiedsrichterBestaetigungResponse,
   FLSchiedsrichterListResponse,
   FLSchiedsrichterMintResponse,
   FLSchiedsrichterReactivateResponse,
-  FLSchiedsrichterSelbstEinwilligungPayload,
   FLSchiedsrichterSelbstEinwilligungResponse,
   FLSchiedsrichterSelbstResponse,
   FLSchiedsrichterSingleResponse,
@@ -175,12 +173,10 @@ import type {
   FLSpielberichteSaisonResponse,
   FLSpielberichtPayload,
   FLSpielberichtSchiedsrichterResponse,
-  FLSpielbestaetigungAnsichtPayload,
   FLSpielbestaetigungAnsichtResponse,
   FLSpielbestaetigungAntwortPayload,
   FLSpielbestaetigungAntwortResponse,
   FLSpielbestaetigungEintragenPayload,
-  FLSpielbestaetigungEintragenResponse,
   FLSpielbestaetigungenListResponse,
   FLSpielbestaetigungenSelbstResponse,
   FLSpielbestaetigungSchiedsrichterAntwortPayload,
@@ -191,7 +187,7 @@ import type {
   FLSpielbestaetigungSweepMitgeteiltResponse,
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungSweepSaisonsResponse,
-  FLSpielbestaetigungVerwerfenResponse,
+  FLSpielbestaetigungWriteResponse,
   FLSpieleActionRequiredResponse,
   FLSpieleAdminListResponse,
   FLSpieleAdminSingleResponse,
@@ -200,7 +196,6 @@ import type {
   FLSpielerListResponse,
   FLSpielerMembershipsResponse,
   FLSpielerNachnominierungResponse,
-  FLSpielerSelbstEinwilligungPayload,
   FLSpielerSelbstEinwilligungResponse,
   FLSpielerSelbstResponse,
   FLSpielerSingleResponse,
@@ -3339,7 +3334,7 @@ export const getSchiedsrichterGetBestaetigungAnsichtUrl = () => {
  * @summary What one Schiedsrichter confirmation link opens
  */
 export const schiedsrichterGetBestaetigungAnsicht = async (
-  fLSchiedsrichterBestaetigungAnsichtPayload: FLSchiedsrichterBestaetigungAnsichtPayload,
+  fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLSchiedsrichterBestaetigungAnsichtResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -3358,7 +3353,7 @@ export const schiedsrichterGetBestaetigungAnsicht = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSchiedsrichterBestaetigungAnsichtPayload),
+    body: JSON.stringify(fLTokenPayload),
   });
 };
 
@@ -3408,7 +3403,7 @@ export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string) 
  */
 export const schiedsrichterPatchEinwilligung = async (
   schiedsrichterId: string,
-  fLSchiedsrichterSelbstEinwilligungPayload: FLSchiedsrichterSelbstEinwilligungPayload,
+  fLSelbstEinwilligungPayload: FLSelbstEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSchiedsrichterSelbstEinwilligungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -3427,7 +3422,7 @@ export const schiedsrichterPatchEinwilligung = async (
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSchiedsrichterSelbstEinwilligungPayload),
+    body: JSON.stringify(fLSelbstEinwilligungPayload),
   });
 };
 
@@ -3983,7 +3978,7 @@ export const getSpielbestaetigungenGetSpielbestaetigungAnsichtUrl = () => {
  * @summary What one fixture confirmation link opens
  */
 export const spielbestaetigungenGetSpielbestaetigungAnsicht = async (
-  fLSpielbestaetigungAnsichtPayload: FLSpielbestaetigungAnsichtPayload,
+  fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLSpielbestaetigungAnsichtResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -4002,7 +3997,7 @@ export const spielbestaetigungenGetSpielbestaetigungAnsicht = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielbestaetigungAnsichtPayload),
+    body: JSON.stringify(fLTokenPayload),
   });
 };
 
@@ -4283,7 +4278,7 @@ export const spielbestaetigungenEintragenSpielbestaetigung = async (
   spielbestaetigungId: string,
   fLSpielbestaetigungEintragenPayload: FLSpielbestaetigungEintragenPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielbestaetigungEintragenResponse> => {
+): Promise<FLSpielbestaetigungWriteResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -4296,7 +4291,7 @@ export const spielbestaetigungenEintragenSpielbestaetigung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLSpielbestaetigungEintragenResponse>(getSpielbestaetigungenEintragenSpielbestaetigungUrl(spielbestaetigungId), {
+  return adminKeyTransport<FLSpielbestaetigungWriteResponse>(getSpielbestaetigungenEintragenSpielbestaetigungUrl(spielbestaetigungId), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -4323,8 +4318,8 @@ export const getSpielbestaetigungenVerwerfenSpielbestaetigungUrl = (spielbestaet
 export const spielbestaetigungenVerwerfenSpielbestaetigung = async (
   spielbestaetigungId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielbestaetigungVerwerfenResponse> => {
-  return adminKeyTransport<FLSpielbestaetigungVerwerfenResponse>(getSpielbestaetigungenVerwerfenSpielbestaetigungUrl(spielbestaetigungId), {
+): Promise<FLSpielbestaetigungWriteResponse> => {
+  return adminKeyTransport<FLSpielbestaetigungWriteResponse>(getSpielbestaetigungenVerwerfenSpielbestaetigungUrl(spielbestaetigungId), {
     ...options,
     method: "POST",
   });
@@ -4703,7 +4698,7 @@ export const getSpielerPatchEinwilligungUrl = () => {
  * @summary Change a signed-in pupil's own publication and media consent
  */
 export const spielerPatchEinwilligung = async (
-  fLSpielerSelbstEinwilligungPayload: FLSpielerSelbstEinwilligungPayload,
+  fLSelbstEinwilligungPayload: FLSelbstEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpielerSelbstEinwilligungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -4722,7 +4717,7 @@ export const spielerPatchEinwilligung = async (
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielerSelbstEinwilligungPayload),
+    body: JSON.stringify(fLSelbstEinwilligungPayload),
   });
 };
 
@@ -4973,7 +4968,7 @@ export const getSpielortePostSpielortUrl = () => {
 export const spielortePostSpielort = async (
   fLPostSpielortPayload: FLPostSpielortPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLPostSpielortResponse> => {
+): Promise<FLCreatedResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -4986,7 +4981,7 @@ export const spielortePostSpielort = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLPostSpielortResponse>(getSpielortePostSpielortUrl(), {
+  return adminKeyTransport<FLCreatedResponse>(getSpielortePostSpielortUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },

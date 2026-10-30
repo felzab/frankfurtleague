@@ -4985,6 +4985,21 @@
         "title": "FLBracketFaultSpieltag",
         "type": "object"
       },
+      "FLCreatedResponse": {
+        "description": "The id a create minted, which the caller reads the new record by.",
+        "properties": {
+          "created_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Created Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "created_id"
+        ],
+        "title": "FLCreatedResponse",
+        "type": "object"
+      },
       "FLEinladungAnsichtResponse": {
         "description": "What an invite's holder is told before they type anything, and the bounds the form is held to.",
         "properties": {
@@ -5474,19 +5489,12 @@
         "type": "object"
       },
       "FLEinwilligung": {
-        "description": "What this person agreed may be published about them.\n\nThe keys the validator requires stand TOGETHER, as `FLAustritt` does: a scope with no\nconfirmation date claims somebody consented, and no surface can tell that from one somebody gave.",
+        "description": "What this person agreed may be published about them.\n\nIts keys stand TOGETHER, as `FLAustritt`'s do: a scope with no confirmation date claims somebody\nconsented, and no surface can tell that from one somebody gave.",
         "properties": {
           "bestaetigt_am": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bestaetigt Am"
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bestaetigt Am",
+            "type": "string"
           },
           "datum": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -6606,17 +6614,12 @@
           "rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "kapitaen",
-                  "co_kapitaen"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Rolle"
+            ]
           },
           "spieler_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -6712,17 +6715,12 @@
           "rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "kapitaen",
-                  "co_kapitaen"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Rolle"
+            ]
           },
           "spieler_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -8117,17 +8115,12 @@
           "rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "kapitaen",
-                  "co_kapitaen"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Rolle"
+            ]
           },
           "stufe": {
             "anyOf": [
@@ -8237,17 +8230,12 @@
           "rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "kapitaen",
-                  "co_kapitaen"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Rolle"
+            ]
           },
           "stufe": {
             "anyOf": [
@@ -9291,17 +9279,12 @@
           "rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "kapitaen",
-                  "co_kapitaen"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Rolle"
+            ]
           },
           "saison_id": {
             "maxLength": 4,
@@ -9483,20 +9466,6 @@
           "default_mietpreis"
         ],
         "title": "FLPostSpielortPayload",
-        "type": "object"
-      },
-      "FLPostSpielortResponse": {
-        "properties": {
-          "created_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Created Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "created_id"
-        ],
-        "title": "FLPostSpielortResponse",
         "type": "object"
       },
       "FLPostTeamPayload": {
@@ -10187,16 +10156,9 @@
         "description": "A pending registration's consent record, each choice and `datum` optional here alone.\n\nA returning pupil's page asks no choice.",
         "properties": {
           "bestaetigt_am": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bestaetigt Am"
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bestaetigt Am",
+            "type": "string"
           },
           "datum": {
             "anyOf": [
@@ -10895,17 +10857,12 @@
           "rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "kapitaen",
-                  "co_kapitaen"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Rolle"
+            ]
           },
           "saison_id": {
             "title": "Saison Id",
@@ -11501,7 +11458,7 @@
           "bestaetigung": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSchiedsrichterBestaetigung"
+                "$ref": "#/components/schemas/FLBestaetigung"
               },
               {
                 "type": "null"
@@ -11590,66 +11547,6 @@
         "title": "FLSchiedsrichter",
         "type": "object"
       },
-      "FLSchiedsrichterBestaetigung": {
-        "description": "One referee's confirmation bookkeeping as the editor reads it -- and NO `token_hash`.\n\nThe hash is a raw document key the confirm query alone reads, as\n`app/api/bewerbungen/schemas.py :: FLBewerbungBestaetigung` keeps its own off the wire.",
-        "properties": {
-          "erinnert_am": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Erinnert Am"
-          },
-          "frist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
-            "type": "string"
-          },
-          "verschickt_am": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Verschickt Am",
-            "type": "string"
-          },
-          "zustellung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLBewerbungZustellung"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "verschickt_am",
-          "erinnert_am",
-          "frist"
-        ],
-        "title": "FLSchiedsrichterBestaetigung",
-        "type": "object"
-      },
-      "FLSchiedsrichterBestaetigungAnsichtPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "token": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "token"
-        ],
-        "title": "FLSchiedsrichterBestaetigungAnsichtPayload",
-        "type": "object"
-      },
       "FLSchiedsrichterBestaetigungAnsichtResponse": {
         "description": "What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).\n\nNever a name, the school, the contact details, the fee, the birthdate or the id.",
         "properties": {
@@ -11668,14 +11565,7 @@
             "type": "integer"
           },
           "zustand": {
-            "enum": [
-              "gueltig",
-              "bestaetigt",
-              "abgelaufen",
-              "gesperrt"
-            ],
-            "title": "Zustand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLBestaetigungZustand"
           }
         },
         "required": [
@@ -11702,22 +11592,19 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           },
           "token": {
             "maxLength": 128,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
           },
           "umfang": {
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLEinwilligungUmfang"
           }
         },
         "required": [
@@ -11743,12 +11630,7 @@
             "type": "boolean"
           },
           "umfang": {
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLEinwilligungUmfang"
           }
         },
         "required": [
@@ -11890,40 +11772,6 @@
           "honorar"
         ],
         "title": "FLSchiedsrichterSelbst",
-        "type": "object"
-      },
-      "FLSchiedsrichterSelbstEinwilligungPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
-          },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Text Version",
-            "type": "string"
-          },
-          "umfang": {
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
-            ],
-            "title": "Umfang",
-            "type": "string"
-          }
-        },
-        "required": [
-          "umfang",
-          "medien",
-          "text_version",
-          "nachweis_stand"
-        ],
-        "title": "FLSchiedsrichterSelbstEinwilligungPayload",
         "type": "object"
       },
       "FLSchiedsrichterSelbstEinwilligungResponse": {
@@ -13304,6 +13152,13 @@
         "title": "FLSpielSchiedsrichterFieldPublic",
         "type": "object"
       },
+      "FLSpielSeite": {
+        "enum": [
+          "team1",
+          "team2"
+        ],
+        "type": "string"
+      },
       "FLSpielTeamFieldJoined": {
         "description": "One side as a BASE-TIER read serves it, produced only by `build_spiele_pipeline`.\n\nNarrower than the junction row: every public surface listing a fixture carries this side, and\nonly a club's own page renders the free text a withdrawal names.",
         "properties": {
@@ -14613,23 +14468,6 @@
         "title": "FLSpielbestaetigungAnsichtAnsetzung",
         "type": "object"
       },
-      "FLSpielbestaetigungAnsichtPayload": {
-        "additionalProperties": false,
-        "description": "A POST that reads: the token travels in a body, never in a second URL.",
-        "properties": {
-          "token": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "token"
-        ],
-        "title": "FLSpielbestaetigungAnsichtPayload",
-        "type": "object"
-      },
       "FLSpielbestaetigungAnsichtResponse": {
         "description": "What one link's page renders, filled in every state; the frontend narrows a spent one to its `zustand`.",
         "properties": {
@@ -14641,7 +14479,7 @@
               {
                 "discriminator": {
                   "mapping": {
-                    "admin": "#/components/schemas/FLSpielbestaetigungVonAdmin",
+                    "admin": "#/components/schemas/FLVonAdmin",
                     "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
                     "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
                   },
@@ -14652,7 +14490,7 @@
                     "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
                   },
                   {
-                    "$ref": "#/components/schemas/FLSpielbestaetigungVonAdmin"
+                    "$ref": "#/components/schemas/FLVonAdmin"
                   },
                   {
                     "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
@@ -14671,12 +14509,7 @@
             "type": "string"
           },
           "seite": {
-            "enum": [
-              "team1",
-              "team2"
-            ],
-            "title": "Seite",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielSeite"
           },
           "vorschlag": {
             "anyOf": [
@@ -14724,12 +14557,7 @@
             "type": "string"
           },
           "art": {
-            "enum": [
-              "zugesagt",
-              "abgelehnt"
-            ],
-            "title": "Art",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
           },
           "begruendung": {
             "anyOf": [
@@ -14746,7 +14574,7 @@
           "von": {
             "discriminator": {
               "mapping": {
-                "admin": "#/components/schemas/FLSpielbestaetigungVonAdmin",
+                "admin": "#/components/schemas/FLVonAdmin",
                 "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
                 "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
               },
@@ -14757,7 +14585,7 @@
                 "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
               },
               {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVonAdmin"
+                "$ref": "#/components/schemas/FLVonAdmin"
               },
               {
                 "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
@@ -14786,17 +14614,19 @@
         "title": "FLSpielbestaetigungAntwort",
         "type": "object"
       },
+      "FLSpielbestaetigungAntwortArt": {
+        "enum": [
+          "zugesagt",
+          "abgelehnt"
+        ],
+        "type": "string"
+      },
       "FLSpielbestaetigungAntwortPayload": {
         "additionalProperties": false,
         "description": "One club's answer about one Ansetzung, from whichever of its seats pressed first.",
         "properties": {
           "antwort": {
-            "enum": [
-              "zugesagt",
-              "abgelehnt"
-            ],
-            "title": "Antwort",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
           },
           "begruendung": {
             "anyOf": [
@@ -14815,6 +14645,7 @@
           "token": {
             "maxLength": 128,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
           },
@@ -14844,7 +14675,7 @@
           "beantwortet_von": {
             "discriminator": {
               "mapping": {
-                "admin": "#/components/schemas/FLSpielbestaetigungVonAdmin",
+                "admin": "#/components/schemas/FLVonAdmin",
                 "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
                 "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
               },
@@ -14855,7 +14686,7 @@
                 "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
               },
               {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVonAdmin"
+                "$ref": "#/components/schemas/FLVonAdmin"
               },
               {
                 "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
@@ -14874,12 +14705,7 @@
             ]
           },
           "zustand": {
-            "enum": [
-              "zugesagt",
-              "abgelehnt"
-            ],
-            "title": "Zustand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
           }
         },
         "required": [
@@ -14906,18 +14732,6 @@
           "begruendung"
         ],
         "title": "FLSpielbestaetigungEintragenPayload",
-        "type": "object"
-      },
-      "FLSpielbestaetigungEintragenResponse": {
-        "properties": {
-          "updated_document": {
-            "$ref": "#/components/schemas/FLSpielbestaetigung"
-          }
-        },
-        "required": [
-          "updated_document"
-        ],
-        "title": "FLSpielbestaetigungEintragenResponse",
         "type": "object"
       },
       "FLSpielbestaetigungGeschlossen": {
@@ -15036,12 +14850,7 @@
         "description": "A referee's answer about one row naming them: a decline gives a reason, which the administrator reads.",
         "properties": {
           "antwort": {
-            "enum": [
-              "zugesagt",
-              "abgelehnt"
-            ],
-            "title": "Antwort",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
           },
           "begruendung": {
             "anyOf": [
@@ -15073,12 +14882,7 @@
             "type": "string"
           },
           "zustand": {
-            "enum": [
-              "zugesagt",
-              "abgelehnt"
-            ],
-            "title": "Zustand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
           }
         },
         "required": [
@@ -15191,12 +14995,7 @@
             "type": "array"
           },
           "seite": {
-            "enum": [
-              "team1",
-              "team2"
-            ],
-            "title": "Seite",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielSeite"
           },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -15801,33 +15600,6 @@
         "title": "FLSpielbestaetigungTermin",
         "type": "object"
       },
-      "FLSpielbestaetigungVerwerfenResponse": {
-        "properties": {
-          "updated_document": {
-            "$ref": "#/components/schemas/FLSpielbestaetigung"
-          }
-        },
-        "required": [
-          "updated_document"
-        ],
-        "title": "FLSpielbestaetigungVerwerfenResponse",
-        "type": "object"
-      },
-      "FLSpielbestaetigungVonAdmin": {
-        "description": "An administrator's settlement, naming nobody: the row is the league's record of how a date was agreed, not of who typed it.",
-        "properties": {
-          "art": {
-            "const": "admin",
-            "title": "Art",
-            "type": "string"
-          }
-        },
-        "required": [
-          "art"
-        ],
-        "title": "FLSpielbestaetigungVonAdmin",
-        "type": "object"
-      },
       "FLSpielbestaetigungVonKontakt": {
         "description": "The seat whose link was pressed, never the person: two seats one person holds share a link, and the first seat in order is recorded.",
         "properties": {
@@ -15880,6 +15652,19 @@
           "uhrzeit"
         ],
         "title": "FLSpielbestaetigungVorschlagPayload",
+        "type": "object"
+      },
+      "FLSpielbestaetigungWriteResponse": {
+        "description": "Shared by the administrator's two presses, both answering the row as it now stands.",
+        "properties": {
+          "updated_document": {
+            "$ref": "#/components/schemas/FLSpielbestaetigung"
+          }
+        },
+        "required": [
+          "updated_document"
+        ],
+        "title": "FLSpielbestaetigungWriteResponse",
         "type": "object"
       },
       "FLSpielbestaetigungenListResponse": {
@@ -16206,17 +15991,12 @@
           "rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "kapitaen",
-                  "co_kapitaen"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Rolle"
+            ]
           },
           "saison_id": {
             "title": "Saison Id",
@@ -16344,10 +16124,18 @@
           }
         },
         "required": [
+          "vorname",
           "nachname"
         ],
         "title": "FLSpielerPublic",
         "type": "object"
+      },
+      "FLSpielerRolle": {
+        "enum": [
+          "kapitaen",
+          "co_kapitaen"
+        ],
+        "type": "string"
       },
       "FLSpielerSelbst": {
         "description": "One pupil record's stored data as its own person reads it: the whole surname and the birthdate, never masked.\n\nIts consent is the account page's, whose entry extends this (`app/api/konto/schemas.py :: FLKontoSpielerEinwilligung`).",
@@ -16394,40 +16182,6 @@
           "kader"
         ],
         "title": "FLSpielerSelbst",
-        "type": "object"
-      },
-      "FLSpielerSelbstEinwilligungPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
-          },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Text Version",
-            "type": "string"
-          },
-          "umfang": {
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
-            ],
-            "title": "Umfang",
-            "type": "string"
-          }
-        },
-        "required": [
-          "umfang",
-          "medien",
-          "text_version",
-          "nachweis_stand"
-        ],
-        "title": "FLSpielerSelbstEinwilligungPayload",
         "type": "object"
       },
       "FLSpielerSelbstEinwilligungResponse": {
@@ -16496,17 +16250,12 @@
           "rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "kapitaen",
-                  "co_kapitaen"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Rolle"
+            ]
           },
           "saison_id": {
             "title": "Saison Id",
@@ -17810,6 +17559,21 @@
           "administration"
         ],
         "type": "string"
+      },
+      "FLVonAdmin": {
+        "description": "An administrator's act, naming nobody: the record keeps how a thing was settled, not who typed it.",
+        "properties": {
+          "art": {
+            "const": "admin",
+            "title": "Art",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art"
+        ],
+        "title": "FLVonAdmin",
+        "type": "object"
       },
       "FLZustellungAbgewiesenPayload": {
         "additionalProperties": false,
@@ -25358,7 +25122,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLSchiedsrichterBestaetigungAnsichtPayload"
+                "$ref": "#/components/schemas/FLTokenPayload"
               }
             }
           },
@@ -25514,7 +25278,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLSchiedsrichterSelbstEinwilligungPayload"
+                "$ref": "#/components/schemas/FLSelbstEinwilligungPayload"
               }
             }
           },
@@ -26903,7 +26667,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLSpielbestaetigungAnsichtPayload"
+                "$ref": "#/components/schemas/FLTokenPayload"
               }
             }
           },
@@ -27480,7 +27244,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungEintragenResponse"
+                  "$ref": "#/components/schemas/FLSpielbestaetigungWriteResponse"
                 }
               }
             },
@@ -27559,7 +27323,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungVerwerfenResponse"
+                  "$ref": "#/components/schemas/FLSpielbestaetigungWriteResponse"
                 }
               }
             },
@@ -29007,7 +28771,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLSpielerSelbstEinwilligungPayload"
+                "$ref": "#/components/schemas/FLSelbstEinwilligungPayload"
               }
             }
           },
@@ -29892,7 +29656,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLPostSpielortResponse"
+                  "$ref": "#/components/schemas/FLCreatedResponse"
                 }
               }
             },

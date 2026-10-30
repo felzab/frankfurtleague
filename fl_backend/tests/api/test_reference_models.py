@@ -18,8 +18,10 @@ from app.api.spieler.schemas import (
     FLSaisonSpielerRow,
     FLSpieler,
     FLSpielerMembership,
+    FLSpielerRecord,
     FLSpielerWithMemberships,
 )
+from app.api.spieler.services import build_ghost_spieler
 from app.api.spielorte.schemas import FLPostSpielortPayload, FLSpielort
 from app.api.spieltage.schemas import FLPatchSpieltagPayload, FLSpieltag
 from app.api.teams.schemas import (
@@ -32,6 +34,7 @@ from app.api.teams.schemas import (
 from app.shared.schemas.bounds import KONTAKT_NAME_MAX_LENGTH, SAISON_ID_LENGTH
 from app.shared.schemas.literals import FLGruppenNames
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import spieler_document
 from tests.worker import worker_database
 
 EINWILLIGUNG_DATABASE_NAME = worker_database("fl_einwilligung_validator_test")
@@ -227,6 +230,22 @@ class TestSpieler:
 
         with pytest.raises(ValidationError):
             FLSpieler.model_validate(missing)
+
+    @pytest.mark.parametrize("field", ["vorname", "geburtsdatum", "einwilligung"])
+    def test_the_record_refuses_a_person_stored_as_nobody(self, field):
+        """No write stores such a person, so the read-back is the one place a hand edit blanking one shows."""
+
+        with pytest.raises(ValidationError):
+            FLSpielerRecord.model_validate(spieler_document(ObjectId(), **{"vorname": "Max", "nachname": "Mustermann", field: None}))
+
+    def test_the_record_reads_the_sentinel_back(self):
+        assert FLSpielerRecord.model_validate(build_ghost_spieler(), extra="forbid").vorname is None
+
+    def test_the_record_refuses_the_sentinel_holding_an_address(self):
+        """No lookup by address excludes the sentinel, so the read-back is where one given an address shows."""
+
+        with pytest.raises(ValidationError):
+            FLSpielerRecord.model_validate({**build_ghost_spieler(), "email": "geist@schule.example"})
 
     @pytest.mark.parametrize("absent", [True, False], ids=["absent", "null"])
     def test_the_person_patch_requires_a_birthdate(self, absent: bool):

@@ -9,10 +9,9 @@ from app.api.spielbestaetigungen.crud import pull_admin_rows
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigung,
     FLSpielbestaetigungEintragenPayload,
-    FLSpielbestaetigungEintragenResponse,
     FLSpielbestaetigungenFilterParams,
     FLSpielbestaetigungenListResponse,
-    FLSpielbestaetigungVerwerfenResponse,
+    FLSpielbestaetigungWriteResponse,
 )
 from app.api.spielbestaetigungen.services import (
     ANSETZUNG_QUELLEN,
@@ -76,7 +75,7 @@ async def get_spielbestaetigungen(
 
 @router.post(
     f"{by_id('spielbestaetigung_id')}/eintragen",
-    response_model=FLSpielbestaetigungEintragenResponse,
+    response_model=FLSpielbestaetigungWriteResponse,
     summary="Record a party's Zusage on its behalf",
     dependencies=[Depends(verify_step_up)],
 )
@@ -86,7 +85,7 @@ async def eintragen_spielbestaetigung(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> FLSpielbestaetigungEintragenResponse:
+) -> FLSpielbestaetigungWriteResponse:
     """
     Record that the party of an open confirmation agreed to its Ansetzung elsewhere than through its link.
 
@@ -123,12 +122,12 @@ async def eintragen_spielbestaetigung(
     async with transaction_session(db) as session:
         updated_raw = await session.with_transaction(settle_for_the_party)
 
-    return FLSpielbestaetigungEintragenResponse(updated_document=FLSpielbestaetigung.model_validate(updated_raw))
+    return FLSpielbestaetigungWriteResponse(updated_document=FLSpielbestaetigung.model_validate(updated_raw))
 
 
 @router.post(
     f"{by_id('spielbestaetigung_id')}/verwerfen",
-    response_model=FLSpielbestaetigungVerwerfenResponse,
+    response_model=FLSpielbestaetigungWriteResponse,
     summary="Discard a club's proposed date",
     dependencies=[Depends(verify_step_up)],
 )
@@ -138,7 +137,7 @@ async def verwerfen_spielbestaetigung(
     spiele_collection: SpieleCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> FLSpielbestaetigungVerwerfenResponse:
+) -> FLSpielbestaetigungWriteResponse:
     """
     Close a club's open decline that proposes another date, so the proposal stops asking the administrator to act.
 
@@ -186,4 +185,4 @@ async def verwerfen_spielbestaetigung(
     async with transaction_session(db) as session:
         updated_raw = await session.with_transaction(discard_the_proposal)
 
-    return FLSpielbestaetigungVerwerfenResponse(updated_document=FLSpielbestaetigung.model_validate(updated_raw))
+    return FLSpielbestaetigungWriteResponse(updated_document=FLSpielbestaetigung.model_validate(updated_raw))
