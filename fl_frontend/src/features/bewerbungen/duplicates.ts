@@ -1,5 +1,5 @@
+import type { FLBewerbung } from "@/core/generated/client/types";
 import type { PillTone } from "@/shared/components/ui/badges";
-import type { FLBewerbung } from "./schemas";
 
 /**
  * What two open applications collide on. Never both at once: an application names either a club or a

@@ -3,8 +3,8 @@ import { readFacetSelectionFromRoute } from "@/shared/utils/facets";
 import { BEWERBUNG_HERKUNFT_LABELS, BEWERBUNG_STATUS_OPTIONS } from "./constants";
 import { bewerbungHerkunft } from "./utils";
 
+import type { BewerbungenGetBewerbungenParams, FLBewerbungenListResponse } from "@/core/generated/client/types";
 import type { Facet, FacetCounts } from "@/shared/utils/facets";
-import type { FLBewerbungenListResponse } from "./schemas";
 import type { AdminBewerbungRow } from "./types";
 
 /** Spelled once: the read narrows on this parameter and the bar writes it, and the endpoint's own term carries the name. */
@@ -67,7 +67,7 @@ export const BEWERBUNGEN_FACETS: readonly Facet<AdminBewerbungRow>[] = [
 export function bewerbungenQueueTerms(
   params: Readonly<Record<string, string | string[] | undefined>>,
   saisonId: string | undefined,
-): { saison_id?: string; saisonbezug?: string; status?: string } {
+): Pick<BewerbungenGetBewerbungenParams, "saison_id" | "saisonbezug" | "status"> {
   const selection = readFacetSelectionFromRoute(BEWERBUNGEN_FACETS, params);
 
   return {

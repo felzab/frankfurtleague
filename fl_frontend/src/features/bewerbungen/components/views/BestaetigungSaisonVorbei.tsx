@@ -17,13 +17,14 @@ import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { BestaetigungAbschnitt } from "./BestaetigungPanels";
 
-import type { FLBewerbungEinwilligungAntwortPayload } from "@/features/bewerbungen/schemas";
-import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/types";
+import type { FLBewerbungEinwilligungAnsichtResponse, FLBewerbungEinwilligungAntwortPayload } from "@/core/generated/client/types";
+import type { LinkZustand } from "@/features/bewerbungen/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
 
 type WiderspruchAntwort =
-  { success: true } | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei"; ansicht?: EinwilligungGeoeffnet });
+  | { success: true }
+  | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei"; ansicht?: FLBewerbungEinwilligungAnsichtResponse });
 
 const NICHT_GESPEICHERT = `Dein Widerspruch wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
@@ -36,7 +37,7 @@ export function BestaetigungSaisonVorbei({
   token,
   onAbschluss,
 }: {
-  ansicht: EinwilligungGeoeffnet;
+  ansicht: FLBewerbungEinwilligungAnsichtResponse;
   token: string;
   onAbschluss: (abschluss: BestaetigungAbschluss) => void;
 }) {

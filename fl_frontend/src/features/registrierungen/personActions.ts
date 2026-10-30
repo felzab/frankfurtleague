@@ -6,6 +6,7 @@ import { frontend_config } from "@/core/config";
 import { buildRegistrierungAbsageEmail } from "@/core/registrierungEmail";
 import { runAnsweringOwnCut } from "@/core/requestScope";
 import { mapRegistrierungEinwilligungRefusal, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
+import { FLSpielerSelbstEinwilligungPayloadSchema } from "@/features/spieler/schemas";
 import { sendZielMail } from "@/features/zustellung/notifications";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import { refusalResult } from "@/shared/utils/adminMutation";
@@ -13,16 +14,16 @@ import { runPersonMutation, runPersonRecordMutation } from "@/shared/utils/perso
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { patchRegistrierungEinwilligung, postRegistrierungAblehnen, postRegistrierungAufnehmen } from "./mutations";
-import {
-  FLRegistrierungAblehnenPayloadSchema,
-  FLRegistrierungAufnehmenPayloadSchema,
-  FLRegistrierungSelbstEinwilligungPayloadSchema,
-} from "./schemas";
+import { FLRegistrierungAblehnenPayloadSchema, FLRegistrierungAufnehmenPayloadSchema } from "./schemas";
 import { mapAblehnungRefusal, mapAufnahmeRefusal } from "./utils";
 
-import type { FLEinwilligungStand } from "@/features/spieler/schemas";
+import type {
+  FLEinwilligungStand,
+  FLRegistrierungAblehnenPayload,
+  FLRegistrierungAblehnungResponse,
+  FLRegistrierungAufnehmenPayload,
+} from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
-import type { FLRegistrierungAblehnenPayload, FLRegistrierungAblehnungResponse, FLRegistrierungAufnehmenPayload } from "./schemas";
 
 /**
  * Which registration a press decides, at the team and season the seat is claimed on. The seat is the
@@ -117,11 +118,11 @@ async function mailAbsage(ablehnung: FLRegistrierungAblehnungResponse): Promise<
  */
 export async function patchRegistrierungEinwilligungAction(
   registrierungId: string,
-  rawPayload: z.input<typeof FLRegistrierungSelbstEinwilligungPayloadSchema>,
+  rawPayload: z.input<typeof FLSpielerSelbstEinwilligungPayloadSchema>,
 ): Promise<ActionResult<{ nachweis_stand: FLEinwilligungStand }>> {
   return runPersonRecordMutation("patchRegistrierungEinwilligungAction", async () => {
     const id = CustomObjectIdStringSchema.safeParse(registrierungId);
-    const validated = FLRegistrierungSelbstEinwilligungPayloadSchema.safeParse(rawPayload);
+    const validated = FLSpielerSelbstEinwilligungPayloadSchema.safeParse(rawPayload);
 
     if (!id.success || !validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: validated.success ? undefined : toFieldErrors(validated.error) };

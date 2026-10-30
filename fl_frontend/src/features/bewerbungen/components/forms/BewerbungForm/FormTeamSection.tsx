@@ -31,8 +31,8 @@ import { TextField } from "@/shared/components/ui/TextField";
 
 import { kaderWithSquad, strongPlayerCeiling } from "./kaderBounds.ts";
 
+import type { FLTrikotFarbe } from "@/core/generated/client/types";
 import type { BewerbungFormDraft } from "@/features/bewerbungen/types";
-import type { FLTrikotFarbe } from "@/features/teams/schemas";
 
 /** `FormSchuleSection`'s club row, so the two lists of the league's schools read alike on one page. */
 const SCHULE_ITEM_CLASSES = "cursor-pointer rounded-lg px-3 py-2 fluid-xs data-hovered:bg-hover";

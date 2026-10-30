@@ -1,35 +1,32 @@
 import { cache } from "react";
 
-import z from "zod";
-
-import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
+import {
+  bewerbungenGetBewerbungById,
+  bewerbungenGetBewerbungen,
+  bewerbungenGetFenster,
+  bewerbungenGetKuerzel,
+  bewerbungenGetOffenesFenster,
+  bewerbungenGetSchulen,
+  bewerbungenGetTrikotfarben,
+} from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { bewerbungenQueueTerms } from "./facets";
 import { postEinwilligungAnsicht } from "./mutations";
-import {
-  FLBewerbungenListResponseSchema,
-  FLBewerbungFensterResponseSchema,
-  FLBewerbungKeinFensterResponseSchema,
-  FLBewerbungKuerzelResponseSchema,
-  FLBewerbungSchulenResponseSchema,
-  FLBewerbungSingleResponseSchema,
-  FLBewerbungTrikotFarbenResponseSchema,
-} from "./schemas";
 import { mapEinwilligungAnsichtRefusal } from "./utils";
 
 import type {
+  BewerbungenGetBewerbungenParams,
   FLBewerbungenListResponse,
   FLBewerbungFensterResponse,
-  FLBewerbungKeinFensterResponse,
   FLBewerbungKuerzelResponse,
   FLBewerbungSchulenResponse,
   FLBewerbungSingleResponse,
   FLBewerbungTrikotFarbenResponse,
-} from "./schemas";
-import type { EinwilligungAnsicht, FLBewerbungenFilterParams } from "./types";
+} from "@/core/generated/client/types";
+import type { EinwilligungAnsicht } from "./types";
 
 /**
  * Every application, newest first, narrowable by season and by any number of statuses.
@@ -37,14 +34,9 @@ import type { EinwilligungAnsicht, FLBewerbungenFilterParams } from "./types";
  * **Uncached, and it stays uncached**: `"use cache"` keys on arguments, not caller identity, so a
  * cached read of this admin-tier personal data is a shared slot.
  */
-export async function getBewerbungen(filters: FLBewerbungenFilterParams = {}): Promise<FLBewerbungenListResponse> {
+export async function getBewerbungen(filters: BewerbungenGetBewerbungenParams = {}): Promise<FLBewerbungenListResponse> {
   // No cache tag either: one means nothing outside a cache scope.
-  return runAdminRead(() =>
-    apiClient<FLBewerbungenListResponse>("/bewerbungen", FLBewerbungenListResponseSchema, {
-      authType: "admin",
-      params: filters,
-    }),
-  );
+  return runAdminRead(() => bewerbungenGetBewerbungen(filters));
 }
 
 /**
@@ -66,9 +58,7 @@ export async function getBewerbungenQueue(
 // `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments.
 export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBewerbungSingleResponse | null> =>
   runAdminRead(() =>
-    apiClient<FLBewerbungSingleResponse>(`/bewerbungen/${encodeURIComponent(bewerbungId)}`, FLBewerbungSingleResponseSchema, {
-      authType: "admin",
-    }).catch((error: unknown) => {
+    bewerbungenGetBewerbungById(encodeURIComponent(bewerbungId)).catch((error: unknown) => {
       if (isRecordMissing(error)) return null;
       throw error;
     }),
@@ -83,21 +73,13 @@ export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBew
  */
 export async function getOffenesBewerbungFenster(): Promise<FLBewerbungFensterResponse | null> {
   return runWithIncomingTrace(() =>
-    // `base`, spelled out beside the admin reads above: this endpoint is the public tier's, and an
-    // over-declared tier succeeds silently.
-    apiClient<FLBewerbungFensterResponse>("/bewerbungen/fenster", FLBewerbungFensterResponseSchema, { authType: "base" }).catch(
-      (error: unknown) => {
-        // 404 is "no season is taking applications", which is a state and not a failure.
-        if (isRecordMissing(error)) return null;
-        throw error;
-      },
-    ),
+    bewerbungenGetOffenesFenster().catch((error: unknown) => {
+      // 404 is "no season is taking applications", which is a state and not a failure.
+      if (isRecordMissing(error)) return null;
+      throw error;
+    }),
   );
 }
-
-// The two bodies `GET /bewerbungen/fenster/{saison_id}` answers, told apart by a key rather than by
-// parse order: a member swallowing a malformed window would read as a season with no deadline.
-const FensterAntwortSchema = z.union([FLBewerbungFensterResponseSchema, FLBewerbungKeinFensterResponseSchema]);
 
 /**
  * One season's window, `null` where that season records none — and `null` for the whole answer where
@@ -107,11 +89,8 @@ const FensterAntwortSchema = z.union([FLBewerbungFensterResponseSchema, FLBewerb
 // would key on the season and go on serving `laeuft` after the window shut.
 export const getBewerbungFenster = cache(async (saisonId: string): Promise<{ fenster: FLBewerbungFensterResponse | null } | null> =>
   runWithIncomingTrace(() =>
-    apiClient<FLBewerbungFensterResponse | FLBewerbungKeinFensterResponse>(
-      `/bewerbungen/fenster/${encodeURIComponent(saisonId)}`,
-      FensterAntwortSchema,
-      { authType: "base" },
-    )
+    bewerbungenGetFenster(encodeURIComponent(saisonId))
+      // The answer naming no window carries the one key a window has not got.
       .then((antwort) => ("fenster" in antwort ? { fenster: null } : { fenster: antwort }))
       .catch((error: unknown) => {
         if (isRecordMissing(error)) return null;
@@ -122,9 +101,7 @@ export const getBewerbungFenster = cache(async (saisonId: string): Promise<{ fen
 
 /** The clubs a school picks itself out of, name and id alone, in the order the picker offers them. */
 export async function getBewerbungSchulen(): Promise<FLBewerbungSchulenResponse> {
-  return runWithIncomingTrace(() =>
-    apiClient<FLBewerbungSchulenResponse>("/bewerbungen/schulen", FLBewerbungSchulenResponseSchema, { authType: "base" }),
-  );
+  return runWithIncomingTrace(() => bewerbungenGetSchulen());
 }
 
 /**
@@ -133,13 +110,7 @@ export async function getBewerbungSchulen(): Promise<FLBewerbungSchulenResponse>
  * free" outlives that.
  */
 export async function getBewerbungTrikotfarben(saisonId: string): Promise<FLBewerbungTrikotFarbenResponse> {
-  return runWithIncomingTrace(() =>
-    apiClient<FLBewerbungTrikotFarbenResponse>(
-      `/bewerbungen/trikotfarben/${encodeURIComponent(saisonId)}`,
-      FLBewerbungTrikotFarbenResponseSchema,
-      { authType: "base" },
-    ),
-  );
+  return runWithIncomingTrace(() => bewerbungenGetTrikotfarben(encodeURIComponent(saisonId)));
 }
 
 /**
@@ -171,9 +142,5 @@ export async function getEinwilligungAnsicht(token: string): Promise<Einwilligun
 
 /** Whether a Kürzel already belongs to a club, in one neutral answer that names none. */
 export async function getBewerbungKuerzel(shorthand: string): Promise<FLBewerbungKuerzelResponse> {
-  return runWithIncomingTrace(() =>
-    apiClient<FLBewerbungKuerzelResponse>(`/bewerbungen/kuerzel/${encodeURIComponent(shorthand)}`, FLBewerbungKuerzelResponseSchema, {
-      authType: "base",
-    }),
-  );
+  return runWithIncomingTrace(() => bewerbungenGetKuerzel(encodeURIComponent(shorthand)));
 }

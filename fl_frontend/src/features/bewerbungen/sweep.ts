@@ -19,10 +19,9 @@ import { getBewerbungSweepSaisons, postBewerbungSweep, postBewerbungSweepAngekue
 import { rollenText, rolleText, sendBewerbungLinkMail, sendBewerbungMail } from "./notifications";
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
+import type { FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung, FLRegistrierungSweepErinnerung } from "@/core/generated/client/types";
 import type { FLAdresswechselSweepResponse } from "@/features/adresswechsel/schemas";
-import type { FLRegistrierungSweepErinnerung } from "@/features/registrierungen/schemas";
 import type { BewerbungEmpfaenger, BewerbungLinkEmpfaenger } from "./notifications";
-import type { FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung } from "./schemas";
 
 /**
  * One hour. Every clock selects on a date, so the interval decides only how late in the day a

@@ -23,8 +23,8 @@ import { Switch } from "@/shared/components/ui/Switch";
 import { TextField } from "@/shared/components/ui/TextField";
 import { textLink } from "@/shared/components/ui/textLink";
 
+import type { FLTrainerZugleich } from "@/core/generated/client/types";
 import type { BewerbungKontaktpersonDraft } from "@/features/bewerbungen/types";
-import type { FLTrainerZugleich } from "@/features/teams/schemas";
 import type { ReactNode } from "react";
 
 export type SeatRolle = "ansprechperson" | "stellvertretung" | "trainer";

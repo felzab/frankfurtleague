@@ -1,18 +1,14 @@
 import z from "zod";
 
-import { BaseAPIResponseSchema } from "@/core/schemas";
-// The wire's three seats, mirrored once: a second enum here would let one response name a seat no
-// other response of this API publishes.
-import { FLBewerbungPersonEinwilligungPayloadSchema, FLKontaktRolleSchema, FLKontaktZeileSchema } from "@/features/bewerbungen/schemas";
+import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
-import { FLEinwilligungStandSchema } from "@/features/spieler/schemas";
-import { FLKontaktKenntnisnahmeSchema, FLSaisonTeamKontaktePayloadSchema, FLSaisonTeamKontakteSchema } from "@/features/teams/schemas";
-import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
+import { FLSaisonTeamKontaktePayloadSchema } from "@/features/teams/schemas";
+import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
 /**
- * Mirrors `FLPatchSaisonTeamKontaktePayload` — the three seats and the token naming which block they
- * were composed against. `FLSaisonTeamKontaktePayloadSchema` is reused: the junction PATCH takes the
- * same block, and a second spelling would drift with nothing able to see it.
+ * The contacts save's input: the three seats and the token naming which block they were composed
+ * against, beside the row's natural key. `FLSaisonTeamKontaktePayloadSchema` is reused: the junction
+ * PATCH takes the same block, and a second spelling would drift with nothing able to see it.
  */
 export const FLPatchSaisonTeamKontaktePayloadSchema = z.object({
   // Both ids are in the PATH on the wire — the junction row is addressed by its natural key. They
@@ -28,79 +24,9 @@ export const FLPatchSaisonTeamKontaktePayloadSchema = z.object({
 });
 export type FLPatchSaisonTeamKontaktePayload = z.infer<typeof FLPatchSaisonTeamKontaktePayloadSchema>;
 
-/**
- * Mirrors `FLKontaktMint` — one link minted for one person, with everything its message names. The raw
- * token is answered here and nowhere else: unmailed, it exists in no inbox and the seat never confirms.
- */
-export const FLKontaktMintSchema = z.object({
-  token: z.string(),
-  // Two where the Trainer also holds the seat named: one person, one link.
-  rollen: z.array(FLKontaktRolleSchema),
-  // The address the mint's own transaction stored, never the one a caller sent.
-  email: z.string(),
-  schule: z.string(),
-  frist: CustomDateStringSchema,
-  // The row's state, read in the mint's own transaction: it fixes what the link's page takes, so the
-  // mail asks for exactly that.
-  zeile: FLKontaktZeileSchema,
-});
-export type FLKontaktMint = z.infer<typeof FLKontaktMintSchema>;
-
-/** Mirrors `FLKontaktAbgang` — one mailbox a save took off the row. The action mails it and hands the browser none of it. */
-export const FLKontaktAbgangSchema = z.object({
-  rollen: z.array(FLKontaktRolleSchema),
-  email: z.string(),
-  schule: z.string(),
-  bleibt_als: z.array(FLKontaktRolleSchema),
-});
-export type FLKontaktAbgang = z.infer<typeof FLKontaktAbgangSchema>;
-
-/**
- * Mirrors `FLPatchSaisonTeamKontakteResponse` — the block as stored after the write, and no other
- * field of the row. The endpoint answers about the seats it moved, so the group and the Austritt
- * beside them are not its to echo.
- */
-export const FLPatchSaisonTeamKontakteResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: z.string(),
-  team_id: CustomObjectIdStringSchema,
-  // The delivery record's `ziel_id`: the row is the record a contact seat's message is about.
-  saison_team_id: CustomObjectIdStringSchema,
-  kontakte: FLSaisonTeamKontakteSchema.nullable(),
-  // The token of the block this save left, which is the only precondition an undo of it can carry.
-  kontakte_stand: z.string(),
-  bestaetigungen: z.array(FLKontaktMintSchema),
-  abgaenge: z.array(FLKontaktAbgangSchema),
-});
-export type FLPatchSaisonTeamKontakteResponse = z.infer<typeof FLPatchSaisonTeamKontakteResponseSchema>;
-
 /** Which seat of which season row the re-send names. All three travel in the path, so the request carries no body. */
 export const FLKontaktEinladenPayloadSchema = z.object({
   team_id: CustomObjectIdStringSchema,
   saison_id: FLPatchSaisonTeamKontaktePayloadSchema.shape.saison_id,
   rolle: FLKontaktRolleSchema,
 });
-export type FLKontaktEinladenPayload = z.infer<typeof FLKontaktEinladenPayloadSchema>;
-
-/** Mirrors `FLKontaktEinladenResponse` — the link the re-send minted, replacing the seat's earlier one whole. */
-export const FLKontaktEinladenResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: z.string(),
-  team_id: CustomObjectIdStringSchema,
-  saison_team_id: CustomObjectIdStringSchema,
-  bestaetigung: FLKontaktMintSchema,
-});
-export type FLKontaktEinladenResponse = z.infer<typeof FLKontaktEinladenResponseSchema>;
-
-/** The application seat's payload, as the backend publishes one declaration under both names: the two writes cannot drift. */
-export const FLSaisonTeamPersonEinwilligungPayloadSchema = FLBewerbungPersonEinwilligungPayloadSchema;
-export type FLSaisonTeamPersonEinwilligungPayload = z.infer<typeof FLSaisonTeamPersonEinwilligungPayloadSchema>;
-
-/** Mirrors `FLSaisonTeamPersonEinwilligungResponse`: every seat of the person's on that row, moved together. */
-export const FLSaisonTeamPersonEinwilligungResponseSchema = BaseAPIResponseSchema.extend({
-  team_id: CustomObjectIdStringSchema,
-  saison_id: z.string(),
-  rollen: z.array(FLKontaktRolleSchema),
-  umfang: FLKontaktKenntnisnahmeSchema.shape.umfang,
-  medien: z.boolean(),
-  nachweis_stand: FLEinwilligungStandSchema,
-});
-export type FLSaisonTeamPersonEinwilligungResponse = z.infer<typeof FLSaisonTeamPersonEinwilligungResponseSchema>;

@@ -1,20 +1,13 @@
 import z from "zod";
 
-import { BaseAPIResponseSchema } from "@/core/schemas";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 // The application's own derivation, not a copy of it: the two flows bound a birthdate by the same
 // two numbers, and a second span here would refuse a day the endpoint takes.
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
-import { MedienMindestalterSchema } from "@/features/konto/einwilligung";
-// The season slice's own mirror rather than a second enum: two copies of one published set drift,
-// and the invite read answers the same three members the season's own read does.
-import { FLSaisonStatusSchema } from "@/features/saisons/schemas";
 import {
   FLEinwilligungSchema,
-  FLEinwilligungStandSchema,
   FLPostSaisonSpielerPayloadSchema,
   FLSpielerPositionSchema,
-  FLSpielerSelbstEinwilligungPayloadSchema,
   FLSpielerStufeSchema,
   LinkAntwortTextVersionSchema,
 } from "@/features/spieler/schemas";
@@ -30,14 +23,15 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 
 import { alterAusserhalb, EINWILLIGUNG_UMFANG_OPTIONS } from "./constants";
 
+import type { FLRegistrierungBestaetigungAnsichtResponseSeite } from "@/core/generated/client/types";
+
 /** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
 const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link erneut.";
 
 /**
- * Mirrors `fl_backend/app/api/bewerbungen/schemas.py :: CustomBewerbungToken`: both of this slice's
- * tokens are minted by `fl_backend/app/api/bewerbungen/services.py :: mint_token`.
- *
- * One sentence for the missing token and the over-long one, a visitor having typed neither.
+ * Both of this slice's tokens are minted by `fl_backend/app/api/bewerbungen/services.py :: mint_token`,
+ * so the application's ceiling bounds them. One sentence for the missing token and the over-long one, a
+ * visitor having typed neither.
  */
 const registrierungToken = z
   .string()
@@ -46,42 +40,10 @@ const registrierungToken = z
   .max(BEWERBUNG_TOKEN_MAX_LENGTH, { error: LINK_UNVOLLSTAENDIG });
 
 /**
- * The invite read's payload: the token, in a body and never in a query string. The token is the
- * credential, and a second URL carrying it is a second line the edge has to redact.
- */
-export const FLEinladungAnsichtPayloadSchema = z.object({ token: registrierungToken });
-export type FLEinladungAnsichtPayload = z.infer<typeof FLEinladungAnsichtPayloadSchema>;
-
-/**
- * What an invite's holder is told before anything is typed. Nothing here is a person's data, and the
- * whole of it is what the chat message that carried the link already said.
- */
-export const FLEinladungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
-  team: z.string(),
-  // The club's own `full_name`: a club here IS a school, and the junction row denormalises the short
-  // name alone.
-  schule: z.string(),
-  saison_id: z.string(),
-  saison_status: FLSaisonStatusSchema,
-  // The server's whole judgement about the window, never re-derived here: a page deriving it would
-  // go on offering a form the write path refuses.
-  laeuft: z.boolean(),
-  // What the form may offer. The write refuses everything outside it, so the select is built from
-  // this and never from the league's whole set.
-  erlaubte_stufen: z.array(FLSpielerStufeSchema),
-  kader_frei: z.boolean(),
-  // Whether the season holds a junction row for the invite's team. False is a complete open
-  // form whose every submission the write refuses, so the page words it before anything is typed.
-  team_eingetragen: z.boolean(),
-  nachnominierung: z.boolean(),
-});
-export type FLEinladungAnsichtResponse = z.infer<typeof FLEinladungAnsichtResponseSchema>;
-
-/**
  * One pupil's registration.
  *
- * The three optional fields are nullable rather than omitted, as `FLPostSaisonSpielerPayload`
- * requires: an absent key and a chosen „keine Angabe" read alike otherwise.
+ * The three optional fields are nullable rather than omitted, as the squad's own payload requires: an
+ * absent key and a chosen „keine Angabe" read alike otherwise.
  */
 export const FLPostRegistrierungPayloadSchema = z.object({
   token: registrierungToken,
@@ -94,58 +56,11 @@ export const FLPostRegistrierungPayloadSchema = z.object({
   nummer: FLPostSaisonSpielerPayloadSchema.shape.nummer,
   stufe: FLSpielerStufeSchema.nullable(),
 });
-export type FLPostRegistrierungPayload = z.infer<typeof FLPostRegistrierungPayloadSchema>;
-
-/**
- * The submission's echo. `bestaetigung_token` is the raw link value, answered here and recoverable
- * from nothing afterwards: it reaches the mail this handler composes and no other reader.
- */
-export const FLPostRegistrierungResponseSchema = BaseAPIResponseSchema.extend({
-  registrierung_id: CustomObjectIdStringSchema,
-  // Null on a replay whose row needs no fresh link, and the handler then mails nothing.
-  bestaetigung_token: z.string().nullable(),
-  frist: CustomDateStringSchema,
-  email: z.string(),
-  // Off the invite the token opened, so the mail addresses a pupil by their team without trusting a
-  // browser for the words the league's own message carries.
-  team: z.string(),
-  saison_id: z.string(),
-});
-export type FLPostRegistrierungResponse = z.infer<typeof FLPostRegistrierungResponseSchema>;
-
-/** The confirmation read's payload, carrying the token alone for `FLEinladungAnsichtPayloadSchema`'s reason. */
-export const FLRegistrierungBestaetigungAnsichtPayloadSchema = z.object({ token: registrierungToken });
-export type FLRegistrierungBestaetigungAnsichtPayload = z.infer<typeof FLRegistrierungBestaetigungAnsichtPayloadSchema>;
 
 // The message an UNANSWERED control raises as well as a drifted one: nothing preselects this choice.
-/** Mirrors `fl_backend/app/core/constraints.py :: _EINWILLIGUNG_UMFANG`. */
-export const FLEinwilligungUmfangSchema = z.enum(EINWILLIGUNG_UMFANG_OPTIONS, {
+const FLEinwilligungUmfangSchema = z.enum(EINWILLIGUNG_UMFANG_OPTIONS, {
   error: "Bitte wähle aus, was auf der Website stehen darf.",
 });
-export type FLEinwilligungUmfang = z.infer<typeof FLEinwilligungUmfangSchema>;
-
-/**
- * What a confirmation link is told before any press.
- *
- * No name travels, nor anything the person's record holds: the link went to an address nobody has
- * confirmed, which behind a typo is a stranger's.
- */
-export const FLRegistrierungBestaetigungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
-  zustand: z.enum(["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]),
-  team: z.string(),
-  schule: z.string(),
-  saison_id: z.string(),
-  // Which page the link opens, decided by the backend: the press is judged against the same one.
-  seite: z.enum(["bestaetigung_spieler", "bestaetigung_spieler_wiederkehrend"]),
-  // The floor the answer is judged by. The page bounds its date control and words its sentences from
-  // this rather than from a constant of its own.
-  mindestalter: z.number().int(),
-  // The age the media switch is offered from, served for `mindestalter`'s reason: a copy of this
-  // side's own would offer the switch where the endpoint refuses the answer.
-  medien_mindestalter: MedienMindestalterSchema,
-});
-export type FLRegistrierungBestaetigungAnsichtResponse = z.infer<typeof FLRegistrierungBestaetigungAnsichtResponseSchema>;
-export type FLRegistrierungSeite = FLRegistrierungBestaetigungAnsichtResponse["seite"];
 
 // The endpoint refuses the age and the handler lands that refusal on the date field, so a floor
 // retyped here would be a second copy nothing compares.
@@ -167,14 +82,13 @@ export const FLRegistrierungBestaetigungPayloadSchema = z.object({
   // to cite the words the confirming person read.
   text_version: LinkAntwortTextVersionSchema,
 });
-export type FLRegistrierungBestaetigungPayload = z.infer<typeof FLRegistrierungBestaetigungPayloadSchema>;
 
 /**
  * The page's own, built at the floor the link answered: the date is judged against the German day
  * here as the endpoint judges it, so both tiers refuse the same two numbers on the same day.
  */
-export function buildRegistrierungBestaetigungPayloadSchema(mindestalter: number, seite: FLRegistrierungSeite) {
-  // The new pupil's three tightened past the mirror's null: an unanswered scope is a field error before any press.
+export function buildRegistrierungBestaetigungPayloadSchema(mindestalter: number, seite: FLRegistrierungBestaetigungAnsichtResponseSeite) {
+  // The new pupil's three tightened past the payload's null: an unanswered scope is a field error before any press.
   return seite === "bestaetigung_spieler"
     ? FLRegistrierungBestaetigungPayloadSchema.extend({
         geburtsdatum: CustomDateStringSchema.refine(
@@ -191,98 +105,6 @@ export function buildRegistrierungBestaetigungPayloadSchema(mindestalter: number
     : FLRegistrierungBestaetigungPayloadSchema.extend({ geburtsdatum: z.null(), umfang: z.null(), medien: z.null() });
 }
 
-/** The write's echo: what was stored for this pupil, and nothing about any other row. */
-export const FLRegistrierungBestaetigungResponseSchema = BaseAPIResponseSchema.extend({
-  ergebnis: z.literal("bestaetigt"),
-  // Null where the press sent none, a stored one standing: the echo never carries it.
-  geburtsdatum: CustomDateStringSchema.nullable(),
-  // Null on the returning pupil's press, which sent none.
-  umfang: FLEinwilligungUmfangSchema.nullable(),
-  medien: z.boolean().nullable(),
-});
-export type FLRegistrierungBestaetigungResponse = z.infer<typeof FLRegistrierungBestaetigungResponseSchema>;
-
-/**
- * One reminder the pass stamped and left for the caller to send.
- *
- * `token` is the RAW value the pass just minted, recoverable from nothing afterwards. The first
- * link stays live beside it.
- */
-export const FLRegistrierungSweepErinnerungSchema = z.object({
-  registrierung_id: CustomObjectIdStringSchema,
-  saison_id: z.string(),
-  team: z.string(),
-  email: z.string(),
-  token: z.string(),
-});
-export type FLRegistrierungSweepErinnerung = z.infer<typeof FLRegistrierungSweepErinnerungSchema>;
-
-/**
- * One pupil whose confirmed registration the pass erased at the season's end.
- *
- * It carries no token: the row is gone by the time this is answered, which is what makes the note a
- * report rather than a request.
- */
-export const FLRegistrierungSweepBenachrichtigungSchema = z.object({
-  registrierung_id: CustomObjectIdStringSchema,
-  saison_id: z.string(),
-  team: z.string(),
-  vorname: z.string(),
-  email: z.string(),
-});
-export type FLRegistrierungSweepBenachrichtigung = z.infer<typeof FLRegistrierungSweepBenachrichtigungSchema>;
-
-/** One season's clocks, all of them run before this answers: what comes back is what to mail and what was erased. */
-export const FLRegistrierungSweepResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: z.string(),
-  erinnerungen: z.array(FLRegistrierungSweepErinnerungSchema),
-  benachrichtigt: z.array(FLRegistrierungSweepBenachrichtigungSchema),
-  geloescht_unbestaetigt: z.int().nonnegative(),
-  geloescht_ohne_entscheidung: z.int().nonnegative(),
-  geloescht_abgelehnt: z.int().nonnegative(),
-  redigierte_aktionen: z.int().nonnegative(),
-  fehlgeschlagen: z.int().nonnegative(),
-});
-export type FLRegistrierungSweepResponse = z.infer<typeof FLRegistrierungSweepResponseSchema>;
-
-/**
- * The stored person a confirmed registration's address resolves to. `weicht_ab` is all the read says
- * about a difference: the stored birthdate was promised to administrators alone, so no value travels.
- */
-export const FLRegistrierungPersonSchema = z.object({
-  spieler_id: CustomObjectIdStringSchema,
-  vorname: z.string(),
-  nachname: z.string().nullable(),
-  weicht_ab: z.boolean(),
-});
-export type FLRegistrierungPerson = z.infer<typeof FLRegistrierungPersonSchema>;
-
-/** One pending registration as a team's seat reads it: no address, no birthdate and no consent at any depth. */
-export const FLOffeneRegistrierungSchema = z.object({
-  registrierung_id: CustomObjectIdStringSchema,
-  eingereicht_am: CustomDateStringSchema,
-  vorname: z.string(),
-  nachname: z.string(),
-  nummer: z.string().nullable(),
-  position: FLSpielerPositionSchema.nullable(),
-  stufe: FLSpielerStufeSchema.nullable(),
-  // The pupil's own confirmation, which is what verified the address: an unconfirmed row is listed so
-  // a team can tell "nobody registered" from "somebody has not answered", and admits nobody.
-  aufnehmbar: z.boolean(),
-  nummer_doppelt: z.boolean(),
-  person: FLRegistrierungPersonSchema.nullable(),
-});
-export type FLOffeneRegistrierung = z.infer<typeof FLOffeneRegistrierungSchema>;
-
-export const FLOffeneRegistrierungenResponseSchema = BaseAPIResponseSchema.extend({
-  team_id: CustomObjectIdStringSchema,
-  saison_id: z.string(),
-  registrierungen: z.array(FLOffeneRegistrierungSchema),
-  // False where the read served one end of a longer queue: the page then offers the other end.
-  vollstaendig: z.boolean(),
-});
-export type FLOffeneRegistrierungenResponse = z.infer<typeof FLOffeneRegistrierungenResponseSchema>;
-
 /**
  * Whom the registration is admitted into: `null` makes a new person or takes the one its address
  * resolves to under the same name, an id is the representative's yes to that person where its details differ.
@@ -290,97 +112,36 @@ export type FLOffeneRegistrierungenResponse = z.infer<typeof FLOffeneRegistrieru
 export const FLRegistrierungAufnehmenPayloadSchema = z.object({
   spieler_id: CustomObjectIdStringSchema.nullable(),
 });
-export type FLRegistrierungAufnehmenPayload = z.infer<typeof FLRegistrierungAufnehmenPayloadSchema>;
-
-export const FLRegistrierungAufnahmeResponseSchema = BaseAPIResponseSchema.extend({
-  registrierung_id: CustomObjectIdStringSchema,
-  spieler_id: CustomObjectIdStringSchema,
-  team_id: CustomObjectIdStringSchema,
-  saison_id: z.string(),
-  vorname: z.string(),
-  nachname: z.string(),
-  nummer: z.string().nullable(),
-  position: FLSpielerPositionSchema.nullable(),
-  stufe: FLSpielerStufeSchema.nullable(),
-  ist_nachnominiert: z.boolean(),
-});
-export type FLRegistrierungAufnahmeResponse = z.infer<typeof FLRegistrierungAufnahmeResponseSchema>;
 
 /** A fixed choice and never free text: the decline note picks its sentence from it, and nothing a team types reaches the pupil. */
-export const FLRegistrierungAblehnungsgrundSchema = z.enum(["andere_person"], { error: "Diesen Grund kennen wir nicht. Lade die Seite neu." });
-export type FLRegistrierungAblehnungsgrund = z.infer<typeof FLRegistrierungAblehnungsgrundSchema>;
+const FLRegistrierungAblehnungsgrundSchema = z.enum(["andere_person"], { error: "Diesen Grund kennen wir nicht. Lade die Seite neu." });
 
 export const FLRegistrierungAblehnenPayloadSchema = z.object({
   grund: FLRegistrierungAblehnungsgrundSchema.nullable(),
 });
-export type FLRegistrierungAblehnenPayload = z.infer<typeof FLRegistrierungAblehnenPayloadSchema>;
 
-/**
- * The decline's echo. `email` is the address the link went to, answered for the server-side mailer alone:
- * the action hands the browser none of it.
- */
-export const FLRegistrierungAblehnungResponseSchema = BaseAPIResponseSchema.extend({
-  registrierung_id: CustomObjectIdStringSchema,
-  team_id: CustomObjectIdStringSchema,
-  saison_id: z.string(),
-  team: z.string(),
-  vorname: z.string(),
-  email: z.string(),
-  // Whether the address was ever verified, which decides whether the decline is mailed at all.
-  bestaetigt: z.boolean(),
-  grund: FLRegistrierungAblehnungsgrundSchema.nullable(),
-});
-export type FLRegistrierungAblehnungResponse = z.infer<typeof FLRegistrierungAblehnungResponseSchema>;
-
-/**
- * Mirrors `FLRegistrierungEinwilligung`: a pending registration's consent block, each choice and `datum`
- * null where its pupil was asked none, a returning pupil's page asking no choice.
- */
-export const FLRegistrierungEinwilligungSchema = FLEinwilligungSchema.extend({
+// Redesign: goes with its last importer, `fl_frontend/src/features/funktionen/schemas.ts`, which reads
+// `FLRegistrierungSchema.shape.status`. Every reader in this slice takes the generated `FLRegistrierung`.
+const FLRegistrierungEinwilligungSchema = FLEinwilligungSchema.extend({
   umfang: FLEinwilligungSchema.shape.umfang.nullable(),
   datum: FLEinwilligungSchema.shape.datum.nullable(),
-  // Null where nobody was asked, never `false`: a returning pupil's media answer stands on their own record.
   medien: z.boolean().nullable(),
 });
-export type FLRegistrierungEinwilligung = z.infer<typeof FLRegistrierungEinwilligungSchema>;
 
-/** The pupil's payload, as the backend publishes one declaration under both names: the two controls cannot drift. */
-export const FLRegistrierungSelbstEinwilligungPayloadSchema = FLSpielerSelbstEinwilligungPayloadSchema;
-export type FLRegistrierungSelbstEinwilligungPayload = z.infer<typeof FLRegistrierungSelbstEinwilligungPayloadSchema>;
-
-/** Mirrors `FLRegistrierungSelbstEinwilligungResponse`: the registration's block as the withdrawal left it. */
-export const FLRegistrierungSelbstEinwilligungResponseSchema = BaseAPIResponseSchema.extend({
-  registrierung_id: CustomObjectIdStringSchema,
-  einwilligung: FLRegistrierungEinwilligungSchema,
-  // The stand this press left, which the page's next press sends.
-  nachweis_stand: FLEinwilligungStandSchema,
-});
-export type FLRegistrierungSelbstEinwilligungResponse = z.infer<typeof FLRegistrierungSelbstEinwilligungResponseSchema>;
-
-/** Mirrors `FLRegistrierungBestaetigung`: the confirmation link's bookkeeping, and no hash of it. */
-export const FLRegistrierungBestaetigungSchema = z.object({
+const FLRegistrierungBestaetigungSchema = z.object({
   verschickt_am: CustomDateStringSchema,
   erinnert_am: CustomDateStringSchema.nullable(),
   frist: CustomDateStringSchema,
-  // Null on every fresh link: nothing is known yet about the message it went out in.
   zustellung: FLBewerbungZustellungSchema.nullable(),
 });
-export type FLRegistrierungBestaetigung = z.infer<typeof FLRegistrierungBestaetigungSchema>;
 
-/** Mirrors `FLRegistrierungEntscheidungZeile`: a decline as the list serves it, its decider withheld where barred. */
-export const FLRegistrierungEntscheidungZeileSchema = z.object({
+const FLRegistrierungEntscheidungZeileSchema = z.object({
   getroffen_am: CustomDateStringSchema,
   von: z.string().nullable(),
   grund: z.string().nullable(),
   von_gesperrt: z.boolean(),
 });
-export type FLRegistrierungEntscheidungZeile = z.infer<typeof FLRegistrierungEntscheidungZeileSchema>;
 
-/**
- * Mirrors `FLRegistrierung`, the administrator's row: it carries the address and the birthdate, so it
- * stays on the server, and the admin list hands its view the rows
- * `fl_frontend/src/features/registrierungen/utils.ts :: buildAdminRegistrierungRows` builds.
- */
 export const FLRegistrierungSchema = z.object({
   id: CustomObjectIdStringSchema,
   saison_id: z.string(),
@@ -398,15 +159,5 @@ export const FLRegistrierungSchema = z.object({
   einwilligung: FLRegistrierungEinwilligungSchema.nullable(),
   bestaetigung: FLRegistrierungBestaetigungSchema.nullable(),
   entscheidung: FLRegistrierungEntscheidungZeileSchema.nullable(),
-  // Composed by the read, never derived here: two readers deriving it differently is how an
-  // unconfirmed pupil reads as confirmed.
   bestaetigt: z.boolean(),
 });
-export type FLRegistrierung = z.infer<typeof FLRegistrierungSchema>;
-
-export const FLRegistrierungenListResponseSchema = BaseAPIResponseSchema.extend({
-  registrierungen: z.array(FLRegistrierungSchema),
-  // False where more rows exist than one read serves: the page then says so and offers the other end.
-  vollstaendig: z.boolean(),
-});
-export type FLRegistrierungenListResponse = z.infer<typeof FLRegistrierungenListResponseSchema>;

@@ -21,7 +21,7 @@ import { textLink } from "@/shared/components/ui/textLink";
 import { formularZustand } from "../../utils";
 import { RegistrierungFormPanel } from "./RegistrierungFormPanel";
 
-import type { FLEinladungAnsichtResponse } from "../../schemas";
+import type { FLEinladungAnsichtResponse } from "@/core/generated/client/types";
 import type { RegistrierungStart } from "../../types";
 
 /**

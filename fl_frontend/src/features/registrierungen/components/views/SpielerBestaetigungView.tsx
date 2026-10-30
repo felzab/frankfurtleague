@@ -62,13 +62,12 @@ import { EINWILLIGUNG_UMFANG_OPTIONS, SPIELER_UMFANG_FRAGE } from "../../constan
 import { buildRegistrierungBestaetigungPayloadSchema } from "../../schemas";
 
 import type { SpielerAbsatzSchluessel, SpielerWiederkehrendAbsatzSchluessel } from "@/core/einwilligungSeiten";
+import type { FLEinwilligungUmfang, FLRegistrierungBestaetigungAnsichtResponse } from "@/core/generated/client/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { Slots } from "@/shared/utils/stampedSlots";
 import type { Key } from "@heroui/react/rac";
 import type { CalendarDate } from "@internationalized/date";
-import type { FLEinwilligungUmfang } from "../../schemas";
 import type {
-  SpielerBestaetigungGeoeffnet,
   SpielerBestaetigungGespeichert,
   SpielerBestaetigungStart,
   SpielerFassung,
@@ -80,7 +79,12 @@ import type {
 type Stand =
   | (Extract<SpielerBestaetigungStart, { zustand: "gueltig" }> & { fassung: SpielerSeitenFassung })
   | Exclude<SpielerBestaetigungStart, { zustand: "gueltig" }>
-  | { zustand: "erfolg"; ansicht: SpielerBestaetigungGeoeffnet; gespeichert: SpielerBestaetigungGespeichert; fassung: SpielerSeitenFassung };
+  | {
+      zustand: "erfolg";
+      ansicht: FLRegistrierungBestaetigungAnsichtResponse;
+      gespeichert: SpielerBestaetigungGespeichert;
+      fassung: SpielerSeitenFassung;
+    };
 
 /** An open link whose words could not be read is a page nobody can answer, which the failed read's panel says. */
 function anfang(start: SpielerBestaetigungStart, fassung: SpielerSeitenFassung | null): Stand {
@@ -334,7 +338,7 @@ function SpielerBestaetigungForm({
   onAbschluss,
 }: {
   token: string;
-  ansicht: SpielerBestaetigungGeoeffnet;
+  ansicht: FLRegistrierungBestaetigungAnsichtResponse;
   fassung: SpielerSeitenFassung;
   onAbschluss: (abschluss: Abschluss) => void;
 }) {

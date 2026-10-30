@@ -26,7 +26,7 @@ import { nichtHinterlegt } from "@/shared/utils/format";
 import { schlechtesterVersand, versandGrad } from "@/shared/utils/linkVersand";
 import { meldeLinkVersand, REGISTRIERUNGSLINK_TITEL } from "@/shared/utils/linkVersandToast";
 
-import type { FLEinladungVersandGrund, FLEinladungVersandVorschauZeile } from "@/features/einladungen/schemas";
+import type { FLEinladungVersandVorschauZeile, FLEinladungVersandVorschauZeileUebersprungen } from "@/core/generated/client/types";
 import type { EinladungVersandErgebnis } from "@/features/einladungen/types";
 import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { VersandTitel } from "@/shared/utils/linkVersandToast";
@@ -41,7 +41,7 @@ const SENDEN_ARMED = `Ja, ${SENDEN_LABEL}`;
  * **These are ordinary states** of a season being set up, and wording one as a failure would send
  * somebody hunting for a fault nobody has.
  */
-const UEBERSPRUNGEN_SATZ: Record<FLEinladungVersandGrund, string> = {
+const UEBERSPRUNGEN_SATZ: Record<NonNullable<FLEinladungVersandVorschauZeileUebersprungen>, string> = {
   // The RECORD rather than the route it was entered under: no rule keyed on a club having left
   // reads that route (`fl_frontend/src/features/teams/constants.ts :: AUSTRITT_OPTIONS` holds its
   // German), so naming one here would report a fact nothing judges.

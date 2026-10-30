@@ -23,6 +23,7 @@ import { FormSchuleSection } from "./FormSchuleSection";
 import { FormTeamSection } from "./FormTeamSection";
 import { useBewerbungDraft } from "./useBewerbungDraft";
 
+import type { FLTrainerZugleich, FLTrikotFarbe } from "@/core/generated/client/types";
 import type {
   BewerbungFormDraft,
   BewerbungKontakteDraft,
@@ -30,7 +31,6 @@ import type {
   BewerbungSchuleDraft,
   KuerzelVerdikt,
 } from "@/features/bewerbungen/types";
-import type { FLTrainerZugleich, FLTrikotFarbe } from "@/features/teams/schemas";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { ReactNode } from "react";

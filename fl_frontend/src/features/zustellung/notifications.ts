@@ -12,7 +12,7 @@ import { meldeZielZustellungAbgewiesen, meldeZielZustellungAngenommen } from "./
 import { FLZustellungAbgewiesenPayloadSchema } from "./schemas";
 
 import type { Mail } from "@/core/emailShell";
-import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
+import type { FLKontaktRolle } from "@/core/generated/client/types";
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
 import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { FLZielJeSitz, FLZustellungZiel } from "./schemas";

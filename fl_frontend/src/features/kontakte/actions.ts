@@ -16,12 +16,12 @@ import { KONTAKTE_REPLAY_REFUSALS, mapEinladenRefusal, mapKontakteRefusal, STALE
 import { FLKontaktEinladenPayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 import { mitLaufenderFassung } from "./utils";
 
-import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
+import type { FLKontaktRolle, FLPatchSaisonTeamKontakteResponse, FLSaisonTeamKontakte } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
 import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { KontaktVersand } from "./notifications";
-import type { FLKontaktEinladenPayload, FLPatchSaisonTeamKontaktePayload, FLPatchSaisonTeamKontakteResponse } from "./schemas";
+import type { FLPatchSaisonTeamKontaktePayload } from "./schemas";
 
 /** What the editor reads off a save: the block as stored and the token an undo of it carries. */
 type KontakteGespeichert = Pick<FLPatchSaisonTeamKontakteResponse, "kontakte" | "kontakte_stand">;
@@ -167,7 +167,11 @@ export async function undoAdminKontakteEditAction(rawPayload: FLPatchSaisonTeamK
  * A fresh link for one unconfirmed seat, the seat's earlier one opening nothing afterwards. **Always a
  * step-up write**: every call mints a bearer link.
  */
-export async function einladeKontaktAction(rawPayload: FLKontaktEinladenPayload): Promise<ActionResult<{ versand: LinkVersand }>> {
+export async function einladeKontaktAction(rawPayload: {
+  team_id: string;
+  saison_id: string;
+  rolle: FLKontaktRolle;
+}): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("einladeKontaktAction", { stepUp: true }, async () => {
     const validated = FLKontaktEinladenPayloadSchema.safeParse(rawPayload);
 

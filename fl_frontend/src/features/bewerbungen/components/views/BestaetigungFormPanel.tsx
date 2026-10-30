@@ -31,8 +31,8 @@ import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 import { BestaetigungHinweise, KlickBestaetigung, MedienHinweis, WhatsappHinweis, WiderspruchFolge } from "./BestaetigungHinweise";
 import { ANTWORT_NICHT_GESPEICHERT, ANTWORT_NICHT_GESPEICHERT_SATZ, BestaetigungAbschnitt } from "./BestaetigungPanels";
 
-import type { FLBewerbungEinwilligungAntwortPayload } from "@/features/bewerbungen/schemas";
-import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/types";
+import type { FLBewerbungEinwilligungAnsichtResponse, FLBewerbungEinwilligungAntwortPayload } from "@/core/generated/client/types";
+import type { LinkZustand } from "@/features/bewerbungen/types";
 import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { CalendarDate } from "@internationalized/date";
@@ -43,11 +43,11 @@ export type BestaetigungAbschluss =
   | { zustand: "erfolg"; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
   | { zustand: "widersprochen-neu" }
   // `ansicht` is the read the route made after the refusal, where it found a closed season.
-  | { zustand: LinkZustand | "saison_vorbei"; ansicht?: EinwilligungGeoeffnet };
+  | { zustand: LinkZustand | "saison_vorbei"; ansicht?: FLBewerbungEinwilligungAnsichtResponse };
 
 type EinwilligungAntwort =
   | { success: true; ergebnis: "bestaetigt" | "abgelehnt"; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
-  | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei"; ansicht?: EinwilligungGeoeffnet });
+  | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei"; ansicht?: FLBewerbungEinwilligungAnsichtResponse });
 
 /**
  * What the armed press sends. A constant rather than a literal in the branch: it is where

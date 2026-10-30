@@ -8,9 +8,14 @@ import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } f
 
 import { alterAusserhalb, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "./constants";
 
+import type {
+  FLEinladungAnsichtResponse,
+  FLPostRegistrierungPayload,
+  FLRegistrierung,
+  FLRegistrierungBestaetigungPayload,
+} from "@/core/generated/client/types";
 import type { NamedTeam } from "@/features/bewerbungen/types";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLEinladungAnsichtResponse, FLPostRegistrierungPayload, FLRegistrierung, FLRegistrierungBestaetigungPayload } from "./schemas";
 import type { AdminRegistrierungRow, RegistrierungFormDraft, SpielerLinkZustand } from "./types";
 
 /**

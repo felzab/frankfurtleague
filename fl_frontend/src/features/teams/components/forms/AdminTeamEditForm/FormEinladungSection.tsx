@@ -40,8 +40,8 @@ import { focusAfterWrite, focusSection, focusSlot } from "@/shared/utils/focusAf
 import { formatSpielDatum } from "@/shared/utils/format";
 import { meldeLinkVersand, REGISTRIERUNGSLINK_TITEL } from "@/shared/utils/linkVersandToast";
 
+import type { FLEinladungZeile } from "@/core/generated/client/types";
 import type { FrischeEinladung } from "@/features/einladungen/components/EinladungLinkHolder";
-import type { FLEinladungZeile } from "@/features/einladungen/schemas";
 import type { Key } from "@heroui/react/rac";
 
 /**

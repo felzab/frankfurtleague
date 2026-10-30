@@ -11,7 +11,7 @@ import { meldeZielZustellEreignis } from "@/features/zustellung/mutations";
 import { isRuleRefusal } from "@/shared/utils/actionError";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
-import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
+import type { FLKontaktRolle } from "@/core/generated/client/types";
 import type { ZustellMeldung } from "@/features/bewerbungen/zustellung";
 import type { NextRequest } from "next/server";
 

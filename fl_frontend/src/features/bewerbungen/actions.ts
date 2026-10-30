@@ -34,19 +34,19 @@ import {
 import { bewerbungHerkunft, bewerbungTeamName, describeAufnahme } from "./utils";
 
 import type { Mail } from "@/core/emailShell";
-import type { KontaktRolle } from "@/features/teams/constants";
-import type { ActionResult } from "@/shared/types/types";
-import type { LinkVersand } from "@/shared/utils/linkVersand";
-import type { BewerbungHerkunft } from "./constants";
-import type { BewerbungBetreff } from "./notifications";
 import type {
   FLAblehnenBewerbungPayload,
   FLAnnehmenBewerbungPayload,
   FLBewerbung,
   FLBewerbungKontaktEmailPayload,
   FLBewerbungKontaktSitzPayload,
-  FLEinwilligungErneutPayload,
-} from "./schemas";
+  FLKontaktRolle,
+} from "@/core/generated/client/types";
+import type { KontaktRolle } from "@/features/teams/constants";
+import type { ActionResult } from "@/shared/types/types";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
+import type { BewerbungHerkunft } from "./constants";
+import type { BewerbungBetreff } from "./notifications";
 
 /**
  * The club the message to the school is addressed to. `null` where the application names neither a
@@ -140,7 +140,7 @@ async function kollisionsHerkunft(error: unknown, bewerbungId: string): Promise<
  * `austritt`. The control pressing this arms first.
  */
 export async function annehmenBewerbungAction(
-  rawPayload: FLAnnehmenBewerbungPayload,
+  rawPayload: { id: string } & FLAnnehmenBewerbungPayload,
 ): Promise<ActionResult<{ updated_document?: FLBewerbung; team_id?: string }>> {
   return runAdminMutation("annehmenBewerbungAction", { stepUp: true }, async () => {
     const validated = FLAnnehmenBewerbungPayloadSchema.safeParse(rawPayload);
@@ -207,7 +207,7 @@ export async function annehmenBewerbungAction(
  * applied.
  */
 export async function ablehnenBewerbungAction(
-  rawPayload: FLAblehnenBewerbungPayload,
+  rawPayload: { id: string } & FLAblehnenBewerbungPayload,
 ): Promise<ActionResult<{ updated_document?: FLBewerbung }>> {
   return runAdminMutation("ablehnenBewerbungAction", { stepUp: true }, async () => {
     const validated = FLAblehnenBewerbungPayloadSchema.safeParse(rawPayload);
@@ -354,7 +354,10 @@ async function sendeBestaetigungErneut({
  * No confirmation step: a second link is undone by ignoring it, and the seat's own answer is what
  * the league acts on either way.
  */
-export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungErneutPayload): Promise<ActionResult<{ versand: LinkVersand }>> {
+export async function einwilligungErneutSendenAction(rawPayload: {
+  id: string;
+  rolle: FLKontaktRolle;
+}): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("einwilligungErneutSendenAction", { stepUp: true }, async () => {
     const validated = FLEinwilligungErneutPayloadSchema.safeParse(rawPayload);
 
@@ -415,7 +418,7 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
  * did not happen.
  */
 export async function kontaktEmailKorrigierenAction(
-  rawPayload: FLBewerbungKontaktEmailPayload,
+  rawPayload: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktEmailPayload,
 ): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("kontaktEmailKorrigierenAction", { stepUp: true }, async () => {
     const validated = FLBewerbungKontaktEmailPayloadSchema.safeParse(rawPayload);
@@ -474,7 +477,9 @@ export async function kontaktEmailKorrigierenAction(
  * **The seat stands filled whatever the message did**, as the correction's address does: a refused
  * send is a link to try again rather than a person who was never seated.
  */
-export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSitzPayload): Promise<ActionResult<{ versand: LinkVersand }>> {
+export async function besetzeKontaktSitzAction(
+  rawPayload: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktSitzPayload,
+): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("besetzeKontaktSitzAction", { stepUp: true }, async () => {
     const validated = FLBewerbungKontaktSitzPayloadSchema.safeParse(rawPayload);
 
