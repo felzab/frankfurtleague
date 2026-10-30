@@ -53,12 +53,14 @@ export type FLSpielWithDraftFields = Omit<FLSpielWithStoredSides, "ort" | "schie
   schiedsrichter: FLSpielSchiedsrichterFieldDraft | null;
 };
 
+/** The old match form's payload: the write's body beside the fixture it names, which the write takes in its path. */
+export type FLPatchSpielDataPayloadWithId = FLPatchSpielDataPayload & { spiel_id: string };
+
 /**
  * What the old form's `buildPayload` returns, and why it needs no cast: a cast would launder the money and shoot-out
  * fields into a shape forbidding `null`, so an empty field blocks the save with a message nothing rendered.
  */
-export type FLPatchSpielDataPayloadDraft = Omit<FLPatchSpielDataPayload, "ort" | "schiedsrichter" | "elfmeterschiessen"> & {
-  spiel_id: string;
+export type FLPatchSpielDataPayloadDraft = Omit<FLPatchSpielDataPayloadWithId, "ort" | "schiedsrichter" | "elfmeterschiessen"> & {
   ort: FLSpielOrtFieldDraft | null;
   schiedsrichter: FLSpielSchiedsrichterFieldDraft | null;
   elfmeterschiessen: FLSpielElfmeterschiessenDraft | null;

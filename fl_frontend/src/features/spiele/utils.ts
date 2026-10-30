@@ -11,7 +11,6 @@ import type {
   FLBracketFaultBooking,
   FLBracketFaultClash,
   FLGruppenNames,
-  FLPatchSpielDataPayload,
   FLSaisonPhase,
   FLSonderereignis,
   FLSpielAdvancement,
@@ -22,7 +21,7 @@ import type {
   FLSpielTeamFieldPayload,
 } from "@/core/generated/client/types";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
-import type { FLBracketFault, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "./types";
+import type { FLBracketFault, FLPatchSpielDataPayloadWithId, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "./types";
 
 /**
  * **The four events meaning the fixture never took place**, written once for every surface grading a
@@ -288,7 +287,7 @@ const toPayloadSide = (side: FLSpielTeamField | null): FLSpielTeamFieldPayload |
  * readings of. Every field is listed rather than spread: one missing here is one the editor keeps
  * showing from its seed.
  */
-const toPatchPayload = (spiel: FLSpielJoinedAdmin): FLPatchSpielDataPayload => ({
+const toPatchPayload = (spiel: FLSpielJoinedAdmin): FLPatchSpielDataPayloadWithId => ({
   // No `ergebnis`: the backend derives it from the goals and refuses to accept one.
   spiel_id: spiel.id,
   sonderereignis: spiel.sonderereignis,
