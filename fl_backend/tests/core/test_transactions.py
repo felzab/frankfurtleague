@@ -209,10 +209,10 @@ class TestARowFailingAloneIsPassedOver:
                 id="not the database's, located by its innermost frame",
             ),
             pytest.param(
-                lambda: OperationFailure(A_STORED_VALUE, 121, {"errInfo": {"details": {"missingProperties": ["trace_id"]}}}),
+                lambda: OperationFailure(A_STORED_VALUE, 2, {"ok": 0, "code": 2, "errmsg": A_STORED_VALUE}),
                 Code.DATABASE_FAILED,
-                re.escape("OperationFailure, code 121: [{'loc': 'trace_id', 'type': 'required', 'msg': 'property is missing'}]"),
-                id="refused, with the properties the validator refused",
+                re.escape("OperationFailure, code 2"),
+                id="the database's, named by its type and code alone",
             ),
             pytest.param(
                 lambda: _refused_by_the_answer(),

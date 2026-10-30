@@ -1575,7 +1575,7 @@
       "count": 2
     },
     "react/jsx-no-literals": {
-      "count": 130
+      "count": 129
     }
   },
   "src/features/meta/components/views/ImpressumView.tsx": {

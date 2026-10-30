@@ -277,9 +277,7 @@ def actor_binder[T](attribute: Callable[..., Attribution[T] | Awaitable[Attribut
     return bind
 
 
-def attribute_the_administrator(
-    actor: Annotated[SessionActor, Depends(verify_admin_actor)], config: Annotated[BackendConfig, Depends(get_app_config)]
-) -> Attribution[None]:
+def attribute_the_administrator(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> Attribution[None]:
     # Folded, as the grant check read it: one administrator is one spelling in every stored actor
     # field, whatever case the session's address was typed in.
     return Attribution(Actor(kind="admin_session", email=sign_in_identifier(actor.email)), None)

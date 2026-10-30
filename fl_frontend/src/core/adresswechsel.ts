@@ -26,9 +26,3 @@ const GENEHMIGUNG_TAGE = 7;
 // than printing a numeral beside every other duration the pages spell out.
 export const ADRESSWECHSEL_WARTEZEIT_DAUER = ({ 7: "eine Woche" } as const)[ADRESSWECHSEL_WARTEZEIT_TAGE];
 export const GENEHMIGUNG_DAUER = ({ 7: "eine Woche" } as const)[GENEHMIGUNG_TAGE];
-
-/**
- * Why the address tool refuses its reader a change, as every read linking one into it serves it: the reader's own
- * address (`eigene_adresse`), or a grant holder's without an owner's power (`verwaltung_adresse`).
- */
-export const ADRESSWECHSEL_EINSEHBAR_VERWEHRT = ["eigene", "verwaltung"] as const;

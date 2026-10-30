@@ -299,7 +299,7 @@ async def through(binder: AsyncIterator[Any], inside: Callable[[], Awaitable[Any
 def test_the_administrator_is_bound_folded_under_the_route_s_template_for_the_request_alone():
     """Folded, so one administrator is one spelling in `aktionen`; the template, so the page reads one row per kind of action."""
 
-    attribution = attribute_the_administrator(verified_actor(ACTOR.upper()), CONFIG)
+    attribution = attribute_the_administrator(verified_actor(ACTOR.upper()))
     _, during, after = asyncio.run(through(bind_actor(request_for("PATCH"), attribution)))
 
     assert during == (Actor(kind="admin_session", email=ACTOR), ("PATCH", ROUTE_TEMPLATE))

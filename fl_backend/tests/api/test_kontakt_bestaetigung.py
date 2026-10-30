@@ -41,7 +41,7 @@ from app.core.security import STEP_UP_WINDOW_S, SessionActor
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from tests import documents
-from tests.actor_tokens import FRESH_ADMIN_ACTOR, verified_actor
+from tests.actor_tokens import fresh_admin_actor, verified_actor
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
@@ -226,7 +226,7 @@ async def save(
     database: AsyncDatabase,
     kontakte: Any,
     *,
-    actor: SessionActor = FRESH_ADMIN_ACTOR,
+    actor: SessionActor | None = None,
     saison_teams: Any = None,
     today: str = TODAY,
 ) -> Mailed:
@@ -247,7 +247,7 @@ async def save(
         postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=database.client,
-        actor=actor,
+        actor=actor or fresh_admin_actor(),
         today=today,
         germany_now=MAIL_NOW,
     )

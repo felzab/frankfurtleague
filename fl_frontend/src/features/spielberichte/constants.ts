@@ -1,3 +1,5 @@
+import { FLSpielberichtVorschlagSonderereignis } from "@/core/generated/client/types";
+
 import type { FLKartenFarbe, FLKartenGrund, FLSpielberichtZustand } from "@/core/generated/client/types";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLSpielberichtSonderereignis } from "./schemas";
@@ -41,11 +43,9 @@ export const KARTEN_GRUND_LABELS: Record<FLKartenGrund, string> = {
 export const TORSCHUETZE_UNBEKANNT_LABEL = "unbekannt";
 
 /** The three events a referee may report; the league's own two have no report at all (`bericht_abgesagt`). */
-export const SPIELBERICHT_SONDEREREIGNIS_OPTIONS: readonly FLSpielberichtSonderereignis[] = [
-  "abgebrochen",
-  "nichtantreten_team1",
-  "nichtantreten_team2",
-];
+export const SPIELBERICHT_SONDEREREIGNIS_OPTIONS: readonly FLSpielberichtSonderereignis[] = Object.values(
+  FLSpielberichtVorschlagSonderereignis,
+);
 
 export const SPIELBERICHT_ZUSTAND_LABELS: Record<FLSpielberichtZustand, string> = {
   vorgeschlagen: "Vorgeschlagen",

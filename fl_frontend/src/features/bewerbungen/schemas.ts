@@ -1,6 +1,7 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
+import { FLBewerbungEinwilligungAntwortPayloadAntwort, FLKontaktKenntnisnahmeUmfang, FLKontaktRolle } from "@/core/generated/client/types";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { FLSpielerKontoEinwilligungPayloadSchema, LinkAntwortTextVersionSchema, WAHL_UNBEKANNT } from "@/features/spieler/schemas";
 import {
@@ -12,13 +13,7 @@ import {
   TEAM_WEBSITE_URL_MAX_LENGTH,
 } from "@/features/teams/constants";
 import { kontaktePersonenRegeln } from "@/features/teams/kontaktePersonen";
-import {
-  FLGruppenNamesSchema,
-  FLKontaktKenntnisnahmeSchema,
-  FLSchulformSchema,
-  FLTrainerZugleichSchema,
-  FLTrikotFarbeSchema,
-} from "@/features/teams/schemas";
+import { FLGruppenNamesSchema, FLSchulformSchema, FLTrainerZugleichSchema, FLTrikotFarbeSchema } from "@/features/teams/schemas";
 import {
   ADDRESS_STADTTEIL_MAX_LENGTH,
   CustomDateStringSchema,
@@ -281,7 +276,7 @@ const einwilligungToken = z
   .max(BEWERBUNG_TOKEN_MAX_LENGTH, { error: LINK_UNVOLLSTAENDIG });
 
 /** The wire names a seat by this closed set; an input naming another is refused before it is sent. */
-export const FLKontaktRolleSchema = z.enum(["ansprechperson", "stellvertretung", "trainer"], {
+export const FLKontaktRolleSchema = z.enum(FLKontaktRolle, {
   error: "Diese Rolle gibt es in einer Bewerbung nicht.",
 });
 
@@ -296,7 +291,7 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
       token: einwilligungToken,
       // No control offers this, so a value outside the pair is a drifted client rather than a mistyped
       // answer, and the repair is the reload rather than a choice.
-      antwort: z.enum(["erteilt", "abgelehnt"], { error: "Diese Antwort kennen wir nicht. Lade die Seite neu." }),
+      antwort: z.enum(FLBewerbungEinwilligungAntwortPayloadAntwort, { error: "Diese Antwort kennen wir nicht. Lade die Seite neu." }),
       geburtsdatum: CustomDateStringSchema.nullable(),
       whatsapp: z.boolean(),
       // Never optional, as `whatsapp` is not: a page that dropped the switch is refused rather than
@@ -353,7 +348,7 @@ export const FLEinwilligungErneutPayloadSchema = z.object({
  */
 export const FLBewerbungPersonEinwilligungPayloadSchema = FLSpielerKontoEinwilligungPayloadSchema.extend({
   // Both choices on every press, so moving one never leaves the other judged by nothing.
-  umfang: z.enum(FLKontaktKenntnisnahmeSchema.shape.umfang.options, { error: WAHL_UNBEKANNT }),
+  umfang: z.enum(FLKontaktKenntnisnahmeUmfang, { error: WAHL_UNBEKANNT }),
 });
 
 /**

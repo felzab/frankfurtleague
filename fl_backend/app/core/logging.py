@@ -11,6 +11,7 @@ import logging
 import logging.config
 import re
 import sys
+from collections.abc import Mapping
 from contextvars import ContextVar
 from datetime import UTC, datetime
 
@@ -23,7 +24,12 @@ trace_id_var: ContextVar[str] = ContextVar("trace_id", default=NO_REQUEST_SENTIN
 
 # A stored or submitted address reaches a message or a stack through a library's own text, a
 # duplicate key's report among them; the formatter takes it out of every line, whoever wrote it.
-ADDRESS = re.compile(r"[\w.!#$%&'*+/=?^`{|}~-]+@[\w-]+(?:\.[\w-]+)+")
+# `fl_frontend/src/core/logging.ts :: ADDRESS` spells the same classes in JavaScript's syntax, `\w` being
+# `[\p{L}\p{N}_]` here, and `fl_backend/tests/shared/log_addresses.json` holds the two to one answer. The
+# domain ends in a label opening with a letter, as every top-level domain does, so a package store's
+# `name@1.2.3` in a stack frame's path is left standing.
+ADDRESS = re.compile(r"[\w.!#$%&'*+/=?^`{|}~-]+@[\w-]+(?:\.[\w-]+)*\.[^\W\d_][\w-]*")
+SCRUBBED = "[address]"
 
 # What every record carries, so whatever else a call passes in `extra=` is a field of its line.
 # uvicorn adds `color_message`, a copy of its message with terminal escapes in it.
@@ -40,6 +46,22 @@ class TraceContextFilter(logging.Filter):
 
 def _fields(record: logging.LogRecord) -> dict[str, object]:
     return {key: value for key, value in vars(record).items() if key not in _RECORD_ATTRIBUTES}
+
+
+def _scrubbed(value: object) -> object:
+    """Every string inside `value` without an address, scrubbed before it is serialised.
+
+    Never over the serialised text, where a line break is the two characters `\\n` and the match
+    would swallow the escape's `n`, leaving a line no JSON reader parses.
+    """
+
+    if isinstance(value, str):
+        return ADDRESS.sub(SCRUBBED, value)
+    if isinstance(value, Mapping):
+        return {key: _scrubbed(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_scrubbed(item) for item in value]
+    return value
 
 
 class JSONFormatter(logging.Formatter):
@@ -59,8 +81,8 @@ class JSONFormatter(logging.Formatter):
         if record.exc_info and record.exc_info[1] is not None:
             failure = record.exc_info[1]
             line["error"] = {"name": type(failure).__name__, "message": str(failure), "stack": self.formatException(record.exc_info)}
-        # `default=str`: a field holding an id or an instant is written as its text rather than failing the line.
-        return ADDRESS.sub("[address]", json.dumps(line, ensure_ascii=False, default=str))
+        # A field holding an id or an instant is written as its text, scrubbed too, rather than failing the line.
+        return json.dumps(_scrubbed(line), ensure_ascii=False, default=lambda value: _scrubbed(str(value)))
 
 
 class PlainFormatter(logging.Formatter):
@@ -71,7 +93,7 @@ class PlainFormatter(logging.Formatter):
         line = f"{record.levelname:<8} {self.formatTime(record)} {record.module}:{record.lineno} - {record.getMessage()} {fields}"
         if record.exc_info:
             line = f"{line}\n{self.formatException(record.exc_info)}"
-        return ADDRESS.sub("[address]", line)
+        return ADDRESS.sub(SCRUBBED, line)
 
 
 def setup_logging() -> None:

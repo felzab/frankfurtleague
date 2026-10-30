@@ -527,8 +527,8 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   account, and nothing about a visitor who is not.
 - **A person's own write is recorded under a pseudonym rather than their address.** An address in
   `actor.email` would sit outside the redaction above, an exception taken for administrators and
-  for the reason administrators give, so a person's actor carries none: the binder every router of
-  `fl_backend/app/main.py :: PERSON_ROUTERS` declares
+  for the reason administrators give, so a person's actor carries none: the binder each slice's
+  `person_router.py` declares
   (`fl_backend/app/api/sperrliste/guard.py :: person_actor_binder`) records a stable pseudonym, a keyed hash
   of the folded address as the ban list takes one, and the kind of person the write was made as,
   and the log refuses a person's row carrying an address. Ruled
@@ -1049,15 +1049,15 @@ Each row cites where the decision now lives.
   or one similarly serious, its nearest example being a decision affecting access to education, such
   as a university admission, and does not say whether being refused a place in a school league is one
   — read on 2026-09-22. The questions to put: whether any of those refusals meets Art. 22 (1)'s
-  threshold, Cloudflare's bot check and the daily write ceiling among them, and if one does, which
+  threshold, Cloudflare's bot check among them, and if one does, which
   exception of Art. 22 (2) it rests on.
 - **An address whose part before the @ is not plain ASCII is refused with nobody deciding, and the
   published notice does not name it, for the Datenschutzexperte.** Every box that stores an address
   refuses one ([section 2](#2-consent-comes-from-the-person-from-16-or-18)), so a person whose only
   mailbox is spelled that way cannot register, apply or be entered under it, and the box asks them
   for another address, while the notice names two refusals, a birthdate outside its span and a
-  barred address, and beside them the full squad as a limit of the squad, and the bot check and the
-  daily write ceiling as limits it offers a person's review of ([section 2](#2-consent-comes-from-the-person-from-16-or-18)). The questions to put: whether this
+  barred address, and beside them the full squad as a limit of the squad, and the bot check as a
+  limit it offers a person's review of ([section 2](#2-consent-comes-from-the-person-from-16-or-18)). The questions to put: whether this
   refusal is a limit of what the league can take, as the full squad is, or a judgement about the
   person; and so whether the notice names it beside the full squad or among the refusals it offers
   a review of.

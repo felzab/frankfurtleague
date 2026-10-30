@@ -1,6 +1,7 @@
+import { FLSaisonPhase } from "@/core/generated/client/types";
 import { TEAMS_EINTRAG } from "@/features/admin/constants";
 
-import type { FLSaisonPhase, FLSaisonRulesTiebreakOrder } from "@/core/generated/client/types";
+import type { FLSaisonRulesTiebreakOrder } from "@/core/generated/client/types";
 import type { PillTone } from "@/shared/components/ui/badges";
 
 export const SAISONS_CRUD_COPY = {
@@ -12,10 +13,9 @@ export const SAISONS_CRUD_COPY = {
 
 /**
  * The phases in the competition's own playing order, which `PHASE_RANK` in
- * `fl_frontend/src/features/spiele/utils.ts` ranks against. The generated `FLSaisonPhase` owns the
- * SET, which `PHASE_LABELS` below is held to; this owns the SEQUENCE.
+ * `fl_frontend/src/features/spiele/utils.ts` ranks against: the backend declares `FLSaisonPhase` in that order.
  */
-export const SAISON_PHASE_OPTIONS: readonly FLSaisonPhase[] = ["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"];
+export const SAISON_PHASE_OPTIONS: readonly FLSaisonPhase[] = Object.values(FLSaisonPhase);
 
 /**
  * `2 ** (knockout rounds)`, mirroring `fl_backend/app/api/spiele/schemas.py :: MAX_QUALIFIERS`.

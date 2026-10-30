@@ -1,12 +1,11 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
+import { FLKartenFarbe, FLKartenGrund, FLSpielberichtVorschlagSonderereignis, FLSpielSeite } from "@/core/generated/client/types";
 import { FLSpielElfmeterschiessenSchema } from "@/features/spiele/schemas";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
 import { SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH, SPIELBERICHT_EINTRAEGE_MAX } from "./constants";
-
-import type { FLSpielSeite } from "@/core/generated/client/types";
 
 // `fl_backend/app/api/spielberichte/schemas.py :: MINUTE_PATTERN`, which the form judges in its own words before the
 // action sends the report.
@@ -16,31 +15,17 @@ const minute = z
   .string({ error: "Bitte gib die Minute ein." })
   .regex(MINUTE_REGEX, { error: "Gib die Minute als Zahl an, die Nachspielzeit mit Plus, etwa 90+3." });
 
-const FLKartenFarbeSchema = z.enum(["gelb", "gelb_rot", "rot"], { error: "Bitte wähle die Farbe der Karte." });
+const FLKartenFarbeSchema = z.enum(FLKartenFarbe, { error: "Bitte wähle die Farbe der Karte." });
 
-const FLKartenGrundSchema = z.enum(
-  [
-    "foulspiel",
-    "unsportlichkeit",
-    "handspiel",
-    "meckern",
-    "spielverzoegerung",
-    "wiederholtes_foulspiel",
-    "grobes_foulspiel",
-    "taetlichkeit",
-    "beleidigung",
-    "notbremse",
-  ],
-  { error: "Bitte wähle einen Grund." },
-);
+const FLKartenGrundSchema = z.enum(FLKartenGrund, { error: "Bitte wähle einen Grund." });
 
-const FLSpielSeiteSchema = z.enum(["team1", "team2"], { error: "Bitte wähle das Team." });
+const FLSpielSeiteSchema = z.enum(FLSpielSeite, { error: "Bitte wähle das Team." });
 
 /**
  * The three events a match that took place can end in. A no-show's goals are the league's to compose, and a fixture
  * called off or struck out has no report (`bericht_abgesagt`).
  */
-const FLSpielberichtSonderereignisSchema = z.enum(["abgebrochen", "nichtantreten_team1", "nichtantreten_team2"], {
+const FLSpielberichtSonderereignisSchema = z.enum(FLSpielberichtVorschlagSonderereignis, {
   error: "Bitte wähle ein Sonderereignis.",
 });
 export type FLSpielberichtSonderereignis = z.infer<typeof FLSpielberichtSonderereignisSchema>;

@@ -1,5 +1,3 @@
-import "server-only";
-
 export const CheckIsLiveResponseValue = {
   status: "ok",
 } as const;
@@ -5791,11 +5789,6 @@ export type N410Response = FLFailureBody;
  * Unprocessable Content
  */
 export type N422Response = FLRefusedPayloadBody;
-
-/**
- * Too Many Requests
- */
-export type N429Response = FLFailureBody;
 
 /**
  * Internal Server Error

@@ -1,5 +1,6 @@
 import z from "zod";
 
+import { FLEinwilligungUmfang } from "@/core/generated/client/types";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import { FLSpielerKontoEinwilligungPayloadSchema, LinkAntwortTextVersionSchema } from "@/features/spieler/schemas";
@@ -86,7 +87,7 @@ const bestaetigungToken = z
  * and a scope in the record would leave the page and the row disagreeing about what „intern“ means.
  */
 // The message an UNANSWERED control raises as well as a drifted one: nothing preselects this choice.
-const FLSchiedsrichterUmfangSchema = z.enum(["kader_oeffentlich", "intern"], {
+const FLSchiedsrichterUmfangSchema = z.enum(FLEinwilligungUmfang, {
   error: "Bitte wähle aus, was im Spielplan stehen darf.",
 });
 

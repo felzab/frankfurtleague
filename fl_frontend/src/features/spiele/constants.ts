@@ -1,4 +1,5 @@
-import type { FLSonderereignis } from "@/core/generated/client/types";
+import { FLSonderereignis } from "@/core/generated/client/types";
+
 import type { SpielStatus } from "./types";
 
 /**
@@ -64,13 +65,7 @@ export const SPIEL_STATUS_LABELS: Record<SpielStatus, string> = {
 export const SONDEREREIGNIS_NONE_LABEL = "Regulär";
 
 /**
- * Declaration order is the order the editor's control and the filter offer them — how often an admin
- * reaches for one, ending with the member that strikes a fixture from the record altogether.
+ * In the order the backend declares `FLSonderereignis`, which the editor's control and the filter offer: how often
+ * an admin reaches for one, ending with the member that strikes a fixture from the record altogether.
  */
-export const SONDEREREIGNIS_OPTIONS: readonly FLSonderereignis[] = [
-  "ausgefallen",
-  "nichtantreten_team1",
-  "nichtantreten_team2",
-  "abgebrochen",
-  "annulliert",
-];
+export const SONDEREREIGNIS_OPTIONS: readonly FLSonderereignis[] = Object.values(FLSonderereignis);

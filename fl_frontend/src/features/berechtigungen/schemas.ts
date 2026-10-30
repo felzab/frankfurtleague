@@ -1,10 +1,12 @@
+// Redesign: goes with its last importer.
 import z from "zod";
 
 import { asSignInIdentifier, isSignInLibraryAddress } from "@/core/emailAddress";
+import { FLVerwaltung } from "@/core/generated/client/types";
 import { CustomObjectIdStringSchema, KontaktEmailSchema } from "@/shared/schemas";
 
 /** The two tiers a grant holds, refused in German: the tier change's input names one. */
-const FLVerwaltungSchema = z.enum(["owner", "administration"], { error: "Diese Stufe gibt es nicht." });
+const FLVerwaltungSchema = z.enum(FLVerwaltung, { error: "Diese Stufe gibt es nicht." });
 
 /**
  * The grant's draft, the address alone: no tier travels, the application granting `administration` only. Held

@@ -40,7 +40,7 @@ from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from tests import documents
-from tests.actor_tokens import FRESH_ADMIN_ACTOR
+from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
@@ -189,7 +189,7 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
         db=client,
         today=today,
         now=MAIL_NOW,
-        actor=FRESH_ADMIN_ACTOR,
+        actor=fresh_admin_actor(),
     )
 
     return await mailed(database, client, answer)
@@ -606,7 +606,7 @@ async def reactivate(database: AsyncDatabase, client: AsyncMongoClient) -> Maile
         db=client,
         today=TODAY,
         now=MAIL_NOW,
-        actor=FRESH_ADMIN_ACTOR,
+        actor=fresh_admin_actor(),
     )
 
     return await mailed(database, client, answer)
