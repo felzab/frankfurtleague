@@ -69,24 +69,11 @@ async def get_bestaetigung_ansicht(
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLRegistrierungBestaetigungAnsichtResponse:
-    """
-    Answer what the page renders for the registration this token opens, and no part of the registration beyond it.
+    """What the confirmation page renders for the registration this token opens, and nothing of the pupil.
 
-    The link's state, the team and its school, the season, the age floor the press will be judged by, the age from
-    which the media switch is offered, and which of two pages the link opens. Never the pupil's name: the link went to
-    an address nobody has confirmed, which behind a typo is a stranger's.
-
-    `bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded
-    address under its folded name who confirmed their own record. That page asks no choice and no birthdate, taking
-    the person's own; nothing the person's record holds is served, the holder of a mailed link not yet being known
-    to be that person. Matched on the address alone, a mailbox shared anyway would hand a sibling that person's
-    page, so the name narrows the match.
-
-    A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
-    registration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather
-    than refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever
-    the ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred
-    pupil nothing to press.
+    A POST, so the token travels in the body. A confirmed or expired link is served in that state, `gesperrt` ranking first,
+    and `bestaetigung_spieler_wiederkehrend` opens the returning pupil's page; only a token no registration holds is refused
+    (`REQ-REGISTRIERUNG-004`).
     """
 
     token_hash = hash_token(ansicht_data.token)
@@ -133,28 +120,10 @@ async def post_bestaetigung(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLRegistrierungBestaetigungResponse:
-    """
-    Record a pupil's own answer for the registration their link opens: their date of birth and the consent record, in one update.
+    """Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
 
-    Which page the link opens is resolved again here, as the view resolves it. On the new pupil's page the record
-    carries the publication scope they chose, the media answer beside it, the stamp and the wording they were shown.
-    On the returning pupil's page, which asks no choice, it carries the stamp and the wording alone: the choices
-    standing on the person's own record are theirs to change on the account page, and nothing here re-grants one.
-    Its body carries no birthdate: the person's stored one, read here, is judged and written, and the answer echoes
-    null rather than the stored date.
-
-    Refuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has
-    passed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but
-    the running one of the page the link opens now (`REQ-EINWILLIGUNG-001`), answers that are not the ones that page
-    asks -- both choices and a birthdate on the new pupil's, none of the three on the returning pupil's
-    (`REQ-REGISTRIERUNG-017`) -- a returning pupil's person holding no birthdate to take (`-019`), a link mailed to an
-    address the ban list holds now, whenever the link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor
-    (`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`). Every one is
-    judged before anything is written, so a reloaded page or a mistyped year spends nothing and the pupil keeps the
-    link.
-
-    The registration stays pending after this: an admission is a later decision, and nothing here writes a person
-    or a squad row.
+    Refuses, writing nothing: `REQ-REGISTRIERUNG-004`, `-005`, `-006`, `-007`, `-010`, `-012`, `-017`, `-019` and
+    `REQ-EINWILLIGUNG-001`.
     """
 
     token_hash = hash_token(antwort_data.token)

@@ -146,12 +146,7 @@ async def pull_the_season_after(
 
 @router.get("", response_model=FLBewerbungSweepSaisonsResponse, summary="Every season the sweep has to visit")
 async def get_sweep_saisons(saisons_collection: SaisonsCollection) -> FLBewerbungSweepSaisonsResponse:
-    """
-    Answer every season's id, oldest first, so the caller runs the clocks one season at a time.
-
-    System tier rather than the base one: a season taking applications is `future`, which the base tier is never served,
-    and the two clocks that matter run over exactly those seasons.
-    """
+    """Every season's id, oldest first, for the caller to sweep one at a time."""
 
     seasons = await pull_many_from_db(
         collection=saisons_collection, db_filter={}, projection=["_id"], sort_by=[("_id", 1)], limit=LIST_LIMIT_MAX
@@ -179,45 +174,11 @@ async def sweep_saison(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungSweepResponse:
-    """
-    Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.
+    """Run one season's six retention clocks as of today, and answer the reminders and deletion notices the caller must mail.
 
-    The reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one
-    person one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the
-    mail provider refused is not chased at all, its one reminder buying nothing. A seat whose address the ban list holds is
-    sent nothing and has nothing written: it stays due, so every pass asks the ban list for it again until its deadline, and
-    reminds it once a lift comes first; each pass logs how many mailboxes it withheld, never which. The fourteen-day clock only
-    LISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the
-    delivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose
-    Ansprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to
-    correct the address, because erasing it would destroy a school's application with nobody told. That hold ends with the
-    season: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its
-    seats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is
-    over. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The
-    declined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.
-
-    One call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline
-    first; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transactions, so no later step
-    of the same call can answer an error in their place; where the request's deadline cuts them after one has committed, the call
-    answers what committed and warns once.
-
-    An application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,
-    is passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it
-    again and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks
-    passed over.
-
-    404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,
-    though it logs the count of withheld seats again.
-
-    The accepted clock and the contact block run once a later season has ended while this one is not `active`, the moment the
-    season-after rule stops keeping this season's pupils: a running season keeps both, and a later season planned and never run
-    holds neither back. A season whose id is not a four-digit year fails the whole pass rather than running the four clocks
-    that need no later season, because a pass that skipped those two quietly would leave both stopped for ever with nothing
-    anywhere saying so. From that moment every pass also strips, on the rows and in their log images, the season's fixture
-    confirmation rows of every seat's link entry, each reason and a contact's holder digest, and its match
-    reports of their remarks and every card's reason; the answers' way, day and role and the reports' scorers, cards and
-    result stay as the record. Each strip is its own transaction after the blocks' share: one that fails is
-    logged under the season's id and counted in `fehlgeschlagen`, and the blocks clear all the same.
+    Every reminder answered is already stamped and committed. A deletion candidate is only listed: the caller stamps the
+    delivered notices through `/angekuendigt` and erases the announced ones through `/loeschen`. A row that cannot be written
+    is passed over, counted in `fehlgeschlagen` and met again by the next pass. 404 where no season has the id.
     """
 
     # The read that answers the 404 carries the status: this season's own end is a clock too, and a
@@ -673,17 +634,9 @@ async def angekuendigt_bewerbungen(
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungSweepAngekuendigtResponse:
-    """
-    Record that the deletion notice reached the applications named, so an erasure that fails afterwards mails nobody twice.
+    """Stamp the named candidates whose deletion notice was delivered.
 
-    An id whose stamp fails, the database refusing it or anything else, is passed over alone, logged by id, left unstamped and
-    counted in `fehlgeschlagen`. Every later pass then lists it as unannounced, so a caller mailing those mails its notice again,
-    and `/loeschen` skips it: until a stamp lands it stands until its season is `past`.
-
-    The ids are re-judged in-session: only one still submitted, past its deadline and with a seat outstanding is stamped, and one
-    already carrying a stamp keeps the day it has. An id whose Ansprechperson the mail provider refused between the pass and this
-    call is skipped, so a notice the provider never carried is not recorded as delivered. 404 where no season has the id. An empty
-    list answers zero.
+    An id that no longer qualifies, or already carries a stamp, is skipped. 404 where no season has the id.
     """
 
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
@@ -752,16 +705,9 @@ async def loeschen_bewerbungen(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungSweepLoeschenResponse:
-    """
-    Erase the applications whose deletion notice went out, and redact every log row naming them.
+    """Erase the named candidates that still qualify and carry the announcement stamp, and redact every log row naming them.
 
-    The ids are re-judged in-session: only one still submitted, past its deadline, with a seat outstanding, whose announcement the
-    mail provider will still carry AND carrying the announcement stamp is erased, so an application confirmed and accepted between
-    the calls survives, one whose notice bounced after it was stamped is held rather than destroyed, and an id from another
-    season or one nobody was told about is skipped rather than refused. 404 where no season has the id. An empty list answers zeros.
-
-    An id whose erasure fails, the database refusing it or anything else, is passed over alone, logged by id, left standing and
-    counted in `fehlgeschlagen`.
+    Any other id is skipped. 404 where no season has the id.
     """
 
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])

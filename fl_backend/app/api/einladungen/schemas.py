@@ -11,11 +11,7 @@ from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 
 class FLEinladungVersand(BaseModel):
-    """The carrier a message about this invite is recorded in.
-
-    A carrier rather than the record itself: `zustellung_pfad` composes a dotted path out of it, and
-    the accepted send skips a row holding no carrier at all.
-    """
+    """The carrier a message about this invite is recorded in."""
 
     # Absent until something is mailed, and null never: the send writes the whole record
     # (`app/api/zustellung/services.py :: compose_ziel_zustellung_update`).
@@ -23,10 +19,7 @@ class FLEinladungVersand(BaseModel):
 
 
 class FLEinladung(BaseModel):
-    """One minted link as it is served -- and NO `token_hash`.
-
-    A model declaring the hash would put every live link of the season on an admin read.
-    """
+    """One minted link as it is served, without its hash."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     saison_id: CustomNonEmptyString
@@ -76,12 +69,10 @@ class FLEinladungWriteResponse(BaseAPIResponse):
     einladung_id: CustomObjectId
 
 
+# Here rather than in `teams/schemas.py`, whose endpoint answers it: there it would close an import cycle through
+# `bewerbungen/schemas.py`.
 class FLEinladungResponse(BaseAPIResponse):
-    """The team's live link for one season, or nothing, beside the window deciding what it opens.
-
-    Declared here rather than in `app/api/teams/schemas.py`, whose endpoint answers it: moving it
-    there is an import cycle through `app/api/bewerbungen/schemas.py`.
-    """
+    """The team's live link for one season, or nothing, beside the window deciding what it opens."""
 
     saison_id: CustomNonEmptyString
     team_id: CustomObjectId

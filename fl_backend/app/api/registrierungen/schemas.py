@@ -50,11 +50,7 @@ CustomRegistrierungToken = Annotated[str, StringConstraints(strip_whitespace=Tru
 
 
 class FLRegistrierungBestaetigung(BaseModel):
-    """One registration's confirmation bookkeeping as an administrator reads it -- and NO `token_hash`.
-
-    The hash is a raw document key the confirmation query alone reads, as
-    `app/api/bewerbungen/schemas.py :: FLBewerbungBestaetigung` keeps its own off the wire.
-    """
+    """One registration's confirmation bookkeeping as an administrator reads it, without its link's hash."""
 
     verschickt_am: CustomDateString
     erinnert_am: CustomOptionalDateString
@@ -66,11 +62,7 @@ class FLRegistrierungBestaetigung(BaseModel):
 
 
 class FLRegistrierungEntscheidung(BaseModel):
-    """Who declined this registration, when, and why.
-
-    Its own model beside the application's: one shape over both would let a field either flow adds
-    reach the other, where a pupil's record and a school's are decided by different surfaces.
-    """
+    """Who declined this registration, when, and why."""
 
     getroffen_am: CustomDateString
     von: CustomNonEmptyString
@@ -125,8 +117,7 @@ class _RegistrierungStored(BaseModel):
 class FLRegistrierung(_RegistrierungStored):
     """One pupil's registration for one team's season, as stored, its decision as served.
 
-    The submission is never rewritten: its pupil fills and withdraws `einwilligung` and fills
-    `geburtsdatum`, and a decline writes `status` and `entscheidung`.
+    Its pupil fills and withdraws `einwilligung` and fills `geburtsdatum`; a decline writes `status` and `entscheidung`.
     """
 
     bestaetigung: FLRegistrierungBestaetigung | None
@@ -168,11 +159,7 @@ class FLEinladungAnsichtPayload(BaseModel):
 
 
 class FLEinladungAnsichtResponse(BaseAPIResponse):
-    """What an invite's holder is told before they type anything.
-
-    Each field is something the link's own message already said, or something the form is bounded
-    by: a select offering more than the write accepts is a drifted client.
-    """
+    """What an invite's holder is told before they type anything, and the bounds the form is held to."""
 
     team: CustomNonEmptyString
     # The club's `full_name`, a club here BEING a school: the consent copy names it, and a slot with
@@ -194,8 +181,7 @@ class FLEinladungAnsichtResponse(BaseAPIResponse):
 class FLPostRegistrierungPayload(BaseModel):
     """One pupil registering through a team's link.
 
-    The league's own fields -- the team, the season, the state, the deadline and the confirmation
-    link -- are taken off the invite and the clock, never off this body.
+    The team, the season, the state, the deadline and the confirmation link come from the invite and the clock, never from this body.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -213,11 +199,7 @@ class FLPostRegistrierungPayload(BaseModel):
 
 
 class FLPostRegistrierungResponse(BaseAPIResponse):
-    """The stored registration and a raw confirmation link, which no read ever answers.
-
-    The database holds its hash alone, so a lost link is re-minted by the sweep's reminder rather
-    than recovered from any read.
-    """
+    """The stored registration and its raw confirmation link, which no read ever answers again."""
 
     registrierung_id: CustomObjectId
     # Null on a replay whose row needs no fresh link, and

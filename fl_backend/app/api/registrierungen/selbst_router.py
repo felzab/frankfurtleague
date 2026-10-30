@@ -44,21 +44,10 @@ async def patch_einwilligung(
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLRegistrierungSelbstEinwilligungResponse:
-    """
-    Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
+    """Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
 
-    WITHDRAW-ONLY until the admission: a grant is the team's admission's to make possible, after which the pupil's own
-    record takes it on the account page; this one is offered so taking a consent back is as easy as giving it was
-    (Art. 7(3) DSGVO). Writes those two on this one registration, and nothing else: the confirmation day, the day given
-    and the wording the pupil confirmed stand. A PATCH moving neither choice writes nothing, and nothing is counted
-    against the person's ceiling. The admission carries a withdrawal made here onto the person, as it carries every
-    choice the registration set later than the person's own.
-
-    Refuses, in this order: an id that is no pending registration of this address, confirmed by its pupil and carrying
-    their choices (`REQ-FUNKTION-001`); a `nachweis_stand` other than the registration's own, either choice having
-    moved since the page was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-EINWILLIGUNG-004`); and a
-    `text_version` naming no version of the account page's pupil control (`REQ-EINWILLIGUNG-001`). Each refusal writes
-    nothing.
+    A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `REQ-FUNKTION-001`,
+    `REQ-EINWILLIGUNG-003` (the choices moved since the page was served), `REQ-EINWILLIGUNG-004` and `REQ-EINWILLIGUNG-001`.
     """
 
     gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
