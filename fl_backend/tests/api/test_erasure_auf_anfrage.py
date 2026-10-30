@@ -138,7 +138,7 @@ def _built_before_any_case() -> None:
 
 
 def on_a_league(url: str, body: Body) -> Any:
-    """The person holding everything, beside the suite's grants, on the shipped validators and indexes."""
+    """The person holding everything, beside the suite's grants, on the shipped indexes."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):

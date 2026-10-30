@@ -1,5 +1,5 @@
 """
-API · the season-after rule's run and its preview, against the shipped validators and the whole database
+API · the season-after rule's run and its preview, against the shipped indexes and the whole database
 
 The league has two seasons ended, one running and one planned, so the rule keeps a squad row in the
 latest ended one and every later one. Every pupil a case seeds is held against what the rule says of
@@ -150,7 +150,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAGUE, mutates_schema: bool = False) -> Any:
-    """The shipped validators, the seasons, one team, and both sentinels as an erasure writes them."""
+    """The shipped indexes, the seasons, one team, and both sentinels as an erasure writes them."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):

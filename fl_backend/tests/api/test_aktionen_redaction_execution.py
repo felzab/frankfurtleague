@@ -1,5 +1,5 @@
 """
-API · the erasure's last pass over the log, driven against the shipped validators
+API · the erasure's last pass over the log, driven against the shipped indexes
 
 Every image this league's writes file of a document the erasure neither removes nor clears holds the
 erased address once; the pass leaves none, the marker standing where the address named who acted.
@@ -212,7 +212,7 @@ class TestTheJudgement:
         assert address_image_edits(image, identifier=ERASED, addresses=addresses) == {"genehmigung.gestartet_von": ERASED_ACTOR_MARKER}
 
     def test_every_field_naming_who_acted_takes_the_marker_and_every_own_address_goes_null(self):
-        """The marker keeps a replayed image valid where the validator requires the field; a person's own address is nobody's to keep."""
+        """The marker keeps a replayed image valid where its record model requires the field; a person's own address is nobody's to keep."""
 
         authored = {
             (collection, address.path) for collection, addresses in IMAGE_ADDRESSES.items() for address in addresses if address.replacement

@@ -269,7 +269,7 @@ def _grant(grant_id: ObjectId, adresse: str, verwaltung: str) -> dict[str, Any]:
 
 
 def on_a_league(url: str, body: Body) -> Any:
-    """The REAL validators, so a seeded row this read has to answer is one the shipped schema admits."""
+    """The shipped indexes, so a seeded row this read has to answer meets the constraints a real one meets."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):

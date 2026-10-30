@@ -243,7 +243,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body) -> Any:
-    """The REAL validators, so every seeded row is one the shipped schema admits."""
+    """The shipped indexes, so every seeded row meets the constraints a real one meets."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):

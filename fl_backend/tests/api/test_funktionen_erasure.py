@@ -744,9 +744,9 @@ async def everything_in(database: AsyncDatabase) -> dict[str, list[Any]]:
 
 
 def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
-    """The shipped validators and indexes, and the person seeded with their whole history.
+    """The shipped indexes, and the person seeded with their whole history.
 
-    `mutates_schema=True` where the body narrows one of those validators (`tests/database.py :: a_clean_database`).
+    `mutates_schema=True` where the body installs a validator (`tests/database.py :: a_clean_database`).
     """
 
     async def _run() -> Any:
@@ -1104,7 +1104,7 @@ class TestOneTransaction:
     """A failure at a late write takes every step back: an erasure half done reports one that did not happen."""
 
     def test_a_refused_last_write_leaves_everything_as_it_stood(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """The validator refuses the marker on a person's row, which the log's step writes first, after every step removing a record."""
+        """A validator installed here refuses the marker on a person's row, which the log's step writes first, after each removing step."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database.command(

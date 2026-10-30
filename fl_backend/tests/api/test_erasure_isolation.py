@@ -1,5 +1,5 @@
 """
-API · a record written for an address while that address's erasure runs, against the shipped validators and the whole database
+API · a record written for an address while that address's erasure runs, against the shipped indexes and the whole database
 
 The erasure reads what an address holds once, in its transaction's snapshot, and a writer committing a record for
 that address after the read writes no document the erasure writes: with nothing written by both, both commit and
