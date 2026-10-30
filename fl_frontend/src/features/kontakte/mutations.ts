@@ -11,7 +11,6 @@ import type {
   FLKontaktRolle,
   FLPatchSaisonTeamKontaktePayload,
   FLPatchSaisonTeamKontakteResponse,
-  FLSaisonTeamPersonEinwilligungPayload,
   FLSaisonTeamPersonEinwilligungResponse,
   FLSitzEinwilligungPayload,
 } from "@/core/generated/client/types";
@@ -48,7 +47,7 @@ export async function einladeKontakt({
 export async function patchSitzEinwilligung(
   teamId: string,
   saisonId: string,
-  payload: FLSaisonTeamPersonEinwilligungPayload,
+  payload: FLSitzEinwilligungPayload,
 ): Promise<FLSaisonTeamPersonEinwilligungResponse> {
   return teamsPatchEinwilligung(teamId, saisonId, payload);
 }

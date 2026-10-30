@@ -12,7 +12,7 @@ import {
 } from "@/core/generated/client/sdk";
 
 import type {
-  FLKaderZeileResponse,
+  FLKaderZeile,
   FLSaisonSpielerResponse,
   FLSelbstEinwilligungPayload,
   FLSpielerAdminSingleResponse,
@@ -65,12 +65,12 @@ export async function reactivateSaisonSpieler({ spieler_id, saison_id }: FLSaiso
 
 // A seat holder's write rides the admin key under the person lane's actor, which the backend checks
 // the seat against: the club stays the stored row's, so the path's team is the address and no field.
-export async function patchKaderZeile({ team_id, saison_id, spieler_id, ...body }: FLPatchKaderZeilePayload): Promise<FLKaderZeileResponse> {
+export async function patchKaderZeile({ team_id, saison_id, spieler_id, ...body }: FLPatchKaderZeilePayload): Promise<FLKaderZeile> {
   return spielerPatchKaderZeile(team_id, saison_id, spieler_id, body);
 }
 
 // Soft, as the administrator's own is: the row stays, and only the administrator's reactivate brings it back.
-export async function deleteKaderZeile({ team_id, saison_id, spieler_id }: FLKaderZeileKeyPayload): Promise<FLKaderZeileResponse> {
+export async function deleteKaderZeile({ team_id, saison_id, spieler_id }: FLKaderZeileKeyPayload): Promise<FLKaderZeile> {
   return spielerDeleteKaderZeile(team_id, saison_id, spieler_id);
 }
 

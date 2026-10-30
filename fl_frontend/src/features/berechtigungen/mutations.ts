@@ -13,7 +13,6 @@ import type {
   FLBerechtigungAngekuendigtPayload,
   FLBerechtigungAngekuendigtResponse,
   FLBerechtigungAntragAbgelehntResponse,
-  FLBerechtigungAntragGenehmigtResponse,
   FLBerechtigungStufeResponse,
   FLBerechtigungWriteResponse,
   FLPostBerechtigungPayload,
@@ -34,7 +33,7 @@ export async function patchBerechtigung({ id, verwaltung }: FLPatchBerechtigungP
   return berechtigungenPatchBerechtigung(id, { verwaltung: verwaltung });
 }
 
-export async function postAntragGenehmigung({ id }: FLBerechtigungAntragKeyPayload): Promise<FLBerechtigungAntragGenehmigtResponse> {
+export async function postAntragGenehmigung({ id }: FLBerechtigungAntragKeyPayload): Promise<FLBerechtigungWriteResponse> {
   return berechtigungenPostAntragGenehmigung(id);
 }
 

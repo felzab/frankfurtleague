@@ -16,14 +16,12 @@ import {
 import type {
   FLAdresswechselAdressePayload,
   FLAdresswechselAdresseResponse,
-  FLAdresswechselAnsichtPayload,
   FLAdresswechselAnsichtResponse,
   FLAdresswechselAntwortPayload,
   FLAdresswechselAntwortResponse,
   FLAdresswechselGenehmigungResponse,
   FLAdresswechselIdResponse,
   FLAdresswechselPostausgangResponse,
-  FLAdresswechselStoppPayload,
   FLAdresswechselStoppResponse,
   FLAdresswechselSweepResponse,
   FLAdresswechselVerwaltungAnsichtPayload,
@@ -32,6 +30,7 @@ import type {
   FLAdresswechselVerwaltungPayload,
   FLAdresswechselZugestelltPayload,
   FLAdresswechselZugestelltResponse,
+  FLTokenPayload,
 } from "@/core/generated/client/types";
 import type { FLAdresswechselEinladenPayload, FLAdresswechselGenehmigungPayload, FLAdresswechselVerwerfenPayload } from "./schemas";
 
@@ -39,7 +38,7 @@ import type { FLAdresswechselEinladenPayload, FLAdresswechselGenehmigungPayload,
  * A POST that reads: the token is the credential, and a GET would put it in a query string the backend's route template
  * does not redact. On the base tier, as the press is: the token in the body is the whole authorization.
  */
-export async function postAdresswechselAnsicht(payload: FLAdresswechselAnsichtPayload): Promise<FLAdresswechselAnsichtResponse> {
+export async function postAdresswechselAnsicht(payload: FLTokenPayload): Promise<FLAdresswechselAnsichtResponse> {
   return adresswechselGetAdresswechselAnsicht(payload, { readOnly: true });
 }
 
@@ -49,7 +48,7 @@ export async function postAdresswechselAntwort(payload: FLAdresswechselAntwortPa
 }
 
 /** The stop of the address on file, which hands nothing over. */
-export async function postAdresswechselStopp(payload: FLAdresswechselStoppPayload): Promise<FLAdresswechselStoppResponse> {
+export async function postAdresswechselStopp(payload: FLTokenPayload): Promise<FLAdresswechselStoppResponse> {
   return adresswechselPostAdresswechselStopp(payload);
 }
 

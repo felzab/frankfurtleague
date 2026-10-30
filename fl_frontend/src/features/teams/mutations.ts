@@ -9,12 +9,12 @@ import {
 } from "@/core/generated/client/sdk";
 
 import type {
+  FLCreatedResponse,
   FLPatchSaisonTeamPayload,
   FLPatchTeamPayload,
   FLPatchTeamResponse,
   FLPostSaisonTeamPayload,
   FLPostTeamPayload,
-  FLPostTeamResponse,
   FLReplaceSaisonTeamPayload,
   FLReplaceSaisonTeamResponse,
   FLSaisonTeamResponse,
@@ -29,7 +29,7 @@ export async function postTeam({
   website_url,
   address,
   schulform,
-}: FLPostTeamPayload): Promise<FLPostTeamResponse> {
+}: FLPostTeamPayload): Promise<FLCreatedResponse> {
   return teamsPostTeam({ name, shorthand, description, full_name, website_url, address, schulform });
 }
 

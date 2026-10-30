@@ -4,7 +4,7 @@ import { card } from "@/shared/components/ui/card";
 import { KARTEN_FARBE_LABELS, KARTEN_GRUND_LABELS, TORSCHUETZE_UNBEKANNT_LABEL } from "../../constants";
 import { spielerLabel } from "../../utils";
 
-import type { FLSpielberichtBericht, FLSpielberichtTorschuetzeSeite } from "@/core/generated/client/types";
+import type { FLSpielberichtBericht, FLSpielSeite } from "@/core/generated/client/types";
 import type { SpielberichtAnsicht } from "../../types";
 
 /**
@@ -15,7 +15,7 @@ export function BerichtEintraege({ lesen, bericht }: { lesen: SpielberichtAnsich
   const { spiel } = lesen;
 
   // A side fielding another club since is named by its place, never by the club now on it, which the entry is not about.
-  const team = (seite: FLSpielberichtTorschuetzeSeite) =>
+  const team = (seite: FLSpielSeite) =>
     lesen.seiten_geaendert.includes(seite)
       ? `früheres ${seite === "team1" ? "Team 1" : "Team 2"}`
       : ((seite === "team1" ? spiel.team1?.name : spiel.team2?.name) ?? "");

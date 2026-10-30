@@ -1,4 +1,4 @@
-import type { FLEinladungVersandVorschauZeileUebersprungen, FLEinladungZeile } from "@/core/generated/client/types";
+import type { FLEinladungVersandGrund, FLEinladungZeile } from "@/core/generated/client/types";
 
 /**
  * What the team editor's invite panel is rendered from. **`laeuft` rides beside the row rather than
@@ -17,7 +17,7 @@ export type TeamEinladungState = {
 export type EinladungVersandErgebnis = {
   team_id: string;
   team_name: string;
-  uebersprungen: FLEinladungVersandVorschauZeileUebersprungen;
+  uebersprungen: FLEinladungVersandGrund | null;
   /** The endpoint's own row: a team whose link this press replaced, or on an unknown-outcome row may have replaced. */
   ersetzt_link: boolean;
   /**
