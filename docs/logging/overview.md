@@ -10,14 +10,15 @@ on the others by searching for that id.
 
 ## How it is organised
 
-| Surface  | Writes                                                                                                    | Where                                                                                                                |
-| -------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| nginx    | One access line per request in the `fl_json` format, and a plain-text error log                           | `nginx/shared/http.conf`, `nginx/shared/site.conf`; both logs are host files under `/var/log/frankfurtleague/nginx/` |
-| Frontend | Its own lines through one logger, and everything else reaching `console.*` wrapped into the same envelope | `fl_frontend/src/core/logging.ts`, `fl_frontend/src/core/consoleShim.ts`, `fl_frontend/src/core/logFormat.ts`        |
-| Backend  | One access line per request, a line per server failure, and every library's lines in the same envelope    | `fl_backend/app/core/middlewares.py :: TraceContextMiddleware`, `fl_backend/app/core/logging.py`                     |
+| Surface  | Writes                                                                                                 | Where                                                                                                                |
+| -------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| nginx    | One access line per request in the `fl_json` format, and a plain-text error log                        | `nginx/shared/http.conf`, `nginx/shared/site.conf`; both logs are host files under `/var/log/frankfurtleague/nginx/` |
+| Frontend | Its own lines through one logger; Next's and a library's output prints as it prints                    | `fl_frontend/src/core/logging.ts`                                                                                    |
+| Backend  | One access line per request, a line per server failure, and every library's lines in the same envelope | `fl_backend/app/core/middlewares.py :: TraceContextMiddleware`, `fl_backend/app/core/logging.py`                     |
 
-The frontend's `LOG_FORMAT` selects `json` or `console`, and production runs `json`. The backend
-writes JSON whenever its output is not a terminal, which a container never is.
+The frontend writes JSON from a production build, the image's and the local stack's alike, and a
+plain line under `next dev`, by the runtime's own `NODE_ENV`. The backend writes JSON whenever its
+output is not a terminal, which a container never is.
 
 ## Following one request
 
@@ -30,9 +31,10 @@ on. Nothing echoes the trace on a response except a failure body, `{error_code, 
 is how a reader goes from a code a page showed to the lines behind it.
 
 **A cached read runs under a trace of its own.** A `"use cache"` result is shared by later
-requests, so no page request's trace can reach the backend call that filled it. The frontend logs
-one `INFO` line under the fill's trace, its `cache_fill` field naming the cached function. A cache
-hit makes no request at all, so the edge's access line is the only record of that page view.
+requests, so no page request's trace can reach the backend call that filled it: the fill mints a
+trace of its own and writes no line for it. A failed fill reaches the page's crash line, whose
+`fetch_trace_id` names the fill's trace beside the page request's `trace_id`. A cache hit makes no
+request at all, so the edge's access line is the only record of that page view.
 Server actions, route handlers and the uncached reads a page makes run under the page request's
 trace end to end (`fl_frontend/src/shared/utils/traceScope.ts`).
 
@@ -47,14 +49,14 @@ answered.
 
 ## What a line holds
 
-Every JSON line opens with `timestamp`, `level`, `service`, `trace_id` and `message`; the frontend's
-and the edge's carry a `span_id` after the trace. A backend message is a constant
+Every JSON line opens with `timestamp`, `level`, `service`, `trace_id` and `message`; the edge's
+carries a `span_id` after the trace. A backend message is a constant
 `<slice>.<event>`, and each value travels as a field of its own after `module` and `line`; a line
 carrying a stack adds `error`, holding the exception's `name`, `message` and `stack`. A log line
 names the field a request got wrong and never the value submitted for it, since that value can be
-personal data, and the backend's formatter writes `[address]` in place of anything shaped like an
-email address, whoever wrote the line. The edge's access line logs `[redacted]` in place of any
-query carrying a `token`, an `email` or a `q` parameter
+personal data. The backend's formatter, on every line it writes, and the frontend's logger, on the
+frontend's own lines, write `[address]` in place of anything shaped like an email address. The
+edge's access line logs `[redacted]` in place of any query carrying a `token`, an `email` or a `q` parameter
 (`nginx/shared/http.conf :: map $request_uri $credential_free_uri`), because a mailed link's token
 and a mailed address travel there. nginx's error log is plain text, since the open-source build
 offers no other format, and it can repeat such a URL.
@@ -90,12 +92,11 @@ time, which together find the line.
 
 ## In development
 
-`LOG_FORMAT=console` writes the frontend's human-readable line,
-`LEVEL timestamp origin - message key=value…` with an attached stack indented below it
-(`fl_frontend/src/core/logFormat.ts`). The backend writes a plain line of the same order to a
-terminal, as under `fastapi dev`, with no colour and the stack below it. With no nginx in front,
-whichever service receives the request mints the trace. `./scripts/ops/local.sh` runs the whole
-stack with the production format.
+`next dev` writes the frontend's line as `LEVEL message {fields as JSON}`, with a stack on the lines
+after it (`fl_frontend/src/core/logging.ts`). The backend writes
+`LEVEL timestamp module:line - message key=value…` to a terminal, as under `fastapi dev`, with no
+colour and the stack below it. With no nginx in front, whichever service receives the request mints
+the trace. `./scripts/ops/local.sh` runs the whole stack with the production format.
 
 ## Read next
 
