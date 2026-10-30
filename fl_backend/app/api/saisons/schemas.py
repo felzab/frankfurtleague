@@ -2,18 +2,16 @@ from typing import Annotated, Final, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
-# The three are imported rather than restated. Acyclic: none of these slices' MODELS imports this
-# file -- `teams/services.py` does, and no model there.
-from app.api.spiele.schemas import FLSaisonPhase
-from app.api.spieler.schemas import FLSpielerStufe
-from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLGruppenNames
+# Imported rather than restated. Acyclic: no model of `teams` imports this file --
+# `teams/services.py` does, and no model there.
+from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.core import clock
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_reversed_span
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSortOrder, FLSpielerStufe
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
-FLSaisonStatus = Literal["past", "active", "future"]
-FLSaisonsSortOptions = Literal["_id", "start_date", "end_date"]
+type FLSaisonsSortOptions = Literal["_id", "start_date", "end_date"]
 
 
 class FLSaisonForfeitErgebnis(BaseModel):
@@ -168,18 +166,14 @@ class _SaisonStored(_SaisonWritable):
     spielplan: FLSaisonSpielplan | None = None
 
 
-class FLSaison(_SaisonStored):
+class FLSaison(_SaisonStored, BaseReadModel):
     # DERIVED, and on no document. Injected before validation, because a computed field would close
     # an import cycle.
     schedule: tuple[FLSaisonPhaseSchedule, ...]
 
 
 class FLSaisonRecord(_SaisonStored):
-    """A season as `saisons` stores it: no derived schedule, and the passes' own clocks, which no read serves."""
-
-    sweep_gelaufen_am: str | None = None
-    registrierung_sweep_gelaufen_am: str | None = None
-    spiel_sweep_gelaufen_am: str | None = None
+    """A season as `saisons` stores it: no derived schedule."""
 
 
 FLSaisonListAdapter = TypeAdapter(list[FLSaison])
@@ -191,7 +185,7 @@ class FLSaisonsFilterParams(BaseModel):
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: FLSaisonsSortOptions = Field(default="_id")
-    order: Literal["asc", "desc"] = Field(default="asc")
+    order: FLSortOrder = Field(default="asc")
 
 
 # The league's FIRST season, and the floor an id may not fall below. A LITERAL because it is a fact
@@ -219,8 +213,8 @@ def refuse_a_saison_year_outside_the_league(value: str) -> str:
 
 class FLPostSaisonPayload(_SaisonPayload):
     # CHOSEN, not generated: `saisons._id` is the string every `saison_id` references, so this is
-    # the one create payload carrying an id -- and stripped first, a width counting CHARACTERS
-    # otherwise creating a season keyed on spaces.
+    # the one create payload carrying an id. No strip: the digits refuse a padded id rather than repair
+    # it, and constraints set after a validator would leave the pattern out of the published schema.
 
     # `[0-9]` and never `\d`, which pydantic's Rust engine reads as `\p{Nd}`: an Arabic-Indic or
     # fullwidth year parses as a number, sorts nowhere near its neighbours and can never be retyped.
@@ -229,7 +223,7 @@ class FLPostSaisonPayload(_SaisonPayload):
     # declared length the moment that constant moves, every mirror having followed it.
     id: Annotated[
         str,
-        StringConstraints(strip_whitespace=True, min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH, pattern=r"^[0-9]+$"),
+        StringConstraints(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH, pattern=r"^[0-9]+$"),
         AfterValidator(refuse_a_saison_year_outside_the_league),
     ]
 

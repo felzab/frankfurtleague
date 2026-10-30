@@ -28,7 +28,7 @@ from app.api.spielbestaetigungen.services import (
 )
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_one_from_db, refuse
-from app.core.dependencies import DBClient, SaisonsCollection, SpielbestaetigungenCollection, SpieleCollection, get_german_date_str
+from app.core.dependencies import DBClient, SpielbestaetigungenCollection, SpieleCollection, get_german_date_str
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
@@ -50,15 +50,14 @@ FLSpielbestaetigungenFilters = Annotated[FLSpielbestaetigungenFilterParams, Quer
 )
 async def get_spielbestaetigungen(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    saisons_collection: SaisonsCollection,
     filters: FLSpielbestaetigungenFilters,
 ) -> FLSpielbestaetigungenListResponse:
     """
-    Every confirmation row of the season, or of its one fixture, and the day the confirmation pass last ran over it.
+    Every confirmation row of the season, or of its one fixture.
 
     Newest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still
     holding its party's question is served; `limit` cuts the others, and `vollstaendig` is false where it left the
-    oldest of them out. A season no document has answers no rows and a null day rather than 404.
+    oldest of them out. A season no document has answers no rows rather than 404.
     """
 
     db_filter: dict[str, Any] = {"saison_id": filters.saison_id}
@@ -68,11 +67,9 @@ async def get_spielbestaetigungen(
     rows, vollstaendig = await pull_admin_rows(
         spielbestaetigungen_collection=spielbestaetigungen_collection, db_filter=db_filter, limit=filters.limit
     )
-    saison = await saisons_collection.find_one({"_id": filters.saison_id}, {"spiel_sweep_gelaufen_am": 1})
 
     return FLSpielbestaetigungenListResponse(
         spielbestaetigungen=[FLSpielbestaetigung.model_validate(row) for row in rows],
-        spiel_sweep_gelaufen_am=(saison or {}).get("spiel_sweep_gelaufen_am"),
         vollstaendig=vollstaendig,
     )
 

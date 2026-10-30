@@ -25,13 +25,7 @@ from app.api.bewerbungen.services import (
     compose_einwilligung,
     compose_kontakte,
 )
-from app.api.teams.schemas import (
-    KONTAKT_ROLLEN,
-    FLKontaktperson,
-    FLKontaktpersonPayload,
-    FLTrikotFarbe,
-    normalise_telefon,
-)
+from app.api.teams.schemas import FLKontaktperson, FLKontaktpersonPayload, normalise_telefon
 from app.core.exceptions import DocumentNotFoundError
 from app.shared.schemas.bounds import (
     BEWERBUNG_KADER_GROESSE_MAX,
@@ -43,6 +37,7 @@ from app.shared.schemas.bounds import (
     TEAM_NAME_MAX_LENGTH,
     TEAM_WEBSITE_URL_MAX_LENGTH,
 )
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLTrikotFarbe
 from tests.documents import ADDRESS, kontaktperson_document
 
 # Fixed rather than generated, so a failure names the same club every run. Its own hex range, as
@@ -925,7 +920,7 @@ class TestTheColoursASeasonHasAlreadyAssigned:
     def test_the_whole_palette_survives_the_filter(self):
         """The control, over the whole enum: a filter dropping everything would satisfy the cases above."""
 
-        offered = list(get_args(FLTrikotFarbe))
+        offered = list(get_args(FLTrikotFarbe.__value__))
 
         assert assigned_trikot_farben(stored=list(reversed(offered))) == offered
 

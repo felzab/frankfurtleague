@@ -10,7 +10,7 @@ from app.api.identitaet.crud import refuse_without_a_seat
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.crud import refuse_a_taken_rolle
-from app.api.spieler.schemas import FLKaderResponse, FLKaderZeile, FLKaderZeileResponse, FLPatchKaderZeilePayload, FLSpielerStufe
+from app.api.spieler.schemas import FLKaderResponse, FLKaderZeile, FLKaderZeileResponse, FLPatchKaderZeilePayload
 from app.api.spieler.services import build_kader_pipeline, find_kader_stufe_refusal, mark_shared_nummern
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, patch_one_in_db, pull_one_from_db, refuse, set_inactive_since
@@ -26,6 +26,7 @@ from app.core.routing import by_id
 from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
+from app.shared.schemas.literals import FLSpielerStufe
 
 # The person lane's binder IN PLACE of `bind_actor` and the grants check, which a seat holder holding
 # no grant would fail; the binder refuses a barred person on every method, so no handler asks again.

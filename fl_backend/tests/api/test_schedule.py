@@ -13,10 +13,11 @@ from app.api.saisons.schedule import (
 )
 from app.api.saisons.schemas import FLSaison, FLSaisonRules
 from app.api.saisons.services import find_rules_refusal, total_season_fixtures, with_schedule
-from app.api.spiele.schemas import KNOCKOUT_PHASES, MAX_QUALIFIERS, PHASE_ORDER, PHASE_RANK, FLSaisonPhase
+from app.api.spiele.schemas import KNOCKOUT_PHASES, MAX_QUALIFIERS, PHASE_ORDER, PHASE_RANK
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from app.shared.schemas.literals import FLSaisonPhase
 from tests.documents import rules_document
 
 
@@ -45,7 +46,7 @@ def widest_legal_rules() -> FLSaisonRules:
 def refusal_for(shape: FLSaisonRules) -> WriteRefusal | None:
     """A create's reading of one shape, which is also the draw's: `stored=None`, nothing entered, no bracket slot wired."""
 
-    return find_rules_refusal(saison_status="future", stored=None, proposed=shape, occupancy_by_gruppe={}, highest_wired_platz=0)
+    return find_rules_refusal(stored=None, proposed=shape, occupancy_by_gruppe={}, highest_wired_platz=0)
 
 
 class TestThePhaseSet:
@@ -58,7 +59,7 @@ class TestThePhaseSet:
     def test_every_phase_of_the_literal_is_ordered(self):
         """A member added to the Literal and not to the order would sort and refuse unpredictably."""
 
-        assert set(PHASE_ORDER) == set(get_args(FLSaisonPhase))
+        assert set(PHASE_ORDER) == set(get_args(FLSaisonPhase.__value__))
 
     def test_the_knockout_rounds_are_every_phase_but_the_group_phase(self):
         """The group phase feeds the bracket rather than halving it."""

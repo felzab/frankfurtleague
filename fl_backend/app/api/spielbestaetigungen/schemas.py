@@ -3,7 +3,6 @@ from typing import Annotated, Final, Literal, Self
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
-from app.api.teams.schemas import FLKontaktRolle
 from app.shared.schemas.bounds import BEWERBUNG_TOKEN_MAX_LENGTH, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH
 from app.shared.schemas.custom import (
     SINGLE_LINE_PATTERN,
@@ -14,6 +13,7 @@ from app.shared.schemas.custom import (
     CustomTimeString,
     parse_empty_string_to_none,
 )
+from app.shared.schemas.literals import FLKontaktRolle
 from app.shared.schemas.responses import BaseAPIResponse
 
 # One delivery shape at every home `app/api/zustellung/services.py :: ZIEL_PFADE` names, as the
@@ -228,11 +228,9 @@ class FLSpielbestaetigungenFilterParams(BaseModel):
 
 
 class FLSpielbestaetigungenListResponse(BaseAPIResponse):
-    """The rows newest first, closed ones included, and the named season's own last pass."""
+    """The rows newest first, closed ones included."""
 
     spielbestaetigungen: list[FLSpielbestaetigung]
-    # Null where no pass has run over the season, or no season has the id.
-    spiel_sweep_gelaufen_am: CustomDateString | None
     # False where the cut left out rows not holding their question, so a cut list is never read as the season whole.
     vollstaendig: bool
 
@@ -397,12 +395,9 @@ class FLSpielbestaetigungSchiedsrichterAntwortResponse(BaseAPIResponse):
 
 
 class FLSpielbestaetigungSweepSaisonsResponse(BaseAPIResponse):
-    """The `active` seasons a pass visits, and the day a pass last ran over any of them."""
+    """The `active` seasons a pass visits, oldest first."""
 
     saison_ids: list[str]
-    # The newest stamp among them, as `GET /bewerbungen/sweep` answers its own: a season activated since
-    # the last pass carries none. Null means no pass ever ran over these seasons.
-    spiel_sweep_gelaufen_am: CustomDateString | None
 
 
 class FLSpielbestaetigungSweepLink(BaseModel):

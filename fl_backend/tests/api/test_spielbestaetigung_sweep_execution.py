@@ -9,7 +9,7 @@ import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import ExecutionTimeout, OperationFailure
+from pymongo.errors import ExecutionTimeout
 
 from app.api.bewerbungen.services import SWEEP_PAGE, days_after, hash_token
 from app.api.schiedsrichter.services import compose_bestaetigung
@@ -47,7 +47,7 @@ from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.spiele.services import ANSETZUNG_BESTAETIGT, build_spiele_pipeline
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
-from app.api.teams.schemas import KONTAKT_ROLLEN, FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
+from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -55,6 +55,7 @@ from app.core.logging import FL_LOGGER_NAME, JSONFormatter
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.api import test_spielbestaetigung_sweep_refusal as budget
@@ -375,7 +376,7 @@ class TestTheSweepAsksAboutNothingItCannotHelp:
         assert len(answers) == 2
         assert asked == [(SAISON_ID, str(SPIEL))]
 
-    def test_a_season_not_running_is_neither_closed_nor_reminded_nor_stamped(self, mongo_replica_set_url: str):
+    def test_a_season_not_running_is_neither_closed_nor_reminded(self, mongo_replica_set_url: str):
         """A mailed row due a reminder today, and one whose fixture moved: each step would answer one were the mint alone gated."""
 
         spiel = fixture(PAST_SPIEL, 1, days_after(day=TODAY, days=10), saison_id=PAST_SAISON_ID)
@@ -398,14 +399,13 @@ class TestTheSweepAsksAboutNothingItCannotHelp:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELBESTAETIGUNGEN].insert_many(mailed)
             answer = await sweep(database, client, saison_id=PAST_SAISON_ID)
-            season = await database[Collection.SAISONS].find_one({"_id": PAST_SAISON_ID})
 
-            return answer, await rows(database), (season or {}).get("spiel_sweep_gelaufen_am")
+            return answer, await rows(database)
 
-        answer, stored, stamped = on_a_league(mongo_replica_set_url, body, spiele=[spiel], junctions=junctions)
+        answer, stored = on_a_league(mongo_replica_set_url, body, spiele=[spiel], junctions=junctions)
 
         assert (answer.anfragen, answer.erinnerungen, answer.einteilungen, answer.neue_ansetzungen, answer.geschlossen) == ([], [], [], [], 0)
-        assert (stored, stamped) == (mailed, None)
+        assert stored == mailed
 
     def test_the_same_pass_twice_mints_once(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1362,23 +1362,21 @@ def a_commit_unanswered() -> Exception:
     return ExecutionTimeout("operation exceeded time limit", 50, {"ok": 0, "code": 50, "errorLabels": [UNKNOWN_COMMIT_RESULT]})
 
 
-async def a_pass_failing(database: AsyncDatabase, client: AsyncMongoClient, **collections: Any) -> tuple[Any, Any]:
-    """The pass on `FIRST_REMINDER` owing every message, `collections` standing in for the database's own; and the season's day."""
+async def a_pass_failing(database: AsyncDatabase, client: AsyncMongoClient, **collections: Any) -> FLSpielbestaetigungSweepResponse:
+    """The pass on `FIRST_REMINDER` owing every message, `collections` standing in for the database's own."""
 
     await a_pass_owing_every_message(database, client)
-    answer = await sweep_spielbestaetigungen(
+    return await sweep_spielbestaetigungen(
         saison_id=SAISON_ID,
         spielbestaetigungen_collection=collections.get("spielbestaetigungen", database[Collection.SPIELBESTAETIGUNGEN]),
         spiele_collection=collections.get("spiele", database[Collection.SPIELE]),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=collections.get("saisons", database[Collection.SAISONS]),
+        saisons_collection=database[Collection.SAISONS],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         sperrliste=ban_list(database),
         db=client,
         today=FIRST_REMINDER,
     )
-
-    return answer, (await database[Collection.SAISONS].find_one({"_id": SAISON_ID}) or {}).get("spiel_sweep_gelaufen_am")
 
 
 def warnings_of(caplog: pytest.LogCaptureFixture) -> list[tuple[Any, str, Any]]:
@@ -1394,15 +1392,14 @@ def warnings_of(caplog: pytest.LogCaptureFixture) -> list[tuple[Any, str, Any]]:
 class TestALaterStepFailingAnswersWhatCommitted:
     """The notice step's notices committed, so a later step's failure is no error."""
 
-    def test_the_notices_are_answered_and_the_day_is_not_stamped(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_the_notices_are_answered(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await a_pass_failing(database, client, spiele=_Refusing(database[Collection.SPIELE], "find", the_mints_read, a_deadline))
 
         with caplog.at_level(logging.WARNING):
-            answer, stamped = on_a_league(mongo_replica_set_url, body, spiele=EVERY_MESSAGE)
+            answer = on_a_league(mongo_replica_set_url, body, spiele=EVERY_MESSAGE)
 
         assert (len(answer.neue_ansetzungen), answer.anfragen, answer.erinnerungen) == (2, [], [])
-        assert stamped == days_after(day=FIRST_REMINDER, days=-1)
         assert [code for code, _, _ in warnings_of(caplog)] == [Code.DATABASE_FAILED]
 
     def test_a_commit_whose_answer_was_lost_names_what_may_stand(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -1413,35 +1410,12 @@ class TestALaterStepFailingAnswersWhatCommitted:
             return await a_pass_failing(database, client, spielbestaetigungen=rows_written)
 
         with caplog.at_level(logging.WARNING):
-            answer, _ = on_a_league(mongo_replica_set_url, body, spiele=EVERY_MESSAGE)
+            answer = on_a_league(mongo_replica_set_url, body, spiele=EVERY_MESSAGE)
 
         assert (len(answer.neue_ansetzungen), answer.anfragen) == (2, [])
         assert warnings_of(caplog) == [(Code.UNKNOWN_OUTCOME, "spielbestaetigungen.clock_commit_unanswered", "mint")]
         [warning] = [record for record in caplog.records if record.levelname == "WARNING"]
         assert getattr(warning, "may_stand", None) == f"the rows minted for fixture(s) {SPIEL}"
-
-    def test_the_runs_stamp_failing_alone_answers_the_notices(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Every reminder refused, so the day is stamped in a transaction of its own after the notices and requests committed."""
-
-        def a_refusal() -> Exception:
-            return OperationFailure("refused", code=2)
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await a_pass_failing(
-                database,
-                client,
-                spielbestaetigungen=_Refusing(
-                    database[Collection.SPIELBESTAETIGUNGEN], "find_one_and_update", lambda sent: "$push" in sent["update"], a_refusal
-                ),
-                saisons=_Refusing(database[Collection.SAISONS], "update_many", lambda _: True, a_refusal),
-            )
-
-        with caplog.at_level(logging.WARNING):
-            answer, stamped = on_a_league(mongo_replica_set_url, body, spiele=EVERY_MESSAGE)
-
-        assert (len(answer.neue_ansetzungen), len(answer.anfragen), answer.erinnerungen, answer.fehlgeschlagen) == (2, 2, [], 2)
-        assert stamped == days_after(day=FIRST_REMINDER, days=-1)
-        assert [(message, clock) for _, message, clock in warnings_of(caplog)] == [("spielbestaetigungen.clock_stopped", "run stamp")]
 
 
 class TestOneRowHoldsBackNoOther:
@@ -1460,19 +1434,6 @@ class TestOneRowHoldsBackNoOther:
         assert {row["spiel_id"] for row in stored} == {OTHER_SPIEL}
 
 
-class TestThePassRecordsTheDayItRan:
-    def test_the_listing_answers_the_newest_day_among_the_running_seasons(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            before = await get_spiel_sweep_saisons(saisons_collection=database[Collection.SAISONS])
-            await sweep(database, client)
-            await sweep(database, client)
-            after = await get_spiel_sweep_saisons(saisons_collection=database[Collection.SAISONS])
-            stamps = await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.SAISONS)})
-            return before.spiel_sweep_gelaufen_am, after.spiel_sweep_gelaufen_am, stamps
-
-        assert on_a_league(mongo_replica_set_url, body, spiele=[]) == (None, TODAY, 1)
-
-
 # Under the driver's first batch, so a page read is one command however many rows it holds.
 FEW = 6
 
@@ -1487,9 +1448,6 @@ def numbered_fixtures(count: int, datum: str, **fields: Any) -> list[dict[str, A
 
 
 async def _counted(url: str, database: AsyncDatabase, call: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]) -> int:
-    # Stamped already, so the run's own stamp changes nothing in either run.
-    await database[Collection.SAISONS].update_many({}, {"$set": {"spiel_sweep_gelaufen_am": TODAY}})
-
     return await commands_sent(url, DATABASE_NAME, call)
 
 
@@ -1586,7 +1544,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         """Every step takes rows and every conditional read and write is made.
 
         Three notices owed, one given up, one dropped, a fresh row, a seat minted afresh beside a reminder, a reminder, an
-        Einteilung told again, the day's first stamp.
+        Einteilung told again.
         """
 
         moved = fixture(SPIEL, 1, NEXT_WEEK)

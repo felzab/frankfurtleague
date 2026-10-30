@@ -358,7 +358,7 @@
       },
       "FLAblehnenBewerbungPayload": {
         "additionalProperties": false,
-        "description": "Why the application was declined.\n\nIts own declaration and never shared with the acceptance's: the two are not inverses, and a\npayload reaching both would let a value typed for one arrive at the other.",
+        "description": "Why the application was declined.",
         "properties": {
           "grund": {
             "maxLength": 1000,
@@ -563,16 +563,7 @@
         "description": "What either link opens once its change ended, for as long as its record is kept.",
         "properties": {
           "art": {
-            "enum": [
-              "wirksam",
-              "abgelehnt",
-              "gestoppt",
-              "abgelaufen",
-              "ersetzt",
-              "verworfen"
-            ],
-            "title": "Art",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselEndeArt"
           },
           "seite": {
             "enum": [
@@ -617,13 +608,7 @@
             "type": "string"
           },
           "weg": {
-            "enum": [
-              "konto",
-              "freigabe",
-              "wartezeit"
-            ],
-            "title": "Weg",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselWeg"
           },
           "wirksam_ab": {
             "anyOf": [
@@ -690,13 +675,7 @@
             "type": "string"
           },
           "weg": {
-            "enum": [
-              "konto",
-              "freigabe",
-              "wartezeit"
-            ],
-            "title": "Weg",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselWeg"
           },
           "wirksam_ab": {
             "anyOf": [
@@ -856,6 +835,24 @@
         "title": "FLAdresswechselAntwortResponse",
         "type": "object"
       },
+      "FLAdresswechselEinsehbarVerwehrt": {
+        "enum": [
+          "eigene",
+          "verwaltung"
+        ],
+        "type": "string"
+      },
+      "FLAdresswechselEndeArt": {
+        "enum": [
+          "wirksam",
+          "abgelehnt",
+          "gestoppt",
+          "abgelaufen",
+          "ersetzt",
+          "verworfen"
+        ],
+        "type": "string"
+      },
       "FLAdresswechselGenehmigungResponse": {
         "properties": {
           "id": {
@@ -1009,18 +1006,12 @@
           "weg": {
             "anyOf": [
               {
-                "enum": [
-                  "konto",
-                  "freigabe",
-                  "wartezeit"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAdresswechselWeg"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Weg"
+            ]
           }
         },
         "required": [
@@ -1327,13 +1318,7 @@
             "title": "Vorname"
           },
           "weg": {
-            "enum": [
-              "konto",
-              "freigabe",
-              "wartezeit"
-            ],
-            "title": "Weg",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselWeg"
           }
         },
         "required": [
@@ -1429,23 +1414,10 @@
             "type": "string"
           },
           "wartet_auf": {
-            "enum": [
-              "freigabe",
-              "neue_adresse",
-              "genehmigung",
-              "wartezeit"
-            ],
-            "title": "Wartet Auf",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselWartetAuf"
           },
           "weg": {
-            "enum": [
-              "konto",
-              "freigabe",
-              "wartezeit"
-            ],
-            "title": "Weg",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselWeg"
           },
           "wirksam_ab": {
             "anyOf": [
@@ -1524,6 +1496,23 @@
         ],
         "title": "FLAdresswechselVerwaltungPayload",
         "type": "object"
+      },
+      "FLAdresswechselWartetAuf": {
+        "enum": [
+          "freigabe",
+          "neue_adresse",
+          "genehmigung",
+          "wartezeit"
+        ],
+        "type": "string"
+      },
+      "FLAdresswechselWeg": {
+        "enum": [
+          "konto",
+          "freigabe",
+          "wartezeit"
+        ],
+        "type": "string"
       },
       "FLAdresswechselZugestelltPayload": {
         "additionalProperties": false,
@@ -2036,17 +2025,12 @@
           "verwaltung": {
             "anyOf": [
               {
-                "enum": [
-                  "owner",
-                  "administration"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLVerwaltung"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Verwaltung"
+            ]
           }
         },
         "required": [
@@ -2060,66 +2044,20 @@
       },
       "FLAnnehmenBewerbungPayload": {
         "additionalProperties": false,
-        "description": "Which group the school enters, and the kit colour the league assigns it.\n\nNo `saison_id`: the application names its own season, so a payload carrying one could only\ndisagree with it.",
+        "description": "Which group the school enters, and the kit colour the league assigns it; the season is the application's own.",
         "properties": {
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "trikot_farbe": {
             "anyOf": [
               {
-                "enum": [
-                  "schwarz",
-                  "weiss",
-                  "grau",
-                  "braun",
-                  "bordeaux",
-                  "rot",
-                  "koralle",
-                  "orange",
-                  "gold",
-                  "gelb",
-                  "limette",
-                  "hellgruen",
-                  "gruen",
-                  "smaragd",
-                  "tuerkis",
-                  "cyan",
-                  "hellblau",
-                  "meerblau",
-                  "blau",
-                  "dunkelblau",
-                  "flieder",
-                  "violett",
-                  "magenta",
-                  "rosa"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrikotFarbe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trikot Farbe"
+            ]
           }
         },
         "required": [
@@ -2137,26 +2075,7 @@
             "type": "boolean"
           },
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -2170,39 +2089,12 @@
           "trikot_farbe": {
             "anyOf": [
               {
-                "enum": [
-                  "schwarz",
-                  "weiss",
-                  "grau",
-                  "braun",
-                  "bordeaux",
-                  "rot",
-                  "koralle",
-                  "orange",
-                  "gold",
-                  "gelb",
-                  "limette",
-                  "hellgruen",
-                  "gruen",
-                  "smaragd",
-                  "tuerkis",
-                  "cyan",
-                  "hellblau",
-                  "meerblau",
-                  "blau",
-                  "dunkelblau",
-                  "flieder",
-                  "violett",
-                  "magenta",
-                  "rosa"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrikotFarbe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trikot Farbe"
+            ]
           },
           "updated_document": {
             "$ref": "#/components/schemas/FLBewerbung"
@@ -2233,12 +2125,7 @@
             "type": "string"
           },
           "type": {
-            "enum": [
-              "disqualifikation",
-              "rueckzug"
-            ],
-            "title": "Type",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAustrittType"
           }
         },
         "required": [
@@ -2248,6 +2135,13 @@
         ],
         "title": "FLAustritt",
         "type": "object"
+      },
+      "FLAustrittType": {
+        "enum": [
+          "disqualifikation",
+          "rueckzug"
+        ],
+        "type": "string"
       },
       "FLBerechtigungAbgleichResponse": {
         "properties": {
@@ -2319,17 +2213,12 @@
           "einsehbar_verwehrt": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "verwaltung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAdresswechselEinsehbarVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Einsehbar Verwehrt"
+            ]
           },
           "email": {
             "anyOf": [
@@ -2380,28 +2269,15 @@
           "verwehrt": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "gestartet",
-                  "inhaber",
-                  "juenger"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLGenehmigungVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Verwehrt"
+            ]
           },
           "weg": {
-            "enum": [
-              "konto",
-              "freigabe",
-              "wartezeit"
-            ],
-            "title": "Weg",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselWeg"
           }
         },
         "required": [
@@ -2687,29 +2563,17 @@
             "type": "boolean"
           },
           "verwaltung": {
-            "enum": [
-              "owner",
-              "administration"
-            ],
-            "title": "Verwaltung",
-            "type": "string"
+            "$ref": "#/components/schemas/FLVerwaltung"
           },
           "verwehrt": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "gestartet",
-                  "inhaber",
-                  "juenger"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLGenehmigungVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Verwehrt"
+            ]
           }
         },
         "required": [
@@ -2743,12 +2607,7 @@
             "title": "Adresse"
           },
           "verwaltung": {
-            "enum": [
-              "owner",
-              "administration"
-            ],
-            "title": "Verwaltung",
-            "type": "string"
+            "$ref": "#/components/schemas/FLVerwaltung"
           }
         },
         "required": [
@@ -2847,12 +2706,7 @@
             "type": "string"
           },
           "verwaltung": {
-            "enum": [
-              "owner",
-              "administration"
-            ],
-            "title": "Verwaltung",
-            "type": "string"
+            "$ref": "#/components/schemas/FLVerwaltung"
           }
         },
         "required": [
@@ -2899,8 +2753,62 @@
         "title": "FLBerechtigungenListResponse",
         "type": "object"
       },
+      "FLBestaetigung": {
+        "description": "One person's confirmation bookkeeping as an administrator reads it, and no token hash.\n\nThe hash is a raw document key the confirmation query alone reads, so no read serves one.",
+        "properties": {
+          "erinnert_am": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erinnert Am"
+          },
+          "frist": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist",
+            "type": "string"
+          },
+          "verschickt_am": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Verschickt Am",
+            "type": "string"
+          },
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungZustellung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "verschickt_am",
+          "erinnert_am",
+          "frist",
+          "zustellung"
+        ],
+        "title": "FLBestaetigung",
+        "type": "object"
+      },
+      "FLBestaetigungZustand": {
+        "enum": [
+          "gueltig",
+          "bestaetigt",
+          "abgelaufen",
+          "gesperrt"
+        ],
+        "type": "string"
+      },
       "FLBewerbung": {
-        "description": "One school's application to play one season, as stored, its decision as served.\n\nThe submission is never rewritten: `status`, `entscheidung` and `team_id` move through the\ntriage, and a contact seat through the two administrative repairs in\n`app/api/bewerbungen/admin_router.py`.",
+        "description": "One school's application to play one season, as stored, its decision as served.",
         "properties": {
           "bestaetigungen": {
             "$ref": "#/components/schemas/FLBewerbungBestaetigungen"
@@ -2951,13 +2859,7 @@
             ]
           },
           "status": {
-            "enum": [
-              "eingereicht",
-              "angenommen",
-              "abgelehnt"
-            ],
-            "title": "Status",
-            "type": "string"
+            "$ref": "#/components/schemas/FLBewerbungStatus"
           },
           "stufengroesse": {
             "title": "Stufengroesse",
@@ -3011,7 +2913,7 @@
       },
       "FLBewerbungAddressPayload": {
         "additionalProperties": false,
-        "description": "The school's address, with the Stadtteil REQUIRED.\n\nIts own subclass rather than a change to `FLAddressPayload`, which an admin address shares: a\nvenue can genuinely lack a district, and a Frankfurt school does not.",
+        "description": "The school's address, with the Stadtteil required.",
         "properties": {
           "hausnummer": {
             "maxLength": 16,
@@ -3054,7 +2956,7 @@
         "type": "object"
       },
       "FLBewerbungBestaetigung": {
-        "description": "One seat's confirmation bookkeeping as the triage reads it -- and NO `token_hash`.\n\nThe hash is a raw document key the confirm query alone reads; a model declaring it would serve\nit through every admin read.",
+        "description": "One seat's confirmation bookkeeping as the triage reads it, without its link's hash.",
         "properties": {
           "abgelehnt_am": {
             "anyOf": [
@@ -3105,7 +3007,7 @@
         "type": "object"
       },
       "FLBewerbungBestaetigungTokens": {
-        "description": "The three RAW tokens the create or its replay minted, one per seat.\n\nThis response and the inboxes are the only places a raw token exists: the database holds\nhashes, and no read model declares one.",
+        "description": "The three raw tokens the create or its replay minted, one per seat; no read serves them again.",
         "properties": {
           "ansprechperson": {
             "title": "Ansprechperson",
@@ -3129,7 +3031,7 @@
         "type": "object"
       },
       "FLBewerbungBestaetigungen": {
-        "description": "The three seats' bookkeeping, mirroring `kontakte`'s slots. Nullable per SEAT: an erasure empties the one naming the person.",
+        "description": "The three seats' bookkeeping, each null where an erasure emptied the seat.",
         "properties": {
           "ansprechperson": {
             "anyOf": [
@@ -3170,25 +3072,8 @@
         "title": "FLBewerbungBestaetigungen",
         "type": "object"
       },
-      "FLBewerbungEinwilligungAnsichtPayload": {
-        "additionalProperties": false,
-        "description": "A POST that reads: the token travels in a body, never in a second URL.",
-        "properties": {
-          "token": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "token"
-        ],
-        "title": "FLBewerbungEinwilligungAnsichtPayload",
-        "type": "object"
-      },
       "FLBewerbungEinwilligungAnsichtResponse": {
-        "description": "What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).\n\nA leaked link's holder learns what its mail said: a school, a season and the roles one answer\ncovers, and nothing of the person.",
+        "description": "What the page renders for one seat, and nothing of the person.",
         "properties": {
           "laufende_fassung": {
             "title": "Laufende Fassung",
@@ -3212,13 +3097,7 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -3231,34 +3110,22 @@
           "zeile": {
             "anyOf": [
               {
-                "enum": [
-                  "offen",
-                  "saison_vorbei",
-                  "ausgetreten"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLKontaktZeile"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Zeile"
+            ]
           },
           "zugleich_rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "trainer",
-                  "ansprechperson",
-                  "stellvertretung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLKontaktRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Zugleich Rolle"
+            ]
           },
           "zustand": {
             "enum": [
@@ -3323,12 +3190,14 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           },
           "token": {
             "maxLength": 128,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
           },
@@ -3349,7 +3218,7 @@
         "type": "object"
       },
       "FLBewerbungEinwilligungAntwortResponse": {
-        "description": "What the answer did, and which seats are still open -- the whole application's, not this person's.\n\nWidened rather than given a read: one field of an admin-tier document would be a new surface to\nwithhold the rest at.",
+        "description": "What the answer did, and which of the application's seats are still open.\n\nThe fields after `medien` compose the outbound messages and are for the frontend's server alone.",
         "properties": {
           "ansprechperson_email": {
             "anyOf": [
@@ -3364,24 +3233,14 @@
           },
           "ansprechperson_rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Ansprechperson Rollen",
             "type": "array"
           },
           "ausstehend": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Ausstehend",
             "type": "array"
@@ -3397,12 +3256,7 @@
             "type": "string"
           },
           "ergebnis": {
-            "enum": [
-              "bestaetigt",
-              "abgelehnt"
-            ],
-            "title": "Ergebnis",
-            "type": "string"
+            "$ref": "#/components/schemas/FLEinwilligungErgebnis"
           },
           "geburtsdatum": {
             "anyOf": [
@@ -3427,13 +3281,7 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -3479,22 +3327,11 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -3516,7 +3353,7 @@
       },
       "FLBewerbungEinwilligungPayload": {
         "additionalProperties": false,
-        "description": "What the applicant agreed to, and nothing about how the record of it is composed.\n\n`umfang` and `datum` are the SERVER's: a client offered them could claim the person's own\nanswer, or backdate a record.",
+        "description": "What the applicant agreed to; the scope and the date are the server's.",
         "properties": {
           "erteilt": {
             "const": true,
@@ -3526,6 +3363,7 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           }
@@ -3582,7 +3420,7 @@
         "type": "object"
       },
       "FLBewerbungFensterResponse": {
-        "description": "One season's application window and whether that season has ended, and NOTHING else about it.\n\nA season taking applications is `future`, which the rule withholds -- so\nthe window gets its own shape rather than widening a season read.",
+        "description": "One season's application window and whether that season has ended, and nothing else about it.",
         "properties": {
           "bis": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -3623,7 +3461,7 @@
         "type": "object"
       },
       "FLBewerbungKader": {
-        "description": "The school's own estimate of its squad, on the application alone.\n\nUnbounded on read for `FLBewerbungSchule.website_url`'s reason. Nothing checks either number\nagainst a squad afterwards -- they are what the school expected, not what it fielded.",
+        "description": "The school's own estimate of its squad, which nothing checks afterwards.",
         "properties": {
           "gute_spieler": {
             "title": "Gute Spieler",
@@ -3665,7 +3503,7 @@
         "type": "object"
       },
       "FLBewerbungKeinFensterResponse": {
-        "description": "A season that records no application window: its id, and nothing else about it.\n\nThe rule is narrowed to the id resolving to a season, which is what parts\nthis answer from the 404 a mistyped id keeps.",
+        "description": "A season that records no application window: its id, and `fenster` always null.",
         "properties": {
           "fenster": {
             "title": "Fenster",
@@ -3685,7 +3523,7 @@
       },
       "FLBewerbungKontaktEmailPayload": {
         "additionalProperties": false,
-        "description": "The corrected address, and NOTHING else of the person: a bounced link is repaired, not the submission rewritten.",
+        "description": "The corrected address and the one the page showed on the seat, and nothing else of the person.",
         "properties": {
           "bisherige_email": {
             "maxLength": 254,
@@ -3730,12 +3568,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -3757,7 +3590,7 @@
       },
       "FLBewerbungKontaktSitzPayload": {
         "additionalProperties": false,
-        "description": "The person seated where a contact person stepped out, carrying no `einwilligung` block.\n\n`FLBewerbungKontaktpersonPayload`'s is `erteilt: Literal[True]`, and this person has agreed to\nnothing: their own link is what asks them.",
+        "description": "The person seated where a contact person stepped out, who has agreed to nothing yet.",
         "properties": {
           "email": {
             "maxLength": 254,
@@ -3779,6 +3612,7 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           },
@@ -3814,12 +3648,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -3840,7 +3669,7 @@
       },
       "FLBewerbungKontaktePayload": {
         "additionalProperties": false,
-        "description": "The three people an application is reached through, all three REQUIRED and non-null.\n\nUnlike the junction payload, whose nulls keep a row an erasure emptied editable: an application\nis the form those three filled in, and there is nothing yet to erase.",
+        "description": "The three people an application is reached through, all three required.",
         "properties": {
           "ansprechperson": {
             "$ref": "#/components/schemas/FLBewerbungKontaktpersonPayload"
@@ -3854,17 +3683,12 @@
           "trainer_ist_zugleich": {
             "anyOf": [
               {
-                "enum": [
-                  "ansprechperson",
-                  "stellvertretung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrainerZugleich"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trainer Ist Zugleich"
+            ]
           }
         },
         "required": [
@@ -3878,7 +3702,7 @@
       },
       "FLBewerbungKontaktpersonPayload": {
         "additionalProperties": false,
-        "description": "One of the three people, as a member of the public submits them.\n\nNo birthdate: each types their own on the confirmation page, so\nthe key is refused outright rather than accepted as a null.",
+        "description": "One of the three people, as a member of the public submits them, without a birthdate.",
         "properties": {
           "einwilligung": {
             "$ref": "#/components/schemas/FLBewerbungEinwilligungPayload"
@@ -3919,7 +3743,7 @@
         "type": "object"
       },
       "FLBewerbungKuerzelResponse": {
-        "description": "Whether a proposed Kürzel is already a club's.\n\nIt names no club and does not tell an active one from a retired one: the uniqueness it mirrors\nspans both, and a shape distinguishing them would publish which schools have left.",
+        "description": "Whether a proposed Kürzel is already a club's, active or retired, naming no club.",
         "properties": {
           "shorthand": {
             "title": "Shorthand",
@@ -3935,41 +3759,6 @@
           "vergeben"
         ],
         "title": "FLBewerbungKuerzelResponse",
-        "type": "object"
-      },
-      "FLBewerbungPersonEinwilligungPayload": {
-        "additionalProperties": false,
-        "description": "The season seat's payload on a pending application, where its press takes withdrawals alone.\n\nThe same shape, so one control serves both; a grant on it is refused rather than unrepresentable.",
-        "properties": {
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
-          },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Text Version",
-            "type": "string"
-          },
-          "umfang": {
-            "enum": [
-              "kontaktdaten",
-              "kontaktdaten_whatsapp"
-            ],
-            "title": "Umfang",
-            "type": "string"
-          }
-        },
-        "required": [
-          "umfang",
-          "medien",
-          "text_version",
-          "nachweis_stand"
-        ],
-        "title": "FLBewerbungPersonEinwilligungPayload",
         "type": "object"
       },
       "FLBewerbungPersonEinwilligungResponse": {
@@ -3989,23 +3778,13 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
           },
           "umfang": {
-            "enum": [
-              "kontaktdaten",
-              "kontaktdaten_whatsapp"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
@@ -4019,7 +3798,7 @@
         "type": "object"
       },
       "FLBewerbungSchule": {
-        "description": "The club a new school proposes, in the shape acceptance will create it in.\n\nWhile the application is `eingereicht`, exactly one of this and `team_id` carries a value, held\nby the write path rather than the validator.",
+        "description": "The club a new school proposes, in the shape acceptance will create it in.\n\nWhile the application is `eingereicht`, exactly one of this and `team_id` carries a value.",
         "properties": {
           "address": {
             "$ref": "#/components/schemas/FLAddress"
@@ -4032,21 +3811,12 @@
           "schulform": {
             "anyOf": [
               {
-                "enum": [
-                  "gymnasium_g8",
-                  "gymnasium_g9",
-                  "gesamtschule",
-                  "privatschule_g8",
-                  "privatschule_g9",
-                  "oberstufengymnasium"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSchulform"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Schulform"
+            ]
           },
           "shorthand": {
             "pattern": "^[A-Z]{3}$",
@@ -4082,7 +3852,7 @@
         "type": "object"
       },
       "FLBewerbungSchuleOption": {
-        "description": "One club as the public form offers it: an autocomplete row, and nothing more.\n\nAn allow-list declared from nothing, never a narrowing of `FLTeam` (`READ-BEWERBUNG-001`): an\nanonymous visitor picks from it, and a club's address is a school's street.",
+        "description": "One club as the public form offers it: its id and its name.",
         "properties": {
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -4104,7 +3874,7 @@
       },
       "FLBewerbungSchulePayload": {
         "additionalProperties": false,
-        "description": "The club a new school proposes, bounded and stripped for the write side.\n\nA subclass rather than a second declaration, as `FLKontaktpersonPayload` is: the field set is the\nstored block's, and two spellings of it would drift on every field they share.",
+        "description": "The club a new school proposes, bounded and stripped for the write.",
         "properties": {
           "address": {
             "$ref": "#/components/schemas/FLBewerbungAddressPayload"
@@ -4117,16 +3887,7 @@
             "type": "string"
           },
           "schulform": {
-            "enum": [
-              "gymnasium_g8",
-              "gymnasium_g9",
-              "gesamtschule",
-              "privatschule_g8",
-              "privatschule_g9",
-              "oberstufengymnasium"
-            ],
-            "title": "Schulform",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSchulform"
           },
           "shorthand": {
             "pattern": "^\\s*[A-Za-z]{3}\\s*$",
@@ -4197,25 +3958,13 @@
         "title": "FLBewerbungSingleResponse",
         "type": "object"
       },
-      "FLBewerbungSweepAngekuendigtPayload": {
-        "additionalProperties": false,
-        "description": "Which candidates' notices the caller delivered. The backend re-judges them: an id that has stopped qualifying is skipped.",
-        "properties": {
-          "bewerbung_ids": {
-            "items": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "type": "string"
-            },
-            "maxItems": 83,
-            "title": "Bewerbung Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "bewerbung_ids"
+      "FLBewerbungStatus": {
+        "enum": [
+          "eingereicht",
+          "angenommen",
+          "abgelehnt"
         ],
-        "title": "FLBewerbungSweepAngekuendigtPayload",
-        "type": "object"
+        "type": "string"
       },
       "FLBewerbungSweepAngekuendigtResponse": {
         "properties": {
@@ -4241,16 +3990,10 @@
         "type": "object"
       },
       "FLBewerbungSweepAusstehend": {
-        "description": "A seat the deletion notice lists as never confirmed. `vorname` is null where the slot was emptied by a decline or an erasure.",
+        "description": "A seat the deletion notice lists as never confirmed; `vorname` is null where the slot was emptied.",
         "properties": {
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "vorname": {
             "anyOf": [
@@ -4271,8 +4014,28 @@
         "title": "FLBewerbungSweepAusstehend",
         "type": "object"
       },
+      "FLBewerbungSweepAuswahlPayload": {
+        "additionalProperties": false,
+        "description": "The candidates from one pass's deletion list that this step names. The backend re-judges each, skipping one that no longer qualifies.",
+        "properties": {
+          "bewerbung_ids": {
+            "items": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "type": "string"
+            },
+            "maxItems": 83,
+            "title": "Bewerbung Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "bewerbung_ids"
+        ],
+        "title": "FLBewerbungSweepAuswahlPayload",
+        "type": "object"
+      },
       "FLBewerbungSweepErinnerung": {
-        "description": "One reminder to send: one MAILBOX of one application, every seat it holds due today.\n\nGrouped as the first mail groups (`fl_frontend/src/features/bewerbungen/notifications.ts`), so\none person holding two seats gets one message and two people on one inbox get two.",
+        "description": "One reminder to send: one mailbox of one application, with every seat it holds due today.",
         "properties": {
           "bestaetigungsfrist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -4315,26 +4078,6 @@
         "title": "FLBewerbungSweepErinnerung",
         "type": "object"
       },
-      "FLBewerbungSweepLoeschenPayload": {
-        "additionalProperties": false,
-        "description": "Which candidates to erase. The backend re-selects them: an id that has stopped qualifying, or that was never announced, is skipped.",
-        "properties": {
-          "bewerbung_ids": {
-            "items": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "type": "string"
-            },
-            "maxItems": 83,
-            "title": "Bewerbung Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "bewerbung_ids"
-        ],
-        "title": "FLBewerbungSweepLoeschenPayload",
-        "type": "object"
-      },
       "FLBewerbungSweepLoeschenResponse": {
         "properties": {
           "fehlgeschlagen": {
@@ -4364,7 +4107,7 @@
         "type": "object"
       },
       "FLBewerbungSweepLoeschung": {
-        "description": "One application past its deadline, still standing: the notice goes out first, the erasure follows in a second call.",
+        "description": "One application past its deadline, still standing: the notice goes out first, the erasure in a second call.",
         "properties": {
           "angekuendigt": {
             "title": "Angekuendigt",
@@ -4383,12 +4126,7 @@
           },
           "ansprechperson_rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Ansprechperson Rollen",
             "type": "array"
@@ -4433,7 +4171,7 @@
         "type": "object"
       },
       "FLBewerbungSweepResponse": {
-        "description": "One season's pass: the reminders already stamped, the deletions still to notify, and the four silent clocks' counts.",
+        "description": "One season's pass: the reminders already stamped, the deletions still to notify, and each clock's count.",
         "properties": {
           "abgelehnte_geloescht": {
             "title": "Abgelehnte Geloescht",
@@ -4493,59 +4231,28 @@
         "type": "object"
       },
       "FLBewerbungSweepSaisonsResponse": {
-        "description": "Every season's id, for the caller to sweep one by one, and the day each retention pass last ran anywhere in this database.",
+        "description": "Every season's id, for the caller to sweep one by one.",
         "properties": {
-          "registrierung_sweep_gelaufen_am": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Registrierung Sweep Gelaufen Am"
-          },
           "saison_ids": {
             "items": {
               "type": "string"
             },
             "title": "Saison Ids",
             "type": "array"
-          },
-          "sweep_gelaufen_am": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sweep Gelaufen Am"
           }
         },
         "required": [
-          "saison_ids",
-          "sweep_gelaufen_am",
-          "registrierung_sweep_gelaufen_am"
+          "saison_ids"
         ],
         "title": "FLBewerbungSweepSaisonsResponse",
         "type": "object"
       },
       "FLBewerbungSweepSeat": {
-        "description": "One LINK a reminder carries: the RAW fresh token, which exists here and in the mail alone.",
+        "description": "One link a reminder carries, with its raw fresh token.",
         "properties": {
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -4568,41 +4275,14 @@
         "type": "object"
       },
       "FLBewerbungTrikot": {
-        "description": "What kit the school already owns, and the colour it would like.\n\nNever copied onto the team: `saison_teams.trikot_farbe` is the colour an administrator ASSIGNED,\nand two schools may wish for one colour.",
+        "description": "What kit the school already owns, and the colour it would like; never copied onto the team.",
         "properties": {
           "vorhandener_satz": {
             "title": "Vorhandener Satz",
             "type": "string"
           },
           "wunschfarbe": {
-            "enum": [
-              "schwarz",
-              "weiss",
-              "grau",
-              "braun",
-              "bordeaux",
-              "rot",
-              "koralle",
-              "orange",
-              "gold",
-              "gelb",
-              "limette",
-              "hellgruen",
-              "gruen",
-              "smaragd",
-              "tuerkis",
-              "cyan",
-              "hellblau",
-              "meerblau",
-              "blau",
-              "dunkelblau",
-              "flieder",
-              "violett",
-              "magenta",
-              "rosa"
-            ],
-            "title": "Wunschfarbe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLTrikotFarbe"
           }
         },
         "required": [
@@ -4613,7 +4293,7 @@
         "type": "object"
       },
       "FLBewerbungTrikotFarbenResponse": {
-        "description": "Which kit colours one season has already ASSIGNED. A set, and nothing about who holds one.\n\nAn allow-list declared from nothing, as `FLBewerbungSchuleOption` is (`READ-BEWERBUNG-001`): a\ncolour beside a club would publish which kit that school wears.",
+        "description": "Which kit colours one season has already assigned, naming no club.",
         "properties": {
           "saison_id": {
             "title": "Saison Id",
@@ -4621,33 +4301,7 @@
           },
           "vergeben": {
             "items": {
-              "enum": [
-                "schwarz",
-                "weiss",
-                "grau",
-                "braun",
-                "bordeaux",
-                "rot",
-                "koralle",
-                "orange",
-                "gold",
-                "gelb",
-                "limette",
-                "hellgruen",
-                "gruen",
-                "smaragd",
-                "tuerkis",
-                "cyan",
-                "hellblau",
-                "meerblau",
-                "blau",
-                "dunkelblau",
-                "flieder",
-                "violett",
-                "magenta",
-                "rosa"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLTrikotFarbe"
             },
             "title": "Vergeben",
             "type": "array"
@@ -4669,34 +4323,7 @@
             "type": "string"
           },
           "wunschfarbe": {
-            "enum": [
-              "schwarz",
-              "weiss",
-              "grau",
-              "braun",
-              "bordeaux",
-              "rot",
-              "koralle",
-              "orange",
-              "gold",
-              "gelb",
-              "limette",
-              "hellgruen",
-              "gruen",
-              "smaragd",
-              "tuerkis",
-              "cyan",
-              "hellblau",
-              "meerblau",
-              "blau",
-              "dunkelblau",
-              "flieder",
-              "violett",
-              "magenta",
-              "rosa"
-            ],
-            "title": "Wunschfarbe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLTrikotFarbe"
           }
         },
         "required": [
@@ -4705,6 +4332,16 @@
         ],
         "title": "FLBewerbungTrikotPayload",
         "type": "object"
+      },
+      "FLBewerbungZustellEreignis": {
+        "enum": [
+          "zugestellt",
+          "verzoegert",
+          "unzustellbar",
+          "unterdrueckt",
+          "beschwerde"
+        ],
+        "type": "string"
       },
       "FLBewerbungZustellung": {
         "description": "What became of the last message to one seat.\n\nInside the seat's block rather than a collection of its own: an erasure empties that block, so\nthis goes with the person it is about.",
@@ -4773,12 +4410,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -4829,26 +4461,13 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
           },
           "stand": {
-            "enum": [
-              "zugestellt",
-              "verzoegert",
-              "unzustellbar",
-              "unterdrueckt",
-              "beschwerde"
-            ],
-            "title": "Stand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLBewerbungZustellEreignis"
           }
         },
         "required": [
@@ -4867,12 +4486,7 @@
         "properties": {
           "angewendet": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Angewendet",
             "type": "array"
@@ -4885,7 +4499,7 @@
         "type": "object"
       },
       "FLBewerbungenListResponse": {
-        "description": "The queue, newest first, and whether that is the whole of it.\n\nA cut answer still marks a collision: `dubletten_schluessel` is taken over every open\napplication, so a pair the cap parted is named at both ends.",
+        "description": "The queue, newest first, and whether that is the whole of it.\n\n`dubletten_schluessel` is taken over every open application, so a pair the cap parted is named at both ends.",
         "properties": {
           "anzahl_je_saisonbezug": {
             "additionalProperties": {
@@ -4905,11 +4519,7 @@
               "type": "integer"
             },
             "propertyNames": {
-              "enum": [
-                "eingereicht",
-                "angenommen",
-                "abgelehnt"
-              ]
+              "$ref": "#/components/schemas/FLBewerbungStatus"
             },
             "title": "Anzahl Je Status",
             "type": "object"
@@ -5089,26 +4699,7 @@
         "description": "One bracket slot whose `gruppe` reference names a placing no standing will hand it.\n\n`tie_unresolved` alone empties the slot: every other reason names wiring the season cannot hold,\nand a slot is never emptied over one.",
         "properties": {
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "platz": {
             "exclusiveMinimum": 0.0,
@@ -5155,12 +4746,7 @@
             "type": "string"
           },
           "austritt_type": {
-            "enum": [
-              "disqualifikation",
-              "rueckzug"
-            ],
-            "title": "Austritt Type",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAustrittType"
           },
           "reason": {
             "const": "departed_occupant",
@@ -5399,37 +4985,12 @@
         "title": "FLBracketFaultSpieltag",
         "type": "object"
       },
-      "FLEinladungAnsichtPayload": {
-        "additionalProperties": false,
-        "description": "The link a visitor presents, and nothing else: the row it opens says which team and season it is for.",
-        "properties": {
-          "token": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "token"
-        ],
-        "title": "FLEinladungAnsichtPayload",
-        "type": "object"
-      },
       "FLEinladungAnsichtResponse": {
-        "description": "What an invite's holder is told before they type anything.\n\nEach field is something the link's own message already said, or something the form is bounded\nby: a select offering more than the write accepts is a drifted client.",
+        "description": "What an invite's holder is told before they type anything, and the bounds the form is held to.",
         "properties": {
           "erlaubte_stufen": {
             "items": {
-              "enum": [
-                "E1",
-                "E2",
-                "Q1",
-                "Q2",
-                "Q3",
-                "Q4"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLSpielerStufe"
             },
             "title": "Erlaubte Stufen",
             "type": "array"
@@ -5451,13 +5012,7 @@
             "type": "string"
           },
           "saison_status": {
-            "enum": [
-              "past",
-              "active",
-              "future"
-            ],
-            "title": "Saison Status",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSaisonStatus"
           },
           "schule": {
             "minLength": 1,
@@ -5497,13 +5052,7 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "vorname": {
             "minLength": 1,
@@ -5565,7 +5114,7 @@
         "type": "object"
       },
       "FLEinladungResponse": {
-        "description": "The team's live link for one season, or nothing, beside the window deciding what it opens.\n\nDeclared here rather than in `app/api/teams/schemas.py`, whose endpoint answers it: moving it\nthere is an import cycle through `app/api/bewerbungen/schemas.py`.",
+        "description": "The team's live link for one season, or nothing, beside the window deciding what it opens.",
         "properties": {
           "einladung": {
             "anyOf": [
@@ -5602,7 +5151,7 @@
         "type": "object"
       },
       "FLEinladungVersand": {
-        "description": "The carrier a message about this invite is recorded in.\n\nA carrier rather than the record itself: `zustellung_pfad` composes a dotted path out of it, and\nthe accepted send skips a row holding no carrier at all.",
+        "description": "The carrier a message about this invite is recorded in.",
         "properties": {
           "zustellung": {
             "anyOf": [
@@ -5956,12 +5505,7 @@
             "type": "string"
           },
           "umfang": {
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLEinwilligungUmfang"
           }
         },
         "required": [
@@ -5993,6 +5537,13 @@
         ],
         "title": "FLEinwilligungBeleg",
         "type": "object"
+      },
+      "FLEinwilligungErgebnis": {
+        "enum": [
+          "bestaetigt",
+          "abgelehnt"
+        ],
+        "type": "string"
       },
       "FLEinwilligungFassung": {
         "description": "The words one consent label names, as the person stamping it was shown them.\n\nNever changed once served: different words are a new label.",
@@ -6099,7 +5650,8 @@
         },
         "required": [
           "am",
-          "text_version"
+          "text_version",
+          "erteilt_zuvor"
         ],
         "title": "FLEinwilligungNachweis",
         "type": "object"
@@ -6128,6 +5680,10 @@
             ]
           }
         },
+        "required": [
+          "umfang",
+          "medien"
+        ],
         "title": "FLEinwilligungNachweise",
         "type": "object"
       },
@@ -6214,6 +5770,13 @@
         "title": "FLEinwilligungStandPayload",
         "type": "object"
       },
+      "FLEinwilligungUmfang": {
+        "enum": [
+          "kader_oeffentlich",
+          "intern"
+        ],
+        "type": "string"
+      },
       "FLErasureAnsichtAdresswechsel": {
         "description": "Another address's live change naming this one as its new address: the change ends, its address's records standing.",
         "properties": {
@@ -6225,17 +5788,12 @@
           "einsehbar_verwehrt": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "verwaltung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAdresswechselEinsehbarVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Einsehbar Verwehrt"
+            ]
           }
         },
         "required": [
@@ -6262,12 +5820,7 @@
             "type": "string"
           },
           "verwaltung": {
-            "enum": [
-              "owner",
-              "administration"
-            ],
-            "title": "Verwaltung",
-            "type": "string"
+            "$ref": "#/components/schemas/FLVerwaltung"
           }
         },
         "required": [
@@ -6290,13 +5843,7 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -6410,12 +5957,7 @@
             "type": "string"
           },
           "status": {
-            "enum": [
-              "eingereicht",
-              "abgelehnt"
-            ],
-            "title": "Status",
-            "type": "string"
+            "$ref": "#/components/schemas/FLRegistrierungStatus"
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -6518,17 +6060,12 @@
           "verwaltung": {
             "anyOf": [
               {
-                "enum": [
-                  "owner",
-                  "administration"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLVerwaltung"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Verwaltung"
+            ]
           }
         },
         "required": [
@@ -6600,13 +6137,7 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -6786,6 +6317,15 @@
         "title": "FLFailureBody",
         "type": "object"
       },
+      "FLGenehmigungVerwehrt": {
+        "enum": [
+          "eigene",
+          "gestartet",
+          "inhaber",
+          "juenger"
+        ],
+        "type": "string"
+      },
       "FLGenerateSpielplanPayload": {
         "additionalProperties": false,
         "description": "Whether this draw may REPLACE what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission. `REQ-SPIELPLAN-005` bounds a confirmed one.",
@@ -6897,27 +6437,31 @@
         },
         "description": "Every group the SEASON offers, all of them and no other, in standing order.\n\nBuilt by `fl_backend/app/api/teams/services.py :: build_gruppen` alone: the order is the tiebreak\nchain, whose head-to-head criterion reads the season's matches.",
         "propertyNames": {
-          "enum": [
-            "A",
-            "B",
-            "C",
-            "D",
-            "E",
-            "F",
-            "G",
-            "H",
-            "I",
-            "J",
-            "K",
-            "L",
-            "M",
-            "N",
-            "O",
-            "P"
-          ]
+          "$ref": "#/components/schemas/FLGruppenNames"
         },
         "title": "FLGruppen",
         "type": "object"
+      },
+      "FLGruppenNames": {
+        "enum": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O",
+          "P"
+        ],
+        "type": "string"
       },
       "FLGruppenTeam": {
         "description": "One row of a league table: what a standing shows and nothing more.\n\nNarrower than `FLTeam` on purpose: a public CLIENT component renders this, so every field is\nserialised into the page, and a club's address is a school's street.",
@@ -6930,17 +6474,12 @@
           "austritt_type": {
             "anyOf": [
               {
-                "enum": [
-                  "disqualifikation",
-                  "rueckzug"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAustrittType"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Austritt Type"
+            ]
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -6977,15 +6516,7 @@
         "properties": {
           "erlaubte_stufen": {
             "items": {
-              "enum": [
-                "E1",
-                "E2",
-                "Q1",
-                "Q2",
-                "Q3",
-                "Q4"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLSpielerStufe"
             },
             "minItems": 1,
             "title": "Erlaubte Stufen",
@@ -7065,19 +6596,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "rolle": {
             "anyOf": [
@@ -7102,21 +6626,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "vorname": {
             "minLength": 1,
@@ -7187,19 +6702,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "rolle": {
             "anyOf": [
@@ -7224,21 +6732,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "vorname": {
             "minLength": 1,
@@ -7298,12 +6797,7 @@
         "properties": {
           "bleibt_als": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Bleibt Als",
             "type": "array"
@@ -7314,12 +6808,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -7337,6 +6826,13 @@
         ],
         "title": "FLKontaktAbgang",
         "type": "object"
+      },
+      "FLKontaktEingetragenVon": {
+        "enum": [
+          "bewerbung",
+          "liga"
+        ],
+        "type": "string"
       },
       "FLKontaktEinladenResponse": {
         "description": "A fresh link for one seat, and its pair where the Trainer holds both; the old link then opens nothing.",
@@ -7389,12 +6885,7 @@
             "type": "string"
           },
           "eingetragen_von": {
-            "enum": [
-              "bewerbung",
-              "liga"
-            ],
-            "title": "Eingetragen Von",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktEingetragenVon"
           },
           "medien": {
             "title": "Medien",
@@ -7408,12 +6899,7 @@
             "type": "string"
           },
           "umfang": {
-            "enum": [
-              "kontaktdaten",
-              "kontaktdaten_whatsapp"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
@@ -7422,7 +6908,8 @@
           "datum",
           "bestaetigt_am",
           "medien",
-          "eingetragen_von"
+          "eingetragen_von",
+          "nachweis"
         ],
         "title": "FLKontaktKenntnisnahme",
         "type": "object"
@@ -7455,6 +6942,13 @@
         "title": "FLKontaktKenntnisnahmePayload",
         "type": "object"
       },
+      "FLKontaktKenntnisnahmeUmfang": {
+        "enum": [
+          "kontaktdaten",
+          "kontaktdaten_whatsapp"
+        ],
+        "type": "string"
+      },
       "FLKontaktMint": {
         "description": "One person's fresh confirmation link, RAW, for the admin action to mail; it is answered here and in no other response, ever.",
         "properties": {
@@ -7469,12 +6963,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -7488,13 +6977,7 @@
             "type": "string"
           },
           "zeile": {
-            "enum": [
-              "offen",
-              "saison_vorbei",
-              "ausgetreten"
-            ],
-            "title": "Zeile",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktZeile"
           }
         },
         "required": [
@@ -7539,6 +7022,22 @@
         ],
         "title": "FLKontaktPayload",
         "type": "object"
+      },
+      "FLKontaktRolle": {
+        "enum": [
+          "trainer",
+          "ansprechperson",
+          "stellvertretung"
+        ],
+        "type": "string"
+      },
+      "FLKontaktZeile": {
+        "enum": [
+          "offen",
+          "saison_vorbei",
+          "ausgetreten"
+        ],
+        "type": "string"
       },
       "FLKontaktperson": {
         "description": "One person the league reaches this team through, for one season.",
@@ -7767,23 +7266,10 @@
             "type": "string"
           },
           "wartet_auf": {
-            "enum": [
-              "freigabe",
-              "neue_adresse",
-              "genehmigung",
-              "wartezeit"
-            ],
-            "title": "Wartet Auf",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselWartetAuf"
           },
           "weg": {
-            "enum": [
-              "konto",
-              "freigabe",
-              "wartezeit"
-            ],
-            "title": "Weg",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselWeg"
           },
           "wirksam_ab": {
             "anyOf": [
@@ -7881,12 +7367,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "minItems": 1,
             "title": "Rollen",
@@ -7901,12 +7382,7 @@
             "type": "string"
           },
           "umfang": {
-            "enum": [
-              "kontaktdaten",
-              "kontaktdaten_whatsapp"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
@@ -8038,19 +7514,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "registrierung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -8064,21 +7533,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -8099,17 +7559,12 @@
           "umfang": {
             "anyOf": [
               {
-                "enum": [
-                  "kader_oeffentlich",
-                  "intern"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLEinwilligungUmfang"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Umfang"
+            ]
           },
           "vorname": {
             "title": "Vorname",
@@ -8272,12 +7727,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "minItems": 1,
             "title": "Rollen",
@@ -8297,12 +7747,7 @@
             "type": "string"
           },
           "umfang": {
-            "enum": [
-              "kontaktdaten",
-              "kontaktdaten_whatsapp"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
@@ -8554,19 +7999,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "registrierung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -8576,21 +8014,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "vorname": {
             "minLength": 1,
@@ -8650,12 +8079,7 @@
         "additionalProperties": false,
         "properties": {
           "verwaltung": {
-            "enum": [
-              "owner",
-              "administration"
-            ],
-            "title": "Verwaltung",
-            "type": "string"
+            "$ref": "#/components/schemas/FLVerwaltung"
           }
         },
         "required": [
@@ -8683,19 +8107,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "rolle": {
             "anyOf": [
@@ -8715,21 +8132,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           }
         },
         "required": [
@@ -8819,19 +8227,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "rolle": {
             "anyOf": [
@@ -8851,21 +8252,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -8984,63 +8376,17 @@
             ]
           },
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "trikot_farbe": {
             "anyOf": [
               {
-                "enum": [
-                  "schwarz",
-                  "weiss",
-                  "grau",
-                  "braun",
-                  "bordeaux",
-                  "rot",
-                  "koralle",
-                  "orange",
-                  "gold",
-                  "gelb",
-                  "limette",
-                  "hellgruen",
-                  "gruen",
-                  "smaragd",
-                  "tuerkis",
-                  "cyan",
-                  "hellblau",
-                  "meerblau",
-                  "blau",
-                  "dunkelblau",
-                  "flieder",
-                  "violett",
-                  "magenta",
-                  "rosa"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrikotFarbe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trikot Farbe"
+            ]
           }
         },
         "required": [
@@ -9194,20 +8540,12 @@
           "sonderereignis": {
             "anyOf": [
               {
-                "enum": [
-                  "ausgefallen",
-                  "nichtantreten_team1",
-                  "nichtantreten_team2",
-                  "abgebrochen",
-                  "annulliert"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSonderereignis"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Sonderereignis"
+            ]
           },
           "team1": {
             "anyOf": [
@@ -9521,21 +8859,12 @@
           "schulform": {
             "anyOf": [
               {
-                "enum": [
-                  "gymnasium_g8",
-                  "gymnasium_g9",
-                  "gesamtschule",
-                  "privatschule_g8",
-                  "privatschule_g9",
-                  "oberstufengymnasium"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSchulform"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Schulform"
+            ]
           },
           "shorthand": {
             "pattern": "^\\s*[A-Za-z]{3}\\s*$",
@@ -9625,7 +8954,7 @@
       },
       "FLPostBewerbungPayload": {
         "additionalProperties": false,
-        "description": "One school's application, as the public form submits it.\n\n`status`, `eingereicht_am` and `entscheidung` are on no payload: the server sets all three, so a\nclient can neither arrive already accepted nor backdate its own submission.",
+        "description": "One school's application, as the public form submits it.\n\n`status`, `eingereicht_am` and `entscheidung` are the server's.",
         "properties": {
           "kader": {
             "$ref": "#/components/schemas/FLBewerbungKaderPayload"
@@ -9697,7 +9026,7 @@
         "type": "object"
       },
       "FLPostBewerbungResponse": {
-        "description": "What the submission wrote, and nothing the submission carried.\n\nThe three people's details went one way, and a body repeating them is a copy in a browser's\ncache and in every proxy between.",
+        "description": "What the submission wrote, without the people's details it carried.",
         "properties": {
           "bestaetigungen": {
             "anyOf": [
@@ -9741,7 +9070,7 @@
       },
       "FLPostRegistrierungPayload": {
         "additionalProperties": false,
-        "description": "One pupil registering through a team's link.\n\nThe league's own fields -- the team, the season, the state, the deadline and the confirmation\nlink -- are taken off the invite and the clock, never off this body.",
+        "description": "One pupil registering through a team's link.\n\nThe team, the season, the state, the deadline and the confirmation link come from the invite and the clock, never from this body.",
         "properties": {
           "email": {
             "maxLength": 254,
@@ -9770,42 +9099,27 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "token": {
             "maxLength": 128,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
           },
@@ -9830,7 +9144,7 @@
         "type": "object"
       },
       "FLPostRegistrierungResponse": {
-        "description": "The stored registration and a raw confirmation link, which no read ever answers.\n\nThe database holds its hash alone, so a lost link is re-minted by the sweep's reminder rather\nthan recovered from any read.",
+        "description": "The stored registration and its raw confirmation link, which no read ever answers again.",
         "properties": {
           "bestaetigung_token": {
             "anyOf": [
@@ -9967,19 +9281,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "rolle": {
             "anyOf": [
@@ -10005,21 +9312,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -10043,30 +9341,12 @@
         "description": "One team's membership of one season. `team_id` comes from the path, `saison_id` from here.",
         "properties": {
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "saison_id": {
             "maxLength": 4,
             "minLength": 4,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Saison Id",
             "type": "string"
           }
@@ -10247,21 +9527,12 @@
           "schulform": {
             "anyOf": [
               {
-                "enum": [
-                  "gymnasium_g8",
-                  "gymnasium_g9",
-                  "gesamtschule",
-                  "privatschule_g8",
-                  "privatschule_g9",
-                  "oberstufengymnasium"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSchulform"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Schulform"
+            ]
           },
           "shorthand": {
             "pattern": "^\\s*[A-Za-z]{3}\\s*$",
@@ -10410,7 +9681,7 @@
         "type": "object"
       },
       "FLRegistrierung": {
-        "description": "One pupil's registration for one team's season, as stored, its decision as served.\n\nThe submission is never rewritten: its pupil fills and withdraws `einwilligung` and fills\n`geburtsdatum`, and a decline writes `status` and `entscheidung`.",
+        "description": "One pupil's registration for one team's season, as stored, its decision as served.\n\nIts pupil fills and withdraws `einwilligung` and fills `geburtsdatum`; a decline writes `status` and `entscheidung`.",
         "properties": {
           "bestaetigt": {
             "title": "Bestaetigt",
@@ -10419,7 +9690,7 @@
           "bestaetigung": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLRegistrierungBestaetigung"
+                "$ref": "#/components/schemas/FLBestaetigung"
               },
               {
                 "type": "null"
@@ -10497,50 +9768,29 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
           },
           "status": {
-            "enum": [
-              "eingereicht",
-              "abgelehnt"
-            ],
-            "title": "Status",
-            "type": "string"
+            "$ref": "#/components/schemas/FLRegistrierungStatus"
           },
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -10686,19 +9936,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "registrierung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -10717,21 +9960,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -10782,67 +10016,6 @@
         "title": "FLRegistrierungAufnehmenPayload",
         "type": "object"
       },
-      "FLRegistrierungBestaetigung": {
-        "description": "One registration's confirmation bookkeeping as an administrator reads it -- and NO `token_hash`.\n\nThe hash is a raw document key the confirmation query alone reads, as\n`app/api/bewerbungen/schemas.py :: FLBewerbungBestaetigung` keeps its own off the wire.",
-        "properties": {
-          "erinnert_am": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Erinnert Am"
-          },
-          "frist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
-            "type": "string"
-          },
-          "verschickt_am": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Verschickt Am",
-            "type": "string"
-          },
-          "zustellung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLBewerbungZustellung"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "verschickt_am",
-          "erinnert_am",
-          "frist"
-        ],
-        "title": "FLRegistrierungBestaetigung",
-        "type": "object"
-      },
-      "FLRegistrierungBestaetigungAnsichtPayload": {
-        "additionalProperties": false,
-        "description": "A POST that reads: the token travels in a body, never in a second URL.",
-        "properties": {
-          "token": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "token"
-        ],
-        "title": "FLRegistrierungBestaetigungAnsichtPayload",
-        "type": "object"
-      },
       "FLRegistrierungBestaetigungAnsichtResponse": {
         "description": "What one confirmation link opens, and no field past the ones declared here.",
         "properties": {
@@ -10878,14 +10051,7 @@
             "type": "string"
           },
           "zustand": {
-            "enum": [
-              "gueltig",
-              "bestaetigt",
-              "abgelaufen",
-              "gesperrt"
-            ],
-            "title": "Zustand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLBestaetigungZustand"
           }
         },
         "required": [
@@ -10934,29 +10100,26 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           },
           "token": {
             "maxLength": 128,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
           },
           "umfang": {
             "anyOf": [
               {
-                "enum": [
-                  "kader_oeffentlich",
-                  "intern"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLEinwilligungUmfang"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Umfang"
+            ]
           }
         },
         "required": [
@@ -11003,17 +10166,12 @@
           "umfang": {
             "anyOf": [
               {
-                "enum": [
-                  "kader_oeffentlich",
-                  "intern"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLEinwilligungUmfang"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Umfang"
+            ]
           }
         },
         "required": [
@@ -11073,17 +10231,12 @@
           "umfang": {
             "anyOf": [
               {
-                "enum": [
-                  "kader_oeffentlich",
-                  "intern"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLEinwilligungUmfang"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Umfang"
+            ]
           }
         },
         "required": [
@@ -11176,41 +10329,6 @@
         "title": "FLRegistrierungPerson",
         "type": "object"
       },
-      "FLRegistrierungSelbstEinwilligungPayload": {
-        "additionalProperties": false,
-        "description": "The pupil's own two choices on one pending registration, the pupil's account control's shape: a grant is refused.",
-        "properties": {
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
-          },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Text Version",
-            "type": "string"
-          },
-          "umfang": {
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
-            ],
-            "title": "Umfang",
-            "type": "string"
-          }
-        },
-        "required": [
-          "umfang",
-          "medien",
-          "text_version",
-          "nachweis_stand"
-        ],
-        "title": "FLRegistrierungSelbstEinwilligungPayload",
-        "type": "object"
-      },
       "FLRegistrierungSelbstEinwilligungResponse": {
         "description": "The registration's consent record as it stands after the write, everything the pupil did not move unchanged.",
         "properties": {
@@ -11233,6 +10351,13 @@
         ],
         "title": "FLRegistrierungSelbstEinwilligungResponse",
         "type": "object"
+      },
+      "FLRegistrierungStatus": {
+        "enum": [
+          "eingereicht",
+          "abgelehnt"
+        ],
+        "type": "string"
       },
       "FLRegistrierungSweepBenachrichtigung": {
         "description": "One pupil whose confirmed registration was erased at its season's end, and who is told after the fact.\n\nNo token and no deadline: the row is gone, and this message asks for nothing.",
@@ -11413,26 +10538,7 @@
             "type": "integer"
           },
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "incoming_team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -11471,39 +10577,12 @@
           "trikot_farbe": {
             "anyOf": [
               {
-                "enum": [
-                  "schwarz",
-                  "weiss",
-                  "grau",
-                  "braun",
-                  "bordeaux",
-                  "rot",
-                  "koralle",
-                  "orange",
-                  "gold",
-                  "gelb",
-                  "limette",
-                  "hellgruen",
-                  "gruen",
-                  "smaragd",
-                  "tuerkis",
-                  "cyan",
-                  "hellblau",
-                  "meerblau",
-                  "blau",
-                  "dunkelblau",
-                  "flieder",
-                  "violett",
-                  "magenta",
-                  "rosa"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrikotFarbe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trikot Farbe"
+            ]
           }
         },
         "required": [
@@ -11580,13 +10659,7 @@
             "type": "string"
           },
           "status": {
-            "enum": [
-              "past",
-              "active",
-              "future"
-            ],
-            "title": "Status",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSaisonStatus"
           }
         },
         "required": [
@@ -11597,6 +10670,7 @@
           "registrierung",
           "id",
           "status",
+          "spielplan",
           "schedule"
         ],
         "title": "FLSaison",
@@ -11649,6 +10723,16 @@
         "title": "FLSaisonForfeitErgebnis",
         "type": "object"
       },
+      "FLSaisonPhase": {
+        "enum": [
+          "gruppenphase",
+          "achtelfinale",
+          "viertelfinale",
+          "halbfinale",
+          "finale"
+        ],
+        "type": "string"
+      },
       "FLSaisonPhaseSchedule": {
         "description": "One phase of a season: how many matchdays it takes, and how many matches each holds.\n\nA phase the bracket does not reach is ABSENT rather than present with zeroes, so the list IS the\nphases the season plays, in playing order.",
         "properties": {
@@ -11663,15 +10747,7 @@
             "type": "integer"
           },
           "phase": {
-            "enum": [
-              "gruppenphase",
-              "achtelfinale",
-              "viertelfinale",
-              "halbfinale",
-              "finale"
-            ],
-            "title": "Phase",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSaisonPhase"
           }
         },
         "required": [
@@ -11717,15 +10793,7 @@
           },
           "erlaubte_stufen": {
             "items": {
-              "enum": [
-                "E1",
-                "E2",
-                "Q1",
-                "Q2",
-                "Q3",
-                "Q4"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLSpielerStufe"
             },
             "minItems": 1,
             "title": "Erlaubte Stufen",
@@ -11817,19 +10885,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "rolle": {
             "anyOf": [
@@ -11858,21 +10919,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -11920,6 +10972,14 @@
         ],
         "title": "FLSaisonSpielplan",
         "type": "object"
+      },
+      "FLSaisonStatus": {
+        "enum": [
+          "past",
+          "active",
+          "future"
+        ],
+        "type": "string"
       },
       "FLSaisonTeamAdresswechsel": {
         "description": "The live change of each confirmed seat's address, which the address tool shows.\n\nNull where none stands, the seat is empty, or its person never confirmed it, the change moving nothing of theirs.",
@@ -11978,47 +11038,32 @@
           "ansprechperson": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "verwaltung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAdresswechselEinsehbarVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Ansprechperson"
+            ]
           },
           "stellvertretung": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "verwaltung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAdresswechselEinsehbarVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stellvertretung"
+            ]
           },
           "trainer": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "verwaltung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAdresswechselEinsehbarVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trainer"
+            ]
           }
         },
         "required": [
@@ -12073,6 +11118,7 @@
           "verschickt_am",
           "frist",
           "abgelehnt_am",
+          "zustellung",
           "abgelaufen"
         ],
         "title": "FLSaisonTeamBestaetigungAnsicht",
@@ -12120,15 +11166,10 @@
         "type": "object"
       },
       "FLSaisonTeamEinwilligungAntwortResponse": {
-        "description": "What an answer on a season row's link did, and nothing to compose a message from.\n\nNo application stands behind the seat, so nobody is told.",
+        "description": "What an answer on a season row's link did; nobody is told, so nothing composes a message.",
         "properties": {
           "ergebnis": {
-            "enum": [
-              "bestaetigt",
-              "abgelehnt"
-            ],
-            "title": "Ergebnis",
-            "type": "string"
+            "$ref": "#/components/schemas/FLEinwilligungErgebnis"
           },
           "geburtsdatum": {
             "anyOf": [
@@ -12203,17 +11244,12 @@
           "trainer_ist_zugleich": {
             "anyOf": [
               {
-                "enum": [
-                  "ansprechperson",
-                  "stellvertretung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrainerZugleich"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trainer Ist Zugleich"
+            ]
           }
         },
         "required": [
@@ -12262,17 +11298,12 @@
           "trainer_ist_zugleich": {
             "anyOf": [
               {
-                "enum": [
-                  "ansprechperson",
-                  "stellvertretung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrainerZugleich"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trainer Ist Zugleich"
+            ]
           }
         },
         "required": [
@@ -12301,12 +11332,7 @@
             "type": "string"
           },
           "umfang": {
-            "enum": [
-              "kontaktdaten",
-              "kontaktdaten_whatsapp"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
@@ -12330,12 +11356,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -12350,12 +11371,7 @@
             "type": "string"
           },
           "umfang": {
-            "enum": [
-              "kontaktdaten",
-              "kontaktdaten_whatsapp"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
@@ -12383,26 +11399,7 @@
             ]
           },
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "kontakte": {
             "anyOf": [
@@ -12436,39 +11433,12 @@
           "trikot_farbe": {
             "anyOf": [
               {
-                "enum": [
-                  "schwarz",
-                  "weiss",
-                  "grau",
-                  "braun",
-                  "bordeaux",
-                  "rot",
-                  "koralle",
-                  "orange",
-                  "gold",
-                  "gelb",
-                  "limette",
-                  "hellgruen",
-                  "gruen",
-                  "smaragd",
-                  "tuerkis",
-                  "cyan",
-                  "hellblau",
-                  "meerblau",
-                  "blau",
-                  "dunkelblau",
-                  "flieder",
-                  "violett",
-                  "magenta",
-                  "rosa"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrikotFarbe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trikot Farbe"
+            ]
           }
         },
         "required": [
@@ -13001,17 +11971,12 @@
           "adresswechsel_einsehbar_verwehrt": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "verwaltung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAdresswechselEinsehbarVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Adresswechsel Einsehbar Verwehrt"
+            ]
           },
           "adresswechsel_id": {
             "anyOf": [
@@ -13053,6 +12018,48 @@
           "updated_document"
         ],
         "title": "FLSchiedsrichterWriteResponse",
+        "type": "object"
+      },
+      "FLSchulform": {
+        "enum": [
+          "gymnasium_g8",
+          "gymnasium_g9",
+          "gesamtschule",
+          "privatschule_g8",
+          "privatschule_g9",
+          "oberstufengymnasium"
+        ],
+        "type": "string"
+      },
+      "FLSelbstEinwilligungPayload": {
+        "additionalProperties": false,
+        "description": "A pupil's, a referee's or a registration's own two choices on their record.\n\nBoth choices on every press, and no member defaulted: a default would let a page that forgot one\nreset the person's other choice.",
+        "properties": {
+          "medien": {
+            "title": "Medien",
+            "type": "boolean"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
+          },
+          "text_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Text Version",
+            "type": "string"
+          },
+          "umfang": {
+            "$ref": "#/components/schemas/FLEinwilligungUmfang"
+          }
+        },
+        "required": [
+          "umfang",
+          "medien",
+          "text_version",
+          "nachweis_stand"
+        ],
+        "title": "FLSelbstEinwilligungPayload",
         "type": "object"
       },
       "FLSelbstErasureAnsichtResponse": {
@@ -13104,17 +12111,12 @@
           "verwaltung": {
             "anyOf": [
               {
-                "enum": [
-                  "owner",
-                  "administration"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLVerwaltung"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Verwaltung"
+            ]
           }
         },
         "required": [
@@ -13138,13 +12140,7 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -13228,13 +12224,7 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -13308,12 +12298,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "minItems": 1,
             "title": "Rollen",
@@ -13332,6 +12317,37 @@
           "kontext"
         ],
         "title": "FLSitzBestaetigt",
+        "type": "object"
+      },
+      "FLSitzEinwilligungPayload": {
+        "additionalProperties": false,
+        "description": "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+        "properties": {
+          "medien": {
+            "title": "Medien",
+            "type": "boolean"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
+          },
+          "text_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Text Version",
+            "type": "string"
+          },
+          "umfang": {
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
+          }
+        },
+        "required": [
+          "umfang",
+          "medien",
+          "text_version",
+          "nachweis_stand"
+        ],
+        "title": "FLSitzEinwilligungPayload",
         "type": "object"
       },
       "FLSitzKontext": {
@@ -13376,6 +12392,23 @@
         ],
         "title": "FLSitzKontext",
         "type": "object"
+      },
+      "FLSonderereignis": {
+        "enum": [
+          "ausgefallen",
+          "nichtantreten_team1",
+          "nichtantreten_team2",
+          "abgebrochen",
+          "annulliert"
+        ],
+        "type": "string"
+      },
+      "FLSortOrder": {
+        "enum": [
+          "asc",
+          "desc"
+        ],
+        "type": "string"
       },
       "FLSperrlisteListResponse": {
         "description": "The bans, newest first, and how many there are.\n\n`anzahl_gesamt` is what makes a ban past the cap liftable: one enforced and not rendered is a\nperson barred by a row nobody can reach.",
@@ -13505,20 +12538,12 @@
           "voided_sonderereignis": {
             "anyOf": [
               {
-                "enum": [
-                  "ausgefallen",
-                  "nichtantreten_team1",
-                  "nichtantreten_team2",
-                  "abgebrochen",
-                  "annulliert"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSonderereignis"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Voided Sonderereignis"
+            ]
           }
         },
         "required": [
@@ -13633,15 +12658,7 @@
             "type": "string"
           },
           "saison_phase": {
-            "enum": [
-              "gruppenphase",
-              "achtelfinale",
-              "viertelfinale",
-              "halbfinale",
-              "finale"
-            ],
-            "title": "Saison Phase",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSaisonPhase"
           },
           "schiedsrichter": {
             "anyOf": [
@@ -13656,20 +12673,12 @@
           "sonderereignis": {
             "anyOf": [
               {
-                "enum": [
-                  "ausgefallen",
-                  "nichtantreten_team1",
-                  "nichtantreten_team2",
-                  "abgebrochen",
-                  "annulliert"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSonderereignis"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Sonderereignis"
+            ]
           },
           "spiel_nr": {
             "exclusiveMinimum": 0.0,
@@ -13867,15 +12876,7 @@
             "type": "string"
           },
           "saison_phase": {
-            "enum": [
-              "gruppenphase",
-              "achtelfinale",
-              "viertelfinale",
-              "halbfinale",
-              "finale"
-            ],
-            "title": "Saison Phase",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSaisonPhase"
           },
           "schiedsrichter": {
             "anyOf": [
@@ -13890,20 +12891,12 @@
           "sonderereignis": {
             "anyOf": [
               {
-                "enum": [
-                  "ausgefallen",
-                  "nichtantreten_team1",
-                  "nichtantreten_team2",
-                  "abgebrochen",
-                  "annulliert"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSonderereignis"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Sonderereignis"
+            ]
           },
           "spiel_nr": {
             "exclusiveMinimum": 0.0,
@@ -14106,26 +13099,7 @@
         "description": "A slot fed by the group phase: the team finishing `platz` in `gruppe`.",
         "properties": {
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "platz": {
             "exclusiveMinimum": 0.0,
@@ -14227,20 +13201,12 @@
           "voided_sonderereignis": {
             "anyOf": [
               {
-                "enum": [
-                  "ausgefallen",
-                  "nichtantreten_team1",
-                  "nichtantreten_team2",
-                  "abgebrochen",
-                  "annulliert"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSonderereignis"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Voided Sonderereignis"
+            ]
           }
         },
         "required": [
@@ -14344,17 +13310,12 @@
           "austritt_type": {
             "anyOf": [
               {
-                "enum": [
-                  "disqualifikation",
-                  "rueckzug"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAustrittType"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Austritt Type"
+            ]
           },
           "name": {
             "minLength": 1,
@@ -15089,33 +14050,17 @@
             "type": "string"
           },
           "saison_phase": {
-            "enum": [
-              "gruppenphase",
-              "achtelfinale",
-              "viertelfinale",
-              "halbfinale",
-              "finale"
-            ],
-            "title": "Saison Phase",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSaisonPhase"
           },
           "sonderereignis": {
             "anyOf": [
               {
-                "enum": [
-                  "ausgefallen",
-                  "nichtantreten_team1",
-                  "nichtantreten_team2",
-                  "abgebrochen",
-                  "annulliert"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSonderereignis"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Sonderereignis"
+            ]
           },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -16387,12 +15332,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -16414,12 +15354,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -16623,7 +15558,7 @@
         "type": "object"
       },
       "FLSpielbestaetigungSweepSaisonsResponse": {
-        "description": "The `active` seasons a pass visits, and the day a pass last ran over any of them.",
+        "description": "The `active` seasons a pass visits, oldest first.",
         "properties": {
           "saison_ids": {
             "items": {
@@ -16631,23 +15566,10 @@
             },
             "title": "Saison Ids",
             "type": "array"
-          },
-          "spiel_sweep_gelaufen_am": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Spiel Sweep Gelaufen Am"
           }
         },
         "required": [
-          "saison_ids",
-          "spiel_sweep_gelaufen_am"
+          "saison_ids"
         ],
         "title": "FLSpielbestaetigungSweepSaisonsResponse",
         "type": "object"
@@ -16915,13 +15837,7 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           }
         },
         "required": [
@@ -16967,20 +15883,8 @@
         "type": "object"
       },
       "FLSpielbestaetigungenListResponse": {
-        "description": "The rows newest first, closed ones included, and the named season's own last pass.",
+        "description": "The rows newest first, closed ones included.",
         "properties": {
-          "spiel_sweep_gelaufen_am": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Spiel Sweep Gelaufen Am"
-          },
           "spielbestaetigungen": {
             "items": {
               "$ref": "#/components/schemas/FLSpielbestaetigung"
@@ -16995,7 +15899,6 @@
         },
         "required": [
           "spielbestaetigungen",
-          "spiel_sweep_gelaufen_am",
           "vollstaendig"
         ],
         "title": "FLSpielbestaetigungenListResponse",
@@ -17293,19 +16196,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "rolle": {
             "anyOf": [
@@ -17329,21 +16225,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -17400,6 +16287,15 @@
         "title": "FLSpielerNachnominierungResponse",
         "type": "object"
       },
+      "FLSpielerPosition": {
+        "enum": [
+          "Tor",
+          "Abwehr",
+          "Mittelfeld",
+          "Angriff"
+        ],
+        "type": "string"
+      },
       "FLSpielerPublic": {
         "description": "One squad row as the BASE TIER serves it -- all an anonymous visitor may read.\n\n`build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the\n`stufe` is gone (`READ-PUPIL-002`), and the consent record with it.",
         "properties": {
@@ -17428,19 +16324,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "vorname": {
             "anyOf": [
@@ -17597,19 +16486,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "rolle": {
             "anyOf": [
@@ -17633,21 +16515,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -17725,23 +16598,29 @@
         "title": "FLSpielerSingleResponse",
         "type": "object"
       },
+      "FLSpielerStufe": {
+        "enum": [
+          "E1",
+          "E2",
+          "Q1",
+          "Q2",
+          "Q3",
+          "Q4"
+        ],
+        "type": "string"
+      },
       "FLSpielerWithMemberships": {
         "description": "The person as stored, plus every squad row they hold.\n\nA DIFFERENT question from `FLSpieler`, not a projection: that one is FLATTENED against one\nseason, so a player in two comes back as two indistinguishable rows.",
         "properties": {
           "adresswechsel_einsehbar_verwehrt": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "verwaltung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAdresswechselEinsehbarVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Adresswechsel Einsehbar Verwehrt"
+            ]
           },
           "adresswechsel_id": {
             "anyOf": [
@@ -17991,15 +16870,7 @@
             "type": "string"
           },
           "saison_phase": {
-            "enum": [
-              "gruppenphase",
-              "achtelfinale",
-              "viertelfinale",
-              "halbfinale",
-              "finale"
-            ],
-            "title": "Saison Phase",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSaisonPhase"
           }
         },
         "required": [
@@ -18135,17 +17006,12 @@
           "verwaltung": {
             "anyOf": [
               {
-                "enum": [
-                  "owner",
-                  "administration"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLVerwaltung"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Verwaltung"
+            ]
           }
         },
         "required": [
@@ -18180,26 +17046,14 @@
         "description": "One contact seat the mailbox holds on a season's junction row.\n\nPer seat and never per person, as the erasure's `FLSelbstErasureSitz` is: one row seats one\nperson twice where `trainer_ist_zugleich` says so.",
         "properties": {
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
           },
           "saison_status": {
-            "enum": [
-              "past",
-              "active",
-              "future"
-            ],
-            "title": "Saison Status",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSaisonStatus"
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -18272,26 +17126,7 @@
             "type": "string"
           },
           "team1_gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Team1 Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "team1_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -18299,26 +17134,7 @@
             "type": "string"
           },
           "team2_gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Team2 Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "team2_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -18363,26 +17179,7 @@
             "type": "string"
           },
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -18409,21 +17206,12 @@
           "schulform": {
             "anyOf": [
               {
-                "enum": [
-                  "gymnasium_g8",
-                  "gymnasium_g9",
-                  "gesamtschule",
-                  "privatschule_g8",
-                  "privatschule_g9",
-                  "oberstufengymnasium"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSchulform"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Schulform"
+            ]
           },
           "shorthand": {
             "pattern": "^[A-Z]{3}$",
@@ -18496,26 +17284,7 @@
             ]
           },
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "kontakte": {
             "anyOf": [
@@ -18540,39 +17309,12 @@
           "trikot_farbe": {
             "anyOf": [
               {
-                "enum": [
-                  "schwarz",
-                  "weiss",
-                  "grau",
-                  "braun",
-                  "bordeaux",
-                  "rot",
-                  "koralle",
-                  "orange",
-                  "gold",
-                  "gelb",
-                  "limette",
-                  "hellgruen",
-                  "gruen",
-                  "smaragd",
-                  "tuerkis",
-                  "cyan",
-                  "hellblau",
-                  "meerblau",
-                  "blau",
-                  "dunkelblau",
-                  "flieder",
-                  "violett",
-                  "magenta",
-                  "rosa"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrikotFarbe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trikot Farbe"
+            ]
           }
         },
         "required": [
@@ -18581,6 +17323,7 @@
           "austritt",
           "trikot_farbe",
           "kontakte",
+          "bestaetigungen",
           "adresswechsel",
           "kontakte_stand"
         ],
@@ -18628,21 +17371,12 @@
           "schulform": {
             "anyOf": [
               {
-                "enum": [
-                  "gymnasium_g8",
-                  "gymnasium_g9",
-                  "gesamtschule",
-                  "privatschule_g8",
-                  "privatschule_g9",
-                  "oberstufengymnasium"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSchulform"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Schulform"
+            ]
           },
           "shorthand": {
             "pattern": "^[A-Z]{3}$",
@@ -18694,13 +17428,7 @@
             "title": "Name"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           }
         },
         "required": [
@@ -18790,6 +17518,16 @@
             "type": "integer"
           }
         },
+        "required": [
+          "anzahl_gespielte_spiele",
+          "siege",
+          "niederlagen",
+          "unentschieden",
+          "tore_geschossen",
+          "tore_kassiert",
+          "punkte",
+          "anzahl_abgesagte_spiele"
+        ],
         "title": "FLTeamStatistik",
         "type": "object"
       },
@@ -18841,21 +17579,12 @@
           "schulform": {
             "anyOf": [
               {
-                "enum": [
-                  "gymnasium_g8",
-                  "gymnasium_g9",
-                  "gesamtschule",
-                  "privatschule_g8",
-                  "privatschule_g9",
-                  "oberstufengymnasium"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSchulform"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Schulform"
+            ]
           },
           "shorthand": {
             "pattern": "^[A-Z]{3}$",
@@ -18988,6 +17717,60 @@
         "title": "FLTeamsSingleResponse",
         "type": "object"
       },
+      "FLTokenPayload": {
+        "additionalProperties": false,
+        "description": "The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.",
+        "properties": {
+          "token": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "FLTokenPayload",
+        "type": "object"
+      },
+      "FLTrainerZugleich": {
+        "enum": [
+          "ansprechperson",
+          "stellvertretung"
+        ],
+        "type": "string"
+      },
+      "FLTrikotFarbe": {
+        "enum": [
+          "schwarz",
+          "weiss",
+          "grau",
+          "braun",
+          "bordeaux",
+          "rot",
+          "koralle",
+          "orange",
+          "gold",
+          "gelb",
+          "limette",
+          "hellgruen",
+          "gruen",
+          "smaragd",
+          "tuerkis",
+          "cyan",
+          "hellblau",
+          "meerblau",
+          "blau",
+          "dunkelblau",
+          "flieder",
+          "violett",
+          "magenta",
+          "rosa"
+        ],
+        "type": "string"
+      },
       "FLUndrawSpielplanResponse": {
         "description": "What removing the season's Spielplan took away, on the shape the draw reports.\n\nBoth counts are zero on a season already undrawn, which is why the watermark is reported apart:\nit is the one thing a season can hold with neither collection behind it.",
         "properties": {
@@ -19021,6 +17804,13 @@
         "title": "FLUndrawSpielplanResponse",
         "type": "object"
       },
+      "FLVerwaltung": {
+        "enum": [
+          "owner",
+          "administration"
+        ],
+        "type": "string"
+      },
       "FLZustellungAbgewiesenPayload": {
         "additionalProperties": false,
         "description": "A send the provider refused outright. No `nachricht_id`: nothing was minted, so there is no message for a later event to join.",
@@ -19046,12 +17836,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -19102,12 +17887,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -19171,26 +17951,13 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
           },
           "stand": {
-            "enum": [
-              "zugestellt",
-              "verzoegert",
-              "unzustellbar",
-              "unterdrueckt",
-              "beschwerde"
-            ],
-            "title": "Stand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLBewerbungZustellEreignis"
           },
           "ziel": {
             "enum": [
@@ -21092,7 +19859,7 @@
     },
     "/api/v0/bewerbungen": {
       "get": {
-        "description": "Every application, newest first, narrowable by season and by any number of the three statuses.\n\nDecided ones stay listed: what the league turned down, and why, is the record the decision was\ntaken against. `vollstaendig` is false where more rows exist than one read serves. A decision's\nadministrator is `null` beside `entscheidung.von_gesperrt` where the ban list holds that\naddress, as no barred address is served in plain.\n\n`saisonbezug` says which side of `saison_id` this read covers — `diese_saison` for that season,\n`andere_saison` for every other one — and is ignored without a `saison_id` to stand against.\nBoth values is every season, as omitting the parameter is; `saison_id` alone is that season.\n\n`anzahl_je_status` counts every status over the seasons this request selected and never over the\nstatuses it named, and `anzahl_je_saisonbezug` counts each side of the season relation over those\nstatuses and never over the relation, so a caller narrowed to one of either still knows what\nasking for the other would fetch. Repeating a parameter and comma-joining its values are one\nrequest; omitting one is every value, and sending it empty is too.\n\n`dubletten_schluessel` names every key two or more OPEN applications share, over every season the\nrequest selected rather than over the rows served, so a colliding pair the cap parted is named at\nboth ends; a key carries its own season, so no selection can part one. A key\nis the season and the club id, or the season and the upper-cased Kürzel, parted by the word\n`team` or `kuerzel`; a caller composes a served row's own key and marks the row where the two\nmatch.",
+        "description": "Every application, newest first, narrowed by `saison_id` with `saisonbezug` and by any of the three statuses.\n\n`vollstaendig` is false where more rows exist than one read serves, and each count covers the values its facet left out.\n`dubletten_schluessel` names every key two or more open applications share: the season and the club id or upper-cased\nKürzel, joined by `team` or `kuerzel`. A barred administrator is served as `null` beside `entscheidung.von_gesperrt`.",
         "operationId": "bewerbungen_get_bewerbungen",
         "parameters": [
           {
@@ -21157,13 +19924,8 @@
             "name": "order",
             "required": false,
             "schema": {
-              "default": "desc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
+              "$ref": "#/components/schemas/FLSortOrder",
+              "default": "desc"
             }
           }
         ],
@@ -21326,7 +20088,7 @@
     },
     "/api/v0/bewerbungen/einwilligung": {
       "post": {
-        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update, each\nchoice with its evidence, and leaves who seated them as it stands; a decline empties their slot and redacts\nevery log image holding it, as an erasure does. Refuses, in this order: a token no seat holds (`REQ-BEWERBUNG-009`),\na link whose deadline has passed or whose application was decided (`REQ-BEWERBUNG-010`), a seat already answered\n(`REQ-BEWERBUNG-011`), a consent naming any label but the one the view answered as `laufende_fassung` for this link\n(`REQ-EINWILLIGUNG-001`), a consent from an address the ban list holds now, whenever the link was minted\n(`REQ-BEWERBUNG-020`), an age outside the span the seats this person holds ask for (`REQ-BEWERBUNG-012`), and a\nmedia consent from a person below `medien_mindestalter` (`REQ-EINWILLIGUNG-002`) -- the last four judged before\nanything is written, so a reloaded page or a mistyped year spends nothing. A decline\nstores no label and is taken from a barred address too: it empties the seat.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.\n\nA link on a team's season row (`quelle: saison`) is answered the same way on that row, refused in the same order but\nfor `REQ-BEWERBUNG-010`, nothing deciding a season row, and its answer carries nothing to compose a message from. Its\nown deadline passed is `REQ-KONTAKT-004`, and a consent once its season has ended or its team has left it is\n`REQ-KONTAKT-006`, a Widerspruch being taken all the same. A Widerspruch there also voids the seat's links on the\nteam's match confirmations of that season, answered and closed ones too, takes those links and their mails' delivery\nrecords out of the confirmations' log images, and takes every reason its person typed answering a match confirmation,\nfrom any seat they held, from its row and its log images, the answer standing.",
+        "description": "Record one person's consent or decline for the seat their link opens, and for a second seat they hold.\n\nA decline empties the slot. Server-to-server only: the answer carries the addresses the outbound messages are composed\nfrom. Refuses, writing nothing: `REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and\non a team's season row `REQ-KONTAKT-004` and `-006`.",
         "operationId": "bewerbungen_post_einwilligung",
         "requestBody": {
           "content": {
@@ -21418,13 +20180,13 @@
     },
     "/api/v0/bewerbungen/einwilligung/ansicht": {
       "post": {
-        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, and `zugleich_rolle`: the\nsecond seat the same person holds, which an answer on this link writes too, or null. Never the holder's name: the\nlink went to an address nobody has confirmed, which behind a typo is a stranger's.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take. `laufende_fassung` is the label of the page the person is shown and their\nanswer must name: the applicant's where the applicant named them in every seat the link answers, else the one for a\nperson the administration seated.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`), an open link whose seat holds nobody among them: a confirmed, declined or\nexpired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The state\nis `gesperrt`, ahead of every other, wherever the ban list holds an address a consent on this link would be\nrefused for (`REQ-BEWERBUNG-020`), so the page offers a barred person nothing to press.\n\nThe same token may open a seat an administrator entered on a team's season row (`quelle: saison`): `schule` is then\nthe name the club carries that season, and the link is over once its seat's own deadline has passed. Before that, a\nseason that has ended or a team that has left it answers `saison_vorbei`: the link takes a Widerspruch and no consent.",
+        "description": "What the confirmation page renders for the seat this token opens, and nothing of the person.\n\nA POST, so the token travels in the body. A confirmed, declined or expired link is served in that state, `gesperrt`\nranking first; only a token no seat holds is refused (`REQ-BEWERBUNG-009`).",
         "operationId": "bewerbungen_get_einwilligung_ansicht",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLBewerbungEinwilligungAnsichtPayload"
+                "$ref": "#/components/schemas/FLTokenPayload"
               }
             }
           },
@@ -21793,7 +20555,7 @@
     },
     "/api/v0/bewerbungen/sweep": {
       "get": {
-        "description": "Answer every season's id, oldest first, so the caller runs the clocks one season at a time, and the day each pass last ran.\n\nSystem tier rather than the base one: a season taking applications is `future`, which the base tier is never served,\nand the two clocks that matter run over exactly those seasons.\n\nNull against this database means no pass has ever run, never that the last one found nothing to do: a pass that reminds\nnobody and deletes nothing records the day exactly as a busy one does. Reading it writes nothing.",
+        "description": "Every season's id, oldest first, for the caller to sweep one at a time.",
         "operationId": "bewerbungen_get_sweep_saisons",
         "responses": {
           "200": {
@@ -21860,7 +20622,7 @@
     },
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
-        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. A seat whose address the ban list holds is\nsent nothing and has nothing written: it stays due, so every pass asks the ban list for it again until its deadline, and\nreminds it once a lift comes first; each pass logs how many mailboxes it withheld, never which. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n\nOne call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline\nfirst; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transactions, so no later step\nof the same call can answer an error in their place; where the request's deadline cuts them after one has committed, the call\nanswers what committed and warns once.\n\nAn application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,\nis passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it\nagain and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks\npassed over: a day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.\n\n404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,\nthough it logs the count of withheld seats again.\n\nThe accepted clock and the contact block run once a later season has ended while this one is not `active`, the moment the\nseason-after rule stops keeping this season's pupils: a running season keeps both, and a later season planned and never run\nholds neither back. A season whose id is not a four-digit year fails the whole pass rather than running the four clocks\nthat need no later season, because a pass that skipped those two quietly would leave both stopped for ever with nothing\nanywhere saying so. From that moment every pass also strips, on the rows and in their log images, the season's fixture\nconfirmation rows of every seat's link entry, each reason and a contact's holder digest, and its match\nreports of their remarks and every card's reason; the answers' way, day and role and the reports' scorers, cards and\nresult stay as the record. Each strip is its own transaction after the blocks' share: one that fails is\nlogged under the season's id and counted in `fehlgeschlagen`, and the blocks clear all the same.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
+        "description": "Run one season's six retention clocks as of today, and answer the reminders and deletion notices the caller must mail.\n\nEvery reminder answered is already stamped and committed. A deletion candidate is only listed: the caller stamps the\ndelivered notices through `/angekuendigt` and erases the announced ones through `/loeschen`. A row that cannot be written\nis passed over, counted in `fehlgeschlagen` and met again by the next pass. 404 where no season has the id.",
         "operationId": "bewerbungen_sweep_saison",
         "parameters": [
           {
@@ -21938,7 +20700,7 @@
     },
     "/api/v0/bewerbungen/sweep/{saison_id}/angekuendigt": {
       "post": {
-        "description": "Record that the deletion notice reached the applications named, so an erasure that fails afterwards mails nobody twice.\n\nAn id whose stamp fails, the database refusing it or anything else, is passed over alone, logged by id, left unstamped and\ncounted in `fehlgeschlagen`. Every later pass then lists it as unannounced, so a caller mailing those mails its notice again,\nand `/loeschen` skips it: until a stamp lands it stands until its season is `past`.\n\nThe ids are re-judged in-session: only one still submitted, past its deadline and with a seat outstanding is stamped, and one\nalready carrying a stamp keeps the day it has. An id whose Ansprechperson the mail provider refused between the pass and this\ncall is skipped, so a notice the provider never carried is not recorded as delivered. 404 where no season has the id. An empty\nlist answers zero.",
+        "description": "Stamp the named candidates whose deletion notice was delivered.\n\nAn id that no longer qualifies, or already carries a stamp, is skipped. 404 where no season has the id.",
         "operationId": "bewerbungen_angekuendigt_bewerbungen",
         "parameters": [
           {
@@ -21955,7 +20717,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLBewerbungSweepAngekuendigtPayload"
+                "$ref": "#/components/schemas/FLBewerbungSweepAuswahlPayload"
               }
             }
           },
@@ -22026,7 +20788,7 @@
     },
     "/api/v0/bewerbungen/sweep/{saison_id}/loeschen": {
       "post": {
-        "description": "Erase the applications whose deletion notice went out, and redact every log row naming them.\n\nThe ids are re-judged in-session: only one still submitted, past its deadline, with a seat outstanding, whose announcement the\nmail provider will still carry AND carrying the announcement stamp is erased, so an application confirmed and accepted between\nthe calls survives, one whose notice bounced after it was stamped is held rather than destroyed, and an id from another\nseason or one nobody was told about is skipped rather than refused. 404 where no season has the id. An empty list answers zeros.\n\nAn id whose erasure fails, the database refusing it or anything else, is passed over alone, logged by id, left standing and\ncounted in `fehlgeschlagen`.",
+        "description": "Erase the named candidates that still qualify and carry the announcement stamp, and redact every log row naming them.\n\nAny other id is skipped. 404 where no season has the id.",
         "operationId": "bewerbungen_loeschen_bewerbungen",
         "parameters": [
           {
@@ -22043,7 +20805,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLBewerbungSweepLoeschenPayload"
+                "$ref": "#/components/schemas/FLBewerbungSweepAuswahlPayload"
               }
             }
           },
@@ -22346,7 +21108,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}": {
       "get": {
-        "description": "One application in full, which is what the triage decides against; its decision's administrator is withheld as the list withholds it.\n\nAnswers whether its confirmation deadline has passed today, so the editor words the deletion without reading a day of its own.",
+        "description": "One application, its decision's administrator withheld as the list withholds it.\n\n`bestaetigungsfrist_abgelaufen` says whether its confirmation deadline has passed today.",
         "operationId": "bewerbungen_get_bewerbung_by_id",
         "parameters": [
           {
@@ -22887,7 +21649,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/person/einwilligung": {
       "patch": {
-        "description": "Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.\n\nWITHDRAW-ONLY: the season seat's payload, a grant of either choice being the confirmation page's alone; the\naccount page offers it so taking a consent back is as easy as giving it was (Art. 7(3) DSGVO). One answer for\nevery seat the person holds there, each choice moving only where it differs from the application as the page\nserved it; no other seat, field or document is written, and a press moving no seat writes nothing. Nothing is\ncounted against the person's ceiling.\n\nRefuses, in this order: an application that is decided or holds no confirmed seat of the address\n(`REQ-FUNKTION-001`); a `nachweis_stand` other than the held seats' own, either choice having moved since the\npage was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-EINWILLIGUNG-004`); and a `text_version`\nnaming no version of the account page's seat control (`REQ-EINWILLIGUNG-001`). Each refusal writes nothing.",
+        "description": "Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.\n\nA grant is refused. Refuses, writing nothing: `REQ-FUNKTION-001`, `REQ-EINWILLIGUNG-003` (the choices moved since the\npage was served), `REQ-EINWILLIGUNG-004` and `REQ-EINWILLIGUNG-001`.",
         "operationId": "bewerbungen_patch_einwilligung",
         "parameters": [
           {
@@ -22905,7 +21667,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLBewerbungPersonEinwilligungPayload"
+                "$ref": "#/components/schemas/FLSitzEinwilligungPayload"
               }
             }
           },
@@ -22976,7 +21738,7 @@
     },
     "/api/v0/einwilligung/fassungen/{text_version}": {
       "get": {
-        "description": "Return the words a consent label names: its paragraphs, its switch, its other controls, its page and the day it took effect.\n\nA label's words never change, so the answer may be cached. A label the registry does not hold 404s,\nand never answers another label's words.",
+        "description": "The words a consent label names, which never change, so the answer may be cached; 404 for a label the registry lacks.",
         "operationId": "einwilligung_get_fassung",
         "parameters": [
           {
@@ -23054,7 +21816,7 @@
     },
     "/api/v0/einwilligung/seiten": {
       "get": {
-        "description": "Return, for every page that stamps a consent label, the label a new acceptance on it must name.\n\nA deploy moves it, so a reader caching it refuses its own visitors' presses until the cache expires.",
+        "description": "For every page that stamps a consent label, the label a new acceptance on it must name.\n\nA deploy moves it, so a reader caches it no longer than a request.",
         "operationId": "einwilligung_get_seiten",
         "responses": {
           "200": {
@@ -24231,7 +22993,7 @@
     },
     "/api/v0/registrierungen": {
       "get": {
-        "description": "Every pending registration, newest first, narrowable by season, by team and by status.\n\n`bestaetigt` says whether the pupil answered their own confirmation link, composed here rather\nthan left to the reader: an admission is offered on no registration lacking it.\n`vollstaendig` is false where more rows exist than one read serves. A decision's author is `null`\nbeside `entscheidung.von_gesperrt` where the ban list holds that address, as no barred address is\nserved in plain.",
+        "description": "Every pending registration, newest first, narrowed by season, team and status.\n\n`vollstaendig` is false where more rows exist than one read serves, `bestaetigt` says whether the pupil answered their own\nlink, and a barred decision's author is served as `null` beside `entscheidung.von_gesperrt`.",
         "operationId": "registrierungen_get_registrierungen",
         "parameters": [
           {
@@ -24276,11 +23038,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "eingereicht",
-                    "abgelehnt"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLRegistrierungStatus"
                 },
                 {
                   "type": "null"
@@ -24317,13 +23075,8 @@
             "name": "order",
             "required": false,
             "schema": {
-              "default": "desc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
+              "$ref": "#/components/schemas/FLSortOrder",
+              "default": "desc"
             }
           }
         ],
@@ -24486,7 +23239,7 @@
     },
     "/api/v0/registrierungen/bestaetigung": {
       "post": {
-        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the consent record, in one update.\n\nWhich page the link opens is resolved again here, as the view resolves it. On the new pupil's page the record\ncarries the publication scope they chose, the media answer beside it, the stamp and the wording they were shown.\nOn the returning pupil's page, which asks no choice, it carries the stamp and the wording alone: the choices\nstanding on the person's own record are theirs to change on the account page, and nothing here re-grants one.\nIts body carries no birthdate: the person's stored one, read here, is judged and written, and the answer echoes\nnull rather than the stored date.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but\nthe running one of the page the link opens now (`REQ-EINWILLIGUNG-001`), answers that are not the ones that page\nasks -- both choices and a birthdate on the new pupil's, none of the three on the returning pupil's\n(`REQ-REGISTRIERUNG-017`) -- a returning pupil's person holding no birthdate to take (`-019`), a link mailed to an\naddress the ban list holds now, whenever the link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor\n(`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`). Every one is\njudged before anything is written, so a reloaded page or a mistyped year spends nothing and the pupil keeps the\nlink.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
+        "description": "Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.\n\nRefuses, writing nothing: `REQ-REGISTRIERUNG-004`, `-005`, `-006`, `-007`, `-010`, `-012`, `-017`, `-019` and\n`REQ-EINWILLIGUNG-001`.",
         "operationId": "registrierungen_post_bestaetigung",
         "requestBody": {
           "content": {
@@ -24563,13 +23316,13 @@
     },
     "/api/v0/registrierungen/bestaetigung/ansicht": {
       "post": {
-        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the age floor the press will be judged by, the age from\nwhich the media switch is offered, and which of two pages the link opens. Never the pupil's name: the link went to\nan address nobody has confirmed, which behind a typo is a stranger's.\n\n`bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded\naddress under its folded name who confirmed their own record. That page asks no choice and no birthdate, taking\nthe person's own; nothing the person's record holds is served, the holder of a mailed link not yet being known\nto be that person. Matched on the address alone, a mailbox shared anyway would hand a sibling that person's\npage, so the name narrows the match.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
+        "description": "What the confirmation page renders for the registration this token opens, and nothing of the pupil.\n\nA POST, so the token travels in the body. A confirmed or expired link is served in that state, `gesperrt` ranking first,\nand `bestaetigung_spieler_wiederkehrend` opens the returning pupil's page; only a token no registration holds is refused\n(`REQ-REGISTRIERUNG-004`).",
         "operationId": "registrierungen_get_bestaetigung_ansicht",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLRegistrierungBestaetigungAnsichtPayload"
+                "$ref": "#/components/schemas/FLTokenPayload"
               }
             }
           },
@@ -24646,7 +23399,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLEinladungAnsichtPayload"
+                "$ref": "#/components/schemas/FLTokenPayload"
               }
             }
           },
@@ -24756,13 +23509,8 @@
             "name": "order",
             "required": false,
             "schema": {
-              "default": "desc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
+              "$ref": "#/components/schemas/FLSortOrder",
+              "default": "desc"
             }
           }
         ],
@@ -24831,7 +23579,7 @@
     },
     "/api/v0/registrierungen/selbst/{registrierung_id}/einwilligung": {
       "patch": {
-        "description": "Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.\n\nWITHDRAW-ONLY until the admission: a grant is the team's admission's to make possible, after which the pupil's own\nrecord takes it on the account page; this one is offered so taking a consent back is as easy as giving it was\n(Art. 7(3) DSGVO). Writes those two on this one registration, and nothing else: the confirmation day, the day given\nand the wording the pupil confirmed stand. A PATCH moving neither choice writes nothing, and nothing is counted\nagainst the person's ceiling. The admission carries a withdrawal made here onto the person, as it carries every\nchoice the registration set later than the person's own.\n\nRefuses, in this order: an id that is no pending registration of this address, confirmed by its pupil and carrying\ntheir choices (`REQ-FUNKTION-001`); a `nachweis_stand` other than the registration's own, either choice having\nmoved since the page was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-EINWILLIGUNG-004`); and a\n`text_version` naming no version of the account page's pupil control (`REQ-EINWILLIGUNG-001`). Each refusal writes\nnothing.",
+        "description": "Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.\n\nA grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `REQ-FUNKTION-001`,\n`REQ-EINWILLIGUNG-003` (the choices moved since the page was served), `REQ-EINWILLIGUNG-004` and `REQ-EINWILLIGUNG-001`.",
         "operationId": "registrierungen_patch_einwilligung",
         "parameters": [
           {
@@ -24849,7 +23597,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLRegistrierungSelbstEinwilligungPayload"
+                "$ref": "#/components/schemas/FLSelbstEinwilligungPayload"
               }
             }
           },
@@ -24920,7 +23668,7 @@
     },
     "/api/v0/registrierungen/sweep/{saison_id}": {
       "post": {
-        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nA declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over. The confirmed ones\namong them are listed in `benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is\ntold neither before nor after, its address never having been confirmed. A call whose erasure names somebody to tell answers once\nthat erasure has committed, so the rest of the season's registrations wait for the next call; the two clocks below do not run\nfor a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age, earliest deadline first: a fresh link is minted and\n`erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and the link already\nin that inbox stays valid beside the fresh one. One call reminds a bounded share of the registrations due; the rest stay due and\nthe calls after it remind them. A registration whose last message the mail provider refused is not chased at all, and one whose\naddress the ban list holds is sent nothing and has nothing written: it stays due, so every pass asks the ban list for it again\nuntil its deadline, and reminds it once a lift comes first; each pass logs how many it withheld, never which. Every removal\nnames this season alone, is made inside a transaction and takes its log rows with it.\n\nWhatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transactions, so no later step of the same\ncall can answer an error in their place; where the request's deadline cuts them after one has committed, the call answers what\ncommitted and warns once.\n\nA registration whose write fails, the database refusing it or anything else, or one the answer cannot carry, is passed over\nalone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it again and one\nfailing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over: a\nday stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.\n\n404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes\nnothing, though it logs the count of withheld registrations again.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record\nnothing.",
+        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nA declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over. The confirmed ones\namong them are listed in `benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is\ntold neither before nor after, its address never having been confirmed. A call whose erasure names somebody to tell answers once\nthat erasure has committed, so the rest of the season's registrations wait for the next call; the two clocks below do not run\nfor a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age, earliest deadline first: a fresh link is minted and\n`erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and the link already\nin that inbox stays valid beside the fresh one. One call reminds a bounded share of the registrations due; the rest stay due and\nthe calls after it remind them. A registration whose last message the mail provider refused is not chased at all, and one whose\naddress the ban list holds is sent nothing and has nothing written: it stays due, so every pass asks the ban list for it again\nuntil its deadline, and reminds it once a lift comes first; each pass logs how many it withheld, never which. Every removal\nnames this season alone, is made inside a transaction and takes its log rows with it.\n\nWhatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transactions, so no later step of the same\ncall can answer an error in their place; where the request's deadline cuts them after one has committed, the call answers what\ncommitted and warns once.\n\nA registration whose write fails, the database refusing it or anything else, or one the answer cannot carry, is passed over\nalone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it again and one\nfailing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.\n\n404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes\nnothing, though it logs the count of withheld registrations again.",
         "operationId": "registrierungen_sweep_registrierungen",
         "parameters": [
           {
@@ -25186,12 +23934,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "past",
-                    "active",
-                    "future"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLSaisonStatus"
                 },
                 {
                   "type": "null"
@@ -25459,12 +24202,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "past",
-                    "active",
-                    "future"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLSaisonStatus"
                 },
                 {
                   "type": "null"
@@ -27977,7 +26715,7 @@
     },
     "/api/v0/spielbestaetigungen": {
       "get": {
-        "description": "Every confirmation row of the season, or of its one fixture, and the day the confirmation pass last ran over it.\n\nNewest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still\nholding its party's question is served; `limit` cuts the others, and `vollstaendig` is false where it left the\noldest of them out. A season no document has answers no rows and a null day rather than 404.",
+        "description": "Every confirmation row of the season, or of its one fixture.\n\nNewest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still\nholding its party's question is served; `limit` cuts the others, and `vollstaendig` is false where it left the\noldest of them out. A season no document has answers no rows rather than 404.",
         "operationId": "spielbestaetigungen_get_spielbestaetigungen",
         "parameters": [
           {
@@ -28303,7 +27041,7 @@
     },
     "/api/v0/spielbestaetigungen/sweep": {
       "get": {
-        "description": "Answer every `active` season's id, oldest first, and the day a confirmation pass last ran over any of them.\n\n`active` alone: a confirmation serves no purpose once its season is over, and a season that ended with a fixture nobody\nentered a result for would otherwise be asked about a day long gone. System tier because this is the timer's own\nbookkeeping, asked by the process running the pass and by no page. Null means no pass has run over these seasons. Reading\nit writes nothing.",
+        "description": "Answer every `active` season's id, oldest first.\n\n`active` alone: a confirmation serves no purpose once its season is over, and a season that ended with a fixture nobody\nentered a result for would otherwise be asked about a day long gone. System tier because this is the timer's own\nbookkeeping, asked by the process running the pass and by no page. Reading it writes nothing.",
         "operationId": "spielbestaetigungen_get_spiel_sweep_saisons",
         "responses": {
           "200": {
@@ -28370,7 +27108,7 @@
     },
     "/api/v0/spielbestaetigungen/sweep/{saison_id}": {
       "post": {
-        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_vergangen`, so nobody is asked about a past date. A\nclub's decline closed `verworfen` is closed again for each of those but a move and a referee change, in the pass\nthat closes an agreement beside it, and once the day it was about has passed: the public fixture then stops\ncounting it as that club's agreement.\n\nA closing owes its party a notice where the party's first request or Einteilung went out, about a day today or later:\nfor a move, the slot it left or the one the fixture holds now; for a referee taken off the fixture -- ahead of a move\nit shares a close with, and never for the referee's own decline, which closed its row as it was given -- and for a\ncall-off, the slot the row was about. The closed row holds the\nnotice, and the notice step answers a share of those the season's rows hold, each built off the fixture and the\nmailboxes or address as they stand: a team's move in `neue_ansetzungen`, a referee's in\n`schiedsrichter_neue_ansetzungen`, a referee taken off in `schiedsrichter_gewechselt`, a call-off in `spiel_abgesagt`\nand `schiedsrichter_spiel_abgesagt`, and the notice an administrator's discard holds, that the date stands, in\n`vorschlag_verworfen`. A notice is answered on every pass until the caller stamps it through\n`/mitgeteilt`; one answered as often as `app/api/spielbestaetigungen/services.py :: MITTEILUNG_VERSUCHE_HOECHSTENS`\nallows, or about no day still to come, is given up: answered in `mitteilungen_aufgegeben` by its row, its fixture\nand its party's kind, never a person, for the administrator to tell by hand, and answered so on every pass until\n`/mitgeteilt` stamps it too, so a lost answer loses no give-up. One with nobody left to tell, or whose closing the\nfixture has since undone -- reinstated, its referee booked again, back at the row's slot -- is dropped unanswered,\nthe mint asking its party afresh.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `verworfen`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed.\nEach seat holding an address gets one link, a person holding two seats one link naming both, and the raw tokens are\nanswered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so a request that never went\nout shows as never asked. An open row's occupied seat holding no link -- its holder replaced,\nnewly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows are answered in\n`einteilungen`, with the referee's address and no token. A fixture holding rows about an Ansetzung it has left is asked\nonce the close has shut them and each one's notice that its links are void is answered, in this answer or an earlier\none, so that notice goes out first.\n\nThe reminder mints a fresh link per seat on each team row whose deadline lies a reminder's count of days away\n(`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), appended beside the\nlinks already mailed so every one of them answers until the deadline, and stamps the day BEFORE answering: a failed send\ncosts one reminder, never a daily repeat. It passes over each seat whose last mail the provider refused, and reminds no\nrow this pass inserted nor one whose request was stamped today; where this pass's mint gave one of a row's seats a fresh\nlink, that request is the seat's message of the day and the row's other seats are reminded beside it.\n\nA row whose first request was never stamped as sent, inserted on an earlier pass, is asked again on every pass until a\nstamp lands or it stops taking an answer, a team row after its deadline and a referee row after the fixture's day: a\nteam row in `anfragen`, with a fresh link per seat appended the same way and each\nrefused seat passed over; a referee row in `einteilungen`, unless the provider refused the last mail recorded to the\nreferee's address. A row with nobody left to ask is not asked and stays unstamped, so it shows as never asked.\n\nA seat whose address the ban list holds is minted nothing and has nothing written, so it stays due and a later pass mints\nit once the ban is lifted; each pass logs how many seats it withheld, never which.\n\nEach step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has\ncommitted something owed a message, a later failure -- the stamp of the pass's day on this season included -- is logged\nand the call answers what committed. A row whose write or answer fails is passed over alone, logged by id and counted in\n`fehlgeschlagen`.\n\nA season that is not `active` is passed by whole -- nothing closed, minted, reminded or stamped, every list empty -- so a\nmistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.",
+        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_vergangen`, so nobody is asked about a past date. A\nclub's decline closed `verworfen` is closed again for each of those but a move and a referee change, in the pass\nthat closes an agreement beside it, and once the day it was about has passed: the public fixture then stops\ncounting it as that club's agreement.\n\nA closing owes its party a notice where the party's first request or Einteilung went out, about a day today or later:\nfor a move, the slot it left or the one the fixture holds now; for a referee taken off the fixture -- ahead of a move\nit shares a close with, and never for the referee's own decline, which closed its row as it was given -- and for a\ncall-off, the slot the row was about. The closed row holds the\nnotice, and the notice step answers a share of those the season's rows hold, each built off the fixture and the\nmailboxes or address as they stand: a team's move in `neue_ansetzungen`, a referee's in\n`schiedsrichter_neue_ansetzungen`, a referee taken off in `schiedsrichter_gewechselt`, a call-off in `spiel_abgesagt`\nand `schiedsrichter_spiel_abgesagt`, and the notice an administrator's discard holds, that the date stands, in\n`vorschlag_verworfen`. A notice is answered on every pass until the caller stamps it through\n`/mitgeteilt`; one answered as often as `app/api/spielbestaetigungen/services.py :: MITTEILUNG_VERSUCHE_HOECHSTENS`\nallows, or about no day still to come, is given up: answered in `mitteilungen_aufgegeben` by its row, its fixture\nand its party's kind, never a person, for the administrator to tell by hand, and answered so on every pass until\n`/mitgeteilt` stamps it too, so a lost answer loses no give-up. One with nobody left to tell, or whose closing the\nfixture has since undone -- reinstated, its referee booked again, back at the row's slot -- is dropped unanswered,\nthe mint asking its party afresh.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `verworfen`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed.\nEach seat holding an address gets one link, a person holding two seats one link naming both, and the raw tokens are\nanswered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so a request that never went\nout shows as never asked. An open row's occupied seat holding no link -- its holder replaced,\nnewly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows are answered in\n`einteilungen`, with the referee's address and no token. A fixture holding rows about an Ansetzung it has left is asked\nonce the close has shut them and each one's notice that its links are void is answered, in this answer or an earlier\none, so that notice goes out first.\n\nThe reminder mints a fresh link per seat on each team row whose deadline lies a reminder's count of days away\n(`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), appended beside the\nlinks already mailed so every one of them answers until the deadline, and stamps the day BEFORE answering: a failed send\ncosts one reminder, never a daily repeat. It passes over each seat whose last mail the provider refused, and reminds no\nrow this pass inserted nor one whose request was stamped today; where this pass's mint gave one of a row's seats a fresh\nlink, that request is the seat's message of the day and the row's other seats are reminded beside it.\n\nA row whose first request was never stamped as sent, inserted on an earlier pass, is asked again on every pass until a\nstamp lands or it stops taking an answer, a team row after its deadline and a referee row after the fixture's day: a\nteam row in `anfragen`, with a fresh link per seat appended the same way and each\nrefused seat passed over; a referee row in `einteilungen`, unless the provider refused the last mail recorded to the\nreferee's address. A row with nobody left to ask is not asked and stays unstamped, so it shows as never asked.\n\nA seat whose address the ban list holds is minted nothing and has nothing written, so it stays due and a later pass mints\nit once the ban is lifted; each pass logs how many seats it withheld, never which.\n\nEach step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has\ncommitted something owed a message, a later failure is logged and the call answers what committed. A row whose write or\nanswer fails is passed over alone, logged by id and counted in `fehlgeschlagen`.\n\nA season that is not `active` is passed by whole -- nothing closed, minted or reminded, every list empty -- so a\nmistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.",
         "operationId": "spielbestaetigungen_sweep_spielbestaetigungen",
         "parameters": [
           {
@@ -28911,14 +27649,7 @@
                   "type": "string"
                 },
                 {
-                  "enum": [
-                    "gruppenphase",
-                    "achtelfinale",
-                    "viertelfinale",
-                    "halbfinale",
-                    "finale"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLSaisonPhase"
                 },
                 {
                   "type": "null"
@@ -29190,14 +27921,7 @@
                   "type": "string"
                 },
                 {
-                  "enum": [
-                    "gruppenphase",
-                    "achtelfinale",
-                    "viertelfinale",
-                    "halbfinale",
-                    "finale"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLSaisonPhase"
                 },
                 {
                   "type": "null"
@@ -31580,14 +30304,7 @@
                   "type": "string"
                 },
                 {
-                  "enum": [
-                    "gruppenphase",
-                    "achtelfinale",
-                    "viertelfinale",
-                    "halbfinale",
-                    "finale"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLSaisonPhase"
                 },
                 {
                   "type": "null"
@@ -31733,14 +30450,7 @@
                   "type": "string"
                 },
                 {
-                  "enum": [
-                    "gruppenphase",
-                    "achtelfinale",
-                    "viertelfinale",
-                    "halbfinale",
-                    "finale"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLSaisonPhase"
                 },
                 {
                   "type": "null"
@@ -32189,25 +30899,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "A",
-                    "B",
-                    "C",
-                    "D",
-                    "E",
-                    "F",
-                    "G",
-                    "H",
-                    "I",
-                    "J",
-                    "K",
-                    "L",
-                    "M",
-                    "N",
-                    "O",
-                    "P"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLGruppenNames"
                 },
                 {
                   "type": "null"
@@ -32239,11 +30931,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "disqualifikation",
-                    "rueckzug"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLAustrittType"
                 },
                 {
                   "type": "null"
@@ -32501,25 +31189,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "A",
-                    "B",
-                    "C",
-                    "D",
-                    "E",
-                    "F",
-                    "G",
-                    "H",
-                    "I",
-                    "J",
-                    "K",
-                    "L",
-                    "M",
-                    "N",
-                    "O",
-                    "P"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLGruppenNames"
                 },
                 {
                   "type": "null"
@@ -32551,11 +31221,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "disqualifikation",
-                    "rueckzug"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLAustrittType"
                 },
                 {
                   "type": "null"

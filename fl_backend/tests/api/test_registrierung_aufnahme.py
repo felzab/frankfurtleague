@@ -13,16 +13,13 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.konto.services import compose_person_move
-from app.api.registrierungen.crud import person_at_the_address
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.registrierungen.person_router import ablehnen, aufnehmen, get_offene_registrierungen
 from app.api.registrierungen.schemas import (
     FLOffeneRegistrierungenParams,
     FLRegistrierungAblehnenPayload,
     FLRegistrierungAufnehmenPayload,
-    FLRegistrierungBestaetigungAnsichtPayload,
     FLRegistrierungBestaetigungPayload,
-    FLRegistrierungSelbstEinwilligungPayload,
 )
 from app.api.registrierungen.selbst_router import patch_einwilligung as patch_registrierung_einwilligung
 from app.api.registrierungen.services import (
@@ -38,6 +35,8 @@ from app.core.sentinels import GHOST_SPIELER_ID
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
+from app.shared.schemas.bestaetigung import FLTokenPayload
+from app.shared.schemas.einwilligung import FLSelbstEinwilligungPayload
 from tests import documents
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
@@ -762,7 +761,7 @@ class TestThePersonAnAdmissionNames:
             registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
             await patch_registrierung_einwilligung(
                 registrierung_id=registrierung_id,
-                einwilligung_data=FLRegistrierungSelbstEinwilligungPayload.model_validate(
+                einwilligung_data=FLSelbstEinwilligungPayload.model_validate(
                     {
                         "umfang": "intern",
                         "medien": False,
@@ -826,7 +825,7 @@ class TestThePersonAnAdmissionNames:
 
 
 class TestTheSentinelIsNobodyToAdmit:
-    """A body can name the sentinel and a hand edit can give it a registration's address, so its id alone keeps it out of the admission.
+    """A body can name the sentinel, which holds no address, so no admission resolves to it.
 
     Admitted into, it would take that registration's name onto every erased pupil's surviving entry.
     """
@@ -846,44 +845,6 @@ class TestTheSentinelIsNobodyToAdmit:
 
         assert code == Code.REGISTRIERUNG_PERSON_NICHT_BENANNT
         assert after == before
-
-    def test_it_holding_the_registrations_address_and_a_confirmed_record_is_still_refused(self, mongo_replica_set_url: str):
-        """Matched by the address, the admission would take the sentinel for the person and write the registration onto it."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            confirmed = documents.eigene_einwilligung_document(text_version="2026-09", bestaetigt_am="2026-03-01")
-            await database[Collection.SPIELER].insert_one({**build_ghost_spieler(), "email": FOLDED_EMAIL, "einwilligung": confirmed})
-            registrierung_id = await seed(database, registrierung_document())
-            before = await snapshot(database)
-            code = await refused(admit(database, client, registrierung_id, spieler_id=GHOST_SPIELER_ID))
-
-            return code, before, await snapshot(database)
-
-        code, before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert code == Code.REGISTRIERUNG_PERSON_NICHT_BENANNT
-        assert after == before
-
-    def test_the_confirmation_page_resolves_the_address_to_a_person_and_never_to_it(self, mongo_replica_set_url: str):
-        """The page the pupil confirms on is chosen by the person the address holds, so the sentinel holding it would choose it."""
-
-        person_id = ObjectId()
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            collection = database[Collection.SPIELER]
-            await collection.insert_one({**build_ghost_spieler(), "email": FOLDED_EMAIL})
-            sentinel_answer = await person_at_the_address(
-                spieler_collection=collection, registrierung_raw=registrierung_document(), session=None
-            )
-
-            # The control: the same address on a person, whom the read does resolve.
-            await collection.update_one({"_id": GHOST_SPIELER_ID}, {"$unset": {"email": ""}})
-            await collection.insert_one(a_stored_person(person_id))
-            person_answer = await person_at_the_address(spieler_collection=collection, registrierung_raw=registrierung_document(), session=None)
-
-            return sentinel_answer, None if person_answer is None else person_answer["_id"]
-
-        assert on_a_league(mongo_replica_set_url, body) == (None, person_id)
 
 
 async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1003,7 +964,7 @@ class TestAReturningRegistration:
             await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
             registrierung_id = await seed(database, registrierung_document(confirmed=False))
             view = await get_bestaetigung_ansicht(
-                ansicht_data=FLRegistrierungBestaetigungAnsichtPayload(token=TOKEN),
+                ansicht_data=FLTokenPayload(token=TOKEN),
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                 teams_collection=database[Collection.TEAMS],
                 spieler_collection=database[Collection.SPIELER],

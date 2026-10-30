@@ -12,13 +12,14 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.konto.services import KONTO_SEITE_SPIELER
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelbstEinwilligungPayload
-from app.api.spieler.schemas import FLEinwilligung, FLSpielerSelbstEinwilligungPayload
+from app.api.spieler.schemas import FLSpielerSelbstEinwilligungPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import NACHWEIS, nachweis_stand_of
+from app.shared.schemas.literals import FLEinwilligungUmfang
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
@@ -239,7 +240,7 @@ def test_the_payload_offers_the_scopes_the_record_stores():
     """Two spellings of one set: a scope the payload offered and the record refused would 500 at the write."""
 
     payload_scopes = get_args(FLSpielerSelbstEinwilligungPayload.model_fields["umfang"].annotation)
-    record_scopes = get_args(FLEinwilligung.model_fields["umfang"].annotation)
+    record_scopes = get_args(FLEinwilligungUmfang.__value__)
 
     assert payload_scopes == record_scopes
 

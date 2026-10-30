@@ -17,7 +17,6 @@ from pydantic import (
     model_validator,
 )
 
-from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
@@ -44,78 +43,30 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLEinwilligungStandPayload
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.literals import (
+    KONTAKT_ROLLEN,
+    FLAdresswechselEinsehbarVerwehrt,
+    FLAustrittType,
+    FLGruppenNames,
+    FLKontaktEingetragenVon,
+    FLKontaktKenntnisnahmeUmfang,
+    FLKontaktRolle,
+    FLKontaktZeile,
+    FLSchulform,
+    FLSortOrder,
+    FLTrainerZugleich,
+    FLTrikotFarbe,
+)
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 from app.shared.schemas.zustellung import FLBewerbungZustellung
-
-# Spelled rather than derived: a `Literal`'s members must be literal expressions for a type checker
-# to read them. `tests/api/test_reference_models.py` holds the spelling to one naming rule, so
-# widening the set is arithmetic rather than a choice.
-FLGruppenNames = Literal["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]
 
 # Read off the closed set rather than chosen beside it: a cap over the set size is one
 # `app/api/teams/services.py :: offered_gruppen` serves short while refusing nothing.
-MAX_NUMBER_OF_GROUPS: Final = len(get_args(FLGruppenNames))
+MAX_NUMBER_OF_GROUPS: Final = len(get_args(FLGruppenNames.__value__))
 
 # Two values rather than a free `saison_phase` filter: a table of the Halbfinale alone is not a
 # standing, and offering it invites one.
-FLTeamStatistikScope = Literal["gruppenphase", "gesamt"]
-
-
-# A withdrawal is not a sanction, so the two routes out of a season are told apart rather than
-# both filed as one. An alias because the bracket fault names it too.
-FLAustrittType = Literal["disqualifikation", "rueckzug"]
-
-
-# Slugs rather than the German the league's CI document spells, for the reason
-# `fl_backend/app/api/spieler/schemas.py :: FLSpielerRolle` gives.
-FLSchulform = Literal["gymnasium_g8", "gymnasium_g9", "gesamtschule", "privatschule_g8", "privatschule_g9", "oberstufengymnasium"]
-
-
-# The league's kit palette, slugged for `FLSchulform`'s reason. A slug is never renamed or dropped:
-# stored rows and the action log's images hold it.
-FLTrikotFarbe = Literal[
-    "schwarz",
-    "weiss",
-    "grau",
-    "braun",
-    "bordeaux",
-    "rot",
-    "koralle",
-    "orange",
-    "gold",
-    "gelb",
-    "limette",
-    "hellgruen",
-    "gruen",
-    "smaragd",
-    "tuerkis",
-    "cyan",
-    "hellblau",
-    "meerblau",
-    "blau",
-    "dunkelblau",
-    "flieder",
-    "violett",
-    "magenta",
-    "rosa",
-]
-
-
-# Which second seat one person may hold beside the Trainer's. A closed set rather than a flag per
-# seat: the two are alternatives, and nothing can mean holding both.
-FLTrainerZugleich = Literal["ansprechperson", "stellvertretung"]
-
-# The three seats as a closed set, for the wire, in the order `FLSaisonTeamKontakte` declares them;
-# `tests/api/test_kontakt_erasure_execution.py :: test_every_slot_the_model_declares_is_covered` holds
-# the two equal, order included.
-FLKontaktRolle = Literal["trainer", "ansprechperson", "stellvertretung"]
-
-# The one spelling of the seat set every module iterates, so a fourth seat is added in one place.
-KONTAKT_ROLLEN: tuple[FLKontaktRolle, ...] = get_args(FLKontaktRolle)
-
-# A season row as a link minted on it sees it: open, or closed by its season ending, which outranks
-# its team having left it.
-FLKontaktZeile = Literal["offen", "saison_vorbei", "ausgetreten"]
+type FLTeamStatistikScope = Literal["gruppenphase", "gesamt"]
 
 
 # Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
@@ -178,17 +129,7 @@ class _KontaktKenntnisnahmeWritable(BaseModel):
     datum: CustomDateString
 
 
-# Wider than the administrative payload's: the WhatsApp scope is the person's own, set on their
-# confirmation page and moved by their account page's seat PATCH; an administrator's payload offering it
-# would transcribe one.
-FLKontaktKenntnisnahmeUmfang = Literal["kontaktdaten", "kontaktdaten_whatsapp"]
-
-# Who put this person in the seat: the applicant on the form, or the league's administration (a reseat,
-# the contacts editor). Not `verwaltung`, the access tier's word (`docs/glossary.md :: verwaltung`).
-FLKontaktEingetragenVon = Literal["bewerbung", "liga"]
-
-
-class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable):
+class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable, BaseReadModel):
     """Which wording this person was shown, and how the record came to be held.
 
     Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's
@@ -291,7 +232,7 @@ class FLSaisonTeamRecord(BaseModel):
     shorthand: str
 
 
-class FLSaisonTeamBestaetigungAnsicht(FLSaisonTeamBestaetigung):
+class FLSaisonTeamBestaetigungAnsicht(FLSaisonTeamBestaetigung, BaseReadModel):
     """One seat's link as the contacts editor reads it: the stored link and whether it has lapsed."""
 
     # Judged on the read by the rule the seat's press refuses on, at the server's date, so no client
@@ -458,7 +399,7 @@ class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
         return self
 
 
-class FLTeamStatistik(BaseModel):
+class FLTeamStatistik(BaseReadModel):
     # `default=` by keyword, never `Field(0, ge=0)`: a positional one leaves the field looking
     # required to Pyright while ruff and the tests stay silent.
     anzahl_gespielte_spiele: int = Field(default=0, ge=0)
@@ -548,7 +489,7 @@ class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLGruppenTeam]]]):
     """
 
 
-class FLTeamMembership(BaseModel):
+class FLTeamMembership(BaseReadModel):
     """One junction row as seen from its club: which season, which group, and the record if any."""
 
     saison_id: str
@@ -633,8 +574,14 @@ class FLPostSaisonTeamPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # Stripped before the width is counted, for `app/shared/schemas/custom.py :: CustomStrippedNonEmptyString`'s reason.
-    saison_id: Annotated[str, StringConstraints(strip_whitespace=True, min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)]
+    # The width counted on arrival, then the strip, then the width again: a padded id is refused rather
+    # than stored, and the published `maxLength` is what the backend accepts.
+    saison_id: Annotated[
+        str,
+        StringConstraints(max_length=SAISON_ID_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        AfterValidator(str.strip),
+        StringConstraints(min_length=SAISON_ID_LENGTH),
+    ]
     gruppe: FLGruppenNames
 
 
@@ -725,7 +672,7 @@ class FLPublicTeamsFilterParams(BaseModel):
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: Literal["name"] = Field(default="name")
-    order: Literal["asc", "desc"] = Field(default="asc")
+    order: FLSortOrder = Field(default="asc")
 
 
 class FLTeamsFilterParams(FLPublicTeamsFilterParams):

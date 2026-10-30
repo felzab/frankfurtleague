@@ -4,7 +4,6 @@ import pytest
 from bson import ObjectId
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
-from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import (
     FLTeamListAdapter,
     FLTeamsFilterParams,
@@ -12,6 +11,7 @@ from app.api.teams.schemas import (
     FLTeamStatistikScope,
 )
 from app.api.teams.services import build_team_pipeline
+from app.shared.schemas.literals import FLSpielerStufe
 
 from .conftest import AUSTRITT, SAISON, SeededLeague
 

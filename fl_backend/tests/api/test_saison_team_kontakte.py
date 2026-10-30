@@ -15,7 +15,6 @@ from app.api.teams.schemas import (
     FLKontaktKenntnisnahmePayload,
     FLKontaktperson,
     FLKontaktpersonPayload,
-    FLKontaktRolle,
     FLPatchSaisonTeamKontaktePayload,
     FLTeamMembership,
 )
@@ -30,6 +29,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.schemas.literals import FLKontaktRolle
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
@@ -728,15 +728,6 @@ class TestTheCompositionDecidesFromItsArguments:
 
         assert composed is not None
         assert composed["trainer"]["einwilligung"]["bestaetigt_am"] is None
-
-    def test_a_seat_stamped_with_an_empty_string_is_saved_as_unconfirmed(self):
-        """Carried across a save, `""` would stand as a confirmation nobody gave; the same person is held, so only the stamp decides."""
-
-        held = {**PARTLY_CONFIRMED, "trainer": stored_person("Ida", bestaetigt_am="")}
-        composed = compose_kontakte_herkunft(kontakte=RESAVED_AS_RENDERED, stored=held)
-
-        assert composed is not None
-        assert composed["trainer"]["einwilligung"] == unbestaetigt(held["trainer"]["einwilligung"])
 
     def test_a_null_slot_is_left_null(self):
         composed = compose_kontakte_herkunft(kontakte=ONE_SLOT_FILLED, stored=PARTLY_CONFIRMED)

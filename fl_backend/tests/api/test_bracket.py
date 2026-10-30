@@ -3,15 +3,10 @@ from typing import Any, get_args
 
 import pytest
 
-from app.api.spiele.schemas import (
-    FLBracketFaultQuelle,
-    FLBracketFaultSlot,
-    FLSonderereignis,
-    FLSpielListAdapter,
-)
+from app.api.spiele.schemas import FLBracketFaultQuelle, FLBracketFaultSlot, FLSpielListAdapter
 from app.api.spiele.services import find_gruppen_not_run, resolve_bracket
-from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding
+from app.shared.schemas.literals import FLGruppenNames, FLSonderereignis
 
 MATCH_ID = "6890a1b2c3d4e5f60718{:04d}"
 BRACKET_TEAM_ID = "6890a1b2c3d4e5f60719{:04d}"
@@ -284,7 +279,7 @@ class TestResolveBracket:
         assert advancement.team1 is not None
         assert advancement.team1.tore is None
 
-    @pytest.mark.parametrize("sonderereignis", get_args(FLSonderereignis))
+    @pytest.mark.parametrize("sonderereignis", get_args(FLSonderereignis.__value__))
     def test_a_result_advances_its_winner_whatever_the_event_says(self, fixture_at: FixtureFactory, side: SideFactory, sonderereignis: str):
         """A forfeit counts, and `_outcome_of` reads no event, so the bracket follows the `ergebnis` the table scores.
 

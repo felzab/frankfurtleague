@@ -13,9 +13,9 @@ from bson import ObjectId
 
 from app.api.saisons.schedule import knockout_phases_for, qualifier_count
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import FLSaisonPhase, FLSpielQuelleGruppe, FLSpielQuelleSpiel, FLSpielTeamField
-from app.api.teams.schemas import FLGruppenNames
+from app.api.spiele.schemas import FLSpielQuelleGruppe, FLSpielQuelleSpiel, FLSpielTeamField
 from app.api.teams.services import offered_gruppen
+from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase
 
 
 @dataclass(frozen=True)

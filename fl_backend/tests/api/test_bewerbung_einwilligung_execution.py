@@ -11,19 +11,20 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.admin_router import erneut_einwilligung
 from app.api.bewerbungen.einwilligung_router import get_einwilligung_ansicht, post_einwilligung
 from app.api.bewerbungen.router import get_bewerbung_by_id, get_bewerbungen
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnsichtPayload, FLBewerbungEinwilligungAntwortPayload, FLBewerbungenFilterParams
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload, FLBewerbungenFilterParams
 from app.api.bewerbungen.services import (
     TOKEN_HASH_FIELDS,
     hash_token,
 )
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.api.teams.services import compose_bestaetigungen_mit, compose_kontakt_bestaetigung
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
@@ -145,7 +146,7 @@ def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]] | None 
 
 async def ansicht(database: AsyncDatabase, token: str, *, bewerbungen: Any = None) -> Any:
     return await get_einwilligung_ansicht(
-        ansicht_data=FLBewerbungEinwilligungAnsichtPayload(token=token),
+        ansicht_data=FLTokenPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],

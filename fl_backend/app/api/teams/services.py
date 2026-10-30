@@ -14,14 +14,10 @@ from app.api.spiele.schemas import (
     records_an_absence,
 )
 from app.api.teams.schemas import (
-    KONTAKT_ROLLEN,
     FLGruppen,
-    FLGruppenNames,
     FLGruppenTeam,
     FLKontaktAbgang,
     FLKontaktMint,
-    FLKontaktRolle,
-    FLKontaktZeile,
     FLPublicTeamsFilterParams,
     FLTeam,
     FLTeamsFilterParams,
@@ -36,6 +32,7 @@ from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLGruppenNames, FLKontaktRolle, FLKontaktZeile
 
 AS_NAME = "saison_data"
 SAISON_PAST_AS_NAME = "saison_past_data"
@@ -67,8 +64,7 @@ def _counting_fixtures_match() -> dict[str, Any]:
 
     return {
         "ergebnis": {"$ne": None},
-        # Redundant with `ergebnis` except on a hand-edited document, where a null count would group
-        # as a 0:0 draw instead of dropping out.
+        # Both counts as well, as `_counted_goals` asks them for its types: the two derivations agree.
         "team1.tore": {"$ne": None},
         "team2.tore": {"$ne": None},
     }
@@ -525,7 +521,7 @@ def _spiele_by_gruppe(
     points inside it, so no placing there is final while it stands.
     """
 
-    by_gruppe: dict[FLGruppenNames, list[FLSpielCommon]] = {name: [] for name in get_args(FLGruppenNames)}
+    by_gruppe: dict[FLGruppenNames, list[FLSpielCommon]] = {name: [] for name in get_args(FLGruppenNames.__value__)}
     unattributable: set[FLGruppenNames] = set()
 
     for spiel in spiele:
@@ -539,7 +535,7 @@ def _spiele_by_gruppe(
         if _counted_goals(spiel) is None and spiel.sonderereignis not in SONDEREREIGNIS_WITHOUT_A_RESULT:
             if spiel.team1 is None and spiel.team2 is None:
                 # NO side to attribute, so nothing can say which group it lands in.
-                unattributable.update(get_args(FLGruppenNames))
+                unattributable.update(get_args(FLGruppenNames.__value__))
             else:
                 unattributable.update(name for name in (left, right) if name is not None)
 
@@ -819,7 +815,7 @@ def build_decided_standings(
     by_gruppe, unattributable = _spiele_by_gruppe(spiele, gruppe_of)
     still_to_play = _still_to_play(spiele)
 
-    teams_by_gruppe: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in get_args(FLGruppenNames)}
+    teams_by_gruppe: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in get_args(FLGruppenNames.__value__)}
     for team in teams:
         if team.gruppe in teams_by_gruppe:
             teams_by_gruppe[team.gruppe].append(team)
@@ -832,7 +828,7 @@ def build_decided_standings(
             still_to_play=still_to_play,
             has_unattributable=name in unattributable,
         )
-        for name in get_args(FLGruppenNames)
+        for name in get_args(FLGruppenNames.__value__)
         if gruppen is None or name in gruppen
     }
 
@@ -1374,7 +1370,7 @@ def find_club_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | Non
 
 
 def offered_gruppen(number_of_groups: int) -> tuple[FLGruppenNames, ...]:
-    return get_args(FLGruppenNames)[:number_of_groups]
+    return get_args(FLGruppenNames.__value__)[:number_of_groups]
 
 
 def find_gruppe_move_refusal(*, fixtures_drawn: int) -> WriteRefusal | None:
@@ -1449,9 +1445,8 @@ def fixtures_newly_fielding_a_departed_club(
             if effective_from is None:
                 continue
 
-            # `REQ-SWAP-004` answers an abandonment and a no-show terminally before this count is
-            # read, so what reaches the carve-out here is the state it deliberately leaves open: a
-            # fixture called off or annulled, which awards nothing.
+            # A fixture recording this side's absence fields nobody on it, the eligibility rule's own
+            # carve-out.
             if records_an_absence(side=slot, sonderereignis=spiel.get("sonderereignis"), saison_phase="gruppenphase"):
                 continue
 
@@ -1480,8 +1475,9 @@ def find_gruppe_swap_refusal(
     team1_gruppe: str | None,
     team2_gruppe: str | None,
     saison_status: str,
-    played_knockout_fixtures: int,
-    played_gruppenphase_fixtures: int,
+    # `app/api/saisons/crud.py :: has_started`: a swap rewrites fixtures, and once the season is under
+    # way a fixture is a record of who played it.
+    started: bool,
     clashing_spieltage: int,
     departed_fixtures: int,
 ) -> WriteRefusal | None:
@@ -1510,17 +1506,9 @@ def find_gruppe_swap_refusal(
             status=HTTPStatus.CONFLICT,
         )
 
-    # The season's count, because the bracket consumed a standing whoever it named.
-    if played_knockout_fixtures > 0:
+    if started:
         return WriteRefusal(
             error_code=Code.SWAP_KNOCKOUT_STARTED,
-            status=HTTPStatus.CONFLICT,
-        )
-
-    # Narrowed to these two clubs: this rule is about their own participation.
-    if played_gruppenphase_fixtures > 0:
-        return WriteRefusal(
-            error_code=Code.SWAP_GRUPPENPHASE_PLAYED,
             status=HTTPStatus.CONFLICT,
         )
 
@@ -1547,12 +1535,7 @@ def has_taken_place(spiel: Mapping[str, Any]) -> bool:
     if spiel.get("ergebnis") is not None or spiel.get("sonderereignis") in SONDEREREIGNIS_PRODUCING_A_RECORD:
         return True
 
-    # A save keeps a shoot-out only beside a result, so one standing alone is the same hand-written
-    # record of a decided tie as the lone goal count below, and a rewrite would destroy it.
-    if spiel.get("elfmeterschiessen") is not None:
-        return True
-
-    # A fixture can hold `team1.tore` with no `ergebnis` at all, and nothing refuses that shape.
+    # A save keeps one side's goals while the other's are still blank, and stores no `ergebnis` until both are in.
     return any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2"))
 
 

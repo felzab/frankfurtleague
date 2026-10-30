@@ -21,12 +21,13 @@ from app.api.saisons.schemas import (
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.teams.admin_router import post_saison_team
-from app.api.teams.schemas import FLGruppenNames, FLPostSaisonTeamPayload, FLSaisonTeamResponse
+from app.api.teams.schemas import FLPostSaisonTeamPayload, FLSaisonTeamResponse
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.core.logging import trace_id_var
+from app.shared.schemas.literals import FLGruppenNames
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
@@ -218,6 +219,7 @@ async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> FLPatch
         spieltage_collection=database[Collection.SPIELTAGE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         db=database.client,
+        today=TODAY,
     )
 
 
