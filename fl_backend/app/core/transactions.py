@@ -93,34 +93,13 @@ async def _abort_on_the_server(session: AsyncClientSession) -> None:
             _log_left_open(f"its abort failed ({type(failure).__name__}, code {code})")
 
 
-# Redesign: goes once every caller hands the driver's own `with_transaction` a callback closing over its arguments.
-class JudgedSession:
-    """What `transaction_session` yields: the driver's session, whose `with_transaction` hands each callback extra arguments.
-
-    Never handed to the driver as `session=`, which refuses it: each callback is handed the driver's own.
-    """
-
-    def __init__(self, session: AsyncClientSession) -> None:
-        self._session = session
-
-    async def with_transaction[T, *Arguments](
-        self, callback: Callable[[AsyncClientSession, *Arguments], Awaitable[T]], *arguments: *Arguments
-    ) -> T:
-        """`callback` in one transaction, handed the driver's session and `arguments` in each attempt the driver makes."""
-
-        async def attempt(session: AsyncClientSession) -> T:
-            return await callback(session, *arguments)
-
-        return await self._session.with_transaction(attempt)
-
-
 @asynccontextmanager
-async def transaction_session(client: AsyncMongoClient) -> AsyncIterator[JudgedSession]:
+async def transaction_session(client: AsyncMongoClient) -> AsyncIterator[AsyncClientSession]:
     """The session every transaction runs on: work failing inside it leaves the server no transaction."""
 
     async with client.start_session() as session:
         try:
-            yield JudgedSession(session)
+            yield session
         # `BaseException`, as the driver's own abort catches it: a cancelled request leaves a
         # transaction open as surely as a failed one.
         except BaseException:
@@ -221,6 +200,13 @@ def _deadline_left() -> float | None:
     return None if deadline is None else deadline - time.monotonic()
 
 
+async def _transacted[T](db: AsyncMongoClient, callback: Callable[[AsyncClientSession, Batch], Awaitable[T]], batch: Batch) -> T:
+    """`callback` over `batch` in one transaction, handed the session by the driver's own `with_transaction`."""
+
+    async with transaction_session(db) as session:
+        return await session.with_transaction(lambda transacting: callback(transacting, batch))
+
+
 def carried_by_a_row(failure: Exception) -> bool:
     """Whether halving the rows can isolate a failure.
 
@@ -266,8 +252,8 @@ async def isolate[T](
     db: AsyncMongoClient,
     failed: Batch,
     failure: Exception,
-    # The caller's `session.with_transaction(<callback>, batch)`, for `drain`'s `page_of`'s reason.
-    attempt: Callable[[JudgedSession, Batch], Awaitable[T]],
+    # The clock's callback, run in a transaction of its own over each half.
+    attempt: Callable[[AsyncClientSession, Batch], Awaitable[T]],
     moved: Callable[[T], int],
     owes: bool,
     what: str,
@@ -317,8 +303,7 @@ async def isolate[T](
         batch = Batch(among=part, share=remaining)
         started = time.monotonic()
         try:
-            async with transaction_session(db) as session:
-                result = await attempt(session, batch)
+            result = await _transacted(db, attempt, batch)
         except Exception as failed_with:
             longest = max(longest, time.monotonic() - started)
             if not carried_by_a_row(failed_with) or not batch.suspects:
@@ -368,8 +353,8 @@ async def run_isolated[T](
     *,
     db: AsyncMongoClient,
     batch: Batch,
-    # The caller's `session.with_transaction(<callback>, batch)`, for `drain`'s `page_of`'s reason.
-    attempt: Callable[[JudgedSession, Batch], Awaitable[T]],
+    # The clock's callback, run in a transaction over `batch`.
+    attempt: Callable[[AsyncClientSession, Batch], Awaitable[T]],
     moved: Callable[[T], int],
     owes: bool,
     what: str,
@@ -379,8 +364,7 @@ async def run_isolated[T](
 
     started = time.monotonic()
     try:
-        async with transaction_session(db) as session:
-            result = await attempt(session, batch)
+        result = await _transacted(db, attempt, batch)
     except Exception as failure:
         # Nothing read or nothing taken: the failure came before any row or after every one the attempt
         # wrote, and halving none would swallow it.
@@ -405,10 +389,8 @@ async def run_isolated[T](
 async def drain(
     *,
     db: AsyncMongoClient,
-    # The caller's `session.with_transaction(<callback>, batch)`, never the callback itself:
-    # `tests/core/app_source.py :: _callbacks` reads a callback where `with_transaction` is handed
-    # it, and would find none here.
-    page_of: Callable[[JudgedSession, Batch], Awaitable[tuple[int, int, int]]],
+    # The clock's callback, run in a transaction of its own over each page.
+    page_of: Callable[[AsyncClientSession, Batch], Awaitable[tuple[int, int, int]]],
     # The callback reads one row past it, or a full page reads as the last one.
     page: int,
     what: str,
@@ -426,8 +408,7 @@ async def drain(
         batch = Batch(passed=passed)
         started = time.monotonic()
         try:
-            async with transaction_session(db) as session:
-                read, erased, redacted = await page_of(session, batch)
+            read, erased, redacted = await _transacted(db, page_of, batch)
         except Exception as failure:
             # Nothing read or nothing taken, as `run_isolated` reads it.
             if not batch.suspects or not carried_by_a_row(failure):

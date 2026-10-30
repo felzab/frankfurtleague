@@ -105,7 +105,7 @@ class TestAFullPageIsRunAgain:
         erased, redacted, _ = asyncio.run(
             drain(
                 db=cast(AsyncMongoClient, client),
-                page_of=lambda session, batch: session.with_transaction(erase_a_page, batch),
+                page_of=erase_a_page,
                 page=PAGE,
                 what="Row",
                 clock="test",
@@ -170,7 +170,7 @@ def _isolated(rows: _Rows, *, owes: bool = False) -> tuple[list[tuple[int, int, 
         run_isolated(
             db=cast(AsyncMongoClient, _Client()),
             batch=Batch(),
-            attempt=lambda session, batch: session.with_transaction(rows.erase, batch),
+            attempt=rows.erase,
             moved=lambda page: page[1],
             owes=owes,
             what="Row",
@@ -238,7 +238,7 @@ class TestARowFailingAloneIsPassedOver:
             erased, _, passed = asyncio.run(
                 drain(
                     db=cast(AsyncMongoClient, _Client()),
-                    page_of=lambda session, batch: session.with_transaction(rows.erase, batch),
+                    page_of=rows.erase,
                     page=PAGE,
                     what="Row",
                     clock="test",
@@ -264,7 +264,7 @@ class TestARowFailingAloneIsPassedOver:
         erased, _, passed = asyncio.run(
             drain(
                 db=cast(AsyncMongoClient, _Client()),
-                page_of=lambda session, batch: session.with_transaction(rows.erase, batch),
+                page_of=rows.erase,
                 page=PAGE,
                 what="Row",
                 clock="test",
@@ -325,7 +325,7 @@ class TestARowFailingAloneIsPassedOver:
                 run_isolated(
                     db=cast(AsyncMongoClient, _Client()),
                     batch=Batch(),
-                    attempt=lambda session, batch: session.with_transaction(unread, batch),
+                    attempt=unread,
                     moved=lambda page: page[1],
                     owes=True,
                     what="Row",
@@ -365,7 +365,7 @@ class TestARowFailingAloneIsPassedOver:
                 run_isolated(
                     db=cast(AsyncMongoClient, _Client(attempts=2)),
                     batch=Batch(),
-                    attempt=lambda session, batch: session.with_transaction(read, batch),
+                    attempt=read,
                     moved=lambda page: page[1],
                     owes=False,
                     what="Row",
@@ -394,7 +394,7 @@ class TestARowFailingAloneIsPassedOver:
                 run_isolated(
                     db=cast(AsyncMongoClient, _Client(attempts=2)),
                     batch=Batch(share=PAGE + 1),
-                    attempt=lambda session, batch: session.with_transaction(clock.remind, batch),
+                    attempt=clock.remind,
                     moved=len,
                     owes=True,
                     what="Row",
@@ -454,7 +454,7 @@ def _a_share(clock: _Share, *, share: int, owes: bool = True) -> tuple[list[list
         run_isolated(
             db=cast(AsyncMongoClient, _Client()),
             batch=Batch(share=share),
-            attempt=lambda session, batch: session.with_transaction(clock.remind, batch),
+            attempt=clock.remind,
             moved=len,
             owes=owes,
             what="Row",

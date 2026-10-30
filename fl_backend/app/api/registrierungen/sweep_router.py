@@ -347,7 +347,7 @@ async def sweep_registrierungen(
     # back is owed a message, and a failure after it would answer this request with an error instead.
     abgelehnte, redacted_declined, passed = await drain(
         db=db,
-        page_of=lambda session, batch: session.with_transaction(erase_declined, batch),
+        page_of=erase_declined,
         page=SWEEP_PAGE,
         what="Registration",
         clock="decline",
@@ -371,7 +371,7 @@ async def sweep_registrierungen(
                 db=db,
                 # Without the rows passed over, as `drain` reads its pages.
                 batch=Batch(passed=passed_at_the_end),
-                attempt=lambda session, batch: session.with_transaction(erase_the_undecided, batch),
+                attempt=erase_the_undecided,
                 moved=lambda page: page[1],
                 owes=True,
                 what="Registration",
@@ -393,7 +393,7 @@ async def sweep_registrierungen(
     else:
         unbestaetigt, redacted_unconfirmed, passed = await drain(
             db=db,
-            page_of=lambda session, batch: session.with_transaction(erase_the_unconfirmed, batch),
+            page_of=erase_the_unconfirmed,
             page=SWEEP_PAGE,
             what="Registration",
             clock="deadline",
@@ -404,7 +404,7 @@ async def sweep_registrierungen(
         reminded, passed = await run_isolated(
             db=db,
             batch=share,
-            attempt=lambda session, batch: session.with_transaction(remind, batch),
+            attempt=remind,
             moved=len,
             owes=True,
             what="Registration",

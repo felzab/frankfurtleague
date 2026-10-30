@@ -561,7 +561,7 @@ async def sweep_saison(
     if season_has_ended(saison_status=saison_status):
         ohne_entscheidung, redacted_undecided, passed = await drain(
             db=db,
-            page_of=lambda session, batch: session.with_transaction(erase_the_undecided, batch),
+            page_of=erase_the_undecided,
             page=SWEEP_PAGE,
             what="Application",
             clock="season's end",
@@ -570,7 +570,7 @@ async def sweep_saison(
 
     abgelehnte, redacted_declined, passed = await drain(
         db=db,
-        page_of=lambda session, batch: session.with_transaction(erase_declined, batch),
+        page_of=erase_declined,
         page=SWEEP_PAGE,
         what="Application",
         clock="decline",
@@ -582,7 +582,7 @@ async def sweep_saison(
     if season_after_has_ended(later_saison_status=later_saison_status):
         angenommene, redacted_accepted, passed = await drain(
             db=db,
-            page_of=lambda session, batch: session.with_transaction(erase_accepted, batch),
+            page_of=erase_accepted,
             page=SWEEP_PAGE,
             what="Application",
             clock="acceptance",
@@ -592,7 +592,7 @@ async def sweep_saison(
         cleared, passed = await run_isolated(
             db=db,
             batch=Batch(share=BLOCKS_CLEARED_PER_PASS),
-            attempt=lambda session, batch: session.with_transaction(clear_the_blocks, batch),
+            attempt=clear_the_blocks,
             moved=lambda blocks: blocks[0],
             owes=False,
             what="Season team",
@@ -604,7 +604,7 @@ async def sweep_saison(
         stripped_confirmations, passed = await run_isolated(
             db=db,
             batch=Batch(),
-            attempt=lambda session, batch: session.with_transaction(strip_the_confirmations, batch),
+            attempt=strip_the_confirmations,
             moved=lambda _: 0,
             owes=False,
             what="Season",
@@ -615,7 +615,7 @@ async def sweep_saison(
         stripped_reports, passed = await run_isolated(
             db=db,
             batch=Batch(),
-            attempt=lambda session, batch: session.with_transaction(strip_the_reports, batch),
+            attempt=strip_the_reports,
             moved=lambda _: 0,
             owes=False,
             what="Season",
@@ -670,7 +670,7 @@ async def sweep_saison(
     reminded, passed = await run_isolated(
         db=db,
         batch=share,
-        attempt=lambda session, batch: session.with_transaction(remind, batch),
+        attempt=remind,
         moved=lambda answered: len({erinnerung.bewerbung_id for erinnerung in answered}),
         owes=True,
         what="Application",
@@ -769,7 +769,7 @@ async def angekuendigt_bewerbungen(
     stamped, passed = await run_isolated(
         db=db,
         batch=Batch(),
-        attempt=lambda session, batch: session.with_transaction(stamp_the_notified, batch),
+        attempt=stamp_the_notified,
         moved=lambda count: count,
         owes=False,
         what="Application",
@@ -847,7 +847,7 @@ async def loeschen_bewerbungen(
     erased, passed = await run_isolated(
         db=db,
         batch=Batch(),
-        attempt=lambda session, batch: session.with_transaction(erase_the_notified, batch),
+        attempt=erase_the_notified,
         moved=lambda counts: counts[0],
         owes=False,
         what="Application",

@@ -956,7 +956,7 @@ async def sweep_spielbestaetigungen(
     closed, passed = await run_isolated(
         db=db,
         batch=Batch(share=CLOSES_PER_PASS),
-        attempt=lambda session, batch: session.with_transaction(close, batch),
+        attempt=close,
         moved=lambda count: count,
         owes=False,
         what=WHAT,
@@ -967,7 +967,7 @@ async def sweep_spielbestaetigungen(
     told, passed = await run_isolated(
         db=db,
         batch=Batch(share=MITTEILUNGEN_PER_PASS),
-        attempt=lambda session, batch: session.with_transaction(tell, batch),
+        attempt=tell,
         moved=lambda answered: len(answered.notices) + len(answered.aufgegeben),
         owes=True,
         what=WHAT,
@@ -993,7 +993,7 @@ async def sweep_spielbestaetigungen(
         lambda: run_isolated(
             db=db,
             batch=mint_share,
-            attempt=lambda session, batch: session.with_transaction(mint, batch),
+            attempt=mint,
             moved=lambda answered: answered.written,
             owes=True,
             what=WHAT,
@@ -1023,7 +1023,7 @@ async def sweep_spielbestaetigungen(
             lambda: run_isolated(
                 db=db,
                 batch=reminder_share,
-                attempt=lambda session, batch: session.with_transaction(remind, batch),
+                attempt=remind,
                 moved=len,
                 owes=True,
                 what=WHAT,
@@ -1122,7 +1122,7 @@ async def angefragt_spielbestaetigungen(
     stamped, passed = await run_isolated(
         db=db,
         batch=Batch(),
-        attempt=lambda session, batch: session.with_transaction(stamp_the_asked, batch),
+        attempt=stamp_the_asked,
         moved=lambda count: count,
         owes=False,
         what=WHAT,
