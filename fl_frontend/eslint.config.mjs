@@ -317,21 +317,11 @@ const BACKGROUND_PASSES = [
     runners: ["src/features/saisons/sweep.ts", "src/features/saisons/actions.ts"],
   },
   {
-    operations: [
-      "spielbestaetigungen_get_spiel_sweep_saisons",
-      "spielbestaetigungen_sweep_spielbestaetigungen",
-      "spielbestaetigungen_angefragt_spielbestaetigungen",
-      "spielbestaetigungen_mitgeteilt_spielbestaetigungen",
-    ],
+    operations: ["spielbestaetigungen_get_spiel_sweep_saisons", "spielbestaetigungen_sweep_spielbestaetigungen"],
     wrapper: {
       file: "src/features/spielbestaetigungen/mutations.ts",
       regex: moduleNamed("mutations"),
-      names: [
-        "getSpielbestaetigungSweepSaisons",
-        "postSpielbestaetigungSweep",
-        "postSpielbestaetigungSweepAngefragt",
-        "postSpielbestaetigungSweepMitgeteilt",
-      ],
+      names: ["getSpielbestaetigungSweepSaisons", "postSpielbestaetigungSweep"],
     },
     runners: ["src/features/spielbestaetigungen/sweep.ts"],
   },
