@@ -31,7 +31,7 @@ export function buildLoeschungEmail({ origin, token }: { origin: string; token: 
     subjectLine: "Konto löschen",
     origin: site,
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [`Du hast angefordert, Dein Konto bei der ${BRAND_NAME} zu löschen.`, "Über den Link unten bestätigst Du das."],
       [
         [

@@ -6,7 +6,7 @@ import { kontaktBestaetigungsLink } from "./kontaktLink";
 import { DEIN_BEREICH_TITEL } from "./seitenNamen";
 import { rollenText } from "./teamVocabulary";
 
-import type { Absatz, Mail, Satz } from "./emailShell";
+import type { Mail, Paragraph, Sentence } from "./emailShell";
 import type { CalendarDay } from "./format";
 import type { FLKontaktLinkData, FLKontaktRow } from "./generated/client/types";
 import type { MailLink } from "./mailKinds";
@@ -21,8 +21,8 @@ const GESCHLOSSEN_SATZ: Record<Exclude<FLKontaktRow, "open">, string> = {
  * What the page takes and how long the link holds. No re-send on a closed row: the backend refuses
  * one there (`kontakt_row_without_saison`), so the message promises none.
  */
-function linkAbsatz(zeile: FLKontaktRow, frist: string): Absatz {
-  const gueltig: Satz = ["Der Link ist bis zum ", { strong: frist }, " gültig und funktioniert nur einmal."];
+function linkAbsatz(zeile: FLKontaktRow, frist: string): Paragraph {
+  const gueltig: Sentence = ["Der Link ist bis zum ", { strong: frist }, " gültig und funktioniert nur einmal."];
 
   return zeile === "open"
     ? [
@@ -58,7 +58,7 @@ export function buildKontaktBestaetigungEmail(
     subjectLine: `Du bist als ${sitze} für ${schule} eingetragen`,
     origin: site,
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [
         // „für {Team} in der Saison …“, as the registration messages name a team and its season.
         ["Die Verwaltung der ", BRAND_NAME, ` hat Dich in der Saison ${saisonId} als ${sitze} für `, { strong: schule }, " eingetragen."],

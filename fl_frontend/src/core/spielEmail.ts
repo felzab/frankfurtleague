@@ -10,9 +10,9 @@ import type { CalendarDay, Uhrzeit } from "./format";
 import type {
   FLSpielEinteilungData,
   FLSpielEinteilungLiftedData,
-  FLSpielHinweisData,
-  FLSpielHinweisDataRecipient,
   FLSpielMailAnsetzung,
+  FLSpielNoticeData,
+  FLSpielNoticeDataRecipient,
   FLSpielRequestData,
   FLSpielVorschlagDiscardedData,
 } from "./generated/client/types";
@@ -91,7 +91,7 @@ export function buildSpielAnfrageEmail({ art, team, ansetzung: facts, frist }: F
     // could send the two versions to different hosts.
     origin: mailOrigin(origin),
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [
         // The first request says the fixture is set, the reminder that the team's answer is still owed.
         art === "spiel_request"
@@ -101,10 +101,10 @@ export function buildSpielAnfrageEmail({ art, team, ansetzung: facts, frist }: F
         [{ strong: `Bitte bestätige den Termin für ${team} oder schlag einen anderen vor.` }],
       ],
     ],
-    block: { titel: TERMIN_TITEL, facts: termin(ansetzung) },
+    block: { title: TERMIN_TITEL, facts: termin(ansetzung) },
     // The deadline, the first-press rule and what silence costs. Any of the team's seats answers, the first
     // press binding, so a reader told nothing of it takes a colleague's answer for a dead link.
-    nachBlock: [
+    afterBlock: [
       [
         ["Bitte antworte bis zum ", { strong: datumText(frist) }, "."],
         "Es gilt die erste Antwort aus Deinem Team, danach funktioniert der Link nicht mehr.",
@@ -130,7 +130,7 @@ export function buildSpielEinteilungEmail({ ansetzung: facts }: FLSpielEinteilun
     subjectLine: `Eingeteilt: ${ansetzung.team1} gegen ${ansetzung.team2} am ${ansetzung.datumText}`,
     origin: site,
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [
         [
           "Die Verwaltung der ",
@@ -141,16 +141,16 @@ export function buildSpielEinteilungEmail({ ansetzung: facts }: FLSpielEinteilun
         ],
       ],
     ],
-    block: { titel: TERMIN_TITEL, facts: termin(ansetzung) },
+    block: { title: TERMIN_TITEL, facts: termin(ansetzung) },
     // The area by its name on screen, read from its constant.
-    nachBlock: [[`Nach der Anmeldung findest Du das Spiel auf der Website unter „${DEIN_BEREICH_TITEL}“.`, "Dort sagst Du zu oder ab."]],
+    afterBlock: [[`Nach der Anmeldung findest Du das Spiel auf der Website unter „${DEIN_BEREICH_TITEL}“.`, "Dort sagst Du zu oder ab."]],
     // The heading the button opens on, read from its constant.
     button: { label: EINSAETZE_TITEL, href: `${site}${SCHIEDSRICHTER_PANEL_PATH}` },
   };
 }
 
 /** What became of the earlier word, and what follows it, per reader: a team was asked, a referee booked. */
-const NEU_SAETZE: Record<FLSpielHinweisDataRecipient, readonly [string, string]> = {
+const NEU_SAETZE: Record<FLSpielNoticeDataRecipient, readonly [string, string]> = {
   team: [
     "Die Anfrage zum bisherigen Termin und ihr Link gelten nicht mehr.",
     "Bleibt Dein Team in diesem Spiel, bekommst Du für einen neuen Termin nach dem heutigen Tag eine neue Anfrage.",
@@ -162,7 +162,7 @@ const NEU_SAETZE: Record<FLSpielHinweisDataRecipient, readonly [string, string]>
 };
 
 /** What the call-off ends for each reader, and what a reinstated fixture brings: a team was asked, a referee booked. */
-const ABGESAGT_SAETZE: Record<FLSpielHinweisDataRecipient, readonly [string, string, string]> = {
+const ABGESAGT_SAETZE: Record<FLSpielNoticeDataRecipient, readonly [string, string, string]> = {
   team: [
     "Die Anfrage zu diesem Spiel und ihr Link gelten nicht mehr.",
     "Du musst nichts tun.",
@@ -180,7 +180,7 @@ const ABGESAGT_SAETZE: Record<FLSpielHinweisDataRecipient, readonly [string, str
  * it knows. A move names no new slot, the next request stating it; a call-off has no button and no name, nothing being
  * left to answer and the address perhaps having changed hands since the request.
  */
-export function buildSpielHinweisEmail({ art, recipient: empfaenger, appointment: alt }: FLSpielHinweisData, { origin }: MailOrt): Mail {
+export function buildSpielHinweisEmail({ art, recipient: empfaenger, appointment: alt }: FLSpielNoticeData, { origin }: MailOrt): Mail {
   const { team1, team2 } = alt;
 
   if (art === "spiel_new_angesetzt") {
@@ -189,7 +189,7 @@ export function buildSpielHinweisEmail({ art, recipient: empfaenger, appointment
       subjectLine: `Neu angesetzt: ${team1} gegen ${team2}`,
       origin: mailOrigin(origin),
       vorname: "",
-      absaetze: [
+      paragraphs: [
         [["Das Spiel ", ...paarung(team1, team2), ", bisher am ", alterTermin(alt.datum, alt.uhrzeit), ", ist neu angesetzt."]],
         NEU_SAETZE[empfaenger],
       ],
@@ -201,7 +201,7 @@ export function buildSpielHinweisEmail({ art, recipient: empfaenger, appointment
     subjectLine: `Abgesagt: ${team1} gegen ${team2} am ${datumText(alt.datum)}`,
     origin: mailOrigin(origin),
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [["Das Spiel ", ...paarung(team1, team2), " am ", alterTermin(alt.datum, alt.uhrzeit), " ist abgesagt."]],
       ABGESAGT_SAETZE[empfaenger],
     ],
@@ -218,7 +218,7 @@ export function buildSpielEinteilungAufgehobenEmail({ appointment: alt }: FLSpie
     subjectLine: `Nicht mehr eingeteilt: ${alt.team1} gegen ${alt.team2}`,
     origin: mailOrigin(origin),
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [
         [
           "Für das Spiel ",
@@ -243,7 +243,7 @@ export function buildSpielVorschlagVerworfenEmail({ appointment: alt }: FLSpielV
     subjectLine: `Termin bleibt: ${alt.team1} gegen ${alt.team2} am ${datumText(alt.datum)}`,
     origin: mailOrigin(origin),
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [
         ["Für das Spiel ", ...paarung(alt.team1, alt.team2), " hat Dein Team einen anderen Termin vorgeschlagen."],
         ["Die Liga hat entschieden: Das Spiel bleibt am ", alterTermin(alt.datum, alt.uhrzeit), "."],

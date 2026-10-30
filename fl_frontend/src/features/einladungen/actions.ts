@@ -189,7 +189,7 @@ export async function postEinladungVersandAction(
     // Every team this press meant to write to: a pass-over by the rule the preview showed is none, the league's own
     // failure to mint is one.
     const gemeint = zeilen.filter(
-      (zeile) => zeile.skipped === null || zeile.skipped === "erzeugung_failed" || zeile.skipped === "erzeugung_uncertain",
+      (zeile) => zeile.skipped === null || zeile.skipped === "mint_failed" || zeile.skipped === "mint_uncertain",
     ).length;
     const erreicht = zeilen.filter((zeile) => zeile.recipient.length > 0).length;
 

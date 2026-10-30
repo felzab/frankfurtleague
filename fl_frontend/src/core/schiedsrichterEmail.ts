@@ -37,7 +37,7 @@ export function buildSchiedsrichterBestaetigungEmail({ frist }: FLSchiedsrichter
     subjectLine: "Dein Eintrag als Schiedsrichterin oder Schiedsrichter",
     origin: site,
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [
         `Die Verwaltung der ${BRAND_NAME} hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen.`,
         [

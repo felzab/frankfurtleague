@@ -132,7 +132,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     schedule: saison.schedule,
     // Its `erfasst` half must keep mirroring `holds_a_recorded_fact`: too wide closes a replace
     // `spielplan_replace_outside_its_window` allows, too narrow offers one it refuses.
-    holdings: buildSpielplanBestand({ gruppenSpiele: gruppenSpieleRes.spiele, playoffSpiele: playoffSpieleRes.spiele }),
+    bestand: buildSpielplanBestand({ gruppenSpiele: gruppenSpieleRes.spiele, playoffSpiele: playoffSpieleRes.spiele }),
     eingereichteBerichte: berichteRes?.spielberichte.length ?? 0,
   };
 

@@ -34,7 +34,7 @@ async function Popup({ params }: { params: Promise<{ saison: string; spiel: stri
   const ereignis = ereignisOf(spiel);
   return (
     <RouteDialog
-      title={ROUTES.spiel.titel(heim.name, gast.name)}
+      title={ROUTES.spiel.title(heim.name, gast.name)}
       beneath={ROUTES.spielplan.path(saison.id)}
       act={
         // A full page load: a client navigation to this same address is intercepted again as this pop-up.

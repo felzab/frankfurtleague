@@ -57,7 +57,7 @@ type DataPerArt = { [A in OutboxArt]: Member<OutboxData, A> };
 interface Handout {
   /** The raw link token minted for this hand-out, or null where the mail carries no link. */
   readonly token: string | null;
-  /** The row's secret, opened by the drain (`fl_frontend/src/core/mail.ts :: zustellen`), or null where it holds none. */
+  /** The row's secret, opened by the drain (`fl_frontend/src/core/mail.ts :: sendHandedOut`), or null where it holds none. */
   readonly secret: string | null;
   /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not production mails no production link. */
   readonly origin: string;
@@ -111,7 +111,7 @@ const MAIL_KINDS: { [A in OutboxArt]: MailBuilder<A> } = {
   grant: buildBerechtigungEmail,
   address_change_link: (data, handout) => buildAdresswechselEmail(data, minted(handout)),
   // The stop link, minted into the change's `stopp.token_hashes`.
-  address_change_hinweis: (data, handout) => buildAdresswechselHinweisEmail(data, minted(handout)),
+  address_change_notice: (data, handout) => buildAdresswechselHinweisEmail(data, minted(handout)),
   address_change_effective: buildAdresswechselWirksamEmail,
   address_change_discarded: buildAdresswechselNichtWirksamEmail,
   bewerbung_received: (data, handout) => buildBewerbungEingangEmail(data, minted(handout)),

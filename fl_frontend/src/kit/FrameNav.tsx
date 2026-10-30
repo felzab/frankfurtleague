@@ -159,7 +159,7 @@ export type Account = {
  * Ends the session and leaves the document whole, as Next's guide advises for a sign-out: a soft navigation
  * would keep every hidden route with its rows and typed text. A failure leaves the person where they are.
  */
-async function abmelden() {
+async function signOutAndLeave() {
   const result = await signOut().catch(() => null);
   if (result?.success === true) {
     leaveDocumentFor("/");
@@ -192,11 +192,11 @@ function AccountMenu({ account, trigger, beside }: { account: Account; trigger: 
       groups={[
         [
           { kind: "link", label: COPY.vorlage.konto, href: ROUTES.accountSignIn.path() },
-          { kind: "action", label: COPY.shared.verb.abmelden, onAction: () => void abmelden() },
+          { kind: "action", label: COPY.shared.verb.abmelden, onAction: () => void signOutAndLeave() },
         ],
         [
-          { kind: "link", label: ROUTES.impressum.titel, href: ROUTES.impressum.path() },
-          { kind: "link", label: ROUTES.datenschutz.titel, href: ROUTES.datenschutz.path() },
+          { kind: "link", label: ROUTES.legalNotice.title, href: ROUTES.legalNotice.path() },
+          { kind: "link", label: ROUTES.privacyNotice.title, href: ROUTES.privacyNotice.path() },
         ],
       ]}
       foot={{

@@ -45,7 +45,7 @@ export const SERVER_COPY = katalog({
     bewerbung_window_ends_before_start: "Die Bewerbungsfrist endet vor ihrem Beginn. Wähle ein Ende nach dem Beginn.",
     registrierung_window_ends_before_start: "Die Registrierungsfrist endet vor ihrem Beginn. Wähle ein Ende nach dem Beginn.",
     spieltag_ends_before_start: "Der Spieltag endet vor seinem Beginn. Wähle ein Ende nach dem Beginn.",
-    gute_spieler_exceed_kader:
+    good_spieler_exceed_kader:
       "Es sind mehr gute Spieler angegeben, als der Kader voraussichtlich Spieler hat. Gib höchstens so viele an wie die voraussichtliche Kadergröße.",
     kontakt_email_twice: "Zwei Kontaktpersonen haben dieselbe E-Mail-Adresse. Gib jeder Person ihre eigene.",
     kontakt_telefon_twice: "Zwei Kontaktpersonen haben dieselbe Telefonnummer. Gib jeder Person ihre eigene.",

@@ -29,7 +29,7 @@ import { FormHonorarSection } from "./FormHonorarSection";
 import { FormKontaktSection } from "./FormKontaktSection";
 import { FormPersonSection } from "./FormPersonSection";
 
-import type { FLAddressChangeViewableDenied, FLConfirmation, FLEinwilligung, FLKontakt, FLOutboxState } from "@/core/generated/client/types";
+import type { FLAddressChangeViewableDenied, FLConfirmation, FLEinwilligung, FLKontakt, FLOutboxStatus } from "@/core/generated/client/types";
 import type { FLPatchSchiedsrichterPayload, FLSchiedsrichterPayloadDraft } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterDraftFields, SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
@@ -55,7 +55,7 @@ type AdminSchiedsrichterEditFormProps = {
     /** Whether the link's deadline has passed, as the read judged it rather than this browser's day. */
     abgelaufen: { bestaetigung: boolean };
     /** What became of the last confirmation mail the referee was owed, read off the Postausgang. */
-    zustellung: FLOutboxState | null;
+    zustellung: FLOutboxStatus | null;
   };
   /** Whether the registry holds the stored label, which no record of the row says. */
   istFassungBekannt: boolean | null;

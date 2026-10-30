@@ -31,7 +31,7 @@ export function buildSperreEmail({ grund, barred_until_saison_id: gesperrtBisSai
     subjectLine: "Deine E-Mail-Adresse ist gesperrt",
     origin: mailOrigin(origin),
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [
         ...EINLEITUNG,
         // „werden beendet“: the mail leaves after the sign-out was attempted and cannot know whether it held.

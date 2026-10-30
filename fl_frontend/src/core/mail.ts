@@ -18,26 +18,26 @@ import { mailFor, OUTBOX_TAG } from "./mailKinds";
 import { boundCall, getRequestTraceId } from "./requestScope";
 import { mintTraceId } from "./trace";
 
-import type { MailVon } from "./emailShell";
+import type { MailSender } from "./emailShell";
 import type { FLOutboxHandout, FLOutboxResultPayload, FLOutboxResultPayloadResult, FLOutboxResultResponse } from "./generated/client/types";
 
 const MAIL_ENDPOINT = "https://api.resend.com/emails";
 
 // Two senders: sign-in codes and security notices from one address, everything else from the
-// other, the mail's kind choosing (`fl_frontend/src/core/emailShell.ts :: MailVon`). Each address
+// other, the mail's kind choosing (`fl_frontend/src/core/emailShell.ts :: MailSender`). Each address
 // needs its own routing rule and its sender alignment at the provider.
-const ABSENDER: Readonly<Record<MailVon, string>> = {
+const SENDER_ADDRESSES: Readonly<Record<MailSender, string>> = {
   anmeldung: "anmeldung@frankfurtleague.de",
   liga: "liga@frankfurtleague.de",
 };
 
 /** Every sender under the league's name, which needs no quoting: it holds no comma, quote or angle bracket. */
-function senderRow(von: MailVon): string {
-  return `${COPY.marke.name} <${ABSENDER[von]}>`;
+function senderRow(sender: MailSender): string {
+  return `${COPY.marke.name} <${SENDER_ADDRESSES[sender]}>`;
 }
 
 /** Every reply reaches the league's mailbox, whichever address sent the mail. */
-const ANTWORT_AN = KONTAKT_EMAIL;
+const REPLY_TO = KONTAKT_EMAIL;
 
 // Bounds the WHOLE call the way `fl_frontend/src/core/api.ts :: FETCH_TIMEOUT_MS` bounds a
 // backend call: a per-attempt budget would multiply by the attempts below, and the backend's lease on a
@@ -62,7 +62,7 @@ interface OutboundMail {
   html: string;
   text: string;
   /** Which of the two senders, read off the mail's kind by `fl_frontend/src/core/emailShell.ts :: renderMail`. */
-  von: MailVon;
+  sender: MailSender;
   /**
    * Rides the send and comes back on every delivery event about it, which is what routes one back to
    * the row it was sent from. Each name and value must be ASCII letters, digits, `_` or `-`.
@@ -85,17 +85,17 @@ type MailAccepted = { id: string | null };
  * Raised where the deployment does not mail. Not a `MailSendError` and not in `errors.ts`: nothing
  * here reached a provider, so there is no status to carry and no retry decision to read off one.
  */
-class MailWithheldError extends Error {
+class MailHeldError extends Error {
   constructor() {
     super("This deployment does not send mail.");
 
-    this.name = "MailWithheldError";
+    this.name = "MailHeldError";
   }
 }
 
 /**
  * Raised where the recipient is not one bare mailbox, or its domain has no ASCII form. Beside
- * `MailWithheldError` rather than in `errors.ts` for its reason, and carrying no address for the same one.
+ * `MailHeldError` rather than in `errors.ts` for its reason, and carrying no address for the same one.
  */
 class MailRecipientError extends Error {
   constructor() {
@@ -132,11 +132,11 @@ function forComment(value: string): string {
   return value.replaceAll("-->", "--&gt;").replaceAll("--!>", "--!&gt;");
 }
 
-function sinkDocument({ to, subject, html, text, von, tags }: OutboundMail, traceId: string): string {
+function sinkDocument({ to, subject, html, text, sender, tags }: OutboundMail, traceId: string): string {
   const pairs = Object.entries(tags).map(([name, value]) => `${name}=${value}`);
   const header = [
-    `From: ${senderRow(von)}`,
-    `Reply-To: ${ANTWORT_AN}`,
+    `From: ${senderRow(sender)}`,
+    `Reply-To: ${REPLY_TO}`,
     `To: ${to}`,
     `Subject: ${subject}`,
     ...(pairs.length === 0 ? [] : [`Tags: ${pairs.join("; ")}`]),
@@ -206,25 +206,25 @@ function recipientOf(to: string): string {
 /** What drains settled: the backend's counts, summed over every report they made. */
 type DrainCount = Record<keyof FLOutboxResultResponse, number>;
 
-const no = (): DrainCount => ({ sent: 0, repeated: 0, abandoned: 0, withheld: 0, ignored: 0 });
+const no = (): DrainCount => ({ sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 });
 
 /** Every drain's counts since the hourly pass last took them, whichever started the drain: a write's or the pass. */
-let seitDemLetztenDurchlauf = no();
+let sinceLastPass = no();
 
 /**
  * What every drain in this process settled since the last call, `abandoned` the mails the heartbeat reports: a mail is
  * given up by whichever drain meets it, and most drains are a write's.
  */
 export function takeDrainCounts(): DrainCount {
-  const genommen = seitDemLetztenDurchlauf;
-  seitDemLetztenDurchlauf = no();
+  const taken = sinceLastPass;
+  sinceLastPass = no();
 
-  return genommen;
+  return taken;
 }
 
 /** The one drain this process runs, and the one every call made while it runs waits on. */
 let drainRunning: Promise<void> | undefined;
-let drainDanach: Promise<void> | undefined;
+let drainAfter: Promise<void> | undefined;
 
 /**
  * Every mail owed now: claimed a page at a time, each sent, and each outcome reported as its send returns, so a drain
@@ -238,15 +238,15 @@ export function drainOutbox(): Promise<void> {
   if (drainRunning !== undefined) {
     // Started from this call's context, so it runs under this call's scope rather than the running drain's, whose
     // deadline may be what that drain failed on.
-    const danach = () => {
-      drainDanach = undefined;
+    const after = () => {
+      drainAfter = undefined;
       return drainOutbox();
     };
-    drainDanach ??= drainRunning.then(danach, danach);
-    return drainDanach;
+    drainAfter ??= drainRunning.then(after, after);
+    return drainAfter;
   }
 
-  const run = drainen().finally(() => {
+  const run = drain().finally(() => {
     drainRunning = undefined;
   });
   drainRunning = run;
@@ -255,18 +255,18 @@ export function drainOutbox(): Promise<void> {
 }
 
 /** Claims until a claim holds nothing: a mail handed back to wait its minute is no longer free, so the loop ends. */
-async function drainen(): Promise<void> {
+async function drain(): Promise<void> {
   for (;;) {
     const { lease, mails, abandoned } = await outboxPostHandout();
-    seitDemLetztenDurchlauf.abandoned += abandoned;
+    sinceLastPass.abandoned += abandoned;
     if (lease === null) return;
 
     for (const mail of mails) {
-      const bericht = { lease: lease, ...(await zustellen(mail)) };
+      const report = { lease: lease, ...(await sendHandedOut(mail)) };
       // The provider's name for a refusal is its own token, kept only where the endpoint takes it: the outcome stands
       // without one, as `fl_frontend/src/app/api/mail/zustellung/route.ts` keeps a delivery event's.
-      const antwort = await outboxPostResult(OutboxPostResultBody.safeParse(bericht).data ?? { ...bericht, grund: null });
-      for (const field of Object.keys(antwort) as (keyof DrainCount)[]) seitDemLetztenDurchlauf[field] += antwort[field];
+      const response = await outboxPostResult(OutboxPostResultBody.safeParse(report).data ?? { ...report, grund: null });
+      for (const field of Object.keys(response) as (keyof DrainCount)[]) sinceLastPass[field] += response[field];
     }
   }
 }
@@ -276,7 +276,7 @@ async function drainen(): Promise<void> {
  * repeat of this send, and a later hand-out mints a fresh link under a key of its own
  * (https://resend.com/docs/dashboard/emails/idempotency-keys). The ban was judged at the hand-out.
  */
-async function zustellen(mail: FLOutboxHandout): Promise<Omit<FLOutboxResultPayload, "lease">> {
+async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResultPayload, "lease">> {
   // Opened here alone, sealed by `fl_frontend/src/core/auth.ts :: oweSignInMail` under the same key, and held by this
   // scope alone: never on a line, never in an error.
   let secret: string | null = null;
@@ -319,7 +319,7 @@ async function zustellen(mail: FLOutboxHandout): Promise<Omit<FLOutboxResultPayl
  * tried again and never count toward giving up; any other refusal is one every send would meet.
  */
 function resultOf(error: unknown): Exclude<FLOutboxResultPayloadResult, "sent"> {
-  if (error instanceof MailWithheldError) return "withheld";
+  if (error instanceof MailHeldError) return "held";
   if (error instanceof MailRecipientError) return "abandon";
   if (error instanceof MailSendError) return error.isTransient ? "retry" : "abandon";
   if (error instanceof APINetworkError) return "retry";
@@ -333,7 +333,7 @@ function resultOf(error: unknown): Exclude<FLOutboxResultPayloadResult, "sent"> 
  * provider's message**, which names the recipient -- `fl_frontend/src/core/errors.ts :: MailSendError`
  * takes the stable `name` field instead.
  */
-async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: OutboundMail): Promise<MailAccepted> {
+async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }: OutboundMail): Promise<MailAccepted> {
   const traceId = getRequestTraceId() ?? mintTraceId();
 
   // Both halves fail closed: the deployment says it is not the one that mails, and outside
@@ -343,10 +343,10 @@ async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: O
   if (frontend_config.APP_ENV !== "production" || apiKey === undefined) {
     // Never on production, which reaches this arm only where `SKIP_ENV_VALIDATION` stood the key's
     // requirement down: a file there would leave a live sign-in code on the host's disk.
-    if (frontend_config.APP_ENV !== "production") await writeToSink({ to, subject, html, text, von, tags, idempotencyKey }, traceId);
+    if (frontend_config.APP_ENV !== "production") await writeToSink({ to, subject, html, text, sender, tags, idempotencyKey }, traceId);
 
     // No line of its own: the row's `zurueckgehalten` is the record, and the filed copy carries the row's id among its tags.
-    throw new MailWithheldError();
+    throw new MailHeldError();
   }
 
   const signal = boundCall(MAIL_TIMEOUT_MS);
@@ -371,8 +371,8 @@ async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: O
   };
 
   const body = JSON.stringify({
-    from: senderRow(von),
-    reply_to: ANTWORT_AN,
+    from: senderRow(sender),
+    reply_to: REPLY_TO,
     to: to,
     subject,
     html,

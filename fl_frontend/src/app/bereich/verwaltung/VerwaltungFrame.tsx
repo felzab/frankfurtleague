@@ -21,17 +21,17 @@ import type { ReactNode } from "react";
  */
 export const RAIL_GROUPS: RailGroup[] = [
   {
-    entries: [{ id: "uebersicht", label: ROUTES.verwaltungOverview.titel, saison: "verwaltungOverview", icon: "overview" }],
+    entries: [{ id: "uebersicht", label: ROUTES.verwaltungOverview.title, saison: "verwaltungOverview", icon: "overview" }],
   },
   {
     heading: COPY.verwaltung.gruppe.saisonsUndSpiele,
     entries: [
-      { id: "saisons", label: ROUTES.verwaltungSaisons.titel, href: ROUTES.verwaltungSaisons.path(), icon: "saisons" },
-      { id: "spiele", label: ROUTES.verwaltungSpiele.titel, saison: "verwaltungSpiele", icon: "spielplan" },
-      { id: "spielorte", label: ROUTES.verwaltungSpielorte.titel, href: ROUTES.verwaltungSpielorte.path(), icon: "spielorte" },
+      { id: "saisons", label: ROUTES.verwaltungSaisons.title, href: ROUTES.verwaltungSaisons.path(), icon: "saisons" },
+      { id: "spiele", label: ROUTES.verwaltungSpiele.title, saison: "verwaltungSpiele", icon: "spielplan" },
+      { id: "spielorte", label: ROUTES.verwaltungSpielorte.title, href: ROUTES.verwaltungSpielorte.path(), icon: "spielorte" },
       {
         id: "schiedsrichter",
-        label: ROUTES.verwaltungSchiedsrichter.titel,
+        label: ROUTES.verwaltungSchiedsrichter.title,
         href: ROUTES.verwaltungSchiedsrichter.path(),
         icon: "schiedsrichter",
       },
@@ -40,10 +40,10 @@ export const RAIL_GROUPS: RailGroup[] = [
   {
     heading: COPY.verwaltung.gruppe.schulenUndSpieler,
     entries: [
-      { id: "bewerbungen", label: ROUTES.verwaltungBewerbungen.titel, saison: "verwaltungBewerbungen", icon: "bewerbungen" },
-      { id: "teams", label: ROUTES.verwaltungTeams.titel, saison: "verwaltungTeams", icon: "teams" },
-      { id: "spieler", label: ROUTES.verwaltungSpieler.titel, saison: "verwaltungSpieler", icon: "spieler" },
-      { id: "registrierungen", label: ROUTES.verwaltungRegistrierungen.titel, saison: "verwaltungRegistrierungen", icon: "registrierungen" },
+      { id: "bewerbungen", label: ROUTES.verwaltungBewerbungen.title, saison: "verwaltungBewerbungen", icon: "bewerbungen" },
+      { id: "teams", label: ROUTES.verwaltungTeams.title, saison: "verwaltungTeams", icon: "teams" },
+      { id: "spieler", label: ROUTES.verwaltungSpieler.title, saison: "verwaltungSpieler", icon: "spieler" },
+      { id: "registrierungen", label: ROUTES.verwaltungRegistrierungen.title, saison: "verwaltungRegistrierungen", icon: "registrierungen" },
     ],
   },
   {
@@ -51,19 +51,19 @@ export const RAIL_GROUPS: RailGroup[] = [
     entries: [
       {
         id: "administratoren",
-        label: ROUTES.verwaltungAdministratoren.titel,
-        href: ROUTES.verwaltungAdministratoren.path(),
+        label: ROUTES.verwaltungAdministrators.title,
+        href: ROUTES.verwaltungAdministrators.path(),
         icon: "administratoren",
       },
-      { id: "sperrliste", label: ROUTES.verwaltungSperrliste.titel, href: ROUTES.verwaltungSperrliste.path(), icon: "sperrliste" },
-      { id: "loeschungen", label: ROUTES.verwaltungErasures.titel, href: ROUTES.verwaltungErasures.path(), icon: "erasures" },
+      { id: "sperrliste", label: ROUTES.verwaltungSperrliste.title, href: ROUTES.verwaltungSperrliste.path(), icon: "sperrliste" },
+      { id: "loeschungen", label: ROUTES.verwaltungErasures.title, href: ROUTES.verwaltungErasures.path(), icon: "erasures" },
       {
         id: "adressaenderungen",
-        label: ROUTES.verwaltungAdressaenderungen.titel,
-        href: ROUTES.verwaltungAdressaenderungen.path(),
+        label: ROUTES.verwaltungAddressChanges.title,
+        href: ROUTES.verwaltungAddressChanges.path(),
         icon: "adressaenderungen",
       },
-      { id: "protokoll", label: ROUTES.verwaltungLog.titel, href: ROUTES.verwaltungLog.path(), icon: "log" },
+      { id: "action_log", label: ROUTES.verwaltungActionLog.title, href: ROUTES.verwaltungActionLog.path(), icon: "log" },
     ],
   },
 ];

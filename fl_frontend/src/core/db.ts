@@ -22,7 +22,7 @@ const options = {
   // abort after a failed commit has its own.
   timeoutMS: 3000,
   // A visitor's first request after a cold start connects without `timeoutMS`, so an unreachable
-  // server is met here. Tighter than `fl_backend/app/core/config.py :: db_server_selection_timeout`,
+  // server is met here. Tighter than `fl_backend/app/core/db.py :: SERVER_SELECTION_TIMEOUT_MS`,
   // which only the backend's boot waits on, where no visitor does.
   serverSelectionTimeoutMS: 3000,
   // The handshake of the reconnect's explicit `connect()`, which `timeoutMS` does not reach and the

@@ -9,10 +9,10 @@ type LinkDispatch = "sent" | "failed";
  * A press's title for each way its link ended. **No title here is a press's failure title**, which
  * `appToast.failure` raises at another variant.
  */
-export type DispatchTitel = Readonly<Record<LinkDispatch, string>>;
+export type DispatchTitle = Readonly<Record<LinkDispatch, string>>;
 
 /** A team's registration link, its own press and a season's press reaching one team alike. */
-export const REGISTRIERUNGSLINK_TITEL: DispatchTitel = {
+export const REGISTRIERUNGSLINK_TITLE: DispatchTitle = {
   sent: "Registrierungslink gesendet",
   failed: "Registrierungslink nicht verschickt",
 };
@@ -26,8 +26,8 @@ export function reportAddressChangeDispatch(link: boolean, description: string):
 }
 
 /** The toast of a write that landed and sent a link: a success only where the link went out. */
-export function reportLinkDispatch(dispatch: LinkDispatch, titel: DispatchTitel, description: string): void {
+export function reportLinkDispatch(dispatch: LinkDispatch, title: DispatchTitle, description: string): void {
   const raise = dispatch === "sent" ? appToast.success : appToast.warning;
 
-  raise(titel[dispatch], { description });
+  raise(title[dispatch], { description });
 }

@@ -46,24 +46,24 @@ const OutboxEventSchema = z.object({
 type OutboxEvent = z.infer<typeof OutboxEventSchema>;
 
 /** The state one event leaves on the row, or `null` for an event that leaves none, `email.sent` among them. */
-function outboxStandFrom({ type, data }: OutboxEvent): Pick<FLOutboxEventPayload, "stand" | "grund"> | null {
+function outboxStateFrom({ type, data }: OutboxEvent): Pick<FLOutboxEventPayload, "state" | "grund"> | null {
   switch (type) {
     case "email.delivered":
-      return { stand: "delivered", grund: null };
+      return { state: "delivered", grund: null };
     // A temporary bounce is the receiving server asking for later, not the mailbox refusing: reading it as permanent
     // would mark a full mailbox unreachable.
     case "email.bounced":
-      return { stand: data.bounce?.type === "Permanent" ? "undeliverable" : "delayed", grund: data.bounce?.subType ?? null };
+      return { state: data.bounce?.type === "Permanent" ? "undeliverable" : "delayed", grund: data.bounce?.subType ?? null };
     case "email.suppressed":
-      return { stand: "suppressed", grund: data.suppressed?.type ?? null };
+      return { state: "suppressed", grund: data.suppressed?.type ?? null };
     case "email.complained":
-      return { stand: "complaint", grund: null };
+      return { state: "complaint", grund: null };
     case "email.delivery_delayed":
-      return { stand: "delayed", grund: null };
+      return { state: "delayed", grund: null };
     // The documented reason is the league's own daily quota, which says nothing about the address: a permanent state
     // here would mark the address unreachable for the sender's fault.
     case "email.failed":
-      return { stand: "delayed", grund: data.failed?.reason ?? null };
+      return { state: "delayed", grund: data.failed?.reason ?? null };
     default:
       return null;
   }
@@ -79,10 +79,10 @@ function readOutboxEvent(raw: unknown): FLOutboxEventPayload | null {
   const id = read.data?.data.tags[OUTBOX_TAG];
   if (read.data === undefined || id === undefined) return null;
 
-  const stand = outboxStandFrom(read.data);
-  if (stand === null) return null;
+  const state = outboxStateFrom(read.data);
+  if (state === null) return null;
 
-  const event = { id: id, am: read.data.created_at, ...stand };
+  const event = { id: id, am: read.data.created_at, ...state };
   // The provider's reason is its own token, kept only where the endpoint takes it: the state stands without one.
   const payload = OutboxPostEventBody.safeParse(event).data ?? OutboxPostEventBody.safeParse({ ...event, grund: null }).data;
   if (payload !== undefined) return payload;
@@ -92,14 +92,14 @@ function readOutboxEvent(raw: unknown): FLOutboxEventPayload | null {
   return null;
 }
 
-function signedByProvider(roh: string, headers: Record<string, string>): boolean {
+function signedByProvider(raw: string, headers: Record<string, string>): boolean {
   const secret = resendWebhookSecret();
   // Held by production alone, the one deployment the provider sends to, so a call anywhere else
   // carries nothing this deployment can verify.
   if (secret === undefined) return false;
 
   try {
-    new Webhook(secret).verify(roh, headers);
+    new Webhook(secret).verify(raw, headers);
     return true;
   } catch {
     return false;
@@ -113,11 +113,11 @@ function signedByProvider(roh: string, headers: Record<string, string>): boolean
 export async function POST(request: NextRequest) {
   // The exact bytes, because the signature is over them: parsing first and re-serialising changes
   // key order and whitespace, and every event would then verify as a forgery.
-  const roh = await request.text();
+  const raw = await request.text();
 
   const headers = Object.fromEntries(SVIX_HEADERS.map((name) => [name, request.headers.get(name) ?? ""]));
 
-  if (!signedByProvider(roh, headers)) {
+  if (!signedByProvider(raw, headers)) {
     // 400 rather than 503: a forgery is not worth thirty-two hours of retries, and neither is a
     // timestamp outside the verifier's tolerance. Nothing of the body reaches the line.
     logger.warn("mail.delivery_unsigned");
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
   return runWithIncomingTrace(async () => {
     let event: unknown;
     try {
-      event = JSON.parse(roh);
+      event = JSON.parse(raw);
     } catch {
       // Signed and unreadable is the provider changing shape, which no retry repairs.
       logger.error("mail.delivery_unreadable");

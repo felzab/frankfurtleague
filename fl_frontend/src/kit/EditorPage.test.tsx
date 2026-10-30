@@ -84,7 +84,7 @@ function Framed({ editor, children }: { editor: boolean; children: ReactNode }) 
     <RailFrame
       groups={[{ entries: [{ id: "spielorte", label: NAME, href: BACK, icon: "suche" }] }]}
       bar={["spielorte"]}
-      foot={{ kind: "anmelden", href: "/signin" }}
+      foot={{ kind: "signIn", href: "/signin" }}
       columnInLayouts>
       <RailColumn editor={editor}>{children}</RailColumn>
     </RailFrame>

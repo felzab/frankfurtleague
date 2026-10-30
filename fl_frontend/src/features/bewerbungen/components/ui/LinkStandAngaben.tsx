@@ -4,7 +4,7 @@ import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLOutboxState } from "@/core/generated/client/types";
+import type { FLOutboxStatus } from "@/core/generated/client/types";
 import type { ReactNode } from "react";
 
 /** Beside the deadline rather than among the delivery facts, which say what became of the message. */
@@ -36,7 +36,7 @@ export function LinkStandAngaben({
   /** The read's judgement of the deadline, never this browser's day; false where a lapse costs nothing. */
   istAbgelaufen: boolean;
   /** What became of the last mail owed about the link, `null` where none was ever owed. */
-  zustellung: FLOutboxState | null;
+  zustellung: FLOutboxStatus | null;
   /** A fact of the caller's own between the deadline and the delivery. */
   vorZustellung?: ReactNode;
 }) {

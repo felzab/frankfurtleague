@@ -61,7 +61,7 @@ export function ClassicFrame({
   sponsors: ReadonlyArray<FooterSponsor>;
   children: ReactNode;
 }) {
-  const ligaLinks = [...liga, { label: COPY.seite.sponsoren, href: ROUTES.sponsoren.path() }];
+  const ligaLinks = [...liga, { label: COPY.seite.sponsoren, href: ROUTES.sponsors.path() }];
   return (
     // The header's height is `tokens.css`'s, read by the header, by a page filling the first screen under it
     // (`ClassicPage`) and by the toasts.

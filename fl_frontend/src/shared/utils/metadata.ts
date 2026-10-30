@@ -8,13 +8,13 @@ import type { Metadata } from "next";
  * A page's metadata from its row in `fl_frontend/src/core/routes.ts :: ROUTES` and its address: the
  * title, the address as the canonical and the preview's, and `noindex` where the row says search
  * engines may not list the page. A page declaring none inherits the root layout's, whose canonical is
- * the homepage. A row titled by its record or its teams takes that title as `titel`.
+ * the homepage. A row titled by its record or its teams takes that title as `title`.
  */
-export function pageMetadata(row: RouteEntry & { readonly titel: Copy }, path: string): Metadata;
-export function pageMetadata(row: RouteEntry, path: string, titel: string): Metadata;
-export function pageMetadata(row: RouteEntry, path: string, titel?: string): Metadata {
+export function pageMetadata(row: RouteEntry & { readonly title: Copy }, path: string): Metadata;
+export function pageMetadata(row: RouteEntry, path: string, title: string): Metadata;
+export function pageMetadata(row: RouteEntry, path: string, title?: string): Metadata {
   return {
-    title: titel ?? (typeof row.titel === "string" ? row.titel : undefined),
+    title: title ?? (typeof row.title === "string" ? row.title : undefined),
     alternates: { canonical: path },
     openGraph: openGraphFor(path),
     ...(row.indexed ? {} : { robots: { index: false, follow: false } }),

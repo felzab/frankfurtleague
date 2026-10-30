@@ -9,7 +9,7 @@ import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSch
 const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link aus Deiner E-Mail erneut.";
 
 /**
- * Mirrors `fl_backend/app/api/spielbestaetigungen/schemas.py :: CustomSpielbestaetigungToken`. One sentence for the
+ * Mirrors `fl_backend/app/shared/schemas/confirmation.py :: CustomToken`. One sentence for the
  * missing token and the over-long one: a visitor typed neither, so the repair is the same link opened again.
  */
 const bestaetigungToken = z

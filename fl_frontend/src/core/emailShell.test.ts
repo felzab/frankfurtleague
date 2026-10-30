@@ -11,7 +11,7 @@ const MAIL: Mail = {
   subjectLine: "Spiel abgesagt",
   origin: ORIGIN,
   vorname: "",
-  absaetze: [["Das Spiel ist abgesagt."]],
+  paragraphs: [["Das Spiel ist abgesagt."]],
 };
 
 describe("renderMail", () => {
@@ -28,7 +28,7 @@ describe("renderMail", () => {
 
     assert.include(html, `href="${link}"`);
     assert.include(text.split("\n"), link);
-    assert.notInclude(html, 'fl-knopf"');
+    assert.notInclude(html, 'fl-button"');
   });
 
   // A team name or a stated reason is typed outside the league and lands inside markup.
@@ -38,8 +38,8 @@ describe("renderMail", () => {
       ...MAIL,
       subjectLine: boese,
       vorname: boese,
-      absaetze: [[boese, [{ strong: boese }]]],
-      block: { titel: boese, facts: [{ label: boese, value: boese }] },
+      paragraphs: [[boese, [{ strong: boese }]]],
+      block: { title: boese, facts: [{ label: boese, value: boese }] },
       button: { label: boese, href: `${ORIGIN}/"><script>` },
     });
 

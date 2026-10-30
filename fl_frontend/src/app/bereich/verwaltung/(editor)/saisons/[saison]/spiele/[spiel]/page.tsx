@@ -43,7 +43,7 @@ const lesen = cache(async (spiel: string) => {
 const nameOf = (spiel: FLSpielJoinedAdmin) =>
   spiel.team1 === null || spiel.team2 === null
     ? WORTE.nummer(spiel.spiel_nr)
-    : ROUTES.verwaltungSpiel.titel(spiel.team1.name, spiel.team2.name);
+    : ROUTES.verwaltungSpiel.title(spiel.team1.name, spiel.team2.name);
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { saison, spiel } = await params;

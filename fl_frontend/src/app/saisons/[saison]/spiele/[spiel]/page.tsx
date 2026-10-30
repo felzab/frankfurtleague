@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: PageProps<"/saisons/[saison]/
   const { saison } = await readSaison(saisonId);
   const { spiel } = await readSpiel(saison, spielId);
   const { heim, gast } = sidesOf(spiel);
-  return pageMetadata(ROUTES.spiel, ROUTES.spiel.path(saison.id, spiel.id), ROUTES.spiel.titel(heim.name, gast.name));
+  return pageMetadata(ROUTES.spiel, ROUTES.spiel.path(saison.id, spiel.id), ROUTES.spiel.title(heim.name, gast.name));
 }
 
 /**

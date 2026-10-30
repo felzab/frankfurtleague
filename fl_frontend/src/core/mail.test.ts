@@ -32,8 +32,8 @@ const SDK_DOUBLE = {
   outboxPostResult: async (payload: FLOutboxResultPayload) => {
     schritte.push({ art: "report", payload });
     const { result } = payload;
-    const counted = { sent: 0, repeated: 0, abandoned: 0, withheld: 0, ignored: 0 };
-    const key = ({ sent: "sent", retry: "repeated", abandon: "abandoned", withheld: "withheld" } as const)[result];
+    const counted = { sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 };
+    const key = ({ sent: "sent", retry: "repeated", abandon: "abandoned", held: "held" } as const)[result];
     return { ...counted, [key]: 1 };
   },
 };
@@ -54,7 +54,7 @@ const KINDS_DOUBLE = {
     subjectLine: "Sperre",
     origin: origin,
     vorname: "",
-    absaetze: [[data.grund], ...(secret === null ? [] : [[secret]])],
+    paragraphs: [[data.grund], ...(secret === null ? [] : [[secret]])],
   }),
 };
 
@@ -135,8 +135,8 @@ describe("one drain of the Postausgang", () => {
     provider = () => Response.json({ name: "validation_error" }, { status: 422 });
     await drainOutbox();
 
-    expect(takeDrainCounts()).toStrictEqual({ sent: 0, repeated: 0, abandoned: 2, withheld: 0, ignored: 0 });
-    expect(takeDrainCounts()).toStrictEqual({ sent: 0, repeated: 0, abandoned: 0, withheld: 0, ignored: 0 });
+    expect(takeDrainCounts()).toStrictEqual({ sent: 0, repeated: 0, abandoned: 2, held: 0, ignored: 0 });
+    expect(takeDrainCounts()).toStrictEqual({ sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 });
   });
 
   /* A call made while a drain runs waits on it. Served by that drain, or by one more under its caller's spent deadline,
@@ -200,13 +200,13 @@ describe("one drain of the Postausgang", () => {
     expect(reports()).toStrictEqual([{ id: handed(1).id, result: result, message_id: null, grund: grund }]);
   });
 
-  it("reports a deployment that sends nothing as withheld, and reaches no provider", async () => {
+  it("reports a deployment that sends nothing as held, and reaches no provider", async () => {
     apiKey = undefined;
     claims = [{ mails: [handed(1)], abandoned: 0 }];
 
     await drainOutbox();
 
     expect(sends()).toStrictEqual([]);
-    expect(reports()).toStrictEqual([{ id: handed(1).id, result: "withheld", message_id: null, grund: null }]);
+    expect(reports()).toStrictEqual([{ id: handed(1).id, result: "held", message_id: null, grund: null }]);
   });
 });

@@ -474,7 +474,7 @@ const isLauf = ({ endpoint }: ApiCall): boolean => endpoint.split("?")[0] === LA
 const queryOf = ({ endpoint }: ApiCall): Record<string, string> => Object.fromEntries(new URL(endpoint, "http://backend").searchParams);
 
 /** The activation's own message where it closed one season, as `landed` answers it. */
-const AKTIVIERT = `Saison ${SAISON_ID} ist jetzt aktiv. Die vorherige Saison ist abgeschlossen.`;
+const AKTIVIERT = `Saison ${SAISON_ID} ist jetzt die laufende Saison. Die vorherige Saison ist abgeschlossen.`;
 
 /** Places in the `_id` order, as the mirror demands them. */
 const ORT = `${"d".repeat(23)}4`;

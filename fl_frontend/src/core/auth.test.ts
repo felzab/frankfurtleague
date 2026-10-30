@@ -2398,7 +2398,7 @@ describe("what the library's own log stream reaches this application as", () => 
   });
 });
 
-/* What the send and the notice owe the stream where the backend never took the mail: a withheld or barred send is the
+/* What the send and the notice owe the stream where the backend never took the mail: a held or barred send is the
    drain's, recorded on the row. */
 describe("a sign-in mail the Postausgang never took", () => {
   const failedLines = (event: string) => logged.filter((line) => line.message === event).map((line) => line.meta);

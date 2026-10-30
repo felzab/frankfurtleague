@@ -98,7 +98,7 @@ describe("what the season-wide press answers", () => {
       saison_id: SAISON_ID,
       rows: [
         zeile("1".repeat(24), null, ["a@b.de"]),
-        zeile("2".repeat(24), "erzeugung_failed", []),
+        zeile("2".repeat(24), "mint_failed", []),
         zeile("3".repeat(24), "no_confirmed_kontaktperson", []),
       ],
     });

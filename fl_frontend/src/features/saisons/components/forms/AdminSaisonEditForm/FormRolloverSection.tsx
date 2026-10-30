@@ -161,7 +161,7 @@ export function FormRolloverSection({
           // question only this control raises.
           <Callout
             severity="info"
-            title="Diese Saison ist aktiv">
+            title="Diese Saison läuft">
             Umgestellt wird auf der Seite der geplanten Saison.
           </Callout>
         ) : (
@@ -172,7 +172,7 @@ export function FormRolloverSection({
             <p className="muted-hint">
               {outgoing === null ? (
                 <>
-                  Derzeit ist keine Saison aktiv. Die Umstellung macht <strong>{saisonId}</strong> zur laufenden Saison.
+                  Derzeit läuft keine Saison. Die Umstellung macht <strong>{saisonId}</strong> zur laufenden Saison.
                 </>
               ) : (
                 <>

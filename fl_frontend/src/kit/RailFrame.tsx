@@ -23,7 +23,7 @@ import type { ChipProps } from "./Chip";
 import type { AccountRead, FrameSaisons, RailGroup } from "./FrameNav";
 
 /** The rail's foot: the account signed in, which streams in, or „Anmelden“ where nobody is. */
-type RailFoot = { kind: "account"; account: AccountRead } | { kind: "anmelden"; href: Route };
+type RailFoot = { kind: "account"; account: AccountRead } | { kind: "signIn"; href: Route };
 
 /** The phone bar's pages, by their entries' ids: up to four, „Mehr“ and the account taking the other places. */
 type Bar = readonly [string] | readonly [string, string] | readonly [string, string, string] | readonly [string, string, string, string];
@@ -68,11 +68,11 @@ export function RailFrame({
   const account = foot.kind === "account" ? foot.account : undefined;
   // Signed out, the phone reaches „Anmelden“ and the two legal pages through „Mehr“ (the strip carries them on desktop).
   const extra =
-    foot.kind === "anmelden"
+    foot.kind === "signIn"
       ? [
           { label: COPY.shared.verb.anmelden, href: foot.href },
-          { label: COPY.seite.impressum, href: ROUTES.impressum.path() },
-          { label: COPY.seite.datenschutz, href: ROUTES.datenschutz.path() },
+          { label: COPY.seite.impressum, href: ROUTES.legalNotice.path() },
+          { label: COPY.seite.datenschutz, href: ROUTES.privacyNotice.path() },
         ]
       : [];
   const pages = groups.flatMap((group) => group.entries.flatMap((entry) => (entry.saison === undefined ? [] : [entry.saison])));
@@ -170,7 +170,7 @@ export function RailColumn({ editor = false, back, children }: { editor?: boolea
 }
 
 // The routes named by a fixed title; a record page is named by its record, a match by its two teams.
-type TitledRoute = { [K in keyof typeof ROUTES]: (typeof ROUTES)[K]["titel"] extends Copy ? K : never }[keyof typeof ROUTES];
+type TitledRoute = { [K in keyof typeof ROUTES]: (typeof ROUTES)[K]["title"] extends Copy ? K : never }[keyof typeof ROUTES];
 
 /**
  * A page's name: its route's catalogue title, a match's two teams in the fixture's order, or a record's own
@@ -180,8 +180,8 @@ export type PageTitle = { route: TitledRoute } | { route: "spiel"; heim: string;
 
 function titleOf(title: PageTitle): string {
   if ("record" in title) return title.record;
-  if (title.route === "spiel") return ROUTES.spiel.titel(title.heim, title.gast);
-  return ROUTES[title.route].titel;
+  if (title.route === "spiel") return ROUTES.spiel.title(title.heim, title.gast);
+  return ROUTES[title.route].title;
 }
 
 const strip = tv({
@@ -242,13 +242,13 @@ export function RailPage({
           <nav
             aria-label={COPY.vorlage.navigation}
             className="ms-auto hidden gap-1 lg:flex">
-            {[ROUTES.impressum, ROUTES.datenschutz].map((page) => (
+            {[ROUTES.legalNotice, ROUTES.privacyNotice].map((page) => (
               <NextLink
                 key={page.path()}
                 href={page.path()}
                 data-kit-focus="ring"
                 className={frameLink({ tone: "strip" })}>
-                {page.titel}
+                {page.title}
               </NextLink>
             ))}
           </nav>

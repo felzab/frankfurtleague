@@ -6,12 +6,12 @@ import { KONTAKT_EMAIL } from "./brand";
 import { BRAND_NAME, mailOrigin } from "./emailShell";
 import { formatInstant } from "./format";
 
-import type { Absatz, Mail } from "./emailShell";
+import type { Mail, Paragraph } from "./emailShell";
 import type {
   FLAddressChangeDiscardedData,
   FLAddressChangeEffectiveData,
-  FLAddressChangeHinweisData,
   FLAddressChangeLinkData,
+  FLAddressChangeNoticeData,
   FLAddressChangeWay,
 } from "./generated/client/types";
 import type { MailLink, MailOrt } from "./mailKinds";
@@ -39,7 +39,7 @@ export function buildAdresswechselEmail({ way: weg, valid_until: gueltigBis }: F
     subjectLine: "Neue E-Mail-Adresse bestätigen",
     origin: site,
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [
         // The person typed it on the person's own start; the administration on either of its two.
         weg === "account"
@@ -58,7 +58,7 @@ export function buildAdresswechselEmail({ way: weg, valid_until: gueltigBis }: F
 }
 
 /** Why the address on file is told, per way the change was started. */
-function anlassAbsatz(weg: FLAddressChangeWay, gueltigBis: string): Absatz {
+function anlassAbsatz(weg: FLAddressChangeWay, gueltigBis: string): Paragraph {
   switch (weg) {
     case "account":
       return [
@@ -87,7 +87,7 @@ function anlassAbsatz(weg: FLAddressChangeWay, gueltigBis: string): Absatz {
  * somebody else's mistake or a pretext, and this mailbox is owed the word, never the other mailbox's name.
  */
 export function buildAdresswechselHinweisEmail(
-  { way: weg, valid_until: gueltigBis, vorname }: FLAddressChangeHinweisData,
+  { way: weg, valid_until: gueltigBis, vorname }: FLAddressChangeNoticeData,
   { origin, token: stoppToken }: MailLink,
 ): Mail {
   const site = mailOrigin(origin);
@@ -99,7 +99,7 @@ export function buildAdresswechselHinweisEmail(
     subjectLine: "Deine E-Mail-Adresse soll sich ändern",
     origin: site,
     vorname: vorname ?? "",
-    absaetze: [
+    paragraphs: [
       anlassAbsatz(weg, gueltigBis),
       ["Hast Du das nicht veranlasst? Dann stoppe die Änderung über diesen Link.", "Er gilt, bis die Änderung wirksam wird."],
       [["Fragen jederzeit an ", { adresse: KONTAKT_EMAIL }, "."]],
@@ -119,7 +119,7 @@ export function buildAdresswechselWirksamEmail({ vorname, instant: zeitpunkt }: 
     subjectLine: "Deine E-Mail-Adresse wurde geändert",
     origin: mailOrigin(origin),
     vorname: vorname ?? "",
-    absaetze: [
+    paragraphs: [
       [
         ["Für Dein Konto bei der ", BRAND_NAME, " gilt seit ", { strong: formatInstant(zeitpunkt) }, " eine neue E-Mail-Adresse."],
         // Never says the old address stops signing in: a seat not yet confirmed stays behind and still signs in there.
@@ -139,7 +139,7 @@ export function buildAdresswechselNichtWirksamEmail(_daten: FLAddressChangeDisca
     subjectLine: "Deine E-Mail-Adresse wurde nicht geändert",
     origin: mailOrigin(origin),
     vorname: "",
-    absaetze: [
+    paragraphs: [
       ["Die Änderung Deiner E-Mail-Adresse ist nicht wirksam geworden.", ["Wir helfen Dir gern weiter: ", { adresse: KONTAKT_EMAIL }]],
     ],
   };

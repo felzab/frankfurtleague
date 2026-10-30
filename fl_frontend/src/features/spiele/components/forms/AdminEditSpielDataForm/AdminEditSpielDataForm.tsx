@@ -72,8 +72,10 @@ import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate, Time } from "@internationalized/date";
 import type { SpielRefusalCode } from "./banners";
 
+// The two ways the adoption stamp misses (`fl_backend/app/api/spielberichte/crud.py :: stamp_the_adoption`): the report's
+// version moved, or it is about other teams than the save leaves, which no repeated adoption repairs.
 const BERICHT_NICHT_UEBERNOMMEN =
-  "Der Spielbericht wurde inzwischen geändert und gilt nicht als übernommen. Prüfe das Ergebnis und übernimm seinen Vorschlag erneut.";
+  "Der Spielbericht gilt nicht als übernommen, weil er inzwischen geändert wurde oder zu anderen Teams gehört, als das Spiel jetzt hat. Prüfe das Ergebnis und den Spielbericht.";
 
 /**
  * Lookup lists arrive as props: `useAdmin()` here would make `spiele` depend on `admin`.

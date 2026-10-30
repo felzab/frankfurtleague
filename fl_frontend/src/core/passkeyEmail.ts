@@ -3,12 +3,12 @@ import "server-only";
 import { mailOrigin } from "./emailShell";
 import { formatInstant } from "./format";
 
-import type { Mail, Satz } from "./emailShell";
+import type { Mail, Sentence } from "./emailShell";
 
 /** The subject and the sentence of one event; nothing here names a row or a device. */
 interface Ereignis {
   readonly betreff: string;
-  readonly saetze: (zeit: string) => readonly [Satz, ...Satz[]];
+  readonly saetze: (zeit: string) => readonly [Sentence, ...Sentence[]];
 }
 
 const HINZUGEFUEGT: Ereignis = {
@@ -37,7 +37,7 @@ function build(ereignis: Ereignis, { zeitpunkt, origin, konto }: Anlass): Mail {
     subjectLine: ereignis.betreff,
     origin: site,
     vorname: "",
-    absaetze: [ereignis.saetze(formatInstant(zeitpunkt))],
+    paragraphs: [ereignis.saetze(formatInstant(zeitpunkt))],
     // The reader's own account page, which is the only place either event can be acted on.
     button: { label: "Zu Deinem Konto", href: `${site}${konto}` },
   };

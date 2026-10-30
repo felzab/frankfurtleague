@@ -7,10 +7,10 @@ import { COPY } from "./core/copy.ts";
 const ran: string[] = [];
 
 /** What one job did, as the scheduler reads it. */
-type Durchlauf = { count: Record<string, number | string | null>; open: number; error?: unknown };
+type JobRun = { count: Record<string, number | string | null>; open: number; error?: unknown };
 
 /** Each job's own answer, which a case replaces; every job resolves at once to nothing done otherwise. */
-const answers = new Map<string, () => Promise<Durchlauf | void>>();
+const answers = new Map<string, () => Promise<JobRun | void>>();
 
 const lines: { level: string; event: string; fields: unknown }[] = [];
 const schedulerLines = () => lines.filter(({ event }) => event.startsWith("scheduler."));
@@ -20,7 +20,7 @@ let heartbeat: string | undefined;
 const HEARTBEAT = "https://uptime.example.invalid/api/v1/heartbeat/token";
 
 /** What every drain since the last pass settled, which a case sets and the pass takes. */
-let drains = { sent: 0, repeated: 0, abandoned: 0, withheld: 0, ignored: 0 };
+let drains = { sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 };
 
 /** The restore's hold the boot reads, off unless a case sets it. */
 const settings = { APP_ENV: "production", APP_VERSION: "sha-1234567", RESTORE_HOLD: "off" };
@@ -71,7 +71,7 @@ vi.doMock("@/core/mail.ts", () => ({
   },
   takeDrainCounts: () => {
     const taken = drains;
-    drains = { sent: 0, repeated: 0, abandoned: 0, withheld: 0, ignored: 0 };
+    drains = { sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 };
     return taken;
   },
 }));
@@ -97,7 +97,7 @@ beforeEach(() => {
   lines.length = 0;
   answers.clear();
   heartbeat = undefined;
-  drains = { sent: 0, repeated: 0, abandoned: 0, withheld: 0, ignored: 0 };
+  drains = { sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 };
   settings.RESTORE_HOLD = "off";
   pings.length = 0;
   monitor = () => Promise.resolve(new Response(null, { status: 200 }));
@@ -234,7 +234,7 @@ describe("the pass's one line", () => {
         event: "scheduler.pass",
         fields: {
           spielbestaetigungen: { closed: 1, asked: 2, reminded: 0, mails: 2, failed: 0 },
-          outbox: { sent: 3, repeated: 0, abandoned: 0, withheld: 0, ignored: 0 },
+          outbox: { sent: 3, repeated: 0, abandoned: 0, held: 0, ignored: 0 },
         },
       },
       { level: "error", event: "scheduler.job_failed", fields: { job: "erasure", name: "TypeError" } },
@@ -243,8 +243,8 @@ describe("the pass's one line", () => {
         event: "scheduler.pass",
         fields: {
           erasure: { spieler: 4, failed: 0 },
-          outbox: { sent: 0, repeated: 0, abandoned: 0, withheld: 0, ignored: 0 },
-          ausfaelle: ["erasure failed"],
+          outbox: { sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 },
+          failures: ["erasure failed"],
         },
       },
     ]);

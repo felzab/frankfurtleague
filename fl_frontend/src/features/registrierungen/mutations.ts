@@ -22,7 +22,7 @@ import type {
   FLRegistrierungConfirmationResponse,
   FLRegistrierungConfirmationViewResponse,
   FLRegistrierungDeclinePayload,
-  FLRegistrierungRefusalResponse,
+  FLRegistrierungDeclineResponse,
   FLRegistrierungSweepResponse,
   FLTokenPayload,
 } from "@/core/generated/client/types";
@@ -65,7 +65,7 @@ export async function postRegistrierungAufnehmen(
 export async function postRegistrierungAblehnen(
   registrierungId: string,
   { grund }: FLRegistrierungDeclinePayload,
-): Promise<FLRegistrierungRefusalResponse> {
+): Promise<FLRegistrierungDeclineResponse> {
   return registrierungenDecline(registrierungId, { grund: grund });
 }
 
