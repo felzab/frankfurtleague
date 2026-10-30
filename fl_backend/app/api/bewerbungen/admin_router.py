@@ -16,7 +16,6 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungKontaktEmailResponse,
     FLBewerbungKontaktSitzPayload,
     FLBewerbungKontaktSitzResponse,
-    FLKontaktRolle,
 )
 from app.api.bewerbungen.services import (
     bestaetigungsfrist_from,
@@ -63,6 +62,7 @@ from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.literals import FLKontaktRolle
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/bewerbungen",

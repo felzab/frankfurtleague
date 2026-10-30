@@ -25,12 +25,13 @@ from app.api.kontakte.services import (
     seat_image_edits,
 )
 from app.api.spielbestaetigungen.services import halter_of
-from app.api.teams.schemas import KONTAKT_ROLLEN, FLSaisonTeamKontakte
+from app.api.teams.schemas import FLSaisonTeamKontakte
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_one_in_db
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import CustomEmail
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop

@@ -3,11 +3,11 @@
 from collections.abc import Iterable, Mapping, Sequence, Set
 from typing import Any
 
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.crud import literal_pattern
 from app.core.recording import row_images
 from app.shared.folding import person_name_key, sign_in_identifier, trimmed_pattern, trimmed_prefix_pattern
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 
 def same_address(identifier: str) -> Mapping[str, Any]:

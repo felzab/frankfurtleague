@@ -2,7 +2,6 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
-from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
 from app.api.spieler.schemas import FLEinwilligung, SelbstEinwilligungPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
@@ -19,6 +18,7 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
+from app.shared.schemas.literals import FLAdresswechselEinsehbarVerwehrt
 from app.shared.schemas.responses import BaseAPIResponse
 
 # The delivery state has ONE shape at every home `app/api/zustellung/services.py :: ZIEL_PFADE`

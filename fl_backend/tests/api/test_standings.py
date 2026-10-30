@@ -7,7 +7,6 @@ import pytest
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLBracketFaultGruppe, FLSpiel, FLSpielListAdapter
 from app.api.spiele.services import BracketResolution, resolve_bracket
-from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamStatistik
 from app.api.teams.services import (
     CERTAINTY_FIXTURE_LIMIT,
@@ -19,6 +18,7 @@ from app.api.teams.services import (
     build_gruppen,
     build_statistik_by_team,
 )
+from app.shared.schemas.literals import FLSpielerStufe
 
 TEAM_ID = "6890a1b2c3d4e5f60719{:04d}"
 MATCH_ID = "6890a1b2c3d4e5f60718{:04d}"

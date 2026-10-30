@@ -2,15 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
-from app.api.saisons.schemas import FLSaisonStatus
-from app.api.spieler.schemas import (
-    SQUAD_NUMMER_PATTERN,
-    FLEinwilligung,
-    FLEinwilligungUmfang,
-    FLSpielerPosition,
-    FLSpielerStufe,
-    SelbstEinwilligungPayload,
-)
+from app.api.spieler.schemas import SQUAD_NUMMER_PATTERN, FLEinwilligung, SelbstEinwilligungPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
@@ -26,6 +18,7 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
+from app.shared.schemas.literals import FLEinwilligungUmfang, FLRegistrierungStatus, FLSaisonStatus, FLSpielerPosition, FLSpielerStufe
 from app.shared.schemas.responses import BaseAPIResponse
 
 # Shared by every home the register names (`app/api/zustellung/services.py :: ZIEL_PFADE`).
@@ -34,10 +27,6 @@ from app.shared.schemas.zustellung import FLBewerbungZustellung
 # --- The INVITE's read, the SUBMISSION and the administrator's read of what it stored. Every
 # payload below is reached from a request body alone, so each forbids an undeclared key; the read
 # models stay lax.
-
-# TWO members and not three: an admission deletes the row, its content having become the person and
-# the squad row, so a state naming an admitted registration would be one no document is ever read in.
-FLRegistrierungStatus = Literal["eingereicht", "abgelehnt"]
 
 # One key, and it is the one the collection's queue index sorts on: rows arrive from a public form
 # and a second order would plan a blocking sort over a list nothing bounds.

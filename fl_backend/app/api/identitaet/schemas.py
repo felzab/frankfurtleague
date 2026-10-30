@@ -2,18 +2,16 @@ from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
 
-from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt, FLUtcInstant, FLVerwaltung
+from app.api.berechtigungen.schemas import FLUtcInstant
 
 # The wire's spelling of the three seats, imported rather than restated: a second closed set here
 # would name a seat no other endpoint publishes.
-from app.api.bewerbungen.schemas import FLKontaktRolle
-from app.api.registrierungen.schemas import FLRegistrierungStatus
-from app.api.saisons.schemas import FLSaisonStatus
 from app.api.sperrliste.schemas import ADDRESS_IN_FREE_TEXT
 from app.shared.folding import trimmed
 from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENZEN_ADRESSEN_MAX
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.kontakt import CustomEmail
+from app.shared.schemas.literals import FLAdresswechselEinsehbarVerwehrt, FLKontaktRolle, FLRegistrierungStatus, FLSaisonStatus, FLVerwaltung
 from app.shared.schemas.responses import BaseAPIResponse
 
 

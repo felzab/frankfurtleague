@@ -6,18 +6,7 @@ from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Fie
 # Imported rather than restated: an application's three people BECOME the junction's three people at
 # acceptance, so a second declaration of the block is one the two would drift apart on. Acyclic --
 # no model in `teams` imports this slice.
-from app.api.teams.schemas import (
-    FLGruppenNames,
-    FLKontaktKenntnisnahmeUmfang,
-    FLKontaktRolle,
-    FLKontaktZeile,
-    FLSaisonTeamKontakte,
-    FLSaisonTeamKontaktePayload,
-    FLSchulform,
-    FLTrikotFarbe,
-    SitzEinwilligungPayload,
-    _KontaktpersonWritablePayload,
-)
+from app.api.teams.schemas import FLSaisonTeamKontakte, FLSaisonTeamKontaktePayload, SitzEinwilligungPayload, _KontaktpersonWritablePayload
 from app.shared.alter import whole_years_between
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
@@ -49,6 +38,15 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomEmail
+from app.shared.schemas.literals import (
+    FLBewerbungZustellEreignis,
+    FLGruppenNames,
+    FLKontaktKenntnisnahmeUmfang,
+    FLKontaktRolle,
+    FLKontaktZeile,
+    FLSchulform,
+    FLTrikotFarbe,
+)
 from app.shared.schemas.responses import BaseAPIResponse
 from app.shared.schemas.zustellung import FLBewerbungZustellung
 
@@ -65,10 +63,6 @@ FLBewerbungSaisonbezug = Literal["diese_saison", "andere_saison"]
 # submission and no path removes a row, so a second order would plan a blocking sort over an archive
 # nothing bounds.
 FLBewerbungenSortOptions = Literal["eingereicht_am"]
-
-# The arms an EVENT may carry. `angenommen` is the sender's own answer and no event reports it, so an
-# event claiming it would overwrite a refusal with the accept that preceded it.
-FLBewerbungZustellEreignis = Literal["zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]
 
 
 def normalise_zustellzeitpunkt(value: str) -> str:

@@ -4,14 +4,9 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 # The application's slice is where the delivery vocabulary was first written, and a second spelling
 # of the six states would let two homes disagree about what a bounce is called.
-from app.api.bewerbungen.schemas import (
-    CustomNachrichtId,
-    CustomZustellgrund,
-    CustomZustellzeitpunkt,
-    FLBewerbungZustellEreignis,
-    FLKontaktRolle,
-)
+from app.api.bewerbungen.schemas import CustomNachrichtId, CustomZustellgrund, CustomZustellzeitpunkt
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.literals import FLBewerbungZustellEreignis, FLKontaktRolle
 from app.shared.schemas.responses import BaseAPIResponse
 
 # A member joins this set in the commit that gives it an `app/api/zustellung/services.py ::

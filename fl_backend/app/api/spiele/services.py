@@ -24,7 +24,6 @@ from app.api.spiele.schemas import (
     FLBracketFaultSpiel,
     FLBracketFaultSpieltag,
     FLPatchSpielDataPayload,
-    FLSonderereignis,
     FLSpiel,
     FLSpielCommon,
     FLSpieleFilterParams,
@@ -45,7 +44,6 @@ from app.api.spiele.schemas import (
     is_unplayed,
     records_an_absence,
 )
-from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding, offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -54,6 +52,7 @@ from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import NAME_IS_PUBLIC
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.literals import FLGruppenNames, FLSonderereignis
 
 
 def build_spiele_sort(sort_by: str, order: str) -> list[tuple[str, int]]:

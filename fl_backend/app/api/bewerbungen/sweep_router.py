@@ -49,7 +49,6 @@ from app.api.spielberichte.crud import strip_the_seasons_reports
 from app.api.spielbestaetigungen.crud import strip_the_seasons_confirmations
 from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.teams.crud import pull_team_names, void_moved_seats
-from app.api.teams.schemas import FLKontaktRolle
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
@@ -70,6 +69,7 @@ from app.core.recording import build_redaction_filter, build_redaction_update, l
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import Batch, drain, log_passed, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.literals import FLKontaktRolle
 
 # System tier and the system actor: the sweep holds no session, so `bind_actor` would refuse it,
 # and an invented administrator for a machine is what `SYSTEM_ACTOR` exists to avoid.

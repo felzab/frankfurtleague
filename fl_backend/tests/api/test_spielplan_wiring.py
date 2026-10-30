@@ -11,11 +11,11 @@ from app.api.saisons.services import find_rules_refusal
 from app.api.saisons.spielplan import EnteredTeam, Spielplan, draw_spielplan
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielListAdapter
 from app.api.spiele.services import find_wiring_refusal, judge_spieltag_occupancy, resolve_bracket
-from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding
+from app.shared.schemas.literals import FLGruppenNames
 from tests.documents import rules_document
 
-GRUPPEN: tuple[FLGruppenNames, ...] = get_args(FLGruppenNames)
+GRUPPEN: tuple[FLGruppenNames, ...] = get_args(FLGruppenNames.__value__)
 
 SAISON_ID = "2026"
 

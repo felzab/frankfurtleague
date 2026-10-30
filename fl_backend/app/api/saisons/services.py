@@ -4,13 +4,13 @@ from http import HTTPStatus
 from typing import Any
 
 from app.api.saisons.schedule import expected_matches, knockout_phases_for, qualifier_count, schedule_for
-from app.api.saisons.schemas import FLSaisonRules, FLSaisonStatus
-from app.api.spiele.schemas import FLSaisonPhase, FLSpiel, is_unplayed
-from app.api.teams.schemas import FLGruppenNames
+from app.api.saisons.schemas import FLSaisonRules
+from app.api.spiele.schemas import FLSpiel, is_unplayed
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus
 
 
 def with_schedule(saison_raw: Mapping[str, Any]) -> dict[str, Any]:
