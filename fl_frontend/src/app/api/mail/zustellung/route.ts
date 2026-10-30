@@ -88,7 +88,7 @@ function readOutboxEvent(raw: unknown): FLOutboxEventPayload | null {
   if (payload !== undefined) return payload;
 
   // 200 because no retry repairs it, and a line because the alternative is a drop nobody sees.
-  logger.warn("mail.zustellung_unplatzierbar", { grund: "postausgang_unlesbar" });
+  logger.warn("mail.delivery_unplaceable", { grund: "outbox_unreadable" });
   return null;
 }
 
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
   if (!signedByProvider(roh, headers)) {
     // 400 rather than 503: a forgery is not worth thirty-two hours of retries, and neither is a
     // timestamp outside the verifier's tolerance. Nothing of the body reaches the line.
-    logger.warn("mail.zustellung_unsigniert");
+    logger.warn("mail.delivery_unsigned");
     return NO_SIGNATURE();
   }
 
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
       event = JSON.parse(roh);
     } catch {
       // Signed and unreadable is the provider changing shape, which no retry repairs.
-      logger.error("mail.zustellung_unlesbar");
+      logger.error("mail.delivery_unreadable");
       return APPLIED(false);
     }
 
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
  */
 function unanswered(error: unknown): NextResponse {
   // Never the tag block, the address or the provider's prose.
-  logger.error("mail.zustellung_ungeschrieben", undefined, {
+  logger.error("mail.delivery_unwritten", undefined, {
     name: error instanceof Error ? error.name : undefined,
     status: error instanceof APIBadStatusError ? error.statusCode : undefined,
   });

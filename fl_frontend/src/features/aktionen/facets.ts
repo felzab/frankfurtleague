@@ -53,7 +53,7 @@ export const AKTIONEN_FACETS: readonly Facet<FLActionLogEntry>[] = [
 ];
 
 /**
- * What `GET /aktionen` is asked to narrow to, a list per facet and `undefined` for everything. The bar's own
+ * What `GET /action_log` is asked to narrow to, a list per facet and `undefined` for everything. The bar's own
  * reader answers it, so the served rows and the pills cannot disagree about one query string.
  */
 export function aktionenLogFacetTerms(

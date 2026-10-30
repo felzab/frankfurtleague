@@ -8,5 +8,5 @@ export type Refusal = "keine_sitzung" | "kein_sitz" | "keine_funktion";
  * the operation and the reason, never an address or an id. A backend refusal is the backend's to log.
  */
 export function logRefused(operation: string, grund: Refusal): void {
-  logger.info("funktion.verweigert", { operation: operation, grund: grund });
+  logger.info("roles.refused", { operation: operation, grund: grund });
 }

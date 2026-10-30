@@ -42,7 +42,7 @@ export const BEWERBUNGEN_FACETS: readonly Facet<AdminBewerbungRow>[] = [
     options: BEWERBUNG_STATUS_OPTIONS.map(({ value, label }) => ({ value: value, label: label })),
     // The list opens on the queue rather than on the archive: a decided application is a record, and
     // the decided ones stay one click away because an empty parameter turns the facet off.
-    defaultValues: ["eingereicht"],
+    defaultValues: ["submitted"],
     // Narrowed on the server, so a decision leaves the working set rather than spending the read's
     // cap on rows nobody is triaging.
     narrowsTheRead: true,

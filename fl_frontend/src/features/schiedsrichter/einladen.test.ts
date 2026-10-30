@@ -50,16 +50,16 @@ const stored = (email: string | null, name: string | null = "Anna Meier") => ({
   inactive_since: null,
   geburtsdatum: null,
   einwilligung: null,
-  bestaetigung: null,
+  confirmation: null,
   version: 0,
 });
 
 const withRow = (email: string | null, name?: string | null) => () => ({
   schiedsrichter: stored(email, name),
-  bestaetigung_abgelaufen: false,
-  adresswechsel_id: null,
-  adresswechsel_einsehbar_verwehrt: null,
-  zustellung: null,
+  confirmation_expired: false,
+  address_change_id: null,
+  address_change_viewable_denied: null,
+  delivery: null,
 });
 
 /** The link a write owed `email`, as each such write answers it. */
@@ -70,15 +70,15 @@ const mints = () => requestsOf(client.calls).filter(({ endpoint }) => endpoint.e
 
 beforeEach(() => {
   row = withRow("anna@example.de");
-  mint = () => ({ bestaetigung: owed("anna@example.de") });
-  create = () => ({ created_id: SCHIEDSRICHTER_ID, bestaetigung: owed("anna@example.de") });
+  mint = () => ({ confirmation: owed("anna@example.de") });
+  create = () => ({ created_id: SCHIEDSRICHTER_ID, confirmation: owed("anna@example.de") });
   // A DIFFERENT address from the one `ENTWURF` carries: the save writes the correction and answers it back, so a
   // sentence naming the payload's address instead would be visible here.
   save = () => ({
     fanned_out_to_spiele: 0,
-    bestaetigung: owed("korrigiert@example.de"),
+    confirmation: owed("korrigiert@example.de"),
   });
-  reactivate = () => ({ bestaetigung: owed("anna@example.de") });
+  reactivate = () => ({ confirmation: owed("anna@example.de") });
 });
 
 describe("the re-send the editor's panel presses", () => {
@@ -103,7 +103,7 @@ describe("the re-send the editor's panel presses", () => {
   /* The row is read before the write, so a save landing between the two moved the mailbox the link goes to; the
      answer is the only reader that saw the write's own transaction. */
   it("names the address the write answered, not the one the earlier read returned, and says the previous link is dead", async () => {
-    mint = () => ({ bestaetigung: owed("inzwischen@example.de") });
+    mint = () => ({ confirmation: owed("inzwischen@example.de") });
 
     const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
@@ -224,7 +224,7 @@ describe("what the save hands the editor about the link it owed", () => {
   it("hands over no sentence where the save owed no link", async () => {
     save = () => ({
       fanned_out_to_spiele: 0,
-      bestaetigung: null,
+      confirmation: null,
     });
 
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
@@ -243,7 +243,7 @@ describe("the reactivation of an unanswered referee", () => {
   });
 
   it("says only that it came back where the row came back unasked", async () => {
-    reactivate = () => ({ bestaetigung: null });
+    reactivate = () => ({ confirmation: null });
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 

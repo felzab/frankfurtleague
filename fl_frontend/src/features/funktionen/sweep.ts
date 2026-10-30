@@ -36,7 +36,7 @@ export async function runKontoSweep(): Promise<{ count: Zaehlung; open: number }
     } catch (error) {
       // Kept, every one: an answer that never came says nothing about any address in it.
       zaehlung.fehlgeschlagen += batch.length;
-      logKontoFailure("konto.referenzen_failed", error, batch.length);
+      logKontoFailure("account.references_failed", error, batch.length);
       continue;
     }
 
@@ -62,12 +62,12 @@ async function loescheKonto(adresse: string, zaehlung: Zaehlung): Promise<void> 
     else zaehlung.bereits_geloescht += 1;
   } catch (error) {
     zaehlung.fehlgeschlagen += 1;
-    logKontoFailure("konto.delete_failed", error);
+    logKontoFailure("account.delete_failed", error);
   }
 }
 
 /** The step and the error's name, never the address: a failure on this path routinely carries it. */
-function logKontoFailure(event: "konto.referenzen_failed" | "konto.delete_failed", error: unknown, anzahl?: number): void {
+function logKontoFailure(event: "account.references_failed" | "account.delete_failed", error: unknown, anzahl?: number): void {
   logger.error(event, undefined, {
     name: error instanceof Error ? error.name : undefined,
     ...requestOf(error),

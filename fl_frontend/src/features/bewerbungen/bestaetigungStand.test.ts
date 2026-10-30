@@ -104,7 +104,7 @@ describe("a seat an erasure emptied", () => {
   it("is its own terminal state rather than an outstanding one", () => {
     const seat2 = seatOf(standsOf2(GELOESCHT), "ansprechperson");
 
-    expect(seat2.stand.art).toBe("geloescht");
+    expect(seat2.stand.art).toBe("erased");
     expect(seat2.satz).toBe("Keine Bestätigung mehr möglich");
     expect(seat2.name).toBe(null);
   });
@@ -401,8 +401,8 @@ describe("what became of the last message to a seat", () => {
 
     const seat2 = seatOf(standsOf2(confirmedAfterBounce), "ansprechperson");
 
-    expect(seat2.stand.art).toBe("bestaetigt");
-    expect(seat2.delivery?.delivery?.stand).toBe("unzustellbar");
+    expect(seat2.stand.art).toBe("confirmed");
+    expect(seat2.delivery?.delivery?.stand).toBe("undeliverable");
   });
 
   it("is null on a seat no mail was owed", () => {

@@ -73,10 +73,10 @@ async function loadJobs(): Promise<{
   return {
     jobs: [
       { name: "bewerbungen", run: bewerbungen.runBewerbungSweep },
-      { name: "konto", run: account.runKontoSweep },
-      { name: "loeschung", run: erasure.runLoeschungSweep },
+      { name: "account", run: account.runKontoSweep },
+      { name: "erasure", run: erasure.runLoeschungSweep },
       { name: "spielbestaetigungen", run: spiele.runSpielSweep },
-      { name: "berechtigungen", run: grants.runBerechtigungenAbgleich },
+      { name: "grants", run: grants.runBerechtigungenAbgleich },
     ],
     drain: mail.drainOutbox,
     takeDrainCounts: mail.takeDrainCounts,
@@ -159,13 +159,13 @@ async function runPass({ jobs, drain, takeDrainCounts }: Awaited<ReturnType<type
   try {
     await drain();
   } catch (error) {
-    failed("postausgang", error);
+    failed("outbox", error);
   }
   // Every drain's, a write's among them, whether this pass's own one finished or not: a mail is given up by whichever
   // drain meets it.
   const outbox = takeDrainCounts();
-  zaehlungen["postausgang"] = outbox;
-  if (outbox.abandoned > 0) ausfaelle.push(`postausgang gave up ${String(outbox.abandoned)}`);
+  zaehlungen["outbox"] = outbox;
+  if (outbox.abandoned > 0) ausfaelle.push(`outbox gave up ${String(outbox.abandoned)}`);
 
   const geschehen = Object.values(zaehlungen).some((count) => Object.values(count).some((value) => typeof value === "number" && value > 0));
   if (ausfaelle.length > 0) logger.warn("scheduler.pass", { ...zaehlungen, ausfaelle: ausfaelle });

@@ -57,7 +57,7 @@ const sitz = (vorname: string, email: string) => ({
 const gespeichert = (vorname: string, email: string) => ({
   ...sitz(vorname, email),
   geburtsdatum: null,
-  einwilligung: kenntnisnahme({ ...sitz(vorname, email).einwilligung, bestaetigt_am: null }),
+  einwilligung: kenntnisnahme({ ...sitz(vorname, email).einwilligung, confirmed_at: null }),
 });
 
 const BLOCK = {
@@ -79,7 +79,7 @@ const saved = (bestaetigungen: unknown[]) => ({
   saison_id: "2627",
   team_id: TEAM_ID,
   kontakte: GESPEICHERT,
-  bestaetigungen,
+  confirmations: bestaetigungen,
 });
 
 /** The club's membership read, holding `kontakte` for the season the payload names. */
@@ -103,7 +103,7 @@ const holding = (kontakte: unknown) => () => ({
 beforeEach(() => {
   setFresh(true);
   save = () => saved([]);
-  resend = () => ({ saison_id: "2627", team_id: TEAM_ID, bestaetigung: { rollen: ["stellvertretung"], email: "bernd@schule.example" } });
+  resend = () => ({ saison_id: "2627", team_id: TEAM_ID, confirmation: { rollen: ["stellvertretung"], email: "bernd@schule.example" } });
   memberships = holding(GESPEICHERT);
 });
 

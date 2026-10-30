@@ -43,7 +43,7 @@ const zuLangSatz = (grund: string): string | null => {
 };
 
 /**
- * The decline, on `POST /bewerbungen/{bewerbung_id}/ablehnen`. **A confirmation step and no undo**:
+ * The decline, on `POST /bewerbungen/{bewerbung_id}/decline`. **A confirmation step and no undo**:
  * a decision is taken once (`bewerbung_already_decided`), and the reason typed here is stored and sent
  * verbatim to the people who applied.
  */

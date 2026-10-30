@@ -285,13 +285,13 @@ async function zustellen(mail: FLOutboxHandout): Promise<Omit<FLOutboxResultPayl
   } catch (error) {
     // Given up rather than thrown: sealed under a key since replaced, the row would stop every drain until it lapses,
     // each claiming it first. The error's name alone, which quotes no value.
-    logger.error("postausgang.geheim_unlesbar", undefined, { art: mail.data.art, name: error instanceof Error ? error.name : undefined });
+    logger.error("outbox.secret_unreadable", undefined, { art: mail.data.art, name: error instanceof Error ? error.name : undefined });
     return { id: mail.id, result: "abandon", message_id: null, grund: null };
   }
   const message = mailFor(mail.data.art, mail.data, { token: mail.token, secret: secret, origin: frontend_config.AUTH_URL });
   if (message === undefined) {
     // Handed back rather than given up: the row waits until its deadline for a deployment that builds its kind.
-    logger.error("postausgang.art_ohne_vorlage", undefined, { art: mail.data.art });
+    logger.error("outbox.art_without_template", undefined, { art: mail.data.art });
     return { id: mail.id, result: "retry", message_id: null, grund: null };
   }
 

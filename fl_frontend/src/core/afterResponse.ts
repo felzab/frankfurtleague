@@ -40,6 +40,6 @@ async function drain(): Promise<void> {
     await drainOutbox();
   } catch (error) {
     // The name and the call's facts, never a mail: the hourly pass drains what this one left.
-    logger.error("postausgang.drain_failed", undefined, { name: error instanceof Error ? error.name : undefined, ...requestOf(error) });
+    logger.error("outbox.drain_failed", undefined, { name: error instanceof Error ? error.name : undefined, ...requestOf(error) });
   }
 }

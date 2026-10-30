@@ -705,7 +705,7 @@ describe("the club filter a link into the contacts list preselects", () => {
   it("reads who seated each person, across the club's seats", () => {
     const geseated = (eingetragen_von: FLKontaktperson["einwilligung"]["entered_by"]) => ({
       ...kontaktperson("Tim"),
-      einwilligung: { ...kontaktperson("Tim").einwilligung, eingetragen_von },
+      einwilligung: { ...kontaktperson("Tim").einwilligung, entered_by: eingetragen_von },
     });
     const [row] = buildKontaktRows(
       [

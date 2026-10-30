@@ -177,8 +177,8 @@ describe("which state the window puts the page in", () => {
   /* `laeuft` is the server's whole judgement against a clock this page does not share. Re-derived
      here, the page would offer the form for as long as the two clocks disagree. */
   it("takes the running answer from the server and never re-derives it", () => {
-    expect(fensterZustand(fenster({ running: true }), "2020-01-01")).toBe("laeuft");
-    expect(fensterZustand(fenster({ running: true, offen: false }), "2099-01-01")).toBe("laeuft");
+    expect(fensterZustand(fenster({ running: true }), "2020-01-01")).toBe("running");
+    expect(fensterZustand(fenster({ running: true, offen: false }), "2099-01-01")).toBe("running");
   });
 
   /* Each closed answer is a different sentence: one says when to come back, one that the season is
@@ -191,15 +191,15 @@ describe("which state the window puts the page in", () => {
   /* Shut by the league rather than by a date, so neither date answer is true of it: nothing has run
      out, and nothing opens on a day this window names. */
   it("reads a window the league closed as closed, whatever the dates say", () => {
-    expect(fensterZustand(fenster({ offen: false }), "2026-04-30")).toBe("geschlossen");
-    expect(fensterZustand(fenster({ offen: false }), "2026-06-01")).toBe("geschlossen");
-    expect(fensterZustand(fenster({ offen: false }), "2026-08-01")).toBe("geschlossen");
+    expect(fensterZustand(fenster({ offen: false }), "2026-04-30")).toBe("closed");
+    expect(fensterZustand(fenster({ offen: false }), "2026-06-01")).toBe("closed");
+    expect(fensterZustand(fenster({ offen: false }), "2026-08-01")).toBe("closed");
   });
 
   /* `laeuft` false inside an open span is this clock disagreeing with the server's. Answered
      `vorbei`, the page would state a deadline nobody has reached. */
   it("never says a deadline passed while today is still inside the span", () => {
-    expect(fensterZustand(fenster(), "2026-06-01")).toBe("geschlossen");
+    expect(fensterZustand(fenster(), "2026-06-01")).toBe("closed");
   });
 
   /* A season taking no applications at all is its own answer. The page still renders — a school
@@ -516,7 +516,7 @@ describe("the submission's refusals against the codes its endpoint publishes", (
     assert.ok(statuses.length > 0, "no status vocabulary was read, so this test compares nothing");
 
     // Beyond the table: words that disclose a club's existence or its past without naming a status.
-    const telltale = [...statuses, "existiert", "gibt es", "früher", "ehemalig", "gelöscht", "entfernt", "reaktiv"];
+    const telltale = [...statuses, "existiert", "gibt es", "früher", "ehemalig", "gelöscht", "removed", "reaktiv"];
 
     for (const code of ["bewerbung_picked_team_unusable", "bewerbung_shorthand_taken"] as const) {
       const refusalText = Object.values(mapBewerbungSubmitRefusal(refused(code))?.fieldErrors ?? {}).join(" ");
@@ -638,7 +638,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
      refusal is a token nothing could place. */
   it("calls the link void on every refusal its read publishes", () => {
     for (const code of refusalCodes("link_invalid")) {
-      expect(mapEinwilligungAnsichtRefusal(refused(code)), code).toBe("ungueltig");
+      expect(mapEinwilligungAnsichtRefusal(refused(code)), code).toBe("invalid");
     }
   });
 
@@ -678,7 +678,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
     const abgelehnt = async (): Promise<EinwilligungAnsicht> => ({ zustand: "declined", quelle: "bewerbung" });
 
     expect(await mapEinwilligungRefusal(refused("bewerbung_seat_already_answered"), abgelehnt)).toStrictEqual({
-      zustand: "abgelehnt",
+      zustand: "declined",
     });
   });
 
@@ -745,16 +745,16 @@ describe("mapEinwilligungAnsichtRefusal", () => {
   /* The read refuses an unknown token alone; a spent, declined or expired link answers its own
      `zustand` in a 200. Fail-closed, so a code nobody planned still renders the panel naming nobody. */
   it("reads every refusal as the panel that names nobody", () => {
-    expect(mapEinwilligungAnsichtRefusal(refused("link_invalid"))).toBe("ungueltig");
+    expect(mapEinwilligungAnsichtRefusal(refused("link_invalid"))).toBe("invalid");
     for (const status of [409, 404, 410]) {
-      expect(mapEinwilligungAnsichtRefusal(refused("activate_saison_unfinished", status)), String(status)).toBe("ungueltig");
+      expect(mapEinwilligungAnsichtRefusal(refused("activate_saison_unfinished", status)), String(status)).toBe("invalid");
     }
   });
 
   /* A token past `CustomBewerbungToken`'s length, or malformed, never reaches a record, so the read
      is answered by the dead-link panel rather than by the state inviting a reload that cannot work. */
   it("reads a token the backend will not parse as a link nothing matches", () => {
-    expect(mapEinwilligungAnsichtRefusal(refusedPayload([], "/bewerbungen"))).toBe("ungueltig");
+    expect(mapEinwilligungAnsichtRefusal(refusedPayload([], "/bewerbungen"))).toBe("invalid");
   });
 
   /* A failed read is the page's own state: answering „ungueltig“ on a 500 would call a live link

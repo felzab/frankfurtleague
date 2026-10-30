@@ -9,8 +9,8 @@ import {
   mapStufeRefusal,
 } from "./refusals.ts";
 
-const APPROVE = "POST /berechtigungen/antraege/{antrag_id}/genehmigung";
-const REFUSE = "DELETE /berechtigungen/antraege/{antrag_id}";
+const APPROVE = "POST /grants/approval_requests/{approval_request_id}/approval";
+const REFUSE = "DELETE /grants/approval_requests/{approval_request_id}";
 
 /** A second request about an address, refused on the grant's box and on the promotion's toast alike. */
 const ANTRAG_OFFEN = "Für diese Adresse wartet schon ein Antrag. Du findest ihn unter „Offene Anträge“.";

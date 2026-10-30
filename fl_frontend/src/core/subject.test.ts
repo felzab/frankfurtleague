@@ -279,13 +279,13 @@ describe("who the seam answers for", () => {
 
     assert.ok(answer);
     expect(Object.keys(answer.subject).sort()).toStrictEqual([
-      "berechtigt_seit",
-      "gesperrt",
+      "barred",
+      "granted_since",
       "inhaber_seit",
       "schiedsrichter",
-      "sitze",
+      "seats",
       "spieler",
-      "unbestaetigt",
+      "unconfirmed",
       "verwaltung",
     ]);
     expect(answer.subject.verwaltung).toBe("administration");
@@ -380,7 +380,7 @@ describe("the request the seam makes", () => {
     const call = lastSent();
 
     expect(call.method).toBe("POST");
-    expect(new URL(call.url).href).toBe(`${API_ORIGIN}/api/v0/identitaet/subjekt`);
+    expect(new URL(call.url).href).toBe(`${API_ORIGIN}/api/v0/identity/subject`);
     // An address on a path or a query reaches the edge's access line, which nothing downstream
     // un-logs.
     assert.ok(!call.url.toLowerCase().includes("schule"), `the address reached the url: ${call.url}`);

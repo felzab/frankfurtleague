@@ -54,11 +54,11 @@ const DRAFT: RegistrierungFormDraft = {
 
 describe("which state the invite puts the registration page in", () => {
   it("reads the window off the server's own verdict rather than the season's status", () => {
-    expect(einladungZustand(ANSICHT)).toBe("gueltig");
+    expect(einladungZustand(ANSICHT)).toBe("valid");
     // A `past` season with `laeuft` still true would be the two disagreeing, and the server's answer
     // is the one the write is judged by.
-    expect(einladungZustand({ ...ANSICHT, saison_status: "past" })).toBe("gueltig");
-    expect(einladungZustand({ ...ANSICHT, running: false })).toBe("geschlossen");
+    expect(einladungZustand({ ...ANSICHT, saison_status: "past" })).toBe("valid");
+    expect(einladungZustand({ ...ANSICHT, running: false })).toBe("closed");
   });
 });
 
@@ -94,7 +94,7 @@ describe("what one refused submission shows", () => {
   /* The record missing is a season or club the link named and nothing holds now: the dead-link page,
      never the admin's „nicht gefunden“ with a reload. */
   it("answers the link's record gone as the link void", () => {
-    expect(mapRegistrierungSubmitRefusal(refused("document_not_found"))).toStrictEqual({ zustand: "ungueltig" });
+    expect(mapRegistrierungSubmitRefusal(refused("document_not_found"))).toStrictEqual({ zustand: "invalid" });
   });
 
   it("puts a body refusal naming a field on that field's box, with the team's link for a box the form lacks", () => {
@@ -116,7 +116,7 @@ describe("what one refused submission shows", () => {
   });
 
   it("sends a dead invite to the page's own panel rather than to a field", () => {
-    expect(mapRegistrierungSubmitRefusal(refused("document_not_found"))).toStrictEqual({ zustand: "ungueltig" });
+    expect(mapRegistrierungSubmitRefusal(refused("document_not_found"))).toStrictEqual({ zustand: "invalid" });
   });
 
   it("tells a banned address nothing about a list", () => {
@@ -216,10 +216,10 @@ describe("what one refused confirmation shows", () => {
 
   it("tells the three link states apart, each on its own panel", async () => {
     expect(await mapBestaetigungRefusal(refused("link_invalid"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
-      zustand: "ungueltig",
+      zustand: "invalid",
     });
     expect(await mapBestaetigungRefusal(refused("link_expired"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
-      zustand: "abgelaufen",
+      zustand: "expired",
     });
     expect(await mapBestaetigungRefusal(refused("confirmation_exists"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
       zustand: "confirmed",
@@ -246,7 +246,7 @@ describe("what one refused confirmation shows", () => {
       ["link_expired", { zustand: "confirmed" }, "confirmed"],
       ["link_expired", { zustand: "barred" }, "barred"],
       ["confirmation_exists", { zustand: "barred" }, "barred"],
-      ["link_expired", null, "abgelaufen"],
+      ["link_expired", null, "expired"],
       ["confirmation_exists", null, "confirmed"],
     ] as const) {
       expect(await mapBestaetigungRefusal(refused(code), GETIPPT, readOf(link).lesen), code).toStrictEqual({
@@ -358,8 +358,8 @@ describe("which verdict of the invite's read closes the form", () => {
   /* The order is what a reader can act on: a shut window is the season's, a missing team is the
      team's, and a full squad is the one a place falling free reopens. */
   it("answers the season's window ahead of the team and the squad", () => {
-    expect(formularZustand(ANSICHT)).toBe("gueltig");
-    expect(formularZustand({ ...ANSICHT, running: false, team_entered: false, kader_free: false })).toBe("geschlossen");
+    expect(formularZustand(ANSICHT)).toBe("valid");
+    expect(formularZustand({ ...ANSICHT, running: false, team_entered: false, kader_free: false })).toBe("closed");
     expect(formularZustand({ ...ANSICHT, team_entered: false, kader_free: false })).toBe("team-fehlt");
     expect(formularZustand({ ...ANSICHT, kader_free: false })).toBe("kader-voll");
   });
@@ -370,20 +370,20 @@ describe("what a refused READ says about a link", () => {
      either publishes is a link nothing could place. */
   it("calls the link void on every refusal either read publishes", () => {
     for (const code of refusalCodes("document_not_found")) {
-      expect(mapRegistrierungAnsichtRefusal(refused(code)), code).toBe("ungueltig");
+      expect(mapRegistrierungAnsichtRefusal(refused(code)), code).toBe("invalid");
     }
     for (const code of refusalCodes("link_invalid")) {
-      expect(mapRegistrierungAnsichtRefusal(refused(code)), code).toBe("ungueltig");
+      expect(mapRegistrierungAnsichtRefusal(refused(code)), code).toBe("invalid");
     }
   });
 
   it("calls a token no tier will parse void rather than offering a reload", () => {
-    expect(mapRegistrierungAnsichtRefusal(refused("payload_refused"))).toBe("ungueltig");
+    expect(mapRegistrierungAnsichtRefusal(refused("payload_refused"))).toBe("invalid");
   });
 
   /* The season or club an invitation names gone is as dead a link, as the sign-up answers it. */
   it("calls the link void where the record the invitation names is gone", () => {
-    expect(mapRegistrierungAnsichtRefusal(refused("document_not_found"))).toBe("ungueltig");
+    expect(mapRegistrierungAnsichtRefusal(refused("document_not_found"))).toBe("invalid");
   });
 
   it("leaves a failed read to the page's own state", () => {
@@ -396,7 +396,7 @@ describe("what a refused READ says about a link", () => {
   it("leaves a routing refusal or an unreadable body to the page's own state, never the dead-link panel", () => {
     expect(mapRegistrierungAnsichtRefusal(refused("no_route", 404))).toBe(null);
     expect(mapRegistrierungAnsichtRefusal(refused("method_not_served", 405))).toBe(null);
-    for (const operation of ["POST /registrierungen/einladung/ansicht", "POST /registrierungen/bestaetigung/ansicht"]) {
+    for (const operation of ["POST /registrierungen/invitation/view", "POST /registrierungen/confirmation/view"]) {
       expect(mapRegistrierungAnsichtRefusal(refused("body_unreadable")), operation).toBe(null);
     }
   });

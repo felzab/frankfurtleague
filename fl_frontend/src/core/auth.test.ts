@@ -2459,7 +2459,7 @@ describe("what the code costs an address holding nothing", () => {
 
     const row = owed.at(-1);
     assert.ok(row !== undefined, "nothing was owed");
-    expect(row.data, "the row is not the code's").toStrictEqual({ art: "anmeldecode" });
+    expect(row.data, "the row is not the code's").toStrictEqual({ art: "sign_in_code" });
     assert.ok(row.secret !== null, "the row carries no secret, so the mail could not have");
     assert.ok(!JSON.stringify(row).includes(otp), "the row the backend stores holds the code readable");
   });
@@ -3468,7 +3468,7 @@ async function loeschungRefused(): Promise<Error> {
   const { APIBadStatusError } = await import("./errors.ts");
   return new APIBadStatusError({
     message: "API returned a bad status.",
-    url: `${API_ORIGIN}/api/v0/identitaet/konto/loeschung`,
+    url: `${API_ORIGIN}/api/v0/identity/account/erasure`,
     statusCode: 403,
     serverErrorCode: "person_barred",
     endpoint: "/identity/account/erasure",

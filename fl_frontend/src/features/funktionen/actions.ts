@@ -30,7 +30,7 @@ async function kontoLoeschen(email: string): Promise<KontoNachLoeschung> {
     return (await deleteAccountFor(email)) ? "geloescht" : "keines";
   } catch (failed) {
     // The NAME alone: a failure in the sign-in store routinely carries the address.
-    logger.error("funktionen.erasure_account_not_deleted", undefined, {
+    logger.error("roles.erasure_account_not_deleted", undefined, {
       name: failed instanceof Error ? failed.name : "unknown",
     });
     // A rollback leaves the account standing; any other failure may be its commit's, landed or not.
@@ -168,7 +168,7 @@ export async function endAnmeldungenAction(rawPayload: FLErasureAdressePayload):
       konto = await endSessionsOfAddress(validated.data.email);
     } catch (failed) {
       // The NAME alone, as the ban's own sign-out logs it: the address must reach no line.
-      logger.error("funktionen.sessions_not_ended", undefined, {
+      logger.error("roles.sessions_not_ended", undefined, {
         name: failed instanceof Error ? failed.name : "unknown",
       });
       return { success: false, error: ANMELDUNGEN_NICHT_BEENDET };

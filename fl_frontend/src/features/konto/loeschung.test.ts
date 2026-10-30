@@ -53,11 +53,11 @@ const GELOESCHT = {
   saison_spieler: 1,
   schiedsrichter: 0,
   spiele: 0,
-  kontakt_sitze: 0,
+  kontakt_seats: 0,
   registrierungen: 0,
-  adresswechsel: 0,
-  berechtigungen: 0,
-  berechtigungen_antraege: 0,
+  address_change: 0,
+  grants: 0,
+  grants_approval_requests: 0,
 };
 
 /** What the backend's erasure answers, and every erasure it was asked for, with the actor header each carried. */
@@ -76,8 +76,8 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
   if (path === ANSICHT_PATH) {
     ansichtReads += 1;
-    const leer = { spieler: [], schiedsrichter: [], sitze: [], bewerbungen: [], registrierungen: [], adresswechsel: 0 };
-    return Promise.resolve(Response.json({ ...leer, verwaltung: "owner", letzter_inhaber: letzterInhaber }));
+    const leer = { spieler: [], schiedsrichter: [], seats: [], bewerbungen: [], registrierungen: [], address_change: 0 };
+    return Promise.resolve(Response.json({ ...leer, verwaltung: "owner", last_owner: letzterInhaber }));
   }
   if (path === LOESCHUNG_PATH) {
     loeschungen.push({ method: init?.method ?? "GET", actor: new Headers(init?.headers).get("x-fl-actor") });

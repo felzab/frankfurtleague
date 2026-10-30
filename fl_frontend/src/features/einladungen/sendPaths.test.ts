@@ -44,13 +44,13 @@ beforeEach(() => {
 
 describe("what the single invite press answers", () => {
   it("names how many addresses the link is owed to, off the endpoint's own answer", async () => {
-    apiAnswer = () => ({ einladung_id: EINLADUNG_ID, empfaenger: [empfaenger("jonas@beispiel.de"), empfaenger("erika@beispiel.de")] });
+    apiAnswer = () => ({ invitation_id: EINLADUNG_ID, recipient: [empfaenger("jonas@beispiel.de"), empfaenger("erika@beispiel.de")] });
 
     const res = await press();
 
     expect(res.success).toBe(true);
     expect(sentence(res)).toBe("Der Link ist an alle 2 Adressen unterwegs.");
-    expect(calls.map((call) => JSON.parse(call.body ?? "null"))).toStrictEqual([{ einladung_id: EINLADUNG_ID }]);
+    expect(calls.map((call) => JSON.parse(call.body ?? "null"))).toStrictEqual([{ invitation_id: EINLADUNG_ID }]);
   });
 
   it("refuses a team holding no contact block before anything is owed", async () => {
@@ -63,7 +63,7 @@ describe("what the single invite press answers", () => {
   });
 
   it("refuses where nobody has confirmed a seat, the endpoint having owed nobody", async () => {
-    apiAnswer = () => ({ einladung_id: EINLADUNG_ID, empfaenger: [] });
+    apiAnswer = () => ({ invitation_id: EINLADUNG_ID, recipient: [] });
 
     const res = await press();
 
@@ -87,19 +87,19 @@ describe("what the season-wide press answers", () => {
   const zeile = (teamId: string, uebersprungen: string | null, adressen: string[]) => ({
     team_id: teamId,
     team_name: "Team",
-    empfaenger: adressen.map(empfaenger),
-    uebersprungen: uebersprungen,
-    ersetzt_link: false,
-    hatte_link: false,
+    recipient: adressen.map(empfaenger),
+    skipped: uebersprungen,
+    replaced_link: false,
+    had_link: false,
   });
 
   it("counts the teams it reached over the teams it meant to write to, never those the rule passed over", async () => {
     apiAnswer = () => ({
       saison_id: SAISON_ID,
-      zeilen: [
+      rows: [
         zeile("1".repeat(24), null, ["a@b.de"]),
-        zeile("2".repeat(24), "erzeugung_fehlgeschlagen", []),
-        zeile("3".repeat(24), "keine_bestaetigte_kontaktperson", []),
+        zeile("2".repeat(24), "erzeugung_failed", []),
+        zeile("3".repeat(24), "no_confirmed_kontaktperson", []),
       ],
     });
 

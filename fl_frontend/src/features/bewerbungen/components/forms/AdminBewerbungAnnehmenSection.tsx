@@ -29,7 +29,7 @@ import type { FLGruppenNames, FLTrikotFarbe } from "@/core/generated/client/type
 import type { GruppeOffer } from "@/features/teams/types";
 
 /**
- * The acceptance, on `POST /bewerbungen/{bewerbung_id}/annehmen`. **A confirmation step and no
+ * The acceptance, on `POST /bewerbungen/{bewerbung_id}/accept`. **A confirmation step and no
  * undo**: `saison_teams` has no DELETE, so a club entered in error leaves only through an
  * `austritt`, a public record carrying a stated reason.
  */

@@ -257,9 +257,7 @@ describe("the person lane", () => {
     // An input the schema refuses: read first, it would answer with the box's message.
     expect(await melden({ team_id: "", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.fehler.abgelaufen });
     expect(stand.steps).toStrictEqual(["person guard"]);
-    expect(stand.lines).toStrictEqual([
-      { level: "info", message: "funktion.verweigert", meta: { operation: "melden", grund: "keine_sitzung" } },
-    ]);
+    expect(stand.lines).toStrictEqual([{ level: "info", message: "roles.refused", meta: { operation: "melden", grund: "keine_sitzung" } }]);
   });
 
   it.each([

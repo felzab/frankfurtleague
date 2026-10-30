@@ -148,13 +148,13 @@ describe("what one delivery event leaves on its Postausgang row", () => {
     }
 
     expect(readBack).toStrictEqual([
-      { stand: "zugestellt", grund: null },
-      { stand: "unzustellbar", grund: "Suppressed" },
-      { stand: "verzoegert", grund: "MailboxFull" },
-      { stand: "unterdrueckt", grund: "OnAccountSuppressionList" },
-      { stand: "beschwerde", grund: null },
-      { stand: "verzoegert", grund: null },
-      { stand: "verzoegert", grund: "reached_daily_quota" },
+      { stand: "delivered", grund: null },
+      { stand: "undeliverable", grund: "Suppressed" },
+      { stand: "delayed", grund: "MailboxFull" },
+      { stand: "suppressed", grund: "OnAccountSuppressionList" },
+      { stand: "complaint", grund: null },
+      { stand: "delayed", grund: null },
+      { stand: "delayed", grund: "reached_daily_quota" },
     ]);
   });
 
@@ -162,11 +162,11 @@ describe("what one delivery event leaves on its Postausgang row", () => {
      the provider wrote it would be a bounce recorded nowhere. */
   it("keeps the state and drops a reason the endpoint would refuse, never the provider's prose", async () => {
     expect(await forwardedFor(eventFor("email.failed", { failed: { reason: "Q".repeat(129) } }))).toStrictEqual({
-      stand: "verzoegert",
+      stand: "delayed",
       grund: null,
     });
     expect(await forwardedFor(eventFor("email.failed", { failed: { reason: "quota\nexceeded" } }))).toStrictEqual({
-      stand: "verzoegert",
+      stand: "delayed",
       grund: null,
     });
 
@@ -249,7 +249,7 @@ describe("POST /api/mail/zustellung's signature", () => {
     }
 
     expect(forwarded).toStrictEqual([]);
-    expect(logs.map(({ message }) => message)).toStrictEqual(["mail.zustellung_unsigniert"]);
+    expect(logs.map(({ message }) => message)).toStrictEqual(["mail.delivery_unsigned"]);
   });
 
   /* The verifier's own tolerance is five minutes either way, read from the installed `standardwebhooks` module's
@@ -296,7 +296,7 @@ describe("POST /api/mail/zustellung where the backend does not take the event", 
       expect(await answered(badStatus(statusCode, code)), `${String(code)} at ${String(statusCode)} settled the event`).toBe(503);
     }
     expect(await answered(NETWORK_FAILURE())).toBe(503);
-    expect(new Set(logs.map(({ level, message }) => `${level} ${message}`))).toStrictEqual(new Set(["error mail.zustellung_ungeschrieben"]));
+    expect(new Set(logs.map(({ level, message }) => `${level} ${message}`))).toStrictEqual(new Set(["error mail.delivery_unwritten"]));
   });
 
   /* The tag block carries the row's id and the body the recipient. Asserted over the whole line, so a field added later

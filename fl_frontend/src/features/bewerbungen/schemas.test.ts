@@ -704,7 +704,7 @@ describe("the consenting answer's birth date", () => {
 
 describe("the ceiling on the confirmation link's own token", () => {
   /* A decline, so the body is whole without a date and no clock decides the case. */
-  const antwortBody = { antwort: "abgelehnt" };
+  const antwortBody = { antwort: "declined" };
 
   const verdict = (token: string) => FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ token: token, ...antwortBody });
 

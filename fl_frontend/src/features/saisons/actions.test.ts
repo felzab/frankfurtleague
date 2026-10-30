@@ -68,7 +68,7 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> | null {
     const counts = { saison_id: SAISON_ID, spieltage: 3, spiele: 12 };
     return method === "DELETE"
       ? { ...counts, watermark_cleared: true }
-      : { ...counts, generiert_am: "2026-03-01", removed_spieltage: 3, removed_spiele: 12 };
+      : { ...counts, generated_at: "2026-03-01", removed_spieltage: 3, removed_spiele: 12 };
   }
   // The rules' save, which answers 204 and no body.
   return null;
@@ -482,13 +482,13 @@ const VORNE = `${"e".repeat(23)}5`;
 
 /** One call of the deletion: whom it erased, who is still due after it, and where the pass goes on. */
 const gelaufen = (spieler: number, verbleibend: number, nach: string | null = null, seit: string | null = "2025") => ({
-  abgeschlossene_saison_id: seit,
+  completed_saison_id: seit,
   spieler: spieler,
   saison_spieler: spieler * 2,
   registrierungen: 0,
-  uebersprungen: 0,
-  fehlgeschlagen: 0,
-  verbleibend: verbleibend,
+  skipped: 0,
+  failed: 0,
+  remaining: verbleibend,
   nach: nach,
 });
 
@@ -619,8 +619,8 @@ describe("the deletion the activation runs", () => {
         `${AKTIVIERT} Eine Spielerin oder ein Spieler ohne Kadereintrag seit Saison 2025 wurde gelöscht. ` +
           "Die Löschung ist nicht vollständig durchgelaufen. Was noch aussteht, löscht der nächste stündliche Durchlauf.",
       );
-      expect(loggedLines.filter(({ message: line }) => line === "loeschung.umstellung_failed")).toStrictEqual([
-        { level: "error", message: "loeschung.umstellung_failed", meta: { name: fehler().name, ...anfrage } },
+      expect(loggedLines.filter(({ message: line }) => line === "erasure.activation_failed")).toStrictEqual([
+        { level: "error", message: "erasure.activation_failed", meta: { name: fehler().name, ...anfrage } },
       ]);
     });
   }
@@ -633,7 +633,7 @@ describe("the deletion the activation runs", () => {
       if (!isLauf(call)) return Promise.resolve(landed(call));
       const { nach } = queryOf(call);
       if (nach === VORNE) return Promise.resolve(gelaufen(1, 10));
-      return Promise.resolve(++vorne <= 3 ? { ...gelaufen(0, 11, VORNE), fehlgeschlagen: 10 } : gelaufen(0, 11));
+      return Promise.resolve(++vorne <= 3 ? { ...gelaufen(0, 11, VORNE), failed: 10 } : gelaufen(0, 11));
     });
 
     const message = await umgestellt();

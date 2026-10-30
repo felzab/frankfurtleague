@@ -30,12 +30,12 @@ export async function runBewerbungSweep() {
 
   return {
     count: {
-      bewerbung_fehlgeschlagen: saisons.uebergangen.bewerbung,
-      registrierung_fehlgeschlagen: saisons.uebergangen.registrierung,
-      adresswechsel_entfernt: adressen.removed,
-      adresswechsel_wirksam: adressen.effective,
-      adresswechsel_verworfen: adressen.discarded,
-      adresswechsel_verbleibend: adressen.remaining,
+      bewerbung_failed: saisons.uebergangen.bewerbung,
+      registrierung_failed: saisons.uebergangen.registrierung,
+      address_change_removed: adressen.removed,
+      address_change_effective: adressen.effective,
+      address_change_discarded: adressen.discarded,
+      address_change_remaining: adressen.remaining,
     },
     open: saisons.uebergangen.bewerbung + saisons.uebergangen.registrierung + adressen.remaining,
     error: saisons.fehler,

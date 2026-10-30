@@ -68,7 +68,7 @@ const gekeyt = (fassung: FLEinwilligungWording) =>
 const failure = (statusCode: number, serverErrorCode: Code | undefined): APIBadStatusError =>
   new APIBadStatusError({
     message: "refused",
-    url: "http://backend/api/v0/einwilligung/fassungen/x",
+    url: "http://backend/api/v0/einwilligung/wordings/x",
     statusCode: statusCode,
     serverErrorCode: serverErrorCode,
     endpoint: "/einwilligung/wordings/x",
@@ -162,7 +162,7 @@ describe("the running label", () => {
 
   it("throws for a page the backend runs no label on, rather than stamping one of its own", async () => {
     beginRenderPass();
-    api.answerWith(() => Promise.resolve({ laufende_fassungen: { bewerbung: BEWERBUNG.text_version } }));
+    api.answerWith(() => Promise.resolve({ running_wordings: { bewerbung: BEWERBUNG.text_version } }));
 
     await expect(getLaufendesLabel("bestaetigung_kontakt")).rejects.toMatchObject({
       name: "ContractBreakError",
@@ -175,7 +175,7 @@ describe("the running label", () => {
     beginRenderPass();
     api.answerWith((endpoint) =>
       endpoint === "/einwilligung/seiten"
-        ? Promise.resolve({ laufende_fassungen: { bewerbung: "2026-01-nirgends" } })
+        ? Promise.resolve({ running_wordings: { bewerbung: "2026-01-nirgends" } })
         : Promise.resolve(einwilligungAnswer(endpoint)),
     );
 

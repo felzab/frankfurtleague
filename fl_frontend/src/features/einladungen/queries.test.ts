@@ -20,8 +20,8 @@ beforeEach(beginRenderPass);
 const { calls } = doubleApiAnswers(({ endpoint }) =>
   Promise.resolve(
     endpoint.includes("/preview")
-      ? { saison_id: SAISON_ID, zeilen: [] }
-      : { saison_id: SAISON_ID, team_id: TEAM_ID, einladung: null, laeuft: true },
+      ? { saison_id: SAISON_ID, rows: [] }
+      : { saison_id: SAISON_ID, team_id: TEAM_ID, invitation: null, running: true },
   ),
 );
 
@@ -40,8 +40,8 @@ describe("the invite slice's reads", () => {
 
     const vorschau = `/saisons/${SAISON_ID}/invitations/dispatch/preview`;
     expect(requestsOf(calls)).toStrictEqual([
-      { endpoint: `${vorschau}?erneut=false`, method: "GET", body: undefined },
-      { endpoint: `${vorschau}?erneut=true`, method: "GET", body: undefined },
+      { endpoint: `${vorschau}?resend=false`, method: "GET", body: undefined },
+      { endpoint: `${vorschau}?resend=true`, method: "GET", body: undefined },
     ]);
   });
 

@@ -35,11 +35,11 @@ const FASSUNGEN = "/einwilligung/wordings/";
 
 /** The backend's answer to either consent-wording read, off the fixture; `undefined` for any other endpoint. */
 export function einwilligungAnswer(endpoint: string): unknown {
-  if (endpoint === "/einwilligung/seiten") return { laufende_fassungen: EINWILLIGUNG_REGISTRY.running_wordings };
+  if (endpoint === "/einwilligung/seiten") return { running_wordings: EINWILLIGUNG_REGISTRY.running_wordings };
   if (!endpoint.startsWith(FASSUNGEN)) return undefined;
 
   const textVersion = decodeURIComponent(endpoint.slice(FASSUNGEN.length));
-  if (Object.hasOwn(EINWILLIGUNG_REGISTRY.fassungen, textVersion)) return { fassung: EINWILLIGUNG_REGISTRY.fassungen[textVersion] };
+  if (Object.hasOwn(EINWILLIGUNG_REGISTRY.fassungen, textVersion)) return { wording: EINWILLIGUNG_REGISTRY.fassungen[textVersion] };
 
   // The backend's own answer for a label its registry does not hold.
   throw new APIBadStatusError({

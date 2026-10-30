@@ -152,7 +152,7 @@ describe("a pass meeting a failure", () => {
 
     expect(deleteCalls).toStrictEqual(zweiter);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
-      { event: "konto.referenzen_failed", fields: { name: "TypeError", anzahl: REFERENZEN_ADRESSEN_MAX } },
+      { event: "account.references_failed", fields: { name: "TypeError", anzahl: REFERENZEN_ADRESSEN_MAX } },
     ]);
   });
 
@@ -167,7 +167,7 @@ describe("a pass meeting a failure", () => {
     expect(failures()).toStrictEqual([
       {
         level: "ERROR",
-        event: "konto.delete_failed",
+        event: "account.delete_failed",
         error: undefined,
         fields: { name: "TypeError", anzahl: undefined },
       },
@@ -185,7 +185,7 @@ describe("a pass meeting a failure", () => {
 
     expect(deleteCalls).toStrictEqual(["a@schule.de", "c@schule.de"]);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
-      { event: "konto.delete_failed", fields: { name: "TypeError", anzahl: undefined } },
+      { event: "account.delete_failed", fields: { name: "TypeError", anzahl: undefined } },
     ]);
   });
 
@@ -207,7 +207,7 @@ describe("a pass meeting a failure", () => {
     referenzen = () => {
       throw new APIBadStatusError({
         message: "The backend refused the request.",
-        url: "http://backend:8000/api/v0/identitaet/referenzen",
+        url: "http://backend:8000/api/v0/identity/references",
         endpoint: "/identity/references",
         method: "POST",
         readOnly: true,
@@ -222,7 +222,7 @@ describe("a pass meeting a failure", () => {
     expect(deleteCalls).toStrictEqual([]);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
       {
-        event: "konto.referenzen_failed",
+        event: "account.references_failed",
         fields: {
           name: "APIBadStatusError",
           status: 409,
@@ -241,7 +241,7 @@ describe("a pass meeting a failure", () => {
     referenzen = () => {
       throw new APINetworkError({
         message: "The backend did not answer.",
-        url: "http://backend:8000/api/v0/identitaet/referenzen",
+        url: "http://backend:8000/api/v0/identity/references",
         method: "POST",
         readOnly: true,
         traceId: TRACE_ID,
@@ -253,7 +253,7 @@ describe("a pass meeting a failure", () => {
 
     expect(deleteCalls).toStrictEqual([]);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
-      { event: "konto.referenzen_failed", fields: { name: "APINetworkError", trace_id: TRACE_ID, anzahl: 1 } },
+      { event: "account.references_failed", fields: { name: "APINetworkError", trace_id: TRACE_ID, anzahl: 1 } },
     ]);
   });
 
@@ -269,7 +269,7 @@ describe("a pass meeting a failure", () => {
 
     await runKontoSweep();
 
-    expect(lines.map(({ event }) => event)).toStrictEqual(["konto.referenzen_failed", "konto.delete_failed"]);
+    expect(lines.map(({ event }) => event)).toStrictEqual(["account.references_failed", "account.delete_failed"]);
     assert.ok(!JSON.stringify(lines).includes("@"), "a line carries an address");
     // No mail owed through the sign-in library's route, and none sent: every other mail is a backend write's to owe.
     expect(

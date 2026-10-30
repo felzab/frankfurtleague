@@ -18,7 +18,7 @@ export type SentMail = {
 /** How the double answers one owed sign-in mail: sent, or `lost`, a backend that never answered the enqueue. */
 type MailAnswer = (mail: SentMail) => "accepted" | "lost" | Promise<"accepted" | "lost">;
 
-const BACKEND = "https://backend.invalid/api/v0/postausgang/anmeldung";
+const BACKEND = "https://backend.invalid/api/v0/outbox/sign_in";
 
 /**
  * Stands in for the Postausgang and its drain in one step: a sign-in mail owed is recorded as the backend would store it,

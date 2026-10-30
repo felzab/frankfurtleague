@@ -92,8 +92,8 @@ const {
   kontaktEmailKorrigierenAction,
 } = await import("./actions.ts");
 
-const ANNEHMEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/annehmen";
-const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/ablehnen";
+const ANNEHMEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/accept";
+const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/decline";
 
 /** The season's entry rules, which `annehmen_bewerbung` reaches rather than restating, and so the ones an acceptance can answer. */
 const REUSED_ENTRY_CODES: Code[] = ["entry_saison_not_future", "entry_gruppe_not_offered", "entry_gruppe_full", "team_retired"];
@@ -311,7 +311,7 @@ const KORREKTUR_PATH = `/bewerbungen/${BEWERBUNG_ID}/kontakte/ansprechperson/ema
 const SITZ_PATH = `/bewerbungen/${BEWERBUNG_ID}/kontakte/ansprechperson`;
 
 /** The application read as the page drew it, with the deadline a seat's link stood under before any repair. */
-const VOR_DER_REPARATUR = { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: "2026-09-01" } };
+const VOR_DER_REPARATUR = { bewerbung: { ...GELESEN.bewerbung, confirmation_deadline: "2026-09-01" } };
 
 /** The re-send's answer to each state it cannot compose a message from. */
 async function unsendableAnswers(): Promise<Record<"way" | "leer" | "ohneAdresse" | "ohneTeam", string>> {
@@ -333,7 +333,7 @@ const erneutGeschrieben = (overrides: object = {}) => ({
   rolle: "ansprechperson",
   email: PERSON.email,
   rollen: ["ansprechperson"],
-  bestaetigungsfrist: "2026-09-18",
+  confirmation_deadline: "2026-09-18",
   ...overrides,
 });
 
@@ -341,14 +341,14 @@ const erneutGeschrieben = (overrides: object = {}) => ({
 const korrigiert = () => ({
   email: KORREKTUR.email,
   rollen: ["ansprechperson"],
-  bestaetigungsfrist: "2026-09-18",
+  confirmation_deadline: "2026-09-18",
 });
 
 /** What the reseat's write answers where it lands, for the seats it filled and the address as it stored it. */
 const besetzt = (rollen: readonly string[] = ["ansprechperson"]) => ({
   email: SITZ.email,
   rollen: rollen,
-  bestaetigungsfrist: "2026-09-18",
+  confirmation_deadline: "2026-09-18",
 });
 
 /** A success's report, or the refusal's sentence where the action failed. */
@@ -372,9 +372,9 @@ describe("the application's writes", () => {
     const { id: _id, rolle: _rolle, ...person } = SITZ;
     // The writes alone: each owes its mails in the backend's own transaction, so no report of a send follows one.
     expect(requestsOf(writes)).toStrictEqual([
-      { endpoint: `${bewerbung}/annehmen`, method: "POST", body: { gruppe: ANNAHME.gruppe, trikot_farbe: ANNAHME.trikot_farbe } },
-      { endpoint: `${bewerbung}/ablehnen`, method: "POST", body: { grund: "Die Liga ist voll." } },
-      { endpoint: `${bewerbung}/einwilligung/ansprechperson/erneut`, method: "POST", body: undefined },
+      { endpoint: `${bewerbung}/accept`, method: "POST", body: { gruppe: ANNAHME.gruppe, trikot_farbe: ANNAHME.trikot_farbe } },
+      { endpoint: `${bewerbung}/decline`, method: "POST", body: { grund: "Die Liga ist voll." } },
+      { endpoint: `${bewerbung}/einwilligung/ansprechperson/resend`, method: "POST", body: undefined },
       // The address the page showed rides beside the corrected one: the backend judges the seat's holder by it.
       {
         endpoint: `${bewerbung}/kontakte/ansprechperson/email`,

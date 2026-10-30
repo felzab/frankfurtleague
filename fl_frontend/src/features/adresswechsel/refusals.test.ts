@@ -60,14 +60,14 @@ describe("where an approval its effect refused sends the approver", () => {
 describe("what one refused press asks the link page to show", () => {
   /* One panel for every refusal that would tell the link's holder who holds an address. */
   for (const [code, zustand] of [
-    ["link_invalid", "ungueltig"],
-    ["link_expired", "abgelaufen"],
-    ["link_barred", "gesperrt"],
-    ["address_change_replaced_barred", "nicht_bestaetigbar"],
-    ["address_change_taken", "nicht_bestaetigbar"],
-    ["address_change_not_covered", "nicht_bestaetigbar"],
-    ["address_change_new_granted", "nicht_bestaetigbar"],
-    ["duplicate_key", "nicht_bestaetigbar"],
+    ["link_invalid", "invalid"],
+    ["link_expired", "expired"],
+    ["link_barred", "barred"],
+    ["address_change_replaced_barred", "not_confirmable"],
+    ["address_change_taken", "not_confirmable"],
+    ["address_change_not_covered", "not_confirmable"],
+    ["address_change_new_granted", "not_confirmable"],
+    ["duplicate_key", "not_confirmable"],
   ] as const) {
     it(`answers ${code} as the ${zustand} panel`, () => {
       expect(mapAdresswechselPresseRefusal(refused(code))).toStrictEqual({ zustand: zustand });
@@ -80,7 +80,7 @@ describe("what one refused press asks the link page to show", () => {
   });
 
   it("answers a stop link nothing matches as the void link's panel", () => {
-    expect(mapAdresswechselPresseRefusal(refused("link_invalid"))).toStrictEqual({ zustand: "ungueltig" });
+    expect(mapAdresswechselPresseRefusal(refused("link_invalid"))).toStrictEqual({ zustand: "invalid" });
   });
 
   it("sends a body the API could not read back to the mail's link", () => {
@@ -120,7 +120,7 @@ describe("what the tool says where nobody could approve, and what an approval sa
 
 describe("what a refused link read shows", () => {
   it("calls a link the read refused void, and leaves a failed read to the page's error", () => {
-    expect(mapAdresswechselAnsichtRefusal(refused("payload_refused"))).toBe("ungueltig");
+    expect(mapAdresswechselAnsichtRefusal(refused("payload_refused"))).toBe("invalid");
     expect(mapAdresswechselAnsichtRefusal(new Error("network"))).toBe(null);
   });
 });
