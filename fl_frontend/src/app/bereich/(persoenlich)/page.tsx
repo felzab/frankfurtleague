@@ -13,7 +13,7 @@ export default async function PersoenlichStartPage() {
   // sign-in or its passkey step, which `/bereich/admin` sends it on to, not a person's landing.
   if (!subject.admin && subject.subject.verwaltung !== null) redirect("/bereich/admin");
 
-  const { roles: funktionen, unbestaetigt } = rolesOf(subject);
+  const { roles: funktionen, unconfirmed: unbestaetigt } = rolesOf(subject);
   const ziele = zieleOf(funktionen);
   const [erstes, ...weitere] = ziele;
 

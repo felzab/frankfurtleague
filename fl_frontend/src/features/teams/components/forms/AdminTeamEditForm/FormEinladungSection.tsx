@@ -177,7 +177,7 @@ export function FormEinladungSection({
           return;
         }
 
-        reportLinkDispatch("gesendet", REGISTRIERUNGSLINK_TITEL, res.message);
+        reportLinkDispatch("sent", REGISTRIERUNGSLINK_TITEL, res.message);
       }),
     );
   };

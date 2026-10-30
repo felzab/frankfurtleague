@@ -212,7 +212,7 @@ const no = (): DrainCount => ({ sent: 0, repeated: 0, abandoned: 0, withheld: 0,
 let seitDemLetztenDurchlauf = no();
 
 /**
- * What every drain in this process settled since the last call, `aufgegeben` the mails the heartbeat reports: a mail is
+ * What every drain in this process settled since the last call, `abandoned` the mails the heartbeat reports: a mail is
  * given up by whichever drain meets it, and most drains are a write's.
  */
 export function takeDrainCounts(): DrainCount {
@@ -257,12 +257,12 @@ export function drainOutbox(): Promise<void> {
 /** Claims until a claim holds nothing: a mail handed back to wait its minute is no longer free, so the loop ends. */
 async function drainen(): Promise<void> {
   for (;;) {
-    const { lease: beanspruchung, mails, abandoned: aufgegeben } = await outboxPostHandout();
-    seitDemLetztenDurchlauf.abandoned += aufgegeben;
-    if (beanspruchung === null) return;
+    const { lease, mails, abandoned } = await outboxPostHandout();
+    seitDemLetztenDurchlauf.abandoned += abandoned;
+    if (lease === null) return;
 
     for (const mail of mails) {
-      const bericht = { lease: beanspruchung, ...(await zustellen(mail)) };
+      const bericht = { lease: lease, ...(await zustellen(mail)) };
       // The provider's name for a refusal is its own token, kept only where the endpoint takes it: the outcome stands
       // without one, as `fl_frontend/src/app/api/mail/zustellung/route.ts` keeps a delivery event's.
       const antwort = await outboxPostResult(OutboxPostResultBody.safeParse(bericht).data ?? { ...bericht, grund: null });
@@ -300,7 +300,7 @@ async function zustellen(mail: FLOutboxHandout): Promise<Omit<FLOutboxResultPayl
       to: recipientOf(mail.an),
       ...renderMail(message),
       tags: { [OUTBOX_TAG]: mail.id },
-      idempotencyKey: `postausgang/${mail.id}/${String(mail.attempt)}`,
+      idempotencyKey: `outbox/${mail.id}/${String(mail.attempt)}`,
     });
     return { id: mail.id, result: "sent", message_id: id, grund: null };
   } catch (error) {

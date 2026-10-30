@@ -104,8 +104,8 @@ function registrierungslinksTitel(gemeint: number, erreicht: number): DispatchTi
   const teils = erreicht > 0;
 
   return {
-    gesendet: "Registrierungslinks gesendet",
-    fehlgeschlagen: teils ? "Registrierungslinks teils nicht verschickt" : "Registrierungslinks nicht verschickt",
+    sent: "Registrierungslinks gesendet",
+    failed: teils ? "Registrierungslinks teils nicht verschickt" : "Registrierungslinks nicht verschickt",
   };
 }
 
@@ -168,12 +168,7 @@ export function FormEinladungVersandSection({
         appToast.info(res.zeilen.length === 1 ? "Kein Registrierungslink gesendet" : "Keine Registrierungslinks gesendet", {
           description: res.message,
         });
-      else
-        reportLinkDispatch(
-          res.erreicht < res.gemeint ? "fehlgeschlagen" : "gesendet",
-          registrierungslinksTitel(res.gemeint, res.erreicht),
-          res.message,
-        );
+      else reportLinkDispatch(res.erreicht < res.gemeint ? "failed" : "sent", registrierungslinksTitel(res.gemeint, res.erreicht), res.message);
     });
   };
 

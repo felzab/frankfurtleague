@@ -30,7 +30,7 @@ export const NO_RECORDS: SubjectSession["subject"] = deepFrozen({
 });
 
 /**
- * What a suite's backend holds for one address. `konto` is stated, never worked out from the lists:
+ * What a suite's backend holds for one address. `account` is stated, never worked out from the lists:
  * which records count is the backend's rule, and a double deriving it hands each case its own copy's answer.
  */
 export type LookupFixture = Partial<SubjectSession["subject"]> & { readonly account: boolean };
@@ -45,12 +45,12 @@ const GATE_ENDPOINT = "/identity/sign_in";
 
 /** One table of fixtures answering the subject read and the gate alike, each in its read's shape. */
 export function answerAt(endpoint: string, held: LookupFixture): Record<string, unknown> {
-  const { account: konto, ...subject } = held;
+  const { account, ...subject } = held;
   if (!endpoint.endsWith(GATE_ENDPOINT)) return subject;
 
   return {
     unconfirmed: subject.unconfirmed ?? false,
-    account: konto,
+    account: account,
     barred: subject.barred ?? false,
     verwaltung: subject.verwaltung ?? null,
   };

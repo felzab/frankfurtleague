@@ -89,10 +89,10 @@ function minted({ token, origin }: Handout): MailLink {
  */
 const MAIL_KINDS: { [A in OutboxArt]: MailBuilder<A> } = {
   sign_in_code: (_data, { secret, origin }) => buildCodeEmail(secretTheArt(secret), origin),
-  passkey_hinzugefuegt: ({ instant: zeitpunkt, account: konto }, { origin }) =>
-    buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date(zeitpunkt), origin: origin, konto: konto }),
-  passkey_erased: ({ instant: zeitpunkt, account: konto }, { origin }) =>
-    buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(zeitpunkt), origin: origin, konto: konto }),
+  passkey_hinzugefuegt: ({ instant, account }, { origin }) =>
+    buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date(instant), origin: origin, konto: account }),
+  passkey_erased: ({ instant, account }, { origin }) =>
+    buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(instant), origin: origin, konto: account }),
   account_erasure: (_data, { secret, origin }) => buildLoeschungEmail({ origin: origin, token: secretTheArt(secret) }),
   schiedsrichter_confirmation: (data, handout) => buildSchiedsrichterBestaetigungEmail(data, minted(handout)),
   spiel_request: (data, handout) => buildSpielAnfrageEmail(data, minted(handout)),

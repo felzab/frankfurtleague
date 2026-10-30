@@ -139,8 +139,8 @@ export async function POST(request: NextRequest) {
     if (outbox === null) return APPLIED(false);
 
     try {
-      const { applied: angewendet } = await outboxPostEvent(outbox);
-      return APPLIED(angewendet);
+      const { applied } = await outboxPostEvent(outbox);
+      return APPLIED(applied);
     } catch (error) {
       return unanswered(error);
     }
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * What the provider is told where the API did not take an event: the line, then a retry. The endpoint answers every
- * event it takes, a row gone or a state it may not follow among them, with `angewendet`, so any failure is a route
+ * event it takes, a row gone or a state it may not follow among them, with `applied`, so any failure is a route
  * mid-deploy or a write that never landed, which the provider's later send repairs.
  */
 function unanswered(error: unknown): NextResponse {

@@ -3,7 +3,7 @@ import "client-only";
 import { appToast } from "./appToast";
 
 /** How one link mail ended for the press that sent it: handed on to be mailed, or not. */
-type LinkDispatch = "gesendet" | "fehlgeschlagen";
+type LinkDispatch = "sent" | "failed";
 
 /**
  * A press's title for each way its link ended. **No title here is a press's failure title**, which
@@ -13,8 +13,8 @@ export type DispatchTitel = Readonly<Record<LinkDispatch, string>>;
 
 /** A team's registration link, its own press and a season's press reaching one team alike. */
 export const REGISTRIERUNGSLINK_TITEL: DispatchTitel = {
-  gesendet: "Registrierungslink gesendet",
-  fehlgeschlagen: "Registrierungslink nicht verschickt",
+  sent: "Registrierungslink gesendet",
+  failed: "Registrierungslink nicht verschickt",
 };
 
 /**
@@ -26,8 +26,8 @@ export function reportAddressChangeDispatch(link: boolean, description: string):
 }
 
 /** The toast of a write that landed and sent a link: a success only where the link went out. */
-export function reportLinkDispatch(versand: LinkDispatch, titel: DispatchTitel, description: string): void {
-  const raise = versand === "gesendet" ? appToast.success : appToast.warning;
+export function reportLinkDispatch(dispatch: LinkDispatch, titel: DispatchTitel, description: string): void {
+  const raise = dispatch === "sent" ? appToast.success : appToast.warning;
 
-  raise(titel[versand], { description });
+  raise(titel[dispatch], { description });
 }

@@ -111,8 +111,8 @@ describe("one drain of the Postausgang", () => {
 
     expect(schritte.map((schritt) => schritt.art)).toStrictEqual(["send", "report", "send", "report"]);
     expect(sends().map(({ headers }) => headers.get("Idempotency-Key"))).toStrictEqual([
-      `postausgang/${handed(1).id}/1`,
-      `postausgang/${handed(2).id}/3`,
+      `outbox/${handed(1).id}/1`,
+      `outbox/${handed(2).id}/3`,
     ]);
     expect(sends().map(({ body }) => body["tags"])).toStrictEqual([
       [{ name: "outbox_id", value: handed(1).id }],

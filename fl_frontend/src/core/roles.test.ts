@@ -84,8 +84,8 @@ describe("the Funktionen no season narrows", () => {
 describe("the pending flag", () => {
   /* Both values: a resolver answering a constant passes whichever single one a case asked about. */
   it("passes the lookup's flag through unchanged", () => {
-    expect(rolesOf(person({ unconfirmed: true })).unbestaetigt).toBe(true);
-    expect(rolesOf(person({ unconfirmed: false })).unbestaetigt).toBe(false);
+    expect(rolesOf(person({ unconfirmed: true })).unconfirmed).toBe(true);
+    expect(rolesOf(person({ unconfirmed: false })).unconfirmed).toBe(false);
   });
 });
 

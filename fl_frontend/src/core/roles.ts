@@ -45,17 +45,17 @@ export function isSeatAt(role: Role, teamId: string, saisonId: string): role is 
 }
 
 /**
- * The season is the one narrowing applied here. Confirmation is the lookup's alone, so `unbestaetigt`
+ * The season is the one narrowing applied here. Confirmation is the lookup's alone, so `unconfirmed`
  * is passed through rather than recomputed: a second test of it would be a second definition of
  * "confirmed" for the two tiers to part on.
  */
-export function rolesOf(subject: SubjectSession): { roles: Role[]; unbestaetigt: boolean } {
-  const { seats: sitze, spieler, schiedsrichter, unconfirmed: unbestaetigt } = subject.subject;
+export function rolesOf(subject: SubjectSession): { roles: Role[]; unconfirmed: boolean } {
+  const { seats, spieler, schiedsrichter, unconfirmed } = subject.subject;
 
   const roles: Role[] = [
     // Per seat and never per team: one junction row seats one person twice where the trainer is also
     // another seat, and each seat is its own Funktion.
-    ...sitze
+    ...seats
       .filter((seat) => grantsAPanel(seat.saison_status))
       .map((seat): KontaktRole => ({
         art: "kontakt",
@@ -71,5 +71,5 @@ export function rolesOf(subject: SubjectSession): { roles: Role[]; unbestaetigt:
     ...(subject.admin ? [{ art: "administration" } satisfies AdministrationRole] : []),
   ];
 
-  return { roles: roles, unbestaetigt: unbestaetigt };
+  return { roles: roles, unconfirmed: unconfirmed };
 }
