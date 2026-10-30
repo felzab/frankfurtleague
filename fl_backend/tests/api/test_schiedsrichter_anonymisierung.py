@@ -51,7 +51,7 @@ from app.core.recording import build_redaction_filter
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
-from tests.actor_tokens import FRESH_ADMIN_ACTOR
+from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list
 from tests.config import ADMINISTRATORS
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
@@ -345,7 +345,7 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
         db=client,
         today=TODAY,
         now=MAIL_NOW,
-        actor=FRESH_ADMIN_ACTOR,
+        actor=fresh_admin_actor(),
     )
     minted = await start_the_change(
         database, client, email=KONTAKT[schiedsrichter_id]["email"], identifier=sign_in_identifier(bisherige), germany_now=NOW
@@ -408,7 +408,7 @@ async def call_reactivation(database: AsyncDatabase, client: AsyncMongoClient, s
         db=client,
         today=TODAY,
         now=MAIL_NOW,
-        actor=FRESH_ADMIN_ACTOR,
+        actor=fresh_admin_actor(),
     )
 
 
@@ -631,7 +631,7 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
                     db=client,
                     today=TODAY,
                     now=MAIL_NOW,
-                    actor=FRESH_ADMIN_ACTOR,
+                    actor=fresh_admin_actor(),
                 )
             elif press == "delete":
                 await delete_schiedsrichter(
