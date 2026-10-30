@@ -1,5 +1,6 @@
 import { NEXT_HEADERS_DOUBLE } from "@/test-support/actionDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
+import { timeoutSignalsOnFakeTimers } from "@/test-support/timeoutSignals.ts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Only the scope's own module: a render pass is what the server build's scope stands in for.
@@ -23,6 +24,7 @@ beforeEach(() => {
   clock = 0;
   vi.spyOn(performance, "now").mockImplementation(() => clock);
   vi.useFakeTimers({ toFake: ["setTimeout"] });
+  timeoutSignalsOnFakeTimers();
 });
 
 afterEach(() => {
@@ -41,9 +43,7 @@ describe("the scope a page render's reads enter one after another", () => {
     const firstTrace = await runWithIncomingTrace(() => Promise.resolve(getRequestTraceId()));
     advance(REQUEST_DEADLINE_MS - 5000);
 
-    const [signal, laterTrace] = await runWithIncomingTrace(() =>
-      Promise.resolve([boundCall(OWN_BOUND_MS).signal, getRequestTraceId()] as const),
-    );
+    const [signal, laterTrace] = await runWithIncomingTrace(() => Promise.resolve([boundCall(OWN_BOUND_MS), getRequestTraceId()] as const));
     advance(4999);
     expect(signal.aborted, "the later read was aborted before the render's deadline").toBe(false);
     advance(1);
@@ -58,9 +58,7 @@ describe("the scope a page render's reads enter one after another", () => {
     advance(REQUEST_DEADLINE_MS);
 
     beginRenderPass();
-    const [signal, nextTrace] = await runWithIncomingTrace(() =>
-      Promise.resolve([boundCall(OWN_BOUND_MS).signal, getRequestTraceId()] as const),
-    );
+    const [signal, nextTrace] = await runWithIncomingTrace(() => Promise.resolve([boundCall(OWN_BOUND_MS), getRequestTraceId()] as const));
 
     expect(signal.aborted, "a new request inherited the last one's spent deadline").toBe(false);
     expect(nextTrace, "a new request reused the last one's trace").not.toBe(firstTrace);

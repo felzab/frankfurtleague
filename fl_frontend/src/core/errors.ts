@@ -1,9 +1,9 @@
 import type { Code, FLRefusedField } from "./generated/client/types";
 
 /**
- * What an error says about the request it answers. Required on every API error rather than defaulted:
- * a failed write may have landed and a failed read changed nothing, and
- * `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult` tells them apart by it.
+ * What a request was, a write that may have landed or a read that changed nothing, which
+ * `fl_frontend/src/core/api.ts :: sendToBackend` judges every landed write's drain by. Required on every API error
+ * rather than defaulted, since a failed write may have landed and a failed read changed nothing.
  */
 export type SentRequest = {
   method: string;

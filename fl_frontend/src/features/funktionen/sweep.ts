@@ -7,9 +7,8 @@ import { logger } from "@/core/logging";
 import { REFERENZEN_ADRESSEN_MAX } from "./constants";
 import { postReferenzen } from "./mutations";
 
-/** What one pass did, by count and never by address: the completion line is all that records it. */
+/** What one pass did, by count and never by address: the scheduler's pass line is all that records it. */
 type Zaehlung = {
-  gelistet: number;
   unreferenziert: number;
   geloescht: number;
   bereits_geloescht: number;
@@ -19,11 +18,12 @@ type Zaehlung = {
 /**
  * One pass over every sign-in account, deleting those no record references, for the scheduler
  * (`fl_frontend/src/instrumentation-node.ts :: armScheduler`), which runs one pass at a time. A store that lists
- * nothing rejects, for the heartbeat to name; the pass resolves to the accounts it could not judge or delete.
+ * nothing rejects, for the heartbeat to name; the pass resolves to what it did, `offen` the accounts it could not judge
+ * or delete.
  */
-export async function runKontoSweep(): Promise<number> {
+export async function runKontoSweep(): Promise<{ zaehlung: Zaehlung; offen: number }> {
   const konten = await listAccounts();
-  const zaehlung: Zaehlung = { gelistet: konten.length, unreferenziert: 0, geloescht: 0, bereits_geloescht: 0, fehlgeschlagen: 0 };
+  const zaehlung: Zaehlung = { unreferenziert: 0, geloescht: 0, bereits_geloescht: 0, fehlgeschlagen: 0 };
 
   // Batch by batch, each within the read's ceiling: a larger one, or an empty one, is refused whole,
   // every pass alike, and the sweep would then delete nothing ever after.
@@ -47,12 +47,7 @@ export async function runKontoSweep(): Promise<number> {
     }
   }
 
-  // Every completed pass, nothing being stored: this line is how "has it run" is answered.
-  // A warning where a failure kept accounts, so a level above INFO still shows a pass that judged none.
-  if (zaehlung.fehlgeschlagen === 0) logger.info("konto.sweep_completed", zaehlung);
-  else logger.warn("konto.sweep_completed", zaehlung);
-
-  return zaehlung.fehlgeschlagen;
+  return { zaehlung: zaehlung, offen: zaehlung.fehlgeschlagen };
 }
 
 /** One account, deleted only where the read answers its address unreferenced again, alone. */

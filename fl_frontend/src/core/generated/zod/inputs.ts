@@ -1252,9 +1252,10 @@ export const KontoPostAdresswechselFreigabeBody = zod
 /**
  * Owe one mail the sign-in library sends -- the code, a passkey notice, the deletion link -- to the address named.
  *
- * A replay of the same `schluessel` writes nothing and answers the row its first call wrote. `geheim` is stored as it
- * arrives, encrypted under a key this service never holds, and dropped once the mail is settled; `gueltig_bis` is both
- * the last moment a hand-out may send it and the moment the row is deleted, settled or not.
+ * Every call owes a mail of its own, under a key minted here: the library asks for each send once, and nothing repeats
+ * the call. `geheim` is stored as it arrives, encrypted under a key this service never holds, and dropped once the mail
+ * is settled; `gueltig_bis` is both the last moment a hand-out may send it and the moment the row is deleted, settled
+ * or not.
  * @summary Owe one mail of the sign-in library
  */
 export const postausgangPostAnmeldungBodyAnMax = 254;
@@ -1263,10 +1264,6 @@ export const postausgangPostAnmeldungBodyDatenTwoKontoMax = 256;
 
 export const postausgangPostAnmeldungBodyDatenTwoKontoRegExp = new RegExp("^/[a-z0-9/_-]*$");
 export const postausgangPostAnmeldungBodyGeheimOneMax = 4096;
-
-export const postausgangPostAnmeldungBodySchluesselMax = 256;
-
-export const postausgangPostAnmeldungBodySchluesselRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 
 export const PostausgangPostAnmeldungBody = zod
   .object({
@@ -1286,7 +1283,6 @@ export const PostausgangPostAnmeldungBody = zod
     ]),
     geheim: zod.union([zod.string().min(1).max(postausgangPostAnmeldungBodyGeheimOneMax), zod.null()]),
     gueltig_bis: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-    schluessel: zod.string().min(1).max(postausgangPostAnmeldungBodySchluesselMax).regex(postausgangPostAnmeldungBodySchluesselRegExp),
   })
   .describe("One mail of the sign-in library, owed to the address it names.");
 
@@ -1315,36 +1311,34 @@ export const PostausgangPostEreignisBody = zod
   .describe("One delivery event about a message the provider accepted, named by the row the message was sent from.");
 
 /**
- * Settle each named mail the named claim still holds, by the outcome of its send, and nothing else.
+ * Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.
  *
- * `gesendet` records the provider's message id, which every later event about the message names; `zurueckgehalten` a
- * deployment that sends no mail; `aufgeben` a refusal every send would meet, any 4xx but a 429. `wiederholen`, for a
- * 429, a 5xx or a send that never reached the provider, hands the mail back for a drain a minute from now, or gives it
- * up where it has grown past its deadline; a mail of the sign-in library is given up at once, its library's repair
- * being a fresh one. A mail the claim does not hold -- unknown,
- * settled already, or claimed since by another drain after this claim lapsed -- is left alone and counted in `ignoriert`.
- * A repeated id counts once, by its first outcome. One transaction; a settled row keeps no facts and no secret.
- * @summary Settle the mails a claim handed out
+ * `gesendet` records the provider's message id; `zurueckgehalten` a deployment that sends no mail; `aufgeben` a
+ * refusal every send would meet, any 4xx but a 429. A failed send's `grund`, the provider's own name for the refusal,
+ * is recorded on the row, the send's one record of why. `wiederholen`, for a 429, a 5xx or a send that never reached the
+ * provider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a
+ * mail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not
+ * hold -- unknown, settled already, or claimed since by another drain after this claim lapsed -- is left alone and
+ * counted in `ignoriert`; the answer counts one outcome. Each write names the claim, so its check and the outcome are
+ * one atomic operation on one row, needing no transaction; a settled row keeps no facts and no secret.
+ * @summary Settle one mail a claim handed out
  */
 
-export const postausgangPostErgebnisBodyErgebnisseItemIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const postausgangPostErgebnisBodyErgebnisseItemNachrichtIdOneMax = 128;
+export const postausgangPostErgebnisBodyGrundOneMax = 128;
 
-export const postausgangPostErgebnisBodyErgebnisseMax = 64;
+export const postausgangPostErgebnisBodyGrundOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const postausgangPostErgebnisBodyIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const postausgangPostErgebnisBodyNachrichtIdOneMax = 128;
 
-export const PostausgangPostErgebnisBody = zod.object({
-  beanspruchung: zod.string().min(1),
-  ergebnisse: zod
-    .array(
-      zod.object({
-        ergebnis: zod.enum(["gesendet", "wiederholen", "aufgeben", "zurueckgehalten"]),
-        id: zod.string().regex(postausgangPostErgebnisBodyErgebnisseItemIdRegExp),
-        nachricht_id: zod.union([zod.string().min(1).max(postausgangPostErgebnisBodyErgebnisseItemNachrichtIdOneMax), zod.null()]),
-      }),
-    )
-    .min(1)
-    .max(postausgangPostErgebnisBodyErgebnisseMax),
-});
+export const PostausgangPostErgebnisBody = zod
+  .object({
+    beanspruchung: zod.string().min(1),
+    ergebnis: zod.enum(["gesendet", "wiederholen", "aufgeben", "zurueckgehalten"]),
+    grund: zod.union([zod.string().max(postausgangPostErgebnisBodyGrundOneMax).regex(postausgangPostErgebnisBodyGrundOneRegExp), zod.null()]),
+    id: zod.string().regex(postausgangPostErgebnisBodyIdRegExp),
+    nachricht_id: zod.union([zod.string().min(1).max(postausgangPostErgebnisBodyNachrichtIdOneMax), zod.null()]),
+  })
+  .describe("The outcome of one handed-out mail's send, reported as the send returns.");
 
 /**
  * Every pending registration, newest first, narrowed by season, team and status.

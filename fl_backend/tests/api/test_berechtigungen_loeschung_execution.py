@@ -114,7 +114,7 @@ def notice(
         berechtigung_id=grant_id, art=art, jetzt=stand(jetzt), vorher=stand(vorher), geaendert_von=von, now=QUEUED, gesperrt=gesperrt
     )
 
-    # Owed to Dora, as `app/api/postausgang/services.py :: enqueue_mail` stores a row: her copy of the notice.
+    # Owed to Dora, as `app/api/postausgang/services.py :: enqueue_mails` stores a row: her copy of the notice.
     return {
         "_id": row_id,
         "schluessel": f"berechtigung/{grant_id}/{art}/anwendung/{QUEUED.isoformat()}/{DORA}",

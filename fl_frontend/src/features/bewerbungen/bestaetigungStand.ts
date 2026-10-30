@@ -1,8 +1,6 @@
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import { istUnzustellbar } from "./zustellLage";
-
 import type { FLBewerbung, FLPostausgangLage } from "@/core/generated/client/types";
 import type { KontaktRolle } from "@/features/teams/constants";
 
@@ -247,7 +245,7 @@ export function loeschungsSatz({
   // The fourteen-day clock's hold (`fl_backend/app/api/bewerbungen/system_router.py :: loeschen_the_unconfirmed`): an
   // application whose submitter's last mail did not arrive stands, so a promised deletion is false for exactly the row
   // an administrator can still repair.
-  const gehalten = istUnzustellbar(staende.find((sitz) => sitz.rolle === "ansprechperson")?.zustellung ?? null);
+  const gehalten = staende.find((sitz) => sitz.rolle === "ansprechperson")?.zustellung?.unzustellbar === true;
 
   // The deadline's own day still reads as ahead: the link answers on it, and the sweep deletes the day after.
   if (!istAbgelaufen) {

@@ -93,97 +93,79 @@ describe("one pass of the pupils' deletion", () => {
 
   /* A share's worth of failing pupils fills the front, so the call reaching them deletes nobody while a due pupil stands
      behind them: a pass ending on that call, or reading the front again, never reaches that pupil. */
-  it("goes on past a call that deleted nobody to the due pupils behind it, warning the pupils it failed", async () => {
+  it("goes on past a call that deleted nobody to the due pupils behind it, answering the pupils it failed as left", async () => {
     laufAnswer = vorneDann({ ...gelaufen(0, 11, ORT), fehlgeschlagen: 10 }, gelaufen(1, 10), gelaufen(0, 11));
 
-    await runLoeschungSweep();
-
-    // A warning, the pass leaving pupils it failed: a level above INFO would drop the line counting them.
-    expect(passLines()).toStrictEqual([
-      {
-        level: "warn",
-        event: "loeschung.sweep_pass",
-        fields: {
-          abgeschlossene_saison_id: "2526",
-          spieler: 1,
-          saison_spieler: 1,
-          registrierungen: 0,
-          uebersprungen: 0,
-          fehlgeschlagen: 10,
-          verbleibend: 10,
-        },
+    expect(await runLoeschungSweep()).toStrictEqual({
+      zaehlung: {
+        abgeschlossene_saison_id: "2526",
+        spieler: 1,
+        saison_spieler: 1,
+        registrierungen: 0,
+        uebersprungen: 0,
+        fehlgeschlagen: 10,
+        verbleibend: 10,
       },
-    ]);
+      offen: 10,
+    });
   });
 
-  /* A pass cut short knows no remainder, so its failures alone make the line a warning, and the job rejects after it. */
-  it("warns where the pass is cut short after a call that failed pupils", async () => {
+  /* A pass cut short knows no remainder, so its failures alone are what it left, and the call's failure goes with the
+     counts of what the calls before it erased. */
+  it("answers a pass cut short with what it erased, the pupils it failed and the call's failure", async () => {
     laufAnswer = (nach) => {
       if (nach === null) return { ...gelaufen(3, 5, ORT), fehlgeschlagen: 2 };
       throw new Error("the deletion was refused");
     };
 
-    await expect(runLoeschungSweep()).rejects.toThrow("the deletion was refused");
-
-    expect(passLines()).toStrictEqual([
-      {
-        level: "warn",
-        event: "loeschung.sweep_pass",
-        fields: {
-          abgeschlossene_saison_id: "2526",
-          spieler: 3,
-          saison_spieler: 3,
-          registrierungen: 0,
-          uebersprungen: 0,
-          fehlgeschlagen: 2,
-        },
-      },
-    ]);
+    expect(await runLoeschungSweep()).toStrictEqual({
+      zaehlung: { abgeschlossene_saison_id: "2526", spieler: 3, saison_spieler: 3, registrierungen: 0, uebersprungen: 0, fehlgeschlagen: 2 },
+      offen: 2,
+      fehler: new Error("the deletion was refused"),
+    });
   });
 
   /* A place not past the one sent holds the pass, and every tick behind it, for ever. Each double ends on its third
-     answer, so a loop lacking the guard fails on its calls and lines rather than hanging. */
+     answer, so a loop lacking the guard fails on its calls rather than hanging. */
   for (const [wie, ort] of [
     ["the same place", ORT],
     ["a place before it", `${"e".repeat(23)}4`],
   ] as const) {
-    it(`stops where a call answers ${wie}, the deletions counted and the job rejecting`, async () => {
+    it(`stops where a call answers ${wie}, the deletions counted and the pass failing`, async () => {
       laufAnswer = inTurn([gelaufen(3, 5, ORT), gelaufen(1, 4, ort), gelaufen(0, 0)]);
 
-      await expect(runLoeschungSweep()).rejects.toThrow("The deletion answered a place not past the one it was sent.");
+      const lauf = await runLoeschungSweep();
 
       expect(laufCalls.map(({ params }) => params)).toStrictEqual([{}, { nach: ORT }]);
-      expect(passLines()).toStrictEqual([
-        {
-          level: "info",
-          event: "loeschung.sweep_pass",
-          fields: { abgeschlossene_saison_id: "2526", spieler: 4, saison_spieler: 4, registrierungen: 0, uebersprungen: 0, fehlgeschlagen: 0 },
-        },
-      ]);
+      expect(lauf.zaehlung).toStrictEqual({
+        abgeschlossene_saison_id: "2526",
+        spieler: 4,
+        saison_spieler: 4,
+        registrierungen: 0,
+        uebersprungen: 0,
+        fehlgeschlagen: 0,
+      });
+      expect(String("fehler" in lauf ? lauf.fehler : undefined)).toContain("The deletion answered a place not past the one it was sent.");
     });
   }
 
-  /* What an operator reads to learn the pass ran and what it did: counts and the season the rule kept, never a person,
-     an address or an id. */
-  it("writes one line per pass, holding its counts and nothing else", async () => {
+  /* What an operator reads on the scheduler's pass line to learn what the pass did: counts and the season the rule kept,
+     never a person, an address or an id; and the pass writes no line of its own. */
+  it("answers its counts and nothing else, writing no line", async () => {
     laufAnswer = inTurn([gelaufen(3, 1, ORT), gelaufen(1, 0)]);
 
-    await runLoeschungSweep();
-
-    expect(passLines()).toStrictEqual([
-      {
-        level: "info",
-        event: "loeschung.sweep_pass",
-        fields: {
-          abgeschlossene_saison_id: "2526",
-          spieler: 4,
-          saison_spieler: 4,
-          registrierungen: 0,
-          uebersprungen: 0,
-          fehlgeschlagen: 0,
-          verbleibend: 0,
-        },
+    expect(await runLoeschungSweep()).toStrictEqual({
+      zaehlung: {
+        abgeschlossene_saison_id: "2526",
+        spieler: 4,
+        saison_spieler: 4,
+        registrierungen: 0,
+        uebersprungen: 0,
+        fehlgeschlagen: 0,
+        verbleibend: 0,
       },
-    ]);
+      offen: 0,
+    });
+    expect(passLines()).toStrictEqual([]);
   });
 });

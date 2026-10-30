@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from typing import Any
 
 from pymongo import ASCENDING, DESCENDING
@@ -10,29 +10,21 @@ from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db
 
 
-async def read_the_newest(
+async def lage_of(
     *, postausgang_collection: AsyncCollection, bezug: FLPostausgangBezug, session: AsyncClientSession | None = None
-) -> Mapping[str, Any] | None:
-    """The last mail owed about one record and seat, which says what became of the last message to its holder.
+) -> FLPostausgangLage | None:
+    """What became of the last mail about one record and seat, as an editor serves it; `None` where none was ever owed.
 
     Equality on all three keys and the sort on the rest, the shape `postausgang_bezug` serves
     (`app/core/constraints.py :: SUPPORT_INDEXES`).
     """
 
-    return await postausgang_collection.find_one(
+    newest = await postausgang_collection.find_one(
         {"bezug.sammlung": str(bezug.sammlung), "bezug.id": bezug.id, "bezug.sitz": bezug.sitz},
         {"stand": 1, "zustellung": 1},
         sort=[("erfasst_am", DESCENDING), ("_id", DESCENDING)],
         session=session,
     )
-
-
-async def lage_of(
-    *, postausgang_collection: AsyncCollection, bezug: FLPostausgangBezug, session: AsyncClientSession | None = None
-) -> FLPostausgangLage | None:
-    """What became of the last mail about one record and seat, as an editor serves it; `None` where none was ever owed."""
-
-    newest = await read_the_newest(postausgang_collection=postausgang_collection, bezug=bezug, session=session)
 
     return None if newest is None else FLPostausgangLage.model_validate(newest)
 

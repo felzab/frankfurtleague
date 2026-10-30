@@ -14,7 +14,7 @@ const calls = doubleApiClient(({ endpoint }) => apiAnswer(endpoint));
 let sendTeams: () => unknown = () => undefined;
 const TEAMS = { getTeamSaisons: async () => sendTeams() };
 
-// `drainSoon` a no-op, as the double makes it in every suite: the mails are the backend's to owe and the drain's to send.
+// The Postausgang doubled: the mails are the backend's to owe and the drain's to send.
 doublePostausgang();
 doubleActionRequest();
 

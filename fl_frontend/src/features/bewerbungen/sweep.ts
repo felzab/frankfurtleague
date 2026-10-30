@@ -17,28 +17,36 @@ type Uebergangen = { bewerbung: number; registrierung: number };
  * One pass over every season, then the clock no season holds (`docs/datenschutz.md :: 6`), for the scheduler
  * (`fl_frontend/src/instrumentation-node.ts :: armScheduler`), which runs one pass at a time.
  *
- * Every reminder and notice the backend owed is the Postausgang's drain to send. Rejects where a half could not finish
- * what it owes, once both have run; resolves to the erasures the pass passed over and the lapsed address changes it left.
+ * Every reminder and notice the backend owed is the Postausgang's drain to send. Answers the rows each half passed over
+ * and what the address changes did, `offen` the erasures passed over and the lapsed changes left, and the seasons'
+ * failure, once both halves have run, as `fehler`; a lapsed address the half could not end rejects, for the heartbeat
+ * to name.
  */
-export async function runBewerbungSweep(): Promise<number> {
-  const saisons = await sweepAlleSaisons().then(
-    (uebergangen) => ({ uebergangen: uebergangen }),
-    (fehler: unknown) => ({ fehler: fehler }),
-  );
-  // After the seasons and whatever they met, so a lapsed address is ended every hour; the half rejects on a failure that
-  // ends its pass, for the heartbeat to name.
+export async function runBewerbungSweep() {
+  // A listing that failed is the seasons' failure too, and the address changes still run.
+  const saisons = await sweepAlleSaisons().catch((fehler: unknown) => ({ uebergangen: { bewerbung: 0, registrierung: 0 }, fehler: fehler }));
+  // After the seasons and whatever they met, so a lapsed address is ended every hour.
   const adressen = await sweepAdresswechsel();
 
-  if ("fehler" in saisons) throw saisons.fehler;
-
-  return saisons.uebergangen + adressen;
+  return {
+    zaehlung: {
+      bewerbung_fehlgeschlagen: saisons.uebergangen.bewerbung,
+      registrierung_fehlgeschlagen: saisons.uebergangen.registrierung,
+      adresswechsel_entfernt: adressen.entfernt,
+      adresswechsel_wirksam: adressen.wirksam,
+      adresswechsel_verworfen: adressen.verworfen,
+      adresswechsel_verbleibend: adressen.verbleibend,
+    },
+    offen: saisons.uebergangen.bewerbung + saisons.uebergangen.registrierung + adressen.verbleibend,
+    fehler: saisons.fehler,
+  };
 }
 
 /**
- * Every season, each half of each apart: a throw in one leaves the others' clocks running. Rejects once all have run
- * where any failed, with every failure; resolves to the rows the calls passed over.
+ * Every season, each half of each apart: a throw in one leaves the others' clocks running. Answers the rows the calls
+ * passed over and, where any call failed, every failure as one; a listing that fails rejects.
  */
-async function sweepAlleSaisons(): Promise<number> {
+async function sweepAlleSaisons(): Promise<{ uebergangen: Uebergangen; fehler?: unknown }> {
   const { saison_ids: saisonIds } = await getBewerbungSweepSaisons();
 
   const uebergangen: Uebergangen = { bewerbung: 0, registrierung: 0 };
@@ -55,15 +63,12 @@ async function sweepAlleSaisons(): Promise<number> {
     });
   }
 
-  logPass("bewerbung.sweep_pass", { fehlgeschlagen: uebergangen.bewerbung }, uebergangen.bewerbung);
-  logPass("registrierung.sweep_pass", { fehlgeschlagen: uebergangen.registrierung }, uebergangen.registrierung);
+  if (fehler.length === 0) return { uebergangen: uebergangen };
 
-  if (fehler.length > 0) throw new AggregateError(fehler, `${String(fehler.length)} of the seasons' sweep calls failed.`);
-
-  return uebergangen.bewerbung + uebergangen.registrierung;
+  return { uebergangen: uebergangen, fehler: new AggregateError(fehler, `${String(fehler.length)} of the seasons' sweep calls failed.`) };
 }
 
-/** One season's half, its failure filed under its own line and kept for the pass's rejection. */
+/** One season's half, its failure filed under its own line and kept for the pass's answer. */
 async function halbe(event: SweepFailure, saisonId: string, fehler: unknown[], lauf: () => Promise<void>): Promise<void> {
   try {
     await lauf();
@@ -71,15 +76,6 @@ async function halbe(event: SweepFailure, saisonId: string, fehler: unknown[], l
     logSweepFailure(event, error, saisonId);
     fehler.push(error);
   }
-}
-
-/**
- * A warning where rows the half failed or passed over stand: each pass moves on past them, so only this count tells a
- * half failing on every row from a healthy one.
- */
-function logPass(event: "bewerbung.sweep_pass" | "registrierung.sweep_pass", felder: Record<string, unknown>, offen: number): void {
-  if (offen === 0) logger.info(event, felder);
-  else logger.warn(event, felder);
 }
 
 /** The half, the season and the error's name, never a person: this line is written for a season nobody swept. */

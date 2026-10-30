@@ -27,11 +27,11 @@ const SDK_DOUBLE = {
       throw new Error("The request's deadline had passed before this call was sent.");
     const claim = claims.shift() ?? { mails: [], aufgegeben: 0 };
     const held = claim.mails.length > 0;
-    return { beanspruchung: held ? "claim-1" : null, beansprucht_bis: null, mails: claim.mails, aufgegeben: claim.aufgegeben };
+    return { beanspruchung: held ? "claim-1" : null, mails: claim.mails, aufgegeben: claim.aufgegeben };
   },
   postausgangPostErgebnis: async (payload: FLPostausgangErgebnisPayload) => {
     schritte.push({ art: "report", payload });
-    const [{ ergebnis }] = payload.ergebnisse as [FLPostausgangErgebnisPayload["ergebnisse"][number]];
+    const { ergebnis } = payload;
     const counted = { gesendet: 0, wiederholt: 0, aufgegeben: 0, zurueckgehalten: 0, ignoriert: 0 };
     const key = ({ gesendet: "gesendet", wiederholen: "wiederholt", aufgeben: "aufgegeben", zurueckgehalten: "zurueckgehalten" } as const)[
       ergebnis
@@ -67,7 +67,7 @@ vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
 vi.doMock("@/core/mailKinds.ts", () => KINDS_DOUBLE);
 vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
 
-const { drainPostausgang } = await import("./mail.ts");
+const { drainPostausgang, takeDrainCounts } = await import("./mail.ts");
 
 /** One handed-out row, its id and claim number spelled from `n`. */
 const handed = (n: number, versuch = 1): FLPostausgangAusgabe => ({
@@ -80,6 +80,7 @@ const handed = (n: number, versuch = 1): FLPostausgangAusgabe => ({
 });
 
 beforeEach(() => {
+  takeDrainCounts();
   schritte.length = 0;
   claims = [];
   apiKey = "re_test";
@@ -97,7 +98,9 @@ beforeEach(() => {
 });
 
 const sends = () => schritte.filter((schritt): schritt is Extract<Schritt, { art: "send" }> => schritt.art === "send");
-const reports = () => schritte.flatMap((schritt) => (schritt.art === "report" ? schritt.payload.ergebnisse : []));
+// Each report's outcome, its claim aside: every case's claim is the one the double hands out.
+const reports = () => schritte.flatMap((schritt) => (schritt.art === "report" ? [omitClaim(schritt.payload)] : []));
+const omitClaim = ({ beanspruchung: _claim, ...ergebnis }: FLPostausgangErgebnisPayload) => ergebnis;
 
 describe("one drain of the Postausgang", () => {
   /* A send without the row's tag is an event no row is found by, and one without the hand-out's key is a second mail
@@ -106,7 +109,7 @@ describe("one drain of the Postausgang", () => {
   it("sends each mail under its hand-out's key and its row's tag, and reports it before the next goes", async () => {
     claims = [{ mails: [handed(1), handed(2, 3)], aufgegeben: 1 }];
 
-    const zaehlung = await drainPostausgang();
+    await drainPostausgang();
 
     expect(schritte.map((schritt) => schritt.art)).toStrictEqual(["send", "report", "send", "report"]);
     expect(sends().map(({ headers }) => headers.get("Idempotency-Key"))).toStrictEqual([
@@ -118,11 +121,24 @@ describe("one drain of the Postausgang", () => {
       [{ name: "postausgang_id", value: handed(2).id }],
     ]);
     expect(reports()).toStrictEqual([
-      { id: handed(1).id, ergebnis: "gesendet", nachricht_id: "re-1" },
-      { id: handed(2).id, ergebnis: "gesendet", nachricht_id: "re-1" },
+      { id: handed(1).id, ergebnis: "gesendet", nachricht_id: "re-1", grund: null },
+      { id: handed(2).id, ergebnis: "gesendet", nachricht_id: "re-1", grund: null },
     ]);
     // The claim's own give-ups count with the reports', which is what the heartbeat reads.
-    expect(zaehlung).toMatchObject({ gesendet: 2, aufgegeben: 1 });
+    expect(takeDrainCounts()).toMatchObject({ gesendet: 2, aufgegeben: 1 });
+  });
+
+  /* Most drains are a write's, and a mail is given up by whichever drain meets it: the hourly pass's heartbeat reads every
+     drain's count since the last, or a mail given up behind a write never reaches `/fail`. */
+  it("counts every drain's outcomes until the pass takes them, and starts again from none", async () => {
+    claims = [{ mails: [], aufgegeben: 1 }];
+    await drainPostausgang();
+    claims = [{ mails: [handed(1)], aufgegeben: 0 }];
+    provider = () => Response.json({ name: "validation_error" }, { status: 422 });
+    await drainPostausgang();
+
+    expect(takeDrainCounts()).toStrictEqual({ gesendet: 0, wiederholt: 0, aufgegeben: 2, zurueckgehalten: 0, ignoriert: 0 });
+    expect(takeDrainCounts()).toStrictEqual({ gesendet: 0, wiederholt: 0, aufgegeben: 0, zurueckgehalten: 0, ignoriert: 0 });
   });
 
   /* A call made while a drain runs waits on it. Served by that drain, or by one more under its caller's spent deadline,
@@ -135,8 +151,8 @@ describe("one drain of the Postausgang", () => {
     const waiting = runWithRequestScope({ traceId: "trace-waiting" }, drainPostausgang);
 
     await expect(failing).rejects.toThrow("deadline");
-    await expect(waiting).resolves.toMatchObject({ gesendet: 1 });
-    expect(reports()).toStrictEqual([{ id: handed(1).id, ergebnis: "gesendet", nachricht_id: "re-1" }]);
+    await expect(waiting).resolves.toBeUndefined();
+    expect(reports()).toStrictEqual([{ id: handed(1).id, ergebnis: "gesendet", nachricht_id: "re-1", grund: null }]);
   });
 
   /* The row arrives sealed under the frontend's own key (`fl_frontend/src/core/auth.ts :: oweSignInMail`): a builder
@@ -168,20 +184,22 @@ describe("one drain of the Postausgang", () => {
   });
 
   /* Read the wrong way round, the league's daily quota would give up every mail queued behind it, and a refusal no
-     send can repair would be retried until its deadline. */
+     send can repair would be retried until its deadline. The provider's name for a refusal is the row's one record of
+     why, no line beside it; a name the endpoint would refuse is dropped rather than failing the report. */
   it.each([
-    ["a rate limit", () => Response.json({ name: "rate_limit_exceeded" }, { status: 429 }), "wiederholen"],
-    ["the daily quota", () => Response.json({ name: "daily_quota_exceeded" }, { status: 429 }), "wiederholen"],
-    ["an outage", () => new Response(null, { status: 503 }), "wiederholen"],
-    ["a broken connection", () => Promise.reject(new TypeError("fetch failed")), "wiederholen"],
-    ["a refusal of the message itself", () => Response.json({ name: "validation_error" }, { status: 422 }), "aufgeben"],
-  ] as const)("reports %s as %s", async (_name, answer, ergebnis) => {
+    ["a rate limit", () => Response.json({ name: "rate_limit_exceeded" }, { status: 429 }), "wiederholen", "rate_limit_exceeded"],
+    ["the daily quota", () => Response.json({ name: "daily_quota_exceeded" }, { status: 429 }), "wiederholen", "daily_quota_exceeded"],
+    ["an outage", () => new Response(null, { status: 503 }), "wiederholen", null],
+    ["a broken connection", () => Promise.reject(new TypeError("fetch failed")), "wiederholen", null],
+    ["a refusal of the message itself", () => Response.json({ name: "validation_error" }, { status: 422 }), "aufgeben", "validation_error"],
+    ["a refusal named past the endpoint's bound", () => Response.json({ name: "x".repeat(200) }, { status: 422 }), "aufgeben", null],
+  ] as const)("reports %s as %s", async (_name, answer, ergebnis, grund) => {
     claims = [{ mails: [handed(1)], aufgegeben: 0 }];
     provider = answer;
 
     await drainPostausgang();
 
-    expect(reports()).toStrictEqual([{ id: handed(1).id, ergebnis: ergebnis, nachricht_id: null }]);
+    expect(reports()).toStrictEqual([{ id: handed(1).id, ergebnis: ergebnis, nachricht_id: null, grund: grund }]);
   });
 
   it("reports a deployment that sends nothing as withheld, and reaches no provider", async () => {
@@ -191,6 +209,6 @@ describe("one drain of the Postausgang", () => {
     await drainPostausgang();
 
     expect(sends()).toStrictEqual([]);
-    expect(reports()).toStrictEqual([{ id: handed(1).id, ergebnis: "zurueckgehalten", nachricht_id: null }]);
+    expect(reports()).toStrictEqual([{ id: handed(1).id, ergebnis: "zurueckgehalten", nachricht_id: null, grund: null }]);
   });
 });

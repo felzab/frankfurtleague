@@ -8,7 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import season_has_ended
 from app.api.postausgang.schemas import FLPostausgangBezug, FLRegistrierungLinkDaten
-from app.api.postausgang.services import enqueue_mail
+from app.api.postausgang.services import OwedMail, enqueue_mails
 from app.api.registrierungen.schemas import FLRegistrierungSweepResponse
 from app.api.registrierungen.services import (
     REGISTRIERUNG_LINK,
@@ -214,22 +214,26 @@ async def sweep_registrierungen(
                 return_document=ReturnDocument.BEFORE,
             )
             # The stamp and the mail commit together; the ban is judged when the mail is handed out.
-            await enqueue_mail(
+            await enqueue_mails(
                 postausgang_collection=postausgang_collection,
                 session=session,
-                # The day too: an address change owes the moved row its reminder again, which an earlier key would swallow.
-                schluessel=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/erinnerung/{today}",
-                an=str(row["email"]),
-                daten=FLRegistrierungLinkDaten(
-                    art="registrierung_erinnerung",
-                    # Empty where the team row is gone: a reminder naming no team beats a pass that stops.
-                    team=team_names.get(row.get("team_id"), _TEAM_UNBEKANNT),
-                    saison_id=saison_id,
-                    frist_tage=REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
-                ),
+                mails=[
+                    OwedMail(
+                        # The day too: an address change owes the moved row its reminder again, which an earlier key would swallow.
+                        schluessel=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/erinnerung/{today}",
+                        an=str(row["email"]),
+                        daten=FLRegistrierungLinkDaten(
+                            art="registrierung_erinnerung",
+                            # Empty where the team row is gone: a reminder naming no team beats a pass that stops.
+                            team=team_names.get(row.get("team_id"), _TEAM_UNBEKANNT),
+                            saison_id=saison_id,
+                            frist_tage=REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
+                        ),
+                        bezug=FLPostausgangBezug(sammlung=Collection.REGISTRIERUNGEN, id=row["_id"], sitz=None),
+                        link=REGISTRIERUNG_LINK,
+                    )
+                ],
                 now=germany_now,
-                bezug=FLPostausgangBezug(sammlung=Collection.REGISTRIERUNGEN, id=row["_id"], sitz=None),
-                link=REGISTRIERUNG_LINK,
             )
 
         return len(taken)

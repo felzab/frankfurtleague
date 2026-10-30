@@ -19,14 +19,17 @@ let listing: () => Promise<readonly string[]> = () => Promise.resolve(accounts);
 const deleteCalls: string[] = [];
 /** Per address, what `deleteAccountFor` does where it was not simply there to delete. */
 const deleteOutcomes = new Map<string, "gone" | "throws">();
-/** Every load of `fl_frontend/src/core/mail.ts`, the one module reaching the mail provider, which the sweep never reaches. */
-const mailerLoads: string[] = [];
+/** Every drain the sweep started, the one way a mail reaches the provider, which the sweep never starts. */
+const drains: string[] = [];
 
-// Watched rather than doubled, the real module standing: any load is the regression, at import or at a send.
-vi.doMock("@/core/mail.ts", async (importOriginal) => {
-  mailerLoads.push("@/core/mail.ts");
-  return importOriginal();
-});
+// Doubled at the drain alone, the module standing: the client every slice sends through loads it, so a load is no send.
+vi.doMock("@/core/mail.ts", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  drainPostausgang: () => {
+    drains.push("drain");
+    return Promise.resolve();
+  },
+}));
 
 /** Which of `identifiers` the doubled read answers unreferenced, handed the batch alone or an address re-asked alone. */
 let referenzen: (identifiers: readonly string[]) => readonly string[] = () => [];
@@ -128,11 +131,10 @@ describe("the batches a pass asks in", () => {
   });
 
   // An empty batch is refused whole too.
-  it("asks the backend nothing for an empty store, and still writes its completion line", async () => {
+  it("asks the backend nothing for an empty store", async () => {
     await runKontoSweep();
 
     expect(calls).toStrictEqual([]);
-    expect(lines.at(-1)?.event).toStrictEqual("konto.sweep_completed");
   });
 });
 
@@ -146,7 +148,7 @@ describe("a pass meeting a failure", () => {
     };
 
     // The batch it could not judge is what the pass left, which the heartbeat names.
-    expect(await runKontoSweep()).toBe(REFERENZEN_ADRESSEN_MAX);
+    expect((await runKontoSweep()).offen).toBe(REFERENZEN_ADRESSEN_MAX);
 
     expect(deleteCalls).toStrictEqual(zweiter);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
@@ -267,29 +269,30 @@ describe("a pass meeting a failure", () => {
 
     await runKontoSweep();
 
-    expect(lines.map(({ event }) => event)).toStrictEqual(["konto.referenzen_failed", "konto.delete_failed", "konto.sweep_completed"]);
+    expect(lines.map(({ event }) => event)).toStrictEqual(["konto.referenzen_failed", "konto.delete_failed"]);
     assert.ok(!JSON.stringify(lines).includes("@"), "a line carries an address");
-    expect(mailerLoads, "the sweep reached the mailer").toStrictEqual([]);
+    // No mail owed through the sign-in library's route, and none sent: every other mail is a backend write's to owe.
+    expect(
+      calls.filter(({ endpoint }) => endpoint.startsWith("/postausgang/")),
+      "the sweep owed a mail",
+    ).toStrictEqual([]);
+    expect(drains, "the sweep drained the Postausgang").toStrictEqual([]);
   });
 });
 
-describe("the line a completed pass writes", () => {
-  /* Nothing is stored, so this line is the whole answer to whether the sweep runs and what it did. A failure keeping an
-     account makes it a warning, a level above INFO dropping the INFO a clean pass writes. */
-  it("counts what it listed, what was answered unreferenced, deleted, already gone and failed, warning over a failure", async () => {
+describe("what a completed pass answers", () => {
+  /* Nothing is stored, so these counts on the scheduler's pass line are the whole record of what the sweep did, and
+     the failed ones what the heartbeat names as left. */
+  it("counts what was answered unreferenced, deleted, already gone and failed", async () => {
     accounts = ["geloescht@schule.de", "fort@schule.de", "referenziert@schule.de", "neu@schule.de", "fehler@schule.de"];
     referenzen = (identifiers) =>
       identifiers.length > 1 ? unreferencedBut("referenziert@schule.de")(identifiers) : unreferencedBut("neu@schule.de")(identifiers);
     deleteOutcomes.set("fort@schule.de", "gone");
     deleteOutcomes.set("fehler@schule.de", "throws");
 
-    await runKontoSweep();
-
-    expect(lines.at(-1)).toStrictEqual({
-      level: "WARN",
-      event: "konto.sweep_completed",
-      error: undefined,
-      fields: { gelistet: 5, unreferenziert: 4, geloescht: 1, bereits_geloescht: 1, fehlgeschlagen: 1 },
+    expect(await runKontoSweep()).toStrictEqual({
+      zaehlung: { unreferenziert: 4, geloescht: 1, bereits_geloescht: 1, fehlgeschlagen: 1 },
+      offen: 1,
     });
   });
 });

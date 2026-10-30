@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Annotated, Literal, Self, get_args
+from typing import Annotated, Final, Literal, Self, get_args
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, computed_field, model_validator
 
 from app.api.berechtigungen.schemas import FLBerechtigungMitteilungArt, FLBerechtigungStand, FLBerechtigungUrheber, FLBerechtigungVorenthalten
 from app.api.registrierungen.schemas import FLRegistrierungAblehnungsgrund
@@ -357,7 +357,11 @@ if set(get_args(FLPostausgangArt)) != _MEMBER_ARTEN:
 FLPostausgangStand = Literal["offen", "gesendet", "zurueckgehalten", "gesperrt", "entfallen", "aufgegeben"]
 
 # What the provider reports about a message it accepted. `gesendet` is the row's own state and no event's.
-FLPostausgangZustellStand = Literal["zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]
+type FLPostausgangZustellStand = Literal["zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]
+
+# The reports a reader of a seat's delivery takes as the mail not having arrived: refused by the provider's suppression
+# list, bounced for good, or marked as spam.
+UNZUSTELLBAR: Final[frozenset[FLPostausgangZustellStand]] = frozenset({"unzustellbar", "unterdrueckt", "beschwerde"})
 
 # Wide over the 36 characters the provider's id spells today, and a ceiling all the same: the value arrives from outside
 # and is stored.
@@ -365,9 +369,6 @@ CustomNachrichtId = Annotated[str, StringConstraints(strip_whitespace=True, min_
 
 # The provider's own token for a refusal, bounded and on one line, never its prose.
 CustomZustellGrund = Annotated[str, StringConstraints(strip_whitespace=True, max_length=128, pattern=SINGLE_LINE_PATTERN)]
-
-# The caller's identity of one owed mail. Bounded, as it is stored and indexed.
-CustomPostausgangSchluessel = Annotated[str, StringConstraints(min_length=1, max_length=256, pattern=SINGLE_LINE_PATTERN)]
 
 
 class FLPostausgangBezug(BaseModel):
@@ -405,6 +406,16 @@ class FLPostausgangLage(BaseReadModel):
     stand: FLPostausgangStand
     zustellung: FLPostausgangZustellung | None
 
+    @computed_field
+    @property
+    def unzustellbar(self) -> bool:
+        """Whether the mail did not arrive: given up, or refused, suppressed or marked as spam by its recipient.
+
+        The one judgement of it, which the backend's refusals and every page showing the seat read.
+        """
+
+        return self.stand == "aufgegeben" or (self.zustellung is not None and self.zustellung.stand in UNZUSTELLBAR)
+
 
 class FLPostausgangZeile(BaseModel):
     """One owed mail as `postausgang` stores it."""
@@ -430,6 +441,9 @@ class FLPostausgangZeile(BaseModel):
     # How many claims have handed the row out; each claim raises it in its own transaction.
     versuche: int = Field(ge=0)
     nachricht_id: str | None
+    # The provider's own name for the refusal the last failed send met; defaulted, as a row a send never failed holds
+    # none and a row owed before the field was written has none stored.
+    grund: str | None = Field(default=None)
     zustellung: FLPostausgangZustellung | None
 
 
@@ -449,10 +463,9 @@ class FLPostausgangAusgabe(BaseModel):
 
 
 class FLPostausgangAusgabeResponse(BaseAPIResponse):
-    """The owed mails one claim holds, oldest first; `beanspruchung` and `beansprucht_bis` are null exactly where it holds none."""
+    """The owed mails one claim holds, oldest first; `beanspruchung` is null exactly where it holds none."""
 
     beanspruchung: str | None
-    beansprucht_bis: AwareDatetime | None
     mails: list[FLPostausgangAusgabe]
     # Rows this claim found past their deadline and gave up, which no report will count.
     aufgegeben: int = Field(ge=0)
@@ -461,29 +474,31 @@ class FLPostausgangAusgabeResponse(BaseAPIResponse):
 FLPostausgangErgebnisArt = Literal["gesendet", "wiederholen", "aufgeben", "zurueckgehalten"]
 
 
-class FLPostausgangErgebnis(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    id: CustomObjectId
-    ergebnis: FLPostausgangErgebnisArt
-    # The provider's id for the accepted message, kept as the row's record of it.
-    nachricht_id: CustomNachrichtId | None
-
-    # Only a sent mail names a message, and a sent one may name none: the provider accepted it, and its answer carried no
-    # readable id, which no event needs, each finding its row by the row's own id.
-    @model_validator(mode="after")
-    def only_a_sent_mail_names_a_message(self) -> Self:
-        if self.nachricht_id is not None and self.ergebnis != "gesendet":
-            raise ValueError("Nur eine gesendete Mail nennt eine Nachricht.")
-
-        return self
-
-
 class FLPostausgangErgebnisPayload(BaseModel):
+    """The outcome of one handed-out mail's send, reported as the send returns."""
+
     model_config = ConfigDict(extra="forbid")
 
     beanspruchung: CustomStrippedNonEmptyString
-    ergebnisse: list[FLPostausgangErgebnis] = Field(min_length=1, max_length=64)
+    id: CustomObjectId
+    ergebnis: FLPostausgangErgebnisArt
+    # The provider's id for the accepted message: an operator's one way from the row to the message there, its dashboard's
+    # page or `GET /emails/{id}` (https://resend.com/docs/api-reference/emails/retrieve-email), the provider offering no
+    # search by tag. No event needs it, each finding its row by the row's own id.
+    nachricht_id: CustomNachrichtId | None
+    # The provider's own name for the refusal a failed send met, the row's one record of why.
+    grund: CustomZustellGrund | None
+
+    # Only a sent mail names a message, and a sent one may name none: the provider accepted it, and its answer carried no
+    # readable id. Only a failed send names a refusal, and one that never reached the provider names none.
+    @model_validator(mode="after")
+    def each_outcome_names_only_its_own(self) -> Self:
+        if self.nachricht_id is not None and self.ergebnis != "gesendet":
+            raise ValueError("Only a sent mail names a message.")
+        if self.grund is not None and self.ergebnis not in ("wiederholen", "aufgeben"):
+            raise ValueError("Only a failed send names a refusal.")
+
+        return self
 
 
 class FLPostausgangErgebnisResponse(BaseAPIResponse):
@@ -500,7 +515,6 @@ class FLPostausgangAnmeldungPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schluessel: CustomPostausgangSchluessel
     an: CustomEmail
     daten: FLPostausgangAnmeldeDaten
     # Encrypted by the frontend before it leaves it, under a key the backend never holds: the code, or the deletion token.
@@ -511,14 +525,9 @@ class FLPostausgangAnmeldungPayload(BaseModel):
     @model_validator(mode="after")
     def a_secret_names_when_it_lapses(self) -> Self:
         if self.geheim is not None and self.gueltig_bis is None:
-            raise ValueError("Ein Geheimnis nennt, wann es verfällt.")
+            raise ValueError("A secret names when it lapses.")
 
         return self
-
-
-class FLPostausgangAnmeldungResponse(BaseAPIResponse):
-    # The row the mail waits in: the one a replay of the same key wrote first.
-    id: CustomObjectId
 
 
 class FLPostausgangEreignisPayload(BaseModel):

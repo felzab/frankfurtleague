@@ -24,7 +24,7 @@ from app.api.postausgang.schemas import (
     FLPostausgangLage,
     FLPostausgangLink,
 )
-from app.api.postausgang.services import OwedMail, unzustellbar
+from app.api.postausgang.services import OwedMail
 from app.api.sperrliste.services import withheld_actor
 from app.api.teams.schemas import FLPostTeamPayload
 from app.core.codes import Code
@@ -1311,7 +1311,7 @@ def compose_erinnerung_update(*, seats: Sequence[str], today: str) -> Mapping[st
 def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str, unzustellbar: bool) -> bool:
     """Whether the fourteen-day clock takes this application: submitted, past its deadline, a seat outstanding, the notice deliverable.
 
-    `unzustellbar` is `app/api/postausgang/services.py :: unzustellbar` of the last mail owed the Ansprechperson: the
+    `unzustellbar` is `app/api/postausgang/schemas.py :: FLPostausgangLage.unzustellbar` of the last mail owed the Ansprechperson: the
     deletion notice could not reach the submitter. An EMPTY Ansprechperson slot is not this case: no mailbox is left to
     tell, and the deadline takes the application unannounced.
 
@@ -1470,9 +1470,9 @@ def bewerbung_bezug(bewerbung_id: Any, seats: Sequence[FLKontaktRolle]) -> FLPos
 
 
 def lage_unzustellbar(lage: FLPostausgangLage | None) -> bool:
-    """`app/api/postausgang/services.py :: unzustellbar` of the last mail owed one seat, `False` where none was owed."""
+    """`app/api/postausgang/schemas.py :: FLPostausgangLage.unzustellbar` of the last mail owed one seat, `False` where none was owed."""
 
-    return lage is not None and unzustellbar(lage.model_dump())
+    return lage is not None and lage.unzustellbar
 
 
 def ausstehende_personen(*, kontakte: Any, seats: Sequence[str]) -> list[FLBewerbungPerson]:

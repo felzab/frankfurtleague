@@ -3,36 +3,37 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from bson import ObjectId
+from fastapi import APIRouter, Body, Depends, status
 from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import mint_token
 from app.api.postausgang.schemas import (
     FLPostausgangAnmeldungPayload,
-    FLPostausgangAnmeldungResponse,
     FLPostausgangAusgabe,
     FLPostausgangAusgabeResponse,
     FLPostausgangEreignisPayload,
     FLPostausgangEreignisResponse,
-    FLPostausgangErgebnis,
     FLPostausgangErgebnisPayload,
     FLPostausgangErgebnisResponse,
 )
 from app.api.postausgang.services import (
     ANMELDE_ARTEN,
     BEANSPRUCHUNG_DAUER,
+    ENDSTAND,
     FOLGT_AUF,
     SEITE,
     UNGESPERRT,
-    enqueue_mail,
+    OwedMail,
     final_update,
     retry_update,
+    row_of,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, pull_many_from_db
+from app.core.crud import patch_many_in_db, post_one_to_db, pull_many_from_db, stamp_in_db
 from app.core.dependencies import DB, DBClient, PostausgangCollection, get_germany_now
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import transaction_session
@@ -132,14 +133,13 @@ async def post_ausgabe(
             if row["_id"] in gesperrt or row["link"] is None:
                 continue
             raw, token_hash = mint_token()
-            # Written as an anchor is, past the version and the action log: a hash changes nothing a reader sees, and
-            # raising the version would refuse the next save of an editor read before the drain.
-            minted = await db[Collection(row["bezug"]["sammlung"])].update_one(
-                filter=_link_record_filter(row),
+            minted = await stamp_in_db(
+                collection=db[Collection(row["bezug"]["sammlung"])],
+                db_filter=_link_record_filter(row),
                 update=_link_update(row["link"], token_hash),
                 session=session,
             )
-            if minted.matched_count == 0:
+            if not minted:
                 entfallen.append(row["_id"])
                 continue
             tokens[row["_id"]] = raw
@@ -194,111 +194,73 @@ async def post_ausgabe(
 
     return FLPostausgangAusgabeResponse(
         beanspruchung=beanspruchung,
-        beansprucht_bis=None if beanspruchung is None else now + BEANSPRUCHUNG_DAUER,
         mails=mails,
         aufgegeben=aufgegeben,
     )
 
 
-@router.post("/ergebnis", response_model=FLPostausgangErgebnisResponse, summary="Settle the mails a claim handed out")
+@router.post("/ergebnis", response_model=FLPostausgangErgebnisResponse, summary="Settle one mail a claim handed out")
 async def post_ergebnis(
     ergebnis_data: Annotated[FLPostausgangErgebnisPayload, Body()],
     postausgang_collection: PostausgangCollection,
-    db_client: DBClient,
     now: datetime = Depends(get_germany_now),
 ) -> FLPostausgangErgebnisResponse:
     """
-    Settle each named mail the named claim still holds, by the outcome of its send, and nothing else.
+    Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.
 
-    `gesendet` records the provider's message id, which every later event about the message names; `zurueckgehalten` a
-    deployment that sends no mail; `aufgeben` a refusal every send would meet, any 4xx but a 429. `wiederholen`, for a
-    429, a 5xx or a send that never reached the provider, hands the mail back for a drain a minute from now, or gives it
-    up where it has grown past its deadline; a mail of the sign-in library is given up at once, its library's repair
-    being a fresh one. A mail the claim does not hold -- unknown,
-    settled already, or claimed since by another drain after this claim lapsed -- is left alone and counted in `ignoriert`.
-    A repeated id counts once, by its first outcome. One transaction; a settled row keeps no facts and no secret.
+    `gesendet` records the provider's message id; `zurueckgehalten` a deployment that sends no mail; `aufgeben` a
+    refusal every send would meet, any 4xx but a 429. A failed send's `grund`, the provider's own name for the refusal,
+    is recorded on the row, the send's one record of why. `wiederholen`, for a 429, a 5xx or a send that never reached the
+    provider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a
+    mail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not
+    hold -- unknown, settled already, or claimed since by another drain after this claim lapsed -- is left alone and
+    counted in `ignoriert`; the answer counts one outcome. Each write names the claim, so its check and the outcome are
+    one atomic operation on one row, needing no transaction; a settled row keeps no facts and no secret.
     """
 
-    outcomes: dict[Any, FLPostausgangErgebnis] = {}
-    for ergebnis in ergebnis_data.ergebnisse:
-        outcomes.setdefault(ergebnis.id, ergebnis)
+    held = {"_id": ergebnis_data.id, "beanspruchung": ergebnis_data.beanspruchung, "stand": "offen"}
 
-    async def settle(session: AsyncClientSession) -> FLPostausgangErgebnisResponse:
-        held = await pull_many_from_db(
-            collection=postausgang_collection,
-            db_filter={"_id": {"$in": list(outcomes)}, "beanspruchung": ergebnis_data.beanspruchung, "stand": "offen"},
-            limit=len(outcomes),
-            projection=["_id", "art"],
-            session=session,
-        )
-        by_outcome: dict[str, list[Any]] = {"gesendet": [], "wiederholen": [], "aufgeben": [], "zurueckgehalten": []}
-        for row in held:
-            ergebnis = outcomes[row["_id"]].ergebnis
-            by_outcome["aufgeben" if ergebnis == "wiederholen" and row["art"] in ANMELDE_ARTEN else ergebnis].append(row["_id"])
+    async def settled(update: Mapping[str, Any], narrowed: Mapping[str, Any]) -> bool:
+        # Every report writes its refusal or none, so a mail sent after a failed send keeps no reason it no longer has.
+        with_grund = {**update, "$set": {**update["$set"], "grund": ergebnis_data.grund}}
+        result = await patch_many_in_db(collection=postausgang_collection, db_filter={**held, **narrowed}, update=with_grund)
+        return result.modified_count > 0
 
-        for row_id in by_outcome["gesendet"]:
-            await patch_many_in_db(
-                collection=postausgang_collection,
-                db_filter={"_id": row_id, "stand": "offen"},
-                update=final_update("gesendet", now=now, nachricht_id=outcomes[row_id].nachricht_id),
-                session=session,
-            )
+    ergebnis = ergebnis_data.ergebnis
+    stand = ENDSTAND[ergebnis]
+    # A send to be tried again ends here only where it may not be: a sign-in mail, or one past its deadline.
+    endet = {"$or": [{"art": {"$in": list(ANMELDE_ARTEN)}}, {"frist": {"$lte": now}}]} if ergebnis == "wiederholen" else {}
+    gezaehlt: str
+    if await settled(final_update(stand, now=now, nachricht_id=ergebnis_data.nachricht_id), endet):
+        gezaehlt = stand
+    elif ergebnis == "wiederholen" and await settled(retry_update(now=now), {}):
+        gezaehlt = "wiederholt"
+    else:
+        gezaehlt = "ignoriert"
 
-        async def settled(ids: list[Any], update: Mapping[str, Any], **narrowed: Any) -> int:
-            if not ids:
-                return 0
-            result = await patch_many_in_db(
-                collection=postausgang_collection, db_filter={"_id": {"$in": ids}, "stand": "offen", **narrowed}, update=update, session=session
-            )
-            return result.modified_count
-
-        zurueckgehalten = await settled(by_outcome["zurueckgehalten"], final_update("zurueckgehalten", now=now))
-        aufgegeben = await settled(by_outcome["aufgeben"], final_update("aufgegeben", now=now))
-        aufgegeben += await settled(by_outcome["wiederholen"], final_update("aufgegeben", now=now), frist={"$lte": now})
-        wiederholt = await settled(by_outcome["wiederholen"], retry_update(now=now), frist={"$gt": now})
-
-        return FLPostausgangErgebnisResponse(
-            gesendet=len(by_outcome["gesendet"]),
-            wiederholt=wiederholt,
-            aufgegeben=aufgegeben,
-            zurueckgehalten=zurueckgehalten,
-            ignoriert=len(outcomes) - len(held),
-        )
-
-    async with transaction_session(db_client) as session:
-        return await session.with_transaction(settle)
+    return FLPostausgangErgebnisResponse.model_validate({feld: int(feld == gezaehlt) for feld in FLPostausgangErgebnisResponse.model_fields})
 
 
-@router.post("/anmeldung", response_model=FLPostausgangAnmeldungResponse, summary="Owe one mail of the sign-in library")
+@router.post("/anmeldung", status_code=status.HTTP_204_NO_CONTENT, summary="Owe one mail of the sign-in library")
 async def post_anmeldung(
     anmeldung_data: Annotated[FLPostausgangAnmeldungPayload, Body()],
     postausgang_collection: PostausgangCollection,
-    db_client: DBClient,
     now: datetime = Depends(get_germany_now),
-) -> FLPostausgangAnmeldungResponse:
+) -> None:
     """
     Owe one mail the sign-in library sends -- the code, a passkey notice, the deletion link -- to the address named.
 
-    A replay of the same `schluessel` writes nothing and answers the row its first call wrote. `geheim` is stored as it
-    arrives, encrypted under a key this service never holds, and dropped once the mail is settled; `gueltig_bis` is both
-    the last moment a hand-out may send it and the moment the row is deleted, settled or not.
+    Every call owes a mail of its own, under a key minted here: the library asks for each send once, and nothing repeats
+    the call. `geheim` is stored as it arrives, encrypted under a key this service never holds, and dropped once the mail
+    is settled; `gueltig_bis` is both the last moment a hand-out may send it and the moment the row is deleted, settled
+    or not.
     """
 
-    async def owe(session: AsyncClientSession) -> FLPostausgangAnmeldungResponse:
-        row_id = await enqueue_mail(
-            postausgang_collection=postausgang_collection,
-            session=session,
-            schluessel=anmeldung_data.schluessel,
-            an=anmeldung_data.an,
-            daten=anmeldung_data.daten,
-            now=now,
-            geheim=anmeldung_data.geheim,
-            gueltig_bis=anmeldung_data.gueltig_bis,
-        )
-        return FLPostausgangAnmeldungResponse(id=row_id)
-
-    async with transaction_session(db_client) as session:
-        return await session.with_transaction(owe)
+    mail = OwedMail(schluessel=f"{anmeldung_data.daten.art}/{ObjectId()}", an=anmeldung_data.an, daten=anmeldung_data.daten)
+    await post_one_to_db(
+        collection=postausgang_collection,
+        document=row_of(mail, now=now, geheim=anmeldung_data.geheim, gueltig_bis=anmeldung_data.gueltig_bis),
+    )
 
 
 @router.post("/ereignis", response_model=FLPostausgangEreignisResponse, summary="Record one delivery event on its mail's row")
