@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { connection } from "next/server";
 
 import { funktionenOf } from "@/core/funktionen";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
@@ -9,7 +8,6 @@ import { getSpielerSelbst } from "@/features/spieler/queries";
 import { isFunktionLost } from "@/shared/utils/actionError";
 
 export default async function PersoenlichSpielerPage() {
-  await connection();
   const subject = await requireSubjectSession();
 
   // To the landing rather than a 404, for the reason

@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { frontend_config } from "@/core/config";
 import { buildReplacementContext } from "@/features/saisons/components/forms/AdminSaisonEditForm/replacementOffer";
@@ -53,7 +52,6 @@ function loeschungsVorschau(gelesen: FLLoeschungVorschauResponse | "unlesbar" | 
 }
 
 async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ saison_id: string }>["params"] }) {
-  await connection();
   const saisonId = await resolveSaisonIdParam(params);
 
   // The whole list, not `GET /saisons/{id}`: the rollover panel also needs whichever season holds

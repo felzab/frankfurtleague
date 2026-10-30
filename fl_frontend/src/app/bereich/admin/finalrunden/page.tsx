@@ -1,5 +1,3 @@
-import { connection } from "next/server";
-
 import z from "zod";
 
 import { AdminBracketWiringView } from "@/features/admin/components/views/AdminBracketWiringView";
@@ -16,7 +14,6 @@ import type { NextPageProps } from "@/shared/types/types";
  * planned, whose contents the base reads withhold.
  */
 export default async function AdminFinalrundenPage(props: NextPageProps) {
-  await connection();
   const saison = await requireAdminSaison(props.searchParams);
 
   const [spieltageRes, spieleRes] = await Promise.all([

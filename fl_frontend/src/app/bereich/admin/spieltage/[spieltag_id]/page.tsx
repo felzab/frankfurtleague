@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { getAdminSpiele } from "@/features/spiele/queries";
@@ -32,7 +31,6 @@ export default function AdminSpieltagEditPage(props: NextPageProps<{ spieltag_id
  * against.
  */
 async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ spieltag_id: string }>["params"] }) {
-  await connection();
   const spieltagId = await resolveSpieltagId(params);
 
   // `null` is "no such matchday"; everything else throws.

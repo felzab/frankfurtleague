@@ -1,4 +1,5 @@
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
+import { ZEITZONE } from "@/core/format";
 import { GELOESCHTE_PERSON, vonOderGesperrt } from "@/features/berechtigungen/constants";
 
 import { AKTION_COLLECTION_LABELS, AKTION_HERKUNFT_LABELS, AKTOR_FUNKTION_LABELS, AKTOR_HERKUNFT } from "./constants";
@@ -47,14 +48,14 @@ export function labelForCollection(collection: string): string {
 // Europe/Berlin, as every other date in this app is rendered: the log stores UTC, and an admin reading
 // "14:23" for a write they made at 16:23 would look for it on the wrong side of midnight.
 const ZEITPUNKT_DATUM = new Intl.DateTimeFormat("de-DE", {
-  timeZone: "Europe/Berlin",
+  timeZone: ZEITZONE,
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
 });
 
 const ZEITPUNKT_UHRZEIT = new Intl.DateTimeFormat("de-DE", {
-  timeZone: "Europe/Berlin",
+  timeZone: ZEITZONE,
   hour: "2-digit",
   minute: "2-digit",
 });
