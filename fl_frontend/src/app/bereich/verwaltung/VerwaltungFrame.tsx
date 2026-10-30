@@ -63,7 +63,7 @@ export const RAIL_GROUPS: RailGroup[] = [
         href: ROUTES.verwaltungAdressaenderungen.path(),
         icon: "adressaenderungen",
       },
-      { id: "protokoll", label: ROUTES.verwaltungActionLog.title, href: ROUTES.verwaltungActionLog.path(), icon: "log" },
+      { id: "action_log", label: ROUTES.verwaltungActionLog.title, href: ROUTES.verwaltungActionLog.path(), icon: "log" },
     ],
   },
 ];
