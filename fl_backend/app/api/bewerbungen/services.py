@@ -1311,7 +1311,7 @@ def compose_erinnerung_update(*, seats: Sequence[str], today: str) -> Mapping[st
 def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str, unzustellbar: bool) -> bool:
     """Whether the fourteen-day clock takes this application: submitted, past its deadline, a seat outstanding, the notice deliverable.
 
-    `unzustellbar` is `app/api/postausgang/services.py :: unzustellbar` of the last mail owed the Ansprechperson: the
+    `unzustellbar` is `app/api/postausgang/schemas.py :: FLPostausgangLage.unzustellbar` of the last mail owed the Ansprechperson: the
     deletion notice could not reach the submitter. An EMPTY Ansprechperson slot is not this case: no mailbox is left to
     tell, and the deadline takes the application unannounced.
 
