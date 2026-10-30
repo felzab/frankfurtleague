@@ -1,5 +1,7 @@
 import "server-only";
 
+import { buildSchiedsrichterBestaetigungEmail } from "./schiedsrichterEmail";
+
 import type { Mail } from "./emailShell";
 import type { FLPostausgangAusgabe } from "./generated/client/types";
 
@@ -33,7 +35,9 @@ interface Ausgabe {
 type MailBuilder<A extends PostausgangArt> = (daten: DatenJeArt[A], ausgabe: Ausgabe) => Mail;
 
 /** Each kind's builder, which renders through the shell (`fl_frontend/src/core/emailShell.ts :: renderMail`). */
-const MAIL_KINDS: { [A in PostausgangArt]?: MailBuilder<A> } = {};
+const MAIL_KINDS: { [A in PostausgangArt]?: MailBuilder<A> } = {
+  schiedsrichter_bestaetigung: buildSchiedsrichterBestaetigungEmail,
+};
 
 /**
  * The mail one hand-out owes, or `undefined` where its kind has no builder. Indexed by the kind itself, so the builder

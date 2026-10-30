@@ -22,7 +22,6 @@ import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarnin
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { fieldStatus } from "@/shared/utils/draftStatus";
-import { versandWarnt } from "@/shared/utils/linkVersand";
 
 import { buildSchiedsrichterBanners } from "./banners";
 import { FormBestaetigungSection } from "./FormBestaetigungSection";
@@ -188,17 +187,13 @@ export function AdminSchiedsrichterEditForm({ schiedsrichter, istFassungBekannt,
           setSubmitFieldErrors({}, {});
           setHasSaved(true);
 
-          // The save's own sentence FIRST: where the address moved it reports a link that went out, and
-          // dropping it leaves an administrator with no record that a message was sent at all.
+          // The save's own sentence FIRST: where the address moved it names the mailbox the fresh link goes
+          // to, and dropping it leaves an administrator with no record that a message is on its way at all.
           const gespeichertesSatz = [res.versandSatz, renameTouched ? "Der neue Name steht ab sofort auch an jedem Spiel." : undefined]
             .filter((satz) => satz !== undefined)
             .join(" ");
 
-          // A save that mailed nothing is clean; one whose link did not go out is graded a warning, the
-          // referee having no working link and nobody else being told.
-          const warn = versandWarnt(res.versand);
-          const raise = warn ? appToast.warning : appToast.success;
-          raise(warn ? "Mit Folgen gespeichert" : "Änderung gespeichert", {
+          appToast.success("Änderung gespeichert", {
             description: gespeichertesSatz === "" ? "Die Schiedsrichterdaten wurden aktualisiert." : gespeichertesSatz,
           });
 

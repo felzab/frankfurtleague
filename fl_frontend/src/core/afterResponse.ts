@@ -19,9 +19,6 @@ export function afterTheResponse(work: () => Promise<void>): void {
 /**
  * The Postausgang drained once behind the response, for a write that owed a mail: the mail leaves at once rather than
  * at the next hourly pass, which retries whatever this drain could not send.
- *
- * @awaitsPage the first write that owes a mail through the Postausgang
- * @awaitsProduction the same
  */
 export function drainSoon(): void {
   afterTheResponse(async () => {
