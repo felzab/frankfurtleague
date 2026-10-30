@@ -44,13 +44,13 @@ export async function registerOnNode() {
  * What one job did in a pass, by count and never by person: `offen` the owed deletions or erasures it left, and
  * `error` what ended a job part-way, after the work its counts record.
  */
-type Durchlauf = { readonly count: Readonly<Record<string, number | string | null>>; readonly open: number; readonly error?: unknown };
+type JobRun = { readonly count: Readonly<Record<string, number | string | null>>; readonly open: number; readonly error?: unknown };
 
 /**
  * One background job. It rejects, or resolves with an `error`, where it could not finish what it owes; each job is
  * idempotent, so a pass after a failed one repeats nothing that went. A job that counts nothing resolves to nothing.
  */
-type Job = { readonly name: string; readonly run: () => Promise<Durchlauf | void> };
+type Job = { readonly name: string; readonly run: () => Promise<JobRun | void> };
 
 /**
  * Every job, run in this order each pass and then the Postausgang's drain, which sends what they owed. Imported here,
@@ -132,7 +132,7 @@ function armScheduler(passes: Awaited<ReturnType<typeof loadJobs>>, heartbeat: s
  */
 async function runPass({ jobs, drain, takeDrainCounts }: Awaited<ReturnType<typeof loadJobs>>): Promise<readonly string[]> {
   const failures: string[] = [];
-  const zaehlungen: Record<string, Durchlauf["count"]> = {};
+  const counts: Record<string, JobRun["count"]> = {};
 
   const failed = (name: string, error: unknown) => {
     // The job's name and the error's, never a person: a failure on any job's path can carry an address.
@@ -146,12 +146,12 @@ async function runPass({ jobs, drain, takeDrainCounts }: Awaited<ReturnType<type
 
   for (const { name, run } of jobs) {
     try {
-      const durchlauf = await run();
-      if (durchlauf === undefined) continue;
+      const jobRun = await run();
+      if (jobRun === undefined) continue;
 
-      zaehlungen[name] = durchlauf.count;
-      if (durchlauf.error !== undefined) failed(name, durchlauf.error);
-      else if (durchlauf.open > 0) failures.push(`${name} left ${String(durchlauf.open)}`);
+      counts[name] = jobRun.count;
+      if (jobRun.error !== undefined) failed(name, jobRun.error);
+      else if (jobRun.open > 0) failures.push(`${name} left ${String(jobRun.open)}`);
     } catch (error) {
       failed(name, error);
     }
@@ -164,12 +164,12 @@ async function runPass({ jobs, drain, takeDrainCounts }: Awaited<ReturnType<type
   // Every drain's, a write's among them, whether this pass's own one finished or not: a mail is given up by whichever
   // drain meets it.
   const outbox = takeDrainCounts();
-  zaehlungen["outbox"] = outbox;
+  counts["outbox"] = outbox;
   if (outbox.abandoned > 0) failures.push(`outbox gave up ${String(outbox.abandoned)}`);
 
-  const geschehen = Object.values(zaehlungen).some((count) => Object.values(count).some((value) => typeof value === "number" && value > 0));
-  if (failures.length > 0) logger.warn("scheduler.pass", { ...zaehlungen, failures });
-  else if (geschehen) logger.info("scheduler.pass", zaehlungen);
+  const happened = Object.values(counts).some((count) => Object.values(count).some((value) => typeof value === "number" && value > 0));
+  if (failures.length > 0) logger.warn("scheduler.pass", { ...counts, failures });
+  else if (happened) logger.info("scheduler.pass", counts);
 
   return failures;
 }

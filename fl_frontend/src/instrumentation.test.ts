@@ -7,10 +7,10 @@ import { COPY } from "./core/copy.ts";
 const ran: string[] = [];
 
 /** What one job did, as the scheduler reads it. */
-type Durchlauf = { count: Record<string, number | string | null>; open: number; error?: unknown };
+type JobRun = { count: Record<string, number | string | null>; open: number; error?: unknown };
 
 /** Each job's own answer, which a case replaces; every job resolves at once to nothing done otherwise. */
-const answers = new Map<string, () => Promise<Durchlauf | void>>();
+const answers = new Map<string, () => Promise<JobRun | void>>();
 
 const lines: { level: string; event: string; fields: unknown }[] = [];
 const schedulerLines = () => lines.filter(({ event }) => event.startsWith("scheduler."));
