@@ -228,6 +228,14 @@ const NEXT_PRIVATE_CONTEXTS = {
  * The published origin, for what a crawler reads: a message built on it sends a reader of any other
  * stack to production.
  */
+/** `katalog` brands a whole tree as `Copy`; only the server's own catalogue calls it besides `copy.ts` itself. */
+const CATALOGUE_BRAND = {
+  regex: moduleNamed("copy"),
+  importNames: ["katalog"],
+  message:
+    "katalog brands a whole tree as Copy: fl_frontend/src/core/serverCopy.ts, the server's own catalogue, calls it, and nothing else may. Take the entry from COPY or SERVER_COPY, or add one there.",
+};
+
 const SITE_ORIGIN = {
   regex: moduleNamed("brand"),
   importNames: ["SITE_URL"],
@@ -369,6 +377,7 @@ const IMPORT_BANS = [
   importBan(AUTH_INSTANCE, PRODUCTION, { allow: ["src/app/api/auth/[...all]/route.ts"] }),
   importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth.ts", "src/core/authIndexes.ts"] }),
   importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/konto/personActions.ts"] }),
+  importBan(CATALOGUE_BRAND, EVERY, { allow: ["src/core/serverCopy.ts"] }),
   ...BACKGROUND_PASS_BANS,
   // `no-restricted-imports` reads import and export declarations alone, so an `import()` would pass every ban above.
   // Each file spared loads a module at the call for the reason its comment there gives.
@@ -1040,7 +1049,7 @@ const DESIGN_BANS = [
       "The catalogue writes none of these: three periods, „!“, a dash, a semicolon, „Bitte“, „erfolgreich“, „leider“, „wirklich“, „und mehr“, „z. B.“, „Mannschaft“, „noch einmal“, „Sie“ or a capitalised „Du“ inside a sentence.",
     ),
     EVERY,
-    { only: ["src/core/copy.ts"] },
+    { only: ["src/core/copy.ts", "src/core/serverCopy.ts"] },
   ),
 
   // Dates, numbers and the time.
