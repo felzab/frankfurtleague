@@ -425,7 +425,14 @@ class TestTheSecretFiles:
         monkeypatch.setattr("app.core.config.BackendConfig", Spelled)
         value = FILES[MONGODB_URI_FILE].encode()
 
-        refused = refusal(monkeypatch, tmp_path, {MONGODB_URI_FILE: None, MONGODB_URI_FILE.upper(): value, "mongodb_uri": value})
+        # The option binds the variables too, outside Windows, whose environment the library reads
+        # case-insensitively whatever it is set to: the base name spelled as the field is.
+        refused = refusal(
+            monkeypatch,
+            tmp_path,
+            {MONGODB_URI_FILE: None, MONGODB_URI_FILE.upper(): value, "mongodb_uri": value},
+            db_base_name=REQUIRED["DB_BASE_NAME"],
+        )
 
         assert refused == f"Invalid secret files: {MONGODB_URI_FILE}"
 

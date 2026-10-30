@@ -16847,6 +16847,11 @@
           },
           "saison_phase": {
             "$ref": "#/components/schemas/FLSaisonPhase"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -16856,6 +16861,7 @@
           "position",
           "saison_phase",
           "saison_id",
+          "version",
           "anzahl_spiele"
         ],
         "title": "FLSpieltag",

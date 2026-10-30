@@ -24,6 +24,8 @@ class FLSpieltagRecord(BaseModel):
     position: int = Field(ge=1)
     saison_phase: FLSaisonPhase
     saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+    # 0 until a write raises it, as the create stamps it.
+    version: int = 0
 
 
 class FLSpieltag(FLSpieltagRecord, BaseReadModel):
