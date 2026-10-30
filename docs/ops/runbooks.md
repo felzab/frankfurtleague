@@ -172,7 +172,7 @@ the machine is outside the repository. What it does tell you:
     name, so that build's player list in the administration answers 500, and its public
     `GET /spieler`, asked for neither a team nor a season, serves the sentinel as a player with no
     name;
-  - an administrator's queues a grant notice withheld as `geloescht`, and that build's hourly grant
+  - an administrator's queues a grant notice withheld as `erased`, and that build's hourly grant
     pass writes its claim on the row before reading anything, a write that build's validator refuses
     with code 121, so every pass fails and no change of access is mailed again, where the row is
     still queued as that build boots;
@@ -264,7 +264,7 @@ held at different options rather than moving it, so `apply_constraints` raises a
 `fl_backend/app/core/db.py :: lifespan` fails the boot — the old index still serving, which the
 refusal does not say. **A changed RETENTION bound** is moved first by a paste on the owner's
 checklist, setting the `aktionen_retention` index's `expireAfterSeconds` to the new bound, which must
-equal `fl_backend/app/shared/schemas/bounds.py :: AKTION_RETENTION_SECONDS` in the checkout about to
+equal `fl_backend/app/shared/schemas/bounds.py :: ACTION_LOG_ENTRY_RETENTION_SECONDS` in the checkout about to
 deploy, or the boot raises on the difference that is left.
 
 **A uniqueness rule narrowed or widened by a `partial_filter`** is a different index rather than a
@@ -295,24 +295,24 @@ administration is shut while it is down. Each of these is easy to get wrong:
   wherever another owner could**: it takes effect once that person
   approves it on the same page, someone who held their own grant since before the request. Only an administrator, or an owner, nobody else could stand beside acts alone. Tell the
   colleague: a request nobody decides lapses after the days
-  `fl_backend/app/shared/schemas/bounds.py :: GENEHMIGUNG_TAGE` counts,
+  `fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS` counts,
   and one whose requester was revoked, demoted or barred since is approved by nobody and waits for a
   refusal.
 - **An `owner` is made, and steps down, only through the tier change an `owner` makes**
-  (`PATCH /berechtigungen/{berechtigung_id}`): it mails every
+  (`PATCH /grants/{grant_id}`): it mails every
   administrator and is logged, and the last live, unbarred `owner` is demoted by nobody. The person made an owner signs in once more before acting as
   one: an older sign-in keeps administering and is offered no owner's control. A demotion takes the tier at once. An `owner` is revoked only once made an administrator, and in
   the application only an `owner` revokes; an erasure of the
   holder's own data removes the grant whatever its tier, the last
-  live owner's own erasure refused (`letzter_inhaber_loeschung`).
+  live owner's own erasure refused (`last_owner_erasure`).
 - **The database is written directly for two things alone: the first owner, before anybody can sign
   in, and recovery when no owner can sign in.** Write in MongoDB Playground, never
   `mongosh`, into the `berechtigungen` collection of the application database (`DB_BASE_NAME`,
   which `fl_backend/.env` names). The row holds five fields: `adresse`,
   the address in the form the sign-in stores it (`fl_backend/app/shared/folding.py ::
 sign_in_identifier`) — trimmed, the letters of both halves lower-case, the domain in punycode —
-  which the application then reads as typed; `verwaltung`, `owner` or `administration`; `erteilt_von`, a marker naming the
-  paste, such as `PLAYGROUND`; `erteilt_am`, a date rather than a string; and `version: 0`, which
+  which the application then reads as typed; `verwaltung`, `owner` or `administration`; `granted_by`, a marker naming the
+  paste, such as `PLAYGROUND`; `granted_at`, a date rather than a string; and `version: 0`, which
   the tier change takes into its filter, so on a row without it every tier change is refused as stale. Removing the row by its
   folded address revokes it. A paste asks nobody's approval, which is why it serves these two cases
   alone. The statement itself is kept off this public repository.
@@ -329,7 +329,7 @@ sign_in_identifier`) — trimmed, the letters of both halves lower-case, the dom
   site nor to the admin tier while the ban stands, and the reconciliation flags it.
 - **Every change is announced, a Playground one naming no administrator**. A Playground change undone again before the next claim is
   announced by nothing, and deleting a row of `berechtigungen_angekuendigt` by hand announces that
-  grant again as new; deleting its owed `postausgang` row silences its notice.
+  grant again as new; deleting its owed `outbox` row silences its notice.
   The first also shuts its holder out until the pass finds the grant again, and asks them to sign in
   once more after it.
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
@@ -348,9 +348,9 @@ sign_in_identifier`) — trimmed, the letters of both halves lower-case, the dom
   address only where its mailbox is trusted as an administrator's.
 - **A Playground grant is dated twice, so whoever it admits signs in once more.** Until the
   reconciliation's next pass (`fl_frontend/src/features/berechtigungen/abgleich.ts ::
-ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `erteilt_am`, or by the moment its
+ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `granted_at`, or by the moment its
   `_id` was generated where that is later — so leave `_id` to the Playground, write `new Date()` for
-  `erteilt_am`, and any sign-in after the paste admits. Once found, it is dated by that moment instead: a session signed in between the paste and the find is sent back to
+  `granted_at`, and any sign-in after the paste admits. Once found, it is dated by that moment instead: a session signed in between the paste and the find is sent back to
   the sign-in, and the next passkey sign-in admits.
 - **A row the pass has read is no fresh paste: edit it and it admits nobody until the pass finds the
   edit**, and then only on a sign-in after the find. That holds for
@@ -393,7 +393,7 @@ ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `erteilt_am`, or by
 **The state announces itself, and the read degrades rather than refusing.** `GET /bewerbungen` serves at most
 `LIST_LIMIT_DEFAULT` rows and reads one row past that to answer whether more exist, so it never counts the
 filtered set (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen`). Where more do exist it answers
-`vollstaendig: false` and the triage page raises a standing warning that cannot be dismissed
+`complete: false` and the triage page raises a standing warning that cannot be dismissed
 (`fl_frontend/src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.tsx ::
 BewerbungenUnvollstaendigNotice`). Answering short and saying so is the deliberate choice over refusing past a
 threshold: these rows are written by an anonymous public form, so a hard failure would hand whoever writes
@@ -424,7 +424,7 @@ Ansicht bleibt unvollständig` whichever end is loaded. Reversing swaps which ro
 reduce how many are.
 
 **Narrowing by status is offered and buys nothing here.** The server sets `status` on write, so every
-flooded row is `eingereicht` and the queue's own default already selects them; season narrowing is not
+flooded row is `submitted` and the queue's own default already selects them; season narrowing is not
 offered and would not separate a flood either, a submission being admitted only while one season's window
 is open (`fl_backend/app/api/bewerbungen/services.py :: find_window_refusal`). Reaching `saison_id` anyway
 would mean a backend call, and the edge carries exactly one backend path
@@ -468,20 +468,20 @@ record, and the action log records the writes you make rather than the request t
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
 One person can hold several — a referee is a pupil, and a contact person can be both.
 
-| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/bereich/admin/spieler/{spieler_id}`, and the squad rows under each season; `/bereich/admin/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour, its minute and, until the season-end strip, its reason (`spielberichte.bericht.torschuetzen.spieler_id`, `spielberichte.bericht.karten.spieler_id`), which no page lists by person and a read-only Playground query on those two fields finds; plus every remark describing them by shirt number (`spielberichte.bericht.bemerkungen`), which their erasure does not reach and which stands until the season-end strip, read in the reports on their team's fixtures of each season they played for it, against their number then                                                                                                                                                                                                                                                                                                                                         |
-| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.partei.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds; plus the remarks, until the season-end strip, of every match report they first sent (`spielberichte.bericht.eingereicht_von.schiedsrichter_id`) and of every report on a fixture booked to them (`spiele.schiedsrichter.schiedsrichter_id`), which they may have written over another writer's: a report's page shows it to the referee booked now alone, so a read-only Playground query on those two fields finds them whole                                                                                                                                                                                                                                                                                                                                                            |
-| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.entscheidung.von`), which no page renders and a read-only Playground query on that field finds; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address as the actor of every log row they wrote (`aktionen.actor.email`, `/bereich/admin/aktionen`) and as the author of every ban, invite and application decision they made (`sperrliste.erstellt_von`, `einladungen.erstellt_von`, `bewerbungen.entscheidung.von`), and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `erteilt_von` on every grant they made, and each notice naming them still owed in `postausgang` (`daten.geaendert_von`, `daten.jetzt.adresse`, `daten.vorher.adresse`); plus every request for a grant they asked or one is asked for them (`berechtigungen_antraege.genehmigung.gestartet_von`, `berechtigungen_antraege.adresse`), listed under „Offene Anträge“ on `/bereich/admin/administratoren`, and every address change of a grant holder they started or approved (`adresswechsel.genehmigung.gestartet_von`, `adresswechsel.genehmigung.genehmigt_von`), which a read-only Playground query on those fields finds |
-| Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`adresswechsel.email`), found as the holder of a pending new address below, and a request for a grant typed for it (`berechtigungen_antraege.adresse`), listed under „Offene Anträge“                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pupil          | `/bereich/admin/spieler/{spieler_id}`, and the squad rows under each season; `/bereich/admin/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour, its minute and, until the season-end strip, its reason (`spielberichte.bericht.torschuetzen.spieler_id`, `spielberichte.bericht.karten.spieler_id`), which no page lists by person and a read-only Playground query on those two fields finds; plus every remark describing them by shirt number (`spielberichte.bericht.bemerkungen`), which their erasure does not reach and which stands until the season-end strip, read in the reports on their team's fixtures of each season they played for it, against their number then                                                                                                                                                                                                                                                                                                  |
+| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.party.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds; plus the remarks, until the season-end strip, of every match report they first sent (`spielberichte.bericht.submitted_by.schiedsrichter_id`) and of every report on a fixture booked to them (`spiele.schiedsrichter.schiedsrichter_id`), which they may have written over another writer's: a report's page shows it to the referee booked now alone, so a read-only Playground query on those two fields finds them whole                                                                                                                                                                                                                                                                                                                         |
+| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.decision.von`), which no page renders and a read-only Playground query on that field finds; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address as the actor of every log row they wrote (`aktionen.actor.email`, `/bereich/admin/aktionen`) and as the author of every ban, invite and application decision they made (`sperrliste.created_by`, `einladungen.created_by`, `bewerbungen.decision.von`), and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `granted_by` on every grant they made, and each notice naming them still owed in `outbox` (`data.changed_by`, `data.now.adresse`, `data.before.adresse`); plus every request for a grant they asked or one is asked for them (`berechtigungen_antraege.approval.started_by`, `berechtigungen_antraege.adresse`), listed under „Offene Anträge“ on `/bereich/admin/administratoren`, and every address change of a grant holder they started or approved (`adresswechsel.approval.started_by`, `adresswechsel.approval.approved_by`), which a read-only Playground query on those fields finds |
+| Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`adresswechsel.email`), found as the holder of a pending new address below, and a request for a grant typed for it (`berechtigungen_antraege.adresse`), listed under „Offene Anträge“                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 **Whatever the role, a pending change of their address and its owed notices are read apart.** Type
 the address on file into the address tool, `/bereich/admin/adresswechsel`
-(`POST /adresswechsel/ansicht`), the one read serving a live change's new address and reason; the
-editors show only that a change waits. A notice an ended change still owes either address sits in `postausgang` (`an`, and on some rows
-`daten.vorname`), and an effect's owed account carry on the change itself (`adresswechsel.umzug.von`,
-`adresswechsel.umzug.nach`); no page renders either, and a read-only Playground query on those fields
+(`POST /address_change/view`), the one read serving a live change's new address and reason; the
+editors show only that a change waits. A notice an ended change still owes either address sits in `outbox` (`an`, and on some rows
+`data.vorname`), and an effect's owed account carry on the change itself (`adresswechsel.move.von`,
+`adresswechsel.move.nach`); no page renders either, and a read-only Playground query on those fields
 finds them.
 
 **Anybody who has signed in is in the sign-in store too, and no erasure leaves their account
@@ -503,13 +503,13 @@ address as the sign-in box folds it, in lower case
 **A contact person's fixture confirmations are found from their address only through its digest.**
 A seat's answer stores neither the address nor a name: the reason its holder typed
 (`antwort.begruendung`) sits beside a keyed digest of the holder's address (`antwort.von.halter`),
-so compute that address's digest under `secrets/sperrliste_schluessel` — the same derivation
+so compute that address's digest under `secrets/sperrliste_key` — the same derivation
 `fl_backend/app/api/spielbestaetigungen/services.py :: halter_of` performs, label and fold included
 — and look it up against `spielbestaetigungen.antwort.von.halter`, which finds every answer they
 gave from any seat. The paste belongs in the operator's own checklist, as the ban's does (below).
 Their seats' links and the delivery records of the messages that carried them sit under
 `kontakte.<seat>` on their club's rows of each season in which they hold a seat now (`saison_id`,
-`partei.team_id`), read beside that season's contact block, which says whose seat it is: a seat they
+`party.team_id`), read beside that season's contact block, which says whose seat it is: a seat they
 have left took its entries off every row of that team and season, answered and closed ones too. Send the fixture, the answer, its day and the
 reason, and never the digest, the value that identifies them.
 **Once the season's contact block is cleared, its rows keep the answers alone**: the reasons, the
@@ -532,7 +532,7 @@ it as the proof of that consent.
 
 **A ban is the one record no search finds from the address it is about.** The row holds a keyed hash
 and nothing else of the person, so `/bereich/admin/sperrliste` cannot be asked whether a given address is on
-it: the question is answered by computing that address's hash under `secrets/sperrliste_schluessel` — the
+it: the question is answered by computing that address's hash under `secrets/sperrliste_key` — the
 same derivation `fl_backend/app/api/sperrliste/services.py :: adresse_hash` performs, label and fold
 included — and looking the value up against `sperrliste.adresse_hash`. The paste that does it belongs
 in the operator's own checklist and in no file here. What the answer then says is the row's reason,
@@ -556,14 +556,14 @@ seat, registration and grant the address holds, so one sign-in stays whole.
 - **The person can still sign in.** Point them to their account page, `/bereich/konto`, „E-Mail-Adresse
   ändern“. They confirm it is them by passkey or by a code to the address on file, a holder of
   access to the Verwaltung by passkey alone, type the new address, and confirm it from its own
-  mailbox within `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours; the address on
+  mailbox within `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS` hours; the address on
   file is told, with a
   link that stops the change. Never start a change for a
   person who can sign in: a request arriving by mail proves nothing about who sent it.
 - **They say they cannot sign in.** Ask the address on file first: start the change in the address
-  tool with both addresses and no reason (`POST /adresswechsel`). Nothing goes to the new address
+  tool with both addresses and no reason (`POST /address_change`). Nothing goes to the new address
   until the address on file signs in and approves the change on its account page within
-  `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours. Where the mailbox in fact still works, its holder approves or
+  `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS` hours. Where the mailbox in fact still works, its holder approves or
   stops it, so a request sent in somebody else's name reaches the real person; where nobody
   approves, the change lapses and the next bullet applies.
 - **The address on file is gone**: the approval lapsed unanswered, or the school or the provider
@@ -576,13 +576,13 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   refuse and say why. Record how you checked as the reason, naming nobody and no address: the reason
   stays twelve months in the log, and nothing checks it for a name. Start the change in the address tool
   with it. The new address confirms
-  by link within `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours,
-  and the change takes effect `:: ADRESSWECHSEL_WARTEZEIT_TAGE` days later, judged again then; until
+  by link within `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS` hours,
+  and the change takes effect `:: ADDRESS_CHANGE_WAITING_PERIOD_DAYS` days later, judged again then; until
   then the address on file, should it still be read, stops it by link or on its account page. A stopped change means the mailbox is not gone: talk to the
   person before starting again.
 - **The address holds a grant of access.** The change also waits on another administrator's
   approval on the administrators page, an owner's for an owner's grant, within
-  `fl_backend/app/shared/schemas/bounds.py :: GENEHMIGUNG_TAGE` days of its start;
+  `fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS` days of its start;
   neither the changed address nor whoever started the change gives it. Revoking the grant while a confirmed change waits needs
   no approval after it: the next hourly pass makes the change take effect, the grant moving nowhere. The tool starts a grant holder's change for an owner
   alone (`verwaltung_adresse`), and a last owner names another owner before changing their own address. On the effect the grant moves to the new address under the
@@ -592,19 +592,19 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   of their own, and no administrator's route overrides them. The remedy is outside the site: settle
   it with the school or provider that reassigned the mailbox, and with the person through a channel
   the league already holds.
-- **What refuses an administrator's start**: the ban list (`adresswechsel_gesperrt`), another pupil
+- **What refuses an administrator's start**: the ban list (`address_change_barred`), another pupil
   signing in on the new address where a pupil row moves, an address
-  holding nothing a change moves (`adresswechsel_nichts`), and your own address
-  (`eigene_adresse`), which you change on your own account page, and a new address any entry names,
-  confirmed or not (`adresswechsel_belegt`), which the confirmation would refuse too: where the two
+  holding nothing a change moves (`address_change_nothing`), and your own address
+  (`own_adresse`), which you change on your own account page, and a new address any entry names,
+  confirmed or not (`address_change_occupied`), which the confirmation would refuse too: where the two
   addresses are one person's, the league merges their records by hand.
 - **Re-send** a link only while the change waits on the new mailbox
-  (`POST /adresswechsel/{adresswechsel_id}/einladen`), and **discard** a change that turns out to be
-  wrong (`DELETE /adresswechsel/{adresswechsel_id}`). A change whose step lapses ends within the hour
+  (`POST /address_change/{address_change_id}/invite`), and **discard** a change that turns out to be
+  wrong (`DELETE /address_change/{address_change_id}`). A change whose step lapses ends within the hour
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
 - **Once a change takes effect**, the replaced address is told. Where the person started it or the
   address on file approved it, their sign-in account moves to the new address and every session of
-  it ends, unless the new address holds an account of its own (`adresswechsel.konto_nicht_umgezogen` at `WARN`), where the
+  it ends, unless the new address holds an account of its own (`address_change.account_not_moved` at `WARN`), where the
   old account keeps its sessions until the sweep below; after a change started on a recorded reason, or onto such an address, they
   sign in anew, and the account sweep
   deletes the replaced address's account within the hour, its passkeys with it, once nothing else
@@ -645,15 +645,15 @@ arriving by mail at the control for its record, which the person reaches by sign
 address that record holds:
 
 - **A referee's publication scope and media consent:**
-  `PATCH /schiedsrichter/konto/{schiedsrichter_id}/einwilligung`.
+  `PATCH /schiedsrichter/account/{schiedsrichter_id}/einwilligung`.
 - **A seat's WhatsApp scope and media consent on a team's season row:**
-  `PATCH /teams/{team_id}/saisons/{saison_id}/konto/einwilligung`, for every seat the address holds
+  `PATCH /teams/{team_id}/saisons/{saison_id}/account/einwilligung`, for every seat the address holds
   on that row.
 - **A seat's WhatsApp scope and media consent on a pending application:**
-  `PATCH /bewerbungen/{bewerbung_id}/konto/einwilligung`, which withdraws them and never grants
+  `PATCH /bewerbungen/{bewerbung_id}/account/einwilligung`, which withdraws them and never grants
   either.
 - **A pending registration's publication scope and media consent:**
-  `PATCH /registrierungen/konto/{registrierung_id}/einwilligung`, which withdraws them and grants
+  `PATCH /registrierungen/account/{registrierung_id}/einwilligung`, which withdraws them and grants
   neither. The admission deletes the registration, and its choices then move on the pupil's own
   control above.
 - **A pupil's:** the paragraph below.
@@ -667,7 +667,7 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   somebody else (`fl_backend/app/api/bewerbungen/public_router.py :: post_einwilligung`).
   Send them the link again rather than erasing for them; the record then says the person refused
   rather than that an administrator removed them. **An address the ban list holds takes no second
-  link** (`bewerbung_kontakt_gesperrt`), and the link it already holds opens on the ban's sentence alone,
+  link** (`bewerbung_kontakt_barred`), and the link it already holds opens on the ban's sentence alone,
   offering no Widerspruch: its withdrawal reaches the league's
   mailbox and is performed by hand, on „Löschung auf Anfrage“ (`/bereich/admin/loeschung`), which erases everything the
   address holds rather than this seat alone. Once the school has named a replacement, seat them
@@ -677,8 +677,8 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   and neither does one half of a claimed pair whose other half has not stepped out: that application
   takes only the Absage.
 - **The seat has already answered, or the link is over.** A seat that has confirmed or already
-  contradicted takes no second answer (`bewerbung_sitz_already_answered`), and a link whose deadline has passed
-  (`bewerbung_token_past_deadline`) or whose application has been decided (`link_abgelaufen`) takes none either —
+  contradicted takes no second answer (`bewerbung_seat_already_answered`), and a link whose deadline has passed
+  (`bewerbung_token_past_deadline`) or whose application has been decided (`link_expired`) takes none either —
   each is a refusal the person meets on the page, not something to talk them through. The route is „Löschung auf Anfrage“
   like any other.
 - **The application has been decided.** „Löschung auf Anfrage“, as above.
@@ -687,13 +687,13 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   submitter having entered them (`docs/glossary.md :: Bestätigung`). A lost or lapsed link is sent
   again with „Bestätigungslink senden“ on that seat in the team's contacts editor
   (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`), which replaces the old link
-  whole. It refuses an address the ban list holds (`kontakt_sitz_gesperrt`) and a row whose season has
-  ended or whose team has left it (`kontakt_zeile_ohne_saison`), though a link
+  whole. It refuses an address the ban list holds (`kontakt_seat_barred`) and a row whose season has
+  ended or whose team has left it (`kontakt_row_without_saison`), though a link
   such a row already holds still takes a Widerspruch. Where no live link is left, or the seat has
   already answered, the route is „Löschung auf Anfrage“.
 
 **A pupil withdrawing the consent that publishes their name does it on their account page.**
-`PATCH /spieler/konto/einwilligung` moves the record, and no administrator route writes it. A request arriving
+`PATCH /spieler/account/einwilligung` moves the record, and no administrator route writes it. A request arriving
 by mail instead has two answers, and which one you give is the person's to choose:
 
 - **They want off the website and out of the league.** „Löschung auf Anfrage“ on the address their
@@ -743,7 +743,7 @@ once the person's own address stands on it again**
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)): on a row the person
 has not confirmed, save that address in the referee editor, which on a row still in service mails
 them a confirmation link first, then erase it; a confirmed row's editor refuses the save
-(`schiedsrichter_adresse_nur_per_wechsel`) and the address tool finds no row by an empty address, so rewrite it by
+(`schiedsrichter_adresse_only_per_change`) and the address tool finds no row by an empty address, so rewrite it by
 hand as [section 9](#9-checking-that-the-hourly-passes-have-run) rewrites a pupil's. The page mails
 the person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
@@ -772,16 +772,16 @@ record holds the address ([`../datenschutz.md`](../datenschutz.md#6-retention-is
 page says so too, every person page refuses the sessions as no session at all, and each is deleted the next time its browser reaches the sign-in
 page. **Every later sign-in of the address
 is refused as its session would be created**, by a code or a passkey alike. **Beyond that the ban refuses the sign-ups that ask it and the
-administration.** A pupil's registration asks it and is refused (`registrierung_adresse_gesperrt`), and so do
-an application naming the address on any seat (`bewerbung_adresse_gesperrt`), an administrator's correction,
-reseat or re-send of a seat to it (`bewerbung_kontakt_gesperrt`) and every referee write that mints a link,
+administration.** A pupil's registration asks it and is refused (`registrierung_adresse_barred`), and so do
+an application naming the address on any seat (`bewerbung_adresse_barred`), an administrator's correction,
+reseat or re-send of a seat to it (`bewerbung_kontakt_barred`) and every referee write that mints a link,
 and both sweeps withhold the reminder they would send it, logging per season how many they held
-back and never which; nothing marks the row, so each pass counts it again until its deadline. A grant of the address is refused (`berechtigung_gesperrt`), a grant the Playground
+back and never which; nothing marks the row, so each pass counts it again until its deadline. A grant of the address is refused (`grant_barred`), a grant the Playground
 wrote onto it admits nobody, and no admin read shows it as a grant's holder or as the author of a
 grant, a ban, an invitation, a decision or a log row: each reads „Gesperrte Adresse“ there instead. **Every confirmation link
 already mailed to the address stops confirming at once**, however long ago it went out: a pupil's
-(`link_gesperrt`), a referee's (`link_gesperrt`) and a contact seat's
-(`link_gesperrt`) link opens on the ban's sentence alone, with nothing to press, and a press
+(`link_barred`), a referee's (`link_barred`) and a contact seat's
+(`link_barred`) link opens on the ban's sentence alone, with nothing to press, and a press
 already under way is refused. A
 contact person's Widerspruch then reaches the league's address, as the withdrawal bullet above says.
 Nothing of the ban is written on those records, so lifting a mistaken ban lets a link still inside
@@ -843,7 +843,7 @@ and not entropy** (`fl_backend/app/core/config.py :: SPERRLISTE_KEY_MIN_LENGTH`)
 repeated letters pass it and are worthless: what makes the value a key is that it came from this
 command and not from a keyboard.
 
-**The ban list's key, `secrets/sperrliste_schluessel`, can never be rotated, and losing it costs the whole list**: replacing it
+**The ban list's key, `secrets/sperrliste_key`, can never be rotated, and losing it costs the whole list**: replacing it
 disarms every ban in silence, the one
 sign being a second ban of an address already on the list admitted rather than refused. It keys the
 action log's pseudonyms of signed-in people too, so a replacement leaves one person's rows under two
@@ -887,7 +887,7 @@ dashboard rather than here.
 **The durable answer to "what was changed, and by whom" is the action log rather than a container
 log.** Every recorded write appends a row carrying the actor, the route, the collection, the
 operation and the image of what the write replaced or removed
-([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)), read
+([`../glossary.md`](../glossary.md#aktion--action_log_entry--one-recorded-write-and-what-it-replaced-or-removed)), read
 at `/bereich/admin/aktionen`. An erasure overwrites the values it destroys inside each image and
 stamps the row, so what survives it is that the write
 happened and what it held of anybody else.
@@ -1188,13 +1188,13 @@ the heartbeat. **An account's carry the pass could not
 make stays owed on the change**, and the account sweep keeps the replaced address's account until it
 is made: the next pass, or the next confirmation, tries it again, and a pass whose carry threw
 rejects, for the heartbeat to name. A carry the new address refused files
-`adresswechsel.konto_nicht_umgezogen`:
+`address_change.account_not_moved`:
 
 ```bash
-docker compose logs --since 2h frontend | grep -E 'adresswechsel\.konto_nicht_umgezogen|scheduler\.job_failed'
+docker compose logs --since 2h frontend | grep -E 'address_change\.account_not_moved|scheduler\.job_failed'
 ```
 
-A `konto_nicht_umgezogen` line at `WARN` needs no repair: reading `grund: "belegt"`, the new address
+A `account_not_moved` line at `WARN` needs no repair: reading `grund: "belegt"`, the new address
 held an account of its own, and the person signs in there anew.
 
 **The pupils' deletion runs on every pass**
@@ -1207,15 +1207,15 @@ as `loeschung`.
 **Activating a season runs the same deletion first, inside the press, but only as far as the
 press's own deadline reaches** (`fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS`): the
 press sends no deletion call it could not wait out to its answer. Wherever more pupils are due than
-that, the run stops there: the press files the warning `loeschung.umstellung_cut_short`, which
+that, the run stops there: the press files the warning `erasure.activation_cut_short`, which
 needs nothing from you, and its message tells the administrator the hourly pass finishes the rest.
-`loeschung.umstellung_failed`, an error, is a call that failed rather than ran
+`erasure.activation_failed`, an error, is a call that failed rather than ran
 out of time. The caches the press drops as it answers hold none of the pupils it deleted. **A call
 can still be deleting once the press has answered only where it outlasted the backend's own deadline
 and the margin the press allows past it**, and a pupil such a call deletes stays on a cached squad
 page for at most the lifetime [section 20](#20-after-a-hand-edit-in-mongodb) states.
 
-**A pupil counted `fehlgeschlagen` stays due, and every later pass meets them again.** The
+**A pupil counted `failed` stays due, and every later pass meets them again.** The
 backend's line names that pupil's id, the error's class and what locates it, never an address:
 under `database_failed` the write the database refused, under `stored_data_invalid`
 the fields a model refused, and under `unhandled_crash` the file, line and function a failure the
@@ -1233,7 +1233,7 @@ a hand edit of the record leaves.
 The run passes those pupils over on every pass until their address is stored in that form. **No
 route repairs one**: the address tool and the account page find a pupil by the folded address alone
 (`fl_backend/app/api/spieler/services.py :: build_self_pupil_filter`), so a change started for it
-finds nothing to move (`adresswechsel_nichts`), and the tool takes no address the rule refuses.
+finds nothing to move (`address_change_nothing`), and the tool takes no address the rule refuses.
 Rewrite it by hand as a MongoDB Playground paste kept in the operator's checklist (§2): a spelling
 that differs from its fold only in case, surrounding spaces or the domain's form to that fold, and
 an empty one or one the rule refuses to the folded address the person is established to hold, as
@@ -1276,8 +1276,8 @@ docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_
 
 **The first passes to meet a running season's unasked fixtures are a burst**: they ask about every
 dated fixture of the running season inside the answer window
-(`fl_backend/app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE` plus
-`:: SPIEL_ANFRAGE_VORLAUF_TAGE` days ahead), every mailbox of both clubs' seats and each booked
+(`fl_backend/app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_FRIST_DAYS` plus
+`:: SPIEL_REQUEST_LEAD_TIME_DAYS` days ahead), every mailbox of both clubs' seats and each booked
 referee, spread over as many hourly passes as the per-pass share needs, and a fixture inside the
 deadline's own days is due the day it is asked.
 
@@ -1288,7 +1288,7 @@ listed rejects, which `scheduler.job_failed`
 names as `konto` and the heartbeat as `konto failed`. Every other failure inside a pass is a line of
 its own, and the next pass asks again.
 
-**A `konto.referenzen_failed` line carrying `kein_inhaber` means the backend reads no live
+**A `konto.referenzen_failed` line carrying `no_owner` means the backend reads no live
 `owner` grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass still counts, its
 `fehlgeschlagen` every account the store listed, so a pass's line alone does not say the sweep works. Either the backend reads another database than the league's,
 which `DB_BASE_NAME` in `fl_backend/.env` names, or the `owner` grant is gone; the backend's boot warns
@@ -1348,7 +1348,7 @@ question.
 
 ## 11. A contact seat's birthdate that no confirmation stamped
 
-**The state is a seat holding a date beside no `bestaetigt_am`**, and nothing in the product clears
+**The state is a seat holding a date beside no `confirmed_at`**, and nothing in the product clears
 one: the date arrives with a person's own confirmation and rides with their address through every
 later edit (`fl_backend/app/api/teams/services.py :: _geburtsdatum_held_by`), so no save reaches it,
 and no record model expresses the pairing either, so the read-back (§2) reports nothing about it.
@@ -1362,7 +1362,7 @@ paste against the cluster, as every migration here is** (§2), the backend image
 database shell. Four things decide whether the one pasted is right:
 
 - **Count before clearing, per seat and per collection, on the term the clear will use** — a date
-  that is not null beside a `bestaetigt_am` that is null — and read the number of documents each
+  that is not null beside a `confirmed_at` that is null — and read the number of documents each
   update reports as modified against its count.
 - **The `null` half matches the stored null every unconfirmed seat holds**, the key being
   required (`fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme`), and the `$ne: null`
@@ -1498,10 +1498,10 @@ review`, the restored database holding no change to move: ask the person to star
   sign-in store comes back with the cluster** (the last bullet below), so the account and its
   passkeys stand at the replaced address again beside the records: the person signs in there to
   start again, and the new change's effect moves the account with the records, as a replayed one does,
-  unless the new address holds records or an account of its own (`adresswechsel.konto_nicht_umgezogen`). A
+  unless the new address holds records or an account of its own (`address_change.account_not_moved`). A
   grant holder's effect whose approval came after the snapshot also reads `left for review`: the
   restored change waits on an approval again, and where its week is past an approval is refused
-  (`link_abgelaufen`), so discard it and have the person start again. A change started,
+  (`link_expired`), so discard it and have the person start again. A change started,
   confirmed or approved inside the window and not yet in effect is in no journal: its person starts
   it again too.
 - **An address an administrator corrected inside the window**: a referee's who had not confirmed,
@@ -1561,7 +1561,7 @@ undid the erasures, and which nothing re-runs:
 - **A grant revoked, or a tier changed, after the snapshot is back as it was.** The grant and its
   announced row return together, so the reconciliation mails nobody, and the grant admits its
   holder again; an erased administrator's goes with their erasure above. Revoke any other again with
-  `DELETE /berechtigungen/{berechtigung_id}`, or repeat the tier change
+  `DELETE /grants/{grant_id}`, or repeat the tier change
   ([section 3](#3-granting-or-revoking-admin-access)). A grant made after the snapshot is gone and
   is made again. The record of each is the mail every change sent every administrator.
 - **A request refused, withdrawn or ended by a change of its address inside the window replays from its line** and is removed again. One approved inside the window is back as a request beside the
@@ -1672,7 +1672,7 @@ carries the address. Ask when they tried and read that window:
   its own rule accepts, though the sign-in form took it; the two address rules disagree.
 - `auth.code_send_failed` or `auth.sign_in_failed`: the gate admitted the
   address, and the send or the library call around it failed; the code's own Postausgang row
-  (`art: "anmeldecode"`) reading `aufgegeben` is the provider refusing it, its `grund` the provider's own
+  (`art: "sign_in_code"`) reading `abandoned` is the provider refusing it, its `grund` the provider's own
   name for the refusal.
 - `auth.code_mail_capped`, an info line: five codes had been asked for the address inside the
   hour, so this one was sent nothing. The five count every request,
@@ -1687,7 +1687,7 @@ carries the address. Ask when they tried and read that window:
   person already held still stands, bar a send racing the hundredth. Only admitted addresses count,
   so a run of these is a flood over members' addresses or an evening outgrowing the figure; it lifts
   within the hour, or at once by the sweep in §17.
-- A stack that is not production mails nothing: the code's Postausgang row reads `zurueckgehalten`,
+- A stack that is not production mails nothing: the code's Postausgang row reads `withheld`,
   and the message is in its sink. On the local stack that is `.tmp-mail/`, which
   every `./scripts/ops/local.sh` start empties of what earlier runs filed, so a code there is this
   run's.
@@ -1719,7 +1719,7 @@ On a development machine, in Git Bash at the checkout root, this writes every fi
 `fastapi dev` and the local stack read, each readable by its writer alone, and prints nothing:
 
 ```bash
-(umask 077 && mkdir -p secrets && for name in internal_api_key_base internal_api_key_system internal_api_key_admin sperrliste_schluessel auth_secret; do openssl rand -hex 32 | tr -d '\r\n' > "secrets/$name"; done && printf 'mongodb://localhost:27017/?directConnection=true' | tee secrets/frontend_mongodb_uri > secrets/backend_mongodb_uri)
+(umask 077 && mkdir -p secrets && for name in internal_api_key_base internal_api_key_system internal_api_key_admin sperrliste_key auth_secret; do openssl rand -hex 32 | tr -d '\r\n' > "secrets/$name"; done && printf 'mongodb://localhost:27017/?directConnection=true' | tee secrets/frontend_mongodb_uri > secrets/backend_mongodb_uri)
 ```
 
 `openssl rand -hex 32` is the 64 characters every key's floor or length demands. Neither of the
@@ -1765,7 +1765,7 @@ and update the password-manager entry. Both containers are recreated by the same
 keys never meet the old. **After a suspected leak of `internal_api_key_admin`**, generate all three
 the same way: its holder, reaching the backend on the private network, can act as any administrator,
 so rotating is not finished until `aktionen` has been read for every `berechtigungen` write since the
-leak, and every grant nobody can account for is revoked in the Playground. **`sperrliste_schluessel` is never replaced**: every ban is stored under it,
+leak, and every grant nobody can account for is revoked in the Playground. **`sperrliste_key` is never replaced**: every ban is stored under it,
 and a new one disarms them all in silence (§5). **A new `auth_secret` signs everybody out.**
 
 ## 17. Clearing an address's code lock
