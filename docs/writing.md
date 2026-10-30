@@ -17,6 +17,17 @@ check is on this page.
 - **Spell every domain term as [the glossary](glossary.md) does**, and read a term's entry before
   writing it for the first time. A new term gets an entry, which says what the word is and where it
   lives in the code, and nothing more.
+- **A name takes the German word only for a thing of the league itself** — the competition and its
+  people, as the glossary's core entities and attributes list them. Everything the website does
+  with them (an account, a sign-in, a mail, a link, an erasure, a grant, a log), every verb,
+  adjective, predicate and state, and every generic noun is English, and so is every particle inside
+  a name holding an English word: `_at`, `_by`, `_until`, `_from`, `_since`, `_on`, `_after`. The
+  test: would the word stand in the league's printed rulebook if there were no website? The German
+  a visitor reads, a page address and a mailed link's address are not names and keep their words. A
+  data noun stored or served under its German name (`datum`, `vorname`, `grund`, `art`) keeps it,
+  and a stored field name or value already in production keeps its spelling unless a paste is owed
+  anyway. The copy catalogue's keys follow the copy they key. An English twin of a glossary noun in
+  code takes the German noun, so one search finds every site.
 - **State a decision neutrally, with the date it was taken.** A decision no tool or comment can
   hold is one line in [the decisions record](decisions.md), written in the commit that takes it;
   the line carries no date, because that commit holds its date and its argument, and
