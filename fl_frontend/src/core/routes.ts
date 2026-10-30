@@ -187,5 +187,5 @@ export const ROUTES = {
     indexed: false,
   },
   // Session 7: its page is built.
-  verwaltungLog: { path: () => "/bereich/verwaltung/log" as const, title: COPY.shared.protokoll, indexed: false },
+  verwaltungActionLog: { path: () => "/bereich/verwaltung/log" as const, title: COPY.shared.protokoll, indexed: false },
 } as const satisfies Record<string, RouteEntry>;
