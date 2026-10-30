@@ -479,11 +479,13 @@ class FLPostausgangErgebnisPayload(BaseModel):
     beanspruchung: CustomStrippedNonEmptyString
     id: CustomObjectId
     ergebnis: FLPostausgangErgebnisArt
-    # The provider's id for the accepted message, kept as the row's record of it.
+    # The provider's id for the accepted message: an operator's one way from the row to the message there, its dashboard's
+    # page or `GET /emails/{id}` (https://resend.com/docs/api-reference/emails/retrieve-email), the provider offering no
+    # search by tag. No event needs it, each finding its row by the row's own id.
     nachricht_id: CustomNachrichtId | None
 
     # Only a sent mail names a message, and a sent one may name none: the provider accepted it, and its answer carried no
-    # readable id, which no event needs, each finding its row by the row's own id.
+    # readable id.
     @model_validator(mode="after")
     def only_a_sent_mail_names_a_message(self) -> Self:
         if self.nachricht_id is not None and self.ergebnis != "gesendet":
