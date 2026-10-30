@@ -1,6 +1,7 @@
 from typing import Annotated, Final, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
+from pydantic_core import PydanticCustomError
 
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.core import clock
@@ -130,7 +131,7 @@ class _SaisonPayload(_SaisonWritable):
     def the_season_ends_after_it_starts(self) -> Self:
         """The rule a `past` season's edit can still fail: its dates stay editable so a mistyped one can be repaired."""
 
-        refuse_reversed_span(start=self.start_date, end=self.end_date, start_label="dem Startdatum", end_label="Das Enddatum")
+        refuse_reversed_span(start=self.start_date, end=self.end_date, kind="saison_ends_before_start")
 
         return self
 
@@ -139,9 +140,7 @@ class _SaisonPayload(_SaisonWritable):
         """Judged apart from the season's own span: a window may legitimately open before the season does."""
 
         if self.bewerbung is not None:
-            refuse_reversed_span(
-                start=self.bewerbung.von, end=self.bewerbung.bis, start_label="dem Beginn der Bewerbungsfrist", end_label="Das Ende"
-            )
+            refuse_reversed_span(start=self.bewerbung.von, end=self.bewerbung.bis, kind="bewerbung_window_ends_before_start")
 
         return self
 
@@ -150,9 +149,7 @@ class _SaisonPayload(_SaisonWritable):
         """Its own validator rather than a branch inside the one above: two windows are two refusals, and a shared one names neither."""
 
         if self.registrierung is not None:
-            refuse_reversed_span(
-                start=self.registrierung.von, end=self.registrierung.bis, start_label="dem Beginn der Registrierungsfrist", end_label="Das Ende"
-            )
+            refuse_reversed_span(start=self.registrierung.von, end=self.registrierung.bis, kind="registrierung_window_ends_before_start")
 
         return self
 
@@ -219,10 +216,7 @@ def refuse_a_saison_year_outside_the_league(value: str) -> str:
     # `int` is total only because the pattern ran first: drop it and `int`'s own message carries the
     # rejected value into the log.
     if not FIRST_SAISON_YEAR <= int(value) <= newest:
-        # German, as `refuse_reversed_span` beside it is: the 422 answers payload_refused with where the
-        # field sits and pydantic's error type, never a sentence, so this one reaches the log and any
-        # form mirroring it, never the response body.
-        raise ValueError(f"Die Saison-ID muss ein Jahr zwischen {FIRST_SAISON_YEAR} und {newest} sein.")
+        raise PydanticCustomError("saison_year_out_of_range", "the season id names a year outside the league's")
 
     return value
 

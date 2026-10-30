@@ -1,7 +1,7 @@
 import pytest
-from pydantic import SecretStr, TypeAdapter
+from pydantic import SecretStr, TypeAdapter, ValidationError
 
-from app.api.sperrliste.schemas import GRUND_HOLDS_AN_ADDRESS, FLPostSperrlistePayload
+from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import (
     SPERRLISTE_SCHLUESSEL_VERSION,
     adresse_hash,
@@ -165,10 +165,10 @@ class TestWhatTheReasonMayHold:
         ],
     )
     def test_a_reason_carrying_an_address_is_refused(self, grund: str):
-        with pytest.raises(ValueError) as raised:
+        with pytest.raises(ValidationError) as raised:
             self._grund(grund)
 
-        assert GRUND_HOLDS_AN_ADDRESS in str(raised.value)
+        assert [error["type"] for error in raised.value.errors()] == ["address_in_free_text"]
 
     @pytest.mark.parametrize(
         "grund",

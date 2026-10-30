@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAntwortPayload,
-    refuse_age_outside_the_bounds,
+    age_outside_the_bounds,
 )
 from app.api.bewerbungen.services import (
     ausstehende_seats,
@@ -158,9 +158,9 @@ class TestWhatALinkAnswers:
         assert saison_kontakt_seite(row=row, seat="trainer") == "bestaetigung_kontakt_saison"
 
     def test_a_person_reaching_the_seats_floor_today_may_confirm(self):
-        """The floor to the day: a contact person sixteen today is refused under a sentence saying they must be sixteen."""
+        """The floor to the day: a contact person sixteen today is inside it."""
 
-        assert refuse_age_outside_the_bounds(geburtsdatum="2010-04-01", today=TODAY, mindestalter=16) is None
+        assert age_outside_the_bounds(geburtsdatum="2010-04-01", today=TODAY, mindestalter=16) is False
 
 
 class TestTheSeatsStillOpen:

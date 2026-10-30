@@ -1,6 +1,7 @@
 from typing import Annotated, Any, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
+from pydantic_core import PydanticCustomError
 
 from app.api.postausgang.schemas import FLPostausgangLage
 from app.api.teams.schemas import FLSaisonTeamKontakte, FLSaisonTeamKontaktePayload, _KontaktpersonWritablePayload
@@ -315,22 +316,17 @@ class FLAblehnenBewerbungResponse(BaseAPIResponse):
 # an undeclared key; the read models above stay lax.
 
 
-def refuse_age_outside_the_bounds(*, geburtsdatum: str, today: str, mindestalter: int) -> None:
-    """Refuse a contact person the league would not hold details for, in whole years against `today`.
+def age_outside_the_bounds(*, geburtsdatum: str, today: str, mindestalter: int) -> bool:
+    """Whether the league would hold no details for this contact person, in whole years against `today`.
 
-    A PARAMETER, as `refuse_reversed_span`'s span is, so both boundaries are pinnable without a
-    clock. Both messages reach the log alone.
+    `today` a parameter, so both boundaries are pinnable without a clock; above the ceiling the date is a typo.
     """
 
     age = whole_years_between(born=geburtsdatum, today=today)
 
     # The CALLER's floor, never a constant read here: a person's is the highest of the seats they
     # hold (`app/api/bewerbungen/services.py :: mindestalter_for`).
-    if age < mindestalter:
-        raise ValueError(f"Eine Kontaktperson muss mindestens {mindestalter} Jahre alt sein.")
-
-    if age > BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
-        raise ValueError(f"Ein Geburtsdatum, das auf ein Alter über {BEWERBUNG_KONTAKT_MAX_AGE_YEARS} Jahre führt, ist kein gültiges Datum.")
+    return not mindestalter <= age <= BEWERBUNG_KONTAKT_MAX_AGE_YEARS
 
 
 class FLBewerbungEinwilligungPayload(BaseModel):
@@ -441,7 +437,7 @@ class FLBewerbungKaderPayload(FLBewerbungKader):
         """
 
         if self.gute_spieler > self.voraussichtliche_groesse:
-            raise ValueError("Die Anzahl der guten Spieler darf die voraussichtliche Kadergröße nicht überschreiten.")
+            raise PydanticCustomError("gute_spieler_exceed_kader", "more strong players than the expected squad")
 
         return self
 

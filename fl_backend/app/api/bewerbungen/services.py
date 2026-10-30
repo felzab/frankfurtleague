@@ -12,7 +12,7 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungZustand,
     FLBewerbungEntscheidung,
     FLBewerbungSaisonbezug,
-    refuse_age_outside_the_bounds,
+    age_outside_the_bounds,
 )
 from app.api.kontakte.services import rows_seating
 from app.api.postausgang.schemas import (
@@ -586,13 +586,11 @@ def find_already_answered_refusal(*, kontakte: Any, bestaetigungen: Any, seat: s
 def find_alter_refusal(*, geburtsdatum: str, today: str, mindestalter: int) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`.
 
-    Its own code with `refuse_age_outside_the_bounds`'s German rather than a `payload_refused`, whose
-    mark on the field names no floor. Judged BEFORE any write, so a mistyped year spends nothing.
+    Its own code rather than a `payload_refused`, whose mark on the field names no floor. Judged BEFORE any write, so
+    a mistyped year spends nothing.
     """
 
-    try:
-        refuse_age_outside_the_bounds(geburtsdatum=geburtsdatum, today=today, mindestalter=mindestalter)
-    except ValueError:
+    if age_outside_the_bounds(geburtsdatum=geburtsdatum, today=today, mindestalter=mindestalter):
         return WriteRefusal(
             error_code=Code.BESTAETIGUNG_ALTER,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,

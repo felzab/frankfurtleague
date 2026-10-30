@@ -1,6 +1,7 @@
 from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
+from pydantic_core import PydanticCustomError
 
 from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLBracketFault, FLSpielElfmeterschiessen, FLSpielJoinedAdmin
@@ -171,16 +172,16 @@ class FLSpielberichtBerichtPayload(BaseModel):
 
         if vorschlag.sonderereignis in SONDEREREIGNIS_NO_SHOW:
             if vorschlag.team1_tore is not None or vorschlag.team2_tore is not None or vorschlag.elfmeterschiessen is not None:
-                raise ValueError("Bei einem Nichtantreten stehen keine Tore im Bericht: Das Ergebnis ist die Wertung der Liga.")
+                raise PydanticCustomError("nichtantreten_with_tore", "a no-show proposes no goals: the league composes them")
             if self.torschuetzen:
-                raise ValueError("Bei einem Nichtantreten gibt es keine Torschützen.")
+                raise PydanticCustomError("nichtantreten_with_torschuetzen", "a no-show credits no scorer")
             return self
 
         if vorschlag.team1_tore is None or vorschlag.team2_tore is None:
-            raise ValueError("Zum Ergebnis gehören die Tore beider Teams.")
+            raise PydanticCustomError("ergebnis_missing_tore", "a result names both sides' goals")
 
         if vorschlag.elfmeterschiessen is not None and vorschlag.team1_tore != vorschlag.team2_tore:
-            raise ValueError("Ein Elfmeterschießen folgt nur auf ein Unentschieden.")
+            raise PydanticCustomError("elfmeterschiessen_without_draw", "a shoot-out follows a draw alone")
 
         gutgeschrieben = {"team1": 0, "team2": 0}
         for tor in self.torschuetzen:
@@ -189,11 +190,7 @@ class FLSpielberichtBerichtPayload(BaseModel):
             gutgeschrieben[seite] += 1
 
         if (gutgeschrieben["team1"], gutgeschrieben["team2"]) != (vorschlag.team1_tore, vorschlag.team2_tore):
-            raise ValueError(
-                "Für jedes Tor braucht es genau einen Eintrag. "
-                f"Die Einträge ergeben {gutgeschrieben['team1']}:{gutgeschrieben['team2']}, "
-                f"das Ergebnis lautet {vorschlag.team1_tore}:{vorschlag.team2_tore}."
-            )
+            raise PydanticCustomError("torschuetzen_not_matching_tore", "the scorers credit other goals than the result reads")
 
         return self
 

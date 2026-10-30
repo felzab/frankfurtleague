@@ -16,6 +16,7 @@ from pydantic import (
     computed_field,
     model_validator,
 )
+from pydantic_core import PydanticCustomError
 
 from app.api.postausgang.schemas import FLPostausgangLage
 from app.core.crud import Anchored
@@ -379,7 +380,7 @@ class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
 
         # An empty side is a seat an erasure or a Widerspruch emptied, which names nobody to compare.
         if seat is not None and self.trainer is not None and seat != self.trainer:
-            raise ValueError(f"Die Angaben unter '{self.trainer_ist_zugleich}' müssen denen des Trainers entsprechen.")
+            raise ValueError(f"the seat '{self.trainer_ist_zugleich}' the Trainer also holds carries other details than the Trainer's")
 
         return self
 
@@ -398,11 +399,11 @@ class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
         # refuse „strasse“ beside „straße“, two domains to IDNA 2008.
         emails = [sign_in_identifier(person.email) for person in people]
         if len(set(emails)) != len(emails):
-            raise ValueError("Die Kontaktpersonen müssen unterschiedliche E-Mail-Adressen haben.")
+            raise PydanticCustomError("kontakt_email_twice", "two contact persons share one email address")
 
         telefone = [normalise_telefon(person.telefon) for person in people]
         if len(set(telefone)) != len(telefone):
-            raise ValueError("Die Kontaktpersonen müssen unterschiedliche Telefonnummern haben.")
+            raise PydanticCustomError("kontakt_telefon_twice", "two contact persons share one telephone number")
 
         return self
 
