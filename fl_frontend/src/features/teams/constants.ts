@@ -1,5 +1,5 @@
 import { FLGruppenNames } from "@/core/generated/client/types";
-import { KONTAKT_ROLLE_LANGFORM, TRIKOT_FARBEN } from "@/core/teamVokabular";
+import { KONTAKT_ROLLE_LANGFORM, TRIKOT_FARBEN } from "@/core/teamVocabulary";
 import { NICHT_HINTERLEGT, nichtHinterlegt } from "@/shared/utils/format";
 
 import type { FLAustrittType, FLKontaktKenntnisnahme, FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "@/core/generated/client/types";
@@ -120,7 +120,7 @@ export function schulformLabel(schulform: FLSchulform): string {
 export type TrikotFarbeOption = (typeof TRIKOT_FARBEN)[number];
 
 /**
- * The league's kit palette, which the mail builders state to a school too: `fl_frontend/src/core/teamVokabular.ts ::
+ * The league's kit palette, which the mail builders state to a school too: `fl_frontend/src/core/teamVocabulary.ts ::
  * TRIKOT_FARBEN` holds it. A swatch draws from `hex`, never a Tailwind token: the colour sheet's hex codes are
  * authoritative, and no theme scale tracks them.
  */
@@ -208,7 +208,7 @@ export const KONTAKT_WHATSAPP_LABELS: Readonly<Record<FLKontaktKenntnisnahme["um
  * The three seats a season holds per club, in both surfaces' order.
  *
  * TWO wordings, as `AUSTRITT_OPTIONS` carries three: the admin takes the short form, the public one
- * the long form, which `fl_frontend/src/core/teamVokabular.ts :: KONTAKT_ROLLE_LANGFORM` holds for the mails too. Both
+ * the long form, which `fl_frontend/src/core/teamVocabulary.ts :: KONTAKT_ROLLE_LANGFORM` holds for the mails too. Both
  * are read from here, so no two surfaces name a seat differently.
  */
 export const KONTAKT_ROLLEN = [

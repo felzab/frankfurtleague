@@ -3,7 +3,7 @@ import "server-only";
 import { BRAND_NAME, mailOrigin } from "./emailShell";
 import { formatAufzaehlung, formatDatum } from "./format";
 import { kontaktBestaetigungsLink } from "./kontaktLink";
-import { KONTAKT_ROLLE_LANGFORM, rollenText, TRIKOT_FARBEN } from "./teamVokabular";
+import { KONTAKT_ROLLE_LANGFORM, rollenText, TRIKOT_FARBEN } from "./teamVocabulary";
 
 import type { Absatz, Mail } from "./emailShell";
 import type { CalendarDay } from "./format";

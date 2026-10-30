@@ -24,7 +24,7 @@ export function afterTheResponse(work: () => Promise<void>): void {
  * every write: a mail the write owed leaves at once rather than at the next hourly pass, which retries whatever this
  * drain could not send. A background pass rather than the request's half, so no 30-second cut ends a page of sends:
  * each send and report is bounded by its own bound, and a drain a stop cuts leaves its rows to the next once their
- * lease lapses. Concurrent calls coalesce in the drain itself (`fl_frontend/src/core/mail.ts :: drainPostausgang`). A
+ * lease lapses. Concurrent calls coalesce in the drain itself (`fl_frontend/src/core/mail.ts :: drainOutbox`). A
  * restore's hold sends nothing, the owed mail waiting in the Postausgang for the first drain after it
  * (`docs/ops/runbooks.md` §13).
  */

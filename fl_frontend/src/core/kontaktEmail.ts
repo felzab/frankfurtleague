@@ -4,7 +4,7 @@ import { BRAND_NAME, mailOrigin } from "./emailShell";
 import { formatDatum } from "./format";
 import { kontaktBestaetigungsLink } from "./kontaktLink";
 import { DEIN_BEREICH_TITEL } from "./seitenNamen";
-import { rollenText } from "./teamVokabular";
+import { rollenText } from "./teamVocabulary";
 
 import type { Absatz, Mail, Satz } from "./emailShell";
 import type { CalendarDay } from "./format";

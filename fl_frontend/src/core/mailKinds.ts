@@ -40,7 +40,7 @@ import type { FLPostausgangAusgabe } from "./generated/client/types";
  * The tag every mail from the Postausgang carries, its value the row's id: the provider echoes a mail's tags on every
  * delivery event about it, so the event finds its row whether or not the send's report has landed.
  */
-export const OUTBOX_TAG = "postausgang_id";
+export const OUTBOX_TAG = "outbox_id";
 
 /** One owed mail's facts: a member of the backend's discriminated union, its `art` naming the kind. */
 type OutboxData = FLPostausgangAusgabe["daten"];

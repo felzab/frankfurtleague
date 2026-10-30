@@ -97,7 +97,7 @@ type AuthDoubles = {
 export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles = {}): ReturnType<typeof doubleOutbox> {
   // The mailer is always `doublePostausgang`'s, whose record this answers. A second one is refused rather
   // than layered: two mailer hooks answer by registration order, and a suite would read whichever came last.
-  if ("mail" in core) throw new Error("The mailer is doublePostausgang's: read the record registerAuthDoubles answers.");
+  if ("mail" in core) throw new Error("The mailer is doubleOutbox's: read the record registerAuthDoubles answers.");
   const modules = Object.entries({ config: configDouble(), db: DB_DOUBLE, ...core }).map(([name, double]): [string, ModuleDouble] => [
     `@/core/${name}.ts`,
     double,

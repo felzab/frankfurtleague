@@ -1,4 +1,4 @@
-// Redesign: goes with its last importer; `kit/KontoBox` replaces it.
+// Redesign: goes with its last importer; `kit/AccountBox` replaces it.
 
 import { focusSection } from "@/shared/utils/focusAfterWrite";
 

@@ -45,7 +45,7 @@ describe("the fixture confirmation job", () => {
       pass(saisonId, saisonId === "2627" ? { geschlossen: 2, angefragt: 3, mails: 7 } : { erinnert: 1, mails: 2, fehlgeschlagen: 1 });
 
     expect(await runSpielSweep()).toStrictEqual({
-      zaehlung: { geschlossen: 2, angefragt: 3, erinnert: 1, mails: 9, fehlgeschlagen: 1 },
+      count: { geschlossen: 2, angefragt: 3, erinnert: 1, mails: 9, fehlgeschlagen: 1 },
       offen: 0,
     });
     expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([LISTE, `${LISTE}/2627`, `${LISTE}/2728`]);

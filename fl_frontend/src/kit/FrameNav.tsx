@@ -48,7 +48,7 @@ export type RailGroup = { heading?: Copy; entries: ReadonlyArray<RailEntry> };
 
 /** The seasons a person may switch between, the newest first, and the one a page whose address names none works in. */
 export type Saisons = {
-  /** Each season's id, and its span as `formatZeitraum` writes it on the server, which the rail's button shows under the name. */
+  /** Each season's id, and its span as `formatPeriod` writes it on the server, which the rail's button shows under the name. */
   entries: ReadonlyArray<{ id: string; span: string }>;
   standard: string;
 };

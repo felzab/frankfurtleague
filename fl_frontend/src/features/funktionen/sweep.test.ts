@@ -25,7 +25,7 @@ const drains: string[] = [];
 // Doubled at the drain alone, the module standing: the client every slice sends through loads it, so a load is no send.
 vi.doMock("@/core/mail.ts", async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  drainPostausgang: () => {
+  drainOutbox: () => {
     drains.push("drain");
     return Promise.resolve();
   },
@@ -291,7 +291,7 @@ describe("what a completed pass answers", () => {
     deleteOutcomes.set("fehler@schule.de", "throws");
 
     expect(await runKontoSweep()).toStrictEqual({
-      zaehlung: { unreferenziert: 4, geloescht: 1, bereits_geloescht: 1, fehlgeschlagen: 1 },
+      count: { unreferenziert: 4, geloescht: 1, bereits_geloescht: 1, fehlgeschlagen: 1 },
       offen: 1,
     });
   });

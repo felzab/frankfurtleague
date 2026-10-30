@@ -42,12 +42,12 @@ export async function registerOnNode() {
 
 /**
  * What one job did in a pass, by count and never by person: `offen` the owed deletions or erasures it left, and
- * `fehler` what ended a job part-way, after the work its counts record.
+ * `error` what ended a job part-way, after the work its counts record.
  */
 type Durchlauf = { readonly count: Readonly<Record<string, number | string | null>>; readonly offen: number; readonly error?: unknown };
 
 /**
- * One background job. It rejects, or resolves with a `fehler`, where it could not finish what it owes; each job is
+ * One background job. It rejects, or resolves with an `error`, where it could not finish what it owes; each job is
  * idempotent, so a pass after a failed one repeats nothing that went. A job that counts nothing resolves to nothing.
  */
 type Job = { readonly name: string; readonly run: () => Promise<Durchlauf | void> };

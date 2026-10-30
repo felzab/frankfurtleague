@@ -124,7 +124,7 @@ describe("one pass of the applications' job", () => {
     adresswechselAnswer = () => Promise.resolve({ ...adressen(2), entfernt: 5 });
 
     expect(await runBewerbungSweep()).toStrictEqual({
-      zaehlung: {
+      count: {
         bewerbung_fehlgeschlagen: 7,
         registrierung_fehlgeschlagen: 8,
         adresswechsel_entfernt: 5,
@@ -133,7 +133,7 @@ describe("one pass of the applications' job", () => {
         adresswechsel_verbleibend: 2,
       },
       offen: 17,
-      fehler: undefined,
+      error: undefined,
     });
   });
 

@@ -28,7 +28,7 @@
     "src/kit/Checkbox.tsx",
     "src/kit/RadioGroup.tsx",
     "src/kit/Prose.tsx",
-    "src/kit/KontoBox.tsx",
+    "src/kit/AccountBox.tsx",
     "src/kit/MailedPage.tsx",
     "src/kit/OneShot.tsx",
     // Session 5.

@@ -25,7 +25,7 @@ import type { CalendarDay } from "@/core/format";
 import type { CalendarDate } from "@internationalized/date";
 
 const toTag = (date: CalendarDate | null): CalendarDay | null =>
-  // `CalendarDate` writes itself as `YYYY-MM-DD`, the stored form `Kalendertag` names.
+  // `CalendarDate` writes itself as `YYYY-MM-DD`, the stored form `CalendarDay` names.
   date === null ? null : (date.toString() as CalendarDay);
 
 const fromTag = (tag: CalendarDay | null | undefined): CalendarDate | null | undefined =>

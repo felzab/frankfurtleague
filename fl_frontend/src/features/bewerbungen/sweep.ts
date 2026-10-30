@@ -19,7 +19,7 @@ type Uebergangen = { bewerbung: number; registrierung: number };
  *
  * Every reminder and notice the backend owed is the Postausgang's drain to send. Answers the rows each half passed over
  * and what the address changes did, `offen` the erasures passed over and the lapsed changes left, and the seasons'
- * failure, once both halves have run, as `fehler`; a lapsed address the half could not end rejects, for the heartbeat
+ * failure, once both halves have run, as `error`; a lapsed address the half could not end rejects, for the heartbeat
  * to name.
  */
 export async function runBewerbungSweep() {

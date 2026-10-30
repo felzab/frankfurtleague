@@ -42,7 +42,7 @@ describe("formatDatumLang", () => {
   });
 });
 
-describe("formatDatumMitWochentag", () => {
+describe("formatDatumWithWeekday", () => {
   it("leads with the short weekday and drops the year", async (t) => {
     await same(t, formatDatumWithWeekday("2027-03-14"), "So., 14.03.");
   });
@@ -58,7 +58,7 @@ describe("formatUhrzeit", () => {
   });
 });
 
-describe("formatZeitpunkt", () => {
+describe("formatInstant", () => {
   it("joins the long date and the time with „um“", async (t) => {
     await same(t, formatInstant(new Date("2026-10-24T13:30:00Z")), "24. Oktober 2026 um 15:30");
   });
@@ -68,13 +68,13 @@ describe("formatZeitpunkt", () => {
   });
 });
 
-describe("formatZeitraum", () => {
+describe("formatPeriod", () => {
   it("parts two days with the locale's dash between thin spaces", async (t) => {
     await same(t, formatPeriod("2025-09-01", "2026-06-30"), "01.09.2025\u2009–\u200930.06.2026");
   });
 });
 
-describe("formatZahl and formatEuro", () => {
+describe("formatNumber and formatEuro", () => {
   it("group thousands with a point and decimals with a comma", async (t) => {
     await same(t, formatNumber(1234.5), "1.234,5");
   });

@@ -10,7 +10,7 @@ import { postLoeschungSweep } from "./mutations";
  *
  * Without a deadline of its own: a timer has no request a long run would hold back. Answers the counts and the season
  * the rule kept, never a person, the backend's own lines naming a failed person's id: `offen` the pupils a finished pass
- * failed or passed over, and a pass a call cut short its failures, with that call's `fehler`.
+ * failed or passed over, and a pass a call cut short its failures, with that call's `error`.
  */
 export async function runLoeschungSweep() {
   const lauf = await sweepLoeschung(postLoeschungSweep);

@@ -128,7 +128,7 @@ describe("countFacetOptions", () => {
   it("reports zero for an option nothing holds rather than omitting it", () => {
     const counts = countFacetOptions([], FACETS, {}, FACETS[0]!);
 
-    expect(counts).toStrictEqual({ active: 0, retired: 0 });
+    expect(counts).toStrictEqual({ aktiv: 0, stillgelegt: 0 });
   });
 });
 
@@ -449,7 +449,7 @@ const TOLD_FACETS: readonly Facet<Row>[] = [
 ];
 
 /** Apart from both counts the served rows give, so a cell counting them instead reads as neither. */
-const TOLD = { stand: { active: 4, retired: 9 } };
+const TOLD = { stand: { aktiv: 4, stillgelegt: 9 } };
 
 const SERVED = ROWS.filter((row) => row.status === "aktiv");
 

@@ -72,7 +72,7 @@ export async function runPersonRecordMutation<T extends { success: boolean }>(
   fn: (subject: SubjectSession) => Promise<T>,
 ): Promise<T | ActionFailure> {
   const resolve = async (): Promise<SubjectSession | null> => {
-    // Never narrowed through `funktionenOf`: a withdrawal must reach a past season's seat and a retired
+    // Never narrowed through `rolesOf`: a withdrawal must reach a past season's seat and a retired
     // record, which no Funktion carries.
     const subject = await getSubjectSession();
     if (subject === null) logRefused(mutationName, "keine_sitzung");

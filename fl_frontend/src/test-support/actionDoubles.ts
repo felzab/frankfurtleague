@@ -273,7 +273,7 @@ const signInStore = (answers: SignInAnswers) => ({
   getAdminSession: () => administratorOf(answers),
   judgeAdminRequest: () => verdictOf(answers),
   // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
-  getAccountSession: () => answering(answers.served),
+  getKontoSession: () => answering(answers.served),
   getSignInDestination: () => Promise.resolve(answers.destination),
   // The sign-in page's read, `null` wherever the landing sends the caller to sign in, as the real one judges.
   getSignedInAddress: () =>

@@ -280,7 +280,7 @@ function sendersOf(operationId) {
 const BACKGROUND_PASSES = [
   {
     operations: ["postausgang_post_ausgabe", "postausgang_post_ergebnis"],
-    wrapper: { file: "src/core/mail.ts", names: ["drainPostausgang"] },
+    wrapper: { file: "src/core/mail.ts", names: ["drainOutbox"] },
     runners: ["src/instrumentation-node.ts", "src/core/afterResponse.ts"],
   },
   {
@@ -818,7 +818,7 @@ const DESIGN_BANS = [
     ["EditorPage", ["src/app/**/(editor)/**"], "An editor is a page of an `(editor)` route group, whose layout draws its way back."],
     ["EditorBar", ["src/kit/EditorPage.tsx"], "A record's one save is the editor template's `EditorBar`: place the page in `EditorPage`."],
     ["OneShot", ["src/kit/MailedPage.tsx"], "The one-shot submit is the mailed-page template's: place the page in `MailedPage`."],
-    ["KontoBox", ["src/app/bereich/**/konto/**"], "A `KontoBox` saves one section of Konto, on Konto's own pages."],
+    ["AccountBox", ["src/app/bereich/**/konto/**"], "An `AccountBox` saves one section of Konto, on Konto's own pages."],
   ].map(([name, owners, message]) => kitImport({ regex: kitModule(name), message }, PRODUCTION, { allow: owners })),
   // The danger act is one row inside the editor's last box, which the editor template alone places.
   syntaxBan(

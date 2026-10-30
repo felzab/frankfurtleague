@@ -50,7 +50,7 @@ const CONFIG_DOUBLE = {
 
 // The map is each cutover's to fill: one kind stands in, rendered as any mail is, printing the secret it is handed.
 const KINDS_DOUBLE = {
-  OUTBOX_TAG: "postausgang_id",
+  OUTBOX_TAG: "outbox_id",
   mailFor: (_art: string, daten: { grund: string }, { origin, geheim }: { origin: string; geheim: string | null }) => ({
     art: "mitteilung",
     subjectLine: "Sperre",
@@ -117,8 +117,8 @@ describe("one drain of the Postausgang", () => {
       `postausgang/${handed(2).id}/3`,
     ]);
     expect(sends().map(({ body }) => body["tags"])).toStrictEqual([
-      [{ name: "postausgang_id", value: handed(1).id }],
-      [{ name: "postausgang_id", value: handed(2).id }],
+      [{ name: "outbox_id", value: handed(1).id }],
+      [{ name: "outbox_id", value: handed(2).id }],
     ]);
     expect(reports()).toStrictEqual([
       { id: handed(1).id, ergebnis: "gesendet", nachricht_id: "re-1", grund: null },

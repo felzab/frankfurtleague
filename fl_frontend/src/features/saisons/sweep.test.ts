@@ -97,7 +97,7 @@ describe("one pass of the pupils' deletion", () => {
     laufAnswer = vorneDann({ ...gelaufen(0, 11, ORT), fehlgeschlagen: 10 }, gelaufen(1, 10), gelaufen(0, 11));
 
     expect(await runLoeschungSweep()).toStrictEqual({
-      zaehlung: {
+      count: {
         abgeschlossene_saison_id: "2526",
         spieler: 1,
         saison_spieler: 1,
@@ -119,9 +119,9 @@ describe("one pass of the pupils' deletion", () => {
     };
 
     expect(await runLoeschungSweep()).toStrictEqual({
-      zaehlung: { abgeschlossene_saison_id: "2526", spieler: 3, saison_spieler: 3, registrierungen: 0, uebersprungen: 0, fehlgeschlagen: 2 },
+      count: { abgeschlossene_saison_id: "2526", spieler: 3, saison_spieler: 3, registrierungen: 0, uebersprungen: 0, fehlgeschlagen: 2 },
       offen: 2,
-      fehler: new Error("the deletion was refused"),
+      error: new Error("the deletion was refused"),
     });
   });
 
@@ -145,7 +145,7 @@ describe("one pass of the pupils' deletion", () => {
         uebersprungen: 0,
         fehlgeschlagen: 0,
       });
-      expect(String("fehler" in lauf ? lauf.fehler : undefined)).toContain("The deletion answered a place not past the one it was sent.");
+      expect(String("error" in lauf ? lauf.error : undefined)).toContain("The deletion answered a place not past the one it was sent.");
     });
   }
 
@@ -155,7 +155,7 @@ describe("one pass of the pupils' deletion", () => {
     laufAnswer = inTurn([gelaufen(3, 1, ORT), gelaufen(1, 0)]);
 
     expect(await runLoeschungSweep()).toStrictEqual({
-      zaehlung: {
+      count: {
         abgeschlossene_saison_id: "2526",
         spieler: 4,
         saison_spieler: 4,
