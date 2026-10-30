@@ -1,13 +1,13 @@
 import { assert, describe, expect, it } from "vitest";
 
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
+import { FLAktorPersonFunktion } from "@/core/generated/client/types.ts";
 import { GELOESCHTE_PERSON } from "@/features/berechtigungen/constants.ts";
 
 import { AKTION_HERKUNFT_LABELS, AKTOR_FUNKTION_LABELS, AKTOR_HERKUNFT } from "./constants.ts";
-import { FLAktorPersonSchema, FLAktorSchema } from "./schemas.ts";
 import { describeAktionDatensatz, formatAktionZeitpunkt, herkunftOfAktor, labelForCollection, personAkteurLabel } from "./utils.ts";
 
-import type { FLAktor } from "./schemas.ts";
+import type { FLAktion } from "@/core/generated/client/types.ts";
 
 describe("formatAktionZeitpunkt", () => {
   it("renders a stored UTC instant in German local time", () => {
@@ -70,22 +70,22 @@ describe("describeAktionDatensatz", () => {
   });
 });
 
-/** Every kind the read model accepts, read off both variants of the mirror so a kind added there reaches the cases below. */
-const AKTOR_KINDS = FLAktorSchema.options.flatMap((variant) => variant.shape.kind.options);
+/** Every kind the origin map places, which its type holds to every kind the read model accepts. */
+const AKTOR_KINDS = Object.keys(AKTOR_HERKUNFT) as FLAktion["actor"]["kind"][];
 
 /** A pseudonym as the log read serves one: already cut to the start a row shows. */
 const PSEUDONYM = "3f9a07c2";
 
 /** A valid actor of each kind: a signed-in person carries a pseudonym and a Funktion where every other kind carries `email`. */
-function actorOf(kind: FLAktor["kind"]): FLAktor {
+function actorOf(kind: FLAktion["actor"]["kind"]): FLAktion["actor"] {
   return kind === "person_session"
     ? { kind: kind, pseudonym: PSEUDONYM, funktion: "spieler" }
     : { kind: kind, email: "SENTINEL", email_gesperrt: false };
 }
 
 describe("herkunftOfAktor", () => {
-  /* First: a mirror the cut no longer finds would leave every sweep below iterating nothing and passing. */
-  it("reads the kinds off the mirror at all", () => {
+  /* First: an empty list of kinds would leave every sweep below iterating nothing and passing. */
+  it("reads every kind off the origin map", () => {
     expect([...AKTOR_KINDS].sort()).toStrictEqual(["admin_session", "person_session", "public", "system"]);
   });
 
@@ -127,14 +127,14 @@ describe("personAkteurLabel", () => {
     expect(personAkteurLabel({ kind: "person_session", pseudonym: PSEUDONYM, funktion: "spieler" })).toBe("Spieler · 3f9a07c2");
   });
 
-  /* Read off the mirror, so a Funktion added there without a word fails here rather than rendering `undefined`. */
+  /* Every Funktion the contract lists, so two sharing one word fail here rather than reading alike on a row. */
   it("names every Funktion in its own word", () => {
-    const labels = FLAktorPersonSchema.shape.funktion.options.map((funktion) =>
+    const labels = Object.values(FLAktorPersonFunktion).map((funktion) =>
       personAkteurLabel({ kind: "person_session", pseudonym: PSEUDONYM, funktion: funktion }),
     );
 
     expect(labels).toStrictEqual(["Kontakt · 3f9a07c2", "Spieler · 3f9a07c2", "Schiedsrichter · 3f9a07c2"]);
-    expect(new Set(Object.values(AKTOR_FUNKTION_LABELS)).size).toBe(FLAktorPersonSchema.shape.funktion.options.length);
+    expect(new Set(Object.values(AKTOR_FUNKTION_LABELS)).size).toBe(Object.values(FLAktorPersonFunktion).length);
   });
 
   /* The redacted actor of a person erased since: the marker read as a pseudonym's start would name somebody. */
