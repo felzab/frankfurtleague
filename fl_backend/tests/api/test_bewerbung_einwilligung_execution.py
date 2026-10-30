@@ -764,6 +764,8 @@ class TestADecline:
 
         assert document["kontakte"]["stellvertretung"] is None
         assert document["bestaetigungen"]["stellvertretung"]["abgelehnt_am"] == TODAY
+        # The Ansprechperson's objection notice names the deletion day, so no second notice follows it.
+        assert document["loeschung_angekuendigt_am"] == TODAY
         assert (response.ergebnis, response.geburtsdatum, response.medien) == ("abgelehnt", None, False)
         assert response.ausstehend == list(KONTAKT_ROLLEN)
         assert view.zustand == "abgelehnt"
@@ -836,6 +838,16 @@ class TestWhatTheAnswerHandsTheMailer:
         assert (response.ansprechperson_email, response.ansprechperson_rollen) == (None, [])
         # Off the pre-image: the clearing update ran before this was read, so a re-read would answer nobody.
         assert (response.rolle, response.vorname) == ("ansprechperson", "Quillhilde")
+
+    def test_the_ansprechpersons_own_decline_announces_no_deletion(self, mongo_replica_set_url: str):
+        """Nobody is told of it, so the deletion notice still goes to whoever holds that seat at the deadline."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await answer(database, client, RAW["ansprechperson"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False)
+
+            return await stored(database)
+
+        assert on_a_league(mongo_replica_set_url, body).get("loeschung_angekuendigt_am") is None
 
     def test_another_seats_decline_still_reaches_the_ansprechperson(self, mongo_replica_set_url: str):
         response = on_a_league(
@@ -929,6 +941,18 @@ class TestAResend:
         }
         # The other seats' links still open.
         assert document["bestaetigungen"]["ansprechperson"]["token_hash"] == HASHES["ansprechperson"]
+
+    def test_a_restarted_deadline_takes_back_the_announcement(self, mongo_replica_set_url: str):
+        """The notice named the old deadline, so the new one is announced again before the application is deleted."""
+
+        announced = bewerbung_document(loeschung_angekuendigt_am="2026-03-30")
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await resend(database, "trainer")
+
+            return await stored(database)
+
+        assert on_a_league(mongo_replica_set_url, body, documents=[announced])["loeschung_angekuendigt_am"] is None
 
     def test_a_confirmed_seat_gets_no_new_link(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
