@@ -5,7 +5,7 @@ One contract across the module, so no caller needs a `None` branch to reach a 40
 helper raises `DocumentNotFoundError` on a miss and never returns `None`, and a `*_many_*`
 helper returns the empty result and never raises for absence.
 
-Every write here but an anchor appends to the action log (`app/core/recording.py`), which is what makes the
+Every write here but an anchor and a stamp appends to the action log (`app/core/recording.py`), which is what makes the
 log complete by construction: a WRITE reaches the driver in this module alone, beside the log's own row,
 which `app/core/recording.py :: record_write` inserts and which records no domain fact. Reads are a different matter --
 several routers call `aggregate`, `count_documents`, `distinct`, `find` and `find_one` directly --
@@ -240,6 +240,22 @@ async def anchor_in_db(
 
     # `$inc`, never a `$set` of a constant, which rewrites nothing the second time and joins no write set.
     await collection.update_many(filter=db_filter, update={"$inc": {ANCHOR_FIELD: 1}}, session=session)
+
+
+async def stamp_in_db(
+    *,
+    collection: AsyncCollection,
+    db_filter: Mapping[str, Any],
+    update: Mapping[str, Any],
+    session: AsyncClientSession,
+) -> bool:
+    """Write a link's hash onto the one document the filter names, answering whether one matched.
+
+    Past the version and the action log, as an anchor is: a hash changes nothing a reader sees, and raising the version
+    would refuse the next save of an editor read before it.
+    """
+
+    return (await collection.update_one(filter=db_filter, update=update, session=session)).matched_count > 0
 
 
 async def post_one_to_db(

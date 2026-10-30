@@ -32,7 +32,7 @@ from app.api.postausgang.services import (
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, pull_many_from_db
+from app.core.crud import patch_many_in_db, pull_many_from_db, stamp_in_db
 from app.core.dependencies import DB, DBClient, PostausgangCollection, get_germany_now
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import transaction_session
@@ -132,14 +132,13 @@ async def post_ausgabe(
             if row["_id"] in gesperrt or row["link"] is None:
                 continue
             raw, token_hash = mint_token()
-            # Written as an anchor is, past the version and the action log: a hash changes nothing a reader sees, and
-            # raising the version would refuse the next save of an editor read before the drain.
-            minted = await db[Collection(row["bezug"]["sammlung"])].update_one(
-                filter=_link_record_filter(row),
+            minted = await stamp_in_db(
+                collection=db[Collection(row["bezug"]["sammlung"])],
+                db_filter=_link_record_filter(row),
                 update=_link_update(row["link"], token_hash),
                 session=session,
             )
-            if minted.matched_count == 0:
+            if not minted:
                 entfallen.append(row["_id"])
                 continue
             tokens[row["_id"]] = raw
