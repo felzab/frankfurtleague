@@ -79,7 +79,7 @@ from app.api.bewerbungen.services import (
 from app.api.einwilligung.services import find_fassung_refusal, find_self_medien_refusal
 from app.api.kontakte.crud import redact_the_decliner, remove_their_reasons
 from app.api.postausgang.schemas import FLBewerbungPerson, FLBewerbungWiderspruchDaten
-from app.api.postausgang.services import enqueue_mail, enqueue_mails
+from app.api.postausgang.services import OwedMail, enqueue_mails
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hashes_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import kontakte_ohne, seat_void_of
@@ -854,21 +854,25 @@ async def post_einwilligung(
         abgelehnt_email, abgelehnt_rollen = ansprechperson_mailbox(kontakte=updated_raw.get("kontakte"))
         if abgelehnt_email is not None:
             # In the decline's own transaction, which stamped the notice as the deletion's: one cannot stand without the other.
-            await enqueue_mail(
+            await enqueue_mails(
                 postausgang_collection=postausgang_collection,
                 session=session,
-                schluessel=f"{Collection.BEWERBUNGEN}/{bewerbung_raw['_id']}/widerspruch/{seat}",
-                an=abgelehnt_email,
-                daten=FLBewerbungWiderspruchDaten(
-                    art="bewerbung_widerspruch",
-                    saison_id=saison_id,
-                    rollen=abgelehnt_rollen,
-                    # Named off the read before the decline: nothing left in the record can say whose entry was refused.
-                    abgelehnt=FLBewerbungPerson(vorname=vorname, rollen=list(seats)),
-                    frist=bestaetigungsfrist,
-                ),
+                mails=[
+                    OwedMail(
+                        schluessel=f"{Collection.BEWERBUNGEN}/{bewerbung_raw['_id']}/widerspruch/{seat}",
+                        an=abgelehnt_email,
+                        daten=FLBewerbungWiderspruchDaten(
+                            art="bewerbung_widerspruch",
+                            saison_id=saison_id,
+                            rollen=abgelehnt_rollen,
+                            # Named off the read before the decline: nothing left in the record can say whose entry was refused.
+                            abgelehnt=FLBewerbungPerson(vorname=vorname, rollen=list(seats)),
+                            frist=bestaetigungsfrist,
+                        ),
+                        bezug=bewerbung_bezug(bewerbung_raw["_id"], abgelehnt_rollen),
+                    )
+                ],
                 now=germany_now,
-                bezug=bewerbung_bezug(bewerbung_raw["_id"], abgelehnt_rollen),
             )
 
         return FLBewerbungEinwilligungAntwortResponse(

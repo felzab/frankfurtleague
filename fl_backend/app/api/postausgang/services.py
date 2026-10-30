@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Final
 
-from bson import ObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
@@ -25,7 +24,7 @@ from app.api.postausgang.schemas import (
     FLPostausgangStand,
     FLPostausgangZustellStand,
 )
-from app.core.crud import post_many_to_db, post_one_to_db
+from app.core.crud import post_many_to_db
 
 # How long one claim holds its rows: past the page's sends at the frontend's per-send bound, so a drain still sending is
 # never overtaken.
@@ -74,50 +73,15 @@ FOLGT_AUF: Final[Mapping[FLPostausgangZustellStand, tuple[FLPostausgangZustellSt
 }
 
 
-async def enqueue_mail(
-    *,
-    postausgang_collection: AsyncCollection,
-    session: AsyncClientSession,
-    schluessel: str,
-    an: str,
-    daten: FLPostausgangDaten,
-    now: datetime,
-    bezug: FLPostausgangBezug | None = None,
-    link: FLPostausgangLink | None = None,
-    geheim: str | None = None,
-    gueltig_bis: datetime | None = None,
-) -> ObjectId:
-    """Owe one mail to one recipient, inside the transaction of the write owing it, and answer the row's id.
+@dataclass(frozen=True)
+class OwedMail:
+    """One mail a league write owes one recipient.
 
     `daten` is the kind's member of `app/api/postausgang/schemas.py :: FLPostausgangDaten`, whose `art` is the row's.
     `schluessel` is the mail's identity: the same on a replay of the write, so the replay finds the row its first run
     wrote and owes nothing twice, and distinct for every recipient and every mail the write owes. `link` mints a link at
-    the hand-out on the record `bezug` names. `geheim` lapses with `gueltig_bis`, the row's deadline and its deletion both.
+    the hand-out on the record `bezug` names.
     """
-
-    if geheim is not None and gueltig_bis is None:
-        raise ValueError("a secret is held until it lapses, and this one names no lapse")
-
-    # A first run committed before this snapshot is found; one committed after it makes the insert a write conflict the
-    # caller's `with_transaction` retries, which then finds it.
-    stored = await postausgang_collection.find_one({"schluessel": schluessel}, {"_id": 1}, session=session)
-    if stored is not None:
-        return stored["_id"]
-
-    created = await post_one_to_db(
-        collection=postausgang_collection,
-        document=row_of(
-            OwedMail(schluessel=schluessel, an=an, daten=daten, bezug=bezug, link=link), now=now, geheim=geheim, gueltig_bis=gueltig_bis
-        ),
-        session=session,
-    )
-
-    return created.inserted_id
-
-
-@dataclass(frozen=True)
-class OwedMail:
-    """One mail a league write owes one recipient, as `enqueue_mail` names its parts."""
 
     schluessel: str
     an: str
@@ -133,9 +97,9 @@ async def enqueue_mails(
     mails: Sequence[OwedMail],
     now: datetime,
 ) -> None:
-    """`enqueue_mail` for every mail one write owes, in two commands however many: one read of the keys, one insert.
+    """Owe every mail one write owes, inside its transaction, in two commands however many: one read of the keys, one insert.
 
-    For a write owing a mail per row of a page, whose cost per row its share is sized by. The keys must be distinct.
+    A key already stored is a replay's, and owes nothing again. The keys must be distinct.
     """
 
     if not mails:
@@ -143,6 +107,8 @@ async def enqueue_mails(
     if len({mail.schluessel for mail in mails}) != len(mails):
         raise ValueError("every mail one write owes carries a key of its own")
 
+    # A first run committed before this snapshot is found; one committed after it makes the insert a write conflict the
+    # caller's `with_transaction` retries, which then finds it.
     stored = await postausgang_collection.find(
         {"schluessel": {"$in": [mail.schluessel for mail in mails]}}, {"schluessel": 1, "_id": 0}, session=session
     ).to_list(length=None)

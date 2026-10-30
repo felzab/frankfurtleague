@@ -25,7 +25,7 @@ from app.api.berechtigungen.services import (
     stand_of,
 )
 from app.api.postausgang.schemas import FLBerechtigungDaten, FLPostausgangBezug
-from app.api.postausgang.services import enqueue_mail
+from app.api.postausgang.services import OwedMail, enqueue_mails
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.core.collections import Collection
 from app.core.crud import (
@@ -197,16 +197,20 @@ async def owe_in_session(
         daten = FLBerechtigungDaten.model_validate(mitteilung.daten)
         genannt = {stand.adresse for stand in (daten.jetzt, daten.vorher) if stand is not None and stand.adresse is not None}
         for adresse in sorted(set(an) if an is not None else holders | genannt):
-            await enqueue_mail(
+            await enqueue_mails(
                 postausgang_collection=postausgang_collection,
                 session=session,
-                # The write's own instant and the notice's origin keep two notices about one grant apart: a revoke owes
-                # a database edit's notice beside its own (`revoke_in_session`).
-                schluessel=f"berechtigung/{mitteilung.berechtigung_id}/{daten.aenderung}/{daten.urheber}/{now.isoformat()}/{adresse}",
-                an=adresse,
-                daten=daten,
+                mails=[
+                    OwedMail(
+                        # The write's own instant and the notice's origin keep two notices about one grant apart: a revoke owes
+                        # a database edit's notice beside its own (`revoke_in_session`).
+                        schluessel=f"berechtigung/{mitteilung.berechtigung_id}/{daten.aenderung}/{daten.urheber}/{now.isoformat()}/{adresse}",
+                        an=adresse,
+                        daten=daten,
+                        bezug=bezug,
+                    )
+                ],
                 now=now,
-                bezug=bezug,
             )
 
 

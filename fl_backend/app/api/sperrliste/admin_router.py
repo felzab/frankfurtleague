@@ -9,7 +9,7 @@ from pymongo.results import InsertOneResult
 from app.api.berechtigungen.crud import pull_the_list_to_judge, withhold_in_the_postausgang
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.postausgang.schemas import FLSperreDaten
-from app.api.postausgang.services import enqueue_mail
+from app.api.postausgang.services import OwedMail, enqueue_mails
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import read_sperrliste_page
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
@@ -186,12 +186,16 @@ async def post_sperrliste_eintrag(
         # reads no bound. No route leaves one: the activation that lapses a ban removes it.
         created = await post_one_to_db(collection=sperrliste_collection, document=document, session=session)
         if sperrliste_data.benachrichtigen:
-            await enqueue_mail(
+            await enqueue_mails(
                 postausgang_collection=postausgang_collection,
                 session=session,
-                schluessel=f"sperre/{created.inserted_id}",
-                an=str(sperrliste_data.email),
-                daten=FLSperreDaten(art="sperre", grund=sperrliste_data.grund, gesperrt_bis_saison_id=gesperrt_bis_saison_id),
+                mails=[
+                    OwedMail(
+                        schluessel=f"sperre/{created.inserted_id}",
+                        an=str(sperrliste_data.email),
+                        daten=FLSperreDaten(art="sperre", grund=sperrliste_data.grund, gesperrt_bis_saison_id=gesperrt_bis_saison_id),
+                    )
+                ],
                 now=now,
             )
 

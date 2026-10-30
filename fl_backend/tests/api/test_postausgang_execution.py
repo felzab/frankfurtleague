@@ -37,7 +37,6 @@ from app.api.postausgang.services import (
     SEITE,
     WIEDERHOLUNG_NACH,
     OwedMail,
-    enqueue_mail,
     enqueue_mails,
     unzustellbar,
 )
@@ -92,22 +91,26 @@ async def owe(
     bezug: FLPostausgangBezug = BEZUG,
     spec: FLPostausgangLink = LINK,
 ) -> ObjectId:
-    """One mail owed inside a transaction of its own, as a write owing it would."""
+    """One mail owed inside a transaction of its own, as a write owing it would, and the id of the row its key names."""
 
-    async def write(session: Any) -> ObjectId:
-        return await enqueue_mail(
+    async def write(session: Any) -> None:
+        await enqueue_mails(
             postausgang_collection=database[Collection.POSTAUSGANG],
             session=session,
-            schluessel=schluessel,
-            an=NORA,
-            daten=daten,
+            mails=[OwedMail(schluessel=schluessel, an=NORA, daten=daten, bezug=bezug if link else None, link=spec if link else None)],
             now=NOW,
-            bezug=bezug if link else None,
-            link=spec if link else None,
         )
 
     async with transaction_session(client) as session:
-        return await session.with_transaction(write)
+        await session.with_transaction(write)
+
+    return (await stored_by_key(database, schluessel))["_id"]
+
+
+async def stored_by_key(database: AsyncDatabase, schluessel: str) -> dict[str, Any]:
+    row = await database[Collection.POSTAUSGANG].find_one({"schluessel": schluessel})
+    assert row is not None
+    return row
 
 
 async def claimed(database: AsyncDatabase, client: AsyncMongoClient, *, now: datetime = NOW) -> FLPostausgangAusgabeResponse:

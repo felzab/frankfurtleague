@@ -13,7 +13,7 @@ from app.api.identitaet.services import ist_eigene_registrierung
 from app.api.konto.crud import press_widerruf
 from app.api.konto.services import KONTO_SEITE_SPIELER, compose_person_move, find_eigener_eintrag_refusal, widerruf_line
 from app.api.postausgang.schemas import FLPostausgangBezug, FLRegistrierungAbsageDaten
-from app.api.postausgang.services import enqueue_mail
+from app.api.postausgang.services import OwedMail, enqueue_mails
 from app.api.registrierungen.crud import (
     nummern_rows,
     persons_at,
@@ -397,21 +397,25 @@ async def ablehnen(
         )
 
         if registrierung_ist_bestaetigt(einwilligung=registrierung_raw.get("einwilligung")):
-            await enqueue_mail(
+            await enqueue_mails(
                 postausgang_collection=postausgang_collection,
                 session=session,
-                # A decline is taken once: a pending row is what this transaction reads, and it leaves that state.
-                schluessel=f"{Collection.REGISTRIERUNGEN}/{registrierung_id}/absage",
-                an=str(registrierung_raw["email"]),
-                daten=FLRegistrierungAbsageDaten(
-                    art="registrierung_absage",
-                    vorname=str(registrierung_raw["vorname"]),
-                    team=str(junction_raw["name"]),
-                    saison_id=saison_id,
-                    grund=ablehnung_data.grund,
-                ),
+                mails=[
+                    OwedMail(
+                        # A decline is taken once: a pending row is what this transaction reads, and it leaves that state.
+                        schluessel=f"{Collection.REGISTRIERUNGEN}/{registrierung_id}/absage",
+                        an=str(registrierung_raw["email"]),
+                        daten=FLRegistrierungAbsageDaten(
+                            art="registrierung_absage",
+                            vorname=str(registrierung_raw["vorname"]),
+                            team=str(junction_raw["name"]),
+                            saison_id=saison_id,
+                            grund=ablehnung_data.grund,
+                        ),
+                        bezug=FLPostausgangBezug(sammlung=Collection.REGISTRIERUNGEN, id=registrierung_id, sitz=None),
+                    )
+                ],
                 now=germany_now,
-                bezug=FLPostausgangBezug(sammlung=Collection.REGISTRIERUNGEN, id=registrierung_id, sitz=None),
             )
 
         return FLRegistrierungAblehnungResponse(registrierung_id=registrierung_id, vorname=registrierung_raw["vorname"])
