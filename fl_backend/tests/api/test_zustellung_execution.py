@@ -120,7 +120,7 @@ SEEDED_TOKEN_HASH = "9f2b1c4d7e8a0b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a
 # Composed by the production mint rather than spelled here, so a key added to a carrier arrives in
 # this fixture: a hand-written one the validator has outgrown refuses every insert below.
 CARRIER_SEEDS: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
-    "schiedsrichter": compose_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
+    "schiedsrichter": {**compose_bestaetigung(today=MINTED_ON), "token_hashes": [SEEDED_TOKEN_HASH]},
     # Empty because the mint writes it empty (`app/api/einladungen/services.py ::
     # compose_einladung`): an invitation's carrier holds the delivery record and nothing beside it.
     "einladung": {},

@@ -269,6 +269,13 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("saison_id", ASCENDING), ("team_id", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING), ("status", ASCENDING)),
         "one team's pending registrations for one season, newest first, narrowed by status or not",
     ),
+    # Multikey, the array holding the one link the last hand-out minted.
+    SupportIndex(
+        Collection.SCHIEDSRICHTER,
+        "schiedsrichter_bestaetigung_token_hashes",
+        (("bestaetigung.token_hashes", ASCENDING),),
+        "a referee's confirmation page, driven by strangers",
+    ),
     SupportIndex(
         Collection.SPIELBESTAETIGUNGEN,
         "spielbestaetigungen_saison_id_spiel_id",

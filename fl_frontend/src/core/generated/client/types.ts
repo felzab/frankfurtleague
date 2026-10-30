@@ -3341,17 +3341,13 @@ export interface FLPatchSchiedsrichterPayload {
 }
 
 /**
- * A freshly minted link, answered ONCE and stored nowhere.
- *
- * The raw token exists here and in the recipient's inbox; the database holds its hash. Admin-tier
- * whole — every mint answering it is on `app/api/schiedsrichter/admin_router.py`.
+ * The confirmation link a write owed the referee, which the Postausgang mints and mails: never the link itself.
  */
 export interface FLSchiedsrichterMint {
   /** @minLength 1 */
   email: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   frist: string;
-  token: string;
 }
 
 export interface FLSchiedsrichter {
@@ -3849,11 +3845,20 @@ export interface FLSperreDaten {
 }
 
 /**
+ * A referee's confirmation link, owed by their entry, a corrected address, a re-send or their return.
+ */
+export interface FLSchiedsrichterBestaetigungDaten {
+  art: "schiedsrichter_bestaetigung";
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  frist: string;
+}
+
+/**
  * One owed mail a claim hands out, server to server alone: it names its recipient and may carry a live link or secret.
  */
 export interface FLPostausgangAusgabe {
   an: string;
-  daten: FLAnmeldecodeDaten | FLPasskeyDaten | FLKontoLoeschungDaten | FLSperreDaten;
+  daten: FLAnmeldecodeDaten | FLPasskeyDaten | FLKontoLoeschungDaten | FLSperreDaten | FLSchiedsrichterBestaetigungDaten;
   geheim: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
@@ -3940,6 +3945,41 @@ export interface FLPostausgangErgebnisResponse {
   wiederholt: number;
   /** @minimum 0 */
   zurueckgehalten: number;
+}
+
+export type FLPostausgangLageStand = (typeof FLPostausgangLageStand)[keyof typeof FLPostausgangLageStand];
+
+export const FLPostausgangLageStand = {
+  offen: "offen",
+  gesendet: "gesendet",
+  zurueckgehalten: "zurueckgehalten",
+  gesperrt: "gesperrt",
+  entfallen: "entfallen",
+  aufgegeben: "aufgegeben",
+} as const;
+
+export type FLPostausgangZustellungStand = (typeof FLPostausgangZustellungStand)[keyof typeof FLPostausgangZustellungStand];
+
+export const FLPostausgangZustellungStand = {
+  zugestellt: "zugestellt",
+  verzoegert: "verzoegert",
+  unzustellbar: "unzustellbar",
+  unterdrueckt: "unterdrueckt",
+  beschwerde: "beschwerde",
+} as const;
+
+export interface FLPostausgangZustellung {
+  am: string;
+  grund: string | null;
+  stand: FLPostausgangZustellungStand;
+}
+
+/**
+ * What became of the last mail owed about one record and seat, as an editor reads it beside the link.
+ */
+export interface FLPostausgangLage {
+  stand: FLPostausgangLageStand;
+  zustellung: FLPostausgangZustellung | null;
 }
 
 /**
@@ -4452,6 +4492,7 @@ export interface FLSchiedsrichterSingleResponse {
   adresswechsel_id: string | null;
   bestaetigung_abgelaufen: boolean;
   schiedsrichter: FLSchiedsrichter;
+  zustellung: FLPostausgangLage | null;
 }
 
 /**

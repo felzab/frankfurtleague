@@ -20,6 +20,7 @@ from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.bans import ban_list
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, saison_document, saison_team_document, spiel_document, team_document
+from tests.postausgang import MAIL_NOW
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_reference_fanout_test")
@@ -278,9 +279,11 @@ async def rename_the_referee(
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
+        now=MAIL_NOW,
         actor=FRESH_ADMIN_ACTOR,
     )
 
