@@ -712,11 +712,8 @@ export function AdminEditSpielDataForm({
           onCreated={(referee) => {
             setCreatedSchiedsrichter((previous) => [...previous, referee]);
           }}
-          // The picker stays empty under the toast, so the toast says why nobody was booked however the link ended.
-          unbooked={{
-            title: "Angelegt. Einteilen kannst Du die Person, sobald sie ihren Eintrag bestätigt hat.",
-            addendum: "Einteilen kannst Du die Person, sobald sie ihren Eintrag bestätigt hat.",
-          }}
+          // The picker stays empty under the toast, so the toast says why nobody was booked.
+          unbooked={{ title: "Angelegt. Einteilen kannst Du die Person, sobald sie ihren Eintrag bestätigt hat." }}
         />
       </FormModal>
     </DraftStatusProvider>

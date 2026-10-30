@@ -2,6 +2,7 @@ import "server-only";
 
 import { ContractBreakError } from "./errors";
 import { buildRegistrierungAbsageEmail, buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail } from "./registrierungEmail";
+import { buildSchiedsrichterBestaetigungEmail } from "./schiedsrichterEmail";
 
 import type { Mail } from "./emailShell";
 import type { FLPostausgangAusgabe } from "./generated/client/types";
@@ -54,6 +55,7 @@ function gemintet({ token, origin }: Ausgabe): MailLink {
 
 /** Each kind's builder, which renders through the shell (`fl_frontend/src/core/emailShell.ts :: renderMail`). */
 const MAIL_KINDS: { [A in PostausgangArt]?: MailBuilder<A> } = {
+  schiedsrichter_bestaetigung: buildSchiedsrichterBestaetigungEmail,
   registrierung_bestaetigung: (daten, ausgabe) => buildRegistrierungBestaetigungEmail(daten, gemintet(ausgabe)),
   registrierung_erinnerung: (daten, ausgabe) => buildRegistrierungErinnerungEmail(daten, gemintet(ausgabe)),
   registrierung_absage: (daten, ausgabe) => buildRegistrierungAbsageEmail(daten, ausgabe),

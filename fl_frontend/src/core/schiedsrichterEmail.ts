@@ -1,8 +1,11 @@
 import "server-only";
 
 import { BRAND_NAME, mailOrigin } from "./emailShell";
+import { formatDatum } from "./format";
 
 import type { Mail } from "./emailShell";
+import type { Kalendertag } from "./format";
+import type { FLSchiedsrichterBestaetigungDaten } from "./generated/client/types";
 
 /** A segment of its own rather than a query on a shared page, so the sitemap and `robots.ts` answer it by name. */
 const SCHIEDSRICHTER_BESTAETIGUNG_PATH = "/bestaetigung/schiedsrichter";
@@ -12,27 +15,27 @@ const SCHIEDSRICHTER_BESTAETIGUNG_PATH = "/bestaetigung/schiedsrichter";
  * `nginx/shared/http.conf :: $credential_free_uri` matches that name; a second spelling reaches the access
  * line and the referer unredacted.
  */
-export function schiedsrichterBestaetigungsLink(origin: string, token: string): string {
+function schiedsrichterBestaetigungsLink(origin: string, token: string): string {
   return `${origin}${SCHIEDSRICHTER_BESTAETIGUNG_PATH}?token=${encodeURIComponent(token)}`;
 }
 
 // No name: an administrator typed this address and nobody has confirmed it, so behind a typo its
-// reader is a stranger, owed none.
-/** What one referee is asked to confirm. No season: a referee's entry is bound to none, so the deadline is the only date here. */
-export interface SchiedsrichterBestaetigungData {
-  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`. */
-  origin: string;
-  /** The raw token. It is a bearer credential and is never taken apart here. */
-  token: string;
-  /**
-   * The deadline as a German date, rendered by the caller:
-   * `fl_frontend/src/shared/utils/format.ts :: formatSpielDatum` sits in a layer `core` may not reach.
-   */
-  fristText: string;
-}
+// reader is a stranger, owed none. No season: a referee's entry is bound to none, so the deadline is
+// the only date here.
+/**
+ * What one referee is asked to confirm, from the facts the Postausgang row holds and the link its hand-out minted.
+ * `origin` is the serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`; `token` is a bearer credential and
+ * is never taken apart here.
+ */
+export function buildSchiedsrichterBestaetigungEmail(
+  { frist }: FLSchiedsrichterBestaetigungDaten,
+  { origin, token }: { readonly origin: string; readonly token: string | null },
+): Mail {
+  // Every row of this kind carries a link, so a hand-out answering none is a fault the drain stops on.
+  if (token === null) throw new Error("A confirmation mail was handed out without its link.");
 
-export function buildSchiedsrichterBestaetigungEmail({ origin, token, fristText }: SchiedsrichterBestaetigungData): Mail {
   const site = mailOrigin(origin);
+  const fristText = formatDatum(frist as Kalendertag);
 
   return {
     art: "erstkontakt",

@@ -33,7 +33,15 @@ from app.api.postausgang.schemas import (
     FLPostausgangZustellStand,
     FLSperreDaten,
 )
-from app.api.postausgang.services import BEANSPRUCHUNG_DAUER, NACHLAUF, WIEDERHOLUNG_NACH, enqueue_mail, unzustellbar
+from app.api.postausgang.services import (
+    BEANSPRUCHUNG_DAUER,
+    NACHLAUF,
+    WIEDERHOLUNG_NACH,
+    OwedMail,
+    enqueue_mail,
+    enqueue_mails,
+    unzustellbar,
+)
 from app.core.collections import Collection
 from app.core.transactions import transaction_session
 from tests.bans import ban_list
@@ -146,6 +154,27 @@ class TestTheEnqueue:
         first, again, rows = on_a_database(mongo_replica_set_url, body)
 
         assert (again, rows) == (first, 1)
+
+    def test_a_batch_replayed_owes_only_the_mails_its_first_run_did_not(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
+            async def batch(*schluessel: str) -> None:
+                async def write(session: Any) -> None:
+                    await enqueue_mails(
+                        postausgang_collection=database[Collection.POSTAUSGANG],
+                        session=session,
+                        mails=[OwedMail(schluessel=key, an=NORA, daten=SPERRE) for key in schluessel],
+                        now=NOW,
+                    )
+
+                async with transaction_session(client) as session:
+                    await session.with_transaction(write)
+
+            await batch("sperre/1", "sperre/2")
+            await batch("sperre/2", "sperre/3")
+
+            return sorted(row["schluessel"] for row in await database[Collection.POSTAUSGANG].find({}).to_list())
+
+        assert on_a_database(mongo_replica_set_url, body) == ["sperre/1", "sperre/2", "sperre/3"]
 
 
 class TestTheDrain:
