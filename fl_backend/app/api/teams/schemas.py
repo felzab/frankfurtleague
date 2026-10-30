@@ -419,8 +419,7 @@ class FLTeamStatistik(BaseReadModel):
 class _TeamWritable(BaseModel):
     name: CustomNonEmptyString
     shorthand: CustomShorthand
-    # Capped so the public page and the editor's textarea agree on what fits; the bound stays out of
-    # the database validator.
+    # Capped so the public page and the editor's textarea agree on what fits.
     description: str = Field(max_length=TEAM_DESCRIPTION_MAX_LENGTH)
     full_name: CustomNonEmptyString
     # NO default here, so the payloads inherit none: `PATCH` replaces the club wholesale, and an

@@ -914,8 +914,7 @@ async def generate_spielplan(
             # The season a report's first write anchors, so the two conflict: the watermark's `$set` below can change
             # nothing on a same-day redraw, and the report's insert meets no delete here.
             await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
-            # NOT extracted, though `undraw_spielplan` repeats it: two sites are no pattern yet
-            # (`.claude/CLAUDE.md` §3).
+            # NOT extracted, though `undraw_spielplan` repeats it: two sites are no pattern yet.
             await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
             await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
             removed_spiele = (

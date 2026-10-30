@@ -61,8 +61,8 @@ REDRAWABLE_SHAPE_FIELD = "qualifiers_per_group"
 def total_season_fixtures(rules: FLSaisonRules) -> int:
     """Every match these rules imply, the bracket's rounds included.
 
-    One fold, not two: `REQ-RULES-013` and `tests/api/test_schedule.py` weigh the same number against
-    the same page, and a second reading of `schedule_for` would drift the moment a phase moved.
+    One fold, so every reader weighs one number against the one read's page: a second reading of
+    `schedule_for` would drift the moment a phase moved.
     """
 
     return sum(entry.matchdays * entry.matches_per_matchday for entry in schedule_for(rules))
