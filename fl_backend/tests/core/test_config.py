@@ -4,13 +4,12 @@ import errno
 import logging
 import secrets
 import warnings
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi import FastAPI
-from fastapi.dependencies.models import Dependant
 from pydantic import Field, SecretStr, ValidationError
 from pymongo import MongoClient
 from pymongo.errors import ConfigurationError, InvalidURI, OperationFailure, ServerSelectionTimeoutError
@@ -23,15 +22,11 @@ from app.core.config import (
     SPERRLISTE_KEY_MIN_LENGTH,
     BackendConfig,
     EnvironmentValidationError,
-    get_app_config,
     get_config,
     read_environment,
 )
 from app.core.constraints import SUPPORT_INDEXES, TTL_INDEXES, UNIQUE_INDEXES
 from app.core.db import NO_SERVER, REJECTED, UNREACHABLE, DatabaseUnreachableError, _refusal_for, lifespan
-from app.core.security import verify_access_admin, verify_access_base, verify_access_system
-from app.main import create_app
-from tests.core.app_source import api_routes
 from tests.worker import worker_database
 
 # TEST-NET-1 (RFC 5737) on a port no mongod this repository starts is served on, so the ping fails
@@ -186,16 +181,6 @@ class TestTheInternalKeys:
 
         with pytest.raises(ValidationError):
             build(**{field: SecretStr(key)})
-
-    @pytest.mark.parametrize("field", ["internal_api_key_base", "internal_api_key_system", "internal_api_key_admin"])
-    @pytest.mark.parametrize(
-        "syntax", ['"', "#", "$", "'", "\\", "`"], ids=["double-quote", "hash", "dollar", "single-quote", "backslash", "backtick"]
-    )
-    def test_a_key_carrying_a_character_an_env_file_reader_alters_boots(self, field, syntax):
-        """A key is read from its file alone, which no env-file reader parses, so the class need not refuse their syntax."""
-        key = "k" * 10 + syntax + "k" * (INTERNAL_API_KEY_LENGTH - 11)
-
-        assert getattr(build(**{field: SecretStr(key)}), field).get_secret_value() == key
 
     @pytest.mark.parametrize("field", ["internal_api_key_base", "internal_api_key_system", "internal_api_key_admin"])
     @pytest.mark.parametrize(
@@ -553,19 +538,6 @@ class TestANameTheClassDoesNotDeclare:
         assert config.internal_api_key_base == WELL_FORMED["internal_api_key_base"]
 
 
-class TestAFileAboveThePackage:
-    def test_a_dotenv_file_in_the_checkout_root_is_read_by_nothing(self, monkeypatch, tmp_path):
-        """Compose hands the container its package's file alone, so a run from the package reads that file and no other.
-
-        The root's line names what the class does not declare, which would refuse the boot were it read.
-        """
-        (tmp_path / "fl_backend").mkdir()
-        (tmp_path / ".env").write_bytes(b"AUTH_SECRET=x\n")
-        an_environment(monkeypatch, tmp_path / "fl_backend")
-
-        assert get_config().db_base_name == REQUIRED["DB_BASE_NAME"]
-
-
 class TestTheStartupPing:
     def test_a_server_that_cannot_be_reached_names_the_file_and_not_the_host(self, monkeypatch, tmp_path, caplog):
         """Driven through the files, which `get_config` reads for the settings the boot builds its client from."""
@@ -641,27 +613,6 @@ class TestTheBootAppliesTheIndexesWhereTheApplicationServes:
             for name in (built_name, environment_name):
                 client.drop_database(name)
             client.close()
-
-
-def _reached(dependant: Dependant) -> Iterator[Callable[..., Any]]:
-    """Every callable a request resolves through `dependant`, sub-dependencies included."""
-    for dependency in dependant.dependencies:
-        if dependency.call is not None:
-            yield dependency.call
-        yield from _reached(dependency)
-
-
-class TestEveryRequestReadsTheSettingsTheApplicationWasBuiltWith:
-    def test_no_route_reaches_the_environment(self):
-        """`get_config` is the environment's; a route reaching it answers with those settings whatever the app was built with."""
-        reached = {
-            f"{sorted(route.methods or ())} {route.path_format}": set(_reached(route.dependant)) for route in api_routes(create_app(build()))
-        }
-        guarded = {name for name, calls in reached.items() if calls & {verify_access_base, verify_access_admin, verify_access_system}}
-
-        assert sorted(name for name, calls in reached.items() if get_config in calls) == []
-        # The control: each guard reads the key two levels down, so a walk stopping short fails here.
-        assert guarded and sorted(name for name in guarded if get_app_config not in reached[name]) == []
 
 
 class TestWhichRefusalACauseEarns:

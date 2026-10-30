@@ -132,8 +132,9 @@ logger-objects = ["app.core.logging.fl_logger", "app.core.logging.journal_logger
 # the wall clock it runs under, and it builds settings from the environment to judge them.
 "tests/**" = ["TID251"]
 
-# A handler reading the environment's settings answers with those whatever the app was built with,
-# and the dependency walk in `tests/core/test_config.py` never sees a call inside a body.
+# A handler reading the environment's settings answers with those whatever the app was built with.
+# The ban reaches every spelling of a read, an import, an attribute through `app.core.config` and a
+# dependency alike, which makes it the one guard against a route reading them.
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # Each permitted import carries its own `noqa`, which RUF100 reports once nothing there needs it;
 # the preflight in `scripts/ops/deploy.sh` is a shell string ruff never reads.
