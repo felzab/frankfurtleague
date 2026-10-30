@@ -415,7 +415,7 @@ export const FLBewerbungZustellungEreignisPayloadSchema = z.object({
     .max(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH, { error: "Dieser Zeitpunkt ist zu lang." }),
   // Without `angenommen`, which the acceptance endpoint alone writes: a webhook composing one would
   // be refused 422 and retried for thirty-two hours over a state no event of the provider's carries.
-  stand: FLBewerbungZustellstandSchema.exclude(["angenommen"]),
+  stand: FLBewerbungZustellstandSchema,
   // No floor beside the ceiling, unlike the two above: the endpoint takes an empty reason and a
   // `null` alike, so a message whose bounce carries no token is still a state about the mailbox.
   grund: einzeiligerName(z.string().trim().max(ZUSTELLUNG_GRUND_MAX_LENGTH, { error: "Dieser Grund ist zu lang." }), "Der Grund").nullable(),

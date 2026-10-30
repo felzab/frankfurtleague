@@ -102,7 +102,7 @@ export const FLZustellungEreignisPayloadSchema = z
     nachricht_id: nachrichtIdFeld,
     // Without `angenommen`, which the acceptance endpoint alone writes: a webhook composing one would
     // be refused 422 and retried for thirty-two hours over a state no event of the provider's carries.
-    stand: FLBewerbungZustellstandSchema.exclude(["angenommen"]),
+    stand: FLBewerbungZustellstandSchema,
     grund: grundFeld,
   })
   .superRefine(sitzeZumZiel);
