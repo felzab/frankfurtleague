@@ -19,8 +19,8 @@ from app.api.bewerbungen.services import (
     SAISON_EINWILLIGUNG_ANTWORT_FIELDS,
     SAISON_EINWILLIGUNG_FIELDS,
     ansprechperson_mailbox,
-    ausstehende_seats,
     bewerbung_antwort_seite,
+    bewerbung_bezug,
     bewerbung_schule,
     build_saison_token_filter,
     build_token_filter,
@@ -51,6 +51,8 @@ from app.api.bewerbungen.services import (
 )
 from app.api.einwilligung.services import find_fassung_refusal, find_selbst_medien_refusal
 from app.api.kontakte.crud import redact_the_decliner, remove_their_reasons
+from app.api.postausgang.schemas import FLBewerbungPerson, FLBewerbungWiderspruchDaten
+from app.api.postausgang.services import enqueue_mail
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import kontakte_ohne, seat_void_of
@@ -63,6 +65,7 @@ from app.core.dependencies import (
     AktionenCollection,
     BewerbungenCollection,
     DBClient,
+    PostausgangCollection,
     SaisonsCollection,
     SaisonTeamsCollection,
     SpielbestaetigungenCollection,
@@ -219,6 +222,7 @@ async def post_einwilligung(
     saisons_collection: SaisonsCollection,
     aktionen_collection: AktionenCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    postausgang_collection: PostausgangCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -227,8 +231,8 @@ async def post_einwilligung(
 ) -> FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse:
     """Record one person's consent or decline for the seat their link opens, and for a second seat they hold.
 
-    A decline empties the slot. Server-to-server only: the answer carries the addresses the outbound messages are composed
-    from. Refuses, writing nothing: `REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and
+    A decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who
+    refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing: `REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and
     on a team's season row `REQ-KONTAKT-004` and `-006`.
     """
 
@@ -431,22 +435,12 @@ async def post_einwilligung(
                 return_document=ReturnDocument.AFTER,
             )
 
-            bestaetigt_email, bestaetigt_rollen = ansprechperson_mailbox(kontakte=updated_raw.get("kontakte"))
-
             return FLBewerbungEinwilligungAntwortResponse(
                 quelle="bewerbung",
                 ergebnis="bestaetigt",
-                ausstehend=ausstehende_seats(kontakte=updated_raw.get("kontakte")),
                 geburtsdatum=geburtsdatum,
                 whatsapp=antwort_data.whatsapp,
                 medien=antwort_data.medien,
-                bewerbung_id=bewerbung_raw["_id"],
-                saison_id=saison_id,
-                rolle=seat,
-                vorname=vorname,
-                bestaetigungsfrist=bestaetigungsfrist,
-                ansprechperson_email=bestaetigt_email,
-                ansprechperson_rollen=bestaetigt_rollen,
             )
 
         updated_raw = await patch_one_in_db(
@@ -470,23 +464,33 @@ async def post_einwilligung(
         journal_the_widerspruch(Collection.BEWERBUNGEN, bewerbung_raw, seat, seats)
 
         # Off the UPDATED document, so an Ansprechperson who has just declined leaves this null and
-        # the message their decline would have gone to is not composed at all.
+        # the message their decline would have gone to is owed to nobody.
         abgelehnt_email, abgelehnt_rollen = ansprechperson_mailbox(kontakte=updated_raw.get("kontakte"))
+        if abgelehnt_email is not None:
+            # In the decline's own transaction, which stamped the notice as the deletion's: one cannot stand without the other.
+            await enqueue_mail(
+                postausgang_collection=postausgang_collection,
+                session=session,
+                schluessel=f"{Collection.BEWERBUNGEN}/{bewerbung_raw['_id']}/widerspruch/{seat}",
+                an=abgelehnt_email,
+                daten=FLBewerbungWiderspruchDaten(
+                    art="bewerbung_widerspruch",
+                    saison_id=saison_id,
+                    rollen=abgelehnt_rollen,
+                    # Named off the read before the decline: nothing left in the record can say whose entry was refused.
+                    abgelehnt=FLBewerbungPerson(vorname=vorname, rollen=list(seats)),
+                    frist=bestaetigungsfrist,
+                ),
+                now=germany_now,
+                bezug=bewerbung_bezug(bewerbung_raw["_id"], abgelehnt_rollen),
+            )
 
         return FLBewerbungEinwilligungAntwortResponse(
             quelle="bewerbung",
             ergebnis="abgelehnt",
-            ausstehend=ausstehende_seats(kontakte=updated_raw.get("kontakte")),
             geburtsdatum=None,
             whatsapp=antwort_data.whatsapp,
             medien=False,
-            bewerbung_id=bewerbung_raw["_id"],
-            saison_id=saison_id,
-            rolle=seat,
-            vorname=vorname,
-            bestaetigungsfrist=bestaetigungsfrist,
-            ansprechperson_email=abgelehnt_email,
-            ansprechperson_rollen=abgelehnt_rollen,
         )
 
     async with journal:

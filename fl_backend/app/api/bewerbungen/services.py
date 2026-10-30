@@ -15,9 +15,20 @@ from app.api.bewerbungen.schemas import (
     refuse_age_outside_the_bounds,
 )
 from app.api.kontakte.services import rows_seating
+from app.api.postausgang.schemas import (
+    FLBewerbungEingangDaten,
+    FLBewerbungLinkDaten,
+    FLBewerbungLoeschungDaten,
+    FLBewerbungPerson,
+    FLPostausgangBezug,
+    FLPostausgangLage,
+    FLPostausgangLink,
+)
+from app.api.postausgang.services import OwedMail, unzustellbar
 from app.api.sperrliste.services import withheld_actor
 from app.api.teams.schemas import FLPostTeamPayload
 from app.core.codes import Code
+from app.core.collections import Collection as Sammlung
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
@@ -283,59 +294,6 @@ def find_abweichender_fingerabdruck_refusal(*, gespeichert: Any, fingerabdruck: 
     )
 
 
-def build_wiederholung_filter(*, bewerbung_raw: Mapping[str, Any], today: str) -> Mapping[str, Any] | None:
-    """The state a replay hands fresh links in, as its update's filter; `None` where a seat holds no live entry.
-
-    No seat answered, reminded or on record as reached by a mail.
-    """
-
-    block = bewerbung_raw.get("bestaetigungen")
-    entries = {seat: _entry_of(block, seat) for seat in KONTAKT_ROLLEN}
-
-    terms: dict[str, Any] = {}
-    unerreicht: list[Mapping[str, Any]] = []
-    for seat, entry in entries.items():
-        if entry is None or not isinstance(entry.get("token_hash"), str):
-            return None
-
-        terms[f"bestaetigungen.{seat}.erinnert_am"] = None
-        terms[f"bestaetigungen.{seat}.abgelehnt_am"] = None
-        terms[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = None
-        unerreicht.append(zustellung_unerreicht_term(pfad=f"bestaetigungen.{seat}.zustellung"))
-
-    # The deadline's own day still takes a link, as `link_is_over` reads it.
-    return {"_id": bewerbung_raw["_id"], "status": "eingereicht", "bestaetigungsfrist": {"$gte": today}, **terms, "$and": unerreicht}
-
-
-# The two states in which no message reached the inbox: the provider refused the address, or never sent
-# to it. `beschwerde` is not one -- that message arrived, and its reader complained about it.
-ZUSTELLUNG_NICHT_ANGEKOMMEN: Final = ("unterdrueckt", "unzustellbar")
-
-
-def zustellung_unerreicht_term(*, pfad: str) -> Mapping[str, Any]:
-    """No message on record under `pfad`, or only one that never arrived: a replay then mails, as the first press would have.
-
-    A refused send left unmailed would answer a receipt promising a mail nobody got.
-    """
-
-    return {"$or": [{pfad: None}, {f"{pfad}.stand": {"$in": list(ZUSTELLUNG_NICHT_ANGEKOMMEN)}}]}
-
-
-def compose_wiederholung_update(*, hashes: Mapping[str, str], bestaetigungen: Any) -> Mapping[str, Any]:
-    """The replaced hash is kept live rather than voided: a mail that went out unrecorded still holds it.
-
-    Neither `erinnert_am` nor the deadline moves, a replay being neither a reminder nor a re-send.
-    """
-
-    written: dict[str, Any] = {}
-    for seat, token_hash in hashes.items():
-        entry = _entry_of(bestaetigungen, seat) or {}
-        written[f"bestaetigungen.{seat}.token_hash"] = token_hash
-        written[f"bestaetigungen.{seat}.token_hash_zuvor"] = entry.get("token_hash")
-
-    return {"$set": written}
-
-
 def compose_einwilligung(*, text_version: str, today: str, eingetragen_von: FLKontaktEingetragenVon) -> dict[str, Any]:
     """The contact seat's record as the server writes it: who seated the person, and nothing they answered.
 
@@ -429,25 +387,24 @@ def bestaetigungsfrist_from(*, today: str) -> str:
     return days_after(day=today, days=BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)
 
 
-def compose_bestaetigung(*, token_hash: str, today: str) -> dict[str, Any]:
-    """One seat's bookkeeping as the create and the re-send write it: a live hash, mailed today, nobody reminded, nobody declined."""
+def compose_bestaetigung(*, today: str) -> dict[str, Any]:
+    """One seat's bookkeeping as the create and the re-send write it: mailed today, nobody reminded, nobody declined.
 
-    return {"token_hash": token_hash, "verschickt_am": today, "erinnert_am": None, "abgelehnt_am": None}
+    No link yet: the hand-out of the mail the same write owes mints it into `token_hashes`, so a link replaced here opens
+    nothing from this write on.
+    """
+
+    return {"token_hashes": [], "verschickt_am": today, "erinnert_am": None, "abgelehnt_am": None}
 
 
-def compose_bestaetigungen(*, hashes: Mapping[str, str], today: str) -> dict[str, Any]:
-    return {seat: compose_bestaetigung(token_hash=hashes[seat], today=today) for seat in KONTAKT_ROLLEN}
-
-
-# A reminder's fresh hash and the first mail's, both live: a reader still looking at the first
-# message is not punished by the chase, and only an administrator's re-send voids.
-TOKEN_HASH_FIELDS = ("token_hash", "token_hash_zuvor")
+def compose_bestaetigungen(*, today: str) -> dict[str, Any]:
+    return {seat: compose_bestaetigung(today=today) for seat in KONTAKT_ROLLEN}
 
 
 # The admin reads' projection, and the FIRST exclusion projection in this tree: an inclusion list
-# would have to restate every field an application holds. Derived from the pair above, so a third
-# hash field cannot reach a read.
-WITHOUT_TOKEN_HASHES: Mapping[str, int] = {f"bestaetigungen.{seat}.{field}": 0 for seat in KONTAKT_ROLLEN for field in TOKEN_HASH_FIELDS}
+# would have to restate every field an application holds. Each seat keeps the hash of every link it
+# was mailed, a reminder's beside the first, and only an administrator's re-send voids them.
+WITHOUT_TOKEN_HASHES: Mapping[str, int] = {f"bestaetigungen.{seat}.token_hashes": 0 for seat in KONTAKT_ROLLEN}
 
 
 def _per_seat(block: str, *fields: str) -> dict[str, int]:
@@ -466,9 +423,9 @@ KONTAKT_WAHL_FIELDS: Final = ("einwilligung.umfang", "einwilligung.medien", "ein
 
 # An INCLUSION, and never the exclusion above inverted: these two answer a closed handful, so the
 # rest of the document is what a base-tier read must not hold.
-# Both hashes, which `seat_holding` compares.
+# Every hash, which `seat_holding` compares.
 EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
-    **_per_seat("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am"),
+    **_per_seat("bestaetigungen", "token_hashes", "abgelehnt_am"),
     # The address for the ban list alone, as the answer's read takes it: the response model declares
     # no field to carry it.
     **_per_seat("kontakte", "email", "einwilligung.bestaetigt_am", *KONTAKT_SEITE_FIELDS),
@@ -488,7 +445,7 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
 # Narrower than the view's: the answer takes its wording from the payload and names no school. The
 # address is what a consent asks the ban list of, and no answer carries it.
 EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
-    **_per_seat("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am"),
+    **_per_seat("bestaetigungen", "token_hashes", "abgelehnt_am"),
     # The choices and their evidence, so a withdrawal names the grant it ends (`compose_wahlen`).
     **_per_seat("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", *KONTAKT_WAHL_FIELDS, *KONTAKT_SEITE_FIELDS),
     "kontakte.trainer_ist_zugleich": 1,
@@ -499,9 +456,9 @@ EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
 
 
 def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
-    """Every seat path and both hashes, so the hash alone finds the seat. No status term: a reopened link shows its own state."""
+    """Every seat path, so the hash alone finds the seat. No status term: a reopened link shows its own state."""
 
-    return {"$or": [{f"bestaetigungen.{seat}.{field}": token_hash} for seat in KONTAKT_ROLLEN for field in TOKEN_HASH_FIELDS]}
+    return {"$or": [{f"bestaetigungen.{seat}.token_hashes": token_hash} for seat in KONTAKT_ROLLEN]}
 
 
 def seat_named(value: Any) -> FLKontaktRolle | None:
@@ -519,7 +476,7 @@ def seat_holding(*, bewerbung_raw: Mapping[str, Any], token_hash: str) -> FLKont
 
     for seat in KONTAKT_ROLLEN:
         entry = block.get(seat)
-        if isinstance(entry, Mapping) and any(entry.get(field) == token_hash for field in TOKEN_HASH_FIELDS):
+        if isinstance(entry, Mapping) and token_hash in (entry.get("token_hashes") or ()):
             return seat_named(seat)
 
     return None
@@ -674,21 +631,18 @@ def zustand_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str, gespe
 # by the application's two operations: the slots and stamps are one shape, only the deadline's home
 # differing.
 
-# One hash per entry: no reminder chases these links, so nothing keeps a second one live.
-SAISON_TOKEN_FIELD: Final = "token_hash"
-
 
 def build_saison_token_filter(*, token_hash: str) -> Mapping[str, Any]:
     """Every seat path, so the hash alone finds the seat on whichever row holds it."""
 
-    return {"$or": [{f"bestaetigungen.{seat}.{SAISON_TOKEN_FIELD}": token_hash} for seat in KONTAKT_ROLLEN]}
+    return {"$or": [{f"bestaetigungen.{seat}.token_hashes": token_hash} for seat in KONTAKT_ROLLEN]}
 
 
 # An INCLUSION for `EINWILLIGUNG_ANSICHT_FIELDS`' reason: the rest of the row is what a base-tier read
 # must not hold. The address is the ban list's alone, and the club's season name is the page's
 # `schule`.
 SAISON_EINWILLIGUNG_FIELDS: Mapping[str, int] = {
-    **_per_seat("bestaetigungen", SAISON_TOKEN_FIELD, "abgelehnt_am", "frist"),
+    **_per_seat("bestaetigungen", "token_hashes", "abgelehnt_am", "frist"),
     **_per_seat("kontakte", "email", "einwilligung.bestaetigt_am", *KONTAKT_SEITE_FIELDS),
     "kontakte.trainer_ist_zugleich": 1,
     "saison_id": 1,
@@ -790,7 +744,7 @@ def saison_link_pair(*, kontakte: Any, bestaetigungen: Any, seat: str, token_has
         return None
 
     entry = bestaetigungen[other]
-    if entry.get(SAISON_TOKEN_FIELD) != token_hash or _seat_is_confirmed(kontakte, other):
+    if token_hash not in (entry.get("token_hashes") or ()) or _seat_is_confirmed(kontakte, other):
         return None
 
     return other
@@ -1036,16 +990,15 @@ def compose_decline_update(*, seats: Sequence[str], today: str, angekuendigt: bo
     return {"$set": written, "$unset": {"idempotenz_fingerabdruck": ""}}
 
 
-def compose_erneut_update(*, seats: Sequence[str], token_hash: str, today: str, bestaetigungsfrist: str) -> Mapping[str, Any]:
+def compose_erneut_update(*, seats: Sequence[str], today: str, bestaetigungsfrist: str) -> Mapping[str, Any]:
     """A re-send: one fresh entry per seat this person holds, and the deadline restarts.
 
     Both seats one person holds, as the confirmation writes both: one entry left standing would keep
     the replaced address's link alive through `paired_seat`.
     """
 
-    # The WHOLE entry, so the delivery state of the message the old link went out in goes with it: a
-    # refusal recorded against a replaced address would hold the fresh link's application for ever.
-    written: dict[str, Any] = {f"bestaetigungen.{seat}": compose_bestaetigung(token_hash=token_hash, today=today) for seat in seats}
+    # The WHOLE entry, its links with it: the old link opens nothing from here, and the mail this write owes mints the fresh one.
+    written: dict[str, Any] = {f"bestaetigungen.{seat}": compose_bestaetigung(today=today) for seat in seats}
 
     # The deadline restarts, so a notice that named the old one no longer announces the deletion.
     return {"$set": {**written, "bestaetigungsfrist": bestaetigungsfrist, "loeschung_angekuendigt_am": None}}
@@ -1161,16 +1114,14 @@ def find_sitz_inhaber_refusal(*, kontakte: Any, seat: str, bisherige_email: str)
     )
 
 
-def compose_kontakt_email_update(
-    *, seats: Sequence[str], email: str, token_hash: str, today: str, bestaetigungsfrist: str
-) -> Mapping[str, Any]:
+def compose_kontakt_email_update(*, seats: Sequence[str], email: str, today: str, bestaetigungsfrist: str) -> Mapping[str, Any]:
     """The corrected address and a fresh link, in ONE `$set`.
 
     Never two writes: between them the seat would hold the new address beside the link the old one
     was mailed, which is the live credential the correction exists to retire.
     """
 
-    erneut = compose_erneut_update(seats=seats, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist)
+    erneut = compose_erneut_update(seats=seats, today=today, bestaetigungsfrist=bestaetigungsfrist)
 
     return {"$set": {**{f"kontakte.{seat}.email": email for seat in seats}, **erneut["$set"]}}
 
@@ -1222,11 +1173,11 @@ def claimed_pair_seat(*, kontakte: Any, seat: str) -> FLKontaktRolle | None:
 
 
 def compose_kontakt_seat_update(
-    *, seats: Sequence[str], person: Mapping[str, Any], text_version: str, token_hash: str, today: str, bestaetigungsfrist: str
+    *, seats: Sequence[str], person: Mapping[str, Any], text_version: str, today: str, bestaetigungsfrist: str
 ) -> Mapping[str, Any]:
     """The new person and their fresh link, in ONE `$set`. Two writes would seat them behind the link the seat's last holder still holds."""
 
-    erneut = compose_erneut_update(seats=seats, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist)
+    erneut = compose_erneut_update(seats=seats, today=today, bestaetigungsfrist=bestaetigungsfrist)
     # Born afresh: nothing of the person who stepped out travels to the one seated.
     einwilligung = compose_einwilligung(text_version=text_version, today=today, eingetragen_von="liga")
     # Null rather than left off, as the submission writes it: the key marks a date not yet entered,
@@ -1368,7 +1319,7 @@ def latest_decision_due(*, today: str) -> str:
 
 
 def seat_reminder_is_due(*, kontakte: Any, bestaetigungen: Any, seat: str, today: str) -> bool:
-    """Whether this seat's one reminder is owed today: open, unanswered, never reminded, mailed three or more days ago, and reachable.
+    """Whether this seat's one reminder is owed today: open, unanswered, never reminded, and mailed three or more days ago.
 
     A re-sent seat carries a later `verschickt_am` and reaches its mark on its own; one already
     reminded never is again.
@@ -1379,11 +1330,6 @@ def seat_reminder_is_due(*, kontakte: Any, bestaetigungen: Any, seat: str, today
         return False
 
     if entry.get("erinnert_am") is not None or not isinstance(entry.get("verschickt_am"), str):
-        return False
-
-    # A seat gets ONE chase, and spending it on an address the provider has already refused spends
-    # it on nobody; a correction is what makes the seat due again, by writing a fresh entry.
-    if seat_is_unreachable(bestaetigungen=bestaetigungen, seat=seat):
         return False
 
     return days_after(day=entry["verschickt_am"], days=BEWERBUNG_ERINNERUNG_TAGE) <= today
@@ -1421,52 +1367,18 @@ def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[str]) -> list[tuple
     return list(grouped.values())
 
 
-def reminder_link_groups(*, kontakte: Any, bestaetigungen: Any, seats: Sequence[str]) -> list[list[FLKontaktRolle]]:
-    """The Trainer rides the link of the seat it mirrors.
+def compose_erinnerung_update(*, seats: Sequence[str], today: str) -> Mapping[str, Any]:
+    """The reminder's stamp per seat. `verschickt_am` and the deadline stay: a reminder is not a re-send, and its link joins the first."""
 
-    `paired_seat` answers both from either press, so a second link asks one reader twice; it keeps
-    its own only where that seat is not reminded here.
-    """
-
-    held: list[FLKontaktRolle] = [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in seats]
-    groups: dict[FLKontaktRolle, list[FLKontaktRolle]] = {}
-
-    for seat in held:
-        partner = paired_seat(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=seat)
-        anchor = partner if seat == "trainer" and partner is not None and partner in held else seat
-        groups.setdefault(anchor, []).append(seat)
-
-    return list(groups.values())
+    return {"$set": {f"bestaetigungen.{seat}.erinnert_am": today for seat in seats}}
 
 
-def compose_erinnerung_update(*, hashes: Mapping[str, str], bestaetigungen: Any, today: str) -> Mapping[str, Any]:
-    """The reminder's ONE `$set`: the stamp and the fresh hash per seat, the first hash kept beside it.
-
-    `verschickt_am` and the deadline stay: a reminder is not a re-send.
-    """
-
-    written: dict[str, Any] = {}
-    for seat, token_hash in hashes.items():
-        entry = _entry_of(bestaetigungen, seat) or {}
-        written[f"bestaetigungen.{seat}.token_hash"] = token_hash
-        written[f"bestaetigungen.{seat}.token_hash_zuvor"] = entry.get("token_hash")
-        written[f"bestaetigungen.{seat}.erinnert_am"] = today
-
-    return {"$set": written}
-
-
-def announcement_is_undeliverable(*, bewerbung_raw: Mapping[str, Any]) -> bool:
-    """Whether the deletion notice cannot reach the submitter: the provider refused the last message to that seat.
-
-    An EMPTY Ansprechperson slot is not this case: no mailbox is left to tell, and the deadline takes
-    the application unannounced.
-    """
-
-    return seat_is_unreachable(bestaetigungen=bewerbung_raw.get("bestaetigungen"), seat="ansprechperson")
-
-
-def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
+def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str, unzustellbar: bool) -> bool:
     """Whether the fourteen-day clock takes this application: submitted, past its deadline, a seat outstanding, the notice deliverable.
+
+    `unzustellbar` is `app/api/postausgang/services.py :: unzustellbar` of the last mail owed the Ansprechperson: the
+    deletion notice could not reach the submitter. An EMPTY Ansprechperson slot is not this case: no mailbox is left to
+    tell, and the deadline takes the application unannounced.
 
     STRICTLY past: the link answers on the deadline's own day, so the deletion waits a day. An
     emptied seat is outstanding.
@@ -1479,28 +1391,17 @@ def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
     if not isinstance(frist, str) or frist >= today:
         return False
 
-    # HELD rather than erased, and held by dropping out of the clock every path here reads: an
-    # administrator corrects the address, and the correction's fresh entry makes it due again.
-    if announcement_is_undeliverable(bewerbung_raw=bewerbung_raw):
+    # HELD rather than erased: an administrator corrects the address, and the correction's mail makes it due again.
+    if unzustellbar:
         return False
 
     return bool(ausstehende_seats(kontakte=bewerbung_raw.get("kontakte")))
 
 
 def deletion_was_announced(*, bewerbung_raw: Mapping[str, Any]) -> bool:
-    """Whether this application's deletion notice is behind it.
-
-    The erasure's second condition beside the deadline: without it a run that mailed and then failed
-    to erase would mail again every hour until it went through.
-    """
+    """Whether this application's deletion notice is behind it: a Widerspruch's notice named the deletion day, so no second goes."""
 
     return isinstance(bewerbung_raw.get("loeschung_angekuendigt_am"), str)
-
-
-def compose_ankuendigung_update(*, today: str) -> Mapping[str, Any]:
-    """The stamp the deletion notice earns, written only where none stands: an existing one is the day that notice was settled."""
-
-    return {"$set": {"loeschung_angekuendigt_am": today}}
 
 
 # One read's ceiling, and one past it tells a full page from a truncated one
@@ -1514,7 +1415,6 @@ def _seat_reminder_term(*, seat: str, today: str) -> Mapping[str, Any]:
         f"bestaetigungen.{seat}.verschickt_am": {"$lte": days_after(day=today, days=-BEWERBUNG_ERINNERUNG_TAGE)},
         f"bestaetigungen.{seat}.erinnert_am": None,
         f"bestaetigungen.{seat}.abgelehnt_am": None,
-        f"bestaetigungen.{seat}.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
         f"kontakte.{seat}.einwilligung.bestaetigt_am": None,
     }
 
@@ -1542,7 +1442,6 @@ def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
         "saison_id": saison_id,
         "status": "eingereicht",
         "bestaetigungsfrist": {"$lt": today},
-        "bestaetigungen.ansprechperson.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
         "$or": [{f"kontakte.{seat}.einwilligung.bestaetigt_am": None} for seat in KONTAKT_ROLLEN],
     }
 
@@ -1606,6 +1505,154 @@ def vorname_of(*, kontakte: Any, seat: str) -> str | None:
     slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
 
     return str(slot.get("vorname") or "") or None if isinstance(slot, Mapping) else None
+
+
+# --- The MAILS an application owes, each to one person: an address is one person (one seat, or two the Trainer holds).
+
+
+def bewerbung_link(seats: Sequence[str]) -> FLPostausgangLink:
+    """Where one person's mailed link lives on the application, and the addresses it is minted for while they still stand.
+
+    Every seat the person holds, so one press answers both; never superseding, so a reminder's link joins the first, a
+    re-send having voided the old links in its own write.
+    """
+
+    return FLPostausgangLink(
+        pfade=[f"bestaetigungen.{seat}.token_hashes" for seat in seats],
+        adressen=[f"kontakte.{seat}.email" for seat in seats],
+        ersetzt=False,
+    )
+
+
+def bewerbung_bezug(bewerbung_id: Any, seats: Sequence[FLKontaktRolle]) -> FLPostausgangBezug:
+    """The application and the person's seat a delivery is read by: the one the Trainer mirrors, where they hold two."""
+
+    return FLPostausgangBezug(sammlung=Sammlung.BEWERBUNGEN, id=bewerbung_id, sitz=sorted(seats, key=lambda seat: seat == "trainer")[0])
+
+
+def lage_unzustellbar(lage: FLPostausgangLage | None) -> bool:
+    """`app/api/postausgang/services.py :: unzustellbar` of the last mail owed one seat, `False` where none was owed."""
+
+    return lage is not None and unzustellbar(lage.model_dump())
+
+
+def ausstehende_personen(*, kontakte: Any, seats: Sequence[str]) -> list[FLBewerbungPerson]:
+    """These seats as the people holding them, the Trainer folded into the seat it mirrors: a mail names one person once.
+
+    An emptied seat counts, its first name `None`: the application cannot complete without it.
+    """
+
+    zugleich = kontakte.get("trainer_ist_zugleich") if isinstance(kontakte, Mapping) else None
+    personen: list[FLBewerbungPerson] = []
+
+    for seat in KONTAKT_ROLLEN:
+        if seat not in seats or (seat == "trainer" and zugleich in seats):
+            continue
+        rollen = [seat, "trainer"] if seat == zugleich and "trainer" in seats else [seat]
+        personen.append(FLBewerbungPerson(vorname=vorname_of(kontakte=kontakte, seat=seat), rollen=cast(list[FLKontaktRolle], rollen)))
+
+    return personen
+
+
+def personen_mit_adresse(*, kontakte: Any, seats: Sequence[str] = KONTAKT_ROLLEN) -> list[tuple[str, list[FLKontaktRolle]]]:
+    """Each person these seats name who holds an address, with the seats they hold, the Trainer last.
+
+    One address is one person (the submission refuses two people at one), so the seats sharing an address are the one
+    person `trainer_ist_zugleich` names twice. The Trainer last, so the seat a delivery is read by is the one it mirrors.
+    """
+
+    return [
+        (email, sorted(held, key=lambda seat: seat == "trainer"))
+        for email, held in group_seats_by_mailbox(kontakte=kontakte, seats=[seat for seat in KONTAKT_ROLLEN if seat in seats])
+    ]
+
+
+def owed_link(
+    *,
+    bewerbung_id: Any,
+    kontakte: Any,
+    seats: Sequence[FLKontaktRolle],
+    saison_id: str,
+    schule: str,
+    frist: str,
+    schluessel: str,
+    art: Literal["bewerbung_bestaetigung", "bewerbung_erinnerung"] = "bewerbung_bestaetigung",
+) -> OwedMail:
+    """One person's confirmation link, or its one reminder, the address read off the seat the write left."""
+
+    return OwedMail(
+        schluessel=schluessel,
+        an=str(kontakte[seats[0]]["email"]),
+        daten=FLBewerbungLinkDaten(art=art, saison_id=saison_id, schule=schule, rollen=list(seats), frist=frist),
+        bezug=bewerbung_bezug(bewerbung_id, seats),
+        link=bewerbung_link(seats),
+    )
+
+
+def owed_at_submission(*, bewerbung_id: Any, kontakte: Any, saison_id: str, schule: str, frist: str) -> list[OwedMail]:
+    """Every person's first mail: the Ansprechperson the receipt naming who is still to answer, each other person their link.
+
+    Keyed by the application and the person's first seat, so a retried transaction owes nothing twice.
+    """
+
+    mails: list[OwedMail] = []
+    for email, seats in personen_mit_adresse(kontakte=kontakte):
+        stamm = f"{Sammlung.BEWERBUNGEN}/{bewerbung_id}"
+        if "ansprechperson" not in seats:
+            mails.append(
+                owed_link(
+                    bewerbung_id=bewerbung_id,
+                    kontakte=kontakte,
+                    seats=seats,
+                    saison_id=saison_id,
+                    schule=schule,
+                    frist=frist,
+                    schluessel=f"{stamm}/bestaetigung/{seats[0]}",
+                )
+            )
+            continue
+        andere = [seat for seat in KONTAKT_ROLLEN if seat not in seats]
+        mails.append(
+            OwedMail(
+                schluessel=f"{stamm}/eingang",
+                an=email,
+                daten=FLBewerbungEingangDaten(
+                    art="bewerbung_eingang",
+                    saison_id=saison_id,
+                    rollen=seats,
+                    ausstehend=ausstehende_personen(kontakte=kontakte, seats=andere),
+                    frist=frist,
+                ),
+                bezug=bewerbung_bezug(bewerbung_id, seats),
+                link=bewerbung_link(seats),
+            )
+        )
+
+    return mails
+
+
+def owed_loeschung(*, bewerbung_raw: Mapping[str, Any], saison_id: str) -> OwedMail | None:
+    """The fourteen-day clock's notice to the submitter, naming who never confirmed.
+
+    `None` where the Ansprechperson slot is empty, which leaves nobody to tell, or where a Widerspruch's notice already named
+    the deletion.
+    """
+
+    kontakte = bewerbung_raw.get("kontakte")
+    email, rollen = ansprechperson_mailbox(kontakte=kontakte)
+    if email is None or deletion_was_announced(bewerbung_raw=bewerbung_raw):
+        return None
+
+    return OwedMail(
+        schluessel=f"{Sammlung.BEWERBUNGEN}/{bewerbung_raw['_id']}/loeschung",
+        an=email,
+        daten=FLBewerbungLoeschungDaten(
+            art="bewerbung_loeschung",
+            saison_id=saison_id,
+            rollen=rollen,
+            ausstehend=ausstehende_personen(kontakte=kontakte, seats=ausstehende_seats(kontakte=kontakte)),
+        ),
+    )
 
 
 def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:

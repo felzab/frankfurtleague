@@ -217,7 +217,8 @@ async def sweep_registrierungen(
             await enqueue_mail(
                 postausgang_collection=postausgang_collection,
                 session=session,
-                schluessel=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/erinnerung",
+                # The day too: an address change owes the moved row its reminder again, which an earlier key would swallow.
+                schluessel=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/erinnerung/{today}",
                 an=str(row["email"]),
                 daten=FLRegistrierungLinkDaten(
                     art="registrierung_erinnerung",

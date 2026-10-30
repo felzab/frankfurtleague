@@ -50,6 +50,7 @@ from app.shared.schemas.literals import (
 )
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 from app.shared.schemas.zustellung import FLBewerbungZustellung
+from app.api.postausgang.schemas import FLPostausgangLage
 
 # `eingereicht` is the only state a submission arrives in; the other two are the triage's, and
 # `app/api/bewerbungen/admin_router.py` is the only writer of either.
@@ -108,9 +109,9 @@ class FLBewerbungBestaetigung(BaseReadModel):
     # Beside the slot rather than inside it: a decline EMPTIES the person's slot, and a marker in
     # there would go with it.
     abgelehnt_am: CustomOptionalDateString
-    # Defaulted, as every fresh entry, the submission's and a re-send's, is written without it: nothing
-    # is yet known about the message that entry's link went out in.
-    zustellung: FLBewerbungZustellung | None = None
+    # What became of the last mail owed this seat, as the read joins it from the Postausgang: no seat stores it, and null
+    # where none was ever owed.
+    zustellung: FLPostausgangLage | None = None
 
 
 class FLBewerbungBestaetigungen(BaseModel):
@@ -202,10 +203,9 @@ class FLBewerbung(BaseModel):
 
 
 class FLBewerbungBestaetigungRecord(FLBewerbungBestaetigung):
-    """One seat's bookkeeping as `bewerbungen` stores it: its link's hash, and the one a reminder replaced."""
+    """One seat's bookkeeping as `bewerbungen` stores it: the hash of every link it was mailed, each live until a re-send."""
 
-    token_hash: str
-    token_hash_zuvor: str | None = None
+    token_hashes: list[str]
 
 
 class FLBewerbungBestaetigungenRecord(FLBewerbungBestaetigungen):
@@ -322,15 +322,13 @@ class FLBewerbungSingleResponse(BaseAPIResponse):
 
 
 class FLAnnehmenBewerbungResponse(BaseAPIResponse):
-    """The application as the acceptance left it, plus what the acceptance wrote beyond it."""
+    """What the acceptance wrote beyond the application: the club in the season, and where; its mails are owed in the same write."""
 
-    updated_document: FLBewerbung
     # The club now standing in the season: the one the applicant picked, or the one this acceptance
     # created. Echoed because a created club has an id the caller has no other way to learn.
     team_id: CustomObjectId
     # Whether this acceptance created that club, which the admin surface words differently either
-    # way. Derivable from `updated_document.schule` and served anyway: what the caller renders is
-    # what this call DID, not what the application holds.
+    # way: what the caller renders is what this call DID, not what the application holds.
     created_team: bool
     # Unconstrained, as an echo of a stored id is.
     saison_id: str
@@ -339,7 +337,9 @@ class FLAnnehmenBewerbungResponse(BaseAPIResponse):
 
 
 class FLAblehnenBewerbungResponse(BaseAPIResponse):
-    updated_document: FLBewerbung
+    """The declined application; its mails are owed in the same write."""
+
+    id: CustomObjectId
 
 
 # --- The PUBLIC submission. Every model below is reached from a request body alone, so each forbids
@@ -581,25 +581,10 @@ class FLBewerbungTrikotFarbenResponse(BaseAPIResponse):
     vergeben: list[FLTrikotFarbe]
 
 
-class FLBewerbungBestaetigungTokens(BaseModel):
-    """The three raw tokens the create or its replay minted, one per seat; no read serves them again."""
-
-    trainer: str
-    ansprechperson: str
-    stellvertretung: str
-
-
 class FLPostBewerbungResponse(BaseAPIResponse):
-    """What the submission wrote, without the people's details it carried."""
+    """The stored application, the one a replayed key wrote first; its mails are owed in the same write."""
 
     created_id: CustomObjectId
-    saison_id: str
-    eingereicht_am: CustomDateString
-    # Null on a replay whose application needs no fresh links,
-    # and the caller then mails nothing.
-    bestaetigungen: FLBewerbungBestaetigungTokens | None
-    # Echoed so the mail the handler sends names the day the links stop working.
-    bestaetigungsfrist: CustomDateString
 
 
 # --- The CONFIRMATION. The token is the whole credential, as a sign-in code is, so both
@@ -687,40 +672,15 @@ class FLBewerbungEinwilligungAntwortPayload(BaseModel):
 
 
 class FLBewerbungEinwilligungAntwortResponse(BaseAPIResponse):
-    """What the answer did, and which of the application's seats are still open.
-
-    The fields after `medien` compose the outbound messages and are for the frontend's server alone.
-    """
+    """What the answer did; a Widerspruch's notice to the submitter is owed in the same write."""
 
     quelle: Literal["bewerbung"] = "bewerbung"
     ergebnis: FLEinwilligungErgebnis
-    # In `FLSaisonTeamKontakte`'s declaration order. A declined seat stays listed: the application
-    # cannot complete without it.
-    ausstehend: list[FLKontaktRolle]
     geburtsdatum: CustomOptionalDateString
     whatsapp: bool
     # As stored on every seat the answer wrote, as the referee's answer carries it: `false` after a
     # Widerspruch, which stores no answer.
     medien: bool
-
-    # The seven below compose the two outbound messages and are the frontend SERVER's alone; its
-    # route handler answers the browser the five above.
-
-    # The application this seat belongs to, so a message composed here can be tagged with it and the
-    # provider's delivery event routed back to the seat that was written to.
-    bewerbung_id: CustomObjectId
-    saison_id: str
-    # The seat the TOKEN opened, never the pair a `trainer_ist_zugleich` answer wrote alongside it.
-    rolle: FLKontaktRolle
-    # Read before the write: a decline empties the slot, so nothing afterwards can name the person
-    # whose refusal the message reports.
-    vorname: str
-    bestaetigungsfrist: CustomDateString
-    # As that seat stands AFTER the write, so an Ansprechperson who has just declined addresses
-    # nobody at all.
-    ansprechperson_email: str | None
-    # Every seat that one mailbox holds, so a person holding two is told both in the message it gets.
-    ansprechperson_rollen: list[FLKontaktRolle]
 
 
 class FLSaisonTeamEinwilligungAntwortResponse(BaseAPIResponse):
@@ -741,9 +701,8 @@ FLEinwilligungAntwortResponse = Annotated[
 
 
 class FLBewerbungEinwilligungErneutResponse(BaseAPIResponse):
-    """A fresh link for one seat, RAW, for the admin action to mail; the old one then opens nothing."""
+    """The seat whose link was replaced and where its fresh one is owed; the old one opens nothing."""
 
-    token: str
     rolle: FLKontaktRolle
     # Off the image the write replaced, never the caller's earlier read: a correction landing between
     # the two moved the address this link has to go to.
@@ -762,14 +721,13 @@ class FLBewerbungKontaktSitzPayload(_KontaktpersonWritablePayload):
 
 
 class FLBewerbungKontaktSitzResponse(BaseAPIResponse):
-    """The new person's address as stored, every seat they now hold, and the fresh link the caller mails them there."""
+    """The new person's address as stored and every seat they now hold; their link is owed there in the same write."""
 
     # Answered rather than re-derived by the caller, so one function decides the form a message is sent to.
     email: str
     # Plural as the correction's is: a mirrored pair is one person, and both seats are written from
     # the claim `kontakte.trainer_ist_zugleich` records.
     rollen: list[FLKontaktRolle]
-    token: str
     bestaetigungsfrist: CustomDateString
 
 
@@ -787,78 +745,27 @@ class FLBewerbungKontaktEmailPayload(BaseModel):
 
 
 class FLBewerbungKontaktEmailResponse(BaseAPIResponse):
-    """The corrected address as stored, the fresh link it is to be mailed at, and every seat both reached."""
+    """The corrected address as stored and every seat it reached; the fresh link is owed there in the same write."""
 
     email: str
     # Plural: one person may hold two seats, and the correction writes the address and the link to
     # both, as a re-send does (`app/api/bewerbungen/services.py :: compose_erneut_update`).
     rollen: list[FLKontaktRolle]
-    token: str
     bestaetigungsfrist: CustomDateString
-    # The mailbox the write took the seats' live link from, for the server action's leaving notice and never the
-    # browser; null where the corrected address is that same mailbox, which the fresh link reaches.
-    abgang_email: str | None
 
 
-# --- The retention SWEEP, system tier. The backend decides and prepares, the frontend mails: what
-# leaves here is what a mail needs and nothing a person's record holds beyond it (`READ-BEWERBUNG-004`).
-
-
-class FLBewerbungSweepSeat(BaseModel):
-    """One link a reminder carries, with its raw fresh token."""
-
-    # Every seat one press of this link answers, which is two for a mirrored Trainer.
-    rollen: list[FLKontaktRolle]
-    vorname: str
-    token: str
-
-
-class FLBewerbungSweepErinnerung(BaseModel):
-    """One reminder to send: one mailbox of one application, with every seat it holds due today."""
-
-    bewerbung_id: CustomObjectId
-    saison_id: str
-    schule: str
-    # Unchanged by a reminder, and moved only by an administrator's re-send.
-    # The message names it as the day by which a seat must answer.
-    bestaetigungsfrist: CustomDateString
-    email: str
-    seats: list[FLBewerbungSweepSeat]
-
-
-class FLBewerbungSweepAusstehend(BaseModel):
-    """A seat the deletion notice lists as never confirmed; `vorname` is null where the slot was emptied."""
-
-    rolle: FLKontaktRolle
-    vorname: str | None
-
-
-class FLBewerbungSweepLoeschung(BaseModel):
-    """One application past its deadline, still standing: the notice goes out first, the erasure in a second call."""
-
-    bewerbung_id: CustomObjectId
-    saison_id: str
-    schule: str
-    bestaetigungsfrist: CustomDateString
-    # The submitter's mailbox: the form asks that seat for the person who submits. Null where the
-    # slot is empty -- nobody can be told, and the caller erases rather than keeping the application
-    # for ever.
-    ansprechperson_email: str | None
-    # Every seat that same mailbox holds, so a submitter who is also the Trainer is addressed by
-    # both rather than by one the message then contradicts.
-    ansprechperson_rollen: list[FLKontaktRolle]
-    ausstehend: list[FLBewerbungSweepAusstehend]
-    # Whether the notice has already gone out. The caller mails only where this is false and erases
-    # wherever it is true, so an erasure that failed after a delivery repeats no message.
-    angekuendigt: bool
+# --- The retention SWEEP, system tier. The backend decides, erases and owes each mail in the Postausgang; nothing a
+# person's record holds leaves here (`READ-BEWERBUNG-004`).
 
 
 class FLBewerbungSweepResponse(BaseAPIResponse):
-    """One season's pass: the reminders already stamped, the deletions still to notify, and each clock's count."""
+    """One season's pass: each clock's count, every reminder and deletion notice owed in the write it belongs to."""
 
     saison_id: str
-    erinnerungen: list[FLBewerbungSweepErinnerung]
-    loeschungen: list[FLBewerbungSweepLoeschung]
+    # The applications reminded: each person due their one chase is owed it.
+    erinnert: int
+    # The fourteen-day clock's erasures, each owed its notice in its own transaction where none went out before.
+    geloescht: int
     abgelehnte_geloescht: int
     angenommene_geloescht: int
     # The applications nobody decided, taken by the end of the season they applied for. Counted apart
@@ -868,32 +775,6 @@ class FLBewerbungSweepResponse(BaseAPIResponse):
     kontaktbloecke_geleert: int
     redigierte_aktionen: int
     # One sum over every clock rather than a count a clock: the line logging each row names its clock.
-    fehlgeschlagen: int
-
-
-# `/angekuendigt` stamps the list in ONE transaction, three commands a row beside its other 3: 252 commands at a 38 ms
-# round trip plus 1.31 ms take 9.91 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
-DELETIONS_LISTED_PER_PASS: Final = 83
-
-
-class FLBewerbungSweepAuswahlPayload(BaseModel):
-    """The candidates from one pass's deletion list that this step names. The backend re-judges each, skipping one that no longer qualifies."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    bewerbung_ids: list[CustomObjectId] = Field(max_length=DELETIONS_LISTED_PER_PASS)
-
-
-class FLBewerbungSweepAngekuendigtResponse(BaseAPIResponse):
-    saison_id: str
-    angekuendigt: int
-    fehlgeschlagen: int
-
-
-class FLBewerbungSweepLoeschenResponse(BaseAPIResponse):
-    saison_id: str
-    geloescht: int
-    redigierte_aktionen: int
     fehlgeschlagen: int
 
 

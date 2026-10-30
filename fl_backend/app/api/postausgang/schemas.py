@@ -4,10 +4,10 @@ from typing import Annotated, Literal, Self, get_args
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from app.api.registrierungen.schemas import FLRegistrierungAblehnungsgrund
-from app.api.teams.schemas import FLKontaktRolle
 from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
 from app.shared.schemas.kontakt import CustomEmail
+from app.shared.schemas.literals import FLGruppenNames, FLKontaktRolle, FLKontaktZeile, FLTrikotFarbe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # Each kind of mail is one member of `FLPostausgangDaten` below, carrying the facts its builder renders and never a
@@ -144,6 +144,94 @@ class FLEinladungDaten(BaseModel):
     saison_id: str
 
 
+class FLBewerbungLinkDaten(BaseModel):
+    """One person's confirmation link on an application: at its submission, a re-send, a correction or a reseat, or the one reminder.
+
+    `rollen` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.
+    """
+
+    art: Literal["bewerbung_bestaetigung", "bewerbung_erinnerung"]
+    saison_id: str
+    # The school as submitted, or the picked club's name: a contact who never heard of the application places it by this.
+    schule: str
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    # The day the links stop working, which the reminder repeats rather than moves.
+    frist: CustomDateString
+
+
+class FLBewerbungPerson(BaseModel):
+    """Another person's seats, as a mail names them to the submitter: a first name where one stands, and the seats."""
+
+    vorname: str | None
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
+
+
+class FLBewerbungEingangDaten(BaseModel):
+    """The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer."""
+
+    art: Literal["bewerbung_eingang"]
+    saison_id: str
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    ausstehend: list[FLBewerbungPerson]
+    frist: CustomDateString
+
+
+class FLBewerbungZusageDaten(BaseModel):
+    """An acceptance, to one person of the application, naming the seats they were entered for."""
+
+    art: Literal["bewerbung_zusage"]
+    team: str
+    saison_id: str
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    gruppe: FLGruppenNames
+    # Null while no kit colour is assigned; the mail then says so rather than guessing one.
+    trikot_farbe: FLTrikotFarbe | None
+    # As the school submitted it, null where it named none.
+    wunschgegner: str | None
+
+
+class FLBewerbungAbsageDaten(BaseModel):
+    """A decline, to one person of the application, with the administrator's reason verbatim."""
+
+    art: Literal["bewerbung_absage"]
+    team: str
+    saison_id: str
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    grund: str
+
+
+class FLBewerbungLoeschungDaten(BaseModel):
+    """The fourteen-day deletion notice, to the submitter, naming who never confirmed; owed in the erasure's own write."""
+
+    art: Literal["bewerbung_loeschung"]
+    saison_id: str
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    ausstehend: list[FLBewerbungPerson]
+
+
+class FLBewerbungWiderspruchDaten(BaseModel):
+    """A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too."""
+
+    art: Literal["bewerbung_widerspruch"]
+    saison_id: str
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    abgelehnt: FLBewerbungPerson
+    frist: CustomDateString
+
+
+class FLKontaktLinkDaten(BaseModel):
+    """One person an administrator seated on a team's season row, asked to confirm: no name, the address being unconfirmed."""
+
+    art: Literal["kontakt_bestaetigung"]
+    saison_id: str
+    # The team's name in that season, which is the school the reader is asked about.
+    schule: str
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    frist: CustomDateString
+    # The row's state at the write: a closed row's link takes the Widerspruch alone, and the mail asks only that.
+    zeile: FLKontaktZeile
+
+
 FLPostausgangDaten = Annotated[
     FLAnmeldecodeDaten
     | FLPasskeyDaten
@@ -157,7 +245,14 @@ FLPostausgangDaten = Annotated[
     | FLSpielVorschlagVerworfenDaten
     | FLRegistrierungLinkDaten
     | FLRegistrierungAbsageDaten
-    | FLEinladungDaten,
+    | FLEinladungDaten
+    | FLBewerbungLinkDaten
+    | FLBewerbungEingangDaten
+    | FLBewerbungZusageDaten
+    | FLBewerbungAbsageDaten
+    | FLBewerbungLoeschungDaten
+    | FLBewerbungWiderspruchDaten
+    | FLKontaktLinkDaten,
     Field(discriminator="art"),
 ]
 
@@ -180,6 +275,14 @@ FLPostausgangArt = Literal[
     "registrierung_erinnerung",
     "registrierung_absage",
     "einladung",
+    "bewerbung_bestaetigung",
+    "bewerbung_erinnerung",
+    "bewerbung_eingang",
+    "bewerbung_zusage",
+    "bewerbung_absage",
+    "bewerbung_loeschung",
+    "bewerbung_widerspruch",
+    "kontakt_bestaetigung",
 ]
 
 
