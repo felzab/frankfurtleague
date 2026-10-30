@@ -8,6 +8,7 @@ import { logger } from "./logging";
 import { boundCall } from "./requestScope";
 import { MENSCH_BESTAETIGEN } from "./turnstileToken";
 
+import type { Copy } from "./copy";
 import type { LogMeta } from "./logging";
 
 /** Called from the server alone: a secret the page held would let anyone pass the check without a browser. */
@@ -80,10 +81,10 @@ async function ask(request: string, signal: AbortSignal): Promise<Answer> {
 }
 
 /**
- * The sentence a submission carrying `token` is refused with, or `null` where it may go on to send its mail.
- * Only an unreachable Cloudflare lets a submission through unjudged: it fronts the whole site anyway.
+ * The catalogue's sentence a submission carrying `token` is refused with, or `null` where it may go on to send its
+ * mail. Only an unreachable Cloudflare lets a submission through unjudged: it fronts the whole site anyway.
  */
-export async function turnstileRefusal(token: string | null): Promise<string | null> {
+export async function turnstileRefusal(token: string | null): Promise<Copy | null> {
   // Refused without asking: Cloudflare would answer either with a judgement against the token.
   if (token === null || token === "" || token.length > TOKEN_MAX_LENGTH) return MENSCH_BESTAETIGEN;
 

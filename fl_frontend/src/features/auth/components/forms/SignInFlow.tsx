@@ -16,8 +16,8 @@ import { handleSignIn } from "../../actions";
 import { CEREMONY_ABORTED, describeCeremonyRefusal, refusalCode } from "../../passkeyAnswers";
 import { signInAnswer } from "../../signInAnswers";
 
+import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { ActionAnswer } from "@/kit/useFormAction";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 
 /** The route handler a typed code is checked at (`fl_frontend/src/app/api/signin/code/route.ts`). */

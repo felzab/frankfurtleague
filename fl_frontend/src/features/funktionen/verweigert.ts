@@ -1,6 +1,6 @@
-import { logVerweigert } from "@/shared/utils/verweigert";
+import { logVerweigert } from "@/core/verweigert";
 
-import type { Verweigerung } from "@/shared/utils/verweigert";
+import type { Verweigerung } from "@/core/verweigert";
 
 /** Why a page turned a signed-in person away: the session it was judged under stands, so never `keine_sitzung`. */
 export type PageVerweigerung = Exclude<Verweigerung, "keine_sitzung">;

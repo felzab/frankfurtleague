@@ -147,10 +147,10 @@ def regenerate(root: Path, written: list[str]) -> list[str]:
     before = {document: git("ls-files", "--stage", "--", document) for _, document in GENERATED}
     for module, document in GENERATED:
         written.append(document)
-        done = subprocess.run((sys.executable, "-m", module, "--write"), cwd=root / "fl_backend", capture_output=True, check=False)
+        done = subprocess.run((sys.executable, "-m", module), cwd=root / "fl_backend", capture_output=True, check=False)
         if done.returncode != 0:
             said = (done.stderr or done.stdout).decode("utf-8", "replace").strip().splitlines()[-5:]
-            raise Stop(4, f"{module} --write exited {done.returncode}:", *said)
+            raise Stop(4, f"{module} exited {done.returncode}:", *said)
         git("add", "--", document)
     moved = [document for _, document in GENERATED if git("ls-files", "--stage", "--", document) != before[document]]
     command, where, folder = CLIENT

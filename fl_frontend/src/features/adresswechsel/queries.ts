@@ -1,6 +1,7 @@
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
+import { kontoAnNeuerAdresse } from "./konto";
 import { ansichtOf } from "./link";
 import { postAdresswechselAnsicht, postAdresswechselVerwaltungAnsicht } from "./mutations";
 import { mapAdresswechselAnsichtRefusal, mapVerwaltungAnsichtRefusal } from "./refusals";
@@ -22,8 +23,7 @@ export async function getAdresswechselAnsicht(token: string): Promise<Adresswech
     if (gelesen.zustand !== "gueltig") return gelesen;
 
     // The backend cannot see the sign-in store, so its view offers the press this refusal closes: said here, as the
-    // backend's own refusals of the address are. Loaded at the call, for `requireAdminRequest`'s reason.
-    const { kontoAnNeuerAdresse } = await import("./konto");
+    // backend's own refusals of the address are.
     return (await kontoAnNeuerAdresse({ token: token })) ? { zustand: "nicht_bestaetigbar", weg: gelesen.weg } : gelesen;
   });
 }

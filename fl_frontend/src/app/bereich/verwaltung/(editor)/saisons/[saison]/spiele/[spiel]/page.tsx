@@ -84,7 +84,7 @@ async function Editor({ params }: Pick<Props, "params">) {
   return (
     <SpielEditor
       title={{ record: nameOf(gespeichert) }}
-      record={{ id: gespeichert.id, fingerprint: String(gespeichert.version), values: werteOf(gespeichert) }}
+      record={{ id: gespeichert.id, version: gespeichert.version, values: werteOf(gespeichert) }}
       save={spielSpeichern}
       spielorte={waehlbar.map((ort) => ({
         // The match's own retired venue stays in the list, marked and not to be chosen again once left.

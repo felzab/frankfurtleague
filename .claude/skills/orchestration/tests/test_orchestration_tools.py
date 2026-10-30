@@ -1980,11 +1980,14 @@ def test_expect_names_a_row_past_its_bound_and_writes_none_for_it(tmp_path: Path
 # --- land -----------------------------------------------------------------------------------------
 
 # The generator stands in for `app.openapi_document`: the document follows two source files, so
-# two branches each moving one move different parts of it.
+# two branches each moving one move different parts of it. Like the real writer, an argument is the
+# path it writes instead, so a landing that passes one leaves the committed document stale.
 OPENAPI_WRITER: Final = (
+    "import sys\n"
     "from pathlib import Path\n"
     'parts = [Path(f"app/{name}.txt").read_bytes().strip() for name in ("schema", "extra")]\n'
-    'Path("openapi.json").write_bytes(b"{" + b", ".join(parts) + b"}\\n")\n'
+    'target = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("openapi.json")\n'
+    'target.write_bytes(b"{" + b", ".join(parts) + b"}\\n")\n'
 )
 # Records every subject it is handed, and refuses one asking to be refused, so a test can tell a
 # commit that ran the hooks from one that did not.
@@ -2217,7 +2220,7 @@ def test_a_row_merge_that_raises_aborts_the_merge(tmp_path: Path) -> None:
 def test_a_failing_regeneration_aborts_the_merge(tmp_path: Path) -> None:
     root = _repo(tmp_path)
     _agent_commit(root, "Backend: The writer breaks", {"fl_backend/app/openapi_document.py": "raise SystemExit(3)\n"})
-    assert "app.openapi_document --write exited 3" in _stopped_clean(root, git(root, "rev-parse", "HEAD"), 4)
+    assert "app.openapi_document exited 3" in _stopped_clean(root, git(root, "rev-parse", "HEAD"), 4)
 
 
 def test_a_merge_failing_a_touched_packages_type_check_aborts_the_merge(tmp_path: Path) -> None:

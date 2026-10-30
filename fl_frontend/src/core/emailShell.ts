@@ -2,6 +2,7 @@ import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "./brand";
 import { COPY } from "./copy";
+import { SERVER_COPY } from "./serverCopy";
 
 /** The league's name as every message spells it. */
 export const BRAND_NAME: string = COPY.marke.name;
@@ -52,8 +53,11 @@ export interface Mail {
   /** `""` where the first name is unknown, and the greeting then names nobody. */
   readonly vorname: string;
   readonly absaetze: readonly [Absatz, ...Absatz[]];
-  /** The one facts block: a column of rows, the sign-in code, or a link a reader passes on, standing alone in its box. */
-  readonly block?: { readonly fakten: readonly Fakt[] } | { readonly code: string } | { readonly link: string };
+  /**
+   * The one facts block: a column of rows under the title naming them, the sign-in code, or a link a reader passes
+   * on, standing alone in its box.
+   */
+  readonly block?: { readonly titel: string; readonly fakten: readonly Fakt[] } | { readonly code: string } | { readonly link: string };
   readonly nachBlock?: readonly Absatz[];
   readonly aktion?: Knopf;
 }
@@ -87,10 +91,11 @@ const MUTED_TEXT = `font-size:12px;line-height:16px;color:${MUTED_COLOR};`;
 const ABSTAND = {
   karte: 32,
   karteTelefon: 24,
-  logoKopf: 12,
+  band: 20,
   kopfText: 16,
   absatz: 12,
   block: 24,
+  faktenTitel: 8,
   faktenInnen: 16,
   vorLinie: 32,
   nachLinie: 16,
@@ -103,8 +108,12 @@ const ABSTAND = {
  */
 const CARD_WIDTH = 480;
 
-// Session 2: the mail board's O12 drawing names this file and its width; nothing serves it yet.
-const LOGO = { pfad: "/mail/logo.png", hoehe: 28 } as const;
+/**
+ * The site's header band in one picture, `kit/Brand.tsx`'s mark and wordmark drawn at four times this size: the
+ * wordmark's face reaches no mail client as a font. Both sizes as attributes, which Outlook on Windows reads where
+ * it ignores the CSS, so the picture never shows at its file's width.
+ */
+const LOGO = { pfad: "/mail/logo.png", breite: 181, hoehe: 32 } as const;
 
 /**
  * Zeroed on every layout table: a screen reader announcing chrome as a data table is unusable, and
@@ -184,13 +193,11 @@ function vorschauVon(mail: Mail): string {
   return satzText(mail.absaetze[0][0]);
 }
 
-/** The Art. 21 line on a first contact, the address in it marked as a link. */
-function widerspruchHtml(): string {
-  return escapeHtml(COPY.mail.widerspruch).replace(escapeHtml(KONTAKT_EMAIL), linkHtml(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL));
-}
+/** The Art. 21 line, the address in it a link: a first contact's footer, and the ban-list mail's own last paragraph. */
+export const WIDERSPRUCH: Satz = [`${SERVER_COPY.mail.widerspruch.vor} `, { adresse: KONTAKT_EMAIL }, ` ${SERVER_COPY.mail.widerspruch.nach}`];
 
 function nichtDu(art: MailArt): string | undefined {
-  return art === "mitteilung" ? undefined : COPY.mail.nichtDu[art];
+  return art === "mitteilung" ? undefined : SERVER_COPY.mail.nichtDu[art];
 }
 
 /** One block of the card and the gap under it; the last block of the card takes none. */
@@ -224,6 +231,7 @@ function blockHtml(block: NonNullable<Mail["block"]>): Baustein {
     };
   }
 
+  const titel = `<p style="margin:0 0 ${String(ABSTAND.faktenTitel)}px;font-size:14px;line-height:20px;font-weight:700;color:${HEADING_COLOR};">${escapeHtml(einzeilig(block.titel))}</p>`;
   const zeilen = block.fakten
     .map(
       ({ label, wert }) =>
@@ -232,7 +240,7 @@ function blockHtml(block: NonNullable<Mail["block"]>): Baustein {
     .join("");
 
   return {
-    html: `<table ${TABLE_ATTRS} width="100%" style="${kasten}"><tr><td style="padding:${ABSTAND.faktenInnen - 4}px ${ABSTAND.faktenInnen}px;"><table ${TABLE_ATTRS}>${zeilen}</table></td></tr></table>`,
+    html: `${titel}<table ${TABLE_ATTRS} width="100%" style="${kasten}"><tr><td style="padding:${ABSTAND.faktenInnen - 4}px ${ABSTAND.faktenInnen}px;"><table ${TABLE_ATTRS}>${zeilen}</table></td></tr></table>`,
     abstand: ABSTAND.block,
   };
 }
@@ -245,7 +253,7 @@ function aktionBausteine(aktion: Knopf): Baustein[] {
       abstand: ABSTAND.absatz,
     },
     {
-      html: p(`${escapeHtml(COPY.mail.knopfLink)}<br />${linkHtml(aktion.href, aktion.href, "word-break:break-all;")}`, SMALL_TEXT),
+      html: p(`${escapeHtml(SERVER_COPY.mail.knopfLink)}<br />${linkHtml(aktion.href, aktion.href, "word-break:break-all;")}`, SMALL_TEXT),
       abstand: ABSTAND.block,
     },
   ];
@@ -263,19 +271,14 @@ const VEREIN_ZEILE = `${VEREIN_NAME} · ${VEREIN_ANSCHRIFT}`;
 function renderHtml(mail: Mail, betreff: string): string {
   const inhalt: Baustein[] = [
     {
-      html: `<img src="${escapeHtml(`${mail.origin}${LOGO.pfad}`)}" height="${String(LOGO.hoehe)}" alt="${escapeHtml(BRAND_NAME)}" style="display:block;height:${String(LOGO.hoehe)}px;border:0;outline:none;text-decoration:none;" />`,
-      abstand: ABSTAND.logoKopf,
-    },
-    {
       html: `<h1 style="margin:0;font-size:24px;line-height:32px;font-weight:700;color:${HEADING_COLOR};">${escapeHtml(betreff)}</h1>`,
       abstand: ABSTAND.kopfText,
     },
-    { html: p(escapeHtml(einzeilig(COPY.mail.gruss(mail.vorname)))), abstand: ABSTAND.absatz },
+    { html: p(escapeHtml(einzeilig(SERVER_COPY.mail.gruss(mail.vorname)))), abstand: ABSTAND.absatz },
     ...absatzBausteine(mail.absaetze),
     ...(mail.block === undefined ? [] : [blockHtml(mail.block)]),
     ...absatzBausteine(mail.nachBlock ?? []),
     ...(mail.aktion === undefined ? [] : aktionBausteine(mail.aktion)),
-    ...(mail.art === "erstkontakt" ? [{ html: p(widerspruchHtml(), SMALL_TEXT), abstand: ABSTAND.block }] : []),
   ];
   // The gap before the footer's rule is the rule's own, whatever the last block asked for.
   const letzter = inhalt.length - 1;
@@ -294,6 +297,7 @@ function renderHtml(mail: Mail, betreff: string): string {
       ),
       abstand: ABSTAND.fusszeile,
     },
+    ...(mail.art === "erstkontakt" ? [{ html: p(absatzHtml([WIDERSPRUCH]), MUTED_TEXT), abstand: ABSTAND.fusszeile }] : []),
     // Last, after the footer: it is not part of the message's content.
     ...(zeile === undefined ? [] : [{ html: p(escapeHtml(zeile), MUTED_TEXT), abstand: 0 }]),
   ];
@@ -319,6 +323,9 @@ function renderHtml(mail: Mail, betreff: string): string {
           <!--[if mso]><table ${TABLE_ATTRS} width="${String(CARD_WIDTH)}" align="center"><tr><td><![endif]-->
           <table ${TABLE_ATTRS} width="100%" align="center" lang="de" style="max-width:${String(CARD_WIDTH)}px;margin:0 auto;background-color:${CARD_COLOR};border-radius:12px;">
             <tr>
+              <td class="fl-pad" style="background-color:${BRAND_SOLID_COLOR};border-radius:12px 12px 0 0;padding:${String(ABSTAND.band)}px ${String(ABSTAND.karte)}px;"><img src="${escapeHtml(`${mail.origin}${LOGO.pfad}`)}" width="${String(LOGO.breite)}" height="${String(LOGO.hoehe)}" alt="${escapeHtml(BRAND_NAME)}" style="display:block;width:${String(LOGO.breite)}px;height:${String(LOGO.hoehe)}px;border:0;outline:none;text-decoration:none;" /></td>
+            </tr>
+            <tr>
               <td class="fl-pad" style="padding:${String(ABSTAND.karte)}px;font-family:${FONT_STACK};">
                 ${zellen.join("\n                ")}
               </td>
@@ -339,7 +346,7 @@ function aktionText(aktion: Knopf): string[] {
 function renderText(mail: Mail, betreff: string): string {
   const gruppen: string[][] = [
     [betreff],
-    [einzeilig(COPY.mail.gruss(mail.vorname))],
+    [einzeilig(SERVER_COPY.mail.gruss(mail.vorname))],
     ...mail.absaetze.map((absatz) => [absatzText(absatz)]),
     ...(mail.block === undefined
       ? []
@@ -348,12 +355,12 @@ function renderText(mail: Mail, betreff: string): string {
             ? [einzeilig(mail.block.code)]
             : "link" in mail.block
               ? [einzeilig(mail.block.link)]
-              : mail.block.fakten.map(({ label, wert }) => `${einzeilig(label)}: ${wertText(wert)}`),
+              : [einzeilig(mail.block.titel), ...mail.block.fakten.map(({ label, wert }) => `${einzeilig(label)}: ${wertText(wert)}`)],
         ]),
     ...(mail.nachBlock ?? []).map((absatz) => [absatzText(absatz)]),
     ...(mail.aktion === undefined ? [] : [aktionText(mail.aktion)]),
-    ...(mail.art === "erstkontakt" ? [[COPY.mail.widerspruch]] : []),
     [VEREIN_ZEILE, ...rechtsLinks(mail.origin).map(({ label, href }) => `${label}: ${href}`)],
+    ...(mail.art === "erstkontakt" ? [[satzText(WIDERSPRUCH)]] : []),
   ];
   const zeile = nichtDu(mail.art);
 
