@@ -32,7 +32,7 @@ from app.api.identitaet.crud import faellige_anzahl, saison_statuses
 from app.api.identitaet.schemas import FLLoeschungVorschauResponse
 from app.api.identitaet.services import geschlossen_durch, statuses_after_activating
 from app.api.postausgang.services import enqueue_mails
-from app.api.saisons.crud import has_started
+from app.api.saisons.crud import has_started, started_saison_ids
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
@@ -248,10 +248,8 @@ async def get_saisons_verwaltung(
         sort_by=db_sort,
     )
 
-    saisons = [
-        {**with_schedule(raw), "begonnen": await has_started(spiele_collection=spiele_collection, saison_id=str(raw["_id"]), today=today)}
-        for raw in saisons_raw
-    ]
+    begonnen = await started_saison_ids(spiele_collection=spiele_collection, saison_ids=[str(raw["_id"]) for raw in saisons_raw], today=today)
+    saisons = [{**with_schedule(raw), "begonnen": str(raw["_id"]) in begonnen} for raw in saisons_raw]
 
     return FLSaisonsAdminListResponse(saisons=FLSaisonAdminListAdapter.validate_python(saisons))
 

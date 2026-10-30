@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -52,14 +52,22 @@ async def has_started(*, spiele_collection: AsyncCollection, saison_id: str, tod
     earliest one is, so no sort is needed.
     """
 
-    # `$type` beside `$lte`, so an undated fixture's null is never compared.
-    started = await spiele_collection.find_one(
-        {"saison_id": saison_id, "saison_phase": "gruppenphase", "datum": {"$type": "string", "$lte": today}},
-        {"_id": 1},
-        session=session,
-    )
+    started = await spiele_collection.find_one(_started(saison_id, today), {"_id": 1}, session=session)
 
     return started is not None
+
+
+async def started_saison_ids(*, spiele_collection: AsyncCollection, saison_ids: Sequence[str], today: str) -> set[str]:
+    """The seasons among `saison_ids` that `has_started` answers true for, in one round trip rather than one per season."""
+
+    return set(await spiele_collection.distinct("saison_id", _started({"$in": list(saison_ids)}, today)))
+
+
+def _started(saison_id: str | Mapping[str, Any], today: str) -> Mapping[str, Any]:
+    """The fixtures that start a season, of the season or seasons `saison_id` matches."""
+
+    # `$type` beside `$lte`, so an undated fixture's null is never compared.
+    return {"saison_id": saison_id, "saison_phase": "gruppenphase", "datum": {"$type": "string", "$lte": today}}
 
 
 async def pull_saison_id_and_rules(
