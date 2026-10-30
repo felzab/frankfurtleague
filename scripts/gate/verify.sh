@@ -538,7 +538,7 @@ Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." \
     contract_check \
     && ok "the contract and the client are current"
 
-  # `loadfile` for isolation too: `fl_backend/tests/api/test_erasure_commit_fail_points.py` sets the
+  # `loadfile` for isolation too: `fl_backend/tests/api/test_loeschung_commit_fail_points.py` sets the
   # server's one `failCommand`, so its cases run one after another on one worker.
   step "db · pytest -m db, distributed over the two shared mongods"
   check "fl_backend db-tier tests failed. A failing test and a mongo that never started both end here: each case's
