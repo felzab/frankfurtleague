@@ -819,7 +819,7 @@ class TestTheLinkConfirms:
             "at_date": recorded,
             "actor": {"kind": "admin_session", "email": ADMIN},
             "trace_id": "0123456789abcdef",
-            "request": {"method": "PATCH", "path": f"/api/{API_VERSION}/teams/{TEAM_OID}/saisons/{SAISON_ID}/kontakte"},
+            "request": {"method": "PATCH", "path": f"/api/v{API_VERSION}/teams/{TEAM_OID}/saisons/{SAISON_ID}/kontakte"},
             "collection": str(Collection.SAISON_TEAMS),
             "operation": "patch_one",
             "document_id": ROW_OID,
