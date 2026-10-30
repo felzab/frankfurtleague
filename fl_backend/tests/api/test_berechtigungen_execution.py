@@ -557,7 +557,7 @@ class TestTheNoticeMovesWithItsChange:
                     now=datetime.now(UTC),
                 )
 
-            aborting = cast(AsyncCollection, Aborting(database[Collection.POSTAUSGANG], "insert_one"))
+            aborting = cast(AsyncCollection, Aborting(database[Collection.POSTAUSGANG], "insert_many"))
             if grants is not None:
                 with pytest.raises(RuntimeError):
                     await administering(OWNER, lambda: asked(aborting))

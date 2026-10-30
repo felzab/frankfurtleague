@@ -3,6 +3,9 @@ import { after } from "next/server";
 import { frontend_config } from "./config";
 import { requestOf } from "./errors";
 import { logger } from "./logging";
+// A cycle, the drain sending through the client whose writes call `drainSoon`: each module reads the other's exports
+// only when called, never as it loads.
+import { drainPostausgang } from "./mail";
 import { getRequestTraceId, runBehindTheResponse, runInBackground } from "./requestScope";
 import { mintTraceId } from "./trace";
 
@@ -34,9 +37,6 @@ export function drainSoon(): void {
 
 async function drain(): Promise<void> {
   try {
-    // Loaded where it runs: the drain sends through the client whose writes call `drainSoon`, and a static import would
-    // close that cycle.
-    const { drainPostausgang } = await import("./mail");
     await drainPostausgang();
   } catch (error) {
     // The name and the call's facts, never a mail: the hourly pass drains what this one left.
