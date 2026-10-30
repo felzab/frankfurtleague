@@ -25,7 +25,6 @@ from app.api.spielbestaetigungen.admin_router import eintragen_spielbestaetigung
 from app.api.spielbestaetigungen.person_router import get_eigene_spielbestaetigungen, post_schiedsrichter_antwort
 from app.api.spielbestaetigungen.router import get_spielbestaetigung_ansicht, post_spielbestaetigung
 from app.api.spielbestaetigungen.schemas import (
-    FLSpielbestaetigungAnsichtPayload,
     FLSpielbestaetigungAnsichtResponse,
     FLSpielbestaetigungAntwortPayload,
     FLSpielbestaetigungAntwortResponse,
@@ -46,6 +45,7 @@ from app.api.teams.admin_router import replace_saison_team
 from app.api.teams.schemas import FLReplaceSaisonTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
@@ -206,7 +206,7 @@ async def ansicht(
     saison_teams: Any = None,
 ) -> FLSpielbestaetigungAnsichtResponse:
     return await get_spielbestaetigung_ansicht(
-        ansicht_data=FLSpielbestaetigungAnsichtPayload(token=raw),
+        ansicht_data=FLTokenPayload(token=raw),
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
         spiele_collection=either(database, Collection.SPIELE, spiele),
         saison_teams_collection=either(database, Collection.SAISON_TEAMS, saison_teams),

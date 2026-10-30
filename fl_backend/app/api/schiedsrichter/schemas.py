@@ -1,14 +1,10 @@
-from typing import Annotated, Literal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
-from app.api.spieler.schemas import FLEinwilligung, SelbstEinwilligungPayload
-from app.shared.schemas.bounds import (
-    BEWERBUNG_TOKEN_MAX_LENGTH,
-    EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
-    LIST_LIMIT_DEFAULT,
-    LIST_LIMIT_MAX,
-)
+from app.api.spieler.schemas import FLEinwilligung
+from app.shared.schemas.bestaetigung import CustomToken, FLBestaetigung
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomNonEmptyString,
@@ -16,27 +12,10 @@ from app.shared.schemas.custom import (
     CustomOptionalDateString,
     CustomOptionalString,
 )
-from app.shared.schemas.einwilligung import FLEinwilligungStand
+from app.shared.schemas.einwilligung import CustomEinwilligungTextVersion, FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
-from app.shared.schemas.literals import FLAdresswechselEinsehbarVerwehrt
+from app.shared.schemas.literals import FLAdresswechselEinsehbarVerwehrt, FLBestaetigungZustand, FLEinwilligungUmfang, FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse
-
-# The delivery state has ONE shape at every home `app/api/zustellung/services.py :: ZIEL_PFADE`
-# names, so the referee's carrier declares the application's model rather than a twin of it.
-from app.shared.schemas.zustellung import FLBewerbungZustellung
-
-# A SECOND spelling of `app/api/spieler/schemas.py :: FLEinwilligung`'s own, which is inline and so
-# cannot be imported. Widened alone it would take a scope mongod refuses, and the press would 500:
-# `fl_backend/tests/api/test_schiedsrichter_bestaetigung_refusal.py` holds the two equal.
-FLSchiedsrichterUmfang = Literal["kader_oeffentlich", "intern"]
-
-# What a reopened link shows. `abgelaufen` outranks nothing: a stamp is read first, so a referee who
-# confirmed on the last valid day still sees that they did. `gesperrt` ranks first.
-FLSchiedsrichterBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]
-
-# The raw token as it arrives on the two base-tier endpoints. `BEWERBUNG_TOKEN_MAX_LENGTH` and not a
-# referee's own: one `mint_token` spells every confirmation link this application hands out.
-CustomSchiedsrichterToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TOKEN_MAX_LENGTH)]
 
 
 class _SchiedsrichterWritable(BaseModel):
@@ -69,22 +48,6 @@ class FLPatchSchiedsrichterPayload(_SchiedsrichterPayload):
     pass
 
 
-class FLSchiedsrichterBestaetigung(BaseModel):
-    """One referee's confirmation bookkeeping as the editor reads it -- and NO `token_hash`.
-
-    The hash is a raw document key the confirm query alone reads, as
-    `app/api/bewerbungen/schemas.py :: FLBewerbungBestaetigung` keeps its own off the wire.
-    """
-
-    verschickt_am: CustomDateString
-    erinnert_am: CustomOptionalDateString
-    # Stored beside the send rather than derived from it: raising the bound would otherwise move the
-    # deadline of a link already in somebody's inbox.
-    frist: CustomDateString
-    # Null on every fresh mint: nothing is yet known about the message that link went out in.
-    zustellung: FLBewerbungZustellung | None = None
-
-
 class FLSchiedsrichterMint(BaseModel):
     """A freshly minted link, answered ONCE and stored nowhere.
 
@@ -113,12 +76,12 @@ class FLSchiedsrichter(_SchiedsrichterWritable):
     # Defaulted, on no payload: the ghost carries none, the create no record or birthdate before
     # confirmation, and an address correction on a retired, unconfirmed referee drops the link.
     # Refusing an absent key would 500 the list.
-    bestaetigung: FLSchiedsrichterBestaetigung | None = None
+    bestaetigung: FLBestaetigung | None = None
     einwilligung: FLEinwilligung | None = None
     geburtsdatum: CustomOptionalDateString = None
 
 
-class FLSchiedsrichterBestaetigungRecord(FLSchiedsrichterBestaetigung):
+class FLSchiedsrichterBestaetigungRecord(FLBestaetigung):
     """One referee's confirmation bookkeeping as `schiedsrichter` stores it, its link's hash with it."""
 
     token_hash: str
@@ -139,7 +102,7 @@ class FLSchiedsrichterFilterParams(BaseModel):
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: Literal["name", "default_payment"] = Field(default="name")
-    order: Literal["asc", "desc"] = Field(default="asc")
+    order: FLSortOrder = Field(default="asc")
 
 
 class FLSchiedsrichterListResponse(BaseAPIResponse):
@@ -176,19 +139,13 @@ class FLSchiedsrichterMintResponse(BaseAPIResponse):
     bestaetigung: FLSchiedsrichterMint
 
 
-class FLSchiedsrichterBestaetigungAnsichtPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    token: CustomSchiedsrichterToken
-
-
 class FLSchiedsrichterBestaetigungAnsichtResponse(BaseAPIResponse):
     """What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).
 
     Never a name, the school, the contact details, the fee, the birthdate or the id.
     """
 
-    zustand: FLSchiedsrichterBestaetigungZustand
+    zustand: FLBestaetigungZustand
     mindestalter: int
     # Served for `mindestalter`'s reason: the page offers the media switch only from this age, and a
     # copy of its own would offer it where the write refuses.
@@ -199,14 +156,14 @@ class FLSchiedsrichterBestaetigungAnsichtResponse(BaseAPIResponse):
 class FLSchiedsrichterBestaetigungPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    token: CustomSchiedsrichterToken
+    token: CustomToken
     geburtsdatum: CustomDateString
-    umfang: FLSchiedsrichterUmfang
+    umfang: FLEinwilligungUmfang
     # Required rather than defaulted: a page that omitted it would store the model's answer in place
     # of the person's, and an off switch is an answer.
     medien: bool
     # The label of the words the page showed: the write refuses any but the running one.
-    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
+    text_version: CustomEinwilligungTextVersion
 
 
 class FLSchiedsrichterBestaetigungResponse(BaseAPIResponse):
@@ -216,7 +173,7 @@ class FLSchiedsrichterBestaetigungResponse(BaseAPIResponse):
     caller holding a leaked token learns nothing it did not already post.
     """
 
-    umfang: FLSchiedsrichterUmfang
+    umfang: FLEinwilligungUmfang
     medien: bool
     bestaetigt_am: CustomDateString
 
@@ -257,10 +214,6 @@ class FLSchiedsrichterSelbstResponse(BaseAPIResponse):
     """Every confirmed referee record the signed-in address holds, the ghost never among them."""
 
     schiedsrichter: list[FLSchiedsrichterSelbst]
-
-
-class FLSchiedsrichterSelbstEinwilligungPayload(SelbstEinwilligungPayload):
-    pass
 
 
 class FLSchiedsrichterSelbstEinwilligungResponse(BaseAPIResponse):

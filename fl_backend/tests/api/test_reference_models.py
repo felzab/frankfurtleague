@@ -241,6 +241,12 @@ class TestSpieler:
     def test_the_record_reads_the_sentinel_back(self):
         assert FLSpielerRecord.model_validate(build_ghost_spieler(), extra="forbid").vorname is None
 
+    def test_the_record_refuses_the_sentinel_holding_an_address(self):
+        """No lookup by address excludes the sentinel, so the read-back is where one given an address shows."""
+
+        with pytest.raises(ValidationError):
+            FLSpielerRecord.model_validate({**build_ghost_spieler(), "email": "geist@schule.example"})
+
     @pytest.mark.parametrize("absent", [True, False], ids=["absent", "null"])
     def test_the_person_patch_requires_a_birthdate(self, absent: bool):
         """No default and no null, so neither a form that forgot the field nor a cleared picker clears a stored date."""

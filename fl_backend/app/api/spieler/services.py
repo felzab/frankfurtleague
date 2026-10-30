@@ -54,9 +54,8 @@ def name_is_public(einwilligung: Mapping[str, Any] | None) -> bool:
     if einwilligung is None:
         return False
 
-    # Both, never the scope alone: `app/core/constraints.py :: _EINWILLIGUNG` admits a null
-    # `bestaetigt_am`, so `kader_oeffentlich` with no stamp is a scope nobody confirmed. The stamp is
-    # the shared predicate's to judge, `""` included.
+    # Both, never the scope alone: publication rests on the person's own confirmation, so a name is
+    # withheld unless the stamp reads as one.
     return einwilligung.get("umfang") == "kader_oeffentlich" and is_confirmed(einwilligung)
 
 
@@ -92,8 +91,8 @@ def public_person(*, vorname: str | None, nachname: str | None, einwilligung: Ma
 def build_ghost_spieler() -> dict[str, Any]:
     """The row an erased pupil's surviving entries are repointed to, as written.
 
-    Nameless and recordless, as the validator admits for this row alone: a name here is published on
-    every such entry, and a fabricated record is counted as consent.
+    Nameless and recordless, as `app/api/spieler/schemas.py :: FLSpielerRecord` admits for this row
+    alone: a name here is published on every such entry, and a fabricated record is counted as consent.
     """
 
     return {
@@ -119,9 +118,7 @@ def build_real_spieler_filter(terms: Mapping[str, Any] | None = None) -> Mapping
 
     composed = dict(terms or {})
 
-    # Apart under `$and` only where the caller names `_id`: kept flat otherwise, an address term stays at
-    # the top, where `fl_backend/tests/api/test_spieler_email_reads.py :: names_an_address` finds the
-    # reads whose plans it checks.
+    # Apart under `$and` only where the caller names `_id`, so the caller's own `_id` term is never replaced.
     if "_id" in composed:
         return {"$and": [composed, {"_id": dict(_NOT_THE_GHOST)}]}
 
@@ -303,8 +300,8 @@ def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
 def find_squad_capacity_refusal(*, squad_size: int, max_kadergroesse: int) -> WriteRefusal | None:
     """Why this squad has no room for another player, or `None`.
 
-    Its own function rather than a clause in `find_squad_refusal`, whose parameters are pinned to the
-    club question alone by `tests/core/test_unenforced.py :: TestASharedSquadNumber`.
+    Its own function rather than a clause in `find_squad_refusal`, which answers the club question
+    alone.
     """
 
     if squad_size >= max_kadergroesse:
@@ -337,8 +334,8 @@ def build_live_rolle_filter(
 def find_squad_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> WriteRefusal | None:
     """Why this squad role may not be given away, or `None`.
 
-    Its own function rather than a clause in `find_squad_refusal`, whose parameters are pinned to the
-    club question alone by `tests/core/test_unenforced.py :: TestASharedSquadNumber`.
+    Its own function rather than a clause in `find_squad_refusal`, which answers the club question
+    alone.
     """
 
     # A row holding no role competes with nobody, which is what makes the rule at-most-one rather
@@ -439,13 +436,6 @@ def build_selbst_pupil_filter(identifier: str) -> Mapping[str, Any]:
 
     The `$type` term is the unique index's partial filter, which an equality alone does not imply.
     """
-
-    # The sentinel by id although it holds no address: a hand edit can give it one, and the id is what names it nobody.
-    return build_real_spieler_filter(build_address_holder_filter(identifier))
-
-
-def build_address_holder_filter(identifier: str) -> Mapping[str, Any]:
-    """Every row `uniq_spieler_email` holds under this address, the sentinel included: one a hand edit gave it is a holder the index refuses."""
 
     return {"email": {"$eq": identifier, "$type": "string"}}
 
