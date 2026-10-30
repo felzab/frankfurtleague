@@ -6,8 +6,8 @@ import { KONTAKT_EMAIL } from "./brand";
 import { BRAND_NAME, mailOrigin } from "./emailShell";
 import { formatZeitpunkt } from "./format";
 
-import type { FLAdresswechselWeg } from "./generated/client/types";
 import type { Absatz, Mail } from "./emailShell";
+import type { FLAdresswechselWeg } from "./generated/client/types";
 
 /** The one address page, both links' and every record's, under the segment `robots.ts` already turns crawlers back from. */
 export const ADRESSWECHSEL_PFAD = "/bestaetigung/adresse";

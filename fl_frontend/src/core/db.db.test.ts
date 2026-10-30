@@ -10,12 +10,7 @@ import { setTimeout as pause } from "node:timers/promises";
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
 import { isAPIError } from "better-auth/api";
-import {
-  MongoNetworkTimeoutError,
-  MongoOperationTimeoutError,
-  MongoServerSelectionError,
-  MongoClient as StoreProbe,
-} from "mongodb";
+import { MongoNetworkTimeoutError, MongoOperationTimeoutError, MongoServerSelectionError, MongoClient as StoreProbe } from "mongodb";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import type { MongoClient } from "mongodb";
