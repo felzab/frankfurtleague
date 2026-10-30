@@ -8,8 +8,8 @@ export type Uhrzeit = `${number}:${number}` | `${number}:${number}:${number}`;
 export type Paar = { readonly team1: number; readonly team2: number };
 
 // Every instant is shown on the league's clock: without a zone the runtime's decides, so a server in
-// UTC and a browser elsewhere disagree about the day and the hour.
-const ZEITZONE = "Europe/Berlin";
+// UTC and a browser elsewhere disagree about the day and the hour. The frontend's one spelling of it.
+export const ZEITZONE = "Europe/Berlin";
 
 const DATUM = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, day: "2-digit", month: "2-digit", year: "numeric" });
 const DATUM_WOCHENTAG = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, weekday: "short", day: "2-digit", month: "2-digit" });
@@ -20,6 +20,7 @@ const UHRZEIT = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, hour: "2-
 const UHRZEIT_GESPEICHERT = new Intl.DateTimeFormat("de-DE", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
 const ZAHL = new Intl.NumberFormat("de-DE");
 const EURO = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
+const AUFZAEHLUNG = new Intl.ListFormat("de-DE", { type: "conjunction" });
 
 function alsInstant(tag: Kalendertag | Date): Date {
   if (tag instanceof Date) return tag;
@@ -67,6 +68,9 @@ export const formatZahl = (zahl: number): string => ZAHL.format(zahl);
 
 /** „25,00 €“. */
 export const formatEuro = (betrag: number): string => EURO.format(betrag);
+
+/** „A, B und C“, with no comma before the last item; one item as itself, none as nothing. */
+export const formatAufzaehlung = (eintraege: readonly string[]): string => AUFZAEHLUNG.format(eintraege);
 
 /** The mark between a score's two figures, for a score drawn as two parts as much as one string. */
 export const ERGEBNIS_TRENNER = ":";

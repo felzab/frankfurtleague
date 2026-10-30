@@ -1,3 +1,4 @@
+import { ZEITZONE } from "@/core/format";
 import { kaderName, NUMMER_NICHT_HINTERLEGT, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
@@ -96,7 +97,7 @@ export function spielerLabel(spieler: FLSpielberichtSpieler): string {
 // Europe/Berlin, as every other date in this app is rendered, and to the minute: a correction made the same day as
 // the adoption is exactly what the administrator needs to tell apart.
 const BERLIN_ZEITPUNKT = new Intl.DateTimeFormat("de-DE", {
-  timeZone: "Europe/Berlin",
+  timeZone: ZEITZONE,
   day: "2-digit",
   month: "2-digit",
   year: "numeric",

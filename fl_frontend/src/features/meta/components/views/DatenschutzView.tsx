@@ -8,6 +8,7 @@ import {
 } from "@/core/adresswechsel";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "@/core/brand";
+import { ZEITZONE } from "@/core/format";
 import { DEIN_BEREICH_TITEL, IMPRESSUM_TITEL, ORGANISATION_TITEL } from "@/core/seitenNamen";
 import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
 import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signInCode";
@@ -35,7 +36,7 @@ import { LegalSection } from "../ui/LegalSection";
 const ABSATZ_CLASSES = "fluid-sm leading-relaxed font-medium text-pretty text-foreground";
 
 // Midday UTC holds the same calendar day in every zone Berlin's day could differ from.
-const STAND = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "numeric", month: "long", year: "numeric" }).format(
+const STAND = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, day: "numeric", month: "long", year: "numeric" }).format(
   new Date(`${DATENSCHUTZ_STAND}T12:00:00Z`),
 );
 
