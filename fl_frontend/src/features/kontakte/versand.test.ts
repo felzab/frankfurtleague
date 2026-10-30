@@ -319,7 +319,7 @@ describe("the label a contacts save names", () => {
       kontakte: { ...BLOCK, trainer: alt(BLOCK.trainer), stellvertretung: alt(BLOCK.stellvertretung) },
     });
 
-    const [write] = requestsOf(client.calls).filter(({ method }) => method !== undefined);
+    const [write] = requestsOf(client.calls).filter(({ method }) => method !== undefined && method !== "GET");
     expect(write?.body).toStrictEqual({ kontakte: BLOCK, kontakte_stand: PAYLOAD.kontakte_stand });
   });
 
@@ -337,7 +337,7 @@ describe("a contacts save from a session past the step-up window", () => {
 
     expect(await patchSaisonTeamKontakteAction({ ...PAYLOAD, kontakte: { ...BLOCK, stellvertretung: null } })).toStrictEqual(stepUpRequired());
     expect(
-      requestsOf(client.calls).filter(({ method }) => method !== undefined),
+      requestsOf(client.calls).filter(({ method }) => method !== undefined && method !== "GET"),
       "the voiding write was sent for a session past the window",
     ).toStrictEqual([]);
   });
