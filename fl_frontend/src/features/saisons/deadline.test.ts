@@ -1,5 +1,6 @@
 import { doubleActionRequest, loggedLines } from "@/test-support/actionDoubles.ts";
 import { saisonRules } from "@/test-support/saisonRules.ts";
+import { timeoutSignalsOnFakeTimers } from "@/test-support/timeoutSignals.ts";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 /* The real action, client and request scope, only their network doubled below: what is driven is the deadline
@@ -76,14 +77,14 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
   const signal = init?.signal ?? assert.fail("a call went out unbounded");
   sent.push({ url: url, signal: signal });
-  if (signal.aborted) throw Object.assign(new Error("aborted"), { name: "AbortError" });
+  if (signal.aborted) throw signal.reason;
 
   const aktivierung = url.endsWith("/activate");
   const antwort = aktivierung ? AKTIVIERT : sent.length === 2 ? ERSTER_LAUF : null;
 
   return await new Promise<Response>((resolve, reject) => {
     if (antwort !== null) setTimeout(() => resolve(json(antwort)), aktivierung ? aktivierungMs : CALL_MS);
-    signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+    signal.addEventListener("abort", () => reject(signal.reason as Error));
   });
 }) as typeof fetch;
 
@@ -119,6 +120,7 @@ beforeEach(() => {
   aktivierungMs = CALL_MS;
   vi.spyOn(performance, "now").mockImplementation(() => clock);
   vi.useFakeTimers({ toFake: ["setTimeout"] });
+  timeoutSignalsOnFakeTimers();
 });
 
 afterEach(() => {

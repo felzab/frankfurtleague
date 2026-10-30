@@ -119,32 +119,35 @@ export function requestTimeLeft(): number {
 }
 
 /**
- * One outbound call's abort signal: its own bound, or what is left of the request's deadline where that
- * is shorter, and born aborted once nothing is left. Outside a scope, a `"use cache"` fill's, its own bound alone.
+ * One outbound call's abort signal: its own bound, or what is left of the request's deadline where that is nearer, and
+ * aborted from the start once nothing is left. Outside a scope, a `"use cache"` fill's, its own bound alone. Either way
+ * it aborts with a `TimeoutError`, as `AbortSignal.timeout` does
+ * (https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static); one timer of the nearer bound is the
+ * signal `AbortSignal.any` would make of the two.
  */
-export function boundCall(ownBoundMs: number): { signal: AbortSignal; clear: () => void } {
-  const controller = new AbortController();
+export function boundCall(ownBoundMs: number): AbortSignal {
   const store = storage.getStore();
   const left = requestTimeLeft();
 
   if (store !== undefined && left <= 0) {
     store.outcomeUnknown = true;
-    controller.abort();
 
-    return { signal: controller.signal, clear: () => {} };
+    return AbortSignal.abort(new DOMException("The request's deadline had passed.", "TimeoutError"));
   }
+  if (store === undefined || ownBoundMs <= left) return AbortSignal.timeout(ownBoundMs);
 
-  // Marked only where the deadline fired: a call its own bound ended is answered by its own error.
-  const byDeadline = left < ownBoundMs;
-  const handle = setTimeout(
+  const signal = AbortSignal.timeout(left);
+  // Marked only where the deadline is the nearer bound: a call its own bound ended is answered by its own error. One
+  // answered before the deadline is marked as it passes all the same, which only work outliving the deadline reads.
+  signal.addEventListener(
+    "abort",
     () => {
-      if (store !== undefined && byDeadline) store.outcomeUnknown = true;
-      controller.abort();
+      store.outcomeUnknown = true;
     },
-    Math.min(ownBoundMs, left),
+    { once: true },
   );
 
-  return { signal: controller.signal, clear: () => clearTimeout(handle) };
+  return signal;
 }
 
 // Redesign: the write-outcome functions below go with their last importers, the old write path's spines and the

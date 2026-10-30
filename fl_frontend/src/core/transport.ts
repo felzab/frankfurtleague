@@ -1,16 +1,16 @@
 import "server-only";
 
-import { BASE_FETCH_PATH, queryOf, sendToBackend } from "./api";
+import { BASE_FETCH_PATH, sendToBackend } from "./api";
 
 import type { FetchOptions } from "./api";
 
 /**
  * What a generated call may add to its request: everything `sendToBackend` takes but the tier, which the operation's
- * `security` fixes in `fl_frontend/orval.config.ts`, and the query, which the generated URL already carries.
+ * `security` fixes in `fl_frontend/orval.config.ts`.
  */
-type CallOptions = Omit<FetchOptions, "authType" | "params">;
+type CallOptions = Omit<FetchOptions, "authType">;
 
-type Tier = NonNullable<FetchOptions["authType"]>;
+type Tier = FetchOptions["authType"];
 
 function send<T>(tier: Tier, url: string, options: CallOptions | undefined): Promise<T> {
   // The generated URL spells the document's whole path, and `sendToBackend` prefixes its base path itself.
@@ -26,5 +26,20 @@ export const systemKeyTransport = <T>(url: string, options?: CallOptions): Promi
 export const adminKeyTransport = <T>(url: string, options?: CallOptions): Promise<T> => send<T>("admin", url, options);
 export const unkeyedTransport = <T>(url: string, options?: CallOptions): Promise<T> => send<T>("none", url, options);
 
-/** Orval's query builder, which would send a null value as the string "null". */
-export const serializeQuery = (params: FetchOptions["params"]): string => queryOf(params).toString();
+type QueryValue = string | number | boolean;
+
+/**
+ * Orval's query builder, which would send a null value as the string "null": an absent or null value is left out, so
+ * its parameter takes its default, and a list is sent as one key per value, the repeated key FastAPI reads a `list`
+ * query parameter from (https://fastapi.tiangolo.com/tutorial/query-params-str-validations/).
+ */
+export const serializeQuery = (params: Readonly<Record<string, QueryValue | readonly QueryValue[] | null | undefined>> | undefined): string => {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params ?? {})) {
+    for (const item of [value].flat()) {
+      if (item !== null && item !== undefined) query.append(key, String(item));
+    }
+  }
+
+  return query.toString();
+};

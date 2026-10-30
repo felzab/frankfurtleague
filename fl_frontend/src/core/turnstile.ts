@@ -69,7 +69,7 @@ async function ask(request: string, signal: AbortSignal): Promise<Answer> {
     if (!response.ok) return unjudged({ status: status });
     body = await response.json();
   } catch (failed) {
-    // The NAME alone: an `AbortError` is the bound, anything else the network or a body that is no JSON.
+    // The NAME alone: a `TimeoutError` is the bound, anything else the network or a body that is no JSON.
     return unjudged({ name: failed instanceof Error ? failed.name : "unknown" });
   }
 
@@ -90,31 +90,27 @@ export async function turnstileRefusal(token: string | null): Promise<string | n
   // Outside every `try`, which lets an unanswered check through: a fault of this module's own must throw.
   // One key over both attempts, so Cloudflare answers a retry of one judgement rather than spending the token twice.
   const request = JSON.stringify({ secret: turnstileSecretKey(), response: token, idempotency_key: crypto.randomUUID() });
-  const bound = boundCall(SITEVERIFY_TIMEOUT_MS);
-  try {
-    let answer = await ask(request, bound.signal);
-    const theirsAlone = (judged: Answer): boolean =>
-      judged !== null && "codes" in judged && !judged.passed && judged.codes.length > 0 && judged.codes.every((code) => code === THEIRS);
-    if (theirsAlone(answer)) answer = await ask(request, bound.signal);
+  const signal = boundCall(SITEVERIFY_TIMEOUT_MS);
+  let answer = await ask(request, signal);
+  const theirsAlone = (judged: Answer): boolean =>
+    judged !== null && "codes" in judged && !judged.passed && judged.codes.length > 0 && judged.codes.every((code) => code === THEIRS);
+  if (theirsAlone(answer)) answer = await ask(request, signal);
 
-    if (answer === null) return null;
-    if ("refusedStatus" in answer) {
-      logger.error("turnstile.request_refused", undefined, { status: answer.refusedStatus });
-      return PRUEFUNG_GESTOERT;
-    }
-    if (answer.passed) return null;
-    if (answer.codes.some((code) => OURS.has(code))) {
-      logger.error("turnstile.request_refused", undefined, {
-        codes: answer.codes.join(", "),
-        status: answer.status,
-      });
-      return PRUEFUNG_GESTOERT;
-    }
-    if (theirsAlone(answer)) return unjudged({ codes: answer.codes.join(", ") });
-
-    // Every other answer judged the token, an empty list included, which explains nothing.
-    return MENSCH_BESTAETIGEN;
-  } finally {
-    bound.clear();
+  if (answer === null) return null;
+  if ("refusedStatus" in answer) {
+    logger.error("turnstile.request_refused", undefined, { status: answer.refusedStatus });
+    return PRUEFUNG_GESTOERT;
   }
+  if (answer.passed) return null;
+  if (answer.codes.some((code) => OURS.has(code))) {
+    logger.error("turnstile.request_refused", undefined, {
+      codes: answer.codes.join(", "),
+      status: answer.status,
+    });
+    return PRUEFUNG_GESTOERT;
+  }
+  if (theirsAlone(answer)) return unjudged({ codes: answer.codes.join(", ") });
+
+  // Every other answer judged the token, an empty list included, which explains nothing.
+  return MENSCH_BESTAETIGEN;
 }

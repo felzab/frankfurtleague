@@ -85,7 +85,7 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
 
   if (nextTimesOut) {
     nextTimesOut = false;
-    throw new DOMException("The operation was aborted.", "AbortError");
+    throw new DOMException("The operation was aborted due to timeout.", "TimeoutError");
   }
 
   if (nextAnswer !== null) {
