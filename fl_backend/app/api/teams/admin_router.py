@@ -11,6 +11,7 @@ from pymongo.results import InsertOneResult
 from app.api.adresswechsel.crud import verwehrte_adressen
 from app.api.adresswechsel.services import build_addresses_filter
 from app.api.aktionen.crud import redact_images_in_session
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.bewerbungen.services import mint_token, seat_adressen, seat_named
 from app.api.einladungen.schemas import FLEinladung, FLEinladungMintResponse, FLEinladungResponse, FLEinladungWriteResponse, FLEinladungZeile
 from app.api.einladungen.services import (
@@ -128,7 +129,6 @@ from app.core.security import (
     get_actor_auth_time,
     get_actor_email,
     verify_access_admin,
-    verify_actor_is_admin,
     verify_admin_actor,
     verify_step_up,
 )

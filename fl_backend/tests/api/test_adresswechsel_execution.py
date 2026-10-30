@@ -30,7 +30,6 @@ from app.api.adresswechsel.sweep_router import get_adresswechsel_adresse
 from app.api.berechtigungen.admin_router import delete_antrag, get_berechtigungen
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.berechtigungen.crud import live_unbarred_grant_since
-from app.api.berechtigungen.services import signed_in_since
 from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich
 from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung
@@ -53,7 +52,7 @@ from app.core.crud import patch_one_in_db
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.journal import JOURNAL_TOKEN, JournalLine, parse_line
 from app.core.recording import SYSTEM_ACTOR, Actor, PersonActor, actor_var, log_stamp
-from app.core.security import akteur_pseudonym, loeschung_journal_hash
+from app.core.security import akteur_pseudonym, loeschung_journal_hash, signed_in_since
 from app.core.transactions import transaction_session
 from app.main import create_app
 from app.shared.schemas.bounds import ADRESSWECHSEL_NACHLAUF_TAGE

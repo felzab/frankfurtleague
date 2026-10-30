@@ -22,6 +22,7 @@ from app.api.berechtigungen.schemas import (
 from app.api.sperrliste.services import withheld_actor
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
+from app.core.security import signed_in_since
 from app.shared.folding import is_stored_identifier, sign_in_identifier
 
 # An `owner` grant counts among the two, being a row no route can remove: a floor one `owner` alone
@@ -91,16 +92,6 @@ def inhaber_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None)
     ernannt_am = row.get("ernannt_am")
 
     return seit if ernannt_am is None else max(seit, as_utc(ernannt_am))
-
-
-def signed_in_since(auth_time: int, seit: datetime) -> bool:
-    """Whether a sign-in at `auth_time` is no older than `seit`, for a grant's date and an owner's alike.
-
-    Judged to the second `auth_time` is floored to, so nothing the frontend's guard admits is refused
-    here.
-    """
-
-    return auth_time >= int(seit.timestamp())
 
 
 def gefunden(

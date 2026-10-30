@@ -11,7 +11,8 @@ from typing import Any
 import pytest
 from bson import ObjectId
 
-from app.api.berechtigungen.services import berechtigt_seit, compare, ernannt, gefunden, inhaber_seit, signed_in_since
+from app.api.berechtigungen.services import berechtigt_seit, compare, ernannt, gefunden, inhaber_seit
+from app.core.security import signed_in_since
 
 FIRST = ObjectId("6890a1b2c3d4e5f607920001")
 SECOND = ObjectId("6890a1b2c3d4e5f607920002")

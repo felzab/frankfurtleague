@@ -2,6 +2,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.registrierungen.schemas import FLRegistrierungenFilterParams, FLRegistrierungenListResponse, FLRegistrierungListAdapter
 from app.api.registrierungen.services import (
     WITHOUT_TOKEN_HASHES,
@@ -14,7 +15,7 @@ from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db
 from app.core.dependencies import RegistrierungenCollection
-from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
+from app.core.security import bind_actor, verify_access_admin
 
 # Admin-guarded, not base, as the application's own list is: a registration holds a pupil's name,
 # their address and, once they have confirmed, their date of birth (`READ-CONTACT-001`).

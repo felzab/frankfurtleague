@@ -7,6 +7,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.adresswechsel.crud import others_naming
 from app.api.berechtigungen.antraege import read_the_antraege_of
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
 from app.api.berechtigungen.services import lebendige
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, ErasureJournal, erase_everything, resolve_subject
@@ -62,7 +63,6 @@ from app.core.security import (
     get_actor_auth_time,
     get_actor_email,
     verify_access_admin,
-    verify_actor_is_admin,
     verify_admin_actor,
     verify_recent_confirmation,
     verify_step_up,

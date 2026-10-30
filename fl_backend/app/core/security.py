@@ -12,13 +12,10 @@ from fastapi import Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import SecretStr
 
-from app.api.berechtigungen.crud import live_unbarred_grant_since
-from app.api.berechtigungen.services import signed_in_since
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core import clock
 from app.core.codes import Code
 from app.core.config import BackendConfig, get_app_config
-from app.core.dependencies import BerechtigungenCollection
 from app.core.exceptions import ACTOR_TOKEN_CHALLENGE, APIError
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, AktorFunktion, PersonActor, actor_var, request_var
 from app.shared.folding import sign_in_identifier
@@ -175,34 +172,14 @@ def verify_person_actor(actor: Annotated[SessionActor, Depends(get_session_actor
     return actor
 
 
-# When the live grant a folded identifier holds took effect, `None` for none: the one question the actor check asks.
-GrantLookup = Callable[[str], Awaitable[datetime | None]]
+def signed_in_since(auth_time: int, seit: datetime) -> bool:
+    """Whether a sign-in at `auth_time` is no older than `seit`, for a grant's date and an owner's alike.
 
+    Judged to the second `auth_time` is floored to, so nothing the frontend's guard admits is refused
+    here.
+    """
 
-def get_grant_lookup(berechtigungen_collection: BerechtigungenCollection, sperrliste: SperrlisteLookup) -> GrantLookup:
-    """The actor check's read: a live grant, and no ban on its address."""
-
-    async def grant_since(identifier: str) -> datetime | None:
-        return await live_unbarred_grant_since(identifier, berechtigungen_collection=berechtigungen_collection, sperrliste=sperrliste)
-
-    return grant_since
-
-
-async def verify_actor_is_admin(
-    # First, so a request naming nobody is refused before the grant read opens the database.
-    actor: Annotated[SessionActor, Depends(verify_admin_actor)],
-    grant_since: Annotated[GrantLookup, Depends(get_grant_lookup)],
-) -> None:
-    """Refuse an actor who holds no live grant, read per request, or signed in before it."""
-
-    # Folded, as every grant is stored, or a mixed-case identifier locks an administrator out of the
-    # panel. Either tier admits: `owner` holds every power `administration` does.
-    seit = await grant_since(sign_in_identifier(actor.email))
-    if seit is None:
-        raise APIError(HTTPStatus.FORBIDDEN, Code.ACTOR_NOT_ADMIN)
-
-    if not signed_in_since(actor.auth_time, seit):
-        raise refused_session()
+    return auth_time >= int(seit.timestamp())
 
 
 def get_actor_auth_time(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> int:

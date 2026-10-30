@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.spielorte.schemas import (
     FLSpielort,
     FLSpielorteFilterParams,
@@ -11,7 +12,7 @@ from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, build_query, build_sort, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SpielorteCollection
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
+from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # Admin-guarded, not base. `default_mietpreis` is money (`READ-MONEY-001`) and the only field

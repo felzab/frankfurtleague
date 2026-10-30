@@ -4,6 +4,7 @@ from typing import Annotated, Any, get_args
 
 from fastapi import APIRouter, Depends, Query
 
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.bewerbungen.schemas import (
     FLBewerbung,
     FLBewerbungenFilterParams,
@@ -29,7 +30,7 @@ from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import BewerbungenCollection, get_german_date_str
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
+from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # Admin-guarded, not base, as `schiedsrichter` is: an application carries three people's names,

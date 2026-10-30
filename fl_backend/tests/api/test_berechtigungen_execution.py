@@ -29,6 +29,7 @@ from app.api.berechtigungen.admin_router import (
     post_berechtigung,
 )
 from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
+from app.api.berechtigungen.guard import get_grant_lookup
 from app.api.berechtigungen.schemas import (
     FLBerechtigungAbgleichResponse,
     FLBerechtigungAngekuendigtPayload,
@@ -50,7 +51,7 @@ from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR, Actor, actor_var
-from app.core.security import PASSKEY_FACTOR, get_grant_lookup
+from app.core.security import PASSKEY_FACTOR
 from app.main import create_app
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests.actor_tokens import SignedActor, session_headers
@@ -1631,7 +1632,7 @@ async def granted_and_revoked_here_then_put_back(database: AsyncDatabase, client
 
 
 class TestTheMountedRouteReadsTheGrants:
-    """`app/core/security.py :: verify_actor_is_admin` against a real collection, where every other case calls the handler past it."""
+    """`app/api/berechtigungen/guard.py :: verify_actor_is_admin` against a real collection: every other case calls the handler past it."""
 
     @pytest.mark.parametrize(
         ("granted_s_ago", "status", "error_code"),

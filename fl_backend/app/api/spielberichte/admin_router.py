@@ -5,6 +5,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends, Query
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.saisons.crud import pull_current_saison_id
 from app.api.spielberichte.crud import (
     anchor_the_pupils_named,
@@ -44,7 +45,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
+from app.core.security import bind_actor, verify_access_admin, verify_step_up
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 

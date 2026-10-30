@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.adresswechsel.crud import verwehrte_adressen
 from app.api.adresswechsel.services import build_address_filter
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichter,
     FLSchiedsrichterFilterParams,
@@ -25,7 +26,7 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_auth_time, get_actor_email, verify_access_admin, verify_actor_is_admin
+from app.core.security import bind_actor, get_actor_auth_time, get_actor_email, verify_access_admin
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 

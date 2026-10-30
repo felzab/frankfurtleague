@@ -22,6 +22,7 @@ from app.api.berechtigungen.antraege import (
     remove_the_antrag_in_session,
 )
 from app.api.berechtigungen.crud import grant_in_session, pull_the_list_to_judge, read_berechtigungen, read_the_announced, revoke_in_session
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.berechtigungen.schemas import (
     FLBerechtigung,
     FLBerechtigungAdresswechsel,
@@ -73,15 +74,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.routing import by_id
-from app.core.security import (
-    bind_actor,
-    get_actor_auth_time,
-    get_actor_email,
-    verify_access_admin,
-    verify_actor_is_admin,
-    verify_recent_confirmation,
-    verify_step_up,
-)
+from app.core.security import bind_actor, get_actor_auth_time, get_actor_email, verify_access_admin, verify_recent_confirmation, verify_step_up
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId

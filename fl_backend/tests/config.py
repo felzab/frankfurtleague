@@ -37,7 +37,7 @@ _KEY_ADMIN = "test-key-admin".ljust(INTERNAL_API_KEY_LENGTH, "0")
 _SPERRLISTE_SCHLUESSEL = "test-sperrliste-key".ljust(SPERRLISTE_KEY_MIN_LENGTH, "0")
 
 # Every actor a suite names on an admin-tier route, each a grant `grants_for_the_suite` seeds, or
-# `app/core/security.py :: verify_actor_is_admin` answers the request 403 before the case reaches what
+# `app/api/berechtigungen/guard.py :: verify_actor_is_admin` answers the request 403 before the case reaches what
 # it is about. Folded, as a grant is stored.
 ADMINISTRATORS = ("admin@example.com", "admin@frankfurtleague.de", "spielorte.admin@example.com", "triage.quillhilde@example.com")
 

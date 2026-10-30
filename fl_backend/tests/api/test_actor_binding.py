@@ -21,6 +21,7 @@ from pydantic import SecretStr
 from pymongo.asynchronous.collection import AsyncCollection
 from starlette.requests import Request
 
+from app.api.berechtigungen.guard import GrantLookup, get_grant_lookup
 from app.api.sperrliste.services import adresse_hash
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -34,14 +35,12 @@ from app.core.security import (
     STEP_UP_WINDOW_S,
     BanLookup,
     Factor,
-    GrantLookup,
     akteur_pseudonym,
     attribute_the_administrator,
     bind_actor,
     bind_public_actor,
     get_actor_email,
     get_ban_lookup,
-    get_grant_lookup,
     loeschung_journal_hash,
     verify_step_up,
 )

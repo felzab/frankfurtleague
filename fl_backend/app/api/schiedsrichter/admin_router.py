@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.bewerbungen.services import mint_token
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
@@ -56,14 +57,7 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.routing import by_id
-from app.core.security import (
-    SessionActor,
-    bind_actor,
-    verify_access_admin,
-    verify_actor_is_admin,
-    verify_admin_actor,
-    verify_step_up,
-)
+from app.core.security import SessionActor, bind_actor, verify_access_admin, verify_admin_actor, verify_step_up
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 

@@ -6,6 +6,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.adresswechsel.crud import verwehrte_adressen
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.spieler.crud import (
     pull_a_person_to_enter,
     refuse_a_full_squad,
@@ -49,7 +50,7 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_auth_time, get_actor_email, verify_access_admin, verify_actor_is_admin
+from app.core.security import bind_actor, get_actor_auth_time, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId

@@ -8,6 +8,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 from pymongo.results import InsertOneResult
 
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.bewerbungen.services import mint_token
 from app.api.einladungen.schemas import (
     FLEinladungVersandPayload,
@@ -105,15 +106,7 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import fl_logger
-from app.core.security import (
-    SessionActor,
-    bind_actor,
-    get_actor_email,
-    verify_access_admin,
-    verify_actor_is_admin,
-    verify_admin_actor,
-    verify_step_up,
-)
+from app.core.security import SessionActor, bind_actor, get_actor_email, verify_access_admin, verify_admin_actor, verify_step_up
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
