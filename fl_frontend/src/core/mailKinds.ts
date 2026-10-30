@@ -1,8 +1,11 @@
 import "server-only";
 
 import { buildCodeEmail } from "./authEmail";
+import { buildEinladungEmail } from "./einladungEmail";
+import { ContractBreakError } from "./errors";
 import { buildLoeschungEmail } from "./loeschungEmail";
 import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
+import { buildRegistrierungAbsageEmail, buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail } from "./registrierungEmail";
 import { buildSchiedsrichterBestaetigungEmail } from "./schiedsrichterEmail";
 import {
   buildSpielAnfrageEmail,
@@ -44,6 +47,23 @@ interface Ausgabe {
 
 type MailBuilder<A extends PostausgangArt> = (daten: DatenJeArt[A], ausgabe: Ausgabe) => Mail;
 
+/** What a league mail carrying no link is built with beside its facts. */
+export interface MailOrt {
+  readonly origin: string;
+}
+
+/** What a league mail carrying a link is built with: the hand-out's raw token, a bearer credential never taken apart. */
+export interface MailLink extends MailOrt {
+  readonly token: string;
+}
+
+/** The hand-out's token for a kind that always carries a link: the backend mints one for every row naming where it lives. */
+function gemintet({ token, origin }: Ausgabe): MailLink {
+  if (token === null) throw new ContractBreakError("A mail carrying a link was handed out without one.");
+
+  return { token: token, origin: origin };
+}
+
 /** Each kind's builder, which renders through the shell (`fl_frontend/src/core/emailShell.ts :: renderMail`). */
 const MAIL_KINDS: { [A in PostausgangArt]?: MailBuilder<A> } = {
   anmeldecode: (_daten, { geheim, origin }) => buildCodeEmail(geheimDerArt(geheim), origin),
@@ -60,6 +80,10 @@ const MAIL_KINDS: { [A in PostausgangArt]?: MailBuilder<A> } = {
   spiel_abgesagt: buildSpielHinweisEmail,
   spiel_einteilung_aufgehoben: buildSpielEinteilungAufgehobenEmail,
   spiel_vorschlag_verworfen: buildSpielVorschlagVerworfenEmail,
+  registrierung_bestaetigung: (daten, ausgabe) => buildRegistrierungBestaetigungEmail(daten, gemintet(ausgabe)),
+  registrierung_erinnerung: (daten, ausgabe) => buildRegistrierungErinnerungEmail(daten, gemintet(ausgabe)),
+  registrierung_absage: (daten, ausgabe) => buildRegistrierungAbsageEmail(daten, ausgabe),
+  einladung: (daten, ausgabe) => buildEinladungEmail(daten, gemintet(ausgabe)),
 };
 
 /** A secret kind's secret, which its every row carries (`fl_frontend/src/core/auth.ts :: oweSignInMail`). */

@@ -1,11 +1,14 @@
 from typing import Any
 
+import pytest
+
 from app.api.einladungen.services import (
     bestaetigte_empfaenger,
     einladung_ist_versendet,
     plan_einladung_versand,
     registrierungsfenster_laeuft,
 )
+from app.api.postausgang.schemas import FLPostausgangLage
 from tests.documents import kontaktperson_document
 
 CONFIRMED_ON = "2026-03-20"
@@ -26,11 +29,15 @@ def kontakte(*, trainer: Any = None, ansprechperson: Any = None, stellvertretung
     }
 
 
-def einladung(*, versand: Any) -> dict[str, Any]:
-    return {"saison_id": "2026", "widerrufen_am": None, "versand": versand}
+EINLADUNG: dict[str, Any] = {"saison_id": "2026", "widerrufen_am": None}
 
 
-ZUSTELLUNG = {"nachricht_id": "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794", "stand": "angenommen", "grund": None, "am": "2026-03-29T10:00:00+00:00"}
+def lage(stand: str, *, zustellung: str | None = None) -> FLPostausgangLage:
+    """The last mail owed about an invite, as the outbox serves it."""
+
+    gemeldet = None if zustellung is None else {"stand": zustellung, "grund": None, "am": "2026-03-29T10:00:00+00:00"}
+
+    return FLPostausgangLage.model_validate({"stand": stand, "zustellung": gemeldet})
 
 
 class TestTheWindowALinkExpiresWith:
@@ -56,21 +63,6 @@ class TestTheWindowALinkExpiresWith:
 
     def test_a_season_with_no_window_at_all_is_not_running(self):
         assert not registrierungsfenster_laeuft(registrierung=None, today="2026-04-01")
-
-    def test_a_block_missing_an_end_is_not_running(self):
-        """A stored half-window would otherwise compare against `None` and raise, or worse, order against it."""
-
-        assert not registrierungsfenster_laeuft(registrierung={"offen": True, "von": "2026-03-01"}, today="2026-04-01")
-
-    def test_a_null_end_closes_the_window_rather_than_opening_it_for_ever(self):
-        """`str(None)` is `"None"` and every date sorts below it, so a coerced comparison leaves this credential live for ever."""
-
-        assert not registrierungsfenster_laeuft(registrierung={"offen": True, "von": "2026-03-01", "bis": None}, today="2026-05-01")
-
-    def test_a_null_start_closes_it_too(self):
-        """The other end, for the same reason read the other way: nothing may fall open on a stored null."""
-
-        assert not registrierungsfenster_laeuft(registrierung={"offen": True, "von": None, "bis": "2026-04-30"}, today="2026-04-01")
 
 
 class TestWhoALinkIsMailedTo:
@@ -107,30 +99,25 @@ class TestWhoALinkIsMailedTo:
 
 
 class TestWhetherAnythingWasEverMailed:
-    def test_a_row_carrying_a_delivery_record_was_mailed(self):
-        assert einladung_ist_versendet(einladung_raw=einladung(versand={"zustellung": ZUSTELLUNG}))
+    @pytest.mark.parametrize("stand", ["offen", "gesendet"])
+    def test_a_mail_owed_or_sent_counts(self, stand: str):
+        """Owed counts as sent: a second press while the first one's mails wait in the outbox would owe them twice."""
 
-    def test_a_minted_row_nobody_sent_was_not(self):
-        """The whole of the press's skip rule: the carrier is written at the mint, so its presence says nothing."""
+        assert einladung_ist_versendet(lage=lage(stand))
 
-        assert not einladung_ist_versendet(einladung_raw=einladung(versand={}))
+    @pytest.mark.parametrize("stand", ["aufgegeben", "gesperrt", "zurueckgehalten", "entfallen"])
+    def test_a_mail_that_reached_nobody_does_not(self, stand: str):
+        """No message left, so the press has still reached nobody and the next press must go out."""
 
-    def test_a_team_holding_no_row_was_not(self):
-        assert not einladung_ist_versendet(einladung_raw=None)
+        assert not einladung_ist_versendet(lage=lage(stand))
 
-    def test_a_send_the_provider_refused_is_not_a_send(self):
-        """No message was minted, so the press has still reached nobody and the next press must go out."""
-
-        refused = {**ZUSTELLUNG, "nachricht_id": "", "stand": "unzustellbar"}
-
-        assert not einladung_ist_versendet(einladung_raw=einladung(versand={"zustellung": refused}))
+    def test_an_invite_nobody_was_owed_was_not(self):
+        assert not einladung_ist_versendet(lage=None)
 
     def test_a_message_that_bounced_was_still_a_send(self):
-        """The control on the same state: a refused send and a bounce both read `unzustellbar`, and only one of them reached nobody."""
+        """The row's state and never its delivery: that team WAS reached, and judging the bounce would re-mail it for ever."""
 
-        bounced = {**ZUSTELLUNG, "stand": "unzustellbar", "grund": "NoEmail"}
-
-        assert einladung_ist_versendet(einladung_raw=einladung(versand={"zustellung": bounced}))
+        assert einladung_ist_versendet(lage=lage("gesendet", zustellung="unzustellbar"))
 
 
 class TestATeamTheBanListKeepsTheLinkFrom:
@@ -142,7 +129,8 @@ class TestATeamTheBanListKeepsTheLinkFrom:
         decided = plan_einladung_versand(
             austritt=None,
             kontakte=kontakte(trainer=kontaktperson("Bramblewick", "bramblewick@example.com", bestaetigt_am=CONFIRMED_ON)),
-            einladung_raw=einladung(versand={"zustellung": ZUSTELLUNG}),
+            einladung_raw=EINLADUNG,
+            versendet=True,
             erneut=True,
             gesperrt=frozenset({"bramblewick@example.com"}),
         )

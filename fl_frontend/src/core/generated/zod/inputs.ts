@@ -1536,19 +1536,16 @@ export const RegistrierungenGetRegistrierungenQueryParams = zod.object({
 });
 
 /**
- * Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.
+ * Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.
  *
  * Everything the league decides -- the team, the season, `status`, `eingereicht_am` and the
- * deadline -- is taken off the invite and the clock and never off the payload. The raw confirmation
- * token is answered for the caller to mail and stored only as a hash; this response is the one
- * place outside the recipient's inbox it ever exists.
+ * deadline -- is taken off the invite and the clock and never off the payload. The mail is owed in
+ * the Postausgang in the same transaction, its link minted when it is handed out; no token is answered.
  *
  * An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
- * registration it holds and stores none: a fresh link where no message is known to have reached the
- * inbox and nothing is confirmed, none otherwise. The same key over other details is refused
- * (`REQ-REGISTRIERUNG-011`), and so is a key whose stored address, the one the answer mails, has been
- * banned since (`REQ-REGISTRIERUNG-009`), before any link is minted. A key whose registration the team has since
- * admitted is refused too (`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.
+ * registration it holds, stores none and owes no second mail. The same key over other details is refused
+ * (`REQ-REGISTRIERUNG-011`). A key whose registration the team has since admitted is refused too
+ * (`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.
  * @summary Register through a team's link
  */
 export const registrierungenPostRegistrierungBodyEmailMax = 254;
@@ -1720,34 +1717,23 @@ export const RegistrierungenPatchEinwilligungBody = zod
   );
 
 /**
- * Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.
+ * Run the four registration retention clocks over one season, as of today in Europe/Berlin.
  *
  * A declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a
- * decision is erased whatever the pupil answered, because no admission can be taken for a season that is over. The confirmed ones
- * among them are listed in `benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is
- * told neither before nor after, its address never having been confirmed. A call whose erasure names somebody to tell answers once
- * that erasure has committed, so the rest of the season's registrations wait for the next call; the two clocks below do not run
- * for a `past` season, whose own end takes every row they read.
+ * decision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the two clocks
+ * below do not run for a `past` season, whose own end takes every row they read.
  *
  * Otherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having
- * named that day. Then one reminder per registration at its reminder age, earliest deadline first: a fresh link is minted and
- * `erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and the link already
- * in that inbox stays valid beside the fresh one. One call reminds a bounded share of the registrations due; the rest stay due and
- * the calls after it remind them. A registration whose last message the mail provider refused is not chased at all, and one whose
- * address the ban list holds is sent nothing and has nothing written: it stays due, so every pass asks the ban list for it again
- * until its deadline, and reminds it once a lift comes first; each pass logs how many it withheld, never which. Every removal
- * names this season alone, is made inside a transaction and takes its log rows with it.
+ * named that day. Then one reminder per registration at its reminder age, earliest deadline first: `erinnert_am` is stamped and the
+ * reminder owed in the Postausgang in one transaction, its link joining the one already in that inbox. One call reminds a bounded
+ * share of the registrations due; the rest stay due and the calls after it remind them. Every removal names this season alone, is
+ * made inside a transaction and takes its log rows with it.
  *
- * Whatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transactions, so no later step of the same
- * call can answer an error in their place; where the request's deadline cuts them after one has committed, the call answers what
- * committed and warns once.
+ * A registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of
+ * its clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
+ * nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.
  *
- * A registration whose write fails, the database refusing it or anything else, or one the answer cannot carry, is passed over
- * alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it again and one
- * failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.
- *
- * 404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes
- * nothing, though it logs the count of withheld registrations again.
+ * 404 where no season has the id. Idempotent per day: a run after every due reminder is owed writes nothing.
  * @summary Run one season's registration retention clocks
  */
 export const RegistrierungenSweepRegistrierungenParams = zod.object({
@@ -1755,12 +1741,12 @@ export const RegistrierungenSweepRegistrierungenParams = zod.object({
 });
 
 /**
- * Decline one pending registration, confirmed or not: its state and the decision are written, and nothing else.
+ * Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.
  *
  * The decision records the declining seat holder's address and a reason from a closed set, never free text:
  * `andere_person` where the team answered that the registration is not the person its address belongs to. The
- * row stays until the retention sweep erases it a month later. The answer carries the address the pupil's link
- * went to, for the decline mail and nothing else, and whether that address was ever confirmed.
+ * row stays until the retention sweep erases it a month later. The note is owed in the same transaction, and only
+ * where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.
  *
  * Refuses, in this order, no pending registration with this id (404) and no seat on its team's season
  * (`REQ-FUNKTION-001`).
@@ -2049,28 +2035,27 @@ export const SaisonsActivateSaisonParams = zod.object({
 });
 
 /**
- * Mint one registration link per admitted team of this season and answer each team's raw link once, for the caller to mail.
+ * Give every admitted team of this season a fresh registration link and owe it to the team's confirmed seats, one mail each.
  *
- * **Every team mailed is minted for, and any link that team already held is REVOKED in the same per-team transaction** — the copy in
- * somebody's inbox opens nothing from that moment. A stored link is a hash, so the value to put in a message is one that has just been
- * made; there is nothing to re-send. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the
+ * **Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the
+ * copy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is
+ * handed out; no link is answered. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the
  * press. A team this skips is left exactly as it was.
  *
  * Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
- * has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a delivery
- * record and `erneut` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it
- * holds rather than losing it to a press that mails nobody. **The fifth is read off
- * the delivery record**, which only `POST /zustellung/angenommen` writes — so pressing twice mails nobody twice, while a link minted and
- * never sent is still sent. **The first is read off the junction row's `austritt` record**, so a team out of the season by either route is
- * passed over; minting for one team by hand is not refused, that being a deliberate act rather than a bulk one.
+ * has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already has a mail owed or
+ * sent and `erneut` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it
+ * holds rather than losing it to a press that mails nobody. **The fifth is read off the last mail owed about the live link**, so pressing
+ * twice mails nobody twice, while a link whose mail was given up or barred is sent again. **The first is read off the junction row's
+ * `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
+ * being a deliberate act rather than a bulk one.
  *
- * The answer carries the raw link per team and is the only place each appears. Refused where the season has ended (`REQ-EINLADUNG-002`);
- * 404 where no season holds that id; a season holding no team answers an empty list.
+ * Refused where the season has ended (`REQ-EINLADUNG-002`); 404 where no season holds that id; a season holding no team answers an
+ * empty list.
  *
- * **An administrator whose access is revoked while the mailing runs is refused `REQ-AUTH-006` at the next team**, and the answer
- * carries no link at all: every team minted for before that point has lost the link it held and holds one nobody was sent. Running the
- * mailing again, as an administrator who still holds access, mints and answers those teams' links anew, none of them carrying a
- * delivery record yet.
+ * **An administrator whose access is revoked while the mailing runs is refused `REQ-AUTH-006` at the next team**: every team done before
+ * that point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those
+ * teams and reaches the rest.
  * @summary Mint every admitted team a link
  */
 export const SaisonsPostEinladungenVersandParams = zod.object({
@@ -2087,7 +2072,7 @@ export const SaisonsPostEinladungenVersandBody = zod.object({
  * Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.
  *
  * Decided by the function the send itself decides by, so the list read here is the list performed. `erneut` mirrors the send's own
- * switch: left false, a team whose live link already carries a delivery record reads as `bereits_gesendet`, and pressing the send with
+ * switch: left false, a team whose live link already has a mail owed or sent reads as `bereits_gesendet`, and pressing the send with
  * `erneut` true instead makes this preview's own answer wrong unless the same value is asked for here.
  *
  * **`ersetzt_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that
@@ -2095,8 +2080,8 @@ export const SaisonsPostEinladungenVersandBody = zod.object({
  * so a page offering the press reads that fact here or nowhere.
  *
  * Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that
- * block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a
- * delivery record and `erneut` is false. A season holding
+ * block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already has a mail
+ * owed or sent and `erneut` is false. A season holding
  * no team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.
  * @summary Who the send would reach
  */
@@ -4175,9 +4160,8 @@ export const TeamsDeleteEinladungParams = zod.object({
  * What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.
  *
  * **No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became
- * of the last message sent about it — a `versand.zustellung` absent, or naming no message, means nobody has mailed it, which is a state
- * rather than a delivery failure. The minter is `null` beside `erstellt_von_gesperrt` where the ban list holds that address, as no barred
- * address is served in plain.
+ * of the last mail owed about it — `zustellung` null means nobody was ever owed it, which is a state rather than a delivery failure.
+ * The minter is `null` beside `erstellt_von_gesperrt` where the ban list holds that address, as no barred address is served in plain.
  *
  * `laeuft` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of
  * the link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.
@@ -4194,7 +4178,8 @@ export const TeamsGetEinladungParams = zod.object({
  * Mint the link a team's players register through, revoking whatever link that team held for this season.
  *
  * **The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of
- * this response is lost and the repair is another mint. Mailing it is a separate press.
+ * this response is lost and the repair is another mint. Mailing the team's link is a separate press
+ * (`POST /teams/{team_id}/saisons/{saison_id}/einladung/versand`), whose mails mint links of their own beside this one.
  *
  * The reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left
  * holding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh
@@ -4216,6 +4201,33 @@ export const TeamsPostEinladungParams = zod.object({
   team_id: zod.string().regex(teamsPostEinladungPathTeamIdRegExp),
   saison_id: zod.string(),
 });
+
+/**
+ * Owe this team's live registration link to every seat of its season row whose own person has confirmed it, one mail each.
+ *
+ * The write mints nothing and revokes nothing: each mail mints a link of its own when it is handed out, so a link copied off the mint
+ * stays valid beside the mailed ones. `empfaenger` names who is owed it, one entry per stored address, and is empty where nobody has
+ * confirmed a seat, which owes nothing. Pressed twice on one day, the second owes nothing again; a later day's press mails the seats
+ * afresh. A barred address is stopped when its mail is handed out.
+ *
+ * 404 where `einladung_id` is not this team's live invite for the season, a link replaced or withdrawn since the caller read it among
+ * them, and where the season holds no row for the team.
+ * @summary Mail this team's live registration link to its confirmed contact seats
+ */
+export const teamsPostEinladungVersandPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const TeamsPostEinladungVersandParams = zod.object({
+  team_id: zod.string().regex(teamsPostEinladungVersandPathTeamIdRegExp),
+  saison_id: zod.string(),
+});
+
+export const teamsPostEinladungVersandBodyEinladungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const TeamsPostEinladungVersandBody = zod
+  .object({
+    einladung_id: zod.string().regex(teamsPostEinladungVersandBodyEinladungIdRegExp),
+  })
+  .describe("The one live link a team's panel shows, to be mailed to the team's confirmed seats.");
 
 /**
  * Rewrite the three people this team is reached through for one season. Null clears the block.

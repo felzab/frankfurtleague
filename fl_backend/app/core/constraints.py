@@ -214,29 +214,21 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("stopp_hash", ASCENDING),),
         "the address page's stop lookup, driven by strangers",
     ),
-    # Not a unique one, though a hash collides with nothing: a revoked row keeps its hash, so the
-    # key holds as many rows as the team has been reissued links.
+    # Not a unique one, though a hash collides with nothing: a revoked row keeps its hashes, so the
+    # key holds as many rows as the team has been reissued links. Multikey, a row keeping the copied
+    # link and every mailed one.
     SupportIndex(
         Collection.EINLADUNGEN,
-        "einladungen_token_hash",
-        (("token_hash", ASCENDING),),
+        "einladungen_token_hashes",
+        (("token_hashes", ASCENDING),),
         "the invite page's lookup, driven by strangers",
     ),
-    # Two indexes for one `$or`: "all the clauses in the $or expression must be supported by
-    # indexes. Otherwise, MongoDB performs a collection scan." Mirrored from
-    # https://www.mongodb.com/docs/manual/reference/operator/query/or/, which moves without us;
-    # read 2026-09-21.
+    # Multikey, the row keeping every link it was mailed.
     SupportIndex(
         Collection.REGISTRIERUNGEN,
-        "registrierungen_bestaetigung_token_hash",
-        (("bestaetigung.token_hash", ASCENDING),),
+        "registrierungen_bestaetigung_token_hashes",
+        (("bestaetigung.token_hashes", ASCENDING),),
         "the confirmation page's lookup, driven by strangers",
-    ),
-    SupportIndex(
-        Collection.REGISTRIERUNGEN,
-        "registrierungen_bestaetigung_token_hash_zuvor",
-        (("bestaetigung.token_hash_zuvor", ASCENDING),),
-        "the same lookup through the link a reminder replaced, which stays live beside the fresh one",
     ),
     # One per clause of each `$or`, for the registration's pair's reason: a contact seat's link is
     # looked up on whichever seat holds it, an application's on either of its two hashes.

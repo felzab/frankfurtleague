@@ -338,7 +338,7 @@ def registrierung_document(
             position=position,
             nummer=nummer,
             stufe=stufe,
-            bestaetigung=compose_bestaetigung(token_hash=hash_token(token), today=eingereicht_am, frist=frist),
+            bestaetigung={**compose_bestaetigung(today=eingereicht_am, frist=frist), "token_hashes": [hash_token(token)]},
             today=eingereicht_am,
         ),
         "idempotenz_schluessel": str(registrierung_id),

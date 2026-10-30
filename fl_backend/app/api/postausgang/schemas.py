@@ -3,6 +3,7 @@ from typing import Annotated, Literal, Self, get_args
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from app.api.registrierungen.schemas import FLRegistrierungAblehnungsgrund
 from app.api.teams.schemas import FLKontaktRolle
 from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
@@ -110,6 +111,39 @@ class FLSpielVorschlagVerworfenDaten(BaseModel):
     termin: FLSpielMailTermin
 
 
+# --- The season's and the applications' mails.
+
+
+class FLRegistrierungLinkDaten(BaseModel):
+    """A pupil's confirmation link, first or as the one reminder, which joins the first link rather than replacing it."""
+
+    art: Literal["registrierung_bestaetigung", "registrierung_erinnerung"]
+    # The junction row's name, else the club's: what the pupil registered for.
+    team: str
+    saison_id: str
+    # The window in days, never a date: the reminder states that the window has not moved.
+    frist_tage: int = Field(ge=1)
+
+
+class FLRegistrierungAbsageDaten(BaseModel):
+    """A team's decline, to a pupil whose address was confirmed."""
+
+    art: Literal["registrierung_absage"]
+    vorname: str
+    team: str
+    saison_id: str
+    grund: FLRegistrierungAblehnungsgrund | None
+
+
+class FLEinladungDaten(BaseModel):
+    """A team's registration link, to one confirmed contact seat, for the pupils to register through."""
+
+    art: Literal["einladung"]
+    # The junction row's name: a seat holding two teams tells them apart by it.
+    team: str
+    saison_id: str
+
+
 FLPostausgangDaten = Annotated[
     FLAnmeldecodeDaten
     | FLPasskeyDaten
@@ -120,7 +154,10 @@ FLPostausgangDaten = Annotated[
     | FLSpielEinteilungDaten
     | FLSpielHinweisDaten
     | FLSpielEinteilungAufgehobenDaten
-    | FLSpielVorschlagVerworfenDaten,
+    | FLSpielVorschlagVerworfenDaten
+    | FLRegistrierungLinkDaten
+    | FLRegistrierungAbsageDaten
+    | FLEinladungDaten,
     Field(discriminator="art"),
 ]
 
@@ -139,7 +176,12 @@ FLPostausgangArt = Literal[
     "spiel_abgesagt",
     "spiel_einteilung_aufgehoben",
     "spiel_vorschlag_verworfen",
+    "registrierung_bestaetigung",
+    "registrierung_erinnerung",
+    "registrierung_absage",
+    "einladung",
 ]
+
 
 _MEMBER_ARTEN = {art for member in get_args(get_args(FLPostausgangDaten)[0]) for art in get_args(member.model_fields["art"].annotation)}
 if set(get_args(FLPostausgangArt)) != _MEMBER_ARTEN:
@@ -178,7 +220,9 @@ class FLPostausgangLink(BaseModel):
     pfade: list[Annotated[str, StringConstraints(pattern=r"^([a-z_]+\.)*token_hashes$")]] = Field(min_length=1)
     # The dotted paths holding the recipient's address on the record. The link is minted only while each still holds the
     # row's `an`: a seat emptied, handed on or re-addressed since the mail was owed mints nothing, and the mail is dropped.
-    adressen: list[Annotated[str, StringConstraints(pattern=r"^[a-z_]+(\.[a-z_]+)*$")]] = Field(min_length=1)
+    # Empty where the record holds no address to judge: a team's registration link, which is the team's and no person's
+    # credential, its recipients standing on another record.
+    adressen: list[Annotated[str, StringConstraints(pattern=r"^[a-z_]+(\.[a-z_]+)*$")]]
     # Set where the fresh link supersedes every link the arrays held; clear where the earlier ones stay valid beside it.
     ersetzt: bool
 

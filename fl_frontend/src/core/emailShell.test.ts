@@ -33,6 +33,16 @@ describe("renderMail", () => {
     assert.include(links.text, `${ORIGIN}/eintrag?token=zwei`);
   });
 
+  // A link to pass on stands in its box as text a reader can copy, in both versions, and the mail draws no button.
+  it("prints a passed-on link in its box in both versions", () => {
+    const link = `${ORIGIN}/registrierung?token=eins`;
+    const { html, text } = renderMail({ ...MAIL, block: { link: link } });
+
+    assert.include(html, `href="${link}"`);
+    assert.include(text.split("\n"), link);
+    assert.notInclude(html, 'fl-knopf"');
+  });
+
   // A team name or a stated reason is typed outside the league and lands inside markup.
   it("escapes every value in the designed version", () => {
     const boese = '<img src=x onerror="alert(1)">';
