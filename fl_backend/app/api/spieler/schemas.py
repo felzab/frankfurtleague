@@ -141,8 +141,12 @@ class FLSpielerRecord(_SpielerPerson):
     def _only_the_sentinel_is_nobody(self) -> Self:
         # Every write but the sentinel's stores all three: an admission carries its confirmed
         # registration's name, date and record, and the administrator's edit requires the name and the
-        # date. A null on another row is a hand edit, which the read-back names.
-        if self.id != GHOST_SPIELER_ID and any(value is None for value in (self.vorname, self.geburtsdatum, self.einwilligung)):
+        # date. No write gives the sentinel an address, which every address lookup would otherwise find
+        # as somebody's pupil. Either state is a hand edit, which the read-back names.
+        if self.id == GHOST_SPIELER_ID:
+            if self.email is not None:
+                raise ValueError("the erased pupils' sentinel holds no address")
+        elif any(value is None for value in (self.vorname, self.geburtsdatum, self.einwilligung)):
             raise ValueError("only the erased pupils' sentinel stores no forename, birthdate or consent record")
         return self
 
