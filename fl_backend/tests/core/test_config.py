@@ -372,6 +372,16 @@ class TestTheSecretFiles:
 
         assert read_environment() is None
 
+    def test_the_preflight_names_a_refused_credential_line_as_the_variable_it_is(self, monkeypatch, tmp_path):
+        """No file was read, so the value came from the environment or the dotenv file, which is where the operator looks."""
+        an_environment(monkeypatch, tmp_path, INTERNAL_API_KEY_BASE="short")
+        monkeypatch.setenv("SECRETS_DIR", str(tmp_path / "nowhere"))
+
+        with pytest.raises(EnvironmentValidationError) as raised:
+            read_environment()
+
+        assert str(raised.value) == "Invalid environment variables: INTERNAL_API_KEY_BASE"
+
     def test_every_declared_file_is_one_the_directory_is_handed(self):
         """The fixture above writes exactly the files the class reads, so a field added without a file fails here first."""
         assert sorted(SECRET_FILES) == sorted(FILES)

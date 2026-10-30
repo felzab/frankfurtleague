@@ -140,19 +140,21 @@ class BackendConfig(BaseSettings, _SecretFields):
         return init_settings, file_secret_settings, env_settings, dotenv_settings
 
 
-def _refusal(issues: list[ErrorDetails], *, files: set[str]) -> EnvironmentValidationError:
+def _refusal(issues: list[ErrorDetails], *, files: set[str], files_read: bool) -> EnvironmentValidationError:
     """Each failing variable upper-cased as the environment spells it, a count of the undeclared, and each failing file by name.
 
-    An issue's own message and its `input_value` each quote what was rejected, so neither is read.
-    An undeclared name is the file's own text, which a pasted key's line keeping the dotenv shape
-    would be, so it is counted and nothing names it. The first sentence is the frontend gate's
-    (`fl_frontend/src/core/config.ts :: frontend_config`), so one hint in `scripts/ops/deploy.sh`
-    covers both.
+    A failing credential is its file where the build read the files, and otherwise the variable or
+    dotenv line that stood in for it. An issue's own message and its `input_value` each quote what
+    was rejected, so neither is read. An undeclared name is the file's own text, which a pasted key's
+    line keeping the dotenv shape would be, so it is counted and nothing names it. The first sentence
+    is the frontend gate's (`fl_frontend/src/core/config.ts :: frontend_config`), so one hint in
+    `scripts/ops/deploy.sh` covers both.
     """
     # `<unknown>` mirrors the frontend gate's answer for a locationless issue.
     failing = {str(issue["loc"][0]) if issue["loc"] else "<unknown>" for issue in issues if issue["type"] != UNDECLARED}
-    variables = sorted(failing - set(SECRET_FILES))
-    files = files | (failing & set(SECRET_FILES))
+    read_from_files = failing & set(SECRET_FILES) if files_read else set()
+    variables = sorted(failing - read_from_files)
+    files = files | read_from_files
     undeclared = sum(issue["type"] == UNDECLARED for issue in issues)
 
     sentences = [f"Invalid environment variables: {', '.join(name.upper() for name in variables)}"] if variables else []
@@ -183,7 +185,7 @@ def read_environment() -> None:
     # Outside the arm and `from None`, so nothing chains the `ValidationError`, whose own rendering
     # quotes each rejected value into the traceback uvicorn prints.
     if issues:
-        raise _refusal(issues, files=set()) from None
+        raise _refusal(issues, files=set(), files_read=False) from None
 
 
 def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:
@@ -244,7 +246,7 @@ def get_config() -> BackendConfig:
         with warnings.catch_warnings(action="error"):
             config = BackendConfig(_secrets_dir=directory)
     except ValidationError as error:
-        refused = _refusal(error.errors(), files=set(absent))
+        refused = _refusal(error.errors(), files=set(absent), files_read=True)
     except Warning, SettingsError:
         # A file that became unreadable after the question above was asked: asked again.
         unreadable, _ = _unusable_files(directory)
