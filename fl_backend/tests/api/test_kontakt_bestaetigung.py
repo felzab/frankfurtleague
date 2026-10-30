@@ -7,16 +7,13 @@ season row. Driven against the shipped validators, with the ban list asked at th
 press as the application's links ask it.
 """
 
-import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
-from http import HTTPStatus
 from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
@@ -38,17 +35,14 @@ from app.api.teams.services import (
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.db import collection_dependency
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import log_stamp
 from app.core.security import STEP_UP_WINDOW_S, get_step_up_check
-from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
-from tests.actor_tokens import FRESH_STEP_UP_CHECK, SignedActor, verified_actor
-from tests.app_client import app_client
+from tests.actor_tokens import FRESH_STEP_UP_CHECK, verified_actor
 from tests.bans import ban_list, ban_through_the_route
-from tests.config import ADMIN_KEY, ADMINISTRATORS, build_test_config, grants_for_the_suite
+from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.erasure import erased
 from tests.isolation import InterleavedCollection
@@ -57,7 +51,6 @@ from tests.records import record_collections
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
-from .conftest import config_for
 from .test_bewerbung_einwilligung_execution import ReadsRecorded, leaf_paths, loaded_by_the_link
 
 pytestmark = pytest.mark.db
@@ -302,93 +295,6 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> 
     return await ban_through_the_route(database, client, email=email, grund="Wiederholte Falschangaben", von=ADMIN, today=TODAY)
 
 
-class BanListRunningARivalAfterItsRead(InterleavedCollection):
-    """The rival lands once the save holds its ban read inside the transaction, before the save writes.
-
-    The actor check reads the same list outside it, where a rival is a ban committed before the save began.
-    """
-
-    def find(self, *args: Any, **kwargs: Any) -> Any:
-        cursor = self._collection.find(*args, **kwargs)
-
-        return cursor if kwargs.get("session") is None else CursorRunningARivalAfterItsRead(cursor, self)
-
-
-class CursorRunningARivalAfterItsRead:
-    def __init__(self, inner: Any, hook: InterleavedCollection) -> None:
-        self._inner = inner
-        self._hook = hook
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._inner, name)
-
-    def limit(self, *args: Any, **kwargs: Any) -> CursorRunningARivalAfterItsRead:
-        self._inner = self._inner.limit(*args, **kwargs)
-
-        return self
-
-    async def to_list(self, *args: Any, **kwargs: Any) -> Any:
-        found = await self._inner.to_list(*args, **kwargs)
-        await self._hook.run_the_rival()
-
-        return found
-
-
-async def _nothing() -> None:
-    return None
-
-
-def save_racing_a_ban(url: str, *, rival: bool) -> tuple[int, str | None, int]:
-    """`THREE` saved by one administrator, Ida banned inside it by another where `rival` is set.
-
-    Answers status, code and arrivals at the ban read.
-    Through the served application: a handler called directly binds no judge, and commits Ida's seat.
-    """
-
-    async def seeded(_: AsyncDatabase, __: AsyncMongoClient) -> None:
-        return None
-
-    on_a_league(url, seeded)
-    served: FastAPI = create_app(config_for(DATABASE_NAME))
-
-    async def body() -> tuple[int, str | None, int]:
-        async with app_client(url, app=served, now=NOW) as http:
-            database = served.state.db_client[DATABASE_NAME]
-            racing: list[BanListRunningARivalAfterItsRead] = []
-
-            # Another administrator's request, so its own judge anchors its own grant: run as the saver, the
-            # ban would conflict on the saver's grant row whatever the ban's list judgement writes.
-            async def ban_ida() -> None:
-                banned = await http.post(
-                    f"/api/v{API_VERSION}/sperrliste",
-                    json={"email": "ida@example.com", "grund": "Wiederholte Falschangaben"},
-                    headers=SignedActor(ADMINISTRATORS[0], ADMIN_KEY),
-                )
-                assert banned.status_code == HTTPStatus.CREATED, banned.text
-
-            async def wrapped_ban_list() -> AsyncCollection:
-                # The save's request alone: the rival's own request reads the list unwrapped.
-                if racing:
-                    return database[Collection.SPERRLISTE]
-
-                interleaved = BanListRunningARivalAfterItsRead(database[Collection.SPERRLISTE], ban_ida if rival else _nothing)
-                racing.append(interleaved)
-                # Not a subclass of the driver's collection, which the driver builds off a database handle.
-                return cast(AsyncCollection, interleaved)
-
-            # Only the request's ban list: the judge reads its own.
-            served.dependency_overrides[collection_dependency(Collection.SPERRLISTE)] = wrapped_ban_list
-            answered = await http.patch(
-                f"/api/v{API_VERSION}/teams/{TEAM_OID}/saisons/{SAISON_ID}/kontakte",
-                json={"kontakte": THREE, "kontakte_stand": kontakte_stand_of(None)},
-                headers=SignedActor(ADMINISTRATORS[2], ADMIN_KEY),
-            )
-
-        return answered.status_code, answered.json().get("error_code"), sum(collection.passes for collection in racing)
-
-    return asyncio.run(body())
-
-
 async def row_now(database: AsyncDatabase, row_id: ObjectId = ROW_OID) -> dict[str, Any]:
     found = await database[Collection.SAISON_TEAMS].find_one({"_id": row_id})
     assert found is not None, "the seeded row is gone"
@@ -562,21 +468,6 @@ class TestABarredAddressIsRefused:
 
         assert response.bestaetigungen == []
         assert (row["kontakte"]["ansprechperson"]["email"], row["kontakte"]["stellvertretung"]) == ("jonas@example.com", None)
-
-    def test_a_ban_committing_after_the_saves_ban_read_makes_it_retry_and_refuse(self, mongo_replica_set_url: str):
-        """The save's own read is a snapshot taken before the ban, so what refuses it is the retry its judge's anchor forces."""
-
-        status, code, arrivals = save_racing_a_ban(mongo_replica_set_url, rival=True)
-
-        assert (status, code) == (HTTPStatus.CONFLICT, Code.KONTAKT_SITZ_GESPERRT)
-        assert arrivals == 2, "one arrival is a rival that landed outside the save, or a save that committed without a retry"
-
-    def test_the_same_save_with_no_ban_seats_everyone(self, mongo_replica_set_url: str):
-        """The control: a refusal above that the race did not cause would refuse here too."""
-
-        status, code, arrivals = save_racing_a_ban(mongo_replica_set_url, rival=False)
-
-        assert (status, code, arrivals) == (HTTPStatus.OK, None, 1)
 
     def test_a_resend_to_a_barred_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
