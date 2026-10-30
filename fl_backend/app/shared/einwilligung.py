@@ -52,7 +52,7 @@ class Fassung:
     seite: Seite
     # The German day the label's words go live: the deploy first serving them, set before its pull request merges.
     gilt_ab: date
-    # The order the label freezes, and the order `tests/shared/test_einwilligung.py` digests.
+    # The order the label freezes, and the order `fassung_digest` joins.
     absaetze: tuple[str, ...]
     schalter: str
     # Every OTHER control the page decides a stored field with, keyed by the value it writes: a label

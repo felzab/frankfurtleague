@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Depends, Query
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.saisons.crud import pull_current_saison_id, pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielberichte.crud import pull_zustaende, stamp_the_adoption
@@ -76,7 +77,7 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
+from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId

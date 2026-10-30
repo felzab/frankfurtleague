@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.bewerbungen.schemas import (
     FLAblehnenBewerbungPayload,
     FLAblehnenBewerbungResponse,
@@ -57,7 +58,7 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_step_up
+from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_step_up
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import FLKontaktRolle

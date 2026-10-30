@@ -55,6 +55,7 @@ from app.api.adresswechsel.services import (
     wartet_auf,
 )
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.berechtigungen.services import genehmiger_of, genehmigung_verwehrt, holds_an_owners_power, lebendige
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import SubjektLookup
@@ -86,15 +87,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.routing import by_id
-from app.core.security import (
-    bind_actor,
-    get_actor_auth_time,
-    get_actor_email,
-    verify_access_admin,
-    verify_actor_is_admin,
-    verify_recent_confirmation,
-    verify_step_up,
-)
+from app.core.security import bind_actor, get_actor_auth_time, get_actor_email, verify_access_admin, verify_recent_confirmation, verify_step_up
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId

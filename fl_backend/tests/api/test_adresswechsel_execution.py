@@ -30,7 +30,6 @@ from app.api.adresswechsel.sweep_router import get_adresswechsel_adresse
 from app.api.berechtigungen.admin_router import delete_antrag, get_berechtigungen
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.berechtigungen.crud import live_unbarred_grant_since
-from app.api.berechtigungen.services import signed_in_since
 from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich
 from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung
@@ -52,7 +51,7 @@ from app.core.crud import patch_one_in_db
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.journal import JOURNAL_TOKEN, JournalLine, parse_line
 from app.core.recording import SYSTEM_ACTOR, Actor, PersonActor, actor_var, log_stamp
-from app.core.security import akteur_pseudonym, loeschung_journal_hash
+from app.core.security import akteur_pseudonym, loeschung_journal_hash, signed_in_since
 from app.core.transactions import transaction_session
 from app.main import create_app
 from app.shared.schemas.bestaetigung import FLTokenPayload
@@ -103,7 +102,7 @@ from .adresswechsel_harness import (
     everything,
     granted,
     owed,
-    person_check,
+    person_actor,
     read,
     refused_code,
     registration,
@@ -916,7 +915,7 @@ class TestAGrantHoldersOwnPressAsksAPasskey:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)
             with pytest.raises(APIError):
-                await start(database, client, refuse_unconfirmed=person_check(factor=None))
+                await start(database, client, actor=person_actor(factor=None))
             return await database[Collection.ADRESSWECHSEL].count_documents({})
 
         assert on_a_person(mongo_replica_set_url, body) == 0
@@ -925,7 +924,7 @@ class TestAGrantHoldersOwnPressAsksAPasskey:
         """The control: the code reached the address on file, the confirmation OWASP's process asks of it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await start(database, client, refuse_unconfirmed=person_check(factor=None))
+            return await start(database, client, actor=person_actor(factor=None))
 
         assert on_a_person(mongo_replica_set_url, body).token is not None
 
@@ -936,7 +935,7 @@ class TestAGrantHoldersOwnPressAsksAPasskey:
             await granted(database)
             started = await administrator_starts(database, client, grund=None, operator=OWNER)
             with pytest.raises(APIError):
-                await approve_as_the_address(database, client, started.id, refuse_unconfirmed=person_check(factor=None))
+                await approve_as_the_address(database, client, started.id, actor=person_actor(factor=None))
             approved = await approve_as_the_address(database, client, started.id)
             return approved.token is not None
 
@@ -2507,7 +2506,6 @@ def erased(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> Any
         client,
         erasure_data=FLErasurePayload(email=email, anlass="Auf Anfrage per Brief"),
         operator=OWNER,
-        refuse_unconfirmed=lambda: None,
     )
 
 

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Depends, Query
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.spielbestaetigungen.crud import pull_admin_rows
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigung,
@@ -30,7 +31,7 @@ from app.core.crud import patch_one_in_db, pull_one_from_db, refuse
 from app.core.dependencies import DBClient, SpielbestaetigungenCollection, SpieleCollection, get_german_date_str
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
+from app.core.security import bind_actor, verify_access_admin, verify_step_up
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 

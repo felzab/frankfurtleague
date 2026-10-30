@@ -8,6 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.identitaet.crud import funktionen_of
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.konto.services import find_eigener_eintrag_refusal
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
 from app.api.spielbestaetigungen.crud import (
     EIGENE_ZEILE_FIELDS,
     pull_ansetzung_lage,
@@ -51,7 +52,7 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
-from app.core.security import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier, verify_access_admin
+from app.core.security import verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomRouteObjectId

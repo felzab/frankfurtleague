@@ -101,7 +101,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # row would be refused. Checked at each write rather than at the commit, so a rollover demotes
     # before it promotes (`app/api/saisons/admin_router.py :: activate_saison`).
     UniqueIndex(Collection.SAISONS, "uniq_saison_active", ("status",), "at most one season is active", partial_filter={"status": "active"}),
-    # Also the READ path of every admin-tier request (`app/core/security.py :: verify_actor_is_admin`),
+    # Also the READ path of every admin-tier request (`app/api/berechtigungen/guard.py :: verify_actor_is_admin`),
     # and what refuses a second grant a Playground paste adds for an address already holding one.
     UniqueIndex(Collection.BERECHTIGUNGEN, "uniq_berechtigung_adresse", ("adresse",), "one grant per address"),
     # What makes a pass run twice mint once, and a second decline need a new stand rather than a

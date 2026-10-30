@@ -187,8 +187,8 @@ Compose's own output is above."
   ok "this host holds the images ${EDGE_IMAGE_SERVICES[*]} run"
 }
 
-# `read_environment`, never `BackendEnvironment()`: pydantic renders `input_value=` on its own
-# ValidationError, and everything below reaches this script's output. The environment half alone:
+# `read_environment`, never `BackendConfig()`: pydantic renders `input_value=` on its own
+# ValidationError, and everything below reaches this script's output. No secret file is opened:
 # this caller's uid reads no secret file (`scripts/lib/_lib.sh :: check_backend_boot_config` does).
 ENV_NAME_CHECK='
 # No single quote anywhere in this program: the shell string holding it would end there.

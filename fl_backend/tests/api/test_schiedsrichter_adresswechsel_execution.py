@@ -29,7 +29,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
-from tests.actor_tokens import FRESH_STEP_UP_CHECK
+from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.bans import ban_list
 from tests.config import ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
@@ -120,7 +120,7 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
-        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+        actor=FRESH_ADMIN_ACTOR,
     )
 
 

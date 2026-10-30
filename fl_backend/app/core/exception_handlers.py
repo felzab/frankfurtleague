@@ -12,12 +12,14 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.routing import Match
 
 from app.core.codes import Code
-from app.core.crud import a_write_may_stand
 from app.core.exceptions import APIError
 from app.core.logging import fl_logger, trace_id_var
 from app.core.middlewares import record_error_code
 
 NO_DATA_TEXT = "//- No Data -//"
+
+# RFC 9110 §9.2.1: the methods whose semantics are read-only.
+SAFE_METHODS: Final = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 
 # FastAPI's error type for a body that is not JSON at all, reported before any field is read.
 UNDECODABLE_BODY = "json_invalid"
@@ -164,9 +166,10 @@ FAILURE_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
 
 
 async def db_exception_handler(request: Request, exc: PyMongoError):
-    # Judged on what the request SENT, never on its method: a write route the deadline cut in its
-    # actor check has written nothing, and a write outside a transaction carries no label.
-    unknown = exc.has_error_label("UnknownTransactionCommitResult") or (exc.timeout and a_write_may_stand())
+    # A write outside a transaction carries no label, so a deadline cutting any request but a safe one
+    # is answered unknown: it may have sent a write that landed, and unknown never sends a person to
+    # repeat one. The frontend judges its own lost answers the same way, by the method.
+    unknown = exc.has_error_label("UnknownTransactionCommitResult") or (exc.timeout and request.method not in SAFE_METHODS)
     error_code = Code.UNKNOWN_OUTCOME if unknown else Code.DATABASE_FAILED
 
     # Never `str(exc)`, which quotes the document the server refused -- `consideredValue` under a

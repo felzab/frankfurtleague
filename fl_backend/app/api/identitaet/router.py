@@ -1,3 +1,4 @@
+import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -15,7 +16,6 @@ from app.api.identitaet.schemas import (
     FLSubjektResponse,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
-from app.core.concurrency import gather_cancelling
 from app.core.config import API_VERSION
 from app.core.dependencies import AdresswechselPostausgangCollection, BerechtigungenCollection
 from app.core.security import bind_system_actor, verify_access_system
@@ -54,7 +54,7 @@ async def get_subjekt(
 
     # Concurrently, every page a signed-in person or an administrator renders waiting on this answer:
     # the records, the ban and the grant cost the longest of the three rather than their sum.
-    subjekt, gesperrt, grant = await gather_cancelling(
+    subjekt, gesperrt, grant = await asyncio.gather(
         find_subjekt(identifier, records),
         hash_gesperrt(sperrliste, ban_key),
         verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier),
@@ -87,7 +87,7 @@ async def get_anmeldung(
     ban_key = sperrliste.hash_of(str(anmeldung_data.email))
 
     # Concurrently, for `get_subjekt`'s reason: a sign-in waits on this answer.
-    anmeldung, gesperrt, grant = await gather_cancelling(
+    anmeldung, gesperrt, grant = await asyncio.gather(
         find_anmeldung(identifier, records),
         hash_gesperrt(sperrliste, ban_key),
         verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier),

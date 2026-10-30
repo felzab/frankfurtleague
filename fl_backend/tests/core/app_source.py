@@ -244,8 +244,8 @@ def removals() -> tuple[Removal, ...]:
 # application is opened this way, and the writes sit in the callback rather than under it.
 TRANSACTION_RUNNER = "with_transaction"
 
-# Where `app/core/transactions.py :: JudgedSession` hands the driver its wrapper of each callback.
-FORWARDING_RUNNER = ("app/core/transactions.py", "with_transaction")
+# Where `app/core/transactions.py :: _transacted` hands the driver its wrapper of each sweep's callback.
+FORWARDING_RUNNER = ("app/core/transactions.py", "_transacted")
 
 
 @dataclass(frozen=True)

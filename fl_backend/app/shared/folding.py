@@ -14,8 +14,7 @@ _TRIMMED: Final = "".join(
 )
 
 # ASCII's letters alone, never `str.lower`, whose tables move with the interpreter's Unicode release:
-# the frontend lowers the same 26, so this step cannot part the two folds; their domain conversions
-# are held to the answers `fl_backend/tests/shared/email_addresses.json` records.
+# the frontend lowers the same 26, so this step cannot part the two folds.
 _ASCII_LOWER: Final = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
 
 
@@ -105,7 +104,7 @@ def sign_in_identifier(address: str) -> str:
 def is_stored_identifier(value: Any) -> bool:
     """Whether a stored value is an identifier a request can match: a string, its own fold, and one the address rule accepts.
 
-    What a hand-typed row is judged by, the validator refusing no spelling.
+    What a hand-typed row is judged by: the database refuses no spelling.
     """
 
     if not isinstance(value, str) or value == "" or sign_in_identifier(value) != value:

@@ -29,7 +29,7 @@ from app.core.exceptions import APIError
 from app.core.logging import trace_id_var
 from app.shared.schemas.literals import FLGruppenNames
 from tests import documents
-from tests.actor_tokens import FRESH_STEP_UP_CHECK
+from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.worker import worker_database
@@ -179,7 +179,7 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, *, saison
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(),
         today=TODAY,
-        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+        actor=FRESH_ADMIN_ACTOR,
     )
 
 

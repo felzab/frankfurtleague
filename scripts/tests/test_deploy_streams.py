@@ -514,11 +514,11 @@ def test_the_backend_file_alone_is_mounted_read_only_where_the_reader_is_pointed
 
 
 def test_the_snippet_reaches_its_refusal_through_the_names_only_path() -> None:
-    """`BackendEnvironment()` renders `input_value=` on its own error, so a snippet constructing it would publish the rejected value."""
+    """`BackendConfig()` renders `input_value=` on its own error, so a snippet constructing it would publish the rejected value."""
     snippet = _assignment("ENV_NAME_CHECK")
 
     assert "read_environment()" in snippet, snippet
-    assert "BackendEnvironment(" not in snippet, snippet
+    assert "BackendConfig(" not in snippet, snippet
     # The other arm prints a class name and never the exception, whose message quotes what a source
     # could not read.
     assert "type(unexpected).__name__" in snippet, snippet

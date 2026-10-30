@@ -10,6 +10,7 @@ from app.api.konto.crud import press_widerruf
 from app.api.konto.services import KONTO_SEITE_SPIELER, compose_person_move, find_eigener_eintrag_refusal, widerruf_line
 from app.api.registrierungen.schemas import FLRegistrierungSelbstEinwilligungResponse
 from app.api.registrierungen.services import traegt_wahlen
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, SpielerIdentifier
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
@@ -17,7 +18,7 @@ from app.core.dependencies import DBClient, RegistrierungenCollection, get_germa
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.routing import by_id
-from app.core.security import PERSON_ACTOR_BINDERS, SpielerIdentifier, loeschung_journal_hash, verify_access_admin
+from app.core.security import loeschung_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId

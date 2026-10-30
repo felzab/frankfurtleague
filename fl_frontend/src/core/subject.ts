@@ -60,7 +60,7 @@ const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; a
   if (subjekt.gesperrt) return null;
 
   // Built here rather than at the write: a person's route refuses a request naming no session
-  // (`fl_backend/app/core/security.py :: person_actor_binder`).
+  // (`fl_backend/app/api/sperrliste/guard.py :: person_actor_binder`).
   const actor = requestActorOf(served, "person");
   if (actor === null) return null;
 

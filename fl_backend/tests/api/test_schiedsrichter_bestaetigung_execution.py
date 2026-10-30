@@ -42,7 +42,7 @@ from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from tests import documents
-from tests.actor_tokens import FRESH_STEP_UP_CHECK
+from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
@@ -174,7 +174,7 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
         sperrliste=ban_list(database),
         db=client,
         today=today,
-        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+        actor=FRESH_ADMIN_ACTOR,
     )
 
 
@@ -618,7 +618,7 @@ async def reactivate(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
-        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+        actor=FRESH_ADMIN_ACTOR,
     )
 
 

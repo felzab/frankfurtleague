@@ -22,7 +22,6 @@ from app.core.config import (
     SECRET_FILES,
     SPERRLISTE_KEY_MIN_LENGTH,
     BackendConfig,
-    BackendSecrets,
     EnvironmentValidationError,
     get_app_config,
     get_config,
@@ -64,12 +63,14 @@ FILES = {
     "sperrliste_schluessel": BAN_LIST_KEY,
 }
 
+# Each credential's field, beside the file it is read from.
+SECRET_FIELDS = {
+    name: file for name, field in BackendConfig.model_fields.items() if (file := str(field.validation_alias or name)) in SECRET_FILES
+}
+
 # Each file's credential under its field's own name, the variable a machine's own shell may still
 # carry from before the credentials were files.
-VARIABLE_OF = {str(field.validation_alias or name): name.upper() for name, field in BackendSecrets.model_fields.items()}
-
-# Every line a host's `fl_backend/.env` held before the secret files, the administrator list among them.
-LEFT_BEHIND = ("ALLOWED_ADMIN_EMAILS", *VARIABLE_OF.values())
+VARIABLE_OF = {file: name.upper() for name, file in SECRET_FIELDS.items()}
 
 
 @pytest.fixture(autouse=True)
@@ -91,8 +92,11 @@ WELL_FORMED: dict[str, Any] = {
 
 
 def build(**overrides: Any) -> BackendConfig:
-    """Every required field passed, as `tests/config.py :: build_test_config` passes them."""
-    return BackendConfig(**{**WELL_FORMED, **overrides})
+    """Every required field passed, and no dotenv file read, as `tests/config.py :: build_test_config` builds them."""
+    values = {**WELL_FORMED, **overrides}
+    # The URI under its file's name, the one the class reads it by.
+    values[MONGODB_URI_FILE] = values.pop("mongodb_uri")
+    return BackendConfig(_env_file=None, **values)
 
 
 def an_environment(
@@ -361,12 +365,12 @@ class TestTheSecretFiles:
 
         assert get_config().db_base_name == REQUIRED["DB_BASE_NAME"]
 
-    def test_the_environment_half_opens_no_secret_file(self, monkeypatch, tmp_path):
-        """The deploy's preflight reads it in a container that mounts none (`scripts/ops/deploy.sh :: ENV_NAME_CHECK`)."""
+    def test_the_preflight_opens_no_secret_file(self, monkeypatch, tmp_path):
+        """It runs in a container that mounts none (`scripts/ops/deploy.sh :: ENV_NAME_CHECK`), its missing credentials no refusal."""
         an_environment(monkeypatch, tmp_path)
         monkeypatch.setenv("SECRETS_DIR", str(tmp_path / "nowhere"))
 
-        assert read_environment().db_base_name == REQUIRED["DB_BASE_NAME"]
+        assert read_environment() is None
 
     def test_every_declared_file_is_one_the_directory_is_handed(self):
         """The fixture above writes exactly the files the class reads, so a field added without a file fails here first."""
@@ -381,12 +385,10 @@ class TestTheSecretFiles:
 
         config = get_config()
 
-        held = {file: getattr(config, name).get_secret_value() for name, file in zip(BackendSecrets.model_fields, SECRET_FILES, strict=True)}
+        held = {file: getattr(config, name).get_secret_value() for name, file in SECRET_FIELDS.items()}
         assert held == FILES
 
-    @pytest.mark.parametrize(
-        ("field", "file"), [(name, file) for name, file in zip(BackendSecrets.model_fields, SECRET_FILES, strict=True) if name != file]
-    )
+    @pytest.mark.parametrize(("field", "file"), [(name, file) for name, file in SECRET_FIELDS.items() if name != file])
     def test_no_file_under_an_aliased_fields_own_name_stands_in_for_its_own(self, monkeypatch, tmp_path, field, file):
         """The library reads it under `validate_by_name` or `populate_by_name`, and the compose check holds nothing to it."""
         refused = refusal(monkeypatch, tmp_path, {file: None, field: FILES[file].encode()})
@@ -399,16 +401,16 @@ class TestTheSecretFiles:
 
         assert refused == "Invalid secret files: internal_api_key_admin, sperrliste_schluessel"
 
-    # The cases below lend the boot a subclass of the secret half under an option the shipped class
+    # The cases below lend the boot a subclass of the settings under an option the shipped class
     # leaves alone, so the library's own lookup, stand-ins included, is what the preflight is held to.
 
     def test_a_missing_file_is_refused_where_the_library_reads_a_stand_in_for_it(self, monkeypatch, tmp_path):
         """Under `validate_by_name` the library builds from a file under the field's own name, which the compose check holds nothing to."""
 
-        class ByName(BackendSecrets, validate_by_name=True):
+        class ByName(BackendConfig, validate_by_name=True):
             pass
 
-        monkeypatch.setattr("app.core.config.BackendSecrets", ByName)
+        monkeypatch.setattr("app.core.config.BackendConfig", ByName)
 
         refused = refusal(monkeypatch, tmp_path, {MONGODB_URI_FILE: None, "mongodb_uri": FILES[MONGODB_URI_FILE].encode()})
 
@@ -417,10 +419,10 @@ class TestTheSecretFiles:
     def test_a_file_in_a_letter_case_the_library_would_not_find_is_missing(self, monkeypatch, tmp_path):
         """The library's own `case_sensitive`: a preflight finding the upper-cased file would let the stand-in beside it boot."""
 
-        class Spelled(BackendSecrets, validate_by_name=True, case_sensitive=True):
+        class Spelled(BackendConfig, validate_by_name=True, case_sensitive=True):
             pass
 
-        monkeypatch.setattr("app.core.config.BackendSecrets", Spelled)
+        monkeypatch.setattr("app.core.config.BackendConfig", Spelled)
         value = FILES[MONGODB_URI_FILE].encode()
 
         refused = refusal(monkeypatch, tmp_path, {MONGODB_URI_FILE: None, MONGODB_URI_FILE.upper(): value, "mongodb_uri": value})
@@ -431,34 +433,13 @@ class TestTheSecretFiles:
         """No secret field carries one, so one is lent: `scripts/checks/check_compose_model.py :: backend_files` lets its file go unmounted."""
         lent = "lent".ljust(SPERRLISTE_KEY_MIN_LENGTH, "0")
 
-        class Defaulted(BackendSecrets):
+        class Defaulted(BackendConfig):
             sperrliste_schluessel: SecretStr = Field(default=SecretStr(lent), min_length=SPERRLISTE_KEY_MIN_LENGTH)
 
-        monkeypatch.setattr("app.core.config.BackendSecrets", Defaulted)
+        monkeypatch.setattr("app.core.config.BackendConfig", Defaulted)
         an_environment(monkeypatch, tmp_path, {"sperrliste_schluessel": None})
 
         assert get_config().sperrliste_schluessel.get_secret_value() == lent
-
-
-class TestALineASecretFileReplaced:
-    """A host's `fl_backend/.env` may still hold the lines the secret files replaced."""
-
-    def test_each_one_in_the_environment_file_refuses_the_boot_naming_it_and_no_value(self, monkeypatch, tmp_path):
-        """Every such name at once, so a credential's line taking a declaration back reads as one name missing from the refusal."""
-        marker = a_key_the_boot_accepts("left-behind-marker")
-        (tmp_path / ".env").write_bytes("".join(f"{name}={marker}\n" for name in LEFT_BEHIND).encode())
-
-        refused = refusal(monkeypatch, tmp_path)
-
-        # None is a name the environment half declares, so each is counted and none is named.
-        assert refused == f"Undeclared environment variables: {len(LEFT_BEHIND)}"
-        assert marker not in refused
-
-    def test_a_misspelling_of_one_is_refused_alike(self, monkeypatch, tmp_path):
-        """A hand-typed line nearest a credential's name: no spelling of one is read, the exact one included."""
-        (tmp_path / ".env").write_bytes(b"MONGODB_URL=mongodb://typo.example\n")
-
-        assert refusal(monkeypatch, tmp_path) == "Undeclared environment variables: 1"
 
 
 class TestTheNamesOnlyErrorPath:
@@ -487,7 +468,7 @@ class TestTheNamesOnlyErrorPath:
         assert raised.value.__suppress_context__
 
     def test_a_file_the_reader_cannot_decode_refuses_with_the_failure_type_alone(self, monkeypatch, tmp_path):
-        """The other way out of the environment half: the dotenv read fails before any field is judged.
+        """The other way out of the build: the dotenv read fails before any field is judged.
 
         No `ValidationError` exists to name a variable, and the raw exception quotes the file's own
         bytes.

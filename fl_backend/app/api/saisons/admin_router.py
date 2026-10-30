@@ -8,6 +8,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 from pymongo.results import InsertOneResult
 
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.bewerbungen.services import mint_token
 from app.api.einladungen.schemas import (
     FLEinladungVersandPayload,
@@ -105,15 +106,7 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import fl_logger
-from app.core.security import (
-    StepUpCheck,
-    bind_actor,
-    get_actor_email,
-    get_step_up_check,
-    verify_access_admin,
-    verify_actor_is_admin,
-    verify_step_up,
-)
+from app.core.security import SessionActor, bind_actor, get_actor_email, verify_access_admin, verify_admin_actor, verify_step_up
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import FLGruppenNames
@@ -731,7 +724,7 @@ async def generate_spielplan(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
     db: DBClient,
-    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
+    actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     # An absent body is `replace: false`, so a first draw needs no confirmation and nothing replaces
     # a season by leaving the flag out.
     spielplan_data: Annotated[FLGenerateSpielplanPayload, Body(default_factory=FLGenerateSpielplanPayload)],
@@ -748,7 +741,7 @@ async def generate_spielplan(
     """
 
     if spielplan_data.replace:
-        refuse_unconfirmed()
+        verify_step_up(actor)
 
     # A read first, so an unknown season is a 404 rather than a refusal about what it does not hold.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])

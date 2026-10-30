@@ -38,7 +38,7 @@ from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
-from tests.actor_tokens import FRESH_STEP_UP_CHECK
+from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.bans import ban_list
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
@@ -251,7 +251,7 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Mapp
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         sperrliste=ban_list(database),
         db=client,
-        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+        actor=FRESH_ADMIN_ACTOR,
         today=TODAY,
     )
 
