@@ -367,22 +367,29 @@ const IMPORT_BANS = [
   // The two session guards import the actor's signing module statically; the boot loads it by `import()`.
   importBan(NEXT_AFTER, PRODUCTION, { allow: ["src/core/afterResponse.ts"] }),
   ...Object.values(SECRET_READERS).map(({ owners, ...entry }) => importBan(entry, PRODUCTION, { allow: owners })),
-  // `no-restricted-imports` reads import and export declarations alone, so an `import()` would hand out every
-  // secret reader past the bans above. The boot alone loads the settings by `import()`: their validation throws
-  // while the module loads, and the boot turns that rejection into its refusal.
-  ban(
-    "no-restricted-syntax",
-    syntax(
-      `ImportExpression[source.value=/${CONFIG_MODULE}/]`,
-      "Import fl_frontend/src/core/config.ts statically: lint holds each secret reader to its one owner through the static import alone.",
-    ),
-    PRODUCTION,
-    { allow: ["src/instrumentation-node.ts"] },
-  ),
   importBan(AUTH_INSTANCE, PRODUCTION, { allow: ["src/app/api/auth/[...all]/route.ts"] }),
   importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth.ts", "src/core/authIndexes.ts"] }),
   importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/konto/personActions.ts"] }),
   ...BACKGROUND_PASS_BANS,
+  // `no-restricted-imports` reads import and export declarations alone, so an `import()` would pass every ban above.
+  // Each file spared loads a module at the call for the reason its comment there gives.
+  ban(
+    "no-restricted-syntax",
+    syntax(
+      "ImportExpression",
+      "Import a module statically: the import bans read import and export declarations alone, so an `import()` passes every one of them.",
+    ),
+    PRODUCTION,
+    {
+      allow: [
+        // The runtime split and the boot, which turns the settings' failed validation into its refusal.
+        "src/instrumentation.ts",
+        "src/instrumentation-node.ts",
+        "src/shared/utils/personRead.ts",
+        "src/features/adresswechsel/queries.ts",
+      ],
+    },
+  ),
 ];
 
 // ---------------------------------------------------------------------------------------------------
