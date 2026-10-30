@@ -1337,13 +1337,10 @@ export const getBewerbungenGetSweepSaisonsUrl = () => {
 };
 
 /**
- * Answer every season's id, oldest first, so the caller runs the clocks one season at a time, and the day each pass last ran.
+ * Answer every season's id, oldest first, so the caller runs the clocks one season at a time.
  *
  * System tier rather than the base one: a season taking applications is `future`, which the base tier is never served,
  * and the two clocks that matter run over exactly those seasons.
- *
- * Null against this database means no pass has ever run, never that the last one found nothing to do: a pass that reminds
- * nobody and deletes nothing records the day exactly as a busy one does. Reading it writes nothing.
  * @summary Every season the sweep has to visit
  */
 export const bewerbungenGetSweepSaisons = async (
@@ -1384,7 +1381,7 @@ export const getBewerbungenSweepSaisonUrl = (saisonId: string) => {
  * An application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,
  * is passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it
  * again and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks
- * passed over: a day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.
+ * passed over.
  *
  * 404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,
  * though it logs the count of withheld seats again.
@@ -1398,9 +1395,6 @@ export const getBewerbungenSweepSaisonUrl = (saisonId: string) => {
  * reports of their remarks and every card's reason; the answers' way, day and role and the reports' scorers, cards and
  * result stay as the record. Each strip is its own transaction after the blocks' share: one that fails is
  * logged under the season's id and counted in `fehlgeschlagen`, and the blocks clear all the same.
- *
- * One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
- * answers it. So a day's first call records the day and the rest of that day's calls record nothing.
  * @summary Run one season's retention clocks
  */
 export const bewerbungenSweepSaison = async (
@@ -2870,15 +2864,10 @@ export const getRegistrierungenSweepRegistrierungenUrl = (saisonId: string) => {
  *
  * A registration whose write fails, the database refusing it or anything else, or one the answer cannot carry, is passed over
  * alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it again and one
- * failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over: a
- * day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.
+ * failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.
  *
  * 404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes
  * nothing, though it logs the count of withheld registrations again.
- *
- * One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
- * answers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record
- * nothing.
  * @summary Run one season's registration retention clocks
  */
 export const registrierungenSweepRegistrierungen = async (
@@ -4503,10 +4492,10 @@ export const getSpieleGetSpieleUrl = (params?: SpieleGetSpieleParams) => {
 };
 
 /**
- * List Spiele matching the given filters.
+ * List the Spiele matching the filters, of the current season unless `saison_id` names another.
  *
- * Omitting `saison_id` returns the CURRENT season; one this tier may not read lists nothing.
- * `saison_phase` aliases `playoffs` to "any phase but gruppenphase"; `ausstehend` includes today.
+ * A season this tier may not read lists nothing; `playoffs` means every phase but `gruppenphase`, and
+ * `ausstehend` includes today.
  * @summary List Spiele
  */
 export const spieleGetSpiele = async (
@@ -4526,21 +4515,13 @@ export const getSpieleGetSpieleActionRequiredUrl = (params?: SpieleGetSpieleActi
 };
 
 /**
- * List Spiele needing attention, and the bracket faults among them.
+ * List one season's Spiele needing the administrator, with the bracket's faults and every report's state.
  *
- * Qualifying: cancelled, missing a date, time, venue or referee, past with no result, a
- * knockout side with neither team nor `quelle`, or holding a referee's report the administrator has
- * not adopted as it stands. Every report's state the season holds is served beside them. Scoped to `saison_id`, the active season when none
- * is named, which answers 404 while no season is active.
- *
- * Also every fixture a club's unclosed confirmation about its Ansetzung as it stands puts before the
- * administrator: a decline proposing another date, a deadline passed unanswered, or a deadline of
- * today on a request sent today or never. The rows themselves are not served: `GET /spielbestaetigungen`
- * for the same season serves them, read separately, so a row reaching one of those states between
- * the two reads shows its fixture on the next.
- *
- * The faults include a fixture still to be played that is booked onto a retired venue or referee,
- * and one whose venue or referee another fixture of any season claims less than four hours away.
+ * The season is `saison_id`'s, else the active one, answering 404 while none is. A fixture qualifies when it is
+ * called off; lacks a date, time, venue or referee; is past without a result; has a knockout side with neither
+ * team nor source; holds a report not adopted as it stands; is put before the administrator by a club's
+ * unclosed confirmation; or carries a bracket fault, a booking onto a retired venue or referee and a claim within
+ * four hours of another fixture's among them.
  * @summary Spiele needing attention
  */
 export const spieleGetSpieleActionRequired = async (
@@ -4560,11 +4541,9 @@ export const getSpieleGetSpieleForAdminUrl = (params?: SpieleGetSpieleForAdminPa
 };
 
 /**
- * List a season's Spiele for the admin surfaces, a `future` season's included.
+ * List Spiele as `GET /spiele` does, a planned season's included, in the admin shape.
  *
- * Same filters as `GET /spiele`, without its season gate -- which lists a planned season as empty,
- * so every admin surface counting fixtures reads zero. The admin fixture shape, so the referee
- * carries their whole name and the two figures ride along (`READ-MONEY-001`, `READ-REFEREE-001`).
+ * Each referee carries their whole name, and each booking its money.
  * @summary Spiele for the admin surfaces
  */
 export const spieleGetSpieleForAdmin = async (
@@ -4582,10 +4561,7 @@ export const getSpieleGetSpielUrl = (spielId: string) => {
 };
 
 /**
- * Return one match by its id.
- *
- * The season is read to gate it and for nothing else: the match carries its own `saison_id`, and
- * `spiel_status` is a property of a query. 404 for a season this tier may not read.
+ * Return one match by its id, answering 404 for a match of a season this tier may not read.
  * @summary One Spiel
  */
 export const spieleGetSpiel = async (spielId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSpieleSingleResponse> => {
@@ -4602,14 +4578,11 @@ export const getSpielePatchSpielDataUrl = (spielId: string, params?: SpielePatch
 };
 
 /**
- * Update one Spiel and resolve the season's bracket.
+ * Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.
  *
- * The payload is written wholesale: an omitted field is overwritten, and every name it carries is
- * composed by the server. A result can fill or empty the slots below it, each named in `advanced_to`.
- *
- * With `uebernimmt_bericht`, the save also stamps the fixture's Spielbericht adopted at that version, in the same
- * transaction. A report corrected since that version, or written about other clubs than the save leaves on the
- * fixture, is left unstamped, and the save lands all the same: nothing is refused for it. A `dry_run` stamps nothing.
+ * Every name is composed by the server. With `uebernimmt_bericht` the save also stamps the fixture's Spielbericht
+ * adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
+ * `dry_run` answers the same report and writes nothing.
  * @summary Update a Spiel
  */
 export const spielePatchSpielData = async (
@@ -4643,10 +4616,7 @@ export const getSpieleGetSpielForAdminUrl = (spielId: string) => {
 };
 
 /**
- * Return one match in the joined shape, plus the two figures the base tier withholds.
- *
- * The editor reads here because it round-trips `ort.mietpreis` and `schiedsrichter.payment`,
- * which are admin-tier (`READ-MONEY-001`).
+ * Return one match in the admin shape, money included, for the editor.
  * @summary One Spiel for the admin editor
  */
 export const spieleGetSpielForAdmin = async (
