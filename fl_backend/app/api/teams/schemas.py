@@ -23,6 +23,7 @@ from app.core.crud import Anchored
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
+    AUSTRITT_GRUND_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
@@ -114,16 +115,13 @@ class FLAustritt(BaseModel):
     datum: CustomDateString
 
 
-def strip_austritt_grund(value: Any) -> Any:
-    """Strip the reason before `FLAustritt`'s floor counts it, on the WRITE side alone.
+class FLAustrittPayload(FLAustritt):
+    """The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.
 
-    The strip runs BEFORE the floor, so on a read model a stored blank would refuse the club it
-    stands on.
+    On the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.
     """
 
-    if isinstance(value, Mapping) and isinstance(grund := value.get("grund"), str):
-        return {**value, "grund": grund.strip()}
-    return value
+    grund: Annotated[str, StringConstraints(max_length=AUSTRITT_GRUND_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)]
 
 
 # Private for `_TeamWritable`'s reason. The two provenance fields are NOT here: the server composes
@@ -622,7 +620,7 @@ class FLPatchSaisonTeamPayload(BaseModel):
     gruppe: FLGruppenNames
     # No `default=None` on either: `PATCH` replaces every field it takes wholesale, so an omitted key
     # would silently reinstate a team or clear a colour with nobody having asked for it.
-    austritt: Annotated[FLAustritt, BeforeValidator(strip_austritt_grund)] | None
+    austritt: FLAustrittPayload | None
     trikot_farbe: FLTrikotFarbe | None
     # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
     version: int | None = None

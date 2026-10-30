@@ -1,11 +1,11 @@
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
 from app.core.crud import Anchored
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
-from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomStrippedNonEmptyString
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELORT_NAME_MAX_LENGTH
+from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -26,9 +26,10 @@ class _SpielortPayload(_SpielortWritable):
     model_config = ConfigDict(extra="forbid")
 
     address: FLAddressPayload
-    # Stripped on the WRITE side alone: the name is embedded onto
-    # every fixture at this ground and composed into `maps_link`, so spaces alone reach both.
-    name: CustomStrippedNonEmptyString
+    # Stripped on the WRITE side alone: the name is embedded onto every fixture at this ground and composed into
+    # `maps_link`, so spaces alone reach both. The ceiling counts what arrives, so the published `maxLength` is what the
+    # write accepts.
+    name: Annotated[str, StringConstraints(max_length=SPIELORT_NAME_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)]
 
 
 class FLPatchSpielortPayload(_SpielortPayload):

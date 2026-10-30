@@ -2007,6 +2007,32 @@
         "title": "FLAustritt",
         "type": "object"
       },
+      "FLAustrittPayload": {
+        "description": "The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.\n\nOn the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.",
+        "properties": {
+          "datum": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum",
+            "type": "string"
+          },
+          "grund": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Grund",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/FLAustrittType"
+          }
+        },
+        "required": [
+          "type",
+          "grund",
+          "datum"
+        ],
+        "title": "FLAustrittPayload",
+        "type": "object"
+      },
       "FLAustrittType": {
         "enum": [
           "disqualifikation",
@@ -8017,7 +8043,7 @@
           "austritt": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLAustritt"
+                "$ref": "#/components/schemas/FLAustrittPayload"
               },
               {
                 "type": "null"
@@ -8078,6 +8104,7 @@
           "schule": {
             "anyOf": [
               {
+                "maxLength": 120,
                 "type": "string"
               },
               {
@@ -8415,6 +8442,7 @@
             "type": "integer"
           },
           "name": {
+            "maxLength": 120,
             "minLength": 1,
             "title": "Name",
             "type": "string"
@@ -8963,6 +8991,7 @@
           "schule": {
             "anyOf": [
               {
+                "maxLength": 120,
                 "type": "string"
               },
               {
@@ -9061,6 +9090,7 @@
             "type": "integer"
           },
           "name": {
+            "maxLength": 120,
             "minLength": 1,
             "title": "Name",
             "type": "string"

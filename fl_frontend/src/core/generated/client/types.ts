@@ -1014,6 +1014,22 @@ export interface FLAustritt {
   type: FLAustrittType;
 }
 
+/**
+ * The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.
+ *
+ * On the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.
+ */
+export interface FLAustrittPayload {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  datum: string;
+  /**
+   * @minLength 1
+   * @maxLength 500
+   */
+  grund: string;
+  type: FLAustrittType;
+}
+
 export interface FLBerechtigungAbgleichResponse {
   /** @minimum 0 */
   aenderungen: number;
@@ -3271,7 +3287,7 @@ export interface FLPatchSaisonTeamKontakteResponse {
  * every save a club with one bad row can make.
  */
 export interface FLPatchSaisonTeamPayload {
-  austritt: FLAustritt | null;
+  austritt: FLAustrittPayload | null;
   gruppe: FLGruppenNames;
   trikot_farbe: FLTrikotFarbe | null;
   version?: number | null;
@@ -3457,7 +3473,10 @@ export interface FLPatchSpielortPayload {
   address: FLAddressPayload;
   /** @minimum 0 */
   default_mietpreis: number;
-  /** @minLength 1 */
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
   name: string;
   version?: number | null;
 }
@@ -3717,7 +3736,10 @@ export interface FLPostSpielortPayload {
   address: FLAddressPayload;
   /** @minimum 0 */
   default_mietpreis: number;
-  /** @minLength 1 */
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
   name: string;
 }
 

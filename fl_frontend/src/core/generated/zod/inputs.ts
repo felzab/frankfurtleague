@@ -2087,6 +2087,7 @@ export const schiedsrichterPostSchiedsrichterBodyKontaktTelefonThreeRegExp = new
 export const schiedsrichterPostSchiedsrichterBodyNameMax = 80;
 
 export const schiedsrichterPostSchiedsrichterBodyNameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
+export const schiedsrichterPostSchiedsrichterBodySchuleOneMax = 120;
 
 export const SchiedsrichterPostSchiedsrichterBody = zod.object({
   default_payment: zod.int().min(schiedsrichterPostSchiedsrichterBodyDefaultPaymentMin),
@@ -2099,7 +2100,7 @@ export const SchiedsrichterPostSchiedsrichterBody = zod.object({
     ]),
   }),
   name: zod.string().min(1).max(schiedsrichterPostSchiedsrichterBodyNameMax).regex(schiedsrichterPostSchiedsrichterBodyNameRegExp),
-  schule: zod.union([zod.string(), zod.null()]),
+  schule: zod.union([zod.string().max(schiedsrichterPostSchiedsrichterBodySchuleOneMax), zod.null()]),
 });
 
 /**
@@ -2278,6 +2279,7 @@ export const schiedsrichterPatchSchiedsrichterBodyKontaktTelefonThreeRegExp = ne
 export const schiedsrichterPatchSchiedsrichterBodyNameMax = 80;
 
 export const schiedsrichterPatchSchiedsrichterBodyNameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
+export const schiedsrichterPatchSchiedsrichterBodySchuleOneMax = 120;
 
 export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
   default_payment: zod.int().min(schiedsrichterPatchSchiedsrichterBodyDefaultPaymentMin),
@@ -2290,7 +2292,7 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
     ]),
   }),
   name: zod.string().min(1).max(schiedsrichterPatchSchiedsrichterBodyNameMax).regex(schiedsrichterPatchSchiedsrichterBodyNameRegExp),
-  schule: zod.union([zod.string(), zod.null()]),
+  schule: zod.union([zod.string().max(schiedsrichterPatchSchiedsrichterBodySchuleOneMax), zod.null()]),
   version: zod.union([zod.int(), zod.null()]).optional(),
 });
 
@@ -3519,6 +3521,8 @@ export const spielortePostSpielortBodyAddressStrasseMax = 120;
 
 export const spielortePostSpielortBodyDefaultMietpreisMin = 0;
 
+export const spielortePostSpielortBodyNameMax = 120;
+
 export const SpielortePostSpielortBody = zod.object({
   address: zod.object({
     hausnummer: zod.string().max(spielortePostSpielortBodyAddressHausnummerMax).regex(spielortePostSpielortBodyAddressHausnummerRegExp),
@@ -3528,7 +3532,7 @@ export const SpielortePostSpielortBody = zod.object({
     strasse: zod.string().min(1).max(spielortePostSpielortBodyAddressStrasseMax),
   }),
   default_mietpreis: zod.int().min(spielortePostSpielortBodyDefaultMietpreisMin),
-  name: zod.string().min(1),
+  name: zod.string().min(1).max(spielortePostSpielortBodyNameMax),
 });
 
 /**
@@ -3581,6 +3585,8 @@ export const spielortePatchSpielortBodyAddressStrasseMax = 120;
 
 export const spielortePatchSpielortBodyDefaultMietpreisMin = 0;
 
+export const spielortePatchSpielortBodyNameMax = 120;
+
 export const SpielortePatchSpielortBody = zod.object({
   address: zod.object({
     hausnummer: zod.string().max(spielortePatchSpielortBodyAddressHausnummerMax).regex(spielortePatchSpielortBodyAddressHausnummerRegExp),
@@ -3590,7 +3596,7 @@ export const SpielortePatchSpielortBody = zod.object({
     strasse: zod.string().min(1).max(spielortePatchSpielortBodyAddressStrasseMax),
   }),
   default_mietpreis: zod.int().min(spielortePatchSpielortBodyDefaultMietpreisMin),
-  name: zod.string().min(1),
+  name: zod.string().min(1).max(spielortePatchSpielortBodyNameMax),
   version: zod.union([zod.int(), zod.null()]).optional(),
 });
 
@@ -3937,6 +3943,7 @@ export const TeamsPatchSaisonTeamParams = zod.object({
 });
 
 export const teamsPatchSaisonTeamBodyAustrittOneDatumRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
+export const teamsPatchSaisonTeamBodyAustrittOneGrundMax = 500;
 
 export const TeamsPatchSaisonTeamBody = zod
   .object({
@@ -3944,11 +3951,11 @@ export const TeamsPatchSaisonTeamBody = zod
       zod
         .object({
           datum: zod.string().regex(teamsPatchSaisonTeamBodyAustrittOneDatumRegExp),
-          grund: zod.string().min(1),
+          grund: zod.string().min(1).max(teamsPatchSaisonTeamBodyAustrittOneGrundMax),
           type: zod.enum(["disqualifikation", "rueckzug"]),
         })
         .describe(
-          "How a team came to be out of one season, why, and from when.\n\n`grund` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no\ndisciplinary code an enum could cite.",
+          "The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.\n\nOn the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.",
         ),
       zod.null(),
     ]),

@@ -6,7 +6,7 @@ from app.api.postausgang.schemas import FLPostausgangLage
 from app.api.spieler.schemas import FLEinwilligung
 from app.core.crud import Anchored
 from app.shared.schemas.bestaetigung import CustomToken, FLBestaetigung
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SCHIEDSRICHTER_SCHULE_MAX_LENGTH
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomNonEmptyString,
@@ -38,6 +38,8 @@ class _SchiedsrichterPayload(_SchiedsrichterWritable):
     name: CustomKontaktName
     # Tightened here for the same reason, the telephone rule having been narrowed after rows existed.
     kontakt: FLKontaktPayload
+    # Ceilinged on the WRITE side alone, for `name`'s reason.
+    schule: CustomOptionalString = Field(max_length=SCHIEDSRICHTER_SCHULE_MAX_LENGTH)
 
 
 # One shape under two names, and they stay two: each endpoint publishes its own OpenAPI component,

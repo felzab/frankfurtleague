@@ -36,7 +36,7 @@ import { kontaktePersonenRegeln } from "./kontaktePersonen";
 export const FLGruppenNamesSchema = z.enum(FLGruppenNames, { error: "Bitte wähle eine Gruppe." });
 
 /**
- * Trimmed before its floor, mirroring `fl_backend/app/api/teams/schemas.py :: strip_austritt_grund`. German because
+ * Trimmed before its floor, mirroring `fl_backend/app/api/teams/schemas.py :: FLAustrittPayload`. German because
  * the junction editor binds this schema to its inputs, and an untouched picker submits null.
  */
 const FLAustrittPayloadSchema = z.object({
