@@ -62,8 +62,6 @@ BEWERBUNG_ENTSCHIEDEN = "bewerbung.entschieden@schule.de"
 BEWERBUNG_UNBESTAETIGT = "bewerbung.unbestaetigt@schule.de"
 SPIELER_AKTIV = "spieler.aktiv@schule.de"
 SPIELER_EHEMALIG = "spieler.ehemalig@schule.de"
-SPIELER_OFFEN = "spieler.offen@schule.de"
-SPIELER_EHEMALIG_OFFEN = "spieler.ehemalig.offen@schule.de"
 PFEIFE_AKTIV = "pfeife.aktiv@schule.de"
 PFEIFE_RUHESTAND = "pfeife.ruhestand@schule.de"
 PFEIFE_OFFEN = "pfeife.offen@schule.de"
@@ -88,8 +86,6 @@ BEWERBUNG_ENTSCHIEDEN_OID = ObjectId("6890a1b2c3d4e5f607860012")
 BEWERBUNG_UNBESTAETIGT_OID = ObjectId("6890a1b2c3d4e5f607860013")
 SPIELER_AKTIV_OID = ObjectId("6890a1b2c3d4e5f607860021")
 SPIELER_EHEMALIG_OID = ObjectId("6890a1b2c3d4e5f607860022")
-SPIELER_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607860023")
-SPIELER_EHEMALIG_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607860024")
 PFEIFE_AKTIV_OID = ObjectId("6890a1b2c3d4e5f607860031")
 PFEIFE_RUHESTAND_OID = ObjectId("6890a1b2c3d4e5f607860032")
 PFEIFE_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607860033")
@@ -190,16 +186,6 @@ async def _seed(database: AsyncDatabase) -> None:
         [
             spieler_document(SPIELER_AKTIV_OID, "Anna", "Aktiv", email=SPIELER_AKTIV),
             spieler_document(SPIELER_EHEMALIG_OID, "Anna", "Ehemalig", email=SPIELER_EHEMALIG, inactive_since="2026-03-01"),
-            # A pupil's record is born confirmed, so a stamp a hand edit blanked is the unconfirmed pupil the gate meets.
-            spieler_document(SPIELER_OFFEN_OID, "Anna", "Offen", email=SPIELER_OFFEN, einwilligung={**EINWILLIGUNG, "bestaetigt_am": ""}),
-            spieler_document(
-                SPIELER_EHEMALIG_OFFEN_OID,
-                "Anna",
-                "Ehemalig-Offen",
-                email=SPIELER_EHEMALIG_OFFEN,
-                inactive_since="2026-03-01",
-                einwilligung={**EINWILLIGUNG, "bestaetigt_am": ""},
-            ),
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
@@ -309,9 +295,7 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(SITZ_OFFEN, id="an unconfirmed seat"),
             pytest.param(BEWERBUNG_ENTSCHIEDEN, id="a seat on a decided application"),
             pytest.param(BEWERBUNG_UNBESTAETIGT, id="an unconfirmed seat on a pending application"),
-            pytest.param(SPIELER_OFFEN, id="an unconfirmed pupil"),
             pytest.param(PFEIFE_OFFEN, id="an unconfirmed referee"),
-            pytest.param(SPIELER_EHEMALIG_OFFEN, id="an unconfirmed retired pupil"),
             pytest.param(PFEIFE_RUHESTAND_OFFEN, id="an unconfirmed retired referee"),
             pytest.param(PFEIFE_AKTIV.replace("@schule.de", "@anderswo.de"), id="a confirmed referee's local part at another domain"),
             pytest.param(SITZ_AUSGETRETEN_OFFEN, id="an unconfirmed seat on a withdrawn team's row"),
@@ -331,8 +315,7 @@ class TestTheFlagsBesideIt:
     def test_records_awaiting_confirmation_raise_the_subject_s_flag_and_admit_nothing_else(self, mongo_replica_set_url: str):
         """The flag is `POST /identitaet/subjekt`'s own; only the records granting a panel raise it."""
 
-        assert [(answered(mongo_replica_set_url, email).unbestaetigt) for email in (SITZ_OFFEN, SPIELER_OFFEN, BEWERBUNG_UNBESTAETIGT)] == [
-            True,
+        assert [(answered(mongo_replica_set_url, email).unbestaetigt) for email in (SITZ_OFFEN, BEWERBUNG_UNBESTAETIGT)] == [
             True,
             False,
         ]

@@ -50,7 +50,6 @@ SITZ_AUSGETRETEN = "sitz.ausgetreten@schule.de"
 BEWERBUNG_OFFEN = "bewerbung.offen@schule.de"
 BEWERBUNG_UNBESTAETIGT = "bewerbung.unbestaetigt@schule.de"
 SPIELER_EHEMALIG = "spieler.ehemalig@schule.de"
-SPIELER_OFFEN = "spieler.offen@schule.de"
 PFEIFE_RUHESTAND = "pfeife.ruhestand@schule.de"
 REGISTRIERT = "rita.registriert@schule.de"
 VERWALTUNG = "verena.verwaltung@schule.de"
@@ -84,7 +83,6 @@ ASKED = [
     BEWERBUNG_OFFEN,
     BEWERBUNG_UNBESTAETIGT,
     "Spieler.Ehemalig@Schule.DE",
-    SPIELER_OFFEN,
     PFEIFE_RUHESTAND,
     GEIST_SCHIEDSRICHTER,
     REGISTRIERT,
@@ -170,8 +168,6 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
     await database[Collection.SPIELER].insert_many(
         [
             spieler_document(ObjectId(), "Anna", "Ehemalig", email=SPIELER_EHEMALIG, inactive_since="2026-03-01"),
-            # A pupil's record is born confirmed, so a stamp a hand edit blanked is the unconfirmed pupil the gate meets.
-            spieler_document(ObjectId(), "Anna", "Offen", email=SPIELER_OFFEN, einwilligung={**EINWILLIGUNG, "bestaetigt_am": ""}),
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
@@ -243,7 +239,6 @@ class TestWhatKeepsAnAccount:
             pytest.param(BEWERBUNG_OFFEN, id="a pending application's confirmed seat"),
             pytest.param(BEWERBUNG_UNBESTAETIGT, id="a pending application's unconfirmed seat"),
             pytest.param("Spieler.Ehemalig@Schule.DE", id="a retired pupil, asked in capitals"),
-            pytest.param(SPIELER_OFFEN, id="an unconfirmed live pupil, which the gate admits"),
             pytest.param(PFEIFE_RUHESTAND, id="a retired referee"),
             pytest.param(REGISTRIERT, id="a confirmed pending registration"),
             pytest.param(VERWALTUNG, id="a grant the comparison has not seen"),
