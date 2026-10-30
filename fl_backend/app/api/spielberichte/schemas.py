@@ -94,11 +94,10 @@ class FLSpielberichtKarte(BaseModel):
 
 
 class FLSpielberichtKartePayload(FLSpielberichtKarte):
-    """One card as a write sends it.
+    """One card as a write sends it: a caution names its reason unless the stored card's reason was stripped."""
 
-    A caution's reason is judged against the stored block, never here: a correction after the strip resends the
-    cautions whose reasons it stripped (`app/api/spielberichte/services.py :: find_grund_fehlt_refusal`).
-    """
+    # Judged against the stored block, never here: a correction after the strip resends the cautions whose
+    # reasons it stripped (`find_grund_fehlt_refusal`).
 
     model_config = ConfigDict(extra="forbid")
 

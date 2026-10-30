@@ -5006,7 +5006,7 @@
         "type": "object"
       },
       "FLBracketFaultClash": {
-        "description": "A venue or referee claimed less than `REQ-CLASH-001`'s buffer from another fixture's claim, one entry per claim.\n\nIt names the fixture that refusal names, so the report and a save's 409 point at one match.",
+        "description": "A venue or referee claimed less than four hours from another fixture's claim, one entry per claim.\n\nIt names the fixture a save's clash refusal names.",
         "properties": {
           "booking": {
             "$ref": "#/components/schemas/FLBookingResource"
@@ -5144,7 +5144,7 @@
         "type": "object"
       },
       "FLBracketFaultOccupant": {
-        "description": "One fixture fielding a team that left the season.\n\nThe date rule and the carve-out are `REQ-ELIGIBILITY-001`'s. Nothing is emptied\n(`docs/domain.md`'s what the model permits on purpose).",
+        "description": "One fixture fielding a team on or after the day it left the season, or undated, with no recorded absence excusing it.\n\nNothing is emptied.",
         "properties": {
           "ausgeschieden_seit": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -5258,7 +5258,7 @@
         "type": "object"
       },
       "FLBracketFaultSlot": {
-        "description": "One slot carrying a reference it must not carry, whatever that reference names.\n\nThe reference travels whole rather than decomposed: it groups the entries of a shared source, and\na toast arrives with no fixture to read it off.",
+        "description": "One slot carrying a reference it must not carry, whatever that reference names.",
         "properties": {
           "quelle": {
             "discriminator": {
@@ -5316,7 +5316,7 @@
         "type": "object"
       },
       "FLBracketFaultSpiel": {
-        "description": "One fixture whose two references resolve to the SAME club.\n\nIt survives the write-path rule, which keys a source by identity, so two DIFFERENT sources\nnaming one club pass. The fixture keeps its stored sides.",
+        "description": "One fixture whose two references resolve to the same club; the fixture keeps its stored sides.",
         "properties": {
           "reason": {
             "const": "same_team",
@@ -5343,7 +5343,7 @@
         "type": "object"
       },
       "FLBracketFaultSpieltag": {
-        "description": "A club standing more than once on one Spieltag.\n\nOne entry per APPEARANCE, the granularity `fl_backend/app/core/constraints.py :: report_relations`\ncounts in -- never deduplicated, because which to correct is a competition decision.",
+        "description": "A club standing more than once on one Spieltag, one entry per appearance.",
         "properties": {
           "reason": {
             "const": "fielded_twice",
@@ -9334,7 +9334,7 @@
         "type": "object"
       },
       "FLPatchSpielDataResponse": {
-        "description": "What `patch_spiel_data` returns: every fixture it moved, and what that cost.\n\nBoth lists report writes the caller did not ask for, each carrying the result it destroyed.",
+        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.",
         "properties": {
           "advanced_to": {
             "items": {
@@ -13488,7 +13488,7 @@
         "type": "object"
       },
       "FLSpielAdvancement": {
-        "description": "One fixture the bracket resolution rewrote, and the result that rewrite destroyed.\n\nEvery voided field is `None` where a slot merely filled from empty, so \"was anything destroyed\"\nis a null check.",
+        "description": "One fixture the bracket resolution rewrote, and the result that rewrite destroyed.\n\nEvery voided field is null where a slot merely filled from empty.",
         "properties": {
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -13552,7 +13552,7 @@
         "type": "object"
       },
       "FLSpielElfmeterschiessen": {
-        "description": "The penalty shoot-out that settled a knockout fixture whose goals finished level.\n\nNo `sieger`: a stored one could contradict the counts, and the `$expr` barring it is outside the\ndatabase validators' ratified scope.",
+        "description": "The penalty shoot-out that settled a level knockout fixture: the side with more goals in it won.",
         "properties": {
           "team1": {
             "minimum": 0.0,
@@ -13573,7 +13573,7 @@
         "type": "object"
       },
       "FLSpielJoined": {
-        "description": "One fixture as a BASE-TIER endpoint serves it: stored fields plus each side's joined season state.\n\nA model rather than a default on the stored side, which would make every internal read of a raw\ndocument quietly assert that nobody is disqualified.",
+        "description": "One fixture as the public reads serve it, each side with its club's standing in the season.\n\nThe referee is served only once they accepted the fixture as it stands.",
         "properties": {
           "ansetzung_bestaetigt": {
             "anyOf": [
@@ -13807,7 +13807,7 @@
         "type": "object"
       },
       "FLSpielJoinedAdmin": {
-        "description": "The same fixture, carrying the two figures the base tier withholds (`READ-MONEY-001`).\n\nA second model rather than a projection per caller: a response whose shape follows the\ncredential is one no Zod mirror can express.",
+        "description": "The same fixture for the admin reads: the referee as booked, whole name and payment, and the venue's rent.",
         "properties": {
           "ansetzung_bestaetigt": {
             "anyOf": [
@@ -14041,7 +14041,7 @@
         "type": "object"
       },
       "FLSpielOrtField": {
-        "description": "The venue as the DOCUMENT holds it, and as the admin editor reads it back to round-trip the rent.",
+        "description": "The venue as stored and as the admin reads serve it, the rent included.",
         "properties": {
           "maps_link": {
             "minLength": 1,
@@ -14075,7 +14075,7 @@
       },
       "FLSpielOrtFieldPayload": {
         "additionalProperties": false,
-        "description": "The venue as the admin PATCH SUBMITS it: which ground, and what this fixture pays for it.",
+        "description": "The venue as the save sends it: which ground, and what this fixture pays for it.",
         "properties": {
           "mietpreis": {
             "minimum": 0.0,
@@ -14096,7 +14096,7 @@
         "type": "object"
       },
       "FLSpielOrtFieldPublic": {
-        "description": "The venue as a BASE-TIER read serves it: which ground, and where to find it.\n\nNo `mietpreis`: what one fixture agreed to pay is admin-tier (`READ-MONEY-001`).",
+        "description": "The venue as the public reads serve it: which ground, and where to find it, without the rent.",
         "properties": {
           "maps_link": {
             "minLength": 1,
@@ -14197,7 +14197,7 @@
         "type": "object"
       },
       "FLSpielReleasedSide": {
-        "description": "One side another fixture gave up so a team can play this Spieltag.\n\n`team_name` rather than an id: the message quoting this has no `spiele` list to join against,\nand the rename fan-out keeps the copy it reads fresh.",
+        "description": "One side another fixture gave up so a team can play this Spieltag, and the result that destroyed.",
         "properties": {
           "side": {
             "enum": [
@@ -14276,7 +14276,7 @@
         "type": "object"
       },
       "FLSpielSchiedsrichterField": {
-        "description": "The referee as the DOCUMENT holds it, and as the admin editor reads it back.",
+        "description": "The referee as stored and as the admin reads serve it: the whole name and the payment.",
         "properties": {
           "name": {
             "anyOf": [
@@ -14311,7 +14311,7 @@
       },
       "FLSpielSchiedsrichterFieldPayload": {
         "additionalProperties": false,
-        "description": "The referee as the admin PATCH SUBMITS it; `payment` stays for `mietpreis`' reason.",
+        "description": "The referee as the save sends it: who, and what this fixture pays them.",
         "properties": {
           "payment": {
             "minimum": 0.0,
@@ -14332,7 +14332,7 @@
         "type": "object"
       },
       "FLSpielSchiedsrichterFieldPublic": {
-        "description": "The referee as a BASE-TIER read serves it: on their consent, a forename and a surname initial (`READ-REFEREE-001`, `-004`).\n\n`payment` is withheld for `mietpreis`' reason, and the record's id under `READ-REFEREE-006`.",
+        "description": "The referee as the public reads serve it: a forename and a surname initial where they consented, else no name.\n\nNeither the payment nor the referee's id is served.",
         "properties": {
           "name": {
             "anyOf": [
@@ -14369,7 +14369,7 @@
         "type": "string"
       },
       "FLSpielTeamFieldJoined": {
-        "description": "One side as a BASE-TIER read serves it, produced only by `build_spiele_pipeline`.\n\nNarrower than the junction row: every public surface listing a fixture carries this side, and\nonly a club's own page renders the free text a withdrawal names.",
+        "description": "One side as a read serves it, with the way its club left the season, null while it has not.",
         "properties": {
           "austritt_type": {
             "anyOf": [
@@ -14425,7 +14425,7 @@
         "type": "object"
       },
       "FLSpielTeamFieldPayload": {
-        "description": "One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the server composes them from the season's `saison_teams` row.\nA submitted copy is IGNORED rather than refused, as\nthe rule allows.",
+        "description": "One side of a fixture as the save sends it: the team and its goals.\n\nThe server composes the name and shorthand from the season's team row and ignores a copy sent.",
         "properties": {
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -14746,7 +14746,7 @@
       },
       "FLSpielberichtKartePayload": {
         "additionalProperties": false,
-        "description": "One card as a write sends it.\n\nA caution's reason is judged against the stored block, never here: a correction after the strip resends the\ncautions whose reasons it stripped (`app/api/spielberichte/services.py :: find_grund_fehlt_refusal`).",
+        "description": "One card as a write sends it: a caution names its reason unless the stored card's reason was stripped.",
         "properties": {
           "farbe": {
             "$ref": "#/components/schemas/FLKartenFarbe"
@@ -17082,7 +17082,7 @@
         "type": "object"
       },
       "FLSpieleAdminListResponse": {
-        "description": "The admin surfaces' fixture list.\n\nThe base tier reduces a referee's surname to an initial (`READ-REFEREE-001`) and the admin\nfixture search matches on that name, so a surname typed there would find nothing.",
+        "description": "The admin surfaces' fixture list, each referee's whole name and the money included.",
         "properties": {
           "spiele": {
             "items": {
@@ -17099,7 +17099,7 @@
         "type": "object"
       },
       "FLSpieleAdminSingleResponse": {
-        "description": "What `GET /spiele/{spiel_id}/admin` answers: the fixture the editor round-trips, money included.",
+        "description": "One fixture for the admin editor, money included.",
         "properties": {
           "spiel": {
             "$ref": "#/components/schemas/FLSpielJoinedAdmin"
@@ -28867,7 +28867,7 @@
     },
     "/api/v0/spiele": {
       "get": {
-        "description": "List Spiele matching the given filters.\n\nOmitting `saison_id` returns the CURRENT season; one this tier may not read lists nothing.\n`saison_phase` aliases `playoffs` to \"any phase but gruppenphase\"; `ausstehend` includes today.",
+        "description": "List the Spiele matching the filters, of the current season unless `saison_id` names another.\n\nA season this tier may not read lists nothing; `playoffs` means every phase but `gruppenphase`, and\n`ausstehend` includes today.",
         "operationId": "spiele_get_spiele",
         "parameters": [
           {
@@ -29054,7 +29054,7 @@
     },
     "/api/v0/spiele/action_required": {
       "get": {
-        "description": "List Spiele needing attention, and the bracket faults among them.\n\nQualifying: cancelled, missing a date, time, venue or referee, past with no result, a\nknockout side with neither team nor `quelle`, or holding a referee's report the administrator has\nnot adopted as it stands. Every report's state the season holds is served beside them. Scoped to `saison_id`, the active season when none\nis named, which answers 404 while no season is active.\n\nAlso every fixture a club's unclosed confirmation about its Ansetzung as it stands puts before the\nadministrator: a decline proposing another date, a deadline passed unanswered, or a deadline of\ntoday on a request sent today or never. The rows themselves are not served: `GET /spielbestaetigungen`\nfor the same season serves them, read separately, so a row reaching one of those states between\nthe two reads shows its fixture on the next.\n\nThe faults include a fixture still to be played that is booked onto a retired venue or referee,\nand one whose venue or referee another fixture of any season claims less than four hours away.",
+        "description": "List one season's Spiele needing the administrator, with the bracket's faults and every report's state.\n\nThe season is `saison_id`'s, else the active one, answering 404 while none is. A fixture qualifies when it is\ncalled off; lacks a date, time, venue or referee; is past without a result; has a knockout side with neither\nteam nor source; holds a report not adopted as it stands; is put before the administrator by a club's\nunclosed confirmation; or carries a bracket fault, a booking onto a retired venue or referee and a claim within\nfour hours of another fixture's among them.",
         "operationId": "spiele_get_spiele_action_required",
         "parameters": [
           {
@@ -29139,7 +29139,7 @@
     },
     "/api/v0/spiele/list/admin": {
       "get": {
-        "description": "List a season's Spiele for the admin surfaces, a `future` season's included.\n\nSame filters as `GET /spiele`, without its season gate -- which lists a planned season as empty,\nso every admin surface counting fixtures reads zero. The admin fixture shape, so the referee\ncarries their whole name and the two figures ride along (`READ-MONEY-001`, `READ-REFEREE-001`).",
+        "description": "List Spiele as `GET /spiele` does, a planned season's included, in the admin shape.\n\nEach referee carries their whole name, and each booking its money.",
         "operationId": "spiele_get_spiele_for_admin",
         "parameters": [
           {
@@ -29326,7 +29326,7 @@
     },
     "/api/v0/spiele/{spiel_id}": {
       "get": {
-        "description": "Return one match by its id.\n\nThe season is read to gate it and for nothing else: the match carries its own `saison_id`, and\n`spiel_status` is a property of a query. 404 for a season this tier may not read.",
+        "description": "Return one match by its id, answering 404 for a match of a season this tier may not read.",
         "operationId": "spiele_get_spiel",
         "parameters": [
           {
@@ -29403,7 +29403,7 @@
         ]
       },
       "patch": {
-        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten, and every name it carries is\ncomposed by the server. A result can fill or empty the slots below it, each named in `advanced_to`.\n\nWith `uebernimmt_bericht`, the save also stamps the fixture's Spielbericht adopted at that version, in the same\ntransaction. A report corrected since that version, or written about other clubs than the save leaves on the\nfixture, is left unstamped, and the save lands all the same: nothing is refused for it. A `dry_run` stamps nothing.",
+        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nEvery name is composed by the server. With `uebernimmt_bericht` the save also stamps the fixture's Spielbericht\nadopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A\n`dry_run` answers the same report and writes nothing.",
         "operationId": "spiele_patch_spiel_data",
         "parameters": [
           {
@@ -29523,7 +29523,7 @@
     },
     "/api/v0/spiele/{spiel_id}/admin": {
       "get": {
-        "description": "Return one match in the joined shape, plus the two figures the base tier withholds.\n\nThe editor reads here because it round-trips `ort.mietpreis` and `schiedsrichter.payment`,\nwhich are admin-tier (`READ-MONEY-001`).",
+        "description": "Return one match in the admin shape, money included, for the editor.",
         "operationId": "spiele_get_spiel_for_admin",
         "parameters": [
           {

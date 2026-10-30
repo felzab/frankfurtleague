@@ -2550,9 +2550,9 @@ export interface FLBracketFaultBooking {
 }
 
 /**
- * A venue or referee claimed less than `REQ-CLASH-001`'s buffer from another fixture's claim, one entry per claim.
+ * A venue or referee claimed less than four hours from another fixture's claim, one entry per claim.
  *
- * It names the fixture that refusal names, so the report and a save's 409 point at one match.
+ * It names the fixture a save's clash refusal names.
  */
 export interface FLBracketFaultClash {
   booking: FLBookingResource;
@@ -2636,10 +2636,9 @@ export const FLBracketFaultOccupantSide = {
 } as const;
 
 /**
- * One fixture fielding a team that left the season.
+ * One fixture fielding a team on or after the day it left the season, or undated, with no recorded absence excusing it.
  *
- * The date rule and the carve-out are `REQ-ELIGIBILITY-001`'s. Nothing is emptied
- * (`docs/domain.md`'s what the model permits on purpose).
+ * Nothing is emptied.
  */
 export interface FLBracketFaultOccupant {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -2746,9 +2745,6 @@ export interface FLSpielQuelleSpiel {
 
 /**
  * One slot carrying a reference it must not carry, whatever that reference names.
- *
- * The reference travels whole rather than decomposed: it groups the entries of a shared source, and
- * a toast arrives with no fixture to read it off.
  */
 export interface FLBracketFaultSlot {
   quelle: FLSpielQuelleGruppe | FLSpielQuelleSpiel;
@@ -2761,10 +2757,7 @@ export interface FLBracketFaultSlot {
 }
 
 /**
- * One fixture whose two references resolve to the SAME club.
- *
- * It survives the write-path rule, which keys a source by identity, so two DIFFERENT sources
- * naming one club pass. The fixture keeps its stored sides.
+ * One fixture whose two references resolve to the same club; the fixture keeps its stored sides.
  */
 export interface FLBracketFaultSpiel {
   reason: "same_team";
@@ -2782,10 +2775,7 @@ export const FLBracketFaultSpieltagSide = {
 } as const;
 
 /**
- * A club standing more than once on one Spieltag.
- *
- * One entry per APPEARANCE, the granularity `fl_backend/app/core/constraints.py :: report_relations`
- * counts in -- never deduplicated, because which to correct is a competition decision.
+ * A club standing more than once on one Spieltag, one entry per appearance.
  */
 export interface FLBracketFaultSpieltag {
   reason: "fielded_twice";
@@ -4405,10 +4395,7 @@ export const FLPatchSpielDataPayloadSonderereignis = {
 } as const;
 
 /**
- * The penalty shoot-out that settled a knockout fixture whose goals finished level.
- *
- * No `sieger`: a stored one could contradict the counts, and the `$expr` barring it is outside the
- * database validators' ratified scope.
+ * The penalty shoot-out that settled a level knockout fixture: the side with more goals in it won.
  */
 export interface FLSpielElfmeterschiessen {
   /** @minimum 0 */
@@ -4418,7 +4405,7 @@ export interface FLSpielElfmeterschiessen {
 }
 
 /**
- * The venue as the admin PATCH SUBMITS it: which ground, and what this fixture pays for it.
+ * The venue as the save sends it: which ground, and what this fixture pays for it.
  */
 export interface FLSpielOrtFieldPayload {
   /** @minimum 0 */
@@ -4428,7 +4415,7 @@ export interface FLSpielOrtFieldPayload {
 }
 
 /**
- * The referee as the admin PATCH SUBMITS it; `payment` stays for `mietpreis`' reason.
+ * The referee as the save sends it: who, and what this fixture pays them.
  */
 export interface FLSpielSchiedsrichterFieldPayload {
   /** @minimum 0 */
@@ -4438,11 +4425,9 @@ export interface FLSpielSchiedsrichterFieldPayload {
 }
 
 /**
- * One side of a fixture as the admin PATCH SUBMITS it.
+ * One side of a fixture as the save sends it: the team and its goals.
  *
- * No name and no shorthand: the server composes them from the season's `saison_teams` row.
- * A submitted copy is IGNORED rather than refused, as
- * the rule allows.
+ * The server composes the name and shorthand from the season's team row and ignores a copy sent.
  */
 export interface FLSpielTeamFieldPayload {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -4479,8 +4464,7 @@ export const FLSpielAdvancementVoidedSonderereignis = {
 /**
  * One fixture the bracket resolution rewrote, and the result that rewrite destroyed.
  *
- * Every voided field is `None` where a slot merely filled from empty, so "was anything destroyed"
- * is a null check.
+ * Every voided field is null where a slot merely filled from empty.
  */
 export interface FLSpielAdvancement {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -4511,10 +4495,7 @@ export const FLSpielReleasedSideVoidedSonderereignis = {
 } as const;
 
 /**
- * One side another fixture gave up so a team can play this Spieltag.
- *
- * `team_name` rather than an id: the message quoting this has no `spiele` list to join against,
- * and the rename fan-out keeps the copy it reads fresh.
+ * One side another fixture gave up so a team can play this Spieltag, and the result that destroyed.
  */
 export interface FLSpielReleasedSide {
   side: FLSpielReleasedSideSide;
@@ -4530,9 +4511,7 @@ export interface FLSpielReleasedSide {
 }
 
 /**
- * What `patch_spiel_data` returns: every fixture it moved, and what that cost.
- *
- * Both lists report writes the caller did not ask for, each carrying the result it destroyed.
+ * Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.
  */
 export interface FLPatchSpielDataResponse {
   advanced_to: FLSpielAdvancement[];
@@ -6033,9 +6012,7 @@ export const FLSpielJoinedSonderereignis = {
 } as const;
 
 /**
- * The venue as a BASE-TIER read serves it: which ground, and where to find it.
- *
- * No `mietpreis`: what one fixture agreed to pay is admin-tier (`READ-MONEY-001`).
+ * The venue as the public reads serve it: which ground, and where to find it, without the rent.
  */
 export interface FLSpielOrtFieldPublic {
   /** @minLength 1 */
@@ -6047,9 +6024,9 @@ export interface FLSpielOrtFieldPublic {
 }
 
 /**
- * The referee as a BASE-TIER read serves it: on their consent, a forename and a surname initial (`READ-REFEREE-001`, `-004`).
+ * The referee as the public reads serve it: a forename and a surname initial where they consented, else no name.
  *
- * `payment` is withheld for `mietpreis`' reason, and the record's id under `READ-REFEREE-006`.
+ * Neither the payment nor the referee's id is served.
  */
 export interface FLSpielSchiedsrichterFieldPublic {
   name: string | null;
@@ -6065,10 +6042,7 @@ export const FLSpielTeamFieldJoinedAustrittType = {
 } as const;
 
 /**
- * One side as a BASE-TIER read serves it, produced only by `build_spiele_pipeline`.
- *
- * Narrower than the junction row: every public surface listing a fixture carries this side, and
- * only a club's own page renders the free text a withdrawal names.
+ * One side as a read serves it, with the way its club left the season, null while it has not.
  */
 export interface FLSpielTeamFieldJoined {
   austritt_type: FLSpielTeamFieldJoinedAustrittType;
@@ -6082,10 +6056,9 @@ export interface FLSpielTeamFieldJoined {
 }
 
 /**
- * One fixture as a BASE-TIER endpoint serves it: stored fields plus each side's joined season state.
+ * One fixture as the public reads serve it, each side with its club's standing in the season.
  *
- * A model rather than a default on the stored side, which would make every internal read of a raw
- * document quietly assert that nobody is disqualified.
+ * The referee is served only once they accepted the fixture as it stands.
  */
 export interface FLSpielJoined {
   ansetzung_bestaetigt: boolean | null;
@@ -6136,7 +6109,7 @@ export const FLSpielJoinedAdminSonderereignis = {
 } as const;
 
 /**
- * The venue as the DOCUMENT holds it, and as the admin editor reads it back to round-trip the rent.
+ * The venue as stored and as the admin reads serve it, the rent included.
  */
 export interface FLSpielOrtField {
   /** @minLength 1 */
@@ -6150,7 +6123,7 @@ export interface FLSpielOrtField {
 }
 
 /**
- * The referee as the DOCUMENT holds it, and as the admin editor reads it back.
+ * The referee as stored and as the admin reads serve it: the whole name and the payment.
  */
 export interface FLSpielSchiedsrichterField {
   name: string | null;
@@ -6161,10 +6134,7 @@ export interface FLSpielSchiedsrichterField {
 }
 
 /**
- * The same fixture, carrying the two figures the base tier withholds (`READ-MONEY-001`).
- *
- * A second model rather than a projection per caller: a response whose shape follows the
- * credential is one no Zod mirror can express.
+ * The same fixture for the admin reads: the referee as booked, whole name and payment, and the venue's rent.
  */
 export interface FLSpielJoinedAdmin {
   ansetzung_bestaetigt: boolean | null;
@@ -6415,10 +6385,7 @@ export const FLSpielberichtKartePayloadSeite = {
 } as const;
 
 /**
- * One card as a write sends it.
- *
- * A caution's reason is judged against the stored block, never here: a correction after the strip resends the
- * cautions whose reasons it stripped (`app/api/spielberichte/services.py :: find_grund_fehlt_refusal`).
+ * One card as a write sends it: a caution names its reason unless the stored card's reason was stripped.
  */
 export interface FLSpielberichtKartePayload {
   farbe: FLKartenFarbe;
@@ -7131,17 +7098,14 @@ export interface FLSpieleActionRequiredResponse {
 }
 
 /**
- * The admin surfaces' fixture list.
- *
- * The base tier reduces a referee's surname to an initial (`READ-REFEREE-001`) and the admin
- * fixture search matches on that name, so a surname typed there would find nothing.
+ * The admin surfaces' fixture list, each referee's whole name and the money included.
  */
 export interface FLSpieleAdminListResponse {
   spiele: FLSpielJoinedAdmin[];
 }
 
 /**
- * What `GET /spiele/{spiel_id}/admin` answers: the fixture the editor round-trips, money included.
+ * One fixture for the admin editor, money included.
  */
 export interface FLSpieleAdminSingleResponse {
   spiel: FLSpielJoinedAdmin;
