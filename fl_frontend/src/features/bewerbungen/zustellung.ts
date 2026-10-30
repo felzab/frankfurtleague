@@ -14,14 +14,8 @@ import {
   ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH,
 } from "./schemas";
 
-import type {
-  FLBewerbung,
-  FLBewerbungZustellungEreignisPayload,
-  FLBewerbungZustellungStand,
-  FLKontaktRolle,
-} from "@/core/generated/client/types";
+import type { FLBewerbungZustellungEreignisPayload, FLKontaktRolle } from "@/core/generated/client/types";
 import type { FLZustellungEreignisPayload, FLZustellungZiel } from "@/features/zustellung/schemas";
-import type { PillTone } from "@/shared/components/ui/badges";
 
 /**
  * Which message a delivery event is about, as it rides the send. Its own vocabulary rather than the
@@ -41,21 +35,6 @@ export type ZustellAnlass =
   | "neue_ansetzung"
   | "spiel_abgesagt"
   | "vorschlag_verworfen";
-
-/** One message and every seat it answers for. A mirrored pair is one message naming two seats. */
-export type ZustellSendung = {
-  bewerbungId: string;
-  rollen: readonly FLKontaktRolle[];
-  anlass: ZustellAnlass;
-};
-
-/**
- * What the provider echoes back on every event about this message, and the only thing that routes one
- * to a seat: routing by the message id alone would scan three hashed paths per event instead.
- */
-export function zustellungTags({ bewerbungId, rollen, anlass }: ZustellSendung): Record<string, string> {
-  return { bewerbung_id: bewerbungId, rollen: [...rollen].join("-"), anlass: anlass };
-}
 
 /**
  * The envelope's own `created_at` orders events and `data.created_at` does not: the second is when the
@@ -225,43 +204,4 @@ export function leseZustellEreignis(raw: unknown): ZustellMeldung | null {
   }).data;
 
   return meldung === undefined ? null : { ziel: "bewerbung", meldung: meldung };
-}
-
-/**
- * The three states no further message to that address can beat. **`beschwerde` is one of them**: a
- * person who marked the league as spam is the strongest case for never writing to them again.
- */
-const DAUERHAFT: ReadonlySet<FLBewerbungZustellungStand> = new Set<FLBewerbungZustellungStand>(["unzustellbar", "unterdrueckt", "beschwerde"]);
-
-export function istDauerhaftUnzustellbar(zustellung: { stand: FLBewerbungZustellungStand } | null): boolean {
-  return zustellung !== null && DAUERHAFT.has(zustellung.stand);
-}
-
-/**
- * What the seat's row says about the last message to it, or `null` where the row says nothing: an
- * accepted send and a delivery are the ordinary course, and a chip for them would grade every row.
- */
-export const ZUSTELLUNG_CHIP: Record<FLBewerbungZustellungStand, { label: string; tone: PillTone } | null> = {
-  angenommen: null,
-  zugestellt: null,
-  // One label for both the temporary bounce and the failed send: what the administrator can act on
-  // is that the link has not arrived, and neither of the two is the address refusing for good.
-  verzoegert: { label: "Noch nicht zugestellt", tone: "warning" },
-  unzustellbar: { label: "Unzustellbar", tone: "danger" },
-  // The message's fate, as its three siblings say, and never the ban list's „gesperrt“: the list an
-  // administrator would then search is the league's own, which never held this address.
-  unterdrueckt: { label: "Zustellung blockiert", tone: "danger" },
-  beschwerde: { label: "Als Spam gemeldet", tone: "danger" },
-};
-
-/** What the triage queue marks a row on. `danger` and never the duplicate mark's `warning`: this one cannot be waited out. */
-export const ZUSTELLUNG_QUEUE_LABEL = "Kontakt unerreichbar";
-export const ZUSTELLUNG_QUEUE_TINT: PillTone = "danger";
-
-/**
- * Whether any seat of this application holds an address no message reaches. The queue reads it so an
- * administrator meets the fact where their eye already is, rather than on a page they never open.
- */
-export function hatUnerreichbarenSitz({ bestaetigungen }: Pick<FLBewerbung, "bestaetigungen">): boolean {
-  return Object.values(bestaetigungen).some((verlauf) => istDauerhaftUnzustellbar(verlauf?.zustellung ?? null));
 }
