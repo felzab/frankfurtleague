@@ -1,6 +1,6 @@
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 
 from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLBracketFault, FLSpielElfmeterschiessen, FLSpielJoinedAdmin
@@ -21,18 +21,19 @@ MINUTE_PATTERN = r"^[0-9]{1,3}(\+[0-9]{1,2})?$"
 CustomSpielberichtMinute = Annotated[str, StringConstraints(pattern=MINUTE_PATTERN)]
 
 # Multi-line, unlike a confirmation's reason: the referee's prose about the match, read on the editor's panel alone.
-# Stripped before the floor counts, so spaces alone are no remark.
+# The ceiling counts what arrives, so the published one is what is accepted; the floor counts after the strip, so
+# spaces alone are no remark.
 CustomSpielberichtBemerkungen = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH)
+    str, StringConstraints(max_length=SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
 ]
 
 FLSpielberichtSeite = Literal["team1", "team2"]
 
-FLKartenFarbe = Literal["gelb", "gelb_rot", "rot"]
+type FLKartenFarbe = Literal["gelb", "gelb_rot", "rot"]
 
 # Why a card was shown, from a closed list: a characterisation of a named pupil's conduct, so served on the
 # administrator's and the referee's reads alone.
-FLKartenGrund = Literal[
+type FLKartenGrund = Literal[
     "foulspiel",
     "unsportlichkeit",
     "handspiel",
@@ -51,7 +52,7 @@ FLSpielberichtSonderereignis = Literal["abgebrochen", "nichtantreten_team1", "ni
 
 # Derived on every read from the report and the fixture, and stored nowhere. `abgesagt` is a report on a fixture called
 # off or struck out since it was sent: the match took no place, so nothing awaits the administrator.
-FLSpielberichtZustand = Literal["vorgeschlagen", "uebernommen", "abweichend", "abgesagt", "teams_geaendert"]
+type FLSpielberichtZustand = Literal["vorgeschlagen", "uebernommen", "abweichend", "abgesagt", "teams_geaendert"]
 
 
 class FLSpielberichtVorschlag(BaseModel):
@@ -88,11 +89,10 @@ class FLSpielberichtKarte(BaseModel):
 
 
 class FLSpielberichtKartePayload(FLSpielberichtKarte):
-    """One card as a write sends it.
+    """One card as a write sends it: a caution names its reason unless the stored card's reason was stripped."""
 
-    A caution's reason is judged against the stored block, never here: a correction after the strip resends the
-    cautions whose reasons it stripped (`app/api/spielberichte/services.py :: find_grund_fehlt_refusal`).
-    """
+    # Judged against the stored block, never here: a correction after the strip resends the cautions whose
+    # reasons it stripped (`find_grund_fehlt_refusal`).
 
     model_config = ConfigDict(extra="forbid")
 
@@ -154,6 +154,8 @@ class FLSpielbericht(BaseModel):
     saison_id: str
     spiel_id: CustomObjectId
     bericht: FLSpielberichtBericht | None
+    # 0 until a write raises it, as the create stamps it.
+    version: int = 0
 
 
 # --- The WRITES: the referee's PUT and the administrator's PATCH take one body, so a refusal naming
@@ -217,6 +219,8 @@ class FLSpielberichtPayload(BaseModel):
     # with no default, as `kontakte_stand` is: an omitted one would judge nothing
     # (`app/api/spielberichte/services.py :: find_bericht_stand_refusal`).
     bericht_stand: int | None
+    # The document's `version` the form was served; absent, the save is checked against nothing.
+    version: int | None = None
 
 
 # --- The READS. The referee's form and the administrator's panel read one shape: the fixture, both live
@@ -267,6 +271,9 @@ class _SpielberichtAnsicht(BaseAPIResponse):
     bericht: FLSpielberichtBericht | None
     # The sides fielding another club than the report's last write found there, which reads `teams_geaendert`.
     seiten_geaendert: list[FLSpielberichtSeite]
+    # The document's count of writes, null where none is stored: a save sending it back is refused once another write
+    # has raised it. Not `bericht.version`, the report's own, which only its content's writes raise.
+    version: int | None
 
 
 class FLSpielberichtSchiedsrichterResponse(_SpielberichtAnsicht):

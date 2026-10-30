@@ -9,6 +9,9 @@ from enum import StrEnum
 class Code(StrEnum):
     DOCUMENT_NOT_FOUND = "DB-COMMON-001"
     DUPLICATE_KEY = "DB-COMMON-002"
+    # A save carrying the `version` its form was read at, which another write has since raised: the record changed since it
+    # was opened, a removal included.
+    VERSION_STALE = "DB-COMMON-003"
     NO_DATABASE_CLIENT = "DB-CONN-001"
     DATABASE_FAILED = "DB-FAIL-001"
     # A write that may stand: its own code, because a page told "failed" sends the person to repeat a

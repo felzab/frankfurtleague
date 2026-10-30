@@ -40,6 +40,7 @@ from app.api.spielberichte.services import (
 )
 from app.core.crud import (
     GERMAN_COLLATION,
+    VERSION_FIELD,
     aggregate_many_from_db,
     anchor_in_db,
     patch_many_in_db,
@@ -155,6 +156,9 @@ async def write_bericht(
     payload: FLSpielberichtBerichtPayload,
     von: FLSpielberichtVon,
     now: datetime,
+    # REQUIRED with no default: the `version` the form was served, or None for a write naming none, so no caller
+    # leaves the check out unasked.
+    version: int | None,
     session: AsyncClientSession,
 ) -> Mapping[str, Any]:
     """The block written whole: created by its first writer, set on a document holding none, or replaced.
@@ -191,7 +195,7 @@ async def write_bericht(
     return await patch_one_in_db(
         collection=spielberichte_collection,
         db_filter={"_id": gespeichert["_id"]},
-        update=update,
+        update={**update, "$set": {**update["$set"], VERSION_FIELD: version}},
         session=session,
         return_document=ReturnDocument.AFTER,
     )
@@ -301,13 +305,13 @@ async def stamp_the_adoption(
     now: datetime,
     # REQUIRED: the fixture save's own, so a save that does not commit takes its stamp back with it.
     session: AsyncClientSession,
-) -> None:
-    """Stamp the report adopted at `version`, matching it only while it still stands there.
+) -> bool:
+    """Stamp the report adopted at `version`, matching it only while it still stands there, and say whether it did.
 
     A fan-out rather than `patch_one_in_db`, whose miss would raise and take the fixture's save with it.
     """
 
-    await patch_many_in_db(
+    stamped = await patch_many_in_db(
         collection=spielberichte_collection,
         db_filter={"spiel_id": spiel_id, "bericht.version": version, **{f"bericht.seiten.{seite}": seiten[seite] for seite in SEITEN}},
         update={
@@ -319,3 +323,5 @@ async def stamp_the_adoption(
         },
         session=session,
     )
+
+    return stamped.matched_count > 0
