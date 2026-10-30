@@ -55,9 +55,7 @@ const logged: unknown[][] = [];
 const record = (...args: unknown[]): void => void logged.push(args);
 /** The fields of each line the acceptance's read of the colliding application wrote. */
 const collisionReadLines = (): { name?: unknown }[] =>
-  logged
-    .filter(([message]) => message === "An application's collision read failed and its refusal takes the shared words")
-    .map(([, , meta]) => meta as { name?: unknown });
+  logged.filter(([message]) => message === "bewerbung.collision_unread").map(([, , meta]) => meta as { name?: unknown });
 const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: ORIGIN } };
 const LOGGER_DOUBLE = { logger: { debug: record, info: record, warn: record, error: record } };
 

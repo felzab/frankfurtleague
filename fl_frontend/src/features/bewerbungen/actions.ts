@@ -126,7 +126,7 @@ async function kollisionsHerkunft(error: unknown, bewerbungId: string): Promise<
     // A redirect the read's admin guard threw is a navigation, never a failed read.
     unstable_rethrow(failed);
     // Logged and settled, a contract break included: only the refusal's wording rests on this read.
-    if (!explainsItself(failed)) logActionFailure("An application's collision read failed and its refusal takes the shared words", failed);
+    if (!explainsItself(failed)) logActionFailure("bewerbung.collision_unread", failed);
     return null;
   });
 
