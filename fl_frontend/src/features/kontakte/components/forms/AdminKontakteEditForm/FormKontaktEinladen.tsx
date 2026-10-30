@@ -15,7 +15,6 @@ import { useStepUp } from "@/shared/hooks/useStepUp";
 import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
-import { BESTAETIGUNGSLINK_TITEL } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLKontaktRolle } from "@/core/generated/client/types";
@@ -63,7 +62,7 @@ export function FormKontaktEinladen({
     }
 
     // The link is owed and on its way; the seat's delivery line says what became of it once the page reads it again.
-    appToast.success(BESTAETIGUNGSLINK_TITEL.gesendet, { description: res.message });
+    appToast.success("Bestätigungslink gesendet", { description: res.message });
   };
 
   return (

@@ -28,7 +28,6 @@ import { useConfirmationWindows } from "@/shared/hooks/useConfirmationWindows";
 import { LINK_UNKLAR, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
-import { meldeLinkVersand } from "@/shared/utils/linkVersandToast";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { pruefeInhaberAction } from "../../../actions";
@@ -38,7 +37,6 @@ import { CodeConfirmation } from "../../ui/CodeConfirmation";
 import type { FLKontoAdresswechselOffen, FLKontoAdresswechselResponse, FLVerwaltung } from "@/core/generated/client/types";
 import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
 import type { ActionFailure } from "@/shared/types/types";
-import type { VersandTitel } from "@/shared/utils/linkVersandToast";
 
 /** The press opening the box: „E-Mail-“ because this panel also lists the passkeys' and sign-ins' neighbours. */
 const E_MAIL_ADRESSE_AENDERN = "E-Mail-Adresse ändern";
@@ -47,12 +45,6 @@ const AENDERUNG_ZURUECKZIEHEN = "Änderung zurückziehen";
 
 /** Why the page asks before a start or an approval, said beside the control that asks. */
 const STEP_UP_HINT = "Für eine neue Adresse fragen wir kurz nach, ob Du es bist.";
-
-/** The account page's link titles, in the words its deletion link's press uses. */
-const KONTO_LINK_TITEL: VersandTitel = {
-  gesendet: "Link verschickt",
-  fehlgeschlagen: "Link nicht verschickt",
-};
 
 /** What the confirmation waits for: a start with its address, or the approval of the change the page showed. */
 type Wartend = { art: "start"; email: string } | { art: "freigabe"; id: string };
@@ -173,11 +165,8 @@ export function AdresswechselPanel({
     landung.landed();
     if (was.art === "start") setEntwurf(null);
     // The write owed the mail, which leaves behind the answer: whether it arrives is no press's to know.
-    meldeLinkVersand(
-      "gesendet",
-      was.art === "start" ? KONTO_LINK_TITEL : { ...KONTO_LINK_TITEL, gesendet: "Änderung freigegeben" },
-      res.message,
-    );
+    // „verschickt“, in the words the deletion link's press on this page uses.
+    appToast.success(was.art === "start" ? "Link verschickt" : "Änderung freigegeben", { description: res.message });
   };
 
   /** Runs `was` now inside the window, and after the confirmation otherwise. */

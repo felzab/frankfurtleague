@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Button } from "@heroui/react/button";
 
 import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
+import { asCaughtError } from "@/shared/utils/caughtError";
 
 import { CrashReportLink } from "./CrashReportLink";
 import { DISPLAY_HEADING_CLASSES } from "./displayType";
@@ -21,13 +22,14 @@ export function Error({
   // (`fl_frontend/src/app/(public)/error.tsx`).
   fills = "document",
 }: {
-  error: Error & { digest?: string };
+  error: unknown;
   retry: () => void;
   fills?: "document" | "shell";
 }) {
   const [isRetrying, startRetrying] = useTransition();
 
   useReportClientCrash(error);
+  const { digest } = asCaughtError(error);
 
   // Next answers `retry`'s refresh meeting another build with a whole new document, so a deploy
   // between the crash and the press heals here too.
@@ -46,7 +48,7 @@ export function Error({
         </>
       }
       message="Ein unerwarteter Fehler ist aufgetreten und wurde automatisch gemeldet."
-      digest={error.digest}
+      digest={digest}
       watermark={
         /* `motion-safe:` rather than the global shortening: a glyph this large pulsing behind text
            must stop entirely, not run fast. */
@@ -74,7 +76,7 @@ export function Error({
         </Button>
       </div>
 
-      <CrashReportLink digest={error.digest} />
+      <CrashReportLink digest={digest} />
     </StatusPanel>
   );
 }
