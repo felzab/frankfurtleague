@@ -1893,13 +1893,13 @@
       "count": 12
     },
     "no-restricted-syntax": {
-      "count": 34
+      "count": 32
     },
     "react/forbid-component-props": {
       "count": 3
     },
     "react/jsx-no-literals": {
-      "count": 25
+      "count": 20
     }
   },
   "src/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx": {
@@ -2403,13 +2403,13 @@
       "count": 8
     },
     "no-restricted-syntax": {
-      "count": 16
+      "count": 15
     },
     "react/forbid-component-props": {
       "count": 5
     },
     "react/jsx-no-literals": {
-      "count": 10
+      "count": 9
     }
   },
   "src/features/spielberichte/components/views/BerichtEintraege.tsx": {
@@ -2428,13 +2428,13 @@
       "count": 8
     },
     "no-restricted-syntax": {
-      "count": 17
+      "count": 16
     },
     "react/forbid-component-props": {
       "count": 2
     },
     "react/jsx-no-literals": {
-      "count": 3
+      "count": 2
     }
   },
   "src/features/spielberichte/components/views/SpielberichtLesenView.tsx": {
@@ -2487,7 +2487,7 @@
       "count": 20
     },
     "no-restricted-syntax": {
-      "count": 31
+      "count": 25
     },
     "react/forbid-component-props": {
       "count": 8
