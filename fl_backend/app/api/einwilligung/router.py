@@ -19,12 +19,7 @@ router = APIRouter(
     summary="The words one consent label names",
 )
 async def get_fassung(text_version: str) -> FLEinwilligungFassungResponse:
-    """
-    Return the words a consent label names: its paragraphs, its switch, its other controls, its page and the day it took effect.
-
-    A label's words never change, so the answer may be cached. A label the registry does not hold 404s,
-    and never answers another label's words.
-    """
+    """The words a consent label names, which never change, so the answer may be cached; 404 for a label the registry lacks."""
 
     fassung = FASSUNGEN.get(text_version)
     if fassung is None:
@@ -35,10 +30,9 @@ async def get_fassung(text_version: str) -> FLEinwilligungFassungResponse:
 
 @router.get("/seiten", response_model=FLEinwilligungSeitenResponse, summary="The consent label each page stamps today")
 async def get_seiten() -> FLEinwilligungSeitenResponse:
-    """
-    Return, for every page that stamps a consent label, the label a new acceptance on it must name.
+    """For every page that stamps a consent label, the label a new acceptance on it must name.
 
-    A deploy moves it, so a reader caching it refuses its own visitors' presses until the cache expires.
+    A deploy moves it, so a reader caches it no longer than a request.
     """
 
     return FLEinwilligungSeitenResponse(laufende_fassungen={seite: label for seite, label in LAUFENDE_FASSUNGEN.items()})

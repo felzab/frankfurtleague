@@ -1446,9 +1446,8 @@ def fixtures_newly_fielding_a_departed_club(
             if effective_from is None:
                 continue
 
-            # `REQ-SWAP-004` answers an abandonment and a no-show terminally before this count is
-            # read, so what reaches the carve-out here is the state it deliberately leaves open: a
-            # fixture called off or annulled, which awards nothing.
+            # A fixture recording this side's absence fields nobody on it, the eligibility rule's own
+            # carve-out.
             if records_an_absence(side=slot, sonderereignis=spiel.get("sonderereignis"), saison_phase="gruppenphase"):
                 continue
 
@@ -1477,8 +1476,9 @@ def find_gruppe_swap_refusal(
     team1_gruppe: str | None,
     team2_gruppe: str | None,
     saison_status: str,
-    played_knockout_fixtures: int,
-    played_gruppenphase_fixtures: int,
+    # `app/api/saisons/crud.py :: has_started`: a swap rewrites fixtures, and once the season is under
+    # way a fixture is a record of who played it.
+    started: bool,
     clashing_spieltage: int,
     departed_fixtures: int,
 ) -> WriteRefusal | None:
@@ -1507,17 +1507,9 @@ def find_gruppe_swap_refusal(
             status=HTTPStatus.CONFLICT,
         )
 
-    # The season's count, because the bracket consumed a standing whoever it named.
-    if played_knockout_fixtures > 0:
+    if started:
         return WriteRefusal(
             error_code=Code.SWAP_KNOCKOUT_STARTED,
-            status=HTTPStatus.CONFLICT,
-        )
-
-    # Narrowed to these two clubs: this rule is about their own participation.
-    if played_gruppenphase_fixtures > 0:
-        return WriteRefusal(
-            error_code=Code.SWAP_GRUPPENPHASE_PLAYED,
             status=HTTPStatus.CONFLICT,
         )
 

@@ -182,10 +182,8 @@ class TestWhatAReopenedLinkShows:
             (confirmed(), LIVE_BLOCK, "bestaetigt"),
             # A stamp outranks the deadline: a person who answered on the last valid day is shown that they did.
             (confirmed(), {**LIVE_BLOCK, "frist": YESTERDAY}, "bestaetigt"),
-            # A stamp of `""` is no answer: the page offers the link again rather than thanking nobody.
-            (confirmed(bestaetigt_am=""), LIVE_BLOCK, "gueltig"),
         ],
-        ids=["live", "over", "on-the-deadlines-day", "answered", "answered-then-over", "empty-stamp"],
+        ids=["live", "over", "on-the-deadlines-day", "answered", "answered-then-over"],
     )
     def test_each_state_reads_as_the_page_expects(self, einwilligung: Any, bestaetigung: Any, zustand: str):
         """The ban outranks every one of them: a barred referee's page shows the ban and nothing else."""

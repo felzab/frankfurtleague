@@ -1,16 +1,15 @@
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.bounds import (
-    EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
 )
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLEinwilligungStandPayload
+from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomKontaktName
 from app.shared.schemas.literals import (
     FLAdresswechselEinsehbarVerwehrt,
@@ -19,7 +18,7 @@ from app.shared.schemas.literals import (
     FLSpielerPosition,
     FLSpielerStufe,
 )
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
 # does not, and the two ends must accept and refuse the same shirt.
@@ -82,7 +81,7 @@ class _SaisonSpielerWritable(BaseModel):
     rolle: FLSpielerRolle | None
 
 
-class FLSpielerPublic(_SpielerPerson):
+class FLSpielerPublic(_SpielerPerson, BaseReadModel):
     """One squad row as the BASE TIER serves it -- all an anonymous visitor may read.
 
     `build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the
@@ -233,8 +232,10 @@ class FLPostSaisonSpielerPayload(_SaisonSpielerPayload):
     rather than omitting, so the answer is theirs and not a default nobody chose.
     """
 
-    # Stripped before the width is counted, for `app/shared/schemas/custom.py :: CustomStrippedNonEmptyString`'s reason.
-    saison_id: Annotated[str, StringConstraints(strip_whitespace=True, min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)]
+    # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is what the write accepts.
+    saison_id: Annotated[
+        str, StringConstraints(max_length=SAISON_ID_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=SAISON_ID_LENGTH)
+    ]
 
 
 class FLPatchSaisonSpielerPayload(_SaisonSpielerPayload):
@@ -440,22 +441,6 @@ class FLSpielerSelbstResponse(BaseAPIResponse):
     """The signed-in address's own pupil record: one at most, `spieler.email` being unique."""
 
     spieler: FLSpielerSelbst
-
-
-class SelbstEinwilligungPayload(BaseModel):
-    """One declaration under each own record's published name, the pupil's, the referee's and a registration's, so no two drift apart."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    # No member defaulted: a default would let a page that forgot one reset the person's other choice.
-
-    # `FLEinwilligung.umfang`'s set again, held equal to it by
-    # `fl_backend/tests/api/test_spieler_selbst.py :: test_the_payload_offers_the_scopes_the_record_stores`.
-    umfang: Literal["kader_oeffentlich", "intern"]
-    medien: bool
-    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
-    # The record's `nachweis_stand` as the page was served it.
-    nachweis_stand: FLEinwilligungStandPayload
 
 
 class FLSpielerSelbstEinwilligungResponse(BaseAPIResponse):
