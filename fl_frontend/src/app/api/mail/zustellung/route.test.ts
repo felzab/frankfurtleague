@@ -40,7 +40,6 @@ vi.doMock("@/core/generated/client/sdk.ts", () => ({
 
 const { POST } = await import("./route.ts");
 const { APIBadStatusError, APINetworkError } = await import("@/core/errors.ts");
-const { refused } = await import("@/test-support/refusals.ts");
 const { NextRequest } = await import("next/server");
 const { Webhook } = await import("svix");
 
@@ -264,21 +263,10 @@ describe("POST /api/mail/zustellung's signature", () => {
 });
 
 describe("POST /api/mail/zustellung where the backend does not take the event", () => {
-  /* The deletion of a row past its retention, or an event already answered: retrying either buys nothing and spends the
-     endpoint's standing with the provider. */
-  it("answers 200 where the row no longer exists, and writes one line", async () => {
-    answer = () => {
-      throw refused("document_not_found");
-    };
-
-    expect(await statusFor(eventFor("email.delivered"))).toBe(200);
-    expect(logs.map(({ level, message }) => [level, message])).toStrictEqual([["error", "mail.zustellung_ungeschrieben"]]);
-  });
-
-  /* Only the event's own answer settles it: a route the API does not serve mid-deploy, a credential or a body it does not
-     take would each lose the event, where the provider's retry lands later. A network failure and a server error are the
-     cases a retry repairs. */
-  it("settles an event only on the row's own answer, and has every other failure sent again", async () => {
+  /* The endpoint answers a row gone or an event already answered with `angewendet: false`, so a failure is a route the
+     API does not serve mid-deploy, a credential or a body it does not take, a server error or a network failure: settled,
+     each would lose the event, where the provider's retry lands later. */
+  it("has every failure sent again, and writes one line", async () => {
     const answered = async (failure: Error) => {
       answer = () => {
         throw failure;
@@ -297,7 +285,6 @@ describe("POST /api/mail/zustellung where the backend does not take the event", 
         traceId: "t".repeat(32),
       });
 
-    expect(await answered(badStatus(409, "duplicate_key")), "an event the store already holds was sent back").toBe(200);
     for (const [statusCode, code] of [
       [404, "no_route"],
       [405, "method_not_served"],
@@ -309,6 +296,7 @@ describe("POST /api/mail/zustellung where the backend does not take the event", 
       expect(await answered(badStatus(statusCode, code)), `${String(code)} at ${String(statusCode)} settled the event`).toBe(503);
     }
     expect(await answered(NETWORK_FAILURE())).toBe(503);
+    expect(new Set(logs.map(({ level, message }) => `${level} ${message}`))).toStrictEqual(new Set(["error mail.zustellung_ungeschrieben"]));
   });
 
   /* The tag block carries the row's id and the body the recipient. Asserted over the whole line, so a field added later

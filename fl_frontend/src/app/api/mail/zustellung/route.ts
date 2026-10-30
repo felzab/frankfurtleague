@@ -4,12 +4,11 @@ import { Webhook } from "svix";
 import z from "zod";
 
 import { resendWebhookSecret } from "@/core/config";
-import { APIBadStatusError, isRecordMissing } from "@/core/errors";
+import { APIBadStatusError } from "@/core/errors";
 import { postausgangPostEreignis } from "@/core/generated/client/sdk";
 import { PostausgangPostEreignisBody } from "@/core/generated/zod/inputs";
 import { logger } from "@/core/logging";
 import { POSTAUSGANG_TAG } from "@/core/mailKinds";
-import { isRuleRefusal } from "@/shared/utils/actionError";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { FLPostausgangEreignisPayload } from "@/core/generated/client/types";
@@ -149,19 +148,17 @@ export async function POST(request: NextRequest) {
   });
 }
 
-/** What the provider is told where the API did not take an event: the line, then a 200 or a retry. */
+/**
+ * What the provider is told where the API did not take an event: the line, then a retry. The endpoint answers every
+ * event it takes, a row gone or a state it may not follow among them, with `angewendet`, so any failure is a route
+ * mid-deploy or a write that never landed, which the provider's later send repairs.
+ */
 function unbeantwortet(error: unknown): NextResponse {
-  // Settled only on the API's answer about the event's own record: gone, or refused by a rule or the
-  // unique index. Any other answer, a route mid-deploy or an unsent write, leaves it for the provider to send again.
-  const beantwortet = isRecordMissing(error) || isRuleRefusal(error);
-
   // Never the tag block, the address or the provider's prose.
   logger.error("mail.zustellung_ungeschrieben", undefined, {
     name: error instanceof Error ? error.name : undefined,
     status: error instanceof APIBadStatusError ? error.statusCode : undefined,
   });
 
-  // A record missing is one an erasure or the retention sweep has already taken, and a refusal is the
-  // event's own answer: retrying either buys nothing and spends the endpoint's standing with the provider.
-  return beantwortet ? ANGEWENDET(false) : KEIN_BACKEND();
+  return KEIN_BACKEND();
 }
