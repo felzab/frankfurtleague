@@ -113,14 +113,8 @@ export const COPY = katalog({
         "Diese Schiedsrichterin oder dieser Schiedsrichter hat den eigenen Eintrag noch nicht bestätigt. Teile jemand anderen ein, oder warte auf die Bestätigung.",
       spiel_double_booked:
         "Spielort oder Schiedsrichter ist zu dieser Zeit schon für ein anderes Spiel eingeteilt. Wähle eine Uhrzeit mit mindestens vier Stunden Abstand, oder teile das Spiel anders ein.",
-      ergebnis_side_emptied:
-        "Dieses Spiel hat ein Ergebnis, deshalb lässt sich das Team nicht entfernen. Wähle ein anderes Team, oder lösche zuerst die Tore.",
-      spieltag_occupied: "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel. Wähle ein anderes Team oder einen anderen Tag.",
-      spieltag_occupied_by_the_resolution:
-        "Mit dieser Änderung würde der KO-Baum ein Team in zwei Spielen desselben Spieltags aufstellen. Gib einer der beiden Seiten eine andere Herkunft, oder nimm ein von Hand gesetztes Team aus einem der beiden Spiele.",
       eligibility_disqualified:
         "Dieses Team ist aus der Saison ausgeschieden und darf ab seinem Austritt nicht mehr aufgestellt sein. Wähle einen Tag vor dem Austritt oder ein anderes Team.",
-      eligibility_team_not_in_saison: "Dieses Team nimmt nicht an dieser Saison teil. Wähle ein Team dieser Saison.",
     } satisfies Partial<Record<Code, string>>,
 
     /** Beside the save button once the record is stored. */
