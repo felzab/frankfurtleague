@@ -25,7 +25,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
-from app.api.identitaet.schemas import FLErasure, FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
+from app.api.identitaet.schemas import FLErasure, FLErasureAdressePayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
 from app.api.identitaet.services import (
     eigene_namen,
     find_name_im_anlass_refusal,
@@ -198,7 +198,7 @@ async def revealed(database: AsyncDatabase, client: AsyncMongoClient, email: str
     """The reveal's own function outside a request, as `OPERATOR`, for a league holding no grant to sign in through."""
 
     return await get_erasure_ansicht_auf_anfrage(
-        ansicht_data=FLErasureAnsichtPayload(email=email),
+        ansicht_data=FLErasureAdressePayload(email=email),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],

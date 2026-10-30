@@ -36,7 +36,7 @@ from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung
 from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
 from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
-from app.api.identitaet.schemas import FLErasureAnsichtPayload, FLErasurePayload
+from app.api.identitaet.schemas import FLErasureAdressePayload, FLErasurePayload
 from app.api.identitaet.wiederherstellung import Read, Window, plan_replay, replay_line
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPayload
@@ -1522,7 +1522,7 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
                 row.adresswechsel for team in teams.teams for row in team.memberships if row.saison_id == SAISON_ID and team.id == TEAM_OID
             ]
             reveal = await call(
-                get_erasure_ansicht_auf_anfrage, database, client, ansicht_data=FLErasureAnsichtPayload(email=NEW_EMAIL), operator=reader
+                get_erasure_ansicht_auf_anfrage, database, client, ansicht_data=FLErasureAdressePayload(email=NEW_EMAIL), operator=reader
             )
             served = {
                 "pupils": [

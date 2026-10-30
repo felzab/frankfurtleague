@@ -9,7 +9,6 @@ import type {
   CheckIsLiveResponse,
   FLAblehnenBewerbungPayload,
   FLAblehnenBewerbungResponse,
-  FLAbmeldungPayload,
   FLAbmeldungResponse,
   FLActivateSaisonResponse,
   FLAdresswechselAdressePayload,
@@ -80,7 +79,7 @@ import type {
   FLEinladungWriteResponse,
   FLEinwilligungFassungResponse,
   FLEinwilligungSeitenResponse,
-  FLErasureAnsichtPayload,
+  FLErasureAdressePayload,
   FLErasureAnsichtResponse,
   FLErasurePayload,
   FLErasureResponse,
@@ -1919,7 +1918,7 @@ export const getIdentitaetPostAbmeldungUrl = () => {
  * @summary Log the ending of every session an address holds
  */
 export const identitaetPostAbmeldung = async (
-  fLAbmeldungPayload: FLAbmeldungPayload,
+  fLErasureAdressePayload: FLErasureAdressePayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLAbmeldungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -1938,7 +1937,7 @@ export const identitaetPostAbmeldung = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAbmeldungPayload),
+    body: JSON.stringify(fLErasureAdressePayload),
   });
 };
 
@@ -2078,7 +2077,7 @@ export const getIdentitaetGetErasureAnsichtAufAnfrageUrl = () => {
  * @summary Show what an erasure of an address would remove
  */
 export const identitaetGetErasureAnsichtAufAnfrage = async (
-  fLErasureAnsichtPayload: FLErasureAnsichtPayload,
+  fLErasureAdressePayload: FLErasureAdressePayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLErasureAnsichtResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -2097,7 +2096,7 @@ export const identitaetGetErasureAnsichtAufAnfrage = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLErasureAnsichtPayload),
+    body: JSON.stringify(fLErasureAdressePayload),
   });
 };
 

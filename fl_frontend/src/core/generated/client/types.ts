@@ -523,17 +523,6 @@ export interface FLAblehnenBewerbungResponse {
 }
 
 /**
- * The mailbox whose every session the page ends next, looked up as the erasure looks one up.
- */
-export interface FLAbmeldungPayload {
-  /**
-   * @maxLength 254
-   * @pattern @
-   */
-  email: string;
-}
-
-/**
  * The envelope alone: the log row it filed names no address to answer with.
  */
 export interface FLAbmeldungResponse {
@@ -3078,6 +3067,17 @@ export interface FLEinwilligungSeitenResponse {
   laufende_fassungen: FLEinwilligungSeitenResponseLaufendeFassungen;
 }
 
+/**
+ * The mailbox an erasure, its preview or a sign-out of every session is looked up by.
+ */
+export interface FLErasureAdressePayload {
+  /**
+   * @maxLength 254
+   * @pattern @
+   */
+  email: string;
+}
+
 export type FLErasureAnsichtAdresswechselEinsehbarVerwehrt =
   (typeof FLErasureAnsichtAdresswechselEinsehbarVerwehrt)[keyof typeof FLErasureAnsichtAdresswechselEinsehbarVerwehrt] | null;
 
@@ -3153,17 +3153,6 @@ export interface FLErasureAnsichtKader {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   team_name: string | null;
-}
-
-/**
- * The mailbox the reveal is read for, in the BODY for `FLSubjektPayload`'s reason.
- */
-export interface FLErasureAnsichtPayload {
-  /**
-   * @maxLength 254
-   * @pattern @
-   */
-  email: string;
 }
 
 export type FLErasureAnsichtRegistrierungStatus =
