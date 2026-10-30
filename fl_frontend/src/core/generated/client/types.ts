@@ -1932,17 +1932,6 @@ export interface FLBewerbungSingleResponse {
   bewerbung: FLBewerbung;
 }
 
-/**
- * Which candidates' notices the caller delivered. The backend re-judges them: an id that has stopped qualifying is skipped.
- */
-export interface FLBewerbungSweepAngekuendigtPayload {
-  /**
-   * @maxItems 83
-   * @items.pattern ^[0-9a-fA-F]{24}$
-   */
-  bewerbung_ids: string[];
-}
-
 export interface FLBewerbungSweepAngekuendigtResponse {
   angekuendigt: number;
   fehlgeschlagen: number;
@@ -1955,6 +1944,17 @@ export interface FLBewerbungSweepAngekuendigtResponse {
 export interface FLBewerbungSweepAusstehend {
   rolle: FLKontaktRolle;
   vorname: string | null;
+}
+
+/**
+ * The candidates from one pass's deletion list that this step names. The backend re-judges each, skipping one that no longer qualifies.
+ */
+export interface FLBewerbungSweepAuswahlPayload {
+  /**
+   * @maxItems 83
+   * @items.pattern ^[0-9a-fA-F]{24}$
+   */
+  bewerbung_ids: string[];
 }
 
 /**
@@ -1981,17 +1981,6 @@ export interface FLBewerbungSweepErinnerung {
   saison_id: string;
   schule: string;
   seats: FLBewerbungSweepSeat[];
-}
-
-/**
- * Which candidates to erase. The backend re-selects them: an id that has stopped qualifying, or that was never announced, is skipped.
- */
-export interface FLBewerbungSweepLoeschenPayload {
-  /**
-   * @maxItems 83
-   * @items.pattern ^[0-9a-fA-F]{24}$
-   */
-  bewerbung_ids: string[];
 }
 
 export interface FLBewerbungSweepLoeschenResponse {

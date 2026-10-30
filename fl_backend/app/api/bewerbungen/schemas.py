@@ -964,8 +964,8 @@ class FLBewerbungSweepResponse(BaseAPIResponse):
 DELETIONS_LISTED_PER_PASS: Final = 83
 
 
-class FLBewerbungSweepAngekuendigtPayload(BaseModel):
-    """Which candidates' notices the caller delivered. The backend re-judges them: an id that has stopped qualifying is skipped."""
+class FLBewerbungSweepAuswahlPayload(BaseModel):
+    """The candidates from one pass's deletion list that this step names. The backend re-judges each, skipping one that no longer qualifies."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -976,14 +976,6 @@ class FLBewerbungSweepAngekuendigtResponse(BaseAPIResponse):
     saison_id: str
     angekuendigt: int
     fehlgeschlagen: int
-
-
-class FLBewerbungSweepLoeschenPayload(BaseModel):
-    """Which candidates to erase. The backend re-selects them: an id that has stopped qualifying, or that was never announced, is skipped."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    bewerbung_ids: list[CustomObjectId] = Field(max_length=DELETIONS_LISTED_PER_PASS)
 
 
 class FLBewerbungSweepLoeschenResponse(BaseAPIResponse):

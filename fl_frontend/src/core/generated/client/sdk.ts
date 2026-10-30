@@ -60,9 +60,8 @@ import type {
   FLBewerbungPersonEinwilligungResponse,
   FLBewerbungSchulenResponse,
   FLBewerbungSingleResponse,
-  FLBewerbungSweepAngekuendigtPayload,
   FLBewerbungSweepAngekuendigtResponse,
-  FLBewerbungSweepLoeschenPayload,
+  FLBewerbungSweepAuswahlPayload,
   FLBewerbungSweepLoeschenResponse,
   FLBewerbungSweepResponse,
   FLBewerbungSweepSaisonsResponse,
@@ -1427,7 +1426,7 @@ export const getBewerbungenAngekuendigtBewerbungenUrl = (saisonId: string) => {
  */
 export const bewerbungenAngekuendigtBewerbungen = async (
   saisonId: string,
-  fLBewerbungSweepAngekuendigtPayload: FLBewerbungSweepAngekuendigtPayload,
+  fLBewerbungSweepAuswahlPayload: FLBewerbungSweepAuswahlPayload,
   options?: Parameters<typeof systemKeyTransport>[1],
 ): Promise<FLBewerbungSweepAngekuendigtResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -1446,7 +1445,7 @@ export const bewerbungenAngekuendigtBewerbungen = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungSweepAngekuendigtPayload),
+    body: JSON.stringify(fLBewerbungSweepAuswahlPayload),
   });
 };
 
@@ -1468,7 +1467,7 @@ export const getBewerbungenLoeschenBewerbungenUrl = (saisonId: string) => {
  */
 export const bewerbungenLoeschenBewerbungen = async (
   saisonId: string,
-  fLBewerbungSweepLoeschenPayload: FLBewerbungSweepLoeschenPayload,
+  fLBewerbungSweepAuswahlPayload: FLBewerbungSweepAuswahlPayload,
   options?: Parameters<typeof systemKeyTransport>[1],
 ): Promise<FLBewerbungSweepLoeschenResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -1487,7 +1486,7 @@ export const bewerbungenLoeschenBewerbungen = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungSweepLoeschenPayload),
+    body: JSON.stringify(fLBewerbungSweepAuswahlPayload),
   });
 };
 
