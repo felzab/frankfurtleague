@@ -198,7 +198,7 @@ async function ping(url: string | undefined, ausfaelle: readonly string[]): Prom
   }
 }
 
-/** The boot gates, each writing its own CRITICAL line before it throws: the environment and the secret files, the deployment a preflight names, then the signing key. */
+/** The boot gates, each writing its own CRITICAL line before it throws: the environment and the secret files, then the deployment a preflight names. */
 async function passBootGates() {
   // Importing it *is* the gate — validation runs during this module load, before anything is served.
   // Taken apart where it loads: the whole namespace would carry every secret's reader.
