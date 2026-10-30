@@ -76,14 +76,11 @@ async def get_bestaetigung_ansicht(
 
     # `find_one` rather than `pull_one_from_db`: a miss is this endpoint's own refusal, never a 404.
     raw = await schiedsrichter_collection.find_one(build_token_filter(token_hash=token_hash), projection=dict(BESTAETIGUNG_ANSICHT_FIELDS))
-    bestaetigung = None if raw is None else raw.get(BESTAETIGUNG_FELD)
-    frist = frist_of(bestaetigung)
-    # A matched row carries the block its hash sits in, so an unreadable deadline is a shape no
-    # validator admits: answered as the dead link rather than as the string "None", which the
-    # response model 500s on.
-    refuse(find_unknown_token_refusal(found=isinstance(frist, str)))
+    refuse(find_unknown_token_refusal(found=raw is not None))
     assert raw is not None
 
+    bestaetigung = raw.get(BESTAETIGUNG_FELD)
+    frist = frist_of(bestaetigung)
     einwilligung = raw.get(EINWILLIGUNG_FELD)
 
     gesperrt = await adressen_gesperrt(sperrliste, [str((raw.get("kontakt") or {}).get("email") or "")])

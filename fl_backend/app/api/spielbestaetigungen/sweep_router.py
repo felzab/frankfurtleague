@@ -91,8 +91,7 @@ router = APIRouter(
 
 # Each close costs three commands, logging the pre-image a restore needs, which a fan-out's count-only row
 # loses; a 20th close takes the worst call past
-# `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms round trip
-# (`tests/api/test_spielbestaetigung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`).
+# `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms round trip.
 CLOSES_PER_PASS: Final = 19
 
 # Counted in rows written, a fixture taken whole. With `REMINDERS_PER_PASS` at most `ANFRAGEN_LISTED_PER_PASS`, a
@@ -632,8 +631,7 @@ async def sweep_spielbestaetigungen(
             return _Minted(anfragen=[], einteilungen=[], written=0, inserted=[], fresh={})
 
         spiel_ids = [spiel["_id"] for spiel in spiele]
-        # One read for both, a second command taking the worst call past its deadline
-        # (`tests/api/test_spielbestaetigung_sweep_refusal.py :: SWEEP_OTHER_COMMANDS`).
+        # One read for both, a second command taking the worst call past its deadline.
         read = await pull_many_from_db(
             collection=spielbestaetigungen_collection,
             db_filter={

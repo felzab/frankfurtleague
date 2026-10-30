@@ -1,6 +1,6 @@
 from typing import Annotated, Final, Literal, Self
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
 from app.shared.schemas.aktor import FLVonAdmin
@@ -46,10 +46,13 @@ FLSpielbestaetigungZustand = Literal[
 ]
 
 # Single-line because the triage card renders it as one, and a stored break would forge a second line
-# beside it. Stripped before the floor counts, so spaces alone are no reason.
+# beside it. The ceiling and the pattern judge what arrives and the floor what the strip leaves, so
+# spaces alone are no reason and the published `maxLength` is the one the write keeps.
 CustomSpielbestaetigungBegruendung = Annotated[
     str,
-    StringConstraints(strip_whitespace=True, min_length=1, max_length=SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+    StringConstraints(max_length=SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+    AfterValidator(str.strip),
+    StringConstraints(min_length=1),
 ]
 
 
@@ -519,8 +522,7 @@ class FLSpielbestaetigungSweepResponse(BaseAPIResponse):
 # for a stamp list it would outrun.
 MITTEILUNGEN_PER_PASS: Final = 25
 
-# Three commands a row beside the call's other 3
-# (`tests/api/test_spielbestaetigung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
+# Three commands a row beside the call's other 3:
 # 252 commands at a 38 ms round trip plus 1.32 ms take 9.91 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 ANFRAGEN_LISTED_PER_PASS: Final = 83
 
