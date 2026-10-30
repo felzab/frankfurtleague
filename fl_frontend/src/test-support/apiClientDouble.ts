@@ -99,7 +99,7 @@ type ApiAnswer = (call: ApiCall) => Promise<unknown>;
  * of that case: the double a suite drives a slice's real `mutations.ts` through. Each answer passes through the schema
  * its caller handed.
  */
-export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({ acknowledged: 1 })): {
+export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({})): {
   calls: ApiCall[];
   answerWith: (next: ApiAnswer) => void;
   /** Awaited before reading what a case's answers set off, so every answer has landed. */

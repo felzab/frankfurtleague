@@ -120,9 +120,13 @@ that serves the site and stops when it stops. A pass runs each job in turn: the 
 (`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`) and the grants' notices
 (`fl_frontend/src/features/berechtigungen/abgleich.ts :: runBerechtigungenAbgleich`). Then the
 Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainPostausgang`) sends what they owed; a
-write that owes a mail drains at once besides. **No switch holds a job back**: every job runs
+write that owes a mail drains at once besides. **No switch holds one job back**: every job runs
 wherever a production build runs, the local stack included (§1.5), and a `next dev` process arms
-nothing. Production declares no replicas, so one process arms one timer, and an hour that finds the
+nothing. **`RESTORE_HOLD=on` in `fl_frontend/.env` holds them all, for a restore alone**
+([`runbooks.md`](runbooks.md) §13): read once at the boot, off where the file sets nothing, it arms
+no pass and makes a write's drain send nothing
+(`fl_frontend/src/core/afterResponse.ts :: drainSoon`), the mail waiting in the Postausgang for the
+first drain after it. Production declares no replicas, so one process arms one timer, and an hour that finds the
 previous pass still running is skipped with one line rather than overlapping it. Every job selects
 on dates, lapses or season statuses and is idempotent, so a redeploy, a restart and a missed hour
 each cost nothing, and a job that throws stops none of the others. The deletion notice is
@@ -242,6 +246,7 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | `/_next/static/`                      | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`, and the server-action pair, which meters no GET                                                                                                    |
 | `/bestaetigung/`                      | `frontend:3000` | Every link page under it, a PREFIX: paired `limit_req` `zone=linkseite burst=60` and `zone=linkseite48 burst=600` on every request, beside `/`'s ceiling and action pair                                 |
 | `= /registrierung` and `= /loeschung` | `frontend:3000` | The two link pages outside that segment, a team's invite and the deletion link: `/bestaetigung/`'s lines, each with its twin                                                                             |
+| `= /bereich/konto`                    | `frontend:3000` | The account page: paired `limit_req` `zone=konto burst=10` and `zone=konto48 burst=100` on its POSTs, beside `/`'s ceiling and action pair, with its twin                                                |
 | `/`                                   | `frontend:3000` | Catch-all — `limit_conn conn 50`, and the server-action pair, which meters nothing else                                                                                                                  |
 
 **The edge reaches each upstream by its service name as it serves, never by an address read at

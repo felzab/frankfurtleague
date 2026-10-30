@@ -16619,6 +16619,11 @@
           },
           "saison_phase": {
             "$ref": "#/components/schemas/FLSaisonPhase"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -16628,6 +16633,7 @@
           "position",
           "saison_phase",
           "saison_id",
+          "version",
           "anzahl_spiele"
         ],
         "title": "FLSpieltag",
@@ -22846,7 +22852,7 @@
     },
     "/api/v0/postausgang/ausgabe": {
       "post": {
-        "description": "Claim, oldest first and a page at a time, the owed mails no claim holds, for five minutes, and hand each out.\n\nA mail past its deadline is given up rather than handed out, and counted in `aufgegeben`. A mail to an address a\nstanding ban holds is stopped as `gesperrt`, the ban's own notice alone excepted. A mail carrying a link has it minted\nhere, its hash written to the record the mail is about and the raw token answered once, in `token`; a record gone\nsince, or one no longer holding the mail's address where its link names it, stops the mail as `entfallen`. A second\ncall inside the lease is answered none of these rows. The caller sends\neach under the idempotency key its `versuch` names and reports every outcome, with `beanspruchung`, to `POST /postausgang/ergebnis`;\nwhere the lease lapses first, the next call hands the row out again with a fresh link and number, every earlier link\nstaying valid unless the mail's link supersedes them. Server to server alone: the answer names addresses, live links\nand secrets.",
+        "description": "Claim, a page at a time, the owed mails no claim holds, for five minutes, and hand each out.\n\nThe sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline\nis given up rather than handed out, and counted in `aufgegeben`. A mail to an address a standing ban holds is stopped\nas `gesperrt`, the ban's own notice alone excepted. A mail carrying a link has it minted here, its hash written to\nthe record the mail is about and the raw token answered once, in `token`; a record gone since, or one no longer\nholding the mail's address where its link names it, stops the mail as `entfallen`. A second call inside the lease is\nanswered none of these rows. The caller sends each under the idempotency key its `versuch` names and reports every\noutcome, with `beanspruchung`, to `POST /postausgang/ergebnis`;\nwhere the lease lapses first, the next call hands the row out again with a fresh link and number, every earlier link\nstaying valid unless the mail's link supersedes them. Server to server alone: the answer names addresses, live links\nand secrets.",
         "operationId": "postausgang_post_ausgabe",
         "responses": {
           "200": {

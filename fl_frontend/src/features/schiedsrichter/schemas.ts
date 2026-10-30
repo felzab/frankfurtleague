@@ -9,7 +9,7 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 
 import { alterAusserhalb } from "./constants";
 
-import type { FLKontakt } from "@/shared/schemas";
+import type { FLKontakt } from "@/core/generated/client/types";
 
 // A whole name held to the ceiling one part of any other person's name takes: one number, and one
 // sentence, on every form.
@@ -86,7 +86,7 @@ const bestaetigungToken = z
  * and a scope in the record would leave the page and the row disagreeing about what „intern“ means.
  */
 // The message an UNANSWERED control raises as well as a drifted one: nothing preselects this choice.
-export const FLSchiedsrichterUmfangSchema = z.enum(["kader_oeffentlich", "intern"], {
+const FLSchiedsrichterUmfangSchema = z.enum(["kader_oeffentlich", "intern"], {
   error: "Bitte wähle aus, was im Spielplan stehen darf.",
 });
 

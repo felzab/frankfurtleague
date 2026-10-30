@@ -10,7 +10,7 @@ import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { useReactivation } from "@/shared/hooks/useReactivation";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
-import type { FLAddress } from "@/shared/schemas";
+import type { FLAddress } from "@/core/generated/client/types";
 
 /**
  * Retiring and reactivating are facts about the row rather than values the save bar commits, each writing through its

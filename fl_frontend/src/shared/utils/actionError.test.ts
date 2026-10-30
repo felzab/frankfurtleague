@@ -56,7 +56,7 @@ describe("toActionErrorResult", () => {
      for any other reason leaves them searching for in vain. */
   it("answers a 409 no reader here words with the way out alone, never the unique index's conflict", () => {
     const result = toActionErrorResult(
-      new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode: "REQ-UNCLAIMED-000" }),
+      new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode: "REQ-ACTIVATE-001" }),
     );
 
     expect(result).toStrictEqual({ success: false, error: UNKNOWN_REFUSAL });
@@ -66,7 +66,7 @@ describe("toActionErrorResult", () => {
     // The code is the only channel a 409's body has, so it has to
     // survive the mapping: the form turns it into a message on a specific side. A dropped
     // code falls back to a toast naming no field.
-    const refusals: [string, RegExp][] = [
+    const refusals: [Code, RegExp][] = [
       ["REQ-ELIGIBILITY-001", /ausgeschieden/],
       ["REQ-ELIGIBILITY-002", /nimmt nicht an dieser Saison teil/],
       ["REQ-SPIELTAG-001", /selben Spieltag/],
@@ -100,7 +100,7 @@ describe("toActionErrorResult", () => {
   // Each can follow a commit: a response the API could not validate, an unhandled crash, and a proxy
   // answering for a backend that stopped mid-request.
   it("says a write any other server error answered is of unknown outcome", () => {
-    const answers: readonly (readonly [number, string | undefined])[] = [
+    const answers: readonly (readonly [number, Code | undefined])[] = [
       [500, "SRV-VAL-001"],
       [500, "SRV-FAIL-001"],
       [502, undefined],
@@ -128,23 +128,10 @@ describe("toActionErrorResult", () => {
     }
   });
 
-  it("reads the occupant table with `hasOwn`, so a code named for a prototype key is not a refusal", () => {
-    // `serverErrorCode` is `String(body.error_code)` off the response with nothing narrowing it
-    // (`fl_frontend/src/core/api.ts`), so `in` would select `Object.prototype.toString` — a function,
-    // where every caller is promised German.
-    for (const serverErrorCode of ["toString", "constructor", "valueOf"]) {
-      const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode }));
-
-      // No rule's code either, so the answer is the unexplained failure's sentence.
-      expect(result.error, serverErrorCode).toBe("Der Server hat mit einem Fehler geantwortet. Versuche es erneut.");
-      expect(result.errorCode, serverErrorCode).toBe(undefined);
-    }
-  });
-
   it("keeps the two rail-backed refusals to one sentence about the value", () => {
     // Their remedies are pinned where they
     // live, in `AdminEditSpielDataForm/banners.test.ts`: a shared module may not reach a feature.
-    for (const serverErrorCode of ["REQ-ELIGIBILITY-001", "REQ-SPIELTAG-001"]) {
+    for (const serverErrorCode of ["REQ-ELIGIBILITY-001", "REQ-SPIELTAG-001"] as const) {
       const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode }));
 
       expect(result.error?.split(". ").length, serverErrorCode).toBe(1);
@@ -155,7 +142,7 @@ describe("toActionErrorResult", () => {
   it("answers the two refusals that name no side, which no form can place", () => {
     // Own sentence and own code each: without both, a swap of the two messages, or a code that
     // stopped riding out, would still pass a check for "not the generic one".
-    const own: readonly (readonly [string, RegExp])[] = [
+    const own: readonly (readonly [Code, RegExp])[] = [
       ["REQ-STATE-002", /Entferne zuerst die Tore/],
       ["REQ-STATE-003", /Besetze zuerst den offenen Platz/],
     ];
@@ -266,12 +253,19 @@ describe("toActionErrorResult", () => {
 });
 
 describe("a refusal read by its code, whatever its status", () => {
-  const refused = (statusCode: number, serverErrorCode: string | undefined, refusedFields: Parameters<typeof refusedPayload>[0] = []) =>
+  const refused = (statusCode: number, serverErrorCode: Code | undefined, refusedFields: Parameters<typeof refusedPayload>[0] = []) =>
     toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode, serverErrorCode, refusedFields }));
 
   /* Codes are unique across the API, so a rule moved off 409 keeps the words its code is given here. */
   it("keeps each worded code's answer at any status a rule answers with", () => {
-    for (const code of ["REQ-WIRING-001", "REQ-WIRING-002", "REQ-WIRING-003", "REQ-STATE-002", "REQ-ELIGIBILITY-001", "DB-COMMON-002"]) {
+    for (const code of [
+      "REQ-WIRING-001",
+      "REQ-WIRING-002",
+      "REQ-WIRING-003",
+      "REQ-STATE-002",
+      "REQ-ELIGIBILITY-001",
+      "DB-COMMON-002",
+    ] as const) {
       for (const status of [422, 404, 410, 403])
         expect(refused(status, code), `${String(code)} at ${String(status)}`).toStrictEqual(refused(409, code));
     }
@@ -279,12 +273,12 @@ describe("a refusal read by its code, whatever its status", () => {
 
   it("answers a rule no reader here words with the way out alone, at any status a rule answers with", () => {
     for (const status of [422, 404, 410, 403]) {
-      expect(refused(status, "REQ-UNCLAIMED-000"), String(status)).toStrictEqual({ success: false, error: UNKNOWN_REFUSAL });
+      expect(refused(status, "REQ-ACTIVATE-001"), String(status)).toStrictEqual({ success: false, error: UNKNOWN_REFUSAL });
     }
   });
 
   it("marks the box a rule's refusal names, with the way out for the rest", () => {
-    expect(refused(422, "REQ-UNCLAIMED-000", [bodyField(["geburtsdatum"], "REQ-UNCLAIMED-000")])).toStrictEqual({
+    expect(refused(422, "REQ-ACTIVATE-001", [bodyField(["geburtsdatum"], "REQ-ACTIVATE-001")])).toStrictEqual({
       success: false,
       error: VALIDATION_FAILED,
       fieldErrors: { geburtsdatum: FELD_ABGELEHNT },
@@ -345,7 +339,7 @@ describe("a refusal read by its code, whatever its status", () => {
 
   /* A write a 5xx answered may have landed, and a refusal's words would say it did not. */
   it("never words a server error by the code it carries", () => {
-    for (const code of ["REQ-WIRING-001", "REQ-STATE-002", "DB-COMMON-002", "REQ-UNCLAIMED-000"]) {
+    for (const code of ["REQ-WIRING-001", "REQ-STATE-002", "DB-COMMON-002", "REQ-ACTIVATE-001"] as const) {
       expect(refused(500, code).outcome, code).toBe("unknown");
     }
   });

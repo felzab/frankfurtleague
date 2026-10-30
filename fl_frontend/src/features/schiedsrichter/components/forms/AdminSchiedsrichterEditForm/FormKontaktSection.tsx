@@ -12,9 +12,9 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { TextField } from "@/shared/components/ui/TextField";
 
+import type { FLKontakt } from "@/core/generated/client/types";
 import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
 import type { SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
-import type { FLKontakt } from "@/shared/schemas";
 
 /**
  * A confirmed referee's address, which the save refuses to move (`REQ-SCHIEDSRICHTER-011`): shown, with the
@@ -23,7 +23,7 @@ import type { FLKontakt } from "@/shared/schemas";
 export type BestaetigteAdresse = { email: string; adresswechselId: string | null; adresswechselVerwehrt: EinsehbarVerwehrt | null };
 
 /**
- * Each field submits `null` when emptied. `FLKontaktSchema` accepts a blank string too, so this is
+ * Each field submits `null` when emptied. `FLKontakt` admits a blank string too, so this is
  * a choice: two spellings of "nothing recorded" would make the change list report an edit nobody
  * made.
  */

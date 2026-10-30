@@ -373,9 +373,12 @@ for (const name of db.getCollectionNames()) {
 }
 
 // Ordered: an insert the validator refuses throws with the server's own account of the field, and
-// mongosh exits non-zero on it.
+// mongosh exits non-zero on it. Each document carries the `version: 0` the backend's create stamps:
+// every collection seeded here is in `fl_backend/app/core/collections.py :: EDITED_COLLECTIONS`, whose
+// saves match on the version their editor was served, and none matches a document without one.
 for (const [name, documents] of Object.entries(DOCUMENTS)) {
-  const inserted = db.getCollection(name).insertMany(documents, { ordered: true }).insertedIds;
+  const versioned = documents.map((document) => ({ ...document, version: 0 }));
+  const inserted = db.getCollection(name).insertMany(versioned, { ordered: true }).insertedIds;
   print(`seeded ${name}: ${Object.keys(inserted).length} document(s)`);
 }
 

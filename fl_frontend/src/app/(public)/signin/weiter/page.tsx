@@ -8,8 +8,8 @@ import { openGraphFor } from "@/shared/utils/metadata";
 import type { Metadata } from "next";
 
 /**
- * `noindex` as `/signin` spells it. It
- * carries no parameter, so `.claude/rules/frontend.md` **auth** has nothing to allowlist.
+ * `noindex` as `/signin` spells it. It carries no parameter, so no return destination rides it, and the allowlist one
+ * would need first (`docs/decisions.md`, **auth**) has nothing to judge.
  */
 export const metadata: Metadata = {
   title: "Anmeldung",

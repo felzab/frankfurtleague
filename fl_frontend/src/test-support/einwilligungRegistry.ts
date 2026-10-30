@@ -3,7 +3,7 @@ import { APIBadStatusError } from "@/core/errors";
 import REGISTRY from "./einwilligungRegistry.json";
 
 import type { EinwilligungSeite } from "@/core/einwilligungSeiten";
-import type { FLEinwilligungFassung } from "@/core/schemas";
+import type { FLEinwilligungFassung } from "@/core/generated/client/types";
 
 /**
  * A plain fixture of the consent registry: each page's running label and the words of those and of four older labels

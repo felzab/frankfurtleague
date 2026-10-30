@@ -101,7 +101,11 @@ const API_ORIGIN = "http://backend.test";
 /* The code is caught on its way out rather than off the store: `storeOTP: "encrypted"` means the
    stored value is not the code, and a `sendVerificationOTP` double would replace the send gate this
    file is checking with itself. */
-const { sent, answerWith: answerMail } = registerAuthDoubles({
+const {
+  sent,
+  owed,
+  answerWith: answerMail,
+} = registerAuthDoubles({
   core: {
     db: DB_DOUBLE,
     logging: LOGGING_DOUBLE,
@@ -2394,72 +2398,28 @@ describe("what the library's own log stream reaches this application as", () => 
   });
 });
 
-/* A filed message is the mailer's own `mail.withheld` line alone: a failure line beside it reads every
-   local sign-in and enrolment as a message that never left. */
-describe("a send this deployment withheld", () => {
+/* What the send and the notice owe the stream where the backend never took the mail: a withheld or barred send is the
+   drain's, recorded on the row. */
+describe("a sign-in mail the Postausgang never took", () => {
   const failedLines = (event: string) => logged.filter((line) => line.message === event).map((line) => line.meta);
 
-  it("logs no failed code send, where a refused one logs its line", async () => {
-    answerMail(() => "withheld");
+  it("logs the code's send by the error's name alone", async () => {
+    answerMail(() => "lost");
     logged.length = 0;
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    expect(sent.length, "the gate mailed nothing, so no send was withheld").toBe(1);
-    expect(failedLines("auth.code_send_failed")).toStrictEqual([]);
 
-    answerMail(() => "refused");
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    expect(failedLines("auth.code_send_failed")).toStrictEqual([{ name: "MailSendError" }]);
+
+    expect(failedLines("auth.code_send_failed")).toStrictEqual([{ name: "APINetworkError" }]);
   });
 
-  it("logs no failed passkey notice", async () => {
+  it("leaves the enrolment standing, and logs the notice", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
-    answerMail(() => "withheld");
-    logged.length = 0;
-    const before = sent.length;
-
-    expect((await enrolPasskey(cookie)).status).toBe(200);
-
-    expect(sent.length, "the enrolment mailed nothing, so no notice was withheld").toBe(before + 1);
-    expect(failedLines("auth.passkey_notice_failed")).toStrictEqual([]);
-  });
-
-  it("logs a passkey notice whose send was refused", async () => {
-    const { cookie } = await signIn(ADMIN_EMAIL);
-    answerMail(() => "refused");
+    answerMail(() => "lost");
     logged.length = 0;
 
     expect((await enrolPasskey(cookie)).status).toBe(200);
 
-    expect(failedLines("auth.passkey_notice_failed")).toStrictEqual([{ name: "MailSendError" }]);
-  });
-});
-
-/* A barred send is the gate's own line alone: a failure line beside
-   it reads a ban working as a mailbox that failed. */
-describe("a send the ban list kept", () => {
-  const failedLines = (event: string) => logged.filter((line) => line.message === event).map((line) => line.meta);
-
-  it("logs no failed code send", async () => {
-    answerMail(() => "barred");
-    logged.length = 0;
-    const before = sent.length;
-
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-
-    expect(sent.length, "the sign-in gate mailed nothing, so the mailer barred nothing").toBe(before + 1);
-    expect(failedLines("auth.code_send_failed")).toStrictEqual([]);
-  });
-
-  it("logs no failed passkey notice, and the enrolment stands", async () => {
-    const { cookie } = await signIn(ADMIN_EMAIL);
-    answerMail(() => "barred");
-    logged.length = 0;
-    const before = sent.length;
-
-    expect((await enrolPasskey(cookie)).status).toBe(200);
-
-    expect(sent.length, "the enrolment mailed nothing, so the mailer barred nothing").toBe(before + 1);
-    expect(failedLines("auth.passkey_notice_failed")).toStrictEqual([]);
+    expect(failedLines("auth.passkey_notice_failed")).toStrictEqual([{ name: "APINetworkError" }]);
   });
 });
 
@@ -2490,14 +2450,18 @@ describe("what the code costs an address holding nothing", () => {
     expect(sent.slice(before).length, "the gate refused an address differing only in case").toBe(1);
   });
 
-  /* The one thing telling this lane's delivery events from the application flow's: untagged, the
-     bounce that locks somebody out of their own mailbox reaches no reader at all. */
-  it("tags the sign-in mail on the lane the delivery webhook reads it by", async () => {
+  /* The row lives in the league's database for as long as the code does: sealed under a key the backend never holds,
+     the code is no row's to read. The mail itself is the sealed secret opened, so the code it carries is the round trip. */
+  it("owes the code sealed, no field of the row holding it", async () => {
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    const otp = lastMailedCode(sent, ADMIN_EMAIL);
+    assert.ok(otp !== null, "the opened row carries no code");
 
-    // The pair written out: read from `fl_frontend/src/core/anmeldeTag.ts` this would compare the
-    // constants with themselves, and the webhook reader is a second tree holding the same two words.
-    expect(sent.at(-1)?.tags).toStrictEqual({ anmeldung: "code" });
+    const row = owed.at(-1);
+    assert.ok(row !== undefined, "nothing was owed");
+    expect(row.daten, "the row is not the code's").toStrictEqual({ art: "anmeldecode" });
+    assert.ok(row.geheim !== null, "the row carries no secret, so the mail could not have");
+    assert.ok(!JSON.stringify(row).includes(otp), "the row the backend stores holds the code readable");
   });
 
   it("keeps the mailed code out of the store, which holds it encrypted", async () => {
@@ -3535,6 +3499,8 @@ describe("a person's own account deletion", () => {
     expect(stored.length, "the request stored no token for the account").toBe(1);
     assert.ok(stored[0]?.identifier === `delete-account-${mailedToken(email)}`, "the mail carries a token the store does not hold");
     expect(store.user.filter((user) => user.id === row.userId).length, "the request deleted the account").toBe(1);
+    // The token completes the deletion, so the row the backend stores carries it sealed, as it does the code.
+    assert.ok(!JSON.stringify(owed.findLast((entry) => entry.an === email)).includes(mailedToken(email)), "the row holds the token readable");
   });
 
   it("deletes the account, its sessions, its passkeys and every pending row of its address once the records are erased, and nobody else's", async () => {
@@ -3764,26 +3730,15 @@ describe("a person's own account deletion", () => {
   });
 
   /* The library swallows a throw from its sender and answers the press as sent whatever happened, so what
-     tells a filed send from a failed one is the stream alone. */
-  it("logs no failure for a send this deployment withheld or the ban list kept, and the library's own line for a refused one", async () => {
+     tells an owed link from a lost one is the stream alone. */
+  it("logs the library's own line for a link the Postausgang never took", async () => {
     const { cookie } = await signIn("versand-loeschung@example.org");
-    const headers = new Headers({ ...ORIGIN, cookie });
     const failures = () => logged.filter((line) => line.message === "auth.library_failed").map((line) => line.meta.name);
-
-    for (const outcome of ["withheld", "barred"] as const) {
-      answerMail(() => outcome);
-      logged.length = 0;
-      const before = sent.length;
-
-      expect((await requestAccountDeletion(headers)).success).toBe(true);
-      expect(sent.length, `the request mailed nothing, so no send was ${outcome}`).toBe(before + 1);
-      expect(failures(), `a ${outcome} send was logged as a failure`).toStrictEqual([]);
-    }
-
-    answerMail(() => "refused");
+    answerMail(() => "lost");
     logged.length = 0;
-    expect((await requestAccountDeletion(headers)).success).toBe(true);
-    expect(failures()).toStrictEqual(["MailSendError"]);
+
+    expect((await requestAccountDeletion(new Headers({ ...ORIGIN, cookie }))).success).toBe(true);
+    expect(failures()).toStrictEqual(["APINetworkError"]);
   });
 });
 

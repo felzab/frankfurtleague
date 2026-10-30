@@ -156,30 +156,32 @@ const NEXT_AFTER = {
     "Schedule work behind the response through fl_frontend/src/core/afterResponse.ts :: afterTheResponse, which bounds it by the deadline a stopping container waits out.",
 };
 
-/** The settings module, which every server module imports and whose secret readers lint deals out one owner each. */
+/** The settings module, which every server module imports and whose secret readers lint deals out to their owners. */
 const CONFIG_MODULE = moduleNamed("config");
 
 /**
- * Each secret's reader in `fl_frontend/src/core/config.ts`, keyed by the one module that may import it:
+ * Each secret's reader in `fl_frontend/src/core/config.ts`, keyed by the secret, with the modules that may import it:
  * a reader anywhere else hands its secret to a module nothing reviewed as its holder.
  */
 const SECRET_READERS = Object.fromEntries(
   [
-    ["src/core/db.ts", ["mongodbUri"], "the sign-in store's credential"],
-    ["src/core/auth.ts", ["authSecret"], "the key every session is signed with"],
+    [["src/core/db.ts"], ["mongodbUri"], "the sign-in store's credential"],
+    // The drain opens a sign-in mail's secret with it, which `auth.ts` sealed (`better-auth/crypto :: symmetricDecrypt`).
+    [["src/core/auth.ts", "src/core/mail.ts"], ["authSecret"], "the key every session is signed with"],
     // The key lets a send leave without `sendMail`, and so without the ban list's gate.
-    ["src/core/mail.ts", ["authResendKey"], "the provider's key, which sends past the ban list's gate"],
-    ["src/app/api/mail/zustellung/route.ts", ["resendWebhookSecret"], "the key the provider's delivery reports are verified with"],
+    [["src/core/mail.ts"], ["authResendKey"], "the provider's key, which sends past the ban list's gate"],
+    [["src/app/api/mail/zustellung/route.ts"], ["resendWebhookSecret"], "the key the provider's delivery reports are verified with"],
     // The system's key calls the backend as the system, past every guard on an admin's session.
-    ["src/core/api.ts", ["internalApiKeyBase", "internalApiKeySystem", "internalApiKeyAdmin"], "the backend's keys"],
-    ["src/core/turnstile.ts", ["turnstileSecretKey"], "the key the bot check's tokens are verified with"],
-    ["src/instrumentation-node.ts", ["heartbeatUrl"], "the monitor's address, whose token reports the passes"],
-  ].map(([owner, importNames, secret]) => [
-    owner,
+    [["src/core/api.ts"], ["internalApiKeyBase", "internalApiKeySystem", "internalApiKeyAdmin"], "the backend's keys"],
+    [["src/core/turnstile.ts"], ["turnstileSecretKey"], "the key the bot check's tokens are verified with"],
+    [["src/instrumentation-node.ts"], ["heartbeatUrl"], "the monitor's address, whose token reports the passes"],
+  ].map(([owners, importNames, secret]) => [
+    secret,
     {
+      owners,
       regex: CONFIG_MODULE,
       importNames,
-      message: `${importNames.join(", ")} ${importNames.length === 1 ? "hands" : "hand"} out ${secret}: fl_frontend/${owner} imports ${importNames.length === 1 ? "it" : "them"}, and a *.test.ts(x) file may; nothing else may.`,
+      message: `${importNames.join(", ")} ${importNames.length === 1 ? "hands" : "hand"} out ${secret}: ${owners.map((owner) => `fl_frontend/${owner}`).join(" and ")} ${owners.length === 1 ? "imports" : "import"} ${importNames.length === 1 ? "it" : "them"}, and a *.test.ts(x) file may; nothing else may.`,
     },
   ]),
 );
@@ -378,7 +380,7 @@ const IMPORT_BANS = [
   importBan(LOCALE_PROVIDER, PRODUCTION, { allow: ["src/core/providers/RootProviders.tsx"] }),
   // The two session guards import the actor's signing module statically; the boot loads it by `import()`.
   importBan(NEXT_AFTER, PRODUCTION, { allow: ["src/core/afterResponse.ts"] }),
-  ...Object.entries(SECRET_READERS).map(([owner, entry]) => importBan(entry, PRODUCTION, { allow: [owner] })),
+  ...Object.values(SECRET_READERS).map(({ owners, ...entry }) => importBan(entry, PRODUCTION, { allow: owners })),
   // `no-restricted-imports` reads import and export declarations alone, so an `import()` would hand out every
   // secret reader past the bans above. The boot alone loads the settings by `import()`: their validation throws
   // while the module loads, and the boot turns that rejection into its refusal.

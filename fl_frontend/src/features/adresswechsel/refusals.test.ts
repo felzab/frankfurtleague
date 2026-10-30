@@ -12,6 +12,8 @@ import {
   mapVerwaltungStartRefusal,
 } from "./refusals.ts";
 
+import type { Code } from "@/core/generated/client/types.ts";
+
 describe("an approval refused for who presses it", () => {
   /* The closed press on the grant's row and the refused press say one reason alike, whichever the page showed first. */
   it("says the refusal in the closed press's own words", () => {
@@ -34,7 +36,7 @@ describe("an approval refused for who presses it", () => {
 
 describe("where an approval its effect refused sends the approver", () => {
   // Each of the effect's own refusals leaves the change standing unapproved, for somebody to discard.
-  const OFFEN_GELASSEN = [
+  const OFFEN_GELASSEN: Code[] = [
     "REQ-ADRESSWECHSEL-004",
     "REQ-ADRESSWECHSEL-005",
     "REQ-ADRESSWECHSEL-006",

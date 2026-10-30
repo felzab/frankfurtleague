@@ -25,8 +25,9 @@ export async function registerOnNode() {
   logger.info("system.started", { version: frontend_config.APP_VERSION ?? null });
 
   // `next dev` never sets NODE_ENV to production, and a developer's machine holds a real transport
-  // and the league's real people.
-  if (process.env.NODE_ENV === "production") armScheduler(await loadJobs(), heartbeatUrl());
+  // and the league's real people. A restore's hold arms nothing, and says so: the heartbeat then misses its pings.
+  if (process.env.NODE_ENV === "production" && frontend_config.RESTORE_HOLD === "on") logger.warn("scheduler.held");
+  else if (process.env.NODE_ENV === "production") armScheduler(await loadJobs(), heartbeatUrl());
 
   // Unawaited, both: Next serves nothing until this hook returns, and the public pages serve without the sign-in
   // store and its indexes, where an outage of the store would otherwise hold every page.

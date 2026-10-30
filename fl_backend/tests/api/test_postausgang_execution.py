@@ -36,6 +36,7 @@ from app.api.postausgang.schemas import (
 from app.api.postausgang.services import (
     BEANSPRUCHUNG_DAUER,
     NACHLAUF,
+    SEITE,
     WIEDERHOLUNG_NACH,
     OwedMail,
     enqueue_mail,
@@ -294,6 +295,21 @@ class TestTheDrain:
 
 
 class TestTheSignInCode:
+    def test_it_is_handed_out_ahead_of_a_full_page_of_older_league_mail(self, mongo_replica_set_url: str):
+        """It has one attempt inside its lapse, so a queue of league mail ahead of it would spend the drain's deadline."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            for position in range(SEITE):
+                await owe(database, client, f"sperre/{position}")
+            code = await owe(database, client, "anmeldecode/1", daten=FLAnmeldecodeDaten(art="anmeldecode"))
+            answer = await claimed(database, client)
+
+            return code, [mail.id for mail in answer.mails]
+
+        code, handed = on_a_database(mongo_replica_set_url, body)
+
+        assert (handed[0], len(handed)) == (code, SEITE)
+
     def test_a_failed_send_gives_it_up_and_its_secret_goes_with_the_final_state(self, mongo_replica_set_url: str):
         """The library repairs a failed code with a fresh one, so the row is tried once; its own lapse stays its delete date."""
 

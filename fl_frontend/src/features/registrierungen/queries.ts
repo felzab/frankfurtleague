@@ -19,7 +19,7 @@ import type { RegistrierungStart, SpielerBestaetigungAnsicht } from "./types";
  */
 export const getOffeneRegistrierungen = cache(
   async (teamId: string, saisonId: string, order: Leserichtung): Promise<FLOffeneRegistrierungenResponse> =>
-    runPersonRead(() => registrierungenGetOffeneRegistrierungen(encodeURIComponent(teamId), encodeURIComponent(saisonId), { order: order })),
+    runPersonRead(() => registrierungenGetOffeneRegistrierungen(teamId, saisonId, { order: order })),
 );
 
 /**

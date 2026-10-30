@@ -34,7 +34,7 @@ export const getAdminSaisons = cache(async (): Promise<FLSaisonsListResponse> =>
  * render: a count from before another season's activation names people who are already gone.
  */
 export async function getLoeschungVorschau(saisonId: string): Promise<FLLoeschungVorschauResponse> {
-  return runAdminRead(() => saisonsPreviewLoeschung(encodeURIComponent(saisonId)));
+  return runAdminRead(() => saisonsPreviewLoeschung(saisonId));
 }
 
 /**

@@ -83,7 +83,7 @@ function mergeFieldVerdicts(submitErrors: FieldErrors, verdicts: FieldVerdicts):
 
 /**
  * The paths a re-judge now accepts, or `null` where none moved. **It only ever retracts**: a path showing nothing is
- * never considered, so no message can appear between keystrokes (`.claude/rules/frontend.md`), and one still refused stands.
+ * never considered, so no message can appear between keystrokes (`docs/decisions.md`, **forms**), and one still refused stands.
  */
 function forgivenVerdicts<TSchema extends string>({
   shown,
@@ -352,7 +352,7 @@ export function useDraftFieldErrors<TSchema extends string>({
 
   /**
    * **Forgiveness, and only forgiveness.** Retracts the messages the schema now accepts, so a corrected field clears
-   * without a blur. It can never ADD one: `.claude/rules/frontend.md` forbids judging a typed field between two keystrokes.
+   * without a blur. It can never ADD one: a typed field is never judged between two keystrokes (`docs/decisions.md`, **forms**).
    */
   const useForgiveFixed = (payloads: Readonly<Partial<Record<TSchema, unknown>>>) => {
     const shown = mergeFieldVerdicts(submitErrors, verdicts);

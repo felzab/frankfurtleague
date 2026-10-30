@@ -1,6 +1,6 @@
 import { ZEITZONE } from "@/core/format";
 
-import type { FLAddress } from "../schemas";
+import type { FLAddress } from "@/core/generated/client/types";
 
 /**
  * One placeholder per category, so an absent value looks the same everywhere it appears. Spelled at the call site

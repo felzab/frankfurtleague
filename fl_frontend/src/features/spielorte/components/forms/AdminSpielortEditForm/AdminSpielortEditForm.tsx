@@ -26,11 +26,11 @@ import { FormAdresseSection } from "./FormAdresseSection";
 import { FormMieteSection } from "./FormMieteSection";
 import { FormSpielortSection } from "./FormSpielortSection";
 
+import type { FLAddress } from "@/core/generated/client/types";
 import type { FLPatchSpielortPayload } from "@/features/spielorte/schemas";
 import type { FLSpielortDraftFields, SpielortFieldPath } from "@/features/spielorte/spielortDraftStatus";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
-import type { FLAddress } from "@/shared/schemas";
 
 export function AdminSpielortEditForm({
   spielort,

@@ -5,7 +5,7 @@ import { APINetworkError } from "./errors";
 import { logger } from "./logging";
 import { FLGesperrtResponseSchema } from "./schemas";
 
-import type { FLGesperrtPayload } from "./schemas";
+import type { FLGesperrtPayload } from "./generated/client/types";
 
 /** Whether a message may go to its address; `admitted` alone is sent. */
 export type MailVerdict = "admitted" | "barred" | "failed";

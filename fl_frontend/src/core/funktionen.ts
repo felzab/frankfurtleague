@@ -1,4 +1,4 @@
-import type { FLSubjektSitz } from "./schemas";
+import type { FLSubjektSitz } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
 /** One contact seat on a season that grants a panel, carrying the name the club PLAYED that season under. */

@@ -6,11 +6,11 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { funktionenOf, grantsAPanel } from "./funktionen.ts";
-import { FLSubjektSitzSchema } from "./schemas.ts";
+import { FLSaisonStatus } from "./generated/client/types.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 
-const STATUS = FLSubjektSitzSchema.shape.saison_status;
+const STATUS = z.enum(FLSaisonStatus);
 
 // Read rather than retyped: the backend's season predicate answers the same rows in its own suite,
 // so a status one tier grants and the other refuses fails there as well as here.

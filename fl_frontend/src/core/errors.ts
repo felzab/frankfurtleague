@@ -1,4 +1,4 @@
-import type { FLRefusedField } from "./schemas";
+import type { Code, FLRefusedField } from "./generated/client/types";
 
 /**
  * What an error says about the request it answers. Required on every API error rather than defaulted:
@@ -74,7 +74,7 @@ export class PersonReadWithoutSubjectError extends Error {
 export class APIBadStatusError extends Error {
   traceId: string;
   statusCode: number;
-  serverErrorCode?: string;
+  serverErrorCode?: Code;
   refusedFields: readonly FLRefusedField[];
   url: string;
   endpoint: string;
@@ -96,7 +96,7 @@ export class APIBadStatusError extends Error {
     message: string;
     url: string;
     statusCode: number;
-    serverErrorCode?: string;
+    serverErrorCode?: Code;
     refusedFields?: readonly FLRefusedField[];
     endpoint: string;
     traceId: string;

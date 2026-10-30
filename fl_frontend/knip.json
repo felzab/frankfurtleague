@@ -32,9 +32,6 @@
   "treatTagHintsAsErrors": true,
   // Each entry is a reader knip cannot see.
   "ignoreIssues": {
-    // Redesign: goes as the last slice moves onto the generated contract. A slice's hand-written schemas export
-    // each mirror of a backend model, read or not, and an inferred type stays beside its schema.
-    "src/**/schemas.ts": ["exports", "types", "duplicates"],
     // `fl_frontend/src/shared/utils/facets.test.ts` imports every slice's facets and checks each
     // exported facet array; a URL parameter stays exported beside the rest of its family.
     "src/features/*/facets.ts": ["exports"]

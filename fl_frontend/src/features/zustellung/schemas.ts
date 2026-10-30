@@ -27,7 +27,7 @@ export type FLZustellungZiel = z.infer<typeof FLZustellungZielSchema>;
  * under each contact seat, so their reports name the seats one message reached and every other kind's
  * name none. One list on one line.
  */
-export const ZIELE_JE_SITZ = ["kontakt", "spielbestaetigung"] as const satisfies readonly FLZustellungZiel[];
+const ZIELE_JE_SITZ = ["kontakt", "spielbestaetigung"] as const satisfies readonly FLZustellungZiel[];
 export type FLZielJeSitz = (typeof ZIELE_JE_SITZ)[number];
 
 /** Whether a kind's reports name the seats they reached. */

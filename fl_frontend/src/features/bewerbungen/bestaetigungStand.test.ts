@@ -12,9 +12,8 @@ import {
   zusageHindernis,
 } from "./bestaetigungStand.ts";
 
-import type { FLBewerbung, FLBewerbungBestaetigung } from "@/core/generated/client/types.ts";
+import type { FLBewerbung, FLBewerbungBestaetigung, FLBewerbungZustellungStand } from "@/core/generated/client/types.ts";
 import type { KontaktRolle } from "@/features/teams/constants";
-import type { FLBewerbungZustellstand } from "@/shared/schemas.ts";
 import type { SitzBestaetigung } from "./bestaetigungStand.ts";
 
 type Sitze = Pick<FLBewerbung, "bestaetigungen" | "kontakte" | "status">;
@@ -48,7 +47,7 @@ const OFFEN: FLBewerbungBestaetigung = {
 const ABGELEHNT: FLBewerbungBestaetigung = { ...OFFEN, abgelehnt_am: "2026-09-04" };
 
 /** What the last message to a seat reached, as the provider's events leave it. */
-const zugestellt = (stand: FLBewerbungZustellstand): FLBewerbungBestaetigung => ({
+const zugestellt = (stand: FLBewerbungZustellungStand): FLBewerbungBestaetigung => ({
   ...OFFEN,
   zustellung: { nachricht_id: "56761188-7520-42d8-8898-ff6fc54ce618", stand: stand, grund: null, am: "2026-09-01T10:15:00.000Z" },
 });

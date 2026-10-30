@@ -4,8 +4,7 @@ import { rollenLangform } from "@/features/bewerbungen/constants";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { GekeyteFassung } from "@/core/einwilligungSeiten";
-import type { FLKontaktRolle } from "@/core/generated/client/types";
-import type { FLEinwilligungFassung } from "@/core/schemas";
+import type { FLEinwilligungFassung, FLKontaktRolle } from "@/core/generated/client/types";
 import type { Slots } from "@/shared/utils/stampedSlots";
 import type { EinwilligungWorte, Gewaehrung, PersonUmfang, SitzUmfang } from "./EinwilligungForm";
 

@@ -5650,6 +5650,7 @@ export interface FLSpieltag {
    */
   saison_id: string;
   saison_phase: FLSaisonPhase;
+  version: number;
 }
 
 export interface FLSpieltagWriteResponse {

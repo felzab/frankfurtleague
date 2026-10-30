@@ -7,8 +7,8 @@ import { asSignInIdentifier } from "./emailAddress";
 import { setRequestActor } from "./requestScope";
 import { lookUpSubjekt } from "./signInGate";
 
+import type { FLSubjektResponse, FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler } from "./generated/client/types";
 import type { RequestActor } from "./requestScope";
-import type { FLSubjektResponse, FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler } from "./schemas";
 
 /** Read-only to the depth a panel reaches: what the league holds is the endpoint's to change. */
 type SubjectRecords = {
