@@ -130,6 +130,7 @@ class FLSpielerRecord(_SpielerPerson):
     # seam joining a signed-in person to this row is an equality on the stored value, and a raw write
     # breaks it silently.
     email: str | None = None
+    version: int = 0
 
     @model_validator(mode="after")
     def _only_the_sentinel_is_nobody(self) -> Self:
@@ -173,6 +174,7 @@ class FLSaisonSpielerRow(BaseModel):
     nummer: str | None
     # The day this SQUAD ROW was retired, which is not the day the person left the league.
     inactive_since: CustomOptionalDateString
+    version: int = 0
 
 
 class FLSaisonSpielerRecord(FLSaisonSpielerRow):
@@ -212,6 +214,8 @@ class FLPatchSpielerPayload(BaseModel):
     # Never null: every person carries the date of their own registration, and a save clearing it
     # would leave one whose age no page can read.
     geburtsdatum: CustomDateString
+    # The `version` the editor was served; absent, the save is checked against nothing.
+    version: int | None = None
 
 
 # Private, so the create and the edit state the bound once and the layer publishes no OpenAPI component.
@@ -243,6 +247,9 @@ class FLPatchSaisonSpielerPayload(_SaisonSpielerPayload):
 
     `team_id` is editable here: a mid-season transfer is a change to the junction row.
     """
+
+    # The `version` the editor was served; absent, the save is checked against nothing.
+    version: int | None = None
 
 
 class FLSpielerListResponse(BaseAPIResponse):
@@ -277,6 +284,8 @@ class FLSpielerAdminSingleResponse(FLSpielerSingleResponse):
     # `app/core/crud.py :: set_inactive_since` is the field's one writer and stamps a German date, so
     # the calendar rule `FLSpieler` states refuses nothing this echo can serve.
     inactive_since: CustomOptionalDateString
+    # The writes counted so far, which the editor's save sends back.
+    version: int = 0
 
 
 class FLSaisonSpielerResponse(_SaisonSpielerWritable, BaseAPIResponse):
@@ -287,6 +296,8 @@ class FLSaisonSpielerResponse(_SaisonSpielerWritable, BaseAPIResponse):
     ist_nachnominiert: bool
     # The stored row's own calendar rule, for `FLSpielerAdminSingleResponse.inactive_since`'s reason.
     inactive_since: CustomOptionalDateString
+    # The writes counted so far, which the editor's save sends back.
+    version: int = 0
 
 
 class FLSpielerNachnominierungResponse(BaseAPIResponse):
@@ -297,7 +308,7 @@ class FLSpielerNachnominierungResponse(BaseAPIResponse):
     nachnominierung: bool
 
 
-class FLSpielerMembership(_SaisonSpielerWritable):
+class FLSpielerMembership(_SaisonSpielerWritable, BaseReadModel):
     """One squad row as seen from its player.
 
     Carries `inactive_since`, which the team junction does not: a player leaves a squad mid-season,
@@ -308,9 +319,11 @@ class FLSpielerMembership(_SaisonSpielerWritable):
 
     saison_id: str
     inactive_since: CustomOptionalDateString
+    # The writes counted so far, which the editor's save sends back.
+    version: int = 0
 
 
-class FLSpielerWithMemberships(_SpielerPerson):
+class FLSpielerWithMemberships(_SpielerPerson, BaseReadModel):
     """The person as stored, plus every squad row they hold.
 
     A DIFFERENT question from `FLSpieler`, not a projection: that one is FLATTENED against one
@@ -332,6 +345,8 @@ class FLSpielerWithMemberships(_SpielerPerson):
     # The live change of the pupil's address, which the address tool shows; required, so a read forgetting to look fails
     # rather than hiding a change as none.
     adresswechsel_id: CustomObjectId | None
+    # The writes counted so far, which the editor's save sends back.
+    version: int = 0
     # Why the address tool refuses that change this administrator; null where it opens it or none stands.
     adresswechsel_einsehbar_verwehrt: FLAdresswechselEinsehbarVerwehrt | None
     memberships: list[FLSpielerMembership]
@@ -365,6 +380,8 @@ class FLKaderZeile(BaseAPIResponse):
     inactive_since: CustomOptionalDateString
     # Composed on read and stored nowhere, so it cannot go stale beside the rows it compares.
     nummer_doppelt: bool
+    # The writes counted so far, which the editor's save sends back.
+    version: int = 0
 
 
 class FLKaderResponse(BaseAPIResponse):
@@ -393,6 +410,8 @@ class FLPatchKaderZeilePayload(BaseModel):
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
     rolle: FLSpielerRolle | None
+    # The `version` the editor was served; absent, the save is checked against nothing.
+    version: int | None = None
 
 
 class FLSpielerSelbstKaderZeile(BaseModel):

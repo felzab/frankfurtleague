@@ -244,6 +244,7 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
                             "ist_nachnominiert": 1,
                             "rolle": 1,
                             "inactive_since": 1,
+                            "version": 1,
                         }
                     }
                 ],
@@ -384,6 +385,7 @@ def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId) -> list[Map
                 "rolle": 1,
                 "ist_nachnominiert": 1,
                 "inactive_since": 1,
+                "version": 1,
             }
         },
         # The id last, so two pupils of one name keep one order between two reads.

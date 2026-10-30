@@ -181,11 +181,11 @@ class TestTheSinglePlayerShape:
         """It IS the answer `DELETE` and `reactivate` give, so the echo would say nothing without it."""
         assert "inactive_since" in FLSpielerAdminSingleResponse.model_fields
 
-    def test_the_admin_echo_is_the_public_shape_plus_that_one_field(self):
+    def test_the_admin_echo_is_the_public_shape_plus_the_editors_two_fields(self):
         """Extension rather than a second declaration: the two would otherwise drift on the three fields they share."""
         extra = set(FLSpielerAdminSingleResponse.model_fields) - set(FLSpielerSingleResponse.model_fields)
 
-        assert extra == {"inactive_since"}
+        assert extra == {"inactive_since", "version"}
 
 
 # A body per echo rather than one shared: the two answer different writes and share no field but this one.

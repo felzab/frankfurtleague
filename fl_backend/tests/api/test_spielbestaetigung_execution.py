@@ -1509,7 +1509,8 @@ class TestARefereesDeclineReturnsTheFixture:
 
         before, after, halbfinale, resolved, row = on_a_refereed_fixture(mongo_replica_set_url, body, spiele=DUE_RESOLUTION)
 
-        assert after == {**before, "schiedsrichter": None}
+        # Seeded without a version, so the one write leaves it at 1.
+        assert after == {**before, "schiedsrichter": None, "version": 1}
         assert halbfinale["team1"] is None and resolved["team1"]["team_id"] == TEAM1
         assert row["antwort"] == {
             "art": "abgelehnt",

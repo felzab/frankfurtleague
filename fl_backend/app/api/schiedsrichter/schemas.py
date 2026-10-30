@@ -45,7 +45,8 @@ class FLPostSchiedsrichterPayload(_SchiedsrichterPayload):
 
 
 class FLPatchSchiedsrichterPayload(_SchiedsrichterPayload):
-    pass
+    # The `version` the editor was served; absent, the save is checked against nothing.
+    version: int | None = None
 
 
 class FLSchiedsrichterMint(BaseModel):
@@ -79,6 +80,8 @@ class FLSchiedsrichter(_SchiedsrichterWritable, BaseReadModel):
     bestaetigung: FLBestaetigung | None = None
     einwilligung: FLEinwilligung | None = None
     geburtsdatum: CustomOptionalDateString = None
+    # The writes counted so far, which the editor's save sends back.
+    version: int = 0
 
 
 class FLSchiedsrichterBestaetigungRecord(FLBestaetigung):

@@ -6641,6 +6641,11 @@
               }
             ]
           },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
           "vorname": {
             "minLength": 1,
             "title": "Vorname",
@@ -6657,7 +6662,8 @@
           "rolle",
           "ist_nachnominiert",
           "inactive_since",
-          "nummer_doppelt"
+          "nummer_doppelt",
+          "version"
         ],
         "title": "FLKaderZeile",
         "type": "object"
@@ -8060,6 +8066,17 @@
                 "type": "null"
               }
             ]
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8180,6 +8197,17 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8342,6 +8370,17 @@
               }
             ],
             "title": "Schule"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8622,6 +8661,17 @@
             ],
             "title": "Nachname"
           },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
           "vorname": {
             "maxLength": 80,
             "minLength": 1,
@@ -8653,6 +8703,17 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -10769,6 +10830,11 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
             "type": "string"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -10780,7 +10846,8 @@
           "spieler_id",
           "saison_id",
           "ist_nachnominiert",
-          "inactive_since"
+          "inactive_since",
+          "version"
         ],
         "title": "FLSaisonSpielerResponse",
         "type": "object"
@@ -11417,6 +11484,11 @@
               }
             ],
             "title": "Schule"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -11428,7 +11500,8 @@
           "inactive_since",
           "bestaetigung",
           "einwilligung",
-          "geburtsdatum"
+          "geburtsdatum",
+          "version"
         ],
         "title": "FLSchiedsrichter",
         "type": "object"
@@ -15643,6 +15716,11 @@
             "title": "Spieler Id",
             "type": "string"
           },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
           "vorname": {
             "minLength": 1,
             "title": "Vorname",
@@ -15653,7 +15731,8 @@
           "spieler_id",
           "vorname",
           "nachname",
-          "inactive_since"
+          "inactive_since",
+          "version"
         ],
         "title": "FLSpielerAdminSingleResponse",
         "type": "object"
@@ -15787,6 +15866,11 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
             "type": "string"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -15797,7 +15881,8 @@
           "rolle",
           "ist_nachnominiert",
           "saison_id",
-          "inactive_since"
+          "inactive_since",
+          "version"
         ],
         "title": "FLSpielerMembership",
         "type": "object"
@@ -16203,6 +16288,11 @@
             ],
             "title": "Nachname"
           },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
           "vorname": {
             "minLength": 1,
             "title": "Vorname",
@@ -16218,6 +16308,7 @@
           "einwilligung",
           "email",
           "adresswechsel_id",
+          "version",
           "adresswechsel_einsehbar_verwehrt",
           "memberships"
         ],
@@ -16260,6 +16351,11 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -16268,7 +16364,8 @@
           "default_mietpreis",
           "id",
           "maps_link",
-          "inactive_since"
+          "inactive_since",
+          "version"
         ],
         "title": "FLSpielort",
         "type": "object"

@@ -73,6 +73,7 @@ class TestTheMembershipsPipeline:
             "rolle": 1,
             # A squad row really can be retired, unlike a team junction row, and dropping this makes it look live.
             "inactive_since": 1,
+            "version": 1,
         }
 
     def test_it_sorts_by_forename_then_surname(self):

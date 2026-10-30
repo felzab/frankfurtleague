@@ -77,5 +77,9 @@ EDITED_COLLECTIONS: Final[frozenset[Collection]] = frozenset(
     {
         Collection.SPIELE,
         Collection.SPIELBERICHTE,
+        Collection.SCHIEDSRICHTER,
+        Collection.SPIELER,
+        Collection.SAISON_SPIELER,
+        Collection.SPIELORTE,
     }
 )

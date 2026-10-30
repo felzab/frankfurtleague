@@ -6,7 +6,7 @@ from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomStrippedNonEmptyString
 from app.shared.schemas.literals import FLSortOrder
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
 # Private, so the payloads and the read model state these fields once: a base no endpoint names
@@ -31,14 +31,15 @@ class _SpielortPayload(_SpielortWritable):
 
 
 class FLPatchSpielortPayload(_SpielortPayload):
-    pass
+    # The `version` the editor was served; absent, the save is checked against nothing.
+    version: int | None = None
 
 
 class FLPostSpielortPayload(_SpielortPayload):
     pass
 
 
-class FLSpielort(_SpielortWritable):
+class FLSpielort(_SpielortWritable, BaseReadModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # Free text searched on Google Maps, not a URL, so there is no scheme to check. The copy a
     # fixture embeds is the public address surface, which is why `address` here need not be
@@ -46,6 +47,8 @@ class FLSpielort(_SpielortWritable):
     maps_link: CustomNonEmptyString
     # On no payload: deactivation goes through the delete endpoint, which stamps the date itself.
     inactive_since: CustomOptionalDateString
+    # The writes counted so far, which the editor's save sends back.
+    version: int = 0
 
 
 FLSpielortListAdapter = TypeAdapter(list[FLSpielort])

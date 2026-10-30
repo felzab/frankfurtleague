@@ -2869,6 +2869,7 @@ export interface FLKaderZeile {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieler_id: string;
   stufe: FLSpielerStufe | null;
+  version: number;
   /** @minLength 1 */
   vorname: string;
 }
@@ -3308,6 +3309,7 @@ export interface FLPatchKaderZeilePayload {
   position: FLSpielerPosition | null;
   rolle: FLSpielerRolle | null;
   stufe: FLSpielerStufe | null;
+  version?: number | null;
 }
 
 export interface FLPatchSaisonPayload {
@@ -3336,6 +3338,7 @@ export interface FLPatchSaisonSpielerPayload {
   stufe: FLSpielerStufe | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
+  version?: number | null;
 }
 
 /**
@@ -3404,6 +3407,7 @@ export interface FLPatchSchiedsrichterPayload {
    */
   name: string;
   schule: string | null;
+  version?: number | null;
 }
 
 /**
@@ -3432,6 +3436,7 @@ export interface FLSchiedsrichter {
   kontakt: FLKontakt;
   name: string | null;
   schule: string | null;
+  version: number;
 }
 
 export interface FLPatchSchiedsrichterResponse {
@@ -3562,6 +3567,7 @@ export interface FLPatchSpielerPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   geburtsdatum: string;
   nachname: string | null;
+  version?: number | null;
   /**
    * @minLength 1
    * @maxLength 80
@@ -3576,6 +3582,7 @@ export interface FLPatchSpielortPayload {
   default_mietpreis: number;
   /** @minLength 1 */
   name: string;
+  version?: number | null;
 }
 
 export interface FLSpielort {
@@ -3589,6 +3596,7 @@ export interface FLSpielort {
   maps_link: string;
   /** @minLength 1 */
   name: string;
+  version: number;
 }
 
 export interface FLPatchSpielortResponse {
@@ -4197,6 +4205,7 @@ export interface FLSaisonSpielerResponse {
   stufe: FLSpielerStufe | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
+  version: number;
 }
 
 export interface FLSaisonTeamAdresswechselVerwehrt {
@@ -5543,6 +5552,7 @@ export interface FLSpielerAdminSingleResponse {
   nachname: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieler_id: string;
+  version: number;
   /** @minLength 1 */
   vorname: string;
 }
@@ -5580,6 +5590,7 @@ export interface FLSpielerMembership {
   stufe: FLSpielerStufe | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
+  version: number;
 }
 
 /**
@@ -5600,6 +5611,7 @@ export interface FLSpielerWithMemberships {
   inactive_since: string | null;
   memberships: FLSpielerMembership[];
   nachname: string | null;
+  version: number;
   /** @minLength 1 */
   vorname: string;
 }

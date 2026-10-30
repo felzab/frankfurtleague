@@ -30,6 +30,7 @@ from app.api.spieltage.crud import nachnominierung_laeuft_in
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
+    VERSION_FIELD,
     aggregate_many_from_db,
     patch_one_in_db,
     post_one_to_db,
@@ -68,6 +69,7 @@ def _as_single(document) -> FLSpielerAdminSingleResponse:
         vorname=document["vorname"],
         nachname=document.get("nachname"),
         inactive_since=document.get("inactive_since"),
+        version=document.get(VERSION_FIELD, 0),
     )
 
 
@@ -82,6 +84,7 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
         ist_nachnominiert=document["ist_nachnominiert"],
         rolle=document["rolle"],
         inactive_since=document.get("inactive_since"),
+        version=document.get(VERSION_FIELD, 0),
     )
 
 
