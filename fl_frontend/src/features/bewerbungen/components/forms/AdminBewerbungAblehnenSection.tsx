@@ -71,7 +71,7 @@ export function AdminBewerbungAblehnenSection({
   const [grundError, setGrundError] = useState<string | null>(null);
   /**
    * The bound's verdict, published when the field is left and only retracted by a keystroke: a
-   * message between two keystrokes describes a reason nobody finished writing (`.claude/rules/frontend.md`).
+   * message between two keystrokes describes a reason nobody finished writing (`docs/decisions.md`, **forms**).
    */
   const [laengeError, setLaengeError] = useState<string | null>(null);
 

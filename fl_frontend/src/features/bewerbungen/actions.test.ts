@@ -230,7 +230,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
   });
 
   /* `fl_backend/app/api/bewerbungen/services.py :: find_unconfirmed_kontakte_refusal`'s code. A code the
-     mapper misses falls through to the shared fallback (`.claude/rules/cross-surface.md`). */
+     mapper misses falls through to the shared fallback, which names no reason. */
   it("answers the acceptance's refusal over an unconfirmed seat", () => {
     expect(acceptanceMapped(refused("REQ-BEWERBUNG-013"))?.error ?? "").toMatch(/Kontaktperson/);
   });

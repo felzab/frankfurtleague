@@ -46,8 +46,8 @@ export type SitzBestaetigung = {
 export function bestaetigungsStand(bewerbung: BewerbungSitze & Pick<FLBewerbung, "status">): SitzBestaetigung[] {
   const { bestaetigungen, kontakte, status } = bewerbung;
 
-  // `KONTAKT_ROLLEN` and never a list of this file's own: the seat order is the label table's
-  // (`.claude/rules/frontend.md` **admin**).
+  // `KONTAKT_ROLLEN` and never a list of this file's own: the seat order is the label table's, which
+  // every admin section is ordered by (`docs/decisions.md`, **admin**).
   return KONTAKT_ROLLEN.map(({ value, label }) => {
     const person = kontakte[value];
     const verlauf = bestaetigungen[value];
