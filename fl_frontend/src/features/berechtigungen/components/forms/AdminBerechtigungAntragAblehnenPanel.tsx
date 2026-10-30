@@ -17,7 +17,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
-import type { FLBerechtigungAntragZeile } from "@/features/berechtigungen/schemas";
+import type { FLBerechtigungAntragZeile } from "@/core/generated/client/types";
 
 /** The refusal's words, and the withdrawal's on the requester's own request. */
 const WORTE = {

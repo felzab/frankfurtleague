@@ -9,7 +9,7 @@ import { Callout } from "@/shared/components/ui/Callout";
 import { AdminBerechtigungAntraegeList } from "../collections/AdminBerechtigungAntraegeList";
 import { AdminBerechtigungenList } from "../collections/AdminBerechtigungenList";
 
-import type { FLBerechtigungAntragZeile, FLBerechtigungZeile } from "@/features/berechtigungen/schemas";
+import type { FLBerechtigungAntragZeile, FLBerechtigungZeile } from "@/core/generated/client/types";
 import type { SearchKey } from "@/shared/hooks/useFuzzySearch";
 
 /* Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. Each reads what

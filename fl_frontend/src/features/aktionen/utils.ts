@@ -3,14 +3,14 @@ import { GELOESCHTE_PERSON, vonOderGesperrt } from "@/features/berechtigungen/co
 
 import { AKTION_COLLECTION_LABELS, AKTION_HERKUNFT_LABELS, AKTOR_FUNKTION_LABELS, AKTOR_HERKUNFT } from "./constants";
 
+import type { FLAktion, FLAktorPerson } from "@/core/generated/client/types";
 import type { AktionHerkunft } from "./constants";
-import type { FLAktion, FLAktor, FLAktorPerson } from "./schemas";
 
 /**
  * Where the write behind a row came from. Read through the map and never off the actor's fields: `SYSTEM`
  * and `PUBLIC` are spellings of "nobody", and a signed-in person carries no address at all.
  */
-export function herkunftOfAktor(actor: FLAktor): AktionHerkunft {
+export function herkunftOfAktor(actor: FLAktion["actor"]): AktionHerkunft {
   return AKTOR_HERKUNFT[actor.kind];
 }
 
@@ -29,7 +29,7 @@ export function personAkteurLabel(actor: FLAktorPerson): string {
  * What a row's actor cell prints, through the functions the cell renders with, which the log's search
  * reads too: the stored sentinels and markers are on no screen to type.
  */
-export function aktorAnzeige(actor: FLAktor): string {
+export function aktorAnzeige(actor: FLAktion["actor"]): string {
   if (actor.kind === "person_session") return personAkteurLabel(actor);
   if (actor.kind === "admin_session") return vonOderGesperrt(actor.email, actor.email_gesperrt);
 

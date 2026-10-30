@@ -6,7 +6,7 @@ import { Callout } from "@/shared/components/ui/Callout";
 
 import { AdminSperrlisteList } from "../collections/AdminSperrlisteList";
 
-import type { FLSperrlisteZeile } from "@/features/sperrliste/schemas";
+import type { FLSperrlisteZeile } from "@/core/generated/client/types";
 import type { SearchKey } from "@/shared/hooks/useFuzzySearch";
 
 /* Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. No address

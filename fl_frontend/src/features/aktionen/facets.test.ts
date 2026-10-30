@@ -2,7 +2,7 @@ import { assert, describe, expect, it } from "vitest";
 
 import { applyFacets, countFacetOptions, isFacetOptionReachable, readFacetSelection } from "@/shared/utils/facets.ts";
 
-import { AKTION_HERKUNFT_LABELS } from "./constants.ts";
+import { AKTION_HERKUNFT_LABELS, AKTOR_HERKUNFT } from "./constants.ts";
 import {
   AKTIONEN_COLLECTION_PARAM,
   AKTIONEN_FACETS,
@@ -11,21 +11,18 @@ import {
   aktionenLogFacetCounts,
   aktionenLogFacetTerms,
 } from "./facets.ts";
-import { FLAktorSchema } from "./schemas.ts";
 
-import type { AktionenGetAktionenParams } from "@/core/generated/client/types.ts";
+import type { AktionenGetAktionenParams, FLAktion } from "@/core/generated/client/types.ts";
 import type { Facet, FacetSelection } from "@/shared/utils/facets.ts";
 // A type import, and it has to be: `./queries.ts` reaches `next/headers`, which the runner resolves
 // to no file, so importing the read as a value would fail this file before a case ran.
 import type { getAktionen } from "./queries.ts";
-import type { FLAktor } from "./schemas.ts";
-import type { AdminAktionRow } from "./types.ts";
 
 /** The facet under test, cut out by its parameter. */
 const HERKUNFT_FACET = AKTIONEN_FACETS.find((facet) => facet.param === AKTIONEN_HERKUNFT_PARAM);
 
 /** One row, of which only the actor carries anything the facet under test reads. */
-function row(id: string, actor: FLAktor): AdminAktionRow {
+function row(id: string, actor: FLAktion["actor"]): FLAktion {
   return {
     id: id,
     at: "2026-08-20T14:23:05+00:00",
@@ -44,16 +41,14 @@ function row(id: string, actor: FLAktor): AdminAktionRow {
 }
 
 /** A valid actor of each kind: a signed-in person carries a pseudonym and a Funktion where every other kind carries `email`. */
-function actorOf(kind: FLAktor["kind"]): FLAktor {
+function actorOf(kind: FLAktion["actor"]["kind"]): FLAktion["actor"] {
   return kind === "person_session"
     ? { kind: kind, pseudonym: "5e".repeat(32), funktion: "kontakt" }
     : { kind: kind, email: `${kind}@beispiel.de`, email_gesperrt: false };
 }
 
-/** One row per kind the read model accepts, so a kind added there is swept without anyone listing it. */
-const ROWS = FLAktorSchema.options
-  .flatMap((variant) => variant.shape.kind.options)
-  .map((kind, index) => row(`row-${String(index)}`, actorOf(kind)));
+/** One row per kind the origin map places, which its type holds to every kind the read model accepts. */
+const ROWS = (Object.keys(AKTOR_HERKUNFT) as FLAktion["actor"]["kind"][]).map((kind, index) => row(`row-${String(index)}`, actorOf(kind)));
 
 const PUBLIC_ROW = ROWS.find((entry) => entry.actor.kind === "public");
 
@@ -173,7 +168,7 @@ describe("what the log asks the endpoint to narrow to", () => {
 });
 
 /** What one narrowed answer holds: the picked area's rows, the cap having cut every other. */
-const ONLY_TEAMS: AdminAktionRow[] = ROWS.map((entry, index) => ({ ...entry, id: `teams-${String(index)}`, collection: "teams" }));
+const ONLY_TEAMS: FLAktion[] = ROWS.map((entry, index) => ({ ...entry, id: `teams-${String(index)}`, collection: "teams" }));
 
 /** Which options `FilterPanel :: FacetCell` would leave pressable, given the counts it was handed. */
 function pressableAreas(counts: Record<string, number>, picked: readonly string[]): string[] {
@@ -206,7 +201,7 @@ describe("the counts the area facet is told", () => {
 });
 
 /** Two areas, each written by one kind of actor alone, so picking an origin empties one of them outright. */
-const MIXED_LOG: AdminAktionRow[] = [
+const MIXED_LOG: FLAktion[] = [
   { ...row("system-1", { kind: "system", email: "SYSTEM", email_gesperrt: false }), collection: "teams" },
   { ...row("system-2", { kind: "system", email: "SYSTEM", email_gesperrt: false }), collection: "teams" },
   { ...row("person-1", { kind: "admin_session", email: "eine.person@beispiel.de", email_gesperrt: false }), collection: "spielorte" },
@@ -216,7 +211,7 @@ const MIXED_LOG: AdminAktionRow[] = [
  * What the endpoint answers for one facet: over the WHOLE log, with every other dimension it narrows on
  * applied and this facet's own selection ignored. The shared counter, so no second exclusion rule exists.
  */
-function toldCounts(log: AdminAktionRow[], selection: FacetSelection, facet: Facet<AdminAktionRow>): Record<string, number> {
+function toldCounts(log: FLAktion[], selection: FacetSelection, facet: Facet<FLAktion>): Record<string, number> {
   const narrowing = AKTIONEN_FACETS.filter((candidate) => candidate.narrowsTheRead === true);
 
   return countFacetOptions([...log], narrowing, selection, facet);

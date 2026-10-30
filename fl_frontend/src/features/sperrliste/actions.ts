@@ -16,9 +16,9 @@ import { deleteSperre, postSperre } from "./mutations";
 import { mapAnsichtRefusal, mapSperreRefusal, schonGesperrtAmFeld, verwaltungAmFeld } from "./refusals";
 import { FLPostSperrlistePayloadSchema, FLSperrlisteKeyPayloadSchema } from "./schemas";
 
-import type { FLErasureAnsichtResponse } from "@/features/funktionen/schemas";
+import type { FLErasureAnsichtResponse, FLPostSperrlistePayload } from "@/core/generated/client/types";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
-import type { FLPostSperrlistePayload, FLSperrlisteKeyPayload } from "./schemas";
+import type { FLSperrlisteKeyPayload } from "./schemas";
 
 /**
  * Every record the address holds, as the erasure's reveal names them. No grant and no ban among them: the read answers an

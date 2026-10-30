@@ -504,17 +504,6 @@ export interface FLAblehnenBewerbungResponse {
 }
 
 /**
- * The mailbox whose every session the page ends next, looked up as the erasure looks one up.
- */
-export interface FLAbmeldungPayload {
-  /**
-   * @maxLength 254
-   * @pattern @
-   */
-  email: string;
-}
-
-/**
  * The envelope alone: the log row it filed names no address to answer with.
  */
 export interface FLAbmeldungResponse {
@@ -708,7 +697,7 @@ export interface FLAdresswechselAdressePayload {
 }
 
 /**
- * A live change's new address and nothing else, server to server alone (`READ-ADRESSWECHSEL-002`).
+ * A live change's new address and nothing else, server to server alone.
  */
 export interface FLAdresswechselAdresseResponse {
   email: string | null;
@@ -802,22 +791,21 @@ export interface FLAdresswechselAnsichtPayload {
 }
 
 /**
- * What one address link opens: never a name, either address or the id (`READ-ADRESSWECHSEL-001`).
+ * What one address link opens: never a name, either address or the id.
  */
 export interface FLAdresswechselAnsichtResponse {
   ansicht: FLAdresswechselAnsichtNeu | FLAdresswechselAnsichtBisherig | FLAdresswechselAnsichtBeendet;
 }
 
-export type FLAdresswechselAntwortPayloadAntwort =
-  (typeof FLAdresswechselAntwortPayloadAntwort)[keyof typeof FLAdresswechselAntwortPayloadAntwort];
+export type FLAdresswechselAntwort = (typeof FLAdresswechselAntwort)[keyof typeof FLAdresswechselAntwort];
 
-export const FLAdresswechselAntwortPayloadAntwort = {
+export const FLAdresswechselAntwort = {
   bestaetigt: "bestaetigt",
   abgelehnt: "abgelehnt",
 } as const;
 
 export interface FLAdresswechselAntwortPayload {
-  antwort: FLAdresswechselAntwortPayloadAntwort;
+  antwort: FLAdresswechselAntwort;
   /**
    * @minLength 1
    * @maxLength 128
@@ -825,19 +813,11 @@ export interface FLAdresswechselAntwortPayload {
   token: string;
 }
 
-export type FLAdresswechselAntwortResponseAntwort =
-  (typeof FLAdresswechselAntwortResponseAntwort)[keyof typeof FLAdresswechselAntwortResponseAntwort];
-
-export const FLAdresswechselAntwortResponseAntwort = {
-  bestaetigt: "bestaetigt",
-  abgelehnt: "abgelehnt",
-} as const;
-
 /**
  * The answer recorded, and no address of the change: the notices an effect owes are queued, never answered.
  */
 export interface FLAdresswechselAntwortResponse {
-  antwort: FLAdresswechselAntwortResponseAntwort;
+  antwort: FLAdresswechselAntwort;
   genehmigung_offen: boolean;
   wirksam: boolean;
   wirksam_ab: string | null;
@@ -1075,17 +1055,6 @@ export interface FLAdresswechselZugestelltResponse {
 
 export type FLAktionDbFilter = { [key: string]: string } | null;
 
-export type FLAktionOperation = (typeof FLAktionOperation)[keyof typeof FLAktionOperation];
-
-export const FLAktionOperation = {
-  insert: "insert",
-  insert_many: "insert_many",
-  patch_one: "patch_one",
-  patch_many: "patch_many",
-  delete_many: "delete_many",
-  erase_many: "erase_many",
-} as const;
-
 export type FLAktorMitAdresseZeileKind = (typeof FLAktorMitAdresseZeileKind)[keyof typeof FLAktorMitAdresseZeileKind];
 
 export const FLAktorMitAdresseZeileKind = {
@@ -1122,6 +1091,17 @@ export interface FLAktorPerson {
   pseudonym: string;
 }
 
+export type FLAktionOperation = (typeof FLAktionOperation)[keyof typeof FLAktionOperation];
+
+export const FLAktionOperation = {
+  insert: "insert",
+  insert_many: "insert_many",
+  patch_one: "patch_one",
+  patch_many: "patch_many",
+  delete_many: "delete_many",
+  erase_many: "erase_many",
+} as const;
+
 export interface FLAktionRequest {
   method: string;
   path: string;
@@ -1155,17 +1135,6 @@ export type FLAktionMitStandBefore = { [key: string]: unknown } | { [key: string
 
 export type FLAktionMitStandDbFilter = { [key: string]: string } | null;
 
-export type FLAktionMitStandOperation = (typeof FLAktionMitStandOperation)[keyof typeof FLAktionMitStandOperation];
-
-export const FLAktionMitStandOperation = {
-  insert: "insert",
-  insert_many: "insert_many",
-  patch_one: "patch_one",
-  patch_many: "patch_many",
-  delete_many: "delete_many",
-  erase_many: "erase_many",
-} as const;
-
 /**
  * One row WITH the document its write replaced, which only `GET /aktionen/{aktion_id}` serves.
  *
@@ -1182,7 +1151,7 @@ export interface FLAktionMitStand {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   modified_count: number | null;
-  operation: FLAktionMitStandOperation;
+  operation: FLAktionOperation;
   redacted_at: string | null;
   request: FLAktionRequest | null;
   stand_gesichert: boolean;
@@ -1356,9 +1325,7 @@ export const FLGenehmigungVerwehrt = {
 } as const;
 
 /**
- * The change of a grant's address waiting on an administrator's approval, which the list's reader may press.
- *
- * Who started it, how and why is what a pretext hides.
+ * The change of this grant's address that waits on an administrator's approval.
  */
 export interface FLBerechtigungAdresswechsel {
   bestaetigt: boolean;
@@ -1437,7 +1404,7 @@ export interface FLBerechtigungStufeResponse {
 }
 
 /**
- * The grant a revoke removed or a tier change moved: a removal is hard, so the id is all there is to answer with.
+ * The grant a revoke removed: the removal is hard, so the id is all there is to answer with.
  */
 export interface FLBerechtigungWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -1460,7 +1427,7 @@ export interface FLBerechtigungZeile {
 }
 
 /**
- * Every live grant, uncapped: a list the floor of two is judged over is never served in part.
+ * Every live grant, never in part, and every request still waiting.
  */
 export interface FLBerechtigungenListResponse {
   antraege: FLBerechtigungAntragZeile[];
@@ -2523,6 +2490,17 @@ export interface FLEinwilligungStandPayload {
 }
 
 /**
+ * The mailbox an erasure, its preview or a sign-out of every session is looked up by.
+ */
+export interface FLErasureAdressePayload {
+  /**
+   * @maxLength 254
+   * @pattern @
+   */
+  email: string;
+}
+
+/**
  * Another address's live change naming this one as its new address: the change ends, its address's records standing.
  */
 export interface FLErasureAnsichtAdresswechsel {
@@ -2574,17 +2552,6 @@ export interface FLErasureAnsichtKader {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   team_name: string | null;
-}
-
-/**
- * The mailbox the reveal is read for, in the BODY for `FLSubjektPayload`'s reason.
- */
-export interface FLErasureAnsichtPayload {
-  /**
-   * @maxLength 254
-   * @pattern @
-   */
-  email: string;
 }
 
 export type FLRegistrierungStatus = (typeof FLRegistrierungStatus)[keyof typeof FLRegistrierungStatus];

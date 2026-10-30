@@ -564,23 +564,6 @@ class TestTheListServesLiveGrantsAlone:
             1,
         )
 
-    def test_a_live_grant_with_an_empty_erteilt_von_is_served(self, mongo_replica_set_url: str):
-        """A field no reader decides anything from hides no grant, whatever a paste left in it."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str | None, str | None]]:
-            listed = await list_the_grants(database, client)
-
-            return [(row.adresse, row.erteilt_von) for row in listed.berechtigungen]
-
-        grants = [*the_three_grants(), {**grant_document(DEAD_ID, NEU, "administration"), "erteilt_von": ""}]
-
-        assert on_a_league(mongo_replica_set_url, body, grants=grants) == [
-            (ANNA, "PLAYGROUND"),
-            (BERND, "PLAYGROUND"),
-            (OWNER, "PLAYGROUND"),
-            (NEU, ""),
-        ]
-
     def test_a_barred_granting_administrator_is_withheld_as_erteilt_von(self, mongo_replica_set_url: str):
         """The actor field takes the same withholding as the address, flagged as the address is."""
 

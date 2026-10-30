@@ -19,8 +19,12 @@ import { getBewerbungSweepSaisons, postBewerbungSweep, postBewerbungSweepAngekue
 import { rollenText, rolleText, sendBewerbungLinkMail, sendBewerbungMail } from "./notifications";
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
-import type { FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung, FLRegistrierungSweepErinnerung } from "@/core/generated/client/types";
-import type { FLAdresswechselSweepResponse } from "@/features/adresswechsel/schemas";
+import type {
+  FLAdresswechselSweepResponse,
+  FLBewerbungSweepErinnerung,
+  FLBewerbungSweepLoeschung,
+  FLRegistrierungSweepErinnerung,
+} from "@/core/generated/client/types";
 import type { BewerbungEmpfaenger, BewerbungLinkEmpfaenger } from "./notifications";
 
 /**

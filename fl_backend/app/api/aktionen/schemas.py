@@ -12,7 +12,7 @@ from app.shared.schemas.responses import BaseAPIResponse
 
 # One alias for both the row and the filter: without it the two hand-copies drift, and a filter
 # narrower than the rows answers a legal `?operation=` with a 422 that no test would catch.
-FLAktionOperation = Literal["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
+type FLAktionOperation = Literal["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
 
 
 def _stringify_oids(value: Any) -> Any:

@@ -19,21 +19,24 @@ from app.shared.schemas.literals import FLAdresswechselEndeArt, FLAdresswechselW
 from app.shared.schemas.responses import BaseAPIResponse
 from app.shared.schemas.zustellung import FLBewerbungZustellung
 
-FLAdresswechselAntwort = Literal["bestaetigt", "abgelehnt"]
+type FLAdresswechselAntwort = Literal["bestaetigt", "abgelehnt"]
 
 # The raw token as it arrives on the base-tier endpoints, under the one ceiling every link this application mints is spelled to.
 CustomAdresswechselToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TOKEN_MAX_LENGTH)]
 
-# How an administrator checked who asks, where the address on file is gone: the erasure occasion's constraint, being
+# How an administrator checked who asks, where the address on file is gone: the erasure occasion's ceiling, being
 # copied onto the start's log row as that occasion is. An address typed here would outlive every redaction of the change.
+# The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
 CustomAdresswechselGrund = Annotated[
     str,
-    StringConstraints(strip_whitespace=True, min_length=1, max_length=ERASURE_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+    StringConstraints(max_length=ERASURE_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+    AfterValidator(str.strip),
+    StringConstraints(min_length=1),
     AfterValidator(refuse_an_address_in_the_reason),
 ]
 
 
-# --- The record as `adresswechsel` stores it, its validator's twin (`app/core/constraints.py :: COLLECTION_VALIDATORS`).
+# --- The record as `adresswechsel` stores it.
 
 
 class FLAdresswechselGenehmigung(BaseModel):
@@ -90,7 +93,7 @@ FLAdresswechselPostausgangArt = Literal["wirksam", "verworfen"]
 
 
 class FLAdresswechselPostausgang(BaseModel):
-    """One owed notice as `adresswechsel_postausgang` stores it, its validator's twin."""
+    """One owed notice as `adresswechsel_postausgang` stores it."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     art: FLAdresswechselPostausgangArt
@@ -164,7 +167,7 @@ class FLAdresswechselAdressePayload(BaseModel):
 
 
 class FLAdresswechselAdresseResponse(BaseAPIResponse):
-    """A live change's new address and nothing else, server to server alone (`READ-ADRESSWECHSEL-002`)."""
+    """A live change's new address and nothing else, server to server alone."""
 
     # Folded as the sign-in store keys an account; null where the key names no live change.
     email: str | None
@@ -220,7 +223,7 @@ class FLAdresswechselAnsichtBeendet(BaseModel):
 
 
 class FLAdresswechselAnsichtResponse(BaseAPIResponse):
-    """What one address link opens: never a name, either address or the id (`READ-ADRESSWECHSEL-001`)."""
+    """What one address link opens: never a name, either address or the id."""
 
     ansicht: Annotated[
         FLAdresswechselAnsichtNeu | FLAdresswechselAnsichtBisherig | FLAdresswechselAnsichtBeendet, Field(discriminator="zustand")

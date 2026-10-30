@@ -1,38 +1,7 @@
 import z from "zod";
 
-import { BaseAPIResponseSchema } from "@/core/schemas";
-import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { SPERRLISTE_GRUND_MAX_LENGTH } from "@/features/sperrliste/constants";
-import { CustomDateStringSchema, CustomObjectIdStringSchema, einzeiligerName, KontaktEmailSchema } from "@/shared/schemas";
-
-/**
- * One ban, as the list serves it. **No address field, and none can be added**: the collection keeps a
- * keyed hash and every response is built to hold no key carrying an `@`.
- */
-export const FLSperrlisteZeileSchema = z.object({
-  id: CustomObjectIdStringSchema,
-  grund: z.string().nonempty(),
-  // Judged on the payload alone: a read stating an address rule refuses a value the API stored, and
-  // one such row fails the whole list's parse. Null exactly where `erstellt_von_gesperrt` holds, as
-  // the grants list withholds a barred actor.
-  erstellt_von: z.string().nonempty().nullable(),
-  erstellt_von_gesperrt: z.boolean(),
-  erstellt_am: CustomDateStringSchema,
-  // The last season the ban covers, INCLUSIVE. Held to the width alone rather than to a year: a
-  // stored row a later rule would refuse must still parse, or one of them fails the whole list.
-  gesperrt_bis_saison_id: z.string().length(SAISON_ID_LENGTH),
-});
-export type FLSperrlisteZeile = z.infer<typeof FLSperrlisteZeileSchema>;
-
-export const FLSperrlisteListResponseSchema = BaseAPIResponseSchema.extend({
-  sperrliste: z.array(FLSperrlisteZeileSchema),
-  /**
-   * How many bans the collection holds, which the rows cannot answer once the endpoint's cap has cut
-   * them short. Past that cap a ban is enforced and shown to nobody, so nobody can lift it either.
-   */
-  anzahl_gesamt: z.int().nonnegative(),
-});
-export type FLSperrlisteListResponse = z.infer<typeof FLSperrlisteListResponseSchema>;
+import { CustomObjectIdStringSchema, einzeiligerName, KontaktEmailSchema } from "@/shared/schemas";
 
 /**
  * Unanchored, character for character `fl_backend/app/api/sperrliste/schemas.py ::
@@ -41,12 +10,13 @@ export type FLSperrlisteListResponse = z.infer<typeof FLSperrlisteListResponseSc
  */
 export const ADRESSE_IM_GRUND_REGEX = /[^\s@]+@[^\s@]+\.[A-Za-z]{2,}/;
 
+/** The create dialog's draft, held to the ban's own rules in German: the browser checks it before the press. */
 export const FLPostSperrlistePayloadSchema = z.object({
   // `KontaktEmailSchema` and never `z.email()`, whose alphabet refuses the umlaut domain the API
   // converts: an address this turned away is one that would never have been banned.
   email: KontaktEmailSchema,
   // Trimmed before any bound counts it, as at the API, which refuses a blank reason, one over the
-  // ceiling and one holding a line break with a generic `REQ-VAL-001` sentence: a looser mirror
+  // ceiling and one holding a line break with a generic `REQ-VAL-001` sentence: a looser draft
   // loses each bound's German.
   grund: einzeiligerName(
     z
@@ -60,26 +30,9 @@ export const FLPostSperrlistePayloadSchema = z.object({
     // person's erasure, so an address typed here survives everywhere the stored hash keeps one out.
     .refine((grund) => !ADRESSE_IM_GRUND_REGEX.test(grund), { error: "Der Grund darf keine E-Mail-Adresse enthalten." }),
 });
-export type FLPostSperrlistePayload = z.infer<typeof FLPostSperrlistePayloadSchema>;
 
-export const FLPostSperrlisteResponseSchema = BaseAPIResponseSchema.extend({
-  created_id: CustomObjectIdStringSchema,
-  /**
-   * The bound the action's mail states. Answered by the write rather than read back, because the
-   * activation that sweeps a lapsed row would otherwise be free to land in between.
-   */
-  gesperrt_bis_saison_id: z.string().length(SAISON_ID_LENGTH),
-});
-export type FLPostSperrlisteResponse = z.infer<typeof FLPostSperrlisteResponseSchema>;
-
-/** The removal call: an id in the path, no request body. */
+/** The removal's input: the ban the row names, which the call puts in its path. */
 export const FLSperrlisteKeyPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
 });
 export type FLSperrlisteKeyPayload = z.infer<typeof FLSperrlisteKeyPayloadSchema>;
-
-/** The removal echoes the id rather than the row: the delete is hard, so no document is left to send. */
-export const FLSperrlisteWriteResponseSchema = BaseAPIResponseSchema.extend({
-  sperrliste_id: CustomObjectIdStringSchema,
-});
-export type FLSperrlisteWriteResponse = z.infer<typeof FLSperrlisteWriteResponseSchema>;

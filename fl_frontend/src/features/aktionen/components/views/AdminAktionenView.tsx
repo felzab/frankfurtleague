@@ -12,14 +12,13 @@ import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { AdminAktionenTable } from "../collections/AdminAktionenTable";
 
-import type { FLAktionenListResponse } from "@/features/aktionen/schemas";
-import type { AdminAktionRow } from "@/features/aktionen/types";
+import type { FLAktion, FLAktionenListResponse } from "@/core/generated/client/types";
 import type { SearchKey } from "@/shared/hooks/useFuzzySearch";
 import type { Leserichtung } from "@/shared/utils/leserichtung";
 
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. The collection
 // is not among them because it is a facet: searching would match the stored name and not the label.
-const SEARCH_KEYS: readonly SearchKey<AdminAktionRow>[] = [
+const SEARCH_KEYS: readonly SearchKey<FLAktion>[] = [
   // As its cell prints it, never as stored.
   { name: "actor", getFn: (aktion) => aktorAnzeige(aktion.actor) },
   "document_id",
@@ -41,7 +40,7 @@ export function AdminAktionenView({
   vorgangId,
   richtung,
 }: {
-  aktionen: AdminAktionRow[];
+  aktionen: FLAktion[];
   vollstaendig: boolean;
   /** The endpoint's own counts, one map per facet: `aktionen` holds only what the narrowing selected, so it cannot answer for the rest. */
   anzahlJeCollection: FLAktionenListResponse["anzahl_je_collection"];
@@ -110,7 +109,7 @@ export function AdminAktionenView({
         </Callout>
       )}
 
-      <AdminCrudView<AdminAktionRow>
+      <AdminCrudView<FLAktion>
         items={aktionen}
         searchKeys={SEARCH_KEYS}
         facets={AKTIONEN_FACETS}

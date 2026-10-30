@@ -56,9 +56,8 @@ class FLBerechtigung(BaseModel):
     adresse: CustomNonEmptyString
     verwaltung: FLVerwaltung
     # An administrator's address for a grant made here, `app/core/recording.py :: ERASED_ACTOR_MARKER`
-    # once they are erased; whatever the paste wrote, an empty string included, for one made in the
-    # Playground. No bound on it: that would hide a live grant.
-    erteilt_von: str
+    # once they are erased, and the marker the paste names itself by for one made in the Playground.
+    erteilt_von: CustomNonEmptyString
     erteilt_am: datetime
     # Absent until a comparison finds the row new, and never written by a grant made here: a paste's
     # `erteilt_am` is whatever was typed, and an address changed in place keeps the old one.
@@ -74,10 +73,7 @@ class FLBerechtigung(BaseModel):
 
 
 class FLBerechtigungAdresswechsel(BaseModel):
-    """The change of a grant's address waiting on an administrator's approval, which the list's reader may press.
-
-    Who started it, how and why is what a pretext hides.
-    """
+    """The change of this grant's address that waits on an administrator's approval."""
 
     id: CustomObjectId
     # Null where withheld: on the ban list (`email_gesperrt`), as a grant's barred address is, or from a non-owner.
@@ -159,7 +155,7 @@ class FLBerechtigungAntragZeile(BaseModel):
 
 
 class FLBerechtigungenListResponse(BaseAPIResponse):
-    """Every live grant, uncapped: a list the floor of two is judged over is never served in part."""
+    """Every live grant, never in part, and every request still waiting."""
 
     berechtigungen: list[FLBerechtigungZeile]
     # The rows no request can match, left out rather than failing the page.
@@ -190,7 +186,7 @@ class FLPostBerechtigungResponse(BaseAPIResponse):
 
 
 class FLBerechtigungWriteResponse(BaseAPIResponse):
-    """The grant a revoke removed or a tier change moved: a removal is hard, so the id is all there is to answer with."""
+    """The grant a revoke removed: the removal is hard, so the id is all there is to answer with."""
 
     berechtigung_id: CustomObjectId
 

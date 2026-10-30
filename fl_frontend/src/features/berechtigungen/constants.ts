@@ -2,13 +2,7 @@ import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
 import { OFFENE_ANTRAEGE } from "@/core/seitenNamen";
 import { benannt } from "@/shared/utils/benannt";
 
-import type { FLGenehmigungVerwehrt, FLVerwaltung } from "./schemas";
-
-/**
- * The most outbox rows one stamp names, mirroring the backend's `LIST_LIMIT_DEFAULT`
- * (`fl_backend/app/shared/schemas/bounds.py`), which also caps what one claim hands out.
- */
-export const ANKUENDIGUNGEN_MAX = 1024;
+import type { FLGenehmigungVerwehrt, FLVerwaltung } from "@/core/generated/client/types";
 
 // Its own module: every export of a `"use client"` view becomes a client reference.
 export const BERECHTIGUNGEN_CRUD_COPY = {
