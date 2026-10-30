@@ -1196,7 +1196,7 @@ def test_main_judges_the_backend_files_of_both_models():
 
 
 def test_the_stand_ins_alone_in_an_environment_are_clean():
-    rendered = model(frontend=env_file("fl_frontend/.env"), backend=env_file("fl_backend/.env") | {"environment": {"LOG_FORMAT": "json"}})
+    rendered = model(frontend=env_file("fl_frontend/.env"), backend=env_file("fl_backend/.env") | {"environment": {"DB_BASE_NAME": "fl_db"}})
 
     assert checker.moved_names(rendered, "p") == []
 
