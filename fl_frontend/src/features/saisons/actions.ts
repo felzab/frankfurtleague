@@ -125,10 +125,10 @@ export async function activateSaisonAction(rawPayload: { id: string }): Promise<
     const demoted = activateOperation.deactivated;
     const message =
       demoted === 0
-        ? `Saison ${validated.data.id} war schon aktiv.`
+        ? `Saison ${validated.data.id} ist schon die laufende Saison.`
         : demoted === 1
-          ? `Saison ${validated.data.id} ist jetzt aktiv. Die vorherige Saison ist abgeschlossen.`
-          : `Saison ${validated.data.id} ist jetzt aktiv. ${String(demoted)} vorher aktive Saisons wurden abgeschlossen.`;
+          ? `Saison ${validated.data.id} ist jetzt die laufende Saison. Die vorherige Saison ist abgeschlossen.`
+          : `Saison ${validated.data.id} ist jetzt die laufende Saison. ${String(demoted)} vorher laufende Saisons wurden abgeschlossen.`;
 
     // Called here rather than handed on bare: the step-up reader attributes a request only where an action's own body
     // calls it.

@@ -215,7 +215,7 @@ const FRISTEN = [
   {
     daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
     frist:
-      "Fünf volle Saisons nach der Saison des Eintrags; danach wird der Eintrag bei der nächsten Saisonaktivierung von selbst gelöscht. Die Verwaltung kann die Sperre jederzeit vorher aufheben. Bis dahin bleibt der Eintrag auch bestehen, wenn die übrigen Daten gelöscht werden",
+      "Fünf volle Saisons nach der Saison des Eintrags; danach wird der Eintrag bei der nächsten Umstellung auf eine neue Saison von selbst gelöscht. Die Verwaltung kann die Sperre jederzeit vorher aufheben. Bis dahin bleibt der Eintrag auch bestehen, wenn die übrigen Daten gelöscht werden",
   },
   {
     daten: "Zugang zur Verwaltung: E-Mail-Adresse, Stufe, Datum und die Person aus der Verwaltung, die ihn erteilt hat",

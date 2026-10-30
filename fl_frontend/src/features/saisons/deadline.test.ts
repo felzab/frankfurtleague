@@ -52,7 +52,7 @@ const ERSTER_LAUF = {
 
 /** What the press answers wherever the deadline ends its deletion after the first call. */
 const UNVOLLSTAENDIG =
-  "Saison 2026 ist jetzt aktiv. Die vorherige Saison ist abgeschlossen. 2 Spielerinnen und Spieler ohne Kadereintrag seit Saison " +
+  "Saison 2026 ist jetzt die laufende Saison. Die vorherige Saison ist abgeschlossen. 2 Spielerinnen und Spieler ohne Kadereintrag seit Saison " +
   "2025 wurden gelöscht. Die Löschung ist nicht vollständig durchgelaufen. Was noch aussteht, löscht der nächste stündliche Durchlauf.";
 
 /** Every call the press sent, with the signal that could abort it. */
