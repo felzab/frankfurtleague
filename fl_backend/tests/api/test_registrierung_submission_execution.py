@@ -158,7 +158,7 @@ def on_a_league(
     matchday_beginn: str | None = None,
     knockout_beginn: str | None = None,
 ) -> Any:
-    """The SHIPPED validators and indexes, so a document production would refuse fails here too.
+    """A clean database carrying the shipped indexes, so a duplicate production would refuse fails here too.
 
     A junction row for the FIRST club alone, and a live invite for each: the second club's link is
     what makes the junction refusal reachable.
@@ -749,7 +749,7 @@ class TestTheKeyOverTheWire:
 
 
 class TestWhatASubmissionIsRefused:
-    """Each refusal, driven against the shipped validators, storing nothing."""
+    """Each refusal, storing nothing."""
 
     def test_a_revoked_link_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:

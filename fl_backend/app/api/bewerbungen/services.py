@@ -34,10 +34,6 @@ from app.shared.schemas.bounds import (
 from app.shared.schemas.custom import fold_shorthand
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktEingetragenVon, FLKontaktRolle, FLTrikotFarbe
 
-# `bewerbung: null` and no key are both the closed window, never an error (`FLSaison.bewerbung`
-# defaults).
-_WINDOW_FIELDS = ("offen", "von", "bis")
-
 
 def find_triage_refusal(*, status: str) -> WriteRefusal | None:
     """Why this application may no longer be decided, or `None`.
@@ -116,9 +112,8 @@ def parse_new_club(*, club_document: Mapping[str, Any]) -> dict[str, Any]:
 def find_new_club_refusal(*, club_document: Mapping[str, Any]) -> WriteRefusal | None:
     """Why the school's details make no club, or `None`.
 
-    Through the payload itself, never a copy: the validator only types them,
-    so a scheme-less `website_url` reaches storage, and `FLTeam`
-    500s every club read.
+    Through the payload itself, never a copy: nothing else judges them, so a scheme-less `website_url` would reach
+    storage, and `FLTeam` 500s every club read.
     """
 
     try:
@@ -138,19 +133,6 @@ def find_new_club_refusal(*, club_document: Mapping[str, Any]) -> WriteRefusal |
 # router asks them in.
 
 
-def recorded_window(*, bewerbung: Any) -> Mapping[str, Any] | None:
-    """The window this stored value IS, or `None` where a reader could not subscript it.
-
-    Short of one it is unreadable, so each caller answers its own miss rather than 500ing on the
-    subscript.
-    """
-
-    if not isinstance(bewerbung, Mapping) or not all(field in bewerbung for field in _WINDOW_FIELDS):
-        return None
-
-    return bewerbung
-
-
 def window_is_running(*, bewerbung: Any, today: str) -> bool:
     """Whether this season's application window runs on `today`: `offen`, AND the day inside the span.
 
@@ -158,7 +140,7 @@ def window_is_running(*, bewerbung: Any, today: str) -> bool:
     season PAYLOAD alone, so a stored reversal is reachable.
     """
 
-    if recorded_window(bewerbung=bewerbung) is None:
+    if bewerbung is None:
         return False
 
     return bool(bewerbung["offen"]) and str(bewerbung["von"]) <= today <= str(bewerbung["bis"])
@@ -174,8 +156,7 @@ def saison_nimmt_bewerbungen_an(*, saison_status: Any, bewerbung: Any, today: st
     return not season_has_ended(saison_status=saison_status) and window_is_running(bewerbung=bewerbung, today=today)
 
 
-# `season_has_ended`'s negation for a read that narrows in the query. No stored season lacks a
-# status, the validator requiring one (`app/core/constraints.py :: COLLECTION_VALIDATORS`), which is why
+# `season_has_ended`'s negation for a read that narrows in the query. Every write stores a season's status, which is why
 # the readers of this filter's rows subscript it.
 SAISON_NOT_ENDED_FILTER: Final[Mapping[str, Any]] = {"status": {"$ne": "past"}}
 
@@ -1031,13 +1012,24 @@ def saison_antwort_seite(*, row: Mapping[str, Any], seats: Sequence[str]) -> Kon
     return antwort_seite(seiten=[saison_kontakt_seite(row=row, seat=seat) for seat in seats], verwaltet="bestaetigung_kontakt_saison")
 
 
-def compose_decline_update(*, seats: Sequence[str], today: str) -> Mapping[str, Any]:
-    """A decline empties the person's slot and records the day beside it, where the emptying cannot reach."""
+def objection_is_announced(*, kontakte: Any, seats: Sequence[str]) -> bool:
+    """Whether a decline of these seats is told to an Ansprechperson who still stands, in a notice naming the deletion day."""
+
+    return "ansprechperson" not in seats and ansprechperson_mailbox(kontakte=kontakte)[0] is not None
+
+
+def compose_decline_update(*, seats: Sequence[str], today: str, angekuendigt: bool = False) -> Mapping[str, Any]:
+    """A decline empties the person's slot and records the day beside it, where the emptying cannot reach.
+
+    `angekuendigt` where the objection notice goes out: it names the deletion day, so it is the deletion notice too.
+    """
 
     written: dict[str, Any] = {}
     for seat in seats:
         written[f"kontakte.{seat}"] = None
         written[f"bestaetigungen.{seat}.abgelehnt_am"] = today
+    if angekuendigt:
+        written["loeschung_angekuendigt_am"] = today
 
     # The submission's digest was taken over this person's details too, and a hash of personal data is
     # still personal data. A replay then meets the refusal of other details, which stays true.
@@ -1055,7 +1047,8 @@ def compose_erneut_update(*, seats: Sequence[str], token_hash: str, today: str, 
     # refusal recorded against a replaced address would hold the fresh link's application for ever.
     written: dict[str, Any] = {f"bestaetigungen.{seat}": compose_bestaetigung(token_hash=token_hash, today=today) for seat in seats}
 
-    return {"$set": {**written, "bestaetigungsfrist": bestaetigungsfrist}}
+    # The deadline restarts, so a notice that named the old one no longer announces the deletion.
+    return {"$set": {**written, "bestaetigungsfrist": bestaetigungsfrist, "loeschung_angekuendigt_am": None}}
 
 
 def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[str, Any]:
@@ -1677,11 +1670,7 @@ def build_bewerbungen_status_term(status: Sequence[str] | None) -> dict[str, Any
 
 
 def build_bewerbungen_sort(*, sort_by: str, order: str) -> list[tuple[str, int]]:
-    """The triage queue's order, tie-broken by `_id`.
-
-    Named rather than inline so the index test can assert on what the endpoint actually sends
-    (`fl_backend/tests/core/test_constraints_execution.py`).
-    """
+    """The triage queue's order, tie-broken by `_id`."""
 
     # `_id` breaks the tie in `order`'s OWN direction, so same-day rows read the way the queue does
     # and the pair is the index's key or its exact inverse. Pinned descending, `order=asc` would
@@ -1705,11 +1694,7 @@ DUBLETTEN_TALLY: Final[Sequence[Mapping[str, Any]]] = (
 
 
 def build_dubletten_pipeline(beyond_status: Mapping[str, Any]) -> list[Mapping[str, Any]]:
-    """Every open application the request's other terms leave, grouped and never bounded.
-
-    Named rather than inline so both test tiers assert on what the endpoint actually sends
-    (`fl_backend/tests/api/test_bewerbungen_read.py :: TestTheCollisionSurvivesTheReadsCap`).
-    """
+    """Every open application the request's other terms leave, grouped and never bounded."""
 
     # `eingereicht` whatever status the page was narrowed to, and no `$limit`: the collision is a fact
     # about the queue, and a pass stopping where the page stops leaves a split pair unseen at both ends.

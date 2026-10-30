@@ -72,7 +72,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body) -> Any:
-    """The SHIPPED validators, so a seeded row production would refuse fails here too.
+    """A clean database carrying the shipped indexes.
 
     Three rows: one awaiting its pupil's answer, one they confirmed, and one of another team, which
     is what makes a narrowing that narrows nothing fail.

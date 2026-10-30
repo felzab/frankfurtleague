@@ -1488,7 +1488,7 @@ export const RegistrierungenPostRegistrierungBody = zod
 /**
  * Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
  *
- * Refuses, writing nothing: `REQ-REGISTRIERUNG-004`, `-005`, `-006`, `-007`, `-010`, `-012`, `-017`, `-019` and
+ * Refuses, writing nothing: `REQ-REGISTRIERUNG-004`, `-005`, `-006`, `-007`, `-010`, `-012`, `-017` and
  * `REQ-EINWILLIGUNG-001`.
  * @summary Confirm one registration and record the pupil's consent
  */

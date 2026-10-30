@@ -36,6 +36,7 @@ from app.api.bewerbungen.services import (
     find_unknown_token_refusal,
     hash_token,
     mindestalter_for,
+    objection_is_announced,
     paired_seat,
     saison_antwort_seite,
     saison_frist_of,
@@ -451,7 +452,7 @@ async def post_einwilligung(
         updated_raw = await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter={"_id": bewerbung_raw["_id"]},
-            update=compose_decline_update(seats=seats, today=today),
+            update=compose_decline_update(seats=seats, today=today, angekuendigt=objection_is_announced(kontakte=kontakte, seats=seats)),
             session=session,
             return_document=ReturnDocument.AFTER,
         )

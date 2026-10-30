@@ -1403,7 +1403,7 @@ class TestOneRowHoldsBackNoOther:
         ]
 
     def test_a_candidate_the_answer_cannot_carry(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """A deadline a hand edit left malformed: the validator stores any string, and the answer's model refuses it."""
+        """A deadline a hand edit left malformed, which the answer's model refuses."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].insert_one(application(SECOND_OID, bestaetigungsfrist="2026-03-1"))
@@ -1748,25 +1748,6 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
         carryable, with_one_refused = on_a_league(mongo_replica_set_url, body)
 
         assert carryable - with_one_refused == budget.ROUND_TRIPS_A_ROW
-
-    def test_a_decision_date_no_judge_can_read_costs_its_clock_no_command(self, mongo_replica_set_url: str):
-        """Every command a drain spends taking a page apart is one the reminder share after it has not got."""
-
-        unreadable = application(SECOND_OID, status="abgelehnt", entscheidung={"getroffen_am": "2026-02-1x", "von": "admin", "grund": None})
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int, Mapping[str, Any] | None, Mapping[str, Any] | None]:
-            async def counted(rows: list[dict[str, Any]]) -> int:
-                await database[Collection.BEWERBUNGEN].delete_many({})
-                await database[Collection.BEWERBUNGEN].insert_many(rows)
-
-                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
-
-            without, beside = await counted(the_corpus()), await counted([*the_corpus(), unreadable])
-            return without, beside, await stored(database, SECOND_OID), await stored(database, DECLINED_OID)
-
-        without, beside, kept, erased = on_a_league(mongo_replica_set_url, body)
-
-        assert (beside, kept is not None, erased) == (without, True, None)
 
     def test_a_cleared_contact_block(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:

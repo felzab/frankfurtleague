@@ -149,7 +149,6 @@ export const Code = {
   "REQ-REGISTRIERUNG-016": "REQ-REGISTRIERUNG-016",
   "REQ-REGISTRIERUNG-017": "REQ-REGISTRIERUNG-017",
   "REQ-REGISTRIERUNG-018": "REQ-REGISTRIERUNG-018",
-  "REQ-REGISTRIERUNG-019": "REQ-REGISTRIERUNG-019",
   "REQ-REPLACE-001": "REQ-REPLACE-001",
   "REQ-REPLACE-002": "REQ-REPLACE-002",
   "REQ-REPLACE-003": "REQ-REPLACE-003",
@@ -265,7 +264,7 @@ export interface FLBewerbungBestaetigung {
   erinnert_am: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   verschickt_am: string;
-  zustellung?: FLBewerbungZustellung | null;
+  zustellung: FLBewerbungZustellung | null;
 }
 
 /**
@@ -2279,7 +2278,7 @@ export interface FLEinladungMintResponse {
  * The carrier a message about this invite is recorded in.
  */
 export interface FLEinladungVersand {
-  zustellung?: FLBewerbungZustellung | null;
+  zustellung: FLBewerbungZustellung | null;
 }
 
 /**
@@ -2296,7 +2295,7 @@ export interface FLEinladungZeile {
   saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
-  versand?: FLEinladungVersand | null;
+  versand: FLEinladungVersand | null;
   widerrufen_am: string | null;
 }
 
@@ -2312,14 +2311,9 @@ export interface FLEinladungResponse {
   team_id: string;
 }
 
-export interface FLEinladungVersandPayload {
-  erneut?: boolean;
-}
+export type FLEinladungVersandGrund = (typeof FLEinladungVersandGrund)[keyof typeof FLEinladungVersandGrund];
 
-export type FLEinladungVersandZeileUebersprungen =
-  (typeof FLEinladungVersandZeileUebersprungen)[keyof typeof FLEinladungVersandZeileUebersprungen] | null;
-
-export const FLEinladungVersandZeileUebersprungen = {
+export const FLEinladungVersandGrund = {
   austritt_eingetragen: "austritt_eingetragen",
   erzeugung_fehlgeschlagen: "erzeugung_fehlgeschlagen",
   erzeugung_ungewiss: "erzeugung_ungewiss",
@@ -2328,6 +2322,10 @@ export const FLEinladungVersandZeileUebersprungen = {
   kontakte_gesperrt: "kontakte_gesperrt",
   bereits_gesendet: "bereits_gesendet",
 } as const;
+
+export interface FLEinladungVersandPayload {
+  erneut?: boolean;
+}
 
 /**
  * One team as the press left it.
@@ -2342,7 +2340,7 @@ export interface FLEinladungVersandZeile {
   /** @minLength 1 */
   team_name: string;
   token: string | null;
-  uebersprungen: FLEinladungVersandZeileUebersprungen;
+  uebersprungen: FLEinladungVersandGrund | null;
 }
 
 /**
@@ -2354,19 +2352,6 @@ export interface FLEinladungVersandResponse {
   zeilen: FLEinladungVersandZeile[];
 }
 
-export type FLEinladungVersandVorschauZeileUebersprungen =
-  (typeof FLEinladungVersandVorschauZeileUebersprungen)[keyof typeof FLEinladungVersandVorschauZeileUebersprungen] | null;
-
-export const FLEinladungVersandVorschauZeileUebersprungen = {
-  austritt_eingetragen: "austritt_eingetragen",
-  erzeugung_fehlgeschlagen: "erzeugung_fehlgeschlagen",
-  erzeugung_ungewiss: "erzeugung_ungewiss",
-  kein_kontaktblock: "kein_kontaktblock",
-  keine_bestaetigte_kontaktperson: "keine_bestaetigte_kontaktperson",
-  kontakte_gesperrt: "kontakte_gesperrt",
-  bereits_gesendet: "bereits_gesendet",
-} as const;
-
 /**
  * One team as the preview reports it. It mints nothing, so it answers no link.
  */
@@ -2377,7 +2362,7 @@ export interface FLEinladungVersandVorschauZeile {
   team_id: string;
   /** @minLength 1 */
   team_name: string;
-  uebersprungen: FLEinladungVersandVorschauZeileUebersprungen;
+  uebersprungen: FLEinladungVersandGrund | null;
 }
 
 /**
@@ -3863,11 +3848,11 @@ export interface FLRefusedPayloadBody {
 export interface FLRegistrierungEinwilligung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   bestaetigt_am: string;
-  datum?: string | null;
-  medien?: boolean | null;
-  nachweis?: FLEinwilligungNachweise;
+  datum: string | null;
+  medien: boolean | null;
+  nachweis: FLEinwilligungNachweise;
   text_version: string;
-  umfang?: FLEinwilligungUmfang | null;
+  umfang: FLEinwilligungUmfang | null;
 }
 
 /**

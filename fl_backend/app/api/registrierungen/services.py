@@ -173,8 +173,8 @@ def compose_registrierung(
         "vorname": vorname,
         "nachname": nachname,
         "email": email,
-        # Written EXPLICITLY, all three: `required` in the `$jsonSchema` means the key is present,
-        # so an omitted null is a validator rejection rather than a stored null.
+        # Written EXPLICITLY, all three: the record model requires each key, so an omitted one is a
+        # document the read-back refuses rather than a stored null.
         "position": position,
         "nummer": nummer,
         "stufe": stufe,
@@ -529,22 +529,6 @@ def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_WAHLEN_UNPASSEND,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
-    )
-
-
-def find_ohne_geburtsdatum_refusal(*, seite: FLRegistrierungSeite, gespeichert: Any) -> WriteRefusal | None:
-    """`REQ-REGISTRIERUNG-019`: the returning pupil's page takes the stored birthdate, and the person holds none.
-
-    Only a hand edit leaves one (`app/core/constraints.py :: NAMELESS_PERSON_RULE`), and the page has no date
-    field, so the league is the repair.
-    """
-
-    if seite != SEITE_WIEDERKEHREND or gespeichert is not None:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_OHNE_GEBURTSDATUM,
-        status=HTTPStatus.CONFLICT,
     )
 
 

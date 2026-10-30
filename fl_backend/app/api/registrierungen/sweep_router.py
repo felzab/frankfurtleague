@@ -51,17 +51,16 @@ router = APIRouter(
 # a pass that stops on a club somebody retired.
 _TEAM_UNBEKANNT = ""
 
-# Three commands a row beside the sixteen of the worst call erasing one page per clock
-# (`tests/api/test_registrierung_sweep_refusal.py :: OTHER_COMMANDS`): 259 commands at a 37 ms round trip
-# plus 1.27 ms take 9.91 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
+# Three commands a row beside the sixteen of the worst call erasing one page per clock: 259 commands at a 37 ms
+# round trip plus 1.27 ms take 9.91 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 81
 
 
 async def _redact(*, aktionen_collection: AktionenCollection, ids: Sequence[Any], stamp: str, session: AsyncClientSession) -> int:
     """Every log row naming the erased registrations, emptied and stamped.
 
-    A twin of `app/api/bewerbungen/sweep_router.py :: _redact` with the collection fixed: two slices
-    of two instances each fall short of `.claude/CLAUDE.md` §3's three.
+    A twin of `app/api/bewerbungen/sweep_router.py :: _redact` with the collection fixed: two instances are
+    too few to abstract.
     """
 
     if not ids:
@@ -301,12 +300,9 @@ async def sweep_registrierungen(
                 session=session,
             )
         )
-        # Judged row by row: a decision date a hand edit left unreadable is passed over in place, and the rest of the page goes.
-        taken = batch.took(
-            [row for row, due in batch.judged(rows, lambda row: decline_erasure_is_due(registrierung_raw=row, today=today)) if due]
-        )
+        taken = batch.took([row for row in rows if decline_erasure_is_due(registrierung_raw=row, today=today)])
         if not taken:
-            refuse_a_stalled_page(read=len(rows), moved=len(batch.refused), page=SWEEP_PAGE, clock="decline", saison_id=saison_id)
+            refuse_a_stalled_page(read=len(rows), moved=0, page=SWEEP_PAGE, clock="decline", saison_id=saison_id)
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]

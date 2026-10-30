@@ -28,9 +28,6 @@ CORPUS_DATABASE = build_test_config().db_base_name
 
 # `seeded_with`'s own, for `tests/api/conftest.py :: config_for`'s reason: it clears where it seeds.
 WINDOW_DATABASE = worker_database("fl_bewerbung_window_test")
-# Its own name: `a_clean_database_sync` records one schema per name, and alternating constrained and
-# unconstrained callers on one would rebuild at every switch.
-UNCONSTRAINED_WINDOW_DATABASE = worker_database("fl_bewerbung_unconstrained_window_test")
 
 PREFIX = f"/api/v{API_VERSION}/bewerbungen"
 
@@ -177,19 +174,17 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
     yield from seed_the_public_corpus(mongo_url)
 
 
-def seeded_with(mongo_url: str, saisons: list[dict[str, Any]], *, constrained: bool = True) -> str:
+def seeded_with(mongo_url: str, saisons: list[dict[str, Any]]) -> str:
     """The database name holding exactly the seasons handed in, for a case that decides which one `/fenster` picks.
 
     `seeded_url` cannot serve those: a boundary season would sort behind its fixed answer and never
     be the one returned.
     """
 
-    name = WINDOW_DATABASE if constrained else UNCONSTRAINED_WINDOW_DATABASE
+    name = WINDOW_DATABASE
     client = MongoClient(mongo_url)
     try:
-        # `constrained=False` is for a season whose window the shipped validator refuses -- one
-        # stored before that validator arrived.
-        database = a_clean_database_sync(client, mongo_url, name, constraints=constrained)
+        database = a_clean_database_sync(client, mongo_url, name, constraints=True)
         database[Collection.SAISONS].insert_many(saisons)
 
         # The name rather than the url handed in: what a caller pairs with `answered` is the database
@@ -404,89 +399,6 @@ class TestASeasonThatHasEndedTakesNoApplication:
         database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW), status="past")])
 
         assert answered(mongo_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}", database_name=database).status_code == 404
-
-
-# Named because two classes seed it: the open-window query traverses a list, so this is the one
-# malformed window that reaches a read rather than failing a term.
-LIST_WRAPPED_WINDOW = [dict(RUNNING_WINDOW)]
-
-# Present and not an object: what `app/core/constraints.py :: _SAISON_BEWERBUNG` refuses, and what
-# a season stored before that validator can still carry.
-MALFORMED_WINDOWS = [
-    pytest.param("2026-03-01/2026-04-30", id="a window flattened to a string"),
-    pytest.param(2026, id="a window stored as a number"),
-    pytest.param(LIST_WRAPPED_WINDOW, id="a window wrapped in a list"),
-]
-
-# An object short of a key: `app/core/constraints.py :: _SAISON_BEWERBUNG` requires every one, and a
-# season stored before it can carry fewer. One omission each, so a subset guard fails on the one it
-# left out.
-INCOMPLETE_WINDOWS = [
-    pytest.param({}, id="a window recorded as an empty object"),
-    pytest.param({"von": "2026-03-01", "bis": "2026-04-30"}, id="a window missing its flag"),
-    pytest.param({"offen": True, "bis": "2026-04-30"}, id="a window missing its opening date"),
-    pytest.param({"offen": True, "von": "2026-03-01"}, id="a window missing its closing date"),
-]
-
-# Both reads take their window through `app/api/bewerbungen/public_router.py :: _pull_window` and
-# part on what it finds nothing: the window read answers the season's existence, the colour read the
-# 404 an unknown id gets.
-WINDOW_READS = [
-    pytest.param(f"{PREFIX}/fenster/{OPEN_SAISON}", 200, id="the window read"),
-    pytest.param(f"{PREFIX}/trikotfarben/{OPEN_SAISON}", 404, id="the colour read"),
-]
-
-
-class TestAStoredWindowThatIsNotAnObject:
-    """The window read is what pins the SHAPE half of that guard.
-
-    `_fenster` subscripts what it is handed, so narrowing the guard to a null check answers 500
-    there; the colour read has `window_is_running`'s own shape check behind it and 404s either way.
-    """
-
-    @pytest.mark.parametrize(("path", "status"), WINDOW_READS)
-    @pytest.mark.parametrize("bewerbung", MALFORMED_WINDOWS)
-    def test_it_answers_as_a_season_carrying_no_window_does(self, mongo_url: str, bewerbung: Any, path: str, status: int):
-        """Non-vacuous on both reads: the season EXISTS, so neither answer here is the one its id would have drawn."""
-
-        # UNCONSTRAINED: `_SAISON_BEWERBUNG` is what refuses these windows, so the rows this case is
-        # about are rows only a database predating the validator can hold.
-        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)], constrained=False)
-
-        assert answered(mongo_url, path, database_name=database).status_code == status
-
-
-class TestAStoredWindowShortOfAFieldTheReadNeeds:
-    """The window read pins the FIELDS half of that guard.
-
-    A shape-only guard 500s in `_fenster`'s subscript; the colour read 404s either way, as above.
-    """
-
-    @pytest.mark.parametrize(("path", "status"), WINDOW_READS)
-    @pytest.mark.parametrize("bewerbung", INCOMPLETE_WINDOWS)
-    def test_it_answers_as_a_season_carrying_no_window_does(self, mongo_url: str, bewerbung: Any, path: str, status: int):
-        """Non-vacuous: the season exists and its window IS an object, so the answer is the missing key rather than the id or the shape."""
-
-        # UNCONSTRAINED for the class above's reason: `_SAISON_BEWERBUNG` requires every key.
-        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)], constrained=False)
-
-        assert answered(mongo_url, path, database_name=database).status_code == status
-
-
-class TestTheOpenWindowReadIsGivenAWindowItCannotRead:
-    """The open-window read's own case rather than a path in `WINDOW_READS`.
-
-    Every other window in the two lists above fails a query term, so a case parametrised over one of
-    them passes here without reaching the read.
-    """
-
-    def test_it_answers_as_a_season_taking_no_applications_does(self, mongo_url: str):
-        """Non-vacuous: a dotted query term traverses a list, so this season IS selected and its window reaches `_fenster`'s subscript."""
-
-        # UNCONSTRAINED for the classes above's reason: `_SAISON_BEWERBUNG` refuses a window in a list.
-        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=LIST_WRAPPED_WINDOW)], constrained=False)
-
-        assert answered(mongo_url, f"{PREFIX}/fenster", database_name=database).status_code == 404
 
 
 # Each window TOUCHES today on one end or both, so the query's `$lte` and `$gte` are what admit it.
