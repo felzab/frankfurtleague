@@ -23,7 +23,6 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.adresswechsel.services import (
     LIVE_TERMS,
-    FLAdresswechselEndeArt,
     build_address_filter,
     build_owed_carry_filter,
     compose_end_update,
@@ -46,7 +45,6 @@ from app.api.aktionen.crud import (
 from app.api.berechtigungen.antraege import antrag_line, build_offen_filter, end_the_antraege_about_in_session
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
 from app.api.berechtigungen.erasure import carry_authorship_in_session, stamp_the_successor_in_session
-from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
 from app.api.berechtigungen.services import compose_fortgefuehrt, genehmigung_steht, lebendige_adresse
 from app.api.berechtigungen.services import compose_postausgang as compose_berechtigung_postausgang
 from app.api.bewerbungen.services import mint_token
@@ -75,6 +73,7 @@ from app.core.journal import Journal, JournalLine
 from app.core.recording import ERASED_ACTOR_MARKER, build_redaction_filter, log_stamp
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.shared.folding import sign_in_identifier
+from app.shared.schemas.literals import FLAdresswechselEinsehbarVerwehrt, FLAdresswechselEndeArt
 
 _SPIELER_FIELDS: Final[Mapping[str, int]] = {"vorname": 1, "nachname": 1, "email": 1}
 # The whole consent record: `ist_eigener_schiedsrichter` judges its stamp.

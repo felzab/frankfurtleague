@@ -2,7 +2,6 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
-from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.bounds import (
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
@@ -13,6 +12,7 @@ from app.shared.schemas.bounds import (
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLEinwilligungStandPayload
 from app.shared.schemas.kontakt import CustomKontaktName
+from app.shared.schemas.literals import FLAdresswechselEinsehbarVerwehrt, FLEinwilligungUmfang, FLSpielerPosition, FLSpielerStufe
 from app.shared.schemas.responses import BaseAPIResponse
 
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
@@ -24,20 +24,9 @@ SQUAD_NUMMER_PATTERN = r"^[0-9]{1,4}$"
 # there is one Literal.
 FLSpielerSortOptions = Literal["vorname", "nummer", "position"]
 
-# In the order a squad sheet lists them. `sort_by="position"` sorts the STRING, so a public squad
-# list is alphabetical instead.
-FLSpielerPosition = Literal["Tor", "Abwehr", "Mittelfeld", "Angriff"]
-
-# The Hessen Oberstufe, both phases. E2 is offered although no row holds it: a set stopping at what
-# a season contains would refuse an entry as the year turns.
-FLSpielerStufe = Literal["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
-
 # Slugs rather than the German `position` and `stufe` store: a role also has a label and a badge
 # Kuerzel, and a stored German word would be a third spelling for those two to drift from.
 FLSpielerRolle = Literal["kapitaen", "co_kapitaen"]
-
-# An alias rather than inline: the payloads that set it answer in the record's own vocabulary.
-FLEinwilligungUmfang = Literal["kader_oeffentlich", "intern"]
 
 
 class FLEinwilligung(BaseModel):

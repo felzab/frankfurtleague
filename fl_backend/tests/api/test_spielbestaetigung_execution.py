@@ -43,10 +43,11 @@ from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel_
 from app.api.spiele.crud import advance_bracket_winners
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.teams.admin_router import replace_saison_team
-from app.api.teams.schemas import KONTAKT_ROLLEN, FLReplaceSaisonTeamPayload
+from app.api.teams.schemas import FLReplaceSaisonTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config

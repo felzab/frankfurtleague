@@ -6,8 +6,7 @@ from bson import ObjectId
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import SONDEREREIGNIS_COUNTED_AS_ABSAGE, FLSpiel
-from app.api.spieler.schemas import FLSpielerStufe
-from app.api.teams.schemas import FLAustrittType, FLSaisonTeamRecord, FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
+from app.api.teams.schemas import FLSaisonTeamRecord, FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
 from app.api.teams.services import (
     ABSAGE_AS_NAME,
     ABSAGE_COUNT_NAME,
@@ -16,6 +15,7 @@ from app.api.teams.services import (
     _counted_goals,
     build_team_pipeline,
 )
+from app.shared.schemas.literals import FLAustrittType, FLSpielerStufe
 
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
@@ -260,7 +260,7 @@ class TestTheAustrittFilterIsTranslated:
         """A team that has left stays in the table, so the default read must not narrow on the field."""
         assert junction_match(build()) == {"saison_id": "2026"}
 
-    @pytest.mark.parametrize("austritt_type", get_args(FLAustrittType))
+    @pytest.mark.parametrize("austritt_type", get_args(FLAustrittType.__value__))
     def test_a_type_selects_the_route_out_and_not_merely_having_left(self, austritt_type: FLAustrittType):
         """The question `has_austritt` cannot ask: a withdrawal is not a sanction."""
         assert junction_match(build(austritt_type=austritt_type)) == {"saison_id": "2026", "austritt.type": austritt_type}

@@ -10,15 +10,14 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungZustellungAngenommenPayload,
     FLBewerbungZustellungEreignisPayload,
     FLBewerbungZustellungResponse,
-    FLKontaktRolle,
 )
 from app.api.bewerbungen.services import compose_zustellung_update, zustellung_event_applies, zustellung_send_applies
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_one_from_db
 from app.core.dependencies import BewerbungenCollection, DBClient
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import transaction_session
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 
 # Its own router rather than an endpoint on the sweep's: `.claude/rules/backend.md` **routing**
 # refuses a merge that moves a guard onto an endpoint. System tier and the system actor for the

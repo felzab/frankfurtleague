@@ -11,10 +11,10 @@ from typing import Any, NamedTuple
 
 from app.api.bewerbungen.services import seat_named
 from app.api.einladungen.schemas import FLEinladungEmpfaenger, FLEinladungVersandGrund
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # An exclusion rather than an inclusion list, as `app/api/bewerbungen/services.py ::
 # WITHOUT_TOKEN_HASHES` is: what it subtracts is the whole credential, where a list of everything

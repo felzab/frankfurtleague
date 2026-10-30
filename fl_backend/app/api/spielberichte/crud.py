@@ -38,7 +38,6 @@ from app.api.spielberichte.services import (
     seiten_of,
     team_id_of,
 )
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
@@ -51,6 +50,7 @@ from app.core.crud import (
 )
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # The seat holders' two names alone: what the remarks are judged against.
 VEREIN_FIELDS: Mapping[str, int] = {
