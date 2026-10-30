@@ -27,7 +27,7 @@ const SDK_DOUBLE = {
       throw new Error("The request's deadline had passed before this call was sent.");
     const claim = claims.shift() ?? { mails: [], aufgegeben: 0 };
     const held = claim.mails.length > 0;
-    return { acknowledged: 1, beanspruchung: held ? "claim-1" : null, beansprucht_bis: null, mails: claim.mails, aufgegeben: claim.aufgegeben };
+    return { beanspruchung: held ? "claim-1" : null, beansprucht_bis: null, mails: claim.mails, aufgegeben: claim.aufgegeben };
   },
   postausgangPostErgebnis: async (payload: FLPostausgangErgebnisPayload) => {
     schritte.push({ art: "report", payload });
@@ -36,7 +36,7 @@ const SDK_DOUBLE = {
     const key = ({ gesendet: "gesendet", wiederholen: "wiederholt", aufgeben: "aufgegeben", zurueckgehalten: "zurueckgehalten" } as const)[
       ergebnis
     ];
-    return { acknowledged: 1, ...counted, [key]: 1 };
+    return { ...counted, [key]: 1 };
   },
 };
 

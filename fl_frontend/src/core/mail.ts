@@ -277,8 +277,8 @@ export async function sendSperreNotice({
   });
 }
 
-/** What one drain settled, by the backend's counts. */
-type DrainZaehlung = Omit<FLPostausgangErgebnisResponse, "acknowledged">;
+/** What one drain settled: the backend's counts, summed over every report it made. */
+type DrainZaehlung = Record<keyof FLPostausgangErgebnisResponse, number>;
 
 /** The one drain this process runs, and the one every call made while it runs waits on. */
 let drainLaeuft: Promise<DrainZaehlung> | undefined;
