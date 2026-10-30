@@ -59,7 +59,6 @@ from app.shared.schemas.literals import (
     FLKontaktRolle,
     FLSchulform,
     FLSortOrder,
-    FLTrainerZugleich,
     FLTrikotFarbe,
 )
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -71,6 +70,10 @@ MAX_NUMBER_OF_GROUPS: Final = len(get_args(FLGruppenNames.__value__))
 # Two values rather than a free `saison_phase` filter: a table of the Halbfinale alone is not a
 # standing, and offering it invites one.
 type FLTeamStatistikScope = Literal["gruppenphase", "gesamt"]
+
+# Which second seat one person may hold beside the Trainer's. A closed set rather than a flag per seat: the
+# two are alternatives, and nothing can mean holding both.
+type FLTrainerZugleich = Literal["ansprechperson", "stellvertretung"]
 
 
 # Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
