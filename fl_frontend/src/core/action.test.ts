@@ -106,14 +106,15 @@ describe("the admin lane", () => {
   it("strips every text as the backend does, parses it, runs the body and clears the site's tag", async () => {
     const posted = new FormData();
     posted.set("name", "\u00a0Nord\u3000");
-    posted.set("plz", " 60438\n");
+    // U+001F is no White_Space, which Python's `str.strip` drops all the same.
+    posted.set("plz", " 60438\u001f");
 
     expect(await anlegen()(posted)).toStrictEqual({ ok: true, value: undefined });
     expect(stand.steps).toStrictEqual(["admin guard", 'body {"name":"Nord","plz":"60438"}', "updateTag site"]);
   });
 
   it("keeps a character the backend's strip keeps", async () => {
-    // U+FEFF is no White_Space, which JavaScript's `trim` would drop and Pydantic keeps.
+    // U+FEFF is no White_Space, which JavaScript's `trim` would drop and Python's `str.strip` keeps.
     await anlegen()({ name: "\ufeffNord", plz: "60438" });
     expect(stand.steps[1]).toBe(`body {"name":"\ufeffNord","plz":"60438"}`);
   });

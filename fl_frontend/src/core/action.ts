@@ -116,9 +116,10 @@ const UNEXPECTED = { ok: false, reason: COPY.shared.fehler.unerwartet } as const
 
 const isWorded = (code: Code): code is Code & WordedCode => Object.hasOwn(COPY.shared.ablehnung, code);
 
-// The backend's own strip: Pydantic's `strip_whitespace` drops Unicode's White_Space characters from both ends, a
-// set JavaScript's `trim` widens by U+FEFF and Python's `str.strip` by U+001C to U+001F.
-const ENDS = /^\p{White_Space}+|\p{White_Space}+$/gu;
+// The backend's own strip, Python's `str.strip`: Unicode's White_Space and U+001C to U+001F, from both ends. A field
+// stripped by Pydantic's `strip_whitespace` keeps those four, which is safe, since the stripped text is what is sent.
+// Never JavaScript's `trim`, whose set adds U+FEFF, which the backend keeps.
+const ENDS = /^[\p{White_Space}\x1c-\x1f]+|[\p{White_Space}\x1c-\x1f]+$/gu;
 
 /** Every text in the input stripped as the backend strips it, so a bound is judged on what the backend stores. */
 function stripped(value: unknown): unknown {
