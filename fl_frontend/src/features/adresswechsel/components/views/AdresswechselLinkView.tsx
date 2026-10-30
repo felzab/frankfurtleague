@@ -32,8 +32,8 @@ import { ctaButton, formButton } from "@/shared/components/ui/formButtons";
 import { appToast } from "@/shared/utils/appToast";
 import { ANTWORT_UNKLAR, postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 
+import type { FLAdresswechselAnsichtBisherigZustand, FLAdresswechselEndeArt, FLAdresswechselWeg } from "@/core/generated/client/types";
 import type { AdresswechselAnsicht, AdresswechselGedrueckt, AdresswechselLinkZustand, AdresswechselStart } from "@/features/adresswechsel/link";
-import type { FLAdresswechselBisherigZustand, FLAdresswechselEndeArt, FLAdresswechselWeg } from "@/features/adresswechsel/schemas";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 
 type Antwort = AdresswechselGedrueckt["antwort"];
@@ -253,7 +253,7 @@ function NurAblehnen({ antwort }: { antwort: Presse }) {
 }
 
 /** The stop link's sentence for each step the change waits on, by the way it began. */
-function stoppSatz(zustand: FLAdresswechselBisherigZustand, weg: FLAdresswechselWeg, wirksamAb: string | null) {
+function stoppSatz(zustand: FLAdresswechselAnsichtBisherigZustand, weg: FLAdresswechselWeg, wirksamAb: string | null) {
   if (zustand === "freigabe_offen") {
     return "Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen. Sie gilt nur, wenn Du sie in Deinem Konto freigibst: Melde Dich dazu mit dieser Adresse an. Gib sie nur frei, wenn Du das selbst angefragt hast, und stoppe die Änderung sonst hier.";
   }
@@ -286,7 +286,7 @@ function StoppPanel({
   wirksamAb,
   antwort,
 }: {
-  zustand: FLAdresswechselBisherigZustand;
+  zustand: FLAdresswechselAnsichtBisherigZustand;
   weg: FLAdresswechselWeg;
   wirksamAb: string | null;
   antwort: Presse;

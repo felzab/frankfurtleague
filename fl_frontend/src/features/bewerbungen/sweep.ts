@@ -19,7 +19,7 @@ import { getBewerbungSweepSaisons, postBewerbungSweep, postBewerbungSweepAngekue
 import { rollenText, rolleText, sendBewerbungLinkMail, sendBewerbungMail } from "./notifications";
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
-import type { FLAdresswechselSweepResponse } from "@/features/adresswechsel/schemas";
+import type { FLAdresswechselSweepResponse } from "@/core/generated/client/types";
 import type { FLRegistrierungSweepErinnerung } from "@/features/registrierungen/schemas";
 import type { BewerbungEmpfaenger, BewerbungLinkEmpfaenger } from "./notifications";
 import type { FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung } from "./schemas";

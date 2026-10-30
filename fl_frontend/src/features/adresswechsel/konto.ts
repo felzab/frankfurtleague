@@ -2,7 +2,7 @@ import { accountStandsAt } from "@/core/auth";
 
 import { postAdresswechselAdresse } from "./mutations";
 
-import type { FLAdresswechselAdressePayload } from "./schemas";
+import type { FLAdresswechselAdressePayload } from "@/core/generated/client/types";
 
 /**
  * Whether a sign-in account already stands at the new address of the live change the key names, which refuses the

@@ -31,7 +31,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { meldeAdresswechselVersand } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
-import type { FLAdresswechselVerwaltungOffen, FLAdresswechselWartetAuf, FLAdresswechselWeg } from "@/features/adresswechsel/schemas";
+import type { FLAdresswechselVerwaltungOffen, FLAdresswechselWartetAuf, FLAdresswechselWeg } from "@/core/generated/client/types";
 
 const ADRESSWECHSEL_ERNEUT = "Link erneut senden";
 const ADRESSWECHSEL_VERWERFEN = "Änderung verwerfen";
