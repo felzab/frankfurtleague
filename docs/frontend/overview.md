@@ -70,13 +70,15 @@ and Zod schemas for request bodies and parameters alone. The Zod module opens wi
 component can send a call; the types module holds only the document's types and value lists, which
 a client component imports like any other module. A change to the backend's routes or models
 regenerates both with `pnpm run contract` in `fl_frontend`, which exports the document and then
-runs Orval, committing what moves; the gate's db scope runs the same script and fails a tree where
-either is stale. Each path parameter is
-percent-encoded where its generated URL is built (Orval's `urlEncodeParameters`), so no call site
-encodes its own. An answer is typed by the generated types and parsed nowhere. The slices'
-hand-written Zod schemas in `schemas.ts` judge what a form submits, in the browser, where the
-`server-only` generated Zod cannot run, and the SDK call that takes their output holds it to the
-generated payload type.
+runs Orval, committing what moves; the gate's db scope generates both into a scratch folder beside
+the tree and fails a tree where either is stale. Each path parameter is percent-encoded where its
+generated URL is built (Orval's `urlEncodeParameters`), so no call site encodes its own. An answer
+is typed by the generated types and parsed nowhere. A form's action judges its input on the server
+through `fl_frontend/src/core/action.ts` with the generated Zod schema, or a draft built from its
+fields. A hand-written payload schema in a slice's `schemas.ts` belongs to an old form: it is
+marked `Redesign: goes with its last importer.` and goes with the form its area's session rebuilds.
+A value list in any slice is the generated value, as in `z.enum(FLSaisonStatus)` or
+`Object.values(FLSpielerStufe)`, never a copy.
 
 ## Rendering
 
