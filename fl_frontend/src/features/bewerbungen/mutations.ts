@@ -8,7 +8,6 @@ import {
   bewerbungenKorrigiereKontaktEmail,
   bewerbungenPostBewerbung,
   bewerbungenPostEinwilligung,
-  bewerbungenPostZustellung,
   bewerbungenSweepSaison,
 } from "@/core/generated/client/sdk";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
@@ -28,8 +27,6 @@ import type {
   FLBewerbungKontaktSitzResponse,
   FLBewerbungSweepResponse,
   FLBewerbungSweepSaisonsResponse,
-  FLBewerbungZustellungEreignisPayload,
-  FLBewerbungZustellungResponse,
   FLKontaktRolle,
   FLPostBewerbungPayload,
   FLPostBewerbungResponse,
@@ -119,11 +116,6 @@ export async function besetzenKontaktSitz({
     telefon: telefon,
     text_version: text_version,
   });
-}
-
-/** The system tier: a delivery event carries no session; judged only where it beats what the seat holds. */
-export async function meldeZustellEreignis(payload: FLBewerbungZustellungEreignisPayload): Promise<FLBewerbungZustellungResponse> {
-  return bewerbungenPostZustellung(payload);
 }
 
 /**
