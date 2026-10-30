@@ -205,13 +205,15 @@ ADMIN_READS_OF_A_SEASON: list[tuple[str, Read, Served]] = [
 
 ADMIN_READ_IDS = [label for label, _, _ in ADMIN_READS_OF_A_SEASON]
 
-PAIRED_TIERS: list[tuple[str, Read, Read]] = [
-    ("squad list", admin_teams, base_teams),
-    ("fixture list", admin_spiele, base_spiele),
-    ("matchday list", admin_spieltage, base_spieltage),
+# Each pair with what only the admin shape serves, as `model_dump`'s `exclude` spells it: the fixture's
+# `version`, which its editor's save sends back (`spiele/schemas.py :: FLSpielJoinedAdmin`).
+PAIRED_TIERS: list[tuple[str, Read, Read, dict[str, Any] | None]] = [
+    ("squad list", admin_teams, base_teams, None),
+    ("fixture list", admin_spiele, base_spiele, {"spiele": {"__all__": {"version"}}}),
+    ("matchday list", admin_spieltage, base_spieltage, None),
 ]
 
-PAIRED_IDS = [label for label, _, _ in PAIRED_TIERS]
+PAIRED_IDS = [label for label, _, _, _ in PAIRED_TIERS]
 
 
 @pytest.mark.db
@@ -235,14 +237,14 @@ def test_the_admin_tier_reads_a_readable_season_as_the_season_it_named(
 
 @pytest.mark.db
 @pytest.mark.parametrize("saison_id", [ARCHIVED, RUNNING])
-@pytest.mark.parametrize("label,admin_read,base_read", PAIRED_TIERS, ids=PAIRED_IDS)
+@pytest.mark.parametrize("label,admin_read,base_read,admin_only", PAIRED_TIERS, ids=PAIRED_IDS)
 def test_the_admin_read_answers_exactly_what_the_base_read_answers(
-    label: str, admin_read: Read, base_read: Read, saison_id: str, seeded_league: str
+    label: str, admin_read: Read, base_read: Read, admin_only: dict[str, Any] | None, saison_id: str, seeded_league: str
 ):
-    """The gate is meant to be the ONLY difference, so on a season the base tier may read the two agree field for field."""
+    """Past what only the admin shape serves, the gate is meant to be the ONLY difference, so the two agree field for field."""
 
     async def body(database: AsyncDatabase) -> tuple[Any, Any]:
-        return (await admin_read(database, saison_id)).model_dump(), (await base_read(database, saison_id)).model_dump()
+        return (await admin_read(database, saison_id)).model_dump(exclude=admin_only), (await base_read(database, saison_id)).model_dump()
 
     admin_answer, base_answer = on_a_league(seeded_league, body)
 
