@@ -12,7 +12,7 @@ import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 
-import type { FLKaderZeile } from "@/features/spieler/schemas";
+import type { FLKaderZeile } from "@/core/generated/client/types";
 
 /**
  * **A card per squad row at every width, never a table**: a row is a record, and the squad joins no

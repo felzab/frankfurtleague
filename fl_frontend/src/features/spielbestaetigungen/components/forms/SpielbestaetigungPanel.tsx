@@ -21,7 +21,6 @@ import {
   geltendeBestaetigungen,
   grundZumEnde,
   istVorschlagOffen,
-  laufUeberfaellig,
   terminText,
 } from "@/features/spielbestaetigungen/utils";
 import { suppressEnterSubmit } from "@/features/spiele/components/forms/AdminEditSpielDataForm/suppressEnterSubmit";
@@ -47,8 +46,7 @@ import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusRow, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLSpielbestaetigung, FLSpielbestaetigungGrund, FLSpielbestaetigungTermin } from "@/features/spielbestaetigungen/schemas";
-import type { SpielbestaetigungenStand } from "@/features/spielbestaetigungen/types";
+import type { FLSpielbestaetigung, FLSpielbestaetigungGeschlossenGrund, FLSpielbestaetigungTermin } from "@/core/generated/client/types";
 import type { BestaetigungsSpiel } from "@/features/spielbestaetigungen/utils";
 
 /** The lists a party's name is read from: a row may name a side or a referee the fixture fields no more. */
@@ -78,33 +76,31 @@ const parteiName = (zeile: FLSpielbestaetigung, spiel: SpielStand, { teams, schi
 };
 
 /**
- * This fixture's rows, newest first, and the pass's last run. **Inside the editor's form** as its sections are, so
+ * This fixture's rows, newest first. **Inside the editor's form** as its sections are, so
  * Enter in its box is held back and no control here carries a name the form's wiring reads.
  */
 export function SpielbestaetigungPanel({
-  stand,
+  zeilen,
   spiel,
   parteien,
   austritte,
   today,
-  isActiveSaison,
   onVorschlagUebernehmen,
 }: {
   /** `null` where the read failed: the panel says so rather than reading as a fixture nobody was asked about. */
-  stand: SpielbestaetigungenStand | null;
+  zeilen: readonly FLSpielbestaetigung[] | null;
   /** The fixture as STORED, never the draft: a row is about the Ansetzung the league holds. */
   spiel: SpielStand;
   parteien: Partei;
   /** The day each club left the season, by `team_id`, where it has: the pass ends a row of a club gone by its day. */
   austritte: ReadonlyMap<string, string>;
   today: string;
-  isActiveSaison: boolean;
   /** Carries a proposal into the editor's draft, where the rail marks it and Speichern still decides. */
   onVorschlagUebernehmen: (termin: FLSpielbestaetigungTermin) => void;
 }) {
   const panel = formPanel();
   const umstand = { austritte, today };
-  const geltend = new Set((stand === null ? [] : geltendeBestaetigungen(stand.zeilen, spiel, umstand)).map((zeile) => zeile.id));
+  const geltend = new Set((zeilen === null ? [] : geltendeBestaetigungen(zeilen, spiel, umstand)).map((zeile) => zeile.id));
 
   return (
     <section
@@ -127,20 +123,13 @@ export function SpielbestaetigungPanel({
       </div>
 
       <div className={panel.body()}>
-        {stand === null ? (
-          <p className="muted-hint">Die Spielbestätigungen ließen sich gerade nicht lesen. Lade die Seite neu.</p>
-        ) : (
-          <LetzterLauf
-            gelaufenAm={stand.gelaufenAm}
-            warnt={laufUeberfaellig({ isActiveSaison, spiel, austritte, gelaufenAm: stand.gelaufenAm, today })}
-          />
-        )}
+        {zeilen === null && <p className="muted-hint">Die Spielbestätigungen ließen sich gerade nicht lesen. Lade die Seite neu.</p>}
 
-        {stand !== null && stand.zeilen.length === 0 && <p className="muted-hint">Für dieses Spiel gab es noch keine Anfrage.</p>}
+        {zeilen !== null && zeilen.length === 0 && <p className="muted-hint">Für dieses Spiel gab es noch keine Anfrage.</p>}
 
-        {stand !== null && stand.zeilen.length > 0 && (
+        {zeilen !== null && zeilen.length > 0 && (
           <ul className="flex w-full flex-col gap-y-4">
-            {stand.zeilen.map((zeile) => (
+            {zeilen.map((zeile) => (
               <BestaetigungZeile
                 key={zeile.id}
                 zeile={zeile}
@@ -159,23 +148,6 @@ export function SpielbestaetigungPanel({
   );
 }
 
-/** Words as well as a tone (WCAG 1.4.1): a warning-toned date alone reads as a date. */
-function LetzterLauf({ gelaufenAm, warnt }: { gelaufenAm: string | null; warnt: boolean }) {
-  const datum = gelaufenAm === null ? null : formatSpielDatum(gelaufenAm);
-
-  return (
-    <p className={warnt ? "fluid-xs font-bold text-warning-strong" : "muted-hint"}>
-      {datum === null
-        ? warnt
-          ? "Letzter Lauf: noch keiner, obwohl dieses Spiel angefragt werden müsste."
-          : "Letzter Lauf: noch keiner"
-        : warnt
-          ? `Letzter Lauf: ${datum}. Seitdem wurde nicht mehr angefragt.`
-          : `Letzter Lauf: ${datum}`}
-    </p>
-  );
-}
-
 function BestaetigungZeile({
   zeile,
   name,
@@ -190,7 +162,7 @@ function BestaetigungZeile({
   /** Still speaking for the fixture as it stands (`geltendeBestaetigungen`): the only row a press here can mean. */
   istGeltend: boolean;
   /** Why the next pass shuts this unclosed row, `null` where it keeps it or it is closed already. */
-  endet: FLSpielbestaetigungGrund | null;
+  endet: FLSpielbestaetigungGeschlossenGrund | null;
   spiel: SpielStand;
   today: string;
   onVorschlagUebernehmen: (termin: FLSpielbestaetigungTermin) => void;
@@ -282,7 +254,7 @@ function EintragenSection({ zeile, name }: { zeile: FLSpielbestaetigung; name: s
   const [begruendung, setBegruendung] = useState("");
   /** The refusal the API answered with, which lands on this box. Cleared on the next keystroke. */
   const [antwortFehler, setAntwortFehler] = useState<string | null>(null);
-  /** The bound's verdict, published when the box is left and retracted by a keystroke alone (`.claude/rules/frontend.md`). */
+  /** The bound's verdict, published when the box is left and retracted by a keystroke alone: no typed field is judged between keystrokes. */
   const [laengeFehler, setLaengeFehler] = useState<string | null>(null);
 
   // The schema trims before it measures, and the trimmed value is what the write carries.

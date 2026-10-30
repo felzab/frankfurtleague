@@ -1,10 +1,7 @@
-import { apiClient } from "@/core/api";
+import { spielorteGetSpielorte } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import { FLSpielorteListResponseSchema } from "./schemas";
-
-import type { FLSpielorteListResponse } from "./schemas";
-import type { FLSpielorteFilterParams } from "./types";
+import type { FLSpielorteListResponse, SpielorteGetSpielorteParams } from "@/core/generated/client/types";
 
 /**
  * Every venue. Admin-tier: the rent is money (`READ-MONEY-001`), and the address parts serve no
@@ -12,12 +9,7 @@ import type { FLSpielorteFilterParams } from "./types";
  *
  * **Uncached, and it stays uncached**: `"use cache"` keys on arguments, not on caller identity.
  */
-export async function getSpielorte(filters: FLSpielorteFilterParams = {}): Promise<FLSpielorteListResponse> {
+export async function getSpielorte(filters: SpielorteGetSpielorteParams = {}): Promise<FLSpielorteListResponse> {
   // No cache tag either: one means nothing outside a cache scope.
-  return runAdminRead(() =>
-    apiClient<FLSpielorteListResponse>("/spielorte", FLSpielorteListResponseSchema, {
-      authType: "admin",
-      params: filters,
-    }),
-  );
+  return runAdminRead(() => spielorteGetSpielorte(filters));
 }

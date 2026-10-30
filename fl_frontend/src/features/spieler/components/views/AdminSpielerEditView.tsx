@@ -11,7 +11,7 @@ import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { useReactivation } from "@/shared/hooks/useReactivation";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
-import type { FLEinwilligung } from "@/features/spieler/schemas";
+import type { FLEinwilligung } from "@/core/generated/client/types";
 import type { AdminSpielerStored, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
 
 /**

@@ -7,8 +7,9 @@ import { eintragenSpielbestaetigung, verwerfenSpielbestaetigung } from "./mutati
 import { FLSpielbestaetigungEintragenPayloadSchema, FLSpielbestaetigungVerwerfenPayloadSchema } from "./schemas";
 import { mapSpielbestaetigungAdminRefusal } from "./utils";
 
+import type { FLSpielbestaetigung } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
-import type { FLSpielbestaetigung, FLSpielbestaetigungEintragenPayload, FLSpielbestaetigungVerwerfenPayload } from "./schemas";
+import type { FLSpielbestaetigungEintragenPayload, FLSpielbestaetigungVerwerfenPayload } from "./schemas";
 
 /**
  * A Zusage recorded on a party's behalf, after the league heard it some other way. A step-up write with no undo:

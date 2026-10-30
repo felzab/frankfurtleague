@@ -11,7 +11,7 @@ import { focusSection } from "@/shared/utils/focusAfterWrite";
 
 import { KADERZEILE_PLACE } from "./FormKaderZeileAustragenSection";
 
-import type { FLKaderZeile } from "@/features/spieler/schemas";
+import type { FLKaderZeile } from "@/core/generated/client/types";
 
 /**
  * An ausgetragen row on its own page: what it held, read-only, with no editor and no control. Its panel

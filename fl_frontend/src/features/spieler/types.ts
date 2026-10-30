@@ -1,28 +1,6 @@
+import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
-import type {
-  FLPatchSaisonSpielerPayload,
-  FLPatchSpielerPayload,
-  FLPostSaisonSpielerPayload,
-  FLSpielerPosition,
-  FLSpielerRolle,
-  FLSpielerStufe,
-} from "./schemas";
-
-/** Mirrors `FLSpielerSortOptions`: every option is a field the base tier serves, and it serves neither `nachname` whole nor `stufe` at all. */
-type FLSpielerSortingOptions = "vorname" | "nummer" | "position";
-
-/**
- * A `team_id` without a `saison_id` reads the running season, and 404s while none is active; naming
- * neither lists every season the base tier is not withheld from.
- */
-export type FLSpielerFilterParams = {
-  team_id?: string;
-  saison_id?: string;
-
-  limit?: number;
-  sort_by?: FLSpielerSortingOptions;
-  order?: "asc" | "desc";
-};
+import type { FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload } from "./schemas";
 
 /** The person half as the editor sends it: a cleared date picker submits `null`, which the schema refuses as a field error. */
 export type SpielerPersonPayloadDraft = Omit<FLPatchSpielerPayload, "geburtsdatum"> & {

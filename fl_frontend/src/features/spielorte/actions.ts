@@ -7,9 +7,10 @@ import { deleteSpielort, patchSpielort, postSpielort, reactivateSpielort } from 
 import { mapNameRefusal, mapRetireRefusal } from "./refusals";
 import { FLPatchSpielortPayloadSchema, FLPostSpielortPayloadSchema, FLSpielortKeyPayloadSchema } from "./schemas";
 
+import type { FLSpielort } from "@/core/generated/client/types";
 import type { FLSpielortPayloadDraft } from "@/features/spielorte/schemas";
 import type { ActionResult } from "@/shared/types/types";
-import type { FLPatchSpielortPayload, FLPostSpielortPayload, FLSpielort, FLSpielortKeyPayload } from "./schemas";
+import type { FLPatchSpielortPayload, FLPostSpielortPayload, FLSpielortKeyPayload } from "./schemas";
 
 export async function postSpielortAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.

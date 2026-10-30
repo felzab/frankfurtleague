@@ -1,7 +1,7 @@
 import { BEWERBUNG_MAX_ALTER } from "@/features/bewerbungen/constants";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
-import type { FLEinwilligung } from "@/features/spieler/schemas";
+import type { FLEinwilligung } from "@/core/generated/client/types";
 
 // Its own module: every export of a `"use client"` view becomes a client reference.
 export const SCHIEDSRICHTER_CRUD_COPY = {

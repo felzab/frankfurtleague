@@ -23,8 +23,8 @@ import { ERGEBNIS_INK_CLASSES, SpielScore } from "./SpielScore";
 import { SpielStatusChip } from "./SpielStatusChip";
 import { SpielTeamSlot } from "./SpielTeamSlot";
 
+import type { FLSpielbestaetigung } from "@/core/generated/client/types";
 import type { BerichtChip } from "@/features/spielberichte/utils";
-import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
 import type { SaisonBestaetigungen } from "@/features/spielbestaetigungen/types";
 import type { FLSpiel } from "../../types";
 

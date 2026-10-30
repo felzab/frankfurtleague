@@ -7,9 +7,8 @@ import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { categorizeActionRequired } from "../../utils";
 import { useAdmin } from "../providers/AdminContextProvider";
 
-import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";
+import type { FLSpielbestaetigung, FLSpielJoinedAdmin } from "@/core/generated/client/types";
 import type { SpielberichtStand } from "@/features/spielberichte/types";
-import type { SpielbestaetigungenStand } from "@/features/spielbestaetigungen/types";
 import type { ActionRequiredCategory, FLSpielWithDraftFields } from "@/features/spiele/types";
 
 /**
@@ -26,7 +25,7 @@ export function AdminSpielEditView({
   spielData: FLSpielJoinedAdmin;
   today: string;
   /** `null` where the read failed, which the panel says. */
-  bestaetigungen: SpielbestaetigungenStand | null;
+  bestaetigungen: readonly FLSpielbestaetigung[] | null;
   /** `null` where its read failed, which the panel says. */
   spielbericht?: SpielberichtStand | null;
 }) {

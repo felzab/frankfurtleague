@@ -12,8 +12,7 @@ import { deriveSlotHerkunft, isAbgesagt } from "@/features/spiele/utils";
 import { formatSpielDatum, NICHT_HINTERLEGT } from "@/shared/utils/format";
 import { typedObjectEntries } from "@/shared/utils/type";
 
-import type { FLBracketFault, FLSpielberichtZustandEintrag } from "@/core/generated/client/types";
-import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
+import type { FLBracketFault, FLSpielbestaetigung, FLSpielberichtZustandEintrag } from "@/core/generated/client/types";
 import type { SaisonBestaetigungen } from "@/features/spielbestaetigungen/types";
 import type { ActionRequiredCategory, FLSpiel, FLSpielWithStoredSides } from "../spiele/types";
 

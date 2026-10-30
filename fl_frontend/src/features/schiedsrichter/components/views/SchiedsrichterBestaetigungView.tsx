@@ -61,8 +61,9 @@ import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
 import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 
 import type { GekeyteFassung, SchiedsrichterAbsatzSchluessel } from "@/core/einwilligungSeiten";
-import type { FLSchiedsrichterBestaetigungPayload, FLSchiedsrichterUmfang } from "@/features/schiedsrichter/schemas";
-import type { SchiedsrichterAnsichtGeoeffnet, SchiedsrichterLinkZustand } from "@/features/schiedsrichter/types";
+import type { FLEinwilligungUmfang, FLSchiedsrichterBestaetigungAnsichtResponse } from "@/core/generated/client/types";
+import type { FLSchiedsrichterBestaetigungPayload } from "@/features/schiedsrichter/schemas";
+import type { SchiedsrichterLinkZustand } from "@/features/schiedsrichter/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { Slots } from "@/shared/utils/stampedSlots";
 import type { Key } from "@heroui/react/rac";
@@ -73,18 +74,18 @@ import type { CalendarDate } from "@internationalized/date";
  * state is a panel that names nobody, and a dead link handed onward identifies nobody either.
  */
 export type SchiedsrichterBestaetigungStart =
-  | { zustand: "gueltig"; ansicht: SchiedsrichterAnsichtGeoeffnet; token: string; fassung: SchiedsrichterFassung }
+  | { zustand: "gueltig"; ansicht: FLSchiedsrichterBestaetigungAnsichtResponse; token: string; fassung: SchiedsrichterFassung }
   | { zustand: SchiedsrichterLinkZustand | "unlesbar" };
 
 /**
  * The referee page's words under the label its answer stamps, handed in by the page: a component
  * reaching for the running words would render a text no stored record cites.
  */
-type SchiedsrichterFassung = GekeyteFassung<SchiedsrichterAbsatzSchluessel, FLSchiedsrichterUmfang>;
+type SchiedsrichterFassung = GekeyteFassung<SchiedsrichterAbsatzSchluessel, FLEinwilligungUmfang>;
 
 type Absaetze = SchiedsrichterFassung["absaetze"];
 
-type Gespeichert = { geburtsdatum: string; umfang: FLSchiedsrichterUmfang; medien: boolean };
+type Gespeichert = { geburtsdatum: string; umfang: FLEinwilligungUmfang; medien: boolean };
 
 type Stand = SchiedsrichterBestaetigungStart | ({ zustand: "erfolg" } & Gespeichert);
 
@@ -220,7 +221,7 @@ function KlickBestaetigung({ absaetze, id, werte }: { absaetze: Absaetze; id: st
 // The DRAFT's shape rather than the payload's: `umfang` stands unanswered until it is picked, and
 // a draft that could not hold "unanswered" would send a choice nobody made.
 /** The date mid-entry is a string, `""` being the empty picker; the judged shape is the payload's. */
-type Entwurf = { geburtsdatum: string; umfang: FLSchiedsrichterUmfang | null; medien: boolean };
+type Entwurf = { geburtsdatum: string; umfang: FLEinwilligungUmfang | null; medien: boolean };
 
 const LEERER_ENTWURF: Entwurf = { geburtsdatum: "", umfang: null, medien: false };
 
@@ -239,7 +240,7 @@ function antwortPayload(token: string, textVersion: string, entwurf: Entwurf, me
     geburtsdatum: entwurf.geburtsdatum,
     // The schema refuses a null, which is the refusal an unanswered question owes: the submit reports
     // it at the chips rather than sending a scope this person never picked.
-    umfang: entwurf.umfang as FLSchiedsrichterUmfang,
+    umfang: entwurf.umfang as FLEinwilligungUmfang,
     // Never the draft's own `true` where no switch stands: one given before the date moved below the
     // media age would send a consent this page withheld.
     medien: medienAngeboten && entwurf.medien,

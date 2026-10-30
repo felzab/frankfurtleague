@@ -1,6 +1,6 @@
 import { buildMapsSearchUrl, formatAddressFull } from "@/shared/utils/format";
 
-import type { FLSpielort } from "./schemas";
+import type { FLSpielort } from "@/core/generated/client/types";
 
 /**
  * The search string the backend stores as `maps_link` (`fl_backend/app/api/spielorte/admin_router.py :: _maps_link`):

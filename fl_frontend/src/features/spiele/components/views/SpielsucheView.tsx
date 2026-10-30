@@ -17,7 +17,7 @@ import { formatQuelle } from "../../utils";
 import { SpielCardsList } from "../collections/SpielCardsList";
 import { SpielCardGrid } from "../ui/SpielCardGrid";
 
-import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
+import type { FLSpielbestaetigung } from "@/core/generated/client/types";
 import type { SaisonBestaetigungen } from "@/features/spielbestaetigungen/types";
 import type { FLSpiel } from "../../types";
 

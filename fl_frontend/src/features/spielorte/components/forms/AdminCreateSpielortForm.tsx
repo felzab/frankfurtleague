@@ -6,7 +6,7 @@ import { FLPostSpielortPayloadSchema } from "@/features/spielorte/schemas";
 import { mapsQuery } from "@/features/spielorte/utils";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 
-import type { FLSpielort } from "@/features/spielorte/schemas";
+import type { FLSpielort } from "@/core/generated/client/types";
 import type { SpielortDraft } from "@/features/spielorte/types";
 
 /**

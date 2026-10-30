@@ -1,7 +1,7 @@
 import { hatAdresse } from "./schemas";
 
+import type { FLSchiedsrichter } from "@/core/generated/client/types";
 import type { Facet } from "@/shared/utils/facets";
-import type { FLSchiedsrichter } from "./schemas";
 
 type SchiedsrichterAngabe = "kontakt" | "ohne_kontakt" | "schule";
 

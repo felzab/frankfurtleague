@@ -5,7 +5,7 @@ import { SCHIEDSRICHTER_OHNE_NAMEN_LABEL, SCHIEDSRICHTER_RETIREMENT_CONSEQUENCE 
 import { ConfirmDeleteModal } from "@/shared/components/ui/ConfirmDeleteModal";
 import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 
-import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
+import type { FLSchiedsrichter } from "@/core/generated/client/types";
 
 export function AdminDeleteSchiedsrichterModal({
   schiedsrichterData,

@@ -66,11 +66,7 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
         key={spielStateKey(spielRes.spiel)}
         spielData={spielRes.spiel}
         today={getGermanTodayStr()}
-        bestaetigungen={
-          bestaetigungenRes === null
-            ? null
-            : { zeilen: bestaetigungenRes.spielbestaetigungen, gelaufenAm: bestaetigungenRes.spiel_sweep_gelaufen_am }
-        }
+        bestaetigungen={bestaetigungenRes?.spielbestaetigungen ?? null}
         spielbericht={spielbericht}
       />
     </AdminContextWrapper>

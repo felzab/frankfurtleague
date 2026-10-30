@@ -16,7 +16,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLEinwilligung } from "@/features/spieler/schemas";
+import type { FLEinwilligung } from "@/core/generated/client/types";
 
 /**
  * **No control and no draft field**: `fl_backend/app/api/spieler/schemas.py :: FLPatchSpielerPayload` carries no

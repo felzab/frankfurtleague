@@ -6,7 +6,7 @@ import { applyFacets, readFacetSelection } from "@/shared/utils/facets";
 import { orderStufen, STUFE_OPTIONS } from "./constants.ts";
 import { buildSpielerFacets, SPIELER_FACETS } from "./facets.ts";
 
-import type { FLSpielerStufe } from "./schemas.ts";
+import type { FLSpielerStufe } from "@/core/generated/client/types";
 import type { AdminSpielerRow, SpielerTeamOption } from "./types.ts";
 
 /** One club, because the builder answers with the constant itself for an empty list. */

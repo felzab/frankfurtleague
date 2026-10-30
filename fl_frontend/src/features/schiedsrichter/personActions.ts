@@ -9,7 +9,7 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 import { patchSchiedsrichterSelbstEinwilligung } from "./mutations";
 import { FLSchiedsrichterSelbstEinwilligungPayloadSchema } from "./schemas";
 
-import type { FLEinwilligungStand } from "@/features/spieler/schemas";
+import type { FLEinwilligungStand } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
 import type z from "zod";
 

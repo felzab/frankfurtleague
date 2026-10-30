@@ -10,7 +10,7 @@ vi.doMock("@/core/config.ts", () => ({ frontend_config: { AUTH_URL: ORIGIN } }))
 /* The real minter and the fan-out it hands the link to, called: the backend client the delivery
    report goes through and the mailer are the doubles. */
 const mail = doubleSendMail();
-doubleApiAnswers(() => Promise.resolve({ acknowledged: 1, angewendet: true }));
+doubleApiAnswers(() => Promise.resolve({ angewendet: true }));
 
 const { mailSchiedsrichterLink } = await import("./notifications.ts");
 const { schiedsrichterBestaetigungsLink } = await import("@/core/schiedsrichterEmail.ts");

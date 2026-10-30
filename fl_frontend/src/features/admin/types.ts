@@ -1,7 +1,5 @@
-import type { FLTeam } from "@/core/generated/client/types";
-import type { FLSchiedsrichter } from "../schiedsrichter/schemas";
+import type { FLSchiedsrichter, FLSpielort, FLTeam } from "@/core/generated/client/types";
 import type { FLSpiel } from "../spiele/types";
-import type { FLSpielort } from "../spielorte/schemas";
 
 export interface AdminContext {
   spielorte: FLSpielort[];

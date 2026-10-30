@@ -10,7 +10,7 @@ import { PickOrCreateAutocomplete } from "./PickOrCreateAutocomplete";
 import { StepFiveButton } from "./StepFiveButton";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
-import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
+import type { FLSchiedsrichter } from "@/core/generated/client/types";
 import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
 import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/types";

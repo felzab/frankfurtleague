@@ -30,8 +30,6 @@ import {
 } from "./mutations";
 
 import type { Mail } from "@/core/emailShell";
-import type { SpielAnsetzungText } from "@/core/spielEmail";
-import type { VersandAusfall } from "@/core/versandAusfall";
 import type {
   FLSpielbestaetigungAnsichtAnsetzung,
   FLSpielbestaetigungSweepAnfrage,
@@ -42,7 +40,9 @@ import type {
   FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt,
   FLSpielbestaetigungSweepSpielAbgesagt,
   FLSpielbestaetigungSweepVorschlagVerworfen,
-} from "./schemas";
+} from "@/core/generated/client/types";
+import type { SpielAnsetzungText } from "@/core/spielEmail";
+import type { VersandAusfall } from "@/core/versandAusfall";
 
 /** The action the mail fan-out logs a refused address under. */
 const SWEEP_OPERATION = "spielbestaetigungSweep";
