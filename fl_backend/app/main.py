@@ -49,7 +49,6 @@ from app.api.spieler.public_router import router as spieler_public_router
 from app.api.spielorte.admin_router import router as spielorte_admin_router
 from app.api.spieltage.admin_router import router as spieltage_admin_router
 from app.api.spieltage.public_router import router as spieltage_public_router
-from app.api.system.router import root_router
 from app.api.system.router import router as system_router
 from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.person_router import router as teams_person_router
@@ -94,7 +93,7 @@ ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
     "spieler": (spieler_public_router, spieler_admin_router, spieler_person_router, spieler_person_spieler_router),
     "spielorte": (spielorte_admin_router,),
     "spieltage": (spieltage_public_router, spieltage_admin_router),
-    "system": (root_router, system_router),
+    "system": (system_router,),
     "teams": (teams_public_router, teams_admin_router, teams_person_router),
 }
 
@@ -199,7 +198,9 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
         fl_logger.critical("system.config_refused", extra={"refusal": str(refusal)})
         raise SystemExit(BOOT_REFUSED) from None
 
-    app = TracedApp(lifespan=lifespan)
+    # FastAPI's `openapi_url=None` serves no document and so no `/docs` or `/redoc` page: the published
+    # contract is the committed one `app/openapi_document.py` builds, and no route here answers unguarded but the probe.
+    app = TracedApp(lifespan=lifespan, openapi_url=None)
     app.state.config = config
 
     register_exception_handlers(app)

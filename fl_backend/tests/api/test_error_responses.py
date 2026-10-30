@@ -70,9 +70,15 @@ class NestedPayload(BaseModel):
 
 
 # A second app: `APP`'s routes all 503 on the database dependency before parsing can fail, so a
-# payload refusal needs a route that depends on nothing.
+# payload refusal needs a route that depends on nothing, and so does a success that writes its access line.
 VALIDATION_APP = TracedApp()
 register_exception_handlers(VALIDATION_APP)
+ANSWERED_PATH = "/answered"
+
+
+@VALIDATION_APP.get(ANSWERED_PATH)
+async def answer() -> dict[str, bool]:
+    return {"ok": True}
 
 
 @VALIDATION_APP.post("/nested")
@@ -230,7 +236,7 @@ class TestTheAccessLineCarriesTheRefusal:
         assert access_codes(caplog, lambda: client().get("/api/v0/spiele")) == [Code.ACCESS_KEY_REFUSED]
 
     def test_a_success_s_access_line_carries_no_code(self, caplog):
-        assert access_codes(caplog, lambda: client().get("/")) == [None]
+        assert access_codes(caplog, lambda: TestClient(VALIDATION_APP).get(ANSWERED_PATH)) == [None]
 
 
 # The values the report below carries. Distinctive, so absence from a whole log document is
@@ -331,13 +337,13 @@ class TestTraceContext:
 class TestAccessLine:
     def test_every_request_writes_one_line_with_its_trace_id_and_timing(self, caplog):
         with caplog.at_level(logging.INFO, logger="frankfurtleague"):
-            client().get("/", headers={"traceparent": TRACEPARENT})
+            TestClient(VALIDATION_APP).get(ANSWERED_PATH, headers={"traceparent": TRACEPARENT})
 
         lines = [record for record in caplog.records if getattr(record, "method", None) is not None]
         assert len(lines) == 1
         line = lines[0]
         assert line.method == "GET"
-        assert line.path == "/"
+        assert line.path == ANSWERED_PATH
         assert line.status == 200
         assert isinstance(line.duration_ms, float)
         assert line.trace_id == "c0ffee00" * 4
