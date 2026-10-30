@@ -2,6 +2,7 @@ import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "./brand";
 import { COPY } from "./copy";
+import { SERVER_COPY } from "./serverCopy";
 
 /** The league's name as every message spells it. */
 export const BRAND_NAME: string = COPY.marke.name;
@@ -193,10 +194,10 @@ function vorschauVon(mail: Mail): string {
 }
 
 /** The Art. 21 line, the address in it a link: a first contact's footer, and the ban-list mail's own last paragraph. */
-export const WIDERSPRUCH: Satz = [`${COPY.mail.widerspruch.vor} `, { adresse: KONTAKT_EMAIL }, ` ${COPY.mail.widerspruch.nach}`];
+export const WIDERSPRUCH: Satz = [`${SERVER_COPY.mail.widerspruch.vor} `, { adresse: KONTAKT_EMAIL }, ` ${SERVER_COPY.mail.widerspruch.nach}`];
 
 function nichtDu(art: MailArt): string | undefined {
-  return art === "mitteilung" ? undefined : COPY.mail.nichtDu[art];
+  return art === "mitteilung" ? undefined : SERVER_COPY.mail.nichtDu[art];
 }
 
 /** One block of the card and the gap under it; the last block of the card takes none. */
@@ -252,7 +253,7 @@ function aktionBausteine(aktion: Knopf): Baustein[] {
       abstand: ABSTAND.absatz,
     },
     {
-      html: p(`${escapeHtml(COPY.mail.knopfLink)}<br />${linkHtml(aktion.href, aktion.href, "word-break:break-all;")}`, SMALL_TEXT),
+      html: p(`${escapeHtml(SERVER_COPY.mail.knopfLink)}<br />${linkHtml(aktion.href, aktion.href, "word-break:break-all;")}`, SMALL_TEXT),
       abstand: ABSTAND.block,
     },
   ];
@@ -273,7 +274,7 @@ function renderHtml(mail: Mail, betreff: string): string {
       html: `<h1 style="margin:0;font-size:24px;line-height:32px;font-weight:700;color:${HEADING_COLOR};">${escapeHtml(betreff)}</h1>`,
       abstand: ABSTAND.kopfText,
     },
-    { html: p(escapeHtml(einzeilig(COPY.mail.gruss(mail.vorname)))), abstand: ABSTAND.absatz },
+    { html: p(escapeHtml(einzeilig(SERVER_COPY.mail.gruss(mail.vorname)))), abstand: ABSTAND.absatz },
     ...absatzBausteine(mail.absaetze),
     ...(mail.block === undefined ? [] : [blockHtml(mail.block)]),
     ...absatzBausteine(mail.nachBlock ?? []),
@@ -345,7 +346,7 @@ function aktionText(aktion: Knopf): string[] {
 function renderText(mail: Mail, betreff: string): string {
   const gruppen: string[][] = [
     [betreff],
-    [einzeilig(COPY.mail.gruss(mail.vorname))],
+    [einzeilig(SERVER_COPY.mail.gruss(mail.vorname))],
     ...mail.absaetze.map((absatz) => [absatzText(absatz)]),
     ...(mail.block === undefined
       ? []
