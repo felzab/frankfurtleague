@@ -279,7 +279,6 @@ async def rename_the_referee(
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
         sperrliste=ban_list(database),
-        adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
         today=TODAY,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,

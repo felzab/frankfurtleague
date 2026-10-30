@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { getGenannteFassung } from "@/core/einwilligung";
 import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL } from "@/core/einwilligungSeiten";
@@ -40,7 +39,6 @@ export default function BestaetigungPage(props: NextPageProps) {
 }
 
 async function BestaetigungContent(props: NextPageProps) {
-  await connection();
   const { token } = await props.searchParams;
 
   // A missing or repeated parameter is no link at all and reads as the dead link.

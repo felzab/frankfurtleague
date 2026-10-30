@@ -1,4 +1,4 @@
-import { joinUnd } from "@/core/joinUnd";
+import { formatAufzaehlung } from "@/core/format";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
 import type { KontaktRolle } from "@/features/teams/constants";
@@ -106,7 +106,7 @@ export const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
  * `fl_frontend/src/features/bewerbungen/notifications.ts :: rollenText` joins them.
  */
 export const rollenLangform = (rollen: readonly (KontaktRolle | null)[]): string =>
-  joinUnd(KONTAKT_ROLLEN.filter((eintrag) => rollen.includes(eintrag.value)).map((eintrag) => eintrag.langform));
+  formatAufzaehlung(KONTAKT_ROLLEN.filter((eintrag) => rollen.includes(eintrag.value)).map((eintrag) => eintrag.langform));
 
 /**
  * The floor the Ansprechperson and the Stellvertretung clear, mirrored from

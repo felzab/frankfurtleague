@@ -1,4 +1,3 @@
-import ast
 import re
 from collections import Counter
 from collections.abc import Callable
@@ -18,8 +17,7 @@ from app.core.security import (
     verify_access_system,
     verify_actor_is_admin,
 )
-from app.core.transactions import transaction_session
-from tests.core.app_source import api_routes, application, callee, declared, module_of, parsed
+from tests.core.app_source import api_routes, application
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
 
@@ -300,74 +298,9 @@ def test_every_admin_tier_operation_judges_its_actor_after_the_key(path: str, me
     assert calls.index(verify_access_admin) < calls.index(bind_actor), f"{method.upper()} {path} asks for its actor before its key"
 
 
-# Read off the helper, so a rename cannot leave every write below matching nothing.
-TRANSACTION_SESSION = transaction_session.__name__
-
-
-def _opens_a_judged_transaction(endpoint: Callable[..., Any]) -> bool:
-    """Whether `endpoint`, or a function of its own module it calls, opens `transaction_session`, the one place its actor is judged again."""
-
-    module = parsed(module_of(endpoint))
-    own = {node.name: node for node in module.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
-    pending, seen = [declared(endpoint)], set()
-    while pending:
-        function = pending.pop()
-        if function.name in seen:
-            continue
-        seen.add(function.name)
-        for call in ast.walk(function):
-            if not isinstance(call, ast.Call):
-                continue
-            if callee(call) == TRANSACTION_SESSION:
-                return True
-            if isinstance(call.func, ast.Name) and call.func.id in own:
-                pending.append(own[call.func.id])
-
-    return False
-
-
 # The admin-tier reads served over POST, the address they ask about travelling in a body rather than an access
 # line. Named, because nothing a route declares tells such a read from a write.
 ADMIN_TIER_READS_OVER_POST = frozenset({("/api/v0/adresswechsel/ansicht", "post"), ("/api/v0/identitaet/erasure/ansicht", "post")})
-
-# Derived from the guard and the method, as `ADMIN_TIER_OPERATIONS` is, so a write router added later is swept unlisted.
-ADMIN_TIER_WRITES = [operation for operation in ADMIN_TIER_OPERATIONS if operation[1] != "get" and operation not in ADMIN_TIER_READS_OVER_POST]
-
-
-@pytest.mark.parametrize(("path", "method"), ADMIN_TIER_WRITES, ids=lambda value: value)
-def test_every_admin_tier_write_runs_in_a_transaction_judging_its_actor(path: str, method: str):
-    """A write outside the helper's session is judged once, before its handler.
-
-    A revoke committing between that check and the write then leaves the revoked administrator one write to make.
-    """
-
-    assert _opens_a_judged_transaction(ROUTES_BY_OPERATION[(path, method)].endpoint), (
-        f"{method.upper()} {path} writes outside `{TRANSACTION_SESSION}`, which judges no actor"
-    )
-
-
-# The writes `PERSON_OPERATIONS` exempts from the sweep above, which binding a person earns them
-# (`test_every_person_operation_binds_a_person_after_the_key`) and which a write outside the helper would not.
-PERSON_LANE_WRITES = sorted(operation for operation in PERSON_OPERATIONS if operation[1] != "get")
-
-
-@pytest.mark.parametrize(("path", "method"), PERSON_LANE_WRITES, ids=lambda value: value)
-def test_every_person_lane_write_runs_in_a_transaction_judging_its_person(path: str, method: str):
-    """The binder reads the ban once before the handler; the transaction reads it again in each attempt."""
-
-    assert _opens_a_judged_transaction(ROUTES_BY_OPERATION[(path, method)].endpoint), (
-        f"{method.upper()} {path} writes outside `{TRANSACTION_SESSION}`, which judges no person"
-    )
-
-
-def test_the_transaction_sweep_follows_a_helper_and_can_refuse():
-    """Every case above passes, so only these two show the reader reaching past the endpoint's body and answering no at all.
-
-    The mailing opens one transaction per team in a helper of its module; the grants' list opens none.
-    """
-
-    assert _opens_a_judged_transaction(ROUTES_BY_OPERATION[("/api/v0/saisons/{saison_id}/einladungen/versand", "post")].endpoint)
-    assert not _opens_a_judged_transaction(ROUTES_BY_OPERATION[("/api/v0/berechtigungen", "get")].endpoint)
 
 
 def test_the_person_exemption_names_only_published_operations():

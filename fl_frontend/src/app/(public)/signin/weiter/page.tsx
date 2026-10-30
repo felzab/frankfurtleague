@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { connection } from "next/server";
 
 import { getSignInDestination } from "@/core/auth";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
@@ -33,8 +32,6 @@ export default function AnmeldungWeiterPage() {
 }
 
 async function AnmeldungWeiterInhalt() {
-  await connection();
-
   // The one decision this page renders, and it decides none of it: the passkey requirement and the
   // session lifetimes are judged per request in the guard `getSignInDestination` asks.
   return redirect(await getSignInDestination());

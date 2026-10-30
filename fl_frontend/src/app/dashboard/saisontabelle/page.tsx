@@ -1,5 +1,3 @@
-import { connection } from "next/server";
-
 import { runningSaisonId } from "@/app/dashboard/canonicalSaison";
 
 import { resolveIsFinishedSaison, resolveSaisonId } from "@/features/saisons/resolvers";
@@ -21,7 +19,6 @@ export async function generateMetadata(props: NextPageProps): Promise<Metadata> 
 }
 
 export default async function SaisontabellePage(props: NextPageProps) {
-  await connection();
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);
 
   // Spelled out although it is also the backend's default: a table pinned by its own page cannot

@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { getLaufendeFassung } from "@/core/einwilligung";
 import { gekeyteFassung, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
@@ -42,7 +41,6 @@ export default function SchiedsrichterBestaetigungPage(props: NextPageProps) {
 }
 
 async function SchiedsrichterBestaetigungContent(props: NextPageProps) {
-  await connection();
   const { token } = await props.searchParams;
 
   // A missing or repeated parameter is no link at all and reads as the dead link. Caught, so a

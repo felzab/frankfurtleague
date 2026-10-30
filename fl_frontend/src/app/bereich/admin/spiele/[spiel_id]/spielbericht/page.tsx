@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { frontend_config } from "@/core/config";
 import { isRecordMissing } from "@/core/errors";
@@ -31,7 +30,6 @@ export default function AdminSpielberichtPage(props: NextPageProps<{ spiel_id: s
 }
 
 async function AdminSpielberichtContent({ params }: { params: NextPageProps<{ spiel_id: string }>["params"] }) {
-  await connection();
   const spielId = await resolveSpielId(params);
 
   // Read whatever the switch says: the admin read is where a refused session is turned away, and an unknown

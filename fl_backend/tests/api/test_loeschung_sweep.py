@@ -624,7 +624,6 @@ async def a_registration_submitted(
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         sperrliste=ban_list(database),
-        adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
         today=TODAY,
     )
@@ -660,13 +659,10 @@ class TestARivalCommittingInsideThePupilsTransactionKeepsThem:
             pytest.param(a_squad_row_entered, id="a squad row"),
             # The same anchor in the season just ended, which no registration reaches.
             pytest.param(functools.partial(a_squad_row_entered, saison_id=JUST_ENDED), id="a squad row in the season just ended"),
-            # Held by the address: the submission inserts a row the deletion never read, and the address's anchor
-            # both write is what puts the two in one write set.
-            pytest.param(a_registration_submitted, id="a pending registration"),
         ],
     )
     def test_the_pupil_stands(self, mongo_replica_set_url: str, rival: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]):
-        """Remove the submission's address anchor and its arm fails; remove the pupil's in `pull_a_person_to_enter` and both squad arms do."""
+        """Remove the pupil's anchor in `pull_a_person_to_enter` and both arms fail."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(database, a_due_pupil(1))
@@ -992,10 +988,6 @@ class TestOnePupilCostsTheCommandsItsShareIsSizedAt:
             async def counted(due: int) -> int:
                 for collection in (Collection.SPIELER, Collection.SAISON_SPIELER, Collection.REGISTRIERUNGEN, Collection.AKTIONEN):
                     await database[collection].delete_many({"_id": {"$ne": build_ghost_spieler()["_id"]}})
-                # The anchors too: the second call re-anchors the addresses the first anchored, stamped on the server's own
-                # clock and expiring at once, so the TTL monitor's next pass could delete one under a counted transaction
-                # writing it, and the retry that write conflict forces would be counted as the erasure's own commands.
-                await database[Collection.ADRESSANKER].delete_many({})
                 await seeded(database, *(a_due_pupil(position) for position in range(due)))
 
                 return await commands_sent(mongo_replica_set_url, DATABASE_NAME, run)

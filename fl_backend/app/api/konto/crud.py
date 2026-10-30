@@ -2,11 +2,11 @@
 API · the one sequence every consent press on the account page runs between finding its record and writing it
 
 One sequence for every kind, so no two presses judge one press in two orders: the stale page first, then a
-grant the record may not take, then the label, the media age and the ceiling. The handler finds its record
-before and writes the move after, a write by the id it read in the same transaction never missing.
+grant the record may not take, then the label and the media age. The handler finds its record before and writes
+the move after, a write by the id it read in the same transaction never missing.
 
 Invariants:
-- A press refused at any step writes nothing and spends no unit of the ceiling.
+- A press refused at any step writes nothing.
 """
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -15,7 +15,6 @@ from typing import Any
 from app.api.einwilligung.services import find_selbst_medien_refusal
 from app.api.konto.services import erteilt_etwas, find_erteilung_refusal, find_konto_fassung_refusal, find_nachweis_stand_refusal
 from app.core.crud import refuse
-from app.core.drosselung import Drosseln
 from app.shared.einwilligung import Seite
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, ist_erteilt
 
@@ -55,15 +54,14 @@ async def press_einwilligung(
     text_version: str,
     seite: Seite,
     darf_erteilen: DarfErteilen,
-    drossel: Drosseln,
     today: str,
 ) -> None:
-    """A press on a kind that takes grants: refused, or counted where it grants, leaving the write to the handler.
+    """A press on a kind that takes grants, refused where a step refuses it, leaving the write to the handler.
 
     `bloecke` are the consent blocks the press moves, each beside its person's stored birthdate in `geburtsdaten`.
     """
 
-    erteilt = await _vor_der_erteilung(
+    await _vor_der_erteilung(
         bloecke=bloecke,
         gewaehlt=gewaehlt,
         nachweis_stand=nachweis_stand,
@@ -74,11 +72,6 @@ async def press_einwilligung(
     medien = ist_erteilt("medien", gewaehlt.get("medien"))
     for block, geburtsdatum in zip(bloecke, geburtsdaten, strict=True):
         refuse(find_selbst_medien_refusal(gespeichert=block, medien=medien, geburtsdatum=geburtsdatum, today=today))
-
-    # Last, so a press another rule refuses spends nothing; and a grant alone, so taking a consent back
-    # stays as easy as giving it was (Art. 7(3) DSGVO).
-    if erteilt:
-        await drossel()
 
 
 async def press_widerruf(

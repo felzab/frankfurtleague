@@ -49,7 +49,6 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.drosselung import gedrosselt
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier, verify_access_admin
@@ -168,7 +167,6 @@ async def get_eigene_spielbestaetigungen(
     f"{by_id('spielbestaetigung_id')}/antwort",
     response_model=FLSpielbestaetigungSchiedsrichterAntwortResponse,
     summary="Accept or decline one of the signed-in referee's own fixture assignments",
-    dependencies=[Depends(gedrosselt)],
 )
 async def post_schiedsrichter_antwort(
     spielbestaetigung_id: CustomRouteObjectId,
@@ -191,14 +189,13 @@ async def post_schiedsrichter_antwort(
     the season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture
     carries.
 
-    Refuses, in this order: an answer past the person's ceiling for the German day (`REQ-DROSSELUNG-001`); an address
-    holding no live, confirmed referee record (`REQ-FUNKTION-001`); an id naming no row of an `active` season, or a row
-    naming none of those records (`REQ-ANSETZUNG-015`, one answer for both); a row already answered, by them or by the
-    league for them (`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off
-    or left by a club (`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the row, or which
-    books another referee or none (`REQ-ANSETZUNG-004`); and a fixture whose day has gone by (`REQ-ANSETZUNG-003`). An
-    acceptance is judged again outside the transaction just before answering, so a move or a reassignment landing
-    mid-answer refuses it rather than letting it stand.
+    Refuses, in this order: an address holding no live, confirmed referee record (`REQ-FUNKTION-001`); an id naming no
+    row of an `active` season, or a row naming none of those records (`REQ-ANSETZUNG-015`, one answer for both); a row
+    already answered, by them or by the league for them (`REQ-ANSETZUNG-002`); one closed unanswered
+    (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club (`REQ-ANSETZUNG-005`), then one whose date,
+    time, ground or sides moved since the row, or which books another referee or none (`REQ-ANSETZUNG-004`); and a
+    fixture whose day has gone by (`REQ-ANSETZUNG-003`). An acceptance is judged again outside the transaction just
+    before answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.
 
     **The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name
     on the public fixture, and a decline takes it off.

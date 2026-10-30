@@ -142,9 +142,9 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutates_schema: bool = False) -> Any:
-    """The SHIPPED validators and unique indexes, so a document MongoDB would refuse in production fails here too.
+    """The shipped unique indexes, so a document MongoDB would refuse in production fails here too.
 
-    `mutates_schema=True` where the body narrows one of those validators (`tests/database.py :: a_clean_database`).
+    `mutates_schema=True` where the body installs a validator (`tests/database.py :: a_clean_database`).
     """
 
     seeded = seed or Seed()

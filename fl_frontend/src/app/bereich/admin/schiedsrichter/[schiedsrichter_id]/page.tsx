@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { istFassungBekannt } from "@/core/einwilligung";
 import { AdminSchiedsrichterEditView } from "@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView";
@@ -25,7 +24,6 @@ export default function AdminSchiedsrichterEditPage(props: NextPageProps<{ schie
 }
 
 async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProps<{ schiedsrichter_id: string }>["params"] }) {
-  await connection();
   const schiedsrichterId = await resolveSchiedsrichterId(params);
 
   // By id and never off the referee list, which is narrowed and filtered: a row that list does not

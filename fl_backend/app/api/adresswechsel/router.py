@@ -43,7 +43,6 @@ from app.api.sperrliste.lookup import SperrlisteLookup, sperrliste_saison
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
-    AdressankerCollection,
     AdresswechselCollection,
     AdresswechselPostausgangCollection,
     AktionenCollection,
@@ -53,7 +52,6 @@ from app.core.dependencies import (
     BerechtigungenPostausgangCollection,
     BewerbungenCollection,
     DBClient,
-    DrosselungCollection,
     EinladungenCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
@@ -214,10 +212,8 @@ async def post_adresswechsel_antwort(
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
     adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
-    drosselung_collection: DrosselungCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
-    adressanker_collection: AdressankerCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
@@ -302,9 +298,7 @@ async def post_adresswechsel_antwort(
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
             adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
-            drosselung_collection=drosselung_collection,
             aktionen_collection=aktionen_collection,
-            adressanker_collection=adressanker_collection,
             schluessel=config.sperrliste_schluessel,
             now=germany_now,
             journal=journal,

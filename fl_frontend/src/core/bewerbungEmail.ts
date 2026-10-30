@@ -1,7 +1,7 @@
 import "server-only";
 
 import { BRAND_NAME, mailOrigin } from "./emailShell";
-import { joinUnd } from "./joinUnd";
+import { formatAufzaehlung } from "./format";
 
 import type { Absatz, Fakt, Mail } from "./emailShell";
 
@@ -240,7 +240,7 @@ export function buildBewerbungBestaetigungEmail({ saisonId, origin, schule, seat
       [
         ["Für die Schule ", { stark: schule }, ` wurde eine Bewerbung zur Saison ${saisonId} der ${BRAND_NAME} eingereicht.`],
         mehrere
-          ? `Mit dieser E-Mail-Adresse sind darin ${joinUnd(seats.map(seatName))} eingetragen.`
+          ? `Mit dieser E-Mail-Adresse sind darin ${formatAufzaehlung(seats.map(seatName))} eingetragen.`
           : `Darin bist Du als ${seats[0].rolleText} eingetragen.`,
         mehrere
           ? [{ stark: "Bitte bestätigt jeden Eintrag einzeln" }, ": Erst dann führt die Liga Euch als Kontaktpersonen."]
@@ -293,7 +293,7 @@ export function buildBewerbungErinnerungEmail({ saisonId, origin, schule, seats,
           ? [
               "In der Bewerbung der Schule ",
               { stark: schule },
-              ` zur Saison ${saisonId} sind mit dieser E-Mail-Adresse ${joinUnd(seats.map(seatName))} eingetragen.`,
+              ` zur Saison ${saisonId} sind mit dieser E-Mail-Adresse ${formatAufzaehlung(seats.map(seatName))} eingetragen.`,
             ]
           : ["In der Bewerbung der Schule ", { stark: schule }, ` zur Saison ${saisonId} bist Du als ${seats[0].rolleText} eingetragen.`],
         [{ stark: mehrere ? "Bis jetzt fehlt Eure Antwort." : "Bis jetzt fehlt Deine Antwort." }],
@@ -372,7 +372,7 @@ export function buildBewerbungEingangOffenEmail({
         { label: "Status", wert: "Eingegangen, Bestätigungen offen" },
         { label: "Saison", wert: saisonId },
         { label: "Eingetragen als", wert: rollenText },
-        { label: "Noch offen", wert: joinUnd(ausstehend.map(seatName)) },
+        { label: "Noch offen", wert: formatAufzaehlung(ausstehend.map(seatName)) },
         { label: "Frist", wert: fristText },
       ],
     },
@@ -416,7 +416,7 @@ export function buildBewerbungGeloeschtEmail({ saisonId, origin, rollenText, aus
         { label: "Eingetragen als", wert: rollenText },
         // The one thing a school needs before applying again: told only that the application lapsed,
         // they collect the same people and land here a second time.
-        { label: "Nicht bestätigt", wert: joinUnd(ausstehend.map(seatName)) },
+        { label: "Nicht bestätigt", wert: formatAufzaehlung(ausstehend.map(seatName)) },
       ],
     },
     aktion: neuBewerbenAktion(site, saisonId),

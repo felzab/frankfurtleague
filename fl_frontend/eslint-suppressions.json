@@ -472,16 +472,16 @@
   },
   "src/core/providers/AppToaster.tsx": {
     "@typescript-eslint/no-restricted-imports": {
-      "count": 2
+      "count": 1
     },
     "better-tailwindcss/no-restricted-classes": {
-      "count": 7
+      "count": 6
     },
     "no-restricted-syntax": {
       "count": 2
     },
     "react/forbid-component-props": {
-      "count": 6
+      "count": 5
     }
   },
   "src/core/providers/RootProviders.tsx": {
@@ -1330,7 +1330,7 @@
   },
   "src/features/kontakte/actions.ts": {
     "fl/server-action": {
-      "count": 3
+      "count": 2
     }
   },
   "src/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx": {
@@ -1773,7 +1773,7 @@
   },
   "src/features/saisons/actions.ts": {
     "fl/server-action": {
-      "count": 7
+      "count": 6
     }
   },
   "src/features/saisons/components/collections/AdminSaisonsTable.tsx": {
@@ -2053,7 +2053,7 @@
   },
   "src/features/schiedsrichter/actions.ts": {
     "fl/server-action": {
-      "count": 6
+      "count": 5
     }
   },
   "src/features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx": {
@@ -2547,7 +2547,7 @@
   },
   "src/features/spiele/actions.ts": {
     "fl/server-action": {
-      "count": 3
+      "count": 2
     }
   },
   "src/features/spiele/components/collections/RecentAndUpcomingSpieleGrid.tsx": {
@@ -2970,7 +2970,7 @@
   },
   "src/features/spieler/actions.ts": {
     "fl/server-action": {
-      "count": 8
+      "count": 7
     }
   },
   "src/features/spieler/components/collections/AdminSpielerTable.tsx": {
@@ -3276,7 +3276,7 @@
   },
   "src/features/spielorte/actions.ts": {
     "fl/server-action": {
-      "count": 5
+      "count": 4
     }
   },
   "src/features/spielorte/components/collections/AdminSpielorteTable.tsx": {
@@ -3386,7 +3386,7 @@
   },
   "src/features/spieltage/actions.ts": {
     "fl/server-action": {
-      "count": 2
+      "count": 1
     }
   },
   "src/features/spieltage/components/collections/AdminSpieltageList.tsx": {
@@ -3481,7 +3481,7 @@
   },
   "src/features/teams/actions.ts": {
     "fl/server-action": {
-      "count": 8
+      "count": 7
     }
   },
   "src/features/teams/components/collections/AdminKontakteList.tsx": {
@@ -4972,7 +4972,7 @@
   },
   "src/shared/utils/appToast.ts": {
     "@typescript-eslint/no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "src/shared/utils/date.ts": {
@@ -4986,14 +4986,6 @@
     }
   },
   "src/shared/utils/kontoMutation.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/shared/utils/undoDispatch.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
     "no-restricted-syntax": {
       "count": 1
     }

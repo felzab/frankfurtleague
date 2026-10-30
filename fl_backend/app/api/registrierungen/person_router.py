@@ -57,7 +57,6 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.drosselung import gedrosselt
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.routing import by_id
 from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
@@ -163,7 +162,6 @@ async def get_offene_registrierungen(
     f"{by_id('registrierung_id')}/aufnehmen",
     response_model=FLRegistrierungAufnahmeResponse,
     summary="Admit a registration into the team's squad",
-    dependencies=[Depends(gedrosselt)],
 )
 async def aufnehmen(
     registrierung_id: CustomRouteObjectId,
@@ -197,14 +195,14 @@ async def aufnehmen(
     it was on. The registration is deleted and its values redacted from the log in the same transaction, so a second
     press meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.
 
-    Refuses, in this order: a press past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), no pending
-    registration with this id (404), no seat on its team's season (`REQ-FUNKTION-001`), a registration the pupil has
-    not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban list holds (`REQ-REGISTRIERUNG-009`, worded to the team
-    as neutrally as to the pupil), a Stufe the season does not offer (`REQ-REGISTRIERUNG-003`), a registration
-    confirmed on the returning pupil's page whose address holds no stored person (`REQ-REGISTRIERUNG-018`: it carries
-    no choice, so it admits nobody, and the pupil registers again), a `spieler_id` that is not the person this
-    registration may be admitted into (`REQ-REGISTRIERUNG-014`), a person already playing in a squad this season
-    (`REQ-REGISTRIERUNG-015`) and a full squad (`REQ-SQUAD-003`). Nothing is written on any of them.
+    Refuses, in this order: no pending registration with this id (404), no seat on its team's season
+    (`REQ-FUNKTION-001`), a registration the pupil has not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban list
+    holds (`REQ-REGISTRIERUNG-009`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
+    (`REQ-REGISTRIERUNG-003`), a registration confirmed on the returning pupil's page whose address holds no stored
+    person (`REQ-REGISTRIERUNG-018`: it carries no choice, so it admits nobody, and the pupil registers again), a
+    `spieler_id` that is not the person this registration may be admitted into (`REQ-REGISTRIERUNG-014`), a person
+    already playing in a squad this season (`REQ-REGISTRIERUNG-015`) and a full squad (`REQ-SQUAD-003`). Nothing is
+    written on any of them.
     """
 
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
@@ -337,7 +335,6 @@ async def aufnehmen(
     f"{by_id('registrierung_id')}/ablehnen",
     response_model=FLRegistrierungAblehnungResponse,
     summary="Decline a registration",
-    dependencies=[Depends(gedrosselt)],
 )
 async def ablehnen(
     registrierung_id: CustomRouteObjectId,
@@ -357,8 +354,8 @@ async def ablehnen(
     row stays until the retention sweep erases it a month later. The answer carries the address the pupil's link
     went to, for the decline mail and nothing else, and whether that address was ever confirmed.
 
-    Refuses, in this order, a press past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), no pending
-    registration with this id (404) and no seat on its team's season (`REQ-FUNKTION-001`).
+    Refuses, in this order, no pending registration with this id (404) and no seat on its team's season
+    (`REQ-FUNKTION-001`).
     """
 
     async def decline_for_the_team(session: AsyncClientSession) -> FLRegistrierungAblehnungResponse:

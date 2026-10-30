@@ -34,7 +34,6 @@ A_GRANT_TAKEN = FLErasure(
     adresswechsel=0,
     berechtigungen=1,
     berechtigungen_antraege=0,
-    drosselung=0,
 )
 
 

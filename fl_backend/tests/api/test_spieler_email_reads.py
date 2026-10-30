@@ -23,7 +23,6 @@ from app.api.registrierungen.schemas import (
 from app.api.spieler.schemas import FLSpielerSelbstEinwilligungPayload
 from app.api.spieler.selbst_router import get_selbst, patch_einwilligung
 from app.core.collections import Collection
-from app.core.drosselung import get_drossel
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
 from app.shared.schemas.bestaetigung import FLTokenPayload
@@ -205,8 +204,6 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
         spieler_collection=database[Collection.SPIELER],
         records=record_collections(database),
         db=client,
-        # A withdrawal: the ceiling counts a grant alone, so this press spends nothing.
-        drossel=get_drossel(drosselung_collection=database[Collection.DROSSELUNG], germany_now=NOW),
         config=build_test_config(),
         today=TODAY,
         germany_now=NOW,
@@ -246,7 +243,6 @@ async def the_address_change_request(database: AsyncDatabase, client: AsyncMongo
         berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
         adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
         sperrliste=ban_list(database),
-        adressanker_collection=database[Collection.ADRESSANKER],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         operator=ANNA,

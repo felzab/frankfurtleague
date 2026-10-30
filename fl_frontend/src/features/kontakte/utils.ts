@@ -1,11 +1,7 @@
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { EINWILLIGUNG_UMFANG, KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
-import { buildRefusal } from "@/shared/utils/refusal";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
-import { toFieldErrors } from "@/shared/utils/validation";
-
-import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 
 import type { KontaktZeile } from "@/core/kontaktEmail";
 import type { KontaktRolle } from "@/features/teams/constants";
@@ -18,8 +14,6 @@ import type {
   FLTrainerZugleich,
 } from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
-import type { FLPatchSaisonTeamKontaktePayload } from "./schemas";
-import type { SaisonTeamKontaktePayloadDraft } from "./types";
 
 /**
  * The block with every seat naming `textVersion`, the form's running label: a handed seat is a new
@@ -237,7 +231,7 @@ const kontaktpersonPayload = (person: KontaktpersonDraft | null): FLKontaktperso
 /**
  * The stored block as the endpoint's own payload. The narrow scope is deliberate: the backend
  * restores a confirmed seat's wider consent from the confirmation,
- * so a replay must never name it.
+ * so a save must never name it.
  */
 export function toKontaktePayload(kontakte: SaisonTeamKontakteDraft | null): FLSaisonTeamKontaktePayload | null {
   if (kontakte === null) return null;
@@ -248,25 +242,4 @@ export function toKontaktePayload(kontakte: SaisonTeamKontakteDraft | null): FLS
     stellvertretung: kontaktpersonPayload(kontakte.stellvertretung),
     trainer_ist_zugleich: kontakte.trainer_ist_zugleich,
   };
-}
-
-/**
- * The alphabet, email and telephone bounds sit on the payload and not the read model, decided at
- * each field, so a stored block can be no legal write — and no
- * reload makes it one.
- */
-export function describeUnrestorableKontakte(payload: SaisonTeamKontaktePayloadDraft | FLPatchSaisonTeamKontaktePayload): string | null {
-  const parsed = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(payload);
-  if (parsed.success) return null;
-
-  const refused = Object.keys(toFieldErrors(parsed.error));
-  const seats = KONTAKT_ROLLEN.filter(({ value }) => refused.some((path) => path.startsWith(`kontakte.${value}`))).map(({ label }) => label);
-  // The seats are named where any can be: the admin has to know which of the three to re-enter, and
-  // the values themselves are the person's, so no field of them is echoed here.
-  const wo = seats.length === 0 ? "" : ` (${seats.join(", ")})`;
-
-  return buildRefusal({
-    reason: `Der Stand vor dem Speichern hält ungültige Angaben${wo} und lässt sich nicht zurückschreiben`,
-    repair: "Trage ihn bei Bedarf von Hand ein",
-  });
 }

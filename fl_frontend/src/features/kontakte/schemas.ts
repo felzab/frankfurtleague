@@ -66,7 +66,6 @@ export const FLPatchSaisonTeamKontakteResponseSchema = BaseAPIResponseSchema.ext
   // The delivery record's `ziel_id`: the row is the record a contact seat's message is about.
   saison_team_id: CustomObjectIdStringSchema,
   kontakte: FLSaisonTeamKontakteSchema.nullable(),
-  // The token of the block this save left, which is the only precondition an undo of it can carry.
   kontakte_stand: z.string(),
   bestaetigungen: z.array(FLKontaktMintSchema),
   abgaenge: z.array(FLKontaktAbgangSchema),

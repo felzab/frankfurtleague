@@ -1,5 +1,3 @@
-import { connection } from "next/server";
-
 import { requireAdminSaison } from "@/features/saisons/resolvers";
 import { getSchiedsrichter } from "@/features/schiedsrichter/queries";
 import { getSpielbestaetigungen } from "@/features/spielbestaetigungen/queries";
@@ -16,7 +14,6 @@ import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 import type { NextPageProps } from "@/shared/types/types";
 
 export default async function AdminSpielsuchePage(props: NextPageProps) {
-  await connection();
   const saison = await requireAdminSaison(props.searchParams);
 
   // Every club, venue and referee, retired ones included, rather than the season's: each list linking

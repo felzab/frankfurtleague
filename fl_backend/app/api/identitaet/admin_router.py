@@ -25,17 +25,14 @@ from app.api.identitaet.services import (
     build_season_team_pipeline,
     build_unplayed_saison_pipeline,
     compose_erasure_ansicht_auf_anfrage,
-    eigene_namen,
     find_eigene_adresse_refusal,
     find_fremder_adresswechsel_refusal,
-    find_name_im_anlass_refusal,
     find_verwaltung_adresse_refusal,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, post_one_to_db, refuse
 from app.core.dependencies import (
-    AdressankerCollection,
     AdresswechselCollection,
     AdresswechselPostausgangCollection,
     AktionenCollection,
@@ -45,7 +42,6 @@ from app.core.dependencies import (
     BerechtigungenPostausgangCollection,
     BewerbungenCollection,
     DBClient,
-    DrosselungCollection,
     EinladungenCollection,
     RegistrierungenCollection,
     SaisonSpielerCollection,
@@ -122,7 +118,7 @@ async def get_erasure_ansicht_auf_anfrage(
     and reason in a removed season's log images; the links its contact seats were mailed on their teams' open match
     confirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,
     which goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for
-    others, which name a marker in its place; its day counts; its rows in the log; every log image of a record the
+    others, which name a marker in its place; its rows in the log; every log image of a record the
     erasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;
     a dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the
     address under another grant's id; and the address in every notice still queued, withheld. Written besides: the
@@ -242,14 +238,12 @@ async def erase_auf_anfrage(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
     registrierungen_collection: RegistrierungenCollection,
-    drosselung_collection: DrosselungCollection,
     aktionen_collection: AktionenCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
-    adressanker_collection: AdressankerCollection,
     adresswechsel_collection: AdresswechselCollection,
     adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
@@ -275,16 +269,11 @@ async def erase_auf_anfrage(
     live grant and the administrator no owner's power (`REQ-PURGE-007`): the erasure ends the change, a discard only an
     owner makes of it. The refusal tells that administrator some change the preview withholds names the address.
 
-    `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does. No
-    redaction reaches it, so it is refused 422 where it holds an address, and, inside the write ahead of the erasure's first
-    step, where it holds a name of the person's own records as a whole word or before a genitive s (`REQ-PURGE-006`): each
-    name field whole and each of its words, but a particle such as `von` before a later word of its field and any single
-    letter. Names compare as stored, spacing aside, and equal where their plain lower or their plain upper case is: „Weiss“
-    is refused for „Weiß“, whose capitals it shares, and another spelling such as „Mueller“ for „Müller“ passes. A common
-    word equal to a name is refused with it. The grant notice names this administrator as ending the
-    person's grant. An address holding nothing is answered with every count zero. The 404 and the 409 answer only a database
-    changed by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once this has
-    answered.
+    `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does.
+    No redaction reaches it, so it is refused 422 where it holds an address. The grant notice names this administrator
+    as ending the person's grant. An address holding nothing is answered with every count zero. The 404 and the 409
+    answer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is
+    the caller's, once this has answered.
     """
 
     identifier = sign_in_identifier(erasure_data.email)
@@ -305,7 +294,7 @@ async def erase_auf_anfrage(
         if any(grant["adresse"] == identifier for grant in lebendige(grants)):
             refuse_unconfirmed()
 
-        # Ahead of the erasure's first write, its anchor, and in its snapshot: a retry judges the names afresh.
+        # Ahead of the erasure's first write, and in its snapshot: a retry judges the changes afresh.
         subject = await resolve_subject(
             identifier,
             saison_teams_collection=saison_teams_collection,
@@ -315,14 +304,6 @@ async def erase_auf_anfrage(
             registrierungen_collection=registrierungen_collection,
             schluessel=config.sperrliste_schluessel,
             session=session,
-        )
-        names = eigene_namen(
-            identifier,
-            saison_team_rows=subject.saison_teams,
-            bewerbung_rows=subject.bewerbungen,
-            referee_rows=subject.schiedsrichter,
-            pupil_rows=subject.spieler,
-            registrierung_rows=subject.registrierungen,
         )
         # Ending a grant holder's change is a discard, which only an owner makes.
         refuse(
@@ -334,7 +315,6 @@ async def erase_auf_anfrage(
                 announced=announced,
             )
         )
-        refuse(find_name_im_anlass_refusal(anlass=erasure_data.anlass, names=names))
 
         erased = await erase_everything(
             identifier,
@@ -348,14 +328,12 @@ async def erase_auf_anfrage(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             spielberichte_collection=spielberichte_collection,
             registrierungen_collection=registrierungen_collection,
-            drosselung_collection=drosselung_collection,
             aktionen_collection=aktionen_collection,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
             berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
-            adressanker_collection=adressanker_collection,
             adresswechsel_collection=adresswechsel_collection,
             adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,

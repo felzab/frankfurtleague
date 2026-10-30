@@ -30,11 +30,9 @@ from app.api.registrierungen.services import (
 )
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, hash_gesperrt, sperrliste_saison
 from app.api.spieltage.crud import nachnominierung_laeuft_in
-from app.core.adressanker import anchor_the_addresses
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
-    AdressankerCollection,
     DBClient,
     EinladungenCollection,
     RegistrierungenCollection,
@@ -229,7 +227,6 @@ async def post_registrierung(
     saison_teams_collection: SaisonTeamsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     sperrliste: SperrlisteLookup,
-    adressanker_collection: AdressankerCollection,
     db: DBClient,
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
     # pupil's own press is then refused as a changed replay.
@@ -359,14 +356,6 @@ async def post_registrierung(
                 # type refuses.
                 **({} if schluessel is None else {"idempotenz_schluessel": schluessel, "idempotenz_fingerabdruck": fingerabdruck}),
             },
-            session=session,
-        )
-        # The address entering here, which an erasure of it running now never read, or a pupil's deletion judging the pupil
-        # due. The last write: a refused press anchors nothing.
-        await anchor_the_addresses(
-            [str(registrierung_data.email)],
-            adressanker_collection=adressanker_collection,
-            schluessel=sperrliste.schluessel,
             session=session,
         )
 

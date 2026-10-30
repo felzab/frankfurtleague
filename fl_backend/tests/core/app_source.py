@@ -45,7 +45,6 @@ BOUNDED_COMPARISONS = frozenset({"$lt", "$lte", "$gt", "$gte", "$in", "$eq"})
 # `app/core/crud.py`'s writing half: a call to one of these is where a document changes.
 WRITE_HELPERS = frozenset(
     {
-        "anchor_by_id_in_db",
         "anchor_in_db",
         "insert_live",
         "patch_many_in_db",
@@ -270,8 +269,8 @@ def _callbacks() -> tuple[tuple[Path, str, tuple[Declaration, ...], Declaration]
             if callee(call) != TRANSACTION_RUNNER:
                 continue
 
-            # The helper's own run of every caller's callback inside the actor's judge: each callback
-            # it is handed is found where its caller hands it, and this one writes nothing of its own.
+            # The helper's own run of every caller's callback: each callback it is handed is found where
+            # its caller hands it, and this one writes nothing of its own.
             if module == FORWARDING_RUNNER[0] and outer and outer[-1].name == FORWARDING_RUNNER[1]:
                 continue
 
