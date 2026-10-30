@@ -60,7 +60,9 @@ export default defineConfig({
       // so an id read off a page address or a stored record stays one segment and no call site encodes its own.
       urlEncodeParameters: true,
       override: {
-        header: SERVER_ONLY,
+        // Orval writes one header to the target and its schemas file, and `types.ts` holds only the document's
+        // types and value lists, which a client module imports. The SDK is server-only through its transport.
+        header: false,
         operations,
         paramsSerializer: { path: TRANSPORT_PATH, name: "serializeQuery" },
         // A call answers its success body; `apiClient` throws on any other status.

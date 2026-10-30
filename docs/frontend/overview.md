@@ -65,11 +65,13 @@ outside a request ([`../ops/runbooks.md`](../ops/runbooks.md#20-after-a-hand-edi
 **The backend's contract is generated** into `fl_frontend/src/core/generated/` from
 `fl_backend/openapi.json` by `fl_frontend/orval.config.ts`: the wire types, one SDK function per
 operation sent through `fl_frontend/src/core/transport.ts` with the key tier its `security` names,
-and Zod schemas for request bodies and parameters alone. Every module opens with
-`import 'server-only'`, so a client component may import a type from it with `import type` and
-nothing else. A change to the backend's routes or models regenerates both with `pnpm run contract`
-in `fl_frontend`, which exports the document and then runs Orval, committing what moves; the gate's
-db scope runs the same script and fails a tree where either is stale. Each path parameter is
+and Zod schemas for request bodies and parameters alone. The Zod module opens with
+`import 'server-only'`, and the SDK is server-only through the transport it imports, so no client
+component can send a call; the types module holds only the document's types and value lists, which
+a client component imports like any other module. A change to the backend's routes or models
+regenerates both with `pnpm run contract` in `fl_frontend`, which exports the document and then
+runs Orval, committing what moves; the gate's db scope runs the same script and fails a tree where
+either is stale. Each path parameter is
 percent-encoded where its generated URL is built (Orval's `urlEncodeParameters`), so no call site
 encodes its own. An answer is typed by the generated types and parsed nowhere. The slices'
 hand-written Zod schemas in `schemas.ts` judge what a form submits, in the browser, where the

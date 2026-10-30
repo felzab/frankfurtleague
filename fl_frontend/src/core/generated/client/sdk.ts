@@ -1,5 +1,3 @@
-import "server-only";
-
 import { adminKeyTransport, baseKeyTransport, serializeQuery, systemKeyTransport, unkeyedTransport } from "@/core/transport";
 
 import type {
