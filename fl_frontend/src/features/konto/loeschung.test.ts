@@ -49,7 +49,6 @@ const HELD = new Map<string, LookupFixture>();
 
 /** The counts the erasure answers a person holding one squad row. */
 const ERASED = {
-  acknowledged: 1,
   spieler: 1,
   saison_spieler: 1,
   schiedsrichter: 0,
@@ -79,7 +78,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   if (path === ANSICHT_PATH) {
     ansichtReads += 1;
     const leer = { spieler: [], schiedsrichter: [], sitze: [], bewerbungen: [], registrierungen: [], adresswechsel: 0 };
-    return Promise.resolve(Response.json({ acknowledged: 1, ...leer, verwaltung: "owner", letzter_inhaber: letzterInhaber }));
+    return Promise.resolve(Response.json({ ...leer, verwaltung: "owner", letzter_inhaber: letzterInhaber }));
   }
   if (path === ERASURE_PATH) {
     erasures.push({ method: init?.method ?? "GET", actor: new Headers(init?.headers).get("x-fl-actor") });
@@ -88,7 +87,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
 
   const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
   const fixture = HELD.get(email ?? "") ?? { ...NO_RECORDS, sitze: [SITZ], konto: true };
-  return Promise.resolve(Response.json(answerAt(path, { acknowledged: 1, ...fixture })));
+  return Promise.resolve(Response.json(answerAt(path, fixture)));
 }) as typeof globalThis.fetch;
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
