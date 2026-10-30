@@ -19,9 +19,12 @@ export type ApiCall = {
 
 /**
  * The response schema a hand-written caller handed `apiClient`, which an answer is parsed through where the case wants
- * its shape held. A generated call hands none.
+ * its shape held. A generated call hands none, and stands under `ANSWERED_AS_IS`.
  */
 export type ApiSchema = { parse: (value: unknown) => unknown };
+
+/** What a generated call's answer passes through: nothing, as the real `sendToBackend` parses nothing. */
+const ANSWERED_AS_IS: ApiSchema = { parse: (value) => value };
 
 /** What a caller hands the client beside the endpoint and the schema. */
 type ApiOptions = {
@@ -40,12 +43,12 @@ type ApiOptions = {
  * exports stay the real ones (Vitest's `importOriginal` partial mock), so the transport's path and query helpers run as
  * they do in production, and no call reaches the real backend.
  */
-export function doubleApiClient(answer: (call: ApiCall, schema: ApiSchema | undefined) => unknown): ApiCall[] {
+export function doubleApiClient(answer: (call: ApiCall, schema: ApiSchema) => unknown): ApiCall[] {
   const calls: ApiCall[] = [];
 
   // Sent through the real client's own dispatch, so the write the admin spine judges its answer by is
   // recorded here exactly as the real client records it.
-  const apiClient = async (endpoint: string, schema: ApiSchema | undefined, options: ApiOptions = {}): Promise<unknown> => {
+  const apiClient = async (endpoint: string, schema: ApiSchema, options: ApiOptions = {}): Promise<unknown> => {
     const call: ApiCall = {
       endpoint,
       method: options.method,
@@ -61,7 +64,7 @@ export function doubleApiClient(answer: (call: ApiCall, schema: ApiSchema | unde
     });
   };
   // A generated call: its query is already in `endpoint`, and its tier is the operation's own.
-  const sendToBackend = (endpoint: string, options: ApiOptions = {}): Promise<unknown> => apiClient(endpoint, undefined, options);
+  const sendToBackend = (endpoint: string, options: ApiOptions = {}): Promise<unknown> => apiClient(endpoint, ANSWERED_AS_IS, options);
   vi.doMock("@/core/api.ts", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@/core/api.ts")>()),
     apiClient,
@@ -92,8 +95,8 @@ type ApiAnswer = (call: ApiCall) => Promise<unknown>;
 
 /**
  * `doubleApiClient` answering every call with `answer`, until `answerWith` names another for the rest
- * of that case: the double a suite drives a slice's real `mutations.ts` through. Each answer to a hand-written call
- * passes through the schema its caller handed.
+ * of that case: the double a suite drives a slice's real `mutations.ts` through. Each answer passes through the schema
+ * its caller handed.
  */
 export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({ acknowledged: 1 })): {
   calls: ApiCall[];
@@ -104,9 +107,8 @@ export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({ ack
   let answering = answer;
   const malformed: string[] = [];
   const requests = answersInFlight();
-  const parsed = async (call: ApiCall, schema: ApiSchema | undefined): Promise<unknown> => {
+  const parsed = async (call: ApiCall, schema: ApiSchema): Promise<unknown> => {
     const answered = await answering(call);
-    if (schema === undefined) return answered;
     try {
       return schema.parse(answered);
     } catch (error) {
