@@ -603,10 +603,12 @@ const SOURCE_BANS = [
     { allow: ["src/shared/utils/publicRoute.ts"] },
   ),
   syntaxBan(
-    // Per function, where its lifetime stands beside it; a module-wide directive caches every export unseen.
+    // Per function, where its tag and its lifetime stand beside it; a module-wide directive caches every export
+    // unseen. The lifetime is set in every scope, as Next's `use cache` reference asks ("Set an explicit cache
+    // lifetime with `cacheLife` in every `use cache` scope"): without it the scope takes the `default` profile.
     syntax(
-      ':matches(Program > ExpressionStatement[directive=/^use cache/], :function:not(:has(CallExpression[callee.name="cacheTag"][arguments.0.name="SITE_CACHE_TAG"])) > BlockStatement > ExpressionStatement[directive=/^use cache/])',
-      'Open each cached function with `"use cache"` and tag it with `cacheTag(SITE_CACHE_TAG)` from fl_frontend/src/core/siteCache.ts: an untagged entry outlives every save.',
+      ':matches(Program > ExpressionStatement[directive=/^use cache/], :function:not(:has(CallExpression[callee.name="cacheTag"][arguments.0.name="SITE_CACHE_TAG"]):has(CallExpression[callee.name="cacheLife"])) > BlockStatement > ExpressionStatement[directive=/^use cache/])',
+      'Open each cached function with `"use cache"`, tag it with `cacheTag(SITE_CACHE_TAG)` from fl_frontend/src/core/siteCache.ts and set its lifetime with `cacheLife`: an untagged entry outlives every save, and one with no lifetime keeps Next\'s `default` profile, longer than `"minutes"`.',
     ),
     SOURCE,
   ),
