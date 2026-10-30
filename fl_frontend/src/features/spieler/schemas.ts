@@ -34,8 +34,8 @@ export const FLEinwilligungStandSchema = z.object({
   medien: z.string().nullable(),
 });
 
-// Read schemas another lane's read mirror still composes (`features/konto`, `features/registrierungen`,
-// `features/teams`); the generated types are the ones every reader imports, and these go with those mirrors.
+// Read schemas `features/teams`'s read mirror still composes; the generated types are the ones every reader imports,
+// and these go with that mirror.
 
 /** Mirrors `FLEinwilligungBeleg` — when a person set one consent choice, and under which wording. */
 const FLEinwilligungBelegSchema = z.object({
@@ -56,54 +56,6 @@ const FLEinwilligungNachweisSchema = FLEinwilligungBelegSchema.extend({
 export const FLEinwilligungNachweiseSchema = z.object({
   umfang: FLEinwilligungNachweisSchema.nullable(),
   medien: FLEinwilligungNachweisSchema.nullable(),
-});
-
-/** Mirrors `FLEinwilligung` — what may be published about this person. */
-export const FLEinwilligungSchema = z.object({
-  umfang: z.enum(["kader_oeffentlich", "intern"]),
-  datum: CustomDateStringSchema,
-  bestaetigt_am: CustomDateStringSchema,
-  // A label of the backend's consent registry and never the words.
-  text_version: z.string(),
-  // A second consent under one record: `umfang` and this are independent answers, so a reader
-  // deciding whether a photo may be published asks this one and never that one.
-  medien: z.boolean(),
-  nachweis: FLEinwilligungNachweiseSchema,
-});
-
-/** Mirrors `FLSpielerSelbstKaderZeile`: one squad row of the signed-in pupil, the team named as it played that season. */
-const FLSpielerSelbstKaderZeileSchema = z.object({
-  team_id: CustomObjectIdStringSchema,
-  team_name: z.string(),
-  saison_id: z.string(),
-  nummer: z.string().nullable(),
-  position: FLSpielerPositionSchema.nullable(),
-  stufe: FLSpielerStufeSchema.nullable(),
-  rolle: FLSpielerRolleSchema.nullable(),
-  ist_nachnominiert: z.boolean(),
-  inactive_since: CustomDateStringSchema.nullable(),
-});
-
-/**
- * Mirrors `FLSpielerKontext`: what the pupil's confirmation page fills its slots with, as the record
- * points to it today. Null where the pupil holds no squad row to name a team by.
- */
-export const FLSpielerKontextSchema = z.object({
-  team: z.string().nullable(),
-  schule: z.string().nullable(),
-  saison: z.string().nullable(),
-});
-
-/**
- * Mirrors `FLSpielerSelbst`, the person tier's own read of the stored data: the whole surname, because
- * the reader is the person it names. Its consent is the account page's entry's, which extends it.
- */
-export const FLSpielerSelbstSchema = z.object({
-  spieler_id: CustomObjectIdStringSchema,
-  vorname: z.string().nonempty(),
-  nachname: z.string().nullable(),
-  geburtsdatum: CustomDateStringSchema,
-  kader: z.array(FLSpielerSelbstKaderZeileSchema),
 });
 
 // Redesign: goes with its last importer.

@@ -12,8 +12,6 @@ import { MAX_QUALIFIERS, SAISON_ID_LENGTH } from "./constants";
 // The old season forms' own judgement of their drafts, in words an administrator reads, before each action sends the
 // write through the generated client, which types the body against the write's published contract.
 
-export const FLSaisonStatusSchema = z.enum(["past", "active", "future"], { error: "FLSaisonStatus is invalid" });
-
 /**
  * **Both sides' goals rather than a margin**, so a season can regulate 3:0, 2:0 or 0:0 as its own
  * competition requires — `fl_backend/app/api/spiele/services.py :: apply_payload_to_spiel` composes

@@ -4,13 +4,7 @@ import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import { FLSpielerSelbstEinwilligungPayloadSchema, LinkAntwortTextVersionSchema } from "@/features/spieler/schemas";
 import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
-import {
-  CustomDateStringSchema,
-  CustomObjectIdStringSchema,
-  FLKontaktPayloadSchema,
-  FLKontaktSchema,
-  PersonNameSchema,
-} from "@/shared/schemas";
+import { CustomDateStringSchema, CustomObjectIdStringSchema, FLKontaktPayloadSchema, PersonNameSchema } from "@/shared/schemas";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
 import { alterAusserhalb } from "./constants";
@@ -131,22 +125,6 @@ export const buildSchiedsrichterBestaetigungPayloadSchema = (mindestalter: numbe
       { error: alterAusserhalb(mindestalter) },
     ),
   });
-
-// The read schema `features/konto`'s read mirror still composes; `FLSchiedsrichterSelbst`, the generated type, is the
-// one every reader imports, and this goes with that mirror.
-/**
- * Mirrors `FLSchiedsrichterSelbst`, the person tier's own read of the stored data: no link bookkeeping,
- * which is the administration's, and no consent, which is the account page's entry's.
- */
-export const FLSchiedsrichterSelbstSchema = z.object({
-  schiedsrichter_id: CustomObjectIdStringSchema,
-  name: z.string(),
-  schule: z.string().nullable(),
-  kontakt: FLKontaktSchema,
-  // `default_payment`, served because the referee's confirmation page lists the fee among what is stored.
-  honorar: z.number().int(),
-  geburtsdatum: CustomDateStringSchema.nullable(),
-});
 
 // Redesign: goes with its last importer.
 /** The pupil's payload, as the backend publishes one declaration under two names: the two writes cannot drift. */

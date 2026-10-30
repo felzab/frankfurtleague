@@ -278,19 +278,3 @@ export const FLKontaktKenntnisnahmeSchema = z.object({
   eingetragen_von: z.enum(["bewerbung", "liga"]),
   nachweis: FLEinwilligungNachweiseSchema,
 });
-
-const FLKontaktpersonSchema = z.object({
-  vorname: z.string().nonempty(),
-  nachname: z.string().nonempty(),
-  email: z.string(),
-  telefon: z.string(),
-  geburtsdatum: CustomDateStringSchema.nullable(),
-  einwilligung: FLKontaktKenntnisnahmeSchema,
-});
-
-export const FLSaisonTeamKontakteSchema = z.object({
-  trainer: FLKontaktpersonSchema.nullable(),
-  ansprechperson: FLKontaktpersonSchema.nullable(),
-  stellvertretung: FLKontaktpersonSchema.nullable(),
-  trainer_ist_zugleich: FLTrainerZugleichSchema.nullable(),
-});

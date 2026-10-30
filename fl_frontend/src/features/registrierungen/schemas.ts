@@ -6,20 +6,13 @@ import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 // two numbers, and a second span here would refuse a day the endpoint takes.
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import {
-  FLEinwilligungSchema,
   FLPostSaisonSpielerPayloadSchema,
   FLSpielerPositionSchema,
   FLSpielerStufeSchema,
   LinkAntwortTextVersionSchema,
 } from "@/features/spieler/schemas";
 import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
-import {
-  CustomDateStringSchema,
-  CustomObjectIdStringSchema,
-  FLBewerbungZustellungSchema,
-  KontaktEmailSchema,
-  PersonNameSchema,
-} from "@/shared/schemas";
+import { CustomDateStringSchema, CustomObjectIdStringSchema, KontaktEmailSchema, PersonNameSchema } from "@/shared/schemas";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
 import { alterAusserhalb, EINWILLIGUNG_UMFANG_OPTIONS } from "./constants";
@@ -119,46 +112,4 @@ const FLRegistrierungAblehnungsgrundSchema = z.enum(["andere_person"], { error: 
 
 export const FLRegistrierungAblehnenPayloadSchema = z.object({
   grund: FLRegistrierungAblehnungsgrundSchema.nullable(),
-});
-
-// Read by `fl_frontend/src/features/funktionen/schemas.ts` for its status alone; every reader in this
-// slice takes the generated `FLRegistrierung`.
-const FLRegistrierungEinwilligungSchema = FLEinwilligungSchema.extend({
-  umfang: FLEinwilligungSchema.shape.umfang.nullable(),
-  datum: FLEinwilligungSchema.shape.datum.nullable(),
-  medien: z.boolean().nullable(),
-});
-
-const FLRegistrierungBestaetigungSchema = z.object({
-  verschickt_am: CustomDateStringSchema,
-  erinnert_am: CustomDateStringSchema.nullable(),
-  frist: CustomDateStringSchema,
-  zustellung: FLBewerbungZustellungSchema.nullable(),
-});
-
-const FLRegistrierungEntscheidungZeileSchema = z.object({
-  getroffen_am: CustomDateStringSchema,
-  von: z.string().nullable(),
-  grund: z.string().nullable(),
-  von_gesperrt: z.boolean(),
-});
-
-export const FLRegistrierungSchema = z.object({
-  id: CustomObjectIdStringSchema,
-  saison_id: z.string(),
-  team_id: CustomObjectIdStringSchema,
-  einladung_id: CustomObjectIdStringSchema,
-  eingereicht_am: CustomDateStringSchema,
-  status: z.enum(["eingereicht", "abgelehnt"]),
-  vorname: z.string(),
-  nachname: z.string(),
-  email: z.string(),
-  position: FLSpielerPositionSchema.nullable(),
-  nummer: z.string().nullable(),
-  stufe: FLSpielerStufeSchema.nullable(),
-  geburtsdatum: CustomDateStringSchema.nullable(),
-  einwilligung: FLRegistrierungEinwilligungSchema.nullable(),
-  bestaetigung: FLRegistrierungBestaetigungSchema.nullable(),
-  entscheidung: FLRegistrierungEntscheidungZeileSchema.nullable(),
-  bestaetigt: z.boolean(),
 });
