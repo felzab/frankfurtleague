@@ -43,6 +43,9 @@ interface RequestScope {
   // `oncePerRequest`'s reads, by the function each wraps. Held by reference, so the scope
   // `runAnsweringOwnCut` derives shares it.
   memo: Map<() => Promise<unknown>, Promise<unknown>>;
+  // Set on a background pass's scope, the scheduler's and the Postausgang's drain: its writes are drained by the pass
+  // itself, never behind a response it has not got.
+  background: boolean;
 }
 
 const storage = new AsyncLocalStorage<RequestScope>();
@@ -65,6 +68,7 @@ export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "ac
     writeSent: false,
     endsOwnSession: false,
     memo: new Map(),
+    background: false,
   };
 
   return storage.run(render.scope, fn);
@@ -100,6 +104,7 @@ export function runBehindTheResponse(traceId: string, work: () => Promise<void>)
     writeSent: false,
     endsOwnSession: false,
     memo: new Map(),
+    background: false,
   };
   let timer: ReturnType<typeof setTimeout> | undefined;
   // Settled at the deadline whatever the work still awaits: a sign-in store call is bounded by its own
@@ -109,6 +114,30 @@ export function runBehindTheResponse(traceId: string, work: () => Promise<void>)
   });
 
   return Promise.race([storage.run(scope, work), cut]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * Runs a background pass, the scheduler's or the Postausgang's drain, under its trace and no deadline: each call it sends
+ * is bounded by its own bound alone, and a pass a stopping container cuts leaves what it held to the next. The writes
+ * it sends drain nothing behind a response (`fl_frontend/src/core/api.ts :: sendToBackend`): the pass drains its own.
+ */
+export function runInBackground<T>(traceId: string, pass: () => Promise<T>): Promise<T> {
+  const scope: RequestScope = {
+    traceId,
+    deadlineAt: Infinity,
+    outcomeUnknown: false,
+    writeSent: false,
+    endsOwnSession: false,
+    memo: new Map(),
+    background: true,
+  };
+
+  return storage.run(scope, pass);
+}
+
+/** Whether this call runs inside a background pass. */
+export function inBackground(): boolean {
+  return storage.getStore()?.background === true;
 }
 
 /** What is left of the request's deadline: unbounded outside a scope, where a cache fill and a timer's pass run. */

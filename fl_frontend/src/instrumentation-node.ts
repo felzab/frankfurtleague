@@ -1,7 +1,9 @@
 import { BootRefusal } from "./core/bootRefusal";
 import { requestOf } from "./core/errors";
 import { logger } from "./core/logging";
+import { runInBackground } from "./core/requestScope";
 import { HOUR_MS } from "./core/timeUnits";
+import { mintTraceId } from "./core/trace";
 
 // The code `scripts/lib/_lib.sh :: check_frontend_boot_config` reads as a refusal, apart from a fault's 1:
 // collapsed into one, a host's bad file would read as a check the deploy could not make, and go on.
@@ -73,7 +75,7 @@ async function loadJobs(): Promise<{ jobs: readonly Job[]; drain: () => Promise<
 
 /**
  * Every job is idempotent and selects on a date or a lapse, so the hour decides only how late in the day a deadline is
- * acted on; a write that owes a mail drains at once besides (`fl_frontend/src/core/afterResponse.ts :: drainSoon`).
+ * acted on; every write drains the Postausgang behind its answer besides (`fl_frontend/src/core/api.ts :: sendToBackend`).
  */
 const PASS_INTERVAL_MS = HOUR_MS;
 
@@ -99,7 +101,8 @@ function armScheduler({ jobs, drain }: Awaited<ReturnType<typeof loadJobs>>, hea
 
     laeuft = true;
     try {
-      await ping(heartbeat, await runPass(jobs, drain));
+      // A background pass under a trace of its own: its writes drain nothing behind a response, the pass draining last.
+      await ping(heartbeat, await runInBackground(mintTraceId(), () => runPass(jobs, drain)));
     } finally {
       laeuft = false;
     }

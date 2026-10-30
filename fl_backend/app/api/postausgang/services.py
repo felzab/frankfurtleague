@@ -26,12 +26,15 @@ from app.api.postausgang.schemas import (
 )
 from app.core.crud import patch_many_in_db, post_many_to_db
 
-# How long one claim holds its rows: past the page's sends at the frontend's per-send bound, so a drain still sending is
-# never overtaken.
-BEANSPRUCHUNG_DAUER: Final = timedelta(minutes=5)
-
 # The rows one claim hands out.
 SEITE: Final = 10
+
+# How long one claim holds its rows: past a page at its worst, so a drain still sending is never overtaken. The frontend's
+# drain runs under no deadline but each call's own bound, so the worst is the claim's answer, then each of `SEITE` sends
+# and its report, at `fl_frontend/src/core/api.ts :: FETCH_TIMEOUT_MS` a call and `fl_frontend/src/core/mail.ts ::
+# MAIL_TIMEOUT_MS` a send: (1 + 2 x 10) x 15 s, 315 s (`tests/api/test_postausgang_lease.py`). A drain a stopping
+# container cuts leaves its rows to the next once this lapses.
+BEANSPRUCHUNG_DAUER: Final = timedelta(minutes=10)
 
 # How long a send that failed waits before a drain may hand it out again: a provider refusing for its own reasons (its
 # daily quota, a moment's outage) is not asked again by every drain the next writes start.

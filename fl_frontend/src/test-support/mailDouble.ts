@@ -60,11 +60,6 @@ export function doublePostausgang(): {
     ...(await vi.importActual<object>("@/core/generated/client/sdk.ts")),
     postausgangPostAnmeldung: postausgangPostAnmeldung,
   }));
-  // Nothing to drain, the stand-in above having sent it: the real call reaches Next's `after`, which a suite holds no scope for.
-  vi.doMock("@/core/afterResponse.ts", async () => ({
-    ...(await vi.importActual<object>("@/core/afterResponse.ts")),
-    drainSoon: () => undefined,
-  }));
 
   // Back to accepted before every case: a case that named `lost` would hand it to the next case's mail.
   beforeEach(() => {

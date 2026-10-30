@@ -1,7 +1,7 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
-import { afterTheResponse, drainSoon } from "@/core/afterResponse";
+import { afterTheResponse } from "@/core/afterResponse";
 import { kontoAnNeuerAdresse } from "@/features/adresswechsel/konto";
 import { ansichtOf } from "@/features/adresswechsel/link";
 import { postAdresswechselAnsicht, postAdresswechselAntwort, postAdresswechselStopp } from "@/features/adresswechsel/mutations";
@@ -61,12 +61,9 @@ export async function POST(request: NextRequest) {
         return { success: false as const, ansicht: ansicht };
       }
 
-      // The effect owed its notices and its account's carry in its own transaction: each behind the response, and by the
-      // hourly pass where this one never runs. No address reaches this handler.
-      if (antwort.wirksam) {
-        drainSoon();
-        afterTheResponse(runAdresswechselUmzuege);
-      }
+      // The effect owed its account's carry in its own transaction: behind the response, and by the hourly pass where
+      // this one never runs. No address reaches this handler.
+      if (antwort.wirksam) afterTheResponse(runAdresswechselUmzuege);
 
       return gedrueckt(antwort.antwort, {
         wirksam: antwort.wirksam,

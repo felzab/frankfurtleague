@@ -1,6 +1,5 @@
 "use server";
 
-import { drainSoon } from "@/core/afterResponse";
 import { accountStandsAt, endSessionsOfAddress } from "@/core/auth";
 import { logger } from "@/core/logging";
 import { readLoeschungAnsicht } from "@/features/funktionen/mutations";
@@ -123,7 +122,6 @@ export async function postSperreAction(rawPayload: SperreEntwurf): Promise<Actio
 
     // AFTER the write is acknowledged, so nobody is signed out by a request that then failed.
     const abgemeldet = await abmelden(validated.data.email);
-    if (konto === true) drainSoon();
 
     // Each is told, and none undoes the ban: the write is acknowledged and no address survives to retry a failure with.
     const told = [abgemeldet, konto === null ? NICHT_BENACHRICHTIGT : konto ? null : KEIN_KONTO].filter((sentence) => sentence !== null);

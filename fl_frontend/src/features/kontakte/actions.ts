@@ -1,6 +1,5 @@
 "use server";
 
-import { drainSoon } from "@/core/afterResponse";
 import { isFreshlySignedIn } from "@/core/auth";
 import { getLaufendesLabel } from "@/core/einwilligung";
 import { formatAufzaehlung } from "@/core/format";
@@ -81,7 +80,6 @@ export async function patchSaisonTeamKontakteAction(
 
     // Owed in the save's own transaction, one per person it newly seated.
     const owed = saisonTeam.bestaetigungen;
-    if (owed.length > 0) drainSoon();
 
     return {
       success: true,
@@ -120,8 +118,6 @@ export async function einladeKontaktAction(rawPayload: { team_id: string; saison
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
-
-    drainSoon();
 
     return {
       success: true,

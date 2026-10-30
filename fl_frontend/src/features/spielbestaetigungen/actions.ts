@@ -1,6 +1,5 @@
 "use server";
 
-import { drainSoon } from "@/core/afterResponse";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -63,8 +62,6 @@ export async function verwerfenSpielbestaetigungAction(
       if (refusal !== null) return refusalResult(refusal);
       throw error;
     }
-
-    drainSoon();
 
     return { success: true, updated_document: operation.updated_document, message: "Der Termin bleibt, wie er ist." };
   });

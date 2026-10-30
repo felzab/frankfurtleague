@@ -1,6 +1,5 @@
 "use server";
 
-import { drainSoon } from "@/core/afterResponse";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -53,8 +52,7 @@ export async function postBerechtigungAction(
 
     const { created_id, beantragt } = postOperation;
     // Ends no session: one made before the grant administers nothing, every guard holding it against the
-    // grant's own time on every request. The write owed its notice, or a request's to whoever could approve it.
-    drainSoon();
+    // grant's own time on every request.
 
     return { success: true, created_id, beantragt, message: beantragt ? ZUGANG_BEANTRAGT_MESSAGE : ZUGANG_ERTEILT };
   });
@@ -76,8 +74,6 @@ export async function deleteBerechtigungAction(rawPayload: FLBerechtigungKeyPayl
       if (refusal) return refusalResult(refusal);
       throw error;
     }
-
-    drainSoon();
 
     return { success: true, message: ZUGANG_ENTZOGEN_MESSAGE };
   });
@@ -104,9 +100,6 @@ export async function patchBerechtigungAction(rawPayload: FLPatchBerechtigungPay
       throw error;
     }
 
-    // A promotion's request as well as a tier moved: the write owed it to the owners who could approve it.
-    drainSoon();
-
     if (patchOperation.beantragt) return { success: true, beantragt: true, message: ERNENNUNG_BEANTRAGT_MESSAGE };
 
     // Done whether it moved the tier or found it there: a repeated press names the tier the grant holds.
@@ -129,8 +122,6 @@ export async function genehmigeAntragAction(rawPayload: FLBerechtigungAntragKeyP
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
-
-    drainSoon();
 
     return { success: true, message: ANTRAG_GENEHMIGT_MESSAGE };
   });

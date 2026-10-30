@@ -1,6 +1,5 @@
 "use server";
 
-import { drainSoon } from "@/core/afterResponse";
 import { isFreshlySignedIn } from "@/core/auth";
 import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
@@ -70,8 +69,6 @@ export async function postSchiedsrichterAction(
       throw error;
     }
 
-    drainSoon();
-
     return {
       success: true,
       created_id: postOperation.created_id,
@@ -119,7 +116,6 @@ export async function patchSchiedsrichterAction(
     // Non-null only where the correction moved an unconfirmed referee's address: the old link was
     // posted to a mailbox nobody reads, and leaving it live is a credential in the wrong inbox.
     const mint = postOperation.bestaetigung;
-    if (mint !== null) drainSoon();
 
     return {
       success: true,
@@ -171,8 +167,6 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
-
-    drainSoon();
 
     return {
       success: true,
@@ -250,7 +244,6 @@ export async function reactivateSchiedsrichterAction(
     // Non-null where the row came back unanswered: a retired referee's save mails nothing, so
     // coming back is what asks them.
     const mint = reactivateOperation.bestaetigung;
-    if (mint !== null) drainSoon();
 
     return {
       success: true,

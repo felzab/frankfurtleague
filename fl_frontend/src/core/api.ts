@@ -1,11 +1,12 @@
 import "server-only";
 
+import { drainSoon } from "./afterResponse";
 import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { isPathAsSpelled } from "./apiPath";
 import { frontend_config, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "./config";
-import { APIBadStatusError, APINetworkError, UnattributedAdminCallError } from "./errors";
+import { APIBadStatusError, APINetworkError, mayHaveWritten, UnattributedAdminCallError } from "./errors";
 import { Code } from "./generated/client/types";
-import { boundCall, getRequestActor, getRequestTraceId } from "./requestScope";
+import { boundCall, getRequestActor, getRequestTraceId, inBackground } from "./requestScope";
 import { ACTOR_HEADER, AUTH_FACTOR_HEADER, AUTH_TIME_HEADER, formatTraceparent, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
 import type { SentRequest } from "./errors";
@@ -181,6 +182,10 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
   }
 
   if (!res.ok) throw await refusalOf({ res, traceId, endpoint, sent });
+  // Every write that landed may have owed a mail in its own transaction, so the Postausgang drains behind the response
+  // after each, whichever slice sent it; the drain finds nothing where none was owed. A background pass's writes are
+  // drained by the pass.
+  if (mayHaveWritten(sent) && !inBackground()) drainSoon();
   if (res.status === 204 || res.headers.get("content-length") === "0") return null as T;
 
   try {

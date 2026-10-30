@@ -3,7 +3,6 @@
 import { refresh } from "next/cache";
 import { headers } from "next/headers";
 
-import { drainSoon } from "@/core/afterResponse";
 import { deleteOwnAccount, getKontoSession } from "@/core/auth";
 import { formatZeitpunkt } from "@/core/format";
 import { recordWriteSent } from "@/core/requestScope";
@@ -138,9 +137,6 @@ export async function starteAdresswechselAction(rawPayload: { email: string }): 
       throw error;
     }
 
-    // The start owed both mails in its own transaction.
-    drainSoon();
-
     const { verwaltung } = subject.subjekt;
     const gesendet = gesendetSatz(mint.gueltig_bis, "start");
     return {
@@ -175,9 +171,6 @@ export async function gibAdresswechselFreiAction(rawPayload: { id: string }): Pr
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
-
-    // The approval owed the new mailbox its link; the notice with its stop link went out at the start.
-    drainSoon();
 
     return { success: true, message: gesendetSatz(freigabe.gueltig_bis, "freigabe") };
   });
