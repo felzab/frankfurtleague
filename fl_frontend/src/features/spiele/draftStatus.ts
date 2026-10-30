@@ -4,14 +4,13 @@ import { formatEuro, formatSpielDatum, formatUhrzeit } from "@/shared/utils/form
 import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_NONE_LABEL } from "./constants";
 import { formatQuelle } from "./utils";
 
-import type { FLSonderereignis, FLSpielJoinedAdmin } from "@/core/generated/client/types";
+import type { FLSonderereignis, FLSpielJoinedAdmin, FLSpielQuelle } from "@/core/generated/client/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   ActionRequiredCategory,
   FLSpiel,
   FLSpielElfmeterschiessenDraft,
   FLSpielOrtFieldDraft,
-  FLSpielQuelle,
   FLSpielSchiedsrichterFieldDraft,
   FLSpielTeamField,
   FLSpielWithDraftFields,

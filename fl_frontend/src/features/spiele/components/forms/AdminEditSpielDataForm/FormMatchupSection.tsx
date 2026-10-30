@@ -10,8 +10,8 @@ import { collectUsedQuelleKeys } from "../../../utils";
 import { FormTeamPicker } from "./FormTeamPicker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
-import type { FLPatchSpielDataPayload } from "@/core/generated/client/types";
-import type { FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/types";
+import type { FLPatchSpielDataPayload, FLSpielQuelle } from "@/core/generated/client/types";
+import type { FLSpiel, FLSpielTeamField } from "@/features/spiele/types";
 import type { FLTeam } from "@/features/teams/schemas";
 import type { SpielBanner } from "./banners";
 

@@ -21,9 +21,9 @@ import { formatQuelle } from "../../../utils";
 import { ExpectedMarker } from "./ExpectedMarker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
-import type { FLSonderereignis } from "@/core/generated/client/types";
+import type { FLSonderereignis, FLSpielQuelle } from "@/core/generated/client/types";
 import type { SpielFieldPath } from "@/features/spiele/draftStatus";
-import type { FLSpiel, FLSpielElfmeterschiessenDraft, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/types";
+import type { FLSpiel, FLSpielElfmeterschiessenDraft, FLSpielTeamField } from "@/features/spiele/types";
 
 /** The goal fields' paths, refreshed together because the outcome is a pair. */
 const TORE_PATHS = ["team1.tore", "team2.tore"] as const;

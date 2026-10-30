@@ -12,10 +12,10 @@ import { deriveSlotHerkunft, isAbgesagt } from "@/features/spiele/utils";
 import { formatSpielDatum, NICHT_HINTERLEGT } from "@/shared/utils/format";
 import { typedObjectEntries } from "@/shared/utils/type";
 
-import type { FLSpielberichtZustandEintrag } from "@/core/generated/client/types";
+import type { FLBracketFault, FLSpielberichtZustandEintrag } from "@/core/generated/client/types";
 import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
 import type { SaisonBestaetigungen } from "@/features/spielbestaetigungen/types";
-import type { ActionRequiredCategory, FLBracketFault, FLSpiel, FLSpielWithStoredSides } from "../spiele/types";
+import type { ActionRequiredCategory, FLSpiel, FLSpielWithStoredSides } from "../spiele/types";
 
 // Re-exported and not moved: it is declared in `spiele`, because it classifies a Spiel.
 export type { ActionRequiredCategory };

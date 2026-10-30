@@ -15,9 +15,9 @@ import { buildMapsSearchUrl } from "@/shared/utils/format";
 
 import type { Copy } from "@/core/copy";
 import type { Kalendertag, Paar, Uhrzeit } from "@/core/format";
-import type { FLSonderereignis, FLSpielTeamFieldJoined } from "@/core/generated/client/types";
+import type { FLSonderereignis, FLSpielQuelle, FLSpielTeamFieldJoined } from "@/core/generated/client/types";
 import type { FLSaison } from "@/features/saisons/schemas";
-import type { FLSpiel, FLSpielQuelle } from "@/features/spiele/types";
+import type { FLSpiel } from "@/features/spiele/types";
 import type { Fact } from "@/kit/Facts";
 import type { Seasons } from "@/kit/FrameNav";
 import type { MatchHeadProps } from "@/kit/MatchHead";

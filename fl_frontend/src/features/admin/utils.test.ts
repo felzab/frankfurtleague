@@ -10,10 +10,10 @@ import {
   saisonBestaetigungen,
 } from "./utils.ts";
 
-import type { FLSpielberichtZustand } from "@/core/generated/client/types";
+import type { FLBracketFault, FLSpielberichtZustand } from "@/core/generated/client/types";
 import type { SpielbestaetigungFields } from "@/test-support/fixtures.ts";
 import type { FLSpielbestaetigung } from "../spielbestaetigungen/schemas.ts";
-import type { FLBracketFault, FLSpiel } from "../spiele/types.ts";
+import type { FLSpiel } from "../spiele/types.ts";
 import type { FLActionUrgency } from "./utils.ts";
 
 const TODAY = "2026-07-30";

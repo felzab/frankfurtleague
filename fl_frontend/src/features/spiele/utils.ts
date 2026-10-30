@@ -8,6 +8,7 @@ import { CLASH_BUFFER_TEXT } from "./constants";
 
 import type {
   FLAustrittType,
+  FLBracketFault,
   FLBracketFaultBooking,
   FLBracketFaultClash,
   FLGruppenNames,
@@ -15,13 +16,14 @@ import type {
   FLSonderereignis,
   FLSpielAdvancement,
   FLSpielJoinedAdmin,
+  FLSpielQuelle,
   FLSpielReleasedSide,
   FLSpielStatus,
   FLSpielTeamFieldJoined,
   FLSpielTeamFieldPayload,
 } from "@/core/generated/client/types";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
-import type { FLBracketFault, FLPatchSpielDataPayloadWithId, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "./types";
+import type { FLPatchSpielDataPayloadWithId, FLSpiel, FLSpielTeamField } from "./types";
 
 /**
  * **The four events meaning the fixture never took place**, written once for every surface grading a

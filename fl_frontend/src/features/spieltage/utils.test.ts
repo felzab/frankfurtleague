@@ -5,8 +5,9 @@ import { describe, expect, it } from "vitest";
 import { FLSpieltagWithSpieleSchema } from "./schemas.ts";
 import { buildSpieltagPhaseProgress, orderRoundsByWiring, spieltagLabels } from "./utils.ts";
 
+import type { FLSpielQuelle } from "@/core/generated/client/types.ts";
 import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "../saisons/schemas.ts";
-import type { FLSpiel, FLSpielQuelle } from "../spiele/types.ts";
+import type { FLSpiel } from "../spiele/types.ts";
 import type { FLSpieltagWithSpiele } from "./schemas.ts";
 
 const sieger = (spielNr: number): FLSpielQuelle => ({ type: "spiel", spiel_nr: spielNr, ausgang: "sieger" });

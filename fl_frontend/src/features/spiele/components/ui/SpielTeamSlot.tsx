@@ -7,8 +7,7 @@ import { PLACEHOLDER } from "@/shared/utils/format";
 import { formatQuelle } from "../../utils";
 import { SLOT_LABEL_WRAP_CLASSES, TEAM_NAME_TRACK_CLASSES, TEAM_NAME_WRAP_CLASSES } from "./teamName";
 
-import type { FLSpielTeamFieldJoined } from "@/core/generated/client/types";
-import type { FLSpielQuelle } from "../../types";
+import type { FLSpielQuelle, FLSpielTeamFieldJoined } from "@/core/generated/client/types";
 
 /**
  * What the three cards share here is the branch whose copies would each be a crash rather than a

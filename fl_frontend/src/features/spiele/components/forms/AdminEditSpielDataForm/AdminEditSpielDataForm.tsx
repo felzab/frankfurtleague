@@ -47,6 +47,7 @@ import type {
   FLSpielberichtBericht,
   FLSpielberichtVorschlag,
   FLSpielJoinedAdmin,
+  FLSpielQuelle,
 } from "@/core/generated/client/types";
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
@@ -59,7 +60,6 @@ import type {
   FLSpiel,
   FLSpielElfmeterschiessenDraft,
   FLSpielOrtFieldDraft,
-  FLSpielQuelle,
   FLSpielSchiedsrichterFieldDraft,
   FLSpielTeamField,
   FLSpielWithDraftFields,

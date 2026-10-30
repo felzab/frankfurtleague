@@ -13,7 +13,10 @@ type SpielSide = FLSpielTeamFieldJoined;
  * `fl_frontend/src/features/spiele/types.ts :: FLSpiel`, which `shared` may not import.
  */
 type SpielFields = Omit<FLSpielJoined, "schiedsrichter"> & {
-  schiedsrichter: (FLSpielSchiedsrichterFieldPublic & Partial<Pick<FLSpielSchiedsrichterField, "schiedsrichter_id">>) | null;
+  schiedsrichter:
+    | (Pick<FLSpielSchiedsrichterFieldPublic, "name"> &
+        Partial<Pick<FLSpielSchiedsrichterFieldPublic, "name_is_public"> & Pick<FLSpielSchiedsrichterField, "schiedsrichter_id">>)
+    | null;
 };
 
 /** A club on one side of a fixture, scoring nothing and still in the league unless the caller says otherwise. */

@@ -1,6 +1,5 @@
 import type {
   FLPatchSpielDataPayload,
-  FLPatchSpielDataResponse,
   FLSpielJoined,
   FLSpielOrtField,
   FLSpielSchiedsrichterField,
@@ -13,14 +12,11 @@ import type {
  * alone and `schiedsrichter_id` the admin tier's, so each is optional here where its own read serves it.
  */
 export type FLSpiel = Omit<FLSpielJoined, "schiedsrichter"> & {
-  schiedsrichter: (FLSpielSchiedsrichterFieldPublic & Partial<Pick<FLSpielSchiedsrichterField, "schiedsrichter_id">>) | null;
+  schiedsrichter:
+    | (Pick<FLSpielSchiedsrichterFieldPublic, "name"> &
+        Partial<Pick<FLSpielSchiedsrichterFieldPublic, "name_is_public"> & Pick<FLSpielSchiedsrichterField, "schiedsrichter_id">>)
+    | null;
 };
-
-/** Where a knockout seat's club comes from: a group's placing or an earlier fixture's outcome. */
-export type FLSpielQuelle = NonNullable<FLSpielJoined["team1_quelle"]>;
-
-/** One wiring or booking fault the season carries, told apart by its `reason`. */
-export type FLBracketFault = FLPatchSpielDataResponse["bracket_faults"][number];
 
 /** One side as the document stores it, and as the editor's draft carries it: the pickers render the club by name. */
 export type FLSpielTeamField = Omit<FLSpielTeamFieldJoined, "austritt_type">;
