@@ -25,7 +25,7 @@ from app.api.einwilligung.services import find_fassung_refusal
 from app.api.kontakte.crud import clear_seats, redact_seats_in_documents
 from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, contact_block_image_edits, seated_people
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
-from app.api.saisons.crud import pull_saison_id_and_rules
+from app.api.saisons.crud import has_started, pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.sperrliste.services import withheld_actor
@@ -74,7 +74,6 @@ from app.api.teams.services import (
     find_replacement_pair_refusal,
     find_replacement_refusal,
     find_retire_refusal,
-    has_taken_place,
     kontakt_zeile_of,
     kontakte_fassungen_gehalten,
     kontakte_fassungen_genannt,
@@ -842,28 +841,25 @@ async def replace_saison_team(
             session=session,
         )
 
-        # LISTED rather than counted: one read judges `REQ-REPLACE-002` and supplies what the
-        # rewrite moves, so the two cannot disagree. Every phase, because the incoming club inherits
-        # the whole schedule, a bracket slot included.
+        # Every phase, because the incoming club inherits the whole schedule, a bracket slot included.
         spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
-            projection=["team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "elfmeterschiessen", "sonderereignis"],
+            projection=["team1.team_id", "team2.team_id"],
             session=session,
         )
 
         refuse(
             find_replacement_refusal(
                 saison_status=str(saison_raw["status"]),
-                fixtures_with_a_record=sum(1 for spiel in spiele if has_taken_place(spiel)),
+                started=await has_started(spiele_collection=spiele_collection, saison_id=saison_id, today=today, session=session),
                 incoming_inactive_since=incoming_raw.get("inactive_since"),
                 incoming_already_entered=bool(incoming_rows),
             )
         )
 
         # One dict for both layers, so the season's row and its fixtures cannot come to disagree
-        # about what this club is called. No `tore`: a fixture
-        # holding one has taken place, which `REQ-REPLACE-002` has already refused.
+        # about what this club is called. No `tore`: a replacement runs only before the season has started.
         incoming_side = {
             "team_id": replacement_data.incoming_team_id,
             "name": incoming_raw["name"],
