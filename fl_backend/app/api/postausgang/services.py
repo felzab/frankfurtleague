@@ -7,7 +7,8 @@ its rows to the next once the lease lapses. Delivery is at least once; the provi
 what keeps a repeated send of one hand-out from being a second mail in the inbox.
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Final
 
@@ -23,7 +24,7 @@ from app.api.postausgang.schemas import (
     FLPostausgangStand,
     FLPostausgangZustellStand,
 )
-from app.core.crud import post_one_to_db
+from app.core.crud import post_many_to_db, post_one_to_db
 
 # How long one claim holds its rows: past the page's sends at the frontend's per-send bound, so a drain still sending is
 # never overtaken.
@@ -85,8 +86,6 @@ async def enqueue_mail(
     the hand-out on the record `bezug` names. `geheim` lapses with `gueltig_bis`, the row's deadline and its deletion both.
     """
 
-    if link is not None and bezug is None:
-        raise ValueError("a link is minted on the record a mail is about, and this mail names none")
     if geheim is not None and gueltig_bis is None:
         raise ValueError("a secret is held until it lapses, and this one names no lapse")
 
@@ -96,35 +95,83 @@ async def enqueue_mail(
     if stored is not None:
         return stored["_id"]
 
-    frist = gueltig_bis if gueltig_bis is not None else now + ZUSTELLFRIST
     created = await post_one_to_db(
         collection=postausgang_collection,
-        document={
-            "schluessel": schluessel,
-            "art": daten.art,
-            "an": an,
-            # JSON, so an instant keeps its offset and reads back as the aware value its member requires.
-            "daten": daten.model_dump(mode="json"),
-            "geheim": geheim,
-            # Spelled field by field: the id type dumps as its hex string, which no stored id equals.
-            "bezug": None if bezug is None else {"sammlung": str(bezug.sammlung), "id": bezug.id, "sitz": bezug.sitz},
-            "link": None if link is None else link.model_dump(),
-            "stand": "offen",
-            "erfasst_am": now,
-            "frist": frist,
-            # A secret goes with its lapse; any other row at the latest a retention after its deadline, which its final
-            # state brings forward (`final_update`).
-            "loeschen_am": frist if geheim is not None else frist + NACHLAUF,
-            "beanspruchung": None,
-            "beansprucht_bis": None,
-            "versuche": 0,
-            "nachricht_id": None,
-            "zustellung": None,
-        },
+        document=_row_of(
+            OwedMail(schluessel=schluessel, an=an, daten=daten, bezug=bezug, link=link), now=now, geheim=geheim, gueltig_bis=gueltig_bis
+        ),
         session=session,
     )
 
     return created.inserted_id
+
+
+@dataclass(frozen=True)
+class OwedMail:
+    """One mail a league write owes one recipient, as `enqueue_mail` names its parts."""
+
+    schluessel: str
+    an: str
+    daten: FLPostausgangDaten
+    bezug: FLPostausgangBezug | None = None
+    link: FLPostausgangLink | None = None
+
+
+async def enqueue_mails(
+    *,
+    postausgang_collection: AsyncCollection,
+    session: AsyncClientSession,
+    mails: Sequence[OwedMail],
+    now: datetime,
+) -> None:
+    """`enqueue_mail` for every mail one write owes, in two commands however many: one read of the keys, one insert.
+
+    For a write owing a mail per row of a page, whose cost per row its share is sized by. The keys must be distinct.
+    """
+
+    if not mails:
+        return
+    if len({mail.schluessel for mail in mails}) != len(mails):
+        raise ValueError("every mail one write owes carries a key of its own")
+
+    stored = await postausgang_collection.find(
+        {"schluessel": {"$in": [mail.schluessel for mail in mails]}}, {"schluessel": 1, "_id": 0}, session=session
+    ).to_list(length=None)
+    owed = {row["schluessel"] for row in stored}
+    rows = [_row_of(mail, now=now, geheim=None, gueltig_bis=None) for mail in mails if mail.schluessel not in owed]
+    if rows:
+        await post_many_to_db(collection=postausgang_collection, documents=rows, session=session)
+
+
+def _row_of(mail: OwedMail, *, now: datetime, geheim: str | None, gueltig_bis: datetime | None) -> dict[str, Any]:
+    if mail.link is not None and mail.bezug is None:
+        raise ValueError("a link is minted on the record a mail is about, and this mail names none")
+
+    frist = gueltig_bis if gueltig_bis is not None else now + ZUSTELLFRIST
+    bezug = mail.bezug
+
+    return {
+        "schluessel": mail.schluessel,
+        "art": mail.daten.art,
+        "an": mail.an,
+        # JSON, so an instant keeps its offset and reads back as the aware value its member requires.
+        "daten": mail.daten.model_dump(mode="json"),
+        "geheim": geheim,
+        # Spelled field by field: the id type dumps as its hex string, which no stored id equals.
+        "bezug": None if bezug is None else {"sammlung": str(bezug.sammlung), "id": bezug.id, "sitz": bezug.sitz},
+        "link": None if mail.link is None else mail.link.model_dump(),
+        "stand": "offen",
+        "erfasst_am": now,
+        "frist": frist,
+        # A secret goes with its lapse; any other row at the latest a retention after its deadline, which its final
+        # state brings forward (`final_update`).
+        "loeschen_am": frist if geheim is not None else frist + NACHLAUF,
+        "beanspruchung": None,
+        "beansprucht_bis": None,
+        "versuche": 0,
+        "nachricht_id": None,
+        "zustellung": None,
+    }
 
 
 def final_update(stand: FLPostausgangStand, *, now: datetime, nachricht_id: str | None = None) -> Mapping[str, Any]:
