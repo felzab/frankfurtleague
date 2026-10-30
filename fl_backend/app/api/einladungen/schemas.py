@@ -95,7 +95,7 @@ class FLEinladungEmpfaenger(BaseModel):
 # Five ordinary states, a failure and an unknown: `erzeugung_fehlgeschlagen` says the league failed
 # that team and `erzeugung_ungewiss` that it cannot tell, and a surface words both apart from the
 # rest.
-FLEinladungVersandGrund = Literal[
+type FLEinladungVersandGrund = Literal[
     "austritt_eingetragen",
     "erzeugung_fehlgeschlagen",
     "erzeugung_ungewiss",

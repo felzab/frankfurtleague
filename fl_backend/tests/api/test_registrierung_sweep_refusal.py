@@ -221,7 +221,7 @@ class TestWhatEachClockReads:
         assert CLOCK_FILTERS["deadline"] == {
             "saison_id": SAISON_ID,
             "status": "eingereicht",
-            "einwilligung.bestaetigt_am": {"$in": [None, ""]},
+            "einwilligung.bestaetigt_am": None,
             "bestaetigung.frist": {"$lt": TODAY},
         }
 
@@ -229,7 +229,7 @@ class TestWhatEachClockReads:
         assert CLOCK_FILTERS["reminder"] == {
             "saison_id": SAISON_ID,
             "status": "eingereicht",
-            "einwilligung.bestaetigt_am": {"$in": [None, ""]},
+            "einwilligung.bestaetigt_am": None,
             "bestaetigung.erinnert_am": None,
             "bestaetigung.frist": {"$gte": TODAY},
             "bestaetigung.verschickt_am": {"$lte": THE_MARK},

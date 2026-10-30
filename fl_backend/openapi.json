@@ -5170,6 +5170,18 @@
         "title": "FLEinladungVersand",
         "type": "object"
       },
+      "FLEinladungVersandGrund": {
+        "enum": [
+          "austritt_eingetragen",
+          "erzeugung_fehlgeschlagen",
+          "erzeugung_ungewiss",
+          "kein_kontaktblock",
+          "keine_bestaetigte_kontaktperson",
+          "kontakte_gesperrt",
+          "bereits_gesendet"
+        ],
+        "type": "string"
+      },
       "FLEinladungVersandPayload": {
         "additionalProperties": false,
         "properties": {
@@ -5255,22 +5267,12 @@
           "uebersprungen": {
             "anyOf": [
               {
-                "enum": [
-                  "austritt_eingetragen",
-                  "erzeugung_fehlgeschlagen",
-                  "erzeugung_ungewiss",
-                  "kein_kontaktblock",
-                  "keine_bestaetigte_kontaktperson",
-                  "kontakte_gesperrt",
-                  "bereits_gesendet"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLEinladungVersandGrund"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Uebersprungen"
+            ]
           }
         },
         "required": [
@@ -5344,22 +5346,12 @@
           "uebersprungen": {
             "anyOf": [
               {
-                "enum": [
-                  "austritt_eingetragen",
-                  "erzeugung_fehlgeschlagen",
-                  "erzeugung_ungewiss",
-                  "kein_kontaktblock",
-                  "keine_bestaetigte_kontaktperson",
-                  "kontakte_gesperrt",
-                  "bereits_gesendet"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLEinladungVersandGrund"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Uebersprungen"
+            ]
           }
         },
         "required": [
