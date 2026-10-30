@@ -2608,7 +2608,8 @@ export const FLEinwilligungUmfang = {
  * confirmation date claims somebody consented, and no surface can tell that from one somebody gave.
  */
 export interface FLEinwilligung {
-  bestaetigt_am: string | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  bestaetigt_am: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   datum: string;
   medien: boolean;
@@ -4066,7 +4067,8 @@ export interface FLRegistrierungBestaetigung {
  * A returning pupil's page asks no choice.
  */
 export interface FLRegistrierungEinwilligung {
-  bestaetigt_am: string | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  bestaetigt_am: string;
   datum?: string | null;
   medien?: boolean | null;
   nachweis?: FLEinwilligungNachweise;

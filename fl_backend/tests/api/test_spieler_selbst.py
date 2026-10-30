@@ -53,7 +53,6 @@ IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
 IDENTIFIER_SPELLED_OTHERWISE = "Ortrud.Zwiebelmayer@SCHULE.de"
 YOUNG = "jonas.jungspund@schule.de"
 RETIRED = "rudolf.ruhestand@schule.de"
-UNCONFIRMED = "ottilie.wartezeit@schule.de"
 BYSTANDER = "baldur.krautzberger@example.com"
 NOBODY = "niemand@schule.de"
 
@@ -63,7 +62,6 @@ TEAM_B_OID = ObjectId("6890a1b2c3d4e5f607840002")
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607840011")
 YOUNG_OID = ObjectId("6890a1b2c3d4e5f607840013")
 RETIRED_OID = ObjectId("6890a1b2c3d4e5f607840015")
-UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607840016")
 BYSTANDER_OID = ObjectId("6890a1b2c3d4e5f607840019")
 
 # The name each season row was entered under, apart from the club's current one, so serving the
@@ -168,8 +166,6 @@ async def _seed(database: AsyncDatabase) -> None:
             pupil(PUPIL_OID, "Ortrud", "Zwiebelmayer", IDENTIFIER),
             pupil(YOUNG_OID, "Jonas", "Jungspund", YOUNG, geburtsdatum=SEVENTEEN_BIRTHDATE),
             pupil(RETIRED_OID, "Rudolf", "Ruhestand", RETIRED, inactive_since="2026-07-01", einwilligung=_einwilligung(medien=True)),
-            # A record is born confirmed, so the unconfirmed one is a stamp a hand edit blanked.
-            pupil(UNCONFIRMED_OID, "Ottilie", "Wartezeit", UNCONFIRMED, einwilligung={**_einwilligung(), "bestaetigt_am": ""}),
             pupil(BYSTANDER_OID, "Baldur", "Krautzberger", BYSTANDER),
         ]
     )
@@ -276,9 +272,8 @@ class TestTheOwnRecord:
     def test_the_media_switch_is_offered_from_the_media_age_alone(self, mongo_replica_set_url: str, email: str, angeboten: bool):
         assert served(mongo_replica_set_url, _read(email, path=KONTO_PATH)).json()["spieler"]["medien_angeboten"] is angeboten
 
-    @pytest.mark.parametrize("email", [NOBODY, UNCONFIRMED], ids=["no-record", "unconfirmed"])
-    def test_an_address_holding_no_confirmed_record_is_refused(self, mongo_replica_set_url: str, email: str):
-        response = served(mongo_replica_set_url, _read(email))
+    def test_an_address_holding_no_record_is_refused(self, mongo_replica_set_url: str):
+        response = served(mongo_replica_set_url, _read(NOBODY))
 
         assert (response.status_code, response.json()["error_code"]) == (403, Code.FUNKTION_NICHT_GEHALTEN)
 
@@ -326,9 +321,8 @@ class TestTheTwoChoices:
 
 @pytest.mark.db
 class TestARecordNotHeld:
-    @pytest.mark.parametrize("email", [NOBODY, UNCONFIRMED], ids=["no-record", "unconfirmed"])
-    def test_an_address_holding_no_confirmed_record_is_refused_and_writes_nothing(self, mongo_replica_set_url: str, email: str):
-        response, before, after, _ = served(mongo_replica_set_url, _press(email, _payload(umfang="intern")))
+    def test_an_address_holding_no_record_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        response, before, after, _ = served(mongo_replica_set_url, _press(NOBODY, _payload(umfang="intern")))
 
         assert (response.status_code, response.json()["error_code"]) == (403, Code.FUNKTION_NICHT_GEHALTEN)
         assert after == before
