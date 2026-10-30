@@ -43,7 +43,6 @@ import type {
   FLBerechtigungenListResponse,
   FLBerechtigungStufeResponse,
   FLBerechtigungWriteResponse,
-  FLBewerbungEinwilligungAnsichtPayload,
   FLBewerbungEinwilligungAnsichtResponse,
   FLBewerbungEinwilligungAntwortPayload,
   FLBewerbungEinwilligungAntwortResponse,
@@ -56,7 +55,6 @@ import type {
   FLBewerbungKontaktSitzPayload,
   FLBewerbungKontaktSitzResponse,
   FLBewerbungKuerzelResponse,
-  FLBewerbungPersonEinwilligungPayload,
   FLBewerbungPersonEinwilligungResponse,
   FLBewerbungSchulenResponse,
   FLBewerbungSingleResponse,
@@ -69,7 +67,6 @@ import type {
   FLBewerbungZustellungAngenommenPayload,
   FLBewerbungZustellungEreignisPayload,
   FLBewerbungZustellungResponse,
-  FLEinladungAnsichtPayload,
   FLEinladungAnsichtResponse,
   FLEinladungMintResponse,
   FLEinladungResponse,
@@ -141,12 +138,10 @@ import type {
   FLRegistrierungAblehnungResponse,
   FLRegistrierungAufnahmeResponse,
   FLRegistrierungAufnehmenPayload,
-  FLRegistrierungBestaetigungAnsichtPayload,
   FLRegistrierungBestaetigungAnsichtResponse,
   FLRegistrierungBestaetigungPayload,
   FLRegistrierungBestaetigungResponse,
   FLRegistrierungenListResponse,
-  FLRegistrierungSelbstEinwilligungPayload,
   FLRegistrierungSelbstEinwilligungResponse,
   FLRegistrierungSweepResponse,
   FLReplaceSaisonTeamPayload,
@@ -170,7 +165,9 @@ import type {
   FLSchiedsrichterSelbstResponse,
   FLSchiedsrichterSingleResponse,
   FLSchiedsrichterWriteResponse,
+  FLSelbstEinwilligungPayload,
   FLSelbstErasureAnsichtResponse,
+  FLSitzEinwilligungPayload,
   FLSperrlisteListResponse,
   FLSperrlisteWriteResponse,
   FLSpielberichtAdminResponse,
@@ -224,6 +221,7 @@ import type {
   FLTeamsMembershipsResponse,
   FLTeamsSingleResponse,
   FLTeamWriteResponse,
+  FLTokenPayload,
   FLUndrawSpielplanResponse,
   FLZustellungAbgewiesenPayload,
   FLZustellungAngenommenPayload,
@@ -1179,7 +1177,7 @@ export const getBewerbungenGetEinwilligungAnsichtUrl = () => {
  * @summary What one confirmation link opens
  */
 export const bewerbungenGetEinwilligungAnsicht = async (
-  fLBewerbungEinwilligungAnsichtPayload: FLBewerbungEinwilligungAnsichtPayload,
+  fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLBewerbungEinwilligungAnsichtResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -1198,7 +1196,7 @@ export const bewerbungenGetEinwilligungAnsicht = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungEinwilligungAnsichtPayload),
+    body: JSON.stringify(fLTokenPayload),
   });
 };
 
@@ -1725,7 +1723,7 @@ export const getBewerbungenPatchEinwilligungUrl = (bewerbungId: string) => {
  */
 export const bewerbungenPatchEinwilligung = async (
   bewerbungId: string,
-  fLBewerbungPersonEinwilligungPayload: FLBewerbungPersonEinwilligungPayload,
+  fLSitzEinwilligungPayload: FLSitzEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLBewerbungPersonEinwilligungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -1744,7 +1742,7 @@ export const bewerbungenPatchEinwilligung = async (
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungPersonEinwilligungPayload),
+    body: JSON.stringify(fLSitzEinwilligungPayload),
   });
 };
 
@@ -2554,7 +2552,7 @@ export const getRegistrierungenGetBestaetigungAnsichtUrl = () => {
  * @summary What one registration confirmation link opens
  */
 export const registrierungenGetBestaetigungAnsicht = async (
-  fLRegistrierungBestaetigungAnsichtPayload: FLRegistrierungBestaetigungAnsichtPayload,
+  fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLRegistrierungBestaetigungAnsichtResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -2573,7 +2571,7 @@ export const registrierungenGetBestaetigungAnsicht = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLRegistrierungBestaetigungAnsichtPayload),
+    body: JSON.stringify(fLTokenPayload),
   });
 };
 
@@ -2590,7 +2588,7 @@ export const getRegistrierungenPostEinladungAnsichtUrl = () => {
  * @summary What a registration link opens
  */
 export const registrierungenPostEinladungAnsicht = async (
-  fLEinladungAnsichtPayload: FLEinladungAnsichtPayload,
+  fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLEinladungAnsichtResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -2609,7 +2607,7 @@ export const registrierungenPostEinladungAnsicht = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLEinladungAnsichtPayload),
+    body: JSON.stringify(fLTokenPayload),
   });
 };
 
@@ -2659,7 +2657,7 @@ export const getRegistrierungenPatchEinwilligungUrl = (registrierungId: string) 
  */
 export const registrierungenPatchEinwilligung = async (
   registrierungId: string,
-  fLRegistrierungSelbstEinwilligungPayload: FLRegistrierungSelbstEinwilligungPayload,
+  fLSelbstEinwilligungPayload: FLSelbstEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLRegistrierungSelbstEinwilligungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -2678,7 +2676,7 @@ export const registrierungenPatchEinwilligung = async (
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLRegistrierungSelbstEinwilligungPayload),
+    body: JSON.stringify(fLSelbstEinwilligungPayload),
   });
 };
 

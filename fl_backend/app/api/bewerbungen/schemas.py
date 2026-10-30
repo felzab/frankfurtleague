@@ -3,22 +3,18 @@ from typing import Annotated, Any, Final, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
-# Imported rather than restated: an application's three people BECOME the junction's three people at
-# acceptance, so a second declaration of the block is one the two would drift apart on. Acyclic --
-# no model in `teams` imports this slice.
-from app.api.teams.schemas import FLSaisonTeamKontakte, FLSaisonTeamKontaktePayload, SitzEinwilligungPayload, _KontaktpersonWritablePayload
+from app.api.teams.schemas import FLSaisonTeamKontakte, FLSaisonTeamKontaktePayload, _KontaktpersonWritablePayload
 from app.shared.alter import whole_years_between
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
+from app.shared.schemas.bestaetigung import CustomToken
 from app.shared.schemas.bounds import (
     ADDRESS_STADTTEIL_MAX_LENGTH,
     BEWERBUNG_GRUND_MAX_LENGTH,
     BEWERBUNG_KADER_GROESSE_MAX,
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     BEWERBUNG_STUFENGROESSE_MAX,
-    BEWERBUNG_TOKEN_MAX_LENGTH,
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
-    EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
@@ -36,8 +32,12 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
     validate_external_url,
 )
-from app.shared.schemas.einwilligung import FLEinwilligungStand
+from app.shared.schemas.einwilligung import CustomEinwilligungTextVersion, FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomEmail
+
+# Imported rather than restated: an application's three people BECOME the junction's three people at
+# acceptance, so a second declaration of the block is one the two would drift apart on. Acyclic --
+# no model in `teams` imports this slice.
 from app.shared.schemas.literals import (
     FLBewerbungZustellEreignis,
     FLGruppenNames,
@@ -45,6 +45,7 @@ from app.shared.schemas.literals import (
     FLKontaktRolle,
     FLKontaktZeile,
     FLSchulform,
+    FLSortOrder,
     FLTrikotFarbe,
 )
 from app.shared.schemas.responses import BaseAPIResponse
@@ -266,7 +267,7 @@ class FLBewerbungenFilterParams(BaseModel):
     # Newest first by default: the triage is a queue, and the oldest open application is the one an
     # administrator has already seen.
     sort_by: FLBewerbungenSortOptions = Field(default="eingereicht_am")
-    order: Literal["asc", "desc"] = Field(default="desc")
+    order: FLSortOrder = Field(default="desc")
 
 
 class FLAnnehmenBewerbungPayload(BaseModel):
@@ -371,7 +372,7 @@ class FLBewerbungEinwilligungPayload(BaseModel):
 
     # Stripped before the floor counts it, as the junction payload's is: a record whose wording
     # version is spaces cites no text at all.
-    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
+    text_version: CustomEinwilligungTextVersion
     # `True` and no other value: a form submitted with the box unticked is a body this endpoint
     # refuses, never a stored record saying somebody declined.
     erteilt: Literal[True]
@@ -588,9 +589,6 @@ class FLPostBewerbungResponse(BaseAPIResponse):
 # --- The CONFIRMATION. The token is the whole credential, as a sign-in code is, so both
 # endpoints are base-tier and every payload forbids an undeclared key.
 
-# Stripped, a token pasted from a mail client arriving with a trailing space more often than not.
-CustomBewerbungToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TOKEN_MAX_LENGTH)]
-
 # What a reopened link shows. `abgelaufen` is a spent link, its deadline passed or its application
 # decided, said one way; `gesperrt` ranks first.
 # `saison_vorbei`, a season row's alone, takes a Widerspruch and no consent (`REQ-KONTAKT-006`).
@@ -601,13 +599,8 @@ FLBewerbungEinwilligungZustand = Literal["gueltig", "bestaetigt", "abgelehnt", "
 # messages for the first alone.
 FLEinwilligungQuelle = Literal["bewerbung", "saison"]
 
-
-class FLBewerbungEinwilligungAnsichtPayload(BaseModel):
-    """A POST that reads: the token travels in a body, never in a second URL."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    token: CustomBewerbungToken
+# What an answer on either kind of link did.
+type FLEinwilligungErgebnis = Literal["bestaetigt", "abgelehnt"]
 
 
 class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
@@ -642,7 +635,7 @@ class FLBewerbungEinwilligungAntwortPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    token: CustomBewerbungToken
+    token: CustomToken
     antwort: Literal["erteilt", "abgelehnt"]
     # Required as a KEY and null on a decline: the date is the consent's, and a decline stores no
     # person at all. Unbounded here -- the age is its own code with its own German at 422, never a
@@ -653,7 +646,7 @@ class FLBewerbungEinwilligungAntwortPayload(BaseModel):
     medien: bool
     # The wording the CONFIRMING person saw, which is what a confirmed seat then cites: the label
     # the applicant ticked for them may be an older one.
-    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
+    text_version: CustomEinwilligungTextVersion
 
     @model_validator(mode="after")
     def the_date_comes_with_the_consent_and_never_with_a_decline(self) -> Self:
@@ -684,7 +677,7 @@ class FLBewerbungEinwilligungAntwortResponse(BaseAPIResponse):
     """
 
     quelle: Literal["bewerbung"] = "bewerbung"
-    ergebnis: Literal["bestaetigt", "abgelehnt"]
+    ergebnis: FLEinwilligungErgebnis
     # In `FLSaisonTeamKontakte`'s declaration order. A declined seat stays listed: the application
     # cannot complete without it.
     ausstehend: list[FLKontaktRolle]
@@ -718,7 +711,7 @@ class FLSaisonTeamEinwilligungAntwortResponse(BaseAPIResponse):
     """What an answer on a season row's link did; nobody is told, so nothing composes a message."""
 
     quelle: Literal["saison"] = "saison"
-    ergebnis: Literal["bestaetigt", "abgelehnt"]
+    ergebnis: FLEinwilligungErgebnis
     geburtsdatum: CustomOptionalDateString
     whatsapp: bool
     # `FLBewerbungEinwilligungAntwortResponse.medien`'s.
@@ -749,7 +742,7 @@ class FLBewerbungKontaktSitzPayload(_KontaktpersonWritablePayload):
     # The label alone, `compose_einwilligung` requiring one and the registry naming it
     # (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`). Stripped before the floor counts it: a
     # version that is spaces cites no text.
-    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
+    text_version: CustomEinwilligungTextVersion
 
 
 class FLBewerbungKontaktSitzResponse(BaseAPIResponse):
@@ -936,10 +929,6 @@ class FLBewerbungZustellungResponse(BaseAPIResponse):
     """
 
     angewendet: list[FLKontaktRolle]
-
-
-class FLBewerbungPersonEinwilligungPayload(SitzEinwilligungPayload):
-    """The season seat's consent payload on a pending application, where a grant is refused."""
 
 
 class FLBewerbungPersonEinwilligungResponse(BaseAPIResponse):

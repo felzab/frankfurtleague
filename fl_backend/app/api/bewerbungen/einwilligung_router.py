@@ -7,7 +7,6 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.schemas import (
-    FLBewerbungEinwilligungAnsichtPayload,
     FLBewerbungEinwilligungAnsichtResponse,
     FLBewerbungEinwilligungAntwortPayload,
     FLBewerbungEinwilligungAntwortResponse,
@@ -75,6 +74,7 @@ from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, loeschung_journal_hash, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 
 # A THIRD router on the prefix, beside the admin one and the public create: the token is the whole
@@ -148,7 +148,7 @@ async def _saison_ansicht(
     summary="What one confirmation link opens",
 )
 async def get_einwilligung_ansicht(
-    ansicht_data: Annotated[FLBewerbungEinwilligungAnsichtPayload, Body()],
+    ansicht_data: Annotated[FLTokenPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,

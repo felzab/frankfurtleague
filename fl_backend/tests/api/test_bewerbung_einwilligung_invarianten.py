@@ -5,7 +5,6 @@ import pytest
 from pydantic import ValidationError
 
 from app.api.bewerbungen.schemas import (
-    FLBewerbungEinwilligungAnsichtPayload,
     FLBewerbungEinwilligungAntwortPayload,
     refuse_age_outside_the_bounds,
 )
@@ -22,6 +21,7 @@ from app.api.bewerbungen.services import (
 )
 from app.api.kontakte.services import build_clearing_update
 from app.core.codes import Code
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
 )
@@ -248,7 +248,7 @@ class TestWhatTheAnswerPayloadRefuses:
 
         assert_rejects(FLBewerbungEinwilligungAntwortPayload, body, field)
 
-    @pytest.mark.parametrize("model", [FLBewerbungEinwilligungAnsichtPayload, FLBewerbungEinwilligungAntwortPayload])
+    @pytest.mark.parametrize("model", [FLTokenPayload, FLBewerbungEinwilligungAntwortPayload])
     def test_a_token_past_the_bound_is_refused_and_one_at_it_taken(self, model: type, assert_rejects):
         body = antwort() if model is FLBewerbungEinwilligungAntwortPayload else {"token": ""}
 
@@ -257,6 +257,6 @@ class TestWhatTheAnswerPayloadRefuses:
 
     def test_an_undeclared_key_is_refused(self):
         with pytest.raises(ValidationError) as failure:
-            FLBewerbungEinwilligungAnsichtPayload.model_validate({"token": "raw", "seat": "trainer"})
+            FLTokenPayload.model_validate({"token": "raw", "seat": "trainer"})
 
         assert [entry["type"] for entry in failure.value.errors()] == ["extra_forbidden"]

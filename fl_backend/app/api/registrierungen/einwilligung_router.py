@@ -9,7 +9,6 @@ from app.api.bewerbungen.services import hash_token
 from app.api.einwilligung.services import find_fassung_refusal
 from app.api.registrierungen.crud import person_at_the_address
 from app.api.registrierungen.schemas import (
-    FLRegistrierungBestaetigungAnsichtPayload,
     FLRegistrierungBestaetigungAnsichtResponse,
     FLRegistrierungBestaetigungPayload,
     FLRegistrierungBestaetigungResponse,
@@ -45,6 +44,7 @@ from app.core.dependencies import (
 from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 
 # A router of its own beside the public submission and the administrator's read: the token is the
@@ -62,7 +62,7 @@ router = APIRouter(
     summary="What one registration confirmation link opens",
 )
 async def get_bestaetigung_ansicht(
-    ansicht_data: Annotated[FLRegistrierungBestaetigungAnsichtPayload, Body()],
+    ansicht_data: Annotated[FLTokenPayload, Body()],
     registrierungen_collection: RegistrierungenCollection,
     teams_collection: TeamsCollection,
     spieler_collection: SpielerCollection,

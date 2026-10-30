@@ -2753,6 +2753,59 @@
         "title": "FLBerechtigungenListResponse",
         "type": "object"
       },
+      "FLBestaetigung": {
+        "description": "One person's confirmation bookkeeping as an administrator reads it, and no token hash.\n\nThe hash is a raw document key the confirmation query alone reads, so no read serves one.",
+        "properties": {
+          "erinnert_am": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erinnert Am"
+          },
+          "frist": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist",
+            "type": "string"
+          },
+          "verschickt_am": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Verschickt Am",
+            "type": "string"
+          },
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungZustellung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "verschickt_am",
+          "erinnert_am",
+          "frist"
+        ],
+        "title": "FLBestaetigung",
+        "type": "object"
+      },
+      "FLBestaetigungZustand": {
+        "enum": [
+          "gueltig",
+          "bestaetigt",
+          "abgelaufen",
+          "gesperrt"
+        ],
+        "type": "string"
+      },
       "FLBewerbung": {
         "description": "One school's application to play one season, as stored, its decision as served.",
         "properties": {
@@ -3018,23 +3071,6 @@
         "title": "FLBewerbungBestaetigungen",
         "type": "object"
       },
-      "FLBewerbungEinwilligungAnsichtPayload": {
-        "additionalProperties": false,
-        "description": "A POST that reads: the token travels in a body, never in a second URL.",
-        "properties": {
-          "token": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "token"
-        ],
-        "title": "FLBewerbungEinwilligungAnsichtPayload",
-        "type": "object"
-      },
       "FLBewerbungEinwilligungAnsichtResponse": {
         "description": "What the page renders for one seat, and nothing of the person.",
         "properties": {
@@ -3153,12 +3189,14 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           },
           "token": {
             "maxLength": 128,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
           },
@@ -3217,12 +3255,7 @@
             "type": "string"
           },
           "ergebnis": {
-            "enum": [
-              "bestaetigt",
-              "abgelehnt"
-            ],
-            "title": "Ergebnis",
-            "type": "string"
+            "$ref": "#/components/schemas/FLEinwilligungErgebnis"
           },
           "geburtsdatum": {
             "anyOf": [
@@ -3329,6 +3362,7 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           }
@@ -3577,6 +3611,7 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           },
@@ -3723,36 +3758,6 @@
           "vergeben"
         ],
         "title": "FLBewerbungKuerzelResponse",
-        "type": "object"
-      },
-      "FLBewerbungPersonEinwilligungPayload": {
-        "additionalProperties": false,
-        "description": "The season seat's consent payload on a pending application, where a grant is refused.",
-        "properties": {
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
-          },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Text Version",
-            "type": "string"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
-          }
-        },
-        "required": [
-          "umfang",
-          "medien",
-          "text_version",
-          "nachweis_stand"
-        ],
-        "title": "FLBewerbungPersonEinwilligungPayload",
         "type": "object"
       },
       "FLBewerbungPersonEinwilligungResponse": {
@@ -4979,23 +4984,6 @@
         "title": "FLBracketFaultSpieltag",
         "type": "object"
       },
-      "FLEinladungAnsichtPayload": {
-        "additionalProperties": false,
-        "description": "The link a visitor presents, and nothing else: the row it opens says which team and season it is for.",
-        "properties": {
-          "token": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "token"
-        ],
-        "title": "FLEinladungAnsichtPayload",
-        "type": "object"
-      },
       "FLEinladungAnsichtResponse": {
         "description": "What an invite's holder is told before they type anything, and the bounds the form is held to.",
         "properties": {
@@ -5548,6 +5536,13 @@
         ],
         "title": "FLEinwilligungBeleg",
         "type": "object"
+      },
+      "FLEinwilligungErgebnis": {
+        "enum": [
+          "bestaetigt",
+          "abgelehnt"
+        ],
+        "type": "string"
       },
       "FLEinwilligungFassung": {
         "description": "The words one consent label names, as the person stamping it was shown them.\n\nNever changed once served: different words are a new label.",
@@ -9117,6 +9112,7 @@
           "token": {
             "maxLength": 128,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
           },
@@ -9686,7 +9682,7 @@
           "bestaetigung": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLRegistrierungBestaetigung"
+                "$ref": "#/components/schemas/FLBestaetigung"
               },
               {
                 "type": "null"
@@ -10012,67 +10008,6 @@
         "title": "FLRegistrierungAufnehmenPayload",
         "type": "object"
       },
-      "FLRegistrierungBestaetigung": {
-        "description": "One registration's confirmation bookkeeping as an administrator reads it, without its link's hash.",
-        "properties": {
-          "erinnert_am": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Erinnert Am"
-          },
-          "frist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
-            "type": "string"
-          },
-          "verschickt_am": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Verschickt Am",
-            "type": "string"
-          },
-          "zustellung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLBewerbungZustellung"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "verschickt_am",
-          "erinnert_am",
-          "frist"
-        ],
-        "title": "FLRegistrierungBestaetigung",
-        "type": "object"
-      },
-      "FLRegistrierungBestaetigungAnsichtPayload": {
-        "additionalProperties": false,
-        "description": "A POST that reads: the token travels in a body, never in a second URL.",
-        "properties": {
-          "token": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "token"
-        ],
-        "title": "FLRegistrierungBestaetigungAnsichtPayload",
-        "type": "object"
-      },
       "FLRegistrierungBestaetigungAnsichtResponse": {
         "description": "What one confirmation link opens, and no field past the ones declared here.",
         "properties": {
@@ -10108,14 +10043,7 @@
             "type": "string"
           },
           "zustand": {
-            "enum": [
-              "gueltig",
-              "bestaetigt",
-              "abgelaufen",
-              "gesperrt"
-            ],
-            "title": "Zustand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLBestaetigungZustand"
           }
         },
         "required": [
@@ -10164,29 +10092,26 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           },
           "token": {
             "maxLength": 128,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
           },
           "umfang": {
             "anyOf": [
               {
-                "enum": [
-                  "kader_oeffentlich",
-                  "intern"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLEinwilligungUmfang"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Umfang"
+            ]
           }
         },
         "required": [
@@ -10233,17 +10158,12 @@
           "umfang": {
             "anyOf": [
               {
-                "enum": [
-                  "kader_oeffentlich",
-                  "intern"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLEinwilligungUmfang"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Umfang"
+            ]
           }
         },
         "required": [
@@ -10399,41 +10319,6 @@
           "weicht_ab"
         ],
         "title": "FLRegistrierungPerson",
-        "type": "object"
-      },
-      "FLRegistrierungSelbstEinwilligungPayload": {
-        "additionalProperties": false,
-        "description": "The pupil's own two choices on one pending registration, the pupil's account control's shape: a grant is refused.",
-        "properties": {
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
-          },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Text Version",
-            "type": "string"
-          },
-          "umfang": {
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
-            ],
-            "title": "Umfang",
-            "type": "string"
-          }
-        },
-        "required": [
-          "umfang",
-          "medien",
-          "text_version",
-          "nachweis_stand"
-        ],
-        "title": "FLRegistrierungSelbstEinwilligungPayload",
         "type": "object"
       },
       "FLRegistrierungSelbstEinwilligungResponse": {
@@ -11274,12 +11159,7 @@
         "description": "What an answer on a season row's link did; nobody is told, so nothing composes a message.",
         "properties": {
           "ergebnis": {
-            "enum": [
-              "bestaetigt",
-              "abgelehnt"
-            ],
-            "title": "Ergebnis",
-            "type": "string"
+            "$ref": "#/components/schemas/FLEinwilligungErgebnis"
           },
           "geburtsdatum": {
             "anyOf": [
@@ -12141,6 +12021,37 @@
         ],
         "type": "string"
       },
+      "FLSelbstEinwilligungPayload": {
+        "additionalProperties": false,
+        "description": "A pupil's, a referee's or a registration's own two choices on their record.\n\nBoth choices on every press, and no member defaulted: a default would let a page that forgot one\nreset the person's other choice.",
+        "properties": {
+          "medien": {
+            "title": "Medien",
+            "type": "boolean"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
+          },
+          "text_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Text Version",
+            "type": "string"
+          },
+          "umfang": {
+            "$ref": "#/components/schemas/FLEinwilligungUmfang"
+          }
+        },
+        "required": [
+          "umfang",
+          "medien",
+          "text_version",
+          "nachweis_stand"
+        ],
+        "title": "FLSelbstEinwilligungPayload",
+        "type": "object"
+      },
       "FLSelbstErasureAnsichtResponse": {
         "properties": {
           "adresswechsel": {
@@ -12398,6 +12309,37 @@
         "title": "FLSitzBestaetigt",
         "type": "object"
       },
+      "FLSitzEinwilligungPayload": {
+        "additionalProperties": false,
+        "description": "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+        "properties": {
+          "medien": {
+            "title": "Medien",
+            "type": "boolean"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
+          },
+          "text_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Text Version",
+            "type": "string"
+          },
+          "umfang": {
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
+          }
+        },
+        "required": [
+          "umfang",
+          "medien",
+          "text_version",
+          "nachweis_stand"
+        ],
+        "title": "FLSitzEinwilligungPayload",
+        "type": "object"
+      },
       "FLSitzKontext": {
         "description": "What the contact confirmation page's slots name for this seat today.",
         "properties": {
@@ -12448,6 +12390,13 @@
           "nichtantreten_team2",
           "abgebrochen",
           "annulliert"
+        ],
+        "type": "string"
+      },
+      "FLSortOrder": {
+        "enum": [
+          "asc",
+          "desc"
         ],
         "type": "string"
       },
@@ -17773,6 +17722,24 @@
         "title": "FLTeamsSingleResponse",
         "type": "object"
       },
+      "FLTokenPayload": {
+        "additionalProperties": false,
+        "description": "The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.",
+        "properties": {
+          "token": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "FLTokenPayload",
+        "type": "object"
+      },
       "FLTrainerZugleich": {
         "enum": [
           "ansprechperson",
@@ -19962,13 +19929,8 @@
             "name": "order",
             "required": false,
             "schema": {
-              "default": "desc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
+              "$ref": "#/components/schemas/FLSortOrder",
+              "default": "desc"
             }
           }
         ],
@@ -20229,7 +20191,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLBewerbungEinwilligungAnsichtPayload"
+                "$ref": "#/components/schemas/FLTokenPayload"
               }
             }
           },
@@ -21710,7 +21672,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLBewerbungPersonEinwilligungPayload"
+                "$ref": "#/components/schemas/FLSitzEinwilligungPayload"
               }
             }
           },
@@ -23118,13 +23080,8 @@
             "name": "order",
             "required": false,
             "schema": {
-              "default": "desc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
+              "$ref": "#/components/schemas/FLSortOrder",
+              "default": "desc"
             }
           }
         ],
@@ -23370,7 +23327,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLRegistrierungBestaetigungAnsichtPayload"
+                "$ref": "#/components/schemas/FLTokenPayload"
               }
             }
           },
@@ -23447,7 +23404,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLEinladungAnsichtPayload"
+                "$ref": "#/components/schemas/FLTokenPayload"
               }
             }
           },
@@ -23557,13 +23514,8 @@
             "name": "order",
             "required": false,
             "schema": {
-              "default": "desc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
+              "$ref": "#/components/schemas/FLSortOrder",
+              "default": "desc"
             }
           }
         ],
@@ -23650,7 +23602,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLRegistrierungSelbstEinwilligungPayload"
+                "$ref": "#/components/schemas/FLSelbstEinwilligungPayload"
               }
             }
           },

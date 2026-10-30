@@ -6,7 +6,6 @@ from pydantic import ValidationError
 
 from app.api.bewerbungen.services import hash_token
 from app.api.registrierungen.schemas import (
-    FLRegistrierungBestaetigungAnsichtPayload,
     FLRegistrierungBestaetigungPayload,
 )
 from app.api.registrierungen.services import (
@@ -23,6 +22,7 @@ from app.api.registrierungen.services import (
     zustand_of,
 )
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH
 from tests.documents import eigene_einwilligung_document
 
@@ -312,7 +312,7 @@ class TestWhatTheAnswerPayloadRefuses:
 
         assert_rejects(FLRegistrierungBestaetigungPayload, antwort(geburtsdatum="09.05.2009"), "geburtsdatum")
 
-    @pytest.mark.parametrize("model", [FLRegistrierungBestaetigungAnsichtPayload, FLRegistrierungBestaetigungPayload])
+    @pytest.mark.parametrize("model", [FLTokenPayload, FLRegistrierungBestaetigungPayload])
     def test_an_undeclared_key_is_refused(self, model: type):
         body = antwort() if model is FLRegistrierungBestaetigungPayload else {"token": RAW}
 

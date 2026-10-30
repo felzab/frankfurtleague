@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.schemas import FLBewerbungPersonEinwilligungPayload, FLBewerbungPersonEinwilligungResponse
+from app.api.bewerbungen.schemas import FLBewerbungPersonEinwilligungResponse
 from app.api.identitaet.services import eigene_sitze
 from app.api.konto.crud import press_widerruf
 from app.api.konto.services import (
@@ -26,6 +26,7 @@ from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, loeschung
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.einwilligung import FLSitzEinwilligungPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # The person lane's binder, as `app/api/teams/person_router.py` declares it and for its reason.
@@ -43,7 +44,7 @@ router = APIRouter(
 )
 async def patch_einwilligung(
     bewerbung_id: CustomRouteObjectId,
-    einwilligung_data: Annotated[FLBewerbungPersonEinwilligungPayload, Body()],
+    einwilligung_data: Annotated[FLSitzEinwilligungPayload, Body()],
     identifier: KontaktIdentifier,
     bewerbungen_collection: BewerbungenCollection,
     db: DBClient,

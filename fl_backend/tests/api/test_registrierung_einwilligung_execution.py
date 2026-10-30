@@ -12,7 +12,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import hash_token
 from app.api.einwilligung import services as einwilligung_services
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht, post_bestaetigung
-from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPayload, FLRegistrierungBestaetigungPayload
+from app.api.registrierungen.schemas import FLRegistrierungBestaetigungPayload
 from app.api.registrierungen.services import (
     SEITE_NEU,
     SEITE_WIEDERKEHREND,
@@ -23,6 +23,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 from tests import documents
 from tests.bans import ban_list
@@ -162,7 +163,7 @@ def on_a_league(
 
 async def ansicht(database: AsyncDatabase, token: str, *, spieler_collection: Any = None, registrierungen_collection: Any = None) -> Any:
     return await get_bestaetigung_ansicht(
-        ansicht_data=FLRegistrierungBestaetigungAnsichtPayload(token=token),
+        ansicht_data=FLTokenPayload(token=token),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN] if registrierungen_collection is None else registrierungen_collection,
         teams_collection=database[Collection.TEAMS],
         spieler_collection=database[Collection.SPIELER] if spieler_collection is None else spieler_collection,

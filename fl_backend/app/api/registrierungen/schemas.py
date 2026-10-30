@@ -2,27 +2,27 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
-from app.api.spieler.schemas import SQUAD_NUMMER_PATTERN, FLEinwilligung, SelbstEinwilligungPayload
-from app.shared.schemas.bounds import (
-    BEWERBUNG_TOKEN_MAX_LENGTH,
-    EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
-    LIST_LIMIT_DEFAULT,
-    LIST_LIMIT_MAX,
-    SAISON_ID_LENGTH,
-)
+from app.api.spieler.schemas import SQUAD_NUMMER_PATTERN, FLEinwilligung
+from app.shared.schemas.bestaetigung import CustomToken, FLBestaetigung
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomNonEmptyString,
     CustomObjectId,
     CustomOptionalDateString,
 )
-from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand
+from app.shared.schemas.einwilligung import CustomEinwilligungTextVersion, FLEinwilligungNachweise, FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
-from app.shared.schemas.literals import FLEinwilligungUmfang, FLRegistrierungStatus, FLSaisonStatus, FLSpielerPosition, FLSpielerStufe
+from app.shared.schemas.literals import (
+    FLBestaetigungZustand,
+    FLEinwilligungUmfang,
+    FLRegistrierungStatus,
+    FLSaisonStatus,
+    FLSortOrder,
+    FLSpielerPosition,
+    FLSpielerStufe,
+)
 from app.shared.schemas.responses import BaseAPIResponse
-
-# Shared by every home the register names (`app/api/zustellung/services.py :: ZIEL_PFADE`).
-from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # --- The INVITE's read, the SUBMISSION and the administrator's read of what it stored. Every
 # payload below is reached from a request body alone, so each forbids an undeclared key; the read
@@ -31,23 +31,6 @@ from app.shared.schemas.zustellung import FLBewerbungZustellung
 # One key, and it is the one the collection's queue index sorts on: rows arrive from a public form
 # and a second order would plan a blocking sort over a list nothing bounds.
 FLRegistrierungenSortOptions = Literal["eingereicht_am"]
-
-# Stripped, a token pasted from a mail client arriving with a trailing space more often than not.
-# `BEWERBUNG_TOKEN_MAX_LENGTH` and not a bound of its own: one `mint_token` spells every link this
-# application hands out.
-CustomRegistrierungToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TOKEN_MAX_LENGTH)]
-
-
-class FLRegistrierungBestaetigung(BaseModel):
-    """One registration's confirmation bookkeeping as an administrator reads it, without its link's hash."""
-
-    verschickt_am: CustomDateString
-    erinnert_am: CustomOptionalDateString
-    # Stored beside the send rather than derived from it: raising the bound would otherwise move the
-    # deadline of every link already in somebody's inbox.
-    frist: CustomDateString
-    # Null on every fresh mint: nothing is yet known about the message that link went out in.
-    zustellung: FLBewerbungZustellung | None = None
 
 
 class FLRegistrierungEntscheidung(BaseModel):
@@ -109,7 +92,7 @@ class FLRegistrierung(_RegistrierungStored):
     Its pupil fills and withdraws `einwilligung` and fills `geburtsdatum`; a decline writes `status` and `entscheidung`.
     """
 
-    bestaetigung: FLRegistrierungBestaetigung | None
+    bestaetigung: FLBestaetigung | None
     # As served, so a row reaches the wire only through
     # `app/api/registrierungen/services.py :: mit_vorenthaltener_entscheidung`.
     entscheidung: FLRegistrierungEntscheidungZeile | None
@@ -119,7 +102,7 @@ class FLRegistrierung(_RegistrierungStored):
     bestaetigt: bool
 
 
-class FLRegistrierungBestaetigungRecord(FLRegistrierungBestaetigung):
+class FLRegistrierungBestaetigungRecord(FLBestaetigung):
     """One registration's bookkeeping as `registrierungen` stores it: its link's hash, and the one a reminder replaced."""
 
     token_hash: str
@@ -137,14 +120,6 @@ class FLRegistrierungRecord(_RegistrierungStored):
 
 
 FLRegistrierungListAdapter = TypeAdapter(list[FLRegistrierung])
-
-
-class FLEinladungAnsichtPayload(BaseModel):
-    """The link a visitor presents, and nothing else: the row it opens says which team and season it is for."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    token: CustomRegistrierungToken
 
 
 class FLEinladungAnsichtResponse(BaseAPIResponse):
@@ -175,7 +150,7 @@ class FLPostRegistrierungPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    token: CustomRegistrierungToken
+    token: CustomToken
     vorname: CustomKontaktName
     nachname: CustomKontaktName
     email: CustomEmail
@@ -216,7 +191,7 @@ class FLRegistrierungenFilterParams(BaseModel):
     # writes these rows, so the cap holds a caller naming more rather than obeying it.
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: FLRegistrierungenSortOptions = Field(default="eingereicht_am")
-    order: Literal["asc", "desc"] = Field(default="desc")
+    order: FLSortOrder = Field(default="desc")
 
 
 class FLRegistrierungenListResponse(BaseAPIResponse):
@@ -231,33 +206,15 @@ class FLRegistrierungenListResponse(BaseAPIResponse):
 # --- The CONFIRMATION. The token is the whole credential, as it is for the application's link, so
 # both endpoints are base-tier and every payload forbids an undeclared key.
 
-# What a pupil answers about publication. An alias where `app/api/spieler/schemas.py ::
-# FLEinwilligung` inlines its own: the view, the payload and the answer all take it, and two
-# spellings would let the page offer a scope the write refuses.
-FLRegistrierungUmfang = Literal["kader_oeffentlich", "intern"]
-
-# What a reopened link shows. The page's own `ungueltig` and `unlesbar` are not here: a token
-# nothing opens is a refusal rather than a state, and an unreadable one never reached the backend.
-# `gesperrt` ranks first.
-FLRegistrierungBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]
-
 # The two pages one link may open, members of `app/shared/einwilligung.py :: Seite`: the returning
 # pupil's asks no choice, so the press is judged against whichever its own transaction resolves.
 FLRegistrierungSeite = Literal["bestaetigung_spieler", "bestaetigung_spieler_wiederkehrend"]
 
 
-class FLRegistrierungBestaetigungAnsichtPayload(BaseModel):
-    """A POST that reads: the token travels in a body, never in a second URL."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    token: CustomRegistrierungToken
-
-
 class FLRegistrierungBestaetigungAnsichtResponse(BaseAPIResponse):
     """What one confirmation link opens, and no field past the ones declared here."""
 
-    zustand: FLRegistrierungBestaetigungZustand
+    zustand: FLBestaetigungZustand
     # The club's short name and its own `full_name`, a club here BEING a school: the ruled consent
     # text renders both, and a slot with no value renders as a hole in it.
     team: CustomNonEmptyString
@@ -279,17 +236,17 @@ class FLRegistrierungBestaetigungPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    token: CustomRegistrierungToken
+    token: CustomToken
     # Unbounded: the age is a 422 with its own code, never a `REQ-VAL-001`, so the page marks its one
     # field and keeps the typed date. Null where a stored one is taken, and required for `umfang`'s reason.
     geburtsdatum: CustomOptionalDateString
     # Both set on the new pupil's page and both null on the returning pupil's (`REQ-REGISTRIERUNG-017`).
     # Required rather than defaulted: a page omitting one would store this model's answer in place of
     # the person's.
-    umfang: FLRegistrierungUmfang | None
+    umfang: FLEinwilligungUmfang | None
     medien: bool | None
     # The label of the words the page showed: the write refuses any but the running one.
-    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
+    text_version: CustomEinwilligungTextVersion
 
 
 class FLRegistrierungBestaetigungResponse(BaseAPIResponse):
@@ -301,15 +258,11 @@ class FLRegistrierungBestaetigungResponse(BaseAPIResponse):
     # Null where the press posted none, the stored date standing: an echo of it would serve it.
     geburtsdatum: CustomOptionalDateString
     # Null on a returning pupil's press, which posted none.
-    umfang: FLRegistrierungUmfang | None
+    umfang: FLEinwilligungUmfang | None
     medien: bool | None
 
 
 # --- The pupil's own WITHDRAWAL on the account page, between the confirmation and the admission.
-
-
-class FLRegistrierungSelbstEinwilligungPayload(SelbstEinwilligungPayload):
-    """The pupil's own two choices on one pending registration, the pupil's account control's shape: a grant is refused."""
 
 
 class FLRegistrierungSelbstEinwilligungResponse(BaseAPIResponse):
@@ -383,7 +336,7 @@ class FLOffeneRegistrierungenParams(BaseModel):
     """The pending list's direction and page, so a flooded queue's oldest rows stay reachable."""
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-    order: Literal["asc", "desc"] = Field(default="desc")
+    order: FLSortOrder = Field(default="desc")
 
 
 class FLRegistrierungPerson(BaseModel):

@@ -1470,6 +1470,29 @@ export interface FLBerechtigungenListResponse {
 }
 
 /**
+ * One person's confirmation bookkeeping as an administrator reads it, and no token hash.
+ *
+ * The hash is a raw document key the confirmation query alone reads, so no read serves one.
+ */
+export interface FLBestaetigung {
+  erinnert_am: string | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  frist: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  verschickt_am: string;
+  zustellung?: FLBewerbungZustellung | null;
+}
+
+export type FLBestaetigungZustand = (typeof FLBestaetigungZustand)[keyof typeof FLBestaetigungZustand];
+
+export const FLBestaetigungZustand = {
+  gueltig: "gueltig",
+  bestaetigt: "bestaetigt",
+  abgelaufen: "abgelaufen",
+  gesperrt: "gesperrt",
+} as const;
+
+/**
  * The school's address, with the Stadtteil required.
  */
 export interface FLBewerbungAddressPayload {
@@ -1504,17 +1527,6 @@ export interface FLBewerbungBestaetigungTokens {
   ansprechperson: string;
   stellvertretung: string;
   trainer: string;
-}
-
-/**
- * A POST that reads: the token travels in a body, never in a second URL.
- */
-export interface FLBewerbungEinwilligungAnsichtPayload {
-  /**
-   * @minLength 1
-   * @maxLength 128
-   */
-  token: string;
 }
 
 export type FLBewerbungEinwilligungAnsichtResponseQuelle =
@@ -1588,20 +1600,21 @@ export interface FLBewerbungEinwilligungAntwortPayload {
   /**
    * @minLength 1
    * @maxLength 64
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   text_version: string;
   /**
    * @minLength 1
    * @maxLength 128
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   token: string;
   whatsapp: boolean;
 }
 
-export type FLBewerbungEinwilligungAntwortResponseErgebnis =
-  (typeof FLBewerbungEinwilligungAntwortResponseErgebnis)[keyof typeof FLBewerbungEinwilligungAntwortResponseErgebnis];
+export type FLEinwilligungErgebnis = (typeof FLEinwilligungErgebnis)[keyof typeof FLEinwilligungErgebnis];
 
-export const FLBewerbungEinwilligungAntwortResponseErgebnis = {
+export const FLEinwilligungErgebnis = {
   bestaetigt: "bestaetigt",
   abgelehnt: "abgelehnt",
 } as const;
@@ -1619,7 +1632,7 @@ export interface FLBewerbungEinwilligungAntwortResponse {
   bestaetigungsfrist: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   bewerbung_id: string;
-  ergebnis: FLBewerbungEinwilligungAntwortResponseErgebnis;
+  ergebnis: FLEinwilligungErgebnis;
   geburtsdatum: string | null;
   medien: boolean;
   quelle: "bewerbung";
@@ -1649,6 +1662,7 @@ export interface FLBewerbungEinwilligungPayload {
   /**
    * @minLength 1
    * @maxLength 64
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   text_version: string;
 }
@@ -1728,6 +1742,7 @@ export interface FLBewerbungKontaktSitzPayload {
   /**
    * @minLength 1
    * @maxLength 64
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   text_version: string;
   /**
@@ -1788,25 +1803,6 @@ export interface FLBewerbungKontaktePayload {
 export interface FLBewerbungKuerzelResponse {
   shorthand: string;
   vergeben: boolean;
-}
-
-export interface FLEinwilligungStandPayload {
-  medien: string | null;
-  umfang: string | null;
-}
-
-/**
- * The season seat's consent payload on a pending application, where a grant is refused.
- */
-export interface FLBewerbungPersonEinwilligungPayload {
-  medien: boolean;
-  nachweis_stand: FLEinwilligungStandPayload;
-  /**
-   * @minLength 1
-   * @maxLength 64
-   */
-  text_version: string;
-  umfang: FLKontaktKenntnisnahmeUmfang;
 }
 
 /**
@@ -2291,17 +2287,6 @@ export interface FLBracketFaultSpieltag {
 }
 
 /**
- * The link a visitor presents, and nothing else: the row it opens says which team and season it is for.
- */
-export interface FLEinladungAnsichtPayload {
-  /**
-   * @minLength 1
-   * @maxLength 128
-   */
-  token: string;
-}
-
-/**
  * What an invite's holder is told before they type anything, and the bounds the form is held to.
  */
 export interface FLEinladungAnsichtResponse {
@@ -2530,6 +2515,11 @@ export type FLEinwilligungSeitenResponseLaufendeFassungen = { [key: string]: str
  */
 export interface FLEinwilligungSeitenResponse {
   laufende_fassungen: FLEinwilligungSeitenResponseLaufendeFassungen;
+}
+
+export interface FLEinwilligungStandPayload {
+  medien: string | null;
+  umfang: string | null;
 }
 
 /**
@@ -3765,6 +3755,7 @@ export interface FLPostRegistrierungPayload {
   /**
    * @minLength 1
    * @maxLength 128
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   token: string;
   /**
@@ -3974,18 +3965,6 @@ export interface FLRefusedPayloadBody {
 }
 
 /**
- * One registration's confirmation bookkeeping as an administrator reads it, without its link's hash.
- */
-export interface FLRegistrierungBestaetigung {
-  erinnert_am: string | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  frist: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  verschickt_am: string;
-  zustellung?: FLBewerbungZustellung | null;
-}
-
-/**
  * A pending registration's consent record, each choice and `datum` optional here alone.
  *
  * A returning pupil's page asks no choice.
@@ -4017,7 +3996,7 @@ export interface FLRegistrierungEntscheidungZeile {
  */
 export interface FLRegistrierung {
   bestaetigt: boolean;
-  bestaetigung: FLRegistrierungBestaetigung | null;
+  bestaetigung: FLBestaetigung | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   eingereicht_am: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -4096,33 +4075,12 @@ export interface FLRegistrierungAufnehmenPayload {
   spieler_id: string | null;
 }
 
-/**
- * A POST that reads: the token travels in a body, never in a second URL.
- */
-export interface FLRegistrierungBestaetigungAnsichtPayload {
-  /**
-   * @minLength 1
-   * @maxLength 128
-   */
-  token: string;
-}
-
 export type FLRegistrierungBestaetigungAnsichtResponseSeite =
   (typeof FLRegistrierungBestaetigungAnsichtResponseSeite)[keyof typeof FLRegistrierungBestaetigungAnsichtResponseSeite];
 
 export const FLRegistrierungBestaetigungAnsichtResponseSeite = {
   bestaetigung_spieler: "bestaetigung_spieler",
   bestaetigung_spieler_wiederkehrend: "bestaetigung_spieler_wiederkehrend",
-} as const;
-
-export type FLRegistrierungBestaetigungAnsichtResponseZustand =
-  (typeof FLRegistrierungBestaetigungAnsichtResponseZustand)[keyof typeof FLRegistrierungBestaetigungAnsichtResponseZustand];
-
-export const FLRegistrierungBestaetigungAnsichtResponseZustand = {
-  gueltig: "gueltig",
-  bestaetigt: "bestaetigt",
-  abgelaufen: "abgelaufen",
-  gesperrt: "gesperrt",
 } as const;
 
 /**
@@ -4138,16 +4096,8 @@ export interface FLRegistrierungBestaetigungAnsichtResponse {
   seite: FLRegistrierungBestaetigungAnsichtResponseSeite;
   /** @minLength 1 */
   team: string;
-  zustand: FLRegistrierungBestaetigungAnsichtResponseZustand;
+  zustand: FLBestaetigungZustand;
 }
-
-export type FLRegistrierungBestaetigungPayloadUmfang =
-  (typeof FLRegistrierungBestaetigungPayloadUmfang)[keyof typeof FLRegistrierungBestaetigungPayloadUmfang] | null;
-
-export const FLRegistrierungBestaetigungPayloadUmfang = {
-  kader_oeffentlich: "kader_oeffentlich",
-  intern: "intern",
-} as const;
 
 /**
  * One pupil's own answer: their date of birth where the page asks it, and on the new pupil's page the two consents.
@@ -4158,23 +4108,17 @@ export interface FLRegistrierungBestaetigungPayload {
   /**
    * @minLength 1
    * @maxLength 64
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   text_version: string;
   /**
    * @minLength 1
    * @maxLength 128
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   token: string;
-  umfang: FLRegistrierungBestaetigungPayloadUmfang;
+  umfang: FLEinwilligungUmfang | null;
 }
-
-export type FLRegistrierungBestaetigungResponseUmfang =
-  (typeof FLRegistrierungBestaetigungResponseUmfang)[keyof typeof FLRegistrierungBestaetigungResponseUmfang] | null;
-
-export const FLRegistrierungBestaetigungResponseUmfang = {
-  kader_oeffentlich: "kader_oeffentlich",
-  intern: "intern",
-} as const;
 
 /**
  * What the pupil just recorded, echoed so the answer panel states it rather than opening the link a second time.
@@ -4183,29 +4127,7 @@ export interface FLRegistrierungBestaetigungResponse {
   ergebnis: "bestaetigt";
   geburtsdatum: string | null;
   medien: boolean | null;
-  umfang: FLRegistrierungBestaetigungResponseUmfang;
-}
-
-export type FLRegistrierungSelbstEinwilligungPayloadUmfang =
-  (typeof FLRegistrierungSelbstEinwilligungPayloadUmfang)[keyof typeof FLRegistrierungSelbstEinwilligungPayloadUmfang];
-
-export const FLRegistrierungSelbstEinwilligungPayloadUmfang = {
-  kader_oeffentlich: "kader_oeffentlich",
-  intern: "intern",
-} as const;
-
-/**
- * The pupil's own two choices on one pending registration, the pupil's account control's shape: a grant is refused.
- */
-export interface FLRegistrierungSelbstEinwilligungPayload {
-  medien: boolean;
-  nachweis_stand: FLEinwilligungStandPayload;
-  /**
-   * @minLength 1
-   * @maxLength 64
-   */
-  text_version: string;
-  umfang: FLRegistrierungSelbstEinwilligungPayloadUmfang;
+  umfang: FLEinwilligungUmfang | null;
 }
 
 /**
@@ -4363,19 +4285,11 @@ export interface FLSaisonTeamBestaetigungenAnsicht {
   trainer: FLSaisonTeamBestaetigungAnsicht | null;
 }
 
-export type FLSaisonTeamEinwilligungAntwortResponseErgebnis =
-  (typeof FLSaisonTeamEinwilligungAntwortResponseErgebnis)[keyof typeof FLSaisonTeamEinwilligungAntwortResponseErgebnis];
-
-export const FLSaisonTeamEinwilligungAntwortResponseErgebnis = {
-  bestaetigt: "bestaetigt",
-  abgelehnt: "abgelehnt",
-} as const;
-
 /**
  * What an answer on a season row's link did; nobody is told, so nothing composes a message.
  */
 export interface FLSaisonTeamEinwilligungAntwortResponse {
-  ergebnis: FLSaisonTeamEinwilligungAntwortResponseErgebnis;
+  ergebnis: FLEinwilligungErgebnis;
   geburtsdatum: string | null;
   medien: boolean;
   quelle: "saison";
@@ -4597,6 +4511,24 @@ export interface FLSchiedsrichterWriteResponse {
 }
 
 /**
+ * A pupil's, a referee's or a registration's own two choices on their record.
+ *
+ * Both choices on every press, and no member defaulted: a default would let a page that forgot one
+ * reset the person's other choice.
+ */
+export interface FLSelbstEinwilligungPayload {
+  medien: boolean;
+  nachweis_stand: FLEinwilligungStandPayload;
+  /**
+   * @minLength 1
+   * @maxLength 64
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  text_version: string;
+  umfang: FLEinwilligungUmfang;
+}
+
+/**
  * One seat on an application, of any status.
  */
 export interface FLSelbstErasureBewerbung {
@@ -4647,6 +4579,30 @@ export interface FLSelbstErasureAnsichtResponse {
   spieler: FLSelbstErasureSpieler[];
   verwaltung: FLVerwaltung | null;
 }
+
+/**
+ * A seat holder's own two choices for every seat they hold on one row.
+ *
+ * Both choices on every press: a page that sent one alone would leave the other judged by nothing.
+ */
+export interface FLSitzEinwilligungPayload {
+  medien: boolean;
+  nachweis_stand: FLEinwilligungStandPayload;
+  /**
+   * @minLength 1
+   * @maxLength 64
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  text_version: string;
+  umfang: FLKontaktKenntnisnahmeUmfang;
+}
+
+export type FLSortOrder = (typeof FLSortOrder)[keyof typeof FLSortOrder];
+
+export const FLSortOrder = {
+  asc: "asc",
+  desc: "desc",
+} as const;
 
 /**
  * One ban as the list serves it: the stored row, its author withheld where the ban list holds that address too.
@@ -6201,6 +6157,18 @@ export interface FLTeamsSingleResponse {
 }
 
 /**
+ * The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.
+ */
+export interface FLTokenPayload {
+  /**
+   * @minLength 1
+   * @maxLength 128
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  token: string;
+}
+
+/**
  * What removing the season's Spielplan took away, on the shape the draw reports.
  *
  * Both counts are zero on a season already undrawn, which is why the watermark is reported apart:
@@ -6405,15 +6373,8 @@ export type BewerbungenGetBewerbungenParams = {
    */
   limit?: number;
   sort_by?: "eingereicht_am";
-  order?: BewerbungenGetBewerbungenOrder;
+  order?: FLSortOrder;
 };
-
-export type BewerbungenGetBewerbungenOrder = (typeof BewerbungenGetBewerbungenOrder)[keyof typeof BewerbungenGetBewerbungenOrder];
-
-export const BewerbungenGetBewerbungenOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
 
 export type IdentitaetPostLoeschungLaufParams = {
   nach?: string | null;
@@ -6429,16 +6390,8 @@ export type RegistrierungenGetRegistrierungenParams = {
    */
   limit?: number;
   sort_by?: "eingereicht_am";
-  order?: RegistrierungenGetRegistrierungenOrder;
+  order?: FLSortOrder;
 };
-
-export type RegistrierungenGetRegistrierungenOrder =
-  (typeof RegistrierungenGetRegistrierungenOrder)[keyof typeof RegistrierungenGetRegistrierungenOrder];
-
-export const RegistrierungenGetRegistrierungenOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
 
 export type RegistrierungenGetOffeneRegistrierungenParams = {
   /**
@@ -6446,16 +6399,8 @@ export type RegistrierungenGetOffeneRegistrierungenParams = {
    * @maximum 1024
    */
   limit?: number;
-  order?: RegistrierungenGetOffeneRegistrierungenOrder;
+  order?: FLSortOrder;
 };
-
-export type RegistrierungenGetOffeneRegistrierungenOrder =
-  (typeof RegistrierungenGetOffeneRegistrierungenOrder)[keyof typeof RegistrierungenGetOffeneRegistrierungenOrder];
-
-export const RegistrierungenGetOffeneRegistrierungenOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
 
 export type SaisonsGetSaisonsParams = {
   status?: FLSaisonStatus | null;

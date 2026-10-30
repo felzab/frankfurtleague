@@ -20,9 +20,7 @@ from app.api.registrierungen.schemas import (
     FLOffeneRegistrierungenParams,
     FLRegistrierungAblehnenPayload,
     FLRegistrierungAufnehmenPayload,
-    FLRegistrierungBestaetigungAnsichtPayload,
     FLRegistrierungBestaetigungPayload,
-    FLRegistrierungSelbstEinwilligungPayload,
 )
 from app.api.registrierungen.selbst_router import patch_einwilligung as patch_registrierung_einwilligung
 from app.api.registrierungen.services import (
@@ -38,6 +36,8 @@ from app.core.sentinels import GHOST_SPIELER_ID
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
+from app.shared.schemas.bestaetigung import FLTokenPayload
+from app.shared.schemas.einwilligung import FLSelbstEinwilligungPayload
 from tests import documents
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
@@ -762,7 +762,7 @@ class TestThePersonAnAdmissionNames:
             registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
             await patch_registrierung_einwilligung(
                 registrierung_id=registrierung_id,
-                einwilligung_data=FLRegistrierungSelbstEinwilligungPayload.model_validate(
+                einwilligung_data=FLSelbstEinwilligungPayload.model_validate(
                     {
                         "umfang": "intern",
                         "medien": False,
@@ -1003,7 +1003,7 @@ class TestAReturningRegistration:
             await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
             registrierung_id = await seed(database, registrierung_document(confirmed=False))
             view = await get_bestaetigung_ansicht(
-                ansicht_data=FLRegistrierungBestaetigungAnsichtPayload(token=TOKEN),
+                ansicht_data=FLTokenPayload(token=TOKEN),
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                 teams_collection=database[Collection.TEAMS],
                 spieler_collection=database[Collection.SPIELER],

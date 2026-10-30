@@ -453,7 +453,6 @@ export const bewerbungenGetBewerbungenQueryLimitDefault = 1024;
 export const bewerbungenGetBewerbungenQueryLimitMax = 1024;
 
 export const bewerbungenGetBewerbungenQuerySortByDefault = `eingereicht_am`;
-export const bewerbungenGetBewerbungenQueryOrderDefault = `desc`;
 
 export const BewerbungenGetBewerbungenQueryParams = zod.object({
   saison_id: zod.union([zod.string(), zod.null()]).optional(),
@@ -461,7 +460,7 @@ export const BewerbungenGetBewerbungenQueryParams = zod.object({
   status: zod.string().optional(),
   limit: zod.int().min(1).max(bewerbungenGetBewerbungenQueryLimitMax).default(bewerbungenGetBewerbungenQueryLimitDefault),
   sort_by: zod.literal("eingereicht_am").default(bewerbungenGetBewerbungenQuerySortByDefault).meta({ title: "Sort By" }),
-  order: zod.enum(["asc", "desc"]).default(bewerbungenGetBewerbungenQueryOrderDefault),
+  order: zod.enum(["asc", "desc"]).optional(),
 });
 
 /**
@@ -490,6 +489,9 @@ export const bewerbungenPostBewerbungBodyKaderVoraussichtlicheGroesseMax = 200;
 
 export const bewerbungenPostBewerbungBodyKontakteAnsprechpersonEinwilligungTextVersionMax = 64;
 
+export const bewerbungenPostBewerbungBodyKontakteAnsprechpersonEinwilligungTextVersionRegExp = new RegExp(
+  "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+);
 export const bewerbungenPostBewerbungBodyKontakteAnsprechpersonEmailMax = 254;
 
 export const bewerbungenPostBewerbungBodyKontakteAnsprechpersonNachnameMax = 80;
@@ -501,6 +503,9 @@ export const bewerbungenPostBewerbungBodyKontakteAnsprechpersonVornameMax = 80;
 export const bewerbungenPostBewerbungBodyKontakteAnsprechpersonVornameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
 export const bewerbungenPostBewerbungBodyKontakteStellvertretungEinwilligungTextVersionMax = 64;
 
+export const bewerbungenPostBewerbungBodyKontakteStellvertretungEinwilligungTextVersionRegExp = new RegExp(
+  "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+);
 export const bewerbungenPostBewerbungBodyKontakteStellvertretungEmailMax = 254;
 
 export const bewerbungenPostBewerbungBodyKontakteStellvertretungNachnameMax = 80;
@@ -512,6 +517,9 @@ export const bewerbungenPostBewerbungBodyKontakteStellvertretungVornameMax = 80;
 export const bewerbungenPostBewerbungBodyKontakteStellvertretungVornameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
 export const bewerbungenPostBewerbungBodyKontakteTrainerEinwilligungTextVersionMax = 64;
 
+export const bewerbungenPostBewerbungBodyKontakteTrainerEinwilligungTextVersionRegExp = new RegExp(
+  "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+);
 export const bewerbungenPostBewerbungBodyKontakteTrainerEmailMax = 254;
 
 export const bewerbungenPostBewerbungBodyKontakteTrainerNachnameMax = 80;
@@ -565,7 +573,11 @@ export const BewerbungenPostBewerbungBody = zod
             einwilligung: zod
               .object({
                 erteilt: zod.literal(true).meta({ title: "Erteilt" }),
-                text_version: zod.string().min(1).max(bewerbungenPostBewerbungBodyKontakteAnsprechpersonEinwilligungTextVersionMax),
+                text_version: zod
+                  .string()
+                  .min(1)
+                  .max(bewerbungenPostBewerbungBodyKontakteAnsprechpersonEinwilligungTextVersionMax)
+                  .regex(bewerbungenPostBewerbungBodyKontakteAnsprechpersonEinwilligungTextVersionRegExp),
               })
               .describe("What the applicant agreed to; the scope and the date are the server's."),
             email: zod.string().max(bewerbungenPostBewerbungBodyKontakteAnsprechpersonEmailMax),
@@ -587,7 +599,11 @@ export const BewerbungenPostBewerbungBody = zod
             einwilligung: zod
               .object({
                 erteilt: zod.literal(true).meta({ title: "Erteilt" }),
-                text_version: zod.string().min(1).max(bewerbungenPostBewerbungBodyKontakteStellvertretungEinwilligungTextVersionMax),
+                text_version: zod
+                  .string()
+                  .min(1)
+                  .max(bewerbungenPostBewerbungBodyKontakteStellvertretungEinwilligungTextVersionMax)
+                  .regex(bewerbungenPostBewerbungBodyKontakteStellvertretungEinwilligungTextVersionRegExp),
               })
               .describe("What the applicant agreed to; the scope and the date are the server's."),
             email: zod.string().max(bewerbungenPostBewerbungBodyKontakteStellvertretungEmailMax),
@@ -609,7 +625,11 @@ export const BewerbungenPostBewerbungBody = zod
             einwilligung: zod
               .object({
                 erteilt: zod.literal(true).meta({ title: "Erteilt" }),
-                text_version: zod.string().min(1).max(bewerbungenPostBewerbungBodyKontakteTrainerEinwilligungTextVersionMax),
+                text_version: zod
+                  .string()
+                  .min(1)
+                  .max(bewerbungenPostBewerbungBodyKontakteTrainerEinwilligungTextVersionMax)
+                  .regex(bewerbungenPostBewerbungBodyKontakteTrainerEinwilligungTextVersionRegExp),
               })
               .describe("What the applicant agreed to; the scope and the date are the server's."),
             email: zod.string().max(bewerbungenPostBewerbungBodyKontakteTrainerEmailMax),
@@ -714,7 +734,10 @@ export const bewerbungenPostEinwilligungBodyGeburtsdatumOneRegExp = new RegExp("
 export const bewerbungenPostEinwilligungBodyGeburtsdatumThreeRegExp = new RegExp("^\\s*$");
 export const bewerbungenPostEinwilligungBodyTextVersionMax = 64;
 
+export const bewerbungenPostEinwilligungBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 export const bewerbungenPostEinwilligungBodyTokenMax = 128;
+
+export const bewerbungenPostEinwilligungBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 
 export const BewerbungenPostEinwilligungBody = zod
   .object({
@@ -725,8 +748,12 @@ export const BewerbungenPostEinwilligungBody = zod
       zod.string().regex(bewerbungenPostEinwilligungBodyGeburtsdatumThreeRegExp),
     ]),
     medien: zod.boolean(),
-    text_version: zod.string().min(1).max(bewerbungenPostEinwilligungBodyTextVersionMax),
-    token: zod.string().min(1).max(bewerbungenPostEinwilligungBodyTokenMax),
+    text_version: zod
+      .string()
+      .min(1)
+      .max(bewerbungenPostEinwilligungBodyTextVersionMax)
+      .regex(bewerbungenPostEinwilligungBodyTextVersionRegExp),
+    token: zod.string().min(1).max(bewerbungenPostEinwilligungBodyTokenMax).regex(bewerbungenPostEinwilligungBodyTokenRegExp),
     whatsapp: zod.boolean(),
   })
   .describe("One person's answer for one seat: the consent, or a decline that empties their slot.");
@@ -740,11 +767,13 @@ export const BewerbungenPostEinwilligungBody = zod
  */
 export const bewerbungenGetEinwilligungAnsichtBodyTokenMax = 128;
 
+export const bewerbungenGetEinwilligungAnsichtBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
 export const BewerbungenGetEinwilligungAnsichtBody = zod
   .object({
-    token: zod.string().min(1).max(bewerbungenGetEinwilligungAnsichtBodyTokenMax),
+    token: zod.string().min(1).max(bewerbungenGetEinwilligungAnsichtBodyTokenMax).regex(bewerbungenGetEinwilligungAnsichtBodyTokenRegExp),
   })
-  .describe("A POST that reads: the token travels in a body, never in a second URL.");
+  .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
  * Return one season's application window, or that it records none; 404 only where no season carries the id.
@@ -1035,6 +1064,7 @@ export const bewerbungenBesetzeKontaktSitzBodyNachnameRegExp = new RegExp("^\\p{
 export const bewerbungenBesetzeKontaktSitzBodyTelefonRegExp = new RegExp("^([+]?[ 0-9\\-().]{2,19}[0-9])$");
 export const bewerbungenBesetzeKontaktSitzBodyTextVersionMax = 64;
 
+export const bewerbungenBesetzeKontaktSitzBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 export const bewerbungenBesetzeKontaktSitzBodyVornameMax = 80;
 
 export const bewerbungenBesetzeKontaktSitzBodyVornameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
@@ -1044,7 +1074,11 @@ export const BewerbungenBesetzeKontaktSitzBody = zod
     email: zod.string().max(bewerbungenBesetzeKontaktSitzBodyEmailMax),
     nachname: zod.string().min(1).max(bewerbungenBesetzeKontaktSitzBodyNachnameMax).regex(bewerbungenBesetzeKontaktSitzBodyNachnameRegExp),
     telefon: zod.string().regex(bewerbungenBesetzeKontaktSitzBodyTelefonRegExp),
-    text_version: zod.string().min(1).max(bewerbungenBesetzeKontaktSitzBodyTextVersionMax),
+    text_version: zod
+      .string()
+      .min(1)
+      .max(bewerbungenBesetzeKontaktSitzBodyTextVersionMax)
+      .regex(bewerbungenBesetzeKontaktSitzBodyTextVersionRegExp),
     vorname: zod.string().min(1).max(bewerbungenBesetzeKontaktSitzBodyVornameMax).regex(bewerbungenBesetzeKontaktSitzBodyVornameRegExp),
   })
   .describe("The person seated where a contact person stepped out, who has agreed to nothing yet.");
@@ -1102,6 +1136,8 @@ export const BewerbungenPatchEinwilligungParams = zod.object({
 
 export const bewerbungenPatchEinwilligungBodyTextVersionMax = 64;
 
+export const bewerbungenPatchEinwilligungBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
 export const BewerbungenPatchEinwilligungBody = zod
   .object({
     medien: zod.boolean(),
@@ -1109,10 +1145,16 @@ export const BewerbungenPatchEinwilligungBody = zod
       medien: zod.union([zod.string(), zod.null()]),
       umfang: zod.union([zod.string(), zod.null()]),
     }),
-    text_version: zod.string().min(1).max(bewerbungenPatchEinwilligungBodyTextVersionMax),
+    text_version: zod
+      .string()
+      .min(1)
+      .max(bewerbungenPatchEinwilligungBodyTextVersionMax)
+      .regex(bewerbungenPatchEinwilligungBodyTextVersionRegExp),
     umfang: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
   })
-  .describe("The season seat's consent payload on a pending application, where a grant is refused.");
+  .describe(
+    "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+  );
 
 /**
  * The words a consent label names, which never change, so the answer may be cached; 404 for a label the registry lacks.
@@ -1468,7 +1510,6 @@ export const registrierungenGetRegistrierungenQueryLimitDefault = 1024;
 export const registrierungenGetRegistrierungenQueryLimitMax = 1024;
 
 export const registrierungenGetRegistrierungenQuerySortByDefault = `eingereicht_am`;
-export const registrierungenGetRegistrierungenQueryOrderDefault = `desc`;
 
 export const RegistrierungenGetRegistrierungenQueryParams = zod.object({
   saison_id: zod
@@ -1481,7 +1522,7 @@ export const RegistrierungenGetRegistrierungenQueryParams = zod.object({
   status: zod.union([zod.enum(["eingereicht", "abgelehnt"]), zod.null()]).optional(),
   limit: zod.int().min(1).max(registrierungenGetRegistrierungenQueryLimitMax).default(registrierungenGetRegistrierungenQueryLimitDefault),
   sort_by: zod.literal("eingereicht_am").default(registrierungenGetRegistrierungenQuerySortByDefault).meta({ title: "Sort By" }),
-  order: zod.enum(["asc", "desc"]).default(registrierungenGetRegistrierungenQueryOrderDefault),
+  order: zod.enum(["asc", "desc"]).optional(),
 });
 
 /**
@@ -1508,6 +1549,7 @@ export const registrierungenPostRegistrierungBodyNachnameRegExp = new RegExp("^\
 export const registrierungenPostRegistrierungBodyNummerOneRegExp = new RegExp("^[0-9]{1,4}$");
 export const registrierungenPostRegistrierungBodyTokenMax = 128;
 
+export const registrierungenPostRegistrierungBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 export const registrierungenPostRegistrierungBodyVornameMax = 80;
 
 export const registrierungenPostRegistrierungBodyVornameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
@@ -1523,7 +1565,7 @@ export const RegistrierungenPostRegistrierungBody = zod
     nummer: zod.union([zod.string().regex(registrierungenPostRegistrierungBodyNummerOneRegExp), zod.null()]),
     position: zod.union([zod.enum(["Tor", "Abwehr", "Mittelfeld", "Angriff"]), zod.null()]),
     stufe: zod.union([zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"]), zod.null()]),
-    token: zod.string().min(1).max(registrierungenPostRegistrierungBodyTokenMax),
+    token: zod.string().min(1).max(registrierungenPostRegistrierungBodyTokenMax).regex(registrierungenPostRegistrierungBodyTokenRegExp),
     vorname: zod.string().min(1).max(registrierungenPostRegistrierungBodyVornameMax).regex(registrierungenPostRegistrierungBodyVornameRegExp),
   })
   .describe(
@@ -1541,7 +1583,10 @@ export const registrierungenPostBestaetigungBodyGeburtsdatumOneRegExp = new RegE
 export const registrierungenPostBestaetigungBodyGeburtsdatumThreeRegExp = new RegExp("^\\s*$");
 export const registrierungenPostBestaetigungBodyTextVersionMax = 64;
 
+export const registrierungenPostBestaetigungBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 export const registrierungenPostBestaetigungBodyTokenMax = 128;
+
+export const registrierungenPostBestaetigungBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 
 export const RegistrierungenPostBestaetigungBody = zod
   .object({
@@ -1551,8 +1596,12 @@ export const RegistrierungenPostBestaetigungBody = zod
       zod.string().regex(registrierungenPostBestaetigungBodyGeburtsdatumThreeRegExp),
     ]),
     medien: zod.union([zod.boolean(), zod.null()]),
-    text_version: zod.string().min(1).max(registrierungenPostBestaetigungBodyTextVersionMax),
-    token: zod.string().min(1).max(registrierungenPostBestaetigungBodyTokenMax),
+    text_version: zod
+      .string()
+      .min(1)
+      .max(registrierungenPostBestaetigungBodyTextVersionMax)
+      .regex(registrierungenPostBestaetigungBodyTextVersionRegExp),
+    token: zod.string().min(1).max(registrierungenPostBestaetigungBodyTokenMax).regex(registrierungenPostBestaetigungBodyTokenRegExp),
     umfang: zod.union([zod.enum(["kader_oeffentlich", "intern"]), zod.null()]),
   })
   .describe("One pupil's own answer: their date of birth where the page asks it, and on the new pupil's page the two consents.");
@@ -1567,11 +1616,17 @@ export const RegistrierungenPostBestaetigungBody = zod
  */
 export const registrierungenGetBestaetigungAnsichtBodyTokenMax = 128;
 
+export const registrierungenGetBestaetigungAnsichtBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
 export const RegistrierungenGetBestaetigungAnsichtBody = zod
   .object({
-    token: zod.string().min(1).max(registrierungenGetBestaetigungAnsichtBodyTokenMax),
+    token: zod
+      .string()
+      .min(1)
+      .max(registrierungenGetBestaetigungAnsichtBodyTokenMax)
+      .regex(registrierungenGetBestaetigungAnsichtBodyTokenRegExp),
   })
-  .describe("A POST that reads: the token travels in a body, never in a second URL.");
+  .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
  * Answer what this registration link is for: the team, its school, the season, and what the form may offer.
@@ -1583,11 +1638,13 @@ export const RegistrierungenGetBestaetigungAnsichtBody = zod
  */
 export const registrierungenPostEinladungAnsichtBodyTokenMax = 128;
 
+export const registrierungenPostEinladungAnsichtBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
 export const RegistrierungenPostEinladungAnsichtBody = zod
   .object({
-    token: zod.string().min(1).max(registrierungenPostEinladungAnsichtBodyTokenMax),
+    token: zod.string().min(1).max(registrierungenPostEinladungAnsichtBodyTokenMax).regex(registrierungenPostEinladungAnsichtBodyTokenRegExp),
   })
-  .describe("The link a visitor presents, and nothing else: the row it opens says which team and season it is for.");
+  .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
  * Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.
@@ -1608,15 +1665,13 @@ export const RegistrierungenGetOffeneRegistrierungenParams = zod.object({
 export const registrierungenGetOffeneRegistrierungenQueryLimitDefault = 1024;
 export const registrierungenGetOffeneRegistrierungenQueryLimitMax = 1024;
 
-export const registrierungenGetOffeneRegistrierungenQueryOrderDefault = `desc`;
-
 export const RegistrierungenGetOffeneRegistrierungenQueryParams = zod.object({
   limit: zod
     .int()
     .min(1)
     .max(registrierungenGetOffeneRegistrierungenQueryLimitMax)
     .default(registrierungenGetOffeneRegistrierungenQueryLimitDefault),
-  order: zod.enum(["asc", "desc"]).default(registrierungenGetOffeneRegistrierungenQueryOrderDefault),
+  order: zod.enum(["asc", "desc"]).optional(),
 });
 
 /**
@@ -1634,6 +1689,8 @@ export const RegistrierungenPatchEinwilligungParams = zod.object({
 
 export const registrierungenPatchEinwilligungBodyTextVersionMax = 64;
 
+export const registrierungenPatchEinwilligungBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
 export const RegistrierungenPatchEinwilligungBody = zod
   .object({
     medien: zod.boolean(),
@@ -1641,10 +1698,16 @@ export const RegistrierungenPatchEinwilligungBody = zod
       medien: zod.union([zod.string(), zod.null()]),
       umfang: zod.union([zod.string(), zod.null()]),
     }),
-    text_version: zod.string().min(1).max(registrierungenPatchEinwilligungBodyTextVersionMax),
+    text_version: zod
+      .string()
+      .min(1)
+      .max(registrierungenPatchEinwilligungBodyTextVersionMax)
+      .regex(registrierungenPatchEinwilligungBodyTextVersionRegExp),
     umfang: zod.enum(["kader_oeffentlich", "intern"]),
   })
-  .describe("The pupil's own two choices on one pending registration, the pupil's account control's shape: a grant is refused.");
+  .describe(
+    "A pupil's, a referee's or a registration's own two choices on their record.\n\nBoth choices on every press, and no member defaulted: a default would let a page that forgot one\nreset the person's other choice.",
+  );
 
 /**
  * Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.

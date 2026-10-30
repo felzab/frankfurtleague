@@ -8,7 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.identitaet.services import ist_eigene_registrierung
 from app.api.konto.crud import press_widerruf
 from app.api.konto.services import KONTO_SEITE_SPIELER, compose_person_move, find_eigener_eintrag_refusal, widerruf_line
-from app.api.registrierungen.schemas import FLRegistrierungSelbstEinwilligungPayload, FLRegistrierungSelbstEinwilligungResponse
+from app.api.registrierungen.schemas import FLRegistrierungSelbstEinwilligungResponse
 from app.api.registrierungen.services import traegt_wahlen
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -21,6 +21,7 @@ from app.core.security import PERSON_ACTOR_BINDERS, SpielerIdentifier, loeschung
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.einwilligung import FLSelbstEinwilligungPayload
 
 # A module of its own, for `app/api/spieler/selbst_router.py`'s reason: `app/api/registrierungen/person_router.py`
 # binds the `kontakt` Funktion at router level, and a pending registrant writes as the pupil they registered as.
@@ -37,7 +38,7 @@ router = APIRouter(
 )
 async def patch_einwilligung(
     registrierung_id: CustomRouteObjectId,
-    einwilligung_data: Annotated[FLRegistrierungSelbstEinwilligungPayload, Body()],
+    einwilligung_data: Annotated[FLSelbstEinwilligungPayload, Body()],
     identifier: SpielerIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     db: DBClient,
