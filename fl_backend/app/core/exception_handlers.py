@@ -53,7 +53,7 @@ def error_response(
 
 
 async def api_error_handler(request: Request, exc: APIError):
-    # A 422 alone publishes `fields`, the refusal's own code as each one's `kind` where a `REQ-VAL-001`
+    # A 422 alone publishes `fields`, the refusal's own code as each one's `kind` where a `payload_refused`
     # carries pydantic's error type.
     fields = (
         [{"in": "body", "path": list(path), "kind": exc.error_code} for path in exc.fields]

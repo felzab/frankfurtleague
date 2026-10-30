@@ -941,7 +941,7 @@ class TestAKeptRecordKeepsItsEvidence:
 
 @pytest.mark.db
 class TestTheLabelASaveNames:
-    """`REQ-EINWILLIGUNG-001`: a seat the save fills names the running label; the same person may name back the label they hold."""
+    """`fassung_unzulaessig`: a seat the save fills names the running label; the same person may name back the label they hold."""
 
     @pytest.mark.parametrize(
         ("sent", "id_of"),

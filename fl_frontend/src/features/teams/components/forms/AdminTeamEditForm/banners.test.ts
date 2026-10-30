@@ -165,7 +165,7 @@ describe("buildTeamBanners", () => {
   it("states the move's one certain outcome and leaves the window it was allowed under unsaid", () => {
     const [banner] = build({ isGruppeChanged: true });
 
-    // The picker is open only where `REQ-ENTER-004` already permits the move, so a sentence about
+    // The picker is open only where `entry_gruppe_locked` already permits the move, so a sentence about
     // that window is reassurance, and one about the seeding promises a change no result decides yet.
     expect(banner?.id).toBe("team.gruppe-changed");
     expect(banner?.title ?? "").toMatch(/Tabellen beider Gruppen/);

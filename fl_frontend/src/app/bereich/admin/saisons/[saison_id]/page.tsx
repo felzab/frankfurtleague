@@ -63,7 +63,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   const outgoingSaisonId = outgoing === null || outgoing.id === saison.id ? null : outgoing.id;
 
   // Only a `future` season has a rollover to present — the running one has nothing to switch to, a
-  // `past` one is refused (`REQ-ACTIVATE-002`) — and no incumbent means no outgoing fixtures and no
+  // `past` one is refused (`saison_past`) — and no incumbent means no outgoing fixtures and no
   // season the activation closes.
   const presentsRollover = outgoingSaisonId !== null && saison.status === "future";
 
@@ -80,15 +80,14 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
       // `include_inactive` because an admin picker hiding a retired club that still holds a junction
       // row would make a swap the endpoint accepts look impossible.
       getAdminTeams({ saison_id: saison.id, include_inactive: true }),
-      // `playoffs` is exactly the set `REQ-SWAP-002` counts, so the page asks the endpoint's own
-      // question rather than filtering a whole season here.
+      // The season's fixtures in the two halves the swap reads apart: the bracket's stay where they are,
+      // and the group phase's move with the clubs.
       getAdminSpiele({ saison_id: saison.id, saison_phase: "playoffs" }),
-      // The other half of the same question (`REQ-SWAP-004`), narrowed to the phase the rule asks about.
       getAdminSpiele({ saison_id: saison.id, saison_phase: "gruppenphase" }),
       // The league-wide read, for the replacement's incoming side alone: a club arriving into this
-      // season is by definition in none of its reads. Skipped where `REQ-REPLACE-001` closes the panel.
+      // season is by definition in none of its reads. Skipped where `saison_past` closes the panel.
       saison.status === "past" ? Promise.resolve(null) : getTeamMemberships(),
-      // The reports `REQ-SPIELPLAN-007` counts, for the planned season alone: any other closes both controls already.
+      // The reports `spielplan_berichte_eingereicht` counts, for the planned season alone: any other closes both controls already.
       // Degraded, as an unread count closes nothing and the press meets the refusal's own sentence.
       saison.status === "future"
         ? runWithIncomingTrace(() => getSpielberichteZustaende({ saison_id: saison.id }).catch(nullUnlessContractBreak))
@@ -96,7 +95,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     ]);
 
   /**
-   * Listed so `REQ-ACTIVATE-001` blocks actionably rather than as a 409, which means "unfinished"
+   * Listed so `activate_saison_unfinished` blocks actionably rather than as a 409, which means "unfinished"
    * must keep mirroring `unplayed_spiel_nrs`: too narrow offers a rollover that always fails, too
    * wide blocks one that would work.
    */
@@ -119,20 +118,20 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     loeschung: loeschungsVorschau(loeschungRes),
   };
 
-  // The condition `REQ-SPIELPLAN-001`, `REQ-ACTIVATE-003` and `REQ-RULES-011` each read, derived off
+  // The condition `spielplan_already_drawn`, `activate_target_undrawn` and `rules_shape_after_spielplan` each read, derived off
   // the two fixture reads the swap already needs.
   const hasDrawnSpiele = holdsDrawnSpiele({ gruppenSpiele: gruppenSpieleRes.spiele, playoffSpiele: playoffSpieleRes.spiele });
 
   /**
    * The generator's own preconditions, off reads this page already makes: the watermark rides on the
-   * season, and `REQ-SPIELPLAN-002` counts exactly the rows `getAdminSpieltage` lists for it.
+   * season, and `spielplan_spieltage_held` counts exactly the rows `getAdminSpieltage` lists for it.
    */
   const spielplan: SaisonSpielplanContext = {
     spielplan: saison.spielplan,
     spieltageCount: spieltageRes.spieltage.length,
     schedule: saison.schedule,
     // Its `erfasst` half must keep mirroring `holds_a_recorded_fact`: too wide closes a replace
-    // `REQ-SPIELPLAN-005` allows, too narrow offers one it refuses.
+    // `spielplan_replace_outside_its_window` allows, too narrow offers one it refuses.
     bestand: buildSpielplanBestand({ gruppenSpiele: gruppenSpieleRes.spiele, playoffSpiele: playoffSpieleRes.spiele }),
     eingereichteBerichte: berichteRes?.spielberichte.length ?? 0,
   };
@@ -145,6 +144,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     teams: teamsRes.format === "list" ? teamsRes.teams : [],
     gruppenSpiele: gruppenSpieleRes.spiele,
     playoffSpiele: playoffSpieleRes.spiele,
+    begonnen: saison.begonnen,
   });
 
   /**
@@ -159,7 +159,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     playoffSpiele: playoffSpieleRes.spiele,
   });
 
-  // The inner bound on the season's dates (`REQ-DATE-004`), derived rather than assembled here: a
+  // The inner bound on the season's dates (`saison_span_below_spieltage`), derived rather than assembled here: a
   // drawn season's matchdays are undated, which is the case the derivation is tested on.
   const spieltagBound = buildSpieltagBound(spieltageRes.spieltage);
 

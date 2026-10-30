@@ -269,7 +269,7 @@ class TestWhatALinkOpens:
     def test_an_open_link_whose_seat_holds_nobody_reads_as_a_token_no_seat_holds(self, mongo_replica_set_url: str):
         """A seat emptied with its link still live and no Widerspruch beside it is answered as a guess is.
 
-        Never as a page: it would offer a press `REQ-BEWERBUNG-011` refuses.
+        Never as a page: it would offer a press `bewerbung_sitz_already_answered` refuses.
         """
 
         stored = bewerbung_document()
@@ -281,7 +281,7 @@ class TestWhatALinkOpens:
 
             return refused.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, documents=[emptied]) == Code.BEWERBUNG_TOKEN_UNKNOWN
+        assert on_a_league(mongo_replica_set_url, body, documents=[emptied]) == Code.LINK_UNGUELTIG
 
     @pytest.mark.parametrize(
         ("seat", "zugleich_rolle"),
@@ -346,7 +346,7 @@ class TestWhatALinkOpens:
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_TOKEN_UNKNOWN
+        assert on_a_league(mongo_replica_set_url, body) == Code.LINK_UNGUELTIG
 
     def test_a_link_past_its_deadline_is_shown_as_expired_rather_than_refused(self, mongo_replica_set_url: str):
         expired = bewerbung_document(bestaetigungsfrist=YESTERDAY)
@@ -572,7 +572,7 @@ class TestThePageALinkOpens:
 
 
 class TestTheMediaConsent:
-    """A seat's own media consent, asked on its confirmation page as on a pupil's and a referee's (`REQ-EINWILLIGUNG-002`)."""
+    """A seat's own media consent, asked on its confirmation page as on a pupil's and a referee's (`medien_alter`)."""
 
     def test_the_view_answers_the_age_the_switch_is_offered_from(self, mongo_replica_set_url: str):
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW["trainer"]))
@@ -633,7 +633,7 @@ class TestTheMediaConsent:
 
         refusal, document, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert (refusal.error_code, refusal.status_code) == (Code.SELBST_MEDIEN_ALTER, 422)
+        assert (refusal.error_code, refusal.status_code) == (Code.MEDIEN_ALTER, 422)
         assert document == bewerbung_document()
         assert rows == []
 
@@ -666,7 +666,7 @@ class TestTheLinkIsSpentByTheStamp:
 
         code, geburtsdatum, view = on_a_league(mongo_replica_set_url, body)
 
-        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert code == Code.BEWERBUNG_SITZ_ALREADY_ANSWERED
         assert geburtsdatum == AN_ADULTS_BIRTHDATE
         assert view.zustand == "bestaetigt"
 
@@ -681,7 +681,7 @@ class TestTheLinkIsSpentByTheStamp:
 
         code, view, document, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert code == Code.BEWERBUNG_KONTAKT_ALTER
+        assert code == Code.BESTAETIGUNG_ALTER
         assert view.zustand == "gueltig"
         assert document == bewerbung_document()
         assert rows == []
@@ -697,7 +697,7 @@ class TestTheLinkIsSpentByTheStamp:
 
         code, document, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert code == Code.BEWERBUNG_KONTAKT_ALTER
+        assert code == Code.BESTAETIGUNG_ALTER
         assert document == bewerbung_document()
         assert rows == []
 
@@ -726,7 +726,7 @@ class TestTheLinkIsSpentByTheStamp:
         assert on_a_league(mongo_replica_set_url, body, documents=[expired]) == Code.BEWERBUNG_TOKEN_PAST_DEADLINE
 
     def test_a_resend_of_one_seat_reopens_every_other_seats_link_past_the_deadline(self, mongo_replica_set_url: str):
-        """Why `REQ-BEWERBUNG-017` is a 409 and not a spent link: the deadline is the application's one field, and a re-send restarts it."""
+        """`bewerbung_token_past_deadline` is a 409, no spent link: the deadline is the application's one field, and a re-send restarts it."""
 
         expired = bewerbung_document(bestaetigungsfrist=YESTERDAY)
 
@@ -741,7 +741,7 @@ class TestTheLinkIsSpentByTheStamp:
         assert on_a_league(mongo_replica_set_url, body, documents=[expired]) == (Code.BEWERBUNG_TOKEN_PAST_DEADLINE, "bestaetigt")
 
     def test_a_decided_application_refuses_every_link_as_spent(self, mongo_replica_set_url: str):
-        """`REQ-BEWERBUNG-010`: nothing sets `status` back to `eingereicht`, and a decided application takes no re-send."""
+        """`link_abgelaufen`: nothing sets `status` back to `eingereicht`, and a decided application takes no re-send."""
 
         decided = bewerbung_document(status="abgelehnt")
 
@@ -751,7 +751,7 @@ class TestTheLinkIsSpentByTheStamp:
 
             return refused.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, documents=[decided]) == Code.BEWERBUNG_TOKEN_DECIDED
+        assert on_a_league(mongo_replica_set_url, body, documents=[decided]) == Code.LINK_ABGELAUFEN
 
 
 class TestADecline:
@@ -805,7 +805,7 @@ class TestADecline:
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_SITZ_ALREADY_ANSWERED
 
 
 async def owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:
@@ -964,7 +964,7 @@ class TestAResend:
 
         response, mail, old_code, view, document = on_a_league(mongo_replica_set_url, body)
 
-        assert old_code == Code.BEWERBUNG_TOKEN_UNKNOWN
+        assert old_code == Code.LINK_UNGUELTIG
         assert (view.zustand, view.rolle) == ("gueltig", "trainer")
         assert (response.rolle, response.bestaetigungsfrist) == ("trainer", "2026-04-15")
         assert (mail.an, mail.daten.art) == ("wraxlington@example.com", "bewerbung_bestaetigung")
@@ -999,7 +999,7 @@ class TestAResend:
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_SITZ_ALREADY_ANSWERED
 
     def test_a_decided_application_gets_no_new_link(self, mongo_replica_set_url: str):
         decided = bewerbung_document(status="abgelehnt", entscheidung={"getroffen_am": YESTERDAY, "von": "admin", "grund": "kein Platz"})
@@ -1049,7 +1049,7 @@ def decline(database: AsyncDatabase, client: AsyncMongoClient, seat: str) -> Any
 
 
 class TestALinkToABarredAddress:
-    """`REQ-BEWERBUNG-020`: a ban reaches a link already in somebody's inbox, the seeded ones all minted before it."""
+    """`link_gesperrt`: a ban reaches a link already in somebody's inbox, the seeded ones all minted before it."""
 
     def test_a_consent_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1062,7 +1062,7 @@ class TestALinkToABarredAddress:
 
         refused, document, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert (refused.error_code, refused.status_code) == (Code.BEWERBUNG_EINWILLIGUNG_GESPERRT, 403)
+        assert (refused.error_code, refused.status_code) == (Code.LINK_GESPERRT, 403)
         assert document == bewerbung_document()
         assert rows == []
 
@@ -1123,7 +1123,7 @@ class TestALinkToABarredAddress:
 
             return refused.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_EINWILLIGUNG_GESPERRT
+        assert on_a_league(mongo_replica_set_url, body) == Code.LINK_GESPERRT
 
     def test_a_pair_is_refused_on_either_seats_address(self, mongo_replica_set_url: str):
         """One press writes both seats, so each address it would confirm is asked: only a hand edit parts a pair's two."""
@@ -1139,7 +1139,7 @@ class TestALinkToABarredAddress:
 
             return refused.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, documents=[paired]) == Code.BEWERBUNG_EINWILLIGUNG_GESPERRT
+        assert on_a_league(mongo_replica_set_url, body, documents=[paired]) == Code.LINK_GESPERRT
 
     def test_an_answered_seat_answers_the_stamp_rather_than_the_ban(self, mongo_replica_set_url: str):
         """The order: the answer given before the ban stands until an administrator acts, so a second press is refused as answered."""
@@ -1153,7 +1153,7 @@ class TestALinkToABarredAddress:
 
             return refused.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_SITZ_ALREADY_ANSWERED
 
     def test_a_barred_consent_carrying_a_refused_date_answers_the_ban_rather_than_the_age(self, mongo_replica_set_url: str):
         """The other half of the order: a corrected date buys a barred address nothing, so it is not what the person is asked for."""
@@ -1166,7 +1166,7 @@ class TestALinkToABarredAddress:
 
             return refused.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_EINWILLIGUNG_GESPERRT
+        assert on_a_league(mongo_replica_set_url, body) == Code.LINK_GESPERRT
 
 
 class TestTheViewOfALinkToABarredAddress:

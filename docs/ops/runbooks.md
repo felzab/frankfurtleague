@@ -304,7 +304,7 @@ administration is shut while it is down. Each of these is easy to get wrong:
   one: an older sign-in keeps administering and is offered no owner's control. A demotion takes the tier at once. An `owner` is revoked only once made an administrator, and in
   the application only an `owner` revokes; an erasure of the
   holder's own data removes the grant whatever its tier, the last
-  live owner's own erasure refused (`REQ-PURGE-004`).
+  live owner's own erasure refused (`letzter_inhaber_loeschung`).
 - **The database is written directly for two things alone: the first owner, before anybody can sign
   in, and recovery when no owner can sign in.** Write in MongoDB Playground, never
   `mongosh`, into the `berechtigungen` collection of the application database (`DB_BASE_NAME`,
@@ -317,11 +317,11 @@ sign_in_identifier`) — trimmed, the letters of both halves lower-case, the dom
   alone. The statement itself is kept off this public repository.
 - **Paste only into a database a boot of the release carrying `berechtigungen` has reached.** That
   boot creates the validator and the unique index; a paste before it creates the collection with
-  neither, and a duplicate address in it then fails the next boot's index build (`SRV-BOOT-004`).
+  neither, and a duplicate address in it then fails the next boot's index build (`db.indexes_failed`).
   Until the paste lands no address holds a grant, so the site admits no administrator; the public
   site is untouched.
 - **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer, the tier change to leave no owner, and the Playground refuses nothing: the boot warns with
-  `SRV-BOOT-005` where no grant is left and `SRV-BOOT-006` where no owner is, and serves the public
+  `berechtigungen.no_grant` where no grant is left and `berechtigungen.no_owner` where no owner is, and serves the public
   site either way. An erasure refuses neither short of the last owner's own, and the same two
   warnings follow its commit; nothing warns where one grant is left.
 - **A barred address is granted nothing, and a granted one is banned by nothing**: lift the ban first, or revoke the grant first. A grant the
@@ -585,18 +585,18 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   `fl_backend/app/shared/schemas/bounds.py :: GENEHMIGUNG_TAGE` days of its start;
   neither the changed address nor whoever started the change gives it. Revoking the grant while a confirmed change waits needs
   no approval after it: the next hourly pass makes the change take effect, the grant moving nowhere. The tool starts a grant holder's change for an owner
-  alone (`REQ-PURGE-005`), and a last owner names another owner before changing their own address. On the effect the grant moves to the new address under the
+  alone (`verwaltung_adresse`), and a last owner names another owner before changing their own address. On the effect the grant moves to the new address under the
   approver, announced to every administrator as a revoke and a grant.
 - **The mailbox has passed to somebody else**, a school account given to a new pupil say. Whoever
   holds the address on file can sign in as the person, stop every change started here and start one
   of their own, and no administrator's route overrides them. The remedy is outside the site: settle
   it with the school or provider that reassigned the mailbox, and with the person through a channel
   the league already holds.
-- **What refuses an administrator's start**: the ban list (`REQ-ADRESSWECHSEL-009`), another pupil
+- **What refuses an administrator's start**: the ban list (`adresswechsel_gesperrt`), another pupil
   signing in on the new address where a pupil row moves, an address
-  holding nothing a change moves (`REQ-ADRESSWECHSEL-010`), and your own address
-  (`REQ-PURGE-003`), which you change on your own account page, and a new address any entry names,
-  confirmed or not (`REQ-ADRESSWECHSEL-018`), which the confirmation would refuse too: where the two
+  holding nothing a change moves (`adresswechsel_nichts`), and your own address
+  (`eigene_adresse`), which you change on your own account page, and a new address any entry names,
+  confirmed or not (`adresswechsel_belegt`), which the confirmation would refuse too: where the two
   addresses are one person's, the league merges their records by hand.
 - **Re-send** a link only while the change waits on the new mailbox
   (`POST /adresswechsel/{adresswechsel_id}/einladen`), and **discard** a change that turns out to be
@@ -667,7 +667,7 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   somebody else (`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung`).
   Send them the link again rather than erasing for them; the record then says the person refused
   rather than that an administrator removed them. **An address the ban list holds takes no second
-  link** (`REQ-BEWERBUNG-019`), and the link it already holds opens on the ban's sentence alone,
+  link** (`bewerbung_kontakt_gesperrt`), and the link it already holds opens on the ban's sentence alone,
   offering no Widerspruch: its withdrawal reaches the league's
   mailbox and is performed by hand, on „Löschung auf Anfrage“ (`/bereich/admin/loeschung`), which erases everything the
   address holds rather than this seat alone. Once the school has named a replacement, seat them
@@ -677,8 +677,8 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   and neither does one half of a claimed pair whose other half has not stepped out: that application
   takes only the Absage.
 - **The seat has already answered, or the link is over.** A seat that has confirmed or already
-  contradicted takes no second answer (`REQ-BEWERBUNG-011`), and a link whose deadline has passed
-  (`REQ-BEWERBUNG-017`) or whose application has been decided (`REQ-BEWERBUNG-010`) takes none either —
+  contradicted takes no second answer (`bewerbung_sitz_already_answered`), and a link whose deadline has passed
+  (`bewerbung_token_past_deadline`) or whose application has been decided (`link_abgelaufen`) takes none either —
   each is a refusal the person meets on the page, not something to talk them through. The route is „Löschung auf Anfrage“
   like any other.
 - **The application has been decided.** „Löschung auf Anfrage“, as above.
@@ -687,8 +687,8 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   submitter having entered them (`docs/glossary.md :: Bestätigung`). A lost or lapsed link is sent
   again with „Bestätigungslink senden“ on that seat in the team's contacts editor
   (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`), which replaces the old link
-  whole. It refuses an address the ban list holds (`REQ-KONTAKT-003`) and a row whose season has
-  ended or whose team has left it (`REQ-KONTAKT-005`), though a link
+  whole. It refuses an address the ban list holds (`kontakt_sitz_gesperrt`) and a row whose season has
+  ended or whose team has left it (`kontakt_zeile_ohne_saison`), though a link
   such a row already holds still takes a Widerspruch. Where no live link is left, or the seat has
   already answered, the route is „Löschung auf Anfrage“.
 
@@ -743,7 +743,7 @@ once the person's own address stands on it again**
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)): on a row the person
 has not confirmed, save that address in the referee editor, which on a row still in service mails
 them a confirmation link first, then erase it; a confirmed row's editor refuses the save
-(`REQ-SCHIEDSRICHTER-011`) and the address tool finds no row by an empty address, so rewrite it by
+(`schiedsrichter_adresse_nur_per_wechsel`) and the address tool finds no row by an empty address, so rewrite it by
 hand as [section 9](#9-checking-that-the-hourly-passes-have-run) rewrites a pupil's. The page mails
 the person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
@@ -761,7 +761,7 @@ and nothing verifies it: what surfaces is somebody recognising the person or the
 Decline the application and bar the address at `/bereich/admin/sperrliste` with the reason in your own words
 and no person named in it, the row outliving that person's erasure
 ([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up-and-from-the-leagues-mail)). An
-address holding a grant is refused (`REQ-SPERRLISTE-003`) until the grant is revoked
+address holding a grant is refused (`sperrliste_verwaltung`) until the grant is revoked
 ([section 3](#3-granting-or-revoking-admin-access)). **The write
 mails the person itself where the address holds a sign-in account**, naming the reason you typed and
 the last season the ban covers, so there is nothing to send by hand; an address that never signed in
@@ -772,16 +772,16 @@ record holds the address ([`../datenschutz.md`](../datenschutz.md#6-retention-is
 page says so too, every person page refuses the sessions as no session at all, and each is deleted the next time its browser reaches the sign-in
 page. **Every later sign-in of the address
 is refused as its session would be created**, by a code or a passkey alike. **Beyond that the ban refuses the sign-ups that ask it and the
-administration.** A pupil's registration asks it and is refused (`REQ-REGISTRIERUNG-009`), and so do
-an application naming the address on any seat (`REQ-BEWERBUNG-018`), an administrator's correction,
-reseat or re-send of a seat to it (`REQ-BEWERBUNG-019`) and every referee write that mints a link,
+administration.** A pupil's registration asks it and is refused (`registrierung_adresse_gesperrt`), and so do
+an application naming the address on any seat (`bewerbung_adresse_gesperrt`), an administrator's correction,
+reseat or re-send of a seat to it (`bewerbung_kontakt_gesperrt`) and every referee write that mints a link,
 and both sweeps withhold the reminder they would send it, logging per season how many they held
-back and never which; nothing marks the row, so each pass counts it again until its deadline. A grant of the address is refused (`REQ-BERECHTIGUNG-003`), a grant the Playground
+back and never which; nothing marks the row, so each pass counts it again until its deadline. A grant of the address is refused (`berechtigung_gesperrt`), a grant the Playground
 wrote onto it admits nobody, and no admin read shows it as a grant's holder or as the author of a
 grant, a ban, an invitation, a decision or a log row: each reads „Gesperrte Adresse“ there instead. **Every confirmation link
 already mailed to the address stops confirming at once**, however long ago it went out: a pupil's
-(`REQ-REGISTRIERUNG-012`), a referee's (`REQ-SCHIEDSRICHTER-009`) and a contact seat's
-(`REQ-BEWERBUNG-020`) link opens on the ban's sentence alone, with nothing to press, and a press
+(`link_gesperrt`), a referee's (`link_gesperrt`) and a contact seat's
+(`link_gesperrt`) link opens on the ban's sentence alone, with nothing to press, and a press
 already under way is refused. A
 contact person's Widerspruch then reaches the league's address, as the withdrawal bullet above says.
 Nothing of the ban is written on those records, so lifting a mistaken ban lets a link still inside
@@ -804,7 +804,7 @@ it; work through it before the second press, since the dialog closes on the ban.
 
 - a referee: „Spiele der Saison … neu besetzen“, one link for each season holding an unplayed
   fixture they are booked on, opens the fixture search at that season to reassign them, then
-  „Schiedsrichter stilllegen“ retires them, which `REQ-RETIRE-004` holds to that order across every
+  „Schiedsrichter stilllegen“ retires them, which `schiedsrichter_still_assigned` holds to that order across every
   season; a referee retired already is offered „Eintrag ansehen“ instead;
 - a pupil's squad row: „Kadereintrag austragen“ retires it, which takes the pupil off the public
   squad list; a row taken out already is offered „Eintrag ansehen“ instead;
@@ -1148,9 +1148,9 @@ as `bewerbungen left <n>`.
 
 **A row either pass cannot write is passed over and named, and the pass goes on.** The
 backend's line names the application, the registration or the season row by id, the error's class
-and what locates it, never a person's values: `DB-FAIL-001` is a write the database refused, with
-the properties its validator refused; `SRV-VAL-001` a stored value the answer cannot carry, such as
-a hand-edited deadline or an empty first name, with the fields refused; and `SRV-FAIL-001` any other
+and what locates it, never a person's values: `database_failed` is a write the database refused, with
+the properties its validator refused; `stored_data_invalid` a stored value the answer cannot carry, such as
+a hand-edited deadline or an empty first name, with the fields refused; and `unhandled_crash` any other
 failure, with the file, line and function it was raised in. The rest of that clock's rows go, and
 the named one stays due: every later pass names it again until its record is repaired. **An application the fourteen-day clock passes over is owed no notice**: the notice is owed in the erasure's own
 write, so the application stands past its fourteen days, nobody told, until the erasure lands or its season is
@@ -1170,7 +1170,7 @@ backend's lines then name each row, as above.
 every other clock fails the call.** The clocks owing one are the two reminder clocks and the
 registrations' season's end. For them a warning that the database deadline passed, or that it held
 no further attempt, is the call answering every half that committed, and the next pass goes on;
-where the warning names a commit unanswered, under `DB-FAIL-002`, the rows it names may have been
+where the warning names a commit unanswered, under `unknown_outcome`, the rows it names may have been
 written with nobody told, and a later pass meets again only those it did not write. Any other clock
 the deadline stops there fails its call, as the failure lines above report.
 
@@ -1223,23 +1223,23 @@ page for at most the lifetime [section 20](#20-after-a-hand-edit-in-mongodb) sta
 
 **A pupil counted `fehlgeschlagen` stays due, and every later pass meets them again.** The
 backend's line names that pupil's id, the error's class and what locates it, never an address:
-under `DB-FAIL-001` the properties a validator refused the erasure's write on, under `SRV-VAL-001`
-the fields a model refused, and under `SRV-FAIL-001` the file, line and function a failure the
+under `database_failed` the properties a validator refused the erasure's write on, under `stored_data_invalid`
+the fields a model refused, and under `unhandled_crash` the file, line and function a failure the
 database did not raise came from. Find the record it points to and repair it, and the pass after
 deletes the pupil. A warning saying the database deadline
 passed at a pupil or at an address change is the call stopping in time rather than a refusal: the
 pass goes on from the next call, and it needs nothing from you. Where it adds that the erasure, the
-removal or the effect went unanswered, under `DB-FAIL-002`, that one's outcome is unknown: one that
+removal or the effect went unanswered, under `unknown_outcome`, that one's outcome is unknown: one that
 did not commit is judged afresh by the next pass, and an effect or a refusal that did is told by
 the outbox's drain, its notice queued in the same transaction.
 
-**A `SRV-VAL-001` warning naming pupils left out of the deletion is a stored address no request
+**A `stored_data_invalid` warning naming pupils left out of the deletion is a stored address no request
 matches** — empty, not in the form sign-in folds it to, or refused by the address rule, which only
 a hand edit of the record leaves.
 The run passes those pupils over on every pass until their address is stored in that form. **No
 route repairs one**: the address tool and the account page find a pupil by the folded address alone
 (`fl_backend/app/api/spieler/services.py :: build_selbst_pupil_filter`), so a change started for it
-finds nothing to move (`REQ-ADRESSWECHSEL-010`), and the tool takes no address the rule refuses.
+finds nothing to move (`adresswechsel_nichts`), and the tool takes no address the rule refuses.
 Rewrite it by hand as a MongoDB Playground paste kept in the operator's checklist (§2): a spelling
 that differs from its fold only in case, surrounding spaces or the domain's form to that fold, and
 an empty one or one the rule refuses to the folded address the person is established to hold, as
@@ -1259,7 +1259,7 @@ with it the squad cache's drop after it.
 
 **Read the season page's count before pressing the rollover.** Beside the press it says at most
 how many pupils activating the season deletes, and which season it closes. It is a bound because it
-counts the pupils the run passes over too (`SRV-VAL-001` above). A figure naming more people than
+counts the pupils the run passes over too (`stored_data_invalid` above). A figure naming more people than
 the league lost is the signal to hold the press and ask why, and a line saying the count is not
 available is a read that failed: reload the page until it gives a figure.
 
@@ -1302,12 +1302,12 @@ unwritten.** A pass whose sign-in store could not be listed rejects, which `sche
 names as `konto` and the heartbeat as `konto failed`. Every other failure inside a pass is a line of
 its own, and the next pass asks again.
 
-**A `konto.referenzen_failed` line carrying `REQ-REFERENZEN-001` means the backend reads no live
+**A `konto.referenzen_failed` line carrying `kein_inhaber` means the backend reads no live
 `owner` grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass still writes its
 `konto.sweep_completed` line, its `fehlgeschlagen` equal to its `gelistet`, so a completion line
 alone does not say the sweep works. Either the backend reads another database than the league's,
 which `DB_BASE_NAME` in `fl_backend/.env` names, or the `owner` grant is gone; the backend's boot warns
-`SRV-BOOT-005` or `SRV-BOOT-006` in both cases. Repair the setting, or write the `owner` grant as
+`berechtigungen.no_grant` or `berechtigungen.no_owner` in both cases. Repair the setting, or write the `owner` grant as
 [section 3](#3-granting-or-revoking-admin-access) says.
 
 **The erasure journal's export answers in its unit's status and its file names** (§7): the status
@@ -1516,7 +1516,7 @@ review`, the restored database holding no change to move: ask the person to star
   unless the new address holds records or an account of its own (`adresswechsel.konto_nicht_umgezogen`). A
   grant holder's effect whose approval came after the snapshot also reads `left for review`: the
   restored change waits on an approval again, and where its week is past an approval is refused
-  (`REQ-ADRESSWECHSEL-003`), so discard it and have the person start again. A change started,
+  (`link_abgelaufen`), so discard it and have the person start again. A change started,
   confirmed or approved inside the window and not yet in effect is in no journal: its person starts
   it again too.
 - **An address an administrator corrected inside the window**: a referee's who had not confirmed,

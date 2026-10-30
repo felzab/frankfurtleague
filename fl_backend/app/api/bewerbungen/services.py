@@ -214,7 +214,7 @@ def find_picked_club_refusal(*, team_raw: Mapping[str, Any] | None) -> WriteRefu
 
     if team_raw is None or team_raw.get("inactive_since") is not None:
         return WriteRefusal(
-            error_code=Code.BEWERBUNG_PICKED_CLUB_UNUSABLE,
+            error_code=Code.BEWERBUNG_PICKED_TEAM_UNUSABLE,
             status=HTTPStatus.CONFLICT,
         )
 
@@ -230,7 +230,7 @@ def find_already_entered_refusal(*, entered: bool) -> WriteRefusal | None:
 
     if entered:
         return WriteRefusal(
-            error_code=Code.BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED,
+            error_code=Code.BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED,
             status=HTTPStatus.CONFLICT,
         )
 
@@ -491,7 +491,7 @@ def find_unknown_token_refusal(*, seat: FLKontaktRolle | None) -> WriteRefusal |
 
     if seat is None:
         return WriteRefusal(
-            error_code=Code.BEWERBUNG_TOKEN_UNKNOWN,
+            error_code=Code.LINK_UNGUELTIG,
             status=HTTPStatus.NOT_FOUND,
         )
 
@@ -501,7 +501,7 @@ def find_unknown_token_refusal(*, seat: FLKontaktRolle | None) -> WriteRefusal |
 def seat_opens_nobody(*, slot: Any, zustand: FLBewerbungEinwilligungZustand) -> bool:
     """Whether an open link's seat holds nobody, emptied without a Widerspruch: the view answers it as a token no seat holds.
 
-    Told apart, it would tell a guess that a person once sat there, and offer a press `REQ-BEWERBUNG-011` refuses.
+    Told apart, it would tell a guess that a person once sat there, and offer a press `bewerbung_sitz_already_answered` refuses.
     """
 
     return zustand in ("gueltig", "saison_vorbei") and not isinstance(slot, Mapping)
@@ -532,7 +532,7 @@ def find_expired_token_refusal(*, bestaetigungsfrist: Any, status: Any, today: s
 
     if _is_decided(status):
         return WriteRefusal(
-            error_code=Code.BEWERBUNG_TOKEN_DECIDED,
+            error_code=Code.LINK_ABGELAUFEN,
             status=HTTPStatus.GONE,
         )
 
@@ -576,7 +576,7 @@ def find_already_answered_refusal(*, kontakte: Any, bestaetigungen: Any, seat: s
 
     if seat_is_answered(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=seat):
         return WriteRefusal(
-            error_code=Code.BEWERBUNG_SEAT_ALREADY_ANSWERED,
+            error_code=Code.BEWERBUNG_SITZ_ALREADY_ANSWERED,
             status=HTTPStatus.CONFLICT,
         )
 
@@ -586,7 +586,7 @@ def find_already_answered_refusal(*, kontakte: Any, bestaetigungen: Any, seat: s
 def find_alter_refusal(*, geburtsdatum: str, today: str, mindestalter: int) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`.
 
-    Its own code with `refuse_age_outside_the_bounds`'s German rather than a `REQ-VAL-001`, whose
+    Its own code with `refuse_age_outside_the_bounds`'s German rather than a `payload_refused`, whose
     mark on the field names no floor. Judged BEFORE any write, so a mistyped year spends nothing.
     """
 
@@ -594,7 +594,7 @@ def find_alter_refusal(*, geburtsdatum: str, today: str, mindestalter: int) -> W
         refuse_age_outside_the_bounds(geburtsdatum=geburtsdatum, today=today, mindestalter=mindestalter)
     except ValueError:
         return WriteRefusal(
-            error_code=Code.BEWERBUNG_KONTAKT_ALTER,
+            error_code=Code.BESTAETIGUNG_ALTER,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
         )
@@ -672,7 +672,7 @@ def saison_frist_of(*, bestaetigungen: Any, seat: str) -> Any:
 
 
 def saison_link_is_over(*, frist: Any, today: str) -> bool:
-    """Whether a season row's seat link is past its own deadline: what its press refuses (`REQ-KONTAKT-004`) and the editor shows."""
+    """Whether a season row's seat link is past its own deadline: what its press refuses (`link_abgelaufen`) and the editor shows."""
 
     return _deadline_passed(bestaetigungsfrist=frist, today=today)
 
@@ -694,7 +694,7 @@ def saison_zustand_of(*, row: Mapping[str, Any], seat: str, today: str, gesperrt
     zustand = _zustand(kontakte=row.get("kontakte"), bestaetigungen=bestaetigungen, seat=seat, over=over, gesperrt=gesperrt)
 
     # Below the deadline, as the press refuses: past it the link takes no Widerspruch either
-    # (`REQ-KONTAKT-004`), while a closed row's link still takes one (`REQ-KONTAKT-006`).
+    # (`link_abgelaufen`), while a closed row's link still takes one (`kontakt_saison_vorbei`).
     if zustand == "gueltig" and not row_takes_confirmations(saison_status=saison_status, austritt=row.get("austritt")):
         return "saison_vorbei"
 
@@ -711,7 +711,7 @@ def find_saison_frist_refusal(*, frist: Any, today: str) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=Code.KONTAKT_LINK_ABGELAUFEN,
+        error_code=Code.LINK_ABGELAUFEN,
         status=HTTPStatus.GONE,
     )
 
@@ -1021,7 +1021,7 @@ def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[s
 
 
 def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-BEWERBUNG-018`: the ban list holds one of the addresses a submission names.
+    """`bewerbung_adresse_gesperrt`: the ban list holds one of the addresses a submission names.
 
     Takes the answer rather than the lookup, so the caller's reads run in the caller's transaction.
     """
@@ -1038,10 +1038,10 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
 
 
 def find_kontakt_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-BEWERBUNG-019`: an administrator's correction or reseat names an address the ban list holds.
+    """`bewerbung_kontakt_gesperrt`: an administrator's correction or reseat names an address the ban list holds.
 
     409 where the public form's is 403: an administrator's write naming it is about the entry it writes,
-    as the referee editor's `REQ-SCHIEDSRICHTER-007` is.
+    as the referee editor's `schiedsrichter_adresse_gesperrt` is.
     """
 
     if not gesperrt:
@@ -1054,7 +1054,7 @@ def find_kontakt_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
 
 
 def find_einwilligung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-BEWERBUNG-020`: the ban list holds the address a confirmation link was mailed to, however long ago it was minted.
+    """`link_gesperrt`: the ban list holds the address a confirmation link was mailed to, however long ago it was minted.
 
     Asked of a consent alone: a Widerspruch empties the seat, which is what a barred person is owed.
     """
@@ -1065,7 +1065,7 @@ def find_einwilligung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None
     # 403 and named plainly, where the form's is neutral: whoever holds the mailed token holds that
     # mailbox, as a sign-in code's holder does, and the ban's own mail has told them.
     return WriteRefusal(
-        error_code=Code.BEWERBUNG_EINWILLIGUNG_GESPERRT,
+        error_code=Code.LINK_GESPERRT,
         status=HTTPStatus.FORBIDDEN,
     )
 
@@ -1151,7 +1151,7 @@ def find_reseat_refusal(*, bestaetigungen: Any, seats: Sequence[str]) -> WriteRe
     for seat in seats:
         if not seat_awaits_a_replacement(bestaetigungen=bestaetigungen, seat=seat):
             return WriteRefusal(
-                error_code=Code.BEWERBUNG_SEAT_ALREADY_ANSWERED,
+                error_code=Code.BEWERBUNG_SITZ_ALREADY_ANSWERED,
                 status=HTTPStatus.CONFLICT,
             )
 

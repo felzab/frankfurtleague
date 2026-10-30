@@ -162,7 +162,7 @@ describe("a person's own account deletion, from the account page's press to the 
   it("leaves the account and its passkeys where the backend refuses the erasure, having asked it, in the refusal's own words", async () => {
     const { row, token } = await mitLink("verweigert@example.org");
     // A ban entered since the spine judged the session, which the person route asks again.
-    erasureAnswer = () => Response.json({ error_code: "REQ-AUTH-008", trace_id: "0".repeat(32) }, { status: 403 });
+    erasureAnswer = () => Response.json({ error_code: "person_barred", trace_id: "0".repeat(32) }, { status: 403 });
 
     const answer = await loescheKontoAction(token);
 
@@ -182,7 +182,7 @@ describe("a person's own account deletion, from the account page's press to the 
     let acts = 0;
 
     await assertEachAnswered({
-      codes: refusalCodes("DB-COMMON-002", "REQ-PURGE-004"),
+      codes: refusalCodes("duplicate_key", "letzter_inhaber_loeschung"),
       // The write double's refusal, as the fetch double answers it: the API client raises it again from the body.
       refuseWith: (next) => {
         erasureRefused = next().then(
@@ -209,7 +209,7 @@ describe("a person's own account deletion, from the account page's press to the 
      spent link cannot take. */
   it("answers an erasure whose answer was lost with the new link the spent one needs", async () => {
     const { row, token } = await mitLink("verloren@example.org");
-    erasureAnswer = () => Response.json({ error_code: "DB-CONN-001", trace_id: "0".repeat(32) }, { status: 503 });
+    erasureAnswer = () => Response.json({ error_code: "no_database_client", trace_id: "0".repeat(32) }, { status: 503 });
 
     const answer = await loescheKontoAction(token);
 
@@ -344,7 +344,7 @@ describe("a person's own account deletion, from the account page's press to the 
      was spent: its words add that a new link is needed. */
   it("words the backend's own last-owner refusal with the new link it needs, having asked the backend", async () => {
     const { row, token } = await verwaltendMitLink("zweite-inhaberin@example.org");
-    erasureAnswer = () => Response.json({ error_code: "REQ-PURGE-004", trace_id: "0".repeat(32) }, { status: 409 });
+    erasureAnswer = () => Response.json({ error_code: "letzter_inhaber_loeschung", trace_id: "0".repeat(32) }, { status: 409 });
 
     const answer = await loescheKontoAction(token);
 
@@ -361,7 +361,7 @@ describe("a person's own account deletion, from the account page's press to the 
      spent the link: the page asks for the passkey, and its next press meets the spent link's own words. */
   it("answers the backend's confirmation refusal as the page's passkey prompt, the page's figures read again", async () => {
     const { row, token } = await verwaltendMitLink("verwaltung-backend-fenster@example.org");
-    erasureAnswer = () => Response.json({ error_code: "REQ-AUTH-009", trace_id: "0".repeat(32) }, { status: 401 });
+    erasureAnswer = () => Response.json({ error_code: "confirmation_required", trace_id: "0".repeat(32) }, { status: 401 });
     cacheCalls.length = 0;
 
     const answer = await loescheKontoAction(token);

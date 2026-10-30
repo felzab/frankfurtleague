@@ -335,7 +335,7 @@ describe("the reason the Zusage is closed", () => {
     expect(zusageHindernis(pairOf, TEAM)).toBe(zusageHindernis(standsOf2(seatsOf()), TEAM));
   });
 
-  /* `REQ-BEWERBUNG-002` is judged before `REQ-BEWERBUNG-013`, so the reason under the control is
+  /* `bewerbung_subject_unresolved` is judged before `bewerbung_kontakte_unconfirmed`, so the reason under the control is
      the one the write would answer with rather than the first one this page happens to find. */
   it("answers the row naming no club before it answers a seat", () => {
     expect(zusageHindernis(standsOf2(ERASED), null) ?? "").toMatch(/^Ohne eine neue Schule/);

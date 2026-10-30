@@ -59,9 +59,10 @@ query carrying a `token`, an `email` or a `q` parameter
 and a mailed address travel there. nginx's error log is plain text, since the open-source build
 offers no other format, and it can repeat such a URL.
 
-**An error code reads `<AREA>-<SUBJECT>-<NNN>`.** Every code a failure body carries is a
-member of `fl_backend/app/core/codes.py :: Code`, which `fl_backend/openapi.json` lists once as
-the failure body's `error_code`; the codes only a log line carries are spelled where they are raised.
+**An error code is its reason's name in lower snake case**, such as `version_stale`. Every code a
+failure body carries is a member of `fl_backend/app/core/codes.py :: Code`, its value the member's
+own name, which `fl_backend/openapi.json` lists once as the failure body's `error_code`. A line
+only the log carries names its event by its key alone, such as `db.unreachable`.
 
 ## Where the logs are, and how long they stay
 
@@ -81,9 +82,9 @@ indexes them.
 
 A client component cannot reach the server's logger. Every error boundary therefore posts its crash
 to `POST /api/client-error` (`fl_frontend/src/app/api/client-error/route.ts`), which writes one
-`FE-CLIENT-001` line; the bot-check widget reports a failure the same way. The route is public, so
+`client.crash_reported` line; the bot-check widget reports a failure the same way. The route is public, so
 nginx rate-limits it and the route caps every field. A failure rendered on the server is logged as
-`FE-RSC-001` with a digest instead, and the error page's report link
+`system.request_crashed` with a digest instead, and the error page's report link
 (`fl_frontend/src/shared/components/ui/CrashReportLink.tsx`) carries that digest, the route and the
 time, which together find the line.
 

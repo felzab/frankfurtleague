@@ -133,7 +133,7 @@ class FLEinladungAnsichtResponse(BaseAPIResponse):
     laeuft: bool
     erlaubte_stufen: list[FLSpielerStufe]
     # Whether the season holds the invite's team at all. False is a state the page words rather than
-    # a form to fill in: every submission through it meets `REQ-REGISTRIERUNG-002`.
+    # a form to fill in: every submission through it meets `registrierung_geschlossen`.
     team_eingetragen: bool
     # Whether the squad has room today. The write asks again: this answer is a form's, and two
     # submissions for one remaining place both pass it.
@@ -225,10 +225,10 @@ class FLRegistrierungBestaetigungPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     token: CustomToken
-    # Unbounded: the age is a 422 with its own code, never a `REQ-VAL-001`, so the page marks its one
+    # Unbounded: the age is a 422 with its own code, never a `payload_refused`, so the page marks its one
     # field and keeps the typed date. Null where a stored one is taken, and required for `umfang`'s reason.
     geburtsdatum: CustomOptionalDateString
-    # Both set on the new pupil's page and both null on the returning pupil's (`REQ-REGISTRIERUNG-017`).
+    # Both set on the new pupil's page and both null on the returning pupil's (`registrierung_wahlen_unpassend`).
     # Required rather than defaulted: a page omitting one would store this model's answer in place of
     # the person's.
     umfang: FLEinwilligungUmfang | None

@@ -8,7 +8,7 @@ from app.core.codes import Code
 
 
 class TestAMatchdayNeverBeginsBeforeItsPredecessor:
-    """`REQ-DATE-008`: `position` and `beginn` order a phase independently, and this is what holds the two together."""
+    """`spieltag_beginn_out_of_order`: `position` and `beginn` order a phase independently, and this is what holds the two together."""
 
     def order(
         self,

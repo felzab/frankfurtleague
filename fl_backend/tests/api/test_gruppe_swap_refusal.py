@@ -23,7 +23,7 @@ class TestOneClubNamedTwice:
 
         assert refusal is not None
         assert (refusal.error_code, refusal.status, refusal.fields) == (
-            Code.SWAP_ONE_CLUB_TWICE,
+            Code.SWAP_NOT_A_SWAP,
             HTTPStatus.UNPROCESSABLE_CONTENT,
             (("team1_id",), ("team2_id",)),
         )
@@ -43,7 +43,12 @@ class TestWhatCountsAsASwap:
         )
 
         assert refusal is not None
-        assert refusal.error_code == Code.SWAP_NOT_A_SWAP
+        # The pick of two clubs is what is refused, so on both boxes, as one club named twice is.
+        assert (refusal.error_code, refusal.status, refusal.fields) == (
+            Code.SWAP_NOT_A_SWAP,
+            HTTPStatus.UNPROCESSABLE_CONTENT,
+            (("team1_id",), ("team2_id",)),
+        )
 
 
 # The shape `pull_many_from_db` hands the handler.

@@ -30,7 +30,7 @@ WITHHELD_FROM_BASE_TIER: FLSaisonStatus = "future"
 def base_tier_status_term(requested: FLSaisonStatus | None = None) -> dict[str, Any]:
     """The `status` term every base-tier season read runs; `requested` is the caller's own filter.
 
-    NARROWED, never fetched then hidden: a withheld season matches nothing, so `DB-COMMON-001`'s 404
+    NARROWED, never fetched then hidden: a withheld season matches nothing, so `document_not_found`'s 404
     stays true and no 403 confirms the season exists.
     """
 
@@ -49,10 +49,10 @@ FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "qualifiers
 
 # The three the fixtures were drawn from. A RAISE is what nothing else refuses: `anzahl_spiele` is
 # derived per matchday, so every matchday would then expect matches nobody drew, and
-# `REQ-RULES-006` reads the narrowing direction alone.
+# `rules_spieltag_over_its_phase` reads the narrowing direction alone.
 SHAPE_RULES_FIELDS: tuple[str, ...] = ("number_of_groups", "teams_per_group", "qualifiers_per_group")
 
-# The one of the three a REDRAW moves. `REQ-SPIELPLAN-004` asks every offered group for exactly
+# The one of the three a REDRAW moves. `spielplan_gruppen_off_rules` asks every offered group for exactly
 # `teams_per_group`, so a redraw carrying either of the others is refused for the groups then off
 # their size; qualifiers touch no group's occupancy at all.
 REDRAWABLE_SHAPE_FIELD = "qualifiers_per_group"
@@ -72,7 +72,7 @@ def _forfeit_draws_a_knockout(rules: FLSaisonRules) -> bool:
     """Whether these rules compose a knockout no-show as a level result.
 
     `knockout_phases_for` again rather than a second reading of the product, so this and
-    `REQ-RULES-001` cannot disagree about whether the season has a bracket.
+    `rules_bracket_impossible` cannot disagree about whether the season has a bracket.
     """
 
     return bool(knockout_phases_for(qualifier_count(rules))) and rules.forfeit_ergebnis.sieger_tore == rules.forfeit_ergebnis.verlierer_tore
@@ -94,7 +94,7 @@ def find_rules_freeze_refusal(*, saison_status: str, started: bool, stored: FLSa
         return None
 
     return WriteRefusal(
-        error_code=Code.RULES_SAISON_FINISHED,
+        error_code=Code.RULES_SAISON_STARTED,
         status=HTTPStatus.CONFLICT,
     )
 
@@ -123,7 +123,7 @@ def find_rules_refusal(
         redrawn = [field for field in SHAPE_RULES_FIELDS if getattr(stored, field) != getattr(proposed, field)]
         if redrawn:
             return WriteRefusal(
-                error_code=Code.RULES_SHAPE_AFTER_DRAW,
+                error_code=Code.RULES_SHAPE_AFTER_SPIELPLAN,
                 status=HTTPStatus.CONFLICT,
             )
 
@@ -134,7 +134,7 @@ def find_rules_refusal(
     # resubmits a stored violation unchanged, and shrinking an excess repairs it.
     if excess > 0 and (stored is None or excess > stored.qualifiers_per_group - stored.teams_per_group):
         return WriteRefusal(
-            error_code=Code.RULES_QUALIFIERS_ABOVE_GROUP,
+            error_code=Code.RULES_QUALIFIERS_ABOVE_GRUPPE,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
         )
 
@@ -143,7 +143,7 @@ def find_rules_refusal(
     draw_excess = proposed.draw_points - proposed.win_points
     if draw_excess > 0 and (stored is None or draw_excess > stored.draw_points - stored.win_points):
         return WriteRefusal(
-            error_code=Code.RULES_DRAW_OUTVALUES_WIN,
+            error_code=Code.RULES_UNENTSCHIEDEN_OUTVALUES_WIN,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
         )
 
@@ -161,12 +161,12 @@ def find_rules_refusal(
     # no knockout round, so a count taken over one measures a season the admin has not asked for.
     fixtures = total_season_fixtures(proposed)
     stored_fixtures = None if stored is None else total_season_fixtures(stored)
-    # The EXCESS, as `REQ-RULES-007` and `REQ-RULES-008` beside it: `rules` is required on the patch,
+    # The EXCESS, as `rules_qualifiers_above_gruppe` and `rules_unentschieden_outvalues_win` beside it: `rules` is required on the patch,
     # so a dates-only edit resubmits a stored count unchanged and any step that shrinks one repairs
     # the season.
     if fixtures > LIST_LIMIT_DEFAULT and (stored_fixtures is None or fixtures > stored_fixtures):
         return WriteRefusal(
-            error_code=Code.RULES_FIXTURES_OVER_ONE_READ,
+            error_code=Code.RULES_SPIELE_OVER_ONE_READ,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
         )
 
@@ -187,7 +187,7 @@ def find_rules_refusal(
         stranded = sorted(gruppe for gruppe, held in occupancy_by_gruppe.items() if held > 0 and gruppe not in offered)
         if stranded:
             return WriteRefusal(
-                error_code=Code.RULES_GROUPS_IN_USE,
+                error_code=Code.RULES_GRUPPEN_IN_USE,
                 status=HTTPStatus.CONFLICT,
             )
 
@@ -199,7 +199,7 @@ def find_rules_refusal(
                 status=HTTPStatus.CONFLICT,
             )
 
-    # Only where the patch LOWERS it, on `REQ-RULES-003`'s shape: a cap left where it stands is not
+    # Only where the patch LOWERS it, on `rules_capacity_below_use`'s shape: a cap left where it stands is not
     # this edit's doing, and refusing it would bar the very edit that repairs the season.
     if proposed.max_kadergroesse < stored.max_kadergroesse and largest_squad > proposed.max_kadergroesse:
         return WriteRefusal(
@@ -223,7 +223,7 @@ def find_rules_refusal(
         # and refusing it would leave the season unpatchable.
         if attached > expected and expected < expected_matches(stored, phase):
             return WriteRefusal(
-                error_code=Code.RULES_MATCHDAY_OVER_ITS_PHASE,
+                error_code=Code.RULES_SPIELTAG_OVER_ITS_PHASE,
                 status=HTTPStatus.CONFLICT,
             )
 
@@ -248,7 +248,7 @@ def find_saison_span_refusal(
     required_days = sum(entry.matchdays for entry in schedule_for(rules))
     if offered_days < required_days:
         return WriteRefusal(
-            error_code=Code.SAISON_SPAN_BELOW_SCHEDULE,
+            error_code=Code.SAISON_SPAN_BELOW_SPIELPLAN,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
         )
 
@@ -268,7 +268,7 @@ def find_saison_span_refusal(
 # reads the shape alone, or a stored value only a hand-edited document breaks.
 DRAW_TWINS: Mapping[Code, Code] = {
     Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT: Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED,
-    Code.SAISON_SPAN_BELOW_SCHEDULE: Code.SAISON_SPAN_BELOW_SCHEDULE_AS_STORED,
+    Code.SAISON_SPAN_BELOW_SPIELPLAN: Code.SAISON_SPAN_BELOW_SPIELPLAN_AS_STORED,
 }
 
 
@@ -376,7 +376,7 @@ def find_activation_refusal(
     # they are promoting may not be promoted at all.
     if target_status == "past":
         return WriteRefusal(
-            error_code=Code.ACTIVATE_TARGET_PAST,
+            error_code=Code.SAISON_PAST,
             status=HTTPStatus.CONFLICT,
         )
 
@@ -432,11 +432,11 @@ def find_spielplan_refusal(
     """Why drawing this season's Spielplan must be refused, or `None`.
 
     Each refuses on its own, so the order decides only which one an admin reads: what no group
-    filling repairs first, because `REQ-SPIELPLAN-004` alone names work an admin can go and do.
+    filling repairs first, because `spielplan_gruppen_off_rules` alone names work an admin can go and do.
     """
 
-    # What a confirmed replace is about to delete is no reason to turn it away, so `REQ-SPIELPLAN-001`
-    # and `REQ-SPIELPLAN-002` step aside for one. `REQ-SPIELPLAN-005` below is what bounds it instead.
+    # What a confirmed replace is about to delete is no reason to turn it away, so `spielplan_already_drawn`
+    # and `spielplan_spieltage_held` step aside for one. `spielplan_replace_outside_its_window` below is what bounds it instead.
     if fixtures_drawn > 0 and not replace:
         return WriteRefusal(
             error_code=Code.SPIELPLAN_ALREADY_DRAWN,
@@ -445,7 +445,7 @@ def find_spielplan_refusal(
 
     if spieltage_held > 0 and not replace:
         return WriteRefusal(
-            error_code=Code.SPIELPLAN_MATCHDAYS_HELD,
+            error_code=Code.SPIELPLAN_SPIELTAGE_HELD,
             status=HTTPStatus.CONFLICT,
         )
 
@@ -458,11 +458,11 @@ def find_spielplan_refusal(
         )
 
     # `past` alone, never `future`-only: activation is one-way, so a season activated before its draw
-    # would otherwise be unschedulable for good, and `REQ-ACTIVATE-003` keeps the state rare. A
+    # would otherwise be unschedulable for good, and `activate_target_undrawn` keeps the state rare. A
     # REPLACE is `future`-only, above.
     if saison_status == "past":
         return WriteRefusal(
-            error_code=Code.SPIELPLAN_SAISON_FINISHED,
+            error_code=Code.SAISON_PAST,
             status=HTTPStatus.CONFLICT,
         )
 

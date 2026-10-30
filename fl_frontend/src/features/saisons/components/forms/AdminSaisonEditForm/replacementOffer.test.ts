@@ -33,50 +33,24 @@ const contextOf = (fields: Partial<Parameters<typeof buildReplacementContext>[0]
   buildReplacementContext({ saisonId: "2026", teams: [], ligaTeams: [], gruppenSpiele: [], playoffSpiele: [], ...fields });
 
 describe("buildReplacementContext", () => {
-  /* `REQ-REPLACE-002` reads every phase, unlike `REQ-SWAP-004`. Narrow this to the group phase and a
-     club whose only played fixture is a bracket tie is offered, and the endpoint 409s on the press. */
-  it("counts a played fixture from either half of the season", () => {
-    const played = spiel({ team1: side(ALT, "SV Alt"), ergebnis: "3:1" });
+  /* The rewrite moves every phase's fixtures, so the panel counts both halves: narrow this to the group
+     phase and a club holding a bracket tie hands over one more fixture than it says. */
+  it("counts a fixture from either half of the season", () => {
+    const held = spiel({ team1: side(ALT, "SV Alt") });
 
-    expect(contextOf({ teams: [clubRow(ALT, "SV Alt")], gruppenSpiele: [played] }).rows[0]?.gespielteSpiele).toBe(1);
-    expect(contextOf({ teams: [clubRow(ALT, "SV Alt")], playoffSpiele: [played] }).rows[0]?.gespielteSpiele).toBe(1);
-  });
-
-  /* Mirrors the shoot-out clause of `has_taken_place`: stored beside no result it is a hand-written
-     record of a decided tie, and the row it stands on must read "hat schon gespielt" — the endpoint
-     409s the handover with `REQ-REPLACE-002`. */
-  it("counts a fixture holding only a shoot-out as played", () => {
-    const decided = spiel({ team1: side(ALT, "SV Alt"), elfmeterschiessen: { team1: 5, team2: 4 } });
-
-    expect(contextOf({ teams: [clubRow(ALT, "SV Alt")], playoffSpiele: [decided] }).rows[0]?.gespielteSpiele).toBe(1);
-  });
-
-  /* Two figures over one list, and the panel says both: how many fixtures move, and whether any of
-     them closes the offer. Derive one from the other and a season mid-play reads as untouched. */
-  it("separates the fixtures a row holds from the ones it has played", () => {
-    const rows = contextOf({
-      teams: [clubRow(ALT, "SV Alt")],
-      gruppenSpiele: [
-        spiel({ team1: side(ALT, "SV Alt"), ergebnis: "2:0" }),
-        spiel({ team2: side(ALT, "SV Alt") }),
-        spiel({ team1: side(ALT, "SV Alt") }),
-      ],
-    }).rows;
-
-    expect(rows[0]?.spiele).toBe(3);
-    expect(rows[0]?.gespielteSpiele).toBe(1);
+    expect(contextOf({ teams: [clubRow(ALT, "SV Alt")], gruppenSpiele: [held] }).rows[0]?.spiele).toBe(1);
+    expect(contextOf({ teams: [clubRow(ALT, "SV Alt")], playoffSpiele: [held] }).rows[0]?.spiele).toBe(1);
   });
 
   /* The endpoint reports its fan-out per document, so counting a club once per SIDE would promise
-     one more fixture than the write moves — and `REQ-REPLACE-002` would be graded on that figure. */
+     one more fixture than the write moves. */
   it("counts a fixture holding one club on both sides once", () => {
     const rows = contextOf({
       teams: [clubRow(ALT, "SV Alt")],
-      gruppenSpiele: [spiel({ team1: side(ALT, "SV Alt"), team2: side(ALT, "SV Alt"), ergebnis: "1:1" })],
+      gruppenSpiele: [spiel({ team1: side(ALT, "SV Alt"), team2: side(ALT, "SV Alt") })],
     }).rows;
 
     expect(rows[0]?.spiele).toBe(1);
-    expect(rows[0]?.gespielteSpiele).toBe(1);
   });
 
   /* The case the operation exists for: every club read starts at the `teams` collection, so a
@@ -102,7 +76,7 @@ describe("buildReplacementContext", () => {
   it("offers a club that holds no fixture yet", () => {
     const rows = contextOf({ teams: [clubRow(ALT, "SV Alt")] }).rows;
 
-    expect(rows.map((row) => [row.teamId, row.spiele, row.gespielteSpiele])).toStrictEqual([[ALT, 0, 0]]);
+    expect(rows.map((row) => [row.teamId, row.spiele])).toStrictEqual([[ALT, 0]]);
   });
 
   /* Two sources for one fact, because neither reaches both cases: the club read holds the row itself,
@@ -118,7 +92,7 @@ describe("buildReplacementContext", () => {
     expect(rows.find((row) => row.teamId === ARRIVING)?.hasAustritt).toBe(false);
   });
 
-  /* `REQ-REPLACE-003` and `REQ-ENTER-005`, graded before the press. The first arm is also what keeps
+  /* `replace_incoming_already_entered` and `team_retired`, graded before the press. The first arm is also what keeps
      one club off both ends: the outgoing club holds a row in this season too. */
   it("marks a candidate already in the season and one that left the league", () => {
     const { candidates } = contextOf({

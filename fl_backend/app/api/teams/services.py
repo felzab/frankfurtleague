@@ -168,7 +168,7 @@ def build_retirement_stages(saison_id: str) -> list[Mapping[str, Any]]:
                 "as": SAISON_PAST_AS_NAME,
             }
         },
-        # Not dropped on `REQ-RETIRE-001`'s strength: that refusal holds writes alone, and no report counts
+        # Not dropped on `retire_blocked`'s strength: that refusal holds writes alone, and no report counts
         # a club already stored retired in a running or planned season, so this match keeps one off the reads.
         {"$match": {"$or": [{"inactive_since": None}, {f"{SAISON_PAST_AS_NAME}.0": {"$exists": True}}]}},
     ]
@@ -1325,7 +1325,7 @@ def kontakt_zeile_of(*, saison_status: Any, austritt: Any) -> FLKontaktZeile:
 
 
 def find_kontakt_zeile_refusal(*, saison_status: Any, austritt: Any) -> WriteRefusal | None:
-    """`REQ-KONTAKT-005`: the row's season has ended, or its team has left it, so a link asks about a seat nobody holds.
+    """`kontakt_zeile_ohne_saison`: the row's season has ended, or its team has left it, so a link asks about a seat nobody holds.
 
     Judged before the seat, as `app/api/einladungen/services.py :: find_saison_vorbei_refusal` is: no seat repairs the row.
     """
@@ -1360,7 +1360,7 @@ def find_kontakt_sitz_refusal(*, kontakte: Any, seat: str) -> WriteRefusal | Non
 
 
 def find_kontakt_sitz_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-KONTAKT-003`: a seat's newly seated or re-sent address is on the ban list, so no link may be minted for it.
+    """`kontakt_sitz_gesperrt`: a seat's newly seated or re-sent address is on the ban list, so no link may be minted for it.
 
     409, as every administrator's write naming a barred address is.
     """
@@ -1399,7 +1399,7 @@ def find_club_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | Non
 
     if inactive_since is not None:
         return WriteRefusal(
-            error_code=Code.CLUB_RETIRED,
+            error_code=Code.TEAM_RETIRED,
             status=HTTPStatus.CONFLICT,
         )
 
@@ -1501,7 +1501,7 @@ def find_swap_pair_refusal(*, team1_id: Any, team2_id: Any) -> WriteRefusal | No
         return None
 
     return WriteRefusal(
-        error_code=Code.SWAP_ONE_CLUB_TWICE,
+        error_code=Code.SWAP_NOT_A_SWAP,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         fields=(("team1_id",), ("team2_id",)),
     )
@@ -1528,24 +1528,26 @@ def find_gruppe_swap_refusal(
     if missing:
         return WriteRefusal(
             error_code=Code.SWAP_NOT_A_SWAP,
-            status=HTTPStatus.CONFLICT,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("team1_id",), ("team2_id",)),
         )
 
     if team1_gruppe == team2_gruppe:
         return WriteRefusal(
             error_code=Code.SWAP_NOT_A_SWAP,
-            status=HTTPStatus.CONFLICT,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("team1_id",), ("team2_id",)),
         )
 
     if saison_status == "past":
         return WriteRefusal(
-            error_code=Code.SWAP_SAISON_FINISHED,
+            error_code=Code.SAISON_PAST,
             status=HTTPStatus.CONFLICT,
         )
 
     if started:
         return WriteRefusal(
-            error_code=Code.SWAP_KNOCKOUT_STARTED,
+            error_code=Code.SWAP_SAISON_STARTED,
             status=HTTPStatus.CONFLICT,
         )
 
@@ -1583,7 +1585,7 @@ def find_replacement_pair_refusal(*, team_id: Any, incoming_team_id: Any) -> Wri
         return None
 
     return WriteRefusal(
-        error_code=Code.REPLACE_ONE_CLUB_ON_BOTH_ENDS,
+        error_code=Code.REPLACE_ONE_TEAM_ON_BOTH_ENDS,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         fields=(("incoming_team_id",),),
     )
@@ -1606,13 +1608,13 @@ def find_replacement_refusal(
 
     if saison_status == "past":
         return WriteRefusal(
-            error_code=Code.REPLACE_SAISON_FINISHED,
+            error_code=Code.SAISON_PAST,
             status=HTTPStatus.CONFLICT,
         )
 
     if started:
         return WriteRefusal(
-            error_code=Code.REPLACE_OUTGOING_HAS_A_RECORD,
+            error_code=Code.REPLACE_SAISON_STARTED,
             status=HTTPStatus.CONFLICT,
         )
 

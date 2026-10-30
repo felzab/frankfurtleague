@@ -200,7 +200,7 @@ def build_addresses_filter(adressen: list[str]) -> dict[str, Any]:
 def build_awaiting_genehmigung_filter(adressen: list[str], *, now: datetime) -> dict[str, Any]:
     """The live changes of these folded addresses awaiting their grant's approval, no step lapsed: what the administrators page offers.
 
-    A lapsed one is refused `-003`, so the reload that refusal asks for must not offer it.
+    A lapsed one is refused `link_abgelaufen`, so the reload that refusal asks for must not offer it.
     """
 
     return {
@@ -384,16 +384,16 @@ def maskierte_adresse(email: str) -> str:
 
 
 def find_unbekannt_refusal(*, found: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-001`: the link matches no change, live or kept, and so answers nothing about one."""
+    """`link_ungueltig`: the link matches no change, live or kept, and so answers nothing about one."""
 
     if found:
         return None
 
-    return WriteRefusal(error_code=Code.ADRESSWECHSEL_UNBEKANNT, status=HTTPStatus.NOT_FOUND)
+    return WriteRefusal(error_code=Code.LINK_UNGUELTIG, status=HTTPStatus.NOT_FOUND)
 
 
 def find_beendet_refusal(*, offen: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-002`: the change this link or id names has ended, or this link was answered already."""
+    """`adresswechsel_beendet`: the change this link or id names has ended, or this link was answered already."""
 
     if offen:
         return None
@@ -405,31 +405,31 @@ def find_beendet_refusal(*, offen: bool) -> WriteRefusal | None:
 
 
 def find_abgelaufen_refusal(*, abgelaufen: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-003`: the step the change waits on lapsed -- its link, the approval asked, or its grant's approval."""
+    """`link_abgelaufen`: the step the change waits on lapsed -- its link, the approval asked, or its grant's approval."""
 
     if not abgelaufen:
         return None
 
     return WriteRefusal(
-        error_code=Code.ADRESSWECHSEL_ABGELAUFEN,
+        error_code=Code.LINK_ABGELAUFEN,
         status=HTTPStatus.GONE,
     )
 
 
 def find_bestaetigung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-004`: the ban list holds the address the link was mailed to, however long ago it was minted."""
+    """`link_gesperrt`: the ban list holds the address the link was mailed to, however long ago it was minted."""
 
     if not gesperrt:
         return None
 
     return WriteRefusal(
-        error_code=Code.ADRESSWECHSEL_BESTAETIGUNG_GESPERRT,
+        error_code=Code.LINK_GESPERRT,
         status=HTTPStatus.FORBIDDEN,
     )
 
 
 def find_ersetzte_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-005`: the ban list holds the address the change would replace, so moving would carry the ban's person off it."""
+    """`adresswechsel_ersetzte_gesperrt`: the ban list holds the address the change replaces, so moving would carry the ban's person off it."""
 
     if not gesperrt:
         return None
@@ -441,7 +441,7 @@ def find_ersetzte_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
 
 
 def find_vergeben_refusal(*, vergeben: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-006`: another pupil signs in on the new address, and one address is one pupil (`uniq_spieler_email`)."""
+    """`adresswechsel_vergeben`: another pupil signs in on the new address, and one address is one pupil (`uniq_spieler_email`)."""
 
     if not vergeben:
         return None
@@ -453,7 +453,7 @@ def find_vergeben_refusal(*, vergeben: bool) -> WriteRefusal | None:
 
 
 def find_unveraendert_refusal(*, adresse: str, folded: str) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-007`: the typed address signs in as the one on file, so it would ask a mailbox already proved.
+    """`adresswechsel_unveraendert`: the typed address signs in as the one on file, so it would ask a mailbox already proved.
 
     `folded` is the typed address's sign-in identifier, which the caller folds; `adresse` is one already.
     """
@@ -469,7 +469,7 @@ def find_unveraendert_refusal(*, adresse: str, folded: str) -> WriteRefusal | No
 
 
 def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-009`: no link an administrator mints goes to an address the ban list holds. Worded for them."""
+    """`adresswechsel_gesperrt`: no link an administrator mints goes to an address the ban list holds. Worded for them."""
 
     if not gesperrt:
         return None
@@ -481,7 +481,7 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
 
 
 def find_nichts_refusal(*, leer: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-010`: the address holds nothing a change moves, so there is nothing to change."""
+    """`adresswechsel_nichts`: the address holds nothing a change moves, so there is nothing to change."""
 
     if not leer:
         return None
@@ -493,7 +493,7 @@ def find_nichts_refusal(*, leer: bool) -> WriteRefusal | None:
 
 
 def find_kein_genehmiger_refusal(*, genehmiger: int) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-011`: a change moving a grant waits on an approver nobody could be.
+    """`adresswechsel_kein_genehmiger`: a change moving a grant waits on an approver nobody could be.
 
     Neither the changed address nor the change's starter approves, and an owner's grant is approved by another owner alone:
     the last owner makes another first.
@@ -509,7 +509,7 @@ def find_kein_genehmiger_refusal(*, genehmiger: int) -> WriteRefusal | None:
 
 
 def find_keine_genehmigung_offen_refusal(*, offen: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-012`: the change asks no approval, or was given it already."""
+    """`adresswechsel_keine_genehmigung_offen`: the change asks no approval, or was given it already."""
 
     if offen:
         return None
@@ -521,9 +521,11 @@ def find_keine_genehmigung_offen_refusal(*, offen: bool) -> WriteRefusal | None:
 
 
 def find_genehmigung_verwehrt_refusal(*, verwehrt: FLGenehmigungVerwehrt | None) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-013` for the changed address or the starter, `-014` for an owner's grant without an owner's power.
+    """Why this approver may not approve the change, or `None`.
 
-    `-017` for an approver whose grant, or owner's tier, took effect after the change's start.
+    `adresswechsel_genehmigung_verwehrt` for the changed address or the starter, `adresswechsel_genehmigung_inhaber` for an owner's grant
+    without an owner's power, `adresswechsel_genehmigung_juenger` for an approver whose grant, or owner's tier, took effect after the
+    change's start.
     """
 
     if verwehrt is None:
@@ -548,7 +550,7 @@ def find_genehmigung_verwehrt_refusal(*, verwehrt: FLGenehmigungVerwehrt | None)
 
 
 def find_nicht_gedeckt_refusal(*, gedeckt: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-015`: the address came to hold a grant, or a higher tier, than the change's approval was asked for.
+    """`adresswechsel_nicht_gedeckt`: the address came to hold a grant, or a higher tier, than the change's approval was asked for.
 
     Moving it would hand access over unapproved, and leaving it would keep it at an address its person has left.
     """
@@ -563,7 +565,7 @@ def find_nicht_gedeckt_refusal(*, gedeckt: bool) -> WriteRefusal | None:
 
 
 def find_belegt_refusal(*, belegt: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-018`: an entry names the new address, and moving the person onto it would join two people's.
+    """`adresswechsel_belegt`: an entry names the new address, and moving the person onto it would join two people's.
 
     Never judged at the person's own start, which would tell its holder which addresses hold entries.
     """
@@ -578,7 +580,7 @@ def find_belegt_refusal(*, belegt: bool) -> WriteRefusal | None:
 
 
 def find_neue_berechtigt_refusal(*, berechtigt: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-016`: the new address holds a grant already, and one address holds one grant."""
+    """`adresswechsel_neue_berechtigt`: the new address holds a grant already, and one address holds one grant."""
 
     if not berechtigt:
         return None

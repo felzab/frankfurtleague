@@ -7,7 +7,7 @@ import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/a
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
-import type { FLGenehmigungVerwehrt } from "@/core/generated/client/types";
+import type { Code, FLGenehmigungVerwehrt } from "@/core/generated/client/types";
 import type { RefusalParts } from "@/shared/utils/refusal";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { EinsehbarVerwehrt } from "./einsehbar";
@@ -23,7 +23,7 @@ export function mapAdresswechselAnsichtRefusal(error: unknown): "ungueltig" | nu
   if (!isRefusal(error)) return null;
 
   // A token the backend will not parse matches no record, so the page calls the link void.
-  if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
+  if (error.serverErrorCode === "payload_refused") return "ungueltig";
 
   return isRuleRefusal(error) ? "ungueltig" : null;
 }
@@ -37,27 +37,27 @@ export function mapAdresswechselPresseRefusal(error: unknown): AdresswechselPres
 
   switch (error.serverErrorCode) {
     // The body shape is mirrored, so a refused one is a drifted page, which the mail's link replaces.
-    case "REQ-VAL-002":
-    case "REQ-VAL-001":
+    case "body_unreadable":
+    case "payload_refused":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
-    case "REQ-ADRESSWECHSEL-001":
+    case "link_ungueltig":
       return { zustand: "ungueltig" };
     // The change ended, or this link was answered, since the page opened: the link's own read says which,
     // so the page states how it ended rather than calling a live or a finished change void.
-    case "REQ-ADRESSWECHSEL-002":
+    case "adresswechsel_beendet":
       return { neuLesen: true };
-    case "REQ-ADRESSWECHSEL-003":
+    case "link_abgelaufen":
       return { zustand: "abgelaufen" };
-    case "REQ-ADRESSWECHSEL-004":
+    case "link_gesperrt":
       return { zustand: "gesperrt" };
     // The replaced address barred, the new one another pupil's, the administration's or holding entries of its own, or a
     // grant the approval does not cover: one panel, so the link's holder learns nothing about who holds an address.
-    case "REQ-ADRESSWECHSEL-005":
-    case "REQ-ADRESSWECHSEL-006":
-    case "REQ-ADRESSWECHSEL-015":
-    case "REQ-ADRESSWECHSEL-016":
-    case "REQ-ADRESSWECHSEL-018":
-    case "DB-COMMON-002":
+    case "adresswechsel_ersetzte_gesperrt":
+    case "adresswechsel_vergeben":
+    case "adresswechsel_nicht_gedeckt":
+    case "adresswechsel_neue_berechtigt":
+    case "adresswechsel_belegt":
+    case "duplicate_key":
       return { zustand: "nicht_bestaetigbar" };
     default:
       return null;
@@ -74,7 +74,7 @@ const KEIN_EINTRAG = `Unter Deiner Adresse steht nichts mehr, dessen Adresse sic
 
 /**
  * Nobody but the changed person and the change's starter could approve: an owner's change needs another
- * owner, which the last owner makes first, as the last owner's account deletion asks (`REQ-PURGE-004`).
+ * owner, which the last owner makes first, as the last owner's account deletion asks (`letzter_inhaber_loeschung`).
  */
 const NIEMAND_GENEHMIGT =
   "Eine neue Adresse für einen Zugang zur Verwaltung muss eine andere Person aus der Verwaltung genehmigen, und das kann gerade niemand. Ist Dein Zugang der einer Inhaberin oder eines Inhabers, mache zuerst eine andere Person zur Inhaberin oder zum Inhaber.";
@@ -84,27 +84,27 @@ export function mapKontoAdresswechselRefusal(error: unknown): { error?: string; 
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
-    case "REQ-ADRESSWECHSEL-007":
+    case "adresswechsel_unveraendert":
       return { error: SCHON_ANGEMELDET, fieldErrors: { email: SCHON_ANGEMELDET } };
-    case "REQ-ADRESSWECHSEL-010":
+    case "adresswechsel_nichts":
       return { error: KEIN_EINTRAG };
-    case "REQ-ADRESSWECHSEL-011":
+    case "adresswechsel_kein_genehmiger":
       return { error: NIEMAND_GENEHMIGT };
     default:
       return null;
   }
 }
 
-/** The approval, or `null`: a shown change awaiting no approval is the 404, and one replaced or stopped since the page loaded `-002`. */
+/** The approval, or `null`: a shown change awaiting no approval is the 404, and one replaced or stopped since the page loaded `adresswechsel_beendet`. */
 export function mapKontoFreigabeRefusal(error: unknown): string | null {
   if (isRecordMissing(error)) return "Es wartet keine Änderung mehr auf Deine Freigabe. Lade die Seite neu.";
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
-    case "REQ-ADRESSWECHSEL-003":
+    case "link_abgelaufen":
       return "Die Zeit für die Freigabe ist abgelaufen. Die Änderung wird gelöscht.";
     // Nothing approved: the page's change was replaced, and the reload shows the one standing now.
-    case "REQ-ADRESSWECHSEL-002":
+    case "adresswechsel_beendet":
       return "Diese Änderung ist inzwischen beendet, freigegeben ist nichts. Lade die Seite neu.";
     default:
       return null;
@@ -118,13 +118,15 @@ export function mapKontoStoppRefusal(error: unknown): string | null {
 
 // ---- The address tool ---------------------------------------------------------------------------
 
-/** An administrator's own address, whose change is their account page's (`REQ-PURGE-003`). */
+/** An administrator's own address, whose change is their account page's (`eigene_adresse`). */
 const EIGENE_ADRESSE = "Deine eigene Adresse änderst Du nicht hier, sondern auf Deiner Kontoseite.";
 
-/** A grant holder's address, which only an owner's press reaches, as only an owner revokes a grant (`REQ-PURGE-005`). */
+/** A grant holder's address, which only an owner's press reaches, as only an owner revokes a grant (`verwaltung_adresse`). */
 const VERWALTUNG_ADRESSE = `Diese Adresse hat Zugang zur Verwaltung. Ändern kann sie hier nur, wer Inhaberin oder Inhaber der Verwaltung ist. ${NACH_ERNENNUNG_NEU_ANMELDEN}`;
 
-const ZUGANG: Readonly<Record<string, string>> = { "REQ-PURGE-003": EIGENE_ADRESSE, "REQ-PURGE-005": VERWALTUNG_ADRESSE };
+const ZUGANG: Readonly<Record<string, string>> = { eigene_adresse: EIGENE_ADRESSE, verwaltung_adresse: VERWALTUNG_ADRESSE } satisfies Partial<
+  Record<Code, string>
+>;
 
 /** The id a page or a link carried names a change since ended, which the reload shows as the address's present. */
 const BEENDET = buildRefusal({ reason: "Diese Änderung ist schon beendet", repair: LADE_DIE_SEITE_NEU });
@@ -135,7 +137,7 @@ const UNBEKANNT = buildRefusal({ reason: "Diese Änderung gibt es nicht", repair
 export function mapVerwaltungAnsichtRefusal(error: unknown): string | null {
   if (isRecordMissing(error)) return UNBEKANNT;
   if (!isRefusal(error)) return null;
-  if (error.serverErrorCode === "REQ-ADRESSWECHSEL-002") return BEENDET;
+  if (error.serverErrorCode === "adresswechsel_beendet") return BEENDET;
 
   return ZUGANG[error.serverErrorCode ?? ""] ?? null;
 }
@@ -152,7 +154,7 @@ const SCHON_HINTERLEGT = "Das ist schon die hinterlegte Adresse.";
 
 const ADRESSE_BELEGT = "Mit dieser Adresse meldet sich schon eine andere Spielerin oder ein anderer Spieler an.";
 
-/** The new address holds entries of its own (`REQ-ADRESSWECHSEL-018`): moving these onto it would join two people's. */
+/** The new address holds entries of its own (`adresswechsel_belegt`): moving these onto it would join two people's. */
 const EINTRAEGE_DA = "Unter der neuen Adresse stehen schon Einträge bei der Liga.";
 
 /** No page here joins two addresses' entries, so the administrator is told it is a task by hand rather than sent to one. */
@@ -164,7 +166,7 @@ const NUR_VON_HAND = "Die Einträge beider Adressen lassen sich nur von Hand zus
  */
 const KONTO_DA = "Mit der neuen Adresse meldet sich schon jemand an.";
 
-/** The tool's start onto an address an account signs in at, on its box as `-018`'s is. */
+/** The tool's start onto an address an account signs in at, on its box as `adresswechsel_belegt`'s is. */
 export const KONTO_BELEGT_START = { error: `${KONTO_DA} Versuche es später erneut. ${NUR_VON_HAND}`, fieldErrors: { email: KONTO_DA } };
 
 /** The re-send's, the panel holding no box: its way out is the later try or the discard. */
@@ -180,17 +182,17 @@ export function mapVerwaltungStartRefusal(error: unknown): { error?: string; fie
   if (zugang !== undefined) return { error: zugang };
 
   switch (error.serverErrorCode) {
-    case "REQ-ADRESSWECHSEL-010":
+    case "adresswechsel_nichts":
       return { error: NICHTS_ZU_AENDERN };
-    case "REQ-ADRESSWECHSEL-007":
+    case "adresswechsel_unveraendert":
       return { error: SCHON_HINTERLEGT, fieldErrors: { email: SCHON_HINTERLEGT } };
-    case "REQ-ADRESSWECHSEL-009":
+    case "adresswechsel_gesperrt":
       return { error: SPERRLISTE_ADRESSE_GESPERRT, fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT_FELD } };
-    case "REQ-ADRESSWECHSEL-006":
+    case "adresswechsel_vergeben":
       return { error: ADRESSE_BELEGT, fieldErrors: { email: ADRESSE_BELEGT } };
-    case "REQ-ADRESSWECHSEL-018":
+    case "adresswechsel_belegt":
       return { error: `${EINTRAEGE_DA} ${NUR_VON_HAND}`, fieldErrors: { email: EINTRAEGE_DA } };
-    case "REQ-ADRESSWECHSEL-011":
+    case "adresswechsel_kein_genehmiger":
       return {
         error:
           "Diese Änderung könnte gerade niemand aus der Verwaltung genehmigen. Bei einem Zugang als Inhaberin oder Inhaber mache zuerst eine weitere Person zur Inhaberin oder zum Inhaber, sonst gib einer weiteren Person Zugang zur Verwaltung.",
@@ -215,18 +217,18 @@ export function mapVerwaltungLinkRefusal(error: unknown): string | null {
   if (zugang !== undefined) return zugang;
 
   switch (error.serverErrorCode) {
-    case "REQ-ADRESSWECHSEL-002":
+    case "adresswechsel_beendet":
       return BEENDET;
-    case "REQ-ADRESSWECHSEL-009":
+    case "adresswechsel_gesperrt":
       return SPERRLISTE_ADRESSE_GESPERRT;
     // The panel has no box, so the sentence names the way out it does hold.
-    case "REQ-ADRESSWECHSEL-006":
+    case "adresswechsel_vergeben":
       return `${ADRESSE_BELEGT} Verwirf die Änderung und beginne eine mit einer anderen Adresse.`;
     // Entries reached the new address since the start: a fresh link would be refused on its press.
-    case "REQ-ADRESSWECHSEL-018":
+    case "adresswechsel_belegt":
       return `${EINTRAEGE_DA} Verwirf die Änderung. ${NUR_VON_HAND}`;
     // The re-send's alone: a fresh link would be refused on its press, the change ending at the next pass.
-    case "REQ-ADRESSWECHSEL-003":
+    case "link_abgelaufen":
       return "Die Frist für die Genehmigung ist abgelaufen, die Änderung endet in der nächsten Stunde. Beginne sie danach neu.";
     default:
       return null;
@@ -255,7 +257,7 @@ const ohneGenehmigung = (grund: string, verwehrt: EinsehbarVerwehrt | null): str
     ...verwerfen(verwehrt),
   });
 
-/** The approval of a change whose new address an account signs in at, worded as the backend's `-018` at the effect is. */
+/** The approval of a change whose new address an account signs in at, worded as the backend's `adresswechsel_belegt` at the effect is. */
 export const kontoBelegtGenehmigung = (verwehrt: EinsehbarVerwehrt | null): string =>
   ohneGenehmigung("Mit der neuen Adresse meldet sich inzwischen jemand an", verwehrt);
 
@@ -280,32 +282,36 @@ export const GENEHMIGUNG_VERWEHRT: Readonly<Record<FLGenehmigungVerwehrt, string
 };
 
 /** Said beside the press it refuses, the administrators page holding the change's row. */
-const genehmigungWorte = (verwehrt: EinsehbarVerwehrt | null): Readonly<Record<string, string>> => ({
-  "REQ-ADRESSWECHSEL-017": GENEHMIGUNG_VERWEHRT.juenger,
-  "REQ-ADRESSWECHSEL-002": BEENDET,
-  // The press itself ended the change, finding the address emptied since its start: never „schon beendet“.
-  "REQ-ADRESSWECHSEL-010":
-    "Unter der bisherigen Adresse steht nichts mehr, das die Änderung mitnehmen könnte. Sie ist deshalb verworfen, und die neue Adresse erfährt, dass sie nicht wirksam geworden ist.",
-  "REQ-ADRESSWECHSEL-012": buildRefusal({ reason: "Diese Änderung wartet auf keine Genehmigung mehr", repair: LADE_DIE_SEITE_NEU }),
-  // One code for both of the press's own two reasons, so the one sentence naming both.
-  "REQ-ADRESSWECHSEL-013": `Eine Änderung Deiner eigenen Adresse oder eine, die Du selbst begonnen hast, genehmigt eine andere Person aus der Verwaltung, ${INHABER_GENEHMIGT}.`,
-  "REQ-ADRESSWECHSEL-014": GENEHMIGUNG_VERWEHRT.inhaber,
-  "REQ-ADRESSWECHSEL-003": buildRefusal({ reason: "Diese Änderung ist abgelaufen", repair: LADE_DIE_SEITE_NEU }),
-  // The effect's own refusals write nothing, the approval and the effect being one transaction: the change
-  // stands unapproved until it is discarded or lapses.
-  "REQ-ADRESSWECHSEL-004": ohneGenehmigung("Die neue Adresse steht auf der Sperrliste", verwehrt),
-  "REQ-ADRESSWECHSEL-005": ohneGenehmigung("Die bisherige Adresse steht auf der Sperrliste", verwehrt),
-  "REQ-ADRESSWECHSEL-006": ohneGenehmigung(
-    "Mit der neuen Adresse meldet sich schon eine andere Spielerin oder ein anderer Spieler an",
-    verwehrt,
-  ),
-  "REQ-ADRESSWECHSEL-015": ohneGenehmigung("Die Adresse hat inzwischen einen Zugang, den diese Genehmigung nicht abdeckt", verwehrt),
-  "REQ-ADRESSWECHSEL-016": ohneGenehmigung("Die neue Adresse hat schon Zugang zur Verwaltung", verwehrt),
-  "REQ-ADRESSWECHSEL-018": ohneGenehmigung("Unter der neuen Adresse stehen inzwischen eigene Einträge", verwehrt),
-});
+const genehmigungWorte = (verwehrt: EinsehbarVerwehrt | null): Readonly<Record<string, string>> =>
+  ({
+    adresswechsel_genehmigung_juenger: GENEHMIGUNG_VERWEHRT.juenger,
+    adresswechsel_beendet: BEENDET,
+    // The press itself ended the change, finding the address emptied since its start: never „schon beendet“.
+    adresswechsel_nichts:
+      "Unter der bisherigen Adresse steht nichts mehr, das die Änderung mitnehmen könnte. Sie ist deshalb verworfen, und die neue Adresse erfährt, dass sie nicht wirksam geworden ist.",
+    adresswechsel_keine_genehmigung_offen: buildRefusal({
+      reason: "Diese Änderung wartet auf keine Genehmigung mehr",
+      repair: LADE_DIE_SEITE_NEU,
+    }),
+    // One code for both of the press's own two reasons, so the one sentence naming both.
+    adresswechsel_genehmigung_verwehrt: `Eine Änderung Deiner eigenen Adresse oder eine, die Du selbst begonnen hast, genehmigt eine andere Person aus der Verwaltung, ${INHABER_GENEHMIGT}.`,
+    adresswechsel_genehmigung_inhaber: GENEHMIGUNG_VERWEHRT.inhaber,
+    link_abgelaufen: buildRefusal({ reason: "Diese Änderung ist abgelaufen", repair: LADE_DIE_SEITE_NEU }),
+    // The effect's own refusals write nothing, the approval and the effect being one transaction: the change
+    // stands unapproved until it is discarded or lapses.
+    link_gesperrt: ohneGenehmigung("Die neue Adresse steht auf der Sperrliste", verwehrt),
+    adresswechsel_ersetzte_gesperrt: ohneGenehmigung("Die bisherige Adresse steht auf der Sperrliste", verwehrt),
+    adresswechsel_vergeben: ohneGenehmigung(
+      "Mit der neuen Adresse meldet sich schon eine andere Spielerin oder ein anderer Spieler an",
+      verwehrt,
+    ),
+    adresswechsel_nicht_gedeckt: ohneGenehmigung("Die Adresse hat inzwischen einen Zugang, den diese Genehmigung nicht abdeckt", verwehrt),
+    adresswechsel_neue_berechtigt: ohneGenehmigung("Die neue Adresse hat schon Zugang zur Verwaltung", verwehrt),
+    adresswechsel_belegt: ohneGenehmigung("Unter der neuen Adresse stehen inzwischen eigene Einträge", verwehrt),
+  }) satisfies Partial<Record<Code, string>>;
 
 /**
- * The approval's refusal, or `null`, the `DB-COMMON` pair among them, which the shared reader words. `verwehrt` is the
+ * The approval's refusal, or `null`, `document_not_found` and `duplicate_key` among them, which the shared reader words. `verwehrt` is the
  * row's served reason the tool refuses this approver, which picks the discard's wording and nothing else.
  */
 export function mapGenehmigungRefusal(error: unknown, verwehrt: EinsehbarVerwehrt | null): string | null {

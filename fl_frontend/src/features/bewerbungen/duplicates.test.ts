@@ -21,7 +21,7 @@ function schule(shorthand: string): FLBewerbung["schule"] {
 
 /**
  * One application by what it names. `team` is a picked club's id and `kuerzel` a proposed school's
- * code; naming both is the shape `REQ-BEWERBUNG-005` refuses, and the fixture cannot compose it.
+ * code; naming both is the shape `bewerbung_submission_subject_unresolved` refuses, and the fixture cannot compose it.
  */
 function bewerbung(
   id: string,
@@ -113,7 +113,7 @@ describe("applications a triage has to decide between", () => {
     expect(dubletten.size).toBe(0);
   });
 
-  /* The row `REQ-BEWERBUNG-002` refuses: it names neither, so there is no key to look up and no
+  /* The row `bewerbung_subject_unresolved` refuses: it names neither, so there is no key to look up and no
      answer from the server can reach it. */
   it("passes over an application naming neither a club nor a Kürzel", () => {
     const dubletten = markBewerbungDubletten([bewerbung("a", {}), bewerbung("b", { kuerzel: "  " })], [SHORTHAND_COLLIDES]);

@@ -101,7 +101,7 @@ def find_spieltag_span_refusal(
     outside = sorted(datum for datum in fixture_dates if datum < beginn or datum > ende)
     if outside:
         return WriteRefusal(
-            error_code=Code.SPIELTAG_SPAN_BELOW_FIXTURES,
+            error_code=Code.SPIELTAG_SPAN_BELOW_SPIELE,
             status=HTTPStatus.CONFLICT,
         )
 

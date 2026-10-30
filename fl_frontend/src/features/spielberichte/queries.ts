@@ -34,7 +34,7 @@ export async function getSpielberichteZustaende(filters: SpielberichteGetSpielbe
   return runAdminRead(() => spielberichteGetSpielberichte(filters));
 }
 
-/** What the booked referee's form opens on; refused `REQ-BERICHT-002` once the fixture is booked to somebody else. */
+/** What the booked referee's form opens on; refused `bericht_nicht_geleitet` once the fixture is booked to somebody else. */
 export async function getSchiedsrichterSpielbericht(spielId: string): Promise<FLSpielberichtSchiedsrichterResponse> {
   return runPersonRead(() => spielberichteGetSpielberichtBericht(spielId));
 }

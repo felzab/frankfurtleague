@@ -7,13 +7,13 @@ import type { FieldErrors } from "@/shared/utils/validation";
 
 // Reachable with no picker on screen: a reactivate names the row's STORED club, which a replacement
 // can have taken out of the season.
-const SQUAD_TEAM_NOT_IN_SAISON =
+const KADER_TEAM_NOT_IN_SAISON =
   `Das Team dieses Kadereintrags ist in dieser Saison nicht dabei. Weise den Eintrag im Bereich „${KADER_ABSCHNITT}“ auf der Seite ` +
   "des Spielers zuerst einem Team dieser Saison zu.";
 
 // Neither role is named: the reactivate offers no role on screen, and one sentence has to serve it
 // as well as the two the editor picks between.
-const SQUAD_ROLLE_TAKEN = buildRefusal({
+const KADER_ROLLE_TAKEN = buildRefusal({
   reason: "In diesem Team ist diese Rolle schon vergeben",
   repair: "Nimm sie dem anderen Spieler zuerst ab, dann kannst Du sie hier vergeben",
 });
@@ -26,13 +26,13 @@ const SQUAD_ROLLE_TAKEN = buildRefusal({
 export function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  if (error.serverErrorCode === "REQ-SQUAD-001") {
-    return { error: SQUAD_TEAM_NOT_IN_SAISON, fieldErrors: { team_id: "Dieses Team ist in der gewählten Saison nicht dabei." } };
+  if (error.serverErrorCode === "kader_team_not_in_saison") {
+    return { error: KADER_TEAM_NOT_IN_SAISON, fieldErrors: { team_id: "Dieses Team ist in der gewählten Saison nicht dabei." } };
   }
-  if (error.serverErrorCode === "REQ-SQUAD-004") {
-    return { error: SQUAD_ROLLE_TAKEN };
+  if (error.serverErrorCode === "kader_rolle_taken") {
+    return { error: KADER_ROLLE_TAKEN };
   }
-  if (error.serverErrorCode === "REQ-SQUAD-003") {
+  if (error.serverErrorCode === "kader_full") {
     return {
       error: buildRefusal({
         reason: "Der Kader dieses Teams ist für diese Saison voll",
@@ -50,10 +50,11 @@ export function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?:
 export function mapKaderZeileRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  if (error.serverErrorCode === "REQ-SQUAD-004") return { error: SQUAD_ROLLE_TAKEN };
+  if (error.serverErrorCode === "kader_rolle_taken") return { error: KADER_ROLLE_TAKEN };
   // On the picker as well as in the sentence: the form offers the season's levels, so only a season
   // narrowed under the open page reaches this, and the picker is where it is repaired.
-  if (error.serverErrorCode === "REQ-SQUAD-005") return { error: STUFE_NICHT_ZUGELASSEN, fieldErrors: { stufe: STUFE_NICHT_ZUGELASSEN } };
+  if (error.serverErrorCode === "kader_stufe_nicht_erlaubt")
+    return { error: STUFE_NICHT_ZUGELASSEN, fieldErrors: { stufe: STUFE_NICHT_ZUGELASSEN } };
   return null;
 }
 
@@ -62,7 +63,7 @@ export function mapKaderZeileRefusal(error: unknown): { error?: string; fieldErr
  * player already stands in the season.
  */
 export function mapAlreadyInSaisonRefusal(error: unknown): string | null {
-  if (!isRefusal(error) || error.serverErrorCode !== "DB-COMMON-002") return null;
+  if (!isRefusal(error) || error.serverErrorCode !== "duplicate_key") return null;
 
   return ALREADY_IN_SAISON;
 }

@@ -663,7 +663,7 @@ class TestWhatASubmissionIsRefused:
 
             return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body) == (Code.EINLADUNG_UNBEKANNT, 0)
+        assert on_a_league(mongo_replica_set_url, body) == (Code.DOCUMENT_NOT_FOUND, 0)
 
     def test_a_link_no_row_holds_is_refused_with_the_same_code(self, mongo_replica_set_url: str):
         """ONE answer for unknown and for revoked: nothing tells a stranger's guess from a replaced link."""
@@ -674,7 +674,7 @@ class TestWhatASubmissionIsRefused:
 
             return refused.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == Code.EINLADUNG_UNBEKANNT
+        assert on_a_league(mongo_replica_set_url, body) == Code.DOCUMENT_NOT_FOUND
 
     def test_a_shut_window_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
@@ -685,7 +685,7 @@ class TestWhatASubmissionIsRefused:
 
         outcome = on_a_league(mongo_replica_set_url, body, registrierung={**OPEN_WINDOW, "offen": False})
 
-        assert outcome == (Code.REGISTRIERUNG_FENSTER_GESCHLOSSEN, 0)
+        assert outcome == (Code.REGISTRIERUNG_GESCHLOSSEN, 0)
 
     def test_a_link_opened_after_the_windows_last_day_is_refused(self, mongo_replica_set_url: str):
         """The invite carries no expiry of its own: the window is what it stops opening at."""
@@ -698,7 +698,7 @@ class TestWhatASubmissionIsRefused:
 
         outcome = on_a_league(mongo_replica_set_url, body, registrierung={**OPEN_WINDOW, "bis": "2026-03-31"})
 
-        assert outcome == Code.REGISTRIERUNG_FENSTER_GESCHLOSSEN
+        assert outcome == Code.REGISTRIERUNG_GESCHLOSSEN
 
     def test_a_season_that_has_ended_is_refused_while_its_dates_still_run(self, mongo_replica_set_url: str):
         """The window's dates run and its flag is on: only the season's status closes it, as minting the link already does."""
@@ -709,7 +709,7 @@ class TestWhatASubmissionIsRefused:
 
             return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body, saison_status="past") == (Code.REGISTRIERUNG_FENSTER_GESCHLOSSEN, 0)
+        assert on_a_league(mongo_replica_set_url, body, saison_status="past") == (Code.REGISTRIERUNG_GESCHLOSSEN, 0)
 
     def test_a_team_the_season_does_not_hold_is_refused(self, mongo_replica_set_url: str):
         """The second club's own live link, for a club with no junction row: the invite opens and the write refuses."""
@@ -720,7 +720,7 @@ class TestWhatASubmissionIsRefused:
 
             return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body) == (Code.REGISTRIERUNG_TEAM_NICHT_EINGETRAGEN, 0)
+        assert on_a_league(mongo_replica_set_url, body) == (Code.REGISTRIERUNG_GESCHLOSSEN, 0)
 
     def test_a_stufe_the_season_does_not_offer_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
@@ -893,7 +893,7 @@ class TestWhatTheInvitesOwnReadAnswers:
 
             return refused.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, run) == Code.EINLADUNG_UNBEKANNT
+        assert on_a_league(mongo_replica_set_url, run) == Code.DOCUMENT_NOT_FOUND
 
     def test_the_squad_has_room_until_the_cap_is_reached(self, mongo_replica_set_url: str):
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
@@ -930,7 +930,7 @@ class TestWhatTheInvitesOwnReadAnswers:
         """The second club's link opens: the read answers rather than refusing, and says the team is not entered.
 
         Without this the page renders a whole form whose every submission meets
-        `REQ-REGISTRIERUNG-002` after the pupil has typed their name and address.
+        `registrierung_geschlossen` after the pupil has typed their name and address.
         """
 
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, bool]:

@@ -198,7 +198,7 @@ describe("judgeRowReturn", () => {
   const stored = { teamId: TEAM_A, name: "SG Alpha", shorthand: "SGA" };
   const other = { teamId: TEAM_B, name: "TSV Beta", shorthand: "TSB" };
 
-  /* `REQ-SQUAD-001` is asked first there, so a replaced club is reported before any squad count, and a
+  /* `kader_team_not_in_saison` is asked first there, so a replaced club is reported before any squad count, and a
      reader is never sent to free a place in a season the club has left. */
   it("refuses a row whose club the season no longer holds, whatever any squad's room", () => {
     expect(judgeRowReturn(TEAM_A, [{ ...other, isSquadFull: true }])).toBe("clubLeft");

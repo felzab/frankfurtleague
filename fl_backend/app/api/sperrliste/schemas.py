@@ -13,7 +13,7 @@ from app.shared.schemas.responses import BaseAPIResponse
 ADDRESS_IN_FREE_TEXT: Final = re.compile(r"[^\s@]+@[^\s@]+\.[A-Za-z]{2,}")
 
 # German, as `fl_backend/app/shared/schemas/custom.py :: refuse_reversed_span` words its own. It reaches
-# `REQ-VAL-001`'s log line, never the reason box, which words its own.
+# `payload_refused`'s log line, never the reason box, which words its own.
 GRUND_HOLDS_AN_ADDRESS = "Der Grund darf keine E-Mail-Adresse enthalten."
 
 

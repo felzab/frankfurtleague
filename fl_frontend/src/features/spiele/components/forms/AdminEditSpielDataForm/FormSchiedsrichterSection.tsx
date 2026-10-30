@@ -52,7 +52,7 @@ export function FormSchiedsrichterSection({
     ...candidate,
     name: candidate.name ?? SCHIEDSRICHTER_OHNE_NAMEN_LABEL,
     nameIstPlatzhalter: candidate.name === null,
-    // Listed rather than left out, so an unconfirmed referee reads as waiting and never as missing (`REQ-BOOKING-002`).
+    // Listed rather than left out, so an unconfirmed referee reads as waiting and never as missing (`booking_unconfirmed_schiedsrichter`).
     ...((candidate.einwilligung?.bestaetigt_am ?? null) === null ? { nichtWaehlbar: NOCH_NICHT_BESTAETIGT } : {}),
   }));
   // Created in the editor's dialog, so unconfirmed by construction until the referee answers their link.

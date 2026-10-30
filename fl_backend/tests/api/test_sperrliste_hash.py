@@ -194,9 +194,9 @@ class TestWhatTheCheckAnswers:
         refusal = find_sperrliste_refusal(gesperrt=True)
 
         assert refusal is not None
-        assert refusal.error_code == "REQ-SPERRLISTE-001"
+        assert refusal.error_code == "duplicate_key"
         # The constant beside it, so a rename that moved one and not the other fails here too.
-        assert Code.SPERRLISTE_ADRESSE_GESPERRT == "REQ-SPERRLISTE-001"
+        assert Code.DUPLICATE_KEY == "duplicate_key"
 
     def test_an_address_the_list_does_not_hold_is_refused_by_nothing(self):
         """The control: a check refusing everything would pass the case above and stop every sign-up."""

@@ -59,7 +59,7 @@ export function kuerzelHinweis(shorthand: string, verdikt: KuerzelVerdikt | null
  * The club an application is about: the proposed school's own name, or the picked club's.
  *
  * **One rule, one place**: the list renders it and the outbound message is addressed with it. `null`
- * where it names neither, the row `REQ-BEWERBUNG-002` refuses.
+ * where it names neither, the row `bewerbung_subject_unresolved` refuses.
  */
 export function bewerbungTeamName(bewerbung: Pick<FLBewerbung, "schule" | "team_id">, teams: readonly NamedTeam[]): string | null {
   if (bewerbung.schule !== null) return bewerbung.schule.team_name;
@@ -69,7 +69,7 @@ export function bewerbungTeamName(bewerbung: Pick<FLBewerbung, "schule" | "team_
 }
 
 /**
- * Which of the two an application is, or `null` where it names neither — the row `REQ-BEWERBUNG-002` refuses, which no
+ * Which of the two an application is, or `null` where it names neither — the row `bewerbung_subject_unresolved` refuses, which no
  * surface may file under either. The school is asked first: an accepted one names the club it created too.
  */
 export function bewerbungHerkunft(bewerbung: Pick<FLBewerbung, "schule" | "team_id">): BewerbungHerkunft | null {
@@ -143,24 +143,24 @@ export function mapBewerbungSubmitRefusal(
   switch (error.serverErrorCode) {
     // Every body rule the form can break is mirrored, so a refusal no box can take is of a drifted
     // client, which a reload replaces.
-    case "REQ-VAL-002":
-    case "REQ-VAL-001":
+    case "body_unreadable":
+    case "payload_refused":
       return refusedPayloadAnswer(error, BEWERBUNG_VERALTET);
     // The window closed between the page loading and this press. A reload is the whole remedy: the
     // page then says so itself instead of offering a form nothing accepts.
-    case "REQ-BEWERBUNG-004":
+    case "bewerbung_fenster_geschlossen":
       return {
         error: buildRefusal({
           reason: "Für diese Saison werden gerade keine Bewerbungen angenommen",
           repair: LADE_DIE_SEITE_NEU,
         }),
       };
-    case "REQ-BEWERBUNG-005":
+    case "bewerbung_submission_subject_unresolved":
       return { fieldErrors: { team_id: "Wähle entweder eine bestehende Schule aus oder trage eine neue ein, nicht beides." } };
     // Reload-and-pick leads: this is reachable only for an id the picker never offered. The new-school
-    // arm names a free Kürzel so nobody walks into `-008`, and says nothing about why the club went,
+    // arm names a free Kürzel so nobody walks into `bewerbung_shorthand_taken`, and says nothing about why the club went,
     // which is what `READ-BEWERBUNG-001` asks of it.
-    case "REQ-BEWERBUNG-006":
+    case "bewerbung_picked_team_unusable":
       return {
         fieldErrors: {
           team_id: "Diese Auswahl gilt nicht mehr. Lade die Seite neu, oder trage die Schule mit einem noch freien Kürzel neu ein.",
@@ -168,13 +168,13 @@ export function mapBewerbungSubmitRefusal(
       };
     // The club is IN the season, not the subject of a second application: the two read alike and
     // only one of them is what the backend refused.
-    case "REQ-BEWERBUNG-007":
+    case "bewerbung_picked_team_already_entered":
       return { fieldErrors: { team_id: "Diese Schule spielt in dieser Saison schon mit." } };
-    case "REQ-BEWERBUNG-008":
+    case "bewerbung_shorthand_taken":
       return { fieldErrors: { "schule.shorthand": KUERZEL_VERGEBEN } };
     // The press this form repeated stands, under the details first sent: a banner rather than a
     // field, since whichever box changed since then is not the one at fault.
-    case "REQ-BEWERBUNG-015":
+    case "bewerbung_schluessel_abweichend":
       return {
         schonAngekommen: true,
         error: buildRefusal({
@@ -184,7 +184,7 @@ export function mapBewerbungSubmitRefusal(
       };
     // A banner naming no seat, as a 403 carries no field, and neutral as the registration's is: a
     // stranger learns nothing about a list, and the person it concerns already knows why.
-    case "REQ-BEWERBUNG-018":
+    case "bewerbung_adresse_gesperrt":
       return {
         error: buildRefusal({
           reason: "Mit einer der angegebenen E-Mail-Adressen ist keine Bewerbung möglich",
@@ -193,9 +193,9 @@ export function mapBewerbungSubmitRefusal(
       };
     // With the record missing, the season this page names is one the running API does not hold: only a
     // page from before a data reset, or a crafted body, sends it, and the reload fetches the window open now.
-    case "DB-COMMON-001":
+    case "document_not_found":
     // A seat names words other than the form's, which only a page loaded before a deploy sends.
-    case "REQ-EINWILLIGUNG-001":
+    case "fassung_unzulaessig":
       return { error: BEWERBUNG_VERALTET };
     default:
       return null;
@@ -257,42 +257,41 @@ export async function mapEinwilligungRefusal(
   switch (error.serverErrorCode) {
     // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
     // mail's link replaces.
-    case "REQ-VAL-002":
-    case "REQ-VAL-001":
+    case "body_unreadable":
+    case "payload_refused":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     // The backend's judgement of the label: a page opened before a
     // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
-    case "REQ-EINWILLIGUNG-001":
+    case "fassung_unzulaessig":
       return { error: FASSUNG_NEU_OEFFNEN };
-    case "REQ-BEWERBUNG-009":
+    case "link_ungueltig":
       return { zustand: "ungueltig" };
     // Judged ahead of the seat and the ban, which the view ranks first: an answer given in another window, or a ban
     // entered since, reads as the view says, and the spent link's panel stands for the rest.
-    case "REQ-BEWERBUNG-010":
-    case "REQ-BEWERBUNG-017":
-    case "REQ-KONTAKT-004":
+    case "link_abgelaufen":
+    case "bewerbung_token_past_deadline":
       return stand("abgelaufen");
     // A season row's link whose season ended or whose team left, which still takes a Widerspruch, unless the ban the
     // press judges after it bars the address: the view's page either way.
-    case "REQ-KONTAKT-006":
+    case "kontakt_saison_vorbei":
       return stand("saison_vorbei");
     // One code covers both answers, so „bestätigt“ here would tell a seat declined in another window
     // that it confirmed. Which way it went is the read's to say.
-    case "REQ-BEWERBUNG-011":
+    case "bewerbung_sitz_already_answered":
       return stand("ungueltig");
     // The one refusal that spends no token, so it lands on the field and the typed date survives it;
     // a `zustand` here would swap a live form for a dead-link panel. A view that went unread names no floor.
-    case "REQ-BEWERBUNG-012": {
+    case "bestaetigung_alter": {
       const floor = (await ansicht())?.mindestalter ?? null;
       return { fieldErrors: { geburtsdatum: floor === null ? GEBURTSDATUM_AUSSERHALB : alterAusserhalb(floor) } };
     }
     // Spends nothing either, and the typed date survives it; a toast, the switch rendering no error of its own.
     // The floor is the view's as the age refusal's is, so a view that went unread names none.
-    case "REQ-EINWILLIGUNG-002":
+    case "medien_alter":
       return { error: medienNochNicht((await ansicht())?.medien_mindestalter ?? null) };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
     // form either: the page offers no Widerspruch to a barred address.
-    case "REQ-BEWERBUNG-020":
+    case "link_gesperrt":
       return { zustand: "gesperrt" };
     default:
       return null;
@@ -306,7 +305,7 @@ export function mapEinwilligungAnsichtRefusal(error: unknown): LinkZustand | nul
   // A token the backend will not parse matches no record, so the page calls the link void rather
   // than offering a reload that cannot succeed. The two
   // tiers bound its length apart.
-  if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
+  if (error.serverErrorCode === "payload_refused") return "ungueltig";
 
   // Every rule's refusal alike: a spent link answers its own `zustand` in a 200, so a refusal is a
   // token nothing could place, and a code nobody planned reads the same way.
@@ -403,7 +402,7 @@ export function istNeueSchule(auswahl: string | null): boolean {
  * The draft as the submission spells it.
  *
  * **Both school arms are derived from the one picked key**, so nothing composed here can name a club
- * and a new school at once — the shape `REQ-BEWERBUNG-005` refuses.
+ * and a new school at once — the shape `bewerbung_submission_subject_unresolved` refuses.
  */
 export function bewerbungPayload(draft: BewerbungFormDraft) {
   const neu = istNeueSchule(draft.auswahl);

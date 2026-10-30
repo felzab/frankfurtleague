@@ -38,7 +38,7 @@ SPIELTAG_BEGINN = "2026-06-20"
 SPIELTAG_ENDE = "2026-06-21"
 
 # A neighbour after the seeded matchday, and a date past it that is still inside the season: the
-# order rule is what refuses the move, rather than `REQ-DATE-002` reaching it first.
+# order rule is what refuses the move, rather than `spieltag_outside_saison` reaching it first.
 NEIGHBOUR_BEGINN = "2026-06-25"
 NEIGHBOUR_ENDE = "2026-06-26"
 AFTER_THE_NEIGHBOUR = "2026-06-28"
@@ -135,7 +135,7 @@ async def re_date(database: AsyncDatabase, spieltag_id: ObjectId, *, beginn: str
 
 
 class TestASeasonKeepsCoveringTheMatchdaysItStores:
-    """`REQ-DATE-004` through the endpoint: only a database proves the spans it judges are read from `spieltage` at all."""
+    """`saison_span_below_spieltage` through the endpoint: only a database proves the spans it judges are read from `spieltage` at all."""
 
     def test_a_shrink_past_a_stored_matchday_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> APIError:
@@ -201,7 +201,7 @@ class TestAWriteEchoesTheMatchdayItChanged:
 
 
 class TestAMatchdayKeepsCoveringItsFixtures:
-    """`REQ-DATE-003` through the endpoint: only a database proves the dates it judges are read out of `spiele` at all."""
+    """`spieltag_span_below_spiele` through the endpoint: only a database proves the dates it judges are read out of `spiele` at all."""
 
     async def _with_a_fixture_on(self, database: AsyncDatabase, datum: str | None) -> None:
         await database.spiele.insert_one(spiel_document(spiel_nr=1, datum=datum))
@@ -218,7 +218,7 @@ class TestAMatchdayKeepsCoveringItsFixtures:
 
         refusal = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == Code.SPIELTAG_SPAN_BELOW_FIXTURES
+        assert refusal.error_code == Code.SPIELTAG_SPAN_BELOW_SPIELE
 
     def test_an_undated_fixture_constrains_nothing(self, mongo_replica_set_url: str):
         """The endpoint filters those out rather than passing nulls, and only a real query says whether it does."""
@@ -234,7 +234,7 @@ class TestAMatchdayKeepsCoveringItsFixtures:
 
 
 class TestAMatchdayNeverBeginsBeforeItsPredecessor:
-    """`REQ-DATE-008` through the endpoint: only a database proves the neighbours it judges are read out of `spieltage` at all."""
+    """`spieltag_beginn_out_of_order` through the endpoint: only a database proves the neighbours it judges are read from `spieltage`."""
 
     async def _with_a_matchday(
         self,

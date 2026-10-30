@@ -651,7 +651,7 @@ class TestAnActivationInsideThePupilsTransactionKeepsThem:
                 database,
                 {Collection.SPIELER: [pupil(numbered(1), address_of(1))], Collection.SAISON_SPIELER: [squad_row(numbered(1), PLANNED_BELOW)]},
             )
-            # What makes the planned season activatable (`REQ-ACTIVATE-003`).
+            # What makes the planned season activatable (`activate_target_undrawn`).
             await database[Collection.SPIELE].insert_one(
                 spiel_document(spiel_id=numbered(900), saison_id=PLANNED_BELOW, spiel_nr=1, spieltag_id=numbered(901))
             )

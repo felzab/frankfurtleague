@@ -58,7 +58,7 @@ export async function getSchiedsrichterById(schiedsrichterId: string): Promise<F
 function mapSchiedsrichterAnsichtRefusal(error: unknown): "ungueltig" | null {
   if (!isRefusal(error)) return null;
 
-  if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
+  if (error.serverErrorCode === "payload_refused") return "ungueltig";
 
   // Every rule's refusal alike, as the refused payload is: a confirmed or lapsed link answers its own
   // state in a 200, so a refusal is a token nothing could place, and a code nobody planned reads the same way.
@@ -106,30 +106,30 @@ export async function mapSchiedsrichterBestaetigungRefusal(
   switch (error.serverErrorCode) {
     // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
     // mail's link replaces.
-    case "REQ-VAL-002":
-    case "REQ-VAL-001":
+    case "body_unreadable":
+    case "payload_refused":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     // The switch is offered from the served age on the browser's day, so a clock disagreeing with the
     // backend's sends this, which a reopened link would offer again: switching it off is the repair.
-    case "REQ-SCHIEDSRICHTER-008":
+    case "medien_alter":
       return { error: medienNochNicht((await ansicht())?.medien_mindestalter ?? null) };
     // The backend's judgement of the label: a page opened before a
     // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
-    case "REQ-EINWILLIGUNG-001":
+    case "fassung_unzulaessig":
       return { error: FASSUNG_NEU_OEFFNEN };
-    case "REQ-SCHIEDSRICHTER-002":
+    case "link_ungueltig":
       return { zustand: "ungueltig" };
     // Judged ahead of the ban, which the view ranks first: an address barred since reads as a reload shows it.
-    case "REQ-SCHIEDSRICHTER-003":
+    case "link_abgelaufen":
       return { zustand: await stand("abgelaufen") };
-    case "REQ-SCHIEDSRICHTER-004":
+    case "bestaetigung_vorhanden":
       return { zustand: await stand("bestaetigt") };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
-    case "REQ-SCHIEDSRICHTER-009":
+    case "link_gesperrt":
       return { zustand: "gesperrt" };
     // The one refusal that spends nothing, so it lands on the field and the typed date survives it;
     // a `zustand` here would swap a live form for a dead-link panel.
-    case "REQ-SCHIEDSRICHTER-005": {
+    case "bestaetigung_alter": {
       const floor = (await ansicht())?.mindestalter ?? null;
 
       // A view that went unread names no floor: one guessed could send the person to correct a date that was right.
@@ -161,7 +161,7 @@ export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promi
 }
 
 /**
- * The signed-in referee's own records, refused `REQ-FUNKTION-001` where the backend holds no confirmed
+ * The signed-in referee's own records, refused `funktion_nicht_gehalten` where the backend holds no confirmed
  * referee row for the address the page's own check passed.
  */
 // Never `"use cache"`, which keys on the arguments rather than the caller.

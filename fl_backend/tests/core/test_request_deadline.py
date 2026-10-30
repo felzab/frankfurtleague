@@ -529,7 +529,7 @@ class TestADeadlineCuttingASafeRequestIsAFailure:
         assert (response.status_code, response.json()["error_code"]) == (500, FAILED)
 
     def test_an_error_from_outside_the_driver_stays_the_server_failure(self):
-        """The control: without it, a handler answering every error `DB-FAIL-001` would pass the case above."""
+        """The control: without it, a handler answering every error `database_failed` would pass the case above."""
 
         response = _raised_through_the_app(ValueError("not a database failure"))
 

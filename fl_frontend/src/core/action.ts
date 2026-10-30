@@ -92,16 +92,16 @@ type Lane<Schema extends z.ZodType, Value> = AdminLane<Schema, Value> | PersonLa
 
 /** Every code that means the page was read before something changed: a reload shows the record as it stands. */
 const STALE: ReadonlySet<Code> = new Set<Code>([
-  "DB-COMMON-001",
-  "DB-COMMON-003",
-  "REQ-BOOKING-003",
-  "REQ-WIRING-001",
-  "REQ-WIRING-002",
-  "REQ-WIRING-003",
-  "REQ-FUNKTION-001",
+  "document_not_found",
+  "version_stale",
+  "booking_schiedsrichter_moved",
+  "wiring_unsupported",
+  "wiring_seed_past_the_opening_round",
+  "wiring_gruppe_not_run",
+  "funktion_nicht_gehalten",
   // The input passed the API's own rules as this page knows them: the page is older than the API.
-  "REQ-VAL-001",
-  "REQ-VAL-002",
+  "payload_refused",
+  "body_unreadable",
 ]);
 
 /** The admin guard's refusals, each in the words of what repairs it. */
@@ -188,7 +188,7 @@ function refused<Schema extends z.ZodType>(declared: Declared<Schema>, code: Cod
   }
   if (STALE.has(code)) return { ok: false, errorCode: code, reason: COPY.shared.fehler.veraltet };
   // The grant went between the guard's read and the backend's.
-  if (code === "REQ-AUTH-006") return { ok: false, errorCode: code, reason: COPY.shared.fehler.zugangWeg };
+  if (code === "actor_not_admin") return { ok: false, errorCode: code, reason: COPY.shared.fehler.zugangWeg };
   return { ok: false, errorCode: code, reason: COPY.shared.fehler.unerwartet };
 }
 

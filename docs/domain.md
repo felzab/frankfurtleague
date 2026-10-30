@@ -95,24 +95,24 @@ brought up to date.
 - **Created** — always `future`. Nothing an admin submits sets `status`, and the activation below is the only
   code path in the system that writes it.
 - **Applications** — a school applies while the season's own window is open and the season has not ended
-  (`REQ-BEWERBUNG-004`). Accepting
+  (`bewerbung_fenster_geschlossen`). Accepting
   one creates the club where it is new and writes its junction row, held to the same entry rules a direct
   entry meets.
 - **Registration** — the season records a second window of its own, `registrierung`, set on the season editor
   and open exactly when its flag is on, the day falls inside its span and the season has not ended. It is judged apart from the
   application window above and from the season's own dates, so the two may run in any order or not at all.
-- **Entry** — a club takes a place in a group only while the season is `future` (`REQ-ENTER-001`), only in a
-  group the season runs (`REQ-ENTER-002`), and only while that group has room (`REQ-ENTER-003`).
+- **Entry** — a club takes a place in a group only while the season is `future` (`entry_saison_not_future`), only in a
+  group the season runs (`entry_gruppe_not_offered`), and only while that group has room (`entry_gruppe_full`).
 - **The draw** — `POST /saisons/{saison_id}/spielplan` composes every matchday and every fixture of the
   season in one operation, from the rules and the clubs entered. Nothing it writes carries a date; dating a
   matchday is a separate write afterwards.
 - **Activation** — `POST /saisons/{saison_id}/activate` is the only path to `active`. It refuses a season
-  holding no fixtures (`REQ-ACTIVATE-003`) and one whose matchdays are not all dated
-  (`REQ-ACTIVATE-004`), and demotes the incumbent to `past`, which is refused while that incumbent still
-  has fixtures neither played nor cancelled (`REQ-ACTIVATE-001`).
+  holding no fixtures (`activate_target_undrawn`) and one whose matchdays are not all dated
+  (`activate_spieltage_undated`), and demotes the incumbent to `past`, which is refused while that incumbent still
+  has fixtures neither played nor cancelled (`activate_saison_unfinished`).
 - **`past`** — the end, and there is no way out of it. A finished season's points, its groups and the table
   derived from them are the record of what happened, and activating it again would reopen all three
-  (`REQ-ACTIVATE-002`). A season closed by mistake is repaired at the database.
+  (`saison_past`). A season closed by mistake is repaired at the database.
 
 **A season is never deleted, and neither is a club's place in one.** No endpoint removes a `saisons`
 document, which would orphan every `saison_id` in the database, and none removes a `saison_teams` row: a club
@@ -121,12 +121,12 @@ survives both.
 
 **Retirement everywhere else is a date and never a delete, and it never cascades.** `inactive_since` retires
 a row and clearing it revives one; a played fixture keeps the team name it recorded at the time. What a
-retired row loses is NEW work — a retired club is entered into no season (`REQ-ENTER-005`), and a retired
+retired row loses is NEW work — a retired club is entered into no season (`team_retired`), and a retired
 venue or referee is assigned to no fixture that does not already hold it, nor kept on one a save makes unplayed
-again (`REQ-BOOKING-001`). Both judge the reference being made — and reopening a fixture makes its references
+again (`booking_unknown_resource`). Both judge the reference being made — and reopening a fixture makes its references
 again — rather than one merely stored, which is what lets a venue retire while played or called-off fixtures
 still name it. A bracket resolution, or a side emptied for a Spieltag clash, reopening such a fixture is no save and refuses nothing: the retired row stays booked and is reported, the ghost every erased referee's fixtures point at being one such
-retired row. The `REQ-RETIRE-*` codes are every refusal a retirement meets.
+retired row. `retire_blocked`, `spielort_still_booked` and `schiedsrichter_still_assigned` are every refusal a retirement meets.
 
 **Where a document really is removed, the removal is what the operation is for.** A confirmed **replace** of
 a season's draw takes its matchdays and fixtures away and writes fresh ones; an **undraw** takes the same two
@@ -139,7 +139,7 @@ being exactly the record the erasure exists to remove.
 
 ### A season's rules are the interesting case
 
-**What freezes the season's shape is the draw, never `status` alone** (`REQ-RULES-011`). Once a season holds
+**What freezes the season's shape is the draw, never `status` alone** (`rules_shape_after_spielplan`). Once a season holds
 fixtures, the three numbers those fixtures were drawn from move only with the fixtures they produced, because
 the shape and the draw are ONE fact. An `active` season is held to its shape and so is a `future` one.
 
@@ -147,20 +147,20 @@ the shape and the draw are ONE fact. An `active` season is held to its shape and
 route back at all, and the three shape rules are fixed for the season's life. It is the whole reason
 `DELETE /saisons/{saison_id}/spielplan` exists:
 undraw, patch the rules, change the entries, draw again — with the group moves a drawn season locks
-(`REQ-ENTER-004`) open again in between. **Changing the entries can only mean adding them.** No endpoint
+(`entry_gruppe_locked`) open again in between. **Changing the entries can only mean adding them.** No endpoint
 takes a club back out of a season and an `austritt` leaves its row occupying the place, so a group's
 occupancy never falls: an undraw reopens the group count and the group size upward alone, and either of them
-below what the groups already hold is refused whatever is undrawn (`REQ-RULES-002`, `REQ-RULES-003`). **Not
+below what the groups already hold is refused whatever is undrawn (`rules_gruppen_in_use`, `rules_capacity_below_use`). **Not
 every bound over stored rows behaves that way**: `max_kadergroesse` is held above the largest squad, counted
-over rows no retirement has taken out (`REQ-RULES-009`), so retiring players lowers that cap where nothing
+over rows no retirement has taken out (`rules_kader_below_use`), so retiring players lowers that cap where nothing
 lowers a group's occupancy. Only the qualifier count can skip the whole route, moving on a confirmed
-replace's own payload (`REQ-SPIELPLAN-005`) because it leaves every group as it stands. Both operations are
-held to a `future` season with nothing recorded against a fixture (`REQ-SPIELPLAN-006`), so what they destroy
+replace's own payload (`spielplan_replace_outside_its_window`) because it leaves every group as it stands. Both operations are
+held to a `future` season with nothing recorded against a fixture (`spielplan_undraw_outside_its_window`), so what they destroy
 is a schedule nobody has played.
 
 One freeze sits outside that one:
 
-- **A started season's scoring and seeding are frozen** (`REQ-RULES-005`) — from the day of its earliest
+- **A started season's scoring and seeding are frozen** (`rules_saison_started`) — from the day of its earliest
   group-phase fixture (`fl_backend/app/api/saisons/crud.py :: has_started`), the points, the qualifiers per
   group and the tie-break order hold: the table is derived from them on every read, and the bracket was
   seeded from the placings the order decides. A `past` season stays frozen whatever its fixtures' dates.
@@ -176,18 +176,18 @@ finished season, correcting a mistyped one changing nothing anybody competed for
 
 - **Nothing about scoring is a constant.** What a win and a draw are worth is the season's, there is no
   points value for a loss at all, and the only bound on the pair is that a season may not make a draw the
-  better result (`REQ-RULES-008`).
+  better result (`rules_unentschieden_outvalues_win`).
 - **A season runs a prefix of a closed group set**, whose members are [`glossary.md`](glossary.md)'s `Gruppe`
   entry. The count and the size are the season's (`fl_backend/app/api/saisons/schemas.py :: NumberOfGroups`,
   `:: TeamsPerGroup`), and each is bounded as one field. What keeps a whole season inside one page of a
-  season-scoped read (`fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT`) is `REQ-RULES-013`,
+  season-scoped read (`fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT`) is `rules_spiele_over_one_read`,
   which weighs every group and the bracket together; past that page those reads truncate and the refusals
   computed from them cannot be trusted.
 - **Every group plays one round robin, and the groups play in step.** Round _k_ of every group is matchday
   _k_, which is what keeps a club from standing twice on one matchday and makes every group finish together.
   An odd-sized group leaves one club on a bye each round rather than shortening the phase.
 - **The bracket has to have a shape.** Groups times qualifiers-per-group must be a power of two the round set
-  can hold (`REQ-RULES-001`), because a knockout ladder halves each round down to one final; the rounds are
+  can hold (`rules_bracket_impossible`), because a knockout ladder halves each round down to one final; the rounds are
   `fl_backend/app/api/spiele/schemas.py :: KNOCKOUT_PHASES`, declared in playing order, and each of them is
   one matchday.
 - **A bracket fixture is drawn naming its sources rather than its teams.** A side is fed by a group placing,
@@ -195,7 +195,7 @@ finished season, correcting a mistyped one changing nothing anybody competed for
   qualified for anything, and entering a result is what fills the slots downstream.
 - **A level knockout fixture is settled by a shoot-out**, whose own scoreline is stored beside the result and
   never inside it. A no-show is awarded a scoreline the season configures, and a season that plays a knockout
-  round may not configure that award level (`REQ-RULES-010`) — a drawn forfeit would leave the round with
+  round may not configure that award level (`rules_forfeit_draws_a_knockout`) — a drawn forfeit would leave the round with
   nobody to advance.
 - **A club leaves one season, never the league.** An `austritt` record says which of the two routes out it
   took, and the club's own document is untouched by it.
@@ -283,29 +283,29 @@ rather than a mistake.** Where a page reports one, the report is computed on the
 no later feature can come to depend on a flag.
 
 - **A matchday whose fixtures differ from the count its phase implies.** The draw writes every phase at that
-  count and `REQ-RULES-011` holds the shape to the fixtures drawn from it, so only a stored row no current
+  count and `rules_shape_after_spielplan` holds the shape to the fixtures drawn from it, so only a stored row no current
   write produces holds the gap; refusing it on the rules patch would latch such a season shut, its dates
   included. The matchday editor names both counts.
 - **Two players of one squad wearing the same number.** A number is worn rather than assigned, and a squad
   fields several keepers wearing 1. The two squad reads a team's representative is served report it, comparing
   the number as typed, because `07` is a printed shirt and not `7`.
-- **A bracket slot the resolution filled with a club that later left.** `REQ-ELIGIBILITY-001` judges a side a
+- **A bracket slot the resolution filled with a club that later left.** `eligibility_disqualified` judges a side a
   request fields; a slot no request touched is reported as a fault, since only a person chooses between a
   forfeit and a replacement.
-- **A fixture still to be played booked onto a retired venue or referee.** `REQ-BOOKING-001` judges what a save
+- **A fixture still to be played booked onto a retired venue or referee.** `booking_unknown_resource` judges what a save
   books, and a bracket resolution reopening a fixture books nothing; refusing it would refuse the correction
   upstream. The booking is reported as a fault, the ghost an erased referee leaves among them.
-- **One venue or referee claimed by two fixtures under four hours apart.** `REQ-CLASH-001` refuses only a claim
+- **One venue or referee claimed by two fixtures under four hours apart.** `spiel_double_booked` refuses only a claim
   a save newly makes. A lifted no-show reclaiming its slot is reported, because which fixture moves is a
   competition call.
-- **A Spieltag on which a club already stands twice.** The swap, `REQ-SPIELTAG-001` and `REQ-SPIELTAG-002`
+- **A Spieltag on which a club already stands twice.** The swap, `spieltag_occupied` and `spieltag_occupied_by_the_resolution`
   refuse only a pair the write would create, since refusing over a standing fault would block its repair;
   each standing appearance is reported.
 - **A departed club holding drawn fixtures.** It keeps its group place and its opponents need a fixture to
-  record the walkover on; `REQ-ELIGIBILITY-001` refuses only a request disturbing one.
+  record the walkover on; `eligibility_disqualified` refuses only a request disturbing one.
 - **A group phase in which every club qualifies.** A seeding-only group stage is a real format, so
-  `REQ-RULES-007` bounds the qualifiers from above alone.
-- **A matchday of a later phase dated before one of an earlier phase.** `REQ-DATE-008` finds its neighbour on
+  `rules_qualifiers_above_gruppe` bounds the qualifiers from above alone.
+- **A matchday of a later phase dated before one of an earlier phase.** `spieltag_beginn_out_of_order` finds its neighbour on
   the indexed `(saison_id, saison_phase, position)`, and no stored key orders the phases. The matchday list
   sections a season by phase in played order, so such dates read as running backwards.
 - **A `future` season holding recorded results.** Binding a result to the status would make the one-way
@@ -315,7 +315,7 @@ no later feature can come to depend on a flag.
   awarded or the match replayed, and this competition names no rule between them; the editor warns that a
   decided score counts for the table.
 - **A pupil whose age no squad rule judges.** The age is judged once, at the registration's confirmation
-  (`REQ-REGISTRIERUNG-007`); entering, moving or bringing back a squad row judges none.
+  (`bestaetigung_alter`); entering, moving or bringing back a squad row judges none.
 - **A person holding no squad row, and a person retired while holding a live one.** The first is reachable only
   by a database edit, and `GET /spieler/memberships` serves such a person with an empty list, which is the
   surface that repairs it. The two retirements are independent, so retiring a person never asks for every squad

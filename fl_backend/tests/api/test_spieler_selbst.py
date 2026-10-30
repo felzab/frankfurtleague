@@ -355,7 +355,7 @@ class TestTheMediaAge:
     def test_a_media_consent_below_the_floor_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         response, before, after, _ = served(mongo_replica_set_url, _press(YOUNG, _payload(medien=True)))
 
-        assert (response.status_code, response.json()["error_code"]) == (422, Code.SELBST_MEDIEN_ALTER)
+        assert (response.status_code, response.json()["error_code"]) == (422, Code.MEDIEN_ALTER)
         assert after == before
 
     def test_a_stored_media_consent_resent_unchanged_lets_the_scope_move(self, mongo_replica_set_url: str):
@@ -445,7 +445,7 @@ class TestTheEvidence:
 
 @pytest.mark.db
 class TestAStalePage:
-    """`REQ-EINWILLIGUNG-003`: a press answers the evidence its page was served, or is refused and writes nothing."""
+    """`fassung_unzulaessig`: a press answers the evidence its page was served, or is refused and writes nothing."""
 
     def test_a_page_served_before_a_withdrawal_elsewhere_cannot_re_grant_it(self, mongo_replica_set_url: str):
         """Two tabs: the second withdraws the media consent, then the first, still showing it on, narrows the scope."""
@@ -465,7 +465,7 @@ class TestAStalePage:
         withdrawn, stale, before, after = served(mongo_replica_set_url, steps)
 
         assert withdrawn.status_code == 200, withdrawn.text
-        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.EINWILLIGUNG_STAND_VERALTET)
+        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.FASSUNG_UNZULAESSIG)
         assert after == before
         assert after[PUPIL_OID]["einwilligung"]["medien"] is False
 
@@ -503,7 +503,7 @@ class TestAStalePage:
         withdrawn, granted, stale, before, after = served(mongo_replica_set_url, steps)
 
         assert (withdrawn.status_code, granted.status_code) == (200, 200), granted.text
-        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.EINWILLIGUNG_STAND_VERALTET)
+        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.FASSUNG_UNZULAESSIG)
         assert after == before
 
 

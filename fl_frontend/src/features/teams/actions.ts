@@ -129,7 +129,7 @@ export async function deleteTeamAction(rawPayload: { id: string }): Promise<Acti
     }
 
     // The backend refuses retiring a club entered in a running or planned season
-    // (`REQ-RETIRE-001`); the German answer names the rule rather than a generic conflict.
+    // (`retire_blocked`); the German answer names the rule rather than a generic conflict.
     let deleteOperation;
     try {
       deleteOperation = await deleteTeam(validated.data);

@@ -21,7 +21,7 @@ export const KontakteSpeichernEingabeSchema = z.object({
   // The whole block, or `null` to clear it. REQUIRED with no default: a form that omits it gets a
   // 422, never three people quietly left standing.
   kontakte: FLSaisonTeamKontaktePayloadSchema.nullable(),
-  // Echoed back exactly as the read served it (`REQ-KONTAKT-001`). Unbounded on purpose: a token no
+  // Echoed back exactly as the read served it (`kontakte_moved_under_the_save`). Unbounded on purpose: a token no
   // read minted is refused there anyway, and a bound here would mark a box nothing renders.
   kontakte_stand: z.string(),
 });

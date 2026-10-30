@@ -46,7 +46,7 @@ export function SaisonRuleNumberField({
   /**
    * READ-ONLY rather than disabled: a disabled `NumberField` is skipped by keyboard navigation and
    * announced as unavailable, and it keeps the field in the form so the payload still carries the value
-   * the freeze compares (`REQ-RULES-005`).
+   * the freeze compares (`rules_saison_started`).
    */
   isReadOnly?: boolean;
 }) {
@@ -168,7 +168,7 @@ export function SaisonTiebreakSelect({
   /**
    * DISABLED where `SaisonRuleNumberField` is read-only: react-aria's `Select` has no read-only
    * state, and the payload is built from the caller's draft rather than from the DOM, so the frozen
-   * value still rides along for `REQ-RULES-005` to compare.
+   * value still rides along for `rules_saison_started` to compare.
    */
   isDisabled?: boolean;
 }) {

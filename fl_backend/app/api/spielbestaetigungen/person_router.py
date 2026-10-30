@@ -91,7 +91,7 @@ async def get_eigene_spielbestaetigungen(
     ahead, each by its day; then the days gone by, the latest first. Nobody's address or seat is served, and no reason an
     administrator entered on the row.
 
-    Refuses an address holding no live, confirmed referee record (`REQ-FUNKTION-001`).
+    Refuses an address holding no live, confirmed referee record (`funktion_nicht_gehalten`).
     """
 
     # A snapshot, so every row is judged against the fixture and clubs of its own moment; never a transaction, which a
@@ -190,12 +190,12 @@ async def post_schiedsrichter_antwort(
     the season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture
     carries.
 
-    Refuses, in this order: an address holding no live, confirmed referee record (`REQ-FUNKTION-001`); an id naming no
-    row of an `active` season, or a row naming none of those records (`REQ-ANSETZUNG-015`, one answer for both); a row
-    already answered, by them or by the league for them (`REQ-ANSETZUNG-002`); one closed unanswered
-    (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club (`REQ-ANSETZUNG-005`), then one whose date,
-    time, ground or sides moved since the row, or which books another referee or none (`REQ-ANSETZUNG-004`); and a
-    fixture whose day has gone by (`REQ-ANSETZUNG-003`). An acceptance is judged again outside the transaction just
+    Refuses, in this order: an address holding no live, confirmed referee record (`funktion_nicht_gehalten`); an id naming no
+    row of an `active` season, or a row naming none of those records (`ansetzung_fremde_zeile`, one answer for both); a row
+    already answered, by them or by the league for them (`ansetzung_beantwortet`); one closed unanswered
+    (`ansetzung_geschlossen`); a fixture decided, called off or left by a club (`ansetzung_entschieden`), then one whose date,
+    time, ground or sides moved since the row, or which books another referee or none (`ansetzung_geaendert`); and a
+    fixture whose day has gone by (`ansetzung_frist_vorbei`). An acceptance is judged again outside the transaction just
     before answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.
 
     **The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name
@@ -261,7 +261,7 @@ async def post_schiedsrichter_antwort(
                 )
             except DocumentNotFoundError:
                 # Unreachable: the snapshot judged above books them, and a write since conflicts rather than missing.
-                # Mapped to that judgement's refusal, so no `DB-COMMON-001` is published for a miss no caller meets.
+                # Mapped to that judgement's refusal, so no `document_not_found` is published for a miss no caller meets.
                 refuse(ansetzung_verlassen_refusal())
         else:
             # The acceptance writes no fixture, so a move, a reassignment or a club's exit landing under this transaction

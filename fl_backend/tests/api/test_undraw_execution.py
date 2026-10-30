@@ -57,7 +57,7 @@ GROUPS = 4
 TEAMS_PER_GROUP = 4
 QUALIFIERS = 2
 
-# Wider than the shape the season was drawn from, which is the step `REQ-RULES-011` refuses while the
+# Wider than the shape the season was drawn from, which is the step `rules_shape_after_spielplan` refuses while the
 # season is drawn -- and the whole reason this endpoint exists.
 WIDER_PER_GROUP = 6
 
@@ -628,7 +628,7 @@ class BerichteRunningARivalBeforeTheirRemoval(InterleavedCollection):
 
 
 class TestASubmittedReportKeepsTheSpielplan:
-    """`REQ-SPIELPLAN-007` wired: the undraw counts the season's submitted reports in its transaction and again outside it."""
+    """`spielplan_berichte_eingereicht` wired: the undraw counts the season's submitted reports in its transaction and again outside it."""
 
     def test_the_undraw_is_refused_and_removes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -715,7 +715,7 @@ def an_undraw_refused_on(url: str, *, status: str | None = None, record: dict[st
 
 
 class TestTheWindowIsReachedThroughTheRoute:
-    """`REQ-SPIELPLAN-006` WIRED: the endpoint reads the season's status and its own fixtures inside the transaction."""
+    """`spielplan_undraw_outside_its_window` WIRED: the endpoint reads the season's status and its own fixtures inside the transaction."""
 
     @pytest.mark.parametrize("status", ["active", "past"])
     def test_a_season_outside_its_planning_keeps_its_whole_spielplan(self, mongo_replica_set_url: str, status: str):
@@ -916,7 +916,7 @@ class ReopenedSeason:
 class TestWhatAnUndrawReopens:
     """Why the endpoint exists: a replace repairs a NARROWING alone.
 
-    Widening is refused by `REQ-SPIELPLAN-004` for the groups then short of the new size, and no club
+    Widening is refused by `spielplan_gruppen_off_rules` for the groups then short of the new size, and no club
     can be entered into a drawn season at all.
     """
 
@@ -944,7 +944,7 @@ class TestWhatAnUndrawReopens:
 
         reopened = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert reopened.patch_refused == Code.RULES_SHAPE_AFTER_DRAW
+        assert reopened.patch_refused == Code.RULES_SHAPE_AFTER_SPIELPLAN
         assert reopened.entry_refused == Code.ENTRY_GRUPPE_FULL
         # Read off the stored document the patch echoes, so a rule refused after the write cannot pass this.
         assert reopened.widened.updated_document.rules.teams_per_group == WIDER_PER_GROUP

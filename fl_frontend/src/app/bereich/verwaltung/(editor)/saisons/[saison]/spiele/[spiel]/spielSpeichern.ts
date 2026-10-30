@@ -99,24 +99,24 @@ function payloadOf(gespeichert: FLSpielJoinedAdmin, changes: Aenderungen): FLPat
 /**
  * Saves the match editor's changes, answering the fixture's new version, which the editor takes as its own. The
  * version sent is the one the editor was read at: where the fixture has changed since, the write refuses the save
- * as stale (`DB-COMMON-003`) rather than writing over it, in the one update that stores it.
+ * as stale (`version_stale`) rather than writing over it, in the one update that stores it.
  */
 export const spielSpeichern = action({
   lane: "admin",
   name: "spielSpeichern",
   input: SpielSpeichern,
   ownWords: {
-    "REQ-DATE-001": "changes.datum",
-    "REQ-STATE-002": "changes.sonderereignis",
-    "REQ-STATE-003": "changes.sonderereignis",
-    "REQ-BOOKING-001": true,
-    "REQ-BOOKING-002": true,
-    "REQ-CLASH-001": true,
-    "REQ-RESULT-001": true,
-    "REQ-SPIELTAG-001": true,
-    "REQ-SPIELTAG-002": true,
-    "REQ-ELIGIBILITY-001": true,
-    "REQ-ELIGIBILITY-002": true,
+    spiel_outside_spieltag: "changes.datum",
+    state_ergebnis_on_a_non_event: "changes.sonderereignis",
+    state_nichtantreten_without_two_sides: "changes.sonderereignis",
+    booking_unknown_resource: true,
+    booking_unconfirmed_schiedsrichter: true,
+    spiel_double_booked: true,
+    ergebnis_side_emptied: true,
+    spieltag_occupied: true,
+    spieltag_occupied_by_the_resolution: true,
+    eligibility_disqualified: true,
+    eligibility_team_not_in_saison: true,
   },
   examples: { "changes.mietpreis": COPY.verwaltung.spielort.mietpreisBeispiel },
   run: async ({ id, fingerprint, changes }): Promise<ActionAnswer<string>> => {

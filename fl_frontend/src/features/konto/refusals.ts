@@ -14,5 +14,5 @@ export const LETZTE_INHABERIN =
 export function mapLoeschungRefusal(error: unknown): { error: string } | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "REQ-PURGE-004" ? { error: LETZTE_INHABERIN } : null;
+  return error.serverErrorCode === "letzter_inhaber_loeschung" ? { error: LETZTE_INHABERIN } : null;
 }

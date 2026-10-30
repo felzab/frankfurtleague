@@ -86,7 +86,7 @@ class TestWhetherTheClubIsStillInTheLeague:
         refusal = find_club_entry_refusal(inactive_since="2026-03-01")
 
         assert refusal is not None
-        assert refusal.error_code == Code.CLUB_RETIRED
+        assert refusal.error_code == Code.TEAM_RETIRED
 
 
 DATABASE_NAME = worker_database("fl_team_entry_test")
@@ -137,7 +137,7 @@ async def junction_rows(database: AsyncDatabase) -> list[dict[str, Any]]:
 
 @pytest.mark.db
 class TestEnteringAClubThroughTheEndpoint:
-    """`REQ-ENTER-005` and the 404 beside it, against a real mongod: a refusal that exists is not a refusal that is reached."""
+    """`team_retired` and the 404 beside it, against a real mongod: a refusal that exists is not a refusal that is reached."""
 
     def test_a_retired_club_is_refused_with_the_rule_that_stopped_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
@@ -148,7 +148,7 @@ class TestEnteringAClubThroughTheEndpoint:
 
         code, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert code == Code.CLUB_RETIRED
+        assert code == Code.TEAM_RETIRED
         # The refusal has to stop the write, not merely accompany it.
         assert rows == []
 
@@ -161,7 +161,7 @@ class TestEnteringAClubThroughTheEndpoint:
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == Code.CLUB_RETIRED
+        assert on_a_league(mongo_replica_set_url, body) == Code.TEAM_RETIRED
 
     def test_a_club_no_document_names_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
         """The referential hole the club read closes: without it, the row would name a club `teams` does not hold."""

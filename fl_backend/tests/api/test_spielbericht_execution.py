@@ -429,7 +429,7 @@ class TestEachRefusalWritesNothing:
             outcome = await outcome_of(put(database, client, bericht(torschuetzen=[tor("team1", LINA, "24")])))
             return outcome, [document["bericht"]["version"] for document in await stored(database)]
 
-        assert on_the_league(mongo_replica_set_url, run) == (Code.BERICHT_SAISON_BEENDET, [1])
+        assert on_the_league(mongo_replica_set_url, run) == (Code.SAISON_PAST, [1])
 
     def test_a_correction_after_the_season_s_strip_resends_its_cautions_without_their_reasons(self, mongo_replica_set_url: str):
         """The strip deleted the yellow's reason; the administrator corrects the scorer's minute, and adds no caution."""
@@ -530,7 +530,7 @@ class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
 
         outcome, versions, passes = on_the_league(mongo_replica_set_url, body)
 
-        assert (outcome, versions) == (Code.BERICHT_SAISON_BEENDET, [1])
+        assert (outcome, versions) == (Code.SAISON_PAST, [1])
         assert passes == 1
 
     def test_a_first_write_conflicts_with_the_season_ending_under_it(self, mongo_replica_set_url: str):
@@ -549,7 +549,7 @@ class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
 
         outcome, documents_now, attempts = on_the_league(mongo_replica_set_url, body)
 
-        assert (outcome, documents_now) == (Code.BERICHT_SAISON_BEENDET, [])
+        assert (outcome, documents_now) == (Code.SAISON_PAST, [])
         assert attempts == 2, "the season's end conflicted with nothing the write wrote"
 
 

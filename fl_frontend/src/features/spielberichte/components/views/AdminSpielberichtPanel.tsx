@@ -98,7 +98,7 @@ function BerichtInhalt({
   const saisonHref = useSaisonHref();
   const { lesen } = stand;
   const { bericht, zustand, spiel } = lesen;
-  // Both writes refuse a called-off fixture (`REQ-BERICHT-004`), and its result is no proposal's to set.
+  // Both writes refuse a called-off fixture (`bericht_abgesagt`), and its result is no proposal's to set.
   const istAbgesagt = zustand === "abgesagt";
   // A proposal by side about clubs that left: its score beside this fixture's clubs would read as theirs, as the card's
   // chip withholds it (`fl_frontend/src/features/spielberichte/utils.ts :: berichtChip`).

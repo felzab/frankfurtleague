@@ -47,7 +47,7 @@ const FLSaisonRulesSchema = z.object({
       error: `Es gibt höchstens ${String(FLGruppenNamesSchema.options.length)} Gruppen.`,
     }),
   // The floor stops a group phase that generates no fixture at all; the ceiling bounds one GROUP,
-  // where what a whole season may play is `REQ-RULES-013`, weighing every group and the bracket at
+  // where what a whole season may play is `rules_spiele_over_one_read`, weighing every group and the bracket at
   // once.
   teams_per_group: z
     .int({ error: "Bitte gib die Zahl der Teams pro Gruppe ein." })
@@ -235,7 +235,7 @@ export const FLGenerateSpielplanPayloadSchema = z.object({
   id: saisonIdReference,
   replace: z.boolean().optional(),
   // Nullable as well as optional, mirroring `FLSpielplanShape | None`: either spelling means "draw
-  // from the season's stored numbers", which is what `REQ-RULES-011` freezes every other route out of.
+  // from the season's stored numbers", which is what `rules_shape_after_spielplan` freezes every other route out of.
   shape: FLSpielplanShapeSchema.nullable().optional(),
 });
 

@@ -63,7 +63,7 @@ const FLEinwilligungUmfangSchema = z.enum(EINWILLIGUNG_UMFANG_OPTIONS, {
  * One person, one press, one token spent. **It bounds no age**: the floor arrives with the link's own read.
  *
  * Null where the page asks nothing: both choices and the date on the returning pupil's page
- * (`REQ-REGISTRIERUNG-017`).
+ * (`registrierung_wahlen_unpassend`).
  */
 export const FLRegistrierungBestaetigungPayloadSchema = z.object({
   token: registrierungToken,

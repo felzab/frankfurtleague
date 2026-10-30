@@ -163,7 +163,7 @@ async def get_einwilligung_ansicht(
     """What the confirmation page renders for the seat this token opens, and nothing of the person.
 
     A POST, so the token travels in the body. A confirmed, declined or expired link is served in that state, `gesperrt`
-    ranking first; only a token no seat holds is refused (`REQ-BEWERBUNG-009`).
+    ranking first; only a token no seat holds is refused (`link_ungueltig`).
     """
 
     token_hash = hash_token(ansicht_data.token)
@@ -233,8 +233,8 @@ async def post_einwilligung(
 
     A decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who
     refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
-    `REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and on a team's season row
-    `REQ-KONTAKT-004` and `-006`.
+    `link_ungueltig`, `link_abgelaufen`, `bewerbung_sitz_already_answered`, `bestaetigung_alter`, `link_gesperrt`, `fassung_unzulaessig`,
+    `medien_alter`, and on a team's season row `link_abgelaufen` and `kontakt_saison_vorbei`.
     """
 
     token_hash = hash_token(antwort_data.token)

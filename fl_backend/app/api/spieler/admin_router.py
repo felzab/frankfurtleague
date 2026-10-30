@@ -251,7 +251,7 @@ async def post_saison_spieler(
 
     404 where no player has this id. One row per player per season: moving a player is a PATCH of
     `team_id`, and a repeat is a 409 even where the row is retired. A
-    squad holds each `rolle` once (`REQ-SQUAD-004`). `ist_nachnominiert` is derived here and never
+    squad holds each `rolle` once (`kader_rolle_taken`). `ist_nachnominiert` is derived here and never
     taken from the body: it is true from the first day of the season's matchday 1, and false while
     that matchday is undated.
     """
@@ -334,7 +334,7 @@ async def patch_saison_spieler(
 
     Changing `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted
     (`docs/domain.md`'s what the model permits on purpose); a `rolle` another live row holds is not
-    (`REQ-SQUAD-004`).
+    (`kader_rolle_taken`).
     """
 
     async def move_the_player(session: AsyncClientSession) -> Mapping[str, Any]:
@@ -441,7 +441,7 @@ async def reactivate_saison_spieler(
 
     Where a repeat create is redirected: a create reviving the row
     would overwrite both. Refused where the squad has filled up, where its club left, or where the
-    `rolle` the row carries has been given to somebody else since (`REQ-SQUAD-004`).
+    `rolle` the row carries has been given to somebody else since (`kader_rolle_taken`).
     """
 
     async def bring_the_player_back(session: AsyncClientSession) -> Mapping[str, Any]:

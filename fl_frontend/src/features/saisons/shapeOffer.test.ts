@@ -28,7 +28,7 @@ import type { SaisonGruppenOccupancy } from "@/features/saisons/types";
 const RULES = saisonRules({ max_kadergroesse: 50, erlaubte_stufen: ["E1"] });
 
 /**
- * The PAYLOAD rather than a field schema: `REQ-RULES-001` and `REQ-RULES-007` read two of the three
+ * The PAYLOAD rather than a field schema: `rules_bracket_impossible` and `rules_qualifiers_above_gruppe` read two of the three
  * numbers each, so they are refinements on the season, and an offer is held to them rather than to a
  * second copy of itself.
  */
@@ -60,7 +60,7 @@ describe("the group count offer", () => {
     for (const qualifiers of SHAPE_COUNT_UNIVERSE) {
       for (const row of groupCountOptions({ groups: 1, qualifiers, occupancy: NOBODY_ENTERED })) {
         const groups = Number(row.id);
-        // Groups of the largest size the schema takes, so `REQ-RULES-007` cannot be what closes a row
+        // Groups of the largest size the schema takes, so `rules_qualifiers_above_gruppe` cannot be what closes a row
         // here: the team count bounds the qualifiers and never the groups.
         const shape = { number_of_groups: groups, qualifiers_per_group: qualifiers, teams_per_group: MAX_TEAMS_PER_GROUP };
 
@@ -97,7 +97,7 @@ describe("the group count offer", () => {
 
 describe("the qualifier count offer", () => {
   /* The group count's own case, from the other side, and against the team count as well: this is the
-     one control all three of `REQ-RULES-001` and `REQ-RULES-007`'s combinations reach. */
+     one control all three of `rules_bracket_impossible` and `rules_qualifiers_above_gruppe`'s combinations reach. */
   it("opens exactly the counts a create saves", () => {
     for (const groups of GROUP_COUNT_UNIVERSE) {
       for (const teams of [MIN_TEAMS_PER_GROUP, 4, MAX_TEAMS_PER_GROUP]) {
@@ -139,7 +139,7 @@ describe("the qualifier count offer", () => {
 });
 
 describe("what a closed row says", () => {
-  /* Two notes for `REQ-RULES-001` and not one: a bracket too large comes down and one too small goes
+  /* Two notes for `rules_bracket_impossible` and not one: a bracket too large comes down and one too small goes
      up, and the note is the whole of what tells a reader which way to move. */
   it("parts a bracket that is too small from one that is too large", () => {
     expect(refusalOf(groupCountOptions({ groups: 1, qualifiers: 1, occupancy: NOBODY_ENTERED }), 1)).toBe(SHAPE_REFUSAL_NOTE.noBracket);
@@ -148,7 +148,7 @@ describe("what a closed row says", () => {
     );
   });
 
-  /* `REQ-RULES-007` ahead of `REQ-RULES-001`, as `find_rules_refusal` judges them: name the bracket
+  /* `rules_qualifiers_above_gruppe` ahead of `rules_bracket_impossible`, as `find_rules_refusal` judges them: name the bracket
      here and the reader is sent to a number that is not what shut the row. */
   it("names the group's own size where both rules would close a row", () => {
     expect(refusalOf(qualifierCountOptions({ groups: MAX_GROUPS, qualifiers: 1, teams: MIN_TEAMS_PER_GROUP }), 4)).toBe(
@@ -183,7 +183,7 @@ describe("the team count", () => {
 });
 
 describe("what the season's own groups close", () => {
-  /* `REQ-RULES-002`: a count the season's clubs are entered past. Every row, because a rule reading
+  /* `rules_gruppen_in_use`: a count the season's clubs are entered past. Every row, because a rule reading
      only the row below the stored count passes on a season whose clubs sit in one group. */
   it("closes a group count that would stop running a group holding clubs", () => {
     const rows = groupCountOptions({ groups: 4, qualifiers: 2, occupancy: { A: 4, B: 4, C: 4, D: 4 } });
@@ -205,7 +205,7 @@ describe("what the season's own groups close", () => {
       expect(refusalOf(rows, count), `${String(count)} groups is closed as a stranding`).not.toBe(SHAPE_REFUSAL_NOTE.groupsInUse);
   });
 
-  /* `find_rules_refusal` judges `REQ-RULES-001` before `REQ-RULES-002`, and the note is the whole of
+  /* `find_rules_refusal` judges `rules_bracket_impossible` before `rules_gruppen_in_use`, and the note is the whole of
      what sends a reader to the number that shut the row. */
   it("names the bracket where both that rule and the occupancy would close a row", () => {
     const rows = groupCountOptions({ groups: 1, qualifiers: MAX_QUALIFIERS, occupancy: { A: 2, B: 2, C: 2 } });
@@ -222,7 +222,7 @@ describe("what the season's own groups close", () => {
     expect(refusalOf(rows, 2)).toBe(SHAPE_REFUSAL_NOTE.groupsInUse);
   });
 
-  /* `REQ-RULES-003` from the fullest group, which is the figure `find_rules_refusal` weighs a lowered
+  /* `rules_capacity_below_use` from the fullest group, which is the figure `find_rules_refusal` weighs a lowered
      count against. */
   it("takes the team count's floor from the fullest group as well", () => {
     expect(teamsPerGroupFloor({ qualifiers: 2, held: MAX_TEAMS_PER_GROUP, occupancy: { A: 5, B: 9 } })).toBe(9);
@@ -236,7 +236,7 @@ describe("what the season's own groups close", () => {
 });
 
 describe("the draw's own offer", () => {
-  /* `REQ-SPIELPLAN-004` asks each offered group for EXACTLY the team count, so a redraw shape the
+  /* `spielplan_gruppen_off_rules` asks each offered group for EXACTLY the team count, so a redraw shape the
      entries do not fit costs a press rather than a save. */
   it("closes every group count the entries do not fit exactly", () => {
     const rows = drawGroupCountOptions({ groups: 2, qualifiers: 2, teams: 4, occupancy: { A: 4, B: 4 } });
@@ -275,7 +275,7 @@ describe("the draw's own offer", () => {
 
 describe("the draw's refusal over the groups the season's clubs stand in", () => {
   /* Every shape these entries can be drawn in, spelled out rather than derived: a second derivation of
-     `REQ-SPIELPLAN-004` here would agree with a wrong first one. */
+     `spielplan_gruppen_off_rules` here would agree with a wrong first one. */
   it("lets a draw through exactly where every offered group holds the team count", () => {
     const occupancies: SaisonGruppenOccupancy[] = [
       {},

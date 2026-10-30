@@ -103,7 +103,7 @@ async def get_kader(
     Every row, ausgetragen ones included and marked by `inactive_since`; each surname whole, and no
     e-mail address or telephone number of anybody. `nummer_doppelt` marks a live row whose number
     another live row of the squad wears, compared as stored. `erlaubte_stufen` is what the season's
-    rules offer an edit. Refused `REQ-FUNKTION-001` where the signed-in person holds no seat on this
+    rules offer an edit. Refused `funktion_nicht_gehalten` where the signed-in person holds no seat on this
     team in this season, a seat on a `past` season holding none.
     """
 
@@ -143,8 +143,8 @@ async def patch_kader_zeile(
 
     The team and the Nachnominierung flag stay the stored row's. 404 where this team holds no live
     row for the player in this season: another team's pupil and an ausgetragen row answer alike, and
-    nothing is written. Refused `REQ-FUNKTION-001` without a seat, `REQ-SQUAD-005` for a `stufe` the
-    season's `erlaubte_stufen` does not offer unless the row already holds it, and `REQ-SQUAD-004`
+    nothing is written. Refused `funktion_nicht_gehalten` without a seat, `kader_stufe_nicht_erlaubt` for a `stufe` the
+    season's `erlaubte_stufen` does not offer unless the row already holds it, and `kader_rolle_taken`
     for a `rolle` another live row of the squad holds. A shared `nummer` is permitted.
     """
 
@@ -216,7 +216,7 @@ async def delete_kader_zeile(
 
     Stamps the row's `inactive_since`; the person stays in the league, and only an administrator
     brings the row back. 404 where this team holds no live row for the player in this season,
-    another team's pupil and an ausgetragen row alike. Refused `REQ-FUNKTION-001` without a seat.
+    another team's pupil and an ausgetragen row alike. Refused `funktion_nicht_gehalten` without a seat.
     """
 
     async def take_the_row_out(session: AsyncClientSession) -> FLKaderZeile:

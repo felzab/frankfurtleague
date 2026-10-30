@@ -206,7 +206,7 @@ def _adresswechsel_zeile(
     verwehrt = genehmigung_verwehrt(
         betroffen=record["adresse"], genehmigung=genehmigung, akteur=akteur, inhaber=inhaber, grants=grants, announced=announced
     )
-    # `REQ-PURGE-005`'s reach: the tool refuses a non-owner an owner's address, so this row tells them no more of it.
+    # `verwaltung_adresse`'s reach: the tool refuses a non-owner an owner's address, so this row tells them no more of it.
     withheld = verwehrt == "inhaber"
     email = str(record["email"])
     # On the person's own start the starter is the address on file, the row's own.
@@ -284,11 +284,11 @@ async def post_berechtigung(
     only on that approval (`POST /berechtigungen/antraege/{antrag_id}/genehmigung`). A lone administrator grants alone.
 
     The address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live
-    grant already holds the address (`REQ-BERECHTIGUNG-001`), where the ban list
-    holds it (`REQ-BERECHTIGUNG-003`), and where a request about it waits already (`REQ-BERECHTIGUNG-008`). The grant takes effect on
-    the next request, for a session signed in after it alone -- an older one is refused `REQ-AUTH-007` on every admin-tier route -- and
+    grant already holds the address (`berechtigung_vorhanden`), where the ban list
+    holds it (`berechtigung_gesperrt`), and where a request about it waits already (`berechtigung_antrag_offen`). The grant takes effect on
+    the next request, for a session signed in after it alone -- an older one is refused `session_refused` on every admin-tier route -- and
     its announcement is owed to every administrator in the same transaction. Like a revoke and a tier
-    change, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES`, refused `REQ-AUTH-009` otherwise.
+    change, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES`, refused `confirmation_required` otherwise.
     """
 
     adresse = sign_in_identifier(str(berechtigung_data.email))
@@ -431,14 +431,14 @@ async def delete_berechtigung(
     now: datetime = Depends(get_germany_now),
 ) -> FLBerechtigungWriteResponse:
     """
-    Revoke one grant, removing the row. HARD, no soft form; the revoked address meets `REQ-AUTH-006` on its next request.
+    Revoke one grant, removing the row. HARD, no soft form; the revoked address meets `actor_not_admin` on its next request.
 
-    Only an `owner` revokes (`REQ-BERECHTIGUNG-005`), judged on the actor's own grant inside the transaction, and before anything
+    Only an `owner` revokes (`berechtigung_nur_inhaber`), judged on the actor's own grant inside the transaction, and before anything
     about the target is answered; an owner's sign-in older than the moment they became one is refused the same. 404 where no grant
-    has the id. Refused for an `owner` row (`REQ-BERECHTIGUNG-002`), which is made an
-    administrator first, and where fewer than two live, unbarred grants would remain (`REQ-BERECHTIGUNG-004`). The removal's
+    has the id. Refused for an `owner` row (`berechtigung_inhaber`), which is made an
+    administrator first, and where fewer than two live, unbarred grants would remain (`berechtigung_mindestzahl`). The removal's
     announcement is queued in the same transaction, after any change to the row made in the database and not yet announced. A sign-in
-    or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as the grant's is.
+    or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `confirmation_required`, as the grant's is.
     """
 
     akteur = sign_in_identifier(entzogen_von)
@@ -503,7 +503,7 @@ async def patch_berechtigung(
     """
     Make an administrator an owner, or an owner an administrator; an owner steps down by naming their own grant.
 
-    Only an `owner` changes a tier (`REQ-BERECHTIGUNG-005`), judged on the actor's own grant inside the transaction, and before
+    Only an `owner` changes a tier (`berechtigung_nur_inhaber`), judged on the actor's own grant inside the transaction, and before
     anything about the target is answered; an owner's sign-in older than the moment they became one is refused the same.
 
     **Four eyes on a promotion**: where another owner could approve it -- a live, unbarred `owner` grant in effect now, neither this
@@ -513,12 +513,12 @@ async def patch_berechtigung(
 
     A promotion holds for a sign-in after it alone: the promoted administrator's older sessions keep administering and take no owner's
     step until they sign in again. A demotion takes the tier from every session at once. 404 where no live grant has the id. A
-    promotion of an address on the ban list is refused (`REQ-BERECHTIGUNG-003`), one whose request waits already
-    (`REQ-BERECHTIGUNG-008`), and a demotion leaving no live, unbarred owner (`REQ-BERECHTIGUNG-007`). Naming the tier the grant holds
-    changes nothing and answers 200. The change reaches the next request; its announcement is queued in the same transaction, after
+    promotion of an address on the ban list is refused (`berechtigung_gesperrt`), one whose request waits already
+    (`berechtigung_antrag_offen`), and a demotion leaving no live, unbarred owner (`berechtigung_letzter_inhaber`). Naming the tier the grant
+    holds changes nothing and answers 200. The change reaches the next request; its announcement is queued in the same transaction, after
     any change to the row made in the database and not yet announced, and a grant found that way is stamped `gefunden_am` as
     `POST /berechtigungen/abgleich` stamps one. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused
-    `REQ-AUTH-009`, as the grant's is.
+    `confirmation_required`, as the grant's is.
     """
 
     akteur = sign_in_identifier(geaendert_von)
@@ -705,13 +705,13 @@ async def post_antrag_genehmigung(
     The grant is made, or the tier moved, and the request removed, in one transaction, the change announced to every
     administrator as one made directly is, under this administrator's name.
 
-    Refused to the address the request is about and to the administrator who made it (`REQ-BERECHTIGUNG-009`), to anyone but an
-    owner, signed in since becoming one, for a promotion (`-010`), to an administrator whose grant, or owner's tier, took effect after
-    the request (`-011`), and where the requester does not hold that tier since before it, revoked, demoted or barred since
-    (`-012`); and, as the direct act would be, where the address holds a grant by now (`-001`) or is on the ban list (`-003`). 404 for
-    an id naming no request, a request decided, withdrawn or lapsed among them, and for a promotion whose grant has gone. A promotion
-    whose grant is an owner's already removes the request and changes nothing. A sign-in or confirmation older than
-    `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.
+    Refused to the address the request is about and to the administrator who made it (`berechtigung_genehmigung_verwehrt`), to anyone but an
+    owner, signed in since becoming one, for a promotion (`berechtigung_genehmigung_inhaber`), to an administrator whose grant, or owner's tier,
+    took effect after the request (`berechtigung_genehmigung_juenger`), and where the requester does not hold that tier since before it,
+    revoked, demoted or barred since (`berechtigung_antrag_verfallen`); and, as the direct act would be, where the address holds a grant by now
+    (`berechtigung_vorhanden`) or is on the ban list (`berechtigung_gesperrt`). 404 for an id naming no request, a request decided, withdrawn or
+    lapsed among them, and for a promotion whose grant has gone. A promotion whose grant is an owner's already removes the request and changes
+    nothing. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `confirmation_required`, as a grant's is.
     """
 
     akteur = sign_in_identifier(operator)
@@ -814,9 +814,10 @@ async def delete_antrag(
     """
     Refuse a request, or withdraw one's own: it is removed, and nothing it asked for happens. HARD, no soft form.
 
-    Decided by whoever may approve it, refused with the approval's own codes otherwise (`REQ-BERECHTIGUNG-009`, `-010`, `-011`), and
-    withdrawn by the administrator who made it, whatever their tier now. 404 for an id naming no request, a request decided, withdrawn or
-    lapsed among them. A restore from a snapshot taken before it brings the request back only until the replay of its journal line.
+    Decided by whoever may approve it, refused with the approval's own codes otherwise (`berechtigung_genehmigung_verwehrt`,
+    `berechtigung_genehmigung_inhaber`, `berechtigung_genehmigung_juenger`), and withdrawn by the administrator who made it, whatever their tier
+    now. 404 for an id naming no request, a request decided, withdrawn or lapsed among them. A restore from a snapshot taken before it brings
+    the request back only until the replay of its journal line.
 
     A refusal queues, in the same transaction, a notice to the request's requester naming the address and tier it asked for and
     nobody who refused it, for `POST /berechtigungen/abgleich` to hand out; a withdrawal tells nobody.

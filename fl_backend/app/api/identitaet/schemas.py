@@ -196,7 +196,7 @@ class FLSelbstErasureAnsicht(BaseModel):
 class FLSelbstErasureAnsichtResponse(FLSelbstErasureAnsicht, BaseAPIResponse):
     # The tier of the live grant the address holds, read in the preview's snapshot as the press reads it.
     verwaltung: FLVerwaltung | None
-    # Advisory: read apart from the erasure's transaction, whose own `REQ-PURGE-004` alone decides.
+    # Advisory: read apart from the erasure's transaction, whose own `letzter_inhaber_loeschung` alone decides.
     letzter_inhaber: bool
 
 
@@ -291,7 +291,7 @@ class FLErasureAnsichtSchiedsrichter(FLSelbstErasureSchiedsrichter):
     # Null on a live row: a ban's dialog offers to retire only a referee still active.
     inactive_since: CustomOptionalDateString
     # Every season, in order, holding a fixture still to be played that this referee is booked on, as
-    # `REQ-RETIRE-004` judges one: the fixture search opens on one season, so each is reached in its own.
+    # `schiedsrichter_still_assigned` judges one: the fixture search opens on one season, so each is reached in its own.
     spiele_ohne_ergebnis_saison_ids: list[str]
 
 

@@ -1,7 +1,9 @@
 import { NACH_ERNENNUNG_NEU_ANMELDEN } from "@/features/berechtigungen/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 
-/** An administrator's own address: their records go through the account page, or through an owner (`REQ-PURGE-005`). */
+import type { Code } from "@/core/generated/client/types";
+
+/** An administrator's own address: their records go through the account page, or through an owner (`verwaltung_adresse`). */
 const EIGENE_ADRESSE_LOESCHEN =
   "Deine eigene Adresse löschst Du nicht hier. Lösche Dein Konto auf Deiner Kontoseite, oder lass Deine Adresse von einer Inhaberin oder einem Inhaber der Verwaltung löschen.";
 
@@ -24,19 +26,19 @@ function mapper(worte: Readonly<Record<string, string>>): (error: unknown) => { 
 
 /**
  * An owner's pending change the erasure would end, which the reveal leaves out for a reader holding no owner's power
- * (`REQ-PURGE-007`): it is ended only where it can be seen.
+ * (`fremder_adresswechsel`): it is ended only where it can be seen.
  */
 const VERDECKTER_ADRESSWECHSEL = `Die Löschung würde eine laufende Adressänderung beenden, die nur sieht, wer Inhaberin oder Inhaber der Verwaltung ist. Lass die Adresse von einer Inhaberin oder einem Inhaber löschen. ${NACH_ERNENNUNG_NEU_ANMELDEN}`;
 
 const LOESCHEN_WORTE: Readonly<Record<string, string>> = {
-  "REQ-PURGE-003": EIGENE_ADRESSE_LOESCHEN,
-  "REQ-PURGE-005": VERWALTUNG_LOESCHEN,
-  "REQ-PURGE-007": VERDECKTER_ADRESSWECHSEL,
-};
+  eigene_adresse: EIGENE_ADRESSE_LOESCHEN,
+  verwaltung_adresse: VERWALTUNG_LOESCHEN,
+  fremder_adresswechsel: VERDECKTER_ADRESSWECHSEL,
+} satisfies Partial<Record<Code, string>>;
 
 /**
  * The erasure's and its reveal's refusals, which judge the same address the same way; `null` for the rest, the
- * `DB-COMMON` pair among them, which the shared reader words.
+ * `document_not_found` and `duplicate_key` among them, which the shared reader words.
  */
 export const mapErasureRefusal = mapper(LOESCHEN_WORTE);
 
@@ -47,4 +49,6 @@ export const mapErasureRefusal = mapper(LOESCHEN_WORTE);
 export const isErasureRefusal = (satz: string): boolean => Object.values(LOESCHEN_WORTE).includes(satz);
 
 /** The sign-out's refusals, in the sign-out's own words, `null` for the rest. */
-export const mapAbmeldungRefusal = mapper({ "REQ-PURGE-003": EIGENE_ADRESSE_ABMELDEN, "REQ-PURGE-005": INHABER_ABMELDEN });
+export const mapAbmeldungRefusal = mapper({ eigene_adresse: EIGENE_ADRESSE_ABMELDEN, verwaltung_adresse: INHABER_ABMELDEN } satisfies Partial<
+  Record<Code, string>
+>);

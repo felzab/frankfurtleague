@@ -63,13 +63,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   ([section 4](#4-what-is-published-and-on-what-basis)), and an administrator is a grant another
   administrator or the database entered (`docs/glossary.md :: Berechtigung`).
 - **The minimum age is 16 for every role, and 18 for the two seats that sign for the school.**
-  A registration below 16 is refused as `REQ-REGISTRIERUNG-007`, judged against the birthdate the
+  A registration below 16 is refused as `bestaetigung_alter`, judged against the birthdate the
   pupil enters on their own confirmation page and before anything is written
   (`fl_backend/app/api/registrierungen/services.py :: find_alter_refusal`); the refusal stands there
   and nowhere else, the submission itself collecting no birthdate at all. The floor is
   `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_MIN_ALTER_JAHRE`, the pupil's own rather
   than a contact seat's, so raising one does not silently raise the other. A referee's own
-  confirmation judges the same sixteen against a floor of its own, as `REQ-SCHIEDSRICHTER-005`
+  confirmation judges the same sixteen against a floor of its own, as `bestaetigung_alter`
   (`fl_backend/app/api/schiedsrichter/services.py :: find_alter_refusal`,
   `fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_MIN_AGE_YEARS`). Sixteen is my ruling
   rather than a figure a law hands the league: one floor for every role replaces three, the basis for
@@ -143,15 +143,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
   `:: Beide Zurückweisungen`). Each is judged before anything is written:
   - a birthdate outside the span a role allows — below its floor, or past the ceiling that catches a
     mistyped century — on the person's own confirmation page, for a pupil
-    (`REQ-REGISTRIERUNG-007`), a referee (`REQ-SCHIEDSRICHTER-005`) and a contact person
-    (`REQ-BEWERBUNG-012`), so a mistyped date costs nothing and the same link takes the right one
+    (`bestaetigung_alter`), a referee (`bestaetigung_alter`) and a contact person
+    (`bestaetigung_alter`), so a mistyped date costs nothing and the same link takes the right one
     while it runs;
-  - an address the ban list holds, for a registration (`REQ-REGISTRIERUNG-009`), for any of an application's
-    three contact persons (`REQ-BEWERBUNG-018`), for a sign-in
+  - an address the ban list holds, for a registration (`registrierung_adresse_gesperrt`), for any of an application's
+    three contact persons (`bewerbung_adresse_gesperrt`), for a sign-in
     by any route, refused as its session would be created
     (`fl_frontend/src/core/auth.ts :: refuseUnadmitted`), and for the confirmation on a person's own
-    page, however long ago its link was mailed (`REQ-REGISTRIERUNG-012`, `REQ-SCHIEDSRICHTER-009`,
-    `REQ-BEWERBUNG-020`), the link's page showing that person the refusal and nothing else, so a
+    page, however long ago its link was mailed (`link_gesperrt`, `link_gesperrt`,
+    `link_gesperrt`), the link's page showing that person the refusal and nothing else, so a
     contact person's Widerspruch goes by mail to the address it names; the notice's „eine
     E-Mail-Adresse, die gesperrt ist“ names no route, so it covers all four, and the ban's own mail
     tells a person whose address holds an account that the sign-in is barred.
@@ -170,21 +170,21 @@ Every ruling below is the sign-up flow as it stands for the next season.
   and answers, a mistyped date is corrected through the same link, an administrator can lift a ban
   (`DELETE /sperrliste/{sperrliste_id}`), and a date truly below a floor stays refused, the league
   giving no role below its floor. A full squad refuses a registration as well
-  (`REQ-REGISTRIERUNG-008`), and the notice names it as a limit of the squad rather than a judgement
+  (`registrierung_kader_voll`), and the notice names it as a limit of the squad rather than a judgement
   about the person. **The notice leaves out the refusals nothing the person enters can meet:**
   - a media consent from someone below its floor, on a pupil's confirmation
-    (`REQ-REGISTRIERUNG-010`) and a referee's (`REQ-SCHIEDSRICHTER-008`), reachable only by a request
+    (`medien_alter`) and a referee's (`medien_alter`), reachable only by a request
     the pages never send, the switch showing only from that age
     ([section 4](#4-what-is-published-and-on-what-basis));
-  - a Stufe the season does not offer (`REQ-REGISTRIERUNG-003`), which the form's picker never
+  - a Stufe the season does not offer (`registrierung_stufe_nicht_erlaubt`), which the form's picker never
     lists;
-  - the ban refusing a referee's link (`REQ-SCHIEDSRICHTER-007`), which falls on an administrator's
+  - the ban refusing a referee's link (`schiedsrichter_adresse_gesperrt`), which falls on an administrator's
     write rather than on anything the person enters: the administrator sees the refusal and can lift
     the ban, and the ban's own mail tells a barred person whose address holds an account that they
     cannot be entered as a referee (`fl_frontend/src/core/sperrlisteEmail.ts :: EINLEITUNG`), an
     address holding none being mailed nothing;
   - the ban refusing an administrator's correction, reseat or re-send of an application's contact
-    seat (`REQ-BEWERBUNG-019`), which falls on that administrator's write in the same way.
+    seat (`bewerbung_kontakt_gesperrt`), which falls on that administrator's write in the same way.
 
   **Five refusals a person's own entry meets are not named among them.** Every box that stores an
   address refuses one whose part before the @ is not plain ASCII
@@ -378,11 +378,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   mailbox, so a hand edit emptying a row's address puts that row out of every erasure's reach.
 - **A referee's erasure also ends their engagement.** Booking a person after they asked to be erased
   creates fresh personal data about them, with no lawful basis standing for it. The ghost is a
-  retired row no list serves and no picker names, so `REQ-BOOKING-001` refuses it every new
+  retired row no list serves and no picker names, so `booking_unknown_resource` refuses it every new
   fixture; a booking already standing on a fixture still to be played is repointed like the rest and
   surfaces under `GET /spiele/action_required` as a retired booking until somebody assigns a referee
   to it, so one fixture never vetoes a request to be forgotten and the retirement's own refusal
-  (`REQ-RETIRE-004`) has nothing left to refuse. A fixture played or called off keeps its booking
+  (`schiedsrichter_still_assigned`) has nothing left to refuse. A fixture played or called off keeps its booking
   and its own `payment` under the ghost: that is the league's record of the match, not of the
   person. A person who officiates again is entered as a new referee.
 - **A pending address change ends with its person's erasure, and its new mailbox's holder's request

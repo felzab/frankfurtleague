@@ -25,7 +25,7 @@ from app.shared.schemas.literals import FLBestaetigungZustand
 def build_ghost_schiedsrichter() -> dict[str, Any]:
     """The row an erased referee's fixtures are repointed to, as it is first written.
 
-    Retired, so `REQ-BOOKING-001` refuses it every new fixture under the rule a retired referee
+    Retired, so `booking_unknown_resource` refuses it every new fixture under the rule a retired referee
     already meets rather than under one written for the ghost.
     """
 
@@ -146,7 +146,7 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRe
         return None
 
     return WriteRefusal(
-        error_code=Code.REFEREE_STILL_ASSIGNED,
+        error_code=Code.SCHIEDSRICHTER_STILL_ASSIGNED,
         status=HTTPStatus.CONFLICT,
     )
 
@@ -269,7 +269,7 @@ def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=Code.SCHIEDSRICHTER_TOKEN_UNKNOWN,
+        error_code=Code.LINK_UNGUELTIG,
         status=HTTPStatus.NOT_FOUND,
     )
 
@@ -281,7 +281,7 @@ def find_expired_token_refusal(*, frist: str, today: str) -> WriteRefusal | None
         return None
 
     return WriteRefusal(
-        error_code=Code.SCHIEDSRICHTER_TOKEN_EXPIRED,
+        error_code=Code.LINK_ABGELAUFEN,
         status=HTTPStatus.GONE,
     )
 
@@ -294,21 +294,21 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=Code.SCHIEDSRICHTER_ALREADY_CONFIRMED,
+        error_code=Code.BESTAETIGUNG_VORHANDEN,
         status=HTTPStatus.CONFLICT,
     )
 
 
 def find_bestaetigung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-SCHIEDSRICHTER-009`: the ban list holds the address this link was mailed to, however long ago it was minted."""
+    """`link_gesperrt`: the ban list holds the address this link was mailed to, however long ago it was minted."""
 
     if not gesperrt:
         return None
 
-    # 403 where the editor's `-007` is 409: this caller is the barred person, holding the mailbox the
+    # 403 where the editor's `schiedsrichter_adresse_gesperrt` is 409: this caller is the barred person, holding the mailbox the
     # token was sent to, where the editor's is an administrator writing about an entry.
     return WriteRefusal(
-        error_code=Code.SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT,
+        error_code=Code.LINK_GESPERRT,
         status=HTTPStatus.FORBIDDEN,
     )
 
@@ -320,14 +320,14 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
 
     if age < SCHIEDSRICHTER_MIN_AGE_YEARS:
         return WriteRefusal(
-            error_code=Code.SCHIEDSRICHTER_ALTER,
+            error_code=Code.BESTAETIGUNG_ALTER,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
         )
 
     if age > BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
         return WriteRefusal(
-            error_code=Code.SCHIEDSRICHTER_ALTER,
+            error_code=Code.BESTAETIGUNG_ALTER,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
         )
@@ -346,7 +346,7 @@ def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> Write
         return None
 
     return WriteRefusal(
-        error_code=Code.SCHIEDSRICHTER_MEDIEN_ALTER,
+        error_code=Code.MEDIEN_ALTER,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         fields=(("medien",),),
     )
@@ -423,9 +423,9 @@ def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> boo
 
 
 def find_bestaetigte_adresse_refusal(*, stored: Mapping[str, Any], payload_email: str) -> WriteRefusal | None:
-    """`REQ-SCHIEDSRICHTER-011`: a save moving a CONFIRMED referee's address, on which their sign-in is keyed: only an address change moves it.
+    """`schiedsrichter_adresse_nur_per_wechsel`: a save moving a CONFIRMED referee's address, which keys their sign-in.
 
-    Refused whole: landing the rest, an editor stale on the address would lose its other fields unseen.
+    Only an address change moves it. Refused whole: landing the rest, an editor stale on the address would lose its other fields unseen.
     """
 
     if not is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)) or not _address_moves(stored=stored, payload_email=payload_email):

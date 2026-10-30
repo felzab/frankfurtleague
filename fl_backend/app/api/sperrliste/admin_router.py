@@ -61,7 +61,7 @@ async def _pull_the_season_a_ban_counts_from(
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> str:
-    """The season a ban's `SPERRE_DAUER_SAISONS` are counted from, refused `REQ-SPERRLISTE-002` while no season is running."""
+    """The season a ban's `SPERRE_DAUER_SAISONS` are counted from, refused `sperrliste_keine_saison` while no season is running."""
 
     # Through the session: the rollover moves the season and sweeps the lapsed bans in one
     # transaction, and a season read outside this snapshot counts a ban one season short against
@@ -132,9 +132,9 @@ async def post_sperrliste_eintrag(
     """
     Ban an address from signing up. The address is hashed under the backend key; no row and no log line holds it but its notice's.
 
-    Refused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is
-    running, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and
-    where the address is an administrator's (`REQ-SPERRLISTE-003`). The ban covers the
+    Refused where the list already holds the address (`duplicate_key`), while no season is
+    running, there being nothing to count the ban's five seasons from (`sperrliste_keine_saison`), and
+    where the address is an administrator's (`sperrliste_verwaltung`). The ban covers the
     fifth season after the one running now — the last one it covers is answered as
     `gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still owed
     that names the address loses it in the same transaction, and where `benachrichtigen` is set the ban's

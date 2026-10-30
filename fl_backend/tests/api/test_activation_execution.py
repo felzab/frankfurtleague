@@ -79,7 +79,7 @@ def on_a_league(
             await database[Collection.SAISONS].insert_many(saisons)
             if spiele:
                 await database[Collection.SPIELE].insert_many(spiele)
-            # Absent on every case but `REQ-ACTIVATE-004`'s: a season holding no matchday row owes no
+            # Absent on every case but `activate_spieltage_undated`'s: a season holding no matchday row owes no
             # date, which is the state each of the older cases here is about.
             if spieltage:
                 await database[Collection.SPIELTAGE].insert_many(spieltage)
@@ -225,14 +225,14 @@ class TestAMidFlightFailureTakesTheDemotionBack:
 
 
 class TestTheRolloverRefusesAFinishedTarget:
-    """`REQ-ACTIVATE-002` through the route, which is the only thing that proves the target's own status is read.
+    """`saison_past` through the route, which is the only thing that proves the target's own status is read.
 
     The read before the transaction was there for the 404 alone, and a status it discards refuses
     nothing.
     """
 
     def test_a_past_target_is_refused_with_no_incumbent_to_answer_for_it(self, mongo_replica_set_url: str):
-        """Nothing holds `active`, so `REQ-ACTIVATE-001` has an empty list and only the target can be the reason."""
+        """Nothing holds `active`, so `activate_saison_unfinished` has an empty list and only the target can be the reason."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(APIError) as refusal:
@@ -242,7 +242,7 @@ class TestTheRolloverRefusesAFinishedTarget:
 
         code, statuses = on_a_league(mongo_replica_set_url, body, saisons=[saison_document(ARCHIVED, "past")])
 
-        assert code == Code.ACTIVATE_TARGET_PAST
+        assert code == Code.SAISON_PAST
         assert statuses == {ARCHIVED: "past"}
 
     def test_the_incumbent_keeps_running(self, mongo_replica_set_url: str):
@@ -261,12 +261,12 @@ class TestTheRolloverRefusesAFinishedTarget:
             spiele=[fixture(INCUMBENT, ergebnis="2:1")],
         )
 
-        assert code == Code.ACTIVATE_TARGET_PAST
+        assert code == Code.SAISON_PAST
         assert statuses == {ARCHIVED: "past", INCUMBENT: "active"}
 
 
 class TestTheRolloverRefusesAnUndatedMatchday:
-    """`REQ-ACTIVATE-004` through the route, the only thing proving the matchdays are counted.
+    """`activate_spieltage_undated` through the route, the only thing proving the matchdays are counted.
 
     The demotion shares the promotion's transaction, so a refusal ordered after it would leave the
     league with no active season.

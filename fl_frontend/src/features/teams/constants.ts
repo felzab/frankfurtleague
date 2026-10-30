@@ -21,7 +21,7 @@ export const TEAMS_CRUD_COPY = {
 export const TEAM_RETIREMENT_CONSEQUENCE =
   "Seine Spiele, Saisons und Tabellen bleiben erhalten, und sein Kürzel bleibt reserviert. Das Team steht nur nicht mehr zur Auswahl.";
 
-/** Why the list's row and the editor's header both close the retirement `REQ-RETIRE-001` would refuse, in one sentence. */
+/** Why the list's row and the editor's header both close the retirement `retire_blocked` would refuse, in one sentence. */
 export const TEAM_NICHT_STILLLEGBAR = "Stilllegen ist nur möglich, wenn das Team in keiner laufenden oder geplanten Saison spielt.";
 
 export const KONTAKTE_CRUD_COPY = {

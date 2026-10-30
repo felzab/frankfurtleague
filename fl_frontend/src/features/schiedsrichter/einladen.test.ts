@@ -125,7 +125,7 @@ describe("the re-send the editor's panel presses", () => {
   });
 
   it("refuses a row the read no longer finds", async () => {
-    row = () => refused("DB-COMMON-001");
+    row = () => refused("document_not_found");
 
     const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
@@ -137,10 +137,10 @@ describe("the re-send the editor's panel presses", () => {
   /* Every refusal the endpoint declares, worded at the panel rather than falling through to the
      shared sentence, which names no rule. */
   for (const [code, fragment] of [
-    ["REQ-SCHIEDSRICHTER-001", /stillgelegt/],
-    ["REQ-SCHIEDSRICHTER-004", /schon bestätigt/],
-    ["REQ-SCHIEDSRICHTER-006", /keine verwendbare E-Mail-Adresse hinterlegt/],
-    ["REQ-SCHIEDSRICHTER-007", /Sperrliste/],
+    ["schiedsrichter_retired", /stillgelegt/],
+    ["bestaetigung_vorhanden", /schon bestätigt/],
+    ["schiedsrichter_keine_adresse", /keine verwendbare E-Mail-Adresse hinterlegt/],
+    ["schiedsrichter_adresse_gesperrt", /Sperrliste/],
   ] as const) {
     it(`words ${code} at the panel`, async () => {
       mint = () => {
@@ -256,7 +256,7 @@ describe("the reactivation of an unanswered referee", () => {
 
   it("words the ban the return is refused on", async () => {
     reactivate = () => {
-      throw refused("REQ-SCHIEDSRICHTER-007");
+      throw refused("schiedsrichter_adresse_gesperrt");
     };
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });

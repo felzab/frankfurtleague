@@ -390,7 +390,7 @@ class TestTheRegistryRunsWhole:
 
 @pytest.mark.db
 class TestTheirOwnAddress:
-    """`REQ-PURGE-003`: an administrator's own address goes through their account page, or through another administrator."""
+    """`eigene_adresse`: an administrator's own address goes through their account page, or through another administrator."""
 
     @pytest.mark.parametrize(
         ("path", "body"),
@@ -416,7 +416,7 @@ class TestTheirOwnAddress:
         ids=["the reveal", "the erasure", "the sign-out"],
     )
     def test_another_administrators_address_is_not_refused(self, mongo_replica_set_url: str, path: str, body: Callable[[str], dict[str, str]]):
-        """Pressed by an owner, whom `REQ-PURGE-005` refuses nothing, so the own address's refusal alone is asked."""
+        """Pressed by an owner, whom `verwaltung_adresse` refuses nothing, so the own address's refusal alone is asked."""
 
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await posted(mongo_replica_set_url, path, body(ANOTHER_ADMINISTRATOR), by=OWNER)
@@ -426,7 +426,7 @@ class TestTheirOwnAddress:
 
 @pytest.mark.db
 class TestAGrantHoldersAddress:
-    """`REQ-PURGE-005`: judged inside the erasure's transaction, and in the reveal's snapshot."""
+    """`verwaltung_adresse`: judged inside the erasure's transaction, and in the reveal's snapshot."""
 
     @pytest.mark.parametrize(
         ("path", "body", "address"),
@@ -562,7 +562,7 @@ class TestTheReveal:
     def test_it_serves_each_rows_retirement_and_every_season_a_referee_holds_an_unplayed_fixture_in(self, mongo_replica_set_url: str):
         """Two unplayed fixtures share a season, named once.
 
-        A cancelled one is no booking `REQ-RETIRE-004` judges, and its season stays unnamed.
+        A cancelled one is no booking `schiedsrichter_still_assigned` judges, and its season stays unnamed.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -775,7 +775,7 @@ THE_GRANTS_OWN_ROWS = frozenset({Collection.BERECHTIGUNGEN_ANGEKUENDIGT, Collect
 @pytest.mark.db
 class TestAnotherAdministratorsAddress:
     def test_an_owner_ends_another_administrators_grant_and_its_notice_names_them(self, mongo_replica_set_url: str):
-        """Only an owner presses here (`REQ-PURGE-005`)."""
+        """Only an owner presses here (`verwaltung_adresse`)."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await posted(mongo_replica_set_url, PATH, erasure_of(ANOTHER_ADMINISTRATOR), by=OWNER)

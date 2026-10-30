@@ -17,16 +17,16 @@ describe("mapAnsetzungAnsichtRefusal", () => {
   /* The read refuses an unknown token alone; a spent link answers its own `zustand` in a 200. Fail-closed,
      so a code nobody planned still renders the panel that names nothing of a fixture. */
   it("calls the link void on every refusal the read publishes, and on a rule's code nobody planned", () => {
-    for (const code of refusalCodes("REQ-ANSETZUNG-001")) {
+    for (const code of refusalCodes("link_ungueltig")) {
       expect(mapAnsetzungAnsichtRefusal(refused(code)), code).toBe("ungueltig");
     }
-    expect(mapAnsetzungAnsichtRefusal(refused("REQ-ACTIVATE-001", 409))).toBe("ungueltig");
+    expect(mapAnsetzungAnsichtRefusal(refused("activate_saison_unfinished", 409))).toBe("ungueltig");
   });
 
   /* A malformed or over-long token never reaches a row, and the page has already dropped it from the
      address bar: the state inviting a reload would open the dead link anyway. */
   it("calls a token the backend will not parse void rather than offering a reload", () => {
-    expect(mapAnsetzungAnsichtRefusal(refused("REQ-VAL-001"))).toBe("ungueltig");
+    expect(mapAnsetzungAnsichtRefusal(refused("payload_refused"))).toBe("ungueltig");
   });
 
   /* A failed read is the page's own state: the dead-link panel on a 500 would call a live link void on
@@ -40,12 +40,12 @@ describe("mapAnsetzungAnsichtRefusal", () => {
      mid-deploy, and an unreadable body failed in the page's own encoding. The dead-link panel would
      call every live link void. */
   it("leaves the protocol's refusals to the page's own state, never the dead-link panel", () => {
-    for (const code of ["REQ-AUTH-001", "REQ-AUTH-002", "REQ-VAL-002"] as const) {
+    for (const code of ["access_key_refused", "body_unreadable"] as const) {
       expect(mapAnsetzungAnsichtRefusal(refused(code)), code).toBe(null);
     }
     for (const [code, status] of [
-      ["REQ-ROUTE-001", 404],
-      ["REQ-ROUTE-002", 405],
+      ["no_route", 404],
+      ["method_not_served", 405],
     ] as const) {
       expect(mapAnsetzungAnsichtRefusal(refused(code, status)), code).toBe(null);
     }
@@ -56,7 +56,7 @@ describe("mapAnsetzungRefusal on a body the API refused", () => {
   /* Only a drifted page sends one, and the page strips its token from the address bar: the shared
      reader's reload would land on the dead link, so only the mail's link reopens the form. */
   it("sends the club back to the mail's link", () => {
-    for (const code of ["REQ-VAL-001", "REQ-VAL-002"] as const) {
+    for (const code of ["payload_refused", "body_unreadable"] as const) {
       expect(mapAnsetzungRefusal(refused(code)), code).toStrictEqual({ error: ANTWORT_NEU_OEFFNEN });
     }
   });

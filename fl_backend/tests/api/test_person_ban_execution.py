@@ -1,5 +1,5 @@
 """
-API · `REQ-AUTH-008` over the real ban read, on a route declaring a person's binder
+API · `person_barred` over the real ban read, on a route declaring a person's binder
 
 `tests/api/test_actor_binding.py :: TestThePersonBinderOverAServedRequest` proves the check's order
 and its code with the read answered from a set; this proves the read itself, against a stored ban.

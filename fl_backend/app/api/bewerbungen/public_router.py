@@ -61,7 +61,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 # nothing served below reaches a stored application (`READ-BEWERBUNG-001`).
 
 # `bind_public_actor`, never `bind_actor`: no browser sends `X-FL-Actor`, so that guard would refuse
-# every submission with `REQ-AUTH-005`. The write still passes `app/core/crud.py`, and an insert
+# every submission with `missing_actor`. The write still passes `app/core/crud.py`, and an insert
 # records no `before`.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/bewerbungen",
@@ -287,11 +287,11 @@ async def post_bewerbung(
 
     An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
     application it holds, stores none and owes nothing again. The same key over other details is refused
-    (`REQ-BEWERBUNG-015`).
+    (`bewerbung_schluessel_abweichend`).
 
-    An address the ban list holds, on any seat, is refused (`REQ-BEWERBUNG-018`) on a first press.
+    An address the ban list holds, on any seat, is refused (`bewerbung_adresse_gesperrt`) on a first press.
 
-    A seat naming a consent wording other than the one the form now shows is refused (`REQ-EINWILLIGUNG-001`),
+    A seat naming a consent wording other than the one the form now shows is refused (`fassung_unzulaessig`),
     and only once the key has been looked up: a stored key is answered whatever wording it names.
     """
 
@@ -349,7 +349,7 @@ async def post_bewerbung(
             refuse(find_shorthand_refusal(taken=taken > 0))
         else:
             # `find_one`, not `pull_one_from_db`: a club the picker never offered is refused with
-            # `REQ-BEWERBUNG-006` rather than answering the 404 a miss would raise.
+            # `bewerbung_picked_team_unusable` rather than answering the 404 a miss would raise.
             team_raw = await teams_collection.find_one({"_id": bewerbung_data.team_id}, {"inactive_since": 1, "name": 1}, session=session)
             refuse(find_picked_club_refusal(team_raw=team_raw))
 

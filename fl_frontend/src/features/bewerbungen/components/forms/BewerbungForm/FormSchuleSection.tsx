@@ -70,7 +70,7 @@ const LISTE_UNLESBAR = "Die Liste der Schulen ist gerade nicht erreichbar. Lade 
  * The school an application is about: one the league already holds, or one it does not.
  *
  * **One picker answers both**, so the form cannot compose the both-or-neither submission
- * `REQ-BEWERBUNG-005` refuses.
+ * `bewerbung_submission_subject_unresolved` refuses.
  */
 export function FormSchuleSection({
   schulen,

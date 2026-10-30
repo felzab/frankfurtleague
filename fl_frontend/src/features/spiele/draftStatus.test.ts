@@ -396,7 +396,7 @@ describe("applyDraftToSpiel · what a Sonderereignis does to the result", () => 
     }
   });
 
-  // NOT emptied here: `find_state_refusal` answers `REQ-STATE-002` and REFUSES the save, so a preview
+  // NOT emptied here: `find_state_refusal` answers `state_ergebnis_on_a_non_event` and REFUSES the save, so a preview
   // that quietly cleared the goals would hide the very contradiction the banner reports.
   it("leaves the typed result standing under an event that cannot carry one", () => {
     const stored = makeStored();

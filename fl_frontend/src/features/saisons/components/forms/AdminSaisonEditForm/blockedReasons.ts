@@ -20,22 +20,22 @@ export type SpielplanControlInput = {
   saisonStatus: FLSaisonStatus;
   /** Whether the season carries the generator's watermark. */
   hasSpielplan: boolean;
-  /** `REQ-SPIELPLAN-001`: the season already holds fixtures, whoever put them there. */
+  /** `spielplan_already_drawn`: the season already holds fixtures, whoever put them there. */
   hasDrawnSpiele: boolean;
-  /** `REQ-SPIELPLAN-002`'s condition: how many matchday rows the season holds, retired ones included. */
+  /** `spielplan_spieltage_held`'s condition: how many matchday rows the season holds, retired ones included. */
   spieltageCount: number;
-  /** `REQ-SPIELPLAN-005`'s condition: how many fixtures carry something entered against them. */
+  /** `spielplan_replace_outside_its_window`'s condition: how many fixtures carry something entered against them. */
   erfassteSpieleCount: number;
-  /** `REQ-SPIELPLAN-007`'s condition, which closes the replace and the undraw alike: how many fixtures hold a submitted report. */
+  /** `spielplan_berichte_eingereicht`'s condition, which closes the replace and the undraw alike: how many fixtures hold a submitted report. */
   eingereichteBerichteCount: number;
   /** Whether the season's served schedule reaches a knockout round at all, which a FIRST draw is judged on. */
   hasKoRunden: boolean;
-  /** The season's STORED span, `REQ-DATE-009`'s offered side — what the draw would run on. */
+  /** The season's STORED span, `saison_span_below_spielplan_as_stored`'s offered side — what the draw would run on. */
   startDate: string;
   endDate: string;
-  /** `REQ-DATE-009`'s required side for a FIRST draw: the matchdays the SERVED schedule implies, `buildSpielplanVorschau`'s sum. */
+  /** `saison_span_below_spielplan_as_stored`'s required side for a FIRST draw: the matchdays the SERVED schedule implies, `buildSpielplanVorschau`'s sum. */
   vorschauSpieltage: number;
-  /** `REQ-SPIELPLAN-004`'s condition over the season's STORED two numbers, which a first draw runs from. */
+  /** `spielplan_gruppen_off_rules`'s condition over the season's STORED two numbers, which a first draw runs from. */
   gruppen: Parameters<typeof drawGruppenRefusal>[0];
 };
 
@@ -51,7 +51,7 @@ function offeredDays(startDate: string, endDate: string): number {
 }
 
 /**
- * `REQ-SPIELPLAN-005`'s window, mirroring the two figures
+ * `spielplan_replace_outside_its_window`'s window, mirroring the two figures
  * `fl_backend/app/api/saisons/services.py :: find_spielplan_refusal` weighs a confirmed replace
  * against. Private: the reason below is the whole of what reads it.
  */
@@ -84,7 +84,7 @@ export function spielplanBlockedReason(input: SpielplanControlInput): string | n
   // activated undrawn would be unschedulable for good.
   if (saisonStatus === "past") return "Diese Saison ist abgeschlossen. Für sie wird kein Spielplan mehr angelegt.";
 
-  // `REQ-SPIELPLAN-001` and `REQ-SPIELPLAN-002` each step aside for a confirmed replace, and this
+  // `spielplan_already_drawn` and `spielplan_spieltage_held` each step aside for a confirmed replace, and this
   // page confirms one wherever there is something to destroy, so neither closes the control alone.
   // The window below bounds the offer instead.
   const replacesDraw = spielplanHoldsADraw(input);
@@ -108,7 +108,7 @@ export function spielplanBlockedReason(input: SpielplanControlInput): string | n
   if (drawGruppenRefusal(input.gruppen) !== null) return GRUPPEN_OFF_RULES;
 
   // After the groups, as the endpoint asks it: `find_rules_refusal` runs after the whole spielplan
-  // pass, and on its `stored=None` path `REQ-RULES-014` reduces to a qualifier product reaching no
+  // pass, and on its `stored=None` path `rules_bracket_impossible` reduces to a qualifier product reaching no
   // bracket, which is exactly an empty knockout list.
   if (!hasKoRunden) return `Aus diesen Regeln entsteht keine KO-Runde. Ändere die Zahlen im Abschnitt ${REGELN_ABSCHNITT} und speichere sie.`;
 
@@ -140,7 +140,7 @@ export function spielplanShapeBlockedReason({
   const refusal = drawShapeRefusal({ shape, occupancy });
 
   if (refusal === "gruppenOffSize" || refusal === "groupsInUse") return GRUPPEN_OFF_RULES;
-  // `REQ-RULES-001` refuses a bracket too large and one with no shape alike, in one sentence.
+  // `rules_bracket_impossible` refuses a bracket too large and one with no shape alike, in one sentence.
   if (refusal !== null) return "Aus diesen Zahlen entsteht keine KO-Runde. Ändere die Gruppen oder die Qualifikanten pro Gruppe.";
 
   if (offeredDays(startDate, endDate) < drawnSpieltage(shape))
@@ -227,7 +227,7 @@ export function spielplanUndrawBlockedReason(input: UndrawControlInput): string 
 }
 
 /**
- * Why the rollover is closed, or `null` while it is on offer. `REQ-ACTIVATE-002` is absent because
+ * Why the rollover is closed, or `null` while it is on offer. `saison_past` is absent because
  * a `past` season closes the whole panel instead: it has no remedy to name, and a hint would
  * promise a route the system does not have.
  */
@@ -237,13 +237,13 @@ export function rolloverBlockedReason({
   outgoingSaisonId,
   offeneSpieleCount,
 }: {
-  /** `REQ-ACTIVATE-003`: whether THIS season holds fixtures of its own. */
+  /** `activate_target_undrawn`: whether THIS season holds fixtures of its own. */
   hasDrawnSpiele: boolean;
-  /** `REQ-ACTIVATE-004`'s condition: whether any of THIS season's matchdays carries no `beginn`. */
+  /** `activate_spieltage_undated`'s condition: whether any of THIS season's matchdays carries no `beginn`. */
   hasUndatierteSpieltage: boolean;
   /** The season the rollover would close, or `null` when nothing holds `active`. */
   outgoingSaisonId: string | null;
-  /** `REQ-ACTIVATE-001`'s condition, counted over the OUTGOING season. */
+  /** `activate_saison_unfinished`'s condition, counted over the OUTGOING season. */
   offeneSpieleCount: number;
 }): string | null {
   // Ahead of the incumbent's open fixtures, as

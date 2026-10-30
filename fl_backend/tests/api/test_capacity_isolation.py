@@ -58,7 +58,7 @@ def oid(tail: int) -> ObjectId:
 
 
 def saison_document() -> dict[str, Any]:
-    """`future`, which is the one status `REQ-ENTER-001` admits an entry under."""
+    """`future`, which is the one status `entry_saison_not_future` admits an entry under."""
 
     return documents.saison_document(
         SAISON, "future", rules=documents.rules_document(teams_per_group=TEAMS_PER_GROUP, max_kadergroesse=MAX_KADERGROESSE)
@@ -114,7 +114,7 @@ def kontaktperson(vorname: str) -> dict[str, Any]:
 def bewerbung_document(index: int) -> dict[str, Any]:
     """One submitted application naming an existing club, every seat confirmed by its own person.
 
-    Confirmed, so the acceptance below reaches the capacity rule rather than `REQ-BEWERBUNG-013`.
+    Confirmed, so the acceptance below reaches the capacity rule rather than `bewerbung_kontakte_unconfirmed`.
     """
 
     return documents.bewerbung_document(
@@ -293,7 +293,7 @@ class TestASecondSquadWriteLandingMidWriteIsJudgedAgain:
             mongo_replica_set_url, lambda database, client, saisons: self._add(database, client, 91, saisons)
         )
 
-        assert (outcome, squad) == (Code.SQUAD_FULL, MAX_KADERGROESSE)
+        assert (outcome, squad) == (Code.KADER_FULL, MAX_KADERGROESSE)
         assert (season_reads, anchor) == (2, 1), (
             f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
         )
@@ -312,7 +312,7 @@ class TestASecondSquadWriteLandingMidWriteIsJudgedAgain:
 
         outcome, season_reads, squad, anchor = self._run(mongo_replica_set_url, transfer)
 
-        assert (outcome, squad) == (Code.SQUAD_FULL, MAX_KADERGROESSE)
+        assert (outcome, squad) == (Code.KADER_FULL, MAX_KADERGROESSE)
         assert (season_reads, anchor) == (2, 1), (
             f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
         )
@@ -330,7 +330,7 @@ class TestASecondSquadWriteLandingMidWriteIsJudgedAgain:
 
         outcome, season_reads, squad, anchor = self._run(mongo_replica_set_url, bring_back)
 
-        assert (outcome, squad) == (Code.SQUAD_FULL, MAX_KADERGROESSE)
+        assert (outcome, squad) == (Code.KADER_FULL, MAX_KADERGROESSE)
         assert (season_reads, anchor) == (2, 1), (
             f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
         )

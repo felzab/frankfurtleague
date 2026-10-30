@@ -66,7 +66,7 @@ describe("holdsDrawnSpiele", () => {
 });
 
 describe("holdsUndatierteSpieltage", () => {
-  /* One undated matchday among dated ones is the whole of `REQ-ACTIVATE-004`, and the case a count
+  /* One undated matchday among dated ones is the whole of `activate_spieltage_undated`, and the case a count
      over a truncated list gets wrong in the other direction: nothing here may need every row. */
   it("answers true from a single undated matchday among dated ones", () => {
     expect(
@@ -97,7 +97,7 @@ describe("buildGruppenOccupancy", () => {
   });
 
   /* A group the season runs but nobody stands in carries no key, so every reader has to take an absent
-     key as nobody — which is what `REQ-SPIELPLAN-004` reads it as. */
+     key as nobody — which is what `spielplan_gruppen_off_rules` reads it as. */
   it("gives a group holding nobody no key at all", () => {
     expect(buildGruppenOccupancy([{ gruppe: "B" }])).toStrictEqual({ B: 1 });
     expect(buildGruppenOccupancy([])).toStrictEqual({});
@@ -172,7 +172,7 @@ describe("buildSpielplanBestand", () => {
 
   /* Mirrors `holds_a_recorded_fact`, which takes EVERY `sonderereignis`. Reach for `hasTakenPlace`'s
      narrower set instead and this fails: a called-off season would be offered a replace the endpoint
-     answers with `REQ-SPIELPLAN-005`. */
+     answers with `spielplan_replace_outside_its_window`. */
   it("counts a cancellation as recorded, alongside an abandonment and a no-show", () => {
     expect(bestandOf(spiel({ sonderereignis: "abgebrochen" })).erfasst).toBe(1);
     expect(bestandOf(spiel({ sonderereignis: "nichtantreten_team1" })).erfasst).toBe(1);
@@ -300,7 +300,7 @@ describe("buildSpielplanVorschau", () => {
     ).toStrictEqual({ spieltage: 6, spiele: 31, koRunden: ["viertelfinale", "halbfinale", "finale"] });
   });
 
-  // One group of two with both qualifying, which is the smallest `REQ-RULES-001` allows: the one
+  // One group of two with both qualifying, which is the smallest `rules_bracket_impossible` allows: the one
   // group fixture and the final are two matchdays, never one.
   it("sums the smallest season the rules allow", () => {
     expect(
@@ -441,7 +441,7 @@ describe("the German the two windows share", () => {
 });
 
 describe("describeSpielplanPermanenz", () => {
-  /* A first draw on a PLANNED season has a repair, the undraw beside it (`REQ-SPIELPLAN-006`), so a permanence
+  /* A first draw on a PLANNED season has a repair, the undraw beside it (`spielplan_undraw_outside_its_window`), so a permanence
      claim there sends an admin away from a control the panel offers. */
   it("points a first draw on a planned season at the undraw, inside the window it runs in", () => {
     const firstDraw = describeSpielplanPermanenz({ holdsADraw: false, saisonStatus: "future" });

@@ -200,12 +200,12 @@ async def aufnehmen(
     press meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.
 
     Refuses, in this order: no pending registration with this id (404), no seat on its team's season
-    (`REQ-FUNKTION-001`), a registration the pupil has not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban list
-    holds (`REQ-REGISTRIERUNG-009`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
-    (`REQ-REGISTRIERUNG-003`), a registration confirmed on the returning pupil's page whose address holds no stored
-    person (`REQ-REGISTRIERUNG-018`: it carries no choice, so it admits nobody, and the pupil registers again), a
-    `spieler_id` that is not the person this registration may be admitted into (`REQ-REGISTRIERUNG-014`), a person
-    already playing in a squad this season (`REQ-REGISTRIERUNG-015`) and a full squad (`REQ-SQUAD-003`). Nothing is
+    (`funktion_nicht_gehalten`), a registration the pupil has not confirmed (`registrierung_unbestaetigt`), an address the ban list
+    holds (`registrierung_adresse_gesperrt`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
+    (`registrierung_stufe_nicht_erlaubt`), a registration confirmed on the returning pupil's page whose address holds no stored
+    person (`registrierung_person_fehlt`: it carries no choice, so it admits nobody, and the pupil registers again), a
+    `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_nicht_benannt`), a person
+    already playing in a squad this season (`registrierung_schon_im_kader`) and a full squad (`kader_full`). Nothing is
     written on any of them.
     """
 
@@ -361,7 +361,7 @@ async def ablehnen(
     where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.
 
     Refuses, in this order, no pending registration with this id (404) and no seat on its team's season
-    (`REQ-FUNKTION-001`).
+    (`funktion_nicht_gehalten`).
     """
 
     async def decline_for_the_team(session: AsyncClientSession) -> FLRegistrierungAblehnungResponse:

@@ -56,7 +56,7 @@ export function admitsShootOut(
 
   if (saisonPhase === "gruppenphase") return false;
 
-  // A no-show's award is COMPOSED from the season's `forfeit_ergebnis`, and `REQ-RULES-010` refuses a
+  // A no-show's award is COMPOSED from the season's `forfeit_ergebnis`, and `rules_forfeit_draws_a_knockout` refuses a
   // level one only as a STEP -- so a grandfathered season composes one, and a kept shoot-out would
   // advance the club that never appeared.
   if (sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2") return false;

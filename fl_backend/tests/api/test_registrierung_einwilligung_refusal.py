@@ -228,7 +228,7 @@ class TestWhatAReturningAdmissionWrites:
     }
 
     def test_a_new_person_is_never_born_from_it(self):
-        """The guard behind `REQ-REGISTRIERUNG-018`: a person born with no scope is one every read of their record refuses."""
+        """The guard behind `registrierung_person_fehlt`: a person born with no scope is one every read of their record refuses."""
 
         with pytest.raises(ValueError, match="no choice"):
             compose_person(spieler_id="a-new-id", registrierung_raw=self.RETURNING, adresse="quillhilde@example.com")
@@ -280,7 +280,7 @@ class TestWhatTheAnswerPayloadRefuses:
         assert_rejects(FLRegistrierungBestaetigungPayload, body, field)
 
     def test_the_returning_pupils_page_states_its_unasked_answers_as_null(self):
-        """Which page a body may carry nulls on is the press's to judge (`REQ-REGISTRIERUNG-017`), never the model's."""
+        """Which page a body may carry nulls on is the press's to judge (`registrierung_wahlen_unpassend`), never the model's."""
 
         stated = FLRegistrierungBestaetigungPayload.model_validate(
             antwort(geburtsdatum=None, umfang=None, medien=None, text_version=RETURNING_LABEL)
@@ -300,7 +300,7 @@ class TestWhatTheAnswerPayloadRefuses:
         assert FLRegistrierungBestaetigungPayload.model_validate(antwort(text_version=at_the_bound)).text_version == at_the_bound
 
     def test_a_malformed_date_is_refused(self, assert_rejects):
-        """`REQ-VAL-001` rather than the age's own code: the shape of the field is the body's business, and the age is the person's."""
+        """`payload_refused` rather than the age's own code: the shape of the field is the body's business, and the age is the person's."""
 
         assert_rejects(FLRegistrierungBestaetigungPayload, antwort(geburtsdatum="09.05.2009"), "geburtsdatum")
 

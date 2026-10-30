@@ -46,7 +46,7 @@ def verify_api_key(select_key: KeySelector, error_code: Code, *, scheme_name: st
         config: Annotated[BackendConfig, Depends(get_app_config)],
     ) -> str:
         if credentials is None:
-            raise APIError(HTTPStatus.UNAUTHORIZED, Code.MISSING_TOKEN, headers=BEARER_CHALLENGE)
+            raise APIError(HTTPStatus.UNAUTHORIZED, Code.ACCESS_KEY_REFUSED, headers=BEARER_CHALLENGE)
         if not secrets.compare_digest(credentials.credentials, select_key(config).get_secret_value()):
             raise APIError(HTTPStatus.UNAUTHORIZED, error_code, headers=BEARER_CHALLENGE)
         return credentials.credentials
@@ -56,9 +56,11 @@ def verify_api_key(select_key: KeySelector, error_code: Code, *, scheme_name: st
 
 # Module-level objects, so every router declares the same callable: FastAPI caches a dependency per
 # request by its callable, and runs a guard declared twice once.
-verify_access_base = verify_api_key(lambda config: config.internal_api_key_base, error_code=Code.WRONG_BASE_KEY, scheme_name="BaseKey")
-verify_access_system = verify_api_key(lambda config: config.internal_api_key_system, error_code=Code.WRONG_SYSTEM_KEY, scheme_name="SystemKey")
-verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admin, error_code=Code.WRONG_ADMIN_KEY, scheme_name="AdminKey")
+verify_access_base = verify_api_key(lambda config: config.internal_api_key_base, error_code=Code.ACCESS_KEY_REFUSED, scheme_name="BaseKey")
+verify_access_system = verify_api_key(
+    lambda config: config.internal_api_key_system, error_code=Code.ACCESS_KEY_REFUSED, scheme_name="SystemKey"
+)
+verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admin, error_code=Code.ACCESS_KEY_REFUSED, scheme_name="AdminKey")
 
 
 def get_actor_email() -> str:
@@ -146,7 +148,7 @@ def session_age_s(actor: SessionActor) -> int:
 
 
 def refused_session() -> APIError:
-    return APIError(HTTPStatus.UNAUTHORIZED, Code.ACTOR_TOKEN_REFUSED, headers=ACTOR_REFUSAL_HEADERS)
+    return APIError(HTTPStatus.UNAUTHORIZED, Code.SESSION_REFUSED, headers=ACTOR_REFUSAL_HEADERS)
 
 
 def verify_admin_actor(actor: Annotated[SessionActor, Depends(get_session_actor)]) -> SessionActor:
@@ -192,13 +194,13 @@ STEP_UP_WINDOW_S: Final = STEP_UP_WINDOW_HOURS * 3600
 
 
 def confirmed_before(actor: SessionActor, window_s: int) -> bool:
-    """Whether the actor's sign-in or confirmation is older than `window_s`, which `REQ-AUTH-009` refuses a write for."""
+    """Whether the actor's sign-in or confirmation is older than `window_s`, which `confirmation_required` refuses a write for."""
 
     return session_age_s(actor) > window_s
 
 
 def confirmation_required(window_s: int) -> APIError:
-    """`REQ-AUTH-009`'s refusal of a write asking a sign-in or confirmation inside `window_s`, every raise of it built here."""
+    """`confirmation_required`'s refusal of a write asking a sign-in or confirmation inside `window_s`, every raise of it built here."""
 
     # RFC 9470 §3's error and parameter, under the actor's own scheme.
     challenge = f'{ACTOR_TOKEN_CHALLENGE} error="insufficient_user_authentication", max_age="{window_s}"'

@@ -183,7 +183,7 @@ def neu_genannt(
 
 
 def find_nicht_geleitet_refusal(*, spiel_raw: Mapping[str, Any], schiedsrichter_ids: Iterable[ObjectId]) -> WriteRefusal | None:
-    """`REQ-BERICHT-002`: the report is the booked referee's, and the ghost or an empty slot books nobody who could write it."""
+    """`bericht_nicht_geleitet`: the report is the booked referee's, and the ghost or an empty slot books nobody who could write it."""
 
     gebucht = (spiel_raw.get("schiedsrichter") or {}).get("schiedsrichter_id")
     if gebucht is not None and gebucht in set(schiedsrichter_ids):
@@ -204,7 +204,7 @@ def ist_abgesagt(*, sonderereignis: str | None) -> bool:
 
 
 def find_nicht_gespielt_refusal(*, datum: str | None, today: str) -> WriteRefusal | None:
-    """`REQ-BERICHT-001`: a report follows the match day; the day arriving, or a date corrected, lifts it."""
+    """`bericht_nicht_gespielt`: a report follows the match day; the day arriving, or a date corrected, lifts it."""
 
     if ist_gespielt(datum=datum, today=today):
         return None
@@ -216,7 +216,7 @@ def find_nicht_gespielt_refusal(*, datum: str | None, today: str) -> WriteRefusa
 
 
 def find_abgesagt_refusal(*, sonderereignis: str | None) -> WriteRefusal | None:
-    """`REQ-BERICHT-004`: a fixture called off or struck out took no place to report on."""
+    """`bericht_abgesagt`: a fixture called off or struck out took no place to report on."""
 
     if not ist_abgesagt(sonderereignis=sonderereignis):
         return None
@@ -234,19 +234,19 @@ def ist_abgeschlossen(lage: BerichtLage) -> bool:
 
 
 def find_saison_beendet_refusal(lage: BerichtLage) -> WriteRefusal | None:
-    """`REQ-BERICHT-007`: the referee writes while the fixture's season runs; the administrator's correction is not asked."""
+    """`saison_past`: the referee writes while the fixture's season runs; the administrator's correction is not asked."""
 
     if not ist_abgeschlossen(lage):
         return None
 
     return WriteRefusal(
-        error_code=Code.BERICHT_SAISON_BEENDET,
+        error_code=Code.SAISON_PAST,
         status=HTTPStatus.CONFLICT,
     )
 
 
 def find_elfmeter_in_der_gruppe_refusal(*, spiel_raw: Mapping[str, Any], payload: FLSpielberichtBerichtPayload) -> WriteRefusal | None:
-    """`REQ-BERICHT-009`: a group fixture keeps no shoot-out, so a proposal holding one could never read adopted."""
+    """`bericht_elfmeter_in_der_gruppe`: a group fixture keeps no shoot-out, so a proposal holding one could never read adopted."""
 
     if spiel_raw["saison_phase"] != "gruppenphase" or payload.ergebnis_vorschlag.elfmeterschiessen is None:
         return None
@@ -258,7 +258,7 @@ def find_elfmeter_in_der_gruppe_refusal(*, spiel_raw: Mapping[str, Any], payload
 
 
 def nimmt_einen_bericht(spiel_raw: Mapping[str, Any], *, today: str) -> bool:
-    """Whether the fixture takes a report today, as `REQ-BERICHT-001` and `REQ-BERICHT-004` judge a write, refusing nothing."""
+    """Whether the fixture takes a report today, as `bericht_nicht_gespielt` and `bericht_abgesagt` judge a write, refusing nothing."""
 
     return ist_gespielt(datum=spiel_raw.get("datum"), today=today) and not ist_abgesagt(sonderereignis=spiel_raw.get("sonderereignis"))
 
@@ -270,7 +270,7 @@ def kader_ist_offen(lage: BerichtLage, *, today: str) -> bool:
 
 
 def find_bericht_stand_refusal(*, stand: int | None, gespeichert: Mapping[str, Any] | None) -> WriteRefusal | None:
-    """`REQ-BERICHT-006`: the write was composed on the version standing now, or on none where none stands.
+    """`bericht_inzwischen_geaendert`: the write was composed on the version standing now, or on none where none stands.
 
     Judged on the transaction's read: a write committing meanwhile, a crossing first one included, conflicts with this
     one, whose retry is refused.
@@ -286,7 +286,7 @@ def find_bericht_stand_refusal(*, stand: int | None, gespeichert: Mapping[str, A
 
 
 def find_nicht_im_kader_refusal(*, lage: BerichtLage, neu: Mapping[FLSpielSeite, set[ObjectId]]) -> WriteRefusal | None:
-    """`REQ-BERICHT-003`: a pupil newly named on a side is in that side's live squad of the season."""
+    """`bericht_nicht_im_kader`: a pupil newly named on a side is in that side's live squad of the season."""
 
     for seite in SEITEN:
         kader = {row["spieler_id"] for row in live_kader(lage, seite)}
@@ -300,7 +300,7 @@ def find_nicht_im_kader_refusal(*, lage: BerichtLage, neu: Mapping[FLSpielSeite,
 
 
 def find_grund_fehlt_refusal(*, payload: FLSpielberichtBerichtPayload, gespeichert: Mapping[str, Any] | None) -> WriteRefusal | None:
-    """`REQ-BERICHT-008`: a caution names its reason unless the stored block holds it stripped, which a correction would otherwise invent.
+    """`bericht_grund_fehlt`: a caution names its reason unless the stored block holds it stripped, which a correction would otherwise invent.
 
     A card has no id: the same side, pupil and colour is the same card, its minute correctable.
     """
@@ -351,7 +351,7 @@ def vorschlag_entspricht(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[
     """Whether the stored result is what the proposal proposes.
 
     A no-show by its event alone, its goals being the forfeit's; the shoot-out too, absent or not, which no write proposes
-    where the fixture keeps none (`REQ-BERICHT-009`).
+    where the fixture keeps none (`bericht_elfmeter_in_der_gruppe`).
     """
 
     if vorschlag.sonderereignis in SONDEREREIGNIS_NO_SHOW:

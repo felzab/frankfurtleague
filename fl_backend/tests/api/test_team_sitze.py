@@ -170,7 +170,7 @@ class TestTheSeatRead:
     def test_a_seat_granting_nothing_here_is_refused(self, mongo_replica_set_url: str, identifier: str, saison_id: str):
         status, served = sitze_read(mongo_replica_set_url, identifier=identifier, saison_id=saison_id)
 
-        assert (status, served["error_code"]) == (403, "REQ-FUNKTION-001")
+        assert (status, served["error_code"]) == (403, "funktion_nicht_gehalten")
 
     def test_no_address_telephone_or_birthdate_at_any_depth(self, mongo_replica_set_url: str):
         """Over the serialised body, keys and values both, so a nested block cannot smuggle one in.

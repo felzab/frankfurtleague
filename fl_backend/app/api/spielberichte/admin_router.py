@@ -79,7 +79,7 @@ async def get_spielberichte(
     Every report of one season holding a block, each with its state against its fixture and what it proposes.
 
     What the season editor counts before an undraw or a replace, which a submitted report refuses
-    (`REQ-SPIELPLAN-007`). Scoped to `saison_id`, the active season when none is named, which answers 404 while no
+    (`spielplan_berichte_eingereicht`). Scoped to `saison_id`, the active season when none is named, which answers 404 while no
     season is active.
     """
 
@@ -112,7 +112,7 @@ async def get_spielbericht_admin(
 
     Beside it the fixture and the pupils the report names, by name. Both clubs' live squads of the season only with
     `kader`, which the correction's form picks from: the panel reads no pupil the report does not name, so a fixture
-    holding no report serves none. The report and its state are null where no report stands; `DB-COMMON-001` only for
+    holding no report serves none. The report and its state are null where no report stands; `document_not_found` only for
     a fixture that does not exist.
     """
 
@@ -165,14 +165,14 @@ async def patch_spielbericht(
     `bericht_stand` is the `version` of the report the page was served, null where none stood, as on the referee's
     write.
 
-    Refuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); a `bericht_stand`
-    other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day is
-    still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out proposed on a
-    group-phase fixture (`REQ-BERICHT-009`); a pupil newly named on a side outside that side's live squad of the season
-    (`REQ-BERICHT-003`); and a yellow or second yellow card naming no reason, unless the stored report holds that card,
-    by side, pupil and colour, stripped of its reason at the end of the season after the match (`REQ-BERICHT-008`). Each
-    but `REQ-BERICHT-006` is asked again outside the transaction just before answering; a write of the report landing
-    mid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two pages
+    Refuses, in this order, each writing nothing: a fixture that does not exist (`document_not_found`); a `bericht_stand`
+    other than the version standing now, or than none where none stands (`bericht_inzwischen_geaendert`); one undated or whose day is
+    still to come (`bericht_nicht_gespielt`); one called off or struck out (`bericht_abgesagt`); a shoot-out proposed on a
+    group-phase fixture (`bericht_elfmeter_in_der_gruppe`); a pupil newly named on a side outside that side's live squad of the season
+    (`bericht_nicht_im_kader`); and a yellow or second yellow card naming no reason, unless the stored report holds that card,
+    by side, pupil and colour, stripped of its reason at the end of the season after the match (`bericht_grund_fehlt`). Each
+    but `bericht_inzwischen_geaendert` is asked again outside the transaction just before answering; a write of the report landing
+    mid-press conflicts with this one, whose retry meets `bericht_inzwischen_geaendert`. Two first writes at once are two pages
     opened on no report: the later is refused.
     """
 

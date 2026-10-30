@@ -6,7 +6,7 @@ from http import HTTPStatus
 
 from app.core.codes import Code
 
-# The path inside the body a 422 judged, as a `REQ-VAL-001` names its own, so a form can mark the field.
+# The path inside the body a 422 judged, as a `payload_refused` names its own, so a form can mark the field.
 FieldPath = tuple[str | int, ...]
 
 
@@ -29,7 +29,7 @@ class APIError(Exception):
 
 
 class DocumentNotFoundError(APIError):
-    """A read or a filtered write that matched nothing: `DB-COMMON-001` at 404.
+    """A read or a filtered write that matched nothing: `document_not_found` at 404.
 
     A type of its own because ten callers take a miss as an answer, and catching it by type keeps
     every other refusal their call raises -- a guard's, a rule's -- out of that `except`.

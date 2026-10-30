@@ -203,21 +203,25 @@ describe("the match editor's save", () => {
   it("places the write's refusal on the field that caused it, in the status line, or on the stale-page line", async () => {
     const save = { id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { datum: "2027-05-01" } } as const;
 
-    stand.ablehnung = refusal("REQ-DATE-001");
+    stand.ablehnung = refusal("spiel_outside_spieltag");
     expect(await spielSpeichern(save)).toEqual({
       ok: false,
-      errorCode: "REQ-DATE-001",
-      fieldErrors: { "changes.datum": COPY.shared.ablehnung["REQ-DATE-001"] },
+      errorCode: "spiel_outside_spieltag",
+      fieldErrors: { "changes.datum": COPY.shared.ablehnung["spiel_outside_spieltag"] },
     });
 
-    stand.ablehnung = refusal("REQ-CLASH-001");
-    expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "REQ-CLASH-001", reason: COPY.shared.ablehnung["REQ-CLASH-001"] });
+    stand.ablehnung = refusal("spiel_double_booked");
+    expect(await spielSpeichern(save)).toEqual({
+      ok: false,
+      errorCode: "spiel_double_booked",
+      reason: COPY.shared.ablehnung["spiel_double_booked"],
+    });
 
-    stand.ablehnung = refusal("REQ-BOOKING-003");
-    expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "REQ-BOOKING-003", reason: COPY.shared.fehler.veraltet });
+    stand.ablehnung = refusal("booking_schiedsrichter_moved");
+    expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "booking_schiedsrichter_moved", reason: COPY.shared.fehler.veraltet });
 
     // The fixture changed since the editor read it: the write refused the version it was sent.
-    stand.ablehnung = refusal("DB-COMMON-003");
-    expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "DB-COMMON-003", reason: COPY.shared.fehler.veraltet });
+    stand.ablehnung = refusal("version_stale");
+    expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "version_stale", reason: COPY.shared.fehler.veraltet });
   });
 });

@@ -542,7 +542,7 @@ class TestTheSquadCap:
 
         code, before, after = on_a_league(mongo_replica_set_url, body, squad=3)
 
-        assert code == Code.SQUAD_FULL
+        assert code == Code.KADER_FULL
         assert after == before
 
     def test_a_rival_admission_landing_inside_takes_the_last_place(self, mongo_replica_set_url: str):
@@ -570,7 +570,7 @@ class TestTheSquadCap:
 
         outcome, live, still_pending = on_a_league(mongo_replica_set_url, body, squad=2)
 
-        assert outcome == Code.SQUAD_FULL
+        assert outcome == Code.KADER_FULL
         assert (live, still_pending) == (3, 1)
 
 

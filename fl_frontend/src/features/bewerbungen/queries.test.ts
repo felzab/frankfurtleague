@@ -95,8 +95,8 @@ describe("the four base-tier public reads", () => {
   /* A season the visitor may not read is a state rather than a failure: the page renders „noch nicht
      offen“ or „abgelaufen“ off it, and a throw here would answer the error page instead. */
   it("reads a 404 on either window as no window rather than as a failure", async () => {
-    expect(await failing(refused("DB-COMMON-001"), () => getOffenesBewerbungFenster())).toBe(null);
-    expect(await failing(refused("DB-COMMON-001"), () => getBewerbungFenster("2627"))).toBe(null);
+    expect(await failing(refused("document_not_found"), () => getOffenesBewerbungFenster())).toBe(null);
+    expect(await failing(refused("document_not_found"), () => getBewerbungFenster("2627"))).toBe(null);
   });
 });
 

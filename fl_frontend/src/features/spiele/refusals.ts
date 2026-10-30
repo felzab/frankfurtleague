@@ -6,18 +6,18 @@ import { CLASH_BUFFER_TEXT } from "./constants";
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /**
- * The refusals a match write answers here. `REQ-DATE-001` and `REQ-BOOKING-002` land on the field that
+ * The refusals a match write answers here. `spiel_outside_spieltag` and `booking_unconfirmed_schiedsrichter` land on the field that
  * caused each; the rest travel as a message, naming no single control. Every other code falls to
  * `fl_frontend/src/shared/utils/actionError.ts :: OCCUPANT_REFUSALS`.
  */
 export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  if (error.serverErrorCode === "REQ-DATE-001") {
+  if (error.serverErrorCode === "spiel_outside_spieltag") {
     return { fieldErrors: { datum: "Dieses Datum liegt außerhalb des Spieltags." } };
   }
   // The referee alone, so the picker takes it: a kept one too, which a lifted call-off or a cleared result books again.
-  if (error.serverErrorCode === "REQ-BOOKING-002") {
+  if (error.serverErrorCode === "booking_unconfirmed_schiedsrichter") {
     return {
       fieldErrors: {
         // One sentence: picking another referee is the box's own repair.
@@ -25,7 +25,7 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
       },
     };
   }
-  if (error.serverErrorCode === "REQ-RESULT-001") {
+  if (error.serverErrorCode === "ergebnis_side_emptied") {
     return {
       error: buildRefusal({
         reason: "Dieses Spiel hat ein Ergebnis, deshalb lässt sich das Team nicht entfernen",
@@ -37,7 +37,7 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
 
   // A reactivation is one of two ways out rather than the way out: the row an erasure repoints a
   // fixture at is permanently retired, and a repair promising one sends a teacher into a refusal.
-  if (error.serverErrorCode === "REQ-BOOKING-001") {
+  if (error.serverErrorCode === "booking_unknown_resource") {
     return {
       error: buildRefusal({
         // The second clause for the save that picked nothing: lifting a call-off or clearing a result
@@ -49,7 +49,7 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
     };
   }
   // Never on the picker: the draft's own choice is not at fault, the slot moved under it.
-  if (error.serverErrorCode === "REQ-BOOKING-003") {
+  if (error.serverErrorCode === "booking_schiedsrichter_moved") {
     return {
       error: buildRefusal({
         reason: "Die Schiedsrichtereinteilung dieses Spiels hat sich geändert, seit Du es geöffnet hast, etwa weil die Person abgesagt hat",
@@ -57,7 +57,7 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
       }),
     };
   }
-  if (error.serverErrorCode === "REQ-CLASH-001") {
+  if (error.serverErrorCode === "spiel_double_booked") {
     return {
       error: buildRefusal({
         reason: "Spielort oder Schiedsrichter ist zu dieser Zeit schon für ein anderes Spiel eingeteilt",
@@ -65,9 +65,9 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
       }),
     };
   }
-  // Mapped here rather than beside `REQ-SPIELTAG-001` in the shared fallback: that sentence points at
+  // Mapped here rather than beside `spieltag_occupied` in the shared fallback: that sentence points at
   // the team the admin just picked, and this refusal is about a slot the KO-Baum fills by itself.
-  if (error.serverErrorCode === "REQ-SPIELTAG-002") {
+  if (error.serverErrorCode === "spieltag_occupied_by_the_resolution") {
     return {
       error: buildRefusal({
         // Never a result: `find_advancement_occupancy_refusal` runs on every save and every dry run,

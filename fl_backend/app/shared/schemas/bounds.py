@@ -20,7 +20,7 @@ ADDRESS_STADTTEIL_MAX_LENGTH: Final = 80
 ADDRESS_HAUSNUMMER_MAX_LENGTH: Final = 16
 
 # RFC 5321's whole-address ceiling, the one email-validator already applies.
-# Named so the frontend mirror refuses at the same length: past it the API's REQ-VAL-001 marks the
+# Named so the frontend mirror refuses at the same length: past it the API's payload_refused marks the
 # box with a generic sentence rather than the length's own German.
 KONTAKT_EMAIL_MAX_LENGTH: Final = 254
 

@@ -65,7 +65,7 @@ async def ensure_ghost_schiedsrichter(
     """The ghost's document, written where none stands; called once before the first referee of a transaction goes."""
 
     # Written here rather than at a deploy step, so an erasure can never repoint a fixture at a
-    # row nothing holds -- which `REQ-BOOKING-001` would then read as an unknown referee and
+    # row nothing holds -- which `booking_unknown_resource` would then read as an unknown referee and
     # `GET /spiele/action_required` would report as nothing at all.
     ghost = await schiedsrichter_collection.find_one({"_id": GHOST_SCHIEDSRICHTER_ID}, session=session)
     if ghost is None:

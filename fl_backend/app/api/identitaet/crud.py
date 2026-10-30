@@ -315,7 +315,7 @@ async def funktionen_aus(
 async def refuse_without_a_seat(
     identifier: str, records: RecordCollections, *, team_id: ObjectId, saison_id: str, session: AsyncClientSession
 ) -> None:
-    """`REQ-FUNKTION-001` unless the person holds a seat on this team in this season, judged in the caller's session.
+    """`funktion_nicht_gehalten` unless the person holds a seat on this team in this season, judged in the caller's session.
 
     In-session because a seat may end between the page's check and this one.
     """

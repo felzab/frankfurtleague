@@ -48,7 +48,7 @@ UNICODE_DOMAIN = f"anna@m{chr(0xFC)}ller.de"
 UNICODE_DOMAIN_STORED = "anna@xn--mller-kva.de"
 
 # The control's answer: a well-formed request that got past validation and reached the database. The
-# refusal's is `REQ-VAL-001`, and a keying crash answers `SRV-FAIL-001`. Either database code, since
+# refusal's is `payload_refused`, and a keying crash answers `unhandled_crash`. Either database code, since
 # which one a cut write answers is `app/core/exception_handlers.py :: db_exception_handler`'s question.
 UNREACHED_DATABASE = {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
 
@@ -221,7 +221,7 @@ class TestEveryAddressPayloadHoldsTheSameRule:
         assert ADDRESS_FIELDS[field].validate_python(UNICODE_DOMAIN) == UNICODE_DOMAIN_STORED
 
     def test_the_refusal_quotes_nothing_of_the_address(self):
-        """The message reaches the log line `REQ-VAL-001` writes, and an erasure reaches no log sink."""
+        """The message reaches the log line `payload_refused` writes, and an erasure reaches no log sink."""
 
         local_part = "zorbanax"
         with pytest.raises(ValidationError) as raised:

@@ -1,6 +1,7 @@
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
+import type { Code } from "@/core/generated/client/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 
 // Two messages for one unique index, which spans retired clubs. Only the create can be answered by
@@ -10,14 +11,14 @@ export const SHORTHAND_TAKEN_ON_EDIT = "Bitte wähle ein anderes Kürzel: dieses
 
 /** `null` for any code but the unique index's, which is always `taken`: a club's only unique key is its shorthand. */
 export function mapShorthandRefusal(error: unknown, taken: string): { fieldErrors: FieldErrors } | null {
-  if (!isRefusal(error) || error.serverErrorCode !== "DB-COMMON-002") return null;
+  if (!isRefusal(error) || error.serverErrorCode !== "duplicate_key") return null;
 
   return { fieldErrors: { shorthand: taken } };
 }
 
 /** `null` where the refusal is something else; it lands on no field, the retire control being a dialog. */
 export function mapRetireRefusal(error: unknown): string | null {
-  if (!isRefusal(error) || error.serverErrorCode !== "REQ-RETIRE-001") return null;
+  if (!isRefusal(error) || error.serverErrorCode !== "retire_blocked") return null;
 
   return "Das Team spielt in einer laufenden oder geplanten Saison und kann nicht stillgelegt werden.";
 }
@@ -27,7 +28,7 @@ export function mapRetireRefusal(error: unknown): string | null {
  * stands in the season.
  */
 export function mapAlreadyEnteredRefusal(error: unknown): string | null {
-  if (!isRefusal(error) || error.serverErrorCode !== "DB-COMMON-002") return null;
+  if (!isRefusal(error) || error.serverErrorCode !== "duplicate_key") return null;
 
   return "Dieses Team ist schon in dieser Saison. Lade die Seite neu.";
 }
@@ -37,14 +38,14 @@ export function mapAlreadyEnteredRefusal(error: unknown): string | null {
  * names a control, and the club editor and the team create have different ones.
  */
 const ENTRY_REASONS = {
-  // `REQ-ENTER-001` to `-003` open with the sentence
+  // `entry_saison_not_future`, `entry_gruppe_not_offered` and `entry_gruppe_full` open with the sentence
   // `fl_frontend/src/features/bewerbungen/refusals.ts :: mapTriageRefusal` renders too.
-  "REQ-ENTER-001": "Diese Saison ist nicht mehr in Planung, und aufgenommen wird nur in eine geplante Saison",
-  "REQ-ENTER-002": "Diese Gruppe gibt es in dieser Saison nicht",
-  "REQ-ENTER-003": "Diese Gruppe ist schon voll",
-  "REQ-ENTER-004": "Für dieses Team sind in dieser Saison schon Spiele angelegt, deshalb kann es die Gruppe nicht allein wechseln",
-  "REQ-ENTER-005": "Dieses Team ist inzwischen stillgelegt und kann in keine Saison aufgenommen werden",
-} as const;
+  entry_saison_not_future: "Diese Saison ist nicht mehr in Planung, und aufgenommen wird nur in eine geplante Saison",
+  entry_gruppe_not_offered: "Diese Gruppe gibt es in dieser Saison nicht",
+  entry_gruppe_full: "Diese Gruppe ist schon voll",
+  entry_gruppe_locked: "Für dieses Team sind in dieser Saison schon Spiele angelegt, deshalb kann es die Gruppe nicht allein wechseln",
+  team_retired: "Dieses Team ist inzwischen stillgelegt und kann in keine Saison aufgenommen werden",
+} as const satisfies Partial<Record<Code, string>>;
 
 const isEntryCode = (code: string | undefined): code is keyof typeof ENTRY_REASONS => code !== undefined && Object.hasOwn(ENTRY_REASONS, code);
 
@@ -59,7 +60,7 @@ const ANGELEGT_ABER_STILLGELEGT =
  */
 export function mapCreatedClubEntryRefusal(error: unknown): string {
   const code = isRefusal(error) ? error.serverErrorCode : undefined;
-  if (code === "REQ-ENTER-005") return ANGELEGT_ABER_STILLGELEGT;
+  if (code === "team_retired") return ANGELEGT_ABER_STILLGELEGT;
 
   const reason = isEntryCode(code) ? `: ${ENTRY_REASONS[code]}.` : ".";
   return `Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden${reason} Nimm es auf seiner Seite in eine Saison auf. Ein erneutes Anlegen scheitert am Kürzel.`;
@@ -68,34 +69,34 @@ export function mapCreatedClubEntryRefusal(error: unknown): string {
 /** The club editor's answer to an entry rule: the reason, and the repair its own page offers. */
 export function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
-  if (error.serverErrorCode === "REQ-ENTER-001") {
-    return { error: buildRefusal({ reason: ENTRY_REASONS["REQ-ENTER-001"], repair: "Nimm das Team in eine geplante Saison auf" }) };
+  if (error.serverErrorCode === "entry_saison_not_future") {
+    return { error: buildRefusal({ reason: ENTRY_REASONS["entry_saison_not_future"], repair: "Nimm das Team in eine geplante Saison auf" }) };
   }
   // Both land under the `gruppe` picker, which is itself the way out, so neither carries a repair
   // sentence.
-  if (error.serverErrorCode === "REQ-ENTER-002") {
-    return { fieldErrors: { gruppe: `${ENTRY_REASONS["REQ-ENTER-002"]}.` } };
+  if (error.serverErrorCode === "entry_gruppe_not_offered") {
+    return { fieldErrors: { gruppe: `${ENTRY_REASONS["entry_gruppe_not_offered"]}.` } };
   }
-  if (error.serverErrorCode === "REQ-ENTER-003") {
-    return { fieldErrors: { gruppe: `${ENTRY_REASONS["REQ-ENTER-003"]}.` } };
+  if (error.serverErrorCode === "entry_gruppe_full") {
+    return { fieldErrors: { gruppe: `${ENTRY_REASONS["entry_gruppe_full"]}.` } };
   }
-  if (error.serverErrorCode === "REQ-ENTER-004") {
+  if (error.serverErrorCode === "entry_gruppe_locked") {
     // Names the route still open rather than stopping at the refusal: the swap control sits under
     // the locked Gruppe row on the page this message lands on.
     return {
       error: buildRefusal({
-        reason: ENTRY_REASONS["REQ-ENTER-004"],
+        reason: ENTRY_REASONS["entry_gruppe_locked"],
         repair: "Tausche die Gruppe stattdessen mit einem zweiten Team, unter der gesperrten Gruppe auf dieser Seite",
       }),
     };
   }
-  if (error.serverErrorCode === "REQ-ENTER-005") {
+  if (error.serverErrorCode === "team_retired") {
     // Raised only by the club editor's season panel, and only while its page still believes the club
     // is active — so the words are `buildTeamBanners`'s, which the same panel shows once the page
     // catches up.
     return {
       error: buildRefusal({
-        reason: ENTRY_REASONS["REQ-ENTER-005"],
+        reason: ENTRY_REASONS["team_retired"],
         repair: "Reaktiviere es über den Kopf der Seite und nimm es danach hier auf",
       }),
     };
@@ -105,35 +106,34 @@ export function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?:
 
 /**
  * Every refusal a replacement can answer with. Its own mapper beside `mapEntryRefusal`: the two
- * answer `REQ-ENTER-005` about different clubs, and one message would be wrong on one of them.
+ * answer `team_retired` about different clubs, and one message would be wrong on one of them.
  */
 export function mapReplacementRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
   // The three subjects the endpoint actually resolves. The outgoing club is not among them — a row
   // naming a club that does not exist is what this endpoint REPAIRS — so no message may claim it.
-  if (error.serverErrorCode === "DB-COMMON-001") {
+  if (error.serverErrorCode === "document_not_found") {
     return "Saison, Saison-Zugehörigkeit oder das nachrückende Team wurde nicht gefunden. Lade die Seite neu und wähle erneut.";
   }
-  if (error.serverErrorCode === "REQ-REPLACE-001") {
+  if (error.serverErrorCode === "saison_past") {
     // No reload repairs a finished season, so the sentence names the seasons still open instead.
     return "Diese Saison ist abgeschlossen. Ersetzen lässt sich ein Team nur in einer laufenden oder geplanten Saison.";
   }
-  if (error.serverErrorCode === "REQ-REPLACE-002") {
-    // The five shapes that leave a record, and only those: an ausgefallenes or annulliertes Spiel
-    // leaves none, so naming either would send the admin looking at a fixture that is still free.
-    // The Austritt is on another page; the sentence says which.
-    return "Mindestens ein Spiel des ausscheidenden Teams trägt ein Ergebnis, Tore, ein Elfmeterschießen, einen Abbruch oder ein Nichtantreten. Trage für dieses Team stattdessen unten auf seiner eigenen Team-Seite einen Austritt ein.";
+  if (error.serverErrorCode === "replace_saison_started") {
+    // Once the season is under way a club leaves it by its Austritt, which is on another page; the
+    // sentence says which.
+    return "Diese Saison hat inzwischen begonnen. Trage für das ausscheidende Team stattdessen unten auf seiner eigenen Team-Seite einen Austritt ein.";
   }
-  if (error.serverErrorCode === "REQ-REPLACE-003") {
+  if (error.serverErrorCode === "replace_incoming_already_entered") {
     // PLATZ and never „spielt“ — the condition is a `saison_teams` row of ANY kind, and a withdrawn
     // club still holds one.
     return "Das nachrückende Team hat in dieser Saison schon einen Platz. Wähle ein Team ohne Platz in dieser Saison. Ein ausgeschiedenes Team behält seinen Platz.";
   }
-  if (error.serverErrorCode === "REQ-REPLACE-004") {
+  if (error.serverErrorCode === "replace_one_team_on_both_ends") {
     return "Du hast für beide Seiten dasselbe Team gewählt. Wähle als nachrückendes Team ein anderes.";
   }
-  if (error.serverErrorCode === "REQ-ENTER-005") {
+  if (error.serverErrorCode === "team_retired") {
     // The club the admin PICKED, never the one whose page is open, so the reactivation is not the
     // one `mapEntryRefusal` points at.
     return "Das nachrückende Team ist stillgelegt und kann in keine Saison aufgenommen werden. Reaktiviere es über den Kopf seiner eigenen Team-Seite und wähle es danach hier erneut.";

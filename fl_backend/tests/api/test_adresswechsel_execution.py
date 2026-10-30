@@ -177,7 +177,7 @@ class TestTheAccountPagesRead:
 
     @pytest.mark.parametrize("step", ["link", "genehmigung"])
     def test_a_lapsed_step_reads_lapsed_until_the_pass_ends_the_change(self, mongo_replica_set_url: str, step: str):
-        """Its press is refused `-003`, so a page reading it unmarked offers that press until the pass."""
+        """Its press is refused `link_abgelaufen`, so a page reading it unmarked offers that press until the pass."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if step == "genehmigung":
@@ -389,7 +389,7 @@ class TestTheLinks:
             ("vergeben", Code.ADRESSWECHSEL_VERGEBEN),
             ("nicht_gedeckt", Code.ADRESSWECHSEL_NICHT_GEDECKT),
             ("neue_berechtigt", Code.ADRESSWECHSEL_NEUE_BERECHTIGT),
-            # Nothing left to move: the press ends the change discarded and answers `-002`.
+            # Nothing left to move: the press ends the change discarded and answers `adresswechsel_beendet`.
             ("leer", Code.ADRESSWECHSEL_BEENDET),
         ],
     )
@@ -444,7 +444,7 @@ class TestTheLinks:
                 await refused_code(stop_by_link(database, client, "nobody-minted-this")),
             ]
 
-        assert on_a_person(mongo_replica_set_url, body) == [Code.ADRESSWECHSEL_UNBEKANNT] * 3
+        assert on_a_person(mongo_replica_set_url, body) == [Code.LINK_UNGUELTIG] * 3
 
     def test_an_ended_change_s_links_answer_how_it_ended_and_take_nothing_more(self, mongo_replica_set_url: str):
         """Each link answers truthfully after the end, for as long as the record is kept."""
@@ -754,7 +754,7 @@ class TestTheNewAddressesOwnRecords:
         assert notices == []
 
     def test_a_pupil_there_refuses_a_starter_holding_no_pupil_of_their_own(self, mongo_replica_set_url: str):
-        """A starter holding a pupil is refused `-006` first, so a seat-only starter is the one this kind reaches."""
+        """A starter holding a pupil is refused `adresswechsel_vergeben` first, so a seat-only starter is the one this kind reaches."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await held_by_another(database, "a-pupil")
@@ -838,7 +838,7 @@ class TestTheConfirmationsRefusals:
 
         code, rows = on_a_person(mongo_replica_set_url, body)
 
-        assert (code, rows["pupil"]["email"]) == (Code.ADRESSWECHSEL_ABGELAUFEN, EMAIL)
+        assert (code, rows["pupil"]["email"]) == (Code.LINK_ABGELAUFEN, EMAIL)
 
     @staticmethod
     def refused_after_a_ban_on(url: str, *barred: str) -> tuple[str, str]:
@@ -853,7 +853,7 @@ class TestTheConfirmationsRefusals:
         return on_a_person(url, body)
 
     def test_to_an_address_barred_since_the_start(self, mongo_replica_set_url: str):
-        assert self.refused_after_a_ban_on(mongo_replica_set_url, NEW_EMAIL) == (Code.ADRESSWECHSEL_BESTAETIGUNG_GESPERRT, "gesperrt")
+        assert self.refused_after_a_ban_on(mongo_replica_set_url, NEW_EMAIL) == (Code.LINK_GESPERRT, "gesperrt")
 
     def test_from_an_address_on_file_barred_since_the_start(self, mongo_replica_set_url: str):
         """A barred person moves nothing off the address the ban keys on; the new mailbox learns nothing of the ban."""
@@ -861,7 +861,7 @@ class TestTheConfirmationsRefusals:
         assert self.refused_after_a_ban_on(mongo_replica_set_url, EMAIL) == (Code.ADRESSWECHSEL_ERSETZTE_GESPERRT, "nicht_bestaetigbar")
 
     def test_a_ban_on_both_names_the_link_s_own(self, mongo_replica_set_url: str):
-        assert self.refused_after_a_ban_on(mongo_replica_set_url, EMAIL, NEW_EMAIL) == (Code.ADRESSWECHSEL_BESTAETIGUNG_GESPERRT, "gesperrt")
+        assert self.refused_after_a_ban_on(mongo_replica_set_url, EMAIL, NEW_EMAIL) == (Code.LINK_GESPERRT, "gesperrt")
 
     def test_a_lapsed_link_to_a_barred_address_names_the_ban(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -869,7 +869,7 @@ class TestTheConfirmationsRefusals:
             await ban_through_the_route(database, client, email=NEW_EMAIL, grund="Falschangaben", von=ADMIN, today=TODAY)
             return await refused_code(answer(database, client, minted.token, germany_now=AFTER_THE_DEADLINE))
 
-        assert on_a_person(mongo_replica_set_url, body) == Code.ADRESSWECHSEL_BESTAETIGUNG_GESPERRT
+        assert on_a_person(mongo_replica_set_url, body) == Code.LINK_GESPERRT
 
     def test_to_an_address_another_pupil_has_come_to_sign_in_on(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -971,7 +971,7 @@ class TestTheAddressOnFilesApproval:
             started = await administrator_starts(database, client, grund=None)
             return await refused_code(approve_as_the_address(database, client, started.id, germany_now=AFTER_THE_DEADLINE))
 
-        assert on_a_person(mongo_replica_set_url, body) == Code.ADRESSWECHSEL_ABGELAUFEN
+        assert on_a_person(mongo_replica_set_url, body) == Code.LINK_ABGELAUFEN
 
     def test_a_tab_showing_a_change_since_replaced_approves_nothing(self, mongo_replica_set_url: str):
         """The page read one request; a second start replaced it before the press, whose new address the page never showed."""
@@ -1113,7 +1113,7 @@ class TestTheTool:
         assert (sent.stopp_token, after["token_hashes"], after["stopp"]) == (None, [hash_token(sent.token)], before["stopp"])
         assert after["gueltig_bis"] > before["gueltig_bis"]
         # The replaced link opens nothing: its hash is gone from the record.
-        assert old == Code.ADRESSWECHSEL_UNBEKANNT
+        assert old == Code.LINK_UNGUELTIG
 
     def test_a_change_not_waiting_on_the_new_mailbox_is_sent_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1294,7 +1294,7 @@ class TestTheApproval:
         assert (row.email, row.weg, row.gestartet_von, row.gestartet_von_gesperrt, row.grund) == (NEW_EMAIL, "wartezeit", OWNER, False, GRUND)
 
     def test_an_owner_s_change_tells_a_non_owner_none_of_its_address_starter_or_reason(self, mongo_replica_set_url: str):
-        """The address tool refuses them an owner's address (`REQ-PURGE-005`), so the approval row may not serve it either."""
+        """The address tool refuses them an owner's address (`verwaltung_adresse`), so the approval row may not serve it either."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database, verwaltung="owner")
@@ -1341,7 +1341,7 @@ class TestTheApproval:
         assert on_a_person(mongo_replica_set_url, body) == [(None, None)]
 
     def test_a_change_past_its_approval_week_is_offered_to_nobody(self, mongo_replica_set_url: str):
-        """Its approval is refused then (`REQ-ADRESSWECHSEL-003`), and a reload the refusal asks for must not offer it again."""
+        """Its approval is refused then (`link_abgelaufen`), and a reload the refusal asks for must not offer it again."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)
@@ -1353,7 +1353,7 @@ class TestTheApproval:
         assert on_a_person(mongo_replica_set_url, body) is None
 
     def test_a_change_whose_link_lapsed_unconfirmed_is_offered_to_nobody(self, mongo_replica_set_url: str):
-        """Refused `-003` as a lapsed week is, so the reload that refusal asks for must not offer it again."""
+        """Refused `link_abgelaufen` as a lapsed week is, so the reload that refusal asks for must not offer it again."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)
@@ -1362,7 +1362,7 @@ class TestTheApproval:
             listed = await call(get_berechtigungen, database, client, operator=SECOND_ADMIN, now=AFTER_THE_DEADLINE)
             return refused, {row.adresse: row.adresswechsel for row in listed.berechtigungen}[EMAIL]
 
-        assert on_a_person(mongo_replica_set_url, body) == (Code.ADRESSWECHSEL_ABGELAUFEN, None)
+        assert on_a_person(mongo_replica_set_url, body) == (Code.LINK_ABGELAUFEN, None)
 
     def test_an_owner_s_grant_is_approved_by_no_administrator(self, mongo_replica_set_url: str):
         assert self.refused_approval(mongo_replica_set_url, approver=ADMIN, verwaltung="owner") == (
@@ -1393,7 +1393,7 @@ class TestTheApproval:
 
         refused, entfernt, record, notices = on_a_person(mongo_replica_set_url, body)
 
-        assert (refused, entfernt, record["beendet"]["art"]) == (Code.ADRESSWECHSEL_ABGELAUFEN, 1, "abgelaufen")
+        assert (refused, entfernt, record["beendet"]["art"]) == (Code.LINK_ABGELAUFEN, 1, "abgelaufen")
         # The new mailbox was told the change waits on the administration, so it is told it did not take effect.
         assert notices == [{"art": "verworfen", "an": NEW_EMAIL}]
 
@@ -2158,7 +2158,7 @@ class TestTheReSendsRefusals:
             past = await refused_code(resend(database, client, started.id, operator=OWNER, germany_now=AFTER_THE_WEEK))
             return within.token is not None, past
 
-        assert on_a_person(mongo_replica_set_url, body) == (True, Code.ADRESSWECHSEL_ABGELAUFEN)
+        assert on_a_person(mongo_replica_set_url, body) == (True, Code.LINK_ABGELAUFEN)
 
 
 class TestTheWaitingTime:
@@ -2222,7 +2222,7 @@ class TestWhatTheEffectLeavesTheErasure:
 
         before, after = on_a_person(mongo_replica_set_url, body)
 
-        assert (before.zustand, after) == ("gueltig", Code.REGISTRIERUNG_TOKEN_UNKNOWN)
+        assert (before.zustand, after) == ("gueltig", Code.LINK_UNGUELTIG)
 
     def test_a_registration_whose_reminder_went_out_is_owed_one_at_the_new_address(self, mongo_replica_set_url: str):
         """The reminder alone mints a moved registration a link, and it is owed once: spent, the row waits for its sweep."""

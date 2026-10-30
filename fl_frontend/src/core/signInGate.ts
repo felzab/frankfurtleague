@@ -11,7 +11,7 @@ import type { FLAnmeldungResponse } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
 /** The code the backend answers a payload it refuses with: here, an address no rule of its own accepts. */
-const PAYLOAD_REFUSED = "REQ-VAL-001";
+const PAYLOAD_REFUSED = "payload_refused";
 
 // React's `cache`, never `"use cache"`, which would hand one request's grant to another: the guards
 // and the switcher of one render share one read, and outside a render nothing is kept.

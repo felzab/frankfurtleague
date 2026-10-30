@@ -181,7 +181,7 @@ class TestASecondBanOfOneAddress:
             with pytest.raises(APIError) as raised:
                 await ban(database, client)
 
-            assert raised.value.error_code == Code.SPERRLISTE_ADRESSE_GESPERRT
+            assert raised.value.error_code == Code.DUPLICATE_KEY
 
         on_a_clean_list(mongo_replica_set_url, body)
 
@@ -194,7 +194,7 @@ class TestASecondBanOfOneAddress:
             with pytest.raises(APIError) as raised:
                 await ban(database, client, email=BANNED_RETYPED)
 
-            assert raised.value.error_code == Code.SPERRLISTE_ADRESSE_GESPERRT
+            assert raised.value.error_code == Code.DUPLICATE_KEY
 
             return await database[Collection.SPERRLISTE].count_documents({})
 
@@ -229,7 +229,7 @@ class TestASecondBanOfOneAddress:
 
 
 class TestABanOfAnAdministratorsAddress:
-    """`REQ-SPERRLISTE-003`: an address holding a grant takes no ban, whatever its spelling and whichever tier it holds."""
+    """`sperrliste_verwaltung`: an address holding a grant takes no ban, whatever its spelling and whichever tier it holds."""
 
     def test_it_is_refused_and_nothing_is_stored_while_another_address_is_banned(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:

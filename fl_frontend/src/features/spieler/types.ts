@@ -99,7 +99,7 @@ export type SpielerTeamOption = {
   /**
    * **Absent means UNKNOWN and refuses nothing**, the opposite default to `heldRollen`: a write the
    * endpoint may take stays on offer. Set, this team is at the season's `max_kadergroesse` bar the
-   * edited player's own row (`REQ-SQUAD-003`).
+   * edited player's own row (`kader_full`).
    */
   isSquadFull?: boolean;
 };

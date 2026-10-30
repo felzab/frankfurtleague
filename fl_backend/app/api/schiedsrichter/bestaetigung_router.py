@@ -65,9 +65,9 @@ async def get_bestaetigung_ansicht(
     confirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a body and never in a second
     URL.
 
-    Refuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link
+    Refuses only a token no referee holds (`link_ungueltig`): a confirmed or an expired link
     is SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `gesperrt`,
-    ahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`),
+    ahead of every other, wherever the ban list holds the address the link was mailed to (`link_gesperrt`),
     so the page offers a barred referee nothing to press.
     """
 
@@ -113,11 +113,11 @@ async def post_bestaetigung(
     shown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,
     which the fixture list joins at read time to decide whether to publish the name each fixture stores.
 
-    Refuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed
-    (`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), any label but the referee
-    page's running one (`REQ-EINWILLIGUNG-001`), a link mailed to an address the ban list holds now, whenever the link
-    was minted (`REQ-SCHIEDSRICHTER-009`), an age outside what this consent asks (`REQ-SCHIEDSRICHTER-005`), and a media
-    consent from a referee below `medien_mindestalter` (`REQ-SCHIEDSRICHTER-008`) -- the label and the last two judged
+    Refuses, in this order: a token no referee holds (`link_ungueltig`), an entry already confirmed
+    (`bestaetigung_vorhanden`), a link whose deadline has passed (`link_abgelaufen`), any label but the referee
+    page's running one (`fassung_unzulaessig`), a link mailed to an address the ban list holds now, whenever the link
+    was minted (`link_gesperrt`), an age outside what this consent asks (`bestaetigung_alter`), and a media
+    consent from a referee below `medien_mindestalter` (`medien_alter`) -- the label and the last two judged
     before anything is written, so a reloaded page or a mistyped year spends nothing.
 
     **The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:

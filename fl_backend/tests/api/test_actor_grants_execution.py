@@ -1,5 +1,5 @@
 """
-API · `REQ-AUTH-006` over the real grants read
+API · `actor_not_admin` over the real grants read
 
 The default tier proves the check's order and its code through `tests/grants.py :: admit`, whose set
 stands in for the read, and `tests/api/test_admin_guard.py` that every admin-tier operation carries

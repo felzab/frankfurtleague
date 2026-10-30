@@ -60,7 +60,7 @@ export const TEAM_FACETS: readonly Facet<AdminTeamRow>[] = [
 
 /**
  * The group offer cut to the SELECTED season's count, which no write path lets a row stand outside
- * (`REQ-ENTER-002`, `REQ-RULES-002`, `REQ-SPIELPLAN-004`). `erlaubte_stufen` refuses no row
+ * (`entry_gruppe_not_offered`, `rules_gruppen_in_use`, `spielplan_gruppen_off_rules`). `erlaubte_stufen` refuses no row
  * (`docs/glossary.md :: stufe`), which is why `fl_frontend/src/features/spieler/facets.ts` offers the
  * league's whole set instead.
  */

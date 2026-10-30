@@ -311,10 +311,10 @@ async def post_adresswechsel(
     **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
     answers alike whatever the new address holds.
 
-    Refused `REQ-AUTH-009` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
+    Refused `confirmation_required` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
     address holds a grant;
-    `REQ-ADRESSWECHSEL-010` where the address holds nothing a change moves; `-007` where the typed address is the one
-    signed in; and `-011` where nobody could approve the grant's move, the last owner making another first.
+    `adresswechsel_nichts` where the address holds nothing a change moves; `adresswechsel_unveraendert` where the typed address is the one
+    signed in; and `adresswechsel_kein_genehmiger` where nobody could approve the grant's move, the last owner making another first.
     """
 
     email = adresswechsel_data.email
@@ -408,8 +408,8 @@ async def post_adresswechsel_freigabe(
     judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
     change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
 
-    Refused `REQ-AUTH-009` as the start is; `REQ-ADRESSWECHSEL-002` where the change `id` names has ended; 404 where it
-    is no change of this address awaiting its approval; and `REQ-ADRESSWECHSEL-003` past the approval's deadline.
+    Refused `confirmation_required` as the start is; `adresswechsel_beendet` where the change `id` names has ended; 404 where it
+    is no change of this address awaiting its approval; and `link_abgelaufen` past the approval's deadline.
     """
 
     adresswechsel_id = freigabe_data.id

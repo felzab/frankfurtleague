@@ -368,9 +368,9 @@ export function AdminSaisonEditForm({
               validateStufen(next);
             }}
             isFinishedSaison={saison.status === "past"}
-            // `REQ-RULES-012` off the SAME count `FormGruppenSwapSection` closes on for `REQ-SWAP-002`:
-            // both rules read a played knockout fixture, so one derivation keeps the two panels agreeing.
-            isKnockoutStarted={swap.playedKnockoutSpiele > 0}
+            // `rules_saison_started` off the SAME reading `FormGruppenSwapSection` closes on for
+            // `swap_saison_started`: both read the season's start, so one derivation keeps the two panels agreeing.
+            hasStarted={swap.hasStarted}
             isDrawnSaison={hasDrawnSpiele}
             gruppenOccupancy={gruppenOccupancy}
             spielplanWindow={spielplanWindow}
@@ -416,6 +416,7 @@ export function AdminSaisonEditForm({
             saisonId={saison.id}
             ersatz={ersatz}
             isFinishedSaison={saison.status === "past"}
+            hasStarted={swap.hasStarted}
           />
 
           {/* Between the swap and the rollover, in the rollover's class of control. */}
@@ -425,7 +426,7 @@ export function AdminSaisonEditForm({
             // The STORED rules, never the draft: the draw reads what is saved, and `schedule` beside it was
             // derived from exactly these, so a typed value leaves the preview contradicting itself.
             rules={saison.rules}
-            // The STORED span for the same reason: `REQ-DATE-009`'s mirror judges the season the
+            // The STORED span for the same reason: `saison_span_below_spielplan_as_stored`'s mirror judges the season the
             // press would draw, and typed dates are refused before arming (`onBeforeWrite`).
             startDate={saison.start_date}
             endDate={saison.end_date}

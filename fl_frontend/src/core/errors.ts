@@ -120,29 +120,41 @@ export class APIBadStatusError extends Error {
 }
 
 /**
- * The protocol's code families: a credential, a request the API cannot take, a route it does not serve. None is a
- * rule refusing what was asked, and each family grows codes the backend adds to it.
+ * Every code that is no rule refusing what was asked: a credential, a request the API cannot take, a route it does
+ * not serve, the store answering, the server failing. Every other code is one a slice's mapper words, the unique
+ * index's `duplicate_key` among them.
  */
-const PROTOCOL_FAMILIES: readonly string[] = ["AUTH", "VAL", "ROUTE"];
+const NOT_A_REFUSAL: ReadonlySet<Code> = new Set<Code>([
+  "access_key_refused",
+  "missing_actor",
+  "actor_not_admin",
+  "session_refused",
+  "person_barred",
+  "confirmation_required",
+  "payload_refused",
+  "body_unreadable",
+  "no_route",
+  "method_not_served",
+  "document_not_found",
+  "version_stale",
+  "no_database_client",
+  "database_failed",
+  "unknown_outcome",
+  "unhandled_crash",
+  "stored_data_invalid",
+]);
 
-const PROTOCOL_CLASS = new RegExp(`^REQ-(?:${PROTOCOL_FAMILIES.join("|")})-`);
-
-/**
- * Whether a code is one a slice's mapper words: a rule's, or the unique index's `DB-COMMON-002`. By the
- * code's class alone, never its status: every other `DB-` code is the store answering, not a rule.
- */
-export function isRefusalCode(code: string | undefined): boolean {
-  if (code === undefined) return false;
-
-  return code === "DB-COMMON-002" || (code.startsWith("REQ-") && !PROTOCOL_CLASS.test(code));
+/** Whether a code is one a slice's mapper words, by the code alone, never its status. */
+export function isRefusalCode(code: Code | undefined): boolean {
+  return code !== undefined && !NOT_A_REFUSAL.has(code);
 }
 
 /**
  * Whether the API answered that the record a read names does not exist. By the code, never the status:
- * any other 404 is a route the framework did not serve (`REQ-ROUTE-001`) or the edge's own, a failure.
+ * any other 404 is a route the framework did not serve (`no_route`) or the edge's own, a failure.
  */
 export function isRecordMissing(error: unknown): boolean {
-  return error instanceof APIBadStatusError && error.statusCode === 404 && error.serverErrorCode === "DB-COMMON-001";
+  return error instanceof APIBadStatusError && error.statusCode === 404 && error.serverErrorCode === "document_not_found";
 }
 
 /**

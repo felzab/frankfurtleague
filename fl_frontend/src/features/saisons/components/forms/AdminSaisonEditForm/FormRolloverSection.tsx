@@ -76,7 +76,7 @@ export function FormRolloverSection({
   saisonId: string;
   saisonStatus: FLSaisonStatus;
   rollover: SaisonRolloverContext;
-  /** `REQ-ACTIVATE-003`: whether THIS season holds fixtures, which is what it would go live with. */
+  /** `activate_target_undrawn`: whether THIS season holds fixtures, which is what it would go live with. */
   hasDrawnSpiele: boolean;
   /** Runs before the write; `false` cancels. The editor refuses while a draft is unsaved. */
   onBeforeActivate: () => boolean;
@@ -84,7 +84,7 @@ export function FormRolloverSection({
 }) {
   const saisonHref = useSaisonHref();
   // Only a `future` season has an act on offer: the running season has nothing to switch to, and a
-  // `past` one is refused by `REQ-ACTIVATE-002`.
+  // `past` one is refused by `saison_past`.
   const panel = formPanel({ tone: saisonStatus === "future" ? "danger" : "neutral" });
   const twoPress = useTwoPressConfirm({ guard: onBeforeActivate, stepUp: true });
   const router = useRouter();
@@ -148,7 +148,7 @@ export function FormRolloverSection({
 
       <div className={panel.body()}>
         {isFinishedSaison ? (
-          // Closed rather than disabled with a hint: `REQ-ACTIVATE-002` has no remedy, and a hint
+          // Closed rather than disabled with a hint: `saison_past` has no remedy, and a hint
           // saying what would unblock it would name a route the system does not have.
           <Callout
             severity="info"
@@ -255,7 +255,7 @@ export function FormRolloverSection({
             {isConfirming && (
               <ConfirmReveal>
                 {/* The finality is said on the outgoing branch alone: with nothing active this press
-                    closes no season, and closing one is what `REQ-ACTIVATE-002` then refuses to undo. */}
+                    closes no season, and closing one is what `saison_past` then refuses to undo. */}
                 <p className="fluid-xxs leading-normal font-medium text-foreground">
                   {outgoing === null
                     ? `Saison ${saisonId} wird sofort öffentlich als laufende Saison angezeigt.`

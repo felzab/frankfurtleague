@@ -464,7 +464,7 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
         handed, code, view = on_a_league(mongo_replica_set_url, body)
 
         assert [mint.rollen for mint in handed.bestaetigungen] == [["ansprechperson"]]
-        assert code == Code.BEWERBUNG_TOKEN_UNKNOWN
+        assert code == Code.LINK_UNGUELTIG
         assert view.rolle == "ansprechperson"
 
     def test_a_seat_the_save_empties_loses_its_link(self, mongo_replica_set_url: str):
@@ -476,7 +476,7 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
 
         code, row = on_a_league(mongo_replica_set_url, body)
 
-        assert code == Code.BEWERBUNG_TOKEN_UNKNOWN
+        assert code == Code.LINK_UNGUELTIG
         assert row["bestaetigungen"]["stellvertretung"] is None
 
 
@@ -574,7 +574,7 @@ class TestTheResend:
 
         first, again, code, row = on_a_league(mongo_replica_set_url, body)
 
-        assert code == Code.BEWERBUNG_TOKEN_UNKNOWN
+        assert code == Code.LINK_UNGUELTIG
         assert row["bestaetigungen"]["trainer"]["frist"] == bestaetigungsfrist_from(today="2026-04-05") == again.bestaetigung.frist
         # The two seats the re-send did not name keep the links already in their inboxes.
         assert row["bestaetigungen"]["ansprechperson"]["token_hashes"] == [hash_token(first.bestaetigungen[1].token)]
@@ -851,7 +851,7 @@ class TestTheLinkConfirms:
 
             return await refused(answer(database, response.bestaetigungen[0].token))
 
-        assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_SITZ_ALREADY_ANSWERED
 
     def test_a_link_opens_its_own_row_with_another_rows_link_seeded_first(self, mongo_replica_set_url: str):
         """The other club's row comes first in natural order, so a lookup that does not match on the hash lands there."""
@@ -899,7 +899,7 @@ class TestTheDeadline:
 
         assert on_the_day.zustand == "gueltig", "the deadline's own day still takes the link"
         assert after.zustand == "abgelaufen"
-        assert code == Code.KONTAKT_LINK_ABGELAUFEN
+        assert code == Code.LINK_ABGELAUFEN
 
     def test_a_resend_reopens_a_seat_whose_link_ran_out(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
@@ -925,7 +925,7 @@ class TestABanAfterTheMint:
         view, code, row = on_a_league(mongo_replica_set_url, body)
 
         assert view.zustand == "gesperrt"
-        assert code == Code.BEWERBUNG_EINWILLIGUNG_GESPERRT
+        assert code == Code.LINK_GESPERRT
         assert row["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] is None
 
     def test_a_widerspruch_is_still_taken(self, mongo_replica_set_url: str):
@@ -969,7 +969,7 @@ class TestARowsPeopleLeavingTakeTheirLinks:
 
         codes, row = on_a_league(mongo_replica_set_url, body)
 
-        assert codes == [Code.BEWERBUNG_TOKEN_UNKNOWN] * 3
+        assert codes == [Code.LINK_UNGUELTIG] * 3
         assert (row["team_id"], row["bestaetigungen"]) == (INCOMING_TEAM_OID, None)
 
     def test_a_cleared_block_takes_every_link_with_it(self, mongo_replica_set_url: str):
@@ -981,7 +981,7 @@ class TestARowsPeopleLeavingTakeTheirLinks:
 
         codes, row = on_a_league(mongo_replica_set_url, body)
 
-        assert codes == [Code.BEWERBUNG_TOKEN_UNKNOWN] * 3
+        assert codes == [Code.LINK_UNGUELTIG] * 3
         assert row["bestaetigungen"] is None
 
     def test_an_erased_person_s_link_opens_nothing(self, mongo_replica_set_url: str):
@@ -991,7 +991,7 @@ class TestARowsPeopleLeavingTakeTheirLinks:
 
             return await refused(ansicht(database, response.bestaetigungen[1].token))
 
-        assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_TOKEN_UNKNOWN
+        assert on_a_league(mongo_replica_set_url, body) == Code.LINK_UNGUELTIG
 
     def test_a_seat_emptied_beside_its_live_link_opens_nothing(self, mongo_replica_set_url: str):
         """The state no route leaves and a hand edit can: the slot gone, its link live, no Widerspruch recorded."""
@@ -1002,7 +1002,7 @@ class TestARowsPeopleLeavingTakeTheirLinks:
 
             return await refused(ansicht(database, response.bestaetigungen[1].token))
 
-        assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_TOKEN_UNKNOWN
+        assert on_a_league(mongo_replica_set_url, body) == Code.LINK_UNGUELTIG
 
 
 class TestTheStepUp:
@@ -1209,7 +1209,7 @@ class TestALinkOutlivingItsSeason:
         assert after == before
 
     def test_its_deadline_passing_too_reads_as_over(self, mongo_replica_set_url: str):
-        """Past its own deadline the link takes no Widerspruch either (`REQ-KONTAKT-004`), so the page offers nothing."""
+        """Past its own deadline the link takes no Widerspruch either (`link_abgelaufen`), so the page offers nothing."""
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             token = (await save(database, THREE)).bestaetigungen[0].token
@@ -1221,7 +1221,7 @@ class TestALinkOutlivingItsSeason:
 
         view, code = on_a_league(mongo_replica_set_url, body)
 
-        assert (view.zustand, code) == ("abgelaufen", Code.KONTAKT_LINK_ABGELAUFEN)
+        assert (view.zustand, code) == ("abgelaufen", Code.LINK_ABGELAUFEN)
 
     @pytest.mark.parametrize("how", [pytest.param("past", id="the season ended"), pytest.param("austritt", id="the team left")])
     def test_a_widerspruch_on_it_is_still_taken(self, mongo_replica_set_url: str, how: str):
@@ -1264,7 +1264,7 @@ class TestARolloverInsideTheConsentPress:
     def test_a_press_that_read_the_season_active_commits_across_a_rollover_inside_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISONS].insert_one(documents.saison_document(NEXT_SAISON_ID, "future"))
-            # What makes the next season activatable (`REQ-ACTIVATE-003`).
+            # What makes the next season activatable (`activate_target_undrawn`).
             await database[Collection.SPIELE].insert_one(
                 documents.spiel_document(spiel_id=ObjectId(), saison_id=NEXT_SAISON_ID, spiel_nr=1, spieltag_id=ObjectId())
             )

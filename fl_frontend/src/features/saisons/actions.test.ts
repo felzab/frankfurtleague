@@ -104,14 +104,22 @@ describe("the saison actions against the codes their endpoints publish", () => {
      rules come first: a rule reported as a taken id names a field that cannot repair it. */
   it("answers every refusal the create publishes, the rules before the taken id", async () => {
     await assertEachAnswered({
-      codes: refusalCodes("DB-COMMON-002", "REQ-DATE-005", "REQ-RULES-001", "REQ-RULES-007", "REQ-RULES-008", "REQ-RULES-010", "REQ-RULES-013"),
+      codes: refusalCodes(
+        "duplicate_key",
+        "saison_span_below_spielplan",
+        "rules_bracket_impossible",
+        "rules_qualifiers_above_gruppe",
+        "rules_unentschieden_outvalues_win",
+        "rules_forfeit_draws_a_knockout",
+        "rules_spiele_over_one_read",
+      ),
       refuseWith: answerWith,
       act: () => postSaisonAction(SAISON),
       mapped: (refusal) => mapRulesRefusal(refusal) ?? mapSaisonIdRefusal(refusal),
     });
   });
 
-  /* `DB-COMMON-002` is the unique index refusing a duplicate `_id`, which names no rule: the rules
+  /* `duplicate_key` is the unique index refusing a duplicate `_id`, which names no rule: the rules
      mapper leaves it to the create's own fallback on the id box, and an arm added there would swallow it. */
   it("leaves a duplicate season id to the create's own fallback", () => {
     expect(mapRulesRefusal(refused(DUPLICATE_KEY)), "the mapper claims the duplicate id and the fallback never runs").toBe(null);
@@ -127,39 +135,39 @@ describe("the saison actions against the codes their endpoints publish", () => {
      message rather than reaching the panel that still holds the wrong value. */
   it("answers every refusal the edit publishes", async () => {
     for (const code of refusalCodes(
-      "REQ-DATE-004",
-      "REQ-DATE-005",
-      "REQ-RULES-001",
-      "REQ-RULES-002",
-      "REQ-RULES-003",
-      "REQ-RULES-004",
-      "REQ-RULES-005",
-      "REQ-RULES-006",
-      "REQ-RULES-007",
-      "REQ-RULES-008",
-      "REQ-RULES-009",
-      "REQ-RULES-010",
-      "REQ-RULES-011",
-      "REQ-RULES-013",
+      "saison_span_below_spieltage",
+      "saison_span_below_spielplan",
+      "rules_bracket_impossible",
+      "rules_gruppen_in_use",
+      "rules_capacity_below_use",
+      "rules_qualifiers_below_wiring",
+      "rules_saison_started",
+      "rules_spieltag_over_its_phase",
+      "rules_qualifiers_above_gruppe",
+      "rules_unentschieden_outvalues_win",
+      "rules_kader_below_use",
+      "rules_forfeit_draws_a_knockout",
+      "rules_shape_after_spielplan",
+      "rules_spiele_over_one_read",
     )) {
       expect(answerShown(code, mapRulesRefusal), `${code} reaches the admin as a generic conflict`).not.toBe(null);
     }
     await assertEachAnswered({
       codes: refusalCodes(
-        "REQ-DATE-004",
-        "REQ-DATE-005",
-        "REQ-RULES-001",
-        "REQ-RULES-002",
-        "REQ-RULES-003",
-        "REQ-RULES-004",
-        "REQ-RULES-005",
-        "REQ-RULES-006",
-        "REQ-RULES-007",
-        "REQ-RULES-008",
-        "REQ-RULES-009",
-        "REQ-RULES-010",
-        "REQ-RULES-011",
-        "REQ-RULES-013",
+        "saison_span_below_spieltage",
+        "saison_span_below_spielplan",
+        "rules_bracket_impossible",
+        "rules_gruppen_in_use",
+        "rules_capacity_below_use",
+        "rules_qualifiers_below_wiring",
+        "rules_saison_started",
+        "rules_spieltag_over_its_phase",
+        "rules_qualifiers_above_gruppe",
+        "rules_unentschieden_outvalues_win",
+        "rules_kader_below_use",
+        "rules_forfeit_draws_a_knockout",
+        "rules_shape_after_spielplan",
+        "rules_spiele_over_one_read",
       ),
       refuseWith: answerWith,
       act: () => patchSaisonAction(SAISON),
@@ -168,11 +176,23 @@ describe("the saison actions against the codes their endpoints publish", () => {
   });
 
   it("answers every refusal the rollover publishes", async () => {
-    for (const code of refusalCodes("DB-COMMON-002", "REQ-ACTIVATE-001", "REQ-ACTIVATE-002", "REQ-ACTIVATE-003", "REQ-ACTIVATE-004")) {
+    for (const code of refusalCodes(
+      "duplicate_key",
+      "activate_saison_unfinished",
+      "saison_past",
+      "activate_target_undrawn",
+      "activate_spieltage_undated",
+    )) {
       expect(answerShown(code, mapActivateRefusal), `${code} reaches the admin as a generic failure`).not.toBe(null);
     }
     await assertEachAnswered({
-      codes: refusalCodes("DB-COMMON-002", "REQ-ACTIVATE-001", "REQ-ACTIVATE-002", "REQ-ACTIVATE-003", "REQ-ACTIVATE-004"),
+      codes: refusalCodes(
+        "duplicate_key",
+        "activate_saison_unfinished",
+        "saison_past",
+        "activate_target_undrawn",
+        "activate_spieltage_undated",
+      ),
       refuseWith: answerWith,
       act: () => activateSaisonAction({ id: SAISON_ID }),
       mapped: mapActivateRefusal,
@@ -180,38 +200,37 @@ describe("the saison actions against the codes their endpoints publish", () => {
   });
 
   it("answers every refusal the group swap publishes", async () => {
-    for (const code of refusalCodes("REQ-SWAP-001", "REQ-SWAP-002", "REQ-SWAP-003", "REQ-SWAP-005", "REQ-SWAP-006", "REQ-SWAP-007")) {
+    for (const code of refusalCodes(
+      "swap_not_a_swap",
+      "swap_saison_started",
+      "saison_past",
+      "swap_spieltag_clash",
+      "swap_fields_disqualified",
+    )) {
       expect(answerShown(code, mapSwapRefusal), `${code} reaches the admin as a generic failure`).not.toBe(null);
     }
     await assertEachAnswered({
-      codes: refusalCodes("REQ-SWAP-001", "REQ-SWAP-002", "REQ-SWAP-003", "REQ-SWAP-005", "REQ-SWAP-006", "REQ-SWAP-007"),
+      codes: refusalCodes("swap_not_a_swap", "swap_saison_started", "saison_past", "swap_spieltag_clash", "swap_fields_disqualified"),
       refuseWith: answerWith,
       act: () => swapGruppenAction({ saison_id: SAISON_ID, team1_id: "68c1f0a2b3c4d5e6f7a8b9c0", team2_id: "68c1f0a2b3c4d5e6f7a8b9c1" }),
       mapped: mapSwapRefusal,
     });
   });
 
-  /* One club named on both sides has a code of its own, which only a stale picker sends: it is worded
-     as a pair standing in one group is, with the same reload. */
-  it("words one club named on both sides as the pair gone stale", () => {
-    expect(mapSwapRefusal(refused("REQ-SWAP-007"))).toBe(mapSwapRefusal(refused("REQ-SWAP-001")));
-    expect(mapSwapRefusal(refused("REQ-SWAP-007"))).not.toBe(null);
-  });
-
   it("answers every refusal the draw publishes, the shared rules faults included", async () => {
     for (const code of refusalCodes(
-      "DB-COMMON-002",
-      "REQ-DATE-009",
-      "REQ-RULES-001",
-      "REQ-RULES-007",
-      "REQ-RULES-013",
-      "REQ-RULES-017",
-      "REQ-SPIELPLAN-001",
-      "REQ-SPIELPLAN-002",
-      "REQ-SPIELPLAN-003",
-      "REQ-SPIELPLAN-004",
-      "REQ-SPIELPLAN-005",
-      "REQ-SPIELPLAN-007",
+      "duplicate_key",
+      "saison_span_below_spielplan_as_stored",
+      "rules_bracket_impossible",
+      "rules_qualifiers_above_gruppe",
+      "rules_spiele_over_one_read",
+      "rules_forfeit_draws_a_knockout_as_stored",
+      "spielplan_already_drawn",
+      "spielplan_spieltage_held",
+      "saison_past",
+      "spielplan_gruppen_off_rules",
+      "spielplan_replace_outside_its_window",
+      "spielplan_berichte_eingereicht",
     )) {
       for (const carriedShape of [false, true]) {
         const answered = answerShown(code, (error) => mapSpielplanRefusal(error, carriedShape));
@@ -231,18 +250,18 @@ describe("the saison actions against the codes their endpoints publish", () => {
     ] as const) {
       await assertEachAnswered({
         codes: refusalCodes(
-          "DB-COMMON-002",
-          "REQ-DATE-009",
-          "REQ-RULES-001",
-          "REQ-RULES-007",
-          "REQ-RULES-013",
-          "REQ-RULES-017",
-          "REQ-SPIELPLAN-001",
-          "REQ-SPIELPLAN-002",
-          "REQ-SPIELPLAN-003",
-          "REQ-SPIELPLAN-004",
-          "REQ-SPIELPLAN-005",
-          "REQ-SPIELPLAN-007",
+          "duplicate_key",
+          "saison_span_below_spielplan_as_stored",
+          "rules_bracket_impossible",
+          "rules_qualifiers_above_gruppe",
+          "rules_spiele_over_one_read",
+          "rules_forfeit_draws_a_knockout_as_stored",
+          "spielplan_already_drawn",
+          "spielplan_spieltage_held",
+          "saison_past",
+          "spielplan_gruppen_off_rules",
+          "spielplan_replace_outside_its_window",
+          "spielplan_berichte_eingereicht",
         ),
         refuseWith: answerWith,
         act: () => generateSpielplanAction(payload),
@@ -254,11 +273,11 @@ describe("the saison actions against the codes their endpoints publish", () => {
   /* Its own two codes, none of the draw's: the two share a path and a summary word, so a document read leaking either
      way would leave a real refusal answered by the generic failure message. */
   it("answers every refusal the undraw publishes", async () => {
-    for (const code of refusalCodes("REQ-SPIELPLAN-006", "REQ-SPIELPLAN-007")) {
+    for (const code of refusalCodes("spielplan_undraw_outside_its_window", "spielplan_berichte_eingereicht")) {
       expect(answerShown(code, mapUndrawRefusal), `${code} reaches the admin as a generic failure`).not.toBe(null);
     }
     await assertEachAnswered({
-      codes: refusalCodes("REQ-SPIELPLAN-006", "REQ-SPIELPLAN-007"),
+      codes: refusalCodes("spielplan_undraw_outside_its_window", "spielplan_berichte_eingereicht"),
       refuseWith: answerWith,
       act: () => undrawSpielplanAction({ id: SAISON_ID }),
       mapped: mapUndrawRefusal,
@@ -285,7 +304,7 @@ describe("the undraw action", () => {
     expect(messages[2] ?? "").toMatch(/hatte keinen Spielplan mehr/);
   });
 
-  /* This press is the half of `REQ-RULES-011`'s repair loop that reopens the three shape rules, so
+  /* This press is the half of `rules_shape_after_spielplan`'s repair loop that reopens the three shape rules, so
      the message reporting it says where they and the clubs are changed before the redraw. */
   it("names where the reopened numbers and the clubs are changed", async () => {
     answerWith(() => Promise.resolve({ saison_id: SAISON_ID, spieltage: 3, spiele: 12, watermark_cleared: true }));
@@ -296,11 +315,11 @@ describe("the undraw action", () => {
     assert.ok(text.includes(`im Abschnitt ${REGELN_ABSCHNITT} ändern, die Teams unter „${TEAMS_EINTRAG.label}“.`), text);
   });
 
-  /* The panel closes the control for both halves of `REQ-SPIELPLAN-006`, so the code can only arrive
+  /* The panel closes the control for both halves of `spielplan_undraw_outside_its_window`, so the code can only arrive
      on a page that went stale. The reloaded panel names any way out, so a repair spelled here too
      could describe a state the season has already left. */
   it("tells a stale page to reload rather than naming a repair", () => {
-    const message = mapUndrawRefusal(refused("REQ-SPIELPLAN-006")) ?? "";
+    const message = mapUndrawRefusal(refused("spielplan_undraw_outside_its_window")) ?? "";
 
     expect(message).toMatch(/geplante Saison/);
     expect(message).toMatch(/Lade die Seite neu/);
@@ -320,19 +339,19 @@ describe("the German the shape freeze renders", () => {
   /* A sentence naming some of the frozen fields reads as complete and is not: the admin reloads to a
      panel holding a field the sentence never said was closed. */
   it("names every field the refusal freezes", () => {
-    const message = editBanner("REQ-RULES-011");
+    const message = editBanner("rules_shape_after_spielplan");
 
     for (const [field, german] of Object.entries(GERMAN_OF)) {
-      assert.ok(names(german, message), `REQ-RULES-011 freezes ${field} and its message never names ${german}`);
+      assert.ok(names(german, message), `rules_shape_after_spielplan freezes ${field} and its message never names ${german}`);
     }
   });
 });
 
 describe("the German each widened refusal renders", () => {
-  /* `REQ-DATE-005` refuses the season's SPAN against the matchdays its rules imply. The fallback an
+  /* `saison_span_below_spielplan` refuses the season's SPAN against the matchdays its rules imply. The fallback an
      unmapped code falls through to blames the season id, which is neither the fault nor a repair. */
   it("names the span and its repairs for the schedule refusal, never the season id", () => {
-    const message = editBanner("REQ-DATE-005");
+    const message = editBanner("saison_span_below_spielplan");
 
     expect(message).toMatch(/Zeitraum/);
     expect(message).toMatch(/Enddatum/);
@@ -340,32 +359,37 @@ describe("the German each widened refusal renders", () => {
     expect(message).not.toMatch(/Saison-ID/);
   });
 
-  /* The editor's `REQ-DATE-005` and the draw's `REQ-DATE-009` are one rule, so a sentence written
+  /* The editor's `saison_span_below_spielplan` and the draw's `saison_span_below_spielplan_as_stored` are one rule, so a sentence written
      twice could tell two admins two different things about it. Each path adds its own tail and shares
      the opening. */
   it("opens the schedule refusal with one sentence on both paths", () => {
     const opening = (message: string): string => message.split(". ")[0] ?? "";
-    const editor = editBanner("REQ-DATE-005");
+    const editor = editBanner("saison_span_below_spielplan");
 
     expect(opening(editor), "the editor words no opening for the schedule refusal").not.toBe("");
     for (const carriedShape of [false, true]) {
-      expect(opening(drawAnswer("REQ-DATE-009", carriedShape)), "the draw opens the schedule refusal apart from the editor").toBe(
-        opening(editor),
-      );
+      expect(
+        opening(drawAnswer("saison_span_below_spielplan_as_stored", carriedShape)),
+        "the draw opens the schedule refusal apart from the editor",
+      ).toBe(opening(editor));
     }
   });
 
   /* A bare `error`, like the two freezes: several fields could repair it and none of them is at
      fault, so a `fieldErrors` key would seat the sentence under a value that is not the problem. */
   it("seats the schedule refusal under no field", () => {
-    expect(mapRulesRefusal(refused("REQ-DATE-005"))?.fieldErrors).toBe(undefined);
+    expect(mapRulesRefusal(refused("saison_span_below_spielplan"))?.fieldErrors).toBe(undefined);
   });
 
-  /* Neither rules field repairs this in every state: `REQ-RULES-005` freezes `qualifiers_per_group`
+  /* Neither rules field repairs this in every state: `rules_saison_started` freezes `qualifiers_per_group`
      on a past season, and `fl_backend/app/api/saisons/schedule.py :: group_matchdays` is flat from an
      even `teams_per_group` down to the odd one. */
   it("offers no rules field as a repair for the schedule refusal", () => {
-    for (const text of [editBanner("REQ-DATE-005"), drawAnswer("REQ-DATE-009", false), drawAnswer("REQ-DATE-009", true)]) {
+    for (const text of [
+      editBanner("saison_span_below_spielplan"),
+      drawAnswer("saison_span_below_spielplan_as_stored", false),
+      drawAnswer("saison_span_below_spielplan_as_stored", true),
+    ]) {
       expect(text).not.toMatch(/Qualifikanten/);
       expect(text).not.toMatch(/Teams pro Gruppe/);
     }
@@ -374,55 +398,49 @@ describe("the German each widened refusal renders", () => {
   /* The draw carries its own three numbers on a replace and none on a first draw, so the panel the
      second repair names moves with the request. Hardcode either and half the admins are misdirected. */
   it("sends the draw's schedule refusal to the panel that holds the numbers it was judged on", () => {
-    expect(drawAnswer("REQ-DATE-009", true)).toMatch(/Abschnitt Spielplan/);
-    expect(drawAnswer("REQ-DATE-009", false)).toMatch(/Abschnitt Regeln/);
+    expect(drawAnswer("saison_span_below_spielplan_as_stored", true)).toMatch(/Abschnitt Spielplan/);
+    expect(drawAnswer("saison_span_below_spielplan_as_stored", false)).toMatch(/Abschnitt Regeln/);
     // Neither tail sends the admin to change a number: the dates are the repair that works whatever
     // the numbers are.
-    for (const carriedShape of [false, true]) expect(drawAnswer("REQ-DATE-009", carriedShape)).not.toMatch(/Ändere die Zahlen/);
+    for (const carriedShape of [false, true])
+      expect(drawAnswer("saison_span_below_spielplan_as_stored", carriedShape)).not.toMatch(/Ändere die Zahlen/);
   });
 
-  /* The backend answers a carried shape and the stored rules under different codes, so the code alone
-     names the panel holding the numbers it judged, whatever the action read off its request. */
-  it("sends each shape fault to the panel holding the numbers its code judged", () => {
-    for (const [carried, stored] of [
-      ["REQ-RULES-001", "REQ-RULES-014"],
-      ["REQ-RULES-007", "REQ-RULES-015"],
-      ["REQ-RULES-013", "REQ-RULES-018"],
-    ] as const) {
+  /* These three read the shape alone, so each sends the admin to the panel holding the shape, whatever the
+     action read off its request. */
+  it("sends each shape fault to the panel holding the shape", () => {
+    for (const code of ["rules_bracket_impossible", "rules_qualifiers_above_gruppe", "rules_spiele_over_one_read"] as const) {
       for (const carriedShape of [false, true]) {
-        expect(drawAnswer(carried, carriedShape), `${carried} sends the admin away from the numbers it judged`).toMatch(/Abschnitt Spielplan/);
-        expect(drawAnswer(stored, carriedShape), `${stored} sends the admin away from the numbers it judged`).toMatch(/Abschnitt Regeln/);
+        expect(drawAnswer(code, carriedShape), `${code} sends the admin away from the numbers it judged`).toMatch(/Abschnitt Spielplan/);
       }
     }
   });
 
-  /* A draw never carries the points or the forfeit, so its twins of the editor's two faults state the
-     editor's own rule and send the admin to the panel holding it. */
-  it("states the editor's points and forfeit rules on the draw, repaired in the rules panel", () => {
-    for (const [edit, draw, field] of [
-      ["REQ-RULES-008", "REQ-RULES-016", "rules.draw_points"],
-      ["REQ-RULES-010", "REQ-RULES-017", "rules.forfeit_ergebnis.sieger_tore"],
-    ] as const) {
-      const rule = mapRulesRefusal(refused(edit))?.fieldErrors?.[field] ?? "";
+  /* A draw never carries the forfeit, so its twin of the editor's fault states the editor's own rule and
+     sends the admin to the panel holding it. */
+  it("states the editor's forfeit rule on the draw, repaired in the rules panel", () => {
+    const rule = mapRulesRefusal(refused("rules_forfeit_draws_a_knockout"))?.fieldErrors?.["rules.forfeit_ergebnis.sieger_tore"] ?? "";
 
-      expect(rule, `the editor seats no rule for ${edit}, so ${draw} is compared with nothing`).not.toBe("");
-      for (const carriedShape of [false, true]) {
-        assert.ok(drawAnswer(draw, carriedShape).startsWith(rule), `${draw} words its rule apart from ${edit}`);
-        expect(drawAnswer(draw, carriedShape)).toMatch(/Abschnitt Regeln/);
-      }
+    expect(rule, "the editor seats no forfeit rule, so the draw's twin is compared with nothing").not.toBe("");
+    for (const carriedShape of [false, true]) {
+      assert.ok(
+        drawAnswer("rules_forfeit_draws_a_knockout_as_stored", carriedShape).startsWith(rule),
+        "the draw words its rule apart from the editor",
+      );
+      expect(drawAnswer("rules_forfeit_draws_a_knockout_as_stored", carriedShape)).toMatch(/Abschnitt Regeln/);
     }
   });
 
-  /* `REQ-SPIELPLAN-003` refuses `past` alone, so the message may not send the admin looking for a
+  /* `saison_past` refuses `past` alone, so the message may not send the admin looking for a
      season that is still merely geplant. */
   it("names a finished season for the draw's status refusal, never a planned one", () => {
-    const message = drawAnswer("REQ-SPIELPLAN-003", false);
+    const message = drawAnswer("saison_past", false);
 
     expect(message).toMatch(/abgeschlossen/);
     expect(message).not.toMatch(/geplant/);
   });
 
-  /* `REQ-SPIELPLAN-004` refuses a group off its size in EITHER direction, and a club standing in a
+  /* `spielplan_gruppen_off_rules` refuses a group off its size in EITHER direction, and a club standing in a
      group the season does not offer. A message naming only the short direction misdirects both. */
   it("covers all three shapes of the draw's group refusal", () => {
     expect(GRUPPEN_OFF_RULES).toMatch(/genau so viele Teams/);
@@ -432,17 +450,17 @@ describe("the German each widened refusal renders", () => {
   /* Spelled a second time and the closed press, which reads the declaration, says something the
      refusal does not. */
   it("answers the draw's group refusal with the declaration the closed press reads", () => {
-    for (const carriedShape of [false, true]) expect(drawAnswer("REQ-SPIELPLAN-004", carriedShape)).toBe(GRUPPEN_OFF_RULES);
+    for (const carriedShape of [false, true]) expect(drawAnswer("spielplan_gruppen_off_rules", carriedShape)).toBe(GRUPPEN_OFF_RULES);
   });
 
-  /* `REQ-ACTIVATE-003` is the one activation refusal with a remedy the admin can act on here. */
+  /* `activate_target_undrawn` is the one activation refusal with a remedy the admin can act on here. */
   it("names the draw as the remedy for a rollover onto an undrawn season", () => {
-    expect(mapActivateRefusal(refused("REQ-ACTIVATE-003")) ?? "").toMatch(/Spielplan/);
+    expect(mapActivateRefusal(refused("activate_target_undrawn")) ?? "").toMatch(/Spielplan/);
   });
 
   /* The pre-flight's own case compares the same declaration by calling. */
   it("answers the undated-matchday refusal with the declaration the closed press reads", () => {
-    expect(mapActivateRefusal(refused("REQ-ACTIVATE-004"))).toBe(SPIELTAGE_UNDATED);
+    expect(mapActivateRefusal(refused("activate_spieltage_undated"))).toBe(SPIELTAGE_UNDATED);
   });
 });
 
@@ -534,7 +552,7 @@ describe("the deletion the activation runs", () => {
   });
 
   it("deletes nobody where the activation was refused", async () => {
-    answerWith((call) => (isLauf(call) ? Promise.resolve(gelaufen(1, 0)) : Promise.reject(refused("REQ-ACTIVATE-001"))));
+    answerWith((call) => (isLauf(call) ? Promise.resolve(gelaufen(1, 0)) : Promise.reject(refused("activate_saison_unfinished"))));
     expect((await activateSaisonAction({ id: SAISON_ID })).success).toBe(false);
 
     expect(laeufe(), "a season that did not turn active had its pupils deleted").toBe(0);
@@ -551,13 +569,13 @@ describe("the deletion the activation runs", () => {
           message: "API returned a bad status.",
           url: "http://backend:8000",
           statusCode: 500,
-          serverErrorCode: "DB-FAIL-001",
+          serverErrorCode: "database_failed",
           endpoint: LAUF,
           method: "POST",
           readOnly: false,
           traceId: "t".repeat(32),
         }),
-      { status: 500, server_error_code: "DB-FAIL-001", trace_id: "t".repeat(32) },
+      { status: 500, server_error_code: "database_failed", trace_id: "t".repeat(32) },
     ],
     [
       "a run the network broke off",
