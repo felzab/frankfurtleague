@@ -14813,12 +14813,7 @@
             "type": "string"
           },
           "art": {
-            "enum": [
-              "zugesagt",
-              "abgelehnt"
-            ],
-            "title": "Art",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
           },
           "begruendung": {
             "anyOf": [
@@ -14875,17 +14870,19 @@
         "title": "FLSpielbestaetigungAntwort",
         "type": "object"
       },
+      "FLSpielbestaetigungAntwortArt": {
+        "enum": [
+          "zugesagt",
+          "abgelehnt"
+        ],
+        "type": "string"
+      },
       "FLSpielbestaetigungAntwortPayload": {
         "additionalProperties": false,
         "description": "One club's answer about one Ansetzung, from whichever of its seats pressed first.",
         "properties": {
           "antwort": {
-            "enum": [
-              "zugesagt",
-              "abgelehnt"
-            ],
-            "title": "Antwort",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
           },
           "begruendung": {
             "anyOf": [
@@ -14963,12 +14960,7 @@
             ]
           },
           "zustand": {
-            "enum": [
-              "zugesagt",
-              "abgelehnt"
-            ],
-            "title": "Zustand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
           }
         },
         "required": [
@@ -14995,18 +14987,6 @@
           "begruendung"
         ],
         "title": "FLSpielbestaetigungEintragenPayload",
-        "type": "object"
-      },
-      "FLSpielbestaetigungEintragenResponse": {
-        "properties": {
-          "updated_document": {
-            "$ref": "#/components/schemas/FLSpielbestaetigung"
-          }
-        },
-        "required": [
-          "updated_document"
-        ],
-        "title": "FLSpielbestaetigungEintragenResponse",
         "type": "object"
       },
       "FLSpielbestaetigungGeschlossen": {
@@ -15125,12 +15105,7 @@
         "description": "A referee's answer about one row naming them: a decline gives a reason, which the administrator reads.",
         "properties": {
           "antwort": {
-            "enum": [
-              "zugesagt",
-              "abgelehnt"
-            ],
-            "title": "Antwort",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
           },
           "begruendung": {
             "anyOf": [
@@ -15162,12 +15137,7 @@
             "type": "string"
           },
           "zustand": {
-            "enum": [
-              "zugesagt",
-              "abgelehnt"
-            ],
-            "title": "Zustand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
           }
         },
         "required": [
@@ -15647,7 +15617,7 @@
         "type": "object"
       },
       "FLSpielbestaetigungSweepSaisonsResponse": {
-        "description": "The `active` seasons a pass visits, and the day a pass last ran over any of them.",
+        "description": "The `active` seasons a pass visits, oldest first.",
         "properties": {
           "saison_ids": {
             "items": {
@@ -15655,23 +15625,10 @@
             },
             "title": "Saison Ids",
             "type": "array"
-          },
-          "spiel_sweep_gelaufen_am": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Spiel Sweep Gelaufen Am"
           }
         },
         "required": [
-          "saison_ids",
-          "spiel_sweep_gelaufen_am"
+          "saison_ids"
         ],
         "title": "FLSpielbestaetigungSweepSaisonsResponse",
         "type": "object"
@@ -15903,18 +15860,6 @@
         "title": "FLSpielbestaetigungTermin",
         "type": "object"
       },
-      "FLSpielbestaetigungVerwerfenResponse": {
-        "properties": {
-          "updated_document": {
-            "$ref": "#/components/schemas/FLSpielbestaetigung"
-          }
-        },
-        "required": [
-          "updated_document"
-        ],
-        "title": "FLSpielbestaetigungVerwerfenResponse",
-        "type": "object"
-      },
       "FLSpielbestaetigungVonAdmin": {
         "description": "An administrator's settlement, naming nobody: the row is the league's record of how a date was agreed, not of who typed it.",
         "properties": {
@@ -15984,21 +15929,22 @@
         "title": "FLSpielbestaetigungVorschlagPayload",
         "type": "object"
       },
-      "FLSpielbestaetigungenListResponse": {
-        "description": "The rows newest first, closed ones included, and the named season's own last pass.",
+      "FLSpielbestaetigungWriteResponse": {
+        "description": "Shared by the administrator's two presses, both answering the row as it now stands.",
         "properties": {
-          "spiel_sweep_gelaufen_am": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Spiel Sweep Gelaufen Am"
-          },
+          "updated_document": {
+            "$ref": "#/components/schemas/FLSpielbestaetigung"
+          }
+        },
+        "required": [
+          "updated_document"
+        ],
+        "title": "FLSpielbestaetigungWriteResponse",
+        "type": "object"
+      },
+      "FLSpielbestaetigungenListResponse": {
+        "description": "The rows newest first, closed ones included.",
+        "properties": {
           "spielbestaetigungen": {
             "items": {
               "$ref": "#/components/schemas/FLSpielbestaetigung"
@@ -16013,7 +15959,6 @@
         },
         "required": [
           "spielbestaetigungen",
-          "spiel_sweep_gelaufen_am",
           "vollstaendig"
         ],
         "title": "FLSpielbestaetigungenListResponse",
@@ -26816,7 +26761,7 @@
     },
     "/api/v0/spielbestaetigungen": {
       "get": {
-        "description": "Every confirmation row of the season, or of its one fixture, and the day the confirmation pass last ran over it.\n\nNewest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still\nholding its party's question is served; `limit` cuts the others, and `vollstaendig` is false where it left the\noldest of them out. A season no document has answers no rows and a null day rather than 404.",
+        "description": "Every confirmation row of the season, or of its one fixture.\n\nNewest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still\nholding its party's question is served; `limit` cuts the others, and `vollstaendig` is false where it left the\noldest of them out. A season no document has answers no rows rather than 404.",
         "operationId": "spielbestaetigungen_get_spielbestaetigungen",
         "parameters": [
           {
@@ -27142,7 +27087,7 @@
     },
     "/api/v0/spielbestaetigungen/sweep": {
       "get": {
-        "description": "Answer every `active` season's id, oldest first, and the day a confirmation pass last ran over any of them.\n\n`active` alone: a confirmation serves no purpose once its season is over, and a season that ended with a fixture nobody\nentered a result for would otherwise be asked about a day long gone. System tier because this is the timer's own\nbookkeeping, asked by the process running the pass and by no page. Null means no pass has run over these seasons. Reading\nit writes nothing.",
+        "description": "Answer every `active` season's id, oldest first.\n\n`active` alone: a confirmation serves no purpose once its season is over, and a season that ended with a fixture nobody\nentered a result for would otherwise be asked about a day long gone. System tier because this is the timer's own\nbookkeeping, asked by the process running the pass and by no page. Reading it writes nothing.",
         "operationId": "spielbestaetigungen_get_spiel_sweep_saisons",
         "responses": {
           "200": {
@@ -27209,7 +27154,7 @@
     },
     "/api/v0/spielbestaetigungen/sweep/{saison_id}": {
       "post": {
-        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_vergangen`, so nobody is asked about a past date. A\nclub's decline closed `verworfen` is closed again for each of those but a move and a referee change, in the pass\nthat closes an agreement beside it, and once the day it was about has passed: the public fixture then stops\ncounting it as that club's agreement.\n\nA closing owes its party a notice where the party's first request or Einteilung went out, about a day today or later:\nfor a move, the slot it left or the one the fixture holds now; for a referee taken off the fixture -- ahead of a move\nit shares a close with, and never for the referee's own decline, which closed its row as it was given -- and for a\ncall-off, the slot the row was about. The closed row holds the\nnotice, and the notice step answers a share of those the season's rows hold, each built off the fixture and the\nmailboxes or address as they stand: a team's move in `neue_ansetzungen`, a referee's in\n`schiedsrichter_neue_ansetzungen`, a referee taken off in `schiedsrichter_gewechselt`, a call-off in `spiel_abgesagt`\nand `schiedsrichter_spiel_abgesagt`, and the notice an administrator's discard holds, that the date stands, in\n`vorschlag_verworfen`. A notice is answered on every pass until the caller stamps it through\n`/mitgeteilt`; one answered as often as `app/api/spielbestaetigungen/services.py :: MITTEILUNG_VERSUCHE_HOECHSTENS`\nallows, or about no day still to come, is given up: answered in `mitteilungen_aufgegeben` by its row, its fixture\nand its party's kind, never a person, for the administrator to tell by hand, and answered so on every pass until\n`/mitgeteilt` stamps it too, so a lost answer loses no give-up. One with nobody left to tell, or whose closing the\nfixture has since undone -- reinstated, its referee booked again, back at the row's slot -- is dropped unanswered,\nthe mint asking its party afresh.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `verworfen`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed.\nEach seat holding an address gets one link, a person holding two seats one link naming both, and the raw tokens are\nanswered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so a request that never went\nout shows as never asked. An open row's occupied seat holding no link -- its holder replaced,\nnewly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows are answered in\n`einteilungen`, with the referee's address and no token. A fixture holding rows about an Ansetzung it has left is asked\nonce the close has shut them and each one's notice that its links are void is answered, in this answer or an earlier\none, so that notice goes out first.\n\nThe reminder mints a fresh link per seat on each team row whose deadline lies a reminder's count of days away\n(`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), appended beside the\nlinks already mailed so every one of them answers until the deadline, and stamps the day BEFORE answering: a failed send\ncosts one reminder, never a daily repeat. It passes over each seat whose last mail the provider refused, and reminds no\nrow this pass inserted nor one whose request was stamped today; where this pass's mint gave one of a row's seats a fresh\nlink, that request is the seat's message of the day and the row's other seats are reminded beside it.\n\nA row whose first request was never stamped as sent, inserted on an earlier pass, is asked again on every pass until a\nstamp lands or it stops taking an answer, a team row after its deadline and a referee row after the fixture's day: a\nteam row in `anfragen`, with a fresh link per seat appended the same way and each\nrefused seat passed over; a referee row in `einteilungen`, unless the provider refused the last mail recorded to the\nreferee's address. A row with nobody left to ask is not asked and stays unstamped, so it shows as never asked.\n\nA seat whose address the ban list holds is minted nothing and has nothing written, so it stays due and a later pass mints\nit once the ban is lifted; each pass logs how many seats it withheld, never which.\n\nEach step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has\ncommitted something owed a message, a later failure -- the stamp of the pass's day on this season included -- is logged\nand the call answers what committed. A row whose write or answer fails is passed over alone, logged by id and counted in\n`fehlgeschlagen`.\n\nA season that is not `active` is passed by whole -- nothing closed, minted, reminded or stamped, every list empty -- so a\nmistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.",
+        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_vergangen`, so nobody is asked about a past date. A\nclub's decline closed `verworfen` is closed again for each of those but a move and a referee change, in the pass\nthat closes an agreement beside it, and once the day it was about has passed: the public fixture then stops\ncounting it as that club's agreement.\n\nA closing owes its party a notice where the party's first request or Einteilung went out, about a day today or later:\nfor a move, the slot it left or the one the fixture holds now; for a referee taken off the fixture -- ahead of a move\nit shares a close with, and never for the referee's own decline, which closed its row as it was given -- and for a\ncall-off, the slot the row was about. The closed row holds the\nnotice, and the notice step answers a share of those the season's rows hold, each built off the fixture and the\nmailboxes or address as they stand: a team's move in `neue_ansetzungen`, a referee's in\n`schiedsrichter_neue_ansetzungen`, a referee taken off in `schiedsrichter_gewechselt`, a call-off in `spiel_abgesagt`\nand `schiedsrichter_spiel_abgesagt`, and the notice an administrator's discard holds, that the date stands, in\n`vorschlag_verworfen`. A notice is answered on every pass until the caller stamps it through\n`/mitgeteilt`; one answered as often as `app/api/spielbestaetigungen/services.py :: MITTEILUNG_VERSUCHE_HOECHSTENS`\nallows, or about no day still to come, is given up: answered in `mitteilungen_aufgegeben` by its row, its fixture\nand its party's kind, never a person, for the administrator to tell by hand, and answered so on every pass until\n`/mitgeteilt` stamps it too, so a lost answer loses no give-up. One with nobody left to tell, or whose closing the\nfixture has since undone -- reinstated, its referee booked again, back at the row's slot -- is dropped unanswered,\nthe mint asking its party afresh.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `verworfen`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed.\nEach seat holding an address gets one link, a person holding two seats one link naming both, and the raw tokens are\nanswered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so a request that never went\nout shows as never asked. An open row's occupied seat holding no link -- its holder replaced,\nnewly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows are answered in\n`einteilungen`, with the referee's address and no token. A fixture holding rows about an Ansetzung it has left is asked\nonce the close has shut them and each one's notice that its links are void is answered, in this answer or an earlier\none, so that notice goes out first.\n\nThe reminder mints a fresh link per seat on each team row whose deadline lies a reminder's count of days away\n(`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), appended beside the\nlinks already mailed so every one of them answers until the deadline, and stamps the day BEFORE answering: a failed send\ncosts one reminder, never a daily repeat. It passes over each seat whose last mail the provider refused, and reminds no\nrow this pass inserted nor one whose request was stamped today; where this pass's mint gave one of a row's seats a fresh\nlink, that request is the seat's message of the day and the row's other seats are reminded beside it.\n\nA row whose first request was never stamped as sent, inserted on an earlier pass, is asked again on every pass until a\nstamp lands or it stops taking an answer, a team row after its deadline and a referee row after the fixture's day: a\nteam row in `anfragen`, with a fresh link per seat appended the same way and each\nrefused seat passed over; a referee row in `einteilungen`, unless the provider refused the last mail recorded to the\nreferee's address. A row with nobody left to ask is not asked and stays unstamped, so it shows as never asked.\n\nA seat whose address the ban list holds is minted nothing and has nothing written, so it stays due and a later pass mints\nit once the ban is lifted; each pass logs how many seats it withheld, never which.\n\nEach step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has\ncommitted something owed a message, a later failure is logged and the call answers what committed. A row whose write or\nanswer fails is passed over alone, logged by id and counted in `fehlgeschlagen`.\n\nA season that is not `active` is passed by whole -- nothing closed, minted or reminded, every list empty -- so a\nmistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.",
         "operationId": "spielbestaetigungen_sweep_spielbestaetigungen",
         "parameters": [
           {
@@ -27581,7 +27526,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungEintragenResponse"
+                  "$ref": "#/components/schemas/FLSpielbestaetigungWriteResponse"
                 }
               }
             },
@@ -27660,7 +27605,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungVerwerfenResponse"
+                  "$ref": "#/components/schemas/FLSpielbestaetigungWriteResponse"
                 }
               }
             },
