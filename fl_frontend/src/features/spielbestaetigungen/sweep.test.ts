@@ -1,655 +1,85 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
-import { doubleSendMail } from "@/test-support/mailDouble.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
-import type { MailOutcome, SentMail } from "@/test-support/mailDouble.ts";
-
-/** One thing that happened, in the order it happened: the stamp's order against the mail is what this slice owes. */
-type Ereignis = { art: "api"; endpoint: string; body: unknown } | { art: "mail"; mail: SentMail };
-
-const ereignisse: Ereignis[] = [];
 
 /** Every line as it was written, its fields whole. */
 const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
 
-/** Whether the notices' stamp fails, as a backend restarting under it fails it. */
-let mitgeteiltScheitert = false;
-let appEnv = "production";
-
 const LISTE = "/spielbestaetigungen/sweep";
-const PASS = (saisonId: string) => `/spielbestaetigungen/sweep/${saisonId}`;
-const ANGEFRAGT = (saisonId: string) => `/spielbestaetigungen/sweep/${saisonId}/angefragt`;
-const MITGETEILT = (saisonId: string) => `/spielbestaetigungen/sweep/${saisonId}/mitgeteilt`;
 
-/** The listing's answer, and each season's pass's, which a case sets. */
-let listeAnswer: () => unknown = () => ({ saison_ids: [] });
-let passAnswer: (saisonId: string) => unknown = (saisonId) => leererPass(saisonId);
+/** The listing's answer, and each season's pass's, which a case sets; an `Error` is thrown, as a failed call throws. */
+let listeAnswer: () => unknown;
+let passAnswer: (saisonId: string) => unknown;
 
-/** Ids in the `_id` alphabet, one per row a case names. */
-const id = (n: number): string => n.toString(16).padStart(24, "a");
-
-const leererPass = (saisonId: string) => ({
+const pass = (
+  saisonId: string,
+  counts: Partial<Record<"geschlossen" | "angefragt" | "erinnert" | "mails" | "fehlgeschlagen", number>> = {},
+) => ({
   saison_id: saisonId,
-  anfragen: [],
-  erinnerungen: [],
-  einteilungen: [],
-  neue_ansetzungen: [],
-  schiedsrichter_neue_ansetzungen: [],
-  schiedsrichter_gewechselt: [],
-  spiel_abgesagt: [],
-  schiedsrichter_spiel_abgesagt: [],
-  vorschlag_verworfen: [],
   geschlossen: 0,
+  angefragt: 0,
+  erinnert: 0,
+  mails: 0,
   fehlgeschlagen: 0,
-  mitteilungen_aufgegeben: [],
+  ...counts,
 });
 
-/** One notice's slot and clubs, each kind carrying them alike. */
-const hinweis = (n: number) => ({
-  spielbestaetigung_id: id(n),
-  spiel_id: id(500),
-  team1_name: "Ernst-Reuter-Schule",
-  team2_name: "Goethe-Gymnasium",
-  alt: { datum: "2026-11-13", uhrzeit: "10:00:00" },
+const calls = doubleApiClient(async (call: ApiCall, schema) => {
+  const answer = call.endpoint === LISTE ? listeAnswer() : passAnswer(/^\/spielbestaetigungen\/sweep\/(\d+)$/.exec(call.endpoint)?.[1] ?? "");
+  if (answer instanceof Error) throw answer;
+  assert.ok(call.endpoint.startsWith(LISTE), `the pass reached a route nothing here answers: ${call.endpoint}`);
+  // Parsed by the schema the real client parses with, so an answer this file composes cannot drift.
+  return schema.parse(answer);
 });
 
-/** A fixture dated 20.11.2026, whose deadline the pass answers as 10.11.2026 rather than seven days before it. */
-const ANSETZUNG = {
-  team1_name: "Ernst-Reuter-Schule",
-  team2_name: "Goethe-Gymnasium",
-  datum: "2026-11-20",
-  uhrzeit: "14:30:00",
-  spielort: { spielort_id: id(900), name: "Sportpark Rebstock", maps_link: "Sportpark Rebstock, Frankfurt" },
-};
-
-/** One row asked of one mailbox, its link the row's own. */
-const anfrage = (n: number, address: string) => ({
-  spielbestaetigung_id: id(n),
-  spiel_id: id(500),
-  seite: "team2" as const,
-  ansetzung: ANSETZUNG,
-  frist: "2026-11-10",
-  links: [{ address: address, rollen: ["ansprechperson"], token: `token-${String(n)}` }],
-});
-
-/** One row asked of two mailboxes, a link each, in the order given. */
-const zweiLinks = (n: number, erste: string, zweite: string) => ({
-  ...anfrage(n, erste),
-  links: [
-    { address: erste, rollen: ["ansprechperson"], token: `token-${String(n)}a` },
-    { address: zweite, rollen: ["trainer"], token: `token-${String(n)}b` },
-  ],
-});
-
-const einteilung = (n: number, address: string) => ({ spielbestaetigung_id: id(n), spiel_id: id(500), ansetzung: ANSETZUNG, address: address });
-
-doubleApiClient(async (call: ApiCall, schema) => {
-  // The grants' pass is armed by the same boot and answers to its own suite: here it claims nothing and is not recorded.
-  if (call.endpoint.startsWith("/berechtigungen")) {
-    return schema.parse({ beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 });
-  }
-  // The delivery record an accepted send files, which the backend applies; not this pass's own call.
-  if (call.endpoint.startsWith("/zustellung/")) return schema.parse({ angewendet: true });
-
-  const body: unknown = call.body === undefined ? undefined : JSON.parse(call.body);
-  ereignisse.push({ art: "api", endpoint: call.endpoint, body: body });
-  // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift.
-  if (call.endpoint === LISTE) return schema.parse(await listeAnswer());
-  const angefragt = /^\/spielbestaetigungen\/sweep\/(\d+)\/angefragt$/.exec(call.endpoint);
-  if (angefragt !== null) {
-    const ids = (body as { spielbestaetigung_ids: string[] }).spielbestaetigung_ids;
-    return schema.parse({ saison_id: angefragt[1], angefragt: ids.length, fehlgeschlagen: 0 });
-  }
-  const mitgeteilt = /^\/spielbestaetigungen\/sweep\/(\d+)\/mitgeteilt$/.exec(call.endpoint);
-  if (mitgeteilt !== null) {
-    if (mitgeteiltScheitert) throw new Error("the notices' stamp went unanswered");
-    const ids = (body as { spielbestaetigung_ids: string[] }).spielbestaetigung_ids;
-    return schema.parse({ saison_id: mitgeteilt[1], mitgeteilt: ids.length });
-  }
-  const pass = /^\/spielbestaetigungen\/sweep\/(\d+)$/.exec(call.endpoint);
-  assert.ok(pass !== null, `the pass reached a route nothing here answers: ${call.endpoint}`);
-  return schema.parse(passAnswer(pass[1] ?? ""));
-});
-
-const mail = doubleSendMail();
-/** How the mailer ends a message to each address a case names; every other address is accepted. */
-const ausgang = new Map<string, MailOutcome>();
-
-const LOGGING_DOUBLE = {
+vi.doMock("@/core/logging.ts", () => ({
   logger: {
     debug: () => undefined,
     info: (event: string, fields?: unknown) => void lines.push({ level: "info", event, fields }),
     warn: (event: string, fields?: unknown) => void lines.push({ level: "warn", event, fields }),
     error: (event: string, _message: unknown, fields?: unknown) => void lines.push({ level: "error", event, fields }),
   },
-};
-
-// Getters, not values: one process holds one module registry, so a case that could not re-read a switch could only
-// ever prove one side of it.
-const CONFIG_DOUBLE = {
-  frontend_config: {
-    AUTH_URL: "http://localhost:3000",
-    get APP_ENV() {
-      return appEnv;
-    },
-  },
-};
-
-vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
-vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
+}));
 
 const { runSpielSweep } = await import("./sweep.ts");
 
-const apiCalls = () => ereignisse.filter((ereignis): ereignis is Extract<Ereignis, { art: "api" }> => ereignis.art === "api");
-const gesendet = () => mail.sent;
-/** The words a notice to a referee carries, and a notice to a club's mailboxes never. */
-const NUR_SCHIEDSRICHTER = "Deine Einteilung zu";
-/** The ids the stamp was handed, over every stamp call of the pass. */
-const gestempelt = () =>
-  apiCalls()
-    .filter(({ endpoint }) => endpoint.endsWith("/angefragt"))
-    .flatMap(({ body }) => (body as { spielbestaetigung_ids: string[] }).spielbestaetigung_ids);
-/** The ids the notices' stamp was handed, over every such call of the pass. */
-const mitgeteilt = () =>
-  apiCalls()
-    .filter(({ endpoint }) => endpoint.endsWith("/mitgeteilt"))
-    .flatMap(({ body }) => (body as { spielbestaetigung_ids: string[] }).spielbestaetigung_ids);
-const passLines = () => lines.filter(({ event }) => event.startsWith("spielbestaetigung."));
-
 beforeEach(() => {
-  ereignisse.length = 0;
   lines.length = 0;
-  ausgang.clear();
-  mitgeteiltScheitert = false;
-  appEnv = "production";
-  listeAnswer = () => ({ saison_ids: ["2627"] });
-  passAnswer = (saisonId) => leererPass(saisonId);
-  mail.answerWith((sent) => {
-    // Recorded here as well, so a message and a call stay in the order they ran.
-    ereignisse.push({ art: "mail", mail: sent });
-    return ausgang.get(sent.to) ?? "accepted";
-  });
+  calls.length = 0;
+  listeAnswer = () => ({ saison_ids: ["2627", "2728"] });
+  passAnswer = (saisonId) => pass(saisonId);
 });
 
-/* The stamp is what no local run can show, a stack that mails nothing filing every message. */
-describe("which first requests the pass stamps", () => {
-  /** One row per way a send ends, each to its own mailbox, and one referee booked. */
-  function eineZeileJeAusgang(): void {
-    ausgang.set("geliefert@schule.de", "accepted");
-    ausgang.set("abgewiesen@schule.de", "refused");
-    ausgang.set("zurueckgehalten@schule.de", "withheld");
-    ausgang.set("gesperrt@schule.de", "barred");
-    ausgang.set("ungewiss@schule.de", "lost");
-    ausgang.set("schiri-zurueckgehalten@schule.de", "withheld");
-    ausgang.set("schiri-gesperrt@schule.de", "barred");
-    ausgang.set("schiri-abgewiesen@schule.de", "refused");
-    ausgang.set("schiri-ungewiss@schule.de", "lost");
-    passAnswer = (saisonId) => ({
-      ...leererPass(saisonId),
-      anfragen: [
-        anfrage(1, "geliefert@schule.de"),
-        anfrage(2, "abgewiesen@schule.de"),
-        anfrage(3, "zurueckgehalten@schule.de"),
-        anfrage(4, "gesperrt@schule.de"),
-        anfrage(5, "ungewiss@schule.de"),
-      ],
-      einteilungen: [
-        einteilung(6, "schiri@schule.de"),
-        einteilung(7, "schiri-zurueckgehalten@schule.de"),
-        einteilung(8, "schiri-gesperrt@schule.de"),
-        einteilung(9, "schiri-abgewiesen@schule.de"),
-        einteilung(10, "schiri-ungewiss@schule.de"),
-      ],
-    });
-  }
-
-  /* Production waits for a real send, withheld there being a missing key. A send whose answer was lost may have
-     gone, and its fresh token is never sent again. */
-  it("stamps on production only the rows whose message went or was kept from a barred address", async () => {
-    eineZeileJeAusgang();
+describe("the fixture confirmation job", () => {
+  it("sweeps every listed season and writes one line counting what the passes did", async () => {
+    passAnswer = (saisonId) => pass(saisonId, saisonId === "2627" ? { geschlossen: 2, angefragt: 3, mails: 7 } : { erinnert: 1, mails: 2 });
 
     await runSpielSweep();
 
-    expect(gestempelt()).toStrictEqual([id(1), id(4), id(6), id(8)]);
-  });
-
-  /* A stack that mails nothing would otherwise file every request hourly and never stamp one. */
-  it("stamps off production a request the deployment filed, as well as one that went", async () => {
-    appEnv = "local";
-    eineZeileJeAusgang();
-
-    await runSpielSweep();
-
-    expect(gestempelt()).toStrictEqual([id(1), id(3), id(4), id(6), id(7), id(8)]);
-  });
-
-  /* Mail, then stamp: a stamp before the send would leave a team that was never asked running to its deadline. */
-  it("stamps after every request has been mailed, and never a reminder, which the pass stamped itself", async () => {
-    passAnswer = (saisonId) => ({
-      ...leererPass(saisonId),
-      anfragen: [anfrage(1, "a@schule.de"), anfrage(2, "b@schule.de")],
-      erinnerungen: [anfrage(3, "c@schule.de")],
-    });
-
-    await runSpielSweep();
-
-    const stempel = ereignisse.findIndex((ereignis) => ereignis.art === "api" && ereignis.endpoint === ANGEFRAGT("2627"));
-    const letzteMail = ereignisse.findLastIndex((ereignis) => ereignis.art === "mail");
-    assert.ok(stempel > letzteMail, "the pass stamped before its last message went");
-    expect(gestempelt()).toStrictEqual([id(1), id(2)]);
-    expect(gesendet().length, "the reminder was not mailed").toBe(3);
-  });
-
-  /* The referee's lane is no fan-out, so its failure is this pass's own line, and an address in it would be a person
-     written to the log. */
-  it("files a booking that was refused or lost its answer as one failure line each, naming no address", async () => {
-    ausgang.set("schiri-abgewiesen@schule.de", "refused");
-    ausgang.set("schiri-ungewiss@schule.de", "lost");
-    passAnswer = (saisonId) => ({
-      ...leererPass(saisonId),
-      einteilungen: [einteilung(1, "schiri-abgewiesen@schule.de"), einteilung(2, "schiri-ungewiss@schule.de")],
-    });
-
-    await runSpielSweep();
-
-    const spielleitung = { operation: "spielbestaetigungSweep" };
-    expect(passLines().filter(({ level }) => level === "error")).toStrictEqual([
-      { level: "error", event: "spielbestaetigung.spielleitung_failed", fields: { ...spielleitung, name: "MailSendError" } },
-      { level: "error", event: "spielbestaetigung.spielleitung_failed", fields: { ...spielleitung, name: "APINetworkError" } },
-    ]);
-  });
-
-  /* A row holding several links counts as asked once ANY of them went, whichever went first: a team whose second
-     mailbox bounced was still asked. */
-  it("stamps a row of two links where either went, and none where neither did", async () => {
-    ausgang.set("abgewiesen@schule.de", "refused");
-    passAnswer = (saisonId) => ({
-      ...leererPass(saisonId),
-      anfragen: [
-        zweiLinks(1, "erste@schule.de", "abgewiesen@schule.de"),
-        zweiLinks(2, "abgewiesen@schule.de", "zweite@schule.de"),
-        zweiLinks(3, "abgewiesen@schule.de", "abgewiesen@schule.de"),
-      ],
-    });
-
-    await runSpielSweep();
-
-    expect(gestempelt()).toStrictEqual([id(1), id(2)]);
-    expect(gesendet().length, "a link went unmailed once its row counted as asked").toBe(6);
-  });
-
-  /* The pass answers an unstamped referee's booking again each later day until the deadline: each is mailed and stamped
-     as a first one, under that day's key, so the provider never folds one day's send into the last. */
-  it("mails and stamps a booking a later day's pass answers again, under that day's key", async ({ onTestFinished }) => {
-    vi.useFakeTimers({ toFake: ["Date"], now: Date.parse("2026-11-02T09:00:00Z") });
-    onTestFinished(() => void vi.useRealTimers());
-    passAnswer = (saisonId) => ({ ...leererPass(saisonId), einteilungen: [einteilung(1, "schiri@schule.de")] });
-
-    await runSpielSweep();
-    vi.setSystemTime(Date.parse("2026-11-03T09:00:00Z"));
-    await runSpielSweep();
-
-    const [erste, zweite] = gesendet();
-    expect(
-      gesendet().map(({ to }) => to),
-      "the booking answered again was not mailed again",
-    ).toStrictEqual(["schiri@schule.de", "schiri@schule.de"]);
-    expect(zweite?.subject, "the booking answered again went out in other words").toBe(erste?.subject);
-    expect(gestempelt(), "the booking answered again was not stamped").toStrictEqual([id(1), id(1)]);
-    assert.ok(erste?.idempotencyKey !== undefined && erste.idempotencyKey !== zweite?.idempotencyKey, "both days' sends share a key");
-  });
-
-  it("asks for no stamp where no request counts as made", async () => {
-    ausgang.set("a@schule.de", "refused");
-    passAnswer = (saisonId) => ({ ...leererPass(saisonId), anfragen: [anfrage(1, "a@schule.de")] });
-
-    await runSpielSweep();
-
-    expect(apiCalls().map(({ endpoint }) => endpoint)).toStrictEqual([LISTE, PASS("2627")]);
-  });
-});
-
-describe("what one pass mails", () => {
-  /* The void notice first: a mailbox that read a fresh request before it would take the void one for the newer. */
-  it("tells the parties of a moved fixture before it mails a fresh request", async () => {
-    passAnswer = (saisonId) => ({
-      ...leererPass(saisonId),
-      anfragen: [anfrage(1, "team@schule.de")],
-      neue_ansetzungen: [
-        {
-          spielbestaetigung_id: id(2),
-          spiel_id: id(500),
-          team1_name: "Ernst-Reuter-Schule",
-          team2_name: "Goethe-Gymnasium",
-          alt: { datum: "2026-11-13", uhrzeit: "10:00:00" },
-          empfaenger: [{ address: "team@schule.de", rollen: ["trainer", "ansprechperson"] }],
-        },
-      ],
-      schiedsrichter_neue_ansetzungen: [
-        {
-          spielbestaetigung_id: id(3),
-          spiel_id: id(500),
-          team1_name: "Ernst-Reuter-Schule",
-          team2_name: "Goethe-Gymnasium",
-          alt: { datum: "2026-11-13", uhrzeit: "10:00:00" },
-          address: "schiri@schule.de",
-        },
-      ],
-    });
-
-    await runSpielSweep();
-
-    expect(gesendet().map(({ to, subject }) => [to, subject.split(":")[0]])).toStrictEqual([
-      ["team@schule.de", "Neu angesetzt"],
-      ["schiri@schule.de", "Neu angesetzt"],
-      ["team@schule.de", "Bitte bestätigen"],
-    ]);
-    const [team, schiri, frische] = gesendet();
-    // The team's notice is recorded against the seats it covered, the referee's rides the lane no record holds.
-    expect(team?.tags).toStrictEqual({ ziel: "spielbestaetigung", ziel_id: id(2), anlass: "neue_ansetzung", rollen: "trainer-ansprechperson" });
-    expect(schiri?.tags).toStrictEqual({ spielleitung: "hinweis" });
-    // One subject for both readers, so only the body tells the referee's notice from the club's.
-    expect(
-      [team, schiri].map((nachricht) => nachricht?.text.includes(NUR_SCHIEDSRICHTER)),
-      "a notice is worded for the other reader",
-    ).toStrictEqual([false, true]);
-    // Keyed where the body cannot change inside the provider's window, and never over a fresh token.
-    assert.ok(team?.idempotencyKey !== undefined && schiri?.idempotencyKey !== undefined, "a link-free notice went unkeyed");
-    expect(frische?.idempotencyKey, "a request carrying a fresh token was keyed").toBe(undefined);
-  });
-
-  /* A mailbox the void notice missed would read the fresh request as the newer of the two: the request waits unstamped,
-     the next pass asking it after the notice, while the fixture's other mailboxes are asked as usual. */
-  it("holds a fresh request back from a mailbox its void notice did not reach, and leaves it unstamped", async () => {
-    ausgang.set("abgewiesen@schule.de", "refused");
-    ausgang.set("schiri-abgewiesen@schule.de", "refused");
-    passAnswer = (saisonId) => ({
-      ...leererPass(saisonId),
-      anfragen: [anfrage(1, "abgewiesen@schule.de"), anfrage(2, "gast@schule.de")],
-      einteilungen: [einteilung(3, "schiri-abgewiesen@schule.de")],
-      neue_ansetzungen: [{ ...hinweis(4), empfaenger: [{ address: "abgewiesen@schule.de", rollen: ["trainer"] }] }],
-      schiedsrichter_neue_ansetzungen: [{ ...hinweis(5), address: "schiri-abgewiesen@schule.de" }],
-    });
-
-    await runSpielSweep();
-
-    expect(gesendet().map(({ to, subject }) => [to, subject.split(":")[0]])).toStrictEqual([
-      ["abgewiesen@schule.de", "Neu angesetzt"],
-      ["schiri-abgewiesen@schule.de", "Neu angesetzt"],
-      ["gast@schule.de", "Bitte bestätigen"],
-    ]);
-    expect([gestempelt(), mitgeteilt()]).toStrictEqual([[id(2)], []]);
-  });
-
-  /* The deadline the row carries, never one reckoned from the fixture's day. */
-  it("names the deadline the pass answered and the link the row's token makes, to the mailbox that holds it", async () => {
-    passAnswer = (saisonId) => ({ ...leererPass(saisonId), anfragen: [anfrage(1, "team@schule.de")] });
-
-    await runSpielSweep();
-
-    const [nachricht] = gesendet();
-    expect(nachricht?.to).toBe("team@schule.de");
-    assert.ok(nachricht?.text.includes("Bitte antworte bis zum 10.11.2026."), "the request names another deadline");
-    assert.ok(!nachricht?.text.includes("13.11.2026"), "the request names a deadline it reckoned");
-    assert.ok(nachricht?.text.includes("http://localhost:3000/bestaetigung/spiel?token=token-1"), "the request carries another link");
-    assert.ok(nachricht?.text.includes("Bitte bestätige den Termin für Goethe-Gymnasium"), "the request names another club as the reader's");
-  });
-
-  /* One link per person, as the pass groups them: a mirrored pair is one message whose tag names both seats, so a
-     bounce is recorded on each seat rather than on one or on neither. */
-  it("mails a link held for two seats once, its tag naming both", async () => {
-    passAnswer = (saisonId) => ({
-      ...leererPass(saisonId),
-      anfragen: [
-        {
-          ...anfrage(1, "trainer@schule.de"),
-          links: [{ address: "trainer@schule.de", rollen: ["trainer", "stellvertretung"], token: "token-1" }],
-        },
-      ],
-    });
-
-    await runSpielSweep();
-
-    expect(gesendet().map(({ to, tags }) => [to, tags])).toStrictEqual([
-      ["trainer@schule.de", { ziel: "spielbestaetigung", ziel_id: id(1), anlass: "anfrage", rollen: "trainer-stellvertretung" }],
-    ]);
-  });
-
-  it("sends a referee's booking on the referee's lane, with no token", async () => {
-    passAnswer = (saisonId) => ({ ...leererPass(saisonId), einteilungen: [einteilung(1, "schiri@schule.de")] });
-
-    await runSpielSweep();
-
-    const [nachricht] = gesendet();
-    expect(nachricht?.tags).toStrictEqual({ spielleitung: "hinweis" });
-    assert.ok(!nachricht?.text.includes("token="), "the booking carries a token");
-  });
-
-  /* The referee the close answered, on their own lane: their row is closed, so the request's stamp would mark nothing
-     asked, and the notice's stamp is what keeps the next pass from telling them again. */
-  it("tells a referee taken off a fixture on the referee's lane, and stamps it told rather than asked", async () => {
-    passAnswer = (saisonId) => ({ ...leererPass(saisonId), schiedsrichter_gewechselt: [{ ...hinweis(4), address: "schiri@schule.de" }] });
-
-    await runSpielSweep();
-
-    expect(gesendet().map(({ to, subject, tags }) => [to, subject, tags])).toStrictEqual([
-      ["schiri@schule.de", "Nicht mehr eingeteilt: Ernst-Reuter-Schule gegen Goethe-Gymnasium", { spielleitung: "hinweis" }],
-    ]);
-    assert.ok(gesendet()[0]?.idempotencyKey !== undefined, "a link-free notice went unkeyed");
-    expect([gestempelt(), mitgeteilt()]).toStrictEqual([[], [id(4)]]);
-  });
-
-  /* The league's call-off reaches everyone it asked, so no club and no referee who agreed travels to the ground. */
-  it("tells the clubs' mailboxes and the referee of a called-off fixture, each notice keyed and stamped", async () => {
-    passAnswer = (saisonId) => ({
-      ...leererPass(saisonId),
-      spiel_abgesagt: [{ ...hinweis(5), empfaenger: [{ address: "team@schule.de", rollen: ["trainer"] }] }],
-      schiedsrichter_spiel_abgesagt: [{ ...hinweis(6), address: "schiri@schule.de" }],
-    });
-
-    await runSpielSweep();
-
-    expect(gesendet().map(({ to, subject, tags }) => [to, subject, tags])).toStrictEqual([
-      [
-        "team@schule.de",
-        "Abgesagt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 13.11.2026",
-        { ziel: "spielbestaetigung", ziel_id: id(5), anlass: "spiel_abgesagt", rollen: "trainer" },
-      ],
-      ["schiri@schule.de", "Abgesagt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 13.11.2026", { spielleitung: "hinweis" }],
-    ]);
-    // One subject for both readers, so only the body tells the referee's notice from the club's.
-    expect(
-      gesendet().map(({ text }) => text.includes(NUR_SCHIEDSRICHTER)),
-      "a notice is worded for the other reader",
-    ).toStrictEqual([false, true]);
-    assert.ok(
-      gesendet().every(({ idempotencyKey }) => idempotencyKey !== undefined),
-      "a link-free notice went unkeyed",
-    );
-    expect(mitgeteilt()).toStrictEqual([id(5), id(6)]);
-    // Stamped after both went: stamped first, a crash between would leave a party told by nobody and owed nothing.
-    expect(ereignisse.map((ereignis) => (ereignis.art === "api" ? ereignis.endpoint : ereignis.mail.to))).toStrictEqual([
-      LISTE,
-      PASS("2627"),
-      "team@schule.de",
-      "schiri@schule.de",
-      MITGETEILT("2627"),
-    ]);
-  });
-
-  /* Its decline said the league decides; this is the word that it has, which nothing else sends. */
-  it("tells a club whose proposal was discarded that the date stands, keyed and stamped", async () => {
-    passAnswer = (saisonId) => ({
-      ...leererPass(saisonId),
-      vorschlag_verworfen: [{ ...hinweis(7), empfaenger: [{ address: "team@schule.de", rollen: ["trainer", "stellvertretung"] }] }],
-    });
-
-    await runSpielSweep();
-
-    expect(gesendet().map(({ to, subject, tags }) => [to, subject, tags])).toStrictEqual([
-      [
-        "team@schule.de",
-        "Termin bleibt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 13.11.2026",
-        { ziel: "spielbestaetigung", ziel_id: id(7), anlass: "vorschlag_verworfen", rollen: "trainer-stellvertretung" },
-      ],
-    ]);
-    assert.ok(gesendet()[0]?.idempotencyKey !== undefined, "the notice went unkeyed");
-    expect(mitgeteilt()).toStrictEqual([id(7)]);
-  });
-
-  /* Unstamped, the backend answers the notice again on the next pass; stamped though it never went, nobody would hear. */
-  it("stamps a notice once a mailbox's send went, and none whose every send failed", async () => {
-    ausgang.set("weg@schule.de", "refused");
-    ausgang.set("schiri-weg@schule.de", "lost");
-    passAnswer = (saisonId) => ({
-      ...leererPass(saisonId),
-      neue_ansetzungen: [
-        {
-          ...hinweis(7),
-          empfaenger: [
-            { address: "weg@schule.de", rollen: ["trainer"] },
-            { address: "da@schule.de", rollen: ["ansprechperson"] },
-          ],
-        },
-        { ...hinweis(8), empfaenger: [{ address: "weg@schule.de", rollen: ["trainer"] }] },
-        // The mailbox that went ahead of the one that failed: neither the first send nor the last decides alone.
-        {
-          ...hinweis(10),
-          empfaenger: [
-            { address: "da@schule.de", rollen: ["ansprechperson"] },
-            { address: "weg@schule.de", rollen: ["trainer"] },
-          ],
-        },
-      ],
-      schiedsrichter_spiel_abgesagt: [{ ...hinweis(9), address: "schiri-weg@schule.de" }],
-    });
-
-    await runSpielSweep();
-
-    expect(mitgeteilt()).toStrictEqual([id(7), id(10)]);
-  });
-
-  /* The pass call stamped the reminder before answering, so a pass ending at the notices' stamp would cost the season
-     its reminders for good and its requests for an hour. */
-  it("mails the reminders and requests and stamps the requests where the notices' stamp failed, filing that failure", async () => {
-    mitgeteiltScheitert = true;
-    passAnswer = (saisonId) => ({
-      ...leererPass(saisonId),
-      schiedsrichter_gewechselt: [{ ...hinweis(4), address: "schiri@schule.de" }],
-      erinnerungen: [anfrage(2, "erinnert@schule.de")],
-      anfragen: [anfrage(3, "neu@schule.de")],
-    });
-
-    await runSpielSweep();
-
-    expect(gesendet().map(({ to }) => to)).toStrictEqual(["schiri@schule.de", "erinnert@schule.de", "neu@schule.de"]);
-    expect(gestempelt()).toStrictEqual([id(3)]);
-    expect(passLines()[0]).toStrictEqual({
-      level: "error",
-      event: "spielbestaetigung.sweep_failed",
-      fields: { name: "Error", saison_id: "2627" },
-    });
-  });
-
-  /* Never in parallel: a fan-out would put every season's mail on the transport at once. */
-  it("visits the seasons one at a time, in the order listed", async () => {
-    listeAnswer = () => ({ saison_ids: ["2627", "2728"] });
-    passAnswer = (saisonId) => ({ ...leererPass(saisonId), anfragen: [anfrage(saisonId === "2627" ? 1 : 2, `${saisonId}@schule.de`)] });
-
-    await runSpielSweep();
-
-    expect(ereignisse.map((ereignis) => (ereignis.art === "api" ? ereignis.endpoint : ereignis.mail.to))).toStrictEqual([
-      LISTE,
-      PASS("2627"),
-      "2627@schule.de",
-      ANGEFRAGT("2627"),
-      PASS("2728"),
-      "2728@schule.de",
-      ANGEFRAGT("2728"),
-    ]);
-  });
-});
-
-describe("the pass's lines", () => {
-  /* Counts, never a person, an address or a token. */
-  it("writes one line holding its counts", async () => {
-    passAnswer = (saisonId) => ({
-      ...leererPass(saisonId),
-      anfragen: [anfrage(1, "a@schule.de")],
-      erinnerungen: [anfrage(2, "b@schule.de")],
-      geschlossen: 2,
-    });
-
-    await runSpielSweep();
-
-    expect(passLines()).toStrictEqual([
+    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([LISTE, `${LISTE}/2627`, `${LISTE}/2728`]);
+    expect(lines).toStrictEqual([
       {
         level: "info",
         event: "spielbestaetigung.sweep_pass",
-        fields: { geschlossen: 2, angefragt: 1, erinnert: 1, mitgeteilt: 0, aufgegeben: 0, fehlgeschlagen: 0 },
+        fields: { geschlossen: 2, angefragt: 3, erinnert: 1, mails: 9, fehlgeschlagen: 0 },
       },
     ]);
   });
 
-  /* Each pass moves on past a row it passed over, so only this count tells a pass failing on every row from a healthy one. */
-  it("warns where the pass passed rows over", async () => {
-    passAnswer = (saisonId) => ({ ...leererPass(saisonId), fehlgeschlagen: 3 });
+  /* The scheduler reports a pass ending on a failure to the heartbeat, which a job answering with a line alone keeps from it. */
+  it("rejects where a season's pass fails, sweeping no season after it", async () => {
+    passAnswer = (saisonId) => (saisonId === "2627" ? new Error("the backend went away") : pass(saisonId));
 
-    await runSpielSweep();
-
-    expect(passLines()).toStrictEqual([
-      {
-        level: "warn",
-        event: "spielbestaetigung.sweep_pass",
-        fields: { geschlossen: 0, angefragt: 0, erinnert: 0, mitgeteilt: 0, aufgegeben: 0, fehlgeschlagen: 3 },
-      },
-    ]);
+    await expect(runSpielSweep()).rejects.toThrow("the backend went away");
+    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([LISTE, `${LISTE}/2627`]);
   });
 
-  /* A notice given up is a party nobody told: its line names the fixture an operator opens to tell them by hand
-     (`docs/ops/runbooks.md` §9), and its stamp keeps the next pass from answering it again. */
-  it("warns of each notice given up by its fixture and party, never a person, and stamps it", async () => {
-    const aufgegeben = [
-      { spielbestaetigung_id: id(11), spiel_id: id(500), partei: "team" as const },
-      { spielbestaetigung_id: id(12), spiel_id: id(501), partei: "schiedsrichter" as const },
-    ];
-    passAnswer = (saisonId) => ({ ...leererPass(saisonId), mitteilungen_aufgegeben: aufgegeben });
+  it("warns where a pass passed rows over, each pass moving on past them", async () => {
+    passAnswer = (saisonId) => pass(saisonId, { fehlgeschlagen: 1 });
 
     await runSpielSweep();
 
-    expect(passLines()).toStrictEqual([
-      ...aufgegeben.map((notice) => ({
-        level: "warn",
-        event: "spielbestaetigung.mitteilung_aufgegeben",
-        fields: { saison_id: "2627", ...notice },
-      })),
-      {
-        level: "warn",
-        event: "spielbestaetigung.sweep_pass",
-        fields: { geschlossen: 0, angefragt: 0, erinnert: 0, mitgeteilt: 2, aufgegeben: 2, fehlgeschlagen: 0 },
-      },
-    ]);
-    expect(mitgeteilt()).toStrictEqual([id(11), id(12)]);
-  });
-
-  it("files a season it could not sweep under its own code, and goes on to the next", async () => {
-    listeAnswer = () => ({ saison_ids: ["2627", "2728"] });
-    passAnswer = (saisonId) => {
-      if (saisonId === "2627") throw new Error("the pass was refused");
-      return leererPass(saisonId);
-    };
-
-    await runSpielSweep();
-
-    expect(passLines()[0]).toStrictEqual({
-      level: "error",
-      event: "spielbestaetigung.sweep_failed",
-      fields: { name: "Error", saison_id: "2627" },
-    });
-    assert.ok(
-      apiCalls().some(({ endpoint }) => endpoint === PASS("2728")),
-      "the season after the failing one was not swept",
-    );
+    expect(lines.map(({ level, event }) => [level, event])).toStrictEqual([["warn", "spielbestaetigung.sweep_pass"]]);
   });
 });

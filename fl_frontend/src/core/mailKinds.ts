@@ -1,6 +1,13 @@
 import "server-only";
 
 import { buildSchiedsrichterBestaetigungEmail } from "./schiedsrichterEmail";
+import {
+  buildSpielAnfrageEmail,
+  buildSpielEinteilungAufgehobenEmail,
+  buildSpielEinteilungEmail,
+  buildSpielHinweisEmail,
+  buildSpielVorschlagVerworfenEmail,
+} from "./spielEmail";
 
 import type { Mail } from "./emailShell";
 import type { FLPostausgangAusgabe } from "./generated/client/types";
@@ -37,6 +44,13 @@ type MailBuilder<A extends PostausgangArt> = (daten: DatenJeArt[A], ausgabe: Aus
 /** Each kind's builder, which renders through the shell (`fl_frontend/src/core/emailShell.ts :: renderMail`). */
 const MAIL_KINDS: { [A in PostausgangArt]?: MailBuilder<A> } = {
   schiedsrichter_bestaetigung: buildSchiedsrichterBestaetigungEmail,
+  spiel_anfrage: buildSpielAnfrageEmail,
+  spiel_erinnerung: buildSpielAnfrageEmail,
+  spiel_einteilung: buildSpielEinteilungEmail,
+  spiel_neu_angesetzt: buildSpielHinweisEmail,
+  spiel_abgesagt: buildSpielHinweisEmail,
+  spiel_einteilung_aufgehoben: buildSpielEinteilungAufgehobenEmail,
+  spiel_vorschlag_verworfen: buildSpielVorschlagVerworfenEmail,
 };
 
 /**
