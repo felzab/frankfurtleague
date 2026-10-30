@@ -118,8 +118,8 @@ DEAD_GRANT_OID = ObjectId("6890a1b2c3d4e5f607e00001")
 HAND_TYPED_GRANT_OID = ObjectId("6890a1b2c3d4e5f607e00002")
 
 # What the erasure counts and its reveal names nothing of, as the reveal's description says: the fixtures moved onto the
-# ghost, and the day counts.
-COUNTED_AND_NOT_NAMED = ("spiele", "drosselung")
+# ghost.
+COUNTED_AND_NOT_NAMED = ("spiele",)
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -374,7 +374,6 @@ class TestTheRegistryRunsWhole:
             "berechtigungen": 0,
             # The request about their address and the one they asked.
             "berechtigungen_antraege": 2,
-            "drosselung": 4,
         }
         assert left == dict.fromkeys(THEIR_VALUES, [])
         assert (squad, squad_left) == (2, 1)

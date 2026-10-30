@@ -106,7 +106,6 @@ export const Code = {
   "REQ-DATE-005": "REQ-DATE-005",
   "REQ-DATE-008": "REQ-DATE-008",
   "REQ-DATE-009": "REQ-DATE-009",
-  "REQ-DROSSELUNG-001": "REQ-DROSSELUNG-001",
   "REQ-EINLADUNG-001": "REQ-EINLADUNG-001",
   "REQ-EINLADUNG-002": "REQ-EINLADUNG-002",
   "REQ-EINLADUNG-003": "REQ-EINLADUNG-003",
@@ -3276,8 +3275,6 @@ export interface FLErasureResponse {
   berechtigungen: number;
   /** @minimum 0 */
   berechtigungen_antraege: number;
-  /** @minimum 0 */
-  drosselung: number;
   /** @minimum 0 */
   kontakt_sitze: number;
   /** @minimum 0 */

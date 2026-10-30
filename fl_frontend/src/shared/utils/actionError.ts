@@ -27,13 +27,6 @@ export const ZUGANG_WEG = "Dein Zugang zur Verwaltung besteht nicht mehr.";
 const GESPERRT_KEINE_AENDERUNG = "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Änderung möglich.";
 
 /**
- * What a signed-in person is told at the ceiling of the kind of person they write as
- * (`REQ-DROSSELUNG-001`): the count starts again at German midnight, so neither a retry nor a sign-in
- * is offered.
- */
-export const HEUTE_GENUG_GEAENDERT = "Du hast heute schon sehr viel geändert. Morgen geht es weiter.";
-
-/**
  * What a seat holder whose seat went after the page was drawn is told, by the person spine and by the
  * backend's own seat check: a reload draws the page they still hold, or the forbidden panel.
  */
@@ -337,14 +330,10 @@ function refusedAnswer(error: APIBadStatusError, wording: Wording): ActionFailur
  */
 export function toActionErrorResult(error: unknown, answering?: SentRequest, wording: Wording = SAVE_WORDING): ActionFailure {
   if (error instanceof APIBadStatusError) {
-    // Raised by the actor check before any handler, and by a write's transaction re-judging the
-    // grant before each attempt, so nothing was written: the grant went after the guard read it.
+    // Raised by the actor check before any handler, so nothing was written: the grant went after the guard read it.
     if (error.serverErrorCode === "REQ-AUTH-006") return { success: false, error: wording.terminal(ZUGANG_WEG) };
     // The person binder reads the ban per request, so a ban entered since the session was judged.
     if (error.serverErrorCode === "REQ-AUTH-008") return { success: false, error: wording.terminal(GESPERRT_KEINE_AENDERUNG) };
-    // Every person's write route can answer it, so it is worded here rather than by each slice; the consent
-    // writes' mapper words a refused grant first (`fl_frontend/src/features/konto/einwilligung.ts :: ZUSTIMMEN_MORGEN`).
-    if (error.serverErrorCode === "REQ-DROSSELUNG-001") return { success: false, error: wording.terminal(HEUTE_GENUG_GEAENDERT) };
   }
   // A rule's code, so ahead of the rule fallback below, which would name no reason for it.
   if (isFunktionLost(error)) return { success: false, error: wording.terminal(SITZ_WEG) };

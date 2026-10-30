@@ -2,7 +2,7 @@
 API · four eyes on a grant and a promotion: the request, its lone paths, who decides it, its races, its lapse and its journal
 
 Against a replica set, every write in a transaction, each handler called directly with the actor its binder binds. A century
-ahead of the real clock where a case allows, as the day counts' cases are: a request lapses at `bis`, and the TTL monitor
+ahead of the real clock where a case allows: a request lapses at `bis`, and the TTL monitor
 deletes a lapsed one at its next pass, under a case reading it back.
 """
 

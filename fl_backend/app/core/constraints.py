@@ -385,8 +385,6 @@ TTL_INDEXES: Sequence[TTLIndex] = (
         AKTION_RETENTION_SECONDS,
         "a log row is kept for twelve months after the write it recorded",
     ),
-    # Zero: `ablauf` is already the German midnight ending the day the row counts.
-    TTLIndex(Collection.DROSSELUNG, "drosselung_ablauf", "ablauf", 0, "a day's write count is removed once its German day has ended"),
     # A live change never expires, holding no date at `beendet.am`: the hourly pass ends it, taking its address out of the
     # log images, which a TTL deletion never would.
     TTLIndex(

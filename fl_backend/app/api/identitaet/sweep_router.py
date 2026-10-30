@@ -24,7 +24,6 @@ from app.core.dependencies import (
     BerechtigungenPostausgangCollection,
     BewerbungenCollection,
     DBClient,
-    DrosselungCollection,
     EinladungenCollection,
     RegistrierungenCollection,
     SaisonsCollection,
@@ -50,7 +49,7 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Twenty-one commands a pupil, each the round trip plus at most 2.03 ms, timed locally 2026-10-16 and
+# Twenty commands a pupil, each the round trip plus at most 2.03 ms, timed locally 2026-10-16 and
 # again over 20,000 log rows: this share fits `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms
 # round trip.
 LOESCHUNGEN_PER_PASS: Final = 10
@@ -69,7 +68,6 @@ async def _erase_one(
     spielbestaetigungen_collection: AsyncCollection,
     spielberichte_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
-    drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
@@ -100,7 +98,6 @@ async def _erase_one(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             spielberichte_collection=spielberichte_collection,
             registrierungen_collection=registrierungen_collection,
-            drosselung_collection=drosselung_collection,
             aktionen_collection=aktionen_collection,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
@@ -138,7 +135,6 @@ async def post_loeschung_lauf(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
     registrierungen_collection: RegistrierungenCollection,
-    drosselung_collection: DrosselungCollection,
     aktionen_collection: AktionenCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
@@ -169,7 +165,7 @@ async def post_loeschung_lauf(
     writes waits for it to end: the entry then finds nobody, and the registration is stored for a pupil already gone.
     Two calls at once therefore delete each pupil once. Deleted are
     the pupil's own data alone: the pupil record, every squad row it holds and every registration at the address, a declined
-    one included, each with its log images, and their day counts as a pupil; every log row they wrote as a pupil keeps a
+    one included, each with its log images; every log row they wrote as a pupil keeps a
     fixed marker in their place. A contact seat, a referee record, a grant and anything else held at the same
     address stand, and so do the log images naming them.
 
@@ -232,7 +228,6 @@ async def post_loeschung_lauf(
                 spielbestaetigungen_collection=spielbestaetigungen_collection,
                 spielberichte_collection=spielberichte_collection,
                 registrierungen_collection=registrierungen_collection,
-                drosselung_collection=drosselung_collection,
                 aktionen_collection=aktionen_collection,
                 berechtigungen_collection=berechtigungen_collection,
                 berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,

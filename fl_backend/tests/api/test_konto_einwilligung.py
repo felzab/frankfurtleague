@@ -131,11 +131,6 @@ def _block(einwilligung: dict[str, Any]) -> dict[str, Any]:
 # `NOW` in UTC, as evidence spells its instant.
 AM = "2026-10-03T10:00:00+00:00"
 
-# A century ahead, for every case reading the day's count back: the TTL monitor deletes a count whose day
-# has ended, so under `NOW` one may be gone, and a case asserting none was spent would pass.
-COUNTED_NOW = datetime(2126, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
-COUNTED_AM = "2126-10-03T10:00:00+00:00"
-
 
 def _running_label() -> str:
     return LAUFENDE_FASSUNGEN[KONTO_SEITE_SCHIEDSRICHTER]
@@ -247,7 +242,7 @@ def _app() -> FastAPI:
 
 @pytest.fixture(scope="module", autouse=True)
 def _built_before_any_case() -> None:
-    """Never inside a case, for the reason `tests/api/test_drosselung_execution.py :: _built_before_any_case` gives."""
+    """Never inside a case: a build re-runs the logging `dictConfig`, which strips the handler `caplog` reads that case's records from."""
 
     _app()
 
@@ -848,27 +843,24 @@ class TestTheSeatsWhatsAppChoice:
         assert (granted.status_code, granted.json()["error_code"]) == (403, Code.ERTEILUNG_NICHT_ZUGELASSEN)
         assert after == before
 
-    def test_a_live_re_grant_is_taken_and_counted_as_the_contact_persons(self, mongo_replica_set_url: str):
+    def test_a_live_re_grant_is_taken(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _whatsapp_on_every_held_seat(database)
             path = _seat_path(TEAM_B_OID, ACTIVE_SAISON)
             withdrawn = await http.patch(
                 path, json=_seat_body(medien=True, stand=_seated_stand(1, umfang="kontaktdaten_whatsapp")), headers=_person(IDENTIFIER)
             )
-            counted_after_withdrawal = [row async for row in database[Collection.DROSSELUNG].find({})]
             granted = await http.patch(
                 path,
                 json=_seat_body(medien=True, umfang="kontaktdaten_whatsapp", stand=withdrawn.json()["nachweis_stand"]),
                 headers=_person(IDENTIFIER),
             )
-            return granted, counted_after_withdrawal, [row async for row in database[Collection.DROSSELUNG].find({})], await _rows(database)
+            return granted, await _rows(database)
 
-        granted, counted_after_withdrawal, counted, after = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
+        granted, after = served(mongo_replica_set_url, steps)
 
         assert granted.status_code == 200, granted.text
         assert after[(TEAM_B_OID, ACTIVE_SAISON)]["stellvertretung"]["einwilligung"]["umfang"] == "kontaktdaten_whatsapp"
-        assert counted_after_withdrawal == []
-        assert [(row["_id"].split(":")[0], row["n"]) for row in counted] == [("kontakt", 1)]
 
     def test_moving_the_scope_leaves_the_media_consent_and_its_evidence_standing(self, mongo_replica_set_url: str):
         """The media evidence seeded first, so a write setting the block's evidence whole is seen to drop it."""
@@ -1129,7 +1121,7 @@ class TestAPendingApplicationsSeats:
     @pytest.mark.parametrize(
         ("umfang", "medien"), [("kontaktdaten_whatsapp", False), ("kontaktdaten", True)], ids=["the WhatsApp scope", "the media consent"]
     )
-    def test_a_grant_of_either_choice_is_refused_uncounted_and_unwritten(self, mongo_replica_set_url: str, umfang: str, medien: bool):
+    def test_a_grant_of_either_choice_is_refused_and_unwritten(self, mongo_replica_set_url: str, umfang: str, medien: bool):
         """Withdraw-only by kind: the season seat's payload carries a grant, and the press refuses it before any rule a grant meets."""
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
@@ -1140,12 +1132,12 @@ class TestAPendingApplicationsSeats:
             before = await _application_docs(database)
             body = {**_withdrawal(stand=_seated_stand(2, medien=False)), "umfang": umfang, "medien": medien}
             response = await http.patch(_application_path(PENDING_OID), json=body, headers=_person(IDENTIFIER))
-            return response, before, await _application_docs(database), await database[Collection.DROSSELUNG].count_documents({})
+            return response, before, await _application_docs(database)
 
-        response, before, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
+        response, before, after = served(mongo_replica_set_url, steps)
 
         assert (response.status_code, response.json()["error_code"]) == (403, Code.ERTEILUNG_NICHT_ZUGELASSEN)
-        assert (after, counted) == (before, 0)
+        assert after == before
 
     def test_a_whatsapp_withdrawal_reaches_every_seat_the_person_holds_there(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
@@ -1159,9 +1151,9 @@ class TestAPendingApplicationsSeats:
                 json=_withdrawal(medien=True, stand=_seated_stand(2, umfang="kontaktdaten_whatsapp")),
                 headers=_person(IDENTIFIER),
             )
-            return response, await _application_docs(database), await database[Collection.DROSSELUNG].count_documents({})
+            return response, await _application_docs(database)
 
-        response, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
+        response, after = served(mongo_replica_set_url, steps)
 
         assert response.status_code == 200, response.text
         for slot in ("trainer", "ansprechperson"):
@@ -1169,9 +1161,8 @@ class TestAPendingApplicationsSeats:
             assert (einwilligung["umfang"], einwilligung["medien"], einwilligung[NACHWEIS]) == (
                 "kontaktdaten",
                 True,
-                {"umfang": {**SEAT_WITHDRAWAL, "am": COUNTED_AM}, "medien": SEAT_BELEG},
+                {"umfang": {**SEAT_WITHDRAWAL, "am": AM}, "medien": SEAT_BELEG},
             )
-        assert counted == 0
 
     def test_a_press_from_a_page_served_older_evidence_is_refused_and_unwritten(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
@@ -1272,9 +1263,9 @@ class TestAPendingRegistration:
             before = await _registrierung_docs(database)
             body = _registrierung_body(before[REGISTRIERUNG_OWN], umfang="intern")
             response = await http.patch(_registrierung_path(REGISTRIERUNG_OWN), json=body, headers=_person(IDENTIFIER))
-            return response, before, await _registrierung_docs(database), await database[Collection.DROSSELUNG].count_documents({})
+            return response, before, await _registrierung_docs(database)
 
-        response, before, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
+        response, before, after = served(mongo_replica_set_url, steps)
 
         assert response.status_code == 200, response.text
         einwilligung = after[REGISTRIERUNG_OWN]["einwilligung"]
@@ -1286,7 +1277,7 @@ class TestAPendingRegistration:
         }
         assert (einwilligung["umfang"], einwilligung[NACHWEIS]["umfang"]) == (
             "intern",
-            {"am": COUNTED_AM, "text_version": LAUFENDE_FASSUNGEN["konto_spieler"], "erteilt_zuvor": REGISTRIERUNG_GRANT},
+            {"am": AM, "text_version": LAUFENDE_FASSUNGEN["konto_spieler"], "erteilt_zuvor": REGISTRIERUNG_GRANT},
         )
         stood = before[REGISTRIERUNG_OWN]["einwilligung"]
         # The other choice, its evidence, the days and the label the pupil confirmed all stand.
@@ -1297,23 +1288,22 @@ class TestAPendingRegistration:
         assert {key: value for key, value in after.items() if key != REGISTRIERUNG_OWN} == {
             key: value for key, value in before.items() if key != REGISTRIERUNG_OWN
         }
-        assert counted == 0
 
     @pytest.mark.parametrize(
         ("umfang", "medien"), [("kader_oeffentlich", False), ("intern", True)], ids=["the publication scope", "the media consent"]
     )
-    def test_a_grant_of_either_choice_is_refused_uncounted_and_unwritten(self, mongo_replica_set_url: str, umfang: str, medien: bool):
+    def test_a_grant_of_either_choice_is_refused_and_unwritten(self, mongo_replica_set_url: str, umfang: str, medien: bool):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _registrierungen(database, umfang="intern", medien=False)
             before = await _registrierung_docs(database)
             body = _registrierung_body(before[REGISTRIERUNG_OWN], umfang=umfang, medien=medien)
             response = await http.patch(_registrierung_path(REGISTRIERUNG_OWN), json=body, headers=_person(IDENTIFIER))
-            return response, before, await _registrierung_docs(database), await database[Collection.DROSSELUNG].count_documents({})
+            return response, before, await _registrierung_docs(database)
 
-        response, before, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
+        response, before, after = served(mongo_replica_set_url, steps)
 
         assert (response.status_code, response.json()["error_code"]) == (403, Code.ERTEILUNG_NICHT_ZUGELASSEN)
-        assert (after, counted) == (before, 0)
+        assert after == before
 
     @pytest.mark.parametrize(
         "registrierung_id",
@@ -1446,14 +1436,14 @@ class TestSeatsAnsweredApart:
             row[slot]["einwilligung"][NACHWEIS] == {"umfang": SEAT_BELEG, "medien": SEAT_WITHDRAWAL} for slot in ("trainer", "ansprechperson")
         )
 
-    def test_a_running_seasons_media_withdrawal_grants_no_whatsapp_and_counts_nothing(self, mongo_replica_set_url: str):
+    def test_a_running_seasons_media_withdrawal_grants_no_whatsapp(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _seats_disagreeing(database)
             body = await _as_the_page_was_served(http, TEAM_B_OID, ACTIVE_SAISON, medien=False)
             response = await http.patch(_seat_path(TEAM_B_OID, ACTIVE_SAISON), json=body, headers=_person(IDENTIFIER))
-            return body, response, await _rows(database), await database[Collection.DROSSELUNG].count_documents({})
+            return body, response, await _rows(database)
 
-        body, response, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
+        body, response, after = served(mongo_replica_set_url, steps)
 
         assert body["umfang"] == "kontaktdaten_whatsapp", "the page did not show the row's WhatsApp as on, so this case proves nothing"
         assert response.status_code == 200, response.text
@@ -1464,7 +1454,6 @@ class TestSeatsAnsweredApart:
             ("kontaktdaten_whatsapp", False),
             ("kontaktdaten", False),
         ]
-        assert counted == 0
 
     def test_a_whatsapp_withdrawal_reaches_the_seat_that_held_it_alone(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:

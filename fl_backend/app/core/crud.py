@@ -6,9 +6,8 @@ helper raises `DocumentNotFoundError` on a miss and never returns `None`, and a 
 helper returns the empty result and never raises for absence.
 
 Every write here but an anchor appends to the action log (`app/core/recording.py`), which is what makes the
-log complete by construction: a WRITE reaches the driver in this module alone, beside two that record
-no domain fact: the log's own row, which `app/core/recording.py :: record_write` inserts, and a
-person's count for the day, which `app/core/drosselung.py :: get_drossel` raises. Reads are a different matter --
+log complete by construction: a WRITE reaches the driver in this module alone, beside the log's own row,
+which `app/core/recording.py :: record_write` inserts and which records no domain fact. Reads are a different matter --
 several routers call `aggregate`, `count_documents`, `distinct`, `find` and `find_one` directly --
 and a write shaped like one of those would escape the log.
 """

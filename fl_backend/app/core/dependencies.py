@@ -56,8 +56,6 @@ AdresswechselCollection = Annotated[AsyncCollection, Depends(collection_dependen
 
 AdresswechselPostausgangCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.ADRESSWECHSEL_POSTAUSGANG))]
 
-DrosselungCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.DROSSELUNG))]
-
 BerechtigungenAntraegeCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.BERECHTIGUNGEN_ANTRAEGE))]
 
 

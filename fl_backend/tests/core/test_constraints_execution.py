@@ -344,11 +344,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             },
         ),
         "spielberichte": spielbericht_document({"_id": SPIEL_OID, "saison_id": SAISON_ID}),
-        "drosselung": {
-            "_id": "kontakt:" + "a" * 64 + ":2026-03-15",
-            "n": 1,
-            "ablauf": datetime(2026, 3, 15, 23, tzinfo=UTC),
-        },
         # A live change as the start stores it: its instants are dates, which every read takes.
         "adresswechsel": {
             "_id": ADRESSWECHSEL_OID,
@@ -1143,14 +1138,12 @@ def test_the_erasure_marks_a_persons_log_rows_through_an_index(mongo_url: str):
         listener = _SentUpdates()
         watched = AsyncMongoClient(mongo_url, event_listeners=[listener])
         try:
-            log, counts = watched[database.name][Collection.AKTIONEN], watched[database.name][Collection.DROSSELUNG]
+            log = watched[database.name][Collection.AKTIONEN]
             async with watched.start_session() as session:
                 await unattribute_in_session(
                     aktionen_collection=log, identifier="ida@example.invalid", pseudonym=ERASED_PSEUDONYM, session=session
                 )
-                await erase_pupil_actor_in_session(
-                    aktionen_collection=log, drosselung_collection=counts, pseudonym=ERASED_PSEUDONYM, session=session
-                )
+                await erase_pupil_actor_in_session(aktionen_collection=log, pseudonym=ERASED_PSEUDONYM, session=session)
         finally:
             await watched.close()
 

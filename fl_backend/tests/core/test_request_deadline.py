@@ -686,20 +686,13 @@ class TestAWriteTheDeadlineCutIsNotCalledFailed:
     def test_no_write_reaches_the_driver_past_those_helpers(self):
         """A write sent past them is cut unmarked and called failed.
 
-        Excused: the log's row, which follows a helper's write, and a day count, which precedes the
-        write it counts, so a cut one leaves nothing standing.
+        Excused: the log's row, which follows a helper's write, so a cut one leaves nothing standing.
         """
 
         outside = {f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) in DRIVER_WRITES}
 
         assert {site for site in outside if not site.startswith(f"{CRUD_MODULE} :: ")} == {
             "app/core/recording.py :: record_write",
-            "app/core/drosselung.py :: drosseln",
-            # An erasure's removal of the person's counts, inside the erasure's transaction, so a cut
-            # removal commits nothing and "failed" is the truth.
-            "app/core/drosselung.py :: erase_counts_in_session",
-            # An effect's carry of the counts onto the new pseudonym, inside the effect's transaction, for the same reason.
-            "app/core/drosselung.py :: carry_counts_in_session",
         }
 
     def test_the_method_does_not_decide_it(self):

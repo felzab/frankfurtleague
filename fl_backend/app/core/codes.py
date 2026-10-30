@@ -139,7 +139,6 @@ class Code(StrEnum):
     # postponement takes.
     SPIELTAG_BEGINN_OUT_OF_ORDER = "REQ-DATE-008"
     SAISON_SPAN_BELOW_SCHEDULE_AS_STORED = "REQ-DATE-009"
-    DROSSELUNG_ERREICHT = "REQ-DROSSELUNG-001"
     EINLADUNG_TEAM_NICHT_EINGETRAGEN = "REQ-EINLADUNG-001"
     EINLADUNG_SAISON_VORBEI = "REQ-EINLADUNG-002"
     # One code for a link nobody minted and one an administrator replaced, for the reason

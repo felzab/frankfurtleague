@@ -156,19 +156,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
     E-Mail-Adresse, die gesperrt ist“ names no route, so it covers all four, and the ban's own mail
     tells a person whose address holds an account that the sign-in is barred.
 
-  **Two more refusals are taken by the code alone, and the notice names both with the way through
-  each leaves** (`DatenschutzView.tsx :: Zwei weitere Grenzen setzt die Website`):
-  - Cloudflare's bot check on the sign-in code request, the application form and the pupil's
-    registration form, which refuses a submission carrying no token or one Cloudflare judged against, before
-    anything is written or mailed, and asks the person to confirm they are human
-    (`fl_frontend/src/core/turnstile.ts :: turnstileRefusal`), a check Cloudflare cannot answer
-    letting the submission through;
-  - the daily write ceiling, which refuses a signed-in person's counted writes past the bound of
-    their kind of person until German midnight (`REQ-DROSSELUNG-001`)
-    and never refuses a withdrawal.
+  **One more refusal is taken by the code alone, and the notice names it with the way through it
+  leaves** (`DatenschutzView.tsx`, section 12): Cloudflare's bot check on the sign-in code request,
+  the application form and the pupil's registration form, which refuses a submission carrying no
+  token or one Cloudflare judged against, before anything is written or mailed, and asks the person
+  to confirm they are human (`fl_frontend/src/core/turnstile.ts :: turnstileRefusal`), a check
+  Cloudflare cannot answer letting the submission through.
 
-  The notice offers a person's review of both on request by mail, as the ruling above has it for
-  every refusal the code takes alone; whether that ruling reaches these two is not yet confirmed.
+  The notice offers a person's review of it on request by mail, as the ruling above has it for
+  every refusal the code takes alone; whether that ruling reaches this one is not yet confirmed.
 
   What the review can change is bounded by the rule each refusal applies: a person reads the case
   and answers, a mistyped date is corrected through the same link, an administrator can lift a ban
@@ -541,19 +537,6 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   marker in its place from their erasure on, the rows that erasure itself writes included. Rows written under an earlier address of theirs, confirmed and
   since changed, keep that address's pseudonym, which the erasure cannot recompute from the address it
   is asked for; they leave the log with its twelve months.
-- **A signed-in person's writes are counted per day under the same pseudonym, and their erasure
-  removes the counts.** The daily write ceiling
-  (`docs/glossary.md :: Drosselung`) keeps one row per kind of person the write was made as, pseudonym and German day, holding a number and no
-  address, so that one stolen or misused seat cannot write without bound; the TTL index removes it
-  at that day's German midnight, plus the monitor's lag, and the person's erasure removes every
-  count of theirs its own read finds, whatever its day; one a request racing the erasure writes after
-  that read goes with the TTL index. **The ceiling's first refusal of a day also leaves one line in
-  the application log**, naming the kind of person and the pseudonym's prefix the action-log page shows,
-  never an address (`fl_backend/app/core/drosselung.py :: get_drossel`). That line is kept as every application-log line is, by size while
-  the container runs and for thirty days in the copy each deploy takes
-  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)), and no erasure reaches it. Until
-  the person's erasure an administrator can match the prefix to their rows on the log page; after it
-  those rows name the marker, and the prefix matches nothing there.
 - **Backups outlive an erasure by the snapshot window, the mail provider's copies and Cloudflare's
   record of mail to the league by their own periods, and the person is told each.** The hosting
   keeps snapshots for about eight days, taken daily — a figure mirrored from the provider's own
@@ -932,7 +915,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   hashes of an address alone; a change is discarded by an administrator, by a later change of the
   same address, by its address on file holding nothing left to move, or by the hourly pass refusing
   it at its due time (`fl_backend/app/core/journal.py :: DATENSAETZE`). An erasure's
-  line holds three, the journal's own, the pseudonym the action log and the day counts key that
+  line holds three, the journal's own, the pseudonym the action log keys that
   person on, and the digest their fixture answers carry, so a restore holding the address nowhere
   still finds those rows and the reasons those answers hold; a choice's line holds the journal's one, beside the record that act changed and its
   moment, a withdrawal's text version and the withholding values it set, and the seats a Widerspruch

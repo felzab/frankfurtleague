@@ -50,7 +50,6 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
-from app.core.drosselung import build_counts_filter
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.journal import JOURNAL_TOKEN, JournalLine, parse_line
 from app.core.recording import SYSTEM_ACTOR, Actor, PersonActor, actor_var, log_stamp
@@ -2408,32 +2407,6 @@ class TestWhatTheEffectLeavesTheErasure:
 
         assert von == NEW_EMAIL
         assert images[EMAIL] == 0 and images[NEW_EMAIL] >= 1
-
-    def test_the_day_s_counts_follow_the_pseudonym(self, mongo_replica_set_url: str):
-        """Keyed by the address's pseudonym; left behind, every effect would hand the person a fresh day of starts."""
-
-        alt, neu = akteur_pseudonym(EMAIL, schluessel=KEY), akteur_pseudonym(NEW_EMAIL, schluessel=KEY)
-        far_off = NOW + timedelta(days=2)
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            counts = database[Collection.DROSSELUNG]
-            # Two kinds under the replaced address, and one the new address already holds, which the carry adds to.
-            await counts.insert_many(
-                [
-                    {"_id": f"adresswechsel:{alt}:{TODAY}", "n": 3, "ablauf": far_off},
-                    {"_id": f"kontakt:{alt}:{TODAY}", "n": 2, "ablauf": far_off},
-                    {"_id": f"adresswechsel:{neu}:{TODAY}", "n": 1, "ablauf": far_off},
-                ]
-            )
-            await confirmed_and_moved(database, client)
-            return {
-                address: sorted([(row["_id"].split(":")[0], row["n"]) async for row in counts.find(build_counts_filter(pseudonym))])
-                for address, pseudonym in ((EMAIL, alt), (NEW_EMAIL, neu))
-            }
-
-        counts = on_a_person(mongo_replica_set_url, body)
-
-        assert counts == {EMAIL: [], NEW_EMAIL: [("adresswechsel", 4), ("kontakt", 2)]}
 
     def test_an_earlier_effect_s_queued_notice_follows_the_person(self, mongo_replica_set_url: str):
         """Its account goes where the person is now, and an erasure of the new address finds the row."""

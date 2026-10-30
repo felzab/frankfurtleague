@@ -126,7 +126,7 @@ class TestTheStatusesAnActivationLeaves:
 
 # One pupil's commands on the wire, pinned by
 # `fl_backend/tests/api/test_loeschung_sweep.py :: TestOnePupilCostsTheCommandsItsShareIsSizedAt`.
-COMMANDS_A_PERSON = 21
+COMMANDS_A_PERSON = 20
 
 # The call's other commands, pinned on the wire by
 # `fl_backend/tests/api/test_loeschung_sweep.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`: three aggregates,

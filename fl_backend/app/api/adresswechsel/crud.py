@@ -68,7 +68,6 @@ from app.api.spieler.services import build_selbst_pupil_filter
 from app.api.teams.crud import void_moved_seats
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
-from app.core.drosselung import carry_counts_in_session
 from app.core.exceptions import WriteRefusal
 from app.core.journal import Journal, JournalLine
 from app.core.recording import ERASED_ACTOR_MARKER, build_redaction_filter, log_stamp
@@ -525,7 +524,6 @@ async def take_effect_in_session(
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
     adresswechsel_postausgang_collection: AsyncCollection,
-    drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     schluessel: SecretStr,
     now: datetime,
@@ -632,7 +630,6 @@ async def take_effect_in_session(
         einladungen_collection=einladungen_collection,
         sperrliste_collection=sperrliste_collection,
         adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
-        drosselung_collection=drosselung_collection,
         aktionen_collection=aktionen_collection,
         schluessel=schluessel,
         now=now,
@@ -665,7 +662,6 @@ async def move_the_address_in_session(
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
     adresswechsel_postausgang_collection: AsyncCollection,
-    drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     schluessel: SecretStr,
     now: datetime,
@@ -818,13 +814,6 @@ async def move_the_address_in_session(
             )
         },
         stamp=stamp,
-        session=session,
-    )
-    # The day's counts follow the pseudonym, or every effect hands the person a fresh day.
-    await carry_counts_in_session(
-        drosselung_collection=drosselung_collection,
-        alt=akteur_pseudonym(alt, schluessel=schluessel),
-        neu=akteur_pseudonym(neu, schluessel=schluessel),
         session=session,
     )
     # An earlier effect's notice still queued carries its account to where the person is now, and an erasure there finds it.
