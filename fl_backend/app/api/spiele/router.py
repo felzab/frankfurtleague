@@ -32,10 +32,10 @@ async def get_spiele(
     today: str = Depends(get_german_date_str),
 ) -> FLSpieleListResponse:
     """
-    List Spiele matching the given filters.
+    List the Spiele matching the filters, of the current season unless `saison_id` names another.
 
-    Omitting `saison_id` returns the CURRENT season; one this tier may not read lists nothing.
-    `saison_phase` aliases `playoffs` to "any phase but gruppenphase"; `ausstehend` includes today.
+    A season this tier may not read lists nothing; `playoffs` means every phase but `gruppenphase`, and
+    `ausstehend` includes today.
     """
 
     # Resolved here, never as a field default, which cannot reach the database.
@@ -69,12 +69,7 @@ async def get_spiel(
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
 ) -> FLSpieleSingleResponse:
-    """
-    Return one match by its id.
-
-    The season is read to gate it and for nothing else: the match carries its own `saison_id`, and
-    `spiel_status` is a property of a query. 404 for a season this tier may not read.
-    """
+    """Return one match by its id, answering 404 for a match of a season this tier may not read."""
 
     # The 404 is raised here because an aggregation returning nothing is an empty list, not `None`.
     spiele_raw = await aggregate_many_from_db(

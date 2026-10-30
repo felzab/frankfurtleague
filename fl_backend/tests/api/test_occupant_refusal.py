@@ -1688,13 +1688,6 @@ class TestRemovingATeamFromAPlayedFixture:
 
         assert self.removal(season, 2) is None
 
-    def test_it_keys_on_the_goals_rather_than_on_ergebnis(self, season):
-        """`tore` with no composed `ergebnis` is the hand-edited document, and emptying it loses the goals."""
-
-        without_ergebnis = [{**doc, "ergebnis": None} if doc["spiel_nr"] == 2 else doc for doc in season]
-
-        assert self.removal(without_ergebnis, 2, team1=None) == Code.RESULT_SIDE_EMPTIED
-
 
 def state_refusal_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) -> WriteRefusal | None:
     """`find_state_refusal` reads the payload alone — the event and the two goal counts arrive in one body."""

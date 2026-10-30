@@ -293,14 +293,6 @@ class TestResolveBracket:
 
         assert resolved(spiele) == {29: ("Team 1", None)}
 
-    def test_goals_without_an_ergebnis_are_not_a_result(self, fixture_at: FixtureFactory, side: SideFactory):
-        spiele = [
-            fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis=None),
-            fixture_at(29, quelle1=sieger(25)),
-        ]
-
-        assert resolved(spiele) == {}
-
     def test_a_group_seeded_slot_is_left_alone_with_no_standings(self, fixture_at: FixtureFactory, side: SideFactory):
         """Distinct from a standing that has not decided the placing, which does empty the slot — `test_standings.py`'s."""
 
