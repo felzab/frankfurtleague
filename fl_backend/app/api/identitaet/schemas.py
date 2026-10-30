@@ -278,9 +278,12 @@ class FLErasureAdressePayload(BaseModel):
 class FLErasurePayload(FLErasureAdressePayload):
     """The mailbox, and the request the erasure answers, which every log row the erasure files keeps."""
 
+    # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
     anlass: Annotated[
         str,
-        StringConstraints(strip_whitespace=True, min_length=1, max_length=ERASURE_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        StringConstraints(max_length=ERASURE_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        AfterValidator(str.strip),
+        StringConstraints(min_length=1),
         AfterValidator(refuse_an_address_in_the_anlass),
     ]
 
