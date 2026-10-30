@@ -1,5 +1,6 @@
 import z from "zod";
 
+import { FLEinwilligungUmfang, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, PersonNameSchema } from "@/shared/schemas";
@@ -8,54 +9,29 @@ import { NUMMER_MUST_BE_DIGITS } from "./constants";
 
 // Redesign: goes with its last importer.
 /**
- * Mirrors `FLSpielerPosition`. German error because the squad editor's picker binds this directly;
- * an untouched picker submits null, which this refuses and the nullable wrappers below allow.
+ * German error because the squad editor's picker binds this directly; an untouched picker submits null, which this
+ * refuses and the nullable wrappers below allow.
  */
-export const FLSpielerPositionSchema = z.enum(["Tor", "Abwehr", "Mittelfeld", "Angriff"], { error: "Bitte wähle eine Position." });
+export const FLSpielerPositionSchema = z.enum(FLSpielerPosition, { error: "Bitte wähle eine Position." });
 
 // Redesign: goes with its last importer.
-/** Mirrors `FLSpielerStufe` — the Hessen Oberstufe, both phases. */
-export const FLSpielerStufeSchema = z.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"], { error: "Bitte wähle eine Stufe." });
+export const FLSpielerStufeSchema = z.enum(FLSpielerStufe, { error: "Bitte wähle eine Stufe." });
 
 // Redesign: goes with its last importer.
 /**
- * Mirrors `FLSpielerRolle`. Slugs, so `ROLLE_OPTIONS` owns the German the reader sees; a squad holds
- * each of these once, which the write path refuses on (`kader_rolle_taken`).
+ * Slugs, so `ROLLE_OPTIONS` owns the German the reader sees; a squad holds each of these once, which the write path
+ * refuses on (`kader_rolle_taken`).
  */
-const FLSpielerRolleSchema = z.enum(["kapitaen", "co_kapitaen"], { error: "Bitte wähle eine Rolle." });
+const FLSpielerRolleSchema = z.enum(FLSpielerRolle, { error: "Bitte wähle eine Rolle." });
 
 // Redesign: goes with its last importer.
 /**
  * A consent press's precondition, `FLEinwilligungStandPayload`: each choice's stand as the page was served it, null
  * where no evidence backs that choice, echoed unread, so nothing here reads or derives it.
  */
-export const FLEinwilligungStandSchema = z.object({
+const FLEinwilligungStandSchema = z.object({
   umfang: z.string().nullable(),
   medien: z.string().nullable(),
-});
-
-// Read schemas `features/teams`'s read mirror still composes; the generated types are the ones every reader imports,
-// and these go with that mirror.
-
-/** Mirrors `FLEinwilligungBeleg` — when a person set one consent choice, and under which wording. */
-const FLEinwilligungBelegSchema = z.object({
-  // An instant in UTC, where the block carries a day: two acts on one day are ordered by it.
-  am: z.string(),
-  text_version: z.string(),
-});
-
-/** Mirrors `FLEinwilligungNachweis` — the act that set one choice's value, and on a withdrawal the grant it ended. */
-const FLEinwilligungNachweisSchema = FLEinwilligungBelegSchema.extend({
-  erteilt_zuvor: FLEinwilligungBelegSchema.nullable(),
-});
-
-/**
- * Mirrors `FLEinwilligungNachweise` — each choice's evidence, null until its person sets it. The pupil's,
- * the referee's and a contact seat's record all carry this one shape.
- */
-export const FLEinwilligungNachweiseSchema = z.object({
-  umfang: FLEinwilligungNachweisSchema.nullable(),
-  medien: FLEinwilligungNachweisSchema.nullable(),
 });
 
 // Redesign: goes with its last importer.
@@ -167,7 +143,7 @@ export const WAHL_UNBEKANNT = "Diese Wahl kennen wir nicht. Lade die Seite neu."
  * writes are one shape, so the one consent control cannot send either a member the other lacks.
  */
 export const FLSpielerKontoEinwilligungPayloadSchema = z.object({
-  umfang: z.enum(["kader_oeffentlich", "intern"], { error: WAHL_UNBEKANNT }),
+  umfang: z.enum(FLEinwilligungUmfang, { error: WAHL_UNBEKANNT }),
   medien: z.boolean(),
   // The account page's own label, never the one the record was confirmed under: the backend judges it
   // against the page that took the press.

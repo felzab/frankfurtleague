@@ -1,11 +1,11 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
+import { FLAustrittType, FLGruppenNames, FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "@/core/generated/client/types";
 // The applications slice declares this width, a school proposing a Kürzel before any club exists to
 // hold it (`docs/glossary.md :: Kürzel`). A literal beside it is compared by nothing.
 import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
-import { FLEinwilligungNachweiseSchema } from "@/features/spieler/schemas";
 import {
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
@@ -20,7 +20,6 @@ import {
 import {
   DESCRIPTION_MAX_LENGTH,
   EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
-  GRUPPEN_OPTIONS,
   KONTAKT_NAME_MAX_LENGTH,
   KONTAKT_NAME_ZU_LANG,
   TEAM_FULL_NAME_MAX_LENGTH,
@@ -31,18 +30,17 @@ import { kontaktePersonenRegeln } from "./kontaktePersonen";
 
 // The old club, junction and contact forms' own judgement of their drafts, in words an administrator reads, before
 // each action sends the write through the generated client, which types the body against the write's published
-// contract. The three read schemas below the payloads serve the applications', contacts' and account slices' own
-// answer mirrors, which their lanes remove.
+// contract.
 
 /** A closed set. German error because the group picker binds this schema, and an untouched picker submits null. */
-export const FLGruppenNamesSchema = z.enum(GRUPPEN_OPTIONS, { error: "Bitte wähle eine Gruppe." });
+export const FLGruppenNamesSchema = z.enum(FLGruppenNames, { error: "Bitte wähle eine Gruppe." });
 
 /**
  * Trimmed before its floor, mirroring `fl_backend/app/api/teams/schemas.py :: strip_austritt_grund`. German because
  * the junction editor binds this schema to its inputs, and an untouched picker submits null.
  */
 const FLAustrittPayloadSchema = z.object({
-  type: z.enum(["disqualifikation", "rueckzug"], { error: "Bitte wähle, wie das Team ausgeschieden ist." }),
+  type: z.enum(FLAustrittType, { error: "Bitte wähle, wie das Team ausgeschieden ist." }),
   // Free text written for publication: rendered as authored, never truncated to a label.
   grund: z.string().trim().nonempty({ error: "Bitte gib einen Grund an." }),
   datum: CustomDateStringSchema,
@@ -52,54 +50,20 @@ const FLAustrittPayloadSchema = z.object({
  * No German error: the club editor offers `Keine Angabe` beside the six, so an unanswered picker is a null the field
  * accepts rather than a refusal.
  */
-export const FLSchulformSchema = z.enum(
-  [
-    "gymnasium_g8",
-    "gymnasium_g9",
-    "gesamtschule",
-    "privatschule_g8",
-    "privatschule_g9",
-    "oberstufengymnasium",
-    // Named rather than enumerated: the picker is already showing the six, and Zod's own default
-    // answers a person by listing the slugs the wire uses.
-  ],
-  { error: "Bitte wähle eine Schulform." },
-);
+export const FLSchulformSchema = z.enum(FLSchulform, {
+  // Named rather than enumerated: the picker is already showing the six, and Zod's own default
+  // answers a person by listing the slugs the wire uses.
+  error: "Bitte wähle eine Schulform.",
+});
 
 /**
  * The league's kit palette. The slug is what travels; its German name and its swatch are
  * `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS`.
  */
-export const FLTrikotFarbeSchema = z.enum(
-  [
-    "schwarz",
-    "weiss",
-    "grau",
-    "braun",
-    "bordeaux",
-    "rot",
-    "koralle",
-    "orange",
-    "gold",
-    "gelb",
-    "limette",
-    "hellgruen",
-    "gruen",
-    "smaragd",
-    "tuerkis",
-    "cyan",
-    "hellblau",
-    "meerblau",
-    "blau",
-    "dunkelblau",
-    "flieder",
-    "violett",
-    "magenta",
-    "rosa",
-    // Named rather than enumerated, for `FLSchulformSchema`'s reason: a list of slugs is not an answer.
-  ],
-  { error: "Bitte wähle eine Trikotfarbe." },
-);
+export const FLTrikotFarbeSchema = z.enum(FLTrikotFarbe, {
+  // Named rather than enumerated, for `FLSchulformSchema`'s reason: a list of slugs is not an answer.
+  error: "Bitte wähle eine Trikotfarbe.",
+});
 
 /** German throughout: the team editor binds it to its inputs. */
 export const FLKontaktKenntnisnahmePayloadSchema = z.object({
@@ -133,7 +97,7 @@ const FLKontaktpersonPayloadSchema = z.object({
  * Which OTHER seat the Trainer also holds. One nullable field rather than two flags, which would let a row claim both
  * seats at once.
  */
-export const FLTrainerZugleichSchema = z.enum(["ansprechperson", "stellvertretung"], {
+export const FLTrainerZugleichSchema = z.enum(FLTrainerZugleich, {
   error: "Bitte wähle, wer zugleich Trainerin oder Trainer ist.",
 });
 
@@ -263,18 +227,4 @@ export const FLReplaceSaisonTeamPayloadSchema = z.object({
   // The only field on the wire: the row keeps its group, and its copy of the identity is reseeded
   // from the incoming club, so a client-supplied name could only disagree with it.
   incoming_team_id: CustomObjectIdStringSchema,
-});
-
-/**
- * Which wording a contact person was shown, and on whose word the record is held. The wider `umfang` is its person's
- * alone to write, so the administrator's payload above keeps the one-member literal.
- */
-export const FLKontaktKenntnisnahmeSchema = z.object({
-  umfang: z.enum(["kontaktdaten", "kontaktdaten_whatsapp"], { error: "Die Kenntnisnahme gilt für Kontaktdaten, mit oder ohne WhatsApp." }),
-  text_version: z.string(),
-  datum: CustomDateStringSchema,
-  bestaetigt_am: CustomDateStringSchema.nullable(),
-  medien: z.boolean(),
-  eingetragen_von: z.enum(["bewerbung", "liga"]),
-  nachweis: FLEinwilligungNachweiseSchema,
 });

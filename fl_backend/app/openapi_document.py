@@ -1,10 +1,12 @@
 """Write `fl_backend/openapi.json`, the published contract, from the application's routes.
 
-`uv run --directory fl_backend --frozen python -m app.openapi_document` from the repository root; CI
-runs it and then diffs the file, so a change the committed document does not hold fails there.
+`uv run --directory fl_backend --frozen python -m app.openapi_document` from the repository root, or
+with a path to write there instead, as the gate's contract check does to compare a fresh document
+with the committed one (`scripts/gate/verify.sh :: contract_check`).
 """
 
 import json
+import sys
 from pathlib import Path
 from typing import Any, Final
 
@@ -34,4 +36,5 @@ def serialize(document: dict[str, Any]) -> bytes:
 
 
 if __name__ == "__main__":
-    DOCUMENT_PATH.write_bytes(serialize(build_document()))
+    target = Path(sys.argv[1]) if len(sys.argv) > 1 else DOCUMENT_PATH
+    target.write_bytes(serialize(build_document()))

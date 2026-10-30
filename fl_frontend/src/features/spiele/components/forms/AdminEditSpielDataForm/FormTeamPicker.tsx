@@ -8,6 +8,7 @@ import { SearchField } from "@heroui/react/search-field";
 import { Separator } from "@heroui/react/separator";
 
 import { dismissControl } from "@/core/dismissControl";
+import { FLGruppenNames } from "@/core/generated/client/types";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import {
   formatQuelle,
@@ -35,7 +36,7 @@ import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 
-import type { FLGruppenNames, FLPatchSpielDataPayload, FLSpielQuelle, FLTeam } from "@/core/generated/client/types";
+import type { FLPatchSpielDataPayload, FLSpielQuelle, FLTeam } from "@/core/generated/client/types";
 import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { FLSpiel, FLSpielTeamField } from "@/features/spiele/types";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
@@ -66,7 +67,7 @@ type QuelleChoice = (typeof QUELLE_CHOICES)[number]["key"];
 const recommendedChoiceFor = (hasFeeders: boolean): QuelleChoice => (hasFeeders ? "sieger" : "gruppe");
 
 /** `gruppe` is a required enum with no empty member to start from, and a season always runs its first group. */
-const [DEFAULT_GRUPPE] = GRUPPEN_OPTIONS;
+const DEFAULT_GRUPPE = FLGruppenNames.A;
 
 /**
  * The placings offered when the team list cannot say, which needs a season mismatch between the
