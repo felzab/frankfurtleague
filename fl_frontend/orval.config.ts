@@ -2,7 +2,11 @@ import { readFileSync } from "node:fs";
 
 import { defineConfig } from "orval";
 
-const DOCUMENT_PATH = "../fl_backend/openapi.json";
+// The gate's contract check names a scratch folder of its own here, so it generates beside the tree, never into it
+// (`scripts/gate/verify.sh :: contract_check`).
+const SCRATCH = process.env.CONTRACT_SCRATCH;
+const DOCUMENT_PATH = SCRATCH ? `${SCRATCH}/openapi.json` : "../fl_backend/openapi.json";
+const GENERATED = SCRATCH ? `${SCRATCH}/generated` : "src/core/generated";
 const TRANSPORT_PATH = "@/core/transport";
 
 // Each key tier's scheme in the document's `components.securitySchemes`, and the transport export sending its key.
@@ -40,21 +44,18 @@ const operations = Object.fromEntries(
 // A verbatim string, so the line lands as code ahead of the file's imports rather than as a comment.
 const SERVER_ONLY = () => "import 'server-only';\n";
 
-// Two projects, each with a folder of its own: `clean` wipes its target's folder before it writes, so two projects
-// sharing one would each delete the other's output. Each formats what it writes with the repository's Prettier
-// config, because Orval's own output ends `types.ts` in a blank line, which the docs scope's `git diff --check`
-// refuses. The formatter reads that config directly and never `.prettierignore`, which keeps the format scope off
-// this folder.
+// Each project formats what it writes with the repository's Prettier config, because Orval's own output ends
+// `types.ts` in a blank line, which the docs scope's `git diff --check` refuses. The formatter reads that config
+// directly and never `.prettierignore`, which keeps the format scope off this folder.
 export default defineConfig({
   client: {
     input: { target: DOCUMENT_PATH },
     output: {
       mode: "single",
       client: "fetch",
-      target: "src/core/generated/client/sdk.ts",
-      schemas: { path: "src/core/generated/client/types.ts", mode: "single" },
+      target: `${GENERATED}/client/sdk.ts`,
+      schemas: { path: `${GENERATED}/client/types.ts`, mode: "single" },
       indexFiles: false,
-      clean: true,
       formatter: "prettier",
       // Each path parameter percent-encoded where its URL is built (https://orval.dev/docs/reference/configuration/output),
       // so an id read off a page address or a stored record stays one segment and no call site encodes its own.
@@ -73,9 +74,8 @@ export default defineConfig({
     output: {
       mode: "single",
       client: "zod",
-      target: "src/core/generated/zod/inputs.ts",
+      target: `${GENERATED}/zod/inputs.ts`,
       indexFiles: false,
-      clean: true,
       formatter: "prettier",
       override: {
         header: SERVER_ONLY,
