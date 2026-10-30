@@ -291,6 +291,30 @@ class TestTheDrain:
 
         assert (wiederholt, waiting, again) == (1, [], [row_id])
 
+    def test_a_mail_whose_link_supersedes_drops_the_older_one_still_waiting_to_go_again(self, mongo_replica_set_url: str):
+        """Handed out after the newer mail, the older one would supersede the newer link, and the newest mail opens nothing."""
+
+        ersetzend = FLPostausgangLink(pfade=["token_hashes"], adressen=["email"], ersetzt=True)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            older = await owe(database, client, "link/1", link=True, spec=ersetzend)
+            first = await claimed(database, client)
+            await reported(database, first.beanspruchung, older, "wiederholen")
+            newer = await owe(database, client, "link/2", link=True, spec=ersetzend)
+            second = await claimed(database, client)
+            await reported(database, second.beanspruchung, newer, "gesendet")
+            later = await claimed(database, client, now=NOW + WIEDERHOLUNG_NACH)
+            record = await database[Collection.EINLADUNGEN].find_one({"_id": EINLADUNG})
+
+            return second, later, record, (await stored(database, older))["stand"]
+
+        second, later, record, older_stand = on_a_database(mongo_replica_set_url, body)
+
+        (mail,) = second.mails
+        assert mail.token is not None
+        assert (later.mails, older_stand) == ([], "entfallen")
+        assert record is not None and record["token_hashes"] == [hash_token(mail.token)]
+
 
 class TestTheSignInCode:
     def test_it_is_handed_out_ahead_of_a_full_page_of_older_league_mail(self, mongo_replica_set_url: str):

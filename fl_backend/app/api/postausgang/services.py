@@ -24,7 +24,7 @@ from app.api.postausgang.schemas import (
     FLPostausgangStand,
     FLPostausgangZustellStand,
 )
-from app.core.crud import post_many_to_db
+from app.core.crud import patch_many_in_db, post_many_to_db
 
 # How long one claim holds its rows: past the page's sends at the frontend's per-send bound, so a drain still sending is
 # never overtaken.
@@ -95,7 +95,9 @@ async def enqueue_mails(
 ) -> None:
     """Owe every mail one write owes, inside its transaction, in two commands however many: one read of the keys, one insert.
 
-    A key already stored is a replay's, and owes nothing again. The keys must be distinct.
+    A key already stored is a replay's, and owes nothing again. The keys must be distinct. A mail whose link supersedes
+    the record's earlier ones drops every other open mail about its record and seat that would supersede them too, one
+    command more: handed out after it, such a mail would replace its link with an older one.
     """
 
     if not mails:
@@ -109,9 +111,27 @@ async def enqueue_mails(
         {"schluessel": {"$in": [mail.schluessel for mail in mails]}}, {"schluessel": 1, "_id": 0}, session=session
     ).to_list(length=None)
     owed = {row["schluessel"] for row in stored}
-    rows = [row_of(mail, now=now, geheim=None, gueltig_bis=None) for mail in mails if mail.schluessel not in owed]
-    if rows:
-        await post_many_to_db(collection=postausgang_collection, documents=rows, session=session)
+    neu = [mail for mail in mails if mail.schluessel not in owed]
+    if not neu:
+        return
+
+    await post_many_to_db(
+        collection=postausgang_collection, documents=[row_of(mail, now=now, geheim=None, gueltig_bis=None) for mail in neu], session=session
+    )
+
+    # Equality on the three keys of `postausgang_bezug` for each record and seat (`app/core/constraints.py :: SUPPORT_INDEXES`).
+    ersetzt = [
+        {"bezug.sammlung": str(mail.bezug.sammlung), "bezug.id": mail.bezug.id, "bezug.sitz": mail.bezug.sitz}
+        for mail in neu
+        if mail.bezug is not None and mail.link is not None and mail.link.ersetzt
+    ]
+    if ersetzt:
+        await patch_many_in_db(
+            collection=postausgang_collection,
+            db_filter={"$or": ersetzt, "stand": "offen", "link.ersetzt": True, "schluessel": {"$nin": [mail.schluessel for mail in neu]}},
+            update=final_update("entfallen", now=now),
+            session=session,
+        )
 
 
 def row_of(mail: OwedMail, *, now: datetime, geheim: str | None, gueltig_bis: datetime | None) -> dict[str, Any]:
