@@ -79,9 +79,10 @@ async def routing_exception_handler(request: Request, exc: StarletteHTTPExceptio
 
 
 def served_methods(request: Request) -> list[str]:
-    """Every method some route serving this path accepts, as RFC 9110 section 15.5.6 asks of `Allow`.
+    """Every method some route serving this path accepts, for a 405's `Allow`.
 
-    FastAPI names the first matching route's alone, and a read and a write router split one path.
+    RFC 9110 section 15.5.6 says that header MUST list them all, and Starlette's router names the first matching route's
+    alone, which leaves the other out where a read and a write router split one path.
     """
 
     return sorted(
