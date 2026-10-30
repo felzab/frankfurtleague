@@ -6,7 +6,6 @@ import {
 } from "@/core/generated/client/sdk";
 
 import type {
-  FLBewerbungPersonEinwilligungPayload,
   FLBewerbungPersonEinwilligungResponse,
   FLKontaktEinladenResponse,
   FLKontaktRolle,
@@ -14,6 +13,7 @@ import type {
   FLPatchSaisonTeamKontakteResponse,
   FLSaisonTeamPersonEinwilligungPayload,
   FLSaisonTeamPersonEinwilligungResponse,
+  FLSitzEinwilligungPayload,
 } from "@/core/generated/client/types";
 
 // Both ids go in the PATH, as every junction write spells them — a backend payload model that saw
@@ -57,7 +57,7 @@ export async function patchSitzEinwilligung(
 // every seat of theirs on it and takes a withdrawal alone, a grant being the confirmation page's.
 export async function patchBewerbungEinwilligung(
   bewerbungId: string,
-  payload: FLBewerbungPersonEinwilligungPayload,
+  payload: FLSitzEinwilligungPayload,
 ): Promise<FLBewerbungPersonEinwilligungResponse> {
   return bewerbungenPatchEinwilligung(bewerbungId, payload);
 }

@@ -11,7 +11,6 @@ import {
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 
 import type {
-  FLEinladungAnsichtPayload,
   FLEinladungAnsichtResponse,
   FLPostRegistrierungPayload,
   FLPostRegistrierungResponse,
@@ -19,20 +18,20 @@ import type {
   FLRegistrierungAblehnungResponse,
   FLRegistrierungAufnahmeResponse,
   FLRegistrierungAufnehmenPayload,
-  FLRegistrierungBestaetigungAnsichtPayload,
   FLRegistrierungBestaetigungAnsichtResponse,
   FLRegistrierungBestaetigungPayload,
   FLRegistrierungBestaetigungResponse,
-  FLRegistrierungSelbstEinwilligungPayload,
   FLRegistrierungSelbstEinwilligungResponse,
   FLRegistrierungSweepResponse,
+  FLSelbstEinwilligungPayload,
+  FLTokenPayload,
 } from "@/core/generated/client/types";
 
 /**
  * A POST that reads. The token is the credential, and a GET would put it in a query string the
  * backend's own route template does not redact.
  */
-export async function postEinladungAnsicht(payload: FLEinladungAnsichtPayload): Promise<FLEinladungAnsichtResponse> {
+export async function postEinladungAnsicht(payload: FLTokenPayload): Promise<FLEinladungAnsichtResponse> {
   return registrierungenPostEinladungAnsicht(payload, { readOnly: true });
 }
 
@@ -45,9 +44,7 @@ export async function postRegistrierung(
 }
 
 /** The confirmation link's own read, a POST for `postEinladungAnsicht`'s reason. */
-export async function postBestaetigungAnsicht(
-  payload: FLRegistrierungBestaetigungAnsichtPayload,
-): Promise<FLRegistrierungBestaetigungAnsichtResponse> {
+export async function postBestaetigungAnsicht(payload: FLTokenPayload): Promise<FLRegistrierungBestaetigungAnsichtResponse> {
   return registrierungenGetBestaetigungAnsicht(payload, { readOnly: true });
 }
 
@@ -85,7 +82,7 @@ export async function postRegistrierungSweep(saisonId: string): Promise<FLRegist
 // judges the registration theirs and takes a withdrawal alone until the team admits it.
 export async function patchRegistrierungEinwilligung(
   registrierungId: string,
-  payload: FLRegistrierungSelbstEinwilligungPayload,
+  payload: FLSelbstEinwilligungPayload,
 ): Promise<FLRegistrierungSelbstEinwilligungResponse> {
   return registrierungenPatchEinwilligung(encodeURIComponent(registrierungId), payload);
 }

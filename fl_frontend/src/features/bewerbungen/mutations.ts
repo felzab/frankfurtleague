@@ -21,7 +21,6 @@ import type {
   FLAblehnenBewerbungResponse,
   FLAnnehmenBewerbungPayload,
   FLAnnehmenBewerbungResponse,
-  FLBewerbungEinwilligungAnsichtPayload,
   FLBewerbungEinwilligungAnsichtResponse,
   FLBewerbungEinwilligungAntwortPayload,
   FLBewerbungEinwilligungAntwortResponse,
@@ -42,6 +41,7 @@ import type {
   FLPostBewerbungPayload,
   FLPostBewerbungResponse,
   FLSaisonTeamEinwilligungAntwortResponse,
+  FLTokenPayload,
 } from "@/core/generated/client/types";
 
 /**
@@ -73,7 +73,7 @@ export async function postBewerbung(payload: FLPostBewerbungPayload, idempotency
  * A POST that reads. The token is the credential, and a GET would put it in a query string the
  * backend's own route template does not redact.
  */
-export async function postEinwilligungAnsicht(payload: FLBewerbungEinwilligungAnsichtPayload): Promise<FLBewerbungEinwilligungAnsichtResponse> {
+export async function postEinwilligungAnsicht(payload: FLTokenPayload): Promise<FLBewerbungEinwilligungAnsichtResponse> {
   return bewerbungenGetEinwilligungAnsicht(payload, { readOnly: true });
 }
 
