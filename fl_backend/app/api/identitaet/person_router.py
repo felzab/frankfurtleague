@@ -15,6 +15,7 @@ from app.api.identitaet.services import (
     find_letzter_inhaber_erasure_refusal,
     holds_an_owner_grant,
 )
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, refuse
@@ -41,14 +42,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.recording import log_stamp
-from app.core.security import (
-    PERSON_ACTOR_BINDERS,
-    KontaktIdentifier,
-    SessionActor,
-    verify_access_admin,
-    verify_person_actor,
-    verify_person_passkey_confirmation,
-)
+from app.core.security import SessionActor, verify_access_admin, verify_person_actor, verify_person_passkey_confirmation
 from app.core.transactions import transaction_session
 
 # `kontakt` bound, as the account page's router binds it: a person erases themselves holding no

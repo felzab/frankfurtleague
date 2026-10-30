@@ -16,6 +16,7 @@ from app.api.konto.services import (
     find_eigener_eintrag_refusal,
     widerruf_line,
 )
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, SpielerIdentifier
 from app.api.spieler.schemas import (
     FLSpielerSelbstEinwilligungPayload,
     FLSpielerSelbstEinwilligungResponse,
@@ -33,7 +34,7 @@ from app.core.dependencies import (
 )
 from app.core.journal import Journal
 from app.core.recording import log_stamp
-from app.core.security import PERSON_ACTOR_BINDERS, SpielerIdentifier, loeschung_journal_hash, verify_access_admin
+from app.core.security import loeschung_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 

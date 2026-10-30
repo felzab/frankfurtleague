@@ -8,9 +8,10 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS
 from app.api.spieler import schemas as spieler_schemas
 from app.core.codes import Code
-from app.core.security import PERSON_ACTOR_BINDERS, bind_actor, verify_access_admin, verify_access_base, verify_access_system
+from app.core.security import bind_actor, verify_access_admin, verify_access_base, verify_access_system
 from tests.core.app_source import api_routes, application
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS

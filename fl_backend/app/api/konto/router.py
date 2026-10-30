@@ -62,6 +62,7 @@ from app.api.konto.services import (
     kontext_zeile,
 )
 from app.api.schiedsrichter.services import build_selbst_referee_pipeline
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.api.spieler.services import build_selbst_pupil_pipeline
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -86,8 +87,6 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.security import (
-    PERSON_ACTOR_BINDERS,
-    KontaktIdentifier,
     SessionActor,
     verify_access_admin,
     verify_person_actor,

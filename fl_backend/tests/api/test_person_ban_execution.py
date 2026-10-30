@@ -11,9 +11,9 @@ import pytest
 from fastapi import Depends
 from httpx2 import ASGITransport, AsyncClient
 
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.security import PERSON_ACTOR_BINDERS
 from app.main import create_app
 from tests.actor_tokens import actor_headers
 from tests.config import TEST_BASE_URL

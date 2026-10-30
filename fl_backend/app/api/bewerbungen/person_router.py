@@ -16,6 +16,7 @@ from app.api.konto.services import (
     sitz_wahlen_der_zeile,
     widerruf_line,
 )
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -23,7 +24,7 @@ from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import BewerbungenCollection, DBClient, get_germany_now
 from app.core.journal import Journal
 from app.core.recording import log_stamp
-from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, loeschung_journal_hash, verify_access_admin
+from app.core.security import loeschung_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId

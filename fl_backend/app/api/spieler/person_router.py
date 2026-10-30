@@ -9,6 +9,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.identitaet.crud import refuse_without_a_seat
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.spieler.crud import refuse_a_taken_rolle
 from app.api.spieler.schemas import FLKaderResponse, FLKaderZeile, FLKaderZeileResponse, FLPatchKaderZeilePayload, FLSpielerStufe
 from app.api.spieler.services import build_kader_pipeline, find_kader_stufe_refusal, mark_shared_nummern
@@ -22,7 +23,7 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
-from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
+from app.core.security import verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
 

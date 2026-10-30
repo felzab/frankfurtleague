@@ -22,6 +22,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from starlette.requests import Request
 
 from app.api.berechtigungen.guard import GrantLookup, get_grant_lookup
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, BanLookup, get_ban_lookup
 from app.api.sperrliste.services import adresse_hash
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -31,16 +32,13 @@ from app.core.security import (
     AUTH_TIME_HEADER,
     ENROLMENT_WINDOW_S,
     PASSKEY_FACTOR,
-    PERSON_ACTOR_BINDERS,
     STEP_UP_WINDOW_S,
-    BanLookup,
     Factor,
     akteur_pseudonym,
     attribute_the_administrator,
     bind_actor,
     bind_public_actor,
     get_actor_email,
-    get_ban_lookup,
     loeschung_journal_hash,
     verify_step_up,
 )

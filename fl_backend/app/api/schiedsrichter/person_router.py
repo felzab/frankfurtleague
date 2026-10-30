@@ -22,6 +22,7 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterSelbstResponse,
 )
 from app.api.schiedsrichter.services import EINWILLIGUNG_FELD, build_selbst_referee_filter, build_selbst_referee_pipeline
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
@@ -34,7 +35,7 @@ from app.core.dependencies import (
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.routing import by_id
-from app.core.security import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier, loeschung_journal_hash, verify_access_admin
+from app.core.security import loeschung_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId

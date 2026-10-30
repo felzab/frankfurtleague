@@ -39,6 +39,7 @@ from app.api.registrierungen.services import (
     person_weicht_ab,
     registrierung_ist_bestaetigt,
 )
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spieler.crud import refuse_a_full_squad
 from app.api.spieltage.crud import nachnominierung_laeuft_in
@@ -59,7 +60,7 @@ from app.core.dependencies import (
 )
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.routing import by_id
-from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
+from app.core.security import verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
