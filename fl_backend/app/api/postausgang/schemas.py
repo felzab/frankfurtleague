@@ -78,6 +78,15 @@ class FLRegistrierungAbsageDaten(BaseModel):
     grund: FLRegistrierungAblehnungsgrund | None
 
 
+class FLEinladungDaten(BaseModel):
+    """A team's registration link, to one confirmed contact seat, for the pupils to register through."""
+
+    art: Literal["einladung"]
+    # The junction row's name: a seat holding two teams tells them apart by it.
+    team: str
+    saison_id: str
+
+
 FLPostausgangDaten = Annotated[
     FLAnmeldecodeDaten
     | FLPasskeyDaten
@@ -85,7 +94,8 @@ FLPostausgangDaten = Annotated[
     | FLSperreDaten
     | FLSchiedsrichterBestaetigungDaten
     | FLRegistrierungLinkDaten
-    | FLRegistrierungAbsageDaten,
+    | FLRegistrierungAbsageDaten
+    | FLEinladungDaten,
     Field(discriminator="art"),
 ]
 
@@ -100,6 +110,7 @@ FLPostausgangArt = Literal[
     "registrierung_bestaetigung",
     "registrierung_erinnerung",
     "registrierung_absage",
+    "einladung",
 ]
 
 

@@ -13,7 +13,7 @@ import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
-import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
+import { lageChip } from "@/features/bewerbungen/zustellLage";
 import { deleteEinladungAction, mailEinladungAction, postEinladungAction } from "@/features/einladungen/actions";
 import { useEinladungLink } from "@/features/einladungen/components/EinladungLinkHolder";
 import { STUFE_CHIP_CLASSES } from "@/features/saisons/components/forms/StufenPicker";
@@ -170,7 +170,6 @@ export function FormEinladungSection({
           team_id: teamId,
           saison_id: saisonId,
           einladung_id: offen.einladungId,
-          token: offen.token,
         }).catch(rejectedWrite(router));
 
         if (!res.success) {
@@ -178,7 +177,7 @@ export function FormEinladungSection({
           return;
         }
 
-        meldeLinkVersand(res.versand, REGISTRIERUNGSLINK_TITEL, res.message);
+        meldeLinkVersand("gesendet", REGISTRIERUNGSLINK_TITEL, res.message);
       }),
     );
   };
@@ -191,8 +190,14 @@ export function FormEinladungSection({
     );
   };
 
-  const zustellung = einladung?.versand?.zustellung ?? null;
-  const versandText = zustellung === null ? <Leer>Noch nicht gesendet</Leer> : (ZUSTELLUNG_CHIP[zustellung.stand]?.label ?? "Gesendet");
+  const zustellung = einladung?.zustellung ?? null;
+  // Sent where a mail is owed or went; one barred, held back or dropped reached nobody, and one given up wears its chip.
+  const versandText =
+    zustellung === null || !["offen", "gesendet", "aufgegeben"].includes(zustellung.stand) ? (
+      <Leer>Noch nicht gesendet</Leer>
+    ) : (
+      (lageChip(zustellung)?.label ?? "Gesendet")
+    );
 
   const restingLabel = gewaehlt === "zurueckziehen" ? "Link zurückziehen" : "Neuen Link anlegen";
   const armedLabel = gewaehlt === "zurueckziehen" ? "Ja, Link zurückziehen" : "Ja, neuen Link anlegen";

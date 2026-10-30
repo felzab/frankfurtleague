@@ -104,11 +104,10 @@ def einladung_document(
         "_id": einladung_id,
         "saison_id": saison_id,
         "team_id": team_id,
-        "token_hash": hash_token(token),
+        "token_hashes": [hash_token(token)],
         "erstellt_am": "2026-03-15",
         "erstellt_von": "admin@frankfurtleague.de",
         "widerrufen_am": widerrufen_am,
-        "versand": {},
     }
 
 

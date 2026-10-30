@@ -2249,6 +2249,15 @@ export interface FLEinladungAnsichtResponse {
 }
 
 /**
+ * A team's registration link, to one confirmed contact seat, for the pupils to register through.
+ */
+export interface FLEinladungDaten {
+  art: "einladung";
+  saison_id: string;
+  team: string;
+}
+
+/**
  * One mailbox a link goes to, and the seat it is addressed as.
  */
 export interface FLEinladungEmpfaenger {
@@ -2257,6 +2266,23 @@ export interface FLEinladungEmpfaenger {
   rolle: FLKontaktRolle;
   /** @minLength 1 */
   vorname: string;
+}
+
+/**
+ * The one live link a team's panel shows, to be mailed to the team's confirmed seats.
+ */
+export interface FLEinladungMailPayload {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  einladung_id: string;
+}
+
+/**
+ * Who the team's live link is owed to: its confirmed seats, one entry per stored address, none where nobody confirmed.
+ */
+export interface FLEinladungMailResponse {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  einladung_id: string;
+  empfaenger: FLEinladungEmpfaenger[];
 }
 
 /**
@@ -2279,11 +2305,39 @@ export interface FLEinladungMintResponse {
   token: string;
 }
 
+export type FLPostausgangLageStand = (typeof FLPostausgangLageStand)[keyof typeof FLPostausgangLageStand];
+
+export const FLPostausgangLageStand = {
+  offen: "offen",
+  gesendet: "gesendet",
+  zurueckgehalten: "zurueckgehalten",
+  gesperrt: "gesperrt",
+  entfallen: "entfallen",
+  aufgegeben: "aufgegeben",
+} as const;
+
+export type FLPostausgangZustellungStand = (typeof FLPostausgangZustellungStand)[keyof typeof FLPostausgangZustellungStand];
+
+export const FLPostausgangZustellungStand = {
+  zugestellt: "zugestellt",
+  verzoegert: "verzoegert",
+  unzustellbar: "unzustellbar",
+  unterdrueckt: "unterdrueckt",
+  beschwerde: "beschwerde",
+} as const;
+
+export interface FLPostausgangZustellung {
+  am: string;
+  grund: string | null;
+  stand: FLPostausgangZustellungStand;
+}
+
 /**
- * The carrier a message about this invite is recorded in.
+ * What became of the last mail owed about one record and seat, as an editor reads it beside the link.
  */
-export interface FLEinladungVersand {
-  zustellung: FLBewerbungZustellung | null;
+export interface FLPostausgangLage {
+  stand: FLPostausgangLageStand;
+  zustellung: FLPostausgangZustellung | null;
 }
 
 /**
@@ -2300,8 +2354,8 @@ export interface FLEinladungZeile {
   saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
-  versand: FLEinladungVersand | null;
   widerrufen_am: string | null;
+  zustellung: FLPostausgangLage | null;
 }
 
 /**
@@ -2333,10 +2387,9 @@ export interface FLEinladungVersandPayload {
 }
 
 /**
- * One team as the press left it.
+ * One team as the press left it: `empfaenger` are owed the team's link, which each mail's hand-out mints.
  */
 export interface FLEinladungVersandZeile {
-  einladung_id: string | null;
   empfaenger: FLEinladungEmpfaenger[];
   ersetzt_link: boolean;
   hatte_link: boolean | null;
@@ -2344,7 +2397,6 @@ export interface FLEinladungVersandZeile {
   team_id: string;
   /** @minLength 1 */
   team_name: string;
-  token: string | null;
   uebersprungen: FLEinladungVersandGrund | null;
 }
 
@@ -3886,7 +3938,8 @@ export interface FLPostausgangAusgabe {
     | FLSperreDaten
     | FLSchiedsrichterBestaetigungDaten
     | FLRegistrierungLinkDaten
-    | FLRegistrierungAbsageDaten;
+    | FLRegistrierungAbsageDaten
+    | FLEinladungDaten;
   geheim: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
@@ -3973,41 +4026,6 @@ export interface FLPostausgangErgebnisResponse {
   wiederholt: number;
   /** @minimum 0 */
   zurueckgehalten: number;
-}
-
-export type FLPostausgangLageStand = (typeof FLPostausgangLageStand)[keyof typeof FLPostausgangLageStand];
-
-export const FLPostausgangLageStand = {
-  offen: "offen",
-  gesendet: "gesendet",
-  zurueckgehalten: "zurueckgehalten",
-  gesperrt: "gesperrt",
-  entfallen: "entfallen",
-  aufgegeben: "aufgegeben",
-} as const;
-
-export type FLPostausgangZustellungStand = (typeof FLPostausgangZustellungStand)[keyof typeof FLPostausgangZustellungStand];
-
-export const FLPostausgangZustellungStand = {
-  zugestellt: "zugestellt",
-  verzoegert: "verzoegert",
-  unzustellbar: "unzustellbar",
-  unterdrueckt: "unterdrueckt",
-  beschwerde: "beschwerde",
-} as const;
-
-export interface FLPostausgangZustellung {
-  am: string;
-  grund: string | null;
-  stand: FLPostausgangZustellungStand;
-}
-
-/**
- * What became of the last mail owed about one record and seat, as an editor reads it beside the link.
- */
-export interface FLPostausgangLage {
-  stand: FLPostausgangLageStand;
-  zustellung: FLPostausgangZustellung | null;
 }
 
 /**

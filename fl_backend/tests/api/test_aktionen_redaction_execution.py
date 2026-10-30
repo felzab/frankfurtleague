@@ -85,7 +85,10 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
     ban = documents.ban_document("gesperrt@example.com", bis="2030", erstellt_von=ERASED)
     await database[Collection.SPERRLISTE].insert_one(ban)
     await database[Collection.EINLADUNGEN].insert_one(
-        {"_id": EINLADUNG, **compose_einladung(saison_id="2026", team_id=TEAM, token_hash="h" * 64, erstellt_von=ERASED, today="2026-03-01")}
+        {
+            "_id": EINLADUNG,
+            **compose_einladung(saison_id="2026", team_id=TEAM, token_hashes=["h" * 64], erstellt_von=ERASED, today="2026-03-01"),
+        }
     )
     await patched(database, Collection.EINLADUNGEN, EINLADUNG, compose_widerruf_update(today="2026-03-02"))
     await database[Collection.BEWERBUNGEN].insert_one(
@@ -268,7 +271,7 @@ def test_each_image_keeps_everything_but_the_address(mongo_replica_set_url: str)
     (ban,) = next(row for row in log if row["collection"] == str(Collection.SPERRLISTE))["before"]
     assert (ban["erstellt_von"], ban["grund"]) == (ERASED_ACTOR_MARKER, "Falsches Geburtsdatum bei der Anmeldung")
     einladung = image_of(log, Collection.EINLADUNGEN, EINLADUNG)["before"]
-    assert (einladung["erstellt_von"], einladung["token_hash"]) == (ERASED_ACTOR_MARKER, "h" * 64)
+    assert (einladung["erstellt_von"], einladung["token_hashes"]) == (ERASED_ACTOR_MARKER, ["h" * 64])
     for collection, document_id in ((Collection.BEWERBUNGEN, BEWERBUNG), (Collection.REGISTRIERUNGEN, REGISTRIERUNG)):
         assert image_of(log, collection, document_id)["before"]["entscheidung"] == {**ENTSCHEIDUNG, "von": ERASED_ACTOR_MARKER}
     readdressed = image_of(log, Collection.SCHIEDSRICHTER, READDRESSED_REFEREE)["before"]

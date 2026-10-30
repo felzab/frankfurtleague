@@ -5001,6 +5001,31 @@
         "title": "FLEinladungAnsichtResponse",
         "type": "object"
       },
+      "FLEinladungDaten": {
+        "description": "A team's registration link, to one confirmed contact seat, for the pupils to register through.",
+        "properties": {
+          "art": {
+            "const": "einladung",
+            "title": "Art",
+            "type": "string"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "team": {
+            "title": "Team",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art",
+          "team",
+          "saison_id"
+        ],
+        "title": "FLEinladungDaten",
+        "type": "object"
+      },
       "FLEinladungEmpfaenger": {
         "description": "One mailbox a link goes to, and the seat it is addressed as.",
         "properties": {
@@ -5024,6 +5049,45 @@
           "email"
         ],
         "title": "FLEinladungEmpfaenger",
+        "type": "object"
+      },
+      "FLEinladungMailPayload": {
+        "additionalProperties": false,
+        "description": "The one live link a team's panel shows, to be mailed to the team's confirmed seats.",
+        "properties": {
+          "einladung_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Einladung Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "einladung_id"
+        ],
+        "title": "FLEinladungMailPayload",
+        "type": "object"
+      },
+      "FLEinladungMailResponse": {
+        "description": "Who the team's live link is owed to: its confirmed seats, one entry per stored address, none where nobody confirmed.",
+        "properties": {
+          "einladung_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Einladung Id",
+            "type": "string"
+          },
+          "empfaenger": {
+            "items": {
+              "$ref": "#/components/schemas/FLEinladungEmpfaenger"
+            },
+            "title": "Empfaenger",
+            "type": "array"
+          }
+        },
+        "required": [
+          "einladung_id",
+          "empfaenger"
+        ],
+        "title": "FLEinladungMailResponse",
         "type": "object"
       },
       "FLEinladungMintResponse": {
@@ -5106,26 +5170,6 @@
           "laeuft"
         ],
         "title": "FLEinladungResponse",
-        "type": "object"
-      },
-      "FLEinladungVersand": {
-        "description": "The carrier a message about this invite is recorded in.",
-        "properties": {
-          "zustellung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLBewerbungZustellung"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "zustellung"
-        ],
-        "title": "FLEinladungVersand",
         "type": "object"
       },
       "FLEinladungVersandGrund": {
@@ -5244,20 +5288,8 @@
         "type": "object"
       },
       "FLEinladungVersandZeile": {
-        "description": "One team as the press left it.",
+        "description": "One team as the press left it: `empfaenger` are owed the team's link, which each mail's hand-out mints.",
         "properties": {
-          "einladung_id": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{24}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Einladung Id"
-          },
           "empfaenger": {
             "items": {
               "$ref": "#/components/schemas/FLEinladungEmpfaenger"
@@ -5290,17 +5322,6 @@
             "title": "Team Name",
             "type": "string"
           },
-          "token": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Token"
-          },
           "uebersprungen": {
             "anyOf": [
               {
@@ -5318,8 +5339,6 @@
           "empfaenger",
           "uebersprungen",
           "ersetzt_link",
-          "einladung_id",
-          "token",
           "hatte_link"
         ],
         "title": "FLEinladungVersandZeile",
@@ -5391,16 +5410,6 @@
             "title": "Team Id",
             "type": "string"
           },
-          "versand": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLEinladungVersand"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "widerrufen_am": {
             "anyOf": [
               {
@@ -5412,6 +5421,16 @@
               }
             ],
             "title": "Widerrufen Am"
+          },
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLPostausgangLage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -5421,8 +5440,8 @@
           "erstellt_am",
           "erstellt_von",
           "widerrufen_am",
-          "versand",
-          "erstellt_von_gesperrt"
+          "erstellt_von_gesperrt",
+          "zustellung"
         ],
         "title": "FLEinladungZeile",
         "type": "object"
@@ -9578,6 +9597,7 @@
             "discriminator": {
               "mapping": {
                 "anmeldecode": "#/components/schemas/FLAnmeldecodeDaten",
+                "einladung": "#/components/schemas/FLEinladungDaten",
                 "konto_loeschung": "#/components/schemas/FLKontoLoeschungDaten",
                 "passkey_geloescht": "#/components/schemas/FLPasskeyDaten",
                 "passkey_hinzugefuegt": "#/components/schemas/FLPasskeyDaten",
@@ -9610,6 +9630,9 @@
               },
               {
                 "$ref": "#/components/schemas/FLRegistrierungAbsageDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLEinladungDaten"
               }
             ],
             "title": "Daten"
@@ -24888,7 +24911,7 @@
     },
     "/api/v0/saisons/{saison_id}/einladungen/versand": {
       "post": {
-        "description": "Mint one registration link per admitted team of this season and answer each team's raw link once, for the caller to mail.\n\n**Every team mailed is minted for, and any link that team already held is REVOKED in the same per-team transaction** — the copy in\nsomebody's inbox opens nothing from that moment. A stored link is a hash, so the value to put in a message is one that has just been\nmade; there is nothing to re-send. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the\npress. A team this skips is left exactly as it was.\n\nFive skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block\nhas been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a delivery\nrecord and `erneut` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it\nholds rather than losing it to a press that mails nobody. **The fifth is read off\nthe delivery record**, which only `POST /zustellung/angenommen` writes — so pressing twice mails nobody twice, while a link minted and\nnever sent is still sent. **The first is read off the junction row's `austritt` record**, so a team out of the season by either route is\npassed over; minting for one team by hand is not refused, that being a deliberate act rather than a bulk one.\n\nThe answer carries the raw link per team and is the only place each appears. Refused where the season has ended (`REQ-EINLADUNG-002`);\n404 where no season holds that id; a season holding no team answers an empty list.\n\n**An administrator whose access is revoked while the mailing runs is refused `REQ-AUTH-006` at the next team**, and the answer\ncarries no link at all: every team minted for before that point has lost the link it held and holds one nobody was sent. Running the\nmailing again, as an administrator who still holds access, mints and answers those teams' links anew, none of them carrying a\ndelivery record yet.",
+        "description": "Give every admitted team of this season a fresh registration link and owe it to the team's confirmed seats, one mail each.\n\n**Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the\ncopy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is\nhanded out; no link is answered. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the\npress. A team this skips is left exactly as it was.\n\nFive skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block\nhas been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already has a mail owed or\nsent and `erneut` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it\nholds rather than losing it to a press that mails nobody. **The fifth is read off the last mail owed about the live link**, so pressing\ntwice mails nobody twice, while a link whose mail was given up or barred is sent again. **The first is read off the junction row's\n`austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that\nbeing a deliberate act rather than a bulk one.\n\nRefused where the season has ended (`REQ-EINLADUNG-002`); 404 where no season holds that id; a season holding no team answers an\nempty list.\n\n**An administrator whose access is revoked while the mailing runs is refused `REQ-AUTH-006` at the next team**: every team done before\nthat point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those\nteams and reaches the rest.",
         "operationId": "saisons_post_einladungen_versand",
         "parameters": [
           {
@@ -24976,7 +24999,7 @@
     },
     "/api/v0/saisons/{saison_id}/einladungen/versand/vorschau": {
       "get": {
-        "description": "Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.\n\nDecided by the function the send itself decides by, so the list read here is the list performed. `erneut` mirrors the send's own\nswitch: left false, a team whose live link already carries a delivery record reads as `bereits_gesendet`, and pressing the send with\n`erneut` true instead makes this preview's own answer wrong unless the same value is asked for here.\n\n**`ersetzt_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that\nlink REVOKED and the copy in somebody's inbox opens nothing from that moment. A row carries no trace of the invitation the team holds,\nso a page offering the press reads that fact here or nowhere.\n\nFive skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that\nblock has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a\ndelivery record and `erneut` is false. A season holding\nno team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.",
+        "description": "Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.\n\nDecided by the function the send itself decides by, so the list read here is the list performed. `erneut` mirrors the send's own\nswitch: left false, a team whose live link already has a mail owed or sent reads as `bereits_gesendet`, and pressing the send with\n`erneut` true instead makes this preview's own answer wrong unless the same value is asked for here.\n\n**`ersetzt_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that\nlink REVOKED and the copy in somebody's inbox opens nothing from that moment. A row carries no trace of the invitation the team holds,\nso a page offering the press reads that fact here or nowhere.\n\nFive skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that\nblock has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already has a mail\nowed or sent and `erneut` is false. A season holding\nno team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.",
         "operationId": "saisons_preview_einladungen_versand",
         "parameters": [
           {
@@ -32394,7 +32417,7 @@
         ]
       },
       "get": {
-        "description": "What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.\n\n**No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became\nof the last message sent about it — a `versand.zustellung` absent, or naming no message, means nobody has mailed it, which is a state\nrather than a delivery failure. The minter is `null` beside `erstellt_von_gesperrt` where the ban list holds that address, as no barred\naddress is served in plain.\n\n`laeuft` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of\nthe link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.",
+        "description": "What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.\n\n**No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became\nof the last mail owed about it — `zustellung` null means nobody was ever owed it, which is a state rather than a delivery failure.\nThe minter is `null` beside `erstellt_von_gesperrt` where the ban list holds that address, as no barred address is served in plain.\n\n`laeuft` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of\nthe link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.",
         "operationId": "teams_get_einladung",
         "parameters": [
           {
@@ -32480,7 +32503,7 @@
         ]
       },
       "post": {
-        "description": "Mint the link a team's players register through, revoking whatever link that team held for this season.\n\n**The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of\nthis response is lost and the repair is another mint. Mailing it is a separate press.\n\nThe reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left\nholding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh\nevery time somebody opens it, so a window moved after the mint moves this link with it.\n\nRefused where the season holds no junction row for this team (`REQ-EINLADUNG-001`) and where the season has ended\n(`REQ-EINLADUNG-002`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.\n\n**A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an\nadministrator is looking at, and a squad row and a contact correction are accepted for such a team too.\n\nA mint voiding a live link is refused `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`, and\nwrites nothing; a team's first link is not.",
+        "description": "Mint the link a team's players register through, revoking whatever link that team held for this season.\n\n**The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of\nthis response is lost and the repair is another mint. Mailing the team's link is a separate press\n(`POST /teams/{team_id}/saisons/{saison_id}/einladung/versand`), whose mails mint links of their own beside this one.\n\nThe reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left\nholding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh\nevery time somebody opens it, so a window moved after the mint moves this link with it.\n\nRefused where the season holds no junction row for this team (`REQ-EINLADUNG-001`) and where the season has ended\n(`REQ-EINLADUNG-002`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.\n\n**A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an\nadministrator is looking at, and a squad row and a contact correction are accepted for such a team too.\n\nA mint voiding a live link is refused `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`, and\nwrites nothing; a team's first link is not.",
         "operationId": "teams_post_einladung",
         "parameters": [
           {
@@ -32561,6 +32584,104 @@
           }
         ],
         "summary": "Mint this team's registration link for a season",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
+    "/api/v0/teams/{team_id}/saisons/{saison_id}/einladung/versand": {
+      "post": {
+        "description": "Owe this team's live registration link to every seat of its season row whose own person has confirmed it, one mail each.\n\nThe write mints nothing and revokes nothing: each mail mints a link of its own when it is handed out, so a link copied off the mint\nstays valid beside the mailed ones. `empfaenger` names who is owed it, one entry per stored address, and is empty where nobody has\nconfirmed a seat, which owes nothing. Pressed twice on one day, the second owes nothing again; a later day's press mails the seats\nafresh. A barred address is stopped when its mail is handed out.\n\n404 where `einladung_id` is not this team's live invite for the season, a link replaced or withdrawn since the caller read it among\nthem, and where the season holds no row for the team.",
+        "operationId": "teams_post_einladung_versand",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLEinladungMailPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLEinladungMailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Mail this team's live registration link to its confirmed contact seats",
         "tags": [
           "teams"
         ]

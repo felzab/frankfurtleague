@@ -1,4 +1,5 @@
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Annotated, Any, NamedTuple
 
 from fastapi import APIRouter, Body, Depends
@@ -9,7 +10,7 @@ from pymongo.errors import PyMongoError
 from pymongo.results import InsertOneResult
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.bewerbungen.services import mint_token
+from app.api.einladungen.crud import owed_einladung_mails, versendete_einladungen
 from app.api.einladungen.schemas import (
     FLEinladungVersandPayload,
     FLEinladungVersandResponse,
@@ -30,6 +31,7 @@ from app.api.einladungen.services import (
 from app.api.identitaet.crud import faellige_anzahl, saison_statuses
 from app.api.identitaet.schemas import FLLoeschungVorschauResponse
 from app.api.identitaet.services import geschlossen_durch, statuses_after_activating
+from app.api.postausgang.services import enqueue_mails
 from app.api.saisons.crud import has_started
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
@@ -91,6 +93,7 @@ from app.core.crud import (
 from app.core.dependencies import (
     DBClient,
     EinladungenCollection,
+    PostausgangCollection,
     RegistrierungenCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
@@ -103,6 +106,7 @@ from app.core.dependencies import (
     SpieltageCollection,
     TeamsCollection,
     get_german_date_str,
+    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import fl_logger
@@ -1087,6 +1091,7 @@ async def _gesperrte_empfaenger(sperrliste: BanList, entered: Sequence[Mapping[s
 async def _mail_one_team(
     *,
     einladungen_collection: AsyncCollection,
+    postausgang_collection: AsyncCollection,
     db: AsyncMongoClient,
     saison_id: str,
     team: Mapping[str, Any],
@@ -1094,15 +1099,14 @@ async def _mail_one_team(
     gesperrt: set[str],
     erstellt_von: str,
     today: str,
+    now: datetime,
 ) -> FLEinladungVersandZeile:
-    """One team's whole share of the press, in a transaction of its own.
+    """One team's whole share of the press, its revoke, its fresh row and the mails it owes, in a transaction of its own.
 
     Per team rather than one for all: a season's worth of mints in one transaction would take back
-    the teams already done on a write conflict.
+    the teams already done on a write conflict. A team's commit holds its fresh row and every mail
+    owed about it together, so no team is left holding a link nobody is owed.
     """
-
-    # Outside the callback, for `app/api/teams/admin_router.py :: post_einladung`'s reason.
-    raw_token, token_hash = mint_token()
 
     # What the callback's last run read and planned, kept for a transaction that raises: whether the
     # team held a link, and whether that commit may have revoked it, is what its row then tells the admin.
@@ -1110,10 +1114,10 @@ async def _mail_one_team(
     hatte_link: bool | None = None
 
     async def mint_where_the_team_qualifies(session: AsyncClientSession) -> FLEinladungVersandZeile:
-        """Plan this team, then revoke and mint where the plan says to.
+        """Plan this team, then revoke, insert and owe where the plan says to.
 
-        The INVITE alone is read in-session: the withdrawal and the contacts come from the read
-        before the loop, so a retry re-decides on those as they stood then.
+        The INVITE and its mails alone are read in-session: the withdrawal and the contacts come from
+        the read before the loop, so a retry re-decides on those as they stood then.
         """
 
         nonlocal ersetzt_link, hatte_link
@@ -1128,10 +1132,14 @@ async def _mail_one_team(
             projection=dict(WITHOUT_TOKEN_HASH),
             session=session,
         )
+        versendet = bool(live) and bool(
+            await versendete_einladungen(postausgang_collection=postausgang_collection, einladung_ids=[live[0]["_id"]], session=session)
+        )
         plan = plan_einladung_versand(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
             einladung_raw=live[0] if live else None,
+            versendet=versendet,
             erneut=erneut,
             gesperrt=gesperrt,
         )
@@ -1141,8 +1149,6 @@ async def _mail_one_team(
             return FLEinladungVersandZeile(
                 team_id=team["team_id"],
                 team_name=team["name"],
-                einladung_id=None,
-                token=None,
                 empfaenger=[],
                 uebersprungen=plan.uebersprungen,
                 ersetzt_link=plan.ersetzt_link,
@@ -1160,21 +1166,26 @@ async def _mail_one_team(
 
         post_operation = await post_one_to_db(
             collection=einladungen_collection,
-            document=compose_einladung(
-                saison_id=saison_id,
-                team_id=team["team_id"],
-                token_hash=token_hash,
-                erstellt_von=erstellt_von,
-                today=today,
-            ),
+            # No link of its own: each mail below mints one at its hand-out.
+            document=compose_einladung(saison_id=saison_id, team_id=team["team_id"], token_hashes=[], erstellt_von=erstellt_von, today=today),
             session=session,
+        )
+        await enqueue_mails(
+            postausgang_collection=postausgang_collection,
+            session=session,
+            mails=owed_einladung_mails(
+                einladung_id=post_operation.inserted_id,
+                team_name=team["name"],
+                saison_id=saison_id,
+                empfaenger=plan.empfaenger,
+                anlass="versand",
+            ),
+            now=now,
         )
 
         return FLEinladungVersandZeile(
             team_id=team["team_id"],
             team_name=team["name"],
-            einladung_id=post_operation.inserted_id,
-            token=raw_token,
             empfaenger=plan.empfaenger,
             uebersprungen=None,
             ersetzt_link=plan.ersetzt_link,
@@ -1187,9 +1198,8 @@ async def _mail_one_team(
         async with transaction_session(db) as session:
             return await session.with_transaction(mint_where_the_team_qualifies)
     except PyMongoError as failure:
-        # Per TEAM: every team already done holds a fresh link whose raw value exists only in this
-        # list. A commit sent and never answered may have revoked this team's link too, so its
-        # row says unknown rather than failed.
+        # Per TEAM: every team already done is committed with its mails. A commit sent and never answered may have revoked
+        # this team's link and owed its mails too, so its row says unknown rather than failed.
         ungewiss = failure.has_error_label("UnknownTransactionCommitResult")
         fl_logger.error(
             "saisons.einladung_unminted",
@@ -1204,8 +1214,6 @@ async def _mail_one_team(
         return FLEinladungVersandZeile(
             team_id=team["team_id"],
             team_name=team["name"],
-            einladung_id=None,
-            token=None,
             empfaenger=[],
             uebersprungen="erzeugung_ungewiss" if ungewiss else "erzeugung_fehlgeschlagen",
             # A failed commit replaced nothing; an unanswered one may have replaced the link the
@@ -1225,6 +1233,7 @@ async def preview_einladungen_versand(
     saison_teams_collection: SaisonTeamsCollection,
     einladungen_collection: EinladungenCollection,
     saisons_collection: SaisonsCollection,
+    postausgang_collection: PostausgangCollection,
     sperrliste: SperrlisteLookup,
     erneut: bool = False,
 ) -> FLEinladungVersandVorschauResponse:
@@ -1232,7 +1241,7 @@ async def preview_einladungen_versand(
     Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.
 
     Decided by the function the send itself decides by, so the list read here is the list performed. `erneut` mirrors the send's own
-    switch: left false, a team whose live link already carries a delivery record reads as `bereits_gesendet`, and pressing the send with
+    switch: left false, a team whose live link already has a mail owed or sent reads as `bereits_gesendet`, and pressing the send with
     `erneut` true instead makes this preview's own answer wrong unless the same value is asked for here.
 
     **`ersetzt_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that
@@ -1240,8 +1249,8 @@ async def preview_einladungen_versand(
     so a page offering the press reads that fact here or nowhere.
 
     Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that
-    block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a
-    delivery record and `erneut` is false. A season holding
+    block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already has a mail
+    owed or sent and `erneut` is false. A season holding
     no team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.
     """
 
@@ -1259,14 +1268,17 @@ async def preview_einladungen_versand(
         projection=dict(WITHOUT_TOKEN_HASH),
     )
     by_team = {row["team_id"]: row for row in live}
+    versendet = await versendete_einladungen(postausgang_collection=postausgang_collection, einladung_ids=[row["_id"] for row in live])
     gesperrt = await _gesperrte_empfaenger(sperrliste, entered)
 
     zeilen: list[FLEinladungVersandVorschauZeile] = []
     for team in entered:
+        einladung_raw = by_team.get(team["team_id"])
         plan = plan_einladung_versand(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
-            einladung_raw=by_team.get(team["team_id"]),
+            einladung_raw=einladung_raw,
+            versendet=einladung_raw is not None and einladung_raw["_id"] in versendet,
             erneut=erneut,
             gesperrt=gesperrt,
         )
@@ -1328,34 +1340,35 @@ async def post_einladungen_versand(
     saison_teams_collection: SaisonTeamsCollection,
     einladungen_collection: EinladungenCollection,
     saisons_collection: SaisonsCollection,
+    postausgang_collection: PostausgangCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     erstellt_von: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
 ) -> FLEinladungVersandResponse:
     """
-    Mint one registration link per admitted team of this season and answer each team's raw link once, for the caller to mail.
+    Give every admitted team of this season a fresh registration link and owe it to the team's confirmed seats, one mail each.
 
-    **Every team mailed is minted for, and any link that team already held is REVOKED in the same per-team transaction** — the copy in
-    somebody's inbox opens nothing from that moment. A stored link is a hash, so the value to put in a message is one that has just been
-    made; there is nothing to re-send. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the
+    **Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the
+    copy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is
+    handed out; no link is answered. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the
     press. A team this skips is left exactly as it was.
 
     Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
-    has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a delivery
-    record and `erneut` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it
-    holds rather than losing it to a press that mails nobody. **The fifth is read off
-    the delivery record**, which only `POST /zustellung/angenommen` writes — so pressing twice mails nobody twice, while a link minted and
-    never sent is still sent. **The first is read off the junction row's `austritt` record**, so a team out of the season by either route is
-    passed over; minting for one team by hand is not refused, that being a deliberate act rather than a bulk one.
+    has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already has a mail owed or
+    sent and `erneut` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it
+    holds rather than losing it to a press that mails nobody. **The fifth is read off the last mail owed about the live link**, so pressing
+    twice mails nobody twice, while a link whose mail was given up or barred is sent again. **The first is read off the junction row's
+    `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
+    being a deliberate act rather than a bulk one.
 
-    The answer carries the raw link per team and is the only place each appears. Refused where the season has ended (`REQ-EINLADUNG-002`);
-    404 where no season holds that id; a season holding no team answers an empty list.
+    Refused where the season has ended (`REQ-EINLADUNG-002`); 404 where no season holds that id; a season holding no team answers an
+    empty list.
 
-    **An administrator whose access is revoked while the mailing runs is refused `REQ-AUTH-006` at the next team**, and the answer
-    carries no link at all: every team minted for before that point has lost the link it held and holds one nobody was sent. Running the
-    mailing again, as an administrator who still holds access, mints and answers those teams' links anew, none of them carrying a
-    delivery record yet.
+    **An administrator whose access is revoked while the mailing runs is refused `REQ-AUTH-006` at the next team**: every team done before
+    that point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those
+    teams and reaches the rest.
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"])
@@ -1370,6 +1383,7 @@ async def post_einladungen_versand(
     zeilen = [
         await _mail_one_team(
             einladungen_collection=einladungen_collection,
+            postausgang_collection=postausgang_collection,
             db=db,
             saison_id=saison_id,
             team=team,
@@ -1377,6 +1391,7 @@ async def post_einladungen_versand(
             gesperrt=gesperrt,
             erstellt_von=erstellt_von,
             today=today,
+            now=germany_now,
         )
         for team in entered
     ]

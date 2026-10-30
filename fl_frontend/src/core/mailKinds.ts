@@ -1,5 +1,6 @@
 import "server-only";
 
+import { buildEinladungEmail } from "./einladungEmail";
 import { ContractBreakError } from "./errors";
 import { buildRegistrierungAbsageEmail, buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail } from "./registrierungEmail";
 import { buildSchiedsrichterBestaetigungEmail } from "./schiedsrichterEmail";
@@ -59,6 +60,7 @@ const MAIL_KINDS: { [A in PostausgangArt]?: MailBuilder<A> } = {
   registrierung_bestaetigung: (daten, ausgabe) => buildRegistrierungBestaetigungEmail(daten, gemintet(ausgabe)),
   registrierung_erinnerung: (daten, ausgabe) => buildRegistrierungErinnerungEmail(daten, gemintet(ausgabe)),
   registrierung_absage: (daten, ausgabe) => buildRegistrierungAbsageEmail(daten, ausgabe),
+  einladung: (daten, ausgabe) => buildEinladungEmail(daten, gemintet(ausgabe)),
 };
 
 /**

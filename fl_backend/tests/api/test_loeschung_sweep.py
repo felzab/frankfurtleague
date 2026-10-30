@@ -574,11 +574,10 @@ async def a_running_season_open_to_its_team(database: AsyncDatabase) -> None:
             "_id": EINLADUNG,
             "saison_id": "2026",
             "team_id": TEAM_OID,
-            "token_hash": hash_token(EINLADUNG_TOKEN),
+            "token_hashes": [hash_token(EINLADUNG_TOKEN)],
             "erstellt_am": "2026-03-15",
             "erstellt_von": "admin@frankfurtleague.de",
             "widerrufen_am": None,
-            "versand": {},
         }
     )
 

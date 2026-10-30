@@ -11,6 +11,7 @@ from typing import Any, NamedTuple
 
 from app.api.bewerbungen.services import seat_named
 from app.api.einladungen.schemas import FLEinladungEmpfaenger, FLEinladungVersandGrund
+from app.api.postausgang.schemas import FLPostausgangLage
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
@@ -19,7 +20,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 # An exclusion rather than an inclusion list, as `app/api/bewerbungen/services.py ::
 # WITHOUT_TOKEN_HASHES` is: what it subtracts is the whole credential, where a list of everything
 # else is one a later field joins by being forgotten.
-WITHOUT_TOKEN_HASH: Mapping[str, int] = {"token_hash": 0}
+WITHOUT_TOKEN_HASH: Mapping[str, int] = {"token_hashes": 0}
 
 
 # `app/api/spieler/services.py :: find_squad_refusal` asks the same question of the same junction and
@@ -104,25 +105,19 @@ def find_live_einladung_filter(*, token_hash: str) -> Mapping[str, Any]:
     link is spent.
     """
 
-    return {"token_hash": token_hash, **LIVE_EINLADUNG}
+    return {"token_hashes": token_hash, **LIVE_EINLADUNG}
 
 
-def compose_einladung(*, saison_id: str, team_id: Any, token_hash: str, erstellt_von: str, today: str) -> dict[str, Any]:
-    """One minted row, mailed to nobody yet.
-
-    `versand` is written EMPTY rather than left out: `app/api/bewerbungen/services.py ::
-    zustellung_send_applies` skips a record with no carrier, so a mint without one could never
-    record that its link went anywhere.
-    """
+def compose_einladung(*, saison_id: str, team_id: Any, token_hashes: list[str], erstellt_von: str, today: str) -> dict[str, Any]:
+    """One live row: the hash of the link a mint answers for copying, or none where the press's mails mint every link."""
 
     return {
         "saison_id": saison_id,
         "team_id": team_id,
-        "token_hash": token_hash,
+        "token_hashes": token_hashes,
         "erstellt_am": today,
         "erstellt_von": erstellt_von,
         "widerrufen_am": None,
-        "versand": {},
     }
 
 
@@ -132,23 +127,15 @@ def compose_widerruf_update(*, today: str) -> Mapping[str, Any]:
     return {"$set": {"widerrufen_am": today}}
 
 
-def einladung_ist_versendet(*, einladung_raw: Mapping[str, Any] | None) -> bool:
-    """Whether a message about this invite went out.
+def einladung_ist_versendet(*, lage: FLPostausgangLage | None) -> bool:
+    """Whether the last mail owed about this invite is still owed or went out.
 
-    The message ID rather than the record's presence: a record naming NO message records a send the
-    provider refused outright, which is a team nobody reached.
+    The row's own state and never its delivery: a message that BOUNCED went out, and that team WAS
+    reached, so a press judging the delivery would re-mail it for ever. A mail given up, barred,
+    held back or dropped reached nobody, so the team is mailed again.
     """
 
-    if einladung_raw is None:
-        return False
-
-    versand = einladung_raw.get("versand")
-    zustellung = versand.get("zustellung") if isinstance(versand, Mapping) else None
-
-    # The id and never `stand`: a real message that BOUNCED carries one of
-    # `app/api/bewerbungen/services.py :: ZUSTELLUNG_ABGEWIESEN`'s states too, and that team WAS
-    # reached, so a press judging the state would re-mail it for ever.
-    return isinstance(zustellung, Mapping) and bool(zustellung.get("nachricht_id"))
+    return lage is not None and lage.stand in ("offen", "gesendet")
 
 
 def _confirmed_seat(kontakte: Any, seat: str) -> Mapping[str, Any] | None:
@@ -194,11 +181,12 @@ class EinladungVersandPlan(NamedTuple):
 
 
 def plan_einladung_versand(
-    *, austritt: Any, kontakte: Any, einladung_raw: Mapping[str, Any] | None, erneut: bool, gesperrt: Collection[str]
+    *, austritt: Any, kontakte: Any, einladung_raw: Mapping[str, Any] | None, versendet: bool, erneut: bool, gesperrt: Collection[str]
 ) -> EinladungVersandPlan:
     """Who this team's link goes to, or why it is skipped. The preview and the press both read it.
 
-    `gesperrt` holds the stored addresses a standing ban holds, as `app/api/sperrliste/lookup.py :: adressen_gesperrt` answers them.
+    `versendet` is `einladung_ist_versendet` of the team's live invite. `gesperrt` holds the stored addresses a standing ban
+    holds, as `app/api/sperrliste/lookup.py :: adressen_gesperrt` answers them.
     """
 
     # The record's PRESENCE, never its `type` and never a flag beside it: a team is out of the
@@ -213,14 +201,14 @@ def plan_einladung_versand(
     if not empfaenger:
         return EinladungVersandPlan([], "keine_bestaetigte_kontaktperson", False)
 
-    # Ahead of the delivery record, which the mailer never writes for a barred address: a team reached
-    # by nobody else would lose its link to a fresh mint at every press while the ban stands.
+    # Ahead of the mail's state, which a barred address's mail settles `gesperrt`: a team reached by
+    # nobody else would lose its link to a fresh mint at every press while the ban stands.
     if all(person.email in gesperrt for person in empfaenger):
         return EinladungVersandPlan([], "kontakte_gesperrt", False)
 
-    # The delivery record and never the row: a team holding a live link nobody sent is a team this
-    # press exists to reach, and skipping on the row would leave sixteen links unsent for ever.
-    if einladung_ist_versendet(einladung_raw=einladung_raw) and not erneut:
+    # The mail and never the row: a team holding a live link nobody was sent is a team this press
+    # exists to reach, and skipping on the row would leave sixteen links unsent for ever.
+    if versendet and not erneut:
         return EinladungVersandPlan([], "bereits_gesendet", False)
 
     return EinladungVersandPlan(empfaenger, None, einladung_raw is not None)
