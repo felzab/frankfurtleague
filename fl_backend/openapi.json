@@ -6925,6 +6925,7 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           },
@@ -11328,6 +11329,7 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           },

@@ -4306,6 +4306,9 @@ export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwill
 );
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungTextVersionMax = 64;
 
+export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungTextVersionRegExp = new RegExp(
+  "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+);
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEmailMax = 254;
 
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneNachnameMax = 80;
@@ -4320,6 +4323,9 @@ export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwil
 );
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungTextVersionMax = 64;
 
+export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungTextVersionRegExp = new RegExp(
+  "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+);
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEmailMax = 254;
 
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneNachnameMax = 80;
@@ -4334,6 +4340,9 @@ export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungDa
 );
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungTextVersionMax = 64;
 
+export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungTextVersionRegExp = new RegExp(
+  "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+);
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEmailMax = 254;
 
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneNachnameMax = 80;
@@ -4353,7 +4362,11 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
             zod.object({
               einwilligung: zod.object({
                 datum: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungDatumRegExp),
-                text_version: zod.string().min(1).max(teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungTextVersionMax),
+                text_version: zod
+                  .string()
+                  .min(1)
+                  .max(teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungTextVersionMax)
+                  .regex(teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungTextVersionRegExp),
                 umfang: zod.literal("kontaktdaten").meta({ title: "Umfang" }),
               }),
               email: zod.string().max(teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEmailMax),
@@ -4375,7 +4388,11 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
             zod.object({
               einwilligung: zod.object({
                 datum: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungDatumRegExp),
-                text_version: zod.string().min(1).max(teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungTextVersionMax),
+                text_version: zod
+                  .string()
+                  .min(1)
+                  .max(teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungTextVersionMax)
+                  .regex(teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungTextVersionRegExp),
                 umfang: zod.literal("kontaktdaten").meta({ title: "Umfang" }),
               }),
               email: zod.string().max(teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEmailMax),
@@ -4397,7 +4414,11 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
             zod.object({
               einwilligung: zod.object({
                 datum: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungDatumRegExp),
-                text_version: zod.string().min(1).max(teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungTextVersionMax),
+                text_version: zod
+                  .string()
+                  .min(1)
+                  .max(teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungTextVersionMax)
+                  .regex(teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungTextVersionRegExp),
                 umfang: zod.literal("kontaktdaten").meta({ title: "Umfang" }),
               }),
               email: zod.string().max(teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEmailMax),
@@ -4477,13 +4498,15 @@ export const TeamsPatchEinwilligungParams = zod.object({
 
 export const teamsPatchEinwilligungBodyTextVersionMax = 64;
 
+export const teamsPatchEinwilligungBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
 export const TeamsPatchEinwilligungBody = zod.object({
   medien: zod.boolean(),
   nachweis_stand: zod.object({
     medien: zod.union([zod.string(), zod.null()]),
     umfang: zod.union([zod.string(), zod.null()]),
   }),
-  text_version: zod.string().min(1).max(teamsPatchEinwilligungBodyTextVersionMax),
+  text_version: zod.string().min(1).max(teamsPatchEinwilligungBodyTextVersionMax).regex(teamsPatchEinwilligungBodyTextVersionRegExp),
   umfang: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
 });
 

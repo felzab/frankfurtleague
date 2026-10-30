@@ -2930,6 +2930,7 @@ export interface FLKontaktKenntnisnahmePayload {
   /**
    * @minLength 1
    * @maxLength 64
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   text_version: string;
   umfang: "kontaktdaten";
@@ -4303,6 +4304,7 @@ export interface FLSaisonTeamPersonEinwilligungPayload {
   /**
    * @minLength 1
    * @maxLength 64
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   text_version: string;
   umfang: FLKontaktKenntnisnahmeUmfang;
