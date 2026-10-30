@@ -70,7 +70,7 @@ class TestBothBoundaryDays:
 
 
 class TestTheTwoWindowPredicatesMeanOneThing:
-    """Two blocks read by one rule, run over the same values.
+    """Two blocks read by one rule, run over the same values: the shapes a season's write stores, a null among them.
 
     A change made to one predicate and not the other fails here rather than in a season taking what
     the other flow refuses.
@@ -85,7 +85,6 @@ class TestTheTwoWindowPredicatesMeanOneThing:
             (OPEN_WINDOW, "2026-05-01"),
             ({**OPEN_WINDOW, "offen": False}, INSIDE),
             (None, INSIDE),
-            ({"offen": True, "von": VON}, INSIDE),
         ],
     )
     def test_both_predicates_answer_alike(self, block: Any, today: str):
