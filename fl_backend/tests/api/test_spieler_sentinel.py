@@ -156,8 +156,8 @@ def test_neither_collection_read_serves_the_sentinel_and_a_person_holding_no_squ
         )
         memberships = await get_spieler_saisons(
             spieler_collection=database[Collection.SPIELER],
-            berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-            berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+            berechtigungen_collection=database[Collection.GRANTS],
+            berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
             operator=ADMINISTRATORS[0],
             auth_time=int(time.time()),
         )

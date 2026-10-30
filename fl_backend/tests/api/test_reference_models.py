@@ -615,9 +615,9 @@ class TestTheSeasonsSpans:
 
     def test_judges_the_window_apart_from_the_season_it_belongs_to(self, saison):
         """A window may legitimately open and close before the season's first day."""
-        before_the_season = {"offen": False, "von": "2025-01-01", "bis": "2025-02-01"}
+        before_the_saison = {"offen": False, "von": "2025-01-01", "bis": "2025-02-01"}
 
-        assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=before_the_season)).bewerbung is not None
+        assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=before_the_saison)).bewerbung is not None
 
     def test_refuses_a_season_ending_before_it_starts_in_the_other_sides_words(self, saison):
         """The same helper's other caller: one kind moved without the other is what this catches."""
@@ -774,7 +774,7 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
         spielort = {"address": address(), "name": "Sportplatz Ost", "default_mietpreis": 80}
         schiedsrichter = {"kontakt": kontakt(), "name": "Anna Referee", "schule": None, "default_payment": 20}
         spieler = {"vorname": "Max", "nachname": "Mustermann", "geburtsdatum": "2009-05-04"}
-        club = {key: value for key, value in team().items() if key in FLPostTeamPayload.model_fields}
+        team_payload = {key: value for key, value in team().items() if key in FLPostTeamPayload.model_fields}
         # A WRITE-side person, and not `tests/api/test_teams.py :: STORED_KONTAKTPERSON`, which holds
         # values the payload refuses on purpose.
         kontaktperson = {
@@ -803,10 +803,10 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "schiedsrichter.name": (FLPostSchiedsrichterPayload, schiedsrichter, ("name",)),
             "spieler_patch.nachname": (FLPatchSpielerPayload, spieler, ("nachname",)),
             "spieler_patch.vorname": (FLPatchSpielerPayload, spieler, ("vorname",)),
-            "team.full_name": (FLPostTeamPayload, club, ("full_name",)),
-            "team.name": (FLPostTeamPayload, club, ("name",)),
+            "team.full_name": (FLPostTeamPayload, team_payload, ("full_name",)),
+            "team.name": (FLPostTeamPayload, team_payload, ("name",)),
             # The width is a floor as well as a ceiling, so a padded value has to reach it stripped.
-            "team.shorthand": (FLPostTeamPayload, club, ("shorthand",)),
+            "team.shorthand": (FLPostTeamPayload, team_payload, ("shorthand",)),
             # Three independent declarations of the season id, so a strip dropped from one is
             # invisible to the other two's clauses.
             "saison.id": (FLPostSaisonPayload, new_saison, ("id",)),

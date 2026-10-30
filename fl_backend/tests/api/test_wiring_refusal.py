@@ -224,7 +224,7 @@ class TestMaintainedSides:
 
 
 def stored_as(season_docs: list[dict[str, Any]], nr: int, **wiring: Any) -> list[dict[str, Any]]:
-    """`season_docs` with fixture `nr` ALREADY holding `wiring`, so a save resubmitting it changes nothing."""
+    """`saison_docs` with fixture `nr` ALREADY holding `wiring`, so a save resubmitting it changes nothing."""
 
     return [doc if doc["spiel_nr"] != nr else {**doc, **wiring} for doc in season_docs]
 

@@ -22,8 +22,8 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
-from app.shared.schemas.bestaetigung import FLTokenPayload
-from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_AGE_YEARS
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.bans import ban_list
@@ -91,7 +91,7 @@ def team_document(team_id: ObjectId, name: str, full_name: str) -> dict[str, Any
 def einwilligung(**overrides: Any) -> dict[str, Any]:
     """The returning pupil's record as their own confirmation of an earlier season left it."""
 
-    stored = documents.eigene_einwilligung_document(text_version=AN_OLDER_LABEL, confirmed_at="2025-09-02", umfang="intern", medien=True)
+    stored = documents.own_einwilligung_document(text_version=AN_OLDER_LABEL, confirmed_at="2025-09-02", umfang="intern", medien=True)
 
     return {**stored, **overrides}
 
@@ -202,7 +202,7 @@ async def stored(database: AsyncDatabase) -> Mapping[str, Any]:
 
 
 async def log_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
-    return await database[Collection.AKTIONEN].find({"collection": str(Collection.REGISTRIERUNGEN)}).sort("_id", 1).to_list(length=None)
+    return await database[Collection.ACTION_LOG].find({"collection": str(Collection.REGISTRIERUNGEN)}).sort("_id", 1).to_list(length=None)
 
 
 class TestWhatALinkOpens:
@@ -213,7 +213,7 @@ class TestWhatALinkOpens:
 
         assert (response.state, response.team, response.schule) == ("valid", TEAM_NAME, TEAM_FULL_NAME)
         assert response.saison_id == SAISON_ID
-        assert response.minimum_age == REGISTRIERUNG_MIN_ALTER_JAHRE
+        assert response.minimum_age == REGISTRIERUNG_MIN_AGE_YEARS
 
     def test_the_link_carries_no_other_teams_name_and_nothing_else_of_the_registration(self, mongo_replica_set_url: str):
         """A leaked link learns what the mail it arrived in already said, and never a name, the address, the number or the Stufe."""

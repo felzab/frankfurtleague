@@ -5,8 +5,8 @@ from itertools import combinations, product
 from typing import Any, get_args
 
 from app.api.bewerbungen.services import bestaetigungsfrist_from, row_takes_confirmations, saison_link_is_over, seat_is_answered
-from app.api.postausgang.schemas import FLKontaktLinkData, FLOutboxState, FLPostausgangBezug, FLPostausgangLink
-from app.api.postausgang.services import OwedMail
+from app.api.outbox.schemas import FLKontaktLinkData, FLOutboxLink, FLOutboxReference, FLOutboxState
+from app.api.outbox.services import OwedMail
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_COUNTED_AS_ABSAGE,
@@ -1255,10 +1255,10 @@ def compose_bestaetigungen_mit(*, stored_bestaetigungen: Any, minted: Mapping[st
     return {slot: minted[slot] if slot in minted else stored_links.get(slot) for slot in KONTAKT_ROLLEN}
 
 
-def kontakt_bezug(saison_team_id: Any, seats: Sequence[FLKontaktRolle]) -> FLPostausgangBezug:
+def kontakt_bezug(saison_team_id: Any, seats: Sequence[FLKontaktRolle]) -> FLOutboxReference:
     """The season row and the person's seat a delivery is read by: the one the Trainer mirrors, where they hold two."""
 
-    return FLPostausgangBezug(collection=Collection.SAISON_TEAMS, id=saison_team_id, seat=min(seats, key=lambda seat: seat == "trainer"))
+    return FLOutboxReference(collection=Collection.SAISON_TEAMS, id=saison_team_id, seat=min(seats, key=lambda seat: seat == "trainer"))
 
 
 def owed_kontakt_link(
@@ -1293,7 +1293,7 @@ def owed_kontakt_link(
                 row=zeile,
             ),
             reference=kontakt_bezug(row["_id"], seats),
-            link=FLPostausgangLink(
+            link=FLOutboxLink(
                 paths=[f"confirmations.{seat}.token_hashes" for seat in seats],
                 adressen=[f"kontakte.{seat}.email" for seat in seats],
                 replaced=True,

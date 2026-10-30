@@ -20,7 +20,7 @@ from app.core.clock import GERMANY as _GERMANY
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.bounds import ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_TAGE, GENEHMIGUNG_TAGE
+from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, APPROVAL_DAYS
 from app.shared.schemas.literals import FLAddressChangeEndArt, FLAddressChangeWaitsOn, FLAddressChangeWay, FLApprovalDenied
 
 ADRESSWECHSEL_WEGE: Final[tuple[str, ...]] = get_args(FLAddressChangeWay.__value__)
@@ -56,11 +56,11 @@ def als_utc(moment: Any) -> datetime | None:
 def gueltig_bis_ab(now: datetime) -> datetime:
     """When a step asked at `now` lapses: a link to the new mailbox, or the approval asked of the address on file."""
 
-    return now.astimezone(UTC) + timedelta(hours=ADRESSWECHSEL_GUELTIG_STUNDEN)
+    return now.astimezone(UTC) + timedelta(hours=ADDRESS_CHANGE_VALID_HOURS)
 
 
 def wirksam_ab_von(confirmed_at: datetime) -> datetime:
-    return confirmed_at.astimezone(UTC) + timedelta(days=ADRESSWECHSEL_WARTEZEIT_TAGE)
+    return confirmed_at.astimezone(UTC) + timedelta(days=ADDRESS_CHANGE_WAITING_PERIOD_DAYS)
 
 
 def _german_day(now: datetime) -> str:
@@ -75,7 +75,7 @@ def compose_genehmigung(*, verwaltung: str, started_by: str, now: datetime) -> d
         "verwaltung": verwaltung,
         # Its approver held their grant since then (`app/api/berechtigungen/services.py :: haelt_seit`).
         "asked_at": now.astimezone(UTC),
-        "bis": now.astimezone(UTC) + timedelta(days=GENEHMIGUNG_TAGE),
+        "bis": now.astimezone(UTC) + timedelta(days=APPROVAL_DAYS),
         # Folded, as `granted_by` stores an administrator: the one compared with the approver.
         "started_by": started_by,
         "approved_at": None,
@@ -94,7 +94,7 @@ def compose_record(
 ) -> dict[str, Any]:
     """The WHOLE record a start inserts, never reused, so a journal line's id names one change.
 
-    Both links' arrays empty: each mail's hand-out mints its link into them (`app/api/postausgang/system_router.py :: post_ausgabe`).
+    Both links' arrays empty: each mail's hand-out mints its link into them (`app/api/postausgang/system_router.py :: post_handout`).
     """
 
     return {

@@ -35,8 +35,8 @@ from app.shared.tokens import hash_token
 from tests import documents
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import bestaetigte_kenntnisnahme, minted_bestaetigungen
-from tests.loeschung import geloescht
+from tests.documents import confirmed_kenntnisnahme, minted_confirmations
+from tests.erasure import erased
 from tests.plans import plans_of_sent_reads
 from tests.wire import commands_sent
 from tests.worker import worker_database
@@ -153,7 +153,7 @@ def person(nachname: str, telefon: str) -> dict[str, Any]:
         "email": email,
         "telefon": telefon,
         "geburtsdatum": "1979-03-14",
-        "einwilligung": bestaetigte_kenntnisnahme(datum="2026-01-05"),
+        "einwilligung": confirmed_kenntnisnahme(datum="2026-01-05"),
     }
 
 
@@ -199,7 +199,7 @@ def saison_team_document(row_id: ObjectId, saison_id: str, team_id: ObjectId) ->
 # The three live links every seeded application carries, so an erasure has bookkeeping to reach.
 # Minted as the shared application builder mints them, from this prefix on the submission's day.
 LINK_PREFIX = "link"
-BESTAETIGUNGEN = minted_bestaetigungen(hashes={slot: hash_token(f"{LINK_PREFIX}-{slot}") for slot in KONTAKT_ROLLEN}, today="2026-01-05")
+BESTAETIGUNGEN = minted_confirmations(hashes={slot: hash_token(f"{LINK_PREFIX}-{slot}") for slot in KONTAKT_ROLLEN}, today="2026-01-05")
 
 
 def bewerbung_document(row_id: ObjectId, team_id: ObjectId) -> dict[str, Any]:
@@ -287,7 +287,7 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
 
 
 async def call_loeschung(database: AsyncDatabase, client: AsyncMongoClient, email: str = GELOESCHT_EMAIL) -> FLErasureResponse:
-    return await geloescht(database, client, email, germany_now=NOW)
+    return await erased(database, client, email, germany_now=NOW)
 
 
 async def call_ansicht(database: AsyncDatabase, client: AsyncMongoClient, email: str = GELOESCHT_EMAIL) -> FLErasureViewResponse:
@@ -313,7 +313,7 @@ async def log_rows_naming(database: AsyncDatabase, collection: Collection, row_i
     A wrong filter in the endpoint cannot then make these assertions agree with it.
     """
 
-    rows = database[Collection.AKTIONEN].find({"collection": str(collection), "document_id": row_id})
+    rows = database[Collection.ACTION_LOG].find({"collection": str(collection), "document_id": row_id})
 
     return await rows.to_list(length=None)
 
@@ -385,7 +385,7 @@ def after_loeschen_a_swapped_out_person(url: str) -> Snapshot:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await a_swap_moves_them_out(database)
             response = await call_loeschung(database, client)
-            log = await database[Collection.AKTIONEN].find().sort("_id", 1).to_list(length=None)
+            log = await database[Collection.ACTION_LOG].find().sort("_id", 1).to_list(length=None)
 
             return response, await stored_rows(database), log
 
@@ -411,7 +411,7 @@ def after_loeschen(url: str, email: str = GELOESCHT_EMAIL) -> Snapshot:
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         response = await call_loeschung(database, client, email)
-        log = await database[Collection.AKTIONEN].find().sort("_id", 1).to_list(length=None)
+        log = await database[Collection.ACTION_LOG].find().sort("_id", 1).to_list(length=None)
 
         return response, await stored_rows(database), log
 
@@ -676,10 +676,10 @@ def test_a_spelling_handed_in_unfolded_still_clears_and_redacts(mongo_replica_se
             return await loeschen_kontaktperson_in_session(
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                aktionen_collection=database[Collection.AKTIONEN],
+                aktionen_collection=database[Collection.ACTION_LOG],
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 identifier=VARIANT_REQUEST_EMAIL,
-                key=build_test_config().sperrliste_schluessel,
+                key=build_test_config().sperrliste_key,
                 saison_team_rows=reached[Collection.SAISON_TEAMS],
                 bewerbung_rows=reached[Collection.BEWERBUNGEN],
                 stamp=REDACTED_AT,
@@ -689,7 +689,7 @@ def test_a_spelling_handed_in_unfolded_still_clears_and_redacts(mongo_replica_se
         async with transaction_session(client) as session:
             cleared = await session.with_transaction(in_session)
 
-        return cleared, await database[Collection.AKTIONEN].find().to_list(length=None)
+        return cleared, await database[Collection.ACTION_LOG].find().to_list(length=None)
 
     cleared, log = on_a_league(mongo_replica_set_url, body)
 
@@ -739,13 +739,13 @@ def test_the_redaction_writes_no_row_of_its_own(mongo_replica_set_url: str):
     """
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        before_count = await database[Collection.AKTIONEN].count_documents({})
+        before_count = await database[Collection.ACTION_LOG].count_documents({})
         await call_loeschung(database, client)
 
         return (
             before_count,
-            await database[Collection.AKTIONEN].count_documents({}),
-            await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.AKTIONEN)}),
+            await database[Collection.ACTION_LOG].count_documents({}),
+            await database[Collection.ACTION_LOG].count_documents({"collection": str(Collection.ACTION_LOG)}),
         )
 
     before_count, after_count, self_recorded = on_a_league(mongo_replica_set_url, body)
@@ -759,15 +759,15 @@ def test_an_address_naming_nobody_is_a_clean_no_op(mongo_replica_set_url: str):
     """Kills a redaction overwriting what the fold never judged: an address naming nobody stamps no row."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        before_count = await database[Collection.AKTIONEN].count_documents({})
+        before_count = await database[Collection.ACTION_LOG].count_documents({})
         response = await call_loeschung(database, client, UNKNOWN_EMAIL)
 
         return (
             response,
             await stored_rows(database),
             before_count,
-            await database[Collection.AKTIONEN].count_documents({}),
-            await database[Collection.AKTIONEN].count_documents({"redacted_at": {"$ne": None}}),
+            await database[Collection.ACTION_LOG].count_documents({}),
+            await database[Collection.ACTION_LOG].count_documents({"redacted_at": {"$ne": None}}),
         )
 
     response, rows, before_count, after_count, stamped = on_a_league(mongo_replica_set_url, body)
@@ -790,7 +790,7 @@ def test_a_refused_redaction_takes_every_clearing_back(mongo_replica_set_url: st
         # own rows, which are recorded with `redacted_at` null.
         await database.command(
             "collMod",
-            Collection.AKTIONEN.value,
+            Collection.ACTION_LOG.value,
             validator={"$jsonSchema": {"bsonType": "object", "properties": {"redacted_at": {"bsonType": "null"}}}},
             validationLevel="strict",
         )
@@ -1093,7 +1093,7 @@ def test_an_address_holding_a_nul_names_nobody_and_clears_nothing(mongo_replica_
             await call_ansicht(database, client, asked),
             await call_loeschung(database, client, asked),
             await stored_rows(database),
-            await database[Collection.AKTIONEN].count_documents({"redacted_at": {"$ne": None}}),
+            await database[Collection.ACTION_LOG].count_documents({"redacted_at": {"$ne": None}}),
         )
 
     ansicht, response, rows, stamped = on_a_league(mongo_replica_set_url, body)
@@ -1117,7 +1117,7 @@ def test_a_label_decoding_to_a_lone_surrogate_names_nobody_and_clears_nothing(mo
             await call_ansicht(database, client, asked),
             await call_loeschung(database, client, asked),
             await stored_rows(database),
-            await database[Collection.AKTIONEN].count_documents({"redacted_at": {"$ne": None}}),
+            await database[Collection.ACTION_LOG].count_documents({"redacted_at": {"$ne": None}}),
         )
 
     ansicht, response, rows, stamped = on_a_league(mongo_replica_set_url, body)
@@ -1182,10 +1182,10 @@ def test_loeschen_the_same_person_a_second_time_is_a_clean_no_op(mongo_replica_s
         async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (client, database):
             await a_swap_moves_them_out(database)
             await call_loeschung(database, client)
-            first = await database[Collection.AKTIONEN].find().sort("_id", 1).to_list(length=None)
-            again = await geloescht(database, client, GELOESCHT_EMAIL, germany_now=A_DAY_LATER)
+            first = await database[Collection.ACTION_LOG].find().sort("_id", 1).to_list(length=None)
+            again = await erased(database, client, GELOESCHT_EMAIL, germany_now=A_DAY_LATER)
 
-            return first, again, await database[Collection.AKTIONEN].find().sort("_id", 1).to_list(length=None)
+            return first, again, await database[Collection.ACTION_LOG].find().sort("_id", 1).to_list(length=None)
 
     first, again, log = on_the_seed_loop(_run())
 
@@ -1461,7 +1461,7 @@ def test_each_further_seat_set_the_void_meets_costs_one_write_and_its_log_row(mo
     assert counted(SEAT_SETS) - counted([KONTAKT_ROLLEN] * len(SEAT_SETS)) == 2 * (len(SEAT_SETS) - 1)
 
 
-THEIR_HALTER = halter_of(GELOESCHT_EMAIL, key=build_test_config().sperrliste_schluessel)
+THEIR_HALTER = halter_of(GELOESCHT_EMAIL, key=build_test_config().sperrliste_key)
 
 
 @pytest.mark.db
@@ -1474,7 +1474,7 @@ def test_the_reason_steps_log_row_names_no_digest_of_theirs(mongo_replica_set_ur
 
         return (
             await database[Collection.SPIELBESTAETIGUNGEN].find({}, {"antwort": 1}).to_list(length=None),
-            await database[Collection.AKTIONEN].find({}).to_list(length=None),
+            await database[Collection.ACTION_LOG].find({}).to_list(length=None),
         )
 
     stored, log = on_a_league(mongo_replica_set_url, body)

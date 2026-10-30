@@ -10,9 +10,9 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import SWEEP_PAGE
-from app.api.postausgang.crud import lagen_of
-from app.api.postausgang.schemas import FLOutboxState, FLSpielEinteilungData, FLSpielRequestData
-from app.api.postausgang.services import OwedMail, enqueue_mails
+from app.api.outbox.crud import states_of
+from app.api.outbox.schemas import FLOutboxState, FLSpielEinteilungData, FLSpielRequestData
+from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, anchor_the_referees_told, anchor_the_seats_minted
 from app.api.spielbestaetigungen.schemas import (
@@ -54,7 +54,7 @@ from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_many_to_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     DBClient,
-    PostausgangCollection,
+    OutboxCollection,
     SaisonsCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
@@ -307,7 +307,7 @@ async def sweep_spielbestaetigungen(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
-    postausgang_collection: PostausgangCollection,
+    postausgang_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -336,7 +336,7 @@ async def sweep_spielbestaetigungen(
     its booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `discarded`: a
     decline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased
     referee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period
-    (`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed.
+    (`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_FRIST_DAYS`) before the fixture, or today where that has passed.
     Each seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the
     mail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's
     occupied seat holding no link -- its holder replaced, newly seated, or a ban since lifted -- is owed one too. A
@@ -344,7 +344,7 @@ async def sweep_spielbestaetigungen(
     its notice first.
 
     The reminder owes a fresh link per person on each team row whose deadline lies a reminder's count of days away
-    (`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), minted beside the
+    (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS_FIRST`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), minted beside the
     links already mailed so every one of them answers until the deadline, and stamps the day. It passes over each seat
     whose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where
     this pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's
@@ -465,7 +465,7 @@ async def sweep_spielbestaetigungen(
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
-        await enqueue_mails(postausgang_collection=postausgang_collection, session=session, mails=mails, now=now)
+        await enqueue_mails(outbox_collection=postausgang_collection, session=session, mails=mails, now=now)
 
         return _Closed(closed=len(taken), mails=len(mails))
 
@@ -630,7 +630,7 @@ async def sweep_spielbestaetigungen(
                     return_document=ReturnDocument.BEFORE,
                 )
         mails = [mail for _, plan in taken for mail in plan.mails]
-        await enqueue_mails(postausgang_collection=postausgang_collection, session=session, mails=mails, now=now)
+        await enqueue_mails(outbox_collection=postausgang_collection, session=session, mails=mails, now=now)
 
         return _Minted(
             written=sum(plan.written for _, plan in taken),
@@ -661,8 +661,8 @@ async def sweep_spielbestaetigungen(
         )
         austritte = _austritte(junctions)
         gesperrt = await _gesperrt(sperrliste=sperrliste, junctions=junctions, massgebliche_saison_id=massgebliche_saison_id, session=session)
-        lagen = await lagen_of(
-            postausgang_collection=postausgang_collection,
+        lagen = await states_of(
+            outbox_collection=postausgang_collection,
             collection=Collection.SPIELBESTAETIGUNGEN,
             ids=[row["_id"] for row in rows],
             session=session,
@@ -723,7 +723,7 @@ async def sweep_spielbestaetigungen(
                 return_document=ReturnDocument.BEFORE,
             )
         await enqueue_mails(
-            postausgang_collection=postausgang_collection, session=session, mails=[mail for _, owed in taken for mail in owed.mails], now=now
+            outbox_collection=postausgang_collection, session=session, mails=[mail for _, owed in taken for mail in owed.mails], now=now
         )
 
         return [owed for _, owed in taken]

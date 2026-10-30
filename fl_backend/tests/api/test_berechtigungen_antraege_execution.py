@@ -46,7 +46,7 @@ from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.journal import JOURNAL_TOKEN, parse_line
 from app.core.recording import SYSTEM_ACTOR, Actor, actor_var, log_stamp
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import GENEHMIGUNG_TAGE
+from app.shared.schemas.bounds import APPROVAL_DAYS
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document
@@ -124,7 +124,7 @@ def on_a_league(url: str, body: Body, *, grants: list[dict[str, Any]] = THREE) -
             await database[Collection.SAISONS].insert_one(
                 saison_document(RUNNING, "active", rules=rules_document(number_of_gruppen=2, allowed_stufen=["E1"]))
             )
-            await database[Collection.BERECHTIGUNGEN].insert_many([dict(grant) for grant in grants])
+            await database[Collection.GRANTS].insert_many([dict(grant) for grant in grants])
 
             return await body(database, client)
 
@@ -204,11 +204,11 @@ async def outcome(call: Awaitable[Any]) -> str:
 
 
 async def antraege(database: AsyncDatabase) -> list[Mapping[str, Any]]:
-    return [row async for row in database[Collection.BERECHTIGUNGEN_ANTRAEGE].find({}, sort=[("_id", 1)])]
+    return [row async for row in database[Collection.GRANT_APPROVAL_REQUESTS].find({}, sort=[("_id", 1)])]
 
 
 async def tiers(database: AsyncDatabase) -> dict[str, str]:
-    return {str(row["adresse"]): str(row["verwaltung"]) async for row in database[Collection.BERECHTIGUNGEN].find()}
+    return {str(row["adresse"]): str(row["verwaltung"]) async for row in database[Collection.GRANTS].find()}
 
 
 async def announced(database: AsyncDatabase) -> list[tuple[str, str | None, str | None]]:
@@ -221,7 +221,7 @@ async def owed(database: AsyncDatabase) -> list[tuple[Mapping[str, Any], list[st
     """Each grant notice still owed, in the order owed: its facts and every address it is owed to."""
 
     notices: dict[str, tuple[Mapping[str, Any], list[str]]] = {}
-    async for row in database[Collection.POSTAUSGANG].find({"stand": "open", "art": "grant"}, sort=[("recorded_at", 1), ("_id", 1)]):
+    async for row in database[Collection.OUTBOX].find({"stand": "open", "art": "grant"}, sort=[("recorded_at", 1), ("_id", 1)]):
         notices.setdefault(row["key"].rpartition("/")[0], (row["data"], []))[1].append(str(row["an"]))
 
     return [(daten, sorted(an)) for daten, an in notices.values()]
@@ -282,7 +282,7 @@ class TestFourEyesOnAGrant:
                 "approval": {
                     "verwaltung": "administration",
                     "asked_at": NOW.astimezone(UTC).replace(tzinfo=None),
-                    "bis": (NOW + timedelta(days=GENEHMIGUNG_TAGE)).astimezone(UTC).replace(tzinfo=None),
+                    "bis": (NOW + timedelta(days=APPROVAL_DAYS)).astimezone(UTC).replace(tzinfo=None),
                     "started_by": ANNA,
                 },
             }
@@ -294,9 +294,9 @@ class TestFourEyesOnAGrant:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             antrag_id = await asked_for(database, client)
             answer = await approve(database, client, antrag_id, als=BERND)
-            grant = await database[Collection.BERECHTIGUNGEN].find_one({"adresse": NEU})
-            removal = await database[Collection.AKTIONEN].find_one(
-                {"collection": str(Collection.BERECHTIGUNGEN_ANTRAEGE), "operation": "delete_many"}
+            grant = await database[Collection.GRANTS].find_one({"adresse": NEU})
+            removal = await database[Collection.ACTION_LOG].find_one(
+                {"collection": str(Collection.GRANT_APPROVAL_REQUESTS), "operation": "delete_many"}
             )
             assert grant is not None and removal is not None
             return (
@@ -351,7 +351,7 @@ class TestFourEyesOnAPromotion:
             await tier(database, client, BERND_ID)
             (antrag,) = await antraege(database)
             await approve(database, client, antrag["_id"], als=ANNA)
-            bernd = await database[Collection.BERECHTIGUNGEN].find_one({"_id": BERND_ID})
+            bernd = await database[Collection.GRANTS].find_one({"_id": BERND_ID})
             assert bernd is not None
             return bernd["verwaltung"], bernd["appointed_at"], await antraege(database), await announced(database)
 
@@ -385,9 +385,9 @@ async def compared(database: AsyncDatabase, client: AsyncMongoClient, *, now: da
     token = actor_var.set(SYSTEM_ACTOR)
     try:
         await post_grants_reconciliation(
-            berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-            berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-            postausgang_collection=database[Collection.POSTAUSGANG],
+            berechtigungen_collection=database[Collection.GRANTS],
+            berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+            postausgang_collection=database[Collection.OUTBOX],
             sperrliste=ban_list(database),
             db=client,
             now=now,
@@ -481,7 +481,7 @@ class TestOneRequestPerAddress:
             async def rival() -> Any:
                 return await ask(database, client, als=BERND)
 
-            racing = RunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], rival)
+            racing = RunningARivalAfterTheFirstRead(database[Collection.GRANTS], rival)
             first = await outcome(ask(database, client, berechtigungen_collection=racing))
             racing.assert_landed_inside(serially=1)
             return racing.rival_outcome, first, [row["approval"]["started_by"] for row in await antraege(database)]
@@ -491,9 +491,9 @@ class TestOneRequestPerAddress:
     def test_the_index_holds_one_row_per_address_beneath_the_route(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
             row = compose_antrag(adresse=NEU, verwaltung="administration", grant_id=None, started_by=ANNA, now=NOW)
-            await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(dict(row))
+            await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(dict(row))
             with pytest.raises(DuplicateKeyError):
-                await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(dict(row))
+                await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(dict(row))
 
         on_a_league(mongo_replica_set_url, body)
 
@@ -505,7 +505,7 @@ class TestOneRequestPerAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             lapsed = compose_antrag(adresse=NEU, verwaltung="administration", grant_id=None, started_by=ANNA, now=NOW - timedelta(days=8))
-            restored = (await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(lapsed)).inserted_id
+            restored = (await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(lapsed)).inserted_id
             served = (await listed(database, client)).approval_requests
             decided = [
                 await outcome(approve(database, client, restored, als=BERND)),
@@ -578,7 +578,7 @@ class TestWhoMayDecide:
         )
         assert (by_anna.asked_at, by_anna.bis) == (
             NOW.astimezone(UTC),
-            (NOW + timedelta(days=GENEHMIGUNG_TAGE)).astimezone(UTC),
+            (NOW + timedelta(days=APPROVAL_DAYS)).astimezone(UTC),
         )
         assert (by_anna.denied, by_bernd.denied) == ("started", None)
 
@@ -680,9 +680,9 @@ class TestTheApprovalJudgesTheAddressAgain:
     def test_an_address_granted_since_in_the_database_is_granted_no_second_time(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             antrag_id = await asked_for(database, client)
-            await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(CARLA_ID, NEU, "administration"))
+            await database[Collection.GRANTS].insert_one(grant_document(CARLA_ID, NEU, "administration"))
             approved = await outcome(approve(database, client, antrag_id, als=BERND))
-            return approved, await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": NEU})
+            return approved, await database[Collection.GRANTS].count_documents({"adresse": NEU})
 
         assert on_a_league(mongo_replica_set_url, body) == (Code.GRANT_EXISTS, 1)
 
@@ -699,10 +699,10 @@ def raced(url: str, rival: Racer) -> Any:
         async def running() -> Any:
             return await rival(database, client, antrag_id)
 
-        racing = RunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN_ANTRAEGE], running)
+        racing = RunningARivalAfterTheFirstRead(database[Collection.GRANT_APPROVAL_REQUESTS], running)
         approved = await outcome(approve(database, client, antrag_id, als=OWNER, berechtigungen_antraege_collection=racing))
         racing.assert_landed_inside(serially=1)
-        grants = await database[Collection.BERECHTIGUNGEN].find({"adresse": NEU}).to_list()
+        grants = await database[Collection.GRANTS].find({"adresse": NEU}).to_list()
         return racing.rival_outcome, approved, [grant["granted_by"] for grant in grants], len(await antraege(database))
 
     return on_a_league(url, body)
@@ -725,8 +725,8 @@ async def anna_geloescht(database: AsyncDatabase, client: AsyncMongoClient, _: O
 
     async def step(session: AsyncClientSession) -> int:
         return await loeschen_antraege_in_session(
-            berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
-            postausgang_collection=database[Collection.POSTAUSGANG],
+            berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
+            postausgang_collection=database[Collection.OUTBOX],
             identifier=ANNA,
             now=NOW,
             session=session,
@@ -773,7 +773,7 @@ class TestTheRefusalIsJournalled:
 
         antrag_id, lines = on_a_league(mongo_replica_set_url, body)
 
-        assert lines == [(art, Collection.BERECHTIGUNGEN_ANTRAEGE, antrag_id)]
+        assert lines == [(art, Collection.GRANT_APPROVAL_REQUESTS, antrag_id)]
 
     def test_a_refusal_refused_and_an_approval_write_none(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A refused press rolled back, and an approval leaves its grant, which a restore takes back with the request."""
@@ -800,18 +800,18 @@ class TestTheRefusalIsJournalled:
             window = Window(since=NOW - timedelta(hours=1), until=NOW + timedelta(hours=1))
 
             async def planned(now: datetime) -> Any:
-                return await plan_replay(line, database, key=CONFIG.sperrliste_schluessel, session=None, now=now, window=window)
+                return await plan_replay(line, database, key=CONFIG.sperrliste_key, session=None, now=now, window=window)
 
             standings = []
-            await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(dict(snapshot))
+            await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(dict(snapshot))
             for _ in range(2):
                 plan = await planned(NOW)
                 standings.append(plan.stand)
                 if plan.rewrite is not None:
                     async with transaction_session(client) as session:
                         await session.with_transaction(plan.rewrite)
-            await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(dict(snapshot))
-            standings.append((await planned(NOW + timedelta(days=GENEHMIGUNG_TAGE, hours=1))).stand)
+            await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(dict(snapshot))
+            standings.append((await planned(NOW + timedelta(days=APPROVAL_DAYS, hours=1))).stand)
             return standings
 
         assert on_a_league(mongo_replica_set_url, body) == ["to replay", "no such record", "already done"]
@@ -834,13 +834,13 @@ class TestTheReplayEndsTheRestoredRequest:
             # The snapshot: the request and its approvers' notice, still queued.
             snapshot = {
                 collection: await database[collection].find({}).to_list()
-                for collection in (Collection.BERECHTIGUNGEN_ANTRAEGE, Collection.POSTAUSGANG)
+                for collection in (Collection.GRANT_APPROVAL_REQUESTS, Collection.OUTBOX)
             }
             with journal_of(caplog) as lines:
                 if end == "ended":
                     # The effect's own line for the request it ends, as `take_effect_in_session` notes it.
                     (antrag,) = await ended(database, client, NEU)
-                    lines.append(antrag_line(antrag=antrag, art="antrag_beendet", am=log_stamp(NOW), key=CONFIG.sperrliste_schluessel))
+                    lines.append(antrag_line(antrag=antrag, art="antrag_beendet", am=log_stamp(NOW), key=CONFIG.sperrliste_key))
                 else:
                     await refuse(database, client, antrag_id, als=BERND if end == "refused" else ANNA)
             (line,) = lines
@@ -848,7 +848,7 @@ class TestTheReplayEndsTheRestoredRequest:
                 await database[collection].delete_many({})
                 await database[collection].insert_many(rows)
             window = Window(since=NOW - timedelta(hours=1), until=NOW + timedelta(hours=1))
-            plan = await plan_replay(line, database, key=CONFIG.sperrliste_schluessel, session=None, now=NOW, window=window)
+            plan = await plan_replay(line, database, key=CONFIG.sperrliste_key, session=None, now=NOW, window=window)
             assert plan.rewrite is not None
             async with transaction_session(client) as session:
                 await session.with_transaction(plan.rewrite)
@@ -864,23 +864,23 @@ class TestTheLoeschungTakesEveryRequestOfTheAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await asked_for(database, client)
             await asked_for(database, client, email="zweite@beispielschule.de", als=BERND)
-            await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(
+            await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
                 compose_antrag(
                     adresse="dritte@beispielschule.de",
                     verwaltung="administration",
                     grant_id=None,
                     started_by=ANNA,
-                    now=NOW - timedelta(days=GENEHMIGUNG_TAGE + 1),
+                    now=NOW - timedelta(days=APPROVAL_DAYS + 1),
                 )
             )
-            before = await database[Collection.AKTIONEN].count_documents({})
+            before = await database[Collection.ACTION_LOG].count_documents({})
 
             async def step(session: AsyncClientSession) -> list[int]:
-                collection = database[Collection.BERECHTIGUNGEN_ANTRAEGE]
+                collection = database[Collection.GRANT_APPROVAL_REQUESTS]
                 return [
                     await loeschen_antraege_in_session(
                         berechtigungen_antraege_collection=collection,
-                        postausgang_collection=database[Collection.POSTAUSGANG],
+                        postausgang_collection=database[Collection.OUTBOX],
                         identifier=identifier,
                         now=NOW,
                         session=session,
@@ -890,7 +890,7 @@ class TestTheLoeschungTakesEveryRequestOfTheAddress:
 
             async with transaction_session(client) as session:
                 geloescht = await session.with_transaction(step)
-            logged = await database[Collection.AKTIONEN].find({}, sort=[("_id", 1)]).skip(before).to_list()
+            logged = await database[Collection.ACTION_LOG].find({}, sort=[("_id", 1)]).skip(before).to_list()
             return geloescht, await antraege(database), [(row["operation"], row.get("before")) for row in logged]
 
         # Anna's own request and the lapsed one she made, then the request about the second address: one log row per
@@ -933,7 +933,7 @@ class TestAMovedAdministratorKeepsTheirStanding:
 
     def test_they_are_asked_for_and_approve_a_request_made_before_their_move(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(MOVER_ID, EMAIL, "administration"))
+            await database[Collection.GRANTS].insert_one(grant_document(MOVER_ID, EMAIL, "administration"))
             # Found by a pass before the request, or the request would date every pasted grant from its own find.
             await compared(database, client, now=since(2 * ASKED_AN_HOUR_AGO))
             antrag_id = await asked_for(database, client, als=SECOND_ADMIN, now=since(ASKED_AN_HOUR_AGO))
@@ -948,7 +948,7 @@ class TestAMovedAdministratorKeepsTheirStanding:
 
     def test_their_own_request_made_before_their_move_stays_approvable(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(MOVER_ID, EMAIL, "administration"))
+            await database[Collection.GRANTS].insert_one(grant_document(MOVER_ID, EMAIL, "administration"))
             antrag_id = await asked_for(database, client, als=EMAIL, now=since(ASKED_AN_HOUR_AGO))
             await move(database, client, at=since(MOVED_AGO))
             return await outcome(approve(database, client, antrag_id, als=SECOND_ADMIN, now=since(60))), NEU in await tiers(database)
@@ -961,8 +961,8 @@ async def ended(database: AsyncDatabase, client: AsyncMongoClient, adresse: str)
 
     async def step(session: AsyncClientSession) -> list[Mapping[str, Any]]:
         return await end_the_antraege_about_in_session(
-            berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
-            postausgang_collection=database[Collection.POSTAUSGANG],
+            berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
+            postausgang_collection=database[Collection.OUTBOX],
             adresse=adresse,
             now=NOW,
             session=session,

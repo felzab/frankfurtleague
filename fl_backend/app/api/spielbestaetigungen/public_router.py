@@ -53,7 +53,7 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
-from app.shared.schemas.bestaetigung import FLTokenPayload
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 
 # Base tier and the public actor: the token is the whole credential, as a sign-in code is, for

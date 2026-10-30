@@ -26,7 +26,7 @@ from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_h
 from app.api.spielbestaetigungen.services import compose_ansetzung, halter_of
 from app.core.recording import log_stamp
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
-from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, compose_beleg, compose_geboren
+from app.shared.einwilligung_nachweis import CHOICES, NACHWEIS, compose_beleg, compose_geboren
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeWay, FLKontaktEnteredBy
 from app.shared.tokens import hash_token
 from tests.config import build_test_config
@@ -42,7 +42,7 @@ ADDRESS: Final[Mapping[str, str]] = {
 _GERMANY: Final = ZoneInfo("Europe/Berlin")
 
 
-def bestaetigt_um(tag: str) -> str:
+def confirmed_instant(tag: str) -> str:
     """The instant a seed's person confirmed on `tag`: noon in Germany, spelled as `log_stamp` spells evidence."""
 
     return log_stamp(datetime.fromisoformat(f"{tag}T12:00:00").replace(tzinfo=_GERMANY))
@@ -58,7 +58,7 @@ EINWILLIGUNG: Final[Mapping[str, Any]] = compose_geboren(
         "text_version": LAUFENDE_FASSUNGEN["bestaetigung_spieler"],
         "medien": False,
     },
-    am=bestaetigt_um("2026-01-20"),
+    am=confirmed_instant("2026-01-20"),
 )
 
 # The ordinary competition, so no rule a suite is not about refuses first. Every key spelled out, so a
@@ -226,7 +226,7 @@ def kontakt_antwort_document(rolle: str, adresse: str, *, begruendung: str | Non
     return {
         "art": "declined",
         "am": am,
-        "von": {"art": "kontakt", "rolle": rolle, "halter": halter_of(adresse, key=build_test_config().sperrliste_schluessel)},
+        "von": {"art": "kontakt", "rolle": rolle, "halter": halter_of(adresse, key=build_test_config().sperrliste_key)},
         "vorschlag": {"datum": "2026-04-25", "uhrzeit": "14:00:00"},
         "begruendung": begruendung,
         **fields,
@@ -249,7 +249,7 @@ def spieler_document(spieler_id: Any, vorname: str, nachname: str | None, **fiel
     }
 
 
-def neue_schule_document(team_name: str, shorthand: str, **fields: Any) -> dict[str, Any]:
+def new_schule_document(team_name: str, shorthand: str, **fields: Any) -> dict[str, Any]:
     """The school block of an application naming a school the league does not hold yet, named as `team_document` names one."""
 
     return {
@@ -263,7 +263,7 @@ def neue_schule_document(team_name: str, shorthand: str, **fields: Any) -> dict[
     }
 
 
-def minted_bestaetigungen(*, hashes: Mapping[str, str], today: str) -> dict[str, Any]:
+def minted_confirmations(*, hashes: Mapping[str, str], today: str) -> dict[str, Any]:
     """An application's three seats as the hand-out of each seat's mail left them: one live link each, mailed `today`."""
 
     return {seat: {**entry, "token_hashes": [hashes[seat]]} for seat, entry in compose_bestaetigungen(today=today).items()}
@@ -290,7 +290,7 @@ def bewerbung_document(
     """
 
     prefix = str(bewerbung_id) if link_prefix is None else link_prefix
-    gemintet = sent_at or submitted_at
+    minted = sent_at or submitted_at
 
     return {
         "_id": bewerbung_id,
@@ -305,8 +305,8 @@ def bewerbung_document(
         "stufengroesse": 96,
         "wunschgegner": None,
         "decision": None,
-        "confirmation_deadline": confirmation_deadline if confirmation_deadline is not None else bestaetigungsfrist_from(today=gemintet),
-        "confirmations": minted_bestaetigungen(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=gemintet),
+        "confirmation_deadline": confirmation_deadline if confirmation_deadline is not None else bestaetigungsfrist_from(today=minted),
+        "confirmations": minted_confirmations(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=minted),
         **fields,
     }
 
@@ -382,10 +382,10 @@ def kontaktperson_document(
         # choices with their evidence, judged against the seat as seated.
         block = {**seated, "confirmed_at": confirmed_at, **(einwilligung or {})}
         if NACHWEIS not in block:
-            beleg_am = am if am is not None else bestaetigt_um(confirmed_at)
+            beleg_am = am if am is not None else confirmed_instant(confirmed_at)
             block[NACHWEIS] = {
-                wahl: compose_beleg(gespeichert=seated, wahl=wahl, wert=block[wahl], am=beleg_am, text_version=block["text_version"])
-                for wahl in WAHLEN
+                choice: compose_beleg(saved=seated, choice=choice, value=block[choice], am=beleg_am, text_version=block["text_version"])
+                for choice in CHOICES
             }
 
     return {
@@ -399,7 +399,7 @@ def kontaktperson_document(
     }
 
 
-def bestaetigte_kenntnisnahme(*, text_version: str = "v1", datum: str = "2026-01-15", confirmed_at: str = "2026-01-16") -> dict[str, Any]:
+def confirmed_kenntnisnahme(*, text_version: str = "v1", datum: str = "2026-01-15", confirmed_at: str = "2026-01-16") -> dict[str, Any]:
     """A seat's record as its applicant's seating and then its own person's confirmation left it, for a seat a case spells itself."""
 
     return dict(
@@ -418,7 +418,7 @@ def ban_document(address: str, *, bis: str, **fields: Any) -> dict[str, Any]:
 
     return {
         "_id": ObjectId(),
-        "adresse_hash": adresse_hash(address, key=build_test_config().sperrliste_schluessel),
+        "adresse_hash": adresse_hash(address, key=build_test_config().sperrliste_key),
         "key_version": SPERRLISTE_SCHLUESSEL_VERSION,
         "grund": "Falsches Geburtsdatum bei der Anmeldung",
         "created_by": "admin@frankfurtleague.de",
@@ -449,7 +449,7 @@ def saison_spieler_document(spieler_id: Any, saison_id: str, team_id: Any, **fie
 # and every label a case asserts are passed at the call.
 
 
-def eigene_einwilligung_document(*, text_version: str, confirmed_at: str, am: str | None = None, **fields: Any) -> dict[str, Any]:
+def own_einwilligung_document(*, text_version: str, confirmed_at: str, am: str | None = None, **fields: Any) -> dict[str, Any]:
     """A pupil's or a referee's consent as their own confirmation left it, publishing the name and no media.
 
     Each choice evidenced at `am`, noon of `confirmed_at` unless a case names it; `fields` laid over the block.
@@ -463,7 +463,7 @@ def eigene_einwilligung_document(*, text_version: str, confirmed_at: str, am: st
             "text_version": text_version,
             "medien": False,
         },
-        am=am if am is not None else bestaetigt_um(confirmed_at),
+        am=am if am is not None else confirmed_instant(confirmed_at),
     )
 
     return {**geboren, **fields}
@@ -493,7 +493,7 @@ def kontakte_document(**seats: Any) -> dict[str, Any]:
     return {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_is_also": None, **seats}
 
 
-def registrierung_bestaetigt(
+def registrierung_confirmed(
     seite: Seite, *, geburtsdatum: str, today: str, am: str, umfang: str | None = None, medien: bool | None = None
 ) -> dict[str, Any]:
     """`registrierung_document`'s `confirmed` for a pupil's confirmation on `seite`, under that page's running label."""
@@ -508,7 +508,7 @@ def registrierung_bestaetigt(
     }
 
 
-def adresswechsel_document(
+def address_change_document(
     *,
     adresse: str,
     email: str,

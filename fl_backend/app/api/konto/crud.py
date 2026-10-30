@@ -16,7 +16,7 @@ from app.api.einwilligung.services import find_self_medien_refusal
 from app.api.konto.services import erteilt_etwas, find_erteilung_refusal, find_konto_fassung_refusal, find_nachweis_stand_refusal
 from app.core.crud import refuse
 from app.shared.einwilligung import Seite
-from app.shared.einwilligung_nachweis import FLEinwilligungWahl, ist_erteilt
+from app.shared.einwilligung_nachweis import FLEinwilligungChoice, is_given
 
 # Whether the record the press found may take a grant, asked only of a press granting something: the
 # read behind it is the Funktion lookup, and a withdrawal needs none.
@@ -26,7 +26,7 @@ DarfErteilen = Callable[[], Awaitable[bool]]
 async def _vor_der_erteilung(
     *,
     bloecke: Sequence[Mapping[str, Any]],
-    gewaehlt: Mapping[FLEinwilligungWahl, Any],
+    gewaehlt: Mapping[FLEinwilligungChoice, Any],
     nachweis_stand: Mapping[str, Any],
     text_version: str,
     seite: Seite,
@@ -49,7 +49,7 @@ async def press_einwilligung(
     *,
     bloecke: Sequence[Mapping[str, Any]],
     geburtsdaten: Sequence[Any],
-    gewaehlt: Mapping[FLEinwilligungWahl, Any],
+    gewaehlt: Mapping[FLEinwilligungChoice, Any],
     nachweis_stand: Mapping[str, Any],
     text_version: str,
     seite: Seite,
@@ -69,7 +69,7 @@ async def press_einwilligung(
         seite=seite,
         darf_erteilen=darf_erteilen,
     )
-    medien = ist_erteilt("medien", gewaehlt.get("medien"))
+    medien = is_given("medien", gewaehlt.get("medien"))
     for block, geburtsdatum in zip(bloecke, geburtsdaten, strict=True):
         refuse(find_self_medien_refusal(gespeichert=block, medien=medien, geburtsdatum=geburtsdatum, today=today))
 
@@ -77,7 +77,7 @@ async def press_einwilligung(
 async def press_widerruf(
     *,
     bloecke: Sequence[Mapping[str, Any]],
-    gewaehlt: Mapping[FLEinwilligungWahl, Any],
+    gewaehlt: Mapping[FLEinwilligungChoice, Any],
     nachweis_stand: Mapping[str, Any],
     text_version: str,
     seite: Seite,

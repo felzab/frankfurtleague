@@ -31,7 +31,7 @@ from app.api.bewerbungen.schemas import (
     FLDeclineBewerbungPayload,
 )
 from app.api.bewerbungen.services import bestaetigungsfrist_from, bewerbung_kontakt_seite, compose_new_club
-from app.api.postausgang.crud import lagen_of
+from app.api.outbox.crud import states_of
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import post_team
 from app.api.teams.schemas import FLPostTeamPayload
@@ -45,26 +45,26 @@ from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, ADMIN_KEY, build_test_config, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.delivery import a_mail_that_bounced
 from tests.documents import (
     ADDRESS,
     ban_document,
     kontaktperson_document,
-    minted_bestaetigungen,
+    minted_confirmations,
     rules_document,
     saison_document,
     saison_team_document,
     team_document,
 )
+from tests.erasure import erased
 from tests.isolation import InterleavedCollection, Rival
-from tests.loeschung import geloescht
-from tests.postausgang import MAIL_NOW, drained
+from tests.outbox import MAIL_NOW, drained
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
-from tests.zustellung import a_mail_that_bounced
 
 from .conftest import config_for
 
@@ -186,7 +186,7 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "future", occupied
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, rules=dict(RULES)))
-            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             await database[Collection.TEAMS].insert_many(
                 [
                     club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND),
@@ -227,7 +227,7 @@ async def accept(
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         db=client,
         today=TODAY,
         von=ADMIN_EMAIL,
@@ -251,7 +251,7 @@ async def decline(database: AsyncDatabase, bewerbung_id: ObjectId, *, grund: str
         ablehnung_data=FLDeclineBewerbungPayload(grund=grund),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         today=TODAY,
         von=ADMIN_EMAIL,
         db=database.client,
@@ -293,7 +293,7 @@ async def through_the_app(
     here would let a test claim to serve one while serving the other.
     """
 
-    headers = {**ADMIN_AUTH} if actor is None else SignedActor(actor, ADMIN_KEY)
+    headers = {**ADMIN_AUTH} if actor is None else StampedHeaders(actor, ADMIN_KEY)
     path = f"/api/v{API_VERSION}/bewerbungen/{bewerbung_id}/{endpoint}"
 
     # A client of its own rather than the seeding one: the seeding client has to outlive the
@@ -555,7 +555,7 @@ class TestAnApplicationResolvingToNoOneClub:
 UNCONFIRMED_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920008")
 CONFIRMED_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920009")
 
-BESTAETIGUNGEN = minted_bestaetigungen(
+BESTAETIGUNGEN = minted_confirmations(
     hashes={name: hash_token(name) for name in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
 )
 
@@ -783,7 +783,7 @@ class TestWhoTheDecisionNames:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "annehmen", {"gruppe": "A", "trikot_farbe": "rot"})
-            rows = await database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN)}).to_list(length=None)
+            rows = await database[Collection.ACTION_LOG].find({"collection": str(Collection.BEWERBUNGEN)}).to_list(length=None)
 
             return rows, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]
 
@@ -1015,7 +1015,7 @@ class TestTwoDeclinesAtOnce:
                     ablehnung_data=FLDeclineBewerbungPayload(grund=OTHER_GRUND),
                     bewerbungen_collection=cast(AsyncCollection, racing),
                     teams_collection=database[Collection.TEAMS],
-                    postausgang_collection=database[Collection.POSTAUSGANG],
+                    postausgang_collection=database[Collection.OUTBOX],
                     germany_now=MAIL_NOW,
                     today=TODAY,
                     von=OTHER_ADMIN_EMAIL,
@@ -1042,7 +1042,7 @@ class TestTwoDeclinesAtOnce:
                     ablehnung_data=FLDeclineBewerbungPayload(grund=OTHER_GRUND),
                     bewerbungen_collection=database[Collection.BEWERBUNGEN],
                     teams_collection=database[Collection.TEAMS],
-                    postausgang_collection=database[Collection.POSTAUSGANG],
+                    postausgang_collection=database[Collection.OUTBOX],
                     germany_now=MAIL_NOW,
                     today=TODAY,
                     von=OTHER_ADMIN_EMAIL,
@@ -1069,7 +1069,7 @@ class TestTheQueueTheTriageIsWorkedDown:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await get_bewerbungen(
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                postausgang_collection=database[Collection.POSTAUSGANG],
+                postausgang_collection=database[Collection.OUTBOX],
                 sperrliste=ban_list(database),
                 filters=FLBewerbungenFilterParams(),
             )
@@ -1225,7 +1225,7 @@ class TestADeclineLandingInsideAnAcceptance:
                     teams_collection=database[Collection.TEAMS],
                     saison_teams_collection=database[Collection.SAISON_TEAMS],
                     saisons_collection=database[Collection.SAISONS],
-                    postausgang_collection=database[Collection.POSTAUSGANG],
+                    postausgang_collection=database[Collection.OUTBOX],
                     germany_now=MAIL_NOW,
                     db=client,
                     today=TODAY,
@@ -1280,7 +1280,7 @@ async def correct(
         email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": email, "previous_email": shown}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         germany_now=MAIL_NOW,
         sperrliste=ban_list(database),
         db=client,
@@ -1363,8 +1363,8 @@ class TestCorrectingOneContactAddress:
         """Left the seat's last word, the bounce would hold the application back from the deadline on a mailbox it stopped naming."""
 
         async def last_mail(database: AsyncDatabase) -> Any:
-            lagen = await lagen_of(
-                postausgang_collection=database[Collection.POSTAUSGANG], collection=Collection.BEWERBUNGEN, ids=[CORRECTION_BEWERBUNG]
+            lagen = await states_of(
+                outbox_collection=database[Collection.OUTBOX], collection=Collection.BEWERBUNGEN, ids=[CORRECTION_BEWERBUNG]
             )
             return lagen.get((CORRECTION_BEWERBUNG, "ansprechperson"))
 
@@ -1425,7 +1425,7 @@ class TestCorrectingOneContactAddress:
             await seed_a_bounced_application(database, client)
             await correct(database, client, "ansprechperson")
 
-            return await database[Collection.AKTIONEN].find({"document_id": CORRECTION_BEWERBUNG}).sort("_id", 1).to_list(length=None)
+            return await database[Collection.ACTION_LOG].find({"document_id": CORRECTION_BEWERBUNG}).sort("_id", 1).to_list(length=None)
 
         rows = on_a_league(mongo_replica_set_url, body)
 
@@ -1556,7 +1556,7 @@ async def resend(database: AsyncDatabase, seat: str, *, bewerbungen: Any = None,
         seat=seat,
         bewerbungen_collection=collection,
         teams_collection=database[Collection.TEAMS],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         germany_now=MAIL_NOW,
         sperrliste=ban_list(database, saisons=saisons),
         db=database.client,
@@ -1600,7 +1600,7 @@ async def object_to_the_link(database: AsyncDatabase, client: AsyncMongoClient) 
 
 
 async def loeschen_the_person(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-    await geloescht(database, client, KONTAKTE["ansprechperson"]["email"], germany_now=NOW)
+    await erased(database, client, KONTAKTE["ansprechperson"]["email"], germany_now=NOW)
 
 
 @pytest.mark.db
@@ -1658,7 +1658,7 @@ class TestAResendRacingAnAnswer:
                     ),
                     bewerbungen_collection=database[Collection.BEWERBUNGEN],
                     teams_collection=database[Collection.TEAMS],
-                    postausgang_collection=database[Collection.POSTAUSGANG],
+                    postausgang_collection=database[Collection.OUTBOX],
                     sperrliste=ban_list(database),
                     db=client,
                     today=TODAY,
@@ -1778,7 +1778,7 @@ async def reseat(
         sitz_data=FLBewerbungKontaktSeatPayload.model_validate({**RESEAT_PERSON, "email": email, "text_version": text_version}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         germany_now=MAIL_NOW,
         sperrliste=ban_list(database),
         db=client,
@@ -1801,9 +1801,9 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         config=build_test_config(),
@@ -1845,14 +1845,14 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_an_application_a_seat_was_declined_on(database, client)
             emptied = await stored_bewerbung(database, RESEAT_BEWERBUNG)
-            rows_before = await database[Collection.AKTIONEN].count_documents({"document_id": RESEAT_BEWERBUNG})
+            rows_before = await database[Collection.ACTION_LOG].count_documents({"document_id": RESEAT_BEWERBUNG})
             response = await reseat(database, client, "ansprechperson")
 
             return (
                 emptied,
                 response,
                 await stored_bewerbung(database, RESEAT_BEWERBUNG),
-                await database[Collection.AKTIONEN].count_documents({"document_id": RESEAT_BEWERBUNG}) - rows_before,
+                await database[Collection.ACTION_LOG].count_documents({"document_id": RESEAT_BEWERBUNG}) - rows_before,
                 await drained(database, client),
                 await stored_bewerbung(database, RESEAT_BEWERBUNG),
             )
@@ -1970,7 +1970,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_an_application_a_seat_was_declined_on(database, client)
-            await geloescht(database, client, KONTAKTE["stellvertretung"]["email"], germany_now=NOW)
+            await erased(database, client, KONTAKTE["stellvertretung"]["email"], germany_now=NOW)
             emptied = await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
             with pytest.raises(APIError) as refused:

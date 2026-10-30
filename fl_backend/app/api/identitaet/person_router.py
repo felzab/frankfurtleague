@@ -19,15 +19,15 @@ from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
-    AdresswechselCollection,
-    AktionenCollection,
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenAntraegeCollection,
-    BerechtigungenCollection,
+    ActionLogCollection,
+    AddressChangeCollection,
     BewerbungenCollection,
     DBClient,
-    EinladungenCollection,
-    PostausgangCollection,
+    GrantsAnnouncedCollection,
+    GrantsApprovalRequestsCollection,
+    GrantsCollection,
+    InvitationsCollection,
+    OutboxCollection,
     RegistrierungenCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
@@ -67,14 +67,14 @@ async def post_account_erasure(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
     registrierungen_collection: RegistrierungenCollection,
-    aktionen_collection: AktionenCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
-    einladungen_collection: EinladungenCollection,
+    aktionen_collection: ActionLogCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    postausgang_collection: OutboxCollection,
+    einladungen_collection: InvitationsCollection,
     sperrliste_collection: SperrlisteCollection,
-    adresswechsel_collection: AdresswechselCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    adresswechsel_collection: AddressChangeCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     actor: Annotated[SessionActor, Depends(verify_person_actor)],
     db: DBClient,
@@ -147,7 +147,7 @@ async def post_account_erasure(
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
             sperrliste=sperrliste,
             changed_by=identifier,
-            key=config.sperrliste_schluessel,
+            key=config.sperrliste_key,
             stamp=log_stamp(germany_now),
             now=germany_now,
             session=session,
@@ -155,9 +155,7 @@ async def post_account_erasure(
 
         return FLErasureResponse(**geloescht.model_dump())
 
-    journal = LoeschungJournal[FLErasureResponse](
-        identifier, key=config.sperrliste_schluessel, berechtigungen_collection=berechtigungen_collection
-    )
+    journal = LoeschungJournal[FLErasureResponse](identifier, key=config.sperrliste_key, berechtigungen_collection=berechtigungen_collection)
     async with journal:
         async with transaction_session(db) as session:
             answer = journal.took(await session.with_transaction(loeschen_the_address))
@@ -177,7 +175,7 @@ async def get_account_erasure_view(
     schiedsrichter_collection: SchiedsrichterCollection,
     spieler_collection: SpielerCollection,
     registrierungen_collection: RegistrierungenCollection,
-    berechtigungen_collection: BerechtigungenCollection,
+    berechtigungen_collection: GrantsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -218,7 +216,7 @@ async def get_account_erasure_view(
             schiedsrichter_collection=schiedsrichter_collection,
             spieler_collection=spieler_collection,
             registrierungen_collection=registrierungen_collection,
-            key=config.sperrliste_schluessel,
+            key=config.sperrliste_key,
             session=session,
         )
         # A registration holds its team's id alone, and the season row is what names the club that season.

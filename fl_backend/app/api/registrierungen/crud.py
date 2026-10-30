@@ -19,7 +19,7 @@ from app.api.registrierungen.services import (
     build_registrierungen_sort,
 )
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, loeschen_many_from_db, pull_one_from_db, redact_log_rows_in_db
+from app.core.crud import aggregate_many_from_db, erase_many_from_db, pull_one_from_db, redact_log_rows_in_db
 from app.shared.folding import sign_in_identifier
 
 # What the admission reads of a person: who they are, for the question, and what it overwrites.
@@ -129,12 +129,14 @@ async def loeschen_registrierungen_in_session(
     ids = [row["_id"] for row in registrierungen]
     # Ids and their seasons alone: the log keeps a filter as text, so a key naming the person would
     # keep what this removal destroys.
-    geloescht = await loeschen_many_from_db(
+    geloescht = await erase_many_from_db(
         collection=registrierungen_collection,
         db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in registrierungen})}, "_id": {"$in": ids}},
         session=session,
     )
     # A delivery record and every pre-image a confirmation or a decline filed go with the document.
-    await redact_log_rows_in_db(aktionen_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session)
+    await redact_log_rows_in_db(
+        action_log_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
+    )
 
     return geloescht.deleted_count

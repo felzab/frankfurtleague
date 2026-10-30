@@ -87,7 +87,7 @@ def on_a_league(url: str, seasons: list[dict[str, Any]], body: Body) -> Any:
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             # The ban re-judges its actor's grant inside its transaction.
-            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             if seasons:
                 await database[Collection.SAISONS].insert_many(seasons)
 
@@ -112,7 +112,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str =
 async def is_gesperrt(database: AsyncDatabase, *, against: str | None, email: str = BANNED) -> bool:
     return await address_is_gesperrt(
         sperrliste_collection=database[Collection.SPERRLISTE],
-        adresse_hash=adresse_hash(email, key=CONFIG.sperrliste_schluessel),
+        adresse_hash=adresse_hash(email, key=CONFIG.sperrliste_key),
         massgebliche_saison_id=against,
     )
 
@@ -272,7 +272,7 @@ class TestTheSweepAtAnActivation:
             # activation reaches, which covers it.
             await ban(database, client, email=OTHER)
             await database[Collection.SPERRLISTE].update_one(
-                {"adresse_hash": adresse_hash(OTHER, key=CONFIG.sperrliste_schluessel)},
+                {"adresse_hash": adresse_hash(OTHER, key=CONFIG.sperrliste_key)},
                 {"$set": {"barred_until_saison_id": FIRST_CLEAR}},
             )
 
@@ -316,7 +316,7 @@ class TestTheSweepAtAnActivation:
             await ban(database, client)
             await a_drawn_target(database, "2040")
             await activate(database, client, "2040")
-            recorded = await database[Collection.AKTIONEN].find_one({"collection": "sperrliste"})
+            recorded = await database[Collection.ACTION_LOG].find_one({"collection": "sperrliste"})
 
             assert recorded is not None
             return recorded

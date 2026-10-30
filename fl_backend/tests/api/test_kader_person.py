@@ -26,7 +26,6 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
 from app.shared.schemas.literals import KONTAKT_ROLLEN
-from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
@@ -41,6 +40,7 @@ from tests.documents import (
 )
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.records import record_collections
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -185,8 +185,8 @@ def _served() -> FastAPI:
     return create_app(config_for(DATABASE_NAME))
 
 
-def as_person(email: str) -> SignedActor:
-    return SignedActor(email, ADMIN_KEY, lane="person")
+def as_person(email: str) -> StampedHeaders:
+    return StampedHeaders(email, ADMIN_KEY, lane="person")
 
 
 def squad_url(team_id: ObjectId = TEAM_A, saison_id: str = ACTIVE_SAISON) -> str:

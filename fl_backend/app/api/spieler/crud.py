@@ -18,7 +18,7 @@ from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
-    loeschen_many_from_db,
+    erase_many_from_db,
     post_one_to_db,
     pull_one_from_db,
     redact_log_rows_in_db,
@@ -197,13 +197,13 @@ async def loeschen_person_in_session(
 
     # The squad rows first: the public read `$lookup`s outward from the person, so a row left
     # behind is orphaned invisibly rather than surfacing as a fault somebody would notice.
-    geloescht_rows = await loeschen_many_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id}, session=session)
-    geloescht_person = await loeschen_many_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, session=session)
+    geloescht_rows = await erase_many_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id}, session=session)
+    geloescht_person = await erase_many_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, session=session)
 
     # Last, and it passes over the two rows the removals above just recorded: those carry a
     # filter and a count and no `document_id`, so the erasure stays legible as an action.
     redacted = await redact_log_rows_in_db(
-        aktionen_collection=aktionen_collection,
+        action_log_collection=aktionen_collection,
         # The squad branch is empty where the person held no row, which matches nothing.
         targets=[(Collection.SPIELER, [spieler_id]), (Collection.SAISON_SPIELER, [row["_id"] for row in squad_rows])],
         at=stamp,

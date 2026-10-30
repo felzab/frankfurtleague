@@ -14,10 +14,10 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
 from tests import documents
-from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 # Module level: the read opens a snapshot session against a real mongod.
@@ -56,7 +56,7 @@ def sitze_read(url: str, *, identifier: str, team_id: ObjectId = TEAM_OID, saiso
             async with app_client(url, app=_served(), now=NOW) as http:
                 response = await http.get(
                     f"/api/v{API_VERSION}/teams/{team_id}/saisons/{saison_id}/self/seats",
-                    headers=SignedActor(identifier, ADMIN_KEY, lane="person"),
+                    headers=StampedHeaders(identifier, ADMIN_KEY, lane="person"),
                 )
 
             return response.status_code, response.json()

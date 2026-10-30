@@ -31,18 +31,18 @@ from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_one_in_db
 from app.core.exceptions import APIError
 from app.core.journal import JournalLine
-from app.core.security import loeschung_journal_hash
+from app.core.security import erasure_journal_hash
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.schemas.bestaetigung import FLTokenPayload
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.postausgang import MAIL_NOW
+from tests.outbox import MAIL_NOW
+from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -167,7 +167,7 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, saison_status))
             # The season after, ended, which is what lets the sweep clear this one's blocks.
             await database[Collection.SAISONS].insert_one(documents.saison_document(LATER_SAISON_ID, "past"))
@@ -203,7 +203,7 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
 
             await body(database, client)
 
-            logged = await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.SPIELBESTAETIGUNGEN)})
+            logged = await database[Collection.ACTION_LOG].count_documents({"collection": str(Collection.SPIELBESTAETIGUNGEN)})
 
             return await links_answering(database), await answers(database), logged
 
@@ -250,7 +250,7 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Mapp
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         actor=fresh_admin_actor(),
@@ -278,7 +278,7 @@ async def replace_the_club(database: AsyncDatabase, client: AsyncMongoClient) ->
         spiele_collection=database[Collection.SPIELE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         db=client,
         today=TODAY,
@@ -298,10 +298,10 @@ async def loeschen_the_trainer(database: AsyncDatabase, client: AsyncMongoClient
         return await loeschen_kontaktperson_in_session(
             saison_teams_collection=database[Collection.SAISON_TEAMS],
             bewerbungen_collection=database[Collection.BEWERBUNGEN],
-            aktionen_collection=database[Collection.AKTIONEN],
+            aktionen_collection=database[Collection.ACTION_LOG],
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
             identifier=identifier,
-            key=CONFIG.sperrliste_schluessel,
+            key=CONFIG.sperrliste_key,
             saison_team_rows=rows,
             bewerbung_rows=[],
             stamp=AM,
@@ -321,10 +321,10 @@ async def clear_the_blocks(database: AsyncDatabase, client: AsyncMongoClient) ->
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         db=client,
         today=TODAY,
         germany_now=NOW,
@@ -339,9 +339,9 @@ async def contradict(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         config=CONFIG,
@@ -354,12 +354,12 @@ async def replay_the_widerspruch(database: AsyncDatabase, client: AsyncMongoClie
     """The Trainer's Widerspruch replayed onto a restore from a snapshot older than the press."""
 
     line = JournalLine(
-        person_hash=loeschung_journal_hash("ida@example.com", key=CONFIG.sperrliste_schluessel),
+        person_hash=erasure_journal_hash("ida@example.com", key=CONFIG.sperrliste_key),
         art="widerspruch",
         collection=Collection.SAISON_TEAMS,
         record_id=ROW_OID,
         am=AM,
-        sitze=("trainer",),
+        seats=("trainer",),
     )
     # The snapshot taken the morning the links went, so the row's links are the snapshot's own.
     window = Window(since=datetime(2026, 4, 1, 7, 0, tzinfo=UTC), until=datetime(2026, 4, 2, 6, 0, tzinfo=UTC))
@@ -367,7 +367,7 @@ async def replay_the_widerspruch(database: AsyncDatabase, client: AsyncMongoClie
         Read(timestamp=datetime(2026, 4, 1, 10, 30, 1, tzinfo=UTC), line=line),
         client,
         database,
-        key=CONFIG.sperrliste_schluessel,
+        key=CONFIG.sperrliste_key,
         now=datetime(2026, 4, 2, 9, 0, tzinfo=UTC),
         window=window,
     )
@@ -521,7 +521,7 @@ class TestALeavingContactsReasonsGo:
             found["rows"] = sorted(
                 [left_behind(NAMED[row["spiel_id"]], row["antwort"]) async for row in collection.find({"spiel_id": {"$in": list(NAMED)}})]
             )
-            logged = database[Collection.AKTIONEN].find({"collection": str(Collection.SPIELBESTAETIGUNGEN), "before": {"$ne": None}})
+            logged = database[Collection.ACTION_LOG].find({"collection": str(Collection.SPIELBESTAETIGUNGEN), "before": {"$ne": None}})
             found["images"] = sorted(
                 [
                     left_behind(NAMED[image["spiel_id"]], image["antwort"])
@@ -580,7 +580,7 @@ class TestALeavingPersonsLinksLeaveTheLog:
                 return_document=ReturnDocument.BEFORE,
             )
             await write(database, client)
-            image = await database[Collection.AKTIONEN].find_one({"document_id": ROWS["answered"]["_id"], "before": {"$ne": None}})
+            image = await database[Collection.ACTION_LOG].find_one({"document_id": ROWS["answered"]["_id"], "before": {"$ne": None}})
             found["held"] = {seat for seat in KONTAKT_ROLLEN if (image or {}).get("before", {}).get("kontakte", {}).get(seat) is not None}
 
         on_a_league(mongo_replica_set_url, after_an_image)

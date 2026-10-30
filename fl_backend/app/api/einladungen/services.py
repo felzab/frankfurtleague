@@ -11,7 +11,7 @@ from typing import Any, NamedTuple
 
 from app.api.bewerbungen.services import seat_named
 from app.api.einladungen.schemas import FLInvitationDispatchGrund, FLInvitationRecipient
-from app.api.postausgang.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxState
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed

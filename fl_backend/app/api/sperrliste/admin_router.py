@@ -8,8 +8,8 @@ from pymongo.results import InsertOneResult
 
 from app.api.berechtigungen.crud import pull_the_list_to_judge, withhold_in_the_postausgang
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.postausgang.schemas import FLSperreData
-from app.api.postausgang.services import OwedMail, enqueue_mails
+from app.api.outbox.schemas import FLSperreData
+from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import read_sperrliste_page
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
@@ -33,9 +33,9 @@ from app.api.sperrliste.services import (
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import anchor_in_db, delete_many_from_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
-    BerechtigungenCollection,
     DBClient,
-    PostausgangCollection,
+    GrantsCollection,
+    OutboxCollection,
     SaisonsCollection,
     SperrlisteCollection,
     get_german_date_str,
@@ -61,7 +61,7 @@ async def _pull_the_season_a_ban_counts_from(
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> str:
-    """The season a ban's `SPERRE_DAUER_SAISONS` are counted from, refused `sperrliste_no_saison` while no season is running."""
+    """The season a ban's `SPERRE_DURATION_SAISONS` are counted from, refused `sperrliste_no_saison` while no season is running."""
 
     # Through the session: the rollover moves the season and sweeps the lapsed bans in one
     # transaction, and a season read outside this snapshot counts a ban one season short against
@@ -120,8 +120,8 @@ async def post_sperrliste_entry(
     sperrliste_data: Annotated[FLPostSperrlistePayload, Body()],
     sperrliste_collection: SperrlisteCollection,
     saisons_collection: SaisonsCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    postausgang_collection: PostausgangCollection,
+    berechtigungen_collection: GrantsCollection,
+    postausgang_collection: OutboxCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     sperrliste: SperrlisteLookup,
@@ -155,7 +155,7 @@ async def post_sperrliste_entry(
         refuse(
             find_verwaltung_refusal(
                 gehasht=gehasht,
-                berechtigt=berechtigte_hashes([str(grant["adresse"]) for grant in grants], key=config.sperrliste_schluessel),
+                berechtigt=berechtigte_hashes([str(grant["adresse"]) for grant in grants], key=config.sperrliste_key),
             )
         )
 
@@ -187,7 +187,7 @@ async def post_sperrliste_entry(
         created = await post_one_to_db(collection=sperrliste_collection, document=document, session=session)
         if sperrliste_data.notify:
             await enqueue_mails(
-                postausgang_collection=postausgang_collection,
+                outbox_collection=postausgang_collection,
                 session=session,
                 mails=[
                     OwedMail(

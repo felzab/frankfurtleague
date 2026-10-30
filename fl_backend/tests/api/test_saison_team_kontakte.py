@@ -26,13 +26,13 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, saison_document, saison_team_document
+from tests.erasure import erased
 from tests.isolation import InterleavedCollection
-from tests.loeschung import geloescht
-from tests.postausgang import MAIL_NOW
+from tests.outbox import MAIL_NOW
+from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 # Marked per class rather than for the module: what the payload refuses and what the composition
@@ -246,7 +246,7 @@ async def write_kontakte(
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection,
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=database.client,
         actor=fresh_admin_actor(),
@@ -258,7 +258,7 @@ async def write_kontakte(
 async def loeschen_the_seats_person(database: AsyncDatabase) -> FLErasureResponse:
     """The erasure of the person holding `GELOESCHT_SEAT`, in a transaction of its own."""
 
-    return await geloescht(database, database.client, GELOESCHT_EMAIL, germany_now=NOW)
+    return await erased(database, database.client, GELOESCHT_EMAIL, germany_now=NOW)
 
 
 class JunctionRunningAHookBeforeTheWrite(InterleavedCollection):
@@ -278,7 +278,7 @@ async def row_now(database: AsyncDatabase, saison_id: str = SAISON_ID) -> dict[s
 
 
 async def junction_log(database: AsyncDatabase) -> list[dict[str, Any]]:
-    return await database[Collection.AKTIONEN].find({"collection": str(Collection.SAISON_TEAMS)}).sort("_id", 1).to_list(length=None)
+    return await database[Collection.ACTION_LOG].find({"collection": str(Collection.SAISON_TEAMS)}).sort("_id", 1).to_list(length=None)
 
 
 @pytest.mark.db

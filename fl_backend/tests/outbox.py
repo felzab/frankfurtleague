@@ -3,8 +3,8 @@ from datetime import UTC, datetime
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.postausgang.schemas import FLOutboxHandout, FLOutboxResultPayload
-from app.api.postausgang.system_router import post_handout, post_result
+from app.api.outbox.schemas import FLOutboxHandout, FLOutboxResultPayload
+from app.api.outbox.system_router import post_handout, post_result
 from app.core.collections import Collection
 from tests.bans import ban_list
 
@@ -19,15 +19,15 @@ async def drained(database: AsyncDatabase, client: AsyncMongoClient, *, now: dat
     mails: list[FLOutboxHandout] = []
     while True:
         answer = await post_handout(
-            postausgang_collection=database[Collection.POSTAUSGANG], sperrliste=ban_list(database), db=database, db_client=client, now=now
+            outbox_collection=database[Collection.OUTBOX], sperrliste=ban_list(database), db=database, db_client=client, now=now
         )
         if answer.lease is None:
             return mails
 
         for mail in answer.mails:
             await post_result(
-                ergebnis_data=FLOutboxResultPayload(lease=answer.lease, id=mail.id, result="sent", message_id=None, grund=None),
-                postausgang_collection=database[Collection.POSTAUSGANG],
+                result_data=FLOutboxResultPayload(lease=answer.lease, id=mail.id, result="sent", message_id=None, grund=None),
+                outbox_collection=database[Collection.OUTBOX],
                 now=now,
             )
         mails += answer.mails

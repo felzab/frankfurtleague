@@ -21,7 +21,7 @@ from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import kontaktperson_document, minted_bestaetigungen
+from tests.documents import kontaktperson_document, minted_confirmations
 from tests.worker import worker_database
 
 # Module level, as the execution suite marks its own: every test below reaches a real mongod.
@@ -66,7 +66,7 @@ def bewerbung_document(**overrides: Any) -> dict[str, Any]:
         kontakte=paired_kontakte(),
         submitted_at="2026-03-20",
         confirmation_deadline="2026-04-03",
-        schule=documents.neue_schule_document(SCHOOL_NAME, "ZXX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
+        schule=documents.new_schule_document(SCHOOL_NAME, "ZXX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
         link_prefix=RAW_PREFIX,
     )
 
@@ -111,9 +111,9 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         config=build_test_config(),
@@ -130,7 +130,7 @@ async def stored(database: AsyncDatabase) -> Mapping[str, Any]:
 
 
 async def log_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
-    return await database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN)}).sort("_id", 1).to_list(length=None)
+    return await database[Collection.ACTION_LOG].find({"collection": str(Collection.BEWERBUNGEN)}).sort("_id", 1).to_list(length=None)
 
 
 class TestAPairedDecline:
@@ -160,7 +160,7 @@ class TestAPairedDecline:
         """A dotted `$set` under a null parent aborts the transaction, so the person's own seat would be refused a 500 rather than declined."""
 
         emptied = bewerbung_document(
-            confirmations={**minted_bestaetigungen(hashes=HASHES, today="2026-03-20"), "trainer": None},
+            confirmations={**minted_confirmations(hashes=HASHES, today="2026-03-20"), "trainer": None},
         )
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

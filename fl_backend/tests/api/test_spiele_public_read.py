@@ -34,7 +34,7 @@ from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database_sync
 from tests.documents import (
-    eigene_einwilligung_document,
+    own_einwilligung_document,
     saison_team_document,
     schiedsrichter_document,
     spiel_document,
@@ -209,7 +209,7 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     client = MongoClient(mongo_replica_set_url)
     try:
         database = a_clean_database_sync(client, mongo_replica_set_url, database_name)
-        database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+        database[Collection.GRANTS].insert_many(grants_for_the_suite())
         database[Collection.SPIELE].insert_one(stored_document())
         # Publishing their name, so the reduction is what the base tier serves rather than a withheld null.
         database[Collection.SCHIEDSRICHTER].insert_one(
@@ -218,7 +218,7 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
                 email="ada.kern@example.com",
                 name=SCHIEDSRICHTER_NAME,
                 default_payment=PAYMENT,
-                einwilligung=eigene_einwilligung_document(text_version="v1", confirmed_at="2026-03-01"),
+                einwilligung=own_einwilligung_document(text_version="v1", confirmed_at="2026-03-01"),
             )
         )
         # Agreeing to the fixture as it stands, without which the base tier withholds the referee whole.

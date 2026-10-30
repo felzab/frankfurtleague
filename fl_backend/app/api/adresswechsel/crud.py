@@ -48,16 +48,16 @@ from app.api.berechtigungen.services import compose_fortgefuehrt, genehmigung_st
 from app.api.identitaet.lookup import RecordCollections
 from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt, eigene_sitze, ist_eigener_schiedsrichter
 from app.api.kontakte.services import find_matching_slots, rows_seating, same_address
-from app.api.postausgang.schemas import (
+from app.api.outbox.schemas import (
     FLAddressChangeDiscardedData,
     FLAddressChangeEffectiveData,
     FLAddressChangeHinweisData,
     FLAddressChangeLinkData,
+    FLOutboxLink,
+    FLOutboxReference,
     FLOutboxState,
-    FLPostausgangBezug,
-    FLPostausgangLink,
 )
-from app.api.postausgang.services import ANMELDE_ARTEN, OwedMail, enqueue_mails
+from app.api.outbox.services import SIGN_IN_ARTEN, OwedMail, enqueue_mails
 from app.api.registrierungen.services import build_loeschung_registrierung_filter, registrierung_ist_bestaetigt
 from app.api.schiedsrichter.services import build_self_referee_filter, vorname_of
 from app.api.sperrliste.lookup import BanList, Saison, adressen_gesperrt
@@ -72,11 +72,11 @@ from app.api.spieler.crud import another_pupil_holds
 from app.api.spieler.services import build_self_pupil_filter
 from app.api.teams.crud import void_moved_seats
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, loeschen_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
+from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
 from app.core.exceptions import WriteRefusal
 from app.core.journal import Journal, JournalLine
-from app.core.recording import GELOESCHT_ACTOR_MARKER, build_redaction_filter, log_stamp
-from app.core.security import akteur_pseudonym, loeschung_journal_hash
+from app.core.recording import ERASED_ACTOR_MARKER, build_redaction_filter, log_stamp
+from app.core.security import actor_pseudonym, erasure_journal_hash
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import FLAddressChangeEndArt, FLAddressChangeViewableDenied, FLAddressChangeWay
 
@@ -259,7 +259,7 @@ async def end_the_change_in_session(
     redacted = ("adresse",) if art == "effective" else ("email", "grund", *(("adresse",) if ohne_adresse else ()))
     await redact_images_in_session(
         aktionen_collection=aktionen_collection,
-        db_filter=build_redaction_filter([(Collection.ADRESSWECHSEL, [stored["_id"]])]),
+        db_filter=build_redaction_filter([(Collection.ADDRESS_CHANGES, [stored["_id"]])]),
         judge=_redacting(redacted),
         stamp=stamp,
         session=session,
@@ -275,9 +275,9 @@ def ending_line(*, art: EndingArt, neue: str, record_id: ObjectId, am: str, key:
     """A decline's, a stop's or a discard's line, so a restore does not bring the change back to act."""
 
     return JournalLine(
-        person_hash=loeschung_journal_hash(neue, key=key),
+        person_hash=erasure_journal_hash(neue, key=key),
         art=art,
-        collection=Collection.ADRESSWECHSEL,
+        collection=Collection.ADDRESS_CHANGES,
         record_id=record_id,
         am=am,
     )
@@ -290,12 +290,12 @@ def wirksam_line(*, record: Mapping[str, Any], now: datetime, key: SecretStr) ->
     """
 
     return JournalLine(
-        person_hash=loeschung_journal_hash(str(record["email"]), key=key),
+        person_hash=erasure_journal_hash(str(record["email"]), key=key),
         art="adresswechsel_wirksam",
-        collection=Collection.ADRESSWECHSEL,
+        collection=Collection.ADDRESS_CHANGES,
         record_id=record["_id"],
         am=log_stamp(now),
-        zuvor=loeschung_journal_hash(str(record["adresse"]), key=key),
+        before=erasure_journal_hash(str(record["adresse"]), key=key),
     )
 
 
@@ -353,8 +353,8 @@ class Urteil:
     widerrufen: bool = False
 
 
-def _bezug(address_change_id: ObjectId) -> FLPostausgangBezug:
-    return FLPostausgangBezug(collection=Collection.ADRESSWECHSEL, id=address_change_id, seat=None)
+def _bezug(address_change_id: ObjectId) -> FLOutboxReference:
+    return FLOutboxReference(collection=Collection.ADDRESS_CHANGES, id=address_change_id, seat=None)
 
 
 async def lage_of_the_link(
@@ -374,7 +374,7 @@ async def lage_of_the_link(
 
 def _bezug_filter(address_change_id: ObjectId) -> dict[str, Any]:
     # Equality on the three keys of `outbox_reference` and its sort after them (`app/core/constraints.py :: SUPPORT_INDEXES`).
-    return {"reference.collection": str(Collection.ADRESSWECHSEL), "reference.id": address_change_id, "reference.seat": None}
+    return {"reference.collection": str(Collection.ADDRESS_CHANGES), "reference.id": address_change_id, "reference.seat": None}
 
 
 async def owe_the_link_in_session(
@@ -394,7 +394,7 @@ async def owe_the_link_in_session(
     """
 
     await enqueue_mails(
-        postausgang_collection=postausgang_collection,
+        outbox_collection=postausgang_collection,
         session=session,
         mails=[
             OwedMail(
@@ -402,7 +402,7 @@ async def owe_the_link_in_session(
                 an=email,
                 data=FLAddressChangeLinkData(art="address_change_link", way=way, valid_until=valid_until),
                 reference=_bezug(address_change_id),
-                link=FLPostausgangLink(paths=["token_hashes"], adressen=["email"], replaced=True),
+                link=FLOutboxLink(paths=["token_hashes"], adressen=["email"], replaced=True),
             )
         ],
         now=now,
@@ -423,7 +423,7 @@ async def owe_the_hinweis_in_session(
     """Owe the address on file its notice of the change, with the stop link, minted beside any earlier hand-out's."""
 
     await enqueue_mails(
-        postausgang_collection=postausgang_collection,
+        outbox_collection=postausgang_collection,
         session=session,
         mails=[
             OwedMail(
@@ -431,7 +431,7 @@ async def owe_the_hinweis_in_session(
                 an=adresse,
                 data=FLAddressChangeHinweisData(art="address_change_hinweis", way=way, valid_until=valid_until, vorname=vorname),
                 reference=_bezug(address_change_id),
-                link=FLPostausgangLink(paths=["stop.token_hashes"], adressen=["adresse"], replaced=False),
+                link=FLOutboxLink(paths=["stop.token_hashes"], adressen=["adresse"], replaced=False),
             )
         ],
         now=now,
@@ -447,7 +447,7 @@ async def owe_the_refusal_notice_in_session(
     """
 
     await enqueue_mails(
-        postausgang_collection=postausgang_collection,
+        outbox_collection=postausgang_collection,
         session=session,
         mails=[
             OwedMail(
@@ -868,8 +868,8 @@ async def move_the_address_in_session(
         update={
             "$set": {
                 "moved": {
-                    "person_hash": loeschung_journal_hash(neu, key=key),
-                    "before": loeschung_journal_hash(alt, key=key),
+                    "person_hash": erasure_journal_hash(neu, key=key),
+                    "before": erasure_journal_hash(alt, key=key),
                 },
                 **({} if record["way"] == "waiting_period" else {"move": {"von": alt, "nach": neu}}),
             }
@@ -877,7 +877,7 @@ async def move_the_address_in_session(
         session=session,
     )
     await enqueue_mails(
-        postausgang_collection=postausgang_collection,
+        outbox_collection=postausgang_collection,
         session=session,
         mails=[
             OwedMail(
@@ -906,7 +906,7 @@ async def _carry_the_mail(postausgang_collection: AsyncCollection, alt: str, neu
 
     rows = await aggregate_many_from_db(
         collection=postausgang_collection,
-        pipeline=[{"$match": {"art": {"$nin": sorted(ANMELDE_ARTEN)}, "an": same_address(alt)}}, {"$project": {"an": 1, "stand": 1}}],
+        pipeline=[{"$match": {"art": {"$nin": sorted(SIGN_IN_ARTEN)}, "an": same_address(alt)}}, {"$project": {"an": 1, "stand": 1}}],
         session=session,
     )
     held = [row for row in rows if sign_in_identifier(str(row["an"])) == alt]
@@ -915,7 +915,7 @@ async def _carry_the_mail(postausgang_collection: AsyncCollection, alt: str, neu
             collection=postausgang_collection, db_filter={"_id": {"$in": offen}}, update={"$set": {"an": neu}}, session=session
         )
     if gesendet := [row["_id"] for row in held if row["stand"] != "open"]:
-        await loeschen_many_from_db(collection=postausgang_collection, db_filter={"_id": {"$in": gesendet}}, session=session)
+        await erase_many_from_db(collection=postausgang_collection, db_filter={"_id": {"$in": gesendet}}, session=session)
 
 
 async def _seats_staying_at(identifier: str, *, collections: Sequence[AsyncCollection], session: AsyncClientSession) -> set[tuple[Any, str]]:
@@ -995,8 +995,8 @@ async def _rekey_the_person(
 
     await patch_many_in_db(
         collection=aktionen_collection,
-        db_filter={"actor.pseudonym": akteur_pseudonym(alt, key=key)},
-        update={"$set": {"actor.pseudonym": akteur_pseudonym(neue, key=key)}},
+        db_filter={"actor.pseudonym": actor_pseudonym(alt, key=key)},
+        update={"$set": {"actor.pseudonym": actor_pseudonym(neue, key=key)}},
         session=session,
     )
 
@@ -1124,10 +1124,10 @@ async def end_the_address_changes_in_session(
     """
 
     if rows:
-        await loeschen_many_from_db(
+        await erase_many_from_db(
             collection=postausgang_collection,
             db_filter={
-                "reference.collection": str(Collection.ADRESSWECHSEL),
+                "reference.collection": str(Collection.ADDRESS_CHANGES),
                 "reference.id": {"$in": [row["_id"] for row in rows]},
                 "reference.seat": None,
             },
@@ -1146,7 +1146,7 @@ async def end_the_address_changes_in_session(
         )
 
     # Read after the endings, which took the approval off every change they ended.
-    await _reattribute_the_changes(adresswechsel_collection, identifier, GELOESCHT_ACTOR_MARKER, session=session)
+    await _reattribute_the_changes(adresswechsel_collection, identifier, ERASED_ACTOR_MARKER, session=session)
 
     # A carry still owed off or onto the erased address goes: the erasure takes the account it would move, or the address
     # it would move one to. By id, as every write here.

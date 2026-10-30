@@ -17,8 +17,8 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
@@ -26,7 +26,7 @@ from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, kontaktperson_document, saison_document, team_document
-from tests.postausgang import MAIL_NOW, drained
+from tests.outbox import MAIL_NOW, drained
 from tests.worker import worker_database
 
 # Module level, as the submission suite marks its own: every test below reaches a real mongod.
@@ -118,7 +118,7 @@ def bewerbung_document(bewerbung_id: ObjectId = BEWERBUNG_OID, **overrides: Any)
         kontakte=kontakte(),
         submitted_at="2026-03-20",
         confirmation_deadline="2026-04-03",
-        schule=documents.neue_schule_document(SCHOOL_NAME, "ZXX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
+        schule=documents.new_schule_document(SCHOOL_NAME, "ZXX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
         link_prefix=RAW_PREFIX,
     )
 
@@ -167,9 +167,9 @@ async def answer(
         bewerbungen_collection=database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         config=build_test_config(),
@@ -184,7 +184,7 @@ async def resend(database: AsyncDatabase, seat: str, bewerbung_id: ObjectId = BE
         seat=seat,
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=database.client,
         today=TODAY,
@@ -200,7 +200,7 @@ async def stored(database: AsyncDatabase, bewerbung_id: ObjectId = BEWERBUNG_OID
 
 
 async def log_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
-    return await database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN)}).sort("_id", 1).to_list(length=None)
+    return await database[Collection.ACTION_LOG].find({"collection": str(Collection.BEWERBUNGEN)}).sort("_id", 1).to_list(length=None)
 
 
 class ReadsRecorded:
@@ -803,7 +803,7 @@ class TestADecline:
 async def owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     """Every mail the Postausgang holds, as owed: its key, its recipient and its facts."""
 
-    return await database[Collection.POSTAUSGANG].find({}, {"_id": 0, "key": 1, "an": 1, "data": 1}).to_list(length=None)
+    return await database[Collection.OUTBOX].find({}, {"_id": 0, "key": 1, "an": 1, "data": 1}).to_list(length=None)
 
 
 class TestWhatAWiderspruchOwesTheSubmitter:
@@ -898,13 +898,13 @@ class TestNoHashReachesAnAdminRead:
             one = await get_bewerbung(
                 bewerbung_id=BEWERBUNG_OID,
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                postausgang_collection=database[Collection.POSTAUSGANG],
+                postausgang_collection=database[Collection.OUTBOX],
                 sperrliste=ban_list(database),
                 today=TODAY,
             )
             many = await get_bewerbungen(
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                postausgang_collection=database[Collection.POSTAUSGANG],
+                postausgang_collection=database[Collection.OUTBOX],
                 sperrliste=ban_list(database),
                 filters=FLBewerbungenFilterParams(),
             )
@@ -930,7 +930,7 @@ class TestTheEditorsRead:
             return await get_bewerbung(
                 bewerbung_id=BEWERBUNG_OID,
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                postausgang_collection=database[Collection.POSTAUSGANG],
+                postausgang_collection=database[Collection.OUTBOX],
                 sperrliste=ban_list(database),
                 today=TODAY,
             )

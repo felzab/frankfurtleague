@@ -28,9 +28,9 @@ from app.core.exceptions import APIError
 from app.core.logging import trace_id_var
 from app.shared.schemas.literals import FLGruppenNames
 from tests import documents
-from tests.actor_tokens import fresh_admin_actor
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -296,7 +296,7 @@ def an_undrawn_season(url: str, *, dated: bool = False) -> UndrawnSeason:
             spieltage=spieltage,
             spiele=spiele,
             watermark=await watermark_now(database),
-            log=await database[Collection.AKTIONEN].find({}).sort("_id", 1).to_list(length=None),
+            log=await database[Collection.ACTION_LOG].find({}).sort("_id", 1).to_list(length=None),
         )
 
     undrawn = on_a_seeded_saison(url, body)
@@ -410,7 +410,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
                 spieltage=spieltage,
                 spiele=spiele,
                 watermark=await watermark_now(database),
-                log=await database[Collection.AKTIONEN].count_documents({}),
+                log=await database[Collection.ACTION_LOG].count_documents({}),
             )
 
         aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
@@ -435,7 +435,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
 
             # AFTER the draw, which writes a `saisons` row of its own: attached earlier, the draw is
             # what would fall and there would be no Spielplan to undraw.
-            await database.command("collMod", str(Collection.AKTIONEN), validator=AKTIONEN_REFUSING_A_SAISON_ROW, validationLevel="strict")
+            await database.command("collMod", str(Collection.ACTION_LOG), validator=AKTIONEN_REFUSING_A_SAISON_ROW, validationLevel="strict")
 
             with pytest.raises(OperationFailure) as failure:
                 await call_undraw(database, client)
@@ -448,7 +448,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
                 spieltage=spieltage,
                 spiele=spiele,
                 watermark=await watermark_now(database),
-                log=await database[Collection.AKTIONEN].count_documents({}),
+                log=await database[Collection.ACTION_LOG].count_documents({}),
             )
 
         aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)

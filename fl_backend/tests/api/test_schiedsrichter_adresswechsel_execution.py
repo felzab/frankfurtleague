@@ -28,12 +28,12 @@ from app.core.exceptions import APIError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list
 from tests.config import ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.postausgang import MAIL_NOW, drained
+from tests.outbox import MAIL_NOW, drained
 from tests.records import record_collections
+from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 # Module level: every case below reaches a real mongod, each write being one transaction.
@@ -76,13 +76,13 @@ def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
             await database[Collection.SCHIEDSRICHTER].insert_one(referee_document())
             await invite_schiedsrichter(
                 schiedsrichter_id=SCHIEDSRICHTER_OID,
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                postausgang_collection=database[Collection.POSTAUSGANG],
+                postausgang_collection=database[Collection.OUTBOX],
                 sperrliste=ban_list(database),
                 db=client,
                 today=TODAY,
@@ -120,7 +120,7 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
@@ -134,15 +134,15 @@ async def request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
 
     return await post_address_change_verwaltung(
         adresswechsel_data=FLAddressChangeVerwaltungPayload.model_validate({"adresse": EMAIL, "email": NEW_EMAIL, "grund": GRUND}),
-        adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+        adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
         records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-        berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-        postausgang_collection=database[Collection.POSTAUSGANG],
-        berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+        berechtigungen_collection=database[Collection.GRANTS],
+        berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+        postausgang_collection=database[Collection.OUTBOX],
+        berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
         sperrliste=ban_list(database),
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         db=client,
         operator="admin@frankfurtleague.de",
         auth_time=0,
@@ -154,11 +154,11 @@ async def read(database: AsyncDatabase) -> Any:
     return await get_schiedsrichter_by_id(
         schiedsrichter_id=SCHIEDSRICHTER_OID,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+        adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
         today=TODAY,
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-        berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        berechtigungen_collection=database[Collection.GRANTS],
+        berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+        postausgang_collection=database[Collection.OUTBOX],
         operator=ADMINISTRATORS[0],
         auth_time=int(time.time()),
     )
@@ -200,7 +200,7 @@ class TestTheSaveOnAConfirmedReferee:
             minted = await request(database, client)
             saved = await save(database, client, email="ortwin.pfeiffenberger@EXAMPLE.com")
 
-            return minted, saved, await stored(database), await database[Collection.ADRESSWECHSEL].find_one({"_id": minted.id})
+            return minted, saved, await stored(database), await database[Collection.ADDRESS_CHANGES].find_one({"_id": minted.id})
 
         minted, saved, row, change = on_a_league(mongo_replica_set_url, body)
 
@@ -244,11 +244,11 @@ class TestTheEditorsRead:
             answered = await get_schiedsrichter_by_id(
                 schiedsrichter_id=SCHIEDSRICHTER_OID,
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+                adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
                 today="2026-04-16",
-                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-                postausgang_collection=database[Collection.POSTAUSGANG],
+                berechtigungen_collection=database[Collection.GRANTS],
+                berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+                postausgang_collection=database[Collection.OUTBOX],
                 operator=ADMINISTRATORS[0],
                 auth_time=int(time.time()),
             )

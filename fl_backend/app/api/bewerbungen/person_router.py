@@ -23,9 +23,9 @@ from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import BewerbungenCollection, DBClient, get_germany_now
 from app.core.journal import Journal
 from app.core.recording import log_stamp
-from app.core.security import loeschung_journal_hash, verify_access_admin
+from app.core.security import erasure_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungChoice, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -58,7 +58,7 @@ async def patch_einwilligung(
     page was served), `giving_not_allowed` and `wording_not_allowed`.
     """
 
-    gedrueckt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
+    gedrueckt: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
     # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
     am = log_stamp(germany_now)
     journal = Journal()
@@ -104,7 +104,7 @@ async def patch_einwilligung(
             )
         )
         line = widerruf_line(
-            person_hash=loeschung_journal_hash(identifier, key=config.sperrliste_schluessel),
+            person_hash=erasure_journal_hash(identifier, key=config.sperrliste_key),
             collection=Collection.BEWERBUNGEN,
             record_id=bewerbung["_id"],
             bloecke=[sitz["einwilligung"] for sitz in sitze.values()],

@@ -24,13 +24,13 @@ from app.api.spieler.person_router import get_self, patch_einwilligung
 from app.core.collections import Collection
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
-from app.shared.schemas.bestaetigung import FLTokenPayload
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.loeschung import geloescht
+from tests.erasure import erased
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
 from tests.worker import worker_database
@@ -114,15 +114,15 @@ async def the_gate_read(database: AsyncDatabase, client: AsyncMongoClient, regis
 
 async def the_references_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
     # The league's owner, without whom the read refuses before its answer.
-    await database[Collection.BERECHTIGUNGEN].insert_one(
+    await database[Collection.GRANTS].insert_one(
         {"_id": ObjectId(), "adresse": ANNA, "verwaltung": "owner", "granted_by": "PLAYGROUND", "granted_at": NOW}
     )
 
     return await unreferenced_of(
         [FOLDED_EMAIL],
         record_collections(database),
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-        adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+        berechtigungen_collection=database[Collection.GRANTS],
+        adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
     )
 
 
@@ -162,7 +162,7 @@ async def the_admission(database: AsyncDatabase, client: AsyncMongoClient, regis
         spieler_collection=database[Collection.SPIELER],
         records=record_collections(database),
         spieltage_collection=database[Collection.SPIELTAGE],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
@@ -218,7 +218,7 @@ async def the_loeschung_preview(database: AsyncDatabase, client: AsyncMongoClien
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spieler_collection=database[Collection.SPIELER],
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        berechtigungen_collection=database[Collection.GRANTS],
         sperrliste=ban_list(database),
         db=client,
         config=build_test_config(),
@@ -226,7 +226,7 @@ async def the_loeschung_preview(database: AsyncDatabase, client: AsyncMongoClien
 
 
 async def the_loeschung(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await geloescht(database, client, FOLDED_EMAIL, germany_now=NOW)
+    return await erased(database, client, FOLDED_EMAIL, germany_now=NOW)
 
 
 async def the_address_change_request(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
@@ -234,15 +234,15 @@ async def the_address_change_request(database: AsyncDatabase, client: AsyncMongo
 
     return await post_address_change_verwaltung(
         adresswechsel_data=FLAddressChangeVerwaltungPayload(adresse=FOLDED_EMAIL, email="thessaly.neu@beispielschule.de", grund=None),
-        adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+        adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
         records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-        berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-        postausgang_collection=database[Collection.POSTAUSGANG],
-        berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+        berechtigungen_collection=database[Collection.GRANTS],
+        berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+        postausgang_collection=database[Collection.OUTBOX],
+        berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
         sperrliste=ban_list(database),
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         db=client,
         operator=ANNA,
         auth_time=int(time.time()),

@@ -31,7 +31,7 @@ from app.api.einladungen.services import (
 from app.api.identitaet.crud import faellige_anzahl, saison_statuses
 from app.api.identitaet.schemas import FLErasurePreviewResponse
 from app.api.identitaet.services import geschlossen_durch, statuses_after_activating
-from app.api.postausgang.services import enqueue_mails
+from app.api.outbox.services import enqueue_mails
 from app.api.saisons.crud import has_started, started_saison_ids
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
@@ -79,7 +79,7 @@ from app.core.crud import (
     build_query,
     build_sort,
     delete_many_from_db,
-    loeschen_many_from_db,
+    erase_many_from_db,
     patch_many_in_db,
     patch_one_in_db,
     post_many_to_db,
@@ -90,8 +90,8 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     DBClient,
-    EinladungenCollection,
-    PostausgangCollection,
+    InvitationsCollection,
+    OutboxCollection,
     RegistrierungenCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
@@ -571,7 +571,7 @@ async def activate_saison(
 
         # `$lt` and not `$lte`: the season named on a row is the last one the ban covers, so the row
         # lapses on the activation of the season AFTER it.
-        await loeschen_many_from_db(
+        await erase_many_from_db(
             collection=sperrliste_collection,
             db_filter={"barred_until_saison_id": {"$lt": saison_id}},
             session=session,
@@ -1175,7 +1175,7 @@ async def _mail_one_team(
             session=session,
         )
         await enqueue_mails(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=postausgang_collection,
             session=session,
             mails=owed_einladung_mails(
                 invitation_id=post_operation.inserted_id,
@@ -1235,9 +1235,9 @@ async def _mail_one_team(
 async def get_invitations_dispatch_preview(
     saison_id: str,
     saison_teams_collection: SaisonTeamsCollection,
-    einladungen_collection: EinladungenCollection,
+    einladungen_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
-    postausgang_collection: PostausgangCollection,
+    postausgang_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     resend: bool = False,
 ) -> FLInvitationDispatchPreviewResponse:
@@ -1342,9 +1342,9 @@ async def post_invitations_dispatch(
     saison_id: str,
     versand_data: Annotated[FLInvitationDispatchPayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
-    einladungen_collection: EinladungenCollection,
+    einladungen_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
-    postausgang_collection: PostausgangCollection,
+    postausgang_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     created_by: str = Depends(get_actor_email),

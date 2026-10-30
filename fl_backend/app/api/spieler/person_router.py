@@ -49,9 +49,9 @@ from app.core.dependencies import (
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.routing import by_id
-from app.core.security import loeschung_journal_hash, verify_access_admin
+from app.core.security import erasure_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungChoice, nachweis_stand_of
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
 from app.shared.schemas.literals import FLSpielerStufe
@@ -333,7 +333,7 @@ async def patch_einwilligung(
     """
 
     eigener_eintrag = build_self_pupil_filter(identifier)
-    gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
+    gewaehlt: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
     # One instant for the evidence and its journal line, so a replay stamps the moment the person pressed.
     am = log_stamp(germany_now)
     journal = Journal()
@@ -372,7 +372,7 @@ async def patch_einwilligung(
             )
         )
         line = widerruf_line(
-            person_hash=loeschung_journal_hash(identifier, key=config.sperrliste_schluessel),
+            person_hash=erasure_journal_hash(identifier, key=config.sperrliste_key),
             collection=Collection.SPIELER,
             record_id=row["_id"],
             bloecke=[gespeichert],

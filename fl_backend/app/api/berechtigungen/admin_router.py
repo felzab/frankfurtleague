@@ -62,19 +62,19 @@ from app.api.berechtigungen.services import (
     stand_of,
 )
 from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt
-from app.api.postausgang.schemas import FLPostausgangBezug
+from app.api.outbox.schemas import FLOutboxReference
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
 from app.api.sperrliste.services import withheld_actor
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import aggregate_many_from_db, loeschen_many_from_db, patch_one_in_db, post_one_to_db, refuse
+from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_one_in_db, post_one_to_db, refuse
 from app.core.dependencies import (
-    AdresswechselCollection,
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenAntraegeCollection,
-    BerechtigungenCollection,
+    AddressChangeCollection,
     DBClient,
-    PostausgangCollection,
+    GrantsAnnouncedCollection,
+    GrantsApprovalRequestsCollection,
+    GrantsCollection,
+    OutboxCollection,
     get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
@@ -97,10 +97,10 @@ ADMINISTRATION = "administration"
 
 @router.get("", response_model=FLGrantsListResponse, summary="List who may enter the administration")
 async def get_grants(
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    adresswechsel_collection: AdresswechselCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    adresswechsel_collection: AddressChangeCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     operator: str = Depends(get_actor_email),
@@ -114,7 +114,7 @@ async def get_grants(
     never in plain, and so is a barred `granted_by`, beside `granted_by_barred`; it is otherwise an administrator's address
     for a grant made here and whatever the database edit wrote for one made there.
 
-    `adresswechsel` names the change of a grant's address waiting on an administrator's approval: its new address, how it was
+    `address_change` names the change of a grant's address waiting on an administrator's approval: its new address, how it was
     started (`way`), the administrator who started it and the reason they recorded, and why this administrator may not approve
     it, where they may not: their own, one they started, or an owner's without an owner's power
     (`POST /adresswechsel/{adresswechsel_id}/genehmigung`); and why the address tool refuses it them (`viewable_denied`). An
@@ -267,10 +267,10 @@ def _antrag_zeile(
 )
 async def post_grant(
     berechtigung_data: Annotated[FLPostGrantPayload, Body()],
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    postausgang_collection: OutboxCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     granted_by: str = Depends(get_actor_email),
@@ -388,7 +388,7 @@ async def _queue_the_request(
         now=now,
         session=session,
         an=genehmiger,
-        reference=FLPostausgangBezug(collection=Collection.BERECHTIGUNGEN_ANTRAEGE, id=approval_request_id, seat=None),
+        reference=FLOutboxReference(collection=Collection.GRANT_APPROVAL_REQUESTS, id=approval_request_id, seat=None),
     )
 
 
@@ -421,10 +421,10 @@ async def _genehmiger(
 )
 async def delete_grant(
     grant_id: CustomRouteObjectId,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    postausgang_collection: OutboxCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     entzogen_von: str = Depends(get_actor_email),
@@ -499,10 +499,10 @@ async def delete_grant(
 async def patch_grant(
     grant_id: CustomRouteObjectId,
     berechtigung_data: Annotated[FLPatchGrantPayload, Body()],
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    postausgang_collection: OutboxCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     changed_by: str = Depends(get_actor_email),
@@ -688,7 +688,7 @@ async def _move_the_tier_in_session(
         session=session,
     )
     # The announced row is bookkeeping, so replaced with no image.
-    await loeschen_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": grant_id}, session=session)
+    await erase_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": grant_id}, session=session)
     await post_one_to_db(
         collection=berechtigungen_angekuendigt_collection,
         document=compose_announced(grant_id=grant_id, stand=jetzt, now=now),
@@ -705,10 +705,10 @@ async def _move_the_tier_in_session(
 )
 async def post_approval_request_approval(
     approval_request_id: CustomRouteObjectId,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    postausgang_collection: OutboxCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     operator: str = Depends(get_actor_email),
@@ -819,10 +819,10 @@ async def post_approval_request_approval(
 )
 async def delete_approval_request(
     approval_request_id: CustomRouteObjectId,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
-    postausgang_collection: PostausgangCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
+    postausgang_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -879,7 +879,7 @@ async def delete_approval_request(
                 antrag=antrag,
                 art="antrag_zurueckgezogen" if zurueckgezogen else "antrag_abgelehnt",
                 am=log_stamp(now),
-                key=config.sperrliste_schluessel,
+                key=config.sperrliste_key,
             )
         )
 

@@ -5,13 +5,13 @@ from pymongo import ASCENDING, DESCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.postausgang.schemas import FLOutboxState, FLPostausgangBezug
+from app.api.outbox.schemas import FLOutboxReference, FLOutboxState
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db
 
 
-async def lage_of(
-    *, postausgang_collection: AsyncCollection, reference: FLPostausgangBezug, session: AsyncClientSession | None = None
+async def state_of(
+    *, outbox_collection: AsyncCollection, reference: FLOutboxReference, session: AsyncClientSession | None = None
 ) -> FLOutboxState | None:
     """What became of the last mail about one record and seat, as an editor serves it; `None` where none was ever owed.
 
@@ -19,7 +19,7 @@ async def lage_of(
     (`app/core/constraints.py :: SUPPORT_INDEXES`).
     """
 
-    newest = await postausgang_collection.find_one(
+    newest = await outbox_collection.find_one(
         {"reference.collection": str(reference.collection), "reference.id": reference.id, "reference.seat": reference.seat},
         {"stand": 1, "delivery": 1},
         sort=[("recorded_at", DESCENDING), ("_id", DESCENDING)],
@@ -29,10 +29,10 @@ async def lage_of(
     return None if newest is None else FLOutboxState.model_validate(newest)
 
 
-async def lagen_of(
-    *, postausgang_collection: AsyncCollection, collection: Collection, ids: Sequence[Any], session: AsyncClientSession | None = None
+async def states_of(
+    *, outbox_collection: AsyncCollection, collection: Collection, ids: Sequence[Any], session: AsyncClientSession | None = None
 ) -> dict[tuple[Any, str | None], FLOutboxState]:
-    """`lage_of` for every seat of many records of one collection in one read, keyed by record id and seat.
+    """`state_of` for every seat of many records of one collection in one read, keyed by record id and seat.
 
     Sorted on the whole of `outbox_reference`, so the index hands the group its first row per record and seat.
     """
@@ -41,7 +41,7 @@ async def lagen_of(
         return {}
 
     rows = await aggregate_many_from_db(
-        collection=postausgang_collection,
+        collection=outbox_collection,
         pipeline=[
             {"$match": {"reference.collection": str(collection), "reference.id": {"$in": list(ids)}}},
             {

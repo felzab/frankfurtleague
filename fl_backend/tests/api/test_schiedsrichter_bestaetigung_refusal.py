@@ -25,10 +25,10 @@ from app.api.schiedsrichter.services import (
     vorname_of,
     zustand_of,
 )
-from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
 )
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token, mint_token
 
 TODAY = "2026-04-01"

@@ -18,14 +18,14 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.schemas import as_utc
 from app.api.berechtigungen.services import haelt_seit
-from app.api.postausgang.services import final_update
+from app.api.outbox.services import final_update
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, delete_many_from_db, loeschen_many_from_db, patch_many_in_db, refuse
+from app.core.crud import aggregate_many_from_db, delete_many_from_db, erase_many_from_db, patch_many_in_db, refuse
 from app.core.exceptions import DocumentNotFoundError, WriteRefusal
 from app.core.journal import JournalLine
-from app.core.security import loeschung_journal_hash
-from app.shared.schemas.bounds import GENEHMIGUNG_TAGE
+from app.core.security import erasure_journal_hash
+from app.shared.schemas.bounds import APPROVAL_DAYS
 from app.shared.schemas.literals import FLApprovalDenied, FLVerwaltung
 
 
@@ -40,7 +40,7 @@ def compose_antrag(*, adresse: str, verwaltung: str, grant_id: ObjectId | None, 
             # Its approver held their grant since then (`app/api/berechtigungen/services.py :: haelt_seit`).
             "asked_at": now.astimezone(UTC),
             # The address change's week: an approver away for a weekend is no reason to ask again.
-            "bis": now.astimezone(UTC) + timedelta(days=GENEHMIGUNG_TAGE),
+            "bis": now.astimezone(UTC) + timedelta(days=APPROVAL_DAYS),
             "started_by": started_by,
         },
     }
@@ -148,7 +148,7 @@ async def settle_the_notices_in_session(
         await patch_many_in_db(
             collection=postausgang_collection,
             db_filter={
-                "reference.collection": str(Collection.BERECHTIGUNGEN_ANTRAEGE),
+                "reference.collection": str(Collection.GRANT_APPROVAL_REQUESTS),
                 "reference.id": {"$in": list(antrag_ids)},
                 "reference.seat": None,
                 "stand": "open",
@@ -257,7 +257,7 @@ async def loeschen_antraege_in_session(
         session=session,
     )
     if rows:
-        await loeschen_many_from_db(
+        await erase_many_from_db(
             collection=berechtigungen_antraege_collection, db_filter={"_id": {"$in": [row["_id"] for row in rows]}}, session=session
         )
         await settle_the_notices_in_session(
@@ -275,9 +275,9 @@ def antrag_line(*, antrag: Mapping[str, Any], art: AntragEndeLine, am: str, key:
     """An ended request's line, so a restore from before its end does not bring it back to be approved."""
 
     return JournalLine(
-        person_hash=loeschung_journal_hash(str(antrag["adresse"]), key=key),
+        person_hash=erasure_journal_hash(str(antrag["adresse"]), key=key),
         art=art,
-        collection=Collection.BERECHTIGUNGEN_ANTRAEGE,
+        collection=Collection.GRANT_APPROVAL_REQUESTS,
         record_id=antrag["_id"],
         am=am,
     )

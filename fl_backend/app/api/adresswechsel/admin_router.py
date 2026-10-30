@@ -61,21 +61,21 @@ from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.berechtigungen.services import genehmiger_of, genehmigung_verwehrt, holds_an_owners_power
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.services import JEDE_VERWALTUNG, find_eigene_adresse_refusal, find_verwaltung_adresse_refusal
-from app.api.postausgang.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxState
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.spieler.crud import another_pupil_holds
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
-    AdresswechselCollection,
-    AktionenCollection,
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenAntraegeCollection,
-    BerechtigungenCollection,
+    ActionLogCollection,
+    AddressChangeCollection,
     BewerbungenCollection,
     DBClient,
-    EinladungenCollection,
-    PostausgangCollection,
+    GrantsAnnouncedCollection,
+    GrantsApprovalRequestsCollection,
+    GrantsCollection,
+    InvitationsCollection,
+    OutboxCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
@@ -177,11 +177,11 @@ def _bestand(holdings: Bestand) -> FLAddressChangeVerwaltungHoldings:
 )
 async def get_address_change_verwaltung_view(
     ansicht_data: Annotated[FLAddressChangeVerwaltungViewPayload, Body()],
-    adresswechsel_collection: AdresswechselCollection,
-    postausgang_collection: PostausgangCollection,
+    adresswechsel_collection: AddressChangeCollection,
+    postausgang_collection: OutboxCollection,
     records: SubjektLookup,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
     db: DBClient,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
@@ -264,15 +264,15 @@ async def _refuse_without_genehmiger(
 )
 async def post_address_change_verwaltung(
     adresswechsel_data: Annotated[FLAddressChangeVerwaltungPayload, Body()],
-    adresswechsel_collection: AdresswechselCollection,
+    adresswechsel_collection: AddressChangeCollection,
     records: SubjektLookup,
     spieler_collection: SpielerCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    postausgang_collection: OutboxCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
-    aktionen_collection: AktionenCollection,
+    aktionen_collection: ActionLogCollection,
     db: DBClient,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
@@ -284,7 +284,7 @@ async def post_address_change_verwaltung(
     **Nothing moves here.** Without a `grund` the change asks the address on file first: it is owed the request with its
     stop link, and nothing goes to the new mailbox until that address approves on its account page. With a `grund`,
     recording how the administrator established who asks, the new mailbox is owed its link and the address on file a
-    notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new mailbox
+    notice with its stop link; the change then takes effect `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox
     confirms. Where the address holds a grant, the change also waits on another administrator's approval, never this
     one's. No link is answered. The address's live change ends replaced.
 
@@ -406,13 +406,13 @@ async def post_address_change_verwaltung(
 )
 async def invite_address_change(
     address_change_id: CustomRouteObjectId,
-    adresswechsel_collection: AdresswechselCollection,
-    postausgang_collection: PostausgangCollection,
+    adresswechsel_collection: AddressChangeCollection,
+    postausgang_collection: OutboxCollection,
     records: SubjektLookup,
     spieler_collection: SpielerCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     operator: str = Depends(get_actor_email),
@@ -517,10 +517,10 @@ async def invite_address_change(
 )
 async def delete_address_change(
     address_change_id: CustomRouteObjectId,
-    adresswechsel_collection: AdresswechselCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    aktionen_collection: AktionenCollection,
+    adresswechsel_collection: AddressChangeCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    aktionen_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
@@ -569,7 +569,7 @@ async def delete_address_change(
                 neue=str(record["email"]),
                 record_id=address_change_id,
                 am=stamp,
-                key=config.sperrliste_schluessel,
+                key=config.sperrliste_key,
             )
         )
 
@@ -590,7 +590,7 @@ async def delete_address_change(
 )
 async def post_address_change_approval(
     address_change_id: CustomRouteObjectId,
-    adresswechsel_collection: AdresswechselCollection,
+    adresswechsel_collection: AddressChangeCollection,
     records: SubjektLookup,
     spieler_collection: SpielerCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
@@ -598,14 +598,14 @@ async def post_address_change_approval(
     bewerbungen_collection: BewerbungenCollection,
     registrierungen_collection: RegistrierungenCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
-    einladungen_collection: EinladungenCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    postausgang_collection: OutboxCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
+    einladungen_collection: InvitationsCollection,
     sperrliste_collection: SperrlisteCollection,
     sperrliste: SperrlisteLookup,
-    aktionen_collection: AktionenCollection,
+    aktionen_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
@@ -678,7 +678,7 @@ async def post_address_change_approval(
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
             aktionen_collection=aktionen_collection,
-            key=config.sperrliste_schluessel,
+            key=config.sperrliste_key,
             now=germany_now,
             journal=journal,
             session=session,

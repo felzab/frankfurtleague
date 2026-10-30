@@ -68,13 +68,13 @@ NO_GRANT = "grants.no_grant"
 NO_OWNER = "grants.no_owner"
 
 
-async def warn_about_the_grants(berechtigungen_collection: AsyncCollection) -> None:
+async def warn_about_the_grants(grants_collection: AsyncCollection) -> None:
     """Name a list that admits nobody or protects nobody: at boot, and after an erasure took a grant.
 
     Counts alone reach the line and never an address: the log outlives the grants it describes.
     """
 
-    grants = await berechtigungen_collection.find({}, projection={"verwaltung": 1}).to_list(length=None)
+    grants = await grants_collection.find({}, projection={"verwaltung": 1}).to_list(length=None)
 
     if not grants:
         fl_logger.warning(NO_GRANT)
@@ -131,7 +131,7 @@ async def lifespan(app: FastAPI):
             },
         )
 
-        await warn_about_the_grants(app.state.db_client[config.db_base_name][Collection.BERECHTIGUNGEN])
+        await warn_about_the_grants(app.state.db_client[config.db_base_name][Collection.GRANTS])
 
         # The one line per start that says which build runs: the json-file driver records no image version of its own.
         fl_logger.info("system.started", extra={"version": config.app_version})

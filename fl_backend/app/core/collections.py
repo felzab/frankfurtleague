@@ -32,24 +32,24 @@ class Collection(StrEnum):
     BEWERBUNGEN = "bewerbungen"
     #: What every admin write did, and what it replaced. The one collection nothing here references
     #: and nothing references back (`fl_backend/app/core/recording.py`).
-    AKTIONEN = "aktionen"
+    ACTION_LOG = "aktionen"
     #: A row survives the erasure of the person it bars: keyed, it is
     #: neither their document to delete nor a shell of nulls. Its author's erasure leaves the marker.
     SPERRLISTE = "sperrliste"
     #: One minted registration link per row. It names a team, a season and the administrator who
     #: minted it, whose erasure leaves the row standing with the marker in their place.
-    EINLADUNGEN = "einladungen"
+    INVITATIONS = "einladungen"
     #: One pupil's pending registration for a team's season. Erased by its own clocks, by the
     #: admission, which writes the person and the squad row in the transaction that deletes it, and by
     #: the erasure of its address.
     REGISTRIERUNGEN = "registrierungen"
     #: Who may enter the Verwaltung: one row per folded address. The one stored role, the other
     #: Funktionen being derived from league records (`docs/glossary.md`, `Berechtigung`).
-    BERECHTIGUNGEN = "berechtigungen"
-    #: The grants every administrator has been told of, or will be by a notice owed in `POSTAUSGANG`.
+    GRANTS = "berechtigungen"
+    #: The grants every administrator has been told of, or will be by a notice owed in `OUTBOX`.
     #: Its own collection because a grant removed outside the application leaves no trace in
     #: `berechtigungen` to compare against.
-    BERECHTIGUNGEN_ANGEKUENDIGT = "berechtigungen_angekuendigt"
+    GRANTS_ANNOUNCED = "berechtigungen_angekuendigt"
     #: One party's answer about one Ansetzung of a fixture, held true against nothing: no fixture write
     #: reaches it, and a move is reconciled by the next sweep pass closing the row.
     SPIELBESTAETIGUNGEN = "spielbestaetigungen"
@@ -59,13 +59,13 @@ class Collection(StrEnum):
     #: One address's pending change of the address it signs in on, keyed by that address, one live change per address;
     #: ended, it keeps no address but a sign-in account's carry still owed, its links answering how it ended until its
     #: TTL index removes it.
-    ADRESSWECHSEL = "adresswechsel"
+    ADDRESS_CHANGES = "adresswechsel"
     #: A grant or a promotion to owner waiting on a second administrator's approval, one per address; the approval
     #: writes the grant and removes it in one transaction, and its TTL index removes one nobody decided.
-    BERECHTIGUNGEN_ANTRAEGE = "berechtigungen_antraege"
+    GRANT_APPROVAL_REQUESTS = "berechtigungen_antraege"
     #: Every mail the league owes, one row per recipient, each written in the transaction of the write owing it and settled
     #: by the drain that sends it; a settled row says what became of its message until its TTL index removes it.
-    POSTAUSGANG = "outbox"
+    OUTBOX = "outbox"
 
 
 # The collections a person edits through a form, one member per line: every update of one raises its `version`, and a
@@ -75,7 +75,7 @@ EDITED_COLLECTIONS: Final[frozenset[Collection]] = frozenset(
     {
         Collection.SPIELE,
         Collection.SPIELBERICHTE,
-        Collection.BERECHTIGUNGEN,
+        Collection.GRANTS,
         Collection.SAISONS,
         Collection.SAISON_TEAMS,
         Collection.SPIELTAGE,

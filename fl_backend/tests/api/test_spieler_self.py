@@ -17,12 +17,11 @@ from app.core.config import API_VERSION
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import NACHWEIS, nachweis_stand_of
-from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    eigene_einwilligung_document,
+    own_einwilligung_document,
     saison_document,
     saison_spieler_document,
     saison_team_document,
@@ -30,6 +29,7 @@ from tests.documents import (
     spieler_document,
     team_document,
 )
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -105,7 +105,7 @@ CONFIRMED_AM = "2026-09-02T08:00:00+00:00"
 
 
 def _einwilligung(**fields: Any) -> dict[str, Any]:
-    return eigene_einwilligung_document(text_version=CONFIRMATION_LABEL, confirmed_at="2026-09-02", am=CONFIRMED_AM, **fields)
+    return own_einwilligung_document(text_version=CONFIRMATION_LABEL, confirmed_at="2026-09-02", am=CONFIRMED_AM, **fields)
 
 
 # What a page serves for a record seeded granting media, which the retired and the young pupil's are or become.
@@ -139,8 +139,8 @@ def _payload(
     }
 
 
-def _person(email: str) -> SignedActor:
-    return SignedActor(email, ADMIN_KEY, lane="person")
+def _person(email: str) -> StampedHeaders:
+    return StampedHeaders(email, ADMIN_KEY, lane="person")
 
 
 async def _seed(database: AsyncDatabase) -> None:
@@ -311,7 +311,7 @@ class TestTheTwoChoices:
     def test_a_press_moving_neither_choice_writes_nothing(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             response = await http.patch(PATCH_PATH, json=_payload(), headers=_person(IDENTIFIER))
-            return response, await _records(database), await database[Collection.AKTIONEN].count_documents({})
+            return response, await _records(database), await database[Collection.ACTION_LOG].count_documents({})
 
         response, after, logged = served(mongo_replica_set_url, steps)
 

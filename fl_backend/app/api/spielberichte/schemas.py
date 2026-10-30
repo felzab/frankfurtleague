@@ -5,8 +5,8 @@ from pydantic_core import PydanticCustomError
 
 from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLBracketFault, FLSpielElfmeterschiessen, FLSpielJoinedAdmin
-from app.shared.schemas.aktor import FLVonAdmin
-from app.shared.schemas.bounds import SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH, SPIELBERICHT_EINTRAEGE_MAX
+from app.shared.schemas.actor import FLVonAdmin
+from app.shared.schemas.bounds import SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH, SPIELBERICHT_ENTRIES_MAX
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomNonEmptyString,
@@ -156,8 +156,8 @@ class FLSpielberichtBerichtPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ergebnis_vorschlag: FLSpielberichtVorschlag
-    torschuetzen: Annotated[list[FLSpielberichtTorschuetze], Field(max_length=SPIELBERICHT_EINTRAEGE_MAX)]
-    karten: Annotated[list[FLSpielberichtKartePayload], Field(max_length=SPIELBERICHT_EINTRAEGE_MAX)]
+    torschuetzen: Annotated[list[FLSpielberichtTorschuetze], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
+    karten: Annotated[list[FLSpielberichtKartePayload], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
     bemerkungen: Annotated[CustomSpielberichtBemerkungen | None, BeforeValidator(parse_empty_string_to_none)]
 
     @model_validator(mode="after")

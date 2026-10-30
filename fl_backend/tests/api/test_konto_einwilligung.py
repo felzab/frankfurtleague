@@ -31,19 +31,18 @@ from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from app.shared.einwilligung_nachweis import NACHWEIS, nachweis_stand_of
-from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE, SCHIEDSRICHTER_MIN_AGE_YEARS
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.tokens import hash_token
-from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, BASE_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     bewerbung_document,
-    eigene_einwilligung_document,
     kontakte_document,
     kontaktperson_document,
-    neue_schule_document,
-    registrierung_bestaetigt,
+    new_schule_document,
+    own_einwilligung_document,
+    registrierung_confirmed,
     registrierung_document,
     saison_document,
     saison_team_document,
@@ -52,6 +51,7 @@ from tests.documents import (
     spieler_document,
     team_document,
 )
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 from .conftest import AUSTRITT, config_for
@@ -113,7 +113,7 @@ CONFIRMED_BELEG = {"am": CONFIRMED_AM, "text_version": CONFIRMATION_LABEL}
 
 
 def _einwilligung(**fields: Any) -> dict[str, Any]:
-    return eigene_einwilligung_document(text_version=CONFIRMATION_LABEL, confirmed_at="2026-09-02", am=CONFIRMED_AM, **fields)
+    return own_einwilligung_document(text_version=CONFIRMATION_LABEL, confirmed_at="2026-09-02", am=CONFIRMED_AM, **fields)
 
 
 def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
@@ -154,8 +154,8 @@ def _payload(
 RETIRED_STAND = nachweis_stand_of(bloecke=[_einwilligung(medien=True)])
 
 
-def _person(email: str) -> SignedActor:
-    return SignedActor(email, ADMIN_KEY, lane="person")
+def _person(email: str) -> StampedHeaders:
+    return StampedHeaders(email, ADMIN_KEY, lane="person")
 
 
 def _referee_path(schiedsrichter_id: ObjectId | str) -> str:
@@ -364,9 +364,9 @@ class TestTheTwoChoices:
         """The stored answer pressed again: no evidence restamped, and no log row a restore could replay."""
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
-            before = await _records(database), await database[Collection.AKTIONEN].count_documents({})
+            before = await _records(database), await database[Collection.ACTION_LOG].count_documents({})
             response = await http.patch(_referee_path(REFEREE_OID), json=_payload(), headers=_person(IDENTIFIER))
-            return response, before, (await _records(database), await database[Collection.AKTIONEN].count_documents({}))
+            return response, before, (await _records(database), await database[Collection.ACTION_LOG].count_documents({}))
 
         response, before, after = served(mongo_replica_set_url, steps)
 
@@ -601,7 +601,7 @@ class TestTheAccountPagesRead:
         ]
         # Each record's floor as its own confirmation page names it, as the seats serve theirs.
         assert (body["spieler"]["minimum_age"], body["schiedsrichter"][0]["minimum_age"]) == (
-            REGISTRIERUNG_MIN_ALTER_JAHRE,
+            REGISTRIERUNG_MIN_AGE_YEARS,
             SCHIEDSRICHTER_MIN_AGE_YEARS,
         )
         assert {entry["medien_minimum_age"] for entry in [body["spieler"], *body["schiedsrichter"], *body["seats"]]} == {MEDIEN_MIN_AGE_YEARS}
@@ -772,9 +772,9 @@ class TestTheSeatsMediaChoice:
         """The row's held seat already grants media, so pressing it on again restamps nothing and logs nothing."""
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
-            before = await _rows(database), await database[Collection.AKTIONEN].count_documents({})
+            before = await _rows(database), await database[Collection.ACTION_LOG].count_documents({})
             response, _, _ = await _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, True)(http, database)
-            return response, before, (await _rows(database), await database[Collection.AKTIONEN].count_documents({}))
+            return response, before, (await _rows(database), await database[Collection.ACTION_LOG].count_documents({}))
 
         response, before, after = served(mongo_replica_set_url, steps)
 
@@ -933,7 +933,7 @@ async def _both_homes(database: AsyncDatabase) -> None:
             submitted_at="2025-01-10",
             confirmation_deadline="2025-01-24",
             team_id=TEAM_A_OID,
-            schule=neue_schule_document(BEWERBUNG_SCHULE, "HWX"),
+            schule=new_schule_document(BEWERBUNG_SCHULE, "HWX"),
             link_prefix=BEWERBUNG_LINK,
         )
     )
@@ -987,7 +987,7 @@ def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[
         kontakte=kontakte,
         submitted_at="2026-09-01",
         confirmation_deadline="2026-09-15",
-        schule=neue_schule_document(PENDING_SCHULE, "GWX"),
+        schule=new_schule_document(PENDING_SCHULE, "GWX"),
     )
 
 
@@ -1091,11 +1091,11 @@ class TestAPendingApplicationsSeats:
             await database[Collection.BEWERBUNGEN].update_one(
                 {"_id": PENDING_OID}, {"$set": {f"kontakte.{slot}.einwilligung.medien": False for slot in ("trainer", "ansprechperson")}}
             )
-            before = await _application_docs(database), await database[Collection.AKTIONEN].count_documents({})
+            before = await _application_docs(database), await database[Collection.ACTION_LOG].count_documents({})
             response = await http.patch(
                 _application_path(PENDING_OID), json=_withdrawal(stand=_seated_stand(2, medien=False)), headers=_person(IDENTIFIER)
             )
-            return response, before, (await _application_docs(database), await database[Collection.AKTIONEN].count_documents({}))
+            return response, before, (await _application_docs(database), await database[Collection.ACTION_LOG].count_documents({}))
 
         response, before, after = served(mongo_replica_set_url, steps)
 
@@ -1194,7 +1194,7 @@ def _registrierung(oid: ObjectId, email: str, *, seite: Seite | None = "bestaeti
     bestaetigt = (
         None
         if seite is None
-        else registrierung_bestaetigt(seite, geburtsdatum=SEVENTEEN_BIRTHDATE, today="2026-09-21", am=REGISTRIERUNG_GRANT["am"], **gewaehlt)
+        else registrierung_confirmed(seite, geburtsdatum=SEVENTEEN_BIRTHDATE, today="2026-09-21", am=REGISTRIERUNG_GRANT["am"], **gewaehlt)
     )
 
     return registrierung_document(

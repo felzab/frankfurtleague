@@ -150,10 +150,10 @@ def _submitted(stored_field: dict[str, Any] | None, *, keeping: tuple[str, ...])
     return None if stored_field is None else {key: stored_field[key] for key in keeping}
 
 
-def _resubmit(season_docs: list[dict[str, Any]], nr: int) -> FLPatchSpielDataPayload:
+def _resubmit(saison_docs: list[dict[str, Any]], nr: int) -> FLPatchSpielDataPayload:
     """The stored fixture as its own payload: the no-op save every occupant rule turns on."""
 
-    stored = next(doc for doc in season_docs if doc["spiel_nr"] == nr)
+    stored = next(doc for doc in saison_docs if doc["spiel_nr"] == nr)
 
     return FLPatchSpielDataPayload.model_validate(
         {
@@ -272,7 +272,7 @@ RETIRED_GROUND_BOOKING = {
     "maps_link": "Bezirkssportanlage West",
     "mietpreis": 40,
 }
-RULES_OF_THE_SEASON = _rules()
+RULES_OF_THE_SAISON = _rules()
 
 
 @pytest.fixture
@@ -328,14 +328,14 @@ class TestARetiredBookingOnAReopenedFixture:
             _resubmit([reopened_document], SLOT_NR),
             FLSpielListAdapter.validate_python([reopened_document]),
             resolved,
-            RULES_OF_THE_SEASON,
+            RULES_OF_THE_SAISON,
         )
         newly_booked = find_booking_refusal(
             ObjectId(MATCH_ID.format(SLOT_NR)),
             _resubmit([reopened_document], SLOT_NR),
             FLSpielListAdapter.validate_python([unbooked_document]),
             resolved,
-            RULES_OF_THE_SEASON,
+            RULES_OF_THE_SAISON,
         )
 
         assert kept is None
@@ -442,9 +442,9 @@ class TestAGroupPhaseEveryClubLeaves:
     """That `qualifiers_per_gruppe` is bounded from above alone, so a seeding-only group stage is legal."""
 
     def test_a_group_qualifying_every_club_it_holds_is_permitted(self):
-        every_club = _rules(number_of_gruppen=4, teams_per_gruppe=2, qualifiers_per_gruppe=2)
+        every_team = _rules(number_of_gruppen=4, teams_per_gruppe=2, qualifiers_per_gruppe=2)
 
-        assert _on_create(every_club) is None
+        assert _on_create(every_team) is None
 
     def test_qualifying_more_than_the_group_holds_is_what_refuses(self):
         too_many = _rules(number_of_gruppen=4, teams_per_gruppe=2, qualifiers_per_gruppe=4)

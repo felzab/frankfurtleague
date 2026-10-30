@@ -17,7 +17,7 @@ from app.api.aktionen.schemas import FLAktionRecord
 from app.api.berechtigungen.schemas import FLBerechtigung, FLBerechtigungAngekuendigt, FLBerechtigungAntrag
 from app.api.bewerbungen.schemas import FLBewerbungRecord
 from app.api.einladungen.schemas import FLEinladungRecord
-from app.api.postausgang.schemas import FLPostausgangZeile
+from app.api.outbox.schemas import FLOutboxRow
 from app.api.registrierungen.schemas import FLRegistrierungRecord
 from app.api.saisons.schemas import FLSaisonRecord
 from app.api.schiedsrichter.schemas import FLSchiedsrichterRecord
@@ -45,17 +45,17 @@ RECORD_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.SPIELORTE: FLSpielort,
     Collection.SCHIEDSRICHTER: FLSchiedsrichterRecord,
     Collection.BEWERBUNGEN: FLBewerbungRecord,
-    Collection.AKTIONEN: FLAktionRecord,
+    Collection.ACTION_LOG: FLAktionRecord,
     Collection.SPERRLISTE: FLSperrlisteEintragRecord,
-    Collection.EINLADUNGEN: FLEinladungRecord,
+    Collection.INVITATIONS: FLEinladungRecord,
     Collection.REGISTRIERUNGEN: FLRegistrierungRecord,
-    Collection.BERECHTIGUNGEN: FLBerechtigung,
-    Collection.BERECHTIGUNGEN_ANGEKUENDIGT: FLBerechtigungAngekuendigt,
+    Collection.GRANTS: FLBerechtigung,
+    Collection.GRANTS_ANNOUNCED: FLBerechtigungAngekuendigt,
     Collection.SPIELBESTAETIGUNGEN: FLSpielbestaetigungRecord,
     Collection.SPIELBERICHTE: FLSpielbericht,
-    Collection.ADRESSWECHSEL: FLAdresswechselRecord,
-    Collection.BERECHTIGUNGEN_ANTRAEGE: FLBerechtigungAntrag,
-    Collection.POSTAUSGANG: FLPostausgangZeile,
+    Collection.ADDRESS_CHANGES: FLAdresswechselRecord,
+    Collection.GRANT_APPROVAL_REQUESTS: FLBerechtigungAntrag,
+    Collection.OUTBOX: FLOutboxRow,
 }
 
 if missing := set(Collection) - RECORD_MODELS.keys():

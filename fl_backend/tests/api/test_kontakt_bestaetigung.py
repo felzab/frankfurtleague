@@ -36,18 +36,18 @@ from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import log_stamp
 from app.core.security import STEP_UP_WINDOW_S, SessionActor
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.schemas.bestaetigung import FLTokenPayload
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.actor_tokens import fresh_admin_actor, verified_actor
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.erasure import erased
 from tests.isolation import InterleavedCollection
-from tests.loeschung import geloescht
+from tests.outbox import MAIL_NOW, drained
 from tests.plans import plans_of_sent_reads
-from tests.postausgang import MAIL_NOW, drained
 from tests.records import record_collections
+from tests.session_headers import fresh_admin_actor, verified_actor
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -155,7 +155,7 @@ def on_a_league(
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             # A ban entered through its route re-judges its actor's grant.
-            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, saison_status))
             for team_id, name, shorthand in (
                 (TEAM_OID, TEAM_NAME, "ADX"),
@@ -242,7 +242,7 @@ async def save(
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=database.client,
         actor=actor or fresh_admin_actor(),
@@ -260,7 +260,7 @@ async def resend(database: AsyncDatabase, seat: str, *, today: str = TODAY) -> M
         seat=seat,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=database.client,
         today=today,
@@ -283,7 +283,7 @@ async def replace(database: AsyncDatabase) -> Any:
         spiele_collection=database[Collection.SPIELE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         db=database.client,
         today=TODAY,
@@ -328,9 +328,9 @@ async def answer(
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=database.client,
         config=build_test_config(),
@@ -757,7 +757,7 @@ class TestTheLinkConfirms:
             await answer(database, response.confirmations[2].token, antwort="declined")
 
             return (
-                await database[Collection.AKTIONEN]
+                await database[Collection.ACTION_LOG]
                 .find({"collection": str(Collection.SAISON_TEAMS), "document_id": ROW_OID})
                 .sort("_id", 1)
                 .to_list(length=None)
@@ -787,7 +787,7 @@ class TestTheLinkConfirms:
             await answer(database, link.token, antwort="declined")
 
             return (
-                await database[Collection.AKTIONEN]
+                await database[Collection.ACTION_LOG]
                 .find({"collection": str(Collection.SAISON_TEAMS), "document_id": ROW_OID})
                 .sort("_id", 1)
                 .to_list(length=None)
@@ -824,11 +824,11 @@ class TestTheLinkConfirms:
         }
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            await database[Collection.AKTIONEN].insert_one(older)
+            await database[Collection.ACTION_LOG].insert_one(older)
             response = await save(database, THREE)
             answered = await answer(database, response.confirmations[0].token, antwort="declined")
 
-            return answered, await row_now(database), await database[Collection.AKTIONEN].find_one({"_id": older["_id"]})
+            return answered, await row_now(database), await database[Collection.ACTION_LOG].find_one({"_id": older["_id"]})
 
         answered, row, kept = on_a_league(mongo_replica_set_url, body)
 
@@ -979,7 +979,7 @@ class TestARowsPeopleLeavingTakeTheirLinks:
     def test_an_geloescht_person_s_link_opens_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, THREE)
-            await geloescht(database, database.client, "jonas@example.com", germany_now=NOW)
+            await erased(database, database.client, "jonas@example.com", germany_now=NOW)
 
             return await refused(ansicht(database, response.confirmations[1].token))
 
@@ -1458,7 +1458,7 @@ async def the_application(database: AsyncDatabase) -> tuple[dict[str, Any], list
 
     application = await database[Collection.BEWERBUNGEN].find_one({"_id": ACCEPTED_OID})
     assert application is not None
-    log = database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN), "document_id": ACCEPTED_OID}).sort("_id", 1)
+    log = database[Collection.ACTION_LOG].find({"collection": str(Collection.BEWERBUNGEN), "document_id": ACCEPTED_OID}).sort("_id", 1)
 
     return application, await log.to_list(length=None)
 

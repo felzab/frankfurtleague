@@ -31,7 +31,7 @@ from tests.documents import (
     bewerbung_document,
     kontakte_document,
     kontaktperson_document,
-    neue_schule_document,
+    new_schule_document,
     registrierung_document,
     saison_document,
     saison_team_document,
@@ -119,7 +119,7 @@ def _bewerbung(oid: ObjectId, *, status: str, trainer: Mapping[str, Any]) -> dic
         kontakte=_kontakte(trainer=dict(trainer)),
         submitted_at="2026-01-01",
         confirmation_deadline="2026-01-15",
-        schule=neue_schule_document(f"Bewerberschule {oid}", str(oid)[-4:]),
+        schule=new_schule_document(f"Bewerberschule {oid}", str(oid)[-4:]),
     )
 
 
@@ -217,10 +217,10 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SPERRLISTE].insert_one(ban_document(GESPERRT, bis=ACTIVE_SAISON))
     granted = datetime(2026, 1, 1, tzinfo=UTC)
-    await database[Collection.BERECHTIGUNGEN].insert_one(
+    await database[Collection.GRANTS].insert_one(
         {"_id": GRANT_OID, "adresse": VERWALTUNG, "verwaltung": "administration", "granted_by": "PLAYGROUND", "granted_at": granted}
     )
-    await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].insert_one(
+    await database[Collection.GRANTS_ANNOUNCED].insert_one(
         {"_id": GRANT_OID, "adresse": VERWALTUNG, "verwaltung": "administration", "angekuendigt_am": granted}
     )
 
@@ -245,7 +245,7 @@ async def call_anmeldung(database: AsyncDatabase, email: str) -> FLSignInRespons
         anmeldung_data=FLSubjectPayload(email=email),
         records=record_collections(database),
         sperrliste=ban_list(database),
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        berechtigungen_collection=database[Collection.GRANTS],
     )
 
 

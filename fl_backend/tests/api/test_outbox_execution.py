@@ -15,30 +15,30 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.postausgang.crud import lage_of
-from app.api.postausgang.schemas import (
+from app.api.outbox.crud import state_of
+from app.api.outbox.schemas import (
+    FLOutboxData,
     FLOutboxDeliveryStand,
     FLOutboxEventPayload,
     FLOutboxHandoutResponse,
+    FLOutboxLink,
+    FLOutboxReference,
+    FLOutboxResultArt,
     FLOutboxResultPayload,
     FLOutboxResultResponse,
     FLOutboxSignInPayload,
-    FLPostausgangBezug,
-    FLPostausgangDaten,
-    FLPostausgangErgebnisArt,
-    FLPostausgangLink,
     FLSignInCodeData,
     FLSperreData,
 )
-from app.api.postausgang.services import (
-    BEANSPRUCHUNG_DAUER,
-    NACHLAUF,
+from app.api.outbox.services import (
+    LEASE_DURATION,
+    REPETITION_AFTER,
+    RETENTION,
     SEITE,
-    WIEDERHOLUNG_NACH,
     OwedMail,
     enqueue_mails,
 )
-from app.api.postausgang.system_router import post_event, post_handout, post_result, post_sign_in
+from app.api.outbox.system_router import post_event, post_handout, post_result, post_sign_in
 from app.core.collections import Collection
 from app.core.transactions import transaction_session
 from app.shared.tokens import hash_token
@@ -53,8 +53,8 @@ DATABASE_NAME = worker_database("fl_postausgang_test")
 
 # A century ahead of the real clock: the TTL monitor deletes a row whose delete date has passed, under a case reading it.
 NOW = datetime(2126, 4, 16, 12, 30, tzinfo=UTC)
-EINLADUNG = ObjectId("6890a1b2c3d4e5f607f30001")
-BEZUG = FLPostausgangBezug(collection=Collection.EINLADUNGEN, id=EINLADUNG, seat=None)
+INVITATION = ObjectId("6890a1b2c3d4e5f607f30001")
+REFERENCE = FLOutboxReference(collection=Collection.INVITATIONS, id=INVITATION, seat=None)
 NORA = "nora.neu@beispielschule.de"
 SPERRE = FLSperreData(art="sperre", grund="Falsches Geburtsdatum", barred_until_saison_id="2127")
 
@@ -64,7 +64,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 def on_a_database(url: str, body: Body) -> Any:
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (client, database):
-            await database[Collection.EINLADUNGEN].insert_one({"_id": EINLADUNG, "email": NORA, "token_hashes": []})
+            await database[Collection.INVITATIONS].insert_one({"_id": INVITATION, "email": NORA, "token_hashes": []})
             return await body(database, client)
 
     return on_the_seed_loop(_run())
@@ -77,7 +77,7 @@ def utc(moment: datetime) -> datetime:
 
 
 # The one record's link: its array, minted while the record still names the recipient.
-LINK = FLPostausgangLink(paths=["token_hashes"], adressen=["email"], replaced=False)
+LINK = FLOutboxLink(paths=["token_hashes"], adressen=["email"], replaced=False)
 
 
 async def owe(
@@ -85,16 +85,16 @@ async def owe(
     client: AsyncMongoClient,
     key: str,
     *,
-    data: FLPostausgangDaten = SPERRE,
+    data: FLOutboxData = SPERRE,
     link: bool = False,
-    reference: FLPostausgangBezug = BEZUG,
-    spec: FLPostausgangLink = LINK,
+    reference: FLOutboxReference = REFERENCE,
+    spec: FLOutboxLink = LINK,
 ) -> ObjectId:
     """One mail owed inside a transaction of its own, as a write owing it would, and the id of the row its key names."""
 
     async def write(session: Any) -> None:
         await enqueue_mails(
-            postausgang_collection=database[Collection.POSTAUSGANG],
+            outbox_collection=database[Collection.OUTBOX],
             session=session,
             mails=[OwedMail(key=key, an=NORA, data=data, reference=reference if link else None, link=spec if link else None)],
             now=NOW,
@@ -107,14 +107,14 @@ async def owe(
 
 
 async def stored_by_key(database: AsyncDatabase, key: str) -> dict[str, Any]:
-    row = await database[Collection.POSTAUSGANG].find_one({"key": key})
+    row = await database[Collection.OUTBOX].find_one({"key": key})
     assert row is not None
     return row
 
 
 async def claimed(database: AsyncDatabase, client: AsyncMongoClient, *, now: datetime = NOW) -> FLOutboxHandoutResponse:
     return await post_handout(
-        postausgang_collection=database[Collection.POSTAUSGANG], sperrliste=ban_list(database), db=database, db_client=client, now=now
+        outbox_collection=database[Collection.OUTBOX], sperrliste=ban_list(database), db=database, db_client=client, now=now
     )
 
 
@@ -122,27 +122,27 @@ async def reported(
     database: AsyncDatabase,
     lease: str | None,
     row_id: ObjectId,
-    ergebnis: FLPostausgangErgebnisArt,
+    result: FLOutboxResultArt,
     *,
     now: datetime = NOW,
     grund: str | None = None,
 ) -> FLOutboxResultResponse:
     assert lease is not None
     return await post_result(
-        ergebnis_data=FLOutboxResultPayload(
+        result_data=FLOutboxResultPayload(
             lease=lease,
             id=row_id,
-            result=ergebnis,
-            message_id=f"msg-{row_id}" if ergebnis == "sent" else None,
+            result=result,
+            message_id=f"msg-{row_id}" if result == "sent" else None,
             grund=grund,
         ),
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        outbox_collection=database[Collection.OUTBOX],
         now=now,
     )
 
 
 async def stored(database: AsyncDatabase, row_id: ObjectId) -> dict[str, Any]:
-    row = await database[Collection.POSTAUSGANG].find_one({"_id": row_id})
+    row = await database[Collection.OUTBOX].find_one({"_id": row_id})
     assert row is not None
     return row
 
@@ -153,7 +153,7 @@ class TestTheEnqueue:
             first = await owe(database, client, "sperre/1")
             again = await owe(database, client, "sperre/1")
 
-            return first, again, await database[Collection.POSTAUSGANG].count_documents({})
+            return first, again, await database[Collection.OUTBOX].count_documents({})
 
         first, again, rows = on_a_database(mongo_replica_set_url, body)
 
@@ -161,12 +161,12 @@ class TestTheEnqueue:
 
     def test_a_batch_replayed_owes_only_the_mails_its_first_run_did_not(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
-            async def batch(*schluessel: str) -> None:
+            async def batch(*key: str) -> None:
                 async def write(session: Any) -> None:
                     await enqueue_mails(
-                        postausgang_collection=database[Collection.POSTAUSGANG],
+                        outbox_collection=database[Collection.OUTBOX],
                         session=session,
-                        mails=[OwedMail(key=key, an=NORA, data=SPERRE) for key in schluessel],
+                        mails=[OwedMail(key=key, an=NORA, data=SPERRE) for key in key],
                         now=NOW,
                     )
 
@@ -176,7 +176,7 @@ class TestTheEnqueue:
             await batch("sperre/1", "sperre/2")
             await batch("sperre/2", "sperre/3")
 
-            return sorted(row["key"] for row in await database[Collection.POSTAUSGANG].find({}).to_list())
+            return sorted(row["key"] for row in await database[Collection.OUTBOX].find({}).to_list())
 
         assert on_a_database(mongo_replica_set_url, body) == ["sperre/1", "sperre/2", "sperre/3"]
 
@@ -205,12 +205,12 @@ class TestTheDrain:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             row_id = await owe(database, client, "sperre/1", link=True)
             lost = await claimed(database, client)
-            inside = await claimed(database, client, now=NOW + BEANSPRUCHUNG_DAUER - timedelta(seconds=1))
-            after = await claimed(database, client, now=NOW + BEANSPRUCHUNG_DAUER)
+            inside = await claimed(database, client, now=NOW + LEASE_DURATION - timedelta(seconds=1))
+            after = await claimed(database, client, now=NOW + LEASE_DURATION)
             late = await reported(database, lost.lease, row_id, "sent")
             settled = await reported(database, after.lease, row_id, "sent")
-            record = await database[Collection.EINLADUNGEN].find_one({"_id": EINLADUNG})
-            logged = await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.POSTAUSGANG)})
+            record = await database[Collection.INVITATIONS].find_one({"_id": INVITATION})
+            logged = await database[Collection.ACTION_LOG].count_documents({"collection": str(Collection.OUTBOX)})
 
             return lost, inside, after, late, settled, await stored(database, row_id), record, logged
 
@@ -231,33 +231,33 @@ class TestTheDrain:
         """
 
         saison_team = ObjectId("6890a1b2c3d4e5f607f30002")
-        spec = FLPostausgangLink(
+        spec = FLOutboxLink(
             paths=["kontakte.trainer.token_hashes", "kontakte.betreuer.token_hashes"],
             adressen=["kontakte.trainer.email", "kontakte.betreuer.email"],
             replaced=False,
         )
-        bezug = FLPostausgangBezug(collection=Collection.SAISON_TEAMS, id=saison_team, seat="trainer")
+        reference = FLOutboxReference(collection=Collection.SAISON_TEAMS, id=saison_team, seat="trainer")
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             beide = {"email": NORA, "token_hashes": []}
             await database[Collection.SAISON_TEAMS].insert_one(
                 {"_id": saison_team, "version": 0, "kontakte": {"trainer": beide, "betreuer": beide}}
             )
-            minted = await owe(database, client, "sitze/1", link=True, reference=bezug, spec=spec)
+            minted = await owe(database, client, "sitze/1", link=True, reference=reference, spec=spec)
             first = await claimed(database, client)
             record = await database[Collection.SAISON_TEAMS].find_one({"_id": saison_team})
 
             await database[Collection.SAISON_TEAMS].update_one({"_id": saison_team}, {"$set": {"kontakte.betreuer": None}})
-            leer = await owe(database, client, "sitze/2", link=True, reference=bezug, spec=spec)
+            empty = await owe(database, client, "sitze/2", link=True, reference=reference, spec=spec)
             emptied = await claimed(database, client)
             await database[Collection.SAISON_TEAMS].update_one(
                 {"_id": saison_team}, {"$set": {"kontakte.betreuer": {"email": "nachfolge@beispielschule.de", "token_hashes": []}}}
             )
-            weiter = await owe(database, client, "sitze/3", link=True, reference=bezug, spec=spec)
+            continued = await owe(database, client, "sitze/3", link=True, reference=reference, spec=spec)
             handed_on = await claimed(database, client)
 
             dropped = [*emptied.mails, *handed_on.mails]
-            return minted, first, record, dropped, [(await stored(database, row_id))["stand"] for row_id in (leer, weiter)]
+            return minted, first, record, dropped, [(await stored(database, row_id))["stand"] for row_id in (empty, continued)]
 
         minted, first, record, dropped, staende = on_a_database(mongo_replica_set_url, body)
 
@@ -289,22 +289,22 @@ class TestTheDrain:
             row_id = await owe(database, client, "sperre/1")
             first = await claimed(database, client)
             failed = await reported(database, first.lease, row_id, "retry", grund="rate_limit_exceeded")
-            waiting = await claimed(database, client, now=NOW + WIEDERHOLUNG_NACH - timedelta(seconds=1))
+            waiting = await claimed(database, client, now=NOW + REPETITION_AFTER - timedelta(seconds=1))
             refused = (await stored(database, row_id))["grund"]
-            again = await claimed(database, client, now=NOW + WIEDERHOLUNG_NACH)
-            await reported(database, again.lease, row_id, "sent", now=NOW + WIEDERHOLUNG_NACH)
+            again = await claimed(database, client, now=NOW + REPETITION_AFTER)
+            await reported(database, again.lease, row_id, "sent", now=NOW + REPETITION_AFTER)
 
             return failed.repeated, waiting.mails, [mail.id for mail in again.mails], row_id, refused, await stored(database, row_id)
 
-        wiederholt, waiting, again, row_id, refused, row = on_a_database(mongo_replica_set_url, body)
+        repeated, waiting, again, row_id, refused, row = on_a_database(mongo_replica_set_url, body)
 
-        assert (wiederholt, waiting, again) == (1, [], [row_id])
+        assert (repeated, waiting, again) == (1, [], [row_id])
         assert (refused, row["stand"], row["grund"]) == ("rate_limit_exceeded", "sent", None)
 
     def test_a_mail_whose_link_supersedes_drops_the_older_one_still_waiting_to_go_again(self, mongo_replica_set_url: str):
         """Handed out after the newer mail, the older one would supersede the newer link, and the newest mail opens nothing."""
 
-        ersetzend = FLPostausgangLink(paths=["token_hashes"], adressen=["email"], replaced=True)
+        ersetzend = FLOutboxLink(paths=["token_hashes"], adressen=["email"], replaced=True)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             older = await owe(database, client, "link/1", link=True, spec=ersetzend)
@@ -313,8 +313,8 @@ class TestTheDrain:
             newer = await owe(database, client, "link/2", link=True, spec=ersetzend)
             second = await claimed(database, client)
             await reported(database, second.lease, newer, "sent")
-            later = await claimed(database, client, now=NOW + WIEDERHOLUNG_NACH)
-            record = await database[Collection.EINLADUNGEN].find_one({"_id": EINLADUNG})
+            later = await claimed(database, client, now=NOW + REPETITION_AFTER)
+            record = await database[Collection.INVITATIONS].find_one({"_id": INVITATION})
 
             return second, later, record, (await stored(database, older))["stand"]
 
@@ -345,14 +345,14 @@ class TestTheSignInCode:
     def test_a_failed_send_gives_it_up_and_its_secret_goes_with_the_final_state(self, mongo_replica_set_url: str):
         """The library repairs a failed code with a fresh one, so the row is tried once; its own lapse stays its delete date."""
 
-        gueltig_bis = NOW + timedelta(minutes=10)
+        valid_until = NOW + timedelta(minutes=10)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await post_sign_in(
-                anmeldung_data=FLOutboxSignInPayload(
-                    an=NORA, data=FLSignInCodeData(art="sign_in_code"), secret="chiffrat", valid_until=gueltig_bis
+                sign_in_data=FLOutboxSignInPayload(
+                    an=NORA, data=FLSignInCodeData(art="sign_in_code"), secret="chiffrat", valid_until=valid_until
                 ),
-                postausgang_collection=database[Collection.POSTAUSGANG],
+                outbox_collection=database[Collection.OUTBOX],
                 now=NOW,
             )
             first = await claimed(database, client)
@@ -365,7 +365,7 @@ class TestTheSignInCode:
 
         assert [mail.secret for mail in first.mails] == ["chiffrat"]
         assert (failed.repeated, failed.abandoned) == (0, 1)
-        assert (row["stand"], "secret" in row, "data" in row, utc(row["erase_at"])) == ("abandoned", False, False, gueltig_bis)
+        assert (row["stand"], "secret" in row, "data" in row, utc(row["erase_at"])) == ("abandoned", False, False, valid_until)
 
 
 class TestTheExpiry:
@@ -381,7 +381,7 @@ class TestTheExpiry:
 
         row = on_a_database(mongo_replica_set_url, body)
 
-        assert (utc(row["erase_at"]), "data" in row) == (settled_at + NACHLAUF, False)
+        assert (utc(row["erase_at"]), "data" in row) == (settled_at + RETENTION, False)
 
 
 class TestTheDeliveryEvent:
@@ -392,13 +392,13 @@ class TestTheDeliveryEvent:
 
             async def event(stand: FLOutboxDeliveryStand, row: ObjectId = row_id) -> bool:
                 payload = FLOutboxEventPayload(id=row, stand=stand, grund=None, am=NOW)
-                return (await post_event(ereignis_data=payload, postausgang_collection=database[Collection.POSTAUSGANG])).applied
+                return (await post_event(event_data=payload, outbox_collection=database[Collection.OUTBOX])).applied
 
             # The provider's event can outrun the send's own report, which has then recorded nothing of the message.
             first = await event("undeliverable")
             await reported(database, answer.lease, row_id, "sent")
             applied = [first, await event("delayed"), await event("delivered"), await event("delivered", ObjectId())]
-            newest = await lage_of(postausgang_collection=database[Collection.POSTAUSGANG], reference=BEZUG)
+            newest = await state_of(outbox_collection=database[Collection.OUTBOX], reference=REFERENCE)
 
             return applied, newest, await stored(database, row_id)
 

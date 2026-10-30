@@ -10,7 +10,7 @@ from app.api.registrierungen.schemas import FLRegistrierungenFilterParams
 from app.core.collections import Collection
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import eigene_einwilligung_document
+from tests.documents import own_einwilligung_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -31,7 +31,7 @@ FREMDES_TEAM_OID = ObjectId("6890a1b2c3d4e5f607950013")
 # The hash of a link nobody minted here: what matters is that no read answers it, whatever it is.
 TOKEN_HASH = "b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819201"
 
-CONSENT: dict[str, Any] = eigene_einwilligung_document(text_version="2026-04-spielerseite", confirmed_at="2026-04-03")
+CONSENT: dict[str, Any] = own_einwilligung_document(text_version="2026-04-spielerseite", confirmed_at="2026-04-03")
 
 
 def registrierung_document(

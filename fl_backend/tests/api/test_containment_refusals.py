@@ -288,11 +288,11 @@ class TestRetiringAVenueOrAReferee:
     def test_an_upcoming_fixture_refuses_it(self):
         """`retire_blocked`'s reasoning: retiring removes it from every picker while matches are scheduled against it."""
 
-        venue = find_venue_retire_refusal(upcoming_spiel_nrs=[3])
-        referee = find_referee_retire_refusal(upcoming_spiel_nrs=[3])
+        spielort = find_venue_retire_refusal(upcoming_spiel_nrs=[3])
+        schiedsrichter = find_referee_retire_refusal(upcoming_spiel_nrs=[3])
 
-        assert venue is not None and venue.error_code == Code.SPIELORT_STILL_BOOKED
-        assert referee is not None and referee.error_code == Code.SCHIEDSRICHTER_STILL_ASSIGNED
+        assert spielort is not None and spielort.error_code == Code.SPIELORT_STILL_BOOKED
+        assert schiedsrichter is not None and schiedsrichter.error_code == Code.SCHIEDSRICHTER_STILL_ASSIGNED
 
     def test_the_two_codes_are_distinct(self):
         """Different advice — move the fixture, against reassign it — so different codes."""
@@ -357,16 +357,16 @@ class TestASquadCap:
     def test_the_count_excludes_the_player_being_written(self):
         """What keeps the rule from over-reaching: an edit leaving `team_id` alone would otherwise be refused by the player's own place."""
 
-        squad_filter = build_live_squad_filter(saison_id="2026", team_id=TEAM_OID, excluding_spieler_id=SPIELER_OID)
+        kader_filter = build_live_squad_filter(saison_id="2026", team_id=TEAM_OID, excluding_spieler_id=SPIELER_OID)
 
-        assert squad_filter["spieler_id"] == {"$ne": SPIELER_OID}
+        assert kader_filter["spieler_id"] == {"$ne": SPIELER_OID}
 
     def test_the_count_is_scoped_to_one_team_in_one_season(self):
         """`max_kadergroesse` is a season's rule, so a club's squad in another season is a different squad."""
 
-        squad_filter = build_live_squad_filter(saison_id="2026", team_id=TEAM_OID, excluding_spieler_id=SPIELER_OID)
+        kader_filter = build_live_squad_filter(saison_id="2026", team_id=TEAM_OID, excluding_spieler_id=SPIELER_OID)
 
-        assert (squad_filter["saison_id"], squad_filter["team_id"]) == ("2026", TEAM_OID)
+        assert (kader_filter["saison_id"], kader_filter["team_id"]) == ("2026", TEAM_OID)
 
     def test_the_club_question_stays_out_of_this_one(self):
         """Two functions rather than two clauses.

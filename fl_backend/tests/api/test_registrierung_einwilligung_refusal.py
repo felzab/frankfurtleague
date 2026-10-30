@@ -20,10 +20,10 @@ from app.api.registrierungen.services import (
     zustand_of,
 )
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
-from tests.documents import eigene_einwilligung_document
+from tests.documents import own_einwilligung_document
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -39,7 +39,7 @@ A_LABEL = "2026-10-spielerseite-5"
 def einwilligung(**overrides: Any) -> dict[str, Any]:
     """One consent record as a pupil's own press leaves it."""
 
-    return {**eigene_einwilligung_document(text_version=A_LABEL, confirmed_at=YESTERDAY), **overrides}
+    return {**own_einwilligung_document(text_version=A_LABEL, confirmed_at=YESTERDAY), **overrides}
 
 
 def registrierung(**overrides: Any) -> dict[str, Any]:
@@ -241,7 +241,7 @@ class TestAPersonIsNeverWrittenNameless:
         "vorname": "Quillhilde",
         "nachname": "Brackenmoor",
         "geburtsdatum": "2009-05-09",
-        "einwilligung": eigene_einwilligung_document(text_version=RETURNING_LABEL, confirmed_at=TODAY, umfang="intern"),
+        "einwilligung": own_einwilligung_document(text_version=RETURNING_LABEL, confirmed_at=TODAY, umfang="intern"),
     }
 
     # Whitespace among them: `person_name_key` folds it to the empty key the sentinel's null name also folds to.

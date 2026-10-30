@@ -28,7 +28,7 @@ from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
-    loeschen_many_from_db,
+    erase_many_from_db,
     patch_many_in_db,
     pull_many_from_db,
     redact_log_rows_in_db,
@@ -318,7 +318,7 @@ async def loeschen_referee_confirmations_in_session(
     if rows:
         # Removed, never repointed as the fixtures are: the sweep mints the ghost no row.
         # Ids and their seasons alone, never the referee's id: the log keeps an erasure's filter as text.
-        removed = await loeschen_many_from_db(
+        removed = await erase_many_from_db(
             collection=spielbestaetigungen_collection,
             db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in rows})}, "_id": {"$in": [row["_id"] for row in rows]}},
             session=session,
@@ -326,7 +326,7 @@ async def loeschen_referee_confirmations_in_session(
         geloescht = removed.deleted_count
         # Whole, as every record an erasure removes: the row is theirs, so its earlier states are too.
         await redact_log_rows_in_db(
-            aktionen_collection=aktionen_collection,
+            action_log_collection=aktionen_collection,
             targets=[(Collection.SPIELBESTAETIGUNGEN, [row["_id"] for row in rows])],
             at=stamp,
             session=session,

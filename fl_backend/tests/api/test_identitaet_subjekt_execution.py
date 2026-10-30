@@ -246,9 +246,9 @@ async def _seed(database: AsyncDatabase) -> None:
         _grant(GRANT_INHABER_OID, VERWALTUNG_INHABER, "owner") | {"gefunden_am": GRANT_FOUND},
         _grant(GRANT_STORED_OID, VERWALTUNG_STORED, "administration"),
     ]
-    await database[Collection.BERECHTIGUNGEN].insert_many(grants)
+    await database[Collection.GRANTS].insert_many(grants)
     # Both announced: the `owner` grant found by the reconciliation, the other made by the grant route.
-    await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].insert_many(
+    await database[Collection.GRANTS_ANNOUNCED].insert_many(
         [
             {"_id": grant["_id"], "adresse": grant["adresse"], "verwaltung": grant["verwaltung"], "angekuendigt_am": GRANT_FOUND}
             for grant in grants
@@ -291,7 +291,7 @@ async def call_subjekt(database: AsyncDatabase, email: str) -> FLSubjectResponse
         subjekt_data=FLSubjectPayload(email=email),
         records=record_collections(database),
         sperrliste=ban_list(database),
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        berechtigungen_collection=database[Collection.GRANTS],
     )
 
 
@@ -535,7 +535,7 @@ class TestEveryAddressReadWalksAnIndex:
                     anmeldung_data=FLSubjectPayload(email=IDENTIFIER),
                     records=record_collections(watched),
                     sperrliste=ban_list(watched),
-                    berechtigungen_collection=watched[Collection.BERECHTIGUNGEN],
+                    berechtigungen_collection=watched[Collection.GRANTS],
                 )
 
             _, plans = await plans_of_sent_reads(mongo_replica_set_url, database, ask_both, _selects_by_address)
@@ -606,7 +606,7 @@ class TestTheGrant:
         """Its row still carries the address before's dates, so a tier dated by them would admit the new holder's older sessions."""
 
         async def repointed(database: AsyncDatabase) -> FLSubjectResponse:
-            await database[Collection.BERECHTIGUNGEN].update_one({"_id": GRANT_STORED_OID}, {"$set": {"adresse": BYSTANDER}})
+            await database[Collection.GRANTS].update_one({"_id": GRANT_STORED_OID}, {"$set": {"adresse": BYSTANDER}})
 
             return await call_subjekt(database, BYSTANDER)
 
@@ -624,7 +624,7 @@ class TestTheGrant:
         """An administrator signed in between the two administers and holds no owner's power."""
 
         async def promoted(database: AsyncDatabase) -> FLSubjectResponse:
-            await database[Collection.BERECHTIGUNGEN].update_one({"_id": GRANT_INHABER_OID}, {"$set": {"appointed_at": GRANT_PROMOTED}})
+            await database[Collection.GRANTS].update_one({"_id": GRANT_INHABER_OID}, {"$set": {"appointed_at": GRANT_PROMOTED}})
 
             return await call_subjekt(database, VERWALTUNG_INHABER)
 
@@ -638,7 +638,7 @@ class TestTheGrant:
         """Nothing dates the edit, so the row's tier would date an owner's power by the administrator's grant."""
 
         async def raised(database: AsyncDatabase) -> FLSubjectResponse:
-            await database[Collection.BERECHTIGUNGEN].update_one({"_id": GRANT_STORED_OID}, {"$set": {"verwaltung": "owner"}})
+            await database[Collection.GRANTS].update_one({"_id": GRANT_STORED_OID}, {"$set": {"verwaltung": "owner"}})
 
             return await call_subjekt(database, VERWALTUNG_STORED)
 
@@ -650,8 +650,8 @@ class TestTheGrant:
         """As a row put back after the reconciliation erased its record stands: every date it carries predates its return."""
 
         async def put_back(database: AsyncDatabase) -> FLSubjectResponse:
-            await database[Collection.BERECHTIGUNGEN].update_one({"_id": GRANT_STORED_OID}, {"$set": {"gesehen_am": GRANT_FOUND}})
-            await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].delete_one({"_id": GRANT_STORED_OID})
+            await database[Collection.GRANTS].update_one({"_id": GRANT_STORED_OID}, {"$set": {"gesehen_am": GRANT_FOUND}})
+            await database[Collection.GRANTS_ANNOUNCED].delete_one({"_id": GRANT_STORED_OID})
 
             return await call_subjekt(database, VERWALTUNG_STORED)
 
@@ -665,7 +665,7 @@ class TestTheGrant:
         pasted = datetime(2026, 3, 1, 9, 0, tzinfo=UTC)
 
         async def pasted_late(database: AsyncDatabase) -> FLSubjectResponse:
-            await database[Collection.BERECHTIGUNGEN].insert_one(_grant(ObjectId.from_datetime(pasted), BYSTANDER, "administration"))
+            await database[Collection.GRANTS].insert_one(_grant(ObjectId.from_datetime(pasted), BYSTANDER, "administration"))
 
             return await call_subjekt(database, BYSTANDER)
 

@@ -10,14 +10,14 @@ from app.api.identitaet.person_router import post_account_erasure
 from app.api.identitaet.schemas import FLErasureResponse
 from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
-from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list
 from tests.config import build_test_config
+from tests.session_headers import fresh_admin_actor
 
 _CONFIG = build_test_config()
 
 
-def loeschung_collections(database: AsyncDatabase | Mapping[Collection, Any], **replaced: Any) -> dict[str, Any]:
+def erasure_collections(database: AsyncDatabase | Mapping[Collection, Any], **replaced: Any) -> dict[str, Any]:
     """Every collection the registry's steps reach, keyed as the routes take them, any replaced by name.
 
     Read off `app/api/identitaet/crud.py :: LOESCHUNG_STEPS`: a step reaching a collection no route takes, or the reverse,
@@ -28,7 +28,7 @@ def loeschung_collections(database: AsyncDatabase | Mapping[Collection, Any], **
     return {**handles, **replaced}
 
 
-async def geloescht(
+async def erased(
     database: AsyncDatabase | Mapping[Collection, Any], client: AsyncMongoClient, address: str, *, germany_now: datetime, **replaced: Any
 ) -> FLErasureResponse:
     """Every record `address` holds, erased by the person route's own function outside a request, any collection replaced by name.
@@ -38,7 +38,7 @@ async def geloescht(
 
     return await post_account_erasure(
         identifier=sign_in_identifier(address),
-        **loeschung_collections(database, **replaced),
+        **erasure_collections(database, **replaced),
         sperrliste=ban_list(database),
         # Refusing none: a grant holder's passkey is held over HTTP, in `tests/api/test_step_up_execution.py`.
         actor=fresh_admin_actor(),

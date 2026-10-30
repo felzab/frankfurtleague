@@ -36,16 +36,16 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
-from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.loeschung import geloescht
-from tests.postausgang import MAIL_NOW, drained
+from tests.erasure import erased
+from tests.outbox import MAIL_NOW, drained
+from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 # Module level: every case below reaches a real mongod, the whole slice being one transaction each.
@@ -152,7 +152,7 @@ def on_a_league(url: str, body: Body, *, referees: list[dict[str, Any]] | None =
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             # The ban re-judges its actor's grant inside its transaction.
-            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(saison_document())
             seeded = [referee_document()] if referees is None else referees
             if seeded:
@@ -168,7 +168,7 @@ async def create(database: AsyncDatabase, client: AsyncMongoClient, *, email: st
     answer = await post_schiedsrichter(
         schiedsrichter_data=FLPostSchiedsrichterPayload.model_validate(payload_body(email=email)),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         today=today,
@@ -184,7 +184,7 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
         schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate(payload_body(email=email)),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         today=today,
@@ -201,7 +201,7 @@ async def resend(
     answer = await invite_schiedsrichter(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         today=today,
@@ -601,7 +601,7 @@ async def reactivate(database: AsyncDatabase, client: AsyncMongoClient) -> Maile
     answer = await reactivate_schiedsrichter(
         schiedsrichter_id=SCHIEDSRICHTER_OID,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
@@ -624,9 +624,9 @@ class TestTheReactivation:
         naming = {"collection": str(Collection.SCHIEDSRICHTER), "document_id": SCHIEDSRICHTER_OID}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            before = await database[Collection.AKTIONEN].count_documents(naming)
+            before = await database[Collection.ACTION_LOG].count_documents(naming)
             response = await reactivate(database, client)
-            filed = await database[Collection.AKTIONEN].count_documents(naming) - before
+            filed = await database[Collection.ACTION_LOG].count_documents(naming) - before
 
             return response, await stored(database), filed
 
@@ -781,7 +781,7 @@ class TestTheConfirmation:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
-            await geloescht(database, client, EMAIL, germany_now=NOW)
+            await erased(database, client, EMAIL, germany_now=NOW)
 
             with pytest.raises(APIError) as refused:
                 await ansicht(database, minted.token)

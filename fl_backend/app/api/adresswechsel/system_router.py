@@ -35,15 +35,15 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
-    AdresswechselCollection,
-    AktionenCollection,
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenAntraegeCollection,
-    BerechtigungenCollection,
+    ActionLogCollection,
+    AddressChangeCollection,
     BewerbungenCollection,
     DBClient,
-    EinladungenCollection,
-    PostausgangCollection,
+    GrantsAnnouncedCollection,
+    GrantsApprovalRequestsCollection,
+    GrantsCollection,
+    InvitationsCollection,
+    OutboxCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
@@ -87,7 +87,7 @@ def _pipeline(*, now: datetime, nach: Any, groesse: int) -> list[dict[str, Any]]
         # A change parked on an owed approval while its grant stands is neither due nor the pass's remainder.
         {
             "$lookup": {
-                "from": Collection.BERECHTIGUNGEN,
+                "from": Collection.GRANTS,
                 "localField": "adresse",
                 "foreignField": "adresse",
                 "pipeline": [{"$project": {"_id": 1}}],
@@ -245,21 +245,21 @@ async def _make_the_due_change_take_effect(
 async def sweep_address_change(
     params: Annotated[FLAdresswechselSweepParams, Query()],
     records: SubjektLookup,
-    adresswechsel_collection: AdresswechselCollection,
+    adresswechsel_collection: AddressChangeCollection,
     spieler_collection: SpielerCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     saison_teams_collection: SaisonTeamsCollection,
     bewerbungen_collection: BewerbungenCollection,
     registrierungen_collection: RegistrierungenCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
-    einladungen_collection: EinladungenCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    postausgang_collection: OutboxCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
+    einladungen_collection: InvitationsCollection,
     sperrliste_collection: SperrlisteCollection,
     sperrliste: SperrlisteLookup,
-    aktionen_collection: AktionenCollection,
+    aktionen_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
@@ -329,7 +329,7 @@ async def sweep_address_change(
                     sperrliste_collection=sperrliste_collection,
                     aktionen_collection=aktionen_collection,
                     db=db,
-                    key=config.sperrliste_schluessel,
+                    key=config.sperrliste_key,
                     now=germany_now,
                     stamp=stamp,
                 )
@@ -396,7 +396,7 @@ async def sweep_address_change(
 
 
 @router.get("/sweep/moves", response_model=FLAddressChangeMovesResponse, summary="List the sign-in accounts the effects still owe to carry")
-async def get_address_change_moves(adresswechsel_collection: AdresswechselCollection) -> FLAddressChangeMovesResponse:
+async def get_address_change_moves(adresswechsel_collection: AddressChangeCollection) -> FLAddressChangeMovesResponse:
     """
     List, oldest first and a page at a time, the ended changes still owing to carry a sign-in account to their new address.
 
@@ -426,7 +426,7 @@ async def get_address_change_moves(adresswechsel_collection: AdresswechselCollec
 )
 async def post_address_change_moves_done(
     erledigt_data: Annotated[FLAddressChangeMovesDonePayload, Body()],
-    adresswechsel_collection: AdresswechselCollection,
+    adresswechsel_collection: AddressChangeCollection,
 ) -> FLAddressChangeMovesDoneResponse:
     """Take the owed carry off each named change, counting the ones that owed one; an id owing none is left alone."""
 
@@ -447,7 +447,7 @@ async def post_address_change_moves_done(
 )
 async def get_address_change_adresse(
     adresse_data: Annotated[FLAddressChangeAdressePayload, Body()],
-    adresswechsel_collection: AdresswechselCollection,
+    adresswechsel_collection: AddressChangeCollection,
 ) -> FLAddressChangeAdresseResponse:
     """
     Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.

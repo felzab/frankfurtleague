@@ -2,11 +2,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
-from app.api.postausgang.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxState
 from app.api.spieler.schemas import FLEinwilligung
 from app.core.crud import Anchored
-from app.shared.schemas.bestaetigung import CustomToken, FLConfirmation
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SCHIEDSRICHTER_SCHULE_MAX_LENGTH
+from app.shared.schemas.confirmation import CustomToken, FLConfirmation
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomNonEmptyString,

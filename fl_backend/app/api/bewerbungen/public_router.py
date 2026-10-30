@@ -76,8 +76,8 @@ from app.api.bewerbungen.services import (
 )
 from app.api.einwilligung.services import find_fassung_refusal, find_self_medien_refusal
 from app.api.kontakte.crud import redact_the_decliner, remove_their_reasons
-from app.api.postausgang.schemas import FLBewerbungPerson, FLBewerbungWiderspruchData
-from app.api.postausgang.services import OwedMail, enqueue_mails
+from app.api.outbox.schemas import FLBewerbungPerson, FLBewerbungWiderspruchData
+from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hashes_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import kontakte_ohne, seat_void_of
@@ -87,10 +87,10 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
-    AktionenCollection,
+    ActionLogCollection,
     BewerbungenCollection,
     DBClient,
-    PostausgangCollection,
+    OutboxCollection,
     SaisonsCollection,
     SaisonTeamsCollection,
     SpielbestaetigungenCollection,
@@ -101,11 +101,11 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal, JournalLine
 from app.core.recording import log_stamp
-from app.core.security import bind_public_actor, loeschung_journal_hash, verify_access_base
+from app.core.security import bind_public_actor, erasure_journal_hash, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.custom import fold_shorthand
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.schemas.responses import FLCreatedResponse
@@ -322,7 +322,7 @@ async def post_bewerbung(
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
-    postausgang_collection: PostausgangCollection,
+    postausgang_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
@@ -453,7 +453,7 @@ async def post_bewerbung(
         )
 
         await enqueue_mails(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=postausgang_collection,
             session=session,
             mails=owed_at_submission(
                 bewerbung_id=created.inserted_id,
@@ -603,9 +603,9 @@ async def post_einwilligung(
     bewerbungen_collection: BewerbungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
-    aktionen_collection: AktionenCollection,
+    aktionen_collection: ActionLogCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    postausgang_collection: PostausgangCollection,
+    postausgang_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -631,8 +631,8 @@ async def post_einwilligung(
     def journal_the_widerspruch(home: Collection, row: Mapping[str, Any], seat: str, seats: tuple[str, ...]) -> None:
         # Keyed on the link's own seat, whose person pressed; an emptied one holds nobody a replay could find again.
         for adresse in seat_adressen(kontakte=row.get("kontakte"), seats=(seat,)):
-            hashed = loeschung_journal_hash(adresse, key=config.sperrliste_schluessel)
-            journal.note(JournalLine(person_hash=hashed, art="widerspruch", collection=home, record_id=row["_id"], am=am, sitze=seats))
+            hashed = erasure_journal_hash(adresse, key=config.sperrliste_key)
+            journal.note(JournalLine(person_hash=hashed, art="widerspruch", collection=home, record_id=row["_id"], am=am, seats=seats))
 
     async def answer_on_the_season_row(session: AsyncClientSession) -> FLSaisonTeamEinwilligungAntwortResponse:
         """The application's judgement in its order, on the season row holding the token; a miss there is the unknown-token refusal."""
@@ -722,7 +722,7 @@ async def post_einwilligung(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             aktionen_collection=aktionen_collection,
             adressen=seat_adressen(kontakte=kontakte, seats=seats),
-            key=config.sperrliste_schluessel,
+            key=config.sperrliste_key,
             stamp=am,
             session=session,
         )
@@ -851,7 +851,7 @@ async def post_einwilligung(
         if abgelehnt_email is not None:
             # In the decline's own transaction, which stamped the notice as the deletion's: one cannot stand without the other.
             await enqueue_mails(
-                postausgang_collection=postausgang_collection,
+                outbox_collection=postausgang_collection,
                 session=session,
                 mails=[
                     OwedMail(

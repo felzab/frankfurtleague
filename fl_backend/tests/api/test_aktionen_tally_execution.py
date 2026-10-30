@@ -41,7 +41,7 @@ PERSON_PATCHES = 2
 # whose kinds were mixed would leave every count below agreeing with either mapping of the two.
 ACTOR_JE_KIND: dict[str, dict[str, str]] = {
     "admin_session": {"kind": "admin_session", "email": "admin@example.invalid"},
-    # A pseudonym's shape, as `app/core/security.py :: akteur_pseudonym` stores one, and no address.
+    # A pseudonym's shape, as `app/core/security.py :: actor_pseudonym` stores one, and no address.
     "person_session": {"kind": "person_session", "pseudonym": "5e" * 32, "funktion": "kontakt"},
     "system": {"kind": "system", "email": SYSTEM_ACTOR_EMAIL},
     "public": {"kind": "public", "email": PUBLIC_ACTOR_EMAIL},
@@ -157,10 +157,10 @@ def answered(mongo_url: str, **filters: Any) -> FLActionLogListResponse:
 
     async def _run() -> FLActionLogListResponse:
         async with a_clean_database(mongo_url, DATABASE_NAME, constraints=True) as (_, database):
-            await database[Collection.AKTIONEN].insert_many(seeded_log())
+            await database[Collection.ACTION_LOG].insert_many(seeded_log())
 
             return await get_action_log(
-                aktionen_collection=database[Collection.AKTIONEN],
+                aktionen_collection=database[Collection.ACTION_LOG],
                 sperrliste=ban_list(database),
                 filters=FLAktionenFilterParams.model_validate(filters),
             )

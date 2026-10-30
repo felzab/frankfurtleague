@@ -48,7 +48,7 @@ TRACE_ID = "0123456789abcdef0123456789abcdef"
 
 # Outside `EDITED_COLLECTIONS`, whose creates stamp a version (`app/core/crud.py`): the case reading
 # what the helper passed on judges the recording alone.
-UNVERSIONED = Collection.EINLADUNGEN
+UNVERSIONED = Collection.INVITATIONS
 
 # A stand-in for the caller's session, outside a transaction: what is proved is that the row travels inside whatever the caller passed.
 SESSION = cast(AsyncClientSession, SimpleNamespace(in_transaction=False))
@@ -78,7 +78,7 @@ class _FakeCollection:
         self.sessions: list[Any] = []
         # A collection reaches the log through its own database handle, and for the log itself that
         # resolves back to the same collection -- the shape the recursion guard has to survive.
-        self.database: dict[str, _FakeCollection] = {Collection.AKTIONEN: self if log is None else log}
+        self.database: dict[str, _FakeCollection] = {Collection.ACTION_LOG: self if log is None else log}
 
     async def find_one(self, *, filter: Any, projection: Any = None, session: Any = None) -> Mapping[str, Any] | None:
         """The post-image: a patch re-reads for the caller's echo once the update has carried the pre-image out."""
@@ -110,7 +110,7 @@ class _FakeCollection:
 def build(name: str = Collection.TEAMS, **state: Any) -> tuple[_FakeCollection, _FakeCollection]:
     """The written-to collection and the log its database holds, as two objects: one list each is what makes "recorded nothing" checkable."""
 
-    log = _FakeCollection(Collection.AKTIONEN)
+    log = _FakeCollection(Collection.ACTION_LOG)
 
     return _FakeCollection(name, log=log, **state), log
 
@@ -134,7 +134,7 @@ def record_inside_a_request(**arguments: Any) -> None:
 class TestTheLogNeverRecordsItself:
     def test_a_write_to_the_log_itself_records_nothing(self):
         """Recording the log's own rows would recurse without end, and a redaction is itself a write."""
-        log = _FakeCollection(Collection.AKTIONEN)
+        log = _FakeCollection(Collection.ACTION_LOG)
 
         asyncio.run(record_write(collection=as_collection(log), operation="insert", document_id=TEAM_OID))
 

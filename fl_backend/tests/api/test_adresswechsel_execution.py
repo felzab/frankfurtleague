@@ -49,11 +49,11 @@ from app.core.crud import patch_one_in_db
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.journal import JOURNAL_TOKEN, JournalLine, parse_line
 from app.core.recording import Actor, PersonActor, actor_var, log_stamp
-from app.core.security import akteur_pseudonym, loeschung_journal_hash, signed_in_since
+from app.core.security import actor_pseudonym, erasure_journal_hash, signed_in_since
 from app.core.transactions import transaction_session
 from app.main import create_app
-from app.shared.schemas.bestaetigung import FLTokenPayload
-from app.shared.schemas.bounds import ADRESSWECHSEL_NACHLAUF_TAGE
+from app.shared.schemas.bounds import ADDRESS_CHANGE_RETENTION_DAYS
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client
@@ -121,7 +121,7 @@ from .conftest import config_for
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_adresswechsel_test")
-KEY = build_test_config().sperrliste_schluessel
+KEY = build_test_config().sperrliste_key
 # A pupil whose record holds no address.
 
 
@@ -296,7 +296,7 @@ class TestThePersonsStart:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             refused = await refused_code(start(database, client, identifier=OWNER))
-            await database[Collection.BERECHTIGUNGEN].update_one({"adresse": SECOND_ADMIN}, {"$set": {"verwaltung": "owner"}})
+            await database[Collection.GRANTS].update_one({"adresse": SECOND_ADMIN}, {"$set": {"verwaltung": "owner"}})
             minted = await start(database, client, identifier=OWNER)
             return refused, (await change(database, minted.id))["approval"]["verwaltung"]
 
@@ -507,7 +507,7 @@ class TestTheSystemsReadOfTheNewAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)
-            await database[Collection.ADRESSWECHSEL].update_one({"_id": minted.id}, {"$set": {"email": "Lenore.Q@NeuPost.example.org"}})
+            await database[Collection.ADDRESS_CHANGES].update_one({"_id": minted.id}, {"$set": {"email": "Lenore.Q@NeuPost.example.org"}})
             return (await the_new_address(database, client, address_change_id=minted.id)).email
 
         assert on_a_person(mongo_replica_set_url, body) == NEW_EMAIL
@@ -592,7 +592,7 @@ class TestTheConfirmation:
         assert (record["adresse"], record["email"], record["ended"]["art"]) == (None, None, "effective")
         assert record["token_hashes"] == [hash_token(minted.token)]
         [line] = [line for line in journal if line.art == "adresswechsel_wirksam"]
-        assert (line.record_id, line.before) == (minted.id, loeschung_journal_hash(EMAIL, key=KEY))
+        assert (line.record_id, line.before) == (minted.id, erasure_journal_hash(EMAIL, key=KEY))
 
     def test_a_change_started_with_a_reason_is_confirmed_and_waits_for_the_pass(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -697,7 +697,7 @@ async def held_by_another(database: AsyncDatabase, what: str) -> None:
                 )
             )
         case "a-grant-request":
-            await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(
+            await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
                 compose_antrag(adresse=NEW_EMAIL, verwaltung="administration", grant_id=None, started_by=ADMIN, now=NOW)
             )
         case "a-pupil":
@@ -706,9 +706,9 @@ async def held_by_another(database: AsyncDatabase, what: str) -> None:
             )
         case "an-owed-carry":
             # Another person's change off it, ended, whose account still stands there until the frontend carries it.
-            await database[Collection.ADRESSWECHSEL].insert_one(
+            await database[Collection.ADDRESS_CHANGES].insert_one(
                 {
-                    **documents.adresswechsel_document(adresse=NEW_EMAIL, email=FOREIGN_EMAIL, token_hash=None, day="2126-03-01"),
+                    **documents.address_change_document(adresse=NEW_EMAIL, email=FOREIGN_EMAIL, token_hash=None, day="2126-03-01"),
                     "adresse": None,
                     "email": None,
                     "ended": {"art": "effective", "am": NOW},
@@ -804,8 +804,8 @@ async def unreferenced(database: AsyncDatabase, *addresses: str) -> list[str]:
     return await unreferenced_of(
         list(addresses),
         record_collections(database),
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-        adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+        berechtigungen_collection=database[Collection.GRANTS],
+        adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
     )
 
 
@@ -820,7 +820,7 @@ class TestTheAccountSweepWaitsForTheCarry:
             if way == "waiting_period":
                 await sweep(database, client, germany_now=AFTER_THE_WAIT)
             owed_now = await unreferenced(database, EMAIL)
-            await database[Collection.ADRESSWECHSEL].update_many({}, {"$unset": {"move": ""}})
+            await database[Collection.ADDRESS_CHANGES].update_many({}, {"$unset": {"move": ""}})
             return owed_now, await unreferenced(database, EMAIL)
 
         owed_now, delivered = on_a_person(mongo_replica_set_url, body, records=False)
@@ -924,7 +924,7 @@ class TestAGrantHoldersOwnPressAsksAPasskey:
             await granted(database)
             with pytest.raises(APIError):
                 await start(database, client, actor=person_actor(factor=None))
-            return await database[Collection.ADRESSWECHSEL].count_documents({})
+            return await database[Collection.ADDRESS_CHANGES].count_documents({})
 
         assert on_a_person(mongo_replica_set_url, body) == 0
 
@@ -1017,7 +1017,7 @@ class TestTheToolsStart:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await administrator_starts(database, client, grund=None)
             await administrator_starts(database, client, grund=GRUND)
-            rows = database[Collection.POSTAUSGANG].find({"art": "address_change_hinweis"}, sort=[("recorded_at", 1), ("_id", 1)])
+            rows = database[Collection.OUTBOX].find({"art": "address_change_hinweis"}, sort=[("recorded_at", 1), ("_id", 1)])
             return [(row["data"]["way"], row["data"]["vorname"]) async for row in rows]
 
         assert on_a_person(mongo_replica_set_url, body) == [("release", "Lenore"), ("waiting_period", None)]
@@ -1032,7 +1032,7 @@ class TestTheToolsStart:
             if setup == "grant":
                 await granted(database)
             refused = await refused_code(administrator_starts(database, client, **{"grund": GRUND, **payload}))
-            return refused, await database[Collection.ADRESSWECHSEL].count_documents({})
+            return refused, await database[Collection.ADDRESS_CHANGES].count_documents({})
 
         return on_a_person(url, body)
 
@@ -1188,7 +1188,7 @@ class TestTheApproval:
             for collection in (Collection.SPIELER, Collection.SCHIEDSRICHTER, Collection.SAISON_TEAMS, Collection.BEWERBUNGEN):
                 await database[collection].delete_many({})
             await database[Collection.REGISTRIERUNGEN].delete_many({})
-            await database[Collection.BERECHTIGUNGEN].delete_one({"adresse": EMAIL})
+            await database[Collection.GRANTS].delete_one({"adresse": EMAIL})
             code = await refused_code(approve(database, client, minted.id, operator=ADMIN))
             return code, (await change(database, minted.id))["ended"]["art"], await owed(database)
 
@@ -1234,7 +1234,7 @@ class TestTheApproval:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database, verwaltung=verwaltung)
             if verwaltung == "owner":
-                await database[Collection.BERECHTIGUNGEN].update_one({"adresse": SECOND_ADMIN}, {"$set": {"verwaltung": "owner"}})
+                await database[Collection.GRANTS].update_one({"adresse": SECOND_ADMIN}, {"$set": {"verwaltung": "owner"}})
             minted = await start(database, client)
             refused = await refused_code(approve(database, client, minted.id, operator=approver))
             return refused, (await change(database, minted.id))["approval"]["approved_at"]
@@ -1298,7 +1298,7 @@ class TestTheApproval:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database, verwaltung="owner")
             # A second owner beside the starter, so an owner's change has an approver.
-            await database[Collection.BERECHTIGUNGEN].update_one({"adresse": SECOND_ADMIN}, {"$set": {"verwaltung": "owner"}})
+            await database[Collection.GRANTS].update_one({"adresse": SECOND_ADMIN}, {"$set": {"verwaltung": "owner"}})
             await administrator_starts(database, client, grund=GRUND, operator=OWNER)
             rows = []
             for reader in (ADMIN, SECOND_ADMIN):
@@ -1519,7 +1519,7 @@ class TestAGrantEndedBeforeTheApproval:
             minted = await start(database, client)
             confirmed = await answer(database, client, minted.token)
             # Any route ending the grant, a revoke's, a tier change's or an erasure's, leaves no row at the address.
-            await database[Collection.BERECHTIGUNGEN].delete_one({"_id": grant})
+            await database[Collection.GRANTS].delete_one({"_id": grant})
             listed = await call(get_grants, database, client, operator=SECOND_ADMIN)
             swept = await sweep(database, client, germany_now=NOW + timedelta(hours=1))
             offered = [row.adresswechsel for row in listed.berechtigungen if row.adresswechsel is not None]
@@ -1565,12 +1565,10 @@ class TestTheMovedGrant:
             minted = await start(database, client)
             await approve(database, client, minted.id, operator=SECOND_ADMIN)
             await answer(database, client, minted.token)
-            grants = {row["adresse"]: row async for row in database[Collection.BERECHTIGUNGEN].find({"adresse": {"$in": [EMAIL, NEW_EMAIL]}})}
-            outbox = [
-                row["data"] async for row in database[Collection.POSTAUSGANG].find({"art": "grant", "an": SECOND_ADMIN}, sort=[("_id", 1)])
-            ]
+            grants = {row["adresse"]: row async for row in database[Collection.GRANTS].find({"adresse": {"$in": [EMAIL, NEW_EMAIL]}})}
+            outbox = [row["data"] async for row in database[Collection.OUTBOX].find({"art": "grant", "an": SECOND_ADMIN}, sort=[("_id", 1)])]
             since = await live_unbarred_grant_since(
-                NEW_EMAIL, berechtigungen_collection=database[Collection.BERECHTIGUNGEN], sperrliste=ban_list(database)
+                NEW_EMAIL, berechtigungen_collection=database[Collection.GRANTS], sperrliste=ban_list(database)
             )
             return old_grant, grants, outbox, since
 
@@ -1595,7 +1593,7 @@ class TestTheMovedGrant:
             minted = await start(database, client)
             await granted(database)
             refused = await refused_code(answer(database, client, minted.token))
-            return refused, await everything(database), await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": EMAIL})
+            return refused, await everything(database), await database[Collection.GRANTS].count_documents({"adresse": EMAIL})
 
         refused, rows, grants = on_a_person(mongo_replica_set_url, body)
 
@@ -1606,7 +1604,7 @@ class TestTheMovedGrant:
             await granted(database)
             minted = await start(database, client)
             await approve(database, client, minted.id)
-            await database[Collection.BERECHTIGUNGEN].update_one({"adresse": EMAIL}, {"$set": {"verwaltung": "owner"}})
+            await database[Collection.GRANTS].update_one({"adresse": EMAIL}, {"$set": {"verwaltung": "owner"}})
             return await refused_code(answer(database, client, minted.token))
 
         assert on_a_person(mongo_replica_set_url, body) == Code.ADDRESS_CHANGE_NOT_COVERED
@@ -1626,7 +1624,7 @@ class TestTheMovedGrant:
             minted = await start(database, client, identifier=SECOND_ADMIN)
             await approve(database, client, minted.id)
             answered = await answer(database, client, minted.token)
-            return answered, sorted(await database[Collection.BERECHTIGUNGEN].distinct("adresse"))
+            return answered, sorted(await database[Collection.GRANTS].distinct("adresse"))
 
         answered, addresses = on_a_person(mongo_replica_set_url, body, records=False)
 
@@ -1658,7 +1656,7 @@ async def granted_later(database: AsyncDatabase, adresse: str, *, at: Any) -> No
     Its id minted on the real clock, a century before `at`, which an id cannot spell: a grant dates from the later of the two.
     """
 
-    await database[Collection.BERECHTIGUNGEN].insert_one({**grants_for_the_suite()[1], "_id": ObjectId(), "adresse": adresse, "granted_at": at})
+    await database[Collection.GRANTS].insert_one({**grants_for_the_suite()[1], "_id": ObjectId(), "adresse": adresse, "granted_at": at})
 
 
 # An hour past the suite's clock: a grant an address change makes then is younger than every request the case started.
@@ -1682,7 +1680,7 @@ class TestTheAdministratorFollowsTheirMove:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)
             # A second owner, so the starter's own change has an approver.
-            await database[Collection.BERECHTIGUNGEN].update_one({"adresse": SECOND_ADMIN}, {"$set": {"verwaltung": "owner"}})
+            await database[Collection.GRANTS].update_one({"adresse": SECOND_ADMIN}, {"$set": {"verwaltung": "owner"}})
             theirs = await administrator_starts(database, client, grund=GRUND, operator=OWNER)
             own = await start(database, client, identifier=OWNER, email=OWNER_NEW_EMAIL)
             await approve(database, client, own.id, operator=SECOND_ADMIN)
@@ -1706,13 +1704,13 @@ class TestTheAdministratorFollowsTheirMove:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)
-            await database[Collection.BERECHTIGUNGEN].insert_one(
+            await database[Collection.GRANTS].insert_one(
                 {**grants_for_the_suite()[1], "_id": ObjectId(), "adresse": FOREIGN_EMAIL, "granted_by": EMAIL}
             )
             await as_administrator(
                 EMAIL,
                 patch_one_in_db(
-                    collection=database[Collection.BERECHTIGUNGEN],
+                    collection=database[Collection.GRANTS],
                     db_filter={"adresse": FOREIGN_EMAIL},
                     update={"$set": {"gesehen_am": NOW}},
                     return_document=ReturnDocument.BEFORE,
@@ -1732,7 +1730,7 @@ class TestTheAdministratorFollowsTheirMove:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)
             await database[Collection.SPERRLISTE].insert_one(documents.ban_document(FOREIGN_EMAIL, bis="2030", created_by=EMAIL))
-            await database[Collection.EINLADUNGEN].insert_one(
+            await database[Collection.INVITATIONS].insert_one(
                 compose_einladung(saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["h" * 64], created_by=EMAIL, today=TODAY)
             )
             await database[Collection.BEWERBUNGEN].insert_one(
@@ -1762,20 +1760,20 @@ class TestTheAdministratorFollowsTheirMove:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             own = await granted(database)
-            await database[Collection.BERECHTIGUNGEN].insert_one(
+            await database[Collection.GRANTS].insert_one(
                 {**grants_for_the_suite()[1], "_id": ObjectId(), "adresse": FOREIGN_EMAIL, "granted_by": EMAIL}
             )
             for operator, grant in ((EMAIL, {"adresse": FOREIGN_EMAIL}), (ADMIN, {"_id": own})):
                 await as_administrator(
                     operator,
                     patch_one_in_db(
-                        collection=database[Collection.BERECHTIGUNGEN],
+                        collection=database[Collection.GRANTS],
                         db_filter=grant,
                         update={"$set": {"gesehen_am": NOW}},
                         return_document=ReturnDocument.BEFORE,
                     ),
                 )
-            await database[Collection.BERECHTIGUNGEN].delete_one({"_id": own})
+            await database[Collection.GRANTS].delete_one({"_id": own})
             await confirmed_and_moved(database, client)
             await geloescht(database, client, NEW_EMAIL)
             return await where_held(database, EMAIL, folded=True)
@@ -1789,7 +1787,7 @@ class TestTheAdministratorFollowsTheirMove:
             minted = await start(database, client)
             await approve(database, client, minted.id, operator=ADMIN)
             # Revoked in the database, as no route's refusal can reach: the effect judges it again.
-            await database[Collection.BERECHTIGUNGEN].delete_one({"adresse": ADMIN})
+            await database[Collection.GRANTS].delete_one({"adresse": ADMIN})
             answered = await answer(database, client, minted.token)
             waiting = await change(database, minted.id), await everything(database)
             listed = await call(get_grants, database, client, operator=SECOND_ADMIN)
@@ -1864,7 +1862,7 @@ ANTRAG_GESTELLT = NOW - timedelta(days=1)
 async def requested(database: AsyncDatabase, *, adresse: str, started_by: str) -> None:
     """A grant asked for `adresse`, undecided."""
 
-    await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(
+    await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
         {
             "_id": ANTRAG_OID,
             **compose_antrag(adresse=adresse, verwaltung="administration", grant_id=None, started_by=started_by, now=ANTRAG_GESTELLT),
@@ -1884,9 +1882,9 @@ class TestTheRequestsForAGrantAnEffectMeets:
             minted = await start(database, client)
             await approve(database, client, minted.id)
             await answer(database, client, minted.token)
-            carried = await row(database, Collection.BERECHTIGUNGEN_ANTRAEGE, ANTRAG_OID)
+            carried = await row(database, Collection.GRANT_APPROVAL_REQUESTS, ANTRAG_OID)
             await geloescht(database, client, NEW_EMAIL)
-            left = await database[Collection.BERECHTIGUNGEN_ANTRAEGE].count_documents({})
+            left = await database[Collection.GRANT_APPROVAL_REQUESTS].count_documents({})
             return carried["approval"]["started_by"], left, await where_held(database, EMAIL, folded=True)
 
         # The queued notice of the old grant's end withholds it too, its stamp naming the new address.
@@ -1900,14 +1898,14 @@ class TestTheRequestsForAGrantAnEffectMeets:
             minted = await start(database, client)
             with journal_of(caplog) as journal:
                 await answer(database, client, minted.token)
-            return minted.id, await database[Collection.BERECHTIGUNGEN_ANTRAEGE].find_one({"_id": ANTRAG_OID}), journal
+            return minted.id, await database[Collection.GRANT_APPROVAL_REQUESTS].find_one({"_id": ANTRAG_OID}), journal
 
         change_id, antrag, journal = on_a_person(mongo_replica_set_url, body)
 
         assert antrag is None
         assert [(line.art, line.record_id) for line in journal] == [("antrag_beendet", ANTRAG_OID), ("adresswechsel_wirksam", change_id)]
         # Keyed as a refusal's line is, by the address the request was about.
-        assert journal[0].person_hash == loeschung_journal_hash(EMAIL, key=KEY)
+        assert journal[0].person_hash == erasure_journal_hash(EMAIL, key=KEY)
 
     def test_a_decided_request_about_the_person_keeps_no_replaced_address_past_their_loeschung(self, mongo_replica_set_url: str):
         """Its row is gone, so only its kept image names them, which the erasure at the new address reaches by address alone."""
@@ -1946,7 +1944,7 @@ class TestTheRequestsForAGrantAnEffectMeets:
                 await approve(database, client, onward.id, operator=SECOND_ADMIN)
                 await answer(database, client, onward.token)
                 geloescht_at = THIRD_EMAIL
-            naming = [row["art"] async for row in database[Collection.POSTAUSGANG].find({}) if EMAIL in str(row)]
+            naming = [row["art"] async for row in database[Collection.OUTBOX].find({}) if EMAIL in str(row)]
             await geloescht(database, client, geloescht_at)
             return naming, await where_held(database, EMAIL, folded=True)
 
@@ -2055,9 +2053,9 @@ class TestTheReplayTellsTheNewMailboxAgain:
                 for collection in (Collection.SPIELER, Collection.SCHIEDSRICHTER, Collection.SAISON_TEAMS, Collection.BEWERBUNGEN):
                     await database[collection].delete_many({})
                 await database[Collection.REGISTRIERUNGEN].delete_many({})
-                await database[Collection.BERECHTIGUNGEN].delete_one({"adresse": EMAIL})
+                await database[Collection.GRANTS].delete_one({"adresse": EMAIL})
             snapshot = {
-                collection: await database[collection].find({}).to_list() for collection in (Collection.ADRESSWECHSEL, Collection.POSTAUSGANG)
+                collection: await database[collection].find({}).to_list() for collection in (Collection.ADDRESS_CHANGES, Collection.OUTBOX)
             }
             with journal_of(caplog) as lines:
                 if end == "a discard":
@@ -2100,12 +2098,12 @@ class TestTheReplayOntoEntries:
             if what != "nothing":
                 await held_by_another(database, what)
             line = JournalLine(
-                person_hash=loeschung_journal_hash(NEW_EMAIL, key=KEY),
+                person_hash=erasure_journal_hash(NEW_EMAIL, key=KEY),
                 art="adresswechsel_wirksam",
-                collection=Collection.ADRESSWECHSEL,
+                collection=Collection.ADDRESS_CHANGES,
                 record_id=minted.id,
                 am=log_stamp(NOW),
-                zuvor=loeschung_journal_hash(EMAIL, key=KEY),
+                before=erasure_journal_hash(EMAIL, key=KEY),
             )
             planned = await replay_line(
                 Read(timestamp=NOW + timedelta(minutes=1), line=line), client, database, key=KEY, now=REPLAY_NOW, window=REPLAY_WINDOW
@@ -2186,7 +2184,7 @@ class TestTheWaitingTime:
         assert swept.discarded == 1
         assert notices == [{"art": "discarded", "an": NEW_EMAIL}]
         assert [(line.art, line.record_id, line.person_hash) for line in journal] == [
-            ("adresswechsel_verworfen_mitgeteilt", started, loeschung_journal_hash(NEW_EMAIL, key=KEY))
+            ("adresswechsel_verworfen_mitgeteilt", started, erasure_journal_hash(NEW_EMAIL, key=KEY))
         ]
 
 
@@ -2267,7 +2265,7 @@ class TestWhatTheEffectLeavesTheLoeschung:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELBESTAETIGUNGEN].insert_one(answered)
             # A write of theirs while signed in, which files a log row under their pseudonym holding the answer's image.
-            token = actor_var.set(PersonActor(pseudonym=akteur_pseudonym(EMAIL, key=KEY), funktion="kontakt"))
+            token = actor_var.set(PersonActor(pseudonym=actor_pseudonym(EMAIL, key=KEY), role="kontakt"))
             try:
                 await patch_one_in_db(
                     collection=database[Collection.SPIELBESTAETIGUNGEN],
@@ -2279,12 +2277,12 @@ class TestWhatTheEffectLeavesTheLoeschung:
                 actor_var.reset(token)
             await confirmed_and_moved(database, client)
 
-            log = database[Collection.AKTIONEN]
+            log = database[Collection.ACTION_LOG]
             return (
                 (await row(database, Collection.SPIELBESTAETIGUNGEN, ANSWERED_OID))["antwort"],
                 {
                     address: (
-                        await log.count_documents({"actor.pseudonym": akteur_pseudonym(address, key=KEY)}),
+                        await log.count_documents({"actor.pseudonym": actor_pseudonym(address, key=KEY)}),
                         await log.count_documents({"before.antwort.von.halter": halter_of(address, key=KEY)}),
                     )
                     for address in (EMAIL, NEW_EMAIL)
@@ -2329,7 +2327,7 @@ class TestWhatTheEffectLeavesTheLoeschung:
             )
             await confirmed_and_moved(database, client)
 
-            log = database[Collection.AKTIONEN]
+            log = database[Collection.ACTION_LOG]
             return (
                 (await row(database, Collection.REGISTRIERUNGEN, DECLINED_REG_OID))["decision"]["von"],
                 {address: await log.count_documents({"before.decision.von": address}) for address in (EMAIL, NEW_EMAIL)},
@@ -2344,9 +2342,9 @@ class TestWhatTheEffectLeavesTheLoeschung:
         """Its account goes where the person is now, and an erasure of the new address finds the record."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.ADRESSWECHSEL].insert_one(
+            await database[Collection.ADDRESS_CHANGES].insert_one(
                 {
-                    **documents.adresswechsel_document(adresse=FOREIGN_EMAIL, email=EMAIL, token_hash=None, day="2126-03-01"),
+                    **documents.address_change_document(adresse=FOREIGN_EMAIL, email=EMAIL, token_hash=None, day="2126-03-01"),
                     "adresse": None,
                     "email": None,
                     "ended": {"art": "effective", "am": NOW},
@@ -2380,7 +2378,7 @@ class TestTheLoeschung:
             minted = await start(database, client)
             await answer(database, client, minted.token)
             await geloescht(database, client, NEW_EMAIL)
-            logged = await database[Collection.AKTIONEN].find_one({"collection": Collection.SAISON_TEAMS, "document_id": ROW_OID})
+            logged = await database[Collection.ACTION_LOG].find_one({"collection": Collection.SAISON_TEAMS, "document_id": ROW_OID})
             assert logged is not None, "the editor's write filed no log row"
             return logged["before"]["kontakte"]["ansprechperson"], logged["before"]["kontakte"]["stellvertretung"]["email"]
 
@@ -2411,7 +2409,7 @@ class TestTheLoeschung:
             minted = await start(database, client)
             await answer(database, client, minted.token)
             await geloescht(database, client, NEW_EMAIL)
-            logged = await database[Collection.AKTIONEN].find_one(
+            logged = await database[Collection.ACTION_LOG].find_one(
                 {"collection": Collection.SCHIEDSRICHTER, "document_id": UNCONFIRMED_REFEREE_OID}
             )
             assert logged is not None, "the editor's write filed no log row"
@@ -2478,7 +2476,7 @@ class TestTwoStartsAtOnce:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             committed = asyncio.Event()
-            held = _HeldAfterItsRead(database[Collection.ADRESSWECHSEL], committed)
+            held = _HeldAfterItsRead(database[Collection.ADDRESS_CHANGES], committed)
             task = asyncio.ensure_future(start(database, client, adresswechsel_collection=cast(Any, held)))
             await held.until_held(task)
             try:
@@ -2489,7 +2487,7 @@ class TestTwoStartsAtOnce:
             committed.set()
             minted = await task
 
-            live = await database[Collection.ADRESSWECHSEL].find({"ended": None}).to_list(None)
+            live = await database[Collection.ADDRESS_CHANGES].find({"ended": None}).to_list(None)
             return held.reads, held.insert_failures, [row["_id"] for row in live], minted.id, (await change(database, rival.id))["ended"]
 
         reads, failures, live, minted, rival_end = on_a_person(mongo_replica_set_url, body)
@@ -2522,7 +2520,7 @@ class TestTheLiveReadsTheIndexServes:
             plans = []
             for db_filter in (build_address_filter(EMAIL), build_addresses_filter([EMAIL, OTHER_EMAIL])):
                 plans.append(
-                    await database.command({"explain": {"find": Collection.ADRESSWECHSEL, "filter": db_filter}, "verbosity": "queryPlanner"})
+                    await database.command({"explain": {"find": Collection.ADDRESS_CHANGES, "filter": db_filter}, "verbosity": "queryPlanner"})
                 )
             return [_indexes_named(plan["queryPlanner"]["winningPlan"]) for plan in plans]
 
@@ -2533,13 +2531,17 @@ class TestTheLiveReadsTheIndexServes:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await start(database, client)
-            await database[Collection.ADRESSWECHSEL].insert_many(
+            await database[Collection.ADDRESS_CHANGES].insert_many(
                 [{"adresse": None, "email": None, "ended": {"art": "discarded", "am": NOW}, "token_hashes": [f"{i:064x}"]} for i in range(200)],
                 bypass_document_validation=True,
             )
             return await database.command(
                 {
-                    "explain": {"aggregate": Collection.ADRESSWECHSEL, "pipeline": build_loeschung_adresswechsel_pipeline(EMAIL), "cursor": {}},
+                    "explain": {
+                        "aggregate": Collection.ADDRESS_CHANGES,
+                        "pipeline": build_loeschung_adresswechsel_pipeline(EMAIL),
+                        "cursor": {},
+                    },
                     "verbosity": "executionStats",
                 }
             )
@@ -2562,7 +2564,7 @@ class TestTheLiveReadsTheIndexServes:
             )
 
         explained = on_a_person(mongo_replica_set_url, body)
-        [joined] = [stage for stage in explained["stages"] if stage.get("$lookup", {}).get("from") == Collection.ADRESSWECHSEL]
+        [joined] = [stage for stage in explained["stages"] if stage.get("$lookup", {}).get("from") == Collection.ADDRESS_CHANGES]
 
         assert (joined["indexesUsed"], joined["collectionScans"]) == (["uniq_adresswechsel_adresse"], 0)
 
@@ -2596,17 +2598,17 @@ class TestTheTombstoneExpires:
             await stop_here(database, client)
             # Standing beside the ended one, so the date read below is shown absent from a live change.
             await start(database, client, identifier=OTHER_EMAIL)
-            built = {index["name"]: index async for index in await database[Collection.ADRESSWECHSEL].list_indexes()}
+            built = {index["name"]: index async for index in await database[Collection.ADDRESS_CHANGES].list_indexes()}
             ttl = built["adresswechsel_beendet_am"]
-            dated = await database[Collection.ADRESSWECHSEL].distinct("_id", {"ended.am": {"$type": "date"}})
+            dated = await database[Collection.ADDRESS_CHANGES].distinct("_id", {"ended.am": {"$type": "date"}})
             return (
                 (dict(ttl["key"]), ttl.get("expireAfterSeconds")),
                 dated,
                 ended.id,
-                await database[Collection.ADRESSWECHSEL].count_documents({}),
+                await database[Collection.ADDRESS_CHANGES].count_documents({}),
             )
 
         index, dated, ended, stored = on_a_person(mongo_replica_set_url, body)
 
-        assert index == ({"ended.am": 1}, ADRESSWECHSEL_NACHLAUF_TAGE * 86400)
+        assert index == ({"ended.am": 1}, ADDRESS_CHANGE_RETENTION_DAYS * 86400)
         assert (dated, stored) == ([ended], 2)

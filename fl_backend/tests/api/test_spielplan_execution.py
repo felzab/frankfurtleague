@@ -32,10 +32,10 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.logging import trace_id_var
 from tests import documents
-from tests.actor_tokens import fresh_admin_actor
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -348,7 +348,7 @@ def a_drawn_season(url: str, *, groups: int = GROUPS, teams: int = TEAMS_PER_GRO
             # from 1 and every generated `_id` rises with the clock.
             spieltage=await database[Collection.SPIELTAGE].find({}).sort("_id", 1).to_list(length=None),
             spiele=await database[Collection.SPIELE].find({}).sort("spiel_nr", 1).to_list(length=None),
-            log=await database[Collection.AKTIONEN].find({}).sort("_id", 1).to_list(length=None),
+            log=await database[Collection.ACTION_LOG].find({}).sort("_id", 1).to_list(length=None),
         )
 
     seed = Seed(
@@ -721,7 +721,7 @@ class TestAFailedDrawLeavesNothingBehind:
                 spieltage=spieltage,
                 spiele=spiele,
                 watermark=await watermark_now(database),
-                log=await database[Collection.AKTIONEN].count_documents({}),
+                log=await database[Collection.ACTION_LOG].count_documents({}),
             )
 
         aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
@@ -753,7 +753,11 @@ class TestADrawAUniqueIndexRefusesIsTheDuplicateKey:
             with pytest.raises(DuplicateKeyError) as refused:
                 await call_draw(database, client)
 
-            return (refused.value.details or {})["errmsg"], await counts_now(database), await database[Collection.AKTIONEN].count_documents({})
+            return (
+                (refused.value.details or {})["errmsg"],
+                await counts_now(database),
+                await database[Collection.ACTION_LOG].count_documents({}),
+            )
 
         report, counts, log = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
 
@@ -881,7 +885,7 @@ def a_replaced_season(url: str) -> ReplacedSeason:
             spieltage=await database[Collection.SPIELTAGE].find({}).sort("_id", 1).to_list(length=None),
             spiele=await database[Collection.SPIELE].find({}).sort("spiel_nr", 1).to_list(length=None),
             watermark=await watermark_now(database),
-            log=await database[Collection.AKTIONEN].find({}).sort("_id", 1).to_list(length=None),
+            log=await database[Collection.ACTION_LOG].find({}).sort("_id", 1).to_list(length=None),
         )
 
     replaced = on_a_seeded_saison(url, body)
@@ -1378,7 +1382,7 @@ class TestAnAbortedReplaceLeavesTheSeasonStanding:
                 spieltage=spieltage,
                 spiele=spiele,
                 watermark=await watermark_now(database),
-                log=await database[Collection.AKTIONEN].count_documents({}),
+                log=await database[Collection.ACTION_LOG].count_documents({}),
             )
 
         aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
@@ -1528,7 +1532,7 @@ def a_season_drawn_from(url: str, *, seed: Seed, shape: FLSpielplanShape | None,
             spieltage=await database[Collection.SPIELTAGE].find({}).sort("_id", 1).to_list(length=None),
             spiele=await database[Collection.SPIELE].find({}).sort("spiel_nr", 1).to_list(length=None),
             watermark=await watermark_now(database),
-            log=await database[Collection.AKTIONEN].find({}).sort("_id", 1).to_list(length=None),
+            log=await database[Collection.ACTION_LOG].find({}).sort("_id", 1).to_list(length=None),
         )
 
     return on_a_seeded_saison(url, body, seed=seed)

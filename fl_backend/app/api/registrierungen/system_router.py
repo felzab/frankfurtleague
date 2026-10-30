@@ -6,8 +6,8 @@ from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import season_has_ended
-from app.api.postausgang.schemas import FLPostausgangBezug, FLRegistrierungLinkData
-from app.api.postausgang.services import OwedMail, enqueue_mails
+from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungLinkData
+from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.schemas import FLRegistrierungSweepResponse
 from app.api.registrierungen.services import (
     REGISTRIERUNG_LINK,
@@ -25,11 +25,11 @@ from app.api.registrierungen.services import (
 from app.api.teams.crud import pull_team_names
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import loeschen_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, redact_log_rows_in_db
+from app.core.crud import erase_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, redact_log_rows_in_db
 from app.core.dependencies import (
-    AktionenCollection,
+    ActionLogCollection,
     DBClient,
-    PostausgangCollection,
+    OutboxCollection,
     RegistrierungenCollection,
     SaisonsCollection,
     TeamsCollection,
@@ -39,7 +39,7 @@ from app.core.dependencies import (
 from app.core.recording import log_stamp
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated
-from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
+from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_FRIST_DAYS
 
 # System tier and the system actor, as the application sweep's own router is: this pass holds no
 # session, so `bind_actor` would refuse it.
@@ -66,8 +66,8 @@ async def sweep_registrierungen(
     registrierungen_collection: RegistrierungenCollection,
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
-    aktionen_collection: AktionenCollection,
-    postausgang_collection: PostausgangCollection,
+    aktionen_collection: ActionLogCollection,
+    postausgang_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -126,11 +126,11 @@ async def sweep_registrierungen(
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]
-        result = await loeschen_many_from_db(
+        result = await erase_many_from_db(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            aktionen_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
+            action_log_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -158,11 +158,11 @@ async def sweep_registrierungen(
         ids = [row["_id"] for row in taken]
         # The filter names the season and the ids and nothing else: it is stored as text, and any
         # other key would preserve what this call destroys.
-        result = await loeschen_many_from_db(
+        result = await erase_many_from_db(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            aktionen_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
+            action_log_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -198,7 +198,7 @@ async def sweep_registrierungen(
             )
         # The stamps and the mails commit together; the ban is judged when each mail is handed out.
         await enqueue_mails(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=postausgang_collection,
             session=session,
             mails=[
                 OwedMail(
@@ -210,9 +210,9 @@ async def sweep_registrierungen(
                         # Empty where the team row is gone: a reminder naming no team beats a pass that stops.
                         team=team_names.get(row.get("team_id"), _TEAM_UNBEKANNT),
                         saison_id=saison_id,
-                        frist_days=REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
+                        frist_days=REGISTRIERUNG_CONFIRMATION_FRIST_DAYS,
                     ),
-                    reference=FLPostausgangBezug(collection=Collection.REGISTRIERUNGEN, id=row["_id"], seat=None),
+                    reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=row["_id"], seat=None),
                     link=REGISTRIERUNG_LINK,
                 )
                 for row in taken
@@ -240,11 +240,11 @@ async def sweep_registrierungen(
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]
-        result = await loeschen_many_from_db(
+        result = await erase_many_from_db(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            aktionen_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
+            action_log_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted

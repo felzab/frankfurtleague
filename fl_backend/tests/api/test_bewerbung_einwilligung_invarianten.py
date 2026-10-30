@@ -21,13 +21,13 @@ from app.api.bewerbungen.services import (
 )
 from app.api.kontakte.services import build_clearing_update
 from app.core.codes import Code
-from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
 )
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
-from tests.documents import kontaktperson_document, minted_bestaetigungen
+from tests.documents import kontaktperson_document, minted_confirmations
 
 TODAY = "2026-04-01"
 
@@ -72,7 +72,7 @@ TOMORROW = "2026-04-02"
 # Fixed rather than minted, so a case names the same hash every run; the raw values are never
 # needed here, only what the database would hold.
 HASHES: Mapping[str, str] = {seat: hash_token(f"raw-{seat}") for seat in KONTAKT_ROLLEN}
-BESTAETIGUNGEN: Mapping[str, Any] = minted_bestaetigungen(hashes=HASHES, today=TODAY)
+BESTAETIGUNGEN: Mapping[str, Any] = minted_confirmations(hashes=HASHES, today=TODAY)
 
 
 def kontakte(**overrides: Any) -> dict[str, Any]:
@@ -95,7 +95,7 @@ def application(**overrides: Any) -> dict[str, Any]:
         "team_id": None,
         "kontakte": kontakte(),
         "confirmation_deadline": TOMORROW,
-        "confirmations": minted_bestaetigungen(hashes=HASHES, today="2026-03-20"),
+        "confirmations": minted_confirmations(hashes=HASHES, today="2026-03-20"),
         **overrides,
     }
 
@@ -116,8 +116,8 @@ class TestWhatAReopenedLinkShows:
                 application(
                     kontakte=kontakte(trainer=None),
                     confirmations={
-                        **minted_bestaetigungen(hashes=HASHES, today=TODAY),
-                        "trainer": {**minted_bestaetigungen(hashes=HASHES, today=TODAY)["trainer"], "declined_at": YESTERDAY},
+                        **minted_confirmations(hashes=HASHES, today=TODAY),
+                        "trainer": {**minted_confirmations(hashes=HASHES, today=TODAY)["trainer"], "declined_at": YESTERDAY},
                     },
                 ),
                 "declined",

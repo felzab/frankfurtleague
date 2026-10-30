@@ -13,7 +13,7 @@ from fastapi import Depends
 from app.api.berechtigungen.crud import live_unbarred_grant_since
 from app.api.sperrliste.lookup import SperrlisteLookup
 from app.core.codes import Code
-from app.core.dependencies import BerechtigungenCollection
+from app.core.dependencies import GrantsCollection
 from app.core.exceptions import APIError
 from app.core.security import SessionActor, refused_session, signed_in_since, verify_admin_actor
 from app.shared.folding import sign_in_identifier
@@ -22,7 +22,7 @@ from app.shared.folding import sign_in_identifier
 async def verify_actor_is_admin(
     # First, so a request naming nobody is refused before the grant read opens the database.
     actor: Annotated[SessionActor, Depends(verify_admin_actor)],
-    berechtigungen_collection: BerechtigungenCollection,
+    berechtigungen_collection: GrantsCollection,
     sperrliste: SperrlisteLookup,
 ) -> None:
     """Refuse an actor who holds no live grant or whose address is banned, read per request, or one who signed in before the grant."""

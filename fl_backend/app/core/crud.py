@@ -386,7 +386,7 @@ async def delete_many_from_db(
     return result
 
 
-async def loeschen_many_from_db(
+async def erase_many_from_db(
     *,
     collection: AsyncCollection,
     db_filter: Mapping[str, Any],
@@ -419,10 +419,10 @@ async def loeschen_many_from_db(
 
 async def redact_log_rows_in_db(
     *,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     targets: Sequence[RedactionTarget],
     at: str,
-    # REQUIRED for `loeschen_many_from_db`'s reason: the redaction is the erasure's second half.
+    # REQUIRED for `erase_many_from_db`'s reason: the redaction is the erasure's second half.
     session: AsyncClientSession,
 ) -> int:
     """Every log row naming one of the removed documents, its image emptied and stamped; answers how many it changed.
@@ -434,7 +434,7 @@ async def redact_log_rows_in_db(
         return 0
 
     redacted = await patch_many_in_db(
-        collection=aktionen_collection, db_filter=build_redaction_filter(targets), update=build_redaction_update(at=at), session=session
+        collection=action_log_collection, db_filter=build_redaction_filter(targets), update=build_redaction_update(at=at), session=session
     )
 
     return redacted.modified_count

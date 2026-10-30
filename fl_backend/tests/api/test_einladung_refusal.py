@@ -8,7 +8,7 @@ from app.api.einladungen.services import (
     plan_einladung_versand,
     registrierungsfenster_laeuft,
 )
-from app.api.postausgang.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxState
 from tests.documents import kontaktperson_document
 
 CONFIRMED_ON = "2026-03-20"

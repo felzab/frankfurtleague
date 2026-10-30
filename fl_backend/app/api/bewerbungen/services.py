@@ -14,16 +14,16 @@ from app.api.bewerbungen.schemas import (
     age_outside_the_bounds,
 )
 from app.api.kontakte.services import rows_seating
-from app.api.postausgang.schemas import (
+from app.api.outbox.schemas import (
     FLBewerbungErasureData,
     FLBewerbungLinkData,
     FLBewerbungPerson,
     FLBewerbungReceivedData,
+    FLOutboxLink,
+    FLOutboxReference,
     FLOutboxState,
-    FLPostausgangBezug,
-    FLPostausgangLink,
 )
-from app.api.postausgang.services import OwedMail
+from app.api.outbox.services import OwedMail
 from app.api.sperrliste.services import withheld_actor
 from app.api.teams.schemas import FLPostTeamPayload
 from app.core.codes import Code
@@ -31,12 +31,12 @@ from app.core.collections import Collection as Sammlung
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_nachweis import compose_wahlen
+from app.shared.einwilligung_nachweis import compose_choices
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import (
-    BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
-    BEWERBUNG_ERINNERUNG_TAGE,
+    BEWERBUNG_CONFIRMATION_FRIST_DAYS,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
+    BEWERBUNG_REMINDER_DAYS,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
     VERTRETUNG_MIN_AGE_YEARS,
@@ -364,7 +364,7 @@ def days_after(*, day: str, days: int) -> str:
 def bestaetigungsfrist_from(*, today: str) -> str:
     """The day the links stop working and the application is deleted, counted from the mint -- a re-send restarts it."""
 
-    return days_after(day=today, days=BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)
+    return days_after(day=today, days=BEWERBUNG_CONFIRMATION_FRIST_DAYS)
 
 
 def compose_bestaetigung(*, today: str) -> dict[str, Any]:
@@ -426,7 +426,7 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
 # address is what a consent asks the ban list of, and no answer carries it.
 EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
     **_per_seat("confirmations", "token_hashes", "declined_at"),
-    # The choices and their evidence, so a withdrawal names the grant it ends (`compose_wahlen`).
+    # The choices and their evidence, so a withdrawal names the grant it ends (`compose_choices`).
     **_per_seat("kontakte", "vorname", "email", "einwilligung.confirmed_at", *KONTAKT_WAHL_FIELDS, *KONTAKT_SEITE_FIELDS),
     "kontakte.trainer_is_also": 1,
     "saison_id": 1,
@@ -853,9 +853,9 @@ def compose_confirmation_update(
         written[f"{pfad}.confirmed_at"] = today
         written[f"{pfad}.text_version"] = text_version
         written.update(
-            compose_wahlen(
-                pfad=pfad,
-                gespeichert=kontakte[seat]["einwilligung"],
+            compose_choices(
+                path=pfad,
+                saved=kontakte[seat]["einwilligung"],
                 gesetzt={"umfang": KONTAKT_UMFANG_WHATSAPP if whatsapp else KONTAKT_UMFANG, "medien": medien},
                 am=am,
                 text_version=text_version,
@@ -1242,7 +1242,7 @@ def seat_reminder_is_due(*, kontakte: Any, confirmations: Any, seat: str, today:
     if unerreichbar:
         return False
 
-    return days_after(day=entry["sent_at"], days=BEWERBUNG_ERINNERUNG_TAGE) <= today
+    return days_after(day=entry["sent_at"], days=BEWERBUNG_REMINDER_DAYS) <= today
 
 
 def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str, unerreichbar: Collection[str]) -> list[FLKontaktRolle]:
@@ -1325,7 +1325,7 @@ SWEEP_PAGE: Final = LIST_LIMIT_MAX
 # The terms `seat_reminder_is_due` asks of one seat, as a query, so a reminded seat leaves the read.
 def _seat_reminder_term(*, seat: str, today: str) -> Mapping[str, Any]:
     return {
-        f"confirmations.{seat}.sent_at": {"$lte": days_after(day=today, days=-BEWERBUNG_ERINNERUNG_TAGE)},
+        f"confirmations.{seat}.sent_at": {"$lte": days_after(day=today, days=-BEWERBUNG_REMINDER_DAYS)},
         f"confirmations.{seat}.reminded_at": None,
         f"confirmations.{seat}.declined_at": None,
         f"kontakte.{seat}.einwilligung.confirmed_at": None,
@@ -1426,7 +1426,7 @@ def vorname_of(*, kontakte: Any, seat: str) -> str | None:
 # --- The MAILS an application owes, each to one person: an address is one person (one seat, or two the Trainer holds).
 
 
-def bewerbung_link(seats: Sequence[str], *, replaced: bool) -> FLPostausgangLink:
+def bewerbung_link(seats: Sequence[str], *, replaced: bool) -> FLOutboxLink:
     """Where one person's mailed link lives on the application, and the addresses it is minted for while they still stand.
 
     Every seat the person holds, so one press answers both. A reminder's link joins the first (`replaced` clear); every
@@ -1434,17 +1434,17 @@ def bewerbung_link(seats: Sequence[str], *, replaced: bool) -> FLPostausgangLink
     opens nothing, as the re-send's write promised.
     """
 
-    return FLPostausgangLink(
+    return FLOutboxLink(
         paths=[f"confirmations.{seat}.token_hashes" for seat in seats],
         adressen=[f"kontakte.{seat}.email" for seat in seats],
         replaced=replaced,
     )
 
 
-def bewerbung_bezug(bewerbung_id: Any, seats: Sequence[FLKontaktRolle]) -> FLPostausgangBezug:
+def bewerbung_bezug(bewerbung_id: Any, seats: Sequence[FLKontaktRolle]) -> FLOutboxReference:
     """The application and the person's seat a delivery is read by: the one the Trainer mirrors, where they hold two."""
 
-    return FLPostausgangBezug(collection=Sammlung.BEWERBUNGEN, id=bewerbung_id, seat=min(seats, key=lambda seat: seat == "trainer"))
+    return FLOutboxReference(collection=Sammlung.BEWERBUNGEN, id=bewerbung_id, seat=min(seats, key=lambda seat: seat == "trainer"))
 
 
 def lage_unzustellbar(lage: FLOutboxState | None) -> bool:

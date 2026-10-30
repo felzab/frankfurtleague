@@ -86,7 +86,7 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     client = MongoClient(mongo_replica_set_url)
     try:
         database = a_clean_database_sync(client, mongo_replica_set_url, database_name)
-        database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+        database[Collection.GRANTS].insert_many(grants_for_the_suite())
         database[Collection.SAISONS].insert_many(
             [
                 documents.saison_document(OTHER_SAISON, "past"),

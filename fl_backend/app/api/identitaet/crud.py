@@ -73,12 +73,12 @@ from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.crud import ensure_ghost_spieler, loeschen_person_in_session
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, anchor_in_db, loeschen_many_from_db, patch_many_in_db, refuse
+from app.core.crud import aggregate_many_from_db, anchor_in_db, erase_many_from_db, patch_many_in_db, refuse
 from app.core.db import warn_about_the_grants
 from app.core.journal import JournalLine, lost_its_answer
 from app.core.logging import fl_logger, journal_logger
-from app.core.recording import GELOESCHT_ACTOR_MARKER, SYSTEM_ACTOR_EMAIL
-from app.core.security import akteur_pseudonym, loeschung_journal_hash
+from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR_EMAIL
+from app.core.security import actor_pseudonym, erasure_journal_hash
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import FLSaisonStatus
@@ -249,7 +249,7 @@ async def find_subjekt_in_session(
     # REQUIRED: this is the lookup a transaction reaches, so no read of it can leave the session.
     session: AsyncClientSession,
 ) -> FLSubjekt:
-    """`find_subjekt`'s answer read inside a caller's session, one read at a time.
+    """`find_subject`'s answer read inside a caller's session, one read at a time.
 
     A session runs one operation at a time, which PyMongo's `AsyncClientSession` documents and never
     refuses, so the gathered reads would race unseen here.
@@ -271,7 +271,7 @@ async def funktionen_of(
     # forgetting it is a TypeError rather than a read outside its own write.
     session: AsyncClientSession,
 ) -> FLSubjekt:
-    """What a person endpoint may authorise against: `find_subjekt`'s answer, its seats narrowed to the seasons granting a panel.
+    """What a person endpoint may authorise against: `find_subject`'s answer, its seats narrowed to the seasons granting a panel.
 
     Narrowed here and not in the lookup, each caller narrowing for itself.
     """
@@ -350,7 +350,7 @@ class Subject:
     """
 
     identifier: str
-    # The log's key for this person (`app/core/security.py :: akteur_pseudonym`).
+    # The log's key for this person (`app/core/security.py :: actor_pseudonym`).
     pseudonym: str
     # Each `None` where no step of the scope uses it, never an empty list: its property raises, so a step
     # given a scope without its read fails rather than erasing nothing and answering zero.
@@ -426,14 +426,14 @@ async def resolve_subject(
     )
     adresswechsel = (
         # On the subject's own database, a read alone: the ban's reveal reads the subject too and holds no change's collection.
-        await read(spieler_collection.database[Collection.ADRESSWECHSEL], build_loeschung_adresswechsel_pipeline(identifier))
+        await read(spieler_collection.database[Collection.ADDRESS_CHANGES], build_loeschung_adresswechsel_pipeline(identifier))
         if _runs(end_the_address_changes_in_session, scope)
         else None
     )
 
     return Subject(
         identifier=identifier,
-        pseudonym=akteur_pseudonym(identifier, key=key),
+        pseudonym=actor_pseudonym(identifier, key=key),
         _saison_teams=saison_teams,
         _bewerbungen=bewerbungen,
         _schiedsrichter=schiedsrichter,
@@ -459,7 +459,7 @@ async def unattribute_in_session(
 
     as_person = await unattribute_pseudonym_in_session(aktionen_collection=aktionen_collection, pseudonym=pseudonym, session=session)
     as_administrator = await reattribute_administrator_in_session(
-        aktionen_collection=aktionen_collection, identifier=identifier, value=GELOESCHT_ACTOR_MARKER, session=session
+        aktionen_collection=aktionen_collection, identifier=identifier, value=ERASED_ACTOR_MARKER, session=session
     )
 
     return as_person + as_administrator
@@ -471,7 +471,7 @@ async def unattribute_pseudonym_in_session(*, aktionen_collection: AsyncCollecti
     marked = await patch_many_in_db(
         collection=aktionen_collection,
         db_filter={"actor.pseudonym": pseudonym},
-        update={"$set": {"actor.pseudonym": GELOESCHT_ACTOR_MARKER}},
+        update={"$set": {"actor.pseudonym": ERASED_ACTOR_MARKER}},
         session=session,
     )
 
@@ -490,7 +490,7 @@ async def loeschen_pupil_actor_in_session(
     await patch_many_in_db(
         collection=aktionen_collection,
         db_filter={"actor.pseudonym": pseudonym, "actor.funktion": "spieler"},
-        update={"$set": {"actor.pseudonym": GELOESCHT_ACTOR_MARKER}},
+        update={"$set": {"actor.pseudonym": ERASED_ACTOR_MARKER}},
         session=session,
     )
 
@@ -500,12 +500,12 @@ async def _replaced_addresses(
 ) -> tuple[set[str], list[Any]]:
     """The hashes of every address this one replaced, through the chain of effects that moved the person here, and those effects.
 
-    The journal's own keyed hash (`app/core/security.py :: loeschung_journal_hash`), so no address is kept to find them by.
+    The journal's own keyed hash (`app/core/security.py :: erasure_journal_hash`), so no address is kept to find them by.
     """
 
     replaced: set[str] = set()
     effects: list[Any] = []
-    sought = {loeschung_journal_hash(identifier, key=key)}
+    sought = {erasure_journal_hash(identifier, key=key)}
     while sought:
         found = await aggregate_many_from_db(
             collection=adresswechsel_collection,
@@ -541,7 +541,7 @@ async def loeschen_the_mails_in_session(
         if not isinstance(value, str):
             return False
         folded = sign_in_identifier(value)
-        return folded == identifier or loeschung_journal_hash(folded, key=key) in replaced
+        return folded == identifier or erasure_journal_hash(folded, key=key) in replaced
 
     rows = await aggregate_many_from_db(
         collection=postausgang_collection,
@@ -553,7 +553,7 @@ async def loeschen_the_mails_in_session(
     )
     ids = [row["_id"] for row in rows if theirs(row["an"])]
     if ids:
-        await loeschen_many_from_db(collection=postausgang_collection, db_filter={"_id": {"$in": ids}}, session=session)
+        await erase_many_from_db(collection=postausgang_collection, db_filter={"_id": {"$in": ids}}, session=session)
 
     # The person's own address the grants' step withholds; a replaced one only this chain finds.
     for row in rows:
@@ -565,7 +565,7 @@ async def loeschen_the_mails_in_session(
             if theirs((daten.get(site) or {}).get("adresse")):
                 withheld |= {f"data.{site}.adresse": None, "data.withheld": "erased"}
         if theirs(daten.get("changed_by")):
-            withheld["data.changed_by"] = GELOESCHT_ACTOR_MARKER
+            withheld["data.changed_by"] = ERASED_ACTOR_MARKER
         if withheld:
             await patch_many_in_db(collection=postausgang_collection, db_filter={"_id": row["_id"]}, update={"$set": withheld}, session=session)
 
@@ -594,59 +594,61 @@ class LoeschungStep:
 # address pass after every image they filed.
 LOESCHUNG_STEPS: Final[tuple[LoeschungStep, ...]] = (
     LoeschungStep(
-        reaches=frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN, Collection.SPIELBESTAETIGUNGEN, Collection.AKTIONEN}),
+        reaches=frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN, Collection.SPIELBESTAETIGUNGEN, Collection.ACTION_LOG}),
         personengruppe="kontakt",
         run=loeschen_kontaktperson_in_session,
     ),
     # No kind's alone: a change belongs to the address, whatever it holds, and another address's to that one.
     LoeschungStep(
-        reaches=frozenset({Collection.ADRESSWECHSEL, Collection.POSTAUSGANG, Collection.AKTIONEN}),
+        reaches=frozenset({Collection.ADDRESS_CHANGES, Collection.OUTBOX, Collection.ACTION_LOG}),
         personengruppe=None,
         run=end_the_address_changes_in_session,
     ),
     LoeschungStep(
-        reaches=frozenset({Collection.SPIELBESTAETIGUNGEN, Collection.AKTIONEN}),
+        reaches=frozenset({Collection.SPIELBESTAETIGUNGEN, Collection.ACTION_LOG}),
         personengruppe="schiedsrichter",
         run=loeschen_referee_confirmations_in_session,
     ),
     LoeschungStep(
-        reaches=frozenset({Collection.SPIELBERICHTE, Collection.AKTIONEN}),
+        reaches=frozenset({Collection.SPIELBERICHTE, Collection.ACTION_LOG}),
         personengruppe="schiedsrichter",
         run=repoint_referee_reports_in_session,
     ),
     LoeschungStep(
-        reaches=frozenset({Collection.SCHIEDSRICHTER, Collection.SPIELE, Collection.AKTIONEN}),
+        reaches=frozenset({Collection.SCHIEDSRICHTER, Collection.SPIELE, Collection.ACTION_LOG}),
         personengruppe="schiedsrichter",
         run=loeschen_referee_in_session,
     ),
     LoeschungStep(
-        reaches=frozenset({Collection.REGISTRIERUNGEN, Collection.AKTIONEN}), personengruppe="spieler", run=loeschen_registrierungen_in_session
+        reaches=frozenset({Collection.REGISTRIERUNGEN, Collection.ACTION_LOG}),
+        personengruppe="spieler",
+        run=loeschen_registrierungen_in_session,
     ),
     LoeschungStep(
-        reaches=frozenset({Collection.SPIELER, Collection.SAISON_SPIELER, Collection.AKTIONEN}),
+        reaches=frozenset({Collection.SPIELER, Collection.SAISON_SPIELER, Collection.ACTION_LOG}),
         personengruppe="spieler",
         run=loeschen_person_in_session,
     ),
     # After the pupil's records went: the season's erasure leaves the address's other records, and their change, standing.
     LoeschungStep(
-        reaches=frozenset({Collection.ADRESSWECHSEL, Collection.AKTIONEN}), personengruppe="spieler", run=end_an_emptied_change_in_session
+        reaches=frozenset({Collection.ADDRESS_CHANGES, Collection.ACTION_LOG}), personengruppe="spieler", run=end_an_emptied_change_in_session
     ),
     # No kind's alone: a request is about an address, whatever it holds, or made by an administrator.
     LoeschungStep(
-        reaches=frozenset({Collection.BERECHTIGUNGEN_ANTRAEGE, Collection.POSTAUSGANG}), personengruppe=None, run=loeschen_antraege_in_session
+        reaches=frozenset({Collection.GRANT_APPROVAL_REQUESTS, Collection.OUTBOX}), personengruppe=None, run=loeschen_antraege_in_session
     ),
     # No kind's alone: it changes records the person made as an administrator and as a seat holder, so
     # the pupil scope must never run it.
     LoeschungStep(
         reaches=frozenset(
             {
-                Collection.BERECHTIGUNGEN,
-                Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
-                Collection.POSTAUSGANG,
+                Collection.GRANTS,
+                Collection.GRANTS_ANNOUNCED,
+                Collection.OUTBOX,
                 Collection.BEWERBUNGEN,
                 Collection.REGISTRIERUNGEN,
                 Collection.SPERRLISTE,
-                Collection.EINLADUNGEN,
+                Collection.INVITATIONS,
             }
         ),
         personengruppe=None,
@@ -654,16 +656,14 @@ LOESCHUNG_STEPS: Final[tuple[LoeschungStep, ...]] = (
     ),
     # No kind's alone: a mail to the address is owed it whatever it holds. After the grants' step, which owes this
     # erasure's notices to the administrators who remain.
-    LoeschungStep(
-        reaches=frozenset({Collection.POSTAUSGANG, Collection.ADRESSWECHSEL}), personengruppe=None, run=loeschen_the_mails_in_session
-    ),
-    LoeschungStep(reaches=frozenset({Collection.AKTIONEN}), personengruppe=None, run=unattribute_in_session),
+    LoeschungStep(reaches=frozenset({Collection.OUTBOX, Collection.ADDRESS_CHANGES}), personengruppe=None, run=loeschen_the_mails_in_session),
+    LoeschungStep(reaches=frozenset({Collection.ACTION_LOG}), personengruppe=None, run=unattribute_in_session),
     # The pupil's share of the one above, finding nothing after it in the full scope: in the pupil scope a seat's or a
     # referee row's rows are that standing record's, and stay.
-    LoeschungStep(reaches=frozenset({Collection.AKTIONEN}), personengruppe="spieler", run=loeschen_pupil_actor_in_session),
+    LoeschungStep(reaches=frozenset({Collection.ACTION_LOG}), personengruppe="spieler", run=loeschen_pupil_actor_in_session),
     # LAST: images filed before the erasure hold the address, and the seat clearing files more. No kind's
     # alone: in the pupil scope it would take a standing referee's or administrator's address out of their own images.
-    LoeschungStep(reaches=frozenset({Collection.AKTIONEN}), personengruppe=None, run=redact_address_in_images),
+    LoeschungStep(reaches=frozenset({Collection.ACTION_LOG}), personengruppe=None, run=redact_address_in_images),
 )
 
 
@@ -941,9 +941,9 @@ class LoeschungJournal[Geloescht: FLLoeschung]:
 
     def _journal(self) -> None:
         line = JournalLine(
-            person_hash=loeschung_journal_hash(self._identifier, key=self._schluessel),
+            person_hash=erasure_journal_hash(self._identifier, key=self._schluessel),
             art="loeschung",
-            pseudonym=akteur_pseudonym(self._identifier, key=self._schluessel),
+            pseudonym=actor_pseudonym(self._identifier, key=self._schluessel),
             halter=halter_of(self._identifier, key=self._schluessel),
         )
         journal_logger.info(line.text())
@@ -967,7 +967,7 @@ async def unreferenced_of(
     """Which of these addresses no record references.
 
     Each collection is read once for the whole batch rather than once per address, which is what
-    `app/shared/schemas/bounds.py :: REFERENZEN_ADRESSEN_MAX` is measured against.
+    `app/shared/schemas/bounds.py :: REFERENCES_ADRESSEN_MAX` is measured against.
     """
 
     folded = sorted({sign_in_identifier(identifier) for identifier in identifiers})

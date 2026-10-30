@@ -3,8 +3,8 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
 from app.api.spieler.schemas import SQUAD_NUMMER_PATTERN, FLEinwilligung
-from app.shared.schemas.bestaetigung import CustomToken, FLConfirmation
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
+from app.shared.schemas.confirmation import CustomToken, FLConfirmation
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomNonEmptyString,

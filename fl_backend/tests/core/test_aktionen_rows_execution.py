@@ -10,7 +10,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.aktionen.schemas import FLAktionRecord
 from app.core.collections import Collection
-from app.core.crud import delete_many_from_db, loeschen_many_from_db, patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
+from app.core.crud import delete_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
 from app.core.recording import Operation, build_redaction_filter, build_redaction_update, log_stamp
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
@@ -75,7 +75,7 @@ def test_the_rows_every_real_write_builds_are_the_stored_shape(mongo_replica_set
             # The removals last, each taking one of the pair above: the writes before them still match
             # the documents their own counts are asserted on.
             await delete_many_from_db(collection=teams, db_filter={"shorthand": "HEX"}, session=session)
-            await loeschen_many_from_db(collection=teams, db_filter={"shorthand": "CSX"}, session=session)
+            await erase_many_from_db(collection=teams, db_filter={"shorthand": "CSX"}, session=session)
 
         # All six inside one, as a multi-write router runs it: the removals require a session, and a
         # retry is safe only because every write here carries it -- an abort takes back what a replay redoes.
@@ -84,7 +84,7 @@ def test_the_rows_every_real_write_builds_are_the_stored_shape(mongo_replica_set
 
         # Read after the commit -- what a later request sees, so nothing below is asserted on a row
         # the transaction was still holding.
-        return [row async for row in database[Collection.AKTIONEN].find().sort("_id", 1)]
+        return [row async for row in database[Collection.ACTION_LOG].find().sort("_id", 1)]
 
     rows = on_a_replica_set(mongo_replica_set_url, body)
 
@@ -121,7 +121,7 @@ def test_the_rows_every_real_write_builds_are_the_stored_shape(mongo_replica_set
     assert rows[5]["db_filter"] == {"shorthand": "CSX"} and rows[5]["modified_count"] == 1
 
 
-def test_a_removals_row_is_selected_by_an_loeschung_shaped_redaction(mongo_replica_set_url: str):
+def test_a_removals_row_is_selected_by_an_erasure_shaped_redaction(mongo_replica_set_url: str):
     """The erasure's own `(collection, document_id)` filter reaches it.
 
     Selection both ways: naming one removed id empties that removal's image array and
@@ -140,15 +140,15 @@ def test_a_removals_row_is_selected_by_an_loeschung_shaped_redaction(mongo_repli
         async with client.start_session() as session:
             await session.with_transaction(remove_two_sets)
 
-        target_row = await database[Collection.AKTIONEN].find_one({"db_filter.shorthand": "HEX"})
+        target_row = await database[Collection.ACTION_LOG].find_one({"db_filter.shorthand": "HEX"})
         assert target_row is not None
         redacted = await patch_many_in_db(
-            collection=database[Collection.AKTIONEN],
+            collection=database[Collection.ACTION_LOG],
             db_filter=build_redaction_filter([(Collection.TEAMS, [target_row["document_id"][0]])]),
             update=build_redaction_update(at=RECORDED_AT),
         )
 
-        return redacted.modified_count, [row async for row in database[Collection.AKTIONEN].find({"operation": "delete_many"}).sort("_id", 1)]
+        return redacted.modified_count, [row async for row in database[Collection.ACTION_LOG].find({"operation": "delete_many"}).sort("_id", 1)]
 
     modified, rows = on_a_replica_set(mongo_replica_set_url, body)
 

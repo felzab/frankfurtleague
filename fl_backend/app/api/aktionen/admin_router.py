@@ -18,7 +18,7 @@ from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, build_query, pull_many_from_db, pull_one_from_db
-from app.core.dependencies import AktionenCollection
+from app.core.dependencies import ActionLogCollection
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -121,7 +121,7 @@ async def _as_served(rows: Sequence[Mapping[str, Any]], *, sperrliste: BanList) 
 
 @router.get("", response_model=FLActionLogListResponse, summary="List recorded admin actions")
 async def get_action_log(
-    aktionen_collection: AktionenCollection,
+    aktionen_collection: ActionLogCollection,
     sperrliste: SperrlisteLookup,
     filters: FLAktionenFilters,
 ) -> FLActionLogListResponse:
@@ -174,7 +174,7 @@ async def get_action_log(
 @router.get(by_id("action_log_entry_id"), response_model=FLActionLogEntrySingleResponse, summary="One recorded admin action")
 async def get_action_log_entry(
     action_log_entry_id: CustomRouteObjectId,
-    aktionen_collection: AktionenCollection,
+    aktionen_collection: ActionLogCollection,
     sperrliste: SperrlisteLookup,
 ) -> FLActionLogEntrySingleResponse:
     """One recorded write with the document it replaced, served as recorded; the actor is withheld as the list withholds it."""

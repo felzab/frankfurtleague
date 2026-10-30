@@ -5,8 +5,8 @@ from typing import Annotated, Any, Final, Literal, get_args
 from bson import ObjectId
 from pydantic import AfterValidator, BaseModel, Field, TypeAdapter, field_validator, model_validator
 
-from app.core.recording import AktorFunktion
-from app.shared.schemas.bounds import AKTEUR_PSEUDONYM_SHOWN, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
+from app.core.recording import ActorRole
+from app.shared.schemas.bounds import ACTOR_PSEUDONYM_SHOWN, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse
@@ -58,7 +58,7 @@ class FLActorWithAdresseRow(FLAktorMitAdresse):
 
 
 def _served_prefix(pseudonym: str) -> str:
-    return pseudonym[:AKTEUR_PSEUDONYM_SHOWN]
+    return pseudonym[:ACTOR_PSEUDONYM_SHOWN]
 
 
 class FLActorPerson(BaseModel):
@@ -66,7 +66,7 @@ class FLActorPerson(BaseModel):
 
     kind: Literal["person_session"]
     pseudonym: Annotated[str, AfterValidator(_served_prefix)]
-    funktion: AktorFunktion
+    funktion: ActorRole
 
 
 # On `kind`, so a person's row can never be read as carrying an address, nor an administrator's as

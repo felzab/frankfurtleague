@@ -8,17 +8,17 @@ from typing import Any, Final, NamedTuple, cast
 from pydantic import SecretStr
 
 from app.api.bewerbungen.services import days_after, group_seats_by_mailbox, seat_named
-from app.api.postausgang.schemas import (
-    FLPostausgangBezug,
-    FLPostausgangDaten,
-    FLPostausgangLink,
+from app.api.outbox.schemas import (
+    FLOutboxData,
+    FLOutboxLink,
+    FLOutboxReference,
     FLSpielEinteilungLiftedData,
     FLSpielHinweisData,
     FLSpielMailAnsetzung,
     FLSpielMailAppointment,
     FLSpielVorschlagDiscardedData,
 )
-from app.api.postausgang.services import OwedMail
+from app.api.outbox.services import OwedMail
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAntwortArt,
     FLSpielbestaetigungAppointment,
@@ -43,10 +43,10 @@ from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import (
-    SPIEL_ANFRAGE_VORLAUF_TAGE,
-    SPIEL_BESTAETIGUNG_FRIST_TAGE,
-    SPIEL_ERINNERUNG_TAGE_ERSTE,
-    SPIEL_ERINNERUNG_TAGE_ZWEITE,
+    SPIEL_CONFIRMATION_FRIST_DAYS,
+    SPIEL_REMINDER_DAYS_FIRST,
+    SPIEL_REMINDER_DAYS_SECOND,
+    SPIEL_REQUEST_LEAD_TIME_DAYS,
 )
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLSpielSeite
 from app.shared.sub_keys import derive_sub_key
@@ -472,7 +472,7 @@ def ansicht_snapshot_of(
     )
 
 
-# Its own label under the `sperrliste_schluessel` master, beside the ban list's, the log's and the journal's: under
+# Its own label under the `sperrliste_key` master, beside the ban list's, the log's and the journal's: under
 # theirs a holder would equal one of their digests.
 HALTER_VERSION: Final = "halter-v1"
 
@@ -700,13 +700,13 @@ def compose_seat_entry(*, email: str) -> dict[str, Any]:
 def frist_of(*, datum: str, today: str) -> str:
     """The deadline a row minted today is given: a fixture already inside the notice period is due today."""
 
-    return max(today, days_after(day=datum, days=-SPIEL_BESTAETIGUNG_FRIST_TAGE))
+    return max(today, days_after(day=datum, days=-SPIEL_CONFIRMATION_FRIST_DAYS))
 
 
 def letzter_anfrage_tag(*, today: str) -> str:
     """The latest fixture day a pass run today asks about: the request goes out once its deadline is the answer window away."""
 
-    return days_after(day=today, days=SPIEL_BESTAETIGUNG_FRIST_TAGE + SPIEL_ANFRAGE_VORLAUF_TAGE)
+    return days_after(day=today, days=SPIEL_CONFIRMATION_FRIST_DAYS + SPIEL_REQUEST_LEAD_TIME_DAYS)
 
 
 def build_anfrage_filter(*, saison_id: str, today: str) -> dict[str, Any]:
@@ -928,7 +928,7 @@ def link_groups(*, kontakte: Any, seats: Sequence[str]) -> list[list[FLKontaktRo
 def erinnerung_tage(*, today: str) -> list[str]:
     """The deadlines a row is reminded of today, each reminder falling its count of days before the deadline."""
 
-    return [days_after(day=today, days=tage) for tage in (SPIEL_ERINNERUNG_TAGE_ERSTE, SPIEL_ERINNERUNG_TAGE_ZWEITE)]
+    return [days_after(day=today, days=tage) for tage in (SPIEL_REMINDER_DAYS_FIRST, SPIEL_REMINDER_DAYS_SECOND)]
 
 
 def build_erinnerung_filter(*, saison_id: str, today: str, inserted: Sequence[Any]) -> dict[str, Any]:
@@ -1039,7 +1039,7 @@ def spiel_mail_ansetzung_of(view: FLSpielbestaetigungViewAnsetzung) -> FLSpielMa
     )
 
 
-def notice_daten_of(*, grund: FLSpielbestaetigungGrund, partei_art: str, appointment: FLSpielMailAppointment) -> FLPostausgangDaten:
+def notice_daten_of(*, grund: FLSpielbestaetigungGrund, partei_art: str, appointment: FLSpielMailAppointment) -> FLOutboxData:
     """The notice a closing for `grund`, or a discard, owes a party of `partei_art`."""
 
     empfaenger = "schiedsrichter" if partei_art == "schiedsrichter" else "team"
@@ -1055,23 +1055,23 @@ def notice_daten_of(*, grund: FLSpielbestaetigungGrund, partei_art: str, appoint
     raise ValueError(f"a closing for {grund} owes no notice")
 
 
-def bezug_of(*, spielbestaetigung_id: Any, seat: FLKontaktRolle | None) -> FLPostausgangBezug:
+def bezug_of(*, spielbestaetigung_id: Any, seat: FLKontaktRolle | None) -> FLOutboxReference:
     """The row and seat a fixture mail is about, by which a later reminder reads whether the seat's mail arrived."""
 
-    return FLPostausgangBezug(collection=Collection.SPIELBESTAETIGUNGEN, id=spielbestaetigung_id, seat=seat)
+    return FLOutboxReference(collection=Collection.SPIELBESTAETIGUNGEN, id=spielbestaetigung_id, seat=seat)
 
 
-def seats_link(seats: Sequence[FLKontaktRolle]) -> FLPostausgangLink:
+def seats_link(seats: Sequence[FLKontaktRolle]) -> FLOutboxLink:
     """The link one person's seats share: minted into each seat's array while each still names the mail's address."""
 
-    return FLPostausgangLink(
+    return FLOutboxLink(
         paths=[f"kontakte.{seat}.token_hashes" for seat in seats],
         adressen=[f"kontakte.{seat}.email" for seat in seats],
         replaced=False,
     )
 
 
-def team_notices(*, spielbestaetigung_raw: Mapping[str, Any], kontakte: Any, data: FLPostausgangDaten, anlass: str) -> list[OwedMail]:
+def team_notices(*, spielbestaetigung_raw: Mapping[str, Any], kontakte: Any, data: FLOutboxData, anlass: str) -> list[OwedMail]:
     """A team row's notice, one mail per address its club's season row holds now, keyed by the row, the occasion and the seat."""
 
     row_id = spielbestaetigung_raw["_id"]

@@ -29,10 +29,10 @@ from app.core.exceptions import APIError
 from app.shared.tokens import hash_token
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    adresswechsel_document,
+    address_change_document,
     bericht_document,
     kontaktperson_document,
-    minted_bestaetigungen,
+    minted_confirmations,
     spiel_document,
     spielbericht_document,
     spielbestaetigung_document,
@@ -55,21 +55,21 @@ SPIELER_OID = ObjectId("6890a1b2c3d4e5f607200002")
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607200003")
 SPIELORT_OID = ObjectId("6890a1b2c3d4e5f607200004")
 SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607200005")
-AKTION_OID = ObjectId("6890a1b2c3d4e5f607200006")
+ACTION_LOG_ENTRY_OID = ObjectId("6890a1b2c3d4e5f607200006")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607200007")
 BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607200009")
 SPERRLISTE_OID = ObjectId("6890a1b2c3d4e5f60720000a")
-EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f60720000b")
+INVITATION_OID = ObjectId("6890a1b2c3d4e5f60720000b")
 REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f60720000c")
-BERECHTIGUNG_OID = ObjectId("6890a1b2c3d4e5f60720000d")
+GRANT_OID = ObjectId("6890a1b2c3d4e5f60720000d")
 SPIELBESTAETIGUNG_OID = ObjectId("6890a1b2c3d4e5f60720000e")
 SPIEL_OID = ObjectId("6890a1b2c3d4e5f60720000f")
-ADRESSWECHSEL_OID = ObjectId("6890a1b2c3d4e5f6072000a1")
-ANTRAG_OID = ObjectId("6890a1b2c3d4e5f6072000a2")
+ADDRESS_CHANGE_OID = ObjectId("6890a1b2c3d4e5f6072000a1")
+APPROVAL_REQUEST_OID = ObjectId("6890a1b2c3d4e5f6072000a2")
 # Far off, so the TTL index on `approval.bis` leaves a request standing through every case that inserts one.
-ANTRAG_GESTELLT = datetime(2126, 1, 1, tzinfo=UTC)
+APPROVAL_REQUEST_FILED = datetime(2126, 1, 1, tzinfo=UTC)
 # A submission key as a public form mints it (`app/api/bewerbungen/public_router.py :: post_bewerbung`).
-IDEMPOTENZ_SCHLUESSEL = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
+IDEMPOTENCY_KEY = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
 
 # One declared support index, planted under different keys so its build is the one that fails.
 CONFLICTING_SUPPORT_INDEX = "aktionen_trace_id"
@@ -222,12 +222,12 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "wunschgegner": None,
             "decision": None,
             "confirmation_deadline": "2026-02-15",
-            "confirmations": minted_bestaetigungen(
+            "confirmations": minted_confirmations(
                 hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
             ),
         },
         "aktionen": {
-            "_id": AKTION_OID,
+            "_id": ACTION_LOG_ENTRY_OID,
             "at": "2026-03-15T09:30:00+00:00",
             "at_date": datetime(2026, 3, 15, 9, 30, 0, tzinfo=UTC),
             "actor": {"kind": "admin_session", "email": "admin@example.invalid"},
@@ -257,7 +257,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         # `widerrufen_am` is null rather than absent because `uniq_einladung_live` reaches the rows
         # holding null.
         "einladungen": {
-            "_id": EINLADUNG_OID,
+            "_id": INVITATION_OID,
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
             "token_hashes": ["b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819200"],
@@ -271,7 +271,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "_id": REGISTRIERUNG_OID,
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
-            "invitation_id": EINLADUNG_OID,
+            "invitation_id": INVITATION_OID,
             "submitted_at": "2026-03-16",
             "status": "submitted",
             "vorname": "Thessaly",
@@ -292,14 +292,14 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         },
         # As the Playground paste writes one: a BSON date, and the sentinel where no administrator granted it.
         "berechtigungen": {
-            "_id": BERECHTIGUNG_OID,
+            "_id": GRANT_OID,
             "adresse": "inhaberin@example.invalid",
             "verwaltung": "owner",
             "granted_by": "PLAYGROUND",
             "granted_at": datetime(2026, 1, 1, tzinfo=UTC),
         },
         "berechtigungen_angekuendigt": {
-            "_id": BERECHTIGUNG_OID,
+            "_id": GRANT_OID,
             "adresse": "inhaberin@example.invalid",
             "verwaltung": "owner",
             "angekuendigt_am": datetime(2026, 1, 1, 0, 5, tzinfo=UTC),
@@ -331,19 +331,19 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         # A live change as the start stores it, its instants dates, which every read takes; and the carry an earlier
         # effect of the address left owed on it, which the record keeps beside its live fields as the model reads them.
         "adresswechsel": {
-            "_id": ADRESSWECHSEL_OID,
-            **adresswechsel_document(adresse="alt@example.invalid", email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16"),
+            "_id": ADDRESS_CHANGE_OID,
+            **address_change_document(adresse="alt@example.invalid", email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16"),
             "move": {"von": "vorher@example.invalid", "nach": "alt@example.invalid"},
         },
         # A promotion asked, so `grant_id` is an id rather than the null a grant's request holds.
         "berechtigungen_antraege": {
-            "_id": ANTRAG_OID,
+            "_id": APPROVAL_REQUEST_OID,
             **compose_antrag(
                 adresse="vorstand@example.invalid",
                 verwaltung="owner",
                 grant_id=TEAM_OID,
                 started_by="inhaberin@example.invalid",
-                now=ANTRAG_GESTELLT,
+                now=APPROVAL_REQUEST_FILED,
             ),
         },
     }
@@ -415,20 +415,18 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     # Both rows keyed alike and differing in their digest: the index refuses on the key alone, and a
     # pair carrying no key at all would pass while the partial filter matched nothing.
     "uniq_bewerbung_idempotenz_schluessel": (
-        valid_document("bewerbungen", idempotency_key=IDEMPOTENZ_SCHLUESSEL, idempotency_fingerprint="a" * 64),
-        valid_document("bewerbungen", _id=TEAM_OID, idempotency_key=IDEMPOTENZ_SCHLUESSEL, idempotency_fingerprint="b" * 64),
+        valid_document("bewerbungen", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
+        valid_document("bewerbungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
     ),
     "uniq_registrierung_idempotenz_schluessel": (
-        valid_document("registrierungen", idempotency_key=IDEMPOTENZ_SCHLUESSEL, idempotency_fingerprint="a" * 64),
-        valid_document("registrierungen", _id=TEAM_OID, idempotency_key=IDEMPOTENZ_SCHLUESSEL, idempotency_fingerprint="b" * 64),
+        valid_document("registrierungen", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
+        valid_document("registrierungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
     ),
     # Two persons' rows in one season, keyed alike: the index refuses on the key alone, where the
     # junction's own index would refuse a pair sharing the person.
     "uniq_saison_spieler_idempotenz_schluessel": (
-        valid_document("saison_spieler", idempotency_key=IDEMPOTENZ_SCHLUESSEL, idempotency_fingerprint="a" * 64),
-        valid_document(
-            "saison_spieler", _id=TEAM_OID, spieler_id=TEAM_OID, idempotency_key=IDEMPOTENZ_SCHLUESSEL, idempotency_fingerprint="b" * 64
-        ),
+        valid_document("saison_spieler", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
+        valid_document("saison_spieler", _id=TEAM_OID, spieler_id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
     ),
     # Two persons differing in their name and sharing an address: the index refuses on the address alone.
     "uniq_spieler_email": (
@@ -455,7 +453,7 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     # Two live changes of one address, to two mailboxes: the index refuses on the address alone, both rows in its filter.
     "uniq_adresswechsel_adresse": (
         valid_documents()["adresswechsel"],
-        valid_document("adresswechsel", _id=TEAM_OID, email="zweite@example.invalid", token_hash="b" * 64, stopp_hash="c" * 64),
+        valid_document("adresswechsel", _id=TEAM_OID, email="zweite@example.invalid", token_hash="b" * 64, stop_hash="c" * 64),
     ),
     # Two requests about one address from two requesters: the index refuses on the address alone.
     "uniq_berechtigung_antrag_adresse": (
@@ -468,7 +466,7 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
                 verwaltung="owner",
                 grant_id=TEAM_OID,
                 started_by="zweite@example.invalid",
-                now=ANTRAG_GESTELLT,
+                now=APPROVAL_REQUEST_FILED,
             ),
         ),
     ),
@@ -506,9 +504,9 @@ def test_two_ended_changes_of_one_address_are_both_kept(mongo_url: str):
     ended = {"adresse": None, "email": None, "ended": {"art": "declined", "am": datetime(2026, 3, 17, tzinfo=UTC)}}
 
     async def body(database: AsyncDatabase) -> int:
-        await database.adresswechsel.insert_one(valid_document("adresswechsel", **ended))
-        await database.adresswechsel.insert_one(valid_document("adresswechsel", _id=TEAM_OID, stopp_hash="c" * 64, **ended))
-        return await database.adresswechsel.count_documents({})
+        await database.address_change.insert_one(valid_document("adresswechsel", **ended))
+        await database.address_change.insert_one(valid_document("adresswechsel", _id=TEAM_OID, stop_hash="c" * 64, **ended))
+        return await database.address_change.count_documents({})
 
     assert on_the_shipped_schema(mongo_url, body) == 2
 
@@ -631,7 +629,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mon
     async def body(database: AsyncDatabase) -> str:
         # The same name over different keys: `create_index` refuses rather than replacing, which is
         # the one way a declared support index fails on a database holding no documents.
-        await database.aktionen.create_index([("at", ASCENDING)], name=CONFLICTING_SUPPORT_INDEX)
+        await database.action_log.create_index([("at", ASCENDING)], name=CONFLICTING_SUPPORT_INDEX)
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
@@ -645,7 +643,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_ttl_index(mongo_u
     """The third kind, and the one whose absence shows in nothing: a log that keeps every row reads exactly like a log being expired."""
 
     async def body(database: AsyncDatabase) -> str:
-        await database.aktionen.create_index([("at", ASCENDING)], name=CONFLICTING_TTL_INDEX)
+        await database.action_log.create_index([("at", ASCENDING)], name=CONFLICTING_TTL_INDEX)
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
@@ -660,10 +658,8 @@ def test_the_submission_key_lookup_walks_its_partial_unique_index(mongo_url: str
     """The planner takes a partial index only for a query implying its `$type` filter, which an equality alone does not."""
 
     async def body(database: AsyncDatabase) -> list[str]:
-        await database[collection].insert_one(
-            valid_document(collection, idempotency_key=IDEMPOTENZ_SCHLUESSEL, idempotency_fingerprint="a" * 64)
-        )
-        explained = await database[collection].find(build_schluessel_filter(key=IDEMPOTENZ_SCHLUESSEL)).explain()
+        await database[collection].insert_one(valid_document(collection, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64))
+        explained = await database[collection].find(build_schluessel_filter(key=IDEMPOTENCY_KEY)).explain()
 
         return winning_stages(explained)
 
@@ -689,7 +685,7 @@ BEWERBUNGEN_QUEUE_FILTERS: list[dict[str, Any]] = [
 BEWERBUNGEN_COUNT_FILTERS: list[dict[str, Any]] = [
     {"saison_id": SAISON_ID, "status": "submitted"},
 ]
-AKTIONEN_QUEUE_FILTERS: list[dict[str, Any]] = [
+ACTION_LOG_QUEUE_FILTERS: list[dict[str, Any]] = [
     {},
     {"collection": "teams"},
     {"operation": "patch_one"},
@@ -705,7 +701,7 @@ TALLY_TRACE_ID = "0123456789abcdef0123456789abcdef"
 # Every shape the tally's own `$match` can hold, the facet terms reaching the read alone
 # (`app/api/aktionen/admin_router.py :: get_aktionen`). All four, because the planner is asked afresh
 # for each.
-AKTIONEN_TALLY_FILTERS: list[dict[str, Any]] = [
+ACTION_LOG_TALLY_FILTERS: list[dict[str, Any]] = [
     {},
     {"trace_id": TALLY_TRACE_ID},
     {"document_id": TEAM_OID},
@@ -731,13 +727,13 @@ def index_reads(filters: list[dict[str, Any]]) -> list[tuple[dict[str, Any], str
     ]
 
 
-def misplanned(planned: list[tuple[str, list[str]]], *, banned: tuple[str, ...] = ("SORT", "COLLSCAN")) -> list[tuple[str, list[str]]]:
+def misplanned(planned: list[tuple[str, list[str]]], *, barred: tuple[str, ...] = ("SORT", "COLLSCAN")) -> list[tuple[str, list[str]]]:
     """Each read whose plan reaches no index or holds a banned stage, so one case names every read that regressed.
 
     One corpus serves them all: each filter and order is a query shape of its own, planned afresh.
     """
 
-    return [(read, stages) for read, stages in planned if "IXSCAN" not in stages or any(stage in stages for stage in banned)]
+    return [(read, stages) for read, stages in planned if "IXSCAN" not in stages or any(stage in stages for stage in barred)]
 
 
 def walk_stages(node: Any) -> list[str]:
@@ -912,7 +908,7 @@ def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_url: str):
             ]
         )
         planned = []
-        for db_filter, order in index_reads(AKTIONEN_QUEUE_FILTERS):
+        for db_filter, order in index_reads(ACTION_LOG_QUEUE_FILTERS):
             explained = await database["aktionen"].find(db_filter).sort(build_aktionen_sort(order=order)).limit(50).explain()
             planned.append((f"{read_id(db_filter)}-{order}", winning_stages(explained)))
         return planned
@@ -924,7 +920,7 @@ def test_the_facet_tally_walks_index_keys_rather_than_the_whole_log(mongo_url: s
     """`FACET_TALLY` itself, never a copy: a copy would pin a pipeline nothing issues once a group key moves."""
 
     async def body(database: AsyncDatabase) -> list[tuple[str, list[str]]]:
-        await database[Collection.AKTIONEN].insert_many(
+        await database[Collection.ACTION_LOG].insert_many(
             [
                 valid_documents()["aktionen"]
                 | {
@@ -937,10 +933,10 @@ def test_the_facet_tally_walks_index_keys_rather_than_the_whole_log(mongo_url: s
             ]
         )
         planned = []
-        for db_filter in AKTIONEN_TALLY_FILTERS:
+        for db_filter in ACTION_LOG_TALLY_FILTERS:
             explained = await database.command(
                 {
-                    "explain": {"aggregate": str(Collection.AKTIONEN), "pipeline": [{"$match": db_filter}, *FACET_TALLY], "cursor": {}},
+                    "explain": {"aggregate": str(Collection.ACTION_LOG), "pipeline": [{"$match": db_filter}, *FACET_TALLY], "cursor": {}},
                     "verbosity": "queryPlanner",
                 }
             )
@@ -952,11 +948,11 @@ def test_the_facet_tally_walks_index_keys_rather_than_the_whole_log(mongo_url: s
     assert misplanned(on_the_shipped_schema(mongo_url, body)) == []
 
 
-GERMAN_SQUAD_INDEX = "saison_spieler_saison_id_team_id_de"
+GERMAN_KADER_INDEX = "saison_spieler_saison_id_team_id_de"
 
 # The clubs and seasons the squad rows below spread over, so one club of one season is a small slice of them.
-SQUAD_TEAMS = 10
-SQUAD_SEASONS = ("2024", "2025", SAISON_ID)
+KADER_TEAMS = 10
+KADER_SAISONS = ("2024", "2025", SAISON_ID)
 
 Issued = tuple[list[Mapping[str, Any]], Mapping[str, Any] | None]
 
@@ -967,7 +963,7 @@ def count_pipeline(db_filter: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     return [{"$match": db_filter}, {"$group": {"_id": 1, "n": {"$sum": 1}}}]
 
 
-class _SentSquadReads:
+class _SentKaderReads:
     """A squad collection keeping each aggregate and count a call site sends, with its collation, so the read is explained as sent."""
 
     def __init__(self, collection: Any) -> None:
@@ -989,35 +985,35 @@ class _SentSquadReads:
 async def sent_by(database: AsyncDatabase, read: Callable[[Any, AsyncClientSession], Awaitable[Any]]) -> Issued:
     """The one squad read `read` sends; a refusal it answers after the read is beside the point here."""
 
-    squad = _SentSquadReads(database[Collection.SAISON_SPIELER])
+    kader = _SentKaderReads(database[Collection.SAISON_SPIELER])
     async with database.client.start_session() as session:
         with contextlib.suppress(APIError):
-            await read(squad, session)
-    [issued] = squad.sent
+            await read(kader, session)
+    [issued] = kader.sent
     return issued
 
 
-async def the_report_squads(database: AsyncDatabase) -> Issued:
+async def the_report_kader(database: AsyncDatabase) -> Issued:
     await database[Collection.SPIELE].insert_one(
         valid_document("spiele", _id=SPIEL_OID, team2={"team_id": OTHER_TEAM_OID, "name": "Helmholtz", "tore": 1, "shorthand": "HEX"})
     )
 
     return await sent_by(
         database,
-        lambda squad, session: pull_bericht_lage(
+        lambda kader, session: pull_bericht_lage(
             spiele_collection=database[Collection.SPIELE],
             saisons_collection=database[Collection.SAISONS],
-            saison_spieler_collection=squad,
+            saison_spieler_collection=kader,
             spiel_id=SPIEL_OID,
             session=session,
         ),
     )
 
 
-async def the_squad_page(database: AsyncDatabase) -> Issued:
+async def the_kader_page(database: AsyncDatabase) -> Issued:
     return await sent_by(
         database,
-        lambda squad, session: _read_the_squad(saison_spieler_collection=squad, team_id=TEAM_OID, saison_id=SAISON_ID, session=session),
+        lambda kader, session: _read_the_squad(saison_spieler_collection=kader, team_id=TEAM_OID, saison_id=SAISON_ID, session=session),
     )
 
 
@@ -1034,8 +1030,8 @@ def index_names(node: Any) -> list[str]:
 @pytest.mark.parametrize(
     ("issue", "index"),
     [
-        pytest.param(the_report_squads, GERMAN_SQUAD_INDEX, id="the-report-s-squads"),
-        pytest.param(the_squad_page, GERMAN_SQUAD_INDEX, id="the-squad-page"),
+        pytest.param(the_report_kader, GERMAN_KADER_INDEX, id="the-report-s-squads"),
+        pytest.param(the_kader_page, GERMAN_KADER_INDEX, id="the-squad-page"),
     ],
 )
 def test_a_clubs_squad_rows_are_read_through_the_index_of_the_reads_collation(
@@ -1047,9 +1043,9 @@ def test_a_clubs_squad_rows_are_read_through_the_index_of_the_reads_collation(
         await database[Collection.SAISON_SPIELER].insert_many(
             [
                 valid_document("saison_spieler", _id=ObjectId(), spieler_id=ObjectId(), saison_id=saison, team_id=team)
-                for saison in SQUAD_SEASONS
-                for team in (TEAM_OID, OTHER_TEAM_OID, *(ObjectId() for _ in range(SQUAD_TEAMS - 2)))
-                for _ in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX // (SQUAD_TEAMS * len(SQUAD_SEASONS)))
+                for saison in KADER_SAISONS
+                for team in (TEAM_OID, OTHER_TEAM_OID, *(ObjectId() for _ in range(KADER_TEAMS - 2)))
+                for _ in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX // (KADER_TEAMS * len(KADER_SAISONS)))
             ]
         )
         pipeline, collation = await issue(database)
@@ -1084,21 +1080,21 @@ class _SentUpdates(monitoring.CommandListener):
         """Required by the listener interface; a failed update was still sent with its filter."""
 
 
-GELOESCHT_PSEUDONYM: Final = "e" * 64
+ERASED_PSEUDONYM: Final = "e" * 64
 
 
-def test_the_loeschung_marks_a_persons_log_rows_through_an_index(mongo_url: str):
+def test_the_erasure_marks_a_persons_log_rows_through_an_index(mongo_url: str):
     """The updates the two steps send, never a copy of their filters, explained over a log large enough that the planner prefers an index."""
 
     async def body(database: AsyncDatabase) -> list[tuple[dict[str, Any], list[str]]]:
-        await database[Collection.AKTIONEN].insert_many(
+        await database[Collection.ACTION_LOG].insert_many(
             [
                 valid_documents()["aktionen"]
                 | {
                     "_id": ObjectId(),
                     "actor": {
                         "kind": "person_session",
-                        "pseudonym": GELOESCHT_PSEUDONYM if row % 500 == 0 else f"{row:064x}",
+                        "pseudonym": ERASED_PSEUDONYM if row % 500 == 0 else f"{row:064x}",
                         "funktion": ("spieler", "kontakt", "schiedsrichter")[row % 3],
                     },
                 }
@@ -1109,19 +1105,19 @@ def test_the_loeschung_marks_a_persons_log_rows_through_an_index(mongo_url: str)
         listener = _SentUpdates()
         watched = AsyncMongoClient(mongo_url, event_listeners=[listener])
         try:
-            log = watched[database.name][Collection.AKTIONEN]
+            log = watched[database.name][Collection.ACTION_LOG]
             async with watched.start_session() as session:
                 await unattribute_in_session(
-                    aktionen_collection=log, identifier="ida@example.invalid", pseudonym=GELOESCHT_PSEUDONYM, session=session
+                    aktionen_collection=log, identifier="ida@example.invalid", pseudonym=ERASED_PSEUDONYM, session=session
                 )
-                await loeschen_pupil_actor_in_session(aktionen_collection=log, pseudonym=GELOESCHT_PSEUDONYM, session=session)
+                await loeschen_pupil_actor_in_session(aktionen_collection=log, pseudonym=ERASED_PSEUDONYM, session=session)
         finally:
             await watched.close()
 
         explained = [
             (statement["q"], await database.command({"explain": {"update": collection, "updates": [statement]}, "verbosity": "queryPlanner"}))
             for collection, statement in listener.sent
-            if collection == Collection.AKTIONEN
+            if collection == Collection.ACTION_LOG
         ]
         return [(db_filter, winning_stages(plan)) for db_filter, plan in explained]
 

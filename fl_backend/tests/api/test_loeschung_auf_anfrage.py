@@ -42,15 +42,15 @@ from app.core.journal import JOURNAL_TOKEN
 from app.core.recording import Actor
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
-from app.shared.schemas.bounds import LOESCHUNG_ANLASS_MAX_LENGTH
-from tests.actor_tokens import SignedActor, fresh_admin_actor
+from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, spiel_document
+from tests.erasure import erasure_collections
 from tests.isolation import InterleavedCollection
-from tests.loeschung import loeschung_collections
+from tests.session_headers import StampedHeaders, fresh_admin_actor
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -137,7 +137,7 @@ def on_a_league(url: str, body: Body) -> Any:
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             await a_person_holding_everything(database)
 
             return await body(database, client)
@@ -150,7 +150,7 @@ def on_a_league_of_its_own(url: str, body: Body) -> Any:
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
 
             return await body(database, client)
 
@@ -159,7 +159,7 @@ def on_a_league_of_its_own(url: str, body: Body) -> Any:
 
 async def posted(url: str, path: str, body: Mapping[str, Any], *, by: str = OPERATOR) -> Response:
     async with app_client(url, app=_app(), now=NOW) as http:
-        return await http.post(path, json=dict(body), headers=SignedActor(by, ADMIN_KEY))
+        return await http.post(path, json=dict(body), headers=StampedHeaders(by, ADMIN_KEY))
 
 
 def loeschung_of(email: str = TYPED, anlass: str = ANLASS) -> dict[str, str]:
@@ -177,7 +177,7 @@ async def geloescht_by_the_handler(
 
     return await post_erasure(
         loeschung_data=FLErasurePayload(email=email, anlass=anlass),
-        **loeschung_collections(database, **replaced),
+        **erasure_collections(database, **replaced),
         sperrliste=ban_list(database),
         # Refusing none: the window is held over HTTP, in `tests/api/test_step_up_execution.py`.
         actor=fresh_admin_actor(),
@@ -201,9 +201,9 @@ async def revealed(database: AsyncDatabase, client: AsyncMongoClient, email: str
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         spiele_collection=database[Collection.SPIELE],
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-        berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-        berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+        berechtigungen_collection=database[Collection.GRANTS],
+        berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+        berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
         sperrliste=ban_list(database),
         db=client,
         config=CONFIG,
@@ -220,7 +220,7 @@ def journal_lines(caplog: pytest.LogCaptureFixture) -> list[str]:
 async def filed_by(database: AsyncDatabase, path: str) -> list[Mapping[str, Any]]:
     """The log rows the request on `path` filed, which every other request's rows are told apart from by their own path."""
 
-    return await database[Collection.AKTIONEN].find({"request.path": path}).to_list(length=None)
+    return await database[Collection.ACTION_LOG].find({"request.path": path}).to_list(length=None)
 
 
 def _object_ids(value: Any) -> Iterator[ObjectId]:
@@ -251,11 +251,11 @@ def what_is_left(collections: Mapping[str, list[Any]]) -> Any:
     """
 
     left = {name: [dict(document) for document in documents] for name, documents in collections.items()}
-    for row in left.get(Collection.AKTIONEN, []):
+    for row in left.get(Collection.ACTION_LOG, []):
         filed = ("actor", "anlass", "request", "trace_id") if row.get("request") is not None else ()
         for key in ("at", "at_date", *filed):
             row.pop(key, None)
-    for row in left.get(Collection.BERECHTIGUNGEN, []):
+    for row in left.get(Collection.GRANTS, []):
         row.pop(ANCHOR_FIELD, None)
 
     return _ranked(left, {object_id: index for index, object_id in enumerate(sorted(set(_object_ids(left))))})
@@ -284,7 +284,7 @@ def registration(registrierung_id: ObjectId, status: str) -> dict[str, str]:
 async def their_requests_open(database: AsyncDatabase) -> None:
     """The seed's two requests, asked far off so no TTL pass removes them and so lapsed at the suite's clock, open again."""
 
-    await database[Collection.BERECHTIGUNGEN_ANTRAEGE].update_many({}, {"$set": {"approval.bis": NOW + timedelta(days=1)}})
+    await database[Collection.GRANT_APPROVAL_REQUESTS].update_many({}, {"$set": {"approval.bis": NOW + timedelta(days=1)}})
 
 
 # Every record the seed's person holds, as the page links each: compared whole, so every key at every depth is asserted.
@@ -386,7 +386,7 @@ class TestTheRegistryRunsWhole:
 
             return on_a_league(mongo_replica_set_url, body)
 
-        by_the_administrator = after(lambda http: http.post(PATH, json=loeschung_of(), headers=SignedActor(OPERATOR, ADMIN_KEY)))
+        by_the_administrator = after(lambda http: http.post(PATH, json=loeschung_of(), headers=StampedHeaders(OPERATOR, ADMIN_KEY)))
         by_the_person = after(lambda http: http.post(SELBST_PATH, headers=as_person(TYPED)))
 
         assert (by_the_administrator[0], by_the_person[0]) == (200, 200)
@@ -484,7 +484,7 @@ class TestAGrantHoldersAddress:
             return (
                 ansicht.json()["verwaltung"],
                 loeschung.json(),
-                await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": OTHER_OWNER}),
+                await database[Collection.GRANTS].count_documents({"adresse": OTHER_OWNER}),
             )
 
         verwaltung, geloescht, left = on_a_league(mongo_replica_set_url, run)
@@ -502,8 +502,8 @@ class TestAGrantHoldersAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # Asked at the suite's clock, a century ahead of the real one, so no TTL pass removes it: the rival approves it.
-            await database[Collection.BERECHTIGUNGEN_ANTRAEGE].delete_many({"adresse": IDENTIFIER})
-            antrag = await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(
+            await database[Collection.GRANT_APPROVAL_REQUESTS].delete_many({"adresse": IDENTIFIER})
+            antrag = await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
                 compose_antrag(adresse=IDENTIFIER, verwaltung="administration", grant_id=None, started_by=OWNER, now=NOW)
             )
             held = await where_held(database, *THEIR_VALUES)
@@ -513,7 +513,7 @@ class TestAGrantHoldersAddress:
                 async def grant() -> None:
                     approved = await http.post(
                         f"/api/v{API_VERSION}/grants/approval_requests/{antrag.inserted_id}/approval",
-                        headers=SignedActor(ANOTHER_ADMINISTRATOR, ADMIN_KEY),
+                        headers=StampedHeaders(ANOTHER_ADMINISTRATOR, ADMIN_KEY),
                     )
                     granted.append(approved.status_code)
 
@@ -523,13 +523,13 @@ class TestAGrantHoldersAddress:
                     return cast(AsyncCollection, racing[-1])
 
                 served.dependency_overrides[collection_dependency(Collection.SPIELER)] = pupils
-                response = await http.post(PATH, json=loeschung_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
+                response = await http.post(PATH, json=loeschung_of(), headers=StampedHeaders(OPERATOR, ADMIN_KEY))
 
             return (
                 response,
                 held,
                 await where_held(database, *THEIR_VALUES),
-                await database[Collection.BERECHTIGUNGEN].find_one({"adresse": IDENTIFIER}),
+                await database[Collection.GRANTS].find_one({"adresse": IDENTIFIER}),
             )
 
         response, held, left, row = on_a_league(mongo_replica_set_url, body)
@@ -676,7 +676,7 @@ class TestAGrantHoldersPendingChange:
             by_operator = await posted(mongo_replica_set_url, PATH, loeschung_of())
             untouched = before == await everything_in(database)
             by_owner = by_operator if by_operator.status_code == 200 else await posted(mongo_replica_set_url, PATH, loeschung_of(), by=OWNER)
-            ended = await database[Collection.ADRESSWECHSEL].find_one({"_id": OTHER_REFEREE_CHANGE_OID})
+            ended = await database[Collection.ADDRESS_CHANGES].find_one({"_id": OTHER_REFEREE_CHANGE_OID})
             return by_operator, untouched, by_owner.status_code, ended
 
         by_operator, untouched, owners_status, ended = on_a_league(mongo_replica_set_url, body)
@@ -692,7 +692,7 @@ class TestAGrantHoldersPendingChange:
             await pending_changes(database, (THEIR_CHANGE_OID, IDENTIFIER, "neu.adresse@anderswo.org", "their-own-change", "2126-03-30"))
             await their_requests_open(database)
             lapsed = NOW - timedelta(days=8)
-            await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(
+            await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
                 compose_antrag(
                     adresse="verfallen@example.com",
                     verwaltung="owner",
@@ -717,7 +717,7 @@ class TestTheAnlass:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await posted(mongo_replica_set_url, PATH, loeschung_of(anlass=f"  {ANLASS}  "))
 
-            return response.status_code, await database[Collection.AKTIONEN].find().to_list(length=None)
+            return response.status_code, await database[Collection.ACTION_LOG].find().to_list(length=None)
 
         status, rows = on_a_league(mongo_replica_set_url, body)
         filed = [row for row in rows if (row["request"] or {}).get("path") == PATH]
@@ -741,7 +741,7 @@ class TestTheAnlass:
                     return_document=ReturnDocument.BEFORE,
                 ),
             )
-            rows = await database[Collection.AKTIONEN].find().sort("_id", -1).to_list(length=None)
+            rows = await database[Collection.ACTION_LOG].find().sort("_id", -1).to_list(length=None)
 
             return rows[0], [row for row in rows if row.get("anlass") is not None]
 
@@ -774,7 +774,7 @@ class PupilsReadMeetingARival(InterleavedCollection):
 
 
 # Where a grant's creation names its address besides the grant: its announced row and its notice.
-THE_GRANTS_OWN_ROWS = frozenset({Collection.BERECHTIGUNGEN_ANGEKUENDIGT, Collection.POSTAUSGANG})
+THE_GRANTS_OWN_ROWS = frozenset({Collection.GRANTS_ANNOUNCED, Collection.OUTBOX})
 
 
 @pytest.mark.db
@@ -787,12 +787,12 @@ class TestAnotherAdministratorsAddress:
             # One row per administrator a notice is owed to: the owner's copy, which every notice has.
             notices = [
                 row["data"]
-                async for row in database[Collection.POSTAUSGANG].find(
+                async for row in database[Collection.OUTBOX].find(
                     {"key": {"$regex": f"^berechtigung/{GRANT_ID_OF[ANOTHER_ADMINISTRATOR]}/"}, "an": OWNER}, sort=[("_id", 1)]
                 )
             ]
 
-            return response, await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": ANOTHER_ADMINISTRATOR}), notices
+            return response, await database[Collection.GRANTS].count_documents({"adresse": ANOTHER_ADMINISTRATOR}), notices
 
         response, left, notices = on_a_league(mongo_replica_set_url, body)
 
@@ -838,16 +838,16 @@ class TestTheSignOut:
             after = await everything_in(database)
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
                 served = await http.get(
-                    f"/api/v{API_VERSION}/action_log", params={"collection": "anmeldungen"}, headers=SignedActor(OPERATOR, ADMIN_KEY)
+                    f"/api/v{API_VERSION}/action_log", params={"collection": "anmeldungen"}, headers=StampedHeaders(OPERATOR, ADMIN_KEY)
                 )
 
             return response, before, after, served.json()
 
         response, before, after, served = on_a_league(mongo_replica_set_url, body)
-        filed = [row for row in after[Collection.AKTIONEN] if row not in before[Collection.AKTIONEN]]
+        filed = [row for row in after[Collection.ACTION_LOG] if row not in before[Collection.ACTION_LOG]]
 
         assert (response.status_code, response.json()) == (200, {})
-        assert {**after, Collection.AKTIONEN: None} == {**before, Collection.AKTIONEN: None}
+        assert {**after, Collection.ACTION_LOG: None} == {**before, Collection.ACTION_LOG: None}
         assert [{key: row[key] for key in ROW_KEYS} for row in filed] == [
             {
                 "actor": {"kind": "admin_session", "email": OPERATOR},
@@ -882,7 +882,7 @@ class TestTheAnlassIsRefusedAtTheBox:
         [
             pytest.param({"email": TYPED}, id="none sent"),
             pytest.param(loeschung_of(anlass="   "), id="spaces alone"),
-            pytest.param(loeschung_of(anlass="x" * (LOESCHUNG_ANLASS_MAX_LENGTH + 1)), id="one past the bound"),
+            pytest.param(loeschung_of(anlass="x" * (ERASURE_ANLASS_MAX_LENGTH + 1)), id="one past the bound"),
             pytest.param(loeschung_of(anlass="Mail vom 30.03.\nBetreff: Löschung"), id="two lines"),
             pytest.param(loeschung_of(anlass="Mail von anna.mueller@schule.de"), id="holding an address"),
         ],
@@ -896,6 +896,6 @@ class TestTheAnlassIsRefusedAtTheBox:
     def test_the_bound_itself_is_taken(self):
         """The control: a payload refusing every anlass would pass the cases above."""
 
-        anlass = "x" * LOESCHUNG_ANLASS_MAX_LENGTH
+        anlass = "x" * ERASURE_ANLASS_MAX_LENGTH
 
         assert FLErasurePayload.model_validate(loeschung_of(anlass=anlass)).anlass == anlass

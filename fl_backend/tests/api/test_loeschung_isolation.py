@@ -22,23 +22,23 @@ from app.core.collections import Collection
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.folding import sign_in_identifier
 from app.shared.tokens import hash_token
-from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     bewerbung_document,
     kontakte_document,
     kontaktperson_document,
-    neue_schule_document,
+    new_schule_document,
     saison_document,
     saison_team_document,
     schiedsrichter_document,
     spieler_document,
     team_document,
 )
+from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
-from tests.loeschung import geloescht
-from tests.postausgang import MAIL_NOW
+from tests.outbox import MAIL_NOW
+from tests.session_headers import fresh_admin_actor
 from tests.whole_database import where_folded_to
 from tests.worker import worker_database
 
@@ -91,7 +91,7 @@ async def a_league(database: AsyncDatabase) -> None:
     )
     await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Lindenschule", "LSX"))
     await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_OID, "Lindenschule", "LSX", kontakte=None))
-    await database[Collection.EINLADUNGEN].insert_one(
+    await database[Collection.INVITATIONS].insert_one(
         {
             "_id": EINLADUNG_OID,
             "saison_id": SAISON_ID,
@@ -114,7 +114,7 @@ async def a_league(database: AsyncDatabase) -> None:
             ),
             submitted_at="2026-03-10",
             confirmation_deadline="2026-04-10",
-            schule=neue_schule_document("Neue", "NEX"),
+            schule=new_schule_document("Neue", "NEX"),
         )
     )
     await database[Collection.BEWERBUNGEN].insert_one(
@@ -129,7 +129,7 @@ async def a_league(database: AsyncDatabase) -> None:
             ),
             submitted_at="2026-03-10",
             confirmation_deadline="2026-04-10",
-            schule=neue_schule_document("Ander", "ANX"),
+            schule=new_schule_document("Ander", "ANX"),
         )
     )
     # As the Stellvertretung's own Widerspruch leaves it, the one state a seat is filled again from.
@@ -177,7 +177,7 @@ async def contacts_saved(database: AsyncDatabase, client: AsyncMongoClient, kont
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         actor=fresh_admin_actor(),
@@ -259,12 +259,12 @@ class TestAWriteKeepingTheirSeatInsideTheLoeschungLeavesNothing:
             filed: list[int] = []
 
             async def keep_the_seat() -> None:
-                rows_before = await database[Collection.AKTIONEN].count_documents(on_the_row)
+                rows_before = await database[Collection.ACTION_LOG].count_documents(on_the_row)
                 written.append(await outcome_of(keeping(database, client)))
-                filed.append(await database[Collection.AKTIONEN].count_documents(on_the_row) - rows_before)
+                filed.append(await database[Collection.ACTION_LOG].count_documents(on_the_row) - rows_before)
 
-            grants = GrantsReadThenRival(database[Collection.BERECHTIGUNGEN], keep_the_seat)
-            outcome = await outcome_of(geloescht(database, client, TYPED, germany_now=NOW, berechtigungen_collection=grants))
+            grants = GrantsReadThenRival(database[Collection.GRANTS], keep_the_seat)
+            outcome = await outcome_of(erased(database, client, TYPED, germany_now=NOW, berechtigungen_collection=grants))
 
             return outcome, written, filed, (await club_row(database))["kontakte"]["trainer"], await where_folded_to(database, IDENTIFIER)
 

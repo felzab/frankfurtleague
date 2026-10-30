@@ -14,7 +14,6 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
-from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import (
     ADMIN_AUTH,
@@ -26,6 +25,7 @@ from tests.config import (
     grants_for_the_suite,
 )
 from tests.database import a_clean_database_sync
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 from .conftest import config_for, unwritten
@@ -45,7 +45,7 @@ CORPUS_DATABASE = build_test_config().db_base_name
 
 # The one case that POSTs takes a database of its own: a venue created into the corpus above would
 # stand in the venue list every other case reads.
-CREATED_VENUE_DATABASE = worker_database("fl_reference_admin_write_test")
+CREATED_SPIELORT_DATABASE = worker_database("fl_reference_admin_write_test")
 
 # Fixed rather than generated, so a failure names the same fixture every run.
 SPIELORT_ID = ObjectId("6890a1b2c3d4e5f607240001")
@@ -63,7 +63,7 @@ TELEFON = "+49 69 1234567"
 
 # A second venue, CREATED through the write path rather than seeded: a `maps_link` this file wrote
 # would read back whatever `_maps_link` composed, the seeded one included.
-POSTED_VENUE: dict[str, Any] = {
+POSTED_SPIELORT: dict[str, Any] = {
     "name": "Sportplatz West",
     "address": {
         "strasse": "Ludwig-Erhard-Anlage",
@@ -92,8 +92,8 @@ READ_PATHS = [
 ]
 
 # What no base credential may reach, and what these reads must therefore carry.
-VENUE_PRIVILEGED = ("address", "default_mietpreis")
-REFEREE_PRIVILEGED = ("kontakt", "schule", "default_payment")
+SPIELORT_PRIVILEGED = ("address", "default_mietpreis")
+SCHIEDSRICHTER_PRIVILEGED = ("kontakt", "schule", "default_payment")
 
 
 def spielort_document() -> dict[str, Any]:
@@ -168,7 +168,7 @@ def created(uri: str, payload: Mapping[str, Any], *, database_name: str) -> Resp
 
     async def _created() -> Response:
         async with app_client(uri, app=_served(database_name)) as http:
-            return await http.post(SPIELORTE, json=dict(payload), headers=SignedActor(ACTOR, ADMIN_KEY))
+            return await http.post(SPIELORTE, json=dict(payload), headers=StampedHeaders(ACTOR, ADMIN_KEY))
 
     return asyncio.run(_created())
 
@@ -182,7 +182,7 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     client = MongoClient(mongo_replica_set_url)
     try:
         database = a_clean_database_sync(client, mongo_replica_set_url, CORPUS_DATABASE)
-        database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+        database[Collection.GRANTS].insert_many(grants_for_the_suite())
         database[Collection.SPIELORTE].insert_one(spielort_document())
         database[Collection.SCHIEDSRICHTER].insert_many(schiedsrichter_documents())
 
@@ -194,13 +194,11 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
 
 @pytest.fixture
 def empty_url(mongo_replica_set_url: str) -> str:
-    """`CREATED_VENUE_DATABASE`, holding nothing: the case that POSTs composes the venue it reads back."""
+    """`CREATED_SPIELORT_DATABASE`, holding nothing: the case that POSTs composes the venue it reads back."""
 
     client = MongoClient(mongo_replica_set_url)
     try:
-        a_clean_database_sync(client, mongo_replica_set_url, CREATED_VENUE_DATABASE)[Collection.BERECHTIGUNGEN].insert_many(
-            grants_for_the_suite()
-        )
+        a_clean_database_sync(client, mongo_replica_set_url, CREATED_SPIELORT_DATABASE)[Collection.GRANTS].insert_many(grants_for_the_suite())
 
         return mongo_replica_set_url
     finally:
@@ -232,8 +230,8 @@ def test_the_admin_key_clears_the_guard_and_reaches_the_database(path: str):
     assert response.json()["error_code"] == UNREACHED_DATABASE
 
 
-LIST_CASES = [pytest.param(SPIELORTE, "spielorte", field, id=f"a venue's {field}") for field in VENUE_PRIVILEGED] + [
-    pytest.param(SCHIEDSRICHTER, "schiedsrichter", field, id=f"a referee's {field}") for field in REFEREE_PRIVILEGED
+LIST_CASES = [pytest.param(SPIELORTE, "spielorte", field, id=f"a venue's {field}") for field in SPIELORT_PRIVILEGED] + [
+    pytest.param(SCHIEDSRICHTER, "schiedsrichter", field, id=f"a referee's {field}") for field in SCHIEDSRICHTER_PRIVILEGED
 ]
 
 
@@ -249,7 +247,7 @@ def test_the_admin_list_still_serves_every_privileged_field(seeded_url: str, pat
 
 
 SINGLE_CASES = [
-    pytest.param(f"{SPIELORTE}/{SPIELORT_ID}", "spielort", str(SPIELORT_ID), field, id=f"a venue's {field}") for field in VENUE_PRIVILEGED
+    pytest.param(f"{SPIELORTE}/{SPIELORT_ID}", "spielort", str(SPIELORT_ID), field, id=f"a venue's {field}") for field in SPIELORT_PRIVILEGED
 ] + [
     pytest.param(
         f"{SCHIEDSRICHTER}/{FIRST_SCHIEDSRICHTER_ID}",
@@ -258,7 +256,7 @@ SINGLE_CASES = [
         field,
         id=f"a referee's {field}",
     )
-    for field in REFEREE_PRIVILEGED
+    for field in SCHIEDSRICHTER_PRIVILEGED
 ]
 
 
@@ -277,12 +275,12 @@ def test_the_single_read_moved_with_its_list(seeded_url: str, path: str, key: st
 def test_the_admin_read_carries_what_the_match_editor_prefills_a_fixture_from(seeded_url: str):
     """The values the venue and referee pickers copy onto a fixture; without them the editor offers what it cannot book."""
 
-    venue = answered(seeded_url, SPIELORTE, ADMIN_AUTH).json()["spielorte"][0]
-    referees = answered(seeded_url, SCHIEDSRICHTER, ADMIN_AUTH).json()["schiedsrichter"]
+    spielort = answered(seeded_url, SPIELORTE, ADMIN_AUTH).json()["spielorte"][0]
+    schiedsrichter = answered(seeded_url, SCHIEDSRICHTER, ADMIN_AUTH).json()["schiedsrichter"]
 
-    assert (venue["default_mietpreis"], venue["maps_link"]) == (MIETPREIS, MAPS_LINK)
-    assert (referees[0]["default_payment"], referees[0]["schule"]) == (LOWER_PAYMENT, SCHULE)
-    assert referees[0]["kontakt"]["telefon"] == TELEFON
+    assert (spielort["default_mietpreis"], spielort["maps_link"]) == (MIETPREIS, MAPS_LINK)
+    assert (schiedsrichter[0]["default_payment"], schiedsrichter[0]["schule"]) == (LOWER_PAYMENT, SCHULE)
+    assert schiedsrichter[0]["kontakt"]["telefon"] == TELEFON
 
 
 @pytest.mark.db
@@ -293,11 +291,11 @@ def test_the_street_address_is_still_public_through_the_maps_link(empty_url: str
     `app/api/spielorte/admin_router.py :: _maps_link` and not a string this file wrote.
     """
 
-    creation = created(empty_url, POSTED_VENUE, database_name=CREATED_VENUE_DATABASE)
+    creation = created(empty_url, POSTED_SPIELORT, database_name=CREATED_SPIELORT_DATABASE)
     assert creation.status_code == 201, creation.json()
 
     path = f"{SPIELORTE}/{creation.json()['created_id']}"
-    read_back = answered(empty_url, path, ADMIN_AUTH, database_name=CREATED_VENUE_DATABASE)
+    read_back = answered(empty_url, path, ADMIN_AUTH, database_name=CREATED_SPIELORT_DATABASE)
 
     assert read_back.json()["spielort"]["maps_link"] == COMPOSED_MAPS_LINK
 

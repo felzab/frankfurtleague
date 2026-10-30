@@ -20,7 +20,7 @@ from app.api.teams.schemas import (
 )
 from app.api.teams.services import build_gruppen
 from app.shared.schemas.literals import FLGruppenNames, FLSpielerStufe
-from tests.documents import bestaetigte_kenntnisnahme
+from tests.documents import confirmed_kenntnisnahme
 
 # A whole person as a row STORES one. Reused rather than re-spelled: the shape is the read model's,
 # so a field added to it fails here rather than at the first real write.
@@ -30,7 +30,7 @@ STORED_KONTAKTPERSON = {
     "email": "a.koerner@example.de",
     "telefon": "+49 170 1234567",
     "geburtsdatum": "1984-05-09",
-    "einwilligung": bestaetigte_kenntnisnahme(),
+    "einwilligung": confirmed_kenntnisnahme(),
 }
 
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
@@ -327,7 +327,7 @@ class TestAContactRecordReadsBackHoweverItWasStored:
     STORED = {
         **SENT,
         "geburtsdatum": "1984-05-09",
-        "einwilligung": bestaetigte_kenntnisnahme(),
+        "einwilligung": confirmed_kenntnisnahme(),
     }
 
     def test_the_read_model_takes_every_one_of_them(self):

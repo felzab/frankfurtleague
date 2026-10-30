@@ -7,9 +7,9 @@ import pytest
 from bson import ObjectId
 
 from app.api.bewerbungen.services import find_saison_frist_refusal
-from app.api.postausgang.schemas import FLOutboxDeliveryStand, FLOutboxEventPayload
-from app.api.postausgang.services import enqueue_mails
-from app.api.postausgang.system_router import post_event
+from app.api.outbox.schemas import FLOutboxDeliveryStand, FLOutboxEventPayload
+from app.api.outbox.services import enqueue_mails
+from app.api.outbox.system_router import post_event
 from app.api.teams.admin_router import get_team_saisons
 from app.api.teams.schemas import FLTeamMembership, FLTeamsSaisonsResponse
 from app.api.teams.services import build_team_saisons_pipeline, compose_kontakt_bestaetigung, owed_kontakt_link
@@ -20,7 +20,7 @@ from app.shared.tokens import hash_token
 from tests.config import ADMINISTRATORS
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, saison_team_document, team_document
-from tests.postausgang import MAIL_NOW, drained
+from tests.outbox import MAIL_NOW, drained
 from tests.worker import worker_database
 
 
@@ -107,22 +107,22 @@ def read_the_links(
                     mail, _ = owed_kontakt_link(
                         row=row, saison_id="2026", kontakte=block, seats=seats, frist=TODAY, zeile="open", key=f"case/{position}"
                     )
-                    await enqueue_mails(postausgang_collection=database[Collection.POSTAUSGANG], session=session, mails=[mail], now=MAIL_NOW)
+                    await enqueue_mails(outbox_collection=database[Collection.OUTBOX], session=session, mails=[mail], now=MAIL_NOW)
             mails = await drained(database, client)
             # Oldest first, which is the order they were owed in.
             assert len(mails) == len(owed)
             for mail, (_, event) in zip(mails, owed, strict=True):
                 if event is not None:
                     ereignis = FLOutboxEventPayload(id=mail.id, stand=event, grund=None, am=MAIL_NOW)
-                    await post_event(ereignis_data=ereignis, postausgang_collection=database[Collection.POSTAUSGANG])
+                    await post_event(event_data=ereignis, outbox_collection=database[Collection.OUTBOX])
             roh = await aggregate_many_from_db(collection=database[Collection.TEAMS], pipeline=build_team_saisons_pipeline())
             return roh, await get_team_saisons(
                 teams_collection=database[Collection.TEAMS],
-                adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+                adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
                 today=TODAY,
-                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-                postausgang_collection=database[Collection.POSTAUSGANG],
+                berechtigungen_collection=database[Collection.GRANTS],
+                berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+                postausgang_collection=database[Collection.OUTBOX],
                 operator=ADMINISTRATORS[0],
                 auth_time=int(time.time()),
             )

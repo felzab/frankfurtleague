@@ -15,7 +15,7 @@ from app.shared.folding import canonical_address, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     MEDIEN_MIN_AGE_YEARS,
-    SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
+    SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS,
     SCHIEDSRICHTER_MIN_AGE_YEARS,
 )
 from app.shared.schemas.kontakt import FLKontakt
@@ -168,7 +168,7 @@ EINWILLIGUNG_FELD: Final = "einwilligung"
 def bestaetigung_frist_from(*, today: str) -> str:
     """The day the link stops working, counted from the mint -- a re-send restarts it."""
 
-    return days_after(day=today, days=SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)
+    return days_after(day=today, days=SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS)
 
 
 def compose_bestaetigung(*, today: str) -> dict[str, Any]:

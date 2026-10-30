@@ -24,15 +24,15 @@ from app.api.berechtigungen.services import (
     inhaber_seit,
     stand_of,
 )
-from app.api.postausgang.schemas import FLGrantData, FLPostausgangBezug
-from app.api.postausgang.services import OwedMail, enqueue_mails
+from app.api.outbox.schemas import FLGrantData, FLOutboxReference
+from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
     delete_many_from_db,
-    loeschen_many_from_db,
+    erase_many_from_db,
     patch_many_in_db,
     post_one_to_db,
 )
@@ -88,7 +88,7 @@ async def _grant_and_its_record_in(
             {"$project": {field: 1 for field in [*fields, "adresse", "granted_at", "gefunden_am", "gesehen_am"]}},
             {
                 "$lookup": {
-                    "from": Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
+                    "from": Collection.GRANTS_ANNOUNCED,
                     "localField": "_id",
                     "foreignField": "_id",
                     "pipeline": [{"$project": {"adresse": 1, "verwaltung": 1}}],
@@ -177,13 +177,13 @@ async def owe_in_session(
     # A request's approvers, in place of every holder.
     an: Sequence[str] | None = None,
     # The request a decision settles its notice by.
-    reference: FLPostausgangBezug | None = None,
+    reference: FLOutboxReference | None = None,
 ) -> None:
     """Owe each notice, in the caller's transaction, to every live holder and to each address it names, one row apiece.
 
     The holders are read after the caller's write, on its session, so a new grant's holder is among them and a removed one
     is told through the notice's `before`. A barred recipient is stopped at the hand-out, not here
-    (`app/api/postausgang/system_router.py :: post_ausgabe`).
+    (`app/api/postausgang/system_router.py :: post_handout`).
     """
 
     if not mitteilungen:
@@ -208,7 +208,7 @@ async def owe_in_session(
             )
             for adresse in sorted(set(an) if an is not None else holders | genannt)
         )
-    await enqueue_mails(postausgang_collection=postausgang_collection, session=session, mails=mails, now=now)
+    await enqueue_mails(outbox_collection=postausgang_collection, session=session, mails=mails, now=now)
 
 
 async def withhold_in_the_postausgang(*, postausgang_collection: AsyncCollection, adresse: str, session: AsyncClientSession) -> None:
@@ -336,7 +336,7 @@ async def revoke_in_session(
     await delete_many_from_db(collection=berechtigungen_collection, db_filter={"_id": grant["_id"]}, session=session)
     # The grant keeps its image, the administrator's act; its announced row is bookkeeping and keeps
     # none.
-    await loeschen_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": grant["_id"]}, session=session)
+    await erase_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": grant["_id"]}, session=session)
     # After the removal, so the holders told are the ones who remain, and the revoked one through the notice's `before`.
     await owe_in_session(
         mitteilungen,

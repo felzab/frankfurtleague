@@ -18,7 +18,7 @@ from pydantic import (
 )
 from pydantic_core import PydanticCustomError
 
-from app.api.postausgang.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxState
 from app.core.crud import Anchored
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload

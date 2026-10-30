@@ -10,7 +10,7 @@ from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
 from app.core.crud import GERMAN_COLLATION
-from app.shared.schemas.bounds import ADRESSWECHSEL_NACHLAUF_TAGE, AKTION_RETENTION_SECONDS
+from app.shared.schemas.bounds import ACTION_LOG_ENTRY_RETENTION_SECONDS, ADDRESS_CHANGE_RETENTION_DAYS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 
@@ -56,7 +56,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # (https://www.mongodb.com/docs/manual/core/index-partial/, which moves without us; read
     # 2026-09-21).
     UniqueIndex(
-        Collection.EINLADUNGEN,
+        Collection.INVITATIONS,
         "uniq_einladung_live",
         ("saison_id", "team_id"),
         "one live invite per team per season",
@@ -103,7 +103,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     UniqueIndex(Collection.SAISONS, "uniq_saison_active", ("status",), "at most one season is active", partial_filter={"status": "active"}),
     # Also the READ path of every admin-tier request (`app/api/berechtigungen/guard.py :: verify_actor_is_admin`),
     # and what refuses a second grant a Playground paste adds for an address already holding one.
-    UniqueIndex(Collection.BERECHTIGUNGEN, "uniq_berechtigung_adresse", ("adresse",), "one grant per address"),
+    UniqueIndex(Collection.GRANTS, "uniq_berechtigung_adresse", ("adresse",), "one grant per address"),
     # What makes a pass run twice mint once, and a second decline need a new stand rather than a
     # refusal. Both party ids are keys, the one a row lacks indexing as null. `$type` for
     # `uniq_einladung_live`'s reason.
@@ -120,7 +120,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # ending's null address out; a keyed read carries it too (`app/api/adresswechsel/services.py :: build_address_filter`),
     # or the planner scans.
     UniqueIndex(
-        Collection.ADRESSWECHSEL,
+        Collection.ADDRESS_CHANGES,
         "uniq_adresswechsel_adresse",
         ("adresse",),
         "one live change per address",
@@ -128,9 +128,9 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     ),
     # Two requests about one address meet here. Unfiltered, a lapsed row too: the write asking anew removes that one first
     # (`app/api/berechtigungen/antraege.py :: clear_the_address_in_session`), the TTL monitor passing up to a minute late.
-    UniqueIndex(Collection.BERECHTIGUNGEN_ANTRAEGE, "uniq_berechtigung_antrag_adresse", ("adresse",), "one request per address"),
+    UniqueIndex(Collection.GRANT_APPROVAL_REQUESTS, "uniq_berechtigung_antrag_adresse", ("adresse",), "one request per address"),
     # Also the READ path of every enqueue, which finds a replay's row by it (`app/api/postausgang/services.py :: enqueue_mails`).
-    UniqueIndex(Collection.POSTAUSGANG, "uniq_outbox_key", ("key",), "one row per owed mail"),
+    UniqueIndex(Collection.OUTBOX, "uniq_outbox_key", ("key",), "one row per owed mail"),
 )
 
 
@@ -155,19 +155,19 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # index and scans the whole log instead -- measured, and the log holds twelve months of writes
     # (`app/api/aktionen/admin_router.py :: get_aktionen`).
     SupportIndex(
-        Collection.AKTIONEN,
+        Collection.ACTION_LOG,
         "aktionen_queue",
         (("at", DESCENDING), ("_id", DESCENDING)),
         "the log page reads newest first",
     ),
     SupportIndex(
-        Collection.AKTIONEN,
+        Collection.ACTION_LOG,
         "aktionen_trace_id",
         (("trace_id", ASCENDING),),
         "a write and its fan-out are read as one action",
     ),
     SupportIndex(
-        Collection.AKTIONEN,
+        Collection.ACTION_LOG,
         "aktionen_target",
         (("collection", ASCENDING), ("document_id", ASCENDING)),
         "one document's history, and the rows a person's erasure must redact",
@@ -176,7 +176,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # sort blocking in memory, and where no other index serves the match, scanning the whole log,
     # images and all (`app/api/aktionen/admin_router.py :: FACET_TALLY`).
     SupportIndex(
-        Collection.AKTIONEN,
+        Collection.ACTION_LOG,
         "aktionen_facets",
         (("collection", ASCENDING), ("operation", ASCENDING), ("actor.kind", ASCENDING)),
         "the counts the log page's three facets are told, over every recorded row",
@@ -185,7 +185,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # running for a whole season at once, on both (`app/api/identitaet/crud.py :: unattribute_in_session`,
     # `:: loeschen_pupil_actor_in_session`).
     SupportIndex(
-        Collection.AKTIONEN,
+        Collection.ACTION_LOG,
         "aktionen_actor_pseudonym",
         (("actor.pseudonym", ASCENDING), ("actor.funktion", ASCENDING)),
         "the rows a person wrote, which their erasure marks inside its transaction",
@@ -202,13 +202,13 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # Multikey, each array's every hash a key, so a lookup's equality on one finds its change. A tombstone keeps its
     # hashes, so each link answers how its change ended.
     SupportIndex(
-        Collection.ADRESSWECHSEL,
+        Collection.ADDRESS_CHANGES,
         "adresswechsel_token_hashes",
         (("token_hashes", ASCENDING),),
         "the address page's lookup, driven by strangers",
     ),
     SupportIndex(
-        Collection.ADRESSWECHSEL,
+        Collection.ADDRESS_CHANGES,
         "adresswechsel_stopp_token_hashes",
         (("stop.token_hashes", ASCENDING),),
         "the address page's stop lookup, driven by strangers",
@@ -217,7 +217,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # key holds as many rows as the team has been reissued links. Multikey, a row keeping the copied
     # link and every mailed one.
     SupportIndex(
-        Collection.EINLADUNGEN,
+        Collection.INVITATIONS,
         "einladungen_token_hashes",
         (("token_hashes", ASCENDING),),
         "the invite page's lookup, driven by strangers",
@@ -342,20 +342,20 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "a person's registrations, which every sign-in attempt and account page read",
     ),
     SupportIndex(
-        Collection.ADRESSWECHSEL,
+        Collection.ADDRESS_CHANGES,
         "adresswechsel_email",
         (("email", ASCENDING),),
         "the changes naming an address as their new one, which every erasure and its preview read",
     ),
     # Equality on `stand` and the claim's own sort after it; the lease and the deadline are read off the open rows alone.
     SupportIndex(
-        Collection.POSTAUSGANG,
+        Collection.OUTBOX,
         "outbox_open",
         (("stand", ASCENDING), ("recorded_at", ASCENDING), ("_id", ASCENDING)),
         "the drain's claim of the open rows, oldest first",
     ),
     SupportIndex(
-        Collection.POSTAUSGANG,
+        Collection.OUTBOX,
         "outbox_reference",
         (
             ("reference.collection", ASCENDING),
@@ -391,31 +391,31 @@ TTL_INDEXES: Sequence[TTLIndex] = (
     # Not `at`, though it names the same instant: it is a string, which this index would accept and
     # then expire nothing under, for as long as anyone left it there.
     TTLIndex(
-        Collection.AKTIONEN,
+        Collection.ACTION_LOG,
         "aktionen_retention",
         "at_date",
-        AKTION_RETENTION_SECONDS,
+        ACTION_LOG_ENTRY_RETENTION_SECONDS,
         "a log row is kept for twelve months after the write it recorded",
     ),
     # A live change never expires, holding no date at `ended.am`: the hourly pass ends it, taking its address out of the
     # log images, which a TTL deletion never would.
     TTLIndex(
-        Collection.ADRESSWECHSEL,
+        Collection.ADDRESS_CHANGES,
         "adresswechsel_beendet_am",
         "ended.am",
-        ADRESSWECHSEL_NACHLAUF_TAGE * 86400,
+        ADDRESS_CHANGE_RETENTION_DAYS * 86400,
         "an ended address change is removed once its tombstone's retention has passed",
     ),
     # Zero: a lapsed request decides nothing, and every read already treats it as gone.
     TTLIndex(
-        Collection.BERECHTIGUNGEN_ANTRAEGE,
+        Collection.GRANT_APPROVAL_REQUESTS,
         "berechtigungen_antraege_bis",
         "approval.bis",
         0,
         "a request nobody decided is removed once the TTL monitor next passes after it lapsed",
     ),
     # Zero: `erase_at` is the date itself, a retention after the row's final state or a secret's own lapse.
-    TTLIndex(Collection.POSTAUSGANG, "outbox_erase_at", "erase_at", 0, "a mail's row is removed on its delete date"),
+    TTLIndex(Collection.OUTBOX, "outbox_erase_at", "erase_at", 0, "a mail's row is removed on its delete date"),
 )
 
 

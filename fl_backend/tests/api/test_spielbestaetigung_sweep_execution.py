@@ -11,7 +11,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import SWEEP_PAGE, days_after
-from app.api.postausgang.schemas import FLOutboxDelivery
+from app.api.outbox.schemas import FLOutboxDelivery
 from app.api.spielbestaetigungen.person_router import post_schiedsrichter_antwort
 from app.api.spielbestaetigungen.public_router import post_spielbestaetigung
 from app.api.spielbestaetigungen.schemas import (
@@ -47,17 +47,17 @@ from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.actor_tokens import fresh_admin_actor
 from tests.api import test_spielbestaetigung_sweep_refusal as budget
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, kontaktperson_document
+from tests.erasure import erased
 from tests.isolation import InterleavedCollection
-from tests.loeschung import geloescht
+from tests.outbox import MAIL_NOW, drained
 from tests.payloads import spiel_patch_body
-from tests.postausgang import MAIL_NOW, drained
 from tests.records import record_collections
+from tests.session_headers import fresh_admin_actor
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
@@ -324,7 +324,7 @@ async def handed_out(
     """
 
     mails = await drained(database, client)
-    stored = {row["_id"]: row for row in await database[Collection.POSTAUSGANG].find({"_id": {"$in": [mail.id for mail in mails]}}).to_list()}
+    stored = {row["_id"]: row for row in await database[Collection.OUTBOX].find({"_id": {"$in": [mail.id for mail in mails]}}).to_list()}
     row_ids = [stored[mail.id]["reference"]["id"] for mail in mails]
     confirmations = {row["_id"]: row for row in await database[Collection.SPIELBESTAETIGUNGEN].find({"_id": {"$in": row_ids}}).to_list()}
     fixtures = {
@@ -406,7 +406,7 @@ async def a_pass(
         saison_teams_collection=collections.get("saison_teams", database[Collection.SAISON_TEAMS]),
         saisons_collection=database[Collection.SAISONS],
         schiedsrichter_collection=collections.get("schiedsrichter", database[Collection.SCHIEDSRICHTER]),
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         today=today,
@@ -508,7 +508,7 @@ async def a_bounce_on(database: AsyncDatabase, *, team_id: ObjectId, seat: str) 
     """The provider's refusal of the last mail owed to one seat of the team's row, on that mail's Postausgang row."""
 
     (row,) = await rows(database, **{"party.team_id": team_id})
-    await database[Collection.POSTAUSGANG].update_many(
+    await database[Collection.OUTBOX].update_many(
         {"reference.id": row["_id"], "reference.seat": seat},
         {"$set": {"delivery": FLOutboxDelivery(stand="undeliverable", grund="NoEmail", am=MAIL_NOW).model_dump()}},
     )
@@ -569,7 +569,7 @@ class TestTheSweepAsksAboutNothingItCannotHelp:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await sweep(database, client)
             second = await a_pass(database, client)
-            owed = await database[Collection.POSTAUSGANG].find({}, {"an": 1, "art": 1, "_id": 0}).to_list()
+            owed = await database[Collection.OUTBOX].find({}, {"an": 1, "art": 1, "_id": 0}).to_list()
 
             return first, second, owed, await rows(database)
 
@@ -678,7 +678,7 @@ def answered(antwort: Literal["zugesagt", "declined"]) -> dict[str, Any]:
         antwort=antwort,
         seat="trainer",
         adresse=None,
-        key=build_test_config().sperrliste_schluessel,
+        key=build_test_config().sperrliste_key,
         vorschlag=FLSpielbestaetigungAppointment(datum=days_after(day=NEXT_WEEK, days=1), uhrzeit="18:00:00")
         if antwort == "declined"
         else None,
@@ -937,7 +937,7 @@ class TestAReplacedClubsRowsClose:
                 spiele_collection=database[Collection.SPIELE],
                 saison_spieler_collection=database[Collection.SAISON_SPIELER],
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                aktionen_collection=database[Collection.AKTIONEN],
+                aktionen_collection=database[Collection.ACTION_LOG],
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 db=client,
                 today=TODAY,
@@ -1079,7 +1079,7 @@ async def hand_alphas_trainer_to(database: AsyncDatabase, client: AsyncMongoClie
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        postausgang_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         actor=fresh_admin_actor(),
@@ -1292,7 +1292,7 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
     ) -> tuple[int, int]:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
             async def counted(due: int) -> int:
-                for collection in (Collection.SPIELE, Collection.SPIELBESTAETIGUNGEN, Collection.AKTIONEN):
+                for collection in (Collection.SPIELE, Collection.SPIELBESTAETIGUNGEN, Collection.ACTION_LOG):
                     await database[collection].delete_many({})
                 await seed(database, client, due)
                 return await _counted(url, database, call)
@@ -1375,7 +1375,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
                 {"spiel_id": OTHER_SPIEL, "party.team_id": ALPHA}, {"$set": {"kontakte.trainer": None}}
             )
             await database[Collection.SPIELE].insert_one(fresh)
-            await database[Collection.AKTIONEN].delete_many({})
+            await database[Collection.ACTION_LOG].delete_many({})
 
             return await commands_by_name(
                 mongo_replica_set_url, DATABASE_NAME, lambda database, client: a_pass(database, client, today=FIRST_REMINDER)
@@ -1521,7 +1521,7 @@ class TestARefereeGeloeschtBesideTheMintIsToldNothing:
     def test_the_mint_runs_again_and_writes_the_geloescht_referee_no_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def loeschen_the_referee() -> None:
-                await geloescht(database, client, REFEREE_EMAIL, germany_now=NOW)
+                await erased(database, client, REFEREE_EMAIL, germany_now=NOW)
 
             interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SCHIEDSRICHTER], loeschen_the_referee)
             answer = await a_pass_through(database, client, schiedsrichter=cast(Any, interleaved))
@@ -1551,7 +1551,7 @@ class TestAnGeloeschtContactIsNotToldTheirFixtureMoved:
             await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
 
             async def loeschen_the_trainer() -> None:
-                await geloescht(database, client, address(ALPHA, "trainer"), germany_now=NOW)
+                await erased(database, client, address(ALPHA, "trainer"), germany_now=NOW)
 
             interleaved = interleaving(database[Collection.SAISON_TEAMS], loeschen_the_trainer)
             answer = await a_pass_through(database, client, saison_teams=cast(Any, interleaved))
@@ -1687,7 +1687,7 @@ class TestARefereeTakenOffIsToldOnlyWhereTheyWereTold:
             await sweep(database, client)
             await database[Collection.SCHIEDSRICHTER].update_one(
                 {"_id": SCHIEDSRICHTER},
-                {"$set": {"einwilligung": documents.eigene_einwilligung_document(text_version="v1", confirmed_at=YESTERDAY)}},
+                {"$set": {"einwilligung": documents.own_einwilligung_document(text_version="v1", confirmed_at=YESTERDAY)}},
             )
             (own,) = await rows(database, **{"party.schiedsrichter_id": SCHIEDSRICHTER})
             await post_schiedsrichter_antwort(
@@ -1726,7 +1726,7 @@ class TestATakenOffRefereesLoeschungAndTheCloseCross:
             await told_and_taken_off(database, client)
 
             async def loeschen_the_referee() -> None:
-                await geloescht(database, client, REFEREE_EMAIL, germany_now=NOW)
+                await erased(database, client, REFEREE_EMAIL, germany_now=NOW)
 
             interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SCHIEDSRICHTER], loeschen_the_referee)
             answer = await a_pass_through(database, client, schiedsrichter=cast(Any, interleaved))
@@ -1752,7 +1752,7 @@ class TestATakenOffRefereesLoeschungAndTheCloseCross:
                 answers.append(await sweep(database, client))
 
             interleaved = ConfirmationsRunningARivalAtTheLoeschungenRead(database[Collection.SPIELBESTAETIGUNGEN], a_pass)
-            await geloescht(database, client, REFEREE_EMAIL, germany_now=NOW, spielbestaetigungen_collection=interleaved)
+            await erased(database, client, REFEREE_EMAIL, germany_now=NOW, spielbestaetigungen_collection=interleaved)
 
             return interleaved, answers, await rows(database, **{"party.schiedsrichter_id": SCHIEDSRICHTER})
 
@@ -1769,7 +1769,7 @@ async def as_the_referee(database: AsyncDatabase, client: AsyncMongoClient, antw
 
     await database[Collection.SCHIEDSRICHTER].update_one(
         {"_id": SCHIEDSRICHTER},
-        {"$set": {"einwilligung": documents.eigene_einwilligung_document(text_version="v1", confirmed_at=YESTERDAY)}},
+        {"$set": {"einwilligung": documents.own_einwilligung_document(text_version="v1", confirmed_at=YESTERDAY)}},
     )
     (own,) = await rows(database, **{"party.schiedsrichter_id": SCHIEDSRICHTER})
     await post_schiedsrichter_antwort(
