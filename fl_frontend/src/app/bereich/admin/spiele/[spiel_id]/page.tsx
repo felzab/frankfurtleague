@@ -67,7 +67,7 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
     // matches of the season being edited, which may be a past one.
     <AdminContextWrapper saison_id={spielRes.spiel.saison_id}>
       {/* The same route pattern reconciles in place, so without a key the draft atoms carry the
-          previous fixture's values in. Keyed on STORED STATE, not the id, so an undo that moved
+          previous fixture's values in. Keyed on STORED STATE, not the id, so a write that moved
           the fixture underneath resets the subtree. */}
       <AdminSpielEditView
         key={spielStateKey(spielRes.spiel)}

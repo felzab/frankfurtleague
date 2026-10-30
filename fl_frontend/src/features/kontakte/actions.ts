@@ -5,26 +5,21 @@ import { getLaufendesLabel } from "@/core/einwilligung";
 import { describeLinkMail } from "@/features/schiedsrichter/notifications";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { refusedReplay, replayRefusal, restored, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { schlechtesterVersand } from "@/shared/utils/linkVersand";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { kontakteMayMoveLinks } from "./linkMint";
 import { einladeKontakt, patchSaisonTeamKontakte } from "./mutations";
 import { describeKontaktVersand, mailKontaktLink } from "./notifications";
-import { KONTAKTE_REPLAY_REFUSALS, mapEinladenRefusal, mapKontakteRefusal, STALE_BLOCK_REFUSAL } from "./refusals";
+import { mapEinladenRefusal, mapKontakteRefusal } from "./refusals";
 import { FLKontaktEinladenPayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 import { mitLaufenderFassung } from "./utils";
 
 import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { ActionResult } from "@/shared/types/types";
-import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { KontaktVersand } from "./notifications";
-import type { FLKontaktEinladenPayload, FLPatchSaisonTeamKontaktePayload, FLPatchSaisonTeamKontakteResponse } from "./schemas";
-
-/** What the editor reads off a save: the block as stored and the token an undo of it carries. */
-type KontakteGespeichert = Pick<FLPatchSaisonTeamKontakteResponse, "kontakte" | "kontakte_stand">;
+import type { FLKontaktEinladenPayload, FLPatchSaisonTeamKontaktePayload } from "./schemas";
 
 /**
  * The three seats one club holds for one season, written whole. The season's competition facts stay
@@ -37,7 +32,7 @@ export async function patchSaisonTeamKontakteAction(
   rawPayload: FLPatchSaisonTeamKontaktePayload,
   // The send's outcome beside the sentence rather than one the caller parses: the editor grades its
   // toast on it, and the save landed either way.
-): Promise<ActionResult<{ saison_team?: KontakteGespeichert; versandSatz?: string; versand?: LinkVersand }>> {
+): Promise<ActionResult<{ versandSatz?: string; versand?: LinkVersand }>> {
   return runAdminMutation("patchSaisonTeamKontakteAction", async (session) => {
     const validated = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(rawPayload);
 
@@ -49,8 +44,8 @@ export async function patchSaisonTeamKontakteAction(
       };
     }
 
-    // A save minting or voiding a link is a step-up write, and one moving none keeps its undo.
-    // The stored row is read only for a session past the window.
+    // A save minting or voiding a link is a step-up write, and one moving none is not. The stored row
+    // is read only for a session past the window.
     const movesLinks =
       validated.data.kontakte !== null &&
       !isFreshlySignedIn(session) &&
@@ -95,71 +90,14 @@ export async function patchSaisonTeamKontakteAction(
 
     return {
       success: true,
-      // The two fields the editor reads and nothing else: an action's result reaches the browser, and
-      // the answer beside them carries every minted link's raw token.
-      saison_team: { kontakte: saisonTeam.kontakte, kontakte_stand: saisonTeam.kontakte_stand },
       // The cleared block is a removal rather than a save, and it is the one outcome a reader would
       // not expect to have to check for.
       message: validated.data.kontakte === null ? "Kontakte entfernt" : "Kontakte gespeichert",
-      // Its own field rather than folded into the message: the editor hands this to the undo offer,
-      // and a save that mailed nothing has no sentence to hand it.
+      // Its own field rather than folded into the message: the editor's toast says it in place of the
+      // save's sentence, and a save that mailed nothing has no sentence to hand it.
       versandSatz: describeKontaktVersand(versendet) ?? undefined,
       versand: schlechtesterVersand(versendet.map(({ versand }) => versand)),
     };
-  });
-}
-
-/**
- * The save's own payload, replayed: the endpoint replaces the block whole on the row its path names.
- * The precondition beside it is the save's AFTER image, that save having moved the row past what the
- * editor read.
- */
-export async function undoAdminKontakteEditAction(rawPayload: FLPatchSaisonTeamKontaktePayload): Promise<UndoOutcome> {
-  return runAdminUndo("undoAdminKontakteEditAction", async (session) => {
-    const validated = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(rawPayload);
-    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
-
-    // The replay is a save, judged as the save judges one: undoing a
-    // first entry clears the block, and putting an earlier person back mints a link and voids one.
-    const movesLinks =
-      validated.data.kontakte !== null &&
-      !isFreshlySignedIn(session) &&
-      kontakteMayMoveLinks(await gespeicherteKontakte(validated.data), validated.data.kontakte);
-    const unconfirmed = validated.data.kontakte === null || movesLinks ? refuseUnconfirmed(session) : null;
-    if (unconfirmed !== null) return unconfirmed;
-
-    // No tag moves, as on the save: no cached read holds a contact person.
-    let operation;
-    try {
-      // The earlier people come back as new acceptances, which name the label the form runs now
-      // (`fl_frontend/src/features/kontakte/utils.ts :: mitLaufenderFassung`).
-      const kontakte =
-        validated.data.kontakte === null ? null : mitLaufenderFassung(validated.data.kontakte, await getLaufendesLabel("bewerbung"));
-      operation = await patchSaisonTeamKontakte({ ...validated.data, kontakte });
-    } catch (error) {
-      const stale = replayRefusal(error, STALE_BLOCK_REFUSAL);
-      return stale === undefined ? refusedReplay(error, KONTAKTE_REPLAY_REFUSALS) : { success: false, error: stale };
-    }
-
-    // The replay puts an earlier person back on a seat, which the endpoint reads as newly seating
-    // them and mints for: unmailed, that token exists in the database alone and the seat never confirms.
-    const versendet: KontaktVersand[] = await Promise.all(
-      operation.bestaetigungen.map(async (mint) => ({
-        email: mint.email,
-        versand: await mailKontaktLink({
-          operation: "undoAdminKontakteEditAction",
-          saisonTeamId: operation.saison_team_id,
-          saisonId: operation.saison_id,
-          mint: mint,
-          anlass: "erneut",
-        }),
-      })),
-    );
-    const versandSatz = describeKontaktVersand(versendet);
-
-    // A cost either way: the undo mailed a person, which is a fact about them rather than about the
-    // rows it put back.
-    return restored(versandSatz ?? undefined);
   });
 }
 

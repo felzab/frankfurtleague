@@ -6,7 +6,6 @@ import {
   addressOnlyConfirmedSeatLabels,
   applySeatPresence,
   applySharedSeat,
-  describeUnrestorableKontakte,
   emptiedSeatLabels,
   mirroredJudgedPaths,
   mirrorKontakte,
@@ -385,44 +384,6 @@ describe("resolveTeamSaisonMembership", () => {
     const resolved = resolveTeamSaisonMembership([membership("2025")], { id: "2025", status: "active" });
 
     expect(resolved.membership?.kontakte_stand).toBe(TOKEN);
-  });
-});
-
-describe("describeUnrestorableKontakte", () => {
-  // The precondition is an opaque string the page carries through, so it decides nothing here.
-  const payload = (kontakte: SaisonTeamKontakteDraft | null) => ({
-    team_id: "507f1f77bcf86cd799439011",
-    saison_id: "2025",
-    kontakte,
-    kontakte_stand: "9f2c",
-  });
-
-  it("finds nothing to report about a block the write accepts", () => {
-    expect(describeUnrestorableKontakte(payload(block()))).toBe(null);
-    expect(describeUnrestorableKontakte(payload(null))).toBe(null);
-  });
-
-  /* The read model takes an email the payload refuses, so the
-     pre-save block here is no legal write and the shared undo spine can only answer it with a
-     reload nothing would change. */
-  it("names the seats a stored row holds that the write refuses", () => {
-    const report = describeUnrestorableKontakte(payload(block({ trainer: person({ email: "nicht-erreichbar" }) })));
-
-    expect(report ?? "").toMatch(/^Der Stand vor dem Speichern hält ungültige Angaben \(Trainer\)/);
-    expect(report ?? "").toMatch(/Trage ihn bei Bedarf von Hand ein\.$/);
-    // Never the value itself: the report outlives the editor in a toast, and the address is the
-    // person's rather than the record's.
-    expect(report ?? "").not.toMatch(/nicht-erreichbar/);
-    // The repair a reload would be is the one this exists to replace.
-    expect(report ?? "").not.toMatch(/Lade die Seite neu/);
-  });
-
-  it("names every refused seat and no seat the write accepts", () => {
-    const report = describeUnrestorableKontakte(
-      payload(block({ trainer: person({ telefon: "!!!" }), stellvertretung: person({ email: "auch-nicht" }) })),
-    );
-
-    expect(report ?? "").toMatch(/\(Stellvertretung, Trainer\)/);
   });
 });
 
