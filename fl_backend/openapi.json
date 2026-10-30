@@ -790,16 +790,18 @@
         "title": "FLAdresswechselAnsichtResponse",
         "type": "object"
       },
+      "FLAdresswechselAntwort": {
+        "enum": [
+          "bestaetigt",
+          "abgelehnt"
+        ],
+        "type": "string"
+      },
       "FLAdresswechselAntwortPayload": {
         "additionalProperties": false,
         "properties": {
           "antwort": {
-            "enum": [
-              "bestaetigt",
-              "abgelehnt"
-            ],
-            "title": "Antwort",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselAntwort"
           },
           "token": {
             "maxLength": 128,
@@ -819,12 +821,7 @@
         "description": "The answer recorded, and no address of the change: the notices an effect owes are queued, never answered.",
         "properties": {
           "antwort": {
-            "enum": [
-              "bestaetigt",
-              "abgelehnt"
-            ],
-            "title": "Antwort",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselAntwort"
           },
           "genehmigung_offen": {
             "title": "Genehmigung Offen",

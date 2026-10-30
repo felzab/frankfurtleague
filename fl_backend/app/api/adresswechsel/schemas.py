@@ -24,7 +24,7 @@ from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
 from app.shared.schemas.zustellung import FLBewerbungZustellung
 
-FLAdresswechselAntwort = Literal["bestaetigt", "abgelehnt"]
+type FLAdresswechselAntwort = Literal["bestaetigt", "abgelehnt"]
 
 # The raw token as it arrives on the base-tier endpoints, under the one ceiling every link this application mints is spelled to.
 CustomAdresswechselToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TOKEN_MAX_LENGTH)]
