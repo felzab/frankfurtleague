@@ -30,7 +30,7 @@ const MUTATIONS_DOUBLE = {
   meldeZustellungAngenommen: async (payload: { rollen?: unknown }) => {
     gemeldet.push(payload);
     if (zustellungFails) throw new Error("the backend refused the record");
-    return { acknowledged: 1, angewendet: payload.rollen };
+    return { angewendet: payload.rollen };
   },
 };
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { BEWERBUNG_DUBLETTE_LABEL, markBewerbungDubletten } from "./duplicates.ts";
 
-import type { FLBewerbung } from "./schemas.ts";
+import type { FLBewerbung } from "@/core/generated/client/types.ts";
 
 /** The five fields the derivation reads, so a fixture is an application without being a whole one. */
 type Kandidat = Pick<FLBewerbung, "id" | "saison_id" | "status" | "team_id" | "schule">;

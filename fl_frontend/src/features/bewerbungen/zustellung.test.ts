@@ -31,12 +31,12 @@ const LOGGER_DOUBLE = {
 type Answer = (payload: Record<string, unknown>) => unknown;
 
 const calls: Record<string, unknown>[] = [];
-let zustellungAnswer: Answer = () => ({ acknowledged: 1, angewendet: ["ansprechperson"] });
+let zustellungAnswer: Answer = () => ({ angewendet: ["ansprechperson"] });
 
 // Its own recorder rather than the one above: a shared array would let a case asserting the
 // application was reached pass on a call the route made to the other endpoint.
 const zielCalls: Record<string, unknown>[] = [];
-let zielZustellungAnswer: Answer = () => ({ acknowledged: 1, angewendet: true });
+let zielZustellungAnswer: Answer = () => ({ angewendet: true });
 
 /** A write the doubled client makes: recorded, then answered as the case names, a throw included. */
 const reporting =
@@ -142,8 +142,8 @@ beforeEach(() => {
   logs.length = 0;
   calls.length = 0;
   zielCalls.length = 0;
-  zustellungAnswer = () => ({ acknowledged: 1, angewendet: ["ansprechperson"] });
-  zielZustellungAnswer = () => ({ acknowledged: 1, angewendet: true });
+  zustellungAnswer = () => ({ angewendet: ["ansprechperson"] });
+  zielZustellungAnswer = () => ({ angewendet: true });
 });
 
 describe("what one delivery event says about a seat", () => {
@@ -600,7 +600,7 @@ describe("POST /api/mail/zustellung", () => {
   });
 
   it("answers 200 where the backend applied the tagged event to no record", async () => {
-    zielZustellungAnswer = () => ({ acknowledged: 1, angewendet: false });
+    zielZustellungAnswer = () => ({ angewendet: false });
 
     const tagged = eventFor("email.delivered", { tags: { ziel: "schiedsrichter", ziel_id: ZIEL_ID, anlass: "eingang" } });
 
@@ -697,7 +697,7 @@ describe("POST /api/mail/zustellung", () => {
   });
 
   it("answers 200 where the backend applied the event to no seat", async () => {
-    zustellungAnswer = () => ({ acknowledged: 1, angewendet: [] });
+    zustellungAnswer = () => ({ angewendet: [] });
 
     const { status, body } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
 

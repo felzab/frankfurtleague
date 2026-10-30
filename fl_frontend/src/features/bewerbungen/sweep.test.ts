@@ -42,7 +42,6 @@ let adresswechselAnswer: (nach: string | null) => unknown = () => entfernt(0, 0)
 
 /** One call of the lapsed addresses' half: how many went, took effect or were refused, how many are still due, and where the pass goes on. */
 const entfernt = (anzahl: number, verbleibend: number, nach: string | null = null, wirksam = 0, verworfen = 0) => ({
-  acknowledged: 1,
   entfernt: anzahl,
   verbleibend: verbleibend,
   nach: nach,
@@ -51,7 +50,7 @@ const entfernt = (anzahl: number, verbleibend: number, nach: string | null = nul
 });
 
 /** The grants' claim with nothing to announce. */
-const NOTHING_CLAIMED = { acknowledged: 1, beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
+const NOTHING_CLAIMED = { beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
 
 const POSTAUSGANG = "/adresswechsel/sweep/postausgang";
 const ZUGESTELLT = "/adresswechsel/sweep/postausgang/zugestellt";
@@ -74,28 +73,28 @@ const stamps: unknown[] = [];
 const outboxAnswer = (endpoint: string, body: string | undefined) => {
   if (endpoint === ZUGESTELLT) {
     stamps.push(JSON.parse(String(body)));
-    return { acknowledged: 1, zugestellt: 1, ignoriert: 0 };
+    return { zugestellt: 1, ignoriert: 0 };
   }
   const mitteilungen = owed;
   owed = [];
-  return { acknowledged: 1, beanspruchung: mitteilungen.length > 0 ? "claim-1" : null, beansprucht_bis: null, mitteilungen: mitteilungen };
+  return { beanspruchung: mitteilungen.length > 0 ? "claim-1" : null, beansprucht_bis: null, mitteilungen: mitteilungen };
 };
 
 // Replaced at the module boundary rather than the sweep being reshaped to admit a seam: the real
 // client reaches a backend no test process runs, and the real transport posts on a key none holds.
 doubleApiClient(({ endpoint, method, params, body }, schema) => {
+  // A hand-written caller's answer passes through its schema; a generated call hands none.
+  const answered = (value: unknown) => (schema === undefined ? value : schema.parse(value));
   // The grants' pass is armed by the same boot and answers to its own suite
   // (`fl_frontend/src/features/berechtigungen/abgleich.test.ts`): here it claims nothing and is not recorded.
-  if (endpoint.startsWith("/berechtigungen")) return schema.parse(NOTHING_CLAIMED);
+  if (endpoint.startsWith("/berechtigungen")) return answered(NOTHING_CLAIMED);
   // The address changes' outbox, drained after every pass: answered apart, so the halves' calls stay the cases' own.
-  if (endpoint === POSTAUSGANG || endpoint === ZUGESTELLT) return schema.parse(outboxAnswer(endpoint, body));
+  if (endpoint === POSTAUSGANG || endpoint === ZUGESTELLT) return answered(outboxAnswer(endpoint, body));
   // Into the one ordered list the mail double appends to, so a read and a send stay in the order they ran.
   const call: ApiEvent = { kind: "api", endpoint, method: method ?? "GET", params: params as ApiEvent["params"], body };
   events.push(call);
-  // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift
-  // from the shape the caller is written against.
-  if (endpoint === ADRESSWECHSEL) return schema.parse(adresswechselAnswer(call.params?.nach ?? null));
-  return schema.parse(apiAnswer(call));
+  if (endpoint === ADRESSWECHSEL) return answered(adresswechselAnswer(call.params?.nach ?? null));
+  return answered(apiAnswer(call));
 });
 
 const mail = doubleSendMail();
@@ -146,7 +145,6 @@ vi.doMock("@/core/authIndexes.ts", () => INDEXES_DOUBLE);
 
 const { register } = await import("../../instrumentation.ts");
 const { runBewerbungSweep } = await import("./sweep.ts");
-const { FLBewerbungSweepLoeschungSchema } = await import("./schemas.ts");
 
 /** One hour and one minute, as the arming spells them. */
 const HOUR_MS = 60 * 60 * 1000;
@@ -192,16 +190,14 @@ function sweepAnswers({
   answerWith((call) => {
     const saisonId = saisonOf(call);
     if (call.method === "GET") {
-      return { acknowledged: 1, saison_ids: saisonIds, sweep_gelaufen_am: null, registrierung_sweep_gelaufen_am: null };
+      return { saison_ids: saisonIds };
     }
-    if (call.endpoint === "/bewerbungen/zustellung/angenommen") return { acknowledged: 1, angewendet: ["ansprechperson"] };
-    if (call.endpoint === "/zustellung/angenommen") return { acknowledged: 1, angewendet: true };
-    if (call.endpoint.endsWith("/angekuendigt")) return { acknowledged: 1, saison_id: saisonId, angekuendigt: 1, fehlgeschlagen: 0 };
-    if (call.endpoint.endsWith("/loeschen"))
-      return { acknowledged: 1, saison_id: saisonId, geloescht: 1, redigierte_aktionen: 1, fehlgeschlagen: 0 };
+    if (call.endpoint === "/bewerbungen/zustellung/angenommen") return { angewendet: ["ansprechperson"] };
+    if (call.endpoint === "/zustellung/angenommen") return { angewendet: true };
+    if (call.endpoint.endsWith("/angekuendigt")) return { saison_id: saisonId, angekuendigt: 1, fehlgeschlagen: 0 };
+    if (call.endpoint.endsWith("/loeschen")) return { saison_id: saisonId, geloescht: 1, redigierte_aktionen: 1, fehlgeschlagen: 0 };
     if (call.endpoint.startsWith("/registrierungen/sweep/")) {
       return {
-        acknowledged: 1,
         saison_id: saisonId,
         erinnerungen: registrierungErinnerungen[saisonId] ?? [],
         benachrichtigt: [],
@@ -214,7 +210,6 @@ function sweepAnswers({
     }
 
     return {
-      acknowledged: 1,
       saison_id: saisonId,
       erinnerungen: erinnerungen[saisonId] ?? [],
       loeschungen: loeschungen[saisonId] ?? [],
@@ -546,11 +541,6 @@ describe("one pass of the sweep", () => {
      `fl_backend/app/api/bewerbungen/services.py :: announcement_is_undeliverable` drops a refused
      Ansprechperson out of `:: deletion_is_due`, so no held application is listed here. */
   it("mails every candidate the listing hands it, reading no delivery state to withhold one on", async () => {
-    assert.ok(
-      !Object.keys(FLBewerbungSweepLoeschungSchema.shape).some((feld) => feld.includes("zustellung")),
-      "the listing's row carries a delivery state again, which is the backend's judgement arriving where it can be redone",
-    );
-
     sweepAnswers({
       saisonIds: ["2627"],
       loeschungen: { "2627": [deletion(ID_REACHED, "erika@schule.de"), deletion(ID_SILENT, "stumm@schule.de")] },
@@ -595,12 +585,11 @@ describe("one pass of the sweep", () => {
   it("carries on to the next season when one throws", async () => {
     answerWith((call) => {
       if (call.method === "GET") {
-        return { acknowledged: 1, saison_ids: ["2526", "2627"], sweep_gelaufen_am: null, registrierung_sweep_gelaufen_am: null };
+        return { saison_ids: ["2526", "2627"] };
       }
       if (saisonOf(call) === "2526") throw new Error("the backend refused this season");
       if (call.endpoint.startsWith("/registrierungen/sweep/")) {
         return {
-          acknowledged: 1,
           saison_id: saisonOf(call),
           erinnerungen: [],
           benachrichtigt: [],
@@ -612,7 +601,6 @@ describe("one pass of the sweep", () => {
         };
       }
       return {
-        acknowledged: 1,
         saison_id: saisonOf(call),
         erinnerungen: [],
         loeschungen: [],
@@ -705,7 +693,7 @@ describe("the registration half of one pass", () => {
     expect(registrierungPasses().map(saisonOf)).toStrictEqual(["2526", "2627"]);
   });
 
-  it("runs after the application's own pass, whose call stamps the day", async () => {
+  it("runs after the application's own pass", async () => {
     sweepAnswers({ saisonIds: ["2627"] });
 
     await runBewerbungSweep();
@@ -741,56 +729,16 @@ describe("the registration half of one pass", () => {
     expect(chase?.tags).toStrictEqual({ ziel: "registrierung", ziel_id: ID_PUPIL, anlass: "erinnerung" });
   });
 
-  /* `docs/ops/runbooks.md` section 9 reads one call for both dates: a fresh one beside a stale one
-     is what says WHICH timer stopped, and it only says that while the two are stamped apart. */
-  it("leaves the application's day stamped when the registration half throws", async () => {
-    const stamped: Record<string, string | null> = { bewerbung: null, registrierung: null };
-
-    answerWith((call) => {
-      if (call.method === "GET") {
-        return {
-          acknowledged: 1,
-          saison_ids: ["2627"],
-          sweep_gelaufen_am: stamped.bewerbung,
-          registrierung_sweep_gelaufen_am: stamped.registrierung,
-        };
-      }
-      if (call.endpoint.startsWith("/registrierungen/sweep/")) throw new Error("the registration sweep refused this season");
-
-      // The application's own endpoint stamps the day, which is why its call goes first.
-      stamped.bewerbung = "2026-09-21";
-
-      return {
-        acknowledged: 1,
-        saison_id: saisonOf(call),
-        erinnerungen: [],
-        loeschungen: [],
-        abgelehnte_geloescht: 0,
-        angenommene_geloescht: 0,
-        ohne_entscheidung_geloescht: 0,
-        kontaktbloecke_geleert: 0,
-        redigierte_aktionen: 0,
-        fehlgeschlagen: 0,
-      };
-    });
-
-    await runBewerbungSweep();
-
-    expect(stamped.bewerbung, "the application's pass was abandoned with the registration's").toBe("2026-09-21");
-    expect(stamped.registrierung).toBe(null);
-  });
-
   /* The half that starved the other: a throw anywhere in the application's clocks skips no
      registration now, and the rows it does not reach hold a minor's name, address and birthdate. */
   it("runs for a season whose application half threw", async () => {
     answerWith((call) => {
       if (call.method === "GET") {
-        return { acknowledged: 1, saison_ids: ["2627"], sweep_gelaufen_am: null, registrierung_sweep_gelaufen_am: null };
+        return { saison_ids: ["2627"] };
       }
       if (call.endpoint.startsWith("/bewerbungen/sweep/")) throw new Error("the application sweep refused this season");
 
       return {
-        acknowledged: 1,
         saison_id: saisonOf(call),
         erinnerungen: [],
         benachrichtigt: [],
@@ -810,13 +758,12 @@ describe("the registration half of one pass", () => {
   it("files a failure line naming the half that stopped", async () => {
     answerWith((call) => {
       if (call.method === "GET") {
-        return { acknowledged: 1, saison_ids: ["2526", "2627"], sweep_gelaufen_am: null, registrierung_sweep_gelaufen_am: null };
+        return { saison_ids: ["2526", "2627"] };
       }
       if (call.endpoint === "/bewerbungen/sweep/2526") throw new Error("the application sweep refused this season");
       if (call.endpoint === "/registrierungen/sweep/2627") throw new Error("the registration sweep refused this season");
       if (call.endpoint.startsWith("/registrierungen/sweep/")) {
         return {
-          acknowledged: 1,
           saison_id: saisonOf(call),
           erinnerungen: [],
           benachrichtigt: [],
@@ -829,7 +776,6 @@ describe("the registration half of one pass", () => {
       }
 
       return {
-        acknowledged: 1,
         saison_id: saisonOf(call),
         erinnerungen: [],
         loeschungen: [],
@@ -853,12 +799,11 @@ describe("the registration half of one pass", () => {
   it("carries on to the next season when one season's registration half throws", async () => {
     answerWith((call) => {
       if (call.method === "GET") {
-        return { acknowledged: 1, saison_ids: ["2526", "2627"], sweep_gelaufen_am: null, registrierung_sweep_gelaufen_am: null };
+        return { saison_ids: ["2526", "2627"] };
       }
       if (call.endpoint === "/registrierungen/sweep/2526") throw new Error("the registration sweep refused this season");
       if (call.endpoint.startsWith("/registrierungen/sweep/")) {
         return {
-          acknowledged: 1,
           saison_id: saisonOf(call),
           erinnerungen: [],
           benachrichtigt: [],
@@ -871,7 +816,6 @@ describe("the registration half of one pass", () => {
       }
 
       return {
-        acknowledged: 1,
         saison_id: saisonOf(call),
         erinnerungen: [],
         loeschungen: [],
@@ -902,16 +846,15 @@ describe("the line each season half files for a pass", () => {
     answerWith((call) => {
       const saisonId = saisonOf(call);
       if (call.method === "GET") {
-        return { acknowledged: 1, saison_ids: ["2526", "2627"], sweep_gelaufen_am: null, registrierung_sweep_gelaufen_am: null };
+        return { saison_ids: ["2526", "2627"] };
       }
-      if (call.endpoint === "/bewerbungen/zustellung/angenommen") return { acknowledged: 1, angewendet: ["ansprechperson"] };
+      if (call.endpoint === "/bewerbungen/zustellung/angenommen") return { angewendet: ["ansprechperson"] };
       if (call.endpoint.endsWith("/angekuendigt")) return angekuendigtAnswer(saisonId);
       if (call.endpoint.endsWith("/loeschen")) {
-        return { acknowledged: 1, saison_id: saisonId, geloescht: 1, redigierte_aktionen: 1, fehlgeschlagen: 4 };
+        return { saison_id: saisonId, geloescht: 1, redigierte_aktionen: 1, fehlgeschlagen: 4 };
       }
       if (call.endpoint.startsWith("/registrierungen/sweep/")) {
         return {
-          acknowledged: 1,
           saison_id: saisonId,
           erinnerungen: [],
           benachrichtigt: [],
@@ -924,7 +867,6 @@ describe("the line each season half files for a pass", () => {
       }
 
       return {
-        acknowledged: 1,
         saison_id: saisonId,
         erinnerungen: [],
         loeschungen: saisonId === "2526" ? [deletion(ID_REACHED, "reached@schule.de")] : [],
@@ -949,10 +891,10 @@ describe("the line each season half files for a pass", () => {
     ]);
   });
 
-  /* A clock failing on every row still answers 200 and stamps the day, so a fresh date cannot tell it from a healthy
-     one: this warning is the one line that can (`docs/ops/runbooks.md` section 9). */
+  /* A clock failing on every row still answers 200, so this warning is the one line that tells it from a healthy
+     one. */
   it("warns the rows each half passed over, summed over every season and call", async () => {
-    passingRowsOver((saisonId) => ({ acknowledged: 1, saison_id: saisonId, angekuendigt: 1, fehlgeschlagen: 2 }));
+    passingRowsOver((saisonId) => ({ saison_id: saisonId, angekuendigt: 1, fehlgeschlagen: 2 }));
 
     await runBewerbungSweep();
 

@@ -21,7 +21,7 @@ import {
   registrierungPayload,
 } from "./utils.ts";
 
-import type { FLEinladungAnsichtResponse } from "./schemas.ts";
+import type { FLEinladungAnsichtResponse } from "@/core/generated/client/types.ts";
 import type { RegistrierungFormDraft } from "./types.ts";
 import type { GelesenerLink } from "./utils.ts";
 

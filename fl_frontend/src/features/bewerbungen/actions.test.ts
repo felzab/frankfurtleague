@@ -16,8 +16,9 @@ import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/ba
 import { mapAlreadyEnteredRefusal, mapCreatedClubEntryRefusal, mapEntryRefusal, mapReplacementRefusal } from "../teams/refusals.ts";
 import { ADRESSE_KORRIGIEREN, BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
-import { FLAblehnenBewerbungPayloadSchema, FLBewerbungSchema } from "./schemas.ts";
+import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
 
+import type { FLBewerbung } from "@/core/generated/client/types.ts";
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 import type { TeamSaisonMembership } from "../teams/types.ts";
 
@@ -71,9 +72,9 @@ vi.doMock("@/core/logging.ts", () => LOGGER_DOUBLE);
 /** Whether `call` is the delivery report a sent message files, after the write the case is about. */
 const reportsDelivery = ({ endpoint }: ApiCall): boolean => endpoint.startsWith("/bewerbungen/zustellung");
 /** The report's answer as the endpoint sends it: every seat the message named, applied. */
-const deliveryApplied = ({ body }: ApiCall) => ({ acknowledged: 1, angewendet: (JSON.parse(body ?? "{}") as { rollen: string[] }).rollen });
+const deliveryApplied = ({ body }: ApiCall) => ({ angewendet: (JSON.parse(body ?? "{}") as { rollen: string[] }).rollen });
 
-const client = doubleApiAnswers((call) => Promise.resolve(reportsDelivery(call) ? deliveryApplied(call) : { acknowledged: 1 }));
+const client = doubleApiAnswers((call) => Promise.resolve(reportsDelivery(call) ? deliveryApplied(call) : {}));
 const writes = client.calls;
 /** Answers the write a case presses with `next`, the delivery report after it as the endpoint does. */
 const answerWith = (next: () => Promise<unknown>): void =>
@@ -237,9 +238,9 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
 
 /**
  * The application a decision's write answers with: a proposed school, one seat holding a mailbox.
- * Parsed at construction, so a field the read model gains fails here rather than in the answer.
+ * Typed as the read model, so a field the read model gains fails here rather than in the answer.
  */
-const ENTSCHIEDEN = FLBewerbungSchema.parse({
+const ENTSCHIEDEN: FLBewerbung = {
   id: BEWERBUNG_ID,
   saison_id: "2026",
   eingereicht_am: "2026-09-01",
@@ -276,7 +277,7 @@ const ENTSCHIEDEN = FLBewerbungSchema.parse({
     stellvertretung: null,
   },
   bestaetigungsfrist: "2026-09-15",
-});
+};
 
 /** Both decisions, each pressed as its panel presses it and answered, where it lands, with `document`. */
 const DECISIONS = [
@@ -285,7 +286,6 @@ const DECISIONS = [
     betreff: "Zusage",
     operation: ANNEHMEN_OPERATION,
     landed: (document: object) => ({
-      acknowledged: 1,
       saison_id: "2026",
       gruppe: "A",
       trikot_farbe: null,
@@ -299,7 +299,7 @@ const DECISIONS = [
     where: "the decline",
     betreff: "Absage",
     operation: ABLEHNEN_OPERATION,
-    landed: (document: object) => ({ acknowledged: 1, updated_document: document }),
+    landed: (document: object) => ({ updated_document: document }),
     press: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, grund: "Die Liga ist voll." }),
   },
 ] as const;
@@ -348,7 +348,6 @@ async function unsendableAnswers(): Promise<Record<"weg" | "leer" | "ohneAdresse
 
 /** What the re-send's write answers where it lands, minting `token-neu` for the seat and mailbox it matched. */
 const erneutGeschrieben = (overrides: object = {}) => ({
-  acknowledged: 1,
   token: "token-neu",
   rolle: "ansprechperson",
   email: PERSON.email,
@@ -359,7 +358,6 @@ const erneutGeschrieben = (overrides: object = {}) => ({
 
 /** What the correction's write answers where it lands. */
 const korrigiert = () => ({
-  acknowledged: 1,
   email: KORREKTUR.email,
   rollen: ["ansprechperson"],
   token: "token-korrektur",
@@ -369,7 +367,6 @@ const korrigiert = () => ({
 
 /** What the reseat's write answers where it lands, for the seats it filled and the address as it stored it. */
 const besetzt = (rollen: readonly string[] = ["ansprechperson"]) => ({
-  acknowledged: 1,
   email: SITZ.email,
   rollen: rollen,
   token: "token-sitz",
@@ -798,7 +795,6 @@ describe("the re-sent confirmation link", () => {
     readWith(() => Promise.resolve({ bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: frist } }));
     answerWith(() =>
       Promise.resolve({
-        acknowledged: 1,
         token: "token-neu",
         rolle: "ansprechperson",
         email: PERSON.email,
@@ -990,11 +986,8 @@ describe("the re-sent confirmation link", () => {
     results.push(await einwilligungErneutSendenAction(ERNEUT));
 
     for (const [press, answer] of [
-      [
-        () => kontaktEmailKorrigierenAction(KORREKTUR),
-        { acknowledged: 1, token, email: KORREKTUR.email, rollen: ["ansprechperson"], abgang_email: null },
-      ],
-      [() => besetzeKontaktSitzAction(SITZ), { acknowledged: 1, token, email: SITZ.email, rollen: ["ansprechperson"] }],
+      [() => kontaktEmailKorrigierenAction(KORREKTUR), { token, email: KORREKTUR.email, rollen: ["ansprechperson"], abgang_email: null }],
+      [() => besetzeKontaktSitzAction(SITZ), { token, email: SITZ.email, rollen: ["ansprechperson"] }],
     ] as const) {
       writes.length = 0;
       answerWith(() => Promise.resolve({ ...answer, bestaetigungsfrist: "2026-09-18" }));

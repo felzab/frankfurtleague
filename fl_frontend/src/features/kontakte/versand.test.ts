@@ -33,7 +33,7 @@ function answerFor({ endpoint, body }: ApiCall): unknown {
   if (endpoint === "/einwilligung/seiten") return einwilligungAnswer(endpoint);
   if (endpoint.startsWith("/zustellung/")) {
     zustellung.push(JSON.parse(body ?? "{}") as Record<string, unknown>);
-    return { acknowledged: 1, angewendet: true };
+    return { angewendet: true };
   }
   if (endpoint === "/teams/memberships") return memberships();
   return endpoint.endsWith("/bestaetigung/einladen") ? resend() : save();
@@ -98,7 +98,6 @@ const minted = (vorname: string, email: string, rollen: string[], token = `token
 
 /** The save's answer: the block as stored and the links it minted. */
 const saved = (bestaetigungen: unknown[]) => ({
-  acknowledged: 1,
   saison_id: "2627",
   team_id: TEAM_ID,
   saison_team_id: SAISON_TEAM_ID,
@@ -110,7 +109,6 @@ const saved = (bestaetigungen: unknown[]) => ({
 
 /** The club's membership read, holding `kontakte` for the season the payload names. */
 const holding = (kontakte: unknown) => () => ({
-  acknowledged: 1,
   teams: [
     {
       id: TEAM_ID,
@@ -135,7 +133,6 @@ beforeEach(() => {
   zustellung.length = 0;
   save = () => saved([]);
   resend = () => ({
-    acknowledged: 1,
     saison_id: "2627",
     team_id: TEAM_ID,
     saison_team_id: SAISON_TEAM_ID,

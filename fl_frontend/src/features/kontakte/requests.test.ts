@@ -25,7 +25,6 @@ const CLEARED: FLPatchSaisonTeamKontaktePayload = { team_id: TEAM_ID, saison_id:
 
 beforeEach(() => {
   blockAnswer = {
-    acknowledged: 1,
     saison_id: SAISON_ID,
     team_id: TEAM_ID,
     saison_team_id: "c".repeat(24),
