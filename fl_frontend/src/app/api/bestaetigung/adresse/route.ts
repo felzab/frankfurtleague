@@ -1,14 +1,13 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
-import { afterTheResponse } from "@/core/afterResponse";
+import { afterTheResponse, drainSoon } from "@/core/afterResponse";
 import { kontoAnNeuerAdresse } from "@/features/adresswechsel/konto";
 import { ansichtOf } from "@/features/adresswechsel/link";
 import { postAdresswechselAnsicht, postAdresswechselAntwort, postAdresswechselStopp } from "@/features/adresswechsel/mutations";
-import { runAdresswechselPostausgang } from "@/features/adresswechsel/postausgang";
 import { mapAdresswechselPresseRefusal } from "@/features/adresswechsel/refusals";
 import { FLAdresswechselAntwortPayloadSchema, FLAdresswechselStoppPayloadSchema } from "@/features/adresswechsel/schemas";
-import { runBerechtigungenAbgleich } from "@/features/berechtigungen/abgleich";
+import { runAdresswechselUmzuege } from "@/features/adresswechsel/umzug";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { handlePublicRequest, readAfterAnsweredWrite } from "@/shared/utils/publicRoute";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
@@ -62,12 +61,11 @@ export async function POST(request: NextRequest) {
         return { success: false as const, ansicht: ansicht };
       }
 
-      // The effect queued its notice and its account's carry in its own transaction: delivered behind the response, and
-      // by the hourly pass where this drain never runs. No address reaches this handler.
+      // The effect owed its notices and its account's carry in its own transaction: each behind the response, and by the
+      // hourly pass where this one never runs. No address reaches this handler.
       if (antwort.wirksam) {
-        afterTheResponse(runAdresswechselPostausgang);
-        // A grant the effect moved is announced now, as the approval announces one, not at the next five-minute pass.
-        afterTheResponse(runBerechtigungenAbgleich);
+        drainSoon();
+        afterTheResponse(runAdresswechselUmzuege);
       }
 
       return gedrueckt(antwort.antwort, {

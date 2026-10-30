@@ -5,13 +5,10 @@ import {
   berechtigungenPostAntragGenehmigung,
   berechtigungenPostBerechtigung,
   berechtigungenPostBerechtigungenAbgleich,
-  berechtigungenPostBerechtigungenAngekuendigt,
 } from "@/core/generated/client/sdk";
 
 import type {
   FLBerechtigungAbgleichResponse,
-  FLBerechtigungAngekuendigtPayload,
-  FLBerechtigungAngekuendigtResponse,
   FLBerechtigungAntragAbgelehntResponse,
   FLBerechtigungStufeResponse,
   FLBerechtigungWriteResponse,
@@ -42,14 +39,7 @@ export async function deleteAntrag({ id }: FLBerechtigungAntragKeyPayload): Prom
   return berechtigungenDeleteAntrag(id);
 }
 
-/**
- * The pass's claim, system tier: it writes, turning a change made in the database directly into an
- * outbox row and claiming the rows no live claim holds, so it is never marked `readOnly`.
- */
+/** The comparison, system tier: it writes, owing a notice of every change made in the database directly. */
 export async function postBerechtigungenAbgleich(): Promise<FLBerechtigungAbgleichResponse> {
   return berechtigungenPostBerechtigungenAbgleich();
-}
-
-export async function postBerechtigungenAngekuendigt(payload: FLBerechtigungAngekuendigtPayload): Promise<FLBerechtigungAngekuendigtResponse> {
-  return berechtigungenPostBerechtigungenAngekuendigt(payload);
 }

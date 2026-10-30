@@ -1,8 +1,7 @@
 "use server";
 
-import { afterTheResponse } from "@/core/afterResponse";
+import { afterTheResponse, drainSoon } from "@/core/afterResponse";
 import { accountStandsAt } from "@/core/auth";
-import { runBerechtigungenAbgleich } from "@/features/berechtigungen/abgleich";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -15,8 +14,7 @@ import {
   postAdresswechselVerwaltungAnsicht,
   verwirfAdresswechsel,
 } from "./mutations";
-import { describeAdresswechselMail, mailAdresswechsel } from "./notifications";
-import { runAdresswechselPostausgang } from "./postausgang";
+import { describeAdresswechselMail } from "./notifications";
 import {
   KONTO_BELEGT_ERNEUT,
   KONTO_BELEGT_START,
@@ -33,6 +31,7 @@ import {
   FLAdresswechselVerwaltungPayloadSchema,
   FLAdresswechselVerwerfenPayloadSchema,
 } from "./schemas";
+import { runAdresswechselUmzuege } from "./umzug";
 
 import type {
   FLAdresswechselVerwaltungAnsichtPayload,
@@ -40,12 +39,11 @@ import type {
   FLAdresswechselVerwaltungPayload,
 } from "@/core/generated/client/types";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
-import type { HinweisVersand, LinkVersand } from "@/shared/utils/linkVersand";
 import type { EinsehbarVerwehrt } from "./einsehbar";
 import type { FLAdresswechselEinladenPayload, FLAdresswechselGenehmigungPayload, FLAdresswechselVerwerfenPayload } from "./schemas";
 
-/** What the tool's two link writes answer: each message's outcome. */
-export type AdresswechselGesendet = ActionResult<{ versand: LinkVersand | null; hinweis: HinweisVersand | null }>;
+/** What the tool's two link writes answer: whether a link to the new mailbox is owed, the address on file asked first otherwise. */
+export type AdresswechselGesendet = ActionResult<{ link: boolean }>;
 
 /** What the address holds and the change pending at it, read when the administrator asks: a person's records are never browsed. */
 export async function readAdresswechselAnsichtAction(
@@ -88,18 +86,15 @@ export async function beantrageAdresswechselAction(rawPayload: FLAdresswechselVe
       throw error;
     }
 
-    const versand = await mailAdresswechsel({ operation: "beantrageAdresswechselAction", mint: mint, anlass: "empfang" });
-    // The approvers are told through the grants' outbox the start queued, drained behind
-    // the answer as an approval is: mailing them here too would tell each twice.
-    if (mint.genehmiger_anzahl > 0) afterTheResponse(runBerechtigungenAbgleich);
+    // The start owed both mails in its own transaction.
+    drainSoon();
 
     return {
       success: true,
-      // The address the mint names, never the one typed: a rival request landing between the two
-      // replaced the mailbox the credential was made for.
-      message: describeAdresswechselMail(mint, versand),
-      versand: versand.link,
-      hinweis: versand.hinweis,
+      // The address the start names, never the one typed: a rival request landing between the two
+      // replaced the mailbox the link is owed.
+      message: describeAdresswechselMail(mint),
+      link: mint.weg !== "freigabe",
     };
   });
 }
@@ -126,15 +121,13 @@ export async function einladeAdresswechselAction(rawPayload: FLAdresswechselEinl
       throw error;
     }
 
-    const versand = await mailAdresswechsel({ operation: "einladeAdresswechselAction", mint: mint, anlass: "erneut" });
+    drainSoon();
 
     return {
       success: true,
-      // Said whichever way the send went: the previous link is dead either way, which is the fact an
-      // administrator has to act on when the message did not leave.
-      message: `${describeAdresswechselMail(mint, versand)} Der vorherige Link gilt nicht mehr.`,
-      versand: versand.link,
-      hinweis: versand.hinweis,
+      // The previous link dies as the fresh one is handed out, which is the fact an administrator acts on.
+      message: `${describeAdresswechselMail(mint)} Der vorherige Link gilt nicht mehr.`,
+      link: true,
     };
   });
 }
@@ -194,10 +187,10 @@ export async function genehmigeAdresswechselAction(
     }
 
     if (antwort.wirksam) {
-      // Behind the response, as a grant written on the administrators page is announced; the completion notice and the
-      // account's carry wait in the outbox the effect wrote, which the hourly pass drains where this one never runs.
-      afterTheResponse(runBerechtigungenAbgleich);
-      afterTheResponse(runAdresswechselPostausgang);
+      // The effect owed the grant's notices and the completion notice, and its account's carry on the change: each behind
+      // the response, and by the hourly pass where this one never runs.
+      drainSoon();
+      afterTheResponse(runAdresswechselUmzuege);
       return { success: true, message: "Die neue Adresse gilt jetzt, und der Zugang zur Verwaltung ist mit ihr gewechselt." };
     }
 

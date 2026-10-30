@@ -29,10 +29,10 @@ import { appToast } from "@/shared/utils/appToast";
 
 import { AdminSperreAnsichtList } from "../collections/AdminSperreAnsichtList";
 
-import type { FLPostSperrlistePayload } from "@/core/generated/client/types";
 import type { SperreAnsicht } from "@/features/sperrliste/actions";
+import type { SperreEntwurf } from "@/features/sperrliste/schemas";
 
-const EMPTY_DRAFT: FLPostSperrlistePayload = { email: "", grund: "" };
+const EMPTY_DRAFT: SperreEntwurf = { email: "", grund: "" };
 
 /** What the arming read left the reveal holding, carried WITH the address it was read for, which is the one the ban sends. */
 type Gelesen = { adresse: string } & (
@@ -64,7 +64,7 @@ function AnsichtBody({ gelesen }: { gelesen: Gelesen | null }) {
  */
 export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
   const router = useRouter();
-  const [draft, setDraft] = useState<FLPostSperrlistePayload>(EMPTY_DRAFT);
+  const [draft, setDraft] = useState<SperreEntwurf>(EMPTY_DRAFT);
   const [gelesen, setGelesen] = useState<Gelesen | null>(null);
   // Only the latest arming's read answers, and only while the address box is unedited since: Next sends one client's
   // actions one at a time, so an earlier arming's answer lands while the latest waits.
@@ -80,7 +80,7 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
   // Retracts a message the moment the value it judged becomes valid, as every create form does.
   useForgiveFixed({ sperre: draft });
 
-  const lesen = async (gelesenFuer: FLPostSperrlistePayload) => {
+  const lesen = async (gelesenFuer: SperreEntwurf) => {
     const lesung = ++letzteLesung.current;
     setGelesen({ adresse: gelesenFuer.email, status: "reading" });
 

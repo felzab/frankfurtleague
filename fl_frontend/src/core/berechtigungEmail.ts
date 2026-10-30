@@ -6,6 +6,8 @@ import { formatZeitpunkt } from "./format";
 import { OFFENE_ANTRAEGE } from "./seitenNamen";
 
 import type { Lauf, Mail } from "./emailShell";
+import type { FLBerechtigungDaten, FLBerechtigungStand } from "./generated/client/types";
+import type { MailOrt } from "./mailKinds";
 
 const BETREFF = "Änderung beim Zugang zur Verwaltung";
 const ZIEL_LABEL = "Zur Verwaltung";
@@ -40,10 +42,10 @@ const ANTRAG: Readonly<Record<"zugang" | "ernennung", { betreff: string; aufgabe
 };
 
 /** Why a grant's address is withheld, the notice naming neither a barred address nor an erased person's. */
-export type Vorenthalten = { readonly vorenthalten: "gesperrt" | "geloescht" };
+type Vorenthalten = { readonly vorenthalten: "gesperrt" | "geloescht" };
 
 /** One change as the notice states it. */
-export type Zugangsaenderung = {
+type Zugangsaenderung = {
   // `beantragt`: a grant or a promotion asked for, sent to whoever could approve it.
   readonly art: "erteilt" | "geaendert" | "entzogen" | "beantragt";
   readonly adresse: string | Vorenthalten;
@@ -55,7 +57,7 @@ export type Zugangsaenderung = {
  * Who made the change and when, or `null` where it was made in the database directly. `von` is null for an
  * administrator since barred, and `ERASED_ACTOR_MARKER` for one erased since, neither of whom the notice names.
  */
-export type Urheber = { readonly von: string | null; readonly am: string | null } | null;
+type Urheber = { readonly von: string | null; readonly am: string | null } | null;
 
 /** A withheld grant address, in the subject's place. An erased person's is named by nothing, not even that state. */
 const OHNE_ADRESSE: Readonly<Record<Vorenthalten["vorenthalten"], string>> = {
@@ -112,11 +114,32 @@ function urheberSatz(urheber: Urheber, verb: string): string {
   return urheber.am === null ? `${verb} von ${von}.` : `${verb} von ${von} am ${formatZeitpunkt(urheber.am)}.`;
 }
 
+/** A grant's address as the notice names it, or why it is withheld: a barred one, or an erased person's. */
+function adresseOf(daten: FLBerechtigungDaten, stand: FLBerechtigungStand | null): string | Vorenthalten {
+  return stand?.adresse ?? { vorenthalten: daten.vorenthalten ?? "gesperrt" };
+}
+
 /**
- * **The body depends on the change alone**, never on when it is sent or to whom: a repeat under one key
- * must compose the same message for the provider to collapse it.
+ * A change as the notice words it. An address repointed under one id reaches here as two changes, its
+ * removal and the new address's grant, so a `geaendert` is a change of tier alone.
  */
-export function buildBerechtigungEmail(aenderung: Zugangsaenderung, urheber: Urheber, rawOrigin: string): Mail {
+function zugangsaenderungOf(daten: FLBerechtigungDaten): Zugangsaenderung {
+  const stand = daten.aenderung === "entzogen" ? daten.vorher : daten.jetzt;
+
+  return { art: daten.aenderung, adresse: adresseOf(daten, stand), inhaber: stand?.verwaltung === "owner" };
+}
+
+/** Read off `urheber`, never off a null actor: an application's change whose actor is withheld is a barred one's. */
+function urheberOf(daten: FLBerechtigungDaten): Urheber {
+  if (daten.urheber === "datenbank") return null;
+
+  return { von: daten.geaendert_von, am: daten.geaendert_am };
+}
+
+/** **The body depends on the change alone**, never on when it is sent or to whom: every holder is owed the same notice. */
+export function buildBerechtigungEmail(daten: FLBerechtigungDaten, { origin: rawOrigin }: MailOrt): Mail {
+  const aenderung = zugangsaenderungOf(daten);
+  const urheber = urheberOf(daten);
   const origin = mailOrigin(rawOrigin);
   // A request is asked of its reader rather than told to them, so it is headed, signed and closed as one.
   const antrag = aenderung.art === "beantragt" ? ANTRAG[aenderung.inhaber ? "ernennung" : "zugang"] : null;

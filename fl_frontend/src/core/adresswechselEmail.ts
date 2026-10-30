@@ -7,7 +7,14 @@ import { BRAND_NAME, mailOrigin } from "./emailShell";
 import { formatZeitpunkt } from "./format";
 
 import type { Absatz, Mail } from "./emailShell";
-import type { FLAdresswechselWeg } from "./generated/client/types";
+import type {
+  FLAdresswechselHinweisDaten,
+  FLAdresswechselLinkDaten,
+  FLAdresswechselVerworfenDaten,
+  FLAdresswechselWeg,
+  FLAdresswechselWirksamDaten,
+} from "./generated/client/types";
+import type { MailLink, MailOrt } from "./mailKinds";
 
 /** The one address page, both links' and every record's, under the segment `robots.ts` already turns crawlers back from. */
 export const ADRESSWECHSEL_PFAD = "/bestaetigung/adresse";
@@ -20,22 +27,11 @@ function adresswechselLink(origin: string, token: string): string {
   return `${origin}${ADRESSWECHSEL_PFAD}?token=${encodeURIComponent(token)}`;
 }
 
-/** What the link to the new address is built from. */
-export interface AdresswechselLinkData {
-  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`. */
-  origin: string;
-  /** The raw token. It is a bearer credential and is never taken apart here. */
-  token: string;
-  weg: FLAdresswechselWeg;
-  /** The instant the link lapses, as the mint's own transaction set it. */
-  gueltigBis: string;
-}
-
 /**
  * The link to the new address, asking only whether the mailbox is theirs. It greets nobody: behind a
  * mistyped address its reader is a stranger. It names no record, the change moving every one.
  */
-export function buildAdresswechselEmail({ origin, token, weg, gueltigBis }: AdresswechselLinkData): Mail {
+export function buildAdresswechselEmail({ weg, gueltig_bis: gueltigBis }: FLAdresswechselLinkDaten, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
 
   return {
@@ -59,18 +55,6 @@ export function buildAdresswechselEmail({ origin, token, weg, gueltigBis }: Adre
     ],
     aktion: { label: "Adresse bestätigen", href: adresswechselLink(site, token) },
   };
-}
-
-/** What the notice to the address on file is built from. */
-export interface AdresswechselHinweisData {
-  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`. */
-  origin: string;
-  /** The raw stop token, a bearer credential like the link's. */
-  stoppToken: string;
-  weg: FLAdresswechselWeg;
-  /** The approval's deadline, which only `freigabe`'s notice states: the stop link outlives it. */
-  gueltigBis: string;
-  vorname: string;
 }
 
 /** Why the address on file is told, per way the change was started. */
@@ -102,7 +86,10 @@ function anlassAbsatz(weg: FLAdresswechselWeg, gueltigBis: string): Absatz {
  * The notice to the address on file, carrying its stop link. It names no new address: the change may be
  * somebody else's mistake or a pretext, and this mailbox is owed the word, never the other mailbox's name.
  */
-export function buildAdresswechselHinweisEmail({ origin, stoppToken, weg, gueltigBis, vorname }: AdresswechselHinweisData): Mail {
+export function buildAdresswechselHinweisEmail(
+  { weg, gueltig_bis: gueltigBis, vorname }: FLAdresswechselHinweisDaten,
+  { origin, token: stoppToken }: MailLink,
+): Mail {
   const site = mailOrigin(origin);
 
   return {
@@ -111,7 +98,7 @@ export function buildAdresswechselHinweisEmail({ origin, stoppToken, weg, guelti
     // subject telling them to approve would be its first instruction.
     betreff: "Deine E-Mail-Adresse soll sich ändern",
     origin: site,
-    vorname: vorname,
+    vorname: vorname ?? "",
     absaetze: [
       anlassAbsatz(weg, gueltigBis),
       ["Hast Du das nicht veranlasst? Dann stoppe die Änderung über diesen Link.", "Er gilt, bis die Änderung wirksam wird."],
@@ -126,12 +113,12 @@ export function buildAdresswechselHinweisEmail({ origin, stoppToken, weg, guelti
  * The completion notice: no control and no new address. The way to repudiate the change (NIST SP 800-63B-4,
  * read 2026-10-20: "clear instructions, including contact information") is the security kind's own last line.
  */
-export function buildAdresswechselWirksamEmail({ origin, vorname, zeitpunkt }: { origin: string; vorname: string; zeitpunkt: Date }): Mail {
+export function buildAdresswechselWirksamEmail({ vorname, zeitpunkt }: FLAdresswechselWirksamDaten, { origin }: MailOrt): Mail {
   return {
     art: "sicherheit",
     betreff: "Deine E-Mail-Adresse wurde geändert",
     origin: mailOrigin(origin),
-    vorname: vorname,
+    vorname: vorname ?? "",
     absaetze: [
       [
         ["Für Dein Konto bei der ", BRAND_NAME, " gilt seit ", { stark: formatZeitpunkt(zeitpunkt) }, " eine neue E-Mail-Adresse."],
@@ -146,7 +133,7 @@ export function buildAdresswechselWirksamEmail({ origin, vorname, zeitpunkt }: {
  * The new mailbox's notice that a confirmed change did not take effect at its time. No name, no reason:
  * a ban on this very address is among the reasons, and the holder of the address may be a stranger.
  */
-export function buildAdresswechselNichtWirksamEmail({ origin }: { origin: string }): Mail {
+export function buildAdresswechselNichtWirksamEmail(_daten: FLAdresswechselVerworfenDaten, { origin }: MailOrt): Mail {
   return {
     art: "sicherheit",
     betreff: "Deine E-Mail-Adresse wurde nicht geändert",

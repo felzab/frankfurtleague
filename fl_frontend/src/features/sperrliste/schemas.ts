@@ -30,6 +30,8 @@ export const FLPostSperrlistePayloadSchema = z.object({
     // person's erasure, so an address typed here survives everywhere the stored hash keeps one out.
     .refine((grund) => !ADRESSE_IM_GRUND_REGEX.test(grund), { error: "Der Grund darf keine E-Mail-Adresse enthalten." }),
 });
+/** What the dialog sends: the address and the reason, never whether it is told, which the server's own store answers. */
+export type SperreEntwurf = z.infer<typeof FLPostSperrlistePayloadSchema>;
 
 /** The removal's input: the ban the row names, which the call puts in its path. */
 export const FLSperrlisteKeyPayloadSchema = z.object({

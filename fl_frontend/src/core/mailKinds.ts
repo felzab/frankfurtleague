@@ -1,9 +1,17 @@
 import "server-only";
 
+import {
+  buildAdresswechselEmail,
+  buildAdresswechselHinweisEmail,
+  buildAdresswechselNichtWirksamEmail,
+  buildAdresswechselWirksamEmail,
+} from "./adresswechselEmail";
+import { buildBerechtigungEmail } from "./berechtigungEmail";
 import { buildEinladungEmail } from "./einladungEmail";
 import { ContractBreakError } from "./errors";
 import { buildRegistrierungAbsageEmail, buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail } from "./registrierungEmail";
 import { buildSchiedsrichterBestaetigungEmail } from "./schiedsrichterEmail";
+import { buildSperreEmail } from "./sperrlisteEmail";
 
 import type { Mail } from "./emailShell";
 import type { FLPostausgangAusgabe } from "./generated/client/types";
@@ -61,6 +69,13 @@ const MAIL_KINDS: { [A in PostausgangArt]?: MailBuilder<A> } = {
   registrierung_erinnerung: (daten, ausgabe) => buildRegistrierungErinnerungEmail(daten, gemintet(ausgabe)),
   registrierung_absage: (daten, ausgabe) => buildRegistrierungAbsageEmail(daten, ausgabe),
   einladung: (daten, ausgabe) => buildEinladungEmail(daten, gemintet(ausgabe)),
+  sperre: buildSperreEmail,
+  berechtigung: buildBerechtigungEmail,
+  adresswechsel_link: (daten, ausgabe) => buildAdresswechselEmail(daten, gemintet(ausgabe)),
+  // The stop link, minted into the change's `stopp.token_hashes`.
+  adresswechsel_hinweis: (daten, ausgabe) => buildAdresswechselHinweisEmail(daten, gemintet(ausgabe)),
+  adresswechsel_wirksam: buildAdresswechselWirksamEmail,
+  adresswechsel_verworfen: buildAdresswechselNichtWirksamEmail,
 };
 
 /**

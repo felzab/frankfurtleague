@@ -72,11 +72,7 @@ async function loescheKonto(adresse: string, zaehlung: Zaehlung): Promise<void> 
 }
 
 /** The step and the error's name, never the address: a failure on this path routinely carries it. */
-function logKontoFailure(
-  event: "konto.referenzen_failed" | "konto.delete_failed",
-  error: unknown,
-  anzahl?: number,
-): void {
+function logKontoFailure(event: "konto.referenzen_failed" | "konto.delete_failed", error: unknown, anzahl?: number): void {
   logger.error(event, undefined, {
     name: error instanceof Error ? error.name : undefined,
     ...requestOf(error),
