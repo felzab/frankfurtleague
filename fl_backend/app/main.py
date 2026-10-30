@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from http import HTTPStatus
-from typing import Any
+from typing import Any, Final
 
 from fastapi import APIRouter, FastAPI
 from fastapi.openapi.utils import get_openapi
@@ -57,7 +57,7 @@ from app.api.teams.public_router import router as teams_public_router
 from app.core.config import BackendConfig
 from app.core.db import lifespan
 from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, register_exception_handlers
-from app.core.logging import setup_logging
+from app.core.logging import fl_logger, setup_logging
 from app.core.middlewares import TracedApp
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
@@ -173,6 +173,11 @@ def mount_api(app: FastAPI) -> None:
     publish_document(app)
 
 
+# The exit a settings refusal ends the boot with, the code the frontend's boot refusal and
+# `scripts/lib/_lib.sh :: BACKEND_BOOT_CHECK` take, apart from a fault's 1.
+BOOT_REFUSED: Final = 3
+
+
 def create_app(config: BackendConfig | None = None) -> FastAPI:
     """Build the application.
 
@@ -182,12 +187,18 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     """
     # Here rather than at module scope, so `app.main` holds no `get_config` for a caller to import;
     # the ruff ban names that path too, since ruff matches the path an import spells.
-    from app.core.config import get_config  # noqa: TID251
+    from app.core.config import EnvironmentValidationError, get_config  # noqa: TID251
 
-    config = config or get_config()
-
-    # Before the app exists, so a failure while constructing it is logged in the right format.
+    # Before the settings are read, so their refusal is logged in the right format.
     setup_logging()
+
+    try:
+        config = config or get_config()
+    except EnvironmentValidationError as refusal:
+        # Its message names variables, files and failure types, never a value. An exit rather than
+        # the error, whose traceback uvicorn would print as plain text beside the JSON lines.
+        fl_logger.critical("system.config_refused", extra={"refusal": str(refusal)})
+        raise SystemExit(BOOT_REFUSED) from None
 
     app = TracedApp(lifespan=lifespan)
     app.state.config = config
