@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 
 import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
+import { asCaughtError } from "@/shared/utils/caughtError";
 
 import { DashboardError } from "./DashboardError";
 
@@ -13,7 +14,7 @@ import { DashboardError } from "./DashboardError";
  */
 // No console.error here: Next has already redacted a server error to a message plus a digest,
 // and a client crash is in the browser's own console and posted by `useReportClientCrash`.
-export function DashboardErrorBoundary({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
+export function DashboardErrorBoundary({ error, retry }: { error: unknown; retry: () => void }) {
   // `useTransition` rather than the bare `startTransition`: without the flag a slow re-fetch reports
   // nothing and invites a second press, and nothing ends react-aria's hover on a tree the router keeps.
   const [isRetrying, startRetrying] = useTransition();
@@ -26,7 +27,7 @@ export function DashboardErrorBoundary({ error, retry }: { error: Error & { dige
 
   return (
     <DashboardError
-      error={error}
+      error={asCaughtError(error)}
       retry={handleRetry}
       isRetrying={isRetrying}
     />

@@ -24,7 +24,7 @@ const BOUNDARIES = filesUnder(APP_DIR, (name) => name === "error.tsx" || name ==
   shown: path.relative(APP_DIR, file).split(path.sep).join("/"),
 }));
 
-type Boundary = ComponentType<{ error: Error & { digest?: string }; retry: () => void }>;
+type Boundary = ComponentType<{ error: unknown; retry: () => void }>;
 
 const boundaryOf = async (file: string): Promise<Boundary> => ((await import(pathToFileURL(file).href)) as { default: Boundary }).default;
 
@@ -70,6 +70,19 @@ describe.each(BOUNDARIES)("the error boundary $shown", ({ file, shown }) => {
     // failed report from crashing the boundary again hides it.
     const route = path.join(APP_DIR, ...(reports[0]?.address ?? "").split("/"), "route.ts");
     expect(existsSync(route), `reports to ${String(reports[0]?.address)}, where the app serves no route`).toBe(true);
+  });
+
+  /* Next passes a Client Component's throw on as it was thrown, so a boundary reading it as an
+     `Error` raises in place of its panel. The press re-renders the boundary, and a report keyed on
+     an `Error` rebuilt from the value on each render would post the one crash again. */
+  it("renders a thrown non-Error and reports it once across a press", async () => {
+    const Boundary = await boundaryOf(file);
+
+    render(underNext(h(Boundary, { error: null, retry: () => undefined })));
+    await userEvent.setup().click(screen.getByRole("button"));
+    await act(() => Promise.resolve());
+
+    expect(sent.mock.calls.length, `${shown}: reports one thrown null ${String(sent.mock.calls.length)} times`).toBe(1);
   });
 
   /* Next's `retry` is the refresh and the reset in one transition. A boundary wiring the two itself
