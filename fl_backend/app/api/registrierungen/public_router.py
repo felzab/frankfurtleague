@@ -352,8 +352,6 @@ async def post_registrierung(
                     bestaetigung=compose_bestaetigung(token_hash=token_hash, today=today, frist=frist),
                     today=today,
                 ),
-                # Left off a keyless press rather than stored null, which the validator's string
-                # type refuses.
                 **({} if schluessel is None else {"idempotenz_schluessel": schluessel, "idempotenz_fingerabdruck": fingerabdruck}),
             },
             session=session,

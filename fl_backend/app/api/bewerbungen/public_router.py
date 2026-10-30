@@ -36,7 +36,6 @@ from app.api.bewerbungen.services import (
     find_window_refusal,
     mint_token,
     payload_fingerabdruck,
-    recorded_window,
     saison_nimmt_bewerbungen_an,
     season_has_ended,
 )
@@ -90,16 +89,10 @@ WINDOW_PROJECTION = ["bewerbung", "status"]
 
 
 async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -> tuple[Mapping[str, Any] | None, Any]:
-    """One season's application window, `None` where unreadable, beside its status.
-
-    A null or an object short of a field: neither is readable, and both are a miss rather than an error.
-    """
+    """One season's application window, `None` where it records none, beside its status."""
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=WINDOW_PROJECTION)
-
-    # `recorded_window`, not a shape check: `_fenster` subscripts every window key, so a short object
-    # would 500 where this promises a miss.
-    window = recorded_window(bewerbung=saison_raw.get("bewerbung"))
+    window = saison_raw.get("bewerbung")
 
     # The status travels beside the window and is served only as whether it is `past`: that season
     # takes no application whatever its window says (`app/api/bewerbungen/services.py :: saison_nimmt_bewerbungen_an`).
@@ -145,9 +138,7 @@ async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str 
         collection=saisons_collection, db_filter=db_filter, limit=1, sort_by=[("_id", -1)], projection=WINDOW_PROJECTION
     )
 
-    # `recorded_window` for `_pull_window`'s reason, and reachable past the query: a dotted term
-    # traverses a LIST, so a window stored inside one matches every term and 500s in `_fenster`.
-    bewerbung = recorded_window(bewerbung=open_seasons[0]["bewerbung"]) if open_seasons else None
+    bewerbung = open_seasons[0]["bewerbung"] if open_seasons else None
 
     if bewerbung is None:
         raise DocumentNotFoundError()
@@ -442,14 +433,14 @@ async def post_bewerbung(
                 "saison_id": bewerbung_data.saison_id,
                 "eingereicht_am": today,
                 "status": SUBMITTED,
-                # Written EXPLICITLY, both of them: `required` in the `$jsonSchema` means the key is
-                # present, so an omitted null is a validator rejection rather than a stored null.
+                # Written EXPLICITLY, both of them: the record model requires each key, so an omitted
+                # one is a document the read-back refuses rather than a stored null.
                 "team_id": bewerbung_data.team_id,
                 "schule": None if schule is None else schule.model_dump(mode="json"),
                 "kontakte": compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today),
                 "trikot": bewerbung_data.trikot.model_dump(mode="json"),
                 "kader": bewerbung_data.kader.model_dump(mode="json"),
-                # Written explicitly, as `team_id` is: the validator requires the key.
+                # Written explicitly, as `team_id` is: the record model requires the key.
                 "stufengroesse": bewerbung_data.stufengroesse,
                 # Written even where the applicant named nobody, for `stufengroesse`'s reason.
                 "wunschgegner": bewerbung_data.wunschgegner,
@@ -458,7 +449,6 @@ async def post_bewerbung(
                 # The deadline and the three hashes, so the sweep and the links have something to judge.
                 "bestaetigungsfrist": bestaetigungsfrist,
                 "bestaetigungen": compose_bestaetigungen(hashes={seat: token_hash for seat, (_, token_hash) in tokens.items()}, today=today),
-                # Left off a keyless press rather than stored null, which the validator's string type refuses.
                 **({} if schluessel is None else {"idempotenz_schluessel": schluessel, "idempotenz_fingerabdruck": fingerabdruck}),
             },
             session=session,
