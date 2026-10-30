@@ -8,7 +8,7 @@ from app.api.teams.schemas import FLKontaktRolle
 from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomStrippedNonEmptyString
 from app.shared.schemas.kontakt import CustomEmail
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # Each kind of mail is one member of `FLPostausgangDaten` below, carrying the facts its builder renders and never a
 # sentence: a date where the mail prints one, a seat where it names one. A kind joins with the write that owes it, its
@@ -117,10 +117,15 @@ class FLPostausgangBezug(BaseModel):
 
 
 class FLPostausgangLink(BaseModel):
-    """Where the hand-out stores the hash of the link it mints: the dotted path of the record's `token_hashes` array."""
+    """Where the hand-out stores the hash of the link it mints, and what the record must still say for it to mint one."""
 
-    pfad: Annotated[str, StringConstraints(pattern=r"^([a-z_]+\.)*token_hashes$")]
-    # Set where the fresh link supersedes every link the array held; clear where the earlier ones stay valid beside it.
+    # The dotted path of each `token_hashes` array the link answers through: one per seat, a person holding two seats
+    # being sent one link for both.
+    pfade: list[Annotated[str, StringConstraints(pattern=r"^([a-z_]+\.)*token_hashes$")]] = Field(min_length=1)
+    # The dotted paths holding the recipient's address on the record. The link is minted only while each still holds the
+    # row's `an`: a seat emptied, handed on or re-addressed since the mail was owed mints nothing, and the mail is dropped.
+    adressen: list[Annotated[str, StringConstraints(pattern=r"^[a-z_]+(\.[a-z_]+)*$")]] = Field(min_length=1)
+    # Set where the fresh link supersedes every link the arrays held; clear where the earlier ones stay valid beside it.
     ersetzt: bool
 
 
@@ -128,6 +133,13 @@ class FLPostausgangZustellung(BaseModel):
     stand: FLPostausgangZustellStand
     grund: str | None
     am: datetime
+
+
+class FLPostausgangLage(BaseReadModel):
+    """What became of the last mail owed about one record and seat, as an editor reads it beside the link."""
+
+    stand: FLPostausgangStand
+    zustellung: FLPostausgangZustellung | None
 
 
 class FLPostausgangZeile(BaseModel):
