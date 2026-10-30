@@ -1,4 +1,4 @@
-import type { FLBewerbung, FLPostausgangLage, FLPostausgangLageStand, FLPostausgangZustellungStand } from "@/core/generated/client/types";
+import type { FLBewerbung, FLPostausgangLage, FLPostausgangLageStand, FLPostausgangZustellStand } from "@/core/generated/client/types";
 
 /** The two grades a delivery is reported in: trouble that may clear, and trouble that will not. */
 type Chip = { readonly label: string; readonly tone: "warning" | "danger" };
@@ -7,7 +7,7 @@ type Chip = { readonly label: string; readonly tone: "warning" | "danger" };
  * What the provider reported about the last message, or `null` where it says nothing an administrator acts on: a
  * delivery is the ordinary course, and a chip for it would grade every row.
  */
-const EREIGNIS_CHIP: Readonly<Record<FLPostausgangZustellungStand, Chip | null>> = {
+const EREIGNIS_CHIP: Readonly<Record<FLPostausgangZustellStand, Chip | null>> = {
   zugestellt: null,
   // What the administrator can act on is that the link has not arrived, not yet the address refusing for good.
   verzoegert: { label: "Noch nicht zugestellt", tone: "warning" },

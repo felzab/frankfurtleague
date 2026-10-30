@@ -12,7 +12,7 @@ import {
   zusageHindernis,
 } from "./bestaetigungStand.ts";
 
-import type { FLBewerbung, FLBewerbungBestaetigung, FLPostausgangZustellungStand } from "@/core/generated/client/types.ts";
+import type { FLBewerbung, FLBewerbungBestaetigung, FLPostausgangZustellStand } from "@/core/generated/client/types.ts";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { SitzBestaetigung } from "./bestaetigungStand.ts";
 
@@ -47,7 +47,7 @@ const OFFEN: FLBewerbungBestaetigung = {
 const ABGELEHNT: FLBewerbungBestaetigung = { ...OFFEN, abgelehnt_am: "2026-09-04" };
 
 /** What the last mail to a seat reached, as the provider's events leave it on its Postausgang row. */
-const zugestellt = (stand: FLPostausgangZustellungStand): FLBewerbungBestaetigung => ({
+const zugestellt = (stand: FLPostausgangZustellStand): FLBewerbungBestaetigung => ({
   ...OFFEN,
   zustellung: { stand: "gesendet", zustellung: { stand: stand, grund: null, am: "2026-09-01T10:15:00.000Z" } },
 });

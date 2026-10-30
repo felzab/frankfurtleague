@@ -687,9 +687,9 @@ export const FLPostausgangLageStand = {
   aufgegeben: "aufgegeben",
 } as const;
 
-export type FLPostausgangZustellungStand = (typeof FLPostausgangZustellungStand)[keyof typeof FLPostausgangZustellungStand];
+export type FLPostausgangZustellStand = (typeof FLPostausgangZustellStand)[keyof typeof FLPostausgangZustellStand];
 
-export const FLPostausgangZustellungStand = {
+export const FLPostausgangZustellStand = {
   zugestellt: "zugestellt",
   verzoegert: "verzoegert",
   unzustellbar: "unzustellbar",
@@ -700,7 +700,7 @@ export const FLPostausgangZustellungStand = {
 export interface FLPostausgangZustellung {
   am: string;
   grund: string | null;
-  stand: FLPostausgangZustellungStand;
+  stand: FLPostausgangZustellStand;
 }
 
 /**
@@ -3962,16 +3962,6 @@ export interface FLPostausgangAusgabeResponse {
   mails: FLPostausgangAusgabe[];
 }
 
-export type FLPostausgangEreignisPayloadStand = (typeof FLPostausgangEreignisPayloadStand)[keyof typeof FLPostausgangEreignisPayloadStand];
-
-export const FLPostausgangEreignisPayloadStand = {
-  zugestellt: "zugestellt",
-  verzoegert: "verzoegert",
-  unzustellbar: "unzustellbar",
-  unterdrueckt: "unterdrueckt",
-  beschwerde: "beschwerde",
-} as const;
-
 /**
  * One delivery event about a message the provider accepted, named by the row the message was sent from.
  */
@@ -3980,7 +3970,7 @@ export interface FLPostausgangEreignisPayload {
   grund: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  stand: FLPostausgangEreignisPayloadStand;
+  stand: FLPostausgangZustellStand;
 }
 
 /**

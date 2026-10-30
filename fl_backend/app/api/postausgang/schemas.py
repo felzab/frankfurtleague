@@ -357,7 +357,7 @@ if set(get_args(FLPostausgangArt)) != _MEMBER_ARTEN:
 FLPostausgangStand = Literal["offen", "gesendet", "zurueckgehalten", "gesperrt", "entfallen", "aufgegeben"]
 
 # What the provider reports about a message it accepted. `gesendet` is the row's own state and no event's.
-FLPostausgangZustellStand = Literal["zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]
+type FLPostausgangZustellStand = Literal["zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]
 
 # Wide over the 36 characters the provider's id spells today, and a ceiling all the same: the value arrives from outside
 # and is stored.

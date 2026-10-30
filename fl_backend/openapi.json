@@ -9552,15 +9552,7 @@
             "type": "string"
           },
           "stand": {
-            "enum": [
-              "zugestellt",
-              "verzoegert",
-              "unzustellbar",
-              "unterdrueckt",
-              "beschwerde"
-            ],
-            "title": "Stand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLPostausgangZustellStand"
           }
         },
         "required": [
@@ -9722,6 +9714,16 @@
         "title": "FLPostausgangLage",
         "type": "object"
       },
+      "FLPostausgangZustellStand": {
+        "enum": [
+          "zugestellt",
+          "verzoegert",
+          "unzustellbar",
+          "unterdrueckt",
+          "beschwerde"
+        ],
+        "type": "string"
+      },
       "FLPostausgangZustellung": {
         "properties": {
           "am": {
@@ -9741,15 +9743,7 @@
             "title": "Grund"
           },
           "stand": {
-            "enum": [
-              "zugestellt",
-              "verzoegert",
-              "unzustellbar",
-              "unterdrueckt",
-              "beschwerde"
-            ],
-            "title": "Stand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLPostausgangZustellStand"
           }
         },
         "required": [
