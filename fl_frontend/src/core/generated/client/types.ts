@@ -1480,7 +1480,7 @@ export interface FLBestaetigung {
   frist: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   verschickt_am: string;
-  zustellung?: FLBewerbungZustellung | null;
+  zustellung: FLBewerbungZustellung | null;
 }
 
 export type FLBestaetigungZustand = (typeof FLBestaetigungZustand)[keyof typeof FLBestaetigungZustand];
