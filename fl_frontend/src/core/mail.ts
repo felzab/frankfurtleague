@@ -346,7 +346,15 @@ async function drainen(zaehlung: DrainZaehlung): Promise<void> {
 async function zustellen(mail: FLPostausgangAusgabe): Promise<FLPostausgangErgebnis> {
   // Opened here alone, sealed by `fl_frontend/src/core/auth.ts :: oweSignInMail` under the same key, and held by this
   // scope alone: never on a line, never in an error.
-  const geheim = mail.geheim === null ? null : await symmetricDecrypt({ key: authSecret(), data: mail.geheim });
+  let geheim: string | null = null;
+  try {
+    if (mail.geheim !== null) geheim = await symmetricDecrypt({ key: authSecret(), data: mail.geheim });
+  } catch (error) {
+    // Given up rather than thrown: sealed under a key since replaced, the row would stop every drain until it lapses,
+    // each claiming it first. The error's name alone, which quotes no value.
+    logger.error("postausgang.geheim_unlesbar", undefined, { art: mail.daten.art, name: error instanceof Error ? error.name : undefined });
+    return { id: mail.id, ergebnis: "aufgeben", nachricht_id: null };
+  }
   const nachricht = mailFor(mail.daten.art, mail.daten, { token: mail.token, geheim: geheim, origin: frontend_config.AUTH_URL });
   if (nachricht === undefined) {
     // Handed back rather than given up: the row waits until its deadline for a deployment that builds its kind.

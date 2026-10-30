@@ -132,6 +132,21 @@ describe("one drain of the Postausgang", () => {
     expect(String(sends()[0]?.body["text"])).not.toContain(geheim);
   });
 
+  /* Claimed first on every drain, a row its key no longer opens would stop each one until the row lapses, a day for a
+     deletion link, and every mail behind it with them. */
+  it("gives up a secret its key no longer opens, and sends the mail behind it", async () => {
+    const { symmetricEncrypt } = await import("better-auth/crypto");
+    const fremd = await symmetricEncrypt({ key: "a-key-since-replaced-not-a-credential", data: "123456" });
+    claims = [{ mails: [{ ...handed(1), geheim: fremd }, handed(2)], aufgegeben: 0 }];
+
+    await drainPostausgang();
+
+    expect(reports().map(({ id, ergebnis }) => [id, ergebnis])).toStrictEqual([
+      [handed(1).id, "aufgeben"],
+      [handed(2).id, "gesendet"],
+    ]);
+  });
+
   /* Read the wrong way round, the league's daily quota would give up every mail queued behind it, and a refusal no
      send can repair would be retried until its deadline. */
   it.each([
