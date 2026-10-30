@@ -167,7 +167,7 @@ export function AdresswechselBeantragen({
     landing.landed();
     onGeschrieben();
     // The start owed its mails, which leave behind the answer: whether each arrives is the change's own read.
-    meldeAdresswechselVersand({ versand: res.link ? "gesendet" : null, hinweis: "gesendet" }, res.message);
+    meldeAdresswechselVersand(res.link, res.message);
   };
 
   // A refusal is kept with the value it was about and retracted by a keystroke away from it.

@@ -52,7 +52,6 @@ const STEP_UP_HINT = "Für eine neue Adresse fragen wir kurz nach, ob Du es bist
 const KONTO_LINK_TITEL: VersandTitel = {
   gesendet: "Link verschickt",
   fehlgeschlagen: "Link nicht verschickt",
-  abgelegt: "Link zurückgehalten",
 };
 
 /** What the confirmation waits for: a start with its address, or the approval of the change the page showed. */
