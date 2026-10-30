@@ -8,12 +8,6 @@
 export const KEINE_TEAMS = "Diese Saison hat noch kein Team aufgenommen.";
 
 /**
- * What an administrator is told wherever a send of theirs was withheld, which is every stack but
- * production: a refusal would offer a retry no repeat of it can reach.
- */
-export const ZURUECKGEHALTEN = "Diese Umgebung sendet keine E-Mails. Die Nachricht wurde nur abgelegt.";
-
-/**
  * Counted over the `gemeint` teams the press meant to write to: one the rule passed over is no shortfall. A team
  * alone gets its own sentence, saying the team's side under a title naming the link's.
  */
