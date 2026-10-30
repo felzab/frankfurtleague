@@ -308,16 +308,16 @@ administration is shut while it is down. Each of these is easy to get wrong:
 - **The database is written directly for two things alone: the first owner, before anybody can sign
   in, and recovery when no owner can sign in.** Write in MongoDB Playground, never
   `mongosh`, into the `berechtigungen` collection of the application database (`DB_BASE_NAME`,
-  which `fl_backend/.env` names). The row holds four fields, each typed by the validator: `adresse`,
+  which `fl_backend/.env` names). The row holds five fields: `adresse`,
   the address in the form the sign-in stores it (`fl_backend/app/shared/folding.py ::
 sign_in_identifier`) — trimmed, the letters of both halves lower-case, the domain in punycode —
   which the application then reads as typed; `verwaltung`, `owner` or `administration`; `erteilt_von`, a marker naming the
-  paste, such as `PLAYGROUND`; and `erteilt_am`, a date rather than a string. Removing the row by its
+  paste, such as `PLAYGROUND`; `erteilt_am`, a date rather than a string; and `version: 0`, which
+  the tier change takes into its filter, so on a row without it every tier change is refused as stale. Removing the row by its
   folded address revokes it. A paste asks nobody's approval, which is why it serves these two cases
   alone. The statement itself is kept off this public repository.
 - **Paste only into a database a boot of the release carrying `berechtigungen` has reached.** That
-  boot creates the validator and the unique index; a paste before it creates the collection with
-  neither, and a duplicate address in it then fails the next boot's index build (`db.indexes_failed`).
+  boot creates the unique index; a paste before it creates the collection without it, and a duplicate address in it then fails the next boot's index build (`db.indexes_failed`).
   Until the paste lands no address holds a grant, so the site admits no administrator; the public
   site is untouched.
 - **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer, the tier change to leave no owner, and the Playground refuses nothing: the boot warns with
