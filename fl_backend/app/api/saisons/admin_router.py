@@ -64,7 +64,6 @@ from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
 from app.api.spielberichte.crud import anchor_the_season_reported_in, count_eingereichte_berichte
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
-from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import (
     find_gruppe_swap_refusal,
     find_swap_pair_refusal,
@@ -116,6 +115,7 @@ from app.core.security import (
 )
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from app.shared.schemas.literals import FLGruppenNames
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/saisons",

@@ -36,7 +36,7 @@ from app.api.adresswechsel.crud import (
     queue_the_refusal_notice_in_session,
     read_the_bestand,
 )
-from app.api.adresswechsel.services import FLAdresswechselEndeArt, deckt
+from app.api.adresswechsel.services import deckt
 from app.api.berechtigungen.antraege import ist_offen, queue_the_ending_in_session, remove_the_antrag_in_session
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.services import genehmigung_steht
@@ -49,7 +49,6 @@ from app.api.sperrliste.lookup import BanList
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import build_contact_reason_images_filter, build_contact_reasons_filter, kontakte_ohne, seat_void_of
 from app.api.teams.crud import void_moved_seats
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core import clock
 from app.core.clock import GERMANY as _GERMANY
 from app.core.collections import Collection
@@ -67,6 +66,7 @@ from app.core.recording import act_row, log_stamp, request_var
 from app.core.security import loeschung_journal_hash
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, beleg_of, ist_erteilt
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAdresswechselEndeArt
 
 # What the action log names as a replay's call: no route made it, and its path names the line it replays.
 REPLAY_METHOD: Final = "REPLAY"

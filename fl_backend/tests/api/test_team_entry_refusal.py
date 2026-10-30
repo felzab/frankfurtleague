@@ -6,7 +6,6 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
-from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.admin_router import post_saison_team
 from app.api.teams.schemas import FLPostSaisonTeamPayload
 from app.api.teams.services import (
@@ -17,6 +16,7 @@ from app.api.teams.services import (
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
+from app.shared.schemas.literals import FLSpielerStufe
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, team_document
 from tests.worker import worker_database

@@ -9,9 +9,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identitaet.crud import funktionen_of
 from app.api.identitaet.schemas import FLSubjekt
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import EINWILLIGUNG, kontaktperson_document, rules_document, saison_document, saison_team_document, spieler_document
 from tests.records import record_collections

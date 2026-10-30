@@ -12,12 +12,11 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungZustand,
     FLBewerbungEntscheidung,
     FLBewerbungSaisonbezug,
-    FLKontaktRolle,
     refuse_age_outside_the_bounds,
 )
 from app.api.kontakte.services import rows_seating
 from app.api.sperrliste.services import withheld_actor
-from app.api.teams.schemas import KONTAKT_ROLLEN, FLKontaktEingetragenVon, FLPostTeamPayload, FLTrikotFarbe
+from app.api.teams.schemas import FLPostTeamPayload
 from app.core.codes import Code
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
@@ -33,6 +32,7 @@ from app.shared.schemas.bounds import (
     VERTRETUNG_MIN_AGE_YEARS,
 )
 from app.shared.schemas.custom import fold_shorthand
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktEingetragenVon, FLKontaktRolle, FLTrikotFarbe
 
 # `bewerbung: null` and no key are both the closed window, never an error (`FLSaison.bewerbung`
 # defaults).
@@ -526,7 +526,7 @@ def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
 def seat_named(value: Any) -> FLKontaktRolle | None:
     """The seat this value names, or `None`: a path segment and a stored key are both only as trustworthy as whatever wrote them."""
 
-    return cast(FLKontaktRolle, value) if value in get_args(FLKontaktRolle) else None
+    return cast(FLKontaktRolle, value) if value in get_args(FLKontaktRolle.__value__) else None
 
 
 def seat_holding(*, bewerbung_raw: Mapping[str, Any], token_hash: str) -> FLKontaktRolle | None:
@@ -1630,7 +1630,7 @@ def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
     # The form excludes what this returns, and a season may field at least as many teams as the palette
     # has colours. `fl_frontend/src/features/teams/utils.ts :: offeredTrikotFarben` then hands the whole
     # palette back once every colour is assigned.
-    return [farbe for farbe in get_args(FLTrikotFarbe) if farbe in held]
+    return [farbe for farbe in get_args(FLTrikotFarbe.__value__) if farbe in held]
 
 
 def build_bewerbungen_saisonbezug_terms(*, saison_id: str | None) -> dict[FLBewerbungSaisonbezug, dict[str, Any]]:

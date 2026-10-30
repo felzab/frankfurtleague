@@ -8,11 +8,11 @@ from pymongo import MongoClient
 from pymongo.database import Database
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
-from app.api.spiele.schemas import FLSonderereignis, FLSpiel
-from app.api.spieler.schemas import FLSpielerStufe
+from app.api.spiele.schemas import FLSpiel
 from app.api.teams.schemas import FLTeam, FLTeamsFilterParams, FLTeamStatistikScope
 from app.api.teams.services import ZERO_STATISTIK, build_statistik_by_team, build_team_pipeline
 from app.core.collections import Collection
+from app.shared.schemas.literals import FLSonderereignis, FLSpielerStufe
 from tests import documents
 from tests.worker import worker_database
 

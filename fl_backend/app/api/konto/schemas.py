@@ -1,15 +1,21 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.adresswechsel.schemas import FLAdresswechselGenehmigungStand
-from app.api.adresswechsel.services import FLAdresswechselWartetAuf, FLAdresswechselWeg
 from app.api.berechtigungen.schemas import FLUtcInstant
-from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelbst
-from app.api.spieler.schemas import FLEinwilligung, FLEinwilligungUmfang, FLSpielerKontext, FLSpielerPosition, FLSpielerSelbst, FLSpielerStufe
-from app.api.teams.schemas import FLKontaktKenntnisnahmeUmfang
+from app.api.spieler.schemas import FLEinwilligung, FLSpielerKontext, FLSpielerSelbst
 from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomEmail
+from app.shared.schemas.literals import (
+    FLAdresswechselWartetAuf,
+    FLAdresswechselWeg,
+    FLEinwilligungUmfang,
+    FLKontaktKenntnisnahmeUmfang,
+    FLKontaktRolle,
+    FLSpielerPosition,
+    FLSpielerStufe,
+)
 from app.shared.schemas.responses import BaseAPIResponse
 
 

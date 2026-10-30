@@ -2,17 +2,15 @@ from typing import Annotated, Final, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
-# The three are imported rather than restated. Acyclic: none of these slices' MODELS imports this
-# file -- `teams/services.py` does, and no model there.
-from app.api.spiele.schemas import FLSaisonPhase
-from app.api.spieler.schemas import FLSpielerStufe
-from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLGruppenNames
+# Imported rather than restated. Acyclic: no model of `teams` imports this file --
+# `teams/services.py` does, and no model there.
+from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.core import clock
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_reversed_span
+from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSpielerStufe
 from app.shared.schemas.responses import BaseAPIResponse
 
-FLSaisonStatus = Literal["past", "active", "future"]
 FLSaisonsSortOptions = Literal["_id", "start_date", "end_date"]
 
 

@@ -18,13 +18,7 @@ from app.api.konto.services import (
     sitz_wahlen_der_zeile,
     widerruf_line,
 )
-from app.api.teams.schemas import (
-    KONTAKT_ROLLEN,
-    FLSaisonTeamPersonEinwilligungPayload,
-    FLSaisonTeamPersonEinwilligungResponse,
-    FLTeamSitz,
-    FLTeamSitzeResponse,
-)
+from app.api.teams.schemas import FLSaisonTeamPersonEinwilligungPayload, FLSaisonTeamPersonEinwilligungResponse, FLTeamSitz, FLTeamSitzeResponse
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
@@ -41,6 +35,7 @@ from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, loeschung
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # The person lane's binder, as `app/api/registrierungen/person_router.py` declares it and for its reason.
 router = APIRouter(

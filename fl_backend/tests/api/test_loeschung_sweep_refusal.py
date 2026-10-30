@@ -19,8 +19,8 @@ from app.api.identitaet.services import (
     ohne_passende_adresse,
     statuses_after_activating,
 )
-from app.api.saisons.schemas import FLSaisonStatus
 from app.core.middlewares import REQUEST_DEADLINE_S
+from app.shared.schemas.literals import FLSaisonStatus
 
 LEAGUE: dict[str, FLSaisonStatus] = {"2023": "past", "2024": "past", "2025": "past", "2026": "active", "2027": "future"}
 ADDRESS = "thessaly.okonkwo@beispielschule.de"

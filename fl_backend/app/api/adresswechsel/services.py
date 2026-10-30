@@ -16,18 +16,14 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import Any, Final, Literal, get_args
 
-from app.api.berechtigungen.schemas import FLAdresswechselWeg, FLGenehmigungVerwehrt
 from app.core.clock import GERMANY as _GERMANY
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_TAGE, GENEHMIGUNG_TAGE
+from app.shared.schemas.literals import FLAdresswechselEndeArt, FLAdresswechselWartetAuf, FLAdresswechselWeg, FLGenehmigungVerwehrt
 
-ADRESSWECHSEL_WEGE: Final[tuple[str, ...]] = get_args(FLAdresswechselWeg)
-
-# What the change waits on: the address on file's approval, the new mailbox's link, another administrator's approval of a
-# grant's move once the new mailbox confirmed, or its waiting time.
-FLAdresswechselWartetAuf = Literal["freigabe", "neue_adresse", "genehmigung", "wartezeit"]
+ADRESSWECHSEL_WEGE: Final[tuple[str, ...]] = get_args(FLAdresswechselWeg.__value__)
 
 # What the stop link of the address on file shows, one state per step the change waits on.
 FLAdresswechselBisherigZustand = Literal["freigabe_offen", "offen", "genehmigung", "wartezeit"]
@@ -36,10 +32,7 @@ FLAdresswechselBisherigZustand = Literal["freigabe_offen", "offen", "genehmigung
 # approval week, never `abgelaufen`: that is the link's own deadline, and a confirmed link takes no second answer.
 FLAdresswechselNeuZustand = Literal["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar", "bestaetigt", "genehmigung_abgelaufen"]
 
-# How a change ended. `verworfen` is every discard: an administrator's, the pass's refusal when due, nothing left to
-# move, and an erasure's.
-FLAdresswechselEndeArt = Literal["wirksam", "abgelehnt", "gestoppt", "abgelaufen", "ersetzt", "verworfen"]
-ADRESSWECHSEL_ENDE_ARTEN: Final[tuple[str, ...]] = get_args(FLAdresswechselEndeArt)
+ADRESSWECHSEL_ENDE_ARTEN: Final[tuple[str, ...]] = get_args(FLAdresswechselEndeArt.__value__)
 
 # The tier of the grant a change moves, and so who may approve it: `owner` another owner alone.
 FLAdresswechselVerwaltung = Literal["administration", "owner"]

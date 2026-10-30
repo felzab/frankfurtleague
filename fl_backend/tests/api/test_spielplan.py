@@ -30,15 +30,15 @@ from app.api.saisons.services import (
     holds_a_recorded_fact,
 )
 from app.api.saisons.spielplan import EnteredTeam, Spielplan, bracket_seeding, circle_rounds, draw_spielplan
-from app.api.spiele.schemas import PHASE_ORDER, PHASE_RANK, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSaisonPhase, FLSonderereignis, FLSpiel
+from app.api.spiele.schemas import PHASE_ORDER, PHASE_RANK, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpiel
 from app.api.spieltage.schemas import FLSpieltag
-from app.api.teams.schemas import FLGruppenNames
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
+from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSonderereignis
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.documents import rules_document
 
-GRUPPEN: tuple[FLGruppenNames, ...] = get_args(FLGruppenNames)
+GRUPPEN: tuple[FLGruppenNames, ...] = get_args(FLGruppenNames.__value__)
 
 SAISON_ID = "2026"
 
@@ -1169,7 +1169,7 @@ class TestWhatCountsAsRecordedAgainstAFixture:
 
         # A PROPER subset, so the breadth below is asked of values `has_taken_place` answers for
         # and of the ones it does not; equality would make the two questions one.
-        assert set(SONDEREREIGNIS_WITHOUT_A_RESULT) < set(get_args(FLSonderereignis))
+        assert set(SONDEREREIGNIS_WITHOUT_A_RESULT) < set(get_args(FLSonderereignis.__value__))
 
         for slot in ("team1", "team2"):
             assert UNTOUCHED_FIXTURE[slot] is not None and UNTOUCHED_FIXTURE[f"{slot}_quelle"] is None, "the group fixture is not as drawn"
@@ -1234,7 +1234,7 @@ class TestWhatCountsAsRecordedAgainstAFixture:
         if edit.ko is not None:
             assert holds_a_recorded_fact({**UNTOUCHED_BRACKET, **edit.ko}) is True, f"{projected} left the bracket window open: {edit.why}"
 
-    @pytest.mark.parametrize("sonderereignis", get_args(FLSonderereignis))
+    @pytest.mark.parametrize("sonderereignis", get_args(FLSonderereignis.__value__))
     def test_every_sonderereignis_closes_the_window_whatever_it_awards(self, sonderereignis: str):
         """Reach for `has_taken_place`'s narrower set and the two awarding nothing stop closing it.
 
