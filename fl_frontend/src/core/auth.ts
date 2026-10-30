@@ -1,7 +1,6 @@
 import "server-only";
 
 import { AsyncLocalStorage } from "node:async_hooks";
-import { randomUUID } from "node:crypto";
 
 import { cache } from "react";
 import { headers } from "next/headers";
@@ -738,8 +737,6 @@ async function oweSignInMail(
   geheim?: { readonly wert: string; readonly gueltigMs: number },
 ): Promise<void> {
   await postausgangPostAnmeldung({
-    // Fresh for every mail: nothing the library calls a send for repeats an earlier call.
-    schluessel: `${daten.art}/${randomUUID()}`,
     an: an,
     daten: daten,
     geheim: geheim === undefined ? null : await symmetricEncrypt({ key: authSecret(), data: geheim.wert }),

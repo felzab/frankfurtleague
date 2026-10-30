@@ -3,14 +3,14 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from bson import ObjectId
+from fastapi import APIRouter, Body, Depends, status
 from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import mint_token
 from app.api.postausgang.schemas import (
     FLPostausgangAnmeldungPayload,
-    FLPostausgangAnmeldungResponse,
     FLPostausgangAusgabe,
     FLPostausgangAusgabeResponse,
     FLPostausgangEreignisPayload,
@@ -25,14 +25,15 @@ from app.api.postausgang.services import (
     FOLGT_AUF,
     SEITE,
     UNGESPERRT,
-    enqueue_mail,
+    OwedMail,
     final_update,
     retry_update,
+    row_of,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, pull_many_from_db, stamp_in_db
+from app.core.crud import patch_many_in_db, post_one_to_db, pull_many_from_db, stamp_in_db
 from app.core.dependencies import DB, DBClient, PostausgangCollection, get_germany_now
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import transaction_session
@@ -237,36 +238,26 @@ async def post_ergebnis(
     return FLPostausgangErgebnisResponse.model_validate({feld: int(feld == gezaehlt) for feld in FLPostausgangErgebnisResponse.model_fields})
 
 
-@router.post("/anmeldung", response_model=FLPostausgangAnmeldungResponse, summary="Owe one mail of the sign-in library")
+@router.post("/anmeldung", status_code=status.HTTP_204_NO_CONTENT, summary="Owe one mail of the sign-in library")
 async def post_anmeldung(
     anmeldung_data: Annotated[FLPostausgangAnmeldungPayload, Body()],
     postausgang_collection: PostausgangCollection,
-    db_client: DBClient,
     now: datetime = Depends(get_germany_now),
-) -> FLPostausgangAnmeldungResponse:
+) -> None:
     """
     Owe one mail the sign-in library sends -- the code, a passkey notice, the deletion link -- to the address named.
 
-    A replay of the same `schluessel` writes nothing and answers the row its first call wrote. `geheim` is stored as it
-    arrives, encrypted under a key this service never holds, and dropped once the mail is settled; `gueltig_bis` is both
-    the last moment a hand-out may send it and the moment the row is deleted, settled or not.
+    Every call owes a mail of its own, under a key minted here: the library asks for each send once, and nothing repeats
+    the call. `geheim` is stored as it arrives, encrypted under a key this service never holds, and dropped once the mail
+    is settled; `gueltig_bis` is both the last moment a hand-out may send it and the moment the row is deleted, settled
+    or not.
     """
 
-    async def owe(session: AsyncClientSession) -> FLPostausgangAnmeldungResponse:
-        row_id = await enqueue_mail(
-            postausgang_collection=postausgang_collection,
-            session=session,
-            schluessel=anmeldung_data.schluessel,
-            an=anmeldung_data.an,
-            daten=anmeldung_data.daten,
-            now=now,
-            geheim=anmeldung_data.geheim,
-            gueltig_bis=anmeldung_data.gueltig_bis,
-        )
-        return FLPostausgangAnmeldungResponse(id=row_id)
-
-    async with transaction_session(db_client) as session:
-        return await session.with_transaction(owe)
+    mail = OwedMail(schluessel=f"{anmeldung_data.daten.art}/{ObjectId()}", an=anmeldung_data.an, daten=anmeldung_data.daten)
+    await post_one_to_db(
+        collection=postausgang_collection,
+        document=row_of(mail, now=now, geheim=anmeldung_data.geheim, gueltig_bis=anmeldung_data.gueltig_bis),
+    )
 
 
 @router.post("/ereignis", response_model=FLPostausgangEreignisResponse, summary="Record one delivery event on its mail's row")

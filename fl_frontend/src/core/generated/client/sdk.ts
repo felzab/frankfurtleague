@@ -106,7 +106,6 @@ import type {
   FLPatchTeamPayload,
   FLPatchTeamResponse,
   FLPostausgangAnmeldungPayload,
-  FLPostausgangAnmeldungResponse,
   FLPostausgangAusgabeResponse,
   FLPostausgangEreignisPayload,
   FLPostausgangEreignisResponse,
@@ -2056,15 +2055,16 @@ export const getPostausgangPostAnmeldungUrl = () => {
 /**
  * Owe one mail the sign-in library sends -- the code, a passkey notice, the deletion link -- to the address named.
  *
- * A replay of the same `schluessel` writes nothing and answers the row its first call wrote. `geheim` is stored as it
- * arrives, encrypted under a key this service never holds, and dropped once the mail is settled; `gueltig_bis` is both
- * the last moment a hand-out may send it and the moment the row is deleted, settled or not.
+ * Every call owes a mail of its own, under a key minted here: the library asks for each send once, and nothing repeats
+ * the call. `geheim` is stored as it arrives, encrypted under a key this service never holds, and dropped once the mail
+ * is settled; `gueltig_bis` is both the last moment a hand-out may send it and the moment the row is deleted, settled
+ * or not.
  * @summary Owe one mail of the sign-in library
  */
 export const postausgangPostAnmeldung = async (
   fLPostausgangAnmeldungPayload: FLPostausgangAnmeldungPayload,
   options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLPostausgangAnmeldungResponse> => {
+): Promise<void> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -2077,7 +2077,7 @@ export const postausgangPostAnmeldung = async (
     }
     return headers;
   };
-  return systemKeyTransport<FLPostausgangAnmeldungResponse>(getPostausgangPostAnmeldungUrl(), {
+  return systemKeyTransport<void>(getPostausgangPostAnmeldungUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },

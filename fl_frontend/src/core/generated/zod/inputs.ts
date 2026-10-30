@@ -1252,9 +1252,10 @@ export const KontoPostAdresswechselFreigabeBody = zod
 /**
  * Owe one mail the sign-in library sends -- the code, a passkey notice, the deletion link -- to the address named.
  *
- * A replay of the same `schluessel` writes nothing and answers the row its first call wrote. `geheim` is stored as it
- * arrives, encrypted under a key this service never holds, and dropped once the mail is settled; `gueltig_bis` is both
- * the last moment a hand-out may send it and the moment the row is deleted, settled or not.
+ * Every call owes a mail of its own, under a key minted here: the library asks for each send once, and nothing repeats
+ * the call. `geheim` is stored as it arrives, encrypted under a key this service never holds, and dropped once the mail
+ * is settled; `gueltig_bis` is both the last moment a hand-out may send it and the moment the row is deleted, settled
+ * or not.
  * @summary Owe one mail of the sign-in library
  */
 export const postausgangPostAnmeldungBodyAnMax = 254;
@@ -1263,10 +1264,6 @@ export const postausgangPostAnmeldungBodyDatenTwoKontoMax = 256;
 
 export const postausgangPostAnmeldungBodyDatenTwoKontoRegExp = new RegExp("^/[a-z0-9/_-]*$");
 export const postausgangPostAnmeldungBodyGeheimOneMax = 4096;
-
-export const postausgangPostAnmeldungBodySchluesselMax = 256;
-
-export const postausgangPostAnmeldungBodySchluesselRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 
 export const PostausgangPostAnmeldungBody = zod
   .object({
@@ -1286,7 +1283,6 @@ export const PostausgangPostAnmeldungBody = zod
     ]),
     geheim: zod.union([zod.string().min(1).max(postausgangPostAnmeldungBodyGeheimOneMax), zod.null()]),
     gueltig_bis: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-    schluessel: zod.string().min(1).max(postausgangPostAnmeldungBodySchluesselMax).regex(postausgangPostAnmeldungBodySchluesselRegExp),
   })
   .describe("One mail of the sign-in library, owed to the address it names.");
 

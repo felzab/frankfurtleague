@@ -106,7 +106,7 @@ async def enqueue_mail(
 
     created = await post_one_to_db(
         collection=postausgang_collection,
-        document=_row_of(
+        document=row_of(
             OwedMail(schluessel=schluessel, an=an, daten=daten, bezug=bezug, link=link), now=now, geheim=geheim, gueltig_bis=gueltig_bis
         ),
         session=session,
@@ -147,12 +147,16 @@ async def enqueue_mails(
         {"schluessel": {"$in": [mail.schluessel for mail in mails]}}, {"schluessel": 1, "_id": 0}, session=session
     ).to_list(length=None)
     owed = {row["schluessel"] for row in stored}
-    rows = [_row_of(mail, now=now, geheim=None, gueltig_bis=None) for mail in mails if mail.schluessel not in owed]
+    rows = [row_of(mail, now=now, geheim=None, gueltig_bis=None) for mail in mails if mail.schluessel not in owed]
     if rows:
         await post_many_to_db(collection=postausgang_collection, documents=rows, session=session)
 
 
-def _row_of(mail: OwedMail, *, now: datetime, geheim: str | None, gueltig_bis: datetime | None) -> dict[str, Any]:
+def row_of(mail: OwedMail, *, now: datetime, geheim: str | None, gueltig_bis: datetime | None) -> dict[str, Any]:
+    """One owed mail's row as `postausgang` stores it. `geheim` lapses with `gueltig_bis`, the row's deadline and its deletion both."""
+
+    if geheim is not None and gueltig_bis is None:
+        raise ValueError("a secret is held until it lapses, and this one names no lapse")
     if mail.link is not None and mail.bezug is None:
         raise ValueError("a link is minted on the record a mail is about, and this mail names none")
 

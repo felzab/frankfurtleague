@@ -366,9 +366,6 @@ CustomNachrichtId = Annotated[str, StringConstraints(strip_whitespace=True, min_
 # The provider's own token for a refusal, bounded and on one line, never its prose.
 CustomZustellGrund = Annotated[str, StringConstraints(strip_whitespace=True, max_length=128, pattern=SINGLE_LINE_PATTERN)]
 
-# The caller's identity of one owed mail. Bounded, as it is stored and indexed.
-CustomPostausgangSchluessel = Annotated[str, StringConstraints(min_length=1, max_length=256, pattern=SINGLE_LINE_PATTERN)]
-
 
 class FLPostausgangBezug(BaseModel):
     """The record a mail is about, and the contact seat on it where the record has seats: what a delivery state is read by."""
@@ -495,7 +492,6 @@ class FLPostausgangAnmeldungPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schluessel: CustomPostausgangSchluessel
     an: CustomEmail
     daten: FLPostausgangAnmeldeDaten
     # Encrypted by the frontend before it leaves it, under a key the backend never holds: the code, or the deletion token.
@@ -509,11 +505,6 @@ class FLPostausgangAnmeldungPayload(BaseModel):
             raise ValueError("Ein Geheimnis nennt, wann es verfällt.")
 
         return self
-
-
-class FLPostausgangAnmeldungResponse(BaseAPIResponse):
-    # The row the mail waits in: the one a replay of the same key wrote first.
-    id: CustomObjectId
 
 
 class FLPostausgangEreignisPayload(BaseModel):

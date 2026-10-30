@@ -312,18 +312,18 @@ class TestTheSignInCode:
         gueltig_bis = NOW + timedelta(minutes=10)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            owed = await post_anmeldung(
+            await post_anmeldung(
                 anmeldung_data=FLPostausgangAnmeldungPayload(
-                    schluessel="anmeldecode/1", an=NORA, daten=FLAnmeldecodeDaten(art="anmeldecode"), geheim="chiffrat", gueltig_bis=gueltig_bis
+                    an=NORA, daten=FLAnmeldecodeDaten(art="anmeldecode"), geheim="chiffrat", gueltig_bis=gueltig_bis
                 ),
                 postausgang_collection=database[Collection.POSTAUSGANG],
-                db_client=client,
                 now=NOW,
             )
             first = await claimed(database, client)
-            failed = await reported(database, first.beanspruchung, owed.id, "wiederholen")
+            (mail,) = first.mails
+            failed = await reported(database, first.beanspruchung, mail.id, "wiederholen")
 
-            return first, failed, await stored(database, owed.id)
+            return first, failed, await stored(database, mail.id)
 
         first, failed, row = on_a_database(mongo_replica_set_url, body)
 
