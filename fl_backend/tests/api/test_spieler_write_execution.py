@@ -61,7 +61,7 @@ def squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | 
 
 
 def on_a_database(url: str, body: Body, *, constrained: bool = True) -> Any:
-    """The SHIPPED validators by default; `constrained=False` is for a body whose subject is a row they refuse."""
+    """The SHIPPED indexes by default; `constrained=False` is for a body whose subject is a row they refuse."""
 
     async def _run() -> Any:
         database_name = DATABASE_NAME if constrained else UNCONSTRAINED_DATABASE_NAME

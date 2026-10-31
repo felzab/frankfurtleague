@@ -147,7 +147,7 @@ async def mailed(database: AsyncDatabase, client: AsyncMongoClient, answer: Any)
 
 
 def on_a_league(url: str, body: Body, *, referees: list[dict[str, Any]] | None = None) -> Any:
-    """The SHIPPED validators, so a block or a record production would refuse fails here too."""
+    """The SHIPPED indexes, so a block or a record production would refuse fails here too."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):

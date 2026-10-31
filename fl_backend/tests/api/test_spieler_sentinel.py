@@ -41,7 +41,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body) -> Any:
-    """The SHIPPED validators, so seeding the sentinel is itself the case that its document is storable."""
+    """The SHIPPED indexes, so seeding the sentinel is itself the case that its document is storable."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):

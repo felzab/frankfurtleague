@@ -212,7 +212,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, seeded: dict[str, Any] | None = SEEDED_KONTAKTE) -> Any:
-    """`constraints=True`, so what this endpoint stores is judged by the database's own validator rather than by Pydantic alone."""
+    """`constraints=True`, so what this endpoint stores is judged by the database's own indexes rather than by Pydantic alone."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):

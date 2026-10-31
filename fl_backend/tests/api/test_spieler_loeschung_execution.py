@@ -56,9 +56,9 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
-    """The SHIPPED validators, so a document production would refuse fails here too, and every collection created.
+    """The SHIPPED indexes, so a document production would refuse fails here too.
 
-    `mutates_schema=True` where the body narrows one of those validators (`tests/database.py :: a_clean_database`).
+    `mutates_schema=True` where the body installs a validator (`tests/database.py :: a_clean_database`).
     """
 
     async def _run() -> Any:

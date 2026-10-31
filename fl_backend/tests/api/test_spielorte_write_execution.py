@@ -55,7 +55,7 @@ MIETPREIS = 80
 
 
 def venue_document(spielort_id: ObjectId, name: str, *, inactive_since: str | None = None) -> dict[str, Any]:
-    """Every key the shipped `spielorte` validator requires, so the seed is a shape production stores."""
+    """Every key `FLSpielort` requires, so the seed is a shape the venue's record model reads back."""
 
     return {
         "_id": spielort_id,
@@ -109,7 +109,7 @@ def stored_names(url: str) -> list[str]:
 
 @pytest.fixture
 def seeded_url(mongo_replica_set_url: str) -> str:
-    """One standing venue and one retired one, on the shipped validators and indexes.
+    """One standing venue and one retired one, on the shipped indexes.
 
     The transactional server, because the edit below fans its rename out inside a transaction.
     """

@@ -72,7 +72,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
-    """The SHIPPED validators, a running season, and one referee who answered their own link unless `confirmed` says otherwise."""
+    """The SHIPPED indexes, a running season, and one referee who answered their own link unless `confirmed` says otherwise."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
