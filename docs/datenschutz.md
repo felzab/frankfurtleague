@@ -287,7 +287,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
 
 ## 4. What is published, and on what basis
 
-- **A club's street address is public and the application form says so** (`READ-ADDRESS-002`).
+- **A club's street address is public and the application form says so**
+  (`fl_backend/app/api/teams/schemas.py :: _TeamWritable.address`, which `:: FLTeam` serves on both
+  team reads; `fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx`).
   **Datenschutzexperte consulted.** Ruled 2026-08.
 - **The address sentence stands on the acceptance screen as well as on the application form.** The
   acceptance screen is where the administrator takes the action that publishes it, which
@@ -349,8 +351,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   crawler block enforces it, and that setting lives in the hosting dashboard rather than in this
   repository, which records that it exists and is deliberate.
 - **The free-text fields on public pages stay public** — a fixture's note, a withdrawal's reason and
-  a club's description — with the input saying so (`READ-FREETEXT-001`, `READ-FREETEXT-002`,
-  `READ-FREETEXT-003`).
+  a club's description — with the input saying so (`READ-FREETEXT-001`, `READ-FREETEXT-002`, and
+  for the description `fl_backend/app/api/teams/schemas.py :: _TeamWritable.description`, served by
+  `:: FLTeam`, with
+  `fl_frontend/src/features/teams/components/modals/DescriptionEditModal.tsx` saying so).
 
 ## 5. Erasure reaches everyone who asks
 
