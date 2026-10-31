@@ -36,7 +36,7 @@ from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 # Marked per class rather than for the module: what the payload refuses and what the composition
-# decides are reached with no container (`.claude/rules/backend.md`'s `tests` clause), while which
+# decides are reached with no container (`docs/decisions.md`'s `tests` line), while which
 # KEYS a `$set` leaves alone only a stored document shows.
 DATABASE_NAME = worker_database("fl_saison_team_kontakte_test")
 
