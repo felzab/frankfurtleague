@@ -152,7 +152,7 @@ ARCHIVED_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607800014")
 
 
 def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
-    """Every field the validator requires, and the referee SERVING: no retire-first precondition attaches to this endpoint."""
+    """Every field `FLSchiedsrichterRecord` requires, and the referee SERVING: no retire-first precondition attaches to this endpoint."""
 
     return {
         "_id": schiedsrichter_id,
@@ -228,7 +228,7 @@ class TestTheGhostTheFixturesAreHandedTo:
         assert (ghost["name"], ghost["schule"]) == (None, None)
 
     def test_every_contact_member_is_present_and_null(self):
-        """Read off the model, so a member added later arrives null rather than missing and failing the validator."""
+        """Read off the model, so a member added later arrives null rather than missing and failing the record model."""
 
         assert build_ghost_schiedsrichter()["kontakt"] == dict.fromkeys(FLKontakt.model_fields)
 
@@ -368,9 +368,9 @@ async def a_fixture_with_a_history(database: AsyncDatabase, spiel_id: ObjectId) 
 
 
 def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
-    """The REAL validators and support indexes, so a namespace a transaction cannot create is there.
+    """The REAL indexes.
 
-    `mutates_schema=True` where the body narrows one of those validators (`tests/database.py :: a_clean_database`).
+    `mutates_schema=True` where the body installs a validator (`tests/database.py :: a_clean_database`).
     """
 
     async def _run() -> Any:

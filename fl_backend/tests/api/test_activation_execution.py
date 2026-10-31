@@ -48,7 +48,7 @@ def fixture(saison_id: str, *, ergebnis: str | None) -> dict[str, Any]:
 
 
 def spieltag_document(saison_id: str, position: int, *, beginn: str | None) -> dict[str, Any]:
-    """Every validator-required key stated, `ende` moving with `beginn`: no write here produces a half-dated matchday."""
+    """Every key `FLSpieltagRecord` requires stated, `ende` moving with `beginn`: no write here produces a half-dated matchday."""
 
     return {
         "_id": ObjectId(f"6890a1b2c3d4e5f60724{position:04d}"),

@@ -70,11 +70,12 @@ that is not your worktree's own, is a wrong premise under section 4. Stop and re
 - **Run the checks your items name and then your targeted set, never a whole suite.** The set is the
   test files of every file you changed and of every module importing one, found by every import form
   in use -- the `@/` alias, a relative path, a dotted Python module -- the tests naming any
-  registry gaining a member, and the sweeps, which read a whole tree's source rather than import
-  what they judge: where you touched `fl_backend/app`, every test importing
-  `fl_backend/tests/core/app_source.py`, and where you touched `fl_frontend/src`, every test
-  importing `fl_frontend/src/test-support/treeWalk.ts`, each directly or through a module importing
-  it; run as `pnpm run test:base <files>`, split into several runs where Windows refuses the line as
+  registry gaining a member, and the sweeps, which judge a whole tree rather than the modules they
+  import: where you touched `fl_backend/app`, every test importing
+  `fl_backend/tests/core/app_source.py`, which judges every operation of the mounted application,
+  and where you touched `fl_frontend/src`, every test importing
+  `fl_frontend/src/test-support/treeWalk.ts`, which reads the tree's source, each directly or
+  through a module importing it; run as `pnpm run test:base <files>`, split into several runs where Windows refuses the line as
   too long, and `uv run --project fl_backend --frozen pytest <paths>` (the root holds no
   `pyproject.toml`, so a bare `uv run` there spawns no pytest), a path under `scripts/tests` from Git
   Bash alone, the one shell whose bash `scripts/tests/conftest.py :: pytest_configure` lets run the cases;

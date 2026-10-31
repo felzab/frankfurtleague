@@ -614,8 +614,8 @@ class TestNoQueryStringReachesAnUnboundedRead:
 class TestTheQueueOffersOneOrderAlone:
     """Why one order is all this endpoint offers sits at `app/api/bewerbungen/schemas.py :: FLBewerbungenSortOptions`."""
 
-    # 422 rather than 404: the value arrives in the query string, and the routing clause in
-    # `.claude/rules/backend.md` keeps 404 for a path id.
+    # 422 rather than 404: the value arrives in the query string, and the `routing` line of
+    # `docs/decisions.md` keeps 404 for a path id.
     @pytest.mark.parametrize("value", ["saison_id", "status", "submitted_at_desc"])
     def test_an_unoffered_sort_key_is_refused(self, value: str):
         with TestClient(_probe) as client:
@@ -652,7 +652,7 @@ class TestWhatAStatusSelectionMayBeSpelledAs:
         with TestClient(_probe) as client:
             assert client.get("/probe").json()["status"] is None
 
-    # 422 rather than 404, the routing clause in `.claude/rules/backend.md` keeping 404 for a path id. A comma-joined
+    # 422 rather than 404, the `routing` line of `docs/decisions.md` keeping 404 for a path id. A comma-joined
     # pair is one value outside the set.
     @pytest.mark.parametrize("value", ["erfunden", "SUBMITTED", "submitted,declined", "", "null", "0"])
     def test_a_status_outside_the_set_is_refused(self, value: str):
@@ -686,7 +686,7 @@ class TestWhatASeasonRelationMayBeSpelledAs:
         with TestClient(_probe) as client:
             assert client.get("/probe").json()["saison_reference"] is None
 
-    # 422 rather than 404, the routing clause in `.claude/rules/backend.md` keeping 404 for a path id.
+    # 422 rather than 404, the `routing` line of `docs/decisions.md` keeping 404 for a path id.
     @pytest.mark.parametrize("value", ["erfunden", "DIESE_SAISON", "diese_saison,andere_saison", "", "2026"])
     def test_a_relation_outside_the_set_is_refused(self, value: str):
         with TestClient(_probe) as client:

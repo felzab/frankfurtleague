@@ -3,7 +3,7 @@ API · a write stepped up on some calls alone asks the step-up window on exactly
 
 Each of these handlers decides whether this call destroys what nothing restores, or mints or voids a
 link to an address, and refuses `confirmation_required` there from a sign-in older than the step-up window.
-Served over HTTP against the shipped validators, so each refusal is
+Served over HTTP against the shipped indexes, so each refusal is
 shown to leave the stored state as it was, and each call of the other kind to pass the same sign-in.
 """
 
@@ -70,7 +70,7 @@ def _served() -> FastAPI:
 
 
 def on_a_season(url: str, body: Body, *, seed: Callable[[AsyncDatabase], Awaitable[None]] | None = None) -> Any:
-    """The shipped validators and indexes, a running season holding one club, and `seed`'s rows beside them."""
+    """The shipped indexes, a running season holding one club, and `seed`'s rows beside them."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):

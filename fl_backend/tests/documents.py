@@ -1,7 +1,7 @@
 """
 TESTS · the stored shapes both tiers build from: seeds, and the rules and consent that payload fixtures and rules models take
 
-Each document as the shipped validator judges it. Plain functions rather than fixtures: the `on_a_*`
+Each document as the shipped indexes judge it. Plain functions rather than fixtures: the `on_a_*`
 helpers and module-scoped corpora that seed them take no fixture.
 
 Invariants:

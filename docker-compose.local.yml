@@ -73,7 +73,7 @@ services:
       - source: local_mongodb_uri
         target: /run/secrets/backend_mongodb_uri
     depends_on:
-      # Healthy, not started: the lifespan applies every validator before it yields and refuses the
+      # Healthy, not started: the lifespan builds every index before it yields and refuses the
       # boot if it cannot, so a backend reaching an unelected node fails the whole start.
       mongo:
         condition: service_healthy

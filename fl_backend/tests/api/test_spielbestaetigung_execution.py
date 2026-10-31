@@ -1,5 +1,5 @@
 """
-API · a club's fixture confirmation link, opened and answered against the shipped validators and indexes
+API · a club's fixture confirmation link, opened and answered against the shipped indexes
 
 The view answers every state a link can reach, and the answer writes the row alone: the seat that
 pressed, the proposal judged as the administrator's save of that date is judged, and nothing of the

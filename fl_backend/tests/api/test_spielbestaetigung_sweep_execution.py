@@ -176,7 +176,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, spiele: list[dict[str, Any]], junctions: list[dict[str, Any]] | None = None) -> Any:
-    """The SHIPPED validators and indexes: a running season and a past one, two clubs, a ground and two referees."""
+    """The SHIPPED indexes: a running season and a past one, two clubs, a ground and two referees."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):

@@ -22,9 +22,6 @@ from tests.worker import worker_database
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_spieler_write_test")
-# Its own name: `a_clean_database` records one schema per name, so alternating constrained and
-# unconstrained callers on one would rebuild at every switch.
-UNCONSTRAINED_DATABASE_NAME = worker_database("fl_spieler_write_unconstrained_test")
 
 SAISON_ID = "2026"
 # Two, so a squad reaches its cap in two inserts and the third write is the refusal under test.
@@ -60,12 +57,11 @@ def squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | 
     return saison_spieler_document(spieler_id, SAISON_ID, team_id, rolle=rolle, inactive_since=inactive_since)
 
 
-def on_a_database(url: str, body: Body, *, constrained: bool = True) -> Any:
-    """The SHIPPED validators by default; `constrained=False` is for a body whose subject is a row they refuse."""
+def on_a_database(url: str, body: Body) -> Any:
+    """The SHIPPED indexes."""
 
     async def _run() -> Any:
-        database_name = DATABASE_NAME if constrained else UNCONSTRAINED_DATABASE_NAME
-        async with a_clean_database(url, database_name, constraints=constrained) as (_, database):
+        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
             await database.saisons.insert_one(saison_document(SAISON_ID, "active", rules=rules_document(max_kadergroesse=MAX_KADERGROESSE)))
             # Both clubs entered, so `kader_team_not_in_saison` passes and every refusal below is the cap. The
             # season's own name and shorthand are required on the row and read by nothing here.

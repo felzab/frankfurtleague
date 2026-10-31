@@ -202,8 +202,6 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
     """One person per row of the table, each holding a name and a live squad row in one team's season; one referee per row, booked."""
 
     async def _seed() -> None:
-        # UNCONSTRAINED: the `spieler` validator holds `umfang` to its enum, requires it, and
-        # refuses a null record, so the states the predicate exists to answer are ones it refuses.
         async with a_clean_database(mongo_url, DATABASE_NAME, constraints=False) as (_, database):
             await database.spieler.insert_many(
                 [spieler_document(_oid_for(case), VORNAME, NACHNAME, einwilligung=case.einwilligung) for case in NAME_IS_PUBLIC]
