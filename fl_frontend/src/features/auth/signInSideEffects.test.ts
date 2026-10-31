@@ -11,6 +11,8 @@ import {
 import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
 import { assert, describe, expect, it, vi } from "vitest";
 
+import { COPY } from "@/core/copy.ts";
+import { KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress.ts";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
 
 import type { ActionAnswer } from "@/core/action.ts";
@@ -323,6 +325,29 @@ describe("what the action answers an address it cannot parse", () => {
     const attempt = await signInWith("keine-adresse");
 
     expect(attempt.result.ok).toBe(false);
+    expect(attempt.scheduled).toBe(0);
+  });
+
+  /* Each refusal is the box's line and never the unexpected one, which would tell a reader who mistyped that the
+     site failed. "" is what the form posts for an empty box, the view marking no field required, and a box of
+     spaces is stripped to it. The browser's `type=email` lets a host with no dot through, and a post made without
+     the page sends anything, so the server's answer is the one those meet. */
+  const { feld } = COPY.shared;
+  it.each([
+    { label: "an empty box", typed: "", line: feld.pflichtfeld },
+    { label: "a box of spaces", typed: "   ", line: feld.pflichtfeld },
+    { label: "no at sign", typed: "abc", line: feld.format(feld.beispielAdresse) },
+    { label: "a host with no dot", typed: "erika@schule", line: feld.format(feld.beispielAdresse) },
+    { label: "an umlaut before the at sign", typed: "jürgen@schule.de", line: feld.format(feld.beispielAdresse) },
+    {
+      label: "an address past the ceiling",
+      typed: `${"a".repeat(KONTAKT_EMAIL_MAX_LENGTH)}@schule.de`,
+      line: feld.hoechstensZeichen(KONTAKT_EMAIL_MAX_LENGTH),
+    },
+  ])("answers $label with its line on the address box", async ({ typed, line }) => {
+    const attempt = await signInWith(typed);
+
+    expect(attempt.result).toStrictEqual({ ok: false, fieldErrors: { email: line } });
     expect(attempt.scheduled).toBe(0);
   });
 });
