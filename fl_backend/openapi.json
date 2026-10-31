@@ -12173,7 +12173,7 @@
         "type": "string"
       },
       "FLSperreData": {
-        "description": "The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNGESPERRT`).",
+        "description": "The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNBARRED`).",
         "properties": {
           "art": {
             "const": "sperre",

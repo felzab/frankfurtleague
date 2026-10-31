@@ -287,7 +287,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
 
 ## 4. What is published, and on what basis
 
-- **A club's street address is public and the application form says so** (`READ-ADDRESS-002`).
+- **A club's street address is public and the application form says so**
+  (`fl_backend/app/api/teams/schemas.py :: _TeamWritable.address`, which `:: FLTeam` serves on both
+  team reads; `fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx`).
   **Datenschutzexperte consulted.** Ruled 2026-08.
 - **The address sentence stands on the acceptance screen as well as on the application form.** The
   acceptance screen is where the administrator takes the action that publishes it, which
@@ -308,9 +310,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/shared/einwilligung.py :: NAME_IS_PUBLIC`);
   a referee is shown on a fixture only once they agreed to it, the league's own entry of an
   agreement counting, so a booking nobody has asked them about yet shows no referee
-  (`:: READ-REFEREE-005`). Ruled 2026-10-20. No fixture page carries the
-  referee's record id, which would link every fixture of a referee whose name is withheld
-  (`:: READ-REFEREE-006`).
+  (`fl_backend/app/api/spiele/schemas.py :: _withheld_unless_agreed`, over the join's
+  `fl_backend/app/api/spiele/services.py :: _einsatz_bestaetigt`). Ruled 2026-10-20. No fixture
+  page carries the referee's record id, which would link every fixture of a referee whose name is
+  withheld (`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterFieldPublic`).
 - **The booked referee reads both clubs' squads, every name and shirt number, for their own
   fixture's report, as part of officiating**, whatever a pupil answered about publication: nothing
   of it is published. The form serves the squads only from the match day and only while the fixture
@@ -348,8 +351,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   crawler block enforces it, and that setting lives in the hosting dashboard rather than in this
   repository, which records that it exists and is deliberate.
 - **The free-text fields on public pages stay public** — a fixture's note, a withdrawal's reason and
-  a club's description — with the input saying so (`READ-FREETEXT-001`, `READ-FREETEXT-002`,
-  `READ-FREETEXT-003`).
+  a club's description — with the input saying so (`READ-FREETEXT-001`, `READ-FREETEXT-002`, and
+  for the description `fl_backend/app/api/teams/schemas.py :: _TeamWritable.description`, served by
+  `:: FLTeam`, with
+  `fl_frontend/src/features/teams/components/modals/DescriptionEditModal.tsx` saying so).
 
 ## 5. Erasure reaches everyone who asks
 
@@ -801,9 +806,12 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   six delivery events are subscribed and `email.opened` and `email.clicked` are not
   ([`ops/runbooks.md`](ops/runbooks.md#10-the-mail-providers-dashboard) holds the dashboard's own
   half of that). **A delivery state is stored on the Postausgang row its message was sent from, and
-  goes with that row**: a row keeps no facts and no secret once it is sent or given up, and the
-  database deletes it no later than thirty days after that, the period the mail provider keeps its own copy
-  (`fl_backend/app/api/outbox/services.py :: RETENTION`). An erasure of its recipient deletes it
+  goes with that row**: a row keeps no facts and no secret once it is sent or given up, of a person
+  only the address it was sent to, and the database deletes it no later than thirty days after
+  that, the period the mail provider keeps its own copy
+  (`fl_backend/app/api/outbox/services.py :: RETENTION`); a row carrying a sign-in code or an
+  account's deletion link goes sooner, when that secret lapses (`:: row_of`). The published
+  notice's retention table says the same (`DatenschutzView.tsx :: FRISTEN`). An erasure of its recipient deletes it
   at once, sent or owed, the sign-in library's deletion link alone excepted
   (`fl_backend/app/api/identitaet/crud.py :: loeschen_the_mails_in_session`; `docs/glossary.md ::
 Zustellstand`). No record the message was about carries it, so a row can outlive that record by

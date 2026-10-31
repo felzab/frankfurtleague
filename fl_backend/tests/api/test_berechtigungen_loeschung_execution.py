@@ -22,7 +22,7 @@ from app.api.berechtigungen.services import compose_mitteilung
 from app.api.einladungen.services import compose_einladung
 from app.api.kontakte.services import same_address
 from app.api.outbox.schemas import FLGrantData
-from app.api.outbox.services import RETENTION, ZUSTELLFRIST
+from app.api.outbox.services import DELIVERY_DEADLINE, RETENTION
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
@@ -126,8 +126,8 @@ def notice(
         "link": None,
         "state": "open",
         "recorded_at": QUEUED,
-        "frist": QUEUED + ZUSTELLFRIST,
-        "erase_at": QUEUED + ZUSTELLFRIST + RETENTION,
+        "frist": QUEUED + DELIVERY_DEADLINE,
+        "erase_at": QUEUED + DELIVERY_DEADLINE + RETENTION,
         "lease": None,
         "leased_until": None,
         "attempts": 0,

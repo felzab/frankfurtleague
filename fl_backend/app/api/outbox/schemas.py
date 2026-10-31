@@ -40,7 +40,7 @@ FLOutboxSignInData = Annotated[FLSignInCodeData | FLPasskeyData | FLAccountErasu
 
 
 class FLSperreData(BaseModel):
-    """The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNGESPERRT`)."""
+    """The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNBARRED`)."""
 
     art: Literal["sperre"]
     grund: str
