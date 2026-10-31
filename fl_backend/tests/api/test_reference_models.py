@@ -281,7 +281,7 @@ class TestEinwilligung:
 
     @pytest.mark.parametrize("field", ["umfang", "datum", "confirmed_at", "text_version", "medien", "nachweis"])
     def test_requires_every_key(self, einwilligung, field, assert_rejects):
-        """The keys in the validator's `required` tuple, so a model accepting one fewer would read back a row the database refuses to store."""
+        """Each key a stored record carries, so a model accepting one fewer would let the read-back pass a row missing it."""
 
         incomplete = einwilligung()
         del incomplete[field]
@@ -318,8 +318,8 @@ class TestEinwilligung:
 
 
 @pytest.mark.db
-class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
-    """The record the registration flow writes, judged by `$jsonSchema` rather than by the model declared in another file."""
+class TestTheConsentRecordStoredAndReadBack:
+    """The record the registration flow writes, stored and read back through the person's read model."""
 
     def _written(self, url: str, einwilligung: dict[str, Any]) -> dict[str, Any]:
         async def body() -> Any:
@@ -386,7 +386,7 @@ class TestSaisonSpielerRow:
             FLSaisonSpielerRow.model_validate(saison_spieler(nummer=7))
 
     def test_it_shares_the_closed_sets_with_the_read_models(self):
-        """A Literal of its own would compare equal to the validator's enum today and drift the moment either moves."""
+        """A Literal of its own would compare equal to `FLSpieler`'s today and drift the moment either moves."""
 
         assert FLSaisonSpielerRow.model_fields["stufe"].annotation == FLSpieler.model_fields["stufe"].annotation
         assert FLSaisonSpielerRow.model_fields["position"].annotation == FLSpieler.model_fields["position"].annotation

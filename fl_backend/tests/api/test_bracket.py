@@ -354,7 +354,7 @@ class TestResolveBracket:
         assert resolved(spiele) == {29: (None, "Team 1")}
 
     def test_a_fixture_never_becomes_a_team_against_itself(self, fixture_at: FixtureFactory, side: SideFactory):
-        """Nothing downstream would refuse it: a validator carries no cross-field rule."""
+        """Nothing downstream would refuse it: the database holds no cross-field rule."""
 
         spiele = [
             fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),

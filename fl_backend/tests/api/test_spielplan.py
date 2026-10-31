@@ -1241,7 +1241,7 @@ class TestWhatCountsAsRecordedAgainstAFixture:
         ("empty", "why"),
         [
             ({"notiz": None}, "how CLEARING a note is stored: the patch `$set`s the whole model"),
-            ({"notiz": ""}, "unreachable through the API, and `spiele`'s validator takes it from a hand edit"),
+            ({"notiz": ""}, "unreachable through the API, and a hand edit can store it"),
             ({"notiz": "   "}, "whitespace, which `empty_strings_to_none` catches on the API route alone"),
         ],
     )

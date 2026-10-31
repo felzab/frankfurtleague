@@ -143,7 +143,7 @@ class TestTheBaseTierShape:
 
     @pytest.mark.parametrize("field", WITHHELD_FIELDS)
     def test_the_stored_shape_still_declares_what_the_tier_withholds(self, field: str):
-        """Each rule is about one READ: the field stays stored, admin-visible and validator-enforced, and `FLSpieler` still declares it."""
+        """Each rule is about one READ: the field stays stored and admin-visible, and `FLSpieler` still declares it."""
         assert field in FLSpieler.model_fields
 
     @pytest.mark.parametrize("field", ["stufe", "team_id", "is_nachnominiert", "rolle", "inactive_since"])
@@ -649,8 +649,6 @@ def squad_url(mongo_url: str) -> Iterator[str]:
     """Two seasons of one club: a player in both, and one who played the past season alone."""
 
     async def _seed() -> None:
-        # UNCONSTRAINED: a season here carries only the `status` the read resolves on, and the
-        # validator requires the whole of `rules` besides.
         async with a_clean_database(mongo_url, SQUAD_DATABASE_NAME, constraints=False) as (_, database):
             await database.saisons.insert_many([{"_id": SAISON, "status": "active"}, {"_id": PAST_SAISON, "status": "past"}])
             await database.spieler.insert_many(
@@ -927,7 +925,6 @@ def sort_oracle_url(mongo_url: str) -> Iterator[str]:
 
     async def _seed() -> None:
         for corpus, withheld_forename in WITHHELD_FORENAMES.items():
-            # UNCONSTRAINED for `masked_url`'s reason, the corpora sharing its seeding shape.
             async with a_clean_database(mongo_url, SORT_ORACLE_DATABASE_NAMES[corpus], constraints=False) as (_, database):
                 await database.saisons.insert_one({"_id": SAISON, "status": "active"})
                 await database.spieler.insert_many(

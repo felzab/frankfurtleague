@@ -55,7 +55,7 @@ MIETPREIS = 80
 
 
 def venue_document(spielort_id: ObjectId, name: str, *, inactive_since: str | None = None) -> dict[str, Any]:
-    """Every key `FLSpielort` requires, so the seed is a shape the venue's record model reads back."""
+    """Every key `FLSpielort` requires, so the seed is a shape the venue reads serve."""
 
     return {
         "_id": spielort_id,
