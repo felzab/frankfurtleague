@@ -308,9 +308,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/shared/einwilligung.py :: NAME_IS_PUBLIC`);
   a referee is shown on a fixture only once they agreed to it, the league's own entry of an
   agreement counting, so a booking nobody has asked them about yet shows no referee
-  (`:: READ-REFEREE-005`). Ruled 2026-10-20. No fixture page carries the
-  referee's record id, which would link every fixture of a referee whose name is withheld
-  (`:: READ-REFEREE-006`).
+  (`fl_backend/app/api/spiele/schemas.py :: _withheld_unless_agreed`, over the join's
+  `fl_backend/app/api/spiele/services.py :: _einsatz_bestaetigt`). Ruled 2026-10-20. No fixture
+  page carries the referee's record id, which would link every fixture of a referee whose name is
+  withheld (`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterFieldPublic`).
 - **The booked referee reads both clubs' squads, every name and shirt number, for their own
   fixture's report, as part of officiating**, whatever a pupil answered about publication: nothing
   of it is published. The form serves the squads only from the match day and only while the fixture
