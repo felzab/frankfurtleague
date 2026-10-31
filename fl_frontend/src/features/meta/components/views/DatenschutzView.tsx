@@ -255,6 +255,13 @@ const FRISTEN = [
       "Wie das Betriebsprotokoll der Anwendung, in dem er steht, und außerdem in einer eigenen Datei je Tag, die wir 30 Tage nach ihrer letzten Änderung löschen. Damit können wir den Schritt erneut ausführen, falls wir eine Sicherungskopie der Datenbank einspielen, die älter ist als er",
   },
   { daten: "Sicherungskopien der Datenbank", frist: "Etwa acht Tage" },
+  // The outbox row a mail is sent from (`fl_backend/app/api/outbox/services.py :: final_update`, `:: RETENTION`): its
+  // data and any secret go when it is sent or given up, and a row carrying a secret goes at the secret's own lapse.
+  {
+    daten: "E-Mails der Liga in unserer Datenbank: Empfängeradresse, die Angaben, die die Nachricht braucht, und ihr Zustellstand",
+    frist:
+      "Die Angaben der Nachricht, bis sie versandt ist oder wir den Versand aufgeben; danach behalten wir nur die Adresse, an die sie gerichtet war, und gegebenenfalls ihren Zustellstand, 30 Tage lang. Eine Nachricht mit einem Anmeldecode oder einem Link zum Löschen eines Kontos löschen wir ganz, sobald der Code oder der Link abläuft",
+  },
   // Resend's own period, mirrored in `docs/datenschutz.md` §7 with the day it was read: no erasure of ours reaches it.
   {
     daten: "E-Mails der Liga beim Versanddienst Resend: Empfängeradresse, Betreff, Inhalt und Zustellstand",

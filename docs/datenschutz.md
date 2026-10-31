@@ -802,9 +802,12 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   six delivery events are subscribed and `email.opened` and `email.clicked` are not
   ([`ops/runbooks.md`](ops/runbooks.md#10-the-mail-providers-dashboard) holds the dashboard's own
   half of that). **A delivery state is stored on the Postausgang row its message was sent from, and
-  goes with that row**: a row keeps no facts and no secret once it is sent or given up, and the
-  database deletes it no later than thirty days after that, the period the mail provider keeps its own copy
-  (`fl_backend/app/api/outbox/services.py :: RETENTION`). An erasure of its recipient deletes it
+  goes with that row**: a row keeps no facts and no secret once it is sent or given up, of a person
+  only the address it was sent to, and the database deletes it no later than thirty days after
+  that, the period the mail provider keeps its own copy
+  (`fl_backend/app/api/outbox/services.py :: RETENTION`); a row carrying a sign-in code or an
+  account's deletion link goes sooner, when that secret lapses (`:: row_of`). The published
+  notice's retention table says the same (`DatenschutzView.tsx :: FRISTEN`). An erasure of its recipient deletes it
   at once, sent or owed, the sign-in library's deletion link alone excepted
   (`fl_backend/app/api/identitaet/crud.py :: loeschen_the_mails_in_session`; `docs/glossary.md ::
 Zustellstand`). No record the message was about carries it, so a row can outlive that record by
