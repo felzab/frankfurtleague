@@ -15,10 +15,10 @@ import type { ReactNode } from "react";
 export default function SaisonsLayout({ children }: { children: ReactNode }) {
   return (
     <RailFrame
-      groups={[{ entries: [{ id: "spielplan", label: COPY.seite.spielplan, season: "spielplan", icon: "spielplan" }] }]}
+      groups={[{ entries: [{ id: "spielplan", label: COPY.seite.spielplan, saison: "spielplan", icon: "spielplan" }] }]}
       bar={["spielplan"]}
-      season={{ seasons: readSeasons(), home: "spielplan" }}
-      foot={{ kind: "anmelden", href: ROUTES.anmeldung.pfad() }}>
+      saison={{ saisons: readSeasons(), home: "spielplan" }}
+      foot={{ kind: "signIn", href: ROUTES.signIn.path() }}>
       {children}
     </RailFrame>
   );

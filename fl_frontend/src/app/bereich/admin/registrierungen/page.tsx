@@ -1,11 +1,10 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { AdminRegistrierungenView } from "@/features/registrierungen/components/views/AdminRegistrierungenView";
 import { REGISTRIERUNGEN_CRUD_COPY } from "@/features/registrierungen/constants";
 import { getAdminRegistrierungen } from "@/features/registrierungen/queries";
 import { buildAdminRegistrierungRows } from "@/features/registrierungen/utils";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
@@ -42,18 +41,17 @@ export default function AdminRegistrierungenPage(props: NextPageProps) {
 
 /** Every season's pending registrations, so the header's season selector narrows nothing here. */
 async function Registrierungen({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
-  await connection();
   const params = (await searchParams) ?? {};
   const richtung = parseLeserichtung(params);
 
   // The clubs for their names alone, a registration storing its team as an id.
-  const [teamsRes, registrierungenRes] = await Promise.all([getTeamMemberships(), getAdminRegistrierungen(richtung)]);
+  const [teamsRes, registrierungenRes] = await Promise.all([getTeamSaisons(), getAdminRegistrierungen(richtung)]);
 
   return (
     <AdminRegistrierungenView
       registrierungen={buildAdminRegistrierungRows(registrierungenRes.registrierungen, teamsRes.teams)}
       unvollstaendig={
-        registrierungenRes.vollstaendig ? null : { richtung: richtung, umkehrHref: leserichtungHrefFromRoute(params, umgekehrt(richtung)) }
+        registrierungenRes.complete ? null : { richtung: richtung, umkehrHref: leserichtungHrefFromRoute(params, umgekehrt(richtung)) }
       }
     />
   );

@@ -13,11 +13,11 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertManyResult, InsertOneResult, UpdateResult
 
+from app.api.aktionen.schemas import FLAktionRecord
 from app.core.collections import Collection
-from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
-from app.core.exceptions import DocumentNotFoundException
-from app.core.logging import span_id_var, trace_id_var
+from app.core.exceptions import DocumentNotFoundError
+from app.core.logging import trace_id_var
 from app.core.recording import Actor, _stringify_filter, actor_var, build_image_redactions, log_stamp, record_write, request_var
 
 # Fixed rather than generated, so a failing test names the same document every run.
@@ -25,14 +25,14 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607500001")
 CREATED_OID = ObjectId("6890a1b2c3d4e5f607500002")
 
 # The two images share no value, so a row holding the wrong one cannot pass by resembling the right one.
-BEFORE_DOCUMENT: Mapping[str, Any] = {"_id": TEAM_OID, "name": "Lessing", "shorthand": "LE"}
-AFTER_DOCUMENT: Mapping[str, Any] = {"_id": TEAM_OID, "name": "Lessing-Gymnasium", "shorthand": "LG"}
+BEFORE_DOCUMENT: Mapping[str, Any] = {"_id": TEAM_OID, "name": "Lessing", "shorthand": "LEX"}
+AFTER_DOCUMENT: Mapping[str, Any] = {"_id": TEAM_OID, "name": "Lessing-Gymnasium", "shorthand": "LGX"}
 
-CREATED_DOCUMENT: Mapping[str, Any] = {"_id": CREATED_OID, "name": "Carl-Schurz", "shorthand": "CS"}
+CREATED_DOCUMENT: Mapping[str, Any] = {"_id": CREATED_OID, "name": "Carl-Schurz", "shorthand": "CSX"}
 
 # More than two, so a row per document rather than per call is unmistakable, and none of them
 # carries an `_id`: a generated fixture leaves those to the driver.
-CREATED_DOCUMENTS: Sequence[Mapping[str, Any]] = [{"name": f"Club {index}", "shorthand": f"C{index}"} for index in range(5)]
+CREATED_DOCUMENTS: Sequence[Mapping[str, Any]] = [{"name": f"Club {index}", "shorthand": f"CL{chr(65 + index)}"} for index in range(5)]
 
 FILTER: Mapping[str, Any] = {"saison_id": "2026", "team_id": TEAM_OID}
 UPDATE: Mapping[str, Any] = {"$set": {"name": "Lessing-Gymnasium"}}
@@ -45,7 +45,10 @@ ADMIN_ACTOR = Actor(kind="admin_session", email="admin@example.com")
 # The route TEMPLATE, which is the half of this pair the binder stores.
 ROUTE = ("PATCH", "/api/v0/teams/{team_id}")
 TRACE_ID = "0123456789abcdef0123456789abcdef"
-SPAN_ID = "fedcba9876543210"
+
+# Outside `EDITED_COLLECTIONS`, whose creates stamp a version (`app/core/crud.py`): the case reading
+# what the helper passed on judges the recording alone.
+UNVERSIONED = Collection.INVITATIONS
 
 # A stand-in for the caller's session, outside a transaction: what is proved is that the row travels inside whatever the caller passed.
 SESSION = cast(AsyncClientSession, SimpleNamespace(in_transaction=False))
@@ -75,7 +78,7 @@ class _FakeCollection:
         self.sessions: list[Any] = []
         # A collection reaches the log through its own database handle, and for the log itself that
         # resolves back to the same collection -- the shape the recursion guard has to survive.
-        self.database: dict[str, _FakeCollection] = {Collection.AKTIONEN: self if log is None else log}
+        self.database: dict[str, _FakeCollection] = {Collection.ACTION_LOG: self if log is None else log}
 
     async def find_one(self, *, filter: Any, projection: Any = None, session: Any = None) -> Mapping[str, Any] | None:
         """The post-image: a patch re-reads for the caller's echo once the update has carried the pre-image out."""
@@ -107,7 +110,7 @@ class _FakeCollection:
 def build(name: str = Collection.TEAMS, **state: Any) -> tuple[_FakeCollection, _FakeCollection]:
     """The written-to collection and the log its database holds, as two objects: one list each is what makes "recorded nothing" checkable."""
 
-    log = _FakeCollection(Collection.AKTIONEN)
+    log = _FakeCollection(Collection.ACTION_LOG)
 
     return _FakeCollection(name, log=log, **state), log
 
@@ -123,7 +126,6 @@ def record_inside_a_request(**arguments: Any) -> None:
         actor_var.set(ADMIN_ACTOR)
         request_var.set(ROUTE)
         trace_id_var.set(TRACE_ID)
-        span_id_var.set(SPAN_ID)
         await record_write(**arguments)
 
     asyncio.run(_run())
@@ -132,7 +134,7 @@ def record_inside_a_request(**arguments: Any) -> None:
 class TestTheLogNeverRecordsItself:
     def test_a_write_to_the_log_itself_records_nothing(self):
         """Recording the log's own rows would recurse without end, and a redaction is itself a write."""
-        log = _FakeCollection(Collection.AKTIONEN)
+        log = _FakeCollection(Collection.ACTION_LOG)
 
         asyncio.run(record_write(collection=as_collection(log), operation="insert", document_id=TEAM_OID))
 
@@ -179,7 +181,7 @@ class TestWhatEachWriteRecords:
         """A row for a write that never landed is a restore the page would offer over a document nobody touched."""
         target, log = build(before=None, after=None)
 
-        with pytest.raises(DocumentNotFoundException):
+        with pytest.raises(DocumentNotFoundError):
             asyncio.run(
                 patch_one_in_db(collection=as_collection(target), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.AFTER)
             )
@@ -197,7 +199,10 @@ class TestWhatEachWriteRecords:
         assert log.inserted[0]["modified_count"] == MATCHED
 
     def test_a_fan_out_records_the_filter_it_matched_on_and_no_prior_image(self):
-        """It matched a filter rather than a document, so there is no single image to hold and nothing to name in `document_id`."""
+        """It matched a filter rather than a document, so there is no single image to hold and nothing to name in `document_id`.
+
+        On an edited collection, whose fan-out narrows the filter it sends: the row keeps the caller's.
+        """
         target, log = build(modified_count=MATCHED)
 
         asyncio.run(patch_many_in_db(collection=as_collection(target), db_filter=FILTER, update=UPDATE))
@@ -253,7 +258,7 @@ class TestWhatEachWriteRecords:
 
     def test_a_bulk_create_hands_the_driver_the_documents_unchanged(self):
         """A helper editing what it was given would put a document into the database no caller composed."""
-        target, _ = build()
+        target, _ = build(UNVERSIONED)
 
         asyncio.run(post_many_to_db(collection=as_collection(target), documents=CREATED_DOCUMENTS))
 
@@ -301,14 +306,12 @@ class TestWhoAndWhenARowIsAttributedTo:
         assert log.inserted[0]["request"] == {"method": "PATCH", "path": "/api/v0/teams/{team_id}"}
 
     def test_the_row_carries_the_trace_id_of_the_request_that_caused_it(self):
-        """A fan-out's rows and the write behind them are one action on the page only because they share the TRACE's id, never a hop's span."""
+        """A fan-out's rows and the write behind them are one action on the page only because they share the trace's id."""
         target, log = build()
 
         record_inside_a_request(collection=as_collection(target), operation="patch_many", modified_count=MATCHED)
 
         assert log.inserted[0]["trace_id"] == TRACE_ID
-        assert "span_id" not in log.inserted[0]
-        assert SPAN_ID not in repr(log.inserted[0])
 
     def test_the_timestamp_is_utc_and_carries_its_offset(self):
         """The log is ordered and ranged by this field, and a local-time string sorts October's two identical clock hours the wrong way."""
@@ -340,45 +343,31 @@ class TestWhoAndWhenARowIsAttributedTo:
         assert log.inserted[0]["redacted_at"] is None
 
 
-class TestTheRowAndTheValidatorAgree:
-    def test_a_recorded_row_carries_every_required_field_and_nothing_undeclared(self):
-        """Row and `$jsonSchema` are hand-written from one shape, so without this a row short of a field is refused first in production."""
+class TestTheRowIsTheStoredShape:
+    def test_a_recorded_row_reads_back_through_the_record_model(self):
+        """Row and record are hand-written from one shape, so without this a row short of a field fails the log page's read first."""
         target, log = build()
 
         asyncio.run(record_write(collection=as_collection(target), operation="insert", document_id=TEAM_OID))
 
-        schema = COLLECTION_VALIDATORS[Collection.AKTIONEN]["$jsonSchema"]
-        written = set(log.inserted[0])
-
-        # `_id` is the driver's to add, and the one required field no row arrives carrying.
-        assert set(schema["required"]) - {"_id"} <= written
-        # Containment rather than equality: `at_date` and `anlass` are written and out of `required`,
-        # the rows already in the log carrying neither.
-        assert written <= set(schema["properties"])
-
-    def test_the_recorded_collection_name_is_one_the_validator_admits(self):
-        target, log = build()
-
-        asyncio.run(record_write(collection=as_collection(target), operation="insert", document_id=TEAM_OID))
-
-        declared = COLLECTION_VALIDATORS[Collection.AKTIONEN]["$jsonSchema"]["properties"]["collection"]["enum"]
-        assert log.inserted[0]["collection"] in declared
+        # `_id` is the driver's to add, and the one field no row arrives carrying.
+        FLAktionRecord.model_validate({"_id": ObjectId(), **log.inserted[0]}, extra="forbid")
 
 
 class TestStringifyFilter:
     def test_every_value_is_rendered_as_text(self):
         # A boolean is in the sample deliberately: `False` renders as text a reader could otherwise
-        # mistake for a stored string, and the validator admits only strings.
-        rendered = _stringify_filter({"team_id": TEAM_OID, "spiel_nr": 1, "ist_nachnominiert": False, "saison_id": "2026"})
+        # mistake for a stored string, and the record model admits only strings.
+        rendered = _stringify_filter({"team_id": TEAM_OID, "spiel_nr": 1, "is_nachnominiert": False, "saison_id": "2026"})
 
-        assert rendered == {"team_id": str(TEAM_OID), "spiel_nr": "1", "ist_nachnominiert": "False", "saison_id": "2026"}
+        assert rendered == {"team_id": str(TEAM_OID), "spiel_nr": "1", "is_nachnominiert": "False", "saison_id": "2026"}
 
     def test_an_objectid_survives_as_the_hex_string_that_names_it(self):
         """Most fan-outs match on one, and a reader comparing the row against a document has only this text to do it with."""
         assert _stringify_filter({"_id": TEAM_OID})["_id"] == "6890a1b2c3d4e5f607500001"
 
     def test_an_operator_becomes_text_rather_than_a_nested_document(self):
-        """Stored for the reader rather than for replay: a validator admitting a nested operator admits anything at all."""
+        """Stored for the reader rather than for replay: a record model admitting a nested operator admits anything at all."""
         rendered = _stringify_filter({"_id": {"$in": [TEAM_OID]}})
 
         assert rendered == {"_id": str({"$in": [TEAM_OID]})}

@@ -6,13 +6,13 @@ import { ROUTES } from "@/core/routes";
 
 import { Brand } from "./Brand";
 import { Chip } from "./Chip";
-import { AccountRow, BackControl, BarPlaces, EditorBack, MenuScope, RailEntries, SeasonScope } from "./FrameNav";
+import { AccountRow, BackControl, BarPlaces, EditorBack, MenuScope, RailEntries, SaisonScope } from "./FrameNav";
 import { Icon } from "./Icon";
 import { LeaveGuardProvider } from "./LeaveGuard";
 import { frameLink } from "./Link";
 import { RailRoot, RailToggle, RailTooltip } from "./RailState";
 import { RAIL_ID, railFade, railGlyph } from "./railStyles";
-import { SeasonButton } from "./SeasonButton";
+import { SaisonButton } from "./SaisonButton";
 import { ToastRegion } from "./Toast";
 import { tv } from "./tv";
 
@@ -20,10 +20,10 @@ import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 import type { ChipProps } from "./Chip";
-import type { AccountRead, FrameSeasons, RailGroup } from "./FrameNav";
+import type { AccountRead, FrameSaisons, RailGroup } from "./FrameNav";
 
 /** The rail's foot: the account signed in, which streams in, or „Anmelden“ where nobody is. */
-type RailFoot = { kind: "account"; account: AccountRead } | { kind: "anmelden"; href: Route };
+type RailFoot = { kind: "account"; account: AccountRead } | { kind: "signIn"; href: Route };
 
 /** The phone bar's pages, by their entries' ids: up to four, „Mehr“ and the account taking the other places. */
 type Bar = readonly [string] | readonly [string, string] | readonly [string, string, string] | readonly [string, string, string, string];
@@ -49,7 +49,7 @@ type Bar = readonly [string] | readonly [string, string] | readonly [string, str
 export function RailFrame({
   groups,
   bar,
-  season,
+  saison,
   foot,
   back,
   columnInLayouts = false,
@@ -58,7 +58,7 @@ export function RailFrame({
   groups: ReadonlyArray<RailGroup>;
   bar: Bar;
   /** The person's seasons, for the season button and the entries that are a season's pages. */
-  season?: FrameSeasons;
+  saison?: FrameSaisons;
   foot: RailFoot;
   back?: Route;
   /** Whether the area's layouts place the band and the bar, each with `RailColumn`, rather than the frame. */
@@ -68,14 +68,14 @@ export function RailFrame({
   const account = foot.kind === "account" ? foot.account : undefined;
   // Signed out, the phone reaches „Anmelden“ and the two legal pages through „Mehr“ (the strip carries them on desktop).
   const extra =
-    foot.kind === "anmelden"
+    foot.kind === "signIn"
       ? [
           { label: COPY.shared.verb.anmelden, href: foot.href },
-          { label: COPY.seite.impressum, href: ROUTES.impressum.pfad() },
-          { label: COPY.seite.datenschutz, href: ROUTES.datenschutz.pfad() },
+          { label: COPY.seite.impressum, href: ROUTES.legalNotice.path() },
+          { label: COPY.seite.datenschutz, href: ROUTES.privacyNotice.path() },
         ]
       : [];
-  const pages = groups.flatMap((group) => group.entries.flatMap((entry) => (entry.season === undefined ? [] : [entry.season])));
+  const pages = groups.flatMap((group) => group.entries.flatMap((entry) => (entry.saison === undefined ? [] : [entry.saison])));
 
   // The menus read the address and the seasons, which no prerender knows: each streams in its own boundary,
   // so the frame around them is drawn without waiting.
@@ -93,7 +93,7 @@ export function RailFrame({
               {back === undefined ? <Brand ground="band" /> : <BackControl href={back} />}
             </div>
             <Suspense fallback={null}>
-              <SeasonButton placement="rail" />
+              <SaisonButton placement="rail" />
             </Suspense>
             {/* While the entries stream, the space they fill keeps the foot at the rail's end. */}
             <Suspense fallback={<div className="min-h-0 flex-1" />}>
@@ -115,7 +115,7 @@ export function RailFrame({
                     className={frameLink({ tone: "rail", class: "gap-3 overflow-hidden" })}>
                     <span className={railGlyph()}>
                       <Icon
-                        glyph="anmelden"
+                        glyph="signin"
                         size={18}
                       />
                     </span>
@@ -133,7 +133,7 @@ export function RailFrame({
       </LeaveGuardProvider>
     </MenuScope>
   );
-  return season === undefined ? frame : <SeasonScope value={{ ...season, pages }}>{frame}</SeasonScope>;
+  return saison === undefined ? frame : <SaisonScope value={{ ...saison, pages }}>{frame}</SaisonScope>;
 }
 
 /**
@@ -156,7 +156,7 @@ export function RailColumn({ editor = false, back, children }: { editor?: boolea
           <BackControl href={back} />
         )}
         <Suspense fallback={null}>
-          <SeasonButton placement="band" />
+          <SaisonButton placement="band" />
         </Suspense>
       </header>
       {children}
@@ -170,7 +170,7 @@ export function RailColumn({ editor = false, back, children }: { editor?: boolea
 }
 
 // The routes named by a fixed title; a record page is named by its record, a match by its two teams.
-type TitledRoute = { [K in keyof typeof ROUTES]: (typeof ROUTES)[K]["titel"] extends Copy ? K : never }[keyof typeof ROUTES];
+type TitledRoute = { [K in keyof typeof ROUTES]: (typeof ROUTES)[K]["title"] extends Copy ? K : never }[keyof typeof ROUTES];
 
 /**
  * A page's name: its route's catalogue title, a match's two teams in the fixture's order, or a record's own
@@ -180,8 +180,8 @@ export type PageTitle = { route: TitledRoute } | { route: "spiel"; heim: string;
 
 function titleOf(title: PageTitle): string {
   if ("record" in title) return title.record;
-  if (title.route === "spiel") return ROUTES.spiel.titel(title.heim, title.gast);
-  return ROUTES[title.route].titel;
+  if (title.route === "spiel") return ROUTES.spiel.title(title.heim, title.gast);
+  return ROUTES[title.route].title;
 }
 
 const strip = tv({
@@ -192,9 +192,9 @@ const strip = tv({
   },
   variants: {
     // A public page's title at 24 px, a signed-in page's at 20 px.
-    area: {
+    scope: {
       saison: { heading: "text-2xl" },
-      bereich: { heading: "text-xl" },
+      area: { heading: "text-xl" },
     },
   },
 });
@@ -212,13 +212,13 @@ export const formColumn = tv({ base: "mx-auto grid w-full max-w-form gap-6" });
  * content under the band. The page's templates place it; `main` holds their content.
  */
 export function RailPage({
-  area,
+  scope,
   title,
   chip,
   bar,
   children,
 }: {
-  area: "saison" | "bereich";
+  scope: "saison" | "area";
   title: PageTitle;
   /** The record's status, directly after its name. */
   chip?: ChipProps;
@@ -226,7 +226,7 @@ export function RailPage({
   bar?: ReactNode;
   children: ReactNode;
 }) {
-  const { head, heading } = strip({ area });
+  const { head, heading } = strip({ scope });
   return (
     <>
       <header className={head()}>
@@ -238,17 +238,17 @@ export function RailPage({
             label={chip.label}
           />
         )}
-        {area === "saison" && (
+        {scope === "saison" && (
           <nav
             aria-label={COPY.vorlage.navigation}
             className="ms-auto hidden gap-1 lg:flex">
-            {[ROUTES.impressum, ROUTES.datenschutz].map((page) => (
+            {[ROUTES.legalNotice, ROUTES.privacyNotice].map((page) => (
               <NextLink
-                key={page.pfad()}
-                href={page.pfad()}
+                key={page.path()}
+                href={page.path()}
                 data-kit-focus="ring"
                 className={frameLink({ tone: "strip" })}>
-                {page.titel}
+                {page.title}
               </NextLink>
             ))}
           </nav>
@@ -265,4 +265,4 @@ export function RailPage({
 }
 
 /** What a template hands `RailPage`: the area and the title, and the status chip where the record has one. */
-export type RailPageHead = { area: "saison" | "bereich"; title: PageTitle; chip?: ChipProps };
+export type RailPageHead = { scope: "saison" | "area"; title: PageTitle; chip?: ChipProps };

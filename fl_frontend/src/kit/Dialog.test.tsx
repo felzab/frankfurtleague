@@ -16,12 +16,12 @@ import { Link } from "./Link";
 import { TextField } from "./TextField";
 import { useEditor } from "./useEditor";
 
+import type { ActionAnswer } from "@/core/action";
 import type * as Navigation from "next/navigation";
 import type { EditorSave } from "./useEditor";
-import type { ActionAnswer } from "./useFormAction";
 
 // The route dialog's way back, which jsdom's history, one entry long, sends to the page beneath.
-const router = vi.hoisted(() => ({ back: vi.fn(), push: vi.fn() }));
+const router = vi.hoisted(() => ({ back: vi.fn(), push: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal<typeof Navigation>()), useRouter: () => router }));
 
 type Spielort = { name: string };
@@ -34,7 +34,7 @@ function CreateDialog({ create }: { create: (formData: FormData) => Promise<Acti
   return (
     <Dialog
       title={NAME}
-      act={{ verb: "anlegen", objekt: NAME }}
+      act={{ verb: "anlegen", object: NAME }}
       action={create}
       trigger={
         <Button
@@ -56,10 +56,10 @@ function EditorHoldingDialog({
   save,
   create,
 }: {
-  save: (change: EditorSave<Spielort>) => Promise<ActionAnswer>;
+  save: (change: EditorSave<Spielort>) => Promise<ActionAnswer<number>>;
   create: (formData: FormData) => Promise<ActionAnswer>;
 }) {
-  const editor = useEditor({ id: "ort-1", fingerprint: "f1", values: { name: "Riedberg" } }, save);
+  const editor = useEditor({ id: "ort-1", version: 1, values: { name: "Riedberg" } }, save);
   return (
     <EditorPage
       title={{ record: "Riedberg" }}
@@ -172,7 +172,7 @@ describe("the kit's dialog", () => {
   });
 
   it("opened inside an editor's section, runs its own act and never the editor's save", async () => {
-    const save = vi.fn(async (): Promise<ActionAnswer> => ({ ok: true, value: undefined }));
+    const save = vi.fn(async (): Promise<ActionAnswer<number>> => ({ ok: true, value: 2 }));
     const create = vi.fn(async (_formData: FormData): Promise<ActionAnswer> => DONE);
     render(
       <EditorHoldingDialog
@@ -275,7 +275,7 @@ describe("the kit's dialog", () => {
   });
 
   it("opened from a combo box's create entry, starts from the typed name and closes on „Zurück“", async () => {
-    render(<VenueFieldWithDialog />);
+    render(<SpielortFieldWithDialog />);
     await userEvent.type(screen.getByRole("combobox"), "Sportpark Süd");
     await userEvent.click(screen.getByRole("option", { name: COPY.verwaltung.spielort.anlegenEintrag }));
 
@@ -286,7 +286,7 @@ describe("the kit's dialog", () => {
 });
 
 /** The match editor's venue field and its create dialog, which the field's last entry opens. */
-function VenueFieldWithDialog() {
+function SpielortFieldWithDialog() {
   const [isOpen, setOpen] = useState(false);
   const [name, setName] = useState("");
   return (
@@ -304,7 +304,7 @@ function VenueFieldWithDialog() {
       />
       <Dialog
         title={NAME}
-        act={{ verb: "anlegen", objekt: NAME }}
+        act={{ verb: "anlegen", object: NAME }}
         action={async () => DONE}
         open={{ isOpen, onOpenChange: setOpen }}>
         <TextField

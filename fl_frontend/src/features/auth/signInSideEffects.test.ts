@@ -8,12 +8,14 @@ import {
   overriding,
   registerAuthDoubles,
 } from "@/test-support/authDoubles.ts";
-import { answerAt, SITZ } from "@/test-support/subjectFixtures.ts";
-import { assert, describe, expect, it } from "vitest";
+import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
+import { assert, describe, expect, it, vi } from "vitest";
 
+import { COPY } from "@/core/copy.ts";
+import { KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress.ts";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
 
-import type { FormState } from "@/shared/types/types.ts";
+import type { ActionAnswer } from "@/core/action.ts";
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 
@@ -40,18 +42,18 @@ const ACCOUNT_ONLY = "bewerberin@example.org";
 type Backend = LookupFixture | "throws";
 
 const BACKENDS: Readonly<Record<string, Backend>> = {
-  [GRANTED]: { ...HOLDS_NOTHING, verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z", konto: false },
-  [BARRED]: { ...HOLDS_NOTHING, sitze: [SITZ], gesperrt: true, konto: true },
-  [ACCOUNT_ONLY]: { ...HOLDS_NOTHING, konto: true },
+  [GRANTED]: { ...HOLDS_NOTHING, verwaltung: "administration", granted_since: "2026-01-01T00:00:00Z", account: false },
+  [BARRED]: { ...HOLDS_NOTHING, seats: [SEAT], barred: true, account: true },
+  [ACCOUNT_ONLY]: { ...HOLDS_NOTHING, account: true },
   [UNREACHED]: "throws",
-  [UNCONFIRMED]: { ...HOLDS_NOTHING, unbestaetigt: true, konto: false },
-  [SEATED]: { ...HOLDS_NOTHING, sitze: [SITZ], konto: true },
+  [UNCONFIRMED]: { ...HOLDS_NOTHING, unconfirmed: true, account: false },
+  [SEATED]: { ...HOLDS_NOTHING, seats: [SEAT], account: true },
 };
 
 /** Answers the backend read for the address its body names; an address named nowhere holds nothing. */
 function answerFromTheBackend(call: ApiCall): Promise<unknown> {
   const asked = (JSON.parse(call.body ?? "{}") as { email?: string }).email ?? "";
-  const backend = BACKENDS[asked] ?? { ...HOLDS_NOTHING, konto: false };
+  const backend = BACKENDS[asked] ?? { ...HOLDS_NOTHING, account: false };
   if (backend === "throws") return Promise.reject(new Error("the backend answered nothing"));
 
   return Promise.resolve(answerAt(call.endpoint, backend));
@@ -84,6 +86,9 @@ const { sent } = registerAuthDoubles({
   },
 });
 
+// The action builder clears the site's cache tag, which Next takes from an action's own request alone.
+vi.mock("next/cache", async (original) => ({ ...(await original<object>()), updateTag: () => undefined }));
+
 const deferred: (() => Promise<void>)[] = [];
 const store = memoryStore(STORE);
 
@@ -105,7 +110,7 @@ interface Attempt {
   readonly askedWhileAnswering: number;
   readonly askedAfter: number;
   readonly scheduled: number;
-  readonly result: FormState;
+  readonly result: ActionAnswer<string>;
 }
 
 async function signInWith(email: string): Promise<Attempt> {
@@ -119,7 +124,7 @@ async function signInWith(email: string): Promise<Attempt> {
   const askedBefore = asked.length;
   deferred.length = 0;
 
-  const result = await handleSignIn(undefined, submitted);
+  const result = await handleSignIn(submitted);
   const mailedWhileAnswering = sent.slice(mailedBefore).map((message) => message.to);
   const writtenWhileAnswering = store.verification.length - storedBefore;
   const askedWhileAnswering = asked.length - askedBefore;
@@ -172,10 +177,10 @@ function kindsOf(identifiers: readonly string[], email: string): string[] {
     .sort();
 }
 
-/** The answer with the echo dropped: `submittedEmail` is the caller's own input and differs by design. */
-function bodyWithoutEcho(result: FormState): Record<string, unknown> {
+/** The answer with the echo dropped: the address the code went to is the caller's own input and differs by design. */
+function bodyWithoutEcho(result: ActionAnswer<string>): Record<string, unknown> {
   const copy: Record<string, unknown> = { ...result };
-  delete copy.submittedEmail;
+  delete copy.value;
 
   return copy;
 }
@@ -202,7 +207,7 @@ describe("what a sign-in leaves behind on the response", () => {
 
   it("answers with the same body", () => {
     expect(bodyWithoutEcho(granted.result)).toStrictEqual(bodyWithoutEcho(rejected.result));
-    expect(granted.result?.success).toBe(true);
+    expect(granted.result.ok).toBe(true);
   });
 
   /* The whole library call sits behind the response, so no branch-dependent work is timed by the
@@ -319,7 +324,30 @@ describe("what the action answers an address it cannot parse", () => {
   it("refuses in front of the response and schedules nothing, a format check leaking no membership", async () => {
     const attempt = await signInWith("keine-adresse");
 
-    expect(attempt.result?.success).toBe(false);
+    expect(attempt.result.ok).toBe(false);
+    expect(attempt.scheduled).toBe(0);
+  });
+
+  /* Each refusal is the box's line and never the unexpected one, which would tell a reader who mistyped that the
+     site failed. "" is what the form posts for an empty box, the view marking no field required, and a box of
+     spaces is stripped to it. The browser's `type=email` lets a host with no dot through, and a post made without
+     the page sends anything, so the server's answer is the one those meet. */
+  const { feld } = COPY.shared;
+  it.each([
+    { label: "an empty box", typed: "", line: feld.pflichtfeld },
+    { label: "a box of spaces", typed: "   ", line: feld.pflichtfeld },
+    { label: "no at sign", typed: "abc", line: feld.format(feld.beispielAdresse) },
+    { label: "a host with no dot", typed: "erika@schule", line: feld.format(feld.beispielAdresse) },
+    { label: "an umlaut before the at sign", typed: "jürgen@schule.de", line: feld.format(feld.beispielAdresse) },
+    {
+      label: "an address past the ceiling",
+      typed: `${"a".repeat(KONTAKT_EMAIL_MAX_LENGTH)}@schule.de`,
+      line: feld.hoechstensZeichen(KONTAKT_EMAIL_MAX_LENGTH),
+    },
+  ])("answers $label with its line on the address box", async ({ typed, line }) => {
+    const attempt = await signInWith(typed);
+
+    expect(attempt.result).toStrictEqual({ ok: false, fieldErrors: { email: line } });
     expect(attempt.scheduled).toBe(0);
   });
 });

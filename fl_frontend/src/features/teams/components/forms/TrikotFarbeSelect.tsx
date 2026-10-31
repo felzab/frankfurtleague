@@ -13,7 +13,7 @@ import { listboxRow } from "@/shared/components/ui/refusableOption";
 import { useRequiredMark } from "@/shared/components/ui/RequiredMarks";
 import { Select } from "@/shared/components/ui/Select";
 
-import type { FLTrikotFarbe } from "@/features/teams/schemas";
+import type { FLTrikotFarbe } from "@/core/generated/client/types";
 import type { Key } from "@heroui/react/rac";
 
 /** The picker's key for the answer the field spells as `null`, a listbox having no empty item. */
@@ -75,7 +75,7 @@ export function TrikotFarbeSelect({
   const platzhalter = isRequired ? "Bitte auswählen" : "Keine Angabe";
 
   const item = listboxRow({ layout: "adorned" });
-  const optionen = offeredTrikotFarben({ vergeben, value });
+  const optionen = offeredTrikotFarben({ taken: vergeben, value });
 
   const handleChange = (key: Key | null) => {
     if (key === null) return;

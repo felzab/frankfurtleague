@@ -43,8 +43,8 @@ const zuLangSatz = (grund: string): string | null => {
 };
 
 /**
- * The decline, on `POST /bewerbungen/{bewerbung_id}/ablehnen`. **A confirmation step and no undo**:
- * a decision is taken once (`REQ-BEWERBUNG-001`), and the reason typed here is stored and sent
+ * The decline, on `POST /bewerbungen/{bewerbung_id}/decline`. **A confirmation step and no undo**:
+ * a decision is taken once (`bewerbung_already_decided`), and the reason typed here is stored and sent
  * verbatim to the people who applied.
  */
 export function AdminBewerbungAblehnenSection({
@@ -71,7 +71,7 @@ export function AdminBewerbungAblehnenSection({
   const [grundError, setGrundError] = useState<string | null>(null);
   /**
    * The bound's verdict, published when the field is left and only retracted by a keystroke: a
-   * message between two keystrokes describes a reason nobody finished writing (`.claude/rules/frontend.md`).
+   * message between two keystrokes describes a reason nobody finished writing (`docs/decisions.md`, **forms**).
    */
   const [laengeError, setLaengeError] = useState<string | null>(null);
 

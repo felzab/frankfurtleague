@@ -8,6 +8,7 @@ import { SearchField } from "@heroui/react/search-field";
 import { Separator } from "@heroui/react/separator";
 
 import { dismissControl } from "@/core/dismissControl";
+import { FLGruppenNames } from "@/core/generated/client/types";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import {
   formatQuelle,
@@ -35,9 +36,9 @@ import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 
+import type { FLPatchSpielDataPayload, FLSpielQuelle, FLTeam } from "@/core/generated/client/types";
 import type { SpielFieldPath } from "@/features/spiele/draftStatus";
-import type { FLPatchSpielDataPayload, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
-import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
+import type { FLSpiel, FLSpielTeamField } from "@/features/spiele/types";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
 import type { Key } from "@heroui/react/rac";
 import type { SpielBanner } from "./banners";
@@ -66,7 +67,7 @@ type QuelleChoice = (typeof QUELLE_CHOICES)[number]["key"];
 const recommendedChoiceFor = (hasFeeders: boolean): QuelleChoice => (hasFeeders ? "sieger" : "gruppe");
 
 /** `gruppe` is a required enum with no empty member to start from, and a season always runs its first group. */
-const [DEFAULT_GRUPPE] = GRUPPEN_OPTIONS;
+const DEFAULT_GRUPPE = FLGruppenNames.A;
 
 /**
  * The placings offered when the team list cannot say, which needs a season mismatch between the
@@ -98,7 +99,7 @@ const describeFeeder = (spiel: FLSpiel): string => {
 /**
  * **A match is picked from the season's legal feeders, never typed**: a dangling number, a cycle or
  * a duplicate feed is unpickable rather than refused after the fact. The backend still refuses them
- * (`REQ-WIRING-001`), for a stale form.
+ * (`wiring_unsupported`), for a stale form.
  */
 export function FormTeamPicker({
   label,
@@ -127,8 +128,8 @@ export function FormTeamPicker({
   fieldName: "team1" | "team2";
   teams: FLTeam[];
   /**
-   * The season's `rules.number_of_groups`, bounding the group offer the way the write path does
-   * (`REQ-WIRING-003`). `null` — a season the context could not resolve — offers the closed set.
+   * The season's `rules.number_of_gruppen`, bounding the group offer the way the write path does
+   * (`wiring_gruppe_not_run`). `null` — a season the context could not resolve — offers the closed set.
    */
   numberOfGroups: number | null;
   teamPayload: FLSpielTeamField | null;
@@ -173,7 +174,7 @@ export function FormTeamPicker({
   const storedQuelle = fieldName === "team1" ? spielData.team1_quelle : spielData.team2_quelle;
 
   // A group placing seeds the bracket's entrance; from there an earlier match feeds the slot, so no
-  // later round lists one. `REQ-WIRING-002` refuses a save that moves a source into that shape.
+  // later round lists one. `wiring_seed_past_the_opening_round` refuses a save that moves a source into that shape.
   const seedsFromTheGroups = isFirstKnockoutRound(saisonSpiele, spielData);
 
   // The current choice always keeps its row, so a fixture wired past that rule reads truthfully
@@ -255,7 +256,7 @@ export function FormTeamPicker({
   // No completeness gate: `formatQuelle` answers `null` for an unpicked number by itself.
   const occupantLabel = teamPayload?.name ?? formatQuelle(quelle) ?? PLACEHOLDER.slot;
 
-  // The STORED side, which is what `REQ-RESULT-001` keys on: the rule is about destroying a
+  // The STORED side, which is what `ergebnis_side_emptied` keys on: the rule is about destroying a
   // recorded result, and a draft that already cleared the goals is the edit doing exactly that.
   const hasStoredGoals = (fieldName === "team1" ? spielData.team1 : spielData.team2)?.tore != null;
 
@@ -265,7 +266,7 @@ export function FormTeamPicker({
   const selectedAustritt = (teamPayload === null ? null : teams.find((candidate) => candidate.id === teamPayload.team_id)?.austritt) ?? null;
 
   // Any `austritt`, whichever type: a club that has left is unpickable however it left, which is
-  // what `REQ-ELIGIBILITY-001` refuses.
+  // what `eligibility_disqualified` refuses.
   const disabledTeamKeys = [
     ...(disabledTeamId ? [disabledTeamId] : []),
     ...teams.filter((team) => team.austritt !== null || spieltagOccupancy.has(team.id)).map((team) => team.id),
@@ -297,7 +298,7 @@ export function FormTeamPicker({
             so the clear button does not move when a team has left the season. */}
         {selectedAustritt !== null && <span className={`${labelBadge("danger")} ms-2 shrink-0`}>{austrittZustand(selectedAustritt.type)}</span>}
         {/* Withheld while this side carries goals: emptying it would take them and the composed
-            `ergebnis` with it, which `REQ-RESULT-001` refuses. Switching the team stays available
+            `ergebnis` with it, which `ergebnis_side_emptied` refuses. Switching the team stays available
             through the list. */}
         {!hasStoredGoals && (
           <Autocomplete.ClearButton
@@ -460,7 +461,7 @@ export function FormTeamPicker({
             </Autocomplete.Trigger>
             <Autocomplete.Popover className={overlayPanel()}>
               <ListBox className="p-1">
-                {/* The season's own count bounds the offer, as `REQ-WIRING-003` bounds the save. The
+                {/* The season's own count bounds the offer, as `wiring_gruppe_not_run` bounds the save. The
                     current selection keeps its row, so a fixture wired past the count reads
                     truthfully and re-sending it unchanged stays a save the write path takes. */}
                 {GRUPPEN_OPTIONS.filter((name, index) => index < (numberOfGroups ?? GRUPPEN_OPTIONS.length) || name === quelle.gruppe).map(

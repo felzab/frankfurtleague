@@ -1,9 +1,11 @@
+// Redesign: goes with its last importer.
 import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
-import { isContractBreak } from "@/core/errors";
+import { ContractBreakError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { requestWriteSent, requestWriteTags, runAnsweringOwnCut } from "@/core/requestScope";
+import { requestWriteSent, runAnsweringOwnCut } from "@/core/requestScope";
+import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import { isRuleRefusal, outcomeUnknown, refusedFailure } from "./actionError";
 import { logActionFailure } from "./actionFailure";
@@ -41,7 +43,8 @@ export async function readAfterAnsweredWrite<T>(routeName: string, read: () => P
   try {
     return await runAnsweringOwnCut(read);
   } catch (error) {
-    if (isContractBreak(error)) logRouteError(`Public route read broke its contract after its write was answered: ${routeName}`, error);
+    if (error instanceof ContractBreakError)
+      logRouteError(`Public route read broke its contract after its write was answered: ${routeName}`, error);
     else if (!explainsItself(error)) logRouteError(`Public route read failed after its write was answered: ${routeName}`, error);
     return null;
   }
@@ -81,7 +84,7 @@ export async function handlePublicRequest<T extends { success: boolean }>(
       if (isRuleRefusal(error)) {
         // Any other code is a rule no mapper here words. Never the shared reader's reload: it discards the
         // entries a visitor typed, which the sentence answered promises are intact.
-        return error.serverErrorCode === "DB-COMMON-002"
+        return error.serverErrorCode === "duplicate_key"
           ? { success: false, error: SCHON_VORLIEGEND }
           : refusedFailure(error, UNHANDLED_FIELD_REFUSAL);
       }
@@ -91,14 +94,14 @@ export async function handlePublicRequest<T extends { success: boolean }>(
     }
 
     if (writeOutcomeUnknown()) {
-      logger.error(`Public route of unknown outcome: ${routeName}`, undefined, { error_code: "FE-NET-001" });
+      logger.error("route.outcome_unknown", undefined, { route: routeName });
       answer = outcomeUnknown();
     }
 
-    // Wherever the write may stand, a lost answer included, as the action spine drops them. `{ expire: 0 }`:
+    // Wherever the write may stand, a lost answer included, as the action spine clears it. `{ expire: 0 }`:
     // `updateTag` throws here, and the default profile serves the old entry once more.
     if (requestWriteSent() && (answer.success || ("outcome" in answer && answer.outcome !== undefined))) {
-      for (const tag of requestWriteTags()) revalidateTag(tag, { expire: 0 });
+      revalidateTag(SITE_CACHE_TAG, { expire: 0 });
     }
 
     return answer;

@@ -1,32 +1,24 @@
-from __future__ import annotations
-
-import asyncio
 from collections.abc import Mapping
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import pytest
 
-from app.api.bewerbungen.services import ZUSTELLUNG_ABGEWIESEN, hash_token, latest_decision_due
-from app.api.registrierungen import sweep_router
+from app.api.bewerbungen.services import latest_decision_due
+from app.api.registrierungen import system_router
 from app.api.registrierungen.services import (
-    REGISTRIERUNG_SWEEP_FELD,
-    bestaetigung_erasure_is_due,
+    bestaetigung_loeschung_is_due,
     build_decline_filter,
     build_erinnerung_filter,
     build_unconfirmed_filter,
     build_undecided_filter,
-    decline_erasure_is_due,
+    decline_loeschung_is_due,
     erinnerung_is_due,
-    link_is_unreachable,
 )
-from app.api.saisons.crud import pull_current_saison
-from app.core.collections import Collection
 from app.core.middlewares import REQUEST_DEADLINE_S
-from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_ERINNERUNG_TAGE
-from tests.bans import ban_list
-from tests.documents import eigene_einwilligung_document
+from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_FRIST_DAYS, REGISTRIERUNG_REMINDER_DAYS
+from app.shared.tokens import hash_token
+from tests.documents import own_einwilligung_document
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -39,25 +31,18 @@ MAILED_A_DAY_PAST = "2026-03-28"
 
 FIRST_HASH = hash_token("first")
 
-# The instant the log rows of the one pass driven below are stamped with.
-_NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-
 
 def einwilligung() -> dict[str, Any]:
-    return eigene_einwilligung_document(text_version="2026-10-spielerseite-5", bestaetigt_am=TODAY)
-
-
-def zustellung(stand: str) -> dict[str, Any]:
-    return {"nachricht_id": "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794", "stand": stand, "grund": None, "am": "2026-03-29T10:00:00.000000+00:00"}
+    return own_einwilligung_document(text_version="2026-10-spielerseite-5", confirmed_at=TODAY)
 
 
 def bestaetigung(**overrides: Any) -> dict[str, Any]:
     """One live link mailed at its reminder mark, inside its deadline, that each case moves one thing of."""
 
     return {
-        "token_hash": FIRST_HASH,
-        "verschickt_am": MAILED_ON_THE_MARK,
-        "erinnert_am": None,
+        "token_hashes": [FIRST_HASH],
+        "sent_at": MAILED_ON_THE_MARK,
+        "reminded_at": None,
         "frist": "2026-04-05",
         **overrides,
     }
@@ -67,13 +52,13 @@ def registrierung(**overrides: Any) -> dict[str, Any]:
     """One submitted registration nobody has confirmed, its link due a reminder today."""
 
     return {
-        "status": "eingereicht",
+        "status": "submitted",
         "saison_id": "2026",
         "vorname": "Quillhilde",
         "email": "quillhilde@example.com",
         "einwilligung": None,
-        "bestaetigung": bestaetigung(),
-        "entscheidung": None,
+        "confirmation": bestaetigung(),
+        "decision": None,
         **overrides,
     }
 
@@ -81,31 +66,31 @@ def registrierung(**overrides: Any) -> dict[str, Any]:
 class TestTheReminderMark:
     """The three-day mark, on the one link a registration has: the day before, the day, the day after.
 
-    The bound is `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_ERINNERUNG_TAGE`.
+    The bound is `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_REMINDER_DAYS`.
     """
 
     @pytest.mark.parametrize(
-        ("verschickt_am", "due"),
+        ("sent_at", "due"),
         [
             pytest.param(MAILED_A_DAY_SHORT, False, id="two days ago"),
             pytest.param(MAILED_ON_THE_MARK, True, id="three days ago, to the day"),
             pytest.param(MAILED_A_DAY_PAST, True, id="four days ago"),
         ],
     )
-    def test_each_boundary_falls_where_the_bound_says(self, verschickt_am: str, due: bool):
-        stored = registrierung(bestaetigung=bestaetigung(verschickt_am=verschickt_am))
+    def test_each_boundary_falls_where_the_bound_says(self, sent_at: str, due: bool):
+        stored = registrierung(confirmation=bestaetigung(sent_at=sent_at))
 
         assert erinnerung_is_due(registrierung_raw=stored, today=TODAY) == due
-        assert (REGISTRIERUNG_ERINNERUNG_TAGE, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE) == (3, 7)
+        assert (REGISTRIERUNG_REMINDER_DAYS, REGISTRIERUNG_CONFIRMATION_FRIST_DAYS) == (3, 7)
 
     @pytest.mark.parametrize(
         ("stored", "why"),
         [
             pytest.param(registrierung(einwilligung=einwilligung()), "confirmed", id="confirmed"),
-            pytest.param(registrierung(bestaetigung=bestaetigung(erinnert_am=YESTERDAY)), "reminded once", id="reminded once"),
-            pytest.param(registrierung(status="abgelehnt"), "declined", id="declined"),
-            pytest.param(registrierung(bestaetigung=None), "no bookkeeping", id="no bookkeeping"),
-            pytest.param(registrierung(bestaetigung=bestaetigung(verschickt_am=None)), "no send recorded", id="no send recorded"),
+            pytest.param(registrierung(confirmation=bestaetigung(reminded_at=YESTERDAY)), "reminded once", id="reminded once"),
+            pytest.param(registrierung(status="declined"), "declined", id="declined"),
+            pytest.param(registrierung(confirmation=None), "no bookkeeping", id="no bookkeeping"),
+            pytest.param(registrierung(confirmation=bestaetigung(sent_at=None)), "no send recorded", id="no send recorded"),
         ],
     )
     def test_a_registration_that_has_answered_been_chased_or_lost_its_link_is_not_reminded(self, stored: Mapping[str, Any], why: str):
@@ -122,27 +107,9 @@ class TestTheReminderMark:
     def test_nothing_past_its_deadline_is_chased(self, frist: str, due: bool):
         """A link minted on the way out is one nobody can spend: the erasure below takes the row the same day."""
 
-        stored = registrierung(bestaetigung=bestaetigung(frist=frist))
+        stored = registrierung(confirmation=bestaetigung(frist=frist))
 
         assert erinnerung_is_due(registrierung_raw=stored, today=TODAY) == due
-
-    @pytest.mark.parametrize("stand", sorted(ZUSTELLUNG_ABGEWIESEN))
-    def test_an_address_the_provider_refuses_is_not_chased(self, stand: str):
-        """The one chase a registration gets is spent on nobody where the address is already known to reject it."""
-
-        stored = registrierung(bestaetigung=bestaetigung(zustellung=zustellung(stand)))
-
-        assert link_is_unreachable(bestaetigung=stored["bestaetigung"])
-        assert not erinnerung_is_due(registrierung_raw=stored, today=TODAY)
-
-    @pytest.mark.parametrize("stand", ["angenommen", "zugestellt", "verzoegert"])
-    def test_an_address_a_later_message_may_still_reach_is_chased(self, stand: str):
-        """A delayed message still arrives, and a delivered one arrived: neither is a reason to skip the chase."""
-
-        stored = registrierung(bestaetigung=bestaetigung(zustellung=zustellung(stand)))
-
-        assert not link_is_unreachable(bestaetigung=stored["bestaetigung"])
-        assert erinnerung_is_due(registrierung_raw=stored, today=TODAY)
 
 
 class TestTheDeadlineClock:
@@ -156,31 +123,31 @@ class TestTheDeadlineClock:
         ],
     )
     def test_each_boundary_falls_where_the_bound_says(self, frist: str | None, due: bool):
-        stored = registrierung(bestaetigung=bestaetigung(frist=frist))
+        stored = registrierung(confirmation=bestaetigung(frist=frist))
 
-        assert bestaetigung_erasure_is_due(registrierung_raw=stored, today=TODAY) == due
+        assert bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY) == due
 
     def test_a_confirmed_registration_waits_for_the_seasons_end_instead(self):
         """The clock's whole reach: a row nobody confirmed leaves at its deadline, and a confirmed one leaves with its season."""
 
-        stored = registrierung(bestaetigung=bestaetigung(frist=YESTERDAY), einwilligung=einwilligung())
+        stored = registrierung(confirmation=bestaetigung(frist=YESTERDAY), einwilligung=einwilligung())
 
-        assert not bestaetigung_erasure_is_due(registrierung_raw=stored, today=TODAY)
+        assert not bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY)
 
     def test_a_declined_registration_is_the_one_month_clocks(self):
-        stored = registrierung(status="abgelehnt", bestaetigung=bestaetigung(frist=YESTERDAY))
+        stored = registrierung(status="declined", confirmation=bestaetigung(frist=YESTERDAY))
 
-        assert not bestaetigung_erasure_is_due(registrierung_raw=stored, today=TODAY)
+        assert not bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY)
 
     def test_a_registration_stored_without_a_block_is_never_taken_by_this_clock(self):
         """A row with no readable deadline is held rather than destroyed: the date this clock counts from is the one thing it needs."""
 
-        assert not bestaetigung_erasure_is_due(registrierung_raw=registrierung(bestaetigung=None), today=TODAY)
+        assert not bestaetigung_loeschung_is_due(registrierung_raw=registrierung(confirmation=None), today=TODAY)
 
 
 class TestTheOneMonthClock:
     @pytest.mark.parametrize(
-        ("getroffen_am", "due"),
+        ("made_at", "due"),
         [
             pytest.param("2026-03-02", False, id="a day short of the month"),
             pytest.param("2026-03-01", True, id="the month, to the day"),
@@ -188,16 +155,16 @@ class TestTheOneMonthClock:
             pytest.param("2026-01-31", True, id="clamped to February, and past it"),
         ],
     )
-    def test_each_boundary_falls_a_calendar_month_after_the_decision(self, getroffen_am: str, due: bool):
-        declined = registrierung(status="abgelehnt", entscheidung={"getroffen_am": getroffen_am, "von": "admin", "grund": "kein Platz"})
+    def test_each_boundary_falls_a_calendar_month_after_the_decision(self, made_at: str, due: bool):
+        declined = registrierung(status="declined", decision={"made_at": made_at, "von": "admin", "grund": "kein Platz"})
 
-        assert decline_erasure_is_due(registrierung_raw=declined, today=TODAY) == due
+        assert decline_loeschung_is_due(registrierung_raw=declined, today=TODAY) == due
 
-    @pytest.mark.parametrize("status", ["eingereicht", "abgelehnt"])
+    @pytest.mark.parametrize("status", ["submitted", "declined"])
     def test_a_decision_with_no_day_and_a_row_nobody_decided_are_both_left_standing(self, status: str):
-        stored = registrierung(status=status, entscheidung=None)
+        stored = registrierung(status=status, decision=None)
 
-        assert not decline_erasure_is_due(registrierung_raw=stored, today=TODAY)
+        assert not decline_loeschung_is_due(registrierung_raw=stored, today=TODAY)
 
 
 SAISON_ID = "2026"
@@ -224,27 +191,26 @@ class TestWhatEachClockReads:
     def test_the_seasons_end_takes_every_submitted_row(self):
         """Nothing narrower is right here: once the season is `past` this clock takes every one of them, confirmed or not."""
 
-        assert CLOCK_FILTERS["season's end"] == {"saison_id": SAISON_ID, "status": "eingereicht"}
+        assert CLOCK_FILTERS["season's end"] == {"saison_id": SAISON_ID, "status": "submitted"}
 
     def test_the_deadline_reads_the_unconfirmed_whose_day_has_passed(self):
         """The consent term matches a null record and a null stamp alike, which is what covers both stored shapes with one key."""
 
         assert CLOCK_FILTERS["deadline"] == {
             "saison_id": SAISON_ID,
-            "status": "eingereicht",
-            "einwilligung.bestaetigt_am": {"$in": [None, ""]},
-            "bestaetigung.frist": {"$lt": TODAY},
+            "status": "submitted",
+            "einwilligung.confirmed_at": None,
+            "confirmation.frist": {"$lt": TODAY},
         }
 
-    def test_the_reminder_reads_the_unchased_at_their_mark_whose_address_was_not_refused(self):
+    def test_the_reminder_reads_the_unchased_at_their_mark(self):
         assert CLOCK_FILTERS["reminder"] == {
             "saison_id": SAISON_ID,
-            "status": "eingereicht",
-            "einwilligung.bestaetigt_am": {"$in": [None, ""]},
-            "bestaetigung.erinnert_am": None,
-            "bestaetigung.frist": {"$gte": TODAY},
-            "bestaetigung.verschickt_am": {"$lte": THE_MARK},
-            "bestaetigung.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
+            "status": "submitted",
+            "einwilligung.confirmed_at": None,
+            "confirmation.reminded_at": None,
+            "confirmation.frist": {"$gte": TODAY},
+            "confirmation.sent_at": {"$lte": THE_MARK},
         }
 
     def test_the_decline_clock_reads_the_decisions_whose_month_is_behind_them(self):
@@ -252,8 +218,8 @@ class TestWhatEachClockReads:
 
         assert CLOCK_FILTERS["decline"] == {
             "saison_id": SAISON_ID,
-            "status": "abgelehnt",
-            "entscheidung.getroffen_am": {"$lte": "2026-03-01"},
+            "status": "declined",
+            "decision.made_at": {"$lte": "2026-03-01"},
         }
 
     @pytest.mark.parametrize(
@@ -270,9 +236,9 @@ class TestWhatEachClockReads:
     def test_the_last_decision_due_agrees_with_the_clock_at_every_month_end(self, today: str, latest: str):
         """Both sides of the cutoff, judged by the clock's own predicate: the query and the predicate must take the same rows."""
 
-        def due(getroffen_am: str) -> bool:
-            declined = {"status": "abgelehnt", "entscheidung": {"getroffen_am": getroffen_am}}
-            return decline_erasure_is_due(registrierung_raw=declined, today=today)
+        def due(made_at: str) -> bool:
+            declined = {"status": "declined", "decision": {"made_at": made_at}}
+            return decline_loeschung_is_due(registrierung_raw=declined, today=today)
 
         day_after = (date.fromisoformat(latest) + timedelta(days=1)).isoformat()
 
@@ -286,163 +252,22 @@ class TestWhatEachClockReads:
         assert CLOCK_FILTERS[clock]["saison_id"] == SAISON_ID
 
 
-class _Cursor:
-    """`pull_many_from_db`'s own chain -- `find(...).limit(n).to_list(length=n)` -- over a list this test holds."""
-
-    def __init__(self, rows: list[dict[str, Any]]) -> None:
-        self.rows = rows
-
-    def limit(self, limit: int) -> _Cursor:
-        return _Cursor(self.rows[:limit])
-
-    def sort(self, keys: list[tuple[str, int]]) -> _Cursor:
-        """Ascending keys alone, which is every order the pass asks for; a missing path sorts first, as the server's does."""
-
-        def value(row: Mapping[str, Any], path: str) -> tuple[bool, str]:
-            found: Any = row
-            for part in path.split("."):
-                found = found.get(part) if isinstance(found, Mapping) else None
-            return (found is not None, str(found))
-
-        assert all(direction == 1 for _, direction in keys)
-        return _Cursor(sorted(self.rows, key=lambda row: [value(row, path) for path, _ in keys]))
-
-    async def to_list(self, length: int) -> list[dict[str, Any]]:
-        return self.rows[:length]
-
-
-class _Result:
-    def __init__(self, modified_count: int) -> None:
-        self.modified_count = modified_count
-
-
-class _Deleted:
-    def __init__(self, deleted_count: int) -> None:
-        self.deleted_count = deleted_count
-
-
-def _matches(row: Mapping[str, Any], filter: Mapping[str, Any]) -> bool:
-    """A filter's PLAIN equality terms only.
-
-    A dotted path and an operator are passed over: the predicate decides every row here, and a
-    matcher guessing at `$nin` would be a second database nobody wrote.
-    """
-
-    for key, value in filter.items():
-        if key == "_id" and isinstance(value, Mapping):
-            if row["_id"] not in value.get("$in", []):
-                return False
-        elif "." not in key and not isinstance(value, Mapping) and row.get(key) != value:
-            return False
-
-    return True
-
-
-class _Collection:
-    """One collection of the pass, over documents this test holds: `session` is accepted and ignored everywhere."""
-
-    def __init__(self, name: str, rows: list[dict[str, Any]], database: Mapping[str, Any], *, answers_reads: bool = True) -> None:
-        self.name = name
-        self.rows = rows
-        self.database = database
-        self.answers_reads = answers_reads
-
-    async def find_one(self, filter: Mapping[str, Any], projection: Any = None, session: Any = None) -> dict[str, Any] | None:
-        for row in self.rows:
-            if _matches(row, filter):
-                return dict(row)
-        return None
-
-    def find(self, filter: Mapping[str, Any], projection: Any = None, collation: Any = None, session: Any = None) -> _Cursor:
-        if not self.answers_reads:
-            return _Cursor([])
-
-        return _Cursor([dict(row) for row in self.rows if _matches(row, filter)])
-
-    async def update_many(self, filter: Mapping[str, Any], update: Mapping[str, Any], session: Any = None) -> _Result:
-        written = update["$set"]
-        touched = [row for row in self.rows if _matches(row, filter)]
-        for row in touched:
-            row.update(written)
-        return _Result(len(touched))
-
-    async def delete_many(self, filter: Mapping[str, Any], session: Any = None) -> _Deleted:
-        taken = [row for row in self.rows if _matches(row, filter)]
-        for row in taken:
-            self.rows.remove(row)
-        return _Deleted(len(taken))
-
-    async def insert_one(self, document: Mapping[str, Any], session: Any = None) -> None:
-        self.rows.append(dict(document))
-
-
-class _Session:
-    async def with_transaction(self, callback: Any) -> Any:
-        return await callback(self)
-
-
-class _Db:
-    def start_session(self) -> _Db:
-        return self
-
-    async def __aenter__(self) -> _Session:
-        return _Session()
-
-    async def __aexit__(self, *_: Any) -> None:
-        return None
-
-
-class TestTheStampDropsTheCachedSeason:
-    def test_a_cached_season_read_after_the_pass_carries_the_day(self):
-        """A season write that leaves the cache standing serves the old document for a whole TTL.
-
-        Driven over doubles: the drop leaves no trace on the wire.
-        """
-
-        stored = [{"_id": SAISON_ID, "status": "active", "rules": {}}]
-        aktionen = _Collection("aktionen", [], {})
-        database: dict[str, Any] = {"aktionen": aktionen}
-        saisons = _Collection("saisons", stored, database)
-        registrierungen = _Collection("registrierungen", [], database)
-
-        async def drive() -> tuple[Mapping[str, Any], Mapping[str, Any]]:
-            before = await pull_current_saison(saisons_collection=saisons)  # pyright: ignore[reportArgumentType]
-            await sweep_router.sweep_registrierungen(
-                saison_id=SAISON_ID,
-                registrierungen_collection=registrierungen,  # pyright: ignore[reportArgumentType]
-                saisons_collection=saisons,  # pyright: ignore[reportArgumentType]
-                teams_collection=_Collection("teams", [], database),  # pyright: ignore[reportArgumentType]
-                aktionen_collection=aktionen,  # pyright: ignore[reportArgumentType]
-                sperrliste=ban_list({Collection.SPERRLISTE: _Collection("sperrliste", [], database), Collection.SAISONS: saisons}),
-                db=_Db(),  # pyright: ignore[reportArgumentType]
-                today=TODAY,
-                germany_now=_NOW,
-            )
-
-            return before, await pull_current_saison(saisons_collection=saisons)  # pyright: ignore[reportArgumentType]
-
-        before, after = asyncio.run(drive())
-
-        assert before.get(REGISTRIERUNG_SWEEP_FELD) is None
-        assert after[REGISTRIERUNG_SWEEP_FELD] == TODAY, "the second read was answered from the cache, which the stamp should have dropped"
-
-
-# The reminder's three commands a row -- the update, its read-back and its log row -- pinned on the wire by
-# `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheReminderClockTakesAShareEachCall`.
+# The reminder's commands a row -- the stamp's update, its read-back and its log row -- pinned on the wire by
+# `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
 ROUND_TRIPS_A_ROW = 3
 
-# The other commands of the worst call erasing one page per clock, counted on the wire by
-# `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
-OTHER_COMMANDS = 18
+# The other commands of the worst call erasing one page per clock, the share's Postausgang key lookup and insert among
+# them, counted on the wire by the same case.
+OTHER_COMMANDS = 16
 
 # The per-command cost, the widest of fifteen whole passes at a full share timed locally, 2026-10-20.
 PER_COMMAND_S = 0.00127
 
-# The round trip `sweep_router.REMINDERS_PER_PASS`'s comment sizes the share for.
+# The round trip `system_router.REMINDERS_PER_PASS`'s comment sizes the share for.
 ROUND_TRIP_S = 0.037
 
 
 def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names():
     """A share raised past its budget passes every case that counts its own rows, and times out a whole pass in production."""
 
-    assert (sweep_router.REMINDERS_PER_PASS * ROUND_TRIPS_A_ROW + OTHER_COMMANDS) * (ROUND_TRIP_S + PER_COMMAND_S) < REQUEST_DEADLINE_S
+    assert (system_router.REMINDERS_PER_PASS * ROUND_TRIPS_A_ROW + OTHER_COMMANDS) * (ROUND_TRIP_S + PER_COMMAND_S) < REQUEST_DEADLINE_S

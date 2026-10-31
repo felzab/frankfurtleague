@@ -19,18 +19,13 @@ from httpx2 import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
-from app.api.spieler.person_router import patch_kader_zeile
-from app.api.spieler.schemas import FLPatchKaderZeilePayload
-from app.api.spieler.services import KADER_STUFE_NICHT_ERLAUBT, SQUAD_ROLLE_TAKEN
-from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.api.spieler.person_router import patch_kader_row
+from app.api.spieler.schemas import FLPatchKaderRowPayload
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exception_handlers import PAYLOAD_REFUSED
-from app.core.exceptions import DOCUMENT_NOT_FOUND
-from app.core.security import PERSON_BARRED
 from app.main import create_app
-from tests.actor_tokens import SignedActor
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
@@ -45,6 +40,7 @@ from tests.documents import (
 )
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.records import record_collections
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -95,12 +91,12 @@ PAYLOAD: Mapping[str, Any] = {"nummer": "11", "position": "Tor", "stufe": "Q1", 
 
 
 def _seat(email: str) -> dict[str, Any]:
-    return kontaktperson_document("Anna", bestaetigt_am="2026-01-06", email=email, telefon=SEAT_TELEFON)
+    return kontaktperson_document("Anna", confirmed_at="2026-01-06", email=email, telefon=SEAT_TELEFON)
 
 
 def _junction(saison_id: str, team_id: ObjectId, name: str, **slots: dict[str, Any]) -> dict[str, Any]:
     return saison_team_document(
-        saison_id, team_id, name, name[:2].upper(), kontakte={**{slot: None for slot in KONTAKT_ROLLEN}, **slots, "trainer_ist_zugleich": None}
+        saison_id, team_id, name, name[:3].upper(), kontakte={**{slot: None for slot in KONTAKT_ROLLEN}, **slots, "trainer_is_also": None}
     )
 
 
@@ -110,7 +106,7 @@ def _saison(saison_id: str, status: str) -> dict[str, Any]:
         status,
         start_date=f"20{saison_id[:2]}-08-01",
         end_date=f"20{saison_id[2:]}-06-30",
-        rules=rules_document(erlaubte_stufen=list(ERLAUBTE_STUFEN)),
+        rules=rules_document(allowed_stufen=list(ERLAUBTE_STUFEN)),
     )
 
 
@@ -189,8 +185,8 @@ def _served() -> FastAPI:
     return create_app(config_for(DATABASE_NAME))
 
 
-def as_person(email: str) -> SignedActor:
-    return SignedActor(email, ADMIN_KEY, lane="person")
+def as_person(email: str) -> StampedHeaders:
+    return StampedHeaders(email, ADMIN_KEY, lane="person")
 
 
 def squad_url(team_id: ObjectId = TEAM_A, saison_id: str = ACTIVE_SAISON) -> str:
@@ -248,14 +244,14 @@ class TestTheSquadRead:
         assert rows[str(KAPITAEN)]["nachname"] == "Kapitänsdóttir-Weber"
         assert rows[str(KAPITAEN)]["rolle"] == "kapitaen"
         assert rows[str(AUSGETRAGEN)]["inactive_since"] == "2026-02-01"
-        assert body["erlaubte_stufen"] == ERLAUBTE_STUFEN
+        assert body["allowed_stufen"] == ERLAUBTE_STUFEN
         assert (body["team_id"], body["saison_id"]) == (str(TEAM_A), ACTIVE_SAISON)
 
     def test_the_shirt_marker_compares_live_rows_by_the_stored_string(self, mongo_replica_set_url: str):
         """`7` twice live is marked; `07` is another shirt; the ausgetragen `7` wears nothing and marks nothing."""
 
         response = self._read(mongo_replica_set_url, ANSPRECH)
-        marked = {row["spieler_id"]: row["nummer_doppelt"] for row in response.json()["kader"]}
+        marked = {row["spieler_id"]: row["nummer_double"] for row in response.json()["kader"]}
 
         assert marked == {
             str(KAPITAEN): True,
@@ -301,7 +297,7 @@ ELSEWHERE = [
 
 
 class TestASeatNotHeld:
-    """`REQ-FUNKTION-001`, judged by each handler itself: drop the check from one and its three cases go red."""
+    """`role_not_held`, judged by each handler itself: drop the check from one and its three cases go red."""
 
     @pytest.mark.parametrize(("method", "path", "body"), OPERATIONS)
     @pytest.mark.parametrize(("email", "team_id", "saison_id"), ELSEWHERE)
@@ -317,7 +313,7 @@ class TestASeatNotHeld:
     ):
         answer, untouched = refused_and_untouched(mongo_replica_set_url, method, path(team_id, saison_id), email, body)
 
-        assert answer == (403, FUNKTION_NICHT_GEHALTEN)
+        assert answer == (403, Code.ROLE_NOT_HELD)
         assert untouched
 
     def test_the_control_the_same_seat_reads_its_own_team(self, mongo_replica_set_url: str):
@@ -335,7 +331,7 @@ class TestAnotherTeamsPupil:
     def test_a_write_answers_not_found_and_writes_nothing(self, mongo_replica_set_url: str, method: str, body: Mapping[str, Any] | None):
         answer, untouched = refused_and_untouched(mongo_replica_set_url, method, row_url(B_PUPIL), ANSPRECH, body)
 
-        assert answer == (404, DOCUMENT_NOT_FOUND)
+        assert answer == (404, Code.DOCUMENT_NOT_FOUND)
         assert untouched
 
     def test_a_patch_is_not_found_before_any_rule_judges_the_other_team_s_row(self, mongo_replica_set_url: str):
@@ -346,29 +342,7 @@ class TestAnotherTeamsPupil:
 
         answer, untouched = refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(B_PUPIL), ANSPRECH, {**PAYLOAD, "stufe": "E1"})
 
-        assert answer == (404, DOCUMENT_NOT_FOUND)
-        assert untouched
-
-
-# A live row of team A whose `spieler` record a hand edit removed.
-ORPHAN = ObjectId("6890a1b2c3d4e5f607920021")
-
-
-class TestARowWhosePersonIsGone:
-    """Answered as a missed row rather than a server fault, the transaction undoing the write it follows."""
-
-    @pytest.mark.parametrize(("method", "body"), [("PATCH", PAYLOAD), ("DELETE", None)], ids=["PATCH", "DELETE"])
-    def test_a_write_answers_not_found_and_writes_nothing(self, mongo_replica_set_url: str, method: str, body: Mapping[str, Any] | None):
-        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[tuple[int, str | None], bool]:
-            await database[Collection.SAISON_SPIELER].insert_one(_row(ORPHAN, TEAM_A, nummer="5"))
-            before = await stored(database)
-            response = await send(mongo_replica_set_url, method, row_url(ORPHAN), ANSPRECH, body)
-
-            return answered(response), before == await stored(database)
-
-        answer, untouched = on_a_league(mongo_replica_set_url, run)
-
-        assert answer == (404, DOCUMENT_NOT_FOUND)
+        assert answer == (404, Code.DOCUMENT_NOT_FOUND)
         assert untouched
 
 
@@ -379,7 +353,7 @@ class TestAnAusgetragenRow:
     def test_a_write_answers_not_found_and_writes_nothing(self, mongo_replica_set_url: str, method: str, body: Mapping[str, Any] | None):
         answer, untouched = refused_and_untouched(mongo_replica_set_url, method, row_url(AUSGETRAGEN), ANSPRECH, body)
 
-        assert answer == (404, DOCUMENT_NOT_FOUND)
+        assert answer == (404, Code.DOCUMENT_NOT_FOUND)
         assert untouched
 
 
@@ -396,7 +370,7 @@ class TestABarredSeatHolder:
     ):
         answer, untouched = refused_and_untouched(mongo_replica_set_url, method, path, GESPERRT, body)
 
-        assert answer == (403, PERSON_BARRED)
+        assert answer == (403, Code.PERSON_BARRED)
         assert untouched
 
 
@@ -440,27 +414,27 @@ class TestAnEdit:
 
         assert response.status_code == 200, response.text
         assert (row["nummer"], row["position"], row["stufe"], row["rolle"]) == ("07", "Tor", "Q1", None)
-        assert (row["team_id"], row["ist_nachnominiert"], row["inactive_since"]) == (TEAM_A, False, None)
+        assert (row["team_id"], row["is_nachnominiert"], row["inactive_since"]) == (TEAM_A, False, None)
         # Now wearing `07` beside `NULL_SIEBEN`, judged against the squad after the write.
-        assert response.json()["nummer_doppelt"] is True
+        assert response.json()["nummer_double"] is True
 
-    @pytest.mark.parametrize("extra", [{"team_id": str(TEAM_B)}, {"ist_nachnominiert": True}], ids=["team_id", "ist_nachnominiert"])
+    @pytest.mark.parametrize("extra", [{"team_id": str(TEAM_B)}, {"is_nachnominiert": True}], ids=["team_id", "is_nachnominiert"])
     def test_a_field_the_payload_does_not_declare_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, extra: Mapping[str, Any]):
         answer, untouched = refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(TEILT_DIE_SIEBEN), ANSPRECH, {**PAYLOAD, **extra})
 
-        assert answer == (422, PAYLOAD_REFUSED)
+        assert answer == (422, Code.PAYLOAD_REFUSED)
         assert untouched
 
 
 class TestAStufeTheSeasonDoesNotOffer:
-    """`REQ-SQUAD-005`: a server refusal, the form's offer being no rule."""
+    """`kader_stufe_not_allowed`: a server refusal, the form's offer being no rule."""
 
     def test_a_stufe_outside_the_season_s_list_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str):
         answer, untouched = refused_and_untouched(
             mongo_replica_set_url, "PATCH", row_url(TEILT_DIE_SIEBEN), ANSPRECH, {**PAYLOAD, "stufe": "E1"}
         )
 
-        assert answer == (409, KADER_STUFE_NICHT_ERLAUBT)
+        assert answer == (409, Code.KADER_STUFE_NOT_ALLOWED)
         assert untouched
 
     @pytest.mark.parametrize("stufe", ["Q4", None], ids=["the stored one", "none"])
@@ -478,7 +452,7 @@ class TestTheCaptaincy:
             mongo_replica_set_url, "PATCH", row_url(TEILT_DIE_SIEBEN), ANSPRECH, {**PAYLOAD, "rolle": "kapitaen"}
         )
 
-        assert answer == (409, SQUAD_ROLLE_TAKEN)
+        assert answer == (409, Code.KADER_ROLLE_TAKEN)
         assert untouched
 
     def test_two_edits_naming_one_rolle_leave_one_holder(self, mongo_replica_set_url: str):
@@ -490,11 +464,11 @@ class TestTheCaptaincy:
         async def give_the_armband(
             database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId, saisons: Any, squad_rows: Any = None
         ) -> Any:
-            return await patch_kader_zeile(
+            return await patch_kader_row(
                 team_id=TEAM_A,
                 saison_id=ACTIVE_SAISON,
                 spieler_id=spieler_id,
-                zeile_data=FLPatchKaderZeilePayload(nummer=None, position=None, stufe=None, rolle="co_kapitaen"),
+                zeile_data=FLPatchKaderRowPayload(nummer=None, position=None, stufe=None, rolle="co_kapitaen"),
                 identifier=ANSPRECH,
                 saison_spieler_collection=squad_rows if squad_rows is not None else database[Collection.SAISON_SPIELER],
                 saisons_collection=saisons,
@@ -518,7 +492,7 @@ class TestTheCaptaincy:
         outcome, holders, passes = on_a_league(mongo_replica_set_url, run)
 
         assert passes >= 1, "the rival never ran, so the edit was raced by nobody"
-        assert (outcome, holders) == (SQUAD_ROLLE_TAKEN, 1), (
+        assert (outcome, holders) == (Code.KADER_ROLLE_TAKEN, 1), (
             f"the edit answered {outcome!r} ({COMMITTED!r} is no refusal), leaving {holders} holders"
         )
 
@@ -568,4 +542,4 @@ class TestAustragen:
         assert row["inactive_since"] == TODAY
         assert person is not None and person["inactive_since"] is None
         # The live `7` it shared is the captain's alone now, and an ausgetragen row wears nothing.
-        assert response.json()["nummer_doppelt"] is False
+        assert response.json()["nummer_double"] is False

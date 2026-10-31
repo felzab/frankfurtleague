@@ -1,7 +1,7 @@
 import { rolleLabel } from "@/features/spieler/constants";
 import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 
-import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/features/spieler/schemas";
+import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
 

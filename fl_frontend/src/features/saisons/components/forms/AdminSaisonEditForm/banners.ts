@@ -1,4 +1,4 @@
-import type { FLSaisonStatus } from "@/features/saisons/schemas";
+import type { FLSaisonStatus } from "@/core/generated/client/types";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
 type SaisonBannerId =
@@ -36,7 +36,7 @@ export function buildSaisonBanners({
   /** Whether the draft moves a rule deciding who comes out of a group ahead of whom. */
   isPlacingChanged: boolean;
   isStufenChanged: boolean;
-  /** `REQ-RULES-011`'s condition: the season holds fixtures, which is what freezes the three they were drawn from. */
+  /** `rules_shape_after_spielplan`'s condition: the season holds fixtures, which is what freezes the three they were drawn from. */
   hasDrawnSpiele: boolean;
   /** The season the rollover would close, or `null` when nothing holds `active`. */
   outgoingSaisonId: string | null;
@@ -133,7 +133,7 @@ export function buildSaisonBanners({
     });
   }
 
-  // `future` alone: a `past` season is refused by `REQ-ACTIVATE-002` whatever the outgoing season
+  // `future` alone: a `past` season is refused by `saison_past` whatever the outgoing season
   // holds, so its open fixtures are not the blocker. `state`: the rollover is a control of its own,
   // so this editor's save neither causes nor clears them.
   if (saisonStatus === "future" && outgoingSaisonId !== null && offeneSpieleCount > 0) {

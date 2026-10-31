@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
@@ -13,7 +12,6 @@ export const metadata: Metadata = NOT_FOUND_METADATA;
 // Reached only where every other `/bereich` route has already refused the address, `admin` and
 // `team` among them, so a mistyped one answers under the person shell.
 export default async function PersoenlichUnmatchedRoute() {
-  await connection();
   // The page's own turn-away, ahead of the 404, as every person page's.
   await requireSubjectSession();
   // Matching the address is what costs it the 404 status, wherever this call sits.

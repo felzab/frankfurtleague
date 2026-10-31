@@ -1,8 +1,6 @@
-import { connection } from "next/server";
-
 import { getAdminSession } from "@/core/auth";
 import { asSignInIdentifier } from "@/core/emailAddress";
-import { funktionenOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/roles";
 import { lookUpSubjekt } from "@/core/signInGate";
 import { ADMIN_SHELL_FALLBACK } from "@/features/admin/constants";
 import { FunktionSwitcher } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
@@ -14,8 +12,6 @@ import { funktionOrteOf } from "../../utils";
  * `getSubjectSession`, the person lane's read, which reads the sign-in again and sets a second actor.
  */
 export async function AdminFunktionSwitcher() {
-  // Its own, whatever is mounted above: the builder stage reaches no sign-in store.
-  await connection();
   // The hold's own read, memoised per render; nothing for a refused session, the page turning it away.
   const served = await getAdminSession();
   if (served === null) return null;
@@ -26,7 +22,7 @@ export async function AdminFunktionSwitcher() {
   // there first, and the verdict answered it with no session.
   const subjekt = await lookUpSubjekt(email);
 
-  const { funktionen } = funktionenOf({ email: email, admin: true, subjekt: subjekt });
+  const { roles: funktionen } = rolesOf({ email: email, admin: true, subject: subjekt });
 
   return (
     <FunktionSwitcher

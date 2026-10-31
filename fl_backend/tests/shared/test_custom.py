@@ -1,13 +1,24 @@
-import ast
 import json
-from typing import Annotated
+import re
+from typing import Annotated, Any
 
 import pytest
 from bson import ObjectId
-from pydantic import BaseModel, StringConstraints, ValidationError
+from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
 
-from app.shared.schemas.custom import PHONE_REGEX, CustomDateString, CustomExternalUrl, CustomObjectId, CustomTimeString, parse_object_id
-from tests.core.app_source import APP_ROOT, BACKEND_ROOT, parsed
+from app.shared.schemas.custom import (
+    PHONE_REGEX,
+    SHORTHAND_PATTERN,
+    CustomDateString,
+    CustomExternalUrl,
+    CustomObjectId,
+    CustomOptionalDateString,
+    CustomOptionalPhoneString,
+    CustomOptionalTimeString,
+    CustomShorthand,
+    CustomTimeString,
+    parse_object_id,
+)
 
 
 class _Date(BaseModel):
@@ -290,16 +301,34 @@ def test_keeps_both_edges_of_the_length_window(value, accepted):
             _Phone.model_validate({"value": value})
 
 
-def test_parse_object_id_is_the_one_site_building_an_object_id_from_a_value():
-    """bson raises `InvalidId` from nowhere else, and no handler maps it: one raised past `parse_object_id` is a 500, a server bug."""
+# Each type folding its input before judging it, with values it accepts that its folded shape does not.
+FOLDED_INPUTS = [
+    pytest.param(CustomShorthand, "goe", id="a code in lower case"),
+    pytest.param(CustomShorthand, " GoE ", id="a padded code in mixed case"),
+    pytest.param(CustomOptionalDateString, "", id="an empty date"),
+    pytest.param(CustomOptionalTimeString, "  ", id="a blank time"),
+    pytest.param(CustomOptionalPhoneString, "", id="an empty phone number"),
+]
 
-    built = [
-        f"{path.relative_to(BACKEND_ROOT).as_posix()} :: {function.name}"
-        for path in sorted(APP_ROOT.rglob("*.py"))
-        for function in ast.walk(parsed(path))
-        if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
-        for call in ast.walk(function)
-        if isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == ObjectId.__name__ and call.args
-    ]
 
-    assert built == ["app/shared/schemas/custom.py :: parse_object_id"]
+def _admits(schema: dict[str, Any], value: str) -> bool:
+    """Whether a string meets a published schema of strings, nulls and patterns, as a generated client would judge it."""
+
+    if "anyOf" in schema:
+        return any(_admits(alternative, value) for alternative in schema["anyOf"])
+
+    return schema.get("type") == "string" and re.search(schema.get("pattern", ""), value) is not None
+
+
+@pytest.mark.parametrize(("folding", "typed"), FOLDED_INPUTS)
+def test_the_request_side_schema_admits_what_the_fold_accepts(folding: Any, typed: str):
+    """A client generated from the document would otherwise refuse, before sending it, a value the backend takes."""
+
+    adapter = TypeAdapter(folding)
+    adapter.validate_python(typed)
+
+    assert _admits(adapter.json_schema(mode="validation"), typed)
+
+
+def test_the_response_side_schema_keeps_the_folded_code():
+    assert TypeAdapter(CustomShorthand).json_schema(mode="serialization") == {"type": "string", "pattern": SHORTHAND_PATTERN}

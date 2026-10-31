@@ -8,7 +8,6 @@ from bson import ObjectId
 from pymongo import MongoClient
 from pymongo.database import Database
 
-from app.api.saisons.cache import invalidate_saison_cache
 from app.core.config import BackendConfig
 from tests.config import build_test_config
 from tests.documents import saison_team_document, team_document
@@ -39,30 +38,16 @@ TEAM_OIDS = {
 # club document's, which is what proves the copy; Fremd, holding no season row, is written to match
 # its club document instead.
 SAISON_SHORTHANDS = {
-    "Helmholtz": "HE",
-    "Bock": "BO",
-    "Lessing": "LE",
-    "Ohne": "OH",
-    "Fremd": "FR",
-    "Komplett": "KO",
+    "Helmholtz": "HEX",
+    "Bock": "BOX",
+    "Lessing": "LEX",
+    "Ohne": "OHX",
+    "Fremd": "FRX",
+    "Komplett": "KOX",
 }
 
-# A dict rather than a model: Pydantic could not express a row the validator rejects.
+# A dict rather than a model: Pydantic could not express a row its record model rejects.
 AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
-
-
-# Every suite in this folder rather than those known to read a season: an endpoint reaches the cache
-# several calls down, where the suite driving it cannot see that it does.
-@pytest.fixture(autouse=True)
-def uncached_saisons() -> Iterator[None]:
-    """Dropped around every test: the season cache is process-global and keyed by season id alone.
-
-    So an entry another test left, against any database, would answer a read here.
-    """
-
-    invalidate_saison_cache()
-    yield
-    invalidate_saison_cache()
 
 
 def config_for(database_name: str) -> BackendConfig:
@@ -147,7 +132,7 @@ def _side(key: str | None, tore: int | None) -> dict[str, Any] | None:
 
 
 def _spieltag_oid(saison_id: str, nr: int) -> ObjectId:
-    """One per fixture, not one per phase: that would field six clubs twice on a Spieltag, which `REQ-SPIELTAG-001` refuses.
+    """One per fixture, not one per phase: that would field six clubs twice on a Spieltag, which `spieltag_occupied` refuses.
 
     No `spieltage` row is seeded and nothing joins on the key, but `spieltag_id` is not nullable.
     """
@@ -189,15 +174,15 @@ def _spiel(
     }
 
 
-# Module level, so `test_corpus_shape.py` can hold the rows to the shipped validator without a
-# database: the collections these are written into carry none (`tests/conftest.py :: mongo_database`).
+# Module level, so `test_corpus_shape.py` can hold the rows to a rule no single document carries without a
+# database (`tests/conftest.py :: mongo_database`).
 TEAMS = [
-    _team("Helmholtz", "HG", name="Helmholtz-Gymnasium"),
-    _team("Bock", "BO"),
-    _team("Lessing", "LE"),
-    _team("Ohne", "OH"),
-    _team("Fremd", "FR"),
-    _team("Komplett", "KO"),
+    _team("Helmholtz", "HGX", name="Helmholtz-Gymnasium"),
+    _team("Bock", "BOX"),
+    _team("Lessing", "LEX"),
+    _team("Ohne", "OHX"),
+    _team("Fremd", "FRX"),
+    _team("Komplett", "KOX"),
 ]
 
 SAISON_TEAMS = [
@@ -206,7 +191,7 @@ SAISON_TEAMS = [
         "Helmholtz",
         "A",
         statistik={
-            "anzahl_gespielte_spiele": 99,
+            "count_gespielte_spiele": 99,
             "siege": 99,
             "niederlagen": 99,
             "unentschieden": 99,
@@ -255,7 +240,7 @@ SPIELE = [
 def league(mongo_database: Database) -> SeededLeague:
     """Collections dropped singly: `fl_test` is shared, not owned.
 
-    `squads` in `test_spieler_memberships_read.py` seeds the rest of it, so a clear reaching past
+    `squads` in `test_spieler_saisons_read.py` seeds the rest of it, so a clear reaching past
     what this fixture seeds empties that corpus, and the reverse.
     """
 
@@ -273,10 +258,6 @@ def league(mongo_database: Database) -> SeededLeague:
 
 # A floor rather than the exact count: an endpoint added is covered by the parametrisation in each
 # module without editing anything, so pinning the number would ask for a bump and prove nothing.
-
-# One constant rather than one per module: `test_admin_guard.py` walks the published surface and
-# `test_actor_binding.py` the mounted routes, and a floor raised for one leaves the other standing
-# under a tree it has outgrown.
 
 # Set under the inventory by less than the largest router holds, so that router dropping out of the
 # mount lands below the floor.

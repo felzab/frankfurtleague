@@ -1,5 +1,3 @@
-import { connection } from "next/server";
-
 import { requireAdminSaison } from "@/features/saisons/resolvers";
 import { getSchiedsrichter } from "@/features/schiedsrichter/queries";
 import { getSpielbestaetigungen } from "@/features/spielbestaetigungen/queries";
@@ -8,7 +6,7 @@ import { getAdminSpiele } from "@/features/spiele/queries";
 import { getSpielorte } from "@/features/spielorte/queries";
 import { getAdminSpieltage } from "@/features/spieltage/queries";
 import { spieltagLabels } from "@/features/spieltage/utils";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
@@ -16,7 +14,6 @@ import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 import type { NextPageProps } from "@/shared/types/types";
 
 export default async function AdminSpielsuchePage(props: NextPageProps) {
-  await connection();
   const saison = await requireAdminSaison(props.searchParams);
 
   // Every club, venue and referee, retired ones included, rather than the season's: each list linking
@@ -24,7 +21,7 @@ export default async function AdminSpielsuchePage(props: NextPageProps) {
   const [spieleRes, spieltageRes, teamsRes, spielorteRes, schiedsrichterRes, bestaetigungenRes] = await Promise.all([
     getAdminSpiele({ saison_id: saison.id }),
     getAdminSpieltage({ saison_id: saison.id }),
-    getTeamMemberships(),
+    getTeamSaisons(),
     getSpielorte({ include_inactive: true }),
     getSchiedsrichter({ include_inactive: true }),
     // The cards' answers, degraded rather than awaited whole: the search stands without them.
@@ -48,7 +45,7 @@ export default async function AdminSpielsuchePage(props: NextPageProps) {
       spielorte={spielorteRes.spielorte.map((spielort) => ({ id: spielort.id, name: spielort.name }))}
       schiedsrichter={schiedsrichterRes.schiedsrichter.map((row) => ({ id: row.id, name: row.name }))}
       bestaetigungen={bestaetigungenRes?.spielbestaetigungen ?? null}
-      bestaetigungenVollstaendig={bestaetigungenRes?.vollstaendig ?? true}
+      bestaetigungenVollstaendig={bestaetigungenRes?.complete ?? true}
       austritte={Object.fromEntries(
         teamsRes.teams.flatMap((team) => {
           const austritt = team.memberships.find((membership) => membership.saison_id === saison.id)?.austritt;

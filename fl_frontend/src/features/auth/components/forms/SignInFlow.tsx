@@ -8,7 +8,6 @@ import { useFormAction } from "@/kit/useFormAction";
 import { authClient } from "@/core/authClient";
 import { COPY } from "@/core/copy";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
-import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useTurnstile } from "@/shared/hooks/useTurnstile";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { postPublicForm } from "@/shared/utils/publicSubmit";
@@ -17,8 +16,8 @@ import { handleSignIn } from "../../actions";
 import { CEREMONY_ABORTED, describeCeremonyRefusal, refusalCode } from "../../passkeyAnswers";
 import { signInAnswer } from "../../signInAnswers";
 
+import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { ActionAnswer } from "@/kit/useFormAction";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 
 /** The route handler a typed code is checked at (`fl_frontend/src/app/api/signin/code/route.ts`). */
@@ -43,15 +42,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
       const submitted = new FormData();
       submitted.set("email", address);
       submitted.set(TURNSTILE_FIELD, anfrage.token);
-      const state = await handleSignIn(undefined, submitted);
-
-      // `null` is the action's initial state alone, which no send answers.
-      if (state === null) return { ok: false, reason: COPY.shared.fehler.unerwartet };
-      if (state.success) return { ok: true, value: state.submittedEmail ?? address };
-      // A malformed address is the field's: the one message the kit's field shows for it.
-      if (hasFieldErrors(state.fieldErrors))
-        return { ok: false, fieldErrors: { email: COPY.shared.feld.format(COPY.shared.feld.beispielAdresse) } };
-      return { ok: false, reason: signInAnswer(state.error) };
+      return handleSignIn(submitted);
     },
     { resetOnLeave: false },
   );
@@ -97,8 +88,8 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
         titel={COPY.anmeldung.postfach}
         satz={COPY.anmeldung.codeUnterwegs}
         adresse={address}
-        code={{ label: COPY.anmeldung.code, versuch, isDisabled: pruefe, onComplete: (code) => void check(code) }}
-        zurueck={{
+        code={{ label: COPY.anmeldung.code, attempt: versuch, isDisabled: pruefe, onComplete: (code) => void check(code) }}
+        back={{
           label: COPY.anmeldung.andereAdresse,
           isDisabled: pruefe,
           onPress: () => {
@@ -106,7 +97,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
             setVerlassen(answer);
           },
         }}
-        zeile={codeFehler}
+        row={codeFehler}
       />
     );
   }
@@ -135,9 +126,9 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
     <SignInPage
       view="adresse"
       titel={COPY.anmeldung.titel}
-      adresse={{ label: COPY.anmeldung.adresse, value: email, onChange: setEmail, fehler: refused?.fieldErrors }}
-      pruefung={humanCheck.widget}
-      senden={{
+      adresse={{ label: COPY.anmeldung.adresse, value: email, onChange: setEmail, error: refused?.fieldErrors }}
+      check={humanCheck.widget}
+      send={{
         label: COPY.anmeldung.codeSenden,
         isBusy: send.isPending,
         onPress: () => {
@@ -148,11 +139,11 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
           send.submit(email);
         },
       }}
-      oder={COPY.anmeldung.oder}
+      or={COPY.anmeldung.oder}
       // `isBusy` is the whole of the double-press guard: a second prompt aborts the first, which would then read
       // as a refusal of a press made while it ran.
       passkey={{ label: COPY.anmeldung.mitPasskey, isBusy: passkeyLaeuft, onPress: () => void mitPasskey() }}
-      zeile={passkeyFehler ?? sendFehler}
+      row={passkeyFehler ?? sendFehler}
     />
   );
 }

@@ -186,7 +186,7 @@ async def carry_the_replaced_address_in_images(
     judges.setdefault(str(Collection.SCHIEDSRICHTER), []).append(partial(_referee_address_carry_edits, alt=alt, neue=neue, held=referees_held))
     clauses.append(build_address_images_filter(Collection.SCHIEDSRICHTER, alt))
 
-    # Each clause keyed on its `collection`, the half `aktionen_target` serves; unbounded, as `read_imaged_rows` reads.
+    # Each clause keyed on its `collection`, the half `action_log_target` serves; unbounded, as `read_imaged_rows` reads.
     rows = await aggregate_many_from_db(
         collection=aktionen_collection,
         pipeline=[{"$match": {"$or": clauses, "before": {"$ne": None}}}, {"$project": {"before": 1, "collection": 1}}],

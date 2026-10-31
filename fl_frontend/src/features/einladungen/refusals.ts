@@ -13,7 +13,7 @@ export function mapEinladungRefusal(error: unknown): { error?: string; fieldErro
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
-    case "REQ-EINLADUNG-001":
+    case "invitation_team_not_entered":
       return {
         error: buildRefusal({
           reason: "Dieses Team steht nicht in dieser Saison",
@@ -21,7 +21,7 @@ export function mapEinladungRefusal(error: unknown): { error?: string; fieldErro
           where: SAISON_ABSCHNITT,
         }),
       };
-    case "REQ-EINLADUNG-002":
+    case "saison_past":
       return {
         error: buildRefusal({
           reason: "Diese Saison ist abgeschlossen, und für eine abgeschlossene Saison gibt es keine Registrierungslinks mehr",

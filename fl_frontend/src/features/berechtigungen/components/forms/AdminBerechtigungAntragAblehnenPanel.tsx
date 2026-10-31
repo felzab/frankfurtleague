@@ -17,7 +17,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
-import type { FLBerechtigungAntragZeile } from "@/features/berechtigungen/schemas";
+import type { FLGrantApprovalRequestRow } from "@/core/generated/client/types";
 
 /** The refusal's words, and the withdrawal's on the requester's own request. */
 const WORTE = {
@@ -45,13 +45,13 @@ export function AdminBerechtigungAntragAblehnenPanel({
   antrag,
   zeile,
 }: {
-  antrag: FLBerechtigungAntragZeile;
+  antrag: FLGrantApprovalRequestRow;
   /** What tells the row apart in the control's name: the address, or the request's moment where it is withheld. */
   zeile: string;
 }) {
-  const { verwehrt } = antrag;
+  const { denied: verwehrt } = antrag;
   // Its requester withdraws it whatever else holds; anyone else is judged as an approver is.
-  const worte = verwehrt === "gestartet" ? WORTE.zurueckziehen : WORTE.ablehnen;
+  const worte = verwehrt === "started" ? WORTE.zurueckziehen : WORTE.ablehnen;
   const twoPress = useTwoPressConfirm({ stepUp: true });
   const router = useRouter();
   const { isConfirming, press } = twoPress;
@@ -84,13 +84,13 @@ export function AdminBerechtigungAntragAblehnenPanel({
         <FocusSlot name="ablehnen">
           <ConfirmPressButton
             confirm={twoPress}
-            reason={verwehrt === null || verwehrt === "gestartet" ? null : ANTRAG_ENTSCHEIDEN_VERWEHRT[verwehrt]}
+            reason={verwehrt === null || verwehrt === "started" ? null : ANTRAG_ENTSCHEIDEN_VERWEHRT[verwehrt]}
             resting={worte.resting}
             restingName={benannt(worte.resting, zeile)}
             armed={worte.armed}
             running={worte.running}
             icon={
-              verwehrt === "gestartet" ? (
+              verwehrt === "started" ? (
                 <TrashBin
                   className="size-4.5"
                   aria-hidden="true"

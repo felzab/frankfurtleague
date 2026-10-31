@@ -2,11 +2,11 @@ import { z } from "zod";
 
 import { hasAsciiLocalPart, isDeliverableAddress, isSpecialUseAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
 
+import type * as wire from "@/core/generated/client/types";
+
 // Each schema mirrors a constraint in `fl_backend/app/shared/schemas/custom.py`,
 // `fl_backend/app/shared/schemas/addresses.py` or, for an email address,
 // `fl_backend/app/shared/schemas/kontakt.py :: CustomEmail`; on a WRITE, looser makes the message a lie.
-
-// A pattern is outside `fl_frontend/src/core/apiContract.test.ts`.
 
 // The final digit sits outside the class, so no accepted value is punctuation and spaces alone
 // (`fl_backend/app/shared/schemas/custom.py :: PHONE_REGEX`).
@@ -21,7 +21,7 @@ export const PHONE_REGEX = new RegExp(/^([+]?[ 0-9\-().]{2,19}[0-9])$/);
 const HAUSNUMMER_REGEX = /^[\d\-abcABC]*$/;
 const HAUSNUMMER_ERROR = "Die Hausnummer darf nur aus Zahlen, Bindestrichen und den Buchstaben a, b, c bestehen.";
 
-// Named rather than written into `FLAddressSchema`: a literal inside a schema call is reachable by no comparison at all.
+// Named rather than written into `FLAddressPayloadSchema`: a literal inside a schema call is reachable by no comparison at all.
 const PLZ_REGEX = /^\d{5}$/;
 
 /**
@@ -89,7 +89,7 @@ export const PersonNameSchema = z
 
 // `fl_backend/app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN` negated, and named rather than written into the
 // refinement below.
-const NICHT_EINZEILIG = /[\x00\n\v\f\r\u0085\u2028\u2029]/;
+const NOT_SINGLE_LINE = /[\x00\n\v\f\r\u0085\u2028\u2029]/;
 
 /**
  * A name is a name: none of them belongs in one, and refusing the class is cheaper than
@@ -98,19 +98,10 @@ const NICHT_EINZEILIG = /[\x00\n\v\f\r\u0085\u2028\u2029]/;
  */
 // One asymmetry, fail-closed: the API's `strip_whitespace` drops U+0085 where `trim()` keeps it, so a value PADDED
 // with one is taken by the API and refused here.
-export const einzeiligerName = (schema: z.ZodString, feld: string) =>
-  schema.refine((wert) => !NICHT_EINZEILIG.test(wert), {
-    error: `${feld} darf keine Zeilenumbrüche oder Steuerzeichen enthalten.`,
+export const singleLineName = (schema: z.ZodString, field: string) =>
+  schema.refine((value) => !NOT_SINGLE_LINE.test(value), {
+    error: `${field} darf keine Zeilenumbrüche oder Steuerzeichen enthalten.`,
   });
-
-export const FLAddressSchema = z.object({
-  strasse: z.string().nonempty({ error: "Bitte gib eine Straße ein." }),
-  hausnummer: z.string().regex(HAUSNUMMER_REGEX, { error: HAUSNUMMER_ERROR }),
-  plz: z.string().regex(PLZ_REGEX, { error: "Die PLZ muss genau 5 Ziffern haben." }),
-  stadtteil: z.string(),
-  stadt: z.string().nonempty({ error: "Bitte gib eine Stadt ein." }),
-});
-export type FLAddress = z.infer<typeof FLAddressSchema>;
 
 /**
  * The address ceilings, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Every frontend enforcement point reads
@@ -124,38 +115,39 @@ export const ADDRESS_STADTTEIL_MAX_LENGTH = 80;
 export const ADDRESS_HAUSNUMMER_MAX_LENGTH = 16;
 
 /**
- * Mirrors `FLAddressPayload` — what every write payload embeds. The ceilings are here and not on `FLAddressSchema`,
- * which the read schemas embed: a stored value over one of them must still parse, or one row fails a whole list.
+ * `FLAddressPayload`, what every write payload embeds, judged in the browser: the venue, club and application forms
+ * (`AdminSpielortEditForm.tsx`, `AdminTeamEditForm.tsx`, `BewerbungForm.tsx`) parse their slice's payload, which embeds
+ * this, and the generated Zod is `server-only`.
  */
-export const FLAddressPayloadSchema = FLAddressSchema.extend({
+export const FLAddressPayloadSchema = z.object({
   strasse: z
     .string()
     .trim()
     .nonempty({ error: "Bitte gib eine Straße ein." })
     .max(ADDRESS_STRASSE_MAX_LENGTH, { error: `Die Straße darf höchstens ${String(ADDRESS_STRASSE_MAX_LENGTH)} Zeichen lang sein.` }),
-  stadt: z
-    .string()
-    .trim()
-    .nonempty({ error: "Bitte gib eine Stadt ein." })
-    .max(ADDRESS_STADT_MAX_LENGTH, { error: `Die Stadt darf höchstens ${String(ADDRESS_STADT_MAX_LENGTH)} Zeichen lang sein.` }),
-  // No floor beside the ceiling: a district is the part of an address a place can genuinely lack, so the payload
-  // bounds its length alone.
-  stadtteil: z.string().max(ADDRESS_STADTTEIL_MAX_LENGTH, {
-    error: `Der Stadtteil darf höchstens ${String(ADDRESS_STADTTEIL_MAX_LENGTH)} Zeichen lang sein.`,
-  }),
-  // Restated beside the ceiling because extending replaces the field outright, and the alphabet alone bounds nothing.
+  // The alphabet alone bounds nothing, so the ceiling stands beside it.
   hausnummer: z
     .string()
     .regex(HAUSNUMMER_REGEX, { error: HAUSNUMMER_ERROR })
     .max(ADDRESS_HAUSNUMMER_MAX_LENGTH, {
       error: `Die Hausnummer darf höchstens ${String(ADDRESS_HAUSNUMMER_MAX_LENGTH)} Zeichen lang sein.`,
     }),
-});
-export type FLAddressPayload = z.infer<typeof FLAddressPayloadSchema>;
+  plz: z.string().regex(PLZ_REGEX, { error: "Die PLZ muss genau 5 Ziffern haben." }),
+  // No floor beside the ceiling: a district is the part of an address a place can genuinely lack, so the payload
+  // bounds its length alone.
+  stadtteil: z.string().max(ADDRESS_STADTTEIL_MAX_LENGTH, {
+    error: `Der Stadtteil darf höchstens ${String(ADDRESS_STADTTEIL_MAX_LENGTH)} Zeichen lang sein.`,
+  }),
+  stadt: z
+    .string()
+    .trim()
+    .nonempty({ error: "Bitte gib eine Stadt ein." })
+    .max(ADDRESS_STADT_MAX_LENGTH, { error: `Die Stadt darf höchstens ${String(ADDRESS_STADT_MAX_LENGTH)} Zeichen lang sein.` }),
+}) satisfies z.ZodType<wire.FLAddressPayload>;
 
 /**
  * Re-exported from `core`, where `isDeliverableAddress` holds the same ceiling: applied here so an
- * over-long address is refused in German at the keystroke, the API's `REQ-VAL-001` marking the box
+ * over-long address is refused in German at the keystroke, the API's `payload_refused` marking the box
  * with a generic sentence rather than the ceiling's own.
  */
 export { KONTAKT_EMAIL_MAX_LENGTH };
@@ -206,18 +198,12 @@ export const KontaktEmailSchema = addressSchema(
   }),
 );
 
-export const FLKontaktSchema = z.object({
-  // Judged on the payload alone, as `email` is: a stored number `PHONE_REGEX` refuses, such as one ending
-  // in a space that the rule took before it was narrowed, would fail the whole referee list's parse.
-  telefon: z.string().nullable(),
-  // Judged on the payload alone: an address stored under an older rule would fail the whole referee
-  // list's parse.
-  email: z.string().nullable(),
-});
-export type FLKontakt = z.infer<typeof FLKontaktSchema>;
-
-/** What the two referee payloads embed: the write is where the address rule applies and a refusal reaches a box. */
-export const FLKontaktPayloadSchema = FLKontaktSchema.extend({
+/**
+ * What the two referee payloads embed: the write is where the address rule applies and a refusal reaches a box. Judged
+ * in the browser by the referee forms (`AdminCreateSchiedsrichterForm.tsx`, `AdminSchiedsrichterEditForm.tsx`), which
+ * the `server-only` generated Zod cannot serve.
+ */
+export const FLKontaktPayloadSchema = z.object({
   // The message has to sit on the union: with `.or()` the branch messages are unreachable and zod falls
   // back to its own English.
   telefon: z
@@ -228,27 +214,4 @@ export const FLKontaktPayloadSchema = FLKontaktSchema.extend({
   // Required where the telephone is not: an administrator enters a referee, and the address is how
   // that person learns of it.
   email: KontaktEmailSchema,
-});
-
-/**
- * Mirrors `FLBewerbungZustellstand`, which every kind of link records. **Orthogonal to `Stand`**, which is
- * what the PERSON did: a seat can have confirmed from an address an earlier link bounced at, and folding
- * the two would lose it.
- */
-export const FLBewerbungZustellstandSchema = z.enum(["angenommen", "zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"], {
-  error: "Diesen Zustellstand gibt es nicht.",
-});
-export type FLBewerbungZustellstand = z.infer<typeof FLBewerbungZustellstandSchema>;
-
-/** Mirrors `FLBewerbungZustellung` — what became of the last message sent to one seat. */
-export const FLBewerbungZustellungSchema = z.object({
-  // The provider's own id for that message. An event naming another one is about a message a
-  // re-send has already replaced, and marking this seat from it would grade the wrong link.
-  nachricht_id: z.string(),
-  stand: FLBewerbungZustellstandSchema,
-  // The provider's stable token, never its prose, which quotes the recipient's address.
-  grund: z.string().nullable(),
-  // Not `CustomDateStringSchema`: an instant, and the key an out-of-order event is judged against.
-  am: z.string(),
-});
-export type FLBewerbungZustellung = z.infer<typeof FLBewerbungZustellungSchema>;
+}) satisfies z.ZodType<wire.FLKontaktPayload>;

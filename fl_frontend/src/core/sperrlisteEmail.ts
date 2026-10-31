@@ -1,164 +1,65 @@
 import "server-only";
 
 import { KONTAKT_EMAIL } from "./brand";
-import {
-  ANTWORT_SATZ_HTML,
-  ANTWORT_SATZ_TEXT,
-  ASIDE_TEXT,
-  BRAND_NAME,
-  einzeilig,
-  escapeHtml,
-  link,
-  mailOrigin,
-  paragraph,
-  renderKarte,
-  strong,
-  stuffSignatureDelimiter,
-  textFooter,
-} from "./emailShell";
+import { BRAND_NAME, mailOrigin, WIDERSPRUCH } from "./emailShell";
 
-import type { Aktion } from "./emailShell";
-
-export type SperrlisteEmail = { subject: string; html: string; text: string };
-
-const UEBERSCHRIFT = "Deine E-Mail-Adresse ist gesperrt";
-
-/**
- * The one control, and the only step this message asks for. Every other league message offers a
- * page; a reader barred from signing up has none to be sent to.
- */
-const FRAGE_LABEL = "Frage stellen";
-
-/**
- * The ruled fragment, which says INCLUSIVE where a bare „bis“ does not: a reader told the ban ends
- * „bis 2031“ reads the whole of that season as free.
- */
-function bisSatz(gesperrtBisSaisonId: string): string {
-  return `Die Sperre gilt bis einschließlich der Saison ${gesperrtBisSaisonId}.`;
-}
-
-const GRUND_VOR = "Angegebener Grund:";
+import type { Mail } from "./emailShell";
+import type { FLSperreData } from "./generated/client/types";
+import type { MailOrt } from "./mailKinds";
 
 /**
  * What is kept, named because the reader cannot be shown it, the account only while a record holds the
  * address (`docs/datenschutz.md :: 6`). It names no grant: a barred address holds none
- * (`REQ-SPERRLISTE-003`, `REQ-BERECHTIGUNG-003`).
+ * (`sperrliste_verwaltung`, `grant_barred`).
  */
-const GESPEICHERT_SATZ =
-  "In der Sperrliste stehen nur ein Prüfwert Deiner Adresse, der Grund, das Datum und wer die Sperre eingetragen hat. Deine Adresse selbst steht dort nicht. Dein Konto bleibt nur bestehen, solange Du unter dieser Adresse noch etwas davon bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter oder eine bestätigte Registrierung, über die das Team noch nicht entschieden hat.";
-
-/**
- * The one way to a copy or a deletion while the address cannot sign in, and how the league knows the
- * request is the address holder's.
- */
-const auskunftSatz = (kontakt: string): string =>
-  `Möchtest Du eine Kopie Deiner Daten oder ihre Löschung, schreib uns an ${kontakt}. Wir bestätigen Deine Anfrage mit einer E-Mail an diese gesperrte Adresse.`;
-
-/**
- * A barred address's confirmation link shows the ban's sentence and nothing else, so a contact person
- * withdrawing a consent that link took has only this mail to learn where it now goes.
- */
-const einwilligungSatz = (kontakt: string): string =>
-  `Einen Widerspruch gegen Deine Einwilligung nimmst Du weiterhin per E-Mail an ${kontakt} vor.`;
-
-/**
- * Art. 6 (1) (f). Named because the mail is the ONLY record this reader ever gets: the notice they
- * would otherwise read it in is a page nobody has sent them to.
- */
-const GRUNDLAGE_SATZ =
-  "Wir speichern diesen Eintrag auf Grundlage unseres berechtigten Interesses daran, eine gesperrte Adresse nicht erneut zuzulassen (Art. 6 Abs. 1 lit. f DSGVO).";
-
-/**
- * Art. 21 (4) asks that the right to object be brought to the reader's attention EXPLICITLY and
- * SEPARATELY at the first communication, which this message is.
- */
-const widerspruchSatz = (kontakt: string): string =>
-  `Du kannst dieser Speicherung nach Art. 21 DSGVO widersprechen. Schreib uns dafür an ${kontakt}. Dort beantworten wir auch Fragen zur Sperre.`;
+const GESPEICHERT_SAETZE = [
+  "In der Sperrliste stehen nur ein Prüfwert Deiner Adresse, der Grund, das Datum und wer die Sperre eingetragen hat.",
+  "Deine Adresse selbst steht dort nicht.",
+  "Dein Konto bleibt nur bestehen, solange Du unter dieser Adresse noch etwas davon bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter oder eine bestätigte Registrierung, über die das Team noch nicht entschieden hat.",
+] as const;
 
 // Every refusal the ban reaches, in one sentence: a sign-in, a registration, a contact seat on an
 // application and a referee's entry. „anmelden“ is the SIGN-IN's verb and „registrieren“ the season's.
-const EINLEITUNG = `Deine E-Mail-Adresse wurde von der Verwaltung der ${BRAND_NAME} gesperrt. Mit ihr kannst Du Dich vorerst weder anmelden noch für eine Saison registrieren, und Du kannst weder als Kontaktperson in einer Bewerbung genannt noch als Schiedsrichterin oder Schiedsrichter eingetragen werden.`;
+const EINLEITUNG = [
+  `Deine E-Mail-Adresse wurde von der Verwaltung der ${BRAND_NAME} gesperrt.`,
+  "Mit ihr kannst Du Dich vorerst weder anmelden noch für eine Saison registrieren, und Du kannst weder als Kontaktperson in einer Bewerbung genannt noch als Schiedsrichterin oder Schiedsrichter eingetragen werden.",
+] as const;
 
-// „werden beendet“: the mail leaves after the sign-out was attempted and cannot know whether it held,
-// a failure being the administrator's to read.
-const ANMELDUNGEN_SATZ = "Bestehende Anmeldungen mit dieser Adresse werden beendet.";
-
-/** What the form's hint promises the mail explains, so the two say one thing. */
-const LAPSE_SATZ = "Danach endet die Sperre von selbst. Du musst dafür nichts tun.";
-
-function aktionen(): readonly Aktion[] {
-  return [{ href: `mailto:${KONTAKT_EMAIL}`, label: FRAGE_LABEL, ton: "primary" }];
-}
-
-function renderHtml(grund: string, gesperrtBisSaisonId: string, origin: string): string {
-  return renderKarte({
-    titel: `${BRAND_NAME}: ${UEBERSCHRIFT}`,
-    ueberschrift: escapeHtml(UEBERSCHRIFT),
-    bloecke: [
-      // The bound is emphasised inside the prose rather than panelled: a card of one fact beside a
-      // heading naming the ban reads as a certificate of it.
-      paragraph(
-        `${escapeHtml(EINLEITUNG)} ${escapeHtml(ANMELDUNGEN_SATZ)} ${strong(escapeHtml(bisSatz(gesperrtBisSaisonId)))} ${escapeHtml(LAPSE_SATZ)}`,
-      ),
-      paragraph(`${GRUND_VOR} ${escapeHtml(grund)}`),
-      paragraph(escapeHtml(GESPEICHERT_SATZ), "0 0 16px", ASIDE_TEXT),
-      paragraph(auskunftSatz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0 0 16px", ASIDE_TEXT),
-      paragraph(einwilligungSatz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0 0 16px", ASIDE_TEXT),
-      paragraph(escapeHtml(GRUNDLAGE_SATZ), "0 0 16px", ASIDE_TEXT),
-      // Its own paragraph and the last before the control, which is the separateness Art. 21 (4) asks for.
-      // The address as a marked link here too: the objection is one a reader has to select and paste otherwise.
-      paragraph(widerspruchSatz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0", ASIDE_TEXT),
-    ],
-    aktionen: aktionen(),
-    fuss: ANTWORT_SATZ_HTML,
-    origin: origin,
-  });
-}
-
-function renderText(grund: string, gesperrtBisSaisonId: string, origin: string): string {
-  const oben = [
-    `${BRAND_NAME}: ${UEBERSCHRIFT}`,
-    "",
-    `${EINLEITUNG} ${ANMELDUNGEN_SATZ} ${bisSatz(gesperrtBisSaisonId)} ${LAPSE_SATZ}`,
-    "",
-    `${GRUND_VOR} ${grund}`,
-    "",
-    GESPEICHERT_SATZ,
-    "",
-    auskunftSatz(KONTAKT_EMAIL),
-    "",
-    einwilligungSatz(KONTAKT_EMAIL),
-    "",
-    GRUNDLAGE_SATZ,
-    "",
-    widerspruchSatz(KONTAKT_EMAIL),
-  ];
-
-  return [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(origin, [ANTWORT_SATZ_TEXT])].join("\n");
-}
-
-/**
- * **The two parts state the same facts**, as in the application messages
- * (`fl_frontend/src/core/bewerbungEmail.ts :: buildBewerbungZusageEmail`).
- */
-export function buildSperreEmail({
-  grund,
-  gesperrtBisSaisonId,
-  origin,
-}: {
-  grund: string;
-  gesperrtBisSaisonId: string;
-  origin: string;
-}): SperrlisteEmail {
-  const site = mailOrigin(origin);
-  // Folded once, before either part prints them: this message has no column of facts to fold them on
-  // the way, and the reason stands on a line of its own.
-  const grundText = einzeilig(grund);
-  const bis = einzeilig(gesperrtBisSaisonId);
-
+export function buildSperreEmail({ grund, barred_until_saison_id: gesperrtBisSaisonId }: FLSperreData, { origin }: MailOrt): Mail {
   return {
-    subject: `${BRAND_NAME}: ${UEBERSCHRIFT}`,
-    html: renderHtml(grundText, bis, site),
-    text: renderText(grundText, bis, site),
+    art: "mitteilung",
+    subjectLine: "Deine E-Mail-Adresse ist gesperrt",
+    origin: mailOrigin(origin),
+    vorname: "",
+    paragraphs: [
+      [
+        ...EINLEITUNG,
+        // „werden beendet“: the mail leaves after the sign-out was attempted and cannot know whether it held.
+        "Bestehende Anmeldungen mit dieser Adresse werden beendet.",
+        // INCLUSIVE, where a bare „bis“ is not: a reader told the ban ends „bis 2031“ reads the whole of that season as free.
+        [{ strong: `Die Sperre gilt bis einschließlich der Saison ${gesperrtBisSaisonId}.` }],
+        // What the form's hint promises the mail explains, so the two say one thing.
+        "Danach endet die Sperre von selbst. Du musst dafür nichts tun.",
+      ],
+      [`Angegebener Grund: ${grund}`],
+      GESPEICHERT_SAETZE,
+      // The one way to a copy or a deletion while the address cannot sign in, and how the league knows the
+      // request is the address holder's.
+      [
+        ["Möchtest Du eine Kopie Deiner Daten oder ihre Löschung, schreib uns an ", { adresse: KONTAKT_EMAIL }, "."],
+        "Wir bestätigen Deine Anfrage mit einer E-Mail an diese gesperrte Adresse.",
+      ],
+      // A barred address's confirmation link shows the ban's sentence and nothing else, so a contact person
+      // withdrawing a consent that link took has only this mail to learn where it now goes.
+      [["Einen Widerspruch gegen Deine Einwilligung nimmst Du weiterhin per E-Mail an ", { adresse: KONTAKT_EMAIL }, " vor."]],
+      // Art. 6 (1) (f), named because the mail is the ONLY record this reader ever gets.
+      [
+        "Wir speichern diesen Eintrag auf Grundlage unseres berechtigten Interesses daran, eine gesperrte Adresse nicht erneut zuzulassen (Art. 6 Abs. 1 lit. f DSGVO).",
+      ],
+      // Art. 21 (4) asks that the right to object be brought to the reader's attention EXPLICITLY and
+      // SEPARATELY at the first communication, which this message is: its own paragraph, the last, in the shell's
+      // wording for every first contact.
+      [WIDERSPRUCH, "Dort beantworten wir auch Fragen zur Sperre."],
+    ],
   };
 }

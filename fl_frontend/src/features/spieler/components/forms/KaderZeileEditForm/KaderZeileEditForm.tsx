@@ -25,7 +25,7 @@ import { FormKaderZeileAustragenSection } from "./FormKaderZeileAustragenSection
 import { FormKaderZeileSection } from "./FormKaderZeileSection";
 import { deriveKaderZeileDraftStatus } from "./kaderZeileDraftStatus";
 
-import type { FLKaderZeile, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/features/spieler/schemas";
+import type { FLKaderRow, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import type { FLKaderZeileDraftFields } from "./kaderZeileDraftStatus";
 
 /**
@@ -42,7 +42,7 @@ export function KaderZeileEditForm({
 }: {
   teamId: string;
   saisonId: string;
-  zeile: FLKaderZeile;
+  zeile: FLKaderRow;
   /** The season's levels in the league's order, which is all the form offers beside the row's own. */
   erlaubteStufen: readonly FLSpielerStufe[];
   /** Who else holds each role in this squad, read off the squad's other live rows. */
@@ -137,7 +137,7 @@ export function KaderZeileEditForm({
             header={{
               title: kaderName(zeile),
               // A state outranks the number, which is a field of the form below: the clash is said nowhere else here.
-              chip: zeile.nummer_doppelt ? (
+              chip: zeile.nummer_double ? (
                 <span className={labelBadge("warning")}>{NUMMER_DOPPELT}</span>
               ) : zeile.nummer === null ? undefined : (
                 <span className="flex h-10 min-w-10 items-center justify-center rounded-xl bg-muted px-2 font-extrabold text-foreground shadow-sm">

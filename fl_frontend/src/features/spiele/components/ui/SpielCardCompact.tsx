@@ -15,7 +15,7 @@ import { SaisonPhaseChip } from "./SaisonPhaseChip";
 import { ERGEBNIS_INK_CLASSES, SpielScore } from "./SpielScore";
 import { SpielTeamSlot } from "./SpielTeamSlot";
 
-import type { FLSpiel } from "../../schemas";
+import type { FLSpiel } from "../../types";
 
 export function SpielCardCompact({
   spielData,

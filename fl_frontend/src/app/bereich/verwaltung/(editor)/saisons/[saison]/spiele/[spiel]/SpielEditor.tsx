@@ -16,10 +16,10 @@ import { COPY } from "@/core/copy";
 
 import { SpielortFelder } from "../../../../../SpielortFelder";
 
+import type { ActionAnswer } from "@/core/action";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
-import type { ActionAnswer } from "@/kit/useFormAction";
 import type { SpielortRegeln } from "../../../../../spielortRegeln";
 import type { SpielWerte } from "./spielWerte";
 
@@ -43,7 +43,7 @@ export function SpielEditor({
 }: {
   title: PageTitle;
   record: EditorRecord<SpielWerte>;
-  save: (change: EditorSave<SpielWerte>) => Promise<ActionAnswer>;
+  save: (change: EditorSave<SpielWerte>) => Promise<ActionAnswer<number>>;
   /** The venues to choose from, each with the price a match there costs unless set otherwise. */
   spielorte: ReadonlyArray<{ option: Option; mietpreis: number }>;
   /** „Keines“ first, then each event, an event this fixture cannot take disabled with its reason. */
@@ -125,7 +125,7 @@ export function SpielEditor({
               </FieldPair>
               <Dialog
                 title={COPY.shared.mitObjekt(ORT.objekt, "anlegen")}
-                act={{ verb: "anlegen", objekt: ORT.objekt }}
+                act={{ verb: "anlegen", object: ORT.objekt }}
                 action={spielortAnlegen}
                 open={{ isOpen: neu, onOpenChange: setNeu }}>
                 <SpielortFelder

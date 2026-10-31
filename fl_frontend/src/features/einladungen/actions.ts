@@ -1,33 +1,24 @@
 "use server";
 
-import { refresh } from "next/cache";
-
 import { isFreshlySignedIn } from "@/core/auth";
 import { frontend_config } from "@/core/config";
-import { buildEinladungEmail } from "@/core/einladungEmail";
+import { einladungsLink } from "@/core/einladungEmail";
+import { isRecordMissing } from "@/core/errors";
 import { KONTAKTE_ABSCHNITT } from "@/features/teams/constants";
-import { getTeamMemberships } from "@/features/teams/queries";
-import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { getGermanTodayStr } from "@/shared/utils/date";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
+import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { einladungsLink } from "./einladungLink";
-import { bestaetigteEmpfaenger } from "./empfaenger";
-import { adressenSatz, gesperrtSatz, versandSatz, ZURUECKGEHALTEN } from "./meldungen";
-import { deleteEinladung, postEinladung, postEinladungVersand } from "./mutations";
+import { adressenSatz, versandSatz } from "./meldungen";
+import { deleteEinladung, mailEinladung, postEinladung, postEinladungVersand } from "./mutations";
 import { getEinladung, getEinladungVersandVorschau } from "./queries";
 import { mapEinladungRefusal } from "./refusals";
-import { FLEinladungKeyPayloadSchema, FLEinladungMailPayloadSchema, FLEinladungVersandPayloadSchema } from "./schemas";
+import { EinladungMailenEingabeSchema, FLEinladungKeyPayloadSchema, FLEinladungVersandPayloadSchema } from "./schemas";
 
+import type { FLInvitationDispatchPreviewRow, FLInvitationDispatchRow } from "@/core/generated/client/types";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
-import type { LinkVersand } from "@/shared/utils/linkVersand";
-import type { FLEinladungKeyPayload, FLEinladungMailPayload, FLEinladungVersandPayload, FLEinladungVersandVorschauZeile } from "./schemas";
-import type { EinladungVersandErgebnis } from "./types";
-
-/** Scopes the bulk send's key to the row each team's link was minted on, which no second press reuses. */
-const VERSAND_IDEMPOTENZ_TAG = "versand";
+import type { z } from "zod";
 
 /**
  * Mints the team's link for the season, closing any live one in the same transaction. **The raw link
@@ -35,7 +26,7 @@ const VERSAND_IDEMPOTENZ_TAG = "versand";
  * administrator will ever see.
  */
 export async function postEinladungAction(
-  rawPayload: FLEinladungKeyPayload,
+  rawPayload: z.input<typeof FLEinladungKeyPayloadSchema>,
 ): Promise<ActionResult<{ einladung_id: string; token: string; link: string }>> {
   return runAdminMutation("postEinladungAction", async (session) => {
     const validated = FLEinladungKeyPayloadSchema.safeParse(rawPayload);
@@ -46,7 +37,7 @@ export async function postEinladungAction(
 
     // A mint voiding a standing link is a step-up write and the first mint is not, so a read decides; made
     // only for a session past the window, the one it can refuse.
-    const standing = isFreshlySignedIn(session) ? null : (await getEinladung(validated.data.team_id, validated.data.saison_id)).einladung;
+    const standing = isFreshlySignedIn(session) ? null : (await getEinladung(validated.data.team_id, validated.data.saison_id)).invitation;
     const unconfirmed = standing === null ? null : refuseUnconfirmed(session);
     if (unconfirmed !== null) return unconfirmed;
 
@@ -61,7 +52,7 @@ export async function postEinladungAction(
 
     return {
       success: true,
-      einladung_id: mintOperation.einladung_id,
+      einladung_id: mintOperation.invitation_id,
       token: mintOperation.token,
       // Spelled here and never in the panel: `frontend_config.AUTH_URL` is server-only, and a link
       // built in the browser would carry whichever host the page was opened on.
@@ -72,50 +63,25 @@ export async function postEinladungAction(
 }
 
 /**
- * Mails the minted link to the team's confirmed contact seats. **A second press, never part of the
- * mint**: the link is shown for copying first, and this is what puts it in an inbox.
+ * Owes the team's live link to its confirmed contact seats. **A second press, never part of the mint**: the link is
+ * shown for copying first, and this is what puts it in an inbox. Each mail mints a link of its own when it leaves, so
+ * the copied one stays valid beside them.
  */
-export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): Promise<ActionResult<{ versand: LinkVersand }>> {
+export async function mailEinladungAction(rawPayload: z.input<typeof EinladungMailenEingabeSchema>): Promise<ActionResult> {
   return runAdminMutation("mailEinladungAction", { stepUp: true }, async () => {
-    const validated = FLEinladungMailPayloadSchema.safeParse(rawPayload);
+    const validated = EinladungMailenEingabeSchema.safeParse(rawPayload);
 
     if (!validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    const { team_id, saison_id, einladung_id, token } = validated.data;
-    const memberships = await getTeamMemberships();
-    const team = memberships.teams.find((candidate) => candidate.id === team_id) ?? null;
-    const membership = team?.memberships.find((candidate) => candidate.saison_id === saison_id) ?? null;
-    // The addresses are read HERE rather than carried in the payload: a mailbox a caller could name
-    // would send a bearer credential wherever that caller chose.
-    const kontakte = membership?.kontakte ?? null;
+    const { team_id, saison_id } = validated.data;
+    const memberships = await getTeamSaisons();
+    const membership =
+      memberships.teams.find((candidate) => candidate.id === team_id)?.memberships.find((candidate) => candidate.saison_id === saison_id) ??
+      null;
 
-    // A panel left open while somebody else replaced or withdrew the link would mail a value that
-    // opens nothing, and file the delivery record against a row that is closed.
-    const gelesen = await getEinladung(team_id, saison_id);
-
-    if (gelesen.einladung === null) {
-      return {
-        success: false,
-        error: buildRefusal({
-          reason: "Für dieses Team steht kein Link mehr offen",
-          repair: "Lade die Seite neu und lege einen neuen Link an",
-        }),
-      };
-    }
-
-    if (gelesen.einladung.id !== einladung_id) {
-      return {
-        success: false,
-        error: buildRefusal({
-          reason: "Dieser Link ist nicht mehr der offene Link dieses Teams",
-          repair: "Lade die Seite neu und lege einen neuen Link an",
-        }),
-      };
-    }
-
-    if (kontakte === null) {
+    if (membership?.kontakte == null) {
       return {
         success: false,
         error: buildRefusal({
@@ -126,9 +92,25 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
       };
     }
 
-    const empfaenger = bestaetigteEmpfaenger(kontakte);
+    let versandOperation;
+    try {
+      versandOperation = await mailEinladung(validated.data);
+    } catch (error) {
+      // A panel left open while somebody else replaced or withdrew the link names a row that opens nothing.
+      if (isRecordMissing(error)) {
+        return {
+          success: false,
+          error: buildRefusal({
+            reason: "Dieser Link ist nicht mehr der offene Link dieses Teams",
+            repair: "Lade die Seite neu und lege einen neuen Link an",
+          }),
+        };
+      }
+      throw error;
+    }
 
-    if (empfaenger.length === 0) {
+    const gesamt = versandOperation.recipient.length;
+    if (gesamt === 0) {
       return {
         success: false,
         error: buildRefusal({
@@ -138,60 +120,12 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
       };
     }
 
-    const origin = new URL(frontend_config.AUTH_URL).origin;
-    const outcome = await sendZielMail({
-      operation: "mailEinladungAction",
-      // This press mints nothing, so two presses compose the same body and the second would mail
-      // the link twice. A fresh mint answers a fresh `zielId`, which keeps the next link's message
-      // its own.
-      auftrag: { ziel: "einladung", zielId: einladung_id, anlass: "einladung", idempotenzTag: getGermanTodayStr() },
-      recipients: empfaenger.map((seat) => seat.email),
-      buildMail: () =>
-        // The token is the CALLER's to name: only a hash is stored, so nothing checks it against
-        // `einladung_id`. Worst case is an administrator mailing their own team a dead link, which
-        // the two-press shape is worth.
-        buildEinladungEmail({
-          teamName: team?.name ?? "",
-          saisonId: saison_id,
-          origin: origin,
-          link: einladungsLink(origin, token),
-        }),
-    });
-
-    // One link per team: sent where any of its seats took it.
-    const versand = linkVersandOf(outcome);
-
-    // Every address barred is no failure either: a retry meets the same ban.
-    if (outcome.delivered.length === 0 && outcome.unreachable.length === 0 && outcome.ungewiss.length === 0 && outcome.gesperrt > 0) {
-      return { success: true, message: "Der Link ging an niemanden raus, weil jede Adresse auf der Sperrliste steht.", versand: versand };
-    }
-
-    // A withheld send is this deployment rather than the mailbox, as `app/api/registrierung/route.ts`
-    // reads it: outside production every address is withheld, and a refusal here would offer a
-    // retry that cannot succeed.
-    if (outcome.delivered.length === 0 && outcome.withheld.length === 0) {
-      // The spine refreshes a success or an unknown outcome, and a refused address is written to the
-      // delivery record this panel shows, which is the only thing this press writes.
-      refresh();
-
-      return {
-        success: false,
-        error: buildRefusal({ reason: "Die E-Mail konnte nicht gesendet werden", repair: VERSUCHE_ES_ERNEUT }),
-      };
-    }
-
-    const versandt = outcome.delivered.length === 0 ? ZURUECKGEHALTEN : adressenSatz(outcome.delivered.length, empfaenger.length);
-
-    return {
-      success: true,
-      message: outcome.gesperrt === 0 ? versandt : `${versandt} ${gesperrtSatz(outcome.gesperrt)}`,
-      versand: versand,
-    };
+    return { success: true, message: adressenSatz(gesamt, gesamt) };
   });
 }
 
 /** Closes the team's live link. Nothing reverses it: the next link is a fresh mint with a fresh value. */
-export async function deleteEinladungAction(rawPayload: FLEinladungKeyPayload): Promise<ActionResult> {
+export async function deleteEinladungAction(rawPayload: z.input<typeof FLEinladungKeyPayloadSchema>): Promise<ActionResult> {
   return runAdminMutation("deleteEinladungAction", { stepUp: true }, async () => {
     const validated = FLEinladungKeyPayloadSchema.safeParse(rawPayload);
 
@@ -211,8 +145,8 @@ export async function deleteEinladungAction(rawPayload: FLEinladungKeyPayload): 
  * (`fl_frontend/src/features/spiele/actions.ts :: previewAdminSpielDataAction`).
  */
 export async function previewEinladungVersandAction(
-  rawPayload: FLEinladungVersandPayload,
-): Promise<QueryResult<{ zeilen: readonly FLEinladungVersandVorschauZeile[] }>> {
+  rawPayload: z.input<typeof FLEinladungVersandPayloadSchema>,
+): Promise<QueryResult<{ zeilen: readonly FLInvitationDispatchPreviewRow[] }>> {
   return runAdminMutation("previewEinladungVersandAction", async () => {
     const validated = FLEinladungVersandPayloadSchema.safeParse(rawPayload);
 
@@ -224,18 +158,17 @@ export async function previewEinladungVersandAction(
     // key, and this read has to name a value either way to describe the press it precedes.
     const vorschau = await getEinladungVersandVorschau(validated.data.id, validated.data.erneut ?? false);
 
-    return { success: true, zeilen: vorschau.zeilen };
+    return { success: true, zeilen: vorschau.rows };
   });
 }
 
 /**
- * One press for every admitted team of the season. **The message is composed here because
- * nothing behind the API sends mail**: the endpoint decides who is written to, over the rule the
- * preview read.
+ * One press for every admitted team of the season: the endpoint gives each team it reaches a fresh link and owes it
+ * to the team's confirmed seats in the same write, over the rule the preview read.
  */
 export async function postEinladungVersandAction(
-  rawPayload: FLEinladungVersandPayload,
-): Promise<ActionResult<{ zeilen: readonly EinladungVersandErgebnis[]; versendet: readonly LinkVersand[] }>> {
+  rawPayload: z.input<typeof FLEinladungVersandPayloadSchema>,
+): Promise<ActionResult<{ zeilen: readonly FLInvitationDispatchRow[]; gemeint: number; erreicht: number }>> {
   return runAdminMutation("postEinladungVersandAction", { stepUp: true }, async () => {
     const validated = FLEinladungVersandPayloadSchema.safeParse(rawPayload);
 
@@ -252,74 +185,14 @@ export async function postEinladungVersandAction(
       throw error;
     }
 
-    const origin = new URL(frontend_config.AUTH_URL).origin;
-    const zeilen: EinladungVersandErgebnis[] = [];
-    // Every team whose link this press meant to send: a pass-over by the rule the preview showed is none.
-    const versendet: LinkVersand[] = [];
+    const { rows: zeilen } = versandOperation;
+    // Every team this press meant to write to: a pass-over by the rule the preview showed is none, the league's own
+    // failure to mint is one.
+    const gemeint = zeilen.filter(
+      (zeile) => zeile.skipped === null || zeile.skipped === "mint_failed" || zeile.skipped === "mint_uncertain",
+    ).length;
+    const erreicht = zeilen.filter((zeile) => zeile.recipient.length > 0).length;
 
-    /* One team after another: the provider allows 10 requests a second per account (read at
-       https://resend.com/docs/api-reference/rate-limit.md on 2026-09-21, which answers 429 over
-       it), and a season of sixteen clubs fanned out at once would ask for about forty-eight. */
-    for (const zeile of versandOperation.zeilen) {
-      const { team_id, team_name, uebersprungen, einladung_id, token, ersetzt_link, hatte_link } = zeile;
-
-      if (uebersprungen !== null || einladung_id === null || token === null) {
-        // The league's own failure alone grades a skip. `kontakte_gesperrt` is a pass-over the preview showed, no
-        // link minted or held back, so it adds no grade.
-        if (uebersprungen === "erzeugung_fehlgeschlagen" || uebersprungen === "erzeugung_ungewiss") versendet.push("fehlgeschlagen");
-        zeilen.push({
-          team_id: team_id,
-          team_name: team_name,
-          uebersprungen: uebersprungen,
-          // The endpoint's own values, never a constant here: false on every skip, and on a row of
-          // unknown outcome the link that commit may have revoked.
-          ersetzt_link: ersetzt_link,
-          hatte_link: hatte_link,
-          zugestellt: [],
-          unerreichbar: [],
-          zurueckgehalten: [],
-          gesperrt: 0,
-        });
-        continue;
-      }
-
-      const outcome = await sendZielMail({
-        operation: "postEinladungVersandAction",
-        // Its own tag, not the single press's day: that press may mail this row today under the club's
-        // name where this carries the season's, and a key reused over another body is refused
-        // (`fl_frontend/src/features/zustellung/notifications.ts :: zielIdempotenzSchluessel`).
-        auftrag: { ziel: "einladung", zielId: einladung_id, anlass: "einladung", idempotenzTag: VERSAND_IDEMPOTENZ_TAG },
-        // The addresses inside one team stay concurrent: three at most, and `sendZielMail` settles
-        // them, so one refused mailbox cannot cost its siblings their message.
-        recipients: zeile.empfaenger.map((seat) => seat.email),
-        buildMail: () =>
-          buildEinladungEmail({ teamName: team_name, saisonId: validated.data.id, origin: origin, link: einladungsLink(origin, token) }),
-      });
-      versendet.push(linkVersandOf(outcome));
-
-      zeilen.push({
-        team_id: team_id,
-        team_name: team_name,
-        uebersprungen: null,
-        ersetzt_link: ersetzt_link,
-        hatte_link: hatte_link,
-        zugestellt: outcome.delivered,
-        unerreichbar: outcome.unreachable,
-        // Carried for the reason the single press reads it: outside production every address is
-        // withheld, and a row that cannot tell the two apart names every one of them in danger red.
-        zurueckgehalten: outcome.withheld,
-        gesperrt: outcome.gesperrt,
-      });
-    }
-
-    const gemailt = zeilen.filter((zeile) => zeile.zugestellt.length > 0).length;
-
-    return {
-      success: true,
-      zeilen: zeilen,
-      message: versandSatz(gemailt, versendet.length, zeilen.length),
-      // Each team's own grade, the panel's title saying whether its worst is every team's or some teams'.
-      versendet: versendet,
-    };
+    return { success: true, zeilen: zeilen, message: versandSatz(erreicht, gemeint, zeilen.length), gemeint: gemeint, erreicht: erreicht };
   });
 }

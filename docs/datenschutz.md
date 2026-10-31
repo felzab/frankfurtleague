@@ -52,7 +52,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   route creates a player and no administrative payload carries a consent choice, so an administrator
   can neither create one nor assume, enter or transcribe a consent on anybody's behalf. The one write that creates a player is a team's admission of a
   pupil's own confirmed registration, which carries that pupil's own answer onto the person
-  (`fl_backend/app/api/registrierungen/person_router.py :: aufnehmen`).
+  (`fl_backend/app/api/registrierungen/person_router.py :: admit`).
   **A contact person is the one seat where that consent is not the record kept:** what such a person
   answers is a Kenntnisnahme of a notice, the basis being Art. 6(1)(f) rather than an
   Einwilligung, and the only consents their block holds are the optional WhatsApp scope and the media
@@ -63,13 +63,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   ([section 4](#4-what-is-published-and-on-what-basis)), and an administrator is a grant another
   administrator or the database entered (`docs/glossary.md :: Berechtigung`).
 - **The minimum age is 16 for every role, and 18 for the two seats that sign for the school.**
-  A registration below 16 is refused as `REQ-REGISTRIERUNG-007`, judged against the birthdate the
+  A registration below 16 is refused as `confirmation_age`, judged against the birthdate the
   pupil enters on their own confirmation page and before anything is written
   (`fl_backend/app/api/registrierungen/services.py :: find_alter_refusal`); the refusal stands there
   and nowhere else, the submission itself collecting no birthdate at all. The floor is
-  `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_MIN_ALTER_JAHRE`, the pupil's own rather
+  `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_MIN_AGE_YEARS`, the pupil's own rather
   than a contact seat's, so raising one does not silently raise the other. A referee's own
-  confirmation judges the same sixteen against a floor of its own, as `REQ-SCHIEDSRICHTER-005`
+  confirmation judges the same sixteen against a floor of its own, as `confirmation_age`
   (`fl_backend/app/api/schiedsrichter/services.py :: find_alter_refusal`,
   `fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_MIN_AGE_YEARS`). Sixteen is my ruling
   rather than a figure a law hands the league: one floor for every role replaces three, the basis for
@@ -98,8 +98,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **A pupil's birthdate is required, and the pupil's own registration is what supplies it.** Ruled
   2026-09-08: required from the sign-up flow on, so that nobody invents the one field whose purpose
   is the age floor. The admission carries the date the pupil typed onto their record, and the
-  person's validator requires the key, which only the erased pupils' sentinel holds null
-  (`fl_backend/app/core/constraints.py`). **What the field is FOR is checking an age when a question
+  person's record model requires the key, which only the erased pupils' sentinel holds null
+  (`fl_backend/app/api/spieler/schemas.py :: FLSpielerRecord`). **What the field is FOR is checking an age when a question
   about one arises.** On a pupil's own row it gates no read and no publication and nothing
   judges it; the date a pupil types on their confirmation page is judged against the floor before
   anything is written (`fl_backend/app/api/registrierungen/services.py :: find_alter_refusal`),
@@ -143,52 +143,48 @@ Every ruling below is the sign-up flow as it stands for the next season.
   `:: Beide Zurückweisungen`). Each is judged before anything is written:
   - a birthdate outside the span a role allows — below its floor, or past the ceiling that catches a
     mistyped century — on the person's own confirmation page, for a pupil
-    (`REQ-REGISTRIERUNG-007`), a referee (`REQ-SCHIEDSRICHTER-005`) and a contact person
-    (`REQ-BEWERBUNG-012`), so a mistyped date costs nothing and the same link takes the right one
+    (`confirmation_age`), a referee (`confirmation_age`) and a contact person
+    (`confirmation_age`), so a mistyped date costs nothing and the same link takes the right one
     while it runs;
-  - an address the ban list holds, for a registration (`REQ-REGISTRIERUNG-009`), for any of an application's
-    three contact persons (`REQ-BEWERBUNG-018`), for a sign-in
+  - an address the ban list holds, for a registration (`registrierung_adresse_barred`), for any of an application's
+    three contact persons (`bewerbung_adresse_barred`), for a sign-in
     by any route, refused as its session would be created
     (`fl_frontend/src/core/auth.ts :: refuseUnadmitted`), and for the confirmation on a person's own
-    page, however long ago its link was mailed (`REQ-REGISTRIERUNG-012`, `REQ-SCHIEDSRICHTER-009`,
-    `REQ-BEWERBUNG-020`), the link's page showing that person the refusal and nothing else, so a
+    page, however long ago its link was mailed (`link_barred`, `link_barred`,
+    `link_barred`), the link's page showing that person the refusal and nothing else, so a
     contact person's Widerspruch goes by mail to the address it names; the notice's „eine
     E-Mail-Adresse, die gesperrt ist“ names no route, so it covers all four, and the ban's own mail
     tells a person whose address holds an account that the sign-in is barred.
 
-  **Two more refusals are taken by the code alone, and the notice names both with the way through
-  each leaves** (`DatenschutzView.tsx :: Zwei weitere Grenzen setzt die Website`):
-  - Cloudflare's bot check on the sign-in code request, the application form and the pupil's
-    registration form, which refuses a submission carrying no token or one Cloudflare judged against, before
-    anything is written or mailed, and asks the person to confirm they are human
-    (`fl_frontend/src/core/turnstile.ts :: turnstileRefusal`), a check Cloudflare cannot answer
-    letting the submission through;
-  - the daily write ceiling, which refuses a signed-in person's counted writes past the bound of
-    their kind of person until German midnight (`REQ-DROSSELUNG-001`)
-    and never refuses a withdrawal.
+  **One more refusal is taken by the code alone, and the notice names it with the way through it
+  leaves** (`DatenschutzView.tsx`, section 12): Cloudflare's bot check on the sign-in code request,
+  the application form and the pupil's registration form, which refuses a submission carrying no
+  token or one Cloudflare judged against, before anything is written or mailed, and asks the person
+  to confirm they are human (`fl_frontend/src/core/turnstile.ts :: turnstileRefusal`), a check
+  Cloudflare cannot answer letting the submission through.
 
-  The notice offers a person's review of both on request by mail, as the ruling above has it for
-  every refusal the code takes alone; whether that ruling reaches these two is not yet confirmed.
+  The notice offers a person's review of it on request by mail, as the ruling above has it for
+  every refusal the code takes alone; whether that ruling reaches this one is not yet confirmed.
 
   What the review can change is bounded by the rule each refusal applies: a person reads the case
   and answers, a mistyped date is corrected through the same link, an administrator can lift a ban
   (`DELETE /sperrliste/{sperrliste_id}`), and a date truly below a floor stays refused, the league
   giving no role below its floor. A full squad refuses a registration as well
-  (`REQ-REGISTRIERUNG-008`), and the notice names it as a limit of the squad rather than a judgement
+  (`registrierung_kader_full`), and the notice names it as a limit of the squad rather than a judgement
   about the person. **The notice leaves out the refusals nothing the person enters can meet:**
   - a media consent from someone below its floor, on a pupil's confirmation
-    (`REQ-REGISTRIERUNG-010`) and a referee's (`REQ-SCHIEDSRICHTER-008`), reachable only by a request
+    (`medien_age`) and a referee's (`medien_age`), reachable only by a request
     the pages never send, the switch showing only from that age
     ([section 4](#4-what-is-published-and-on-what-basis));
-  - a Stufe the season does not offer (`REQ-REGISTRIERUNG-003`), which the form's picker never
+  - a Stufe the season does not offer (`registrierung_stufe_not_allowed`), which the form's picker never
     lists;
-  - the ban refusing a referee's link (`REQ-SCHIEDSRICHTER-007`), which falls on an administrator's
+  - the ban refusing a referee's link (`schiedsrichter_adresse_barred`), which falls on an administrator's
     write rather than on anything the person enters: the administrator sees the refusal and can lift
     the ban, and the ban's own mail tells a barred person whose address holds an account that they
     cannot be entered as a referee (`fl_frontend/src/core/sperrlisteEmail.ts :: EINLEITUNG`), an
     address holding none being mailed nothing;
   - the ban refusing an administrator's correction, reseat or re-send of an application's contact
-    seat (`REQ-BEWERBUNG-019`), which falls on that administrator's write in the same way.
+    seat (`bewerbung_kontakt_barred`), which falls on that administrator's write in the same way.
 
   **Five refusals a person's own entry meets are not named among them.** Every box that stores an
   address refuses one whose part before the @ is not plain ASCII
@@ -221,16 +217,16 @@ Every ruling below is the sign-up flow as it stands for the next season.
 
 - **There is no guardian workflow.** No code composes a consent on a guardian's word: a pupil's own
   registration is what records one, and the record holds no field naming anyone else as its source
-  (`fl_backend/app/core/constraints.py :: _EINWILLIGUNG`).
+  (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`).
 - **Nothing about a person is published without that person's recorded consent.** Both public reads
   of a pupil decide through `fl_backend/app/api/spieler/services.py :: name_is_public`, which
   publishes a name only where the consent record is present, its `umfang` is `kader_oeffentlich` and
-  its `bestaetigt_am` is stamped; every other row is
+  its `confirmed_at` is stamped; every other row is
   served as a nameless slot keeping its `nummer` and `position`. No squad row carries the pupil's
   record id, which would link every season's row of a pupil whose name is withheld
   (`:: READ-PUPIL-005`). **The gate fails closed**, so a
   record nobody confirmed withholds the name rather than publishing it — the state
-  `fl_backend/app/core/constraints.py :: _EINWILLIGUNG` admits by taking a null `bestaetigt_am`, and
+  `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` admits by taking a null `confirmed_at`, and
   the one a scope read on its own would publish. The board's full names in the Impressum stand
   outside this rule, published because § 18 (1) MStV and, where it reaches this site, § 5 DDG
   require them (`fl_frontend/src/core/brand.ts :: VORSTAND`, [section 11](#11-open-and-owed-a-decision)).
@@ -258,7 +254,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   decides, or, with a recorded reason, for one whose mailbox there is lost, holding its effect a week
   past its confirmation. A change moving a grant of access also waits on another
   administrator's approval, an owner's for an owner's grant, and lapses unapproved a week after its
-  start (`fl_backend/app/shared/schemas/bounds.py :: GENEHMIGUNG_TAGE`). The address
+  start (`fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS`). The address
   on file is mailed a link that stops the change at its start and a notice once it took effect, and
   neither names the new address; until a change takes effect the new address reaches nothing of the
   person's. The sign-in account moves with a change its person started or the address on file
@@ -275,7 +271,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/api/teams/services.py :: links_owed`), on a row whose season has ended or whose
   team has left it too, where the link takes the person's Widerspruch and no confirmation. An administrator re-sends one to any seat
   still unconfirmed while the season runs and the team is in it
-  (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`). The link lasts the application's
+  (`fl_backend/app/api/teams/admin_router.py :: invite_kontakt`). The link lasts the application's
   fourteen days, and on it the person confirms the seat or makes their Widerspruch, which empties it.
   An address the ban list holds is refused rather than seated, as an application's reseat refuses
   one, so nobody is stored whom the league may not tell
@@ -291,11 +287,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
 
 ## 4. What is published, and on what basis
 
-- **A club's street address is public and the application form says so** (`READ-ADDRESS-002`).
+- **A club's street address is public and the application form says so**
+  (`fl_backend/app/api/teams/schemas.py :: _TeamWritable.address`, which `:: FLTeam` serves on both
+  team reads; `fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx`).
   **Datenschutzexperte consulted.** Ruled 2026-08.
 - **The address sentence stands on the acceptance screen as well as on the application form.** The
   acceptance screen is where the administrator takes the action that publishes it, which
-  `fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung` makes; the
+  `fl_backend/app/api/bewerbungen/admin_router.py :: accept_bewerbung` makes; the
   sentence sits on the arm that creates the club
   (`fl_frontend/src/features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx`), and
   the admin club forms need none. Ruled 2026-09-01.
@@ -312,9 +310,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/shared/einwilligung.py :: NAME_IS_PUBLIC`);
   a referee is shown on a fixture only once they agreed to it, the league's own entry of an
   agreement counting, so a booking nobody has asked them about yet shows no referee
-  (`:: READ-REFEREE-005`). Ruled 2026-10-20. No fixture page carries the
-  referee's record id, which would link every fixture of a referee whose name is withheld
-  (`:: READ-REFEREE-006`).
+  (`fl_backend/app/api/spiele/schemas.py :: _withheld_unless_agreed`, over the join's
+  `fl_backend/app/api/spiele/services.py :: _einsatz_bestaetigt`). Ruled 2026-10-20. No fixture
+  page carries the referee's record id, which would link every fixture of a referee whose name is
+  withheld (`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterFieldPublic`).
 - **The booked referee reads both clubs' squads, every name and shirt number, for their own
   fixture's report, as part of officiating**, whatever a pupil answered about publication: nothing
   of it is published. The form serves the squads only from the match day and only while the fixture
@@ -335,7 +334,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   `DatenschutzView.tsx :: Bist Du jünger als`); each confirmation refuses a
   `true` from anyone younger (`fl_backend/app/api/registrierungen/services.py :: find_medien_refusal`,
   `fl_backend/app/api/schiedsrichter/services.py :: find_medien_refusal`,
-  `fl_backend/app/api/einwilligung/services.py :: find_selbst_medien_refusal` for a contact person, against
+  `fl_backend/app/api/einwilligung/services.py :: find_self_medien_refusal` for a contact person, against
   `fl_backend/app/shared/schemas/bounds.py :: MEDIEN_MIN_AGE_YEARS`). Such media is published on this
   website and on the league's Instagram account; ruled 2026-09-23.
 - **The organisers named on the public Organisation page each fully agreed to be listed**, having confirmed
@@ -352,16 +351,18 @@ Every ruling below is the sign-up flow as it stands for the next season.
   crawler block enforces it, and that setting lives in the hosting dashboard rather than in this
   repository, which records that it exists and is deliberate.
 - **The free-text fields on public pages stay public** — a fixture's note, a withdrawal's reason and
-  a club's description — with the input saying so (`READ-FREETEXT-001`, `READ-FREETEXT-002`,
-  `READ-FREETEXT-003`).
+  a club's description — with the input saying so (`READ-FREETEXT-001`, `READ-FREETEXT-002`, and
+  for the description `fl_backend/app/api/teams/schemas.py :: _TeamWritable.description`, served by
+  `:: FLTeam`, with
+  `fl_frontend/src/features/teams/components/modals/DescriptionEditModal.tsx` saying so).
 
 ## 5. Erasure reaches everyone who asks
 
 - **Anyone — player, referee, contact person, administrator — can have their data deleted, with
   the least asymmetry between roles.** The mechanisms today are a person's own
-  `POST /identitaet/selbst/erasure`, which reaches every record the address holds in one write
+  `POST /identity/account/erasure`, which reaches every record the address holds in one write
   and refuses only the administration's last live owner, until they
-  make another administrator an owner, and the administrator's `POST /identitaet/erasure`,
+  make another administrator an owner, and the administrator's `POST /identity/erasure`,
   which runs that same erasure for a person who asked by mail and refuses nothing about them, only
   the administrator's own address and the address of anyone holding a grant to an administrator
   holding no owner's power. The referee path deletes the document
@@ -382,11 +383,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   mailbox, so a hand edit emptying a row's address puts that row out of every erasure's reach.
 - **A referee's erasure also ends their engagement.** Booking a person after they asked to be erased
   creates fresh personal data about them, with no lawful basis standing for it. The ghost is a
-  retired row no list serves and no picker names, so `REQ-BOOKING-001` refuses it every new
+  retired row no list serves and no picker names, so `booking_unknown_resource` refuses it every new
   fixture; a booking already standing on a fixture still to be played is repointed like the rest and
   surfaces under `GET /spiele/action_required` as a retired booking until somebody assigns a referee
   to it, so one fixture never vetoes a request to be forgotten and the retirement's own refusal
-  (`REQ-RETIRE-004`) has nothing left to refuse. A fixture played or called off keeps its booking
+  (`schiedsrichter_still_assigned`) has nothing left to refuse. A fixture played or called off keeps its booking
   and its own `payment` under the ghost: that is the league's record of the match, not of the
   person. A person who officiates again is entered as a new referee.
 - **A pending address change ends with its person's erasure, and its new mailbox's holder's request
@@ -394,7 +395,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   holder is not the person those records' erasure is about: the holder's own erasure ends the change
   alone and leaves the records standing. That erasure, the link's
   own decline, the stop of the address on file by its link or on its account page, a later change of
-  the same address and `DELETE /adresswechsel/{adresswechsel_id}` each end the change and take its
+  the same address and `DELETE /address_change/{address_change_id}` each end the change and take its
   new address and its reason out of the change's record and of every image the action log holds of
   it, since every write on it while it stood, a re-send included, filed one carrying them. The rest of each image stays. A change that took
   effect keeps its new address in the log, where the person's records hold it and their erasure
@@ -437,25 +438,25 @@ Every ruling below is the sign-up flow as it stands for the next season.
   found by what it holds alone stays matched on the address. Ruled 2026-10-15.
 - **An administrator's address is stored as their grant, in plain, and so is the address of
   whoever granted it.** `berechtigungen` holds the grant and `berechtigungen_angekuendigt` what the
-  other administrators were told of it, and every administrator is served both addresses. The outbox
-  `berechtigungen_postausgang` holds a changed or requested grant's address, and the acting
-  administrator's, or a refused or ended request's address and its requester's, until a pass has mailed it, and no barred or erased address at all: a ban withholds it in every row
-  still queued, and so does an erasure. Each change is
-  mailed to every holder and to the address it names, carrying that address and the administrator who
-  made it; a barred address it names by its state alone, and an erased person's not at all. A request goes only to whoever could approve it. Its refusal, or its end by a change of the address it is for, goes
-  to its requester alone while they still administer, naming the address and tier they asked for and
-  nobody who refused it; a withdrawal tells nobody. A revoke removes the grant and its announced row
+  other administrators were told of it, and every administrator is served both addresses. Each
+  change is owed in the Postausgang, one row for every holder and for the address it names, carrying
+  that address and the administrator who made it until it is sent, and no barred or erased address at
+  all: a ban withholds it in every notice still owed, and so does an erasure, which also deletes every
+  row owed or sent to the erased address; a barred address it names by its state alone, and an erased
+  person's not at all. A request goes only to whoever could approve it, and its decision settles the
+  notice still unsent; a refusal, a withdrawal and an end by a change of the address tell nobody. A
+  revoke removes the grant and its announced row
   at once; the log keeps the removed grant's image, the address in
   it, for its twelve months, as it keeps every administrator's write, until that person's erasure
-  takes the address out of it, and no image of an announced or
-  outbox row the revoke or a pass removes. An erasure removes every
+  takes the address out of it, and no image of an announced row
+  the revoke or a pass removes. An erasure removes every
   grant the address holds and its announced row with no image, an `owner` grant included, and queues
   the notice that it ended; otherwise the revoke is the
   route, and an `owner` grant is made an administrator's first. **A restore from a snapshot undoes a revoke made after it**: the
   grant comes back with its announced row, so no notice says it stands again, and the address is
   admitted again until the revoke is run once more
   ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot)). **The granter's address outlives their revoke and not their
-  erasure**: `erteilt_von` keeps it on every grant they made, served to every administrator while
+  erasure**: `granted_by` keeps it on every grant they made, served to every administrator while
   those grants stand and the ban list does not hold it, until their
   erasure replaces it, as on every ban, invite and decision they made, with a marker naming nobody,
   in the log's images of them too.
@@ -531,9 +532,9 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   account, and nothing about a visitor who is not.
 - **A person's own write is recorded under a pseudonym rather than their address.** An address in
   `actor.email` would sit outside the redaction above, an exception taken for administrators and
-  for the reason administrators give, so a person's actor carries none: the binder every router of
-  `fl_backend/app/main.py :: PERSON_ROUTERS` declares
-  (`fl_backend/app/core/security.py :: person_actor_binder`) records a stable pseudonym, a keyed hash
+  for the reason administrators give, so a person's actor carries none: the binder each slice's
+  `person_router.py` declares
+  (`fl_backend/app/api/sperrliste/guard.py :: person_actor_binder`) records a stable pseudonym, a keyed hash
   of the folded address as the ban list takes one, and the kind of person the write was made as,
   and the log refuses a person's row carrying an address. Ruled
   2026-09-21. **The person's erasure reaches the pseudonym**: this controller holds the key that
@@ -541,34 +542,6 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   marker in its place from their erasure on, the rows that erasure itself writes included. Rows written under an earlier address of theirs, confirmed and
   since changed, keep that address's pseudonym, which the erasure cannot recompute from the address it
   is asked for; they leave the log with its twelve months.
-- **A signed-in person's writes are counted per day under the same pseudonym, and their erasure
-  removes the counts.** The daily write ceiling
-  (`docs/glossary.md :: Drosselung`) keeps one row per kind of person the write was made as, pseudonym and German day, holding a number and no
-  address, so that one stolen or misused seat cannot write without bound; the TTL index removes it
-  at that day's German midnight, plus the monitor's lag, and the person's erasure removes every
-  count of theirs its own read finds, whatever its day; one a request racing the erasure writes after
-  that read goes with the TTL index. **The ceiling's first refusal of a day also leaves one line in
-  the application log**, naming the kind of person and the pseudonym's prefix the action-log page shows,
-  never an address (`fl_backend/app/core/drosselung.py :: get_drossel`). That line is kept as every application-log line is, by size while
-  the container runs and for thirty days in the copy each deploy takes
-  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)), and no erasure reaches it. Until
-  the person's erasure an administrator can match the prefix to their rows on the log page; after it
-  those rows name the marker, and the prefix matches nothing there.
-- **An erasure itself writes the address's anchor, which the database removes at its next expiry
-  pass.** The anchor (`docs/glossary.md :: Adressanker`) holds a keyed hash of the
-  folded address under a label of its own, a counter and the instant of its last write, and no
-  address. Every transaction an address enters the records through writes it, a signed-in person's
-  own write writes theirs, and the address's erasure writes it too, which is what makes a record
-  committed for the address while the erasure runs go with it rather than outlive it. Like the pseudonym it is pseudonymised personal data, this
-  controller holding the key that recomputes it from the address. The TTL index removes it at the
-  monitor's first pass after its last write (`fl_backend/app/core/constraints.py :: TTL_INDEXES`):
-  MongoDB runs that pass every 60 seconds and a busy server may run it later still — mirrored from
-  <https://www.mongodb.com/docs/manual/core/index-ttl/>, which moves without us; read 2026-10-16. A
-  pass in progress also waits while a transaction holds an expired anchor, at most for the server's
-  transaction lifetime — measured on MongoDB 8.3 on 2026-10-16. The
-  erasure leaves it to that index, its own write being what holds a late writer off. The published
-  notice tabulates it, that pass's period in words (`DatenschutzView.tsx :: FRISTEN`). Ruled
-  2026-10-16.
 - **Backups outlive an erasure by the snapshot window, the mail provider's copies and Cloudflare's
   record of mail to the league by their own periods, and the person is told each.** The hosting
   keeps snapshots for about eight days, taken daily — a figure mirrored from the provider's own
@@ -591,11 +564,9 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   document to delete nor a shell of nulls left where one stood, which is why it survives a request
   that reaches everything else. **The row is pseudonymised personal
   data rather than none** — this controller holds the key that re-identifies it — and the person
-  barred is in it past their own erasure. The free-text reason refuses a name the address's own
-  records hold, by the erasure's own rule below, so it may still
-  name them in any form that rule lists as passing, or outright where no record of the address
-  names them. The
-  administrator who entered it stands in `erstellt_von` in plain until their own erasure gives the
+  barred is in it past their own erasure. The free-text reason is checked for no name, so it may
+  name them, and stands with the row. The
+  administrator who entered it stands in `created_by` in plain until their own erasure gives the
   row a marker naming nobody. The basis for keeping either is what
   [section 11](#11-open-and-owed-a-decision) asks the Datenschutzexperte to confirm.
   **It is bounded by the league's own calendar** and removed without anybody asking at the season
@@ -608,7 +579,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
 - **A club's answer about a fixture names its answerer by role, and what that person typed goes with
   their erasure.** A seat's answer stores the role and a keyed digest of its holder's folded address
   (`antwort.von.halter`, `fl_backend/app/api/spielbestaetigungen/services.py :: halter_of`), and never
-  the address or a name. The digest is pseudonymised personal data, as the anchor is, this controller
+  the address or a name. The digest is pseudonymised personal data, this controller
   holding the key that recomputes it, and it is what lets the person's erasure, and their Widerspruch
   on a season row, find every reason they typed from any seat they held and null it with the digest,
   on the rows and in the log's images, another holder's staying;
@@ -622,9 +593,9 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   at the ghost.
 - **Free text that may name a person outlives their erasure.** A fixture's note (`spiele.notiz`),
   an application's wished opponent (`bewerbungen.wunschgegner`) and its decision's reason
-  (`bewerbungen.entscheidung.grund`), a team's reason for leaving a season
+  (`bewerbungen.decision.grund`), a team's reason for leaving a season
   (`saison_teams.austritt.grund`), a registration's decision reason
-  (`registrierungen.entscheidung.grund`) and a club's description (`teams.description`) are typed
+  (`registrierungen.decision.grund`) and a club's description (`teams.description`) are typed
   about others and keyed on no address, so no step reaches them: only a name could find them, and a
   name search would take a namesake's text with it. A club's reason for declining a fixture's date, and
   a referee's for declining a fixture they were booked on (`spielbestaetigungen.antwort.begruendung`), may name anyone, no name in it being checked; it goes
@@ -638,11 +609,9 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   no names, nothing enforces it, and the published notice says a name may stand in the reason
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19, the unchecked text 2026-10-20. A match
   report's remarks (`spielberichte.bericht.bemerkungen`), the referee's or an administrator's who
-  wrote or corrected the report, are refused, when written, every name either
-  club's three seats, the booked referee and either squad's pupils of the season hold, matched as the
-  request below is (`fl_backend/app/api/spielberichte/services.py :: find_name_in_bemerkungen_refusal`);
-  a name written otherwise, or a person outside the fixture, stays in them until the end of the season
-  after the match, when the remarks go ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)).
+  wrote or corrected the report, are checked for no name, and a name written in them stays until the
+  end of the season after the match, when the remarks go
+  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)).
   The league's administrators and the referee booked on the fixture when they open it read them, so a
   referee booked after the report reads what an earlier referee or an administrator wrote
   (`fl_backend/app/api/spielberichte/services.py :: find_nicht_geleitet_refusal`).
@@ -653,24 +622,13 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   until the remarks go. The request an
   administrator's erasure answers
   (`aktionen.anlass`) stands on every log row that erasure files, for the log's twelve months. It is refused where it holds an address
-  (`fl_backend/app/api/identitaet/schemas.py :: refuse_an_address_in_the_anlass`) or a name of the
-  person's own records standing in it as a whole word or words, equal in plain lower case or in
-  plain capitals: „MÜLLER“ is refused for „Müller“, „Weiss“ and
-  „WEISS“ for „Weiß“ and „Yildiz“ for „Yıldız“, whose capitals they share. A name it still carries
-  past the erasure is one of these:
-  - written otherwise in both cases: a nickname, a misspelling, an umlaut spelled out or its marks
-    left off, such as „Mueller“ or „Muller“ for „Müller“, or a dotted and a dotless I, such as
-    „Ilkay“ for „İlkay“;
-  - joined into a longer word, such as „Müllerfamilie“, or of two letters before a genitive s;
-  - a single letter;
-  - a particle that a later word of its field follows, such as „Le“ in a referee's „Le Thi Mai“;
-  - one the person's records hold nowhere today, such as a surname an edit replaced: the refusal
-    reads the records and never their images in the log.
+  (`fl_backend/app/api/identitaet/schemas.py :: refuse_an_address_in_the_anlass`) and checked for no
+  name, so a name the administrator types into it stands for those twelve months.
 - **A retired row is never removed because of its age.** A referee who stopped, a club that left
   and a past season all keep their rows, and a player who left a squad keeps theirs until the
   season after their last squad season has ended; a person's row goes only by an erasure, for a
   pupil by that season-after rule of [section 6](#6-retention-is-bounded-where-a-bound-was-chosen);
-  a person asks for their own erasure through `POST /identitaet/selbst/erasure`. Nothing purges a
+  a person asks for their own erasure through `POST /identity/account/erasure`. Nothing purges a
   retired row, and an erasure asks no retirement first. An application is not a retired row and does not take this rule: its
   clocks are [section 6](#6-retention-is-bounded-where-a-bound-was-chosen)'s. **Datenschutzexperte
   consulted.** Ruled 2026-08 and re-confirmed 2026-09-02. For a referee I ruled on 2026-09-22 that
@@ -689,7 +647,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
 - **An undecided application one of whose contact persons has not confirmed is deleted once its
   confirmation window has run out, those three people's contact details included, and the erasure is
   announced to the Ansprechperson first where that slot still holds one**. The window is fourteen days
-  (`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_BESTAETIGUNG_FRIST_TAGE`) from the day the
+  (`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_CONFIRMATION_DEADLINE_DAYS`) from the day the
   links were sent (`fl_backend/app/api/bewerbungen/services.py :: bestaetigungsfrist_from`); an
   administrator's re-send replaces a link and restarts the period for the whole application
   (`:: compose_erneut_update`), while the reminder adds a link and moves nothing
@@ -711,7 +669,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   - **Unconfirmed, it is deleted the day after its stored `frist`**, the pupil's name, address and
     every answer on it included, with no message either way: the confirmation mail named the day,
     and the address is one the league could not confirm. The window is seven days
-    (`fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE`) from the day
+    (`fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_CONFIRMATION_FRIST_DAYS`) from the day
     the link was sent, stored on the row at the mint rather than derived, so raising the bound never
     moves the deadline of a link already in somebody's inbox
     (`fl_backend/app/api/registrierungen/services.py :: compose_bestaetigung`). It is shorter than an
@@ -720,12 +678,12 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
     stored address. One reminder goes out inside it and moves nothing (`:: compose_erinnerung_update`),
     and none goes to an address the mail provider has already refused.
   - **Confirmed but undecided, it is deleted once the season it was made for has ended**, whatever
-    the pupil answered (`:: undecided_erasure_is_due`), and a pupil who confirmed is told afterwards
+    the pupil answered (`:: undecided_loeschung_is_due`), and a pupil who confirmed is told afterwards
     that it happened and why — never before it, a notice being unable to prolong a row nobody
     decided.
-  - **Declined, it goes one calendar month after the decision** (`:: decline_erasure_is_due`), and
+  - **Declined, it goes one calendar month after the decision** (`:: decline_loeschung_is_due`), and
     the decision it keeps until then names the seat holder who declined it by their address
-    (`entscheidung.von`, written by `:: compose_ablehnung_update`), which every administrator is
+    (`decision.von`, written by `:: compose_ablehnung_update`), which every administrator is
     served beside the date and the reason while the ban list does not hold it
     (`:: mit_vorenthaltener_entscheidung`).
   - **Admitted, it is deleted at once**, in the admission's own transaction, its values in the log
@@ -738,7 +696,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   those three people's contact details and every birthdate on it included, whatever its contact
   persons answered and whether or not its deletion notice could be delivered.** The sweep reads the
   season's own `status` rather than counting a period from a day
-  (`fl_backend/app/api/bewerbungen/services.py :: undecided_erasure_is_due`), so an application is
+  (`fl_backend/app/api/bewerbungen/services.py :: undecided_loeschung_is_due`), so an application is
   kept exactly as long as a decision could still be taken. This is the bound for every
   application the fourteen-day clock above leaves standing: one every contact person confirmed and
   nobody judged, one whose window no stored deadline bounds, and one held because the notice was
@@ -777,22 +735,21 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
 - **A referee's confirmation record and link go with the referee's row, which is bound to no season
   and stands until an administrator deletes it or the referee has it deleted**
   ([section 5](#5-erasure-reaches-everyone-who-asks)). The link lasts fourteen days
-  (`fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE`), and each
+  (`fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS`), and each
   new one replaces the whole block, the delivery state of the message the old link went out in
   included (`fl_backend/app/api/schiedsrichter/services.py :: compose_mint_update`).
 - **A pending address change stands until it takes effect, its new mailbox declines it, the
   address on file stops it, a later change of the address replaces it, an administrator discards it,
-  the person is erased with it or the new mailbox's holder's own erasure ends it alone, and it ends within the hour after the step it waits on lapses**
-  (`fl_backend/app/core/domain.py :: FIELD_POLICIES`): the address
+  the person is erased with it or the new mailbox's holder's own erasure ends it alone, and it ends within the hour after the step it waits on lapses**: the address
   may be a stranger's, typed in by mistake, who never asked to be stored. Each link lasts a day from its sending
-  (`fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN`) and a re-send
+  (`fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS`) and a re-send
   restarts it, the stop link lasting as long as the change stands; a change an administrator
-  started with a reason takes effect a week after its confirmation (`:: ADRESSWECHSEL_WARTEZEIT_TAGE`),
+  started with a reason takes effect a week after its confirmation (`:: ADDRESS_CHANGE_WAITING_PERIOD_DAYS`),
   and one waiting on another administrator's approval lapses a week after its start
-  (`:: GENEHMIGUNG_TAGE`). The hourly pass ends a lapsed one as a discard does, its
+  (`:: APPROVAL_DAYS`). The hourly pass ends a lapsed one as a discard does, its
   address taken out of the record and its log images. **An ended change's record holds no address
   and no reason, only its links' check values, so each link answers how the change ended; the
-  database deletes it thirty days after its end** (`:: ADRESSWECHSEL_NACHLAUF_TAGE`). A confirmed
+  database deletes it thirty days after its end** (`:: ADDRESS_CHANGE_RETENTION_DAYS`). A confirmed
   change the pass refuses at its due time — either address barred meanwhile, the address on file
   holding nothing left to move, the new address another pupil's or another grant's, or a grant the
   approval does not cover
@@ -801,12 +758,13 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   naming nobody, saying the change did not take effect and the league can help; the address on file
   is mailed nothing. The published notice states the ending and the thirty days
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06, its timing re-ruled 2026-10-15 and
-  2026-10-20. **The notice an end owes waits in `adresswechsel_postausgang` only until it is sent
-  or given up**: an effect's row holds the replaced address, the new one and, where the address on
-  file asked for or approved the change, the first name, a refusal's the new address alone. Each is
-  written in the end's own transaction, so a lost answer loses no notice, and removed with no image
-  in the log once delivered or after the hand-outs
-  `fl_backend/app/api/berechtigungen/services.py :: VERSUCHE_HOECHSTENS` allows; an erasure of either address removes it.
+  2026-10-20. **The notice an end owes is owed in the Postausgang in the end's own transaction**, so a
+  lost answer loses no notice: an effect's to the replaced address, greeting the first name where the
+  address on file asked for or approved the change, a refusal's to the new address alone. Its row
+  keeps no facts once it is sent or given up, and its recipient thirty days longer; an erasure of
+  either address deletes it. An effect that carries the account owes the carry on the ended change
+  itself, which keeps the two addresses until the carry is done, and the keyed check values of both
+  addresses, so an erasure of the new address finds the mail the replaced one still holds.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered where the address holds an account; an
   address holding none is mailed nothing**. Ruled 2026-09-27.
@@ -826,16 +784,16 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   Ruled 2026-09-27.
 - **A grant of access to the Verwaltung is kept until it is revoked, and the notice of a change to one
   only until it is sent.** A revoke removes the grant and the announced record of it in one
-  transaction (`fl_backend/app/api/berechtigungen/admin_router.py :: delete_berechtigung`), and the
-  pass that mails a change removes its outbox row once it is sent or given up
-  (`fl_backend/app/api/berechtigungen/sweep_router.py :: post_berechtigungen_angekuendigt`). The announced record and the outbox row leave no image in the log, while a revoked grant keeps its own under the log's twelve
+  transaction (`fl_backend/app/api/berechtigungen/admin_router.py :: delete_grant`), and each
+  notice's Postausgang row keeps no facts once it is sent or given up and is deleted thirty days
+  later. The announced record leaves no image in the log, and the Postausgang none at all, while a revoked grant keeps its own under the log's twelve
   months. The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-28.
 - **A sign-in account and its passkeys are kept until no league record or grant holds their
   address, and then deleted within the hour, with no message.** A record holds it as a contact seat
   of any season or of a pending application, as a pupil or referee row, confirmed or not and live or
   retired, or as a pending registration its pupil confirmed; an
-  address an address change replaced is held until the notice carrying its account to the new
-  address is delivered, so the sweep never deletes the account the person is moving. What
+  address an address change replaced is held until the carry of its account to the new address,
+  owed on the ended change, is done, so the sweep never deletes the account the person is moving. What
   else still names the address holds nothing: the log's images, an administrator's authorship, an
   unconfirmed or decided registration, a decided application, a pending address change and a
   pending request for a grant. The
@@ -847,30 +805,24 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   reports what became of a message's DELIVERY and nothing about what its recipient did with it: the
   six delivery events are subscribed and `email.opened` and `email.clicked` are not
   ([`ops/runbooks.md`](ops/runbooks.md#10-the-mail-providers-dashboard) holds the dashboard's own
-  half of that). A delivery state is stored beside the record its message was
-  sent about and goes with that record: an application's is erased with the application, a
-  registration's with the registration at whichever of its clocks takes it, a referee's with
-  their row on request or with the link a re-send replaces, and a season contact person's with
-  their seat's link, which a re-send replaces and an erasure, the row's clearing or replacement and
-  the season-and-one clock below each remove; a fixture confirmation's sits beside each seat's link
-  on the row, which any write emptying or handing on that seat removes from every row of its team
-  that season, answered and closed ones too, the person's erasure and their Widerspruch on the season
-  row among them, and which that same clock removes. **A Widerspruch
-  empties the seat and keeps its link entry, the delivery state of the message included**, on an application until the application goes
-  and on a team's season row until a save fills that seat again or the row is cleared or replaced
-  (`fl_backend/app/api/teams/services.py :: compose_bestaetigungen_nach`), because that entry is what lets
-  the page answer a second press as already declined
+  half of that). **A delivery state is stored on the Postausgang row its message was sent from, and
+  goes with that row**: a row keeps no facts and no secret once it is sent or given up, of a person
+  only the address it was sent to, and the database deletes it no later than thirty days after
+  that, the period the mail provider keeps its own copy
+  (`fl_backend/app/api/outbox/services.py :: RETENTION`); a row carrying a sign-in code or an
+  account's deletion link goes sooner, when that secret lapses (`:: row_of`). The published
+  notice's retention table says the same (`DatenschutzView.tsx :: FRISTEN`). An erasure of its recipient deletes it
+  at once, sent or owed, the sign-in library's deletion link alone excepted
+  (`fl_backend/app/api/identitaet/crud.py :: loeschen_the_mails_in_session`; `docs/glossary.md ::
+Zustellstand`). No record the message was about carries it, so a row can outlive that record by
+  its thirty days, and no longer. Ruled 2026-10-26. **A Widerspruch empties the seat and keeps its
+  link entry**, on an application until the application goes and on a team's season row until a
+  save fills that seat again or the row is cleared or replaced
+  (`fl_backend/app/api/teams/services.py :: compose_bestaetigungen_nach`), because that entry is
+  what lets the page answer a second press as already declined
   (`fl_backend/app/api/bewerbungen/services.py :: compose_decline_update`,
   `:: compose_saison_decline_update`); it names no address, and nothing reaches it on the person's
-  erasure, their slot holding nobody by then. An invite's stays on the invite entry,
-  which nothing deletes (above), past the erasure of the contact person it was mailed to
-  ([section 11](#11-open-and-owed-a-decision))
-  (`docs/glossary.md :: Zustellstand`, `fl_backend/app/api/zustellung/services.py :: ZIEL_PFADE`).
-  A message about no record kept, on each lane
-  `fl_frontend/src/app/api/mail/zustellung/route.ts :: OHNE_EINTRAG` names, stores no state: any
-  state but delivered is a line in the application's log without the address, and goes with that
-  log. **No delivery state has a clock of its own**, so none outlives the record it hangs on and none is
-  kept for its own sake. Ruled 2026-09-08.
+  erasure, their slot holding nobody by then. Ruled 2026-09-08.
 - **A declined application is kept for one month after the decision, its three people's contact
   details included, then deleted. An accepted application is kept for the season it was accepted
   for and the season after it, then deleted.** The retention sweep runs both clocks, the confirmation page states both periods to the
@@ -882,7 +834,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   season row's page promises them. Ruled 2026-10-15.
 - **A season's contact persons follow the accepted application's clock**: their contact block is
   cleared when the season after the one they were collected for ends, and the confirmation links
-  beside it with it (`fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison`). The consent text scopes
+  beside it with it (`fl_backend/app/api/bewerbungen/system_router.py :: sweep_saison`). The consent text scopes
   itself to one season, and the clearing uses the mechanism the erasure already had. Ruled
   2026-09-02.
 - **A season's fixture confirmations keep the clubs' answers as the season's record, and lose from
@@ -892,7 +844,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   their seats' link hashes and their delivery records, on the rows and in the log's images, until
   nothing of them is left. The strip is a transaction of its own after the blocks'
   share, so a failing strip holds back no block and is tried again on the next pass
-  (`fl_backend/app/api/bewerbungen/sweep_router.py :: strip_the_confirmations`). Which way each club answered,
+  (`fl_backend/app/api/bewerbungen/system_router.py :: strip_the_confirmations`). Which way each club answered,
   its day, the answering role and a proposed date stay, naming nobody, and the rows have no clock of
   their own, a season's fixtures being kept as the league's record. A person's erasure or
   Widerspruch takes their part sooner ([section 5](#5-erasure-reaches-everyone-who-asks)). A
@@ -912,19 +864,19 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   loses on that same clearing what characterises the pupils' conduct**: from the pass that clears the
   contact blocks, every pass strips the season's `spielberichte` of the remarks and every
   card's reason, on the reports and in the log's images, in a transaction of its own after the
-  confirmations' strip (`fl_backend/app/api/bewerbungen/sweep_router.py :: strip_the_reports`). The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`).
+  confirmations' strip (`fl_backend/app/api/bewerbungen/system_router.py :: strip_the_reports`). The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`).
   Ruled 2026-10-20.
-- **Timers in the frontend process are what turn those clocks from an intention into a mechanism**
-  (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, calling
-  `fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison` and
-  `fl_backend/app/api/registrierungen/sweep_router.py :: sweep_registrierungen` per season, then
-  `fl_backend/app/api/adresswechsel/sweep_router.py :: sweep_adresswechsel`, `POST /adresswechsel/sweep`; and, where
-  `LOESCHUNG_SWEEP` is on, `fl_frontend/src/features/saisons/sweep.ts :: armLoeschungSweep`, calling
-  `fl_backend/app/api/identitaet/sweep_router.py :: post_loeschung_lauf`).
-  A season's two sweeps record the day they ran, one that reminds nobody and deletes nothing exactly
-  as a busy one does, and `GET /bewerbungen/sweep` answers the day each last ran, so a claim that one of their periods was honoured rests on a
-  date rather than on reading the data. The lapsed addresses' removal and the pupils' deletion
-  stamp no day: their record is the line each writes per pass in the frontend's log
+- **The frontend process's hourly scheduler is what turns those clocks from an intention into a mechanism**
+  (`fl_frontend/src/instrumentation-node.ts :: armScheduler`, running
+  `fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`, which calls
+  `fl_backend/app/api/bewerbungen/system_router.py :: sweep_saison` and
+  `fl_backend/app/api/registrierungen/system_router.py :: sweep_registrierungen` per season, then
+  `fl_backend/app/api/adresswechsel/system_router.py :: sweep_address_change`, `POST /address_change/sweep`; and
+  `fl_frontend/src/features/saisons/sweep.ts :: runLoeschungSweep`, which calls
+  `fl_backend/app/api/identitaet/system_router.py :: sweep_erasure`). Every job runs on every pass, with no
+  switch to hold one back. A pass pings the heartbeat monitor, and `/fail` naming each job that threw or left an owed
+  deletion or erasure, so a claim that one of their periods was honoured rests on that report and on each job's
+  per-pass line in the frontend's log rather than on reading the data
   ([`ops/runbooks.md`](ops/runbooks.md#9-checking-that-the-hourly-passes-have-run) §9).
 - **Access logs stay on the host and are kept for at most eight days. The application logs are
   bounded by size while they run, and by thirty days as the copy each deploy makes.** The access
@@ -948,7 +900,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   hashes of an address alone; a change is discarded by an administrator, by a later change of the
   same address, by its address on file holding nothing left to move, or by the hourly pass refusing
   it at its due time (`fl_backend/app/core/journal.py :: DATENSAETZE`). An erasure's
-  line holds three, the journal's own, the pseudonym the action log and the day counts key that
+  line holds three, the journal's own, the pseudonym the action log keys that
   person on, and the digest their fixture answers carry, so a restore holding the address nowhere
   still finds those rows and the reasons those answers hold; a choice's line holds the journal's one, beside the record that act changed and its
   moment, a withdrawal's text version and the withholding values it set, and the seats a Widerspruch
@@ -1004,7 +956,7 @@ are is my own account of the forwarding rules on that day, which no public sourc
 | Processor                                                              | What reaches them                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Agreement                                                                                                                                                                                                                                                                                                                                                                                                         | Where the data is                                                                                                                                                                                             |
 | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Hetzner Online (the host)                                              | Everything on the server or reaching it, the access log included                                                                                                                                                                                                                                                                                                                                                                                                                                                              | An Art. 28 agreement, as the notice states                                                                                                                                                                                                                                                                                                                                                                        | Nuremberg, Germany                                                                                                                                                                                            |
-| Resend                                                                 | Every address the league mails, and every message in full with the tags that file a delivery event against its record (`fl_frontend/src/core/mail.ts :: sendMail`); a confirmation or registration link, and a sign-in code, is a credential                                                                                                                                                                                                                                                                                  | Standard Art. 28 addendum, in force for every account on sign-up; an executed copy is downloadable                                                                                                                                                                                                                                                                                                                | United States for all stored data; the EU region changes only where mail is dispatched from; transfer rests on the SCCs                                                                                       |
+| Resend                                                                 | Every address the league mails, and every message in full with the tag that files a delivery event against its Postausgang row (`fl_frontend/src/core/mail.ts :: drainOutbox`); a confirmation or registration link, and a sign-in code, is a credential                                                                                                                                                                                                                                                                      | Standard Art. 28 addendum, in force for every account on sign-up; an executed copy is downloadable                                                                                                                                                                                                                                                                                                                | United States for all stored data; the EU region changes only where mail is dispatched from; transfer rests on the SCCs                                                                                       |
 | Cloudflare                                                             | Every request in plaintext at the edge: addresses, URLs, headers, form bodies; and, from the Turnstile frame on the sign-in page, the application form and the pupil's registration form, the visitor's IP address, TLS fingerprint, User-Agent, site key and origin; and every message sent to a league address, which Email Routing receives and only forwards to the organisers' personal mailboxes, storing no content by Cloudflare's own account and showing sender, recipient and subject in its analytics for 31 days | Standard addendum incorporated by reference into the self-serve agreement, free services included; it covers every Cloudflare service, and no service-specific term carves Email Routing out; for the Turnstile signals, Cloudflare's Turnstile addendum makes it a processor for the check and a controller of the same signals for improving its own bot detection ([section 11](#11-open-and-owed-a-decision)) | Edge processing worldwide; content not stored for the core services; region pinning is an enterprise-only add-on                                                                                              |
 | MongoDB Atlas                                                          | Both databases and their backup snapshots                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Standard addendum incorporated into the cloud terms, accepted by creating the account                                                                                                                                                                                                                                                                                                                             | Frankfurt am Main; single-region snapshots stay in the cluster's region                                                                                                                                       |
 | The organisers' personal mailboxes, the league holding none of its own | Every message sent to a league address, which Cloudflare forwards there, and every reply, which leaves from the answering organiser's own address because Email Routing cannot send from the league's domain                                                                                                                                                                                                                                                                                                                  | **None — a personal account has no processing agreement, and no safeguard covers a transfer out of the EU where no adequacy decision does.** Accepted, as a known gap: I ruled on 2026-10-25 that the forwarding stays and the notice discloses both                                                                                                                                                              | Not committed, and possibly outside the EU; on 2026-10-25 the mail went to Proton (Switzerland) and Gmail accounts, and the notice names no provider or country, since which ones changes with the organisers |
@@ -1057,7 +1009,6 @@ Each row cites where the decision now lives.
 
 | Entry | Decision                                                                                                                                                                                                            |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| —     | Narrow the refusal's sentence to the window in which the undraw it recommends is possible (`fl_backend/app/core/domain.py :: RULES` on `REQ-RULES-011`)                                                             |
 | —     | The player editor shows the stored consent, read-only; it never gates publication (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx :: FormEinwilligungSection`) |
 | —     | The toast clause stands in `docs/decisions.md`; a toast's appearance is built in `fl_frontend/src/core/providers/AppToaster.tsx`                                                                                    |
 | —     | Announcing that a season rollover is due stays deferred until one is actually missed                                                                                                                                |
@@ -1106,15 +1057,15 @@ Each row cites where the decision now lives.
   or one similarly serious, its nearest example being a decision affecting access to education, such
   as a university admission, and does not say whether being refused a place in a school league is one
   — read on 2026-09-22. The questions to put: whether any of those refusals meets Art. 22 (1)'s
-  threshold, Cloudflare's bot check and the daily write ceiling among them, and if one does, which
+  threshold, Cloudflare's bot check among them, and if one does, which
   exception of Art. 22 (2) it rests on.
 - **An address whose part before the @ is not plain ASCII is refused with nobody deciding, and the
   published notice does not name it, for the Datenschutzexperte.** Every box that stores an address
   refuses one ([section 2](#2-consent-comes-from-the-person-from-16-or-18)), so a person whose only
   mailbox is spelled that way cannot register, apply or be entered under it, and the box asks them
   for another address, while the notice names two refusals, a birthdate outside its span and a
-  barred address, and beside them the full squad as a limit of the squad, and the bot check and the
-  daily write ceiling as limits it offers a person's review of ([section 2](#2-consent-comes-from-the-person-from-16-or-18)). The questions to put: whether this
+  barred address, and beside them the full squad as a limit of the squad, and the bot check as a
+  limit it offers a person's review of ([section 2](#2-consent-comes-from-the-person-from-16-or-18)). The questions to put: whether this
   refusal is a limit of what the league can take, as the full squad is, or a judgement about the
   person; and so whether the notice names it beside the full squad or among the refusals it offers
   a review of.

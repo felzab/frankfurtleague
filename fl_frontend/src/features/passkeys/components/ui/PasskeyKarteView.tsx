@@ -11,6 +11,7 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
+import { TIME_ZONE } from "@/core/format";
 import { card } from "@/shared/components/ui/card";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -32,7 +33,7 @@ import type { PasskeyKarte } from "../../types";
 
 // `timeZone` is what carries this, as it carries `fl_frontend/src/shared/utils/format.ts :: SPIEL_DATE_FORMATTER`:
 // the image runs UTC and the reader does not, so a use at night lands on the wrong day.
-const DATUM = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", dateStyle: "long" });
+const DATUM = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, dateStyle: "long" });
 
 /**
  * The same sentence `fl_frontend/src/features/passkeys/actions.ts :: LETZTER_PASSKEY` answers: this

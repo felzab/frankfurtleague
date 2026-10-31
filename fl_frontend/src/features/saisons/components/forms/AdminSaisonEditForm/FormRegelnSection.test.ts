@@ -10,8 +10,8 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { assert, describe, expect, it } from "vitest";
 
+import type { FLSaisonRules } from "@/core/generated/client/types.ts";
 import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus.ts";
-import type { FLSaisonRules } from "@/features/saisons/schemas.ts";
 
 // The server action modules the season editor reaches.
 doubleActions({ modules: ["@/features/einladungen/actions.ts", "@/features/saisons/actions.ts", "@/features/teams/actions.ts"] });
@@ -27,11 +27,11 @@ const STATUS = declaredStatus<SaisonFieldPath>([
   "rules.draw_points",
   "rules.tiebreak_order",
   "rules.forfeit_ergebnis",
-  "rules.number_of_groups",
-  "rules.teams_per_group",
-  "rules.qualifiers_per_group",
+  "rules.number_of_gruppen",
+  "rules.teams_per_gruppe",
+  "rules.qualifiers_per_gruppe",
   "rules.max_kadergroesse",
-  "rules.erlaubte_stufen",
+  "rules.allowed_stufen",
 ]);
 
 const RULES: FLSaisonRules = saisonRules();
@@ -43,7 +43,7 @@ const PANEL: RegelnProps = {
   onFieldLeft: () => undefined,
   onStufenChange: () => undefined,
   isFinishedSaison: false,
-  isKnockoutStarted: false,
+  hasStarted: false,
   gruppenOccupancy: {},
   isDrawnSaison: false,
   spielplanWindow: "open",
@@ -57,31 +57,37 @@ const trigger = (label: RegExp): HTMLElement => screen.getByRole("button", { nam
 const isClosed = (element: HTMLElement): boolean => element.hasAttribute("disabled");
 
 describe("the rules panel's freezes", () => {
-  /* `REQ-RULES-012` refuses the change outright, and either freeze alone closes the control. A finished season is
-     answered by the standing banner the panel carries, so the knockout's sentence is the running season's alone. */
-  it("closes the tiebreak on a started knockout or a finished season, and names the knockout's rule only while the season runs", () => {
-    for (const [isKnockoutStarted, isFinishedSaison, closed, explained] of [
+  /* `rules_saison_started` refuses the change on a start or a finish, so either alone closes the scoring fields. A
+     finished season is answered by the standing banner the panel carries, so the start's sentence is the running
+     season's alone. */
+  it("closes the tiebreak and the points on a started or a finished season, and names the start's rule only while it runs", () => {
+    for (const [hasStarted, isFinishedSaison, closed, explained] of [
       [false, false, false, false],
       [true, false, true, true],
       [false, true, true, false],
       [true, true, true, false],
     ] as const) {
-      const { unmount } = render(panel({ isKnockoutStarted, isFinishedSaison }));
-      const state = `knockout started: ${String(isKnockoutStarted)}, finished: ${String(isFinishedSaison)}`;
+      const { unmount } = render(panel({ hasStarted, isFinishedSaison }));
+      const state = `started: ${String(hasStarted)}, finished: ${String(isFinishedSaison)}`;
 
       expect(isClosed(trigger(/Was zuerst entscheidet$/)), state).toBe(closed);
-      expect(screen.queryByText("Nach dem Beginn der KO-Runde lässt sich der Tiebreak nicht mehr ändern.") !== null, state).toBe(explained);
+      expect(screen.getByRole("textbox", { name: "Punkte für einen Sieg" }).hasAttribute("readonly"), state).toBe(closed);
+      expect(
+        screen.queryByText("Nach dem Beginn der Saison lassen sich Punkte, Tiebreak und Qualifikanten pro Gruppe nicht mehr ändern.") !== null,
+        state,
+      ).toBe(explained);
       unmount();
     }
   });
 
-  /* The qualifiers alone are in the finished season's freeze: the table is scored from them, and `REQ-RULES-005`
-     names no group count. */
+  /* The qualifiers alone are in the started or finished season's freeze: the table is scored from them, and
+     `rules_saison_started` names no group count. */
   it("closes each shape count where its own freeze reaches it", () => {
     for (const [props, gruppen, qualifikanten] of [
       [{}, false, false],
       [{ isDrawnSaison: true }, true, true],
       [{ isFinishedSaison: true }, false, true],
+      [{ hasStarted: true }, false, true],
     ] as const) {
       const { unmount } = render(panel(props));
 
@@ -115,9 +121,9 @@ describe("the rules panel's freezes", () => {
 /* One German noun phrase per frozen field. A field the write path adds and this table leaves out goes
    unnamed in the panel and fails nothing here. */
 const GERMAN_OF: Record<string, string> = {
-  number_of_groups: "Gruppen",
-  teams_per_group: "Teams pro Gruppe",
-  qualifiers_per_group: "Qualifikanten",
+  number_of_gruppen: "Gruppen",
+  teams_per_gruppe: "Teams pro Gruppe",
+  qualifiers_per_gruppe: "Qualifikanten",
 };
 
 /**
@@ -129,7 +135,7 @@ const GERMAN_OF: Record<string, string> = {
 const names = (german: string, text: string): boolean => new RegExp(`(?<!\\p{L})${german}(?!\\p{L})`, "u").test(text);
 
 /** The one frozen field a redraw alone moves, spelled as `GERMAN_OF` is, so the case reads no backend file. */
-const REDRAWABLE_SHAPE_FIELD = "qualifiers_per_group";
+const REDRAWABLE_SHAPE_FIELD = "qualifiers_per_gruppe";
 
 /** Which of the panel's repairs name one field, by position. */
 const repairsNaming = (repairs: readonly string[], field: string): Set<number> =>
@@ -194,7 +200,7 @@ describe("the repairs the reloaded panel names for the shape the draw freezes", 
 });
 
 describe("the rules panel's shape offer", () => {
-  /* `REQ-RULES-002` from the season's own clubs: two groups would strand the club entered in C. */
+  /* `rules_gruppen_in_use` from the season's own clubs: two groups would strand the club entered in C. */
   it("closes the group counts the season's clubs rule out, and holds the team stepper at the fullest group", async () => {
     const user = userEvent.setup();
     const { unmount } = render(panel({ gruppenOccupancy: {} }));
@@ -211,17 +217,17 @@ describe("the rules panel's shape offer", () => {
   /* A season written by hand can hold a count the offer does not carry; dropped, the save sends a number nobody
      chose. */
   it("keeps a stored count the offer does not carry, and stands on it", () => {
-    render(panel({ rules: { ...RULES, number_of_groups: 3 } }));
+    render(panel({ rules: { ...RULES, number_of_gruppen: 3 } }));
 
     expect(trigger(/^Gruppen/).textContent).toMatch(/^3/);
   });
 });
 
 describe("the season editor's one reading of the season, handed to its panels", () => {
-  /* The swap (`REQ-SWAP-002`) and the tiebreak (`REQ-RULES-012`) close on one played knockout fixture, and the rules
-     panel's window is the undraw's own: a second reading of either drifts from the first and offers what the
-     endpoint refuses. */
-  it("freezes the tiebreak where the swap closes, and states the window the undraw is closed by", () => {
+  /* The swap (`swap_saison_started`) and the tiebreak (`rules_saison_started`) close on the season's one served start,
+     and the rules panel's window is the undraw's own: a second reading of either drifts from the first and offers
+     what the endpoint refuses. */
+  it("closes the swap picker and freezes the tiebreak on a started season, and states the window the undraw is closed by", () => {
     render(
       underNext(
         h(AdminSaisonEditView, {
@@ -235,15 +241,22 @@ describe("the season editor's one reading of the season, handed to its panels", 
             registrierung: null,
           },
           rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false, loeschung: null },
-          swap: { teams: [], playedKnockoutSpiele: 1 },
+          // Two clubs in two groups, so only the start can close the picker.
+          swap: {
+            teams: [
+              { id: "a".repeat(24), name: "SV Alt", gruppe: "A", gruppenSpieleProSpieltag: {}, koSpieleProSpieltag: {} },
+              { id: "b".repeat(24), name: "SV Neu", gruppe: "B", gruppenSpieleProSpieltag: {}, koSpieleProSpieltag: {} },
+            ],
+            hasStarted: true,
+          },
           ersatz: { rows: [], candidates: [] },
           spielplan: {
-            spielplan: { generiert_am: "2026-07-01", spieltage: 5, spiele: 15 },
+            spielplan: { generated_at: "2026-07-01", spieltage: 5, spiele: 15 },
             spieltageCount: 5,
             schedule: [
-              { phase: "gruppenphase", matchdays: 3, matches_per_matchday: 4 },
-              { phase: "halbfinale", matchdays: 1, matches_per_matchday: 2 },
-              { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
+              { phase: "gruppenphase", spieltage: 3, matches_per_spieltag: 4 },
+              { phase: "halbfinale", spieltage: 1, matches_per_spieltag: 2 },
+              { phase: "finale", spieltage: 1, matches_per_spieltag: 1 },
             ],
             bestand: { spiele: 15, erfasst: 2, angesetzt: 4 },
             eingereichteBerichte: 0,
@@ -255,8 +268,10 @@ describe("the season editor's one reading of the season, handed to its panels", 
       ),
     );
 
-    assert.ok(screen.getByText("Nach dem Beginn der KO-Runde ist ein Gruppentausch nicht mehr möglich"));
-    expect(isClosed(trigger(/Was zuerst entscheidet$/)), "the rules panel reads the knockout some other way").toBe(true);
+    assert.ok(screen.getByText("Nach dem Beginn der Saison ist ein Gruppentausch nicht mehr möglich"));
+    // No picker at all, the callout standing in its place: a picker on a started season offers a press the endpoint 409s.
+    expect(screen.queryByText("Tauscht Gruppen mit"), "the swap picker stays open on a started season").toBe(null);
+    expect(isClosed(trigger(/Was zuerst entscheidet$/)), "the rules panel reads the start some other way").toBe(true);
     assert.ok(
       screen.getByText(/Solange zu mindestens einem Spiel dieser Saison etwas eingetragen ist/),
       "the rules panel decides the window itself",

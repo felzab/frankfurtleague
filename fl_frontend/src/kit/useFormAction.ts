@@ -1,32 +1,24 @@
 "use client";
 
 import { startTransition, useActionState, useLayoutEffect, useRef, useState } from "react";
-import { unstable_rethrow } from "next/navigation";
+import { unstable_rethrow, useRouter } from "next/navigation";
 
 import { COPY } from "@/core/copy";
-import { edgeRefusedSend } from "@/shared/utils/actionError";
 
+import { isEdgeRefusal } from "./edgeRefusal";
+
+import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 
 /**
- * What a server action answers a form: done, with what the page needs next and, where the write did more
- * than the form asked, the line saying so; or not done, with each field's message by the field's `name` and
- * the one line the status line shows. A refusal a person can cause from the screen brings its reason, a
- * stale read the stale-page line, a write nobody can tell landed the stale-page line too, since a reload
- * shows whether it did, an ended session the sign-in line, anything unexpected the shared failure line; a
- * refusal for its fields alone may leave the line to the form.
- */
-export type ActionAnswer<Value = undefined> =
-  { ok: true; value: Value; note?: Copy } | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy };
-
-/**
- * Anything the action throws is answered with the stale-page line: the press may have reached the server and
- * written before its answer was lost, and only a reload shows whether it did, where a second press could
- * repeat the write. Next's redirect and not-found pass through, and the edge's own rate refusal, which reached
- * nothing behind the edge, says so and when to retry.
+ * Anything the action throws is answered with the stale-page line, and the page is read again: the press may
+ * have reached the server and written before its answer was lost, and only the fresh page shows whether it
+ * did, where a second press could repeat the write. Next's redirect and not-found pass through, and the edge's
+ * own rate refusal, which reached nothing behind the edge, says so and when to retry, reading nothing again.
  */
 export function answering<Payload, Value>(
   action: (payload: Payload) => Promise<ActionAnswer<Value>>,
+  refresh: () => void,
 ): (payload: Payload) => Promise<ActionAnswer<Value>> {
   return async (payload) => {
     try {
@@ -34,7 +26,9 @@ export function answering<Payload, Value>(
     } catch (thrown) {
       // A redirect or a not-found is how the action leads on; React hands it to Next's boundary.
       unstable_rethrow(thrown);
-      return { ok: false, reason: edgeRefusedSend(thrown) === null ? COPY.shared.fehler.veraltet : COPY.shared.fehler.zuVieleVersuche };
+      if (isEdgeRefusal(thrown)) return { ok: false, reason: COPY.shared.fehler.zuVieleVersuche };
+      refresh();
+      return { ok: false, reason: COPY.shared.fehler.veraltet };
     }
   };
 }
@@ -76,10 +70,11 @@ export function useFormAction<Payload, Value = undefined>(
   action: (payload: Payload) => Promise<ActionAnswer<Value>>,
   { resetOnLeave }: { resetOnLeave: boolean },
 ) {
+  const router = useRouter();
   // The browser kept the send back for a field's own rule; cleared by the next send.
   const [isBlocked, setBlocked] = useState(false);
   const [answer, dispatch, isPending] = useActionState<ActionAnswer<Value> | null, Step<Payload>>(
-    async (_previous, step) => (step.kind === "reset" ? null : answering(action)(step.payload)),
+    async (_previous, step) => (step.kind === "reset" ? null : answering(action, router.refresh)(step.payload)),
     null,
   );
 

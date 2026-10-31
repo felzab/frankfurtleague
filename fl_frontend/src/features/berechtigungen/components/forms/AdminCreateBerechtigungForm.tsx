@@ -11,12 +11,12 @@ import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { TextField } from "@/shared/components/ui/TextField";
 
-import type { FLPostBerechtigungPayload } from "@/features/berechtigungen/schemas";
+import type { FLPostGrantPayload } from "@/core/generated/client/types";
 
-const EMPTY_DRAFT: FLPostBerechtigungPayload = { email: "" };
+const EMPTY_DRAFT: FLPostGrantPayload = { email: "" };
 
 /** One mapping, read by the block and by the write alike. */
-const toPayload = (draft: FLPostBerechtigungPayload) => ({ email: draft.email });
+const toPayload = (draft: FLPostGrantPayload) => ({ email: draft.email });
 
 /**
  * **No `onCreated`**: the grant takes effect on the person's next request and the list refreshes
@@ -24,7 +24,7 @@ const toPayload = (draft: FLPostBerechtigungPayload) => ({ email: draft.email })
  */
 export function AdminCreateBerechtigungForm({ onClose }: { onClose: () => void }) {
   return (
-    <EntityForm<FLPostBerechtigungPayload, FLPostBerechtigungPayload, { beantragt: boolean }>
+    <EntityForm<FLPostGrantPayload, FLPostGrantPayload, { beantragt: boolean }>
       initialDraft={EMPTY_DRAFT}
       renderFields={(draft, setDraft) => (
         <TextField

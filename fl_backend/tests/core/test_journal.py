@@ -23,7 +23,7 @@ from app.core.transactions import UNKNOWN_COMMIT_RESULT
 PERSON = "a" * 64
 PSEUDONYM = "c" * 64
 HALTER = "d" * 64
-ZUVOR = "e" * 64
+BEFORE = "e" * 64
 RECORD = ObjectId("6890a1b2c3d4e5f607860001")
 AM = "2026-10-15T10:00:00+00:00"
 JOURNAL_LOGGER = f"{FL_LOGGER_NAME}.{JOURNAL_LOGGER_SUFFIX}"
@@ -41,31 +41,31 @@ LINES = {
         record_id=RECORD,
         am=AM,
         text_version="2026-10-konto-spieler",
-        wahlen={"umfang": "intern", "medien": False},
+        choices={"umfang": "intern", "medien": False},
     ),
     "a Widerspruch": JournalLine(
-        person_hash=PERSON, art="widerspruch", collection=Collection.BEWERBUNGEN, record_id=RECORD, am=AM, sitze=("trainer", "ansprechperson")
+        person_hash=PERSON, art="widerspruch", collection=Collection.BEWERBUNGEN, record_id=RECORD, am=AM, seats=("trainer", "ansprechperson")
     ),
     "a declined address change": JournalLine(
-        person_hash=PERSON, art="adresswechsel_abgelehnt", collection=Collection.ADRESSWECHSEL, record_id=RECORD, am=AM
+        person_hash=PERSON, art="adresswechsel_abgelehnt", collection=Collection.ADDRESS_CHANGES, record_id=RECORD, am=AM
     ),
     "a discarded address change": JournalLine(
-        person_hash=PERSON, art="adresswechsel_verworfen", collection=Collection.ADRESSWECHSEL, record_id=RECORD, am=AM
+        person_hash=PERSON, art="adresswechsel_verworfen", collection=Collection.ADDRESS_CHANGES, record_id=RECORD, am=AM
     ),
     "a discarded address change whose new mailbox was told": JournalLine(
-        person_hash=PERSON, art="adresswechsel_verworfen_mitgeteilt", collection=Collection.ADRESSWECHSEL, record_id=RECORD, am=AM
+        person_hash=PERSON, art="adresswechsel_verworfen_mitgeteilt", collection=Collection.ADDRESS_CHANGES, record_id=RECORD, am=AM
     ),
     "a refused request": JournalLine(
-        person_hash=PERSON, art="antrag_abgelehnt", collection=Collection.BERECHTIGUNGEN_ANTRAEGE, record_id=RECORD, am=AM
+        person_hash=PERSON, art="antrag_abgelehnt", collection=Collection.GRANT_APPROVAL_REQUESTS, record_id=RECORD, am=AM
     ),
     "a withdrawn request": JournalLine(
-        person_hash=PERSON, art="antrag_zurueckgezogen", collection=Collection.BERECHTIGUNGEN_ANTRAEGE, record_id=RECORD, am=AM
+        person_hash=PERSON, art="antrag_zurueckgezogen", collection=Collection.GRANT_APPROVAL_REQUESTS, record_id=RECORD, am=AM
     ),
     "a request an address change ended": JournalLine(
-        person_hash=PERSON, art="antrag_beendet", collection=Collection.BERECHTIGUNGEN_ANTRAEGE, record_id=RECORD, am=AM
+        person_hash=PERSON, art="antrag_beendet", collection=Collection.GRANT_APPROVAL_REQUESTS, record_id=RECORD, am=AM
     ),
     "an address change taking effect": JournalLine(
-        person_hash=PERSON, art="adresswechsel_wirksam", collection=Collection.ADRESSWECHSEL, record_id=RECORD, am=AM, zuvor=ZUVOR
+        person_hash=PERSON, art="adresswechsel_wirksam", collection=Collection.ADDRESS_CHANGES, record_id=RECORD, am=AM, before=BEFORE
     ),
 }
 
@@ -80,7 +80,7 @@ def test_an_erasure_is_spelled_as_the_export_and_the_restore_read_it():
     )
     assert (
         LINES["an address change taking effect"].text()
-        == f"{JOURNAL_TOKEN} {PERSON} adresswechsel_wirksam adresswechsel/{RECORD} am={AM} zuvor={ZUVOR}"
+        == f"{JOURNAL_TOKEN} {PERSON} adresswechsel_wirksam adresswechsel/{RECORD} am={AM} zuvor={BEFORE}"
     )
 
 
@@ -93,7 +93,7 @@ def test_every_act_reads_back_as_it_was_written(line: JournalLine):
 def test_the_replay_names_a_line_by_its_act_alone(line: JournalLine):
     """The log outlives the day files by eleven months, so a replay's row names no keyed hash; nor the token, which reads as an erasure."""
     assert line.act().startswith(line.art)
-    assert all(keyed not in line.act() for keyed in (PERSON, PSEUDONYM, HALTER, ZUVOR, JOURNAL_TOKEN))
+    assert all(keyed not in line.act() for keyed in (PERSON, PSEUDONYM, HALTER, BEFORE, JOURNAL_TOKEN))
 
 
 def test_a_message_of_another_kind_is_no_line():
@@ -138,10 +138,10 @@ def test_a_message_of_another_kind_is_no_line():
             f"{JOURNAL_TOKEN} {PERSON} adresswechsel_wirksam adresswechsel/{RECORD} am={AM}", id="an effect naming no replaced address"
         ),
         pytest.param(
-            f"{JOURNAL_TOKEN} {PERSON} adresswechsel_verworfen adresswechsel/{RECORD} am={AM} zuvor={ZUVOR}",
+            f"{JOURNAL_TOKEN} {PERSON} adresswechsel_verworfen adresswechsel/{RECORD} am={AM} zuvor={BEFORE}",
             id="a discard naming a replaced address",
         ),
-        pytest.param(f"{JOURNAL_TOKEN} {PERSON} loeschung zuvor={ZUVOR}", id="an erasure naming a replaced address"),
+        pytest.param(f"{JOURNAL_TOKEN} {PERSON} loeschung zuvor={BEFORE}", id="an erasure naming a replaced address"),
         pytest.param(
             f"{JOURNAL_TOKEN} {PERSON} adresswechsel_wirksam adresswechsel/{RECORD} am={AM} zuvor=anna@example.com",
             id="an address for the replaced one",

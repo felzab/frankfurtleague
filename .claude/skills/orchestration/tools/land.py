@@ -33,10 +33,10 @@ from merge_rows import merge_file
 
 # Each document beside the module that writes it, run from `fl_backend` by the interpreter running
 # this tool: the backend's virtualenv, which `uv run --project fl_backend` selects.
-GENERATED: Final = (
-    ("tests.openapi_document", "fl_backend/openapi.json"),
-    ("tests.einwilligung_document", "fl_backend/einwilligung.json"),
-)
+GENERATED: Final = (("app.openapi_document", "fl_backend/openapi.json"),)
+# The frontend's client is generated from that document, so it follows every regeneration of it: a
+# document a merge moved with a stale client fails the gate's contract check.
+CLIENT: Final = (("pnpm", "exec", "orval"), "fl_frontend", "fl_frontend/src/core/generated")
 REGENERATED_FROM: Final = "fl_backend/"
 # Run where the merge touches the package: two branches can merge clean as text and still fail
 # together, one cutting an import the other's new case uses. The frontend's runs `next typegen` first.
@@ -124,7 +124,7 @@ def resolve(conflicted: list[str], written: list[str]) -> list[str]:
     generated = {document for _, document in GENERATED}
     merged: list[str] = []
     for path in conflicted:
-        if path in generated:
+        if path in generated or path.startswith(CLIENT[2] + "/"):
             continue
         if not path.endswith(".md"):
             raise Stop(3, f"CONFLICT in {path}, which is no markdown table")
@@ -147,12 +147,22 @@ def regenerate(root: Path, written: list[str]) -> list[str]:
     before = {document: git("ls-files", "--stage", "--", document) for _, document in GENERATED}
     for module, document in GENERATED:
         written.append(document)
-        done = subprocess.run((sys.executable, "-m", module, "--write"), cwd=root / "fl_backend", capture_output=True, check=False)
+        done = subprocess.run((sys.executable, "-m", module), cwd=root / "fl_backend", capture_output=True, check=False)
         if done.returncode != 0:
             said = (done.stderr or done.stdout).decode("utf-8", "replace").strip().splitlines()[-5:]
-            raise Stop(4, f"{module} --write exited {done.returncode}:", *said)
+            raise Stop(4, f"{module} exited {done.returncode}:", *said)
         git("add", "--", document)
-    return [document for _, document in GENERATED if git("ls-files", "--stage", "--", document) != before[document]]
+    moved = [document for _, document in GENERATED if git("ls-files", "--stage", "--", document) != before[document]]
+    command, where, folder = CLIENT
+    # A tree without the frontend's generator configuration has no client to follow the document.
+    if not (root / where / "orval.config.ts").exists():
+        return moved
+    client_before = git("ls-files", "--stage", "--", folder)
+    written.append(folder)
+    if (done := _run(command, root / where)).returncode != 0:
+        raise Stop(4, f"`{' '.join(command)}` exited {done.returncode}:", *_tail(done))
+    git("add", "-A", "--", folder)
+    return moved + ([folder] if git("ls-files", "--stage", "--", folder) != client_before else [])
 
 
 def _run(command: tuple[str, ...], cwd: Path) -> subprocess.CompletedProcess[bytes]:

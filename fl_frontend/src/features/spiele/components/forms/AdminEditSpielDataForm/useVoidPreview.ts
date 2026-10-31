@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { previewAdminSpielDataAction } from "../../../actions";
 
-import type { FLPatchSpielDataPayloadDraft } from "@/features/spiele/schemas";
+import type { FLPatchSpielDataPayloadDraft } from "@/features/spiele/types";
 
 /** The `spiel_nr` of every other fixture a save would rewrite, split by what it would cost them. */
 export type VoidPreview = {

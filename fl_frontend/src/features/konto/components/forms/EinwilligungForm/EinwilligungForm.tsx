@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
+import { FLEinwilligungUmfang } from "@/core/generated/client/types";
 import { ABSATZ_CLASSES } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { FIELD_LABEL_CLASSES, TOGGLE_GROUP_ALIGN_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -17,8 +18,7 @@ import { focusAfterWrite, focusSlot } from "@/shared/utils/focusAfterWrite";
 
 import { medienZuJung, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } from "../../../einwilligung";
 
-import type { FLEinwilligung, FLEinwilligungStand } from "@/features/spieler/schemas";
-import type { FLKontaktKenntnisnahme } from "@/features/teams/schemas";
+import type { FLEinwilligung, FLEinwilligungStand, FLKontaktKenntnisnahme } from "@/core/generated/client/types";
 import type { ActionFailure } from "@/shared/types/types";
 import type { Key } from "@heroui/react/rac";
 import type { ReactNode } from "react";
@@ -28,7 +28,7 @@ export type SitzUmfang = FLKontaktKenntnisnahme["umfang"];
 type Umfang = PersonUmfang | SitzUmfang;
 
 /** The chips in the order a reader meets them: the wider publication first, as the confirmation pages ask it. */
-const UMFANG_REIHENFOLGE: readonly PersonUmfang[] = ["kader_oeffentlich", "intern"];
+const UMFANG_REIHENFOLGE: readonly PersonUmfang[] = Object.values(FLEinwilligungUmfang);
 
 /** The seat's scope its switch turned on writes, the wider one. */
 const MIT_WHATSAPP: SitzUmfang = "kontaktdaten_whatsapp";

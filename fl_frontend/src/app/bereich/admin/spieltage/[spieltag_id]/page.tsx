@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { getAdminSpiele } from "@/features/spiele/queries";
@@ -28,11 +27,10 @@ export default function AdminSpieltagEditPage(props: NextPageProps<{ spieltag_id
 
 /**
  * Two rounds of reads, because the first answers which season to ask about: its span bounds the date
- * pickers (`REQ-DATE-002`), and its matchday list is what a knockout round's label is numbered
+ * pickers (`spieltag_outside_saison`), and its matchday list is what a knockout round's label is numbered
  * against.
  */
 async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ spieltag_id: string }>["params"] }) {
-  await connection();
   const spieltagId = await resolveSpieltagId(params);
 
   // `null` is "no such matchday"; everything else throws.
@@ -66,7 +64,7 @@ async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ sp
     label,
     beginn: spieltag.beginn,
     ende: spieltag.ende,
-    anzahl_spiele: spieltag.anzahl_spiele,
+    anzahl_spiele: spieltag.count_spiele,
     saison_phase: spieltag.saison_phase,
     saison_id: spieltag.saison_id,
     spieleAngelegt: attached.length,

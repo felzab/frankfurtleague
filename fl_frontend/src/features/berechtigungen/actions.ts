@@ -1,11 +1,8 @@
 "use server";
 
-import { afterTheResponse } from "@/core/afterResponse";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { runBerechtigungenAbgleich } from "./abgleich";
 import {
   ANTRAG_GELOESCHT_MESSAGE,
   ANTRAG_GENEHMIGT_MESSAGE,
@@ -24,13 +21,9 @@ import {
   FLPostBerechtigungPayloadSchema,
 } from "./schemas";
 
+import type { FLPostGrantPayload } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
-import type {
-  FLBerechtigungAntragKeyPayload,
-  FLBerechtigungKeyPayload,
-  FLPatchBerechtigungPayload,
-  FLPostBerechtigungPayload,
-} from "./schemas";
+import type { FLBerechtigungAntragKeyPayload, FLBerechtigungKeyPayload, FLPatchGrantPayload } from "./schemas";
 
 /**
  * The enrolment's five-minute window rather than the step-up's: a
@@ -38,16 +31,8 @@ import type {
  */
 const ZUGANG_STEP_UP = { stepUp: "enrolment" } as const;
 
-/**
- * Behind the response, so an in-app change is announced at once rather than at the next tick, under a
- * deadline of its own: the action's remainder would cut a claim's sends and hold its rows for the lease.
- */
-function ankuendigenNachDerAntwort(): void {
-  afterTheResponse(runBerechtigungenAbgleich);
-}
-
 export async function postBerechtigungAction(
-  rawPayload: FLPostBerechtigungPayload,
+  rawPayload: FLPostGrantPayload,
 ): Promise<ActionResult<{ created_id: string; beantragt: boolean }>> {
   return runAdminMutation("postBerechtigungAction", ZUGANG_STEP_UP, async () => {
     const validated = FLPostBerechtigungPayloadSchema.safeParse(rawPayload);
@@ -65,15 +50,9 @@ export async function postBerechtigungAction(
       throw error;
     }
 
-    if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Zugang wurde nicht erteilt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
-    const { created_id, beantragt } = postOperation;
+    const { created_id, requested: beantragt } = postOperation;
     // Ends no session: one made before the grant administers nothing, every guard holding it against the
-    // grant's own time on every request. A request is the pass's too, which mails it
-    // to whoever could approve it.
-    ankuendigenNachDerAntwort();
+    // grant's own time on every request.
 
     return { success: true, created_id, beantragt, message: beantragt ? ZUGANG_BEANTRAGT_MESSAGE : ZUGANG_ERTEILT };
   });
@@ -88,20 +67,13 @@ export async function deleteBerechtigungAction(rawPayload: FLBerechtigungKeyPayl
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    let deleteOperation;
     try {
-      deleteOperation = await deleteBerechtigung(validated.data);
+      await deleteBerechtigung(validated.data);
     } catch (error) {
       const refusal = mapEntziehenRefusal(error);
       if (refusal) return refusalResult(refusal);
       throw error;
     }
-
-    if (!deleteOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Zugang wurde nicht entzogen", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
-    ankuendigenNachDerAntwort();
 
     return { success: true, message: ZUGANG_ENTZOGEN_MESSAGE };
   });
@@ -111,7 +83,7 @@ export async function deleteBerechtigungAction(rawPayload: FLBerechtigungKeyPayl
  * An owner's promotion, demotion or step-down. Ends no session: the tier is read on every request,
  * so the next one already holds the new tier.
  */
-export async function patchBerechtigungAction(rawPayload: FLPatchBerechtigungPayload): Promise<ActionResult<{ beantragt: boolean }>> {
+export async function patchBerechtigungAction(rawPayload: FLPatchGrantPayload): Promise<ActionResult<{ beantragt: boolean }>> {
   return runAdminMutation("patchBerechtigungAction", ZUGANG_STEP_UP, async () => {
     const validated = FLPatchBerechtigungPayloadSchema.safeParse(rawPayload);
 
@@ -128,14 +100,7 @@ export async function patchBerechtigungAction(rawPayload: FLPatchBerechtigungPay
       throw error;
     }
 
-    if (!patchOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Stufe wurde nicht geändert", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
-    // A promotion's request as well as a tier moved: the pass mails the request to the owners who could approve it.
-    ankuendigenNachDerAntwort();
-
-    if (patchOperation.beantragt) return { success: true, beantragt: true, message: ERNENNUNG_BEANTRAGT_MESSAGE };
+    if (patchOperation.requested) return { success: true, beantragt: true, message: ERNENNUNG_BEANTRAGT_MESSAGE };
 
     // Done whether it moved the tier or found it there: a repeated press names the tier the grant holds.
     return { success: true, beantragt: false, message: STUFE_GEAENDERT_MESSAGE[validated.data.verwaltung] };
@@ -150,20 +115,13 @@ export async function genehmigeAntragAction(rawPayload: FLBerechtigungAntragKeyP
 
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
 
-    let antwort;
     try {
-      antwort = await postAntragGenehmigung(validated.data);
+      await postAntragGenehmigung(validated.data);
     } catch (error) {
       const refusal = mapAntragGenehmigungRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
-
-    if (!antwort.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Antrag wurde nicht genehmigt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
-    ankuendigenNachDerAntwort();
 
     return { success: true, message: ANTRAG_GENEHMIGT_MESSAGE };
   });
@@ -179,17 +137,12 @@ export async function lehneAntragAbAction(rawPayload: FLBerechtigungAntragKeyPay
 
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
 
-    let antwort;
     try {
-      antwort = await deleteAntrag(validated.data);
+      await deleteAntrag(validated.data);
     } catch (error) {
       const refusal = mapAntragAblehnungRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
-    }
-
-    if (!antwort.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Antrag wurde nicht gelöscht", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     return { success: true, message: ANTRAG_GELOESCHT_MESSAGE };

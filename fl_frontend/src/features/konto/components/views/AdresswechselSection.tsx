@@ -20,7 +20,7 @@ export async function AdresswechselSection() {
     readSicherheit(served),
     verwaltungOf(served.user.email),
   ]);
-  if (!adresswechsel.moeglich) return null;
+  if (!adresswechsel.possible) return null;
 
   const { freshUntil, enrolmentUntil, servedAt, inhaberId, inhaberAdresse } = sicherheit;
   return (

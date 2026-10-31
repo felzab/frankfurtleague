@@ -8,7 +8,7 @@ here is constructed all the same, so widening the season rules' bounds owes this
 
 from collections.abc import Mapping
 
-from app.api.teams.schemas import FLGruppenNames
+from app.shared.schemas.literals import FLGruppenNames
 
 BRACKET_SEEDING: Mapping[tuple[int, int], tuple[tuple[FLGruppenNames, int], ...]] = {
     (1, 2): (("A", 1), ("A", 2)),

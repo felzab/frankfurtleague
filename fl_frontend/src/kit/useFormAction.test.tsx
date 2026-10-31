@@ -3,39 +3,48 @@ import { Activity } from "react";
 import { redirect } from "next/navigation";
 
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
-import { EDGE_REFUSAL_BODY } from "@/shared/utils/actionError";
 
+import { EDGE_REFUSAL_BODY } from "./edgeRefusal";
 import { answering, statusOf, useFormAction } from "./useFormAction";
 
+import type { ActionAnswer } from "@/core/action";
 import type { ReactNode } from "react";
-import type { ActionAnswer } from "./useFormAction";
+
+// The hook reads the page again through Next's router, which no test mounts.
+vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => ({ refresh: () => {} }) }));
 
 describe("a form's action through the one wrapper", () => {
   it("answers as the action answered", async () => {
     const answer: ActionAnswer<string> = { ok: true, value: "ort-1" };
-    expect(await answering(async () => answer)(undefined)).toStrictEqual(answer);
+    const refresh = vi.fn();
+    expect(await answering(async () => answer, refresh)(undefined)).toStrictEqual(answer);
+    expect(refresh).not.toHaveBeenCalled();
   });
 
-  it("answers any throw with the stale-page line, since the press may have written before its answer was lost", async () => {
+  it("answers any throw with the stale-page line and reads the page again, since the press may have written before its answer was lost", async () => {
+    const refresh = vi.fn();
     const answered = answering(async () => {
       throw new Error("An unexpected response was received from the server.");
-    });
+    }, refresh);
     expect(await answered(undefined)).toStrictEqual({ ok: false, reason: COPY.shared.fehler.veraltet });
+    expect(refresh).toHaveBeenCalledOnce();
   });
 
-  it("answers the edge's rate refusal with its own reason", async () => {
+  it("answers the edge's rate refusal with its own reason, reading nothing again", async () => {
+    const refresh = vi.fn();
     // Next hands a rejected action the edge's plain-text body as its error's message.
     const answered = answering(async () => {
       throw new Error(EDGE_REFUSAL_BODY);
-    });
+    }, refresh);
     expect(await answered(undefined)).toStrictEqual({ ok: false, reason: COPY.shared.fehler.zuVieleVersuche });
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it("lets Next's redirect through to Next", async () => {
-    const answered = answering(async (): Promise<ActionAnswer> => redirect("/bereich"));
+    const answered = answering(async (): Promise<ActionAnswer> => redirect("/bereich"), vi.fn());
     await expect(answered(undefined)).rejects.toMatchObject({ digest: expect.stringContaining("NEXT_REDIRECT") });
   });
 });

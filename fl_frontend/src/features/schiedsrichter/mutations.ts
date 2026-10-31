@@ -1,89 +1,61 @@
-import { apiClient } from "@/core/api";
-
 import {
-  FLPatchSchiedsrichterResponseSchema,
-  FLPostSchiedsrichterResponseSchema,
-  FLSchiedsrichterBestaetigungAnsichtResponseSchema,
-  FLSchiedsrichterBestaetigungResponseSchema,
-  FLSchiedsrichterMintResponseSchema,
-  FLSchiedsrichterReactivateResponseSchema,
-  FLSchiedsrichterSelbstEinwilligungResponseSchema,
-  FLSchiedsrichterWriteResponseSchema,
-} from "./schemas";
+  schiedsrichterDeleteSchiedsrichter,
+  schiedsrichterGetConfirmationView,
+  schiedsrichterInviteSchiedsrichter,
+  schiedsrichterPatchEinwilligung,
+  schiedsrichterPatchSchiedsrichter,
+  schiedsrichterPostConfirmation,
+  schiedsrichterPostSchiedsrichter,
+  schiedsrichterReactivateSchiedsrichter,
+} from "@/core/generated/client/sdk";
 
 import type {
-  FLPatchSchiedsrichterPayload,
+  FLAccountEinwilligungPayload,
   FLPatchSchiedsrichterResponse,
   FLPostSchiedsrichterPayload,
   FLPostSchiedsrichterResponse,
-  FLSchiedsrichterBestaetigungAnsichtPayload,
-  FLSchiedsrichterBestaetigungAnsichtResponse,
-  FLSchiedsrichterBestaetigungPayload,
-  FLSchiedsrichterBestaetigungResponse,
-  FLSchiedsrichterEinladenPayload,
-  FLSchiedsrichterKeyPayload,
+  FLSchiedsrichterAccountEinwilligungResponse,
+  FLSchiedsrichterConfirmationPayload,
+  FLSchiedsrichterConfirmationResponse,
+  FLSchiedsrichterConfirmationViewResponse,
   FLSchiedsrichterMintResponse,
   FLSchiedsrichterReactivateResponse,
-  FLSchiedsrichterSelbstEinwilligungPayload,
-  FLSchiedsrichterSelbstEinwilligungResponse,
-  FLSchiedsrichterWriteResponse,
-} from "./schemas";
+  FLTokenPayload,
+} from "@/core/generated/client/types";
+import type { FLPatchSchiedsrichterPayload, FLSchiedsrichterEinladenPayload, FLSchiedsrichterKeyPayload } from "./schemas";
 
 export async function postSchiedsrichter(postSchiedsrichterPayload: FLPostSchiedsrichterPayload): Promise<FLPostSchiedsrichterResponse> {
-  return apiClient<FLPostSchiedsrichterResponse>("/schiedsrichter", FLPostSchiedsrichterResponseSchema, {
-    method: "POST",
-    authType: "admin",
-    body: JSON.stringify(postSchiedsrichterPayload),
-  });
+  return schiedsrichterPostSchiedsrichter(postSchiedsrichterPayload);
 }
 
 /** The id goes in the path, never the body: the backend model refuses a body that names one. */
 export async function patchSchiedsrichter({ id, ...fields }: FLPatchSchiedsrichterPayload): Promise<FLPatchSchiedsrichterResponse> {
-  return apiClient<FLPatchSchiedsrichterResponse>(`/schiedsrichter/${id}`, FLPatchSchiedsrichterResponseSchema, {
-    method: "PATCH",
-    authType: "admin",
-    body: JSON.stringify(fields),
-  });
+  return schiedsrichterPatchSchiedsrichter(id, fields);
 }
 
 // Soft: the backend stamps `inactive_since` and removes nothing.
-export async function deleteSchiedsrichter({ id }: FLSchiedsrichterKeyPayload): Promise<FLSchiedsrichterWriteResponse> {
-  return apiClient<FLSchiedsrichterWriteResponse>(`/schiedsrichter/${id}`, FLSchiedsrichterWriteResponseSchema, {
-    method: "DELETE",
-    authType: "admin",
-  });
+export async function deleteSchiedsrichter({ id }: FLSchiedsrichterKeyPayload): Promise<void> {
+  return schiedsrichterDeleteSchiedsrichter(id);
 }
 
 // Clearing `inactive_since` returns the referee to the picker and to every default read, which makes
 // retirement a state rather than a disappearance.
 export async function reactivateSchiedsrichter({ id }: FLSchiedsrichterKeyPayload): Promise<FLSchiedsrichterReactivateResponse> {
-  return apiClient<FLSchiedsrichterReactivateResponse>(`/schiedsrichter/${id}/reactivate`, FLSchiedsrichterReactivateResponseSchema, {
-    method: "POST",
-    authType: "admin",
-  });
+  return schiedsrichterReactivateSchiedsrichter(id);
 }
 
 // Replaces the whole bookkeeping block, so the previous token stops working at once and the
 // delivery state of the message it went out in goes with it.
 export async function einladeSchiedsrichter({ id }: FLSchiedsrichterEinladenPayload): Promise<FLSchiedsrichterMintResponse> {
-  return apiClient<FLSchiedsrichterMintResponse>(`/schiedsrichter/${id}/bestaetigung/einladen`, FLSchiedsrichterMintResponseSchema, {
-    method: "POST",
-    authType: "admin",
-  });
+  return schiedsrichterInviteSchiedsrichter(id);
 }
 
 /**
  * A POST that reads. The token is the credential, and a GET would put it in a query string the
  * backend's own route template does not redact.
  */
-export async function postSchiedsrichterBestaetigungAnsicht(
-  payload: FLSchiedsrichterBestaetigungAnsichtPayload,
-): Promise<FLSchiedsrichterBestaetigungAnsichtResponse> {
-  return apiClient<FLSchiedsrichterBestaetigungAnsichtResponse>(
-    "/schiedsrichter/bestaetigung/ansicht",
-    FLSchiedsrichterBestaetigungAnsichtResponseSchema,
-    { method: "POST", readOnly: true, authType: "base", body: JSON.stringify(payload) },
-  );
+export async function postSchiedsrichterBestaetigungAnsicht(payload: FLTokenPayload): Promise<FLSchiedsrichterConfirmationViewResponse> {
+  return schiedsrichterGetConfirmationView(payload, { readOnly: true });
 }
 
 /**
@@ -91,28 +63,16 @@ export async function postSchiedsrichterBestaetigungAnsicht(
  * and an admin key on this call would make the public page a route into the admin tier.
  */
 export async function postSchiedsrichterBestaetigung(
-  payload: FLSchiedsrichterBestaetigungPayload,
-): Promise<FLSchiedsrichterBestaetigungResponse> {
-  return apiClient<FLSchiedsrichterBestaetigungResponse>("/schiedsrichter/bestaetigung", FLSchiedsrichterBestaetigungResponseSchema, {
-    method: "POST",
-    authType: "base",
-    body: JSON.stringify(payload),
-  });
+  payload: FLSchiedsrichterConfirmationPayload,
+): Promise<FLSchiedsrichterConfirmationResponse> {
+  return schiedsrichterPostConfirmation(payload);
 }
 
 // The referee's own press on the account page, under the person lane's actor; the record is named in
 // the path because one address may hold several referee rows.
-export async function patchSchiedsrichterSelbstEinwilligung(
+export async function patchSchiedsrichterKontoEinwilligung(
   schiedsrichterId: string,
-  payload: FLSchiedsrichterSelbstEinwilligungPayload,
-): Promise<FLSchiedsrichterSelbstEinwilligungResponse> {
-  return apiClient<FLSchiedsrichterSelbstEinwilligungResponse>(
-    `/schiedsrichter/selbst/${schiedsrichterId}/einwilligung`,
-    FLSchiedsrichterSelbstEinwilligungResponseSchema,
-    {
-      method: "PATCH",
-      authType: "admin",
-      body: JSON.stringify(payload),
-    },
-  );
+  payload: FLAccountEinwilligungPayload,
+): Promise<FLSchiedsrichterAccountEinwilligungResponse> {
+  return schiedsrichterPatchEinwilligung(schiedsrichterId, payload);
 }

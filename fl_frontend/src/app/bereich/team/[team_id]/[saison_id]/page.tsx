@@ -1,5 +1,3 @@
-import { connection } from "next/server";
-
 import { TeamStartView } from "@/features/funktionen/components/views/TeamStartView";
 import { getTeamSitze } from "@/features/funktionen/queries";
 import { readAsSeatHolder, requireTeamSeats } from "@/features/funktionen/resolvers";
@@ -8,7 +6,6 @@ import type { NextPageProps } from "@/shared/types/types";
 
 /** A seat holder's landing on their team: their own roles from the session, and the three seats read after the seat check. */
 export default async function TeamStartPage({ params }: NextPageProps<{ team_id: string; saison_id: string }>) {
-  await connection();
   const seats = await requireTeamSeats(params);
   if (seats === null) return null;
 
@@ -19,7 +16,7 @@ export default async function TeamStartPage({ params }: NextPageProps<{ team_id:
   return (
     <TeamStartView
       seats={seats}
-      sitze={read.data.sitze}
+      sitze={read.data.seats}
     />
   );
 }

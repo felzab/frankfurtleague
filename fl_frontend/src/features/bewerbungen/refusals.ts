@@ -13,7 +13,7 @@ import type { BewerbungHerkunft } from "./constants";
 /**
  * A triage refusal as the message it should render, or `null` when the code is none of these.
  *
- * The `REQ-ENTER` codes are the season's own entry rules, which
+ * The `entry_*` codes are the season's own entry rules, which
  * `fl_backend/app/api/bewerbungen/admin_router.py` reuses rather than restates.
  */
 export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | null): { error?: string; fieldErrors?: FieldErrors } | null {
@@ -22,14 +22,14 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
   switch (error.serverErrorCode) {
     // One code for both endpoints: what is refused is deciding an application twice, and which press
     // arrived second is nothing an administrator can act on differently.
-    case "REQ-BEWERBUNG-001":
+    case "bewerbung_already_decided":
       return {
         error: buildRefusal({
           reason: "Über diese Bewerbung ist schon entschieden worden, und eine Entscheidung wird einmal getroffen",
           repair: LADE_DIE_SEITE_NEU,
         }),
       };
-    case "REQ-BEWERBUNG-002":
+    case "bewerbung_subject_unresolved":
       return {
         error: buildRefusal({
           reason:
@@ -39,7 +39,7 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
         }),
       };
     // `teams` reads a club through a stricter model, so a school's details can make no club. Nothing edits them.
-    case "REQ-BEWERBUNG-003":
+    case "bewerbung_schule_unusable":
       return {
         error: buildRefusal({
           // The fields are named as `BewerbungAngabenPanel` labels them, so the administrator reading this finds
@@ -53,17 +53,17 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
     // Reachable from a page that was open while a seat's state moved: the view closes the acceptance
     // while a seat is outstanding, so the reload is what puts the current state in front of the
     // administrator, seat by seat.
-    case "REQ-BEWERBUNG-013":
+    case "bewerbung_kontakte_unconfirmed":
       return {
         error: buildRefusal({
           reason: "Nicht jede Kontaktperson dieser Bewerbung hat ihren Eintrag bestätigt",
           repair: LADE_DIE_SEITE_NEU,
         }),
       };
-    // `REQ-ENTER-001` to `-003` open with the sentence
+    // `entry_saison_not_future`, `entry_gruppe_not_offered` and `entry_gruppe_full` open with the sentence
     // `fl_frontend/src/features/teams/refusals.ts :: mapEntryRefusal` renders too, so only the repair
     // below is this one's own.
-    case "REQ-ENTER-001":
+    case "entry_saison_not_future":
       return {
         error: buildRefusal({
           reason: "Diese Saison ist nicht mehr in Planung, und aufgenommen wird nur in eine geplante Saison",
@@ -72,14 +72,14 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
       };
     // On the picker: the field at fault is the one the admin can move, and a message under the
     // control that is itself the way out carries no repair sentence.
-    case "REQ-ENTER-002":
+    case "entry_gruppe_not_offered":
       return { fieldErrors: { gruppe: "Diese Gruppe gibt es in dieser Saison nicht." } };
-    case "REQ-ENTER-003":
+    case "entry_gruppe_full":
       return { fieldErrors: { gruppe: "Diese Gruppe ist schon voll." } };
     // Two unique indexes answer an acceptance: a new school's club meets `uniq_shorthand` under a
     // Kürzel nothing edits, a picked club already in the season the junction's. The decline enters
     // nothing and passes `null`, leaving the code to the shared reader.
-    case "DB-COMMON-002": {
+    case "duplicate_key": {
       if (herkunft === "neue_schule") {
         return {
           error: buildRefusal({
@@ -95,7 +95,7 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
     }
     // „Stillgelegt“ is what every admin surface calls `inactive_since`, the club editor included.
     // „Verlassen“ is an `austritt`, another record on another page.
-    case "REQ-ENTER-005":
+    case "team_retired":
       return {
         error: buildRefusal({
           reason: "Das Team dieser Bewerbung ist stillgelegt und kann in keine Saison aufgenommen werden",
@@ -121,34 +121,34 @@ export function mapEinwilligungErneutRefusal(error: unknown): string | null {
   switch (error.serverErrorCode) {
     // The code the two decisions answer, given the re-send's own words: a link minted against a
     // decided application would ask somebody to confirm a seat nothing is waiting for.
-    case "REQ-BEWERBUNG-001":
+    case "bewerbung_already_decided":
       return buildRefusal({
         reason: "Über diese Bewerbung ist schon entschieden worden, und ein neuer Link wäre nicht mehr zu beantworten",
         repair: LADE_DIE_SEITE_NEU,
       });
     // Answered, declined, or a seat holding no link to answer: one sentence for all three, because
     // the control is offered from a page whose state has since moved.
-    case "REQ-BEWERBUNG-011":
+    case "bewerbung_seat_already_answered":
       return buildRefusal({
         reason: "Für diese Rolle steht keine Bestätigung mehr aus",
         repair: LADE_DIE_SEITE_NEU,
       });
     // Not the repairs' sentence: this control has no address box to type another address into, so it
     // names the correction beside it, whose label the strip shows.
-    case "REQ-BEWERBUNG-019":
+    case "bewerbung_kontakt_barred":
       return ERNEUT_ADRESSE_GESPERRT;
     default:
       return null;
   }
 }
 
-/** Both administrative repairs answer `REQ-BEWERBUNG-001` with this: a decided application's contact block is what the decision was taken against. */
+/** Both administrative repairs answer `bewerbung_already_decided` with this: a decided application's contact block is what the decision was taken against. */
 const ANGABEN_STEHEN_FEST = buildRefusal({
   reason: "Über diese Bewerbung ist schon entschieden worden, und ihre Angaben stehen damit fest",
   repair: LADE_DIE_SEITE_NEU,
 });
 
-/** `REQ-BEWERBUNG-014` from either repair, worded as the submission words the same collision. */
+/** `bewerbung_kontakt_email_taken` from either repair, worded as the submission words the same collision. */
 const ADRESSE_SCHON_VERGEBEN = "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen.";
 
 /** A correction refusal as the message it should render, or `null` when the code is none of these. */
@@ -156,11 +156,11 @@ export function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldE
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
-    case "REQ-BEWERBUNG-001":
+    case "bewerbung_already_decided":
       return { error: ANGABEN_STEHEN_FEST };
     // The pencil stands on a seat the page drew as outstanding, so the person answered under it: the
     // correction is refused because their own answer named this address, not because a rule shut a box.
-    case "REQ-BEWERBUNG-011":
+    case "bewerbung_seat_already_answered":
       return {
         error: buildRefusal({
           reason: "Für diese Rolle hat die Person inzwischen selbst geantwortet, und danach wird ihre Adresse nicht mehr geändert",
@@ -169,12 +169,12 @@ export function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldE
       };
     // Under the field rather than over the panel: the box holding the refused address is the one
     // thing to change, and the submission words the same collision the same way.
-    case "REQ-BEWERBUNG-014":
+    case "bewerbung_kontakt_email_taken":
       return { fieldErrors: { email: ADRESSE_SCHON_VERGEBEN } };
-    case "REQ-BEWERBUNG-019":
+    case "bewerbung_kontakt_barred":
       return { fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT_FELD } };
     // A Widerspruch and a reseat since the page was read: the address typed was meant for the person replaced.
-    case "REQ-BEWERBUNG-021":
+    case "bewerbung_seat_differently_seated":
       return {
         error: buildRefusal({
           reason: "Für diese Rolle ist inzwischen eine andere Adresse hinterlegt als die, die Du korrigieren wolltest",
@@ -191,24 +191,24 @@ export function mapKontaktSitzRefusal(error: unknown): { error?: string; fieldEr
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
-    case "REQ-BEWERBUNG-001":
+    case "bewerbung_already_decided":
       return { error: ANGABEN_STEHEN_FEST };
     // The control stands on a seat the page drew as a Widerspruch, so the seat has moved under it —
     // never that a rule shut a door: the one open seat is the one its own holder stepped out of.
-    case "REQ-BEWERBUNG-011":
+    case "bewerbung_seat_already_answered":
       return {
         error: buildRefusal({
           reason: "Neu besetzt wird nur eine Rolle, deren Person selbst widersprochen hat, und für diese Rolle gilt das nicht mehr",
           repair: LADE_DIE_SEITE_NEU,
         }),
       };
-    case "REQ-BEWERBUNG-014":
+    case "bewerbung_kontakt_email_taken":
       return { fieldErrors: { email: ADRESSE_SCHON_VERGEBEN } };
-    case "REQ-BEWERBUNG-019":
+    case "bewerbung_kontakt_barred":
       return { fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT_FELD } };
     // The backend's judgement of the label: a page opened before a
     // deploy moved the form's label would seat the person under words other than those the backend runs.
-    case "REQ-EINWILLIGUNG-001":
+    case "wording_not_allowed":
       return { error: BEWERBUNG_VERALTET };
     default:
       return null;

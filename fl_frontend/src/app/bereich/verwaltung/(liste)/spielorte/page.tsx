@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { ListPage } from "@/kit/ListPage";
 
@@ -13,13 +12,13 @@ import { spielortAnlegen } from "../../spielortAnlegen";
 import { SpielortFelder } from "../../SpielortFelder";
 import { SPIELORT_REGELN } from "../../spielortRegeln";
 
-import type { FLSpielort } from "@/features/spielorte/schemas";
+import type { FLSpielort } from "@/core/generated/client/types";
 import type { TableRow } from "@/kit/Table";
 import type { Metadata } from "next";
 
 const WORTE = COPY.verwaltung.spielort;
 
-export const metadata: Metadata = pageMetadata(ROUTES.verwaltungSpielorte, ROUTES.verwaltungSpielorte.pfad());
+export const metadata: Metadata = pageMetadata(ROUTES.verwaltungSpielorte, ROUTES.verwaltungSpielorte.path());
 
 /** One venue's row: its name, „Stillgelegt“ and muted once retired, its street and its price. */
 const zeile = (ort: FLSpielort): TableRow => ({
@@ -44,31 +43,30 @@ export default function SpielortePage() {
 }
 
 async function Spielorte() {
-  await connection();
   // Retired included: the list will be the one way into a retired venue's page.
   const { spielorte } = await getSpielorte({ include_inactive: true });
 
   return (
     <ListPage
-      head={{ area: "bereich", title: { route: "verwaltungSpielorte" } }}
+      head={{ scope: "area", title: { route: "verwaltungSpielorte" } }}
       search={{ label: WORTE.suchen }}
       create={{
         title: COPY.shared.mitObjekt(WORTE.objekt, "anlegen"),
-        act: { verb: "anlegen", objekt: WORTE.objekt },
+        act: { verb: "anlegen", object: WORTE.objekt },
         action: spielortAnlegen,
         children: <SpielortFelder regeln={SPIELORT_REGELN} />,
       }}
       list={{
         kind: "table",
         table: {
-          label: ROUTES.verwaltungSpielorte.titel,
+          label: ROUTES.verwaltungSpielorte.title,
           nameLabel: WORTE.name,
           columns: [
             { key: "adresse", label: WORTE.adresse, hideOnPhone: true },
             { key: "mietpreis", label: WORTE.mietpreis, figures: true },
           ],
           rows: spielorte.map(zeile),
-          empty: { kind: "noch", plural: ROUTES.verwaltungSpielorte.titel, glyph: "spielorte" },
+          empty: { kind: "noch", plural: ROUTES.verwaltungSpielorte.title, glyph: "spielorte" },
         },
       }}
     />

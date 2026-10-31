@@ -18,20 +18,23 @@ from app.api.spieler.schemas import (
     FLSaisonSpielerRow,
     FLSpieler,
     FLSpielerMembership,
+    FLSpielerRecord,
     FLSpielerWithMemberships,
 )
+from app.api.spieler.services import build_ghost_spieler
 from app.api.spielorte.schemas import FLPostSpielortPayload, FLSpielort
 from app.api.spieltage.schemas import FLPatchSpieltagPayload, FLSpieltag
 from app.api.teams.schemas import (
     MAX_NUMBER_OF_GROUPS,
-    FLGruppenNames,
     FLKontaktpersonPayload,
     FLPatchSaisonTeamPayload,
     FLPostSaisonTeamPayload,
     FLPostTeamPayload,
 )
 from app.shared.schemas.bounds import KONTAKT_NAME_MAX_LENGTH, SAISON_ID_LENGTH
+from app.shared.schemas.literals import FLGruppenNames
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import spieler_document
 from tests.worker import worker_database
 
 EINWILLIGUNG_DATABASE_NAME = worker_database("fl_einwilligung_validator_test")
@@ -69,7 +72,7 @@ class TestTheGroupNames:
     def test_the_closed_set_is_the_naming_rule_s_own_prefix(self):
         """The one pin on a set a type checker forces us to spell: a fifth name that is not `E` fails here rather than in a season."""
 
-        assert get_args(FLGruppenNames) == gruppen_names(MAX_NUMBER_OF_GROUPS)
+        assert get_args(FLGruppenNames.__value__) == gruppen_names(MAX_NUMBER_OF_GROUPS)
 
     @pytest.mark.parametrize(
         ("count", "expected"),
@@ -228,6 +231,22 @@ class TestSpieler:
         with pytest.raises(ValidationError):
             FLSpieler.model_validate(missing)
 
+    @pytest.mark.parametrize("field", ["vorname", "geburtsdatum", "einwilligung"])
+    def test_the_record_refuses_a_person_stored_as_nobody(self, field):
+        """No write stores such a person, so the read-back is the one place a hand edit blanking one shows."""
+
+        with pytest.raises(ValidationError):
+            FLSpielerRecord.model_validate(spieler_document(ObjectId(), **{"vorname": "Max", "nachname": "Mustermann", field: None}))
+
+    def test_the_record_reads_the_sentinel_back(self):
+        assert FLSpielerRecord.model_validate(build_ghost_spieler(), extra="forbid").vorname is None
+
+    def test_the_record_refuses_the_sentinel_holding_an_address(self):
+        """No lookup by address excludes the sentinel, so the read-back is where one given an address shows."""
+
+        with pytest.raises(ValidationError):
+            FLSpielerRecord.model_validate({**build_ghost_spieler(), "email": "geist@schule.example"})
+
     @pytest.mark.parametrize("absent", [True, False], ids=["absent", "null"])
     def test_the_person_patch_requires_a_birthdate(self, absent: bool):
         """No default and no null, so neither a form that forgot the field nor a cleared picker clears a stored date."""
@@ -260,9 +279,9 @@ class TestEinwilligung:
 
         assert einwilligung is not None and einwilligung.umfang == "kader_oeffentlich"
 
-    @pytest.mark.parametrize("field", ["umfang", "datum", "bestaetigt_am", "text_version", "medien", "nachweis"])
+    @pytest.mark.parametrize("field", ["umfang", "datum", "confirmed_at", "text_version", "medien", "nachweis"])
     def test_requires_every_key(self, einwilligung, field, assert_rejects):
-        """The keys in the validator's `required` tuple, so a model accepting one fewer would read back a row the database refuses to store."""
+        """Each key a stored record carries, so a model accepting one fewer would let the read-back pass a row missing it."""
 
         incomplete = einwilligung()
         del incomplete[field]
@@ -299,8 +318,8 @@ class TestEinwilligung:
 
 
 @pytest.mark.db
-class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
-    """The record the registration flow writes, judged by `$jsonSchema` rather than by the model declared in another file."""
+class TestTheConsentRecordStoredAndReadBack:
+    """The record the registration flow writes, stored and read back through the person's read model."""
 
     def _written(self, url: str, einwilligung: dict[str, Any]) -> dict[str, Any]:
         async def body() -> Any:
@@ -325,7 +344,7 @@ class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
 
         stored = self._written(mongo_url, einwilligung(text_version="liga-2026-03", medien=True))
         parsed = FLSpielerWithMemberships.model_validate(
-            {**stored, "adresswechsel_id": None, "adresswechsel_einsehbar_verwehrt": None, "memberships": []}
+            {**stored, "address_change_id": None, "address_change_viewable_denied": None, "memberships": []}
         )
 
         assert parsed.einwilligung is not None
@@ -335,8 +354,8 @@ class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
 class TestSaisonSpielerRow:
     """`saison_spieler`'s declared shape. It validates no stored document — see the class docstring for why it may not."""
 
-    def test_declares_exactly_the_ten_stored_keys(self):
-        """Compared as a set against the validator's `properties`: a model naming an eleventh key would store one nothing reads."""
+    def test_declares_exactly_the_stored_keys(self):
+        """Compared as a set against what the writes store: a model naming another key would declare one nothing writes."""
 
         # Named as STORED, so `id` reads `_id`; an alias that is not a plain string names no single key.
         stored = {
@@ -349,12 +368,13 @@ class TestSaisonSpielerRow:
             "spieler_id",
             "saison_id",
             "team_id",
-            "ist_nachnominiert",
+            "is_nachnominiert",
             "rolle",
             "stufe",
             "position",
             "nummer",
             "inactive_since",
+            "version",
         }
 
     def test_a_number_is_a_string_and_not_an_int(self, saison_spieler):
@@ -366,7 +386,7 @@ class TestSaisonSpielerRow:
             FLSaisonSpielerRow.model_validate(saison_spieler(nummer=7))
 
     def test_it_shares_the_closed_sets_with_the_read_models(self):
-        """A Literal of its own would compare equal to the validator's enum today and drift the moment either moves."""
+        """A Literal of its own would compare equal to `FLSpieler`'s today and drift the moment either moves."""
 
         assert FLSaisonSpielerRow.model_fields["stufe"].annotation == FLSpieler.model_fields["stufe"].annotation
         assert FLSaisonSpielerRow.model_fields["position"].annotation == FLSpieler.model_fields["position"].annotation
@@ -384,7 +404,7 @@ class TestASquadNumberOnTheWritePath:
     def body(self, stored: dict[str, Any], payload_model: type[BaseModel]) -> dict[str, Any]:
         """The stored row projected onto the payload, which carries neither `_id` nor the ids the path names."""
 
-        return {field: stored[field] for field in payload_model.model_fields}
+        return {field: stored[field] for field in payload_model.model_fields if field in stored}
 
     @pytest.mark.parametrize("payload_model", PAYLOADS)
     @pytest.mark.parametrize("nummer", ["7", "07", "1234"])
@@ -427,7 +447,7 @@ class TestASquadNumberOnTheWritePath:
 
 class TestSpieltag:
     def test_accepts_a_valid_spieltag(self, spieltag):
-        assert FLSpieltag.model_validate(spieltag()).anzahl_spiele == 4
+        assert FLSpieltag.model_validate(spieltag()).count_spiele == 4
 
     def test_carries_no_name(self):
         """A stored name restates a composed fact with nothing holding the two consistent."""
@@ -437,10 +457,10 @@ class TestSpieltag:
     def test_rejects_a_negative_match_count(self, spieltag):
         """`ge=0` rather than `gt=0`: the count is derived from the season's rules, and zero is a real answer."""
         with pytest.raises(ValidationError):
-            FLSpieltag.model_validate(spieltag(anzahl_spiele=-1))
+            FLSpieltag.model_validate(spieltag(count_spiele=-1))
 
     def test_accepts_a_match_count_of_zero(self, spieltag):
-        assert FLSpieltag.model_validate(spieltag(anzahl_spiele=0)).anzahl_spiele == 0
+        assert FLSpieltag.model_validate(spieltag(count_spiele=0)).count_spiele == 0
 
     def test_carries_its_stored_position(self, spieltag):
         assert FLSpieltag.model_validate(spieltag(position=3)).position == 3
@@ -459,10 +479,7 @@ class TestSpieltag:
 
 
 class TestTheMatchdaysSpan:
-    """`refuse_reversed_span` under the matchday payload.
-
-    Asserted whole because `fl_frontend/src/features/spieltage/schemas.ts` mirrors the sentence word for word.
-    """
+    """`refuse_reversed_span` under the matchday payload, which names the span by its kind."""
 
     def test_accepts_a_matchday_on_a_single_day(self):
         """The editor saves a day picked once as `ende` equal to `beginn`, so refusing an equal span refuses what the form offers."""
@@ -474,7 +491,7 @@ class TestTheMatchdaysSpan:
         with pytest.raises(ValidationError) as failure:
             FLPatchSpieltagPayload.model_validate({"beginn": "2026-09-05", "ende": "2026-09-04"})
 
-        assert "Das Ende darf nicht vor dem Beginn liegen." in str(failure.value)
+        assert [error["type"] for error in failure.value.errors()] == ["spieltag_ends_before_start"]
 
 
 class TestSaison:
@@ -497,32 +514,32 @@ class TestSaison:
 
         assert FLSaison.model_validate(saison(rules=rules)).rules.draw_points == 0
 
-    # `erlaubte_stufen` is a subset of the league's vocabulary, never a redefinition and never empty.
+    # `allowed_stufen` is a subset of the league's vocabulary, never a redefinition and never empty.
     def test_rejects_a_stufe_the_league_does_not_have(self, saison):
         """Not `assert_rejects`: it reads the last element of the error location, and a rejected list item ends with the index."""
-        rules = {**saison()["rules"], "erlaubte_stufen": ["Q1", "10"]}
+        rules = {**saison()["rules"], "allowed_stufen": ["Q1", "10"]}
 
         with pytest.raises(ValidationError) as failure:
             FLSaison.model_validate(saison(rules=rules))
 
-        assert any("erlaubte_stufen" in error["loc"] for error in failure.value.errors())
+        assert any("allowed_stufen" in error["loc"] for error in failure.value.errors())
 
     def test_rejects_an_empty_stufen_list(self, saison, assert_rejects):
         """A season offering no level at all would make every squad entry unfillable."""
-        rules = {**saison()["rules"], "erlaubte_stufen": []}
+        rules = {**saison()["rules"], "allowed_stufen": []}
 
-        assert_rejects(FLSaison, saison(rules=rules), "erlaubte_stufen")
+        assert_rejects(FLSaison, saison(rules=rules), "allowed_stufen")
 
     def test_rejects_a_season_missing_the_stufen_list(self, saison, assert_rejects):
-        """Required with no default, for the reason `qualifiers_per_group` is: no constant in a model."""
-        rules = {key: value for key, value in saison()["rules"].items() if key != "erlaubte_stufen"}
+        """Required with no default, for the reason `qualifiers_per_gruppe` is: no constant in a model."""
+        rules = {key: value for key, value in saison()["rules"].items() if key != "allowed_stufen"}
 
-        assert_rejects(FLSaison, saison(rules=rules), "erlaubte_stufen")
+        assert_rejects(FLSaison, saison(rules=rules), "allowed_stufen")
 
     def test_rejects_a_season_advancing_nobody(self, saison):
         """A group nobody comes out of is not a group phase, so the count is `gt=0`."""
         with pytest.raises(ValidationError):
-            FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": 1, "qualifiers_per_group": 0}))
+            FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": 1, "qualifiers_per_gruppe": 0}))
 
     # No Pydantic default: a season missing the key would read as though it had one, and the bracket's
     # size would be a constant in a model.
@@ -531,9 +548,9 @@ class TestSaison:
             FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": 1}))
 
     # Required for the qualifier count's reason: an absent key must fail, not read as a bound nobody chose.
-    @pytest.mark.parametrize("field", ["number_of_groups", "teams_per_group"])
+    @pytest.mark.parametrize("field", ["number_of_gruppen", "teams_per_gruppe"])
     def test_rejects_rules_with_no_capacity(self, saison, field):
-        rules = {"win_points": 3, "draw_points": 1, "qualifiers_per_group": 2, "number_of_groups": 4, "teams_per_group": 4}
+        rules = {"win_points": 3, "draw_points": 1, "qualifiers_per_gruppe": 2, "number_of_gruppen": 4, "teams_per_gruppe": 4}
         del rules[field]
 
         with pytest.raises(ValidationError):
@@ -542,15 +559,15 @@ class TestSaison:
     def test_the_group_cap_is_the_size_of_the_closed_set(self, saison):
         """`NumberOfGroups` reads the set's size, and this is what refuses a hand-written number back in its place.
 
-        `offered_gruppen` slices `get_args(FLGruppenNames)`, so a cap over that size is a season the
+        `offered_gruppen` slices `get_args(FLGruppenNames.__value__)`, so a cap over that size is a season the
         entry path serves short of the groups it promised.
         """
         cap = MAX_NUMBER_OF_GROUPS
 
-        assert FLSaison.model_validate(saison(rules={**saison()["rules"], "number_of_groups": cap})).rules.number_of_groups == cap
+        assert FLSaison.model_validate(saison(rules={**saison()["rules"], "number_of_gruppen": cap})).rules.number_of_gruppen == cap
 
         with pytest.raises(ValidationError):
-            FLSaison.model_validate(saison(rules={**saison()["rules"], "number_of_groups": cap + 1}))
+            FLSaison.model_validate(saison(rules={**saison()["rules"], "number_of_gruppen": cap + 1}))
 
     @pytest.mark.parametrize("field", ["start_date", "end_date"])
     def test_rejects_a_date_that_does_not_exist(self, saison, field):
@@ -560,11 +577,7 @@ class TestSaison:
 
 
 class TestTheSeasonsSpans:
-    """`refuse_reversed_span` under every caller, with the labels each passes it.
-
-    Asserted whole because `fl_frontend/src/features/saisons/schemas.ts` mirrors each sentence word
-    for word.
-    """
+    """`refuse_reversed_span` under every caller, each naming its span by a kind of its own."""
 
     @staticmethod
     def payload(saison, **overrides: Any) -> dict[str, Any]:
@@ -598,20 +611,20 @@ class TestTheSeasonsSpans:
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=reversed_window))
 
-        assert "Das Ende darf nicht vor dem Beginn der Bewerbungsfrist liegen." in str(failure.value)
+        assert [error["type"] for error in failure.value.errors()] == ["bewerbung_window_ends_before_start"]
 
     def test_judges_the_window_apart_from_the_season_it_belongs_to(self, saison):
         """A window may legitimately open and close before the season's first day."""
-        before_the_season = {"offen": False, "von": "2025-01-01", "bis": "2025-02-01"}
+        before_the_saison = {"offen": False, "von": "2025-01-01", "bis": "2025-02-01"}
 
-        assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=before_the_season)).bewerbung is not None
+        assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=before_the_saison)).bewerbung is not None
 
     def test_refuses_a_season_ending_before_it_starts_in_the_other_sides_words(self, saison):
-        """The same helper's other caller: one label pair moved without the other is what this catches."""
+        """The same helper's other caller: one kind moved without the other is what this catches."""
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonPayload.model_validate(self.payload(saison, start_date="2026-06-30", end_date="2026-01-01"))
 
-        assert "Das Enddatum darf nicht vor dem Startdatum liegen." in str(failure.value)
+        assert [error["type"] for error in failure.value.errors()] == ["saison_ends_before_start"]
 
     def test_accepts_a_registration_window_that_runs_forwards(self, saison):
         """The floor for the registration half: without it the refusal below could pass for a reason nobody is testing."""
@@ -625,13 +638,13 @@ class TestTheSeasonsSpans:
         assert FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=None)).registrierung is None
 
     def test_refuses_a_registration_window_ending_before_it_opens(self, saison):
-        """The third caller's own label pair: the two windows raise different sentences, and one moved alone is what this catches."""
+        """The third caller's own kind: the two windows raise different kinds, and one moved alone is what this catches."""
         reversed_window = {"offen": False, "von": "2025-12-15", "bis": "2025-11-01"}
 
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=reversed_window))
 
-        assert "Das Ende darf nicht vor dem Beginn der Registrierungsfrist liegen." in str(failure.value)
+        assert [error["type"] for error in failure.value.errors()] == ["registrierung_window_ends_before_start"]
 
     def test_judges_the_registration_window_apart_from_the_application_window(self, saison):
         """Two decisions rather than one span: registration may legitimately close before applications do."""
@@ -707,6 +720,19 @@ STRIPPED_WRITE_FIELDS = [
     "saison_team.austritt.grund",
 ]
 
+# The fixed-width ids, whose ceiling is counted on arrival, and every `CustomKontaktName`, whose pattern
+# is: a padded value is refused rather than stored stripped.
+PADDING_REFUSED_FIELDS = [
+    "saison.id",
+    "saison_team.saison_id",
+    "saison_spieler.saison_id",
+    "kontaktperson.nachname",
+    "kontaktperson.vorname",
+    "schiedsrichter.name",
+    "spieler_patch.nachname",
+    "spieler_patch.vorname",
+]
+
 # A run of spaces at every width up to the widest floor the table carries. An exact-width field is
 # refused at any OTHER width by its ceiling, so one probe would pass it for a reason of its own.
 WHITESPACE_RUNS = [" " * width for width in range(1, SAISON_ID_LENGTH + 1)]
@@ -748,7 +774,7 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
         spielort = {"address": address(), "name": "Sportplatz Ost", "default_mietpreis": 80}
         schiedsrichter = {"kontakt": kontakt(), "name": "Anna Referee", "schule": None, "default_payment": 20}
         spieler = {"vorname": "Max", "nachname": "Mustermann", "geburtsdatum": "2009-05-04"}
-        club = {key: value for key, value in team().items() if key in FLPostTeamPayload.model_fields}
+        team_payload = {key: value for key, value in team().items() if key in FLPostTeamPayload.model_fields}
         # A WRITE-side person, and not `tests/api/test_teams.py :: STORED_KONTAKTPERSON`, which holds
         # values the payload refuses on purpose.
         kontaktperson = {
@@ -777,10 +803,10 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "schiedsrichter.name": (FLPostSchiedsrichterPayload, schiedsrichter, ("name",)),
             "spieler_patch.nachname": (FLPatchSpielerPayload, spieler, ("nachname",)),
             "spieler_patch.vorname": (FLPatchSpielerPayload, spieler, ("vorname",)),
-            "team.full_name": (FLPostTeamPayload, club, ("full_name",)),
-            "team.name": (FLPostTeamPayload, club, ("name",)),
+            "team.full_name": (FLPostTeamPayload, team_payload, ("full_name",)),
+            "team.name": (FLPostTeamPayload, team_payload, ("name",)),
             # The width is a floor as well as a ceiling, so a padded value has to reach it stripped.
-            "team.shorthand": (FLPostTeamPayload, club, ("shorthand",)),
+            "team.shorthand": (FLPostTeamPayload, team_payload, ("shorthand",)),
             # Three independent declarations of the season id, so a strip dropped from one is
             # invisible to the other two's clauses.
             "saison.id": (FLPostSaisonPayload, new_saison, ("id",)),
@@ -805,12 +831,20 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
 
         assert _stored(model.model_validate(body), path) == _sent(body, path)
 
-    @pytest.mark.parametrize("label", STRIPPED_WRITE_FIELDS)
+    @pytest.mark.parametrize("label", [label for label in STRIPPED_WRITE_FIELDS if label not in PADDING_REFUSED_FIELDS])
     def test_a_padded_value_is_stored_stripped(self, cases, label):
         model, body, path = cases[label]
         original = _sent(body, path)
 
         assert _stored(model.model_validate(_with(body, path, f"  {original}  ")), path) == original
+
+    @pytest.mark.parametrize("label", PADDING_REFUSED_FIELDS)
+    def test_a_padded_value_is_refused(self, cases, label, assert_rejects):
+        """The published schema is what the backend accepts, so a value its ceiling or pattern refuses padded is never repaired."""
+
+        model, body, path = cases[label]
+
+        assert_rejects(model, _with(body, path, f" {_sent(body, path)} "), path[-1])
 
     @pytest.mark.parametrize("blank", WHITESPACE_RUNS, ids=[str(len(run)) for run in WHITESPACE_RUNS])
     @pytest.mark.parametrize("label", STRIPPED_WRITE_FIELDS)

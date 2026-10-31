@@ -92,14 +92,14 @@ def kontakt() -> PayloadFactory:
 def statistik() -> PayloadFactory:
     return _factory(
         {
-            "anzahl_gespielte_spiele": 3,
+            "count_gespielte_spiele": 3,
             "siege": 2,
             "niederlagen": 1,
             "unentschieden": 0,
             "tore_geschossen": 7,
             "tore_kassiert": 4,
             "punkte": 6,
-            "anzahl_abgesagte_spiele": 1,
+            "count_abgesagte_spiele": 1,
         }
     )
 
@@ -113,7 +113,7 @@ def team(address: PayloadFactory, statistik: PayloadFactory) -> PayloadFactory:
             "gruppe": "A",
             "statistik": statistik(),
             "austritt": None,
-            "shorthand": "CS",
+            "shorthand": "CSX",
             "description": "",
             "schulform": "gymnasium_g9",
             "full_name": "Carl-Schurz-Schule",
@@ -126,7 +126,7 @@ def team(address: PayloadFactory, statistik: PayloadFactory) -> PayloadFactory:
 
 @pytest.fixture
 def spiel_team_field() -> PayloadFactory:
-    return _factory({"team_id": TEAM_ID, "name": "Carl-Schurz", "tore": 2, "shorthand": "CS"})
+    return _factory({"team_id": TEAM_ID, "name": "Carl-Schurz", "tore": 2, "shorthand": "CSX"})
 
 
 @pytest.fixture
@@ -149,7 +149,7 @@ def spiel(
         {
             "_id": SPIEL_ID,
             "team1": spiel_team_field(),
-            "team2": spiel_team_field(team_id=SPIELER_ID, name="Lessing", shorthand="LE", tore=1),
+            "team2": spiel_team_field(team_id=SPIELER_ID, name="Lessing", shorthand="LEX", tore=1),
             # A group-phase fixture: both sides are drawn by the schedule, so neither has a source.
             "team1_quelle": None,
             "team2_quelle": None,
@@ -211,7 +211,7 @@ def saison_spieler() -> PayloadFactory:
             "spieler_id": SPIELER_ID,
             "saison_id": "2026",
             "team_id": TEAM_ID,
-            "ist_nachnominiert": False,
+            "is_nachnominiert": False,
             "rolle": None,
             "stufe": "Q2",
             "position": "Angriff",
@@ -232,7 +232,7 @@ def spieler() -> PayloadFactory:
             "nummer": "10",
             # `Angriff`, not `Sturm`: the enum closed on this spelling.
             "position": "Angriff",
-            "ist_nachnominiert": False,
+            "is_nachnominiert": False,
             "rolle": None,
             "team_id": TEAM_ID,
             "inactive_since": None,
@@ -250,7 +250,7 @@ def spieltag() -> PayloadFactory:
             # No `name`: a matchday's label is composed by the reader, from `position` and the phase.
             "beginn": "2026-03-15",
             "ende": "2026-03-15",
-            "anzahl_spiele": 4,
+            "count_spiele": 4,
             "position": 1,
             "saison_phase": "gruppenphase",
             "saison_id": "2026",
@@ -268,15 +268,15 @@ def saison() -> PayloadFactory:
             "status": "active",
             # The points the model suites read back, and the shape the schedule below follows from, passed
             # rather than left to the builder's default.
-            "rules": rules_document(win_points=3, number_of_groups=4, teams_per_group=4, qualifiers_per_group=2),
+            "rules": rules_document(win_points=3, number_of_gruppen=4, teams_per_gruppe=4, qualifiers_per_gruppe=2),
             "bewerbung": None,
             "registrierung": None,
             # Derived and on no document; spelled out rather than computed, so a `schedule_for` change shows here.
             "schedule": [
-                {"phase": "gruppenphase", "matchdays": 3, "matches_per_matchday": 8},
-                {"phase": "viertelfinale", "matchdays": 1, "matches_per_matchday": 4},
-                {"phase": "halbfinale", "matchdays": 1, "matches_per_matchday": 2},
-                {"phase": "finale", "matchdays": 1, "matches_per_matchday": 1},
+                {"phase": "gruppenphase", "spieltage": 3, "matches_per_spieltag": 8},
+                {"phase": "viertelfinale", "spieltage": 1, "matches_per_spieltag": 4},
+                {"phase": "halbfinale", "spieltage": 1, "matches_per_spieltag": 2},
+                {"phase": "finale", "spieltage": 1, "matches_per_spieltag": 1},
             ],
         }
     )
@@ -743,7 +743,7 @@ def mongo_replica_set_url(request: pytest.FixtureRequest) -> Iterator[str]:
 def mongo_database(mongo_url: str) -> Iterator[Database]:
     """UNCONSTRAINED, unlike `tests/database.py :: a_clean_database`, and its consumers are why.
 
-    `tests/api/test_spieler_memberships_read.py :: squads` and `tests/api/conftest.py :: league` both
+    `tests/api/test_spieler_saisons_read.py :: squads` and `tests/api/conftest.py :: league` both
     drop their collections, taking any validator with them.
     """
 

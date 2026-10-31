@@ -1,16 +1,16 @@
-import { joinUnd } from "@/core/joinUnd";
+import { formatAufzaehlung } from "@/core/format";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
 
-import type { FLTeamSitz } from "../../schemas";
+import type { FLTeamSeat } from "@/core/generated/client/types";
 import type { TeamSeat } from "../../teamSeats";
 
 /** One seat's line: who holds it and whether they confirmed, or that nobody does. */
-function sitzZeile(sitz: FLTeamSitz, langform: string): string {
+function sitzZeile(sitz: FLTeamSeat, langform: string): string {
   // Named rather than left out: a missing line would tell the reader the team has two seats.
   if (sitz.name === null) return `${langform}: nicht besetzt`;
 
-  return `${sitz.name} · ${langform} · ${sitz.bestaetigt ? "bestätigt" : "noch nicht bestätigt"}`;
+  return `${sitz.name} · ${langform} · ${sitz.confirmed ? "bestätigt" : "noch nicht bestätigt"}`;
 }
 
 /**
@@ -22,11 +22,11 @@ export function TeamStartView({
   sitze,
 }: {
   seats: readonly [TeamSeat, ...TeamSeat[]];
-  sitze: readonly FLTeamSitz[];
+  sitze: readonly FLTeamSeat[];
 }) {
   const gehalten = new Set([erster, ...weitere].map((seat) => seat.rolle));
   // A sentence takes each role's long form, in `KONTAKT_ROLLEN`'s order rather than the lookup's.
-  const rollen = joinUnd(KONTAKT_ROLLEN.filter((rolle) => gehalten.has(rolle.value)).map((rolle) => rolle.langform));
+  const rollen = formatAufzaehlung(KONTAKT_ROLLEN.filter((rolle) => gehalten.has(rolle.value)).map((rolle) => rolle.langform));
   // In the order the sentence above names roles, whatever order the read answers in.
   const zeilen = KONTAKT_ROLLEN.flatMap((rolle) =>
     sitze.filter((sitz) => sitz.rolle === rolle.value).map((sitz) => ({ rolle: sitz.rolle, text: sitzZeile(sitz, rolle.langform) })),

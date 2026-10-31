@@ -25,8 +25,8 @@ import { ExternalUrlSchema } from "@/shared/schemas";
 import { formatAddressFull, formatSpielDatum } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
+import type { FLBewerbung } from "@/core/generated/client/types";
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
-import type { FLBewerbung } from "@/features/bewerbungen/schemas";
 import type { MedienFragen } from "@/features/spieler/nachweis";
 import type { ReactNode } from "react";
 
@@ -91,7 +91,7 @@ export function BewerbungAngabenPanel({
   /** Whether each seat's confirmation page asked the media choice, read by the page off the registry. */
   medienFragen: MedienFragen;
 }) {
-  const { schule, kontakte, trikot, kader, wunschgegner, entscheidung } = bewerbung;
+  const { schule, kontakte, trikot, kader, wunschgegner, decision: entscheidung } = bewerbung;
   const herkunft = bewerbungHerkunft(bewerbung);
 
   return (
@@ -117,7 +117,7 @@ export function BewerbungAngabenPanel({
             )}
           </Angabe>
           <Angabe label="Saison">{bewerbung.saison_id}</Angabe>
-          <Angabe label="Eingereicht am">{formatSpielDatum(bewerbung.eingereicht_am)}</Angabe>
+          <Angabe label="Eingereicht am">{formatSpielDatum(bewerbung.submitted_at)}</Angabe>
           <Angabe label="Größe der Stufe">{String(bewerbung.stufengroesse)}</Angabe>
 
           {herkunft === null ? (
@@ -158,7 +158,7 @@ export function BewerbungAngabenPanel({
                   <span className={labelBadge("info")}>{label}</span>
                   {/* Stored rather than derived by comparing the two blocks: what the school
                       asserted is not the same claim as what happens to match. */}
-                  {kontakte.trainer_ist_zugleich === value && <span className={labelBadge("info")}>Zugleich Trainer</span>}
+                  {kontakte.trainer_is_also === value && <span className={labelBadge("info")}>Zugleich Trainer</span>}
                 </div>
 
                 {person === null ? (
@@ -170,7 +170,7 @@ export function BewerbungAngabenPanel({
                         it is until then, a field held empty after. */}
                     <Angabe label="Geburtsdatum">
                       {person.geburtsdatum === null ? (
-                        <Leer>{kontaktGeburtsdatumLeer(person.einwilligung.bestaetigt_am)}</Leer>
+                        <Leer>{kontaktGeburtsdatumLeer(person.einwilligung.confirmed_at)}</Leer>
                       ) : (
                         formatSpielDatum(person.geburtsdatum)
                       )}
@@ -207,17 +207,17 @@ export function BewerbungAngabenPanel({
                     <Angabe label="Bestätigung">
                       {/* A step not taken stands where the confirmation's day would, so it takes the empty
                           grade; a confirmation or a Widerspruch is the fact itself. */}
-                      {stand.stand.art === "bestaetigt" || stand.stand.art === "abgelehnt" ? stand.satz : <Leer>{stand.satz}</Leer>}
+                      {stand.stand.art === "confirmed" || stand.stand.art === "declined" ? stand.satz : <Leer>{stand.satz}</Leer>}
                       {/* Over a confirmation that has been given and no other: the version an
                           outstanding seat stores is the wording the SUBMITTER acknowledged, which
                           naming here would file against the person who has not answered yet. */}
-                      {stand.stand.art === "bestaetigt" &&
+                      {stand.stand.art === "confirmed" &&
                         person.einwilligung.text_version !== "" &&
                         ` (Fassung ${person.einwilligung.text_version})`}
                     </Angabe>
                     {/* While pending alone: the person withdraws either choice on the account page then, and a
                         decided application's copy is frozen, the seats' choices living on the team's row. */}
-                    {bewerbung.status === "eingereicht" && (
+                    {bewerbung.status === "submitted" && (
                       <>
                         <Angabe label={KONTAKT_WHATSAPP_FRAGE}>
                           {KONTAKT_WHATSAPP_LABELS[person.einwilligung.umfang]}
@@ -259,7 +259,7 @@ export function BewerbungAngabenPanel({
           />
         }>
         <dl className={ANGABEN_GRID_CLASSES}>
-          <Angabe label="Vorhandene Trikotsätze">{trikot.vorhandener_satz === "" ? <Leer /> : trikot.vorhandener_satz}</Angabe>
+          <Angabe label="Vorhandene Trikotsätze">{trikot.existing_satz === "" ? <Leer /> : trikot.existing_satz}</Angabe>
           <Angabe label="Wunschfarbe">
             <span className="flex flex-row items-center gap-x-2">
               {/* A ring rather than a filled disc, so Weiß reads as a colour instead of as a gap.
@@ -272,9 +272,9 @@ export function BewerbungAngabenPanel({
               {trikotFarbeLabel(trikot.wunschfarbe)}
             </span>
           </Angabe>
-          <Angabe label="Voraussichtliche Kadergröße">{String(kader.voraussichtliche_groesse)}</Angabe>
+          <Angabe label="Voraussichtliche Kadergröße">{String(kader.expected_size)}</Angabe>
           <Angabe label="Davon im Verein aktiv (mind. Verbandsliga)">
-            {kader.gute_spieler === null ? <Leer /> : String(kader.gute_spieler)}
+            {kader.good_spieler === null ? <Leer /> : String(kader.good_spieler)}
           </Angabe>
           {/* The school's own words, rendered as TEXT and resolved against no club: it may name a
               school the league does not hold, and an applicant-controlled value is never markup. An
@@ -286,14 +286,14 @@ export function BewerbungAngabenPanel({
       {entscheidung !== null && (
         <Panel title="Entscheidung">
           <dl className={ANGABEN_GRID_CLASSES}>
-            <Angabe label="Getroffen am">{formatSpielDatum(entscheidung.getroffen_am)}</Angabe>
+            <Angabe label="Getroffen am">{formatSpielDatum(entscheidung.made_at)}</Angabe>
             <Angabe label="Von">
               {entscheidung.von === "" ? (
                 "System"
               ) : (
                 <VonOderGesperrt
                   von={entscheidung.von}
-                  gesperrt={entscheidung.von_gesperrt}
+                  gesperrt={entscheidung.by_barred}
                 />
               )}
             </Angabe>

@@ -1,13 +1,12 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { getLaufendesLabel } from "@/core/einwilligung";
 import { AdminKontakteEditView } from "@/features/kontakte/components/views/AdminKontakteEditView";
 import { kontakteEditorKey, resolveTeamSaisonMembership } from "@/features/kontakte/utils";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { getMedienFragen } from "@/features/spieler/medienFragen";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
@@ -38,11 +37,10 @@ async function AdminKontakteEditContent({
   params: NextPageProps<{ team_id: string }>["params"];
   searchParams: NextPageProps["searchParams"];
 }) {
-  await connection();
   const teamId = await resolveTeamId(params);
 
   const [membershipsRes, selectedSaison, laufendesLabel] = await Promise.all([
-    getTeamMemberships(),
+    getTeamSaisons(),
     resolveAdminSaison(searchParams),
     // Per request, as every stamper reads the running label: a deploy moves it. `null` where the read
     // failed, which closes opening a seat blank and leaves every stored one editable.

@@ -1,19 +1,18 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { RailColumn, RailFrame } from "@/kit/RailFrame";
 
 import { judgeAdminRequest } from "@/core/auth";
 import { COPY } from "@/core/copy";
-import { formatZeitraum } from "@/core/format";
+import { formatPeriod } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 // Session 5: the old admin layout's guard, which moves with that layout.
 import { AdminSessionHold } from "@/features/admin/components/providers/AdminSessionHold";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { selectSaison } from "@/features/saisons/resolvers";
 
-import type { Kalendertag } from "@/core/format";
-import type { Account, RailGroup, Seasons } from "@/kit/FrameNav";
+import type { CalendarDay } from "@/core/format";
+import type { Account, RailGroup, Saisons } from "@/kit/FrameNav";
 import type { ReactNode } from "react";
 
 /**
@@ -22,18 +21,18 @@ import type { ReactNode } from "react";
  */
 export const RAIL_GROUPS: RailGroup[] = [
   {
-    entries: [{ id: "uebersicht", label: ROUTES.verwaltungUebersicht.titel, season: "verwaltungUebersicht", icon: "uebersicht" }],
+    entries: [{ id: "uebersicht", label: ROUTES.verwaltungOverview.title, saison: "verwaltungOverview", icon: "overview" }],
   },
   {
     heading: COPY.verwaltung.gruppe.saisonsUndSpiele,
     entries: [
-      { id: "saisons", label: ROUTES.verwaltungSaisons.titel, href: ROUTES.verwaltungSaisons.pfad(), icon: "saisons" },
-      { id: "spiele", label: ROUTES.verwaltungSpiele.titel, season: "verwaltungSpiele", icon: "spielplan" },
-      { id: "spielorte", label: ROUTES.verwaltungSpielorte.titel, href: ROUTES.verwaltungSpielorte.pfad(), icon: "spielorte" },
+      { id: "saisons", label: ROUTES.verwaltungSaisons.title, href: ROUTES.verwaltungSaisons.path(), icon: "saisons" },
+      { id: "spiele", label: ROUTES.verwaltungSpiele.title, saison: "verwaltungSpiele", icon: "spielplan" },
+      { id: "spielorte", label: ROUTES.verwaltungSpielorte.title, href: ROUTES.verwaltungSpielorte.path(), icon: "spielorte" },
       {
         id: "schiedsrichter",
-        label: ROUTES.verwaltungSchiedsrichter.titel,
-        href: ROUTES.verwaltungSchiedsrichter.pfad(),
+        label: ROUTES.verwaltungSchiedsrichter.title,
+        href: ROUTES.verwaltungSchiedsrichter.path(),
         icon: "schiedsrichter",
       },
     ],
@@ -41,10 +40,10 @@ export const RAIL_GROUPS: RailGroup[] = [
   {
     heading: COPY.verwaltung.gruppe.schulenUndSpieler,
     entries: [
-      { id: "bewerbungen", label: ROUTES.verwaltungBewerbungen.titel, season: "verwaltungBewerbungen", icon: "bewerbungen" },
-      { id: "teams", label: ROUTES.verwaltungTeams.titel, season: "verwaltungTeams", icon: "teams" },
-      { id: "spieler", label: ROUTES.verwaltungSpieler.titel, season: "verwaltungSpieler", icon: "spieler" },
-      { id: "registrierungen", label: ROUTES.verwaltungRegistrierungen.titel, season: "verwaltungRegistrierungen", icon: "registrierungen" },
+      { id: "bewerbungen", label: ROUTES.verwaltungBewerbungen.title, saison: "verwaltungBewerbungen", icon: "bewerbungen" },
+      { id: "teams", label: ROUTES.verwaltungTeams.title, saison: "verwaltungTeams", icon: "teams" },
+      { id: "spieler", label: ROUTES.verwaltungSpieler.title, saison: "verwaltungSpieler", icon: "spieler" },
+      { id: "registrierungen", label: ROUTES.verwaltungRegistrierungen.title, saison: "verwaltungRegistrierungen", icon: "registrierungen" },
     ],
   },
   {
@@ -52,19 +51,19 @@ export const RAIL_GROUPS: RailGroup[] = [
     entries: [
       {
         id: "administratoren",
-        label: ROUTES.verwaltungAdministratoren.titel,
-        href: ROUTES.verwaltungAdministratoren.pfad(),
+        label: ROUTES.verwaltungAdministrators.title,
+        href: ROUTES.verwaltungAdministrators.path(),
         icon: "administratoren",
       },
-      { id: "sperrliste", label: ROUTES.verwaltungSperrliste.titel, href: ROUTES.verwaltungSperrliste.pfad(), icon: "sperrliste" },
-      { id: "loeschungen", label: ROUTES.verwaltungLoeschungen.titel, href: ROUTES.verwaltungLoeschungen.pfad(), icon: "loeschungen" },
+      { id: "sperrliste", label: ROUTES.verwaltungSperrliste.title, href: ROUTES.verwaltungSperrliste.path(), icon: "sperrliste" },
+      { id: "loeschungen", label: ROUTES.verwaltungErasures.title, href: ROUTES.verwaltungErasures.path(), icon: "erasures" },
       {
         id: "adressaenderungen",
-        label: ROUTES.verwaltungAdressaenderungen.titel,
-        href: ROUTES.verwaltungAdressaenderungen.pfad(),
+        label: ROUTES.verwaltungAddressChanges.title,
+        href: ROUTES.verwaltungAddressChanges.path(),
         icon: "adressaenderungen",
       },
-      { id: "protokoll", label: ROUTES.verwaltungProtokoll.titel, href: ROUTES.verwaltungProtokoll.pfad(), icon: "protokoll" },
+      { id: "action_log", label: ROUTES.verwaltungActionLog.title, href: ROUTES.verwaltungActionLog.path(), icon: "log" },
     ],
   },
 ];
@@ -80,18 +79,15 @@ export const RAIL_GROUPS: RailGroup[] = [
  * route lies in `(editor)`, every other page in `(liste)`.
  */
 export function VerwaltungFrame({ children }: { children: ReactNode }) {
-  // One judgement for both reads; the builder stage reaches no sign-in store, hence `connection()` first.
-  const session = connection().then(async () => {
-    const judged = await judgeAdminRequest();
-    return "session" in judged ? judged.session : null;
-  });
+  // One judgement for both reads.
+  const session = judgeAdminRequest().then((judged) => ("session" in judged ? judged.session : null));
 
   return (
     <RailFrame
       groups={RAIL_GROUPS}
       bar={["uebersicht", "spiele", "teams"]}
       // A league-wide page has no counterpart in another season, so a switch there lands on the season's Übersicht.
-      season={{ seasons: readSeasons(session), home: "verwaltungUebersicht", withoutSeason: ROUTES.verwaltungSaisons.pfad() }}
+      saison={{ saisons: readSeasons(session), home: "verwaltungOverview", withoutSaison: ROUTES.verwaltungSaisons.path() }}
       foot={{ kind: "account", account: readAccount(session) }}
       columnInLayouts>
       {children}
@@ -128,7 +124,7 @@ async function readAccount(session: Session): Promise<Account | null> {
  * works in, chosen from the list as the admin pages choose it; `null` for a league holding none, and for a
  * session turned away, which the list's read would redirect from inside the frame.
  */
-async function readSeasons(session: Session): Promise<Seasons | null> {
+async function readSeasons(session: Session): Promise<Saisons | null> {
   if ((await session) === null) return null;
   // Served oldest first, by id: the list's default order.
   const { saisons } = await getAdminSaisons();
@@ -137,7 +133,7 @@ async function readSeasons(session: Session): Promise<Seasons | null> {
   return {
     entries: saisons
       // The season's own strings, which its schema has already held to the stored format.
-      .map((entry) => ({ id: entry.id, span: formatZeitraum(entry.start_date as Kalendertag, entry.end_date as Kalendertag) }))
+      .map((entry) => ({ id: entry.id, span: formatPeriod(entry.start_date as CalendarDay, entry.end_date as CalendarDay) }))
       .sort((one, other) => other.id.localeCompare(one.id)),
     standard: standard.id,
   };

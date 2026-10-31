@@ -1,7 +1,8 @@
 import { DAY_MS } from "@/core/timeUnits";
 import { SPIEL_ANFRAGE_VORLAUF_TAGE, SPIEL_BESTAETIGUNG_FRIST_TAGE } from "@/features/spiele/constants";
 
-import type { FLSonderereignis, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
+import type { FLSonderereignis, FLSpielQuelle } from "@/core/generated/client/types";
+import type { FLSpielTeamField } from "@/features/spiele/types";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
 export type SpielBannerId =
@@ -78,16 +79,16 @@ const SONDEREREIGNIS_MEANING: Record<FLSonderereignis, { title: string; body?: s
 };
 
 /** The refusal codes whose remedies ride the rail rather than the one field message they land on. */
-export type SpielRefusalCode = "REQ-ELIGIBILITY-001" | "REQ-SPIELTAG-001";
+export type SpielRefusalCode = "eligibility_disqualified" | "spieltag_occupied";
 
 /** The half a one-sentence field message cannot carry: the rule the refusal rests on, and the repair. */
 const REFUSAL_REMEDIES: Record<SpielRefusalCode, { id: SpielBannerId; title: string; body: string }> = {
-  "REQ-ELIGIBILITY-001": {
+  eligibility_disqualified: {
     id: "spiel.eligibility-refused",
     title: "Ein ausgeschiedenes Team blockiert das Speichern",
     body: "Der Austritt zählt auch, wenn nur Datum oder Sonderereignis geändert wurde. Hebe den Austritt auf, oder wähle ein anderes Team.",
   },
-  "REQ-SPIELTAG-001": {
+  spieltag_occupied: {
     id: "spiel.spieltag-refused",
     title: "Im anderen Spiel wird diese Seite automatisch besetzt",
     body: "Ein Team spielt höchstens einmal pro Spieltag. Ändere dort die Herkunft, um das Team freizugeben, oder wähle hier ein anderes Team.",
@@ -119,7 +120,7 @@ export const ansetzungGeaendert = (draft: SpielBannerAnsetzung, stored: SpielBan
   ANSETZUNG_QUELLEN.some((quelle) => draft[quelle] !== stored[quelle]);
 
 /** The days from `today` to `datum`, each `YYYY-MM-DD`: `Date.parse` reads both as a UTC midnight, so the count is exact. */
-export const tageBis = (datum: string, today: string): number => (Date.parse(datum) - Date.parse(today)) / DAY_MS;
+const tageBis = (datum: string, today: string): number => (Date.parse(datum) - Date.parse(today)) / DAY_MS;
 
 /**
  * Inside the deadline's days and strictly after `today`, the sweep's own floor: a fixture whose day has come is asked
@@ -187,7 +188,6 @@ export function buildSpielBanners({
   ansetzung,
   storedAnsetzung,
   isActiveSaison,
-  isSpielSweepOn,
   austrittTage,
   today,
 }: {
@@ -208,7 +208,7 @@ export function buildSpielBanners({
   sonderereignis: FLSonderereignis | null;
   /** Fixtures whose occupants this one's result decides, empty where it decides none. */
   dependentSpielNummern: readonly number[];
-  /** Any goal count typed at all — `REQ-STATE-002`'s subject, which is not the decided-result one. */
+  /** Any goal count typed at all — `state_ergebnis_on_a_non_event`'s subject, which is not the decided-result one. */
   hasAnyTore: boolean;
   /** A shoot-out the save stores, which the pass reads as a played fixture however it got there. */
   hasShootOut: boolean;
@@ -229,8 +229,6 @@ export function buildSpielBanners({
   storedAnsetzung: SpielBannerAnsetzung;
   /** The fixture's season is the running one, the only kind the sweep visits. */
   isActiveSaison: boolean;
-  /** The confirmations' pass is switched on: off, it sends no request, whatever the fixture. */
-  isSpielSweepOn: boolean;
   /** The day each club the draft fields left this season on, where it has. */
   austrittTage: readonly string[];
   /** The German today the page was rendered on. */
@@ -246,7 +244,7 @@ export function buildSpielBanners({
   for (const side of sides) {
     if (!isKnockout) continue;
 
-    // A property of the fixture and not of the save: `REQ-WIRING-002` answers only a save that moves
+    // A property of the fixture and not of the save: `wiring_seed_past_the_opening_round` answers only a save that moves
     // a source into this shape, and the closed controls under it carry no reason of their own.
     if (!seedsFromTheGroups && side.quelle?.type === "gruppe") {
       banners.push({
@@ -322,7 +320,7 @@ export function buildSpielBanners({
     });
   }
 
-  // A CONTRADICTION rather than a doubtful combination: `find_state_refusal` answers `REQ-STATE-002`
+  // A CONTRADICTION rather than a doubtful combination: `find_state_refusal` answers `state_ergebnis_on_a_non_event`
   // and the save never lands. Its subject is any typed goal, not a decided scoreline.
   if ((sonderereignis === "ausgefallen" || sonderereignis === "annulliert") && hasAnyTore) {
     banners.push({
@@ -421,7 +419,6 @@ export function buildSpielBanners({
   // The notice the deadline promises cannot be given: the next pass asks at once, and the link answers that day alone.
   // Raised only by a save that asks, never as a standing hint on every near fixture.
   if (
-    isSpielSweepOn &&
     ansetzungGeaendert(ansetzung, storedAnsetzung) &&
     ohneVorlauf(ansetzung.datum, today) &&
     wirdAngefragt(ansetzung, { isActiveSaison, sonderereignis, hasAnyTore, hasShootOut, austrittTage, today })

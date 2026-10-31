@@ -59,6 +59,13 @@ COPY --chown=fl_api_user:fl_api . .
 USER fl_api_user
 EXPOSE 8000
 
+# The version the deploy stamps on the image (`.github/workflows/verify.yml`'s build argument, the tag its
+# `org.opencontainers.image.version` label carries), which the start-up line logs. Last, so a new value per commit
+# rebuilds no layer above it. A build handed none sets the variable to the empty string, since an `ENV` cannot
+# leave it unset, and the settings read an empty variable as unset, so that build logs it as null.
+ARG APP_VERSION
+ENV APP_VERSION=$APP_VERSION
+
 # app/asgi.py, not app/main.py: main.py exports the `create_app` factory and builds nothing on
 # import, so importing it needs no environment. asgi.py is the one module that constructs the real
 # application from the real environment and secret files.
@@ -67,10 +74,10 @@ EXPOSE 8000
 # logging, so uvicorn's default handlers install after the app's and print plain text into the JSON
 # stream.
 
-# --no-access-log because TraceContextMiddleware writes the per-request line, carrying the trace
-# and span ids uvicorn's could not; --log-config routes what uvicorn still logs through the app's
-# own handler.
+# --no-access-log because TraceContextMiddleware writes the request's one line, carrying the trace id
+# and a refusal's code uvicorn's could not. Importing the app takes uvicorn's own handlers off
+# (`app/core/logging.py :: setup_logging`), so what uvicorn still logs reaches the app's.
 
 # --timeout-graceful-shutdown at a request's whole bound, the deadline and its aborts' grace, so a
 # stop cancels no request still inside it; unset, uvicorn waits without limit.
-CMD ["tini", "--", "uvicorn", "app.asgi:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--log-config", "app/core/uvicorn_logging.json", "--timeout-graceful-shutdown", "11"]
+CMD ["tini", "--", "uvicorn", "app.asgi:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--timeout-graceful-shutdown", "11"]

@@ -6,7 +6,7 @@ import { FLPostSpielortPayloadSchema } from "@/features/spielorte/schemas";
 import { mapsQuery } from "@/features/spielorte/utils";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 
-import type { FLSpielort } from "@/features/spielorte/schemas";
+import type { FLSpielort } from "@/core/generated/client/types";
 import type { SpielortDraft } from "@/features/spielorte/types";
 
 /**
@@ -59,6 +59,8 @@ export function AdminCreateSpielortForm({ onClose, onCreated }: { onClose: () =>
           default_mietpreis: parsed.default_mietpreis,
           // Just created, so current — and `null` is what current means.
           inactive_since: null,
+          // The version the insert stamps, which a save opened on this record carries.
+          version: 0,
         });
 
         return res;

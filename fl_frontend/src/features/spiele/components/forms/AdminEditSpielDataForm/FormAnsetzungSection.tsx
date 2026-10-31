@@ -9,10 +9,9 @@ import { FormDateTimeSection } from "./FormDateTimeSection";
 import { FormSchiedsrichterSection } from "./FormSchiedsrichterSection";
 import { FormSpielortSection } from "./FormSpielortSection";
 
-import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
+import type { FLSchiedsrichter, FLSpielort } from "@/core/generated/client/types";
 import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
-import type { FLSpielOrtFieldDraft, FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/schemas";
-import type { FLSpielort } from "@/features/spielorte/schemas";
+import type { FLSpielOrtFieldDraft, FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/types";
 import type { CalendarDate, Time } from "@internationalized/date";
 
 /**

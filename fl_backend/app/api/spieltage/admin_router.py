@@ -6,9 +6,8 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.saisons.cache import dropping_the_saison_cache
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.saisons.crud import pull_saison_id_and_rules
-from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieltage.schemas import (
     FLPatchSpieltagPayload,
     FLSpieltag,
@@ -31,9 +30,8 @@ from app.api.spieltage.services import (
 from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import DBClient, SaisonsCollection, SpieleCollection, SpieltageCollection
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
+from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
@@ -43,15 +41,14 @@ router = APIRouter(
 )
 
 
-# Two static segments, matching `GET /saisons/list/admin`. Declared before `{spieltag_id}/admin`,
+# Two static segments, matching `GET /saisons/list/verwaltung`. Declared before `{spieltag_id}/verwaltung`,
 # whose only separation from this path is the `objectid` convertor.
 @router.get(
-    "/list/admin",
+    "/list/verwaltung",
     response_model=FLSpieltageListResponse,
     summary="Spieltage for the admin surfaces",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
-async def get_spieltage_for_admin(
+async def get_spieltage_verwaltung(
     spieltage_collection: SpieltageCollection,
     saisons_collection: SaisonsCollection,
     filters: FLSpieltageFilterParams = Depends(),
@@ -63,7 +60,7 @@ async def get_spieltage_for_admin(
     are drawn while it is planned, and dating them is what this list is for.
     """
 
-    # Mirrors `app/api/spieltage/router.py :: get_spieltage`, which cannot be called here: the gate
+    # Mirrors `app/api/spieltage/public_router.py :: get_spieltage`, which cannot be called here: the gate
     # is inside it, and refusing the planned season is the one thing this must not do.
     filters.saison_id, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 
@@ -88,12 +85,11 @@ async def get_spieltage_for_admin(
 # A static suffix rather than a second `GET /{spieltag_id}`, as the Spiel editor's read has: the
 # public router owns that path at this same prefix, so whichever router registered first would answer both.
 @router.get(
-    f"{by_id('spieltag_id')}/admin",
+    f"{by_id('spieltag_id')}/verwaltung",
     response_model=FLSpieltageSingleResponse,
     summary="One Spieltag for the admin editor",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
-async def get_spieltag_for_admin(
+async def get_spieltag_verwaltung(
     spieltag_id: CustomRouteObjectId,
     spieltage_collection: SpieltageCollection,
     saisons_collection: SaisonsCollection,
@@ -107,7 +103,7 @@ async def get_spieltag_for_admin(
 
     spieltag_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
 
-    # Its OWN season, as the base read resolves it: `anzahl_spiele` derives from that season's rules.
+    # Its OWN season, as the base read resolves it: `count_spiele` derives from that season's rules.
     _, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=str(spieltag_raw["saison_id"]))
 
     return FLSpieltageSingleResponse(spieltag=FLSpieltag.model_validate(with_expected_matches(spieltag_raw, rules)))
@@ -119,12 +115,11 @@ async def _refuse_an_out_of_order_beginn(
     saisons_collection: AsyncCollection,
     stored_raw: Mapping[str, Any],
     beginn: str,
-    ende: str,
     # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> None:
-    """Refuse `REQ-DATE-008` when this matchday's new `beginn` breaks the order its phase's positions are dated in."""
+    """Refuse `spieltag_beginn_out_of_order` when this matchday's new `beginn` breaks the order its phase's positions are dated in."""
 
     # The neighbour reads are the whole of what two writers dating one phase share, and a read is
     # what a snapshot re-validates nowhere -- so the season is written to put the two in one write set.
@@ -153,7 +148,6 @@ async def _refuse_an_out_of_order_beginn(
     refuse(
         find_spieltag_order_refusal(
             beginn=beginn,
-            ende=ende,
             # The read its neighbours go through as well, so what an undated row means is decided in
             # one place rather than at each side of the comparison.
             stored_beginn=dated_beginn(stored_raw),
@@ -167,7 +161,6 @@ async def _refuse_an_out_of_order_beginn(
     by_id("spieltag_id"),
     response_model=FLSpieltagWriteResponse,
     summary="Re-date a Spieltag",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_spieltag(
     spieltag_id: CustomRouteObjectId,
@@ -184,15 +177,13 @@ async def patch_spieltag(
     to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.
     """
 
-    async def redate_the_matchday(session: AsyncClientSession) -> tuple[Mapping[str, Any], FLSaisonRules]:
+    async def redate_the_matchday(session: AsyncClientSession) -> None:
         """Judge, then move the span. Everything judged is read in-session, the phase's neighbours inside `_refuse_an_out_of_order_beginn`."""
 
         stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id}, session=session)
 
-        # Read for both halves of the write: the season bounds the span, and its `rules` are what the
-        # echo's `anzahl_spiele` derives from.
+        # The season bounds the span.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": stored_raw["saison_id"]}, session=session)
-        rules = FLSaisonRules.model_validate(saison_raw["rules"])
 
         # Undated fixtures are filtered out rather than passed as nulls: one constrains nothing.
         fixture_dates = [
@@ -216,29 +207,22 @@ async def patch_spieltag(
             saisons_collection=saisons_collection,
             stored_raw=stored_raw,
             beginn=spieltag_data.beginn,
-            ende=spieltag_data.ende,
             session=session,
         )
 
-        updated_raw = await patch_one_in_db(
+        await patch_one_in_db(
             collection=spieltage_collection,
             db_filter={"_id": spieltag_id},
-            update={"$set": spieltag_data.model_dump(mode="json")},
+            update={"$set": spieltag_data.model_dump(mode="json", exclude={"version"})},
+            expected_version=spieltag_data.version,
             session=session,
-            return_document=ReturnDocument.AFTER,
+            return_document=ReturnDocument.BEFORE,
         )
 
-        return updated_raw, rules
+    # One transaction over the span and the season write inside `_refuse_an_out_of_order_beginn`,
+    # which is what makes two matchdays of one phase contend. `with_transaction` is safe to retry,
+    # the callback re-reading its neighbours.
+    async with transaction_session(db) as session:
+        await session.with_transaction(redate_the_matchday)
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache.
-    with dropping_the_saison_cache():
-        # One transaction over the span and the season write inside `_refuse_an_out_of_order_beginn`,
-        # which is what makes two matchdays of one phase contend. `with_transaction` is safe to retry,
-        # the callback re-reading its neighbours.
-        async with transaction_session(db) as session:
-            updated_raw, rules = await session.with_transaction(redate_the_matchday)
-
-    return FLSpieltagWriteResponse(
-        spieltag_id=spieltag_id,
-        updated_document=FLSpieltag.model_validate(with_expected_matches(updated_raw, rules)),
-    )
+    return FLSpieltagWriteResponse(spieltag_id=spieltag_id)

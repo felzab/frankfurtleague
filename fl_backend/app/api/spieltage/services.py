@@ -7,6 +7,7 @@ from app.api.saisons.schedule import expected_matches
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import PHASE_ORDER, PHASE_RANK
 from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
+from app.core.codes import Code
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
 
@@ -49,13 +50,13 @@ def build_spieltage_filter(filters: FLSpieltageFilterParams) -> dict[str, Any]:
 
 
 def with_expected_matches(spieltag_raw: Mapping[str, Any], rules: FLSaisonRules) -> dict[str, Any]:
-    """One raw matchday with its derived `anzahl_spiele` attached, ready to validate.
+    """One raw matchday with its derived `count_spiele` attached, ready to validate.
 
     Every path validating a stored matchday goes through this, the echo included: the count is on
     no document, so an echo skipping it reports a matchday with no matches.
     """
 
-    return {**spieltag_raw, "anzahl_spiele": expected_matches(rules, spieltag_raw["saison_phase"])}
+    return {**spieltag_raw, "count_spiele": expected_matches(rules, spieltag_raw["saison_phase"])}
 
 
 def build_erster_spieltag_filter(*, saison_id: str) -> dict[str, Any]:
@@ -78,12 +79,6 @@ def nachnominierung_laeuft(*, beginn: Any, today: str) -> bool:
     return isinstance(beginn, str) and beginn <= today
 
 
-# What each code below refuses is `fl_backend/app/core/domain.py :: RULES`.
-SPIELTAG_OUTSIDE_SAISON = "REQ-DATE-002"
-# `REQ-DATE-001`'s mirror: shrinking the span is the other way to break the same containment.
-SPIELTAG_SPAN_BELOW_FIXTURES = "REQ-DATE-003"
-
-
 def find_spieltag_span_refusal(
     *,
     beginn: str,
@@ -99,28 +94,18 @@ def find_spieltag_span_refusal(
 
     if beginn < saison_start or ende > saison_end:
         return WriteRefusal(
-            error_code=SPIELTAG_OUTSIDE_SAISON,
+            error_code=Code.SPIELTAG_OUTSIDE_SAISON,
             status=HTTPStatus.CONFLICT,
-            message=f"the matchday runs {beginn} to {ende} and its season runs {saison_start} to {saison_end}; "
-            "a matchday is a block of that season's fixtures",
         )
 
     outside = sorted(datum for datum in fixture_dates if datum < beginn or datum > ende)
     if outside:
         return WriteRefusal(
-            error_code=SPIELTAG_SPAN_BELOW_FIXTURES,
+            error_code=Code.SPIELTAG_SPAN_BELOW_SPIELE,
             status=HTTPStatus.CONFLICT,
-            message=f"{len(outside)} of the matchday's fixtures fall outside {beginn} to {ende} (first: {outside[0]}); "
-            "widen the span or move those fixtures",
         )
 
     return None
-
-
-# `position` and `beginn` order a phase independently, so nothing else stops a season from showing
-# its matchdays in one order and dating them in another. `ende` is left free: it is the escape a
-# postponement takes, and the message names it.
-SPIELTAG_BEGINN_OUT_OF_ORDER = "REQ-DATE-008"
 
 
 @dataclass(frozen=True)
@@ -134,8 +119,8 @@ class DatedNeighbour:
 def dated_beginn(spieltag_raw: Mapping[str, Any]) -> str | None:
     """One stored `beginn` as the rule takes it, or `None` for an undated row.
 
-    `app/core/constraints.py :: Collection.SPIELTAGE` validates the field string-or-null, so nothing
-    converts it: a `str()` would turn an undated row into a day above every ISO date.
+    The record model reads the field string-or-null (`app/api/spieltage/schemas.py :: FLSpieltagRecord`), so
+    nothing converts it: a `str()` would turn an undated row into a day above every ISO date.
     """
 
     return spieltag_raw["beginn"]
@@ -155,7 +140,6 @@ def dated_neighbour(spieltag_raw: Mapping[str, Any] | None) -> DatedNeighbour | 
 def find_spieltag_order_refusal(
     *,
     beginn: str,
-    ende: str,
     stored_beginn: str | None,
     previous: DatedNeighbour | None,
     following: DatedNeighbour | None,
@@ -174,39 +158,15 @@ def find_spieltag_order_refusal(
     # The predecessor first, and both are reachable at once only for a first dating landing between
     # two neighbours already out of order: the earlier position is the pair a reader checks first.
     if previous is not None and moved_earlier and beginn < previous.beginn:
-        # A stored `beginn` already below the predecessor's is the floor the STEP leaves: the rule
-        # takes it back unchanged, so naming the predecessor's day would refuse ground it gives.
-        floor = (
-            f"its `beginn` cannot go earlier than the {stored_beginn} it already stands on"
-            if stored_beginn is not None and stored_beginn < previous.beginn
-            else "its `beginn` cannot go earlier than that"
-        )
-
         return WriteRefusal(
-            error_code=SPIELTAG_BEGINN_OUT_OF_ORDER,
+            error_code=Code.SPIELTAG_BEGINN_OUT_OF_ORDER,
             status=HTTPStatus.CONFLICT,
-            # Below the floor the goal is reachable at fixture level alone: the predecessor's own
-            # matches move into the later days, and no `beginn` moves at all.
-            message=f"this matchday begins {beginn} and position {previous.position} of its phase begins {previous.beginn}; "
-            f"{floor}; to play this one first, widen position {previous.position}'s `ende` "
-            "and move that matchday's own fixtures into the later days",
         )
 
     if following is not None and moved_later and following.beginn < beginn:
-        # `ende` is never below `beginn` on the payload (`FLPatchSpieltagPayload`), so a span reaching
-        # here already runs past the follower and asking for a wider one would name a step taken.
-        opening = (
-            f"to postpone this one, restore its `beginn` of {stored_beginn}"
-            if stored_beginn is not None
-            else f"it holds no `beginn` to keep, so date it at or before {following.beginn}"
-        )
-
         return WriteRefusal(
-            error_code=SPIELTAG_BEGINN_OUT_OF_ORDER,
+            error_code=Code.SPIELTAG_BEGINN_OUT_OF_ORDER,
             status=HTTPStatus.CONFLICT,
-            message=f"this matchday begins {beginn} and position {following.position} of its phase begins {following.beginn}; "
-            f"{opening} and save that with this `ende` of {ende}, which already runs past that day, "
-            "then re-date its fixtures inside that span",
         )
 
     return None

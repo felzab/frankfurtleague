@@ -1,10 +1,10 @@
 import { connection } from "next/server";
 
-import { getAdminSaisons, getCurrentSaisonOrNull, getSaisons } from "../../queries";
+import { getActiveSaisonOrNull, getAdminSaisons, getSaisons } from "../../queries";
 import { selectSaison } from "../../resolvers";
 import { SaisonSelector } from "./SaisonSelector";
 
-import type { FLSaison } from "../../schemas";
+import type { FLSaison } from "@/core/generated/client/types";
 import type { SaisonSelectorOption } from "../../types";
 
 /** Id and range only — the whole of what the switcher renders, and the whole of what may cross into it. */
@@ -23,7 +23,7 @@ export async function SaisonMetadataDisplay({ tier }: { tier: "base" | "admin" }
   if (tier === "admin") {
     const { saisons } = await getAdminSaisons();
     // The pages' own default off the list they read in this request, never the cached current season,
-    // which a write outside the app leaves stale for days.
+    // which a write outside the app leaves stale for minutes.
     const defaultSaison = selectSaison(saisons, undefined);
 
     return (
@@ -34,17 +34,17 @@ export async function SaisonMetadataDisplay({ tier }: { tier: "base" | "admin" }
     );
   }
 
-  const [currentSaisonRes, saisonsRes] = await Promise.all([
+  const [activeSaisonRes, saisonsRes] = await Promise.all([
     // `OrNull`, never the throwing read: this is layout chrome, so a 404 between seasons would
     // take every dashboard page down with it.
-    getCurrentSaisonOrNull(),
+    getActiveSaisonOrNull(),
     getSaisons(),
   ]);
 
   return (
     <SaisonSelector
       saisons={saisonsRes.saisons.map(asOption)}
-      defaultSaison={currentSaisonRes === null ? null : asOption(currentSaisonRes.saison)}
+      defaultSaison={activeSaisonRes === null ? null : asOption(activeSaisonRes.saison)}
     />
   );
 }

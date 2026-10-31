@@ -1,10 +1,11 @@
-import { readFacetSelectionFromRoute } from "@/shared/utils/facets";
+import { FLBewerbungSaisonReference, FLBewerbungStatus } from "@/core/generated/client/types";
+import { pickedOf, readFacetSelectionFromRoute } from "@/shared/utils/facets";
 
 import { BEWERBUNG_HERKUNFT_LABELS, BEWERBUNG_STATUS_OPTIONS } from "./constants";
 import { bewerbungHerkunft } from "./utils";
 
+import type { BewerbungenGetBewerbungenParams, FLBewerbungenListResponse } from "@/core/generated/client/types";
 import type { Facet, FacetCounts } from "@/shared/utils/facets";
-import type { FLBewerbungenListResponse } from "./schemas";
 import type { AdminBewerbungRow } from "./types";
 
 /** Spelled once: the read narrows on this parameter and the bar writes it, and the endpoint's own term carries the name. */
@@ -41,7 +42,7 @@ export const BEWERBUNGEN_FACETS: readonly Facet<AdminBewerbungRow>[] = [
     options: BEWERBUNG_STATUS_OPTIONS.map(({ value, label }) => ({ value: value, label: label })),
     // The list opens on the queue rather than on the archive: a decided application is a record, and
     // the decided ones stay one click away because an empty parameter turns the facet off.
-    defaultValues: ["eingereicht"],
+    defaultValues: ["submitted"],
     // Narrowed on the server, so a decision leaves the working set rather than spending the read's
     // cap on rows nobody is triaging.
     narrowsTheRead: true,
@@ -61,13 +62,13 @@ export const BEWERBUNGEN_FACETS: readonly Facet<AdminBewerbungRow>[] = [
 ];
 
 /**
- * What `GET /bewerbungen` is asked to narrow to, comma-joined for the wire and `undefined` for everything.
+ * What `GET /bewerbungen` is asked to narrow to, a list per facet and `undefined` for everything.
  * The bar's own reader answers it, so the served rows and the pills cannot disagree about one query string.
  */
 export function bewerbungenQueueTerms(
   params: Readonly<Record<string, string | string[] | undefined>>,
   saisonId: string | undefined,
-): { saison_id?: string; saisonbezug?: string; status?: string } {
+): Pick<BewerbungenGetBewerbungenParams, "saison_id" | "saison_reference" | "status"> {
   const selection = readFacetSelectionFromRoute(BEWERBUNGEN_FACETS, params);
 
   return {
@@ -75,8 +76,8 @@ export function bewerbungenQueueTerms(
     // endpoint reads one only where the other names a season, so an unresolved one mixes seasons
     // rather than emptying the queue.
     saison_id: saisonId,
-    saisonbezug: selection[BEWERBUNGEN_SAISONBEZUG_PARAM]?.join(","),
-    status: selection[BEWERBUNGEN_STATUS_PARAM]?.join(","),
+    saison_reference: pickedOf(FLBewerbungSaisonReference, selection[BEWERBUNGEN_SAISONBEZUG_PARAM]),
+    status: pickedOf(FLBewerbungStatus, selection[BEWERBUNGEN_STATUS_PARAM]),
   };
 }
 
@@ -85,10 +86,10 @@ export function bewerbungenQueueTerms(
  * present, or `FilterPanel` counts the missing one off the rows served — which the cap already cut.
  */
 export function bewerbungenQueueFacetCounts(
-  counts: Pick<FLBewerbungenListResponse, "anzahl_je_status" | "anzahl_je_saisonbezug">,
+  counts: Pick<FLBewerbungenListResponse, "count_per_status" | "count_per_saison_reference">,
 ): FacetCounts {
   return {
-    [BEWERBUNGEN_STATUS_PARAM]: counts.anzahl_je_status,
-    [BEWERBUNGEN_SAISONBEZUG_PARAM]: counts.anzahl_je_saisonbezug,
+    [BEWERBUNGEN_STATUS_PARAM]: counts.count_per_status,
+    [BEWERBUNGEN_SAISONBEZUG_PARAM]: counts.count_per_saison_reference,
   };
 }

@@ -9,7 +9,7 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
-import type { FLSaisonPhase } from "@/features/saisons/schemas.ts";
+import type { FLSaisonPhase } from "@/core/generated/client/types.ts";
 import type { AdminSpieltagEditRow } from "@/features/spieltage/types.ts";
 
 const { calls, answered } = doubleActions({
@@ -145,7 +145,7 @@ describe("the one date a final's Spieltag is given", () => {
     unmount();
   });
 
-  /* `fl_backend/app/core/domain.py :: UNENFORCED` names this page as where a matchday off its implied
+  /* `docs/domain.md`'s „What the model permits on purpose“ names this page as where a matchday off its implied
      count is seen at all, and only the editor page's own fixture read fills the number it is seen by. */
   it("reports the count gap from the row's own fixture count", () => {
     const unmount = renderEditor(spieltag("halbfinale", "Halbfinale", { anzahl_spiele: 2, spieleAngelegt: 1 }));
@@ -157,7 +157,7 @@ describe("the one date a final's Spieltag is given", () => {
 });
 
 describe("what bounds the Zeitraum pickers", () => {
-  /* The season is the only bound the pickers take, and that is a decision: `REQ-DATE-008` judges the
+  /* The season is the only bound the pickers take, and that is a decision: `spieltag_beginn_out_of_order` judges the
      STEP, so a static one would grey out a repair the endpoint allows. The greying is the calendar's
      own answer and carries no sentence beside it. */
   it("greys out every day outside the season in every picker of either panel, and no day inside it", async () => {

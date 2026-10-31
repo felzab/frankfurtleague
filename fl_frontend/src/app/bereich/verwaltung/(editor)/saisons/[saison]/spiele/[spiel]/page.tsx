@@ -1,13 +1,11 @@
 import { cache, Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { COPY } from "@/core/copy";
+import { FLSonderereignis } from "@/core/generated/client/types";
+import { SpielePatchSpielBody, spielePatchSpielBodyNotizOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
-import { NOTIZ_MAX_LENGTH } from "@/features/spiele/constants";
 import { getAdminSpiel } from "@/features/spiele/queries";
-import { FLSonderereignisSchema, FLSpielOrtFieldPayloadSchema } from "@/features/spiele/schemas";
-import { spielStateKey } from "@/features/spiele/utils";
 import { getSpielorte } from "@/features/spielorte/queries";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -19,7 +17,7 @@ import { spielSpeichern } from "./spielSpeichern";
 import { KEIN_SONDEREREIGNIS, werteOf } from "./spielWerte";
 
 import type { Copy } from "@/core/copy";
-import type { FLSonderereignis, FLSpielAdmin } from "@/features/spiele/schemas";
+import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
 import type { Metadata } from "next";
 
@@ -42,15 +40,15 @@ const lesen = cache(async (spiel: string) => {
 });
 
 /** A match is named by its two teams, as its own page is, and by its number while a side is still open. */
-const nameOf = (spiel: FLSpielAdmin) =>
+const nameOf = (spiel: FLSpielJoinedAdmin) =>
   spiel.team1 === null || spiel.team2 === null
     ? WORTE.nummer(spiel.spiel_nr)
-    : ROUTES.verwaltungSpiel.titel(spiel.team1.name, spiel.team2.name);
+    : ROUTES.verwaltungSpiel.title(spiel.team1.name, spiel.team2.name);
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { saison, spiel } = await params;
   const gelesen = await lesen(spiel);
-  return gelesen === null ? {} : pageMetadata(ROUTES.verwaltungSpiel, ROUTES.verwaltungSpiel.pfad(saison, spiel), nameOf(gelesen.spiel));
+  return gelesen === null ? {} : pageMetadata(ROUTES.verwaltungSpiel, ROUTES.verwaltungSpiel.path(saison, spiel), nameOf(gelesen.spiel));
 }
 
 /** The match editor, on today's match read and write. */
@@ -63,7 +61,6 @@ export default function SpielEditorPage({ params }: Props) {
 }
 
 async function Editor({ params }: Pick<Props, "params">) {
-  await connection();
   const { saison, spiel } = await params;
   // Retired venues included, so a match booked at one still names it.
   const [gelesen, { spielorte }] = await Promise.all([lesen(spiel), getSpielorte({ include_inactive: true })]);
@@ -77,7 +74,7 @@ async function Editor({ params }: Pick<Props, "params">) {
   const beideSeiten = gespeichert.team1 !== null && gespeichert.team2 !== null;
   const sonderereignisse: Option[] = [
     { id: KEIN_SONDEREREIGNIS, label: WORTE.keines },
-    ...FLSonderereignisSchema.options.map((ereignis): Option => {
+    ...Object.values(FLSonderereignis).map((ereignis): Option => {
       const label = SONDEREREIGNISSE[ereignis];
       const offen = !beideSeiten && (ereignis === "nichtantreten_team1" || ereignis === "nichtantreten_team2");
       return offen ? { id: ereignis, label, isDisabled: true, note: WORTE.beideSeitenNoetig } : { id: ereignis, label };
@@ -87,7 +84,7 @@ async function Editor({ params }: Pick<Props, "params">) {
   return (
     <SpielEditor
       title={{ record: nameOf(gespeichert) }}
-      record={{ id: gespeichert.id, fingerprint: spielStateKey(gespeichert), values: werteOf(gespeichert) }}
+      record={{ id: gespeichert.id, version: gespeichert.version, values: werteOf(gespeichert) }}
       save={spielSpeichern}
       spielorte={waehlbar.map((ort) => ({
         // The match's own retired venue stays in the list, marked and not to be chosen again once left.
@@ -98,8 +95,8 @@ async function Editor({ params }: Pick<Props, "params">) {
         mietpreis: ort.default_mietpreis,
       }))}
       sonderereignisse={sonderereignisse}
-      notizHoechstens={NOTIZ_MAX_LENGTH}
-      mietpreisPflicht={!FLSpielOrtFieldPayloadSchema.shape.mietpreis.safeParse(null).success}
+      notizHoechstens={spielePatchSpielBodyNotizOneMax}
+      mietpreisPflicht={!SpielePatchSpielBody.shape.ort.options[0].shape.mietpreis.safeParse(null).success}
       spielortAnlegen={spielortAnlegen}
       spielortRegeln={SPIELORT_REGELN}
     />

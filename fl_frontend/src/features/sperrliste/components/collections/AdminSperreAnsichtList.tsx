@@ -58,7 +58,7 @@ const EINTRAEGE: Eintraege = {
       });
     }),
   schiedsrichter: (schiedsrichter, saisonHref) =>
-    schiedsrichter.map(({ schiedsrichter_id, name, inactive_since, spiele_ohne_ergebnis_saison_ids }) => {
+    schiedsrichter.map(({ schiedsrichter_id, name, inactive_since, spiele_without_ergebnis_saison_ids: spiele_ohne_ergebnis_saison_ids }) => {
       const person = name === null ? "Schiedsrichterin oder Schiedsrichter ohne Namen" : `Schiedsrichterin oder Schiedsrichter: ${name}`;
       const href = saisonHref(`/bereich/admin/schiedsrichter/${schiedsrichter_id}`);
 
@@ -76,7 +76,7 @@ const EINTRAEGE: Eintraege = {
       };
     }),
   // At the seat's own season: the contacts editor addresses the selected season's three seats alone.
-  sitze: (sitze) =>
+  seats: (sitze) =>
     sitze.map(({ team_id, saison_id, team_name, rolle, vorname, nachname }) => ({
       text: `${rollenLangform([rolle])} bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
       verweise: [{ label: SPERRE_ANSICHT_VERWEISE.kontakte, href: withSaisonId(`/bereich/admin/kontakte/${team_id}`, saison_id) }],
@@ -89,7 +89,7 @@ const EINTRAEGE: Eintraege = {
   // The registrations list serves the pending ones alone, so a declined one is named with no link.
   registrierungen: (registrierungen, saisonHref) =>
     registrierungen.map(({ saison_id, team_name, vorname, nachname, status }) => {
-      const art = status === "abgelehnt" ? "Abgelehnte Registrierung" : "Registrierung";
+      const art = status === "declined" ? "Abgelehnte Registrierung" : "Registrierung";
 
       return {
         text:
@@ -97,13 +97,11 @@ const EINTRAEGE: Eintraege = {
             ? `${art} für die Saison ${saison_id}: ${nameOf(vorname, nachname)}`
             : `${art} bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
         verweise:
-          status === "abgelehnt"
-            ? []
-            : [{ label: SPERRE_ANSICHT_VERWEISE.registrierungen, href: saisonHref("/bereich/admin/registrierungen") }],
+          status === "declined" ? [] : [{ label: SPERRE_ANSICHT_VERWEISE.registrierungen, href: saisonHref("/bereich/admin/registrierungen") }],
       };
     }),
   // Served only to a reader the address tool admits to it, so it always links there.
-  eigener_adresswechsel: (eigener, saisonHref) =>
+  own_address_change: (eigener, saisonHref) =>
     eigener === null
       ? []
       : [
@@ -112,14 +110,14 @@ const EINTRAEGE: Eintraege = {
             verweise: [
               {
                 label: SPERRE_ANSICHT_VERWEISE.adresswechsel,
-                href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${eigener.adresswechsel_id}`),
+                href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${eigener.address_change_id}`),
               },
             ],
           },
         ],
   // A change the tool refuses this reader carries no link there, its line saying where it opens instead.
-  adresswechsel: (adresswechsel, saisonHref) =>
-    adresswechsel.map(({ adresswechsel_id, einsehbar_verwehrt }) =>
+  address_change: (adresswechsel, saisonHref) =>
+    adresswechsel.map(({ address_change_id: adresswechsel_id, viewable_denied: einsehbar_verwehrt }) =>
       einsehbar_verwehrt === null
         ? {
             text: "Eine laufende Adressänderung auf diese Adresse",
@@ -133,7 +131,7 @@ const EINTRAEGE: Eintraege = {
         : { text: `Eine laufende Adressänderung auf diese Adresse. ${EINSEHBAR_VERWEHRT[einsehbar_verwehrt]}`, verweise: [] },
     ),
   // Decided on the administrators page, where whoever may decide one finds it: no link reaches a single request there.
-  antraege: (antraege) =>
+  approval_requests: (antraege) =>
     antraege.map(({ rolle, verwaltung }) => ({
       text: `${rolle === "betroffen" ? "Ein offener Antrag für diese Adresse" : "Ein offener Antrag, den diese Adresse gestellt hat"}: ${ANTRAG_WAS[verwaltung]}`,
       verweise: [],
@@ -154,7 +152,7 @@ export function AdminSperreAnsichtList({ ansicht }: { ansicht: SperreAnsicht }) 
   const lead = [
     SPERRE_ANSICHT_COPY.lead,
     ...(eintraege.some(({ verweise }) => verweise.length > 0) ? [SPERRE_ANSICHT_COPY.bearbeiten] : []),
-    ...(ansicht.registrierungen.some(({ status }) => status !== "abgelehnt") ? [SPERRE_ANSICHT_COPY.registrierungen] : []),
+    ...(ansicht.registrierungen.some(({ status }) => status !== "declined") ? [SPERRE_ANSICHT_COPY.registrierungen] : []),
   ].join(" ");
 
   return (

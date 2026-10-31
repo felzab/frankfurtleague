@@ -6,7 +6,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.adresswechsel.crud import verwehrte_adressen
-from app.api.saisons.cache import dropping_the_saison_cache
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.spieler.crud import (
     pull_a_person_to_enter,
     refuse_a_full_squad,
@@ -18,19 +18,20 @@ from app.api.spieler.schemas import (
     FLPostSaisonSpielerPayload,
     FLSaisonSpielerResponse,
     FLSpielerAdminSingleResponse,
-    FLSpielerMembershipsResponse,
     FLSpielerNachnominierungResponse,
+    FLSpielerSaisonsResponse,
     FLSpielerWithMemberships,
 )
 from app.api.spieler.services import (
     build_spieler_filter,
-    build_spieler_memberships_pipeline,
+    build_spieler_saisons_pipeline,
     find_squad_refusal,
 )
 from app.api.spieltage.crud import nachnominierung_laeuft_in
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
+    VERSION_FIELD,
     aggregate_many_from_db,
     patch_one_in_db,
     post_one_to_db,
@@ -39,9 +40,9 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenCollection,
     DBClient,
+    GrantsAnnouncedCollection,
+    GrantsCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
@@ -49,9 +50,8 @@ from app.core.dependencies import (
     SpieltageCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_auth_time, get_actor_email, verify_access_admin, verify_actor_is_admin
+from app.core.security import bind_actor, get_actor_auth_time, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -70,6 +70,7 @@ def _as_single(document) -> FLSpielerAdminSingleResponse:
         vorname=document["vorname"],
         nachname=document.get("nachname"),
         inactive_since=document.get("inactive_since"),
+        version=document.get(VERSION_FIELD, 0),
     )
 
 
@@ -81,37 +82,38 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
         nummer=document.get("nummer"),
         position=document.get("position"),
         stufe=document.get("stufe"),
-        ist_nachnominiert=document["ist_nachnominiert"],
+        is_nachnominiert=document["is_nachnominiert"],
         rolle=document["rolle"],
         inactive_since=document.get("inactive_since"),
+        version=document.get(VERSION_FIELD, 0),
     )
 
 
 # A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
 # capture this one whatever the declaration order.
-@router.get("/memberships", response_model=FLSpielerMembershipsResponse, summary="Every Spieler with their squad rows")
-async def get_spieler_memberships(
+@router.get("/saisons", response_model=FLSpielerSaisonsResponse, summary="Every Spieler with their squad rows")
+async def get_spieler_saisons(
     spieler_collection: SpielerCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
-) -> FLSpielerMembershipsResponse:
+) -> FLSpielerSaisonsResponse:
     """
     Every player, retired ones included, each with every squad row they hold.
 
     `GET /spieler` answers it at no setting: the junction join is strict with a `saison_id`, and
     without one a player with no live row has `nummer` and `position` null.
 
-    `adresswechsel_id` names the live change of the pupil's address, which the address tool shows, and
-    `adresswechsel_einsehbar_verwehrt` why the tool refuses it this administrator, null where it opens it.
+    `address_change_id` names the live change of the pupil's address, which the address tool shows, and
+    `address_change_viewable_denied` why the tool refuses it this administrator, null where it opens it.
     """
 
     spieler_raw = await aggregate_many_from_db(
-        collection=spieler_collection, pipeline=build_spieler_memberships_pipeline(), collation=GERMAN_COLLATION
+        collection=spieler_collection, pipeline=build_spieler_saisons_pipeline(), collation=GERMAN_COLLATION
     )
     verwehrt = await verwehrte_adressen(
-        (str(spieler["email"]) for spieler in spieler_raw if spieler.get("adresswechsel_id") is not None),
+        (str(spieler["email"]) for spieler in spieler_raw if spieler.get("address_change_id") is not None),
         akteur=sign_in_identifier(operator),
         auth_time=auth_time,
         berechtigungen_collection=berechtigungen_collection,
@@ -119,9 +121,9 @@ async def get_spieler_memberships(
         session=None,
     )
 
-    return FLSpielerMembershipsResponse(
+    return FLSpielerSaisonsResponse(
         spieler=[
-            FLSpielerWithMemberships.model_validate({**spieler, "adresswechsel_einsehbar_verwehrt": verwehrt.get(str(spieler.get("email")))})
+            FLSpielerWithMemberships.model_validate({**spieler, "address_change_viewable_denied": verwehrt.get(str(spieler.get("email")))})
             for spieler in spieler_raw
         ]
     )
@@ -131,7 +133,6 @@ async def get_spieler_memberships(
     "/nachnominierung/{saison_id}",
     response_model=FLSpielerNachnominierungResponse,
     summary="Whether a squad entry into a season today is a Nachnominierung",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_spieler_nachnominierung(
     saison_id: str,
@@ -161,7 +162,6 @@ async def get_spieler_nachnominierung(
     by_id("spieler_id"),
     response_model=FLSpielerAdminSingleResponse,
     summary="Update a Spieler's name",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_spieler(
     spieler_id: CustomRouteObjectId,
@@ -175,7 +175,8 @@ async def patch_spieler(
         return await patch_one_in_db(
             collection=spieler_collection,
             db_filter=build_spieler_filter(spieler_id),
-            update={"$set": spieler_data.model_dump(mode="json")},
+            update={"$set": spieler_data.model_dump(mode="json", exclude={"version"})},
+            expected_version=spieler_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )
@@ -190,7 +191,6 @@ async def patch_spieler(
     by_id("spieler_id"),
     response_model=FLSpielerAdminSingleResponse,
     summary="Retire a Spieler (soft delete)",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def delete_spieler(
     spieler_id: CustomRouteObjectId,
@@ -213,7 +213,6 @@ async def delete_spieler(
     f"{by_id('spieler_id')}/reactivate",
     response_model=FLSpielerAdminSingleResponse,
     summary="Bring a retired Spieler back",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def reactivate_spieler(
     spieler_id: CustomRouteObjectId,
@@ -236,7 +235,6 @@ async def reactivate_spieler(
     response_model=FLSaisonSpielerResponse,
     status_code=201,
     summary="Add a Spieler to a squad",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_saison_spieler(
     spieler_id: CustomRouteObjectId,
@@ -254,7 +252,7 @@ async def post_saison_spieler(
 
     404 where no player has this id. One row per player per season: moving a player is a PATCH of
     `team_id`, and a repeat is a 409 even where the row is retired. A
-    squad holds each `rolle` once (`REQ-SQUAD-004`). `ist_nachnominiert` is derived here and never
+    squad holds each `rolle` once (`kader_rolle_taken`). `is_nachnominiert` is derived here and never
     taken from the body: it is true from the first day of the season's matchday 1, and false while
     that matchday is undated.
     """
@@ -300,7 +298,7 @@ async def post_saison_spieler(
             "spieler_id": spieler_id,
             **saison_spieler_data.model_dump(mode="json", exclude={"team_id"}),
             "team_id": saison_spieler_data.team_id,
-            "ist_nachnominiert": await nachnominierung_laeuft_in(
+            "is_nachnominiert": await nachnominierung_laeuft_in(
                 spieltage_collection=spieltage_collection, saison_id=saison_spieler_data.saison_id, today=today, session=session
             ),
             "inactive_since": None,
@@ -309,13 +307,11 @@ async def post_saison_spieler(
 
         return document
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache.
-    with dropping_the_saison_cache():
-        # One transaction over the row and the season write inside `refuse_a_full_squad`, which is what
-        # makes two writers into one squad contend, and a re-date of matchday 1 contend with the marker
-        # (`app/api/spieltage/admin_router.py :: _refuse_an_out_of_order_beginn` writes the same season).
-        async with transaction_session(db) as session:
-            entered = await session.with_transaction(add_the_player)
+    # One transaction over the row and the season write inside `refuse_a_full_squad`, which is what
+    # makes two writers into one squad contend, and a re-date of matchday 1 contend with the marker
+    # (`app/api/spieltage/admin_router.py :: _refuse_an_out_of_order_beginn` writes the same season).
+    async with transaction_session(db) as session:
+        entered = await session.with_transaction(add_the_player)
 
     return _as_junction(entered)
 
@@ -324,7 +320,6 @@ async def post_saison_spieler(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}",
     response_model=FLSaisonSpielerResponse,
     summary="Update a squad entry",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_saison_spieler(
     spieler_id: CustomRouteObjectId,
@@ -339,8 +334,8 @@ async def patch_saison_spieler(
     Update a player's squad entry for that season.
 
     Changing `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted
-    (`fl_backend/app/core/domain.py :: UNENFORCED`); a `rolle` another live row holds is not
-    (`REQ-SQUAD-004`).
+    (`docs/domain.md`'s what the model permits on purpose); a `rolle` another live row holds is not
+    (`kader_rolle_taken`).
     """
 
     async def move_the_player(session: AsyncClientSession) -> Mapping[str, Any]:
@@ -382,18 +377,17 @@ async def patch_saison_spieler(
             db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
             update={
                 "$set": {
-                    **saison_spieler_data.model_dump(mode="json", exclude={"team_id"}),
+                    **saison_spieler_data.model_dump(mode="json", exclude={"team_id", "version"}),
                     "team_id": saison_spieler_data.team_id,
                 }
             },
+            expected_version=saison_spieler_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            moved = await session.with_transaction(move_the_player)
+    async with transaction_session(db) as session:
+        moved = await session.with_transaction(move_the_player)
 
     return _as_junction(moved)
 
@@ -402,7 +396,6 @@ async def patch_saison_spieler(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}",
     response_model=FLSaisonSpielerResponse,
     summary="Remove a Spieler from a squad",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def delete_saison_spieler(
     spieler_id: CustomRouteObjectId,
@@ -415,7 +408,7 @@ async def delete_saison_spieler(
     Take a player out of a season's squad. SOFT: the row stays.
 
     The row records that this player wore this number in this squad, which stays true after they
-    leave. `GET /spieler/memberships` is where an admin reads it back, marked by `inactive_since`.
+    leave. `GET /spieler/saisons` is where an admin reads it back, marked by `inactive_since`.
     """
 
     async def take_the_player_out(session: AsyncClientSession) -> Mapping[str, Any]:
@@ -436,7 +429,6 @@ async def delete_saison_spieler(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}/reactivate",
     response_model=FLSaisonSpielerResponse,
     summary="Put a Spieler back in a squad they left",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def reactivate_saison_spieler(
     spieler_id: CustomRouteObjectId,
@@ -451,7 +443,7 @@ async def reactivate_saison_spieler(
 
     Where a repeat create is redirected: a create reviving the row
     would overwrite both. Refused where the squad has filled up, where its club left, or where the
-    `rolle` the row carries has been given to somebody else since (`REQ-SQUAD-004`).
+    `rolle` the row carries has been given to somebody else since (`kader_rolle_taken`).
     """
 
     async def bring_the_player_back(session: AsyncClientSession) -> Mapping[str, Any]:
@@ -503,9 +495,7 @@ async def reactivate_saison_spieler(
             session=session,
         )
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            revived = await session.with_transaction(bring_the_player_back)
+    async with transaction_session(db) as session:
+        revived = await session.with_transaction(bring_the_player_back)
 
     return _as_junction(revived)

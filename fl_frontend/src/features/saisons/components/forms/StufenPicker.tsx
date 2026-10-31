@@ -11,7 +11,7 @@ import { STUFE_OPTIONS } from "@/features/spieler/constants";
 import { FIELD_ERROR_CLASSES, TOGGLE_GROUP_ALIGN_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { TextField } from "@/shared/components/ui/TextField";
 
-import type { FLSpielerStufe } from "@/features/spieler/schemas";
+import type { FLSpielerStufe } from "@/core/generated/client/types";
 import type { Key } from "@heroui/react/rac";
 
 // **No hover or press variant here**: HeroUI's own fills are `@layer components` and these are
@@ -24,7 +24,7 @@ export const STUFE_CHIP_CLASSES =
   "h-9 min-w-16 rounded-lg border border-border bg-transparent px-3 fluid-xs font-extrabold tracking-wide text-foreground-muted transition-colors data-[selected=true]:border-brand-solid data-[selected=true]:bg-brand-solid data-[selected=true]:text-brand-solid-foreground data-[selected=true]:ring-brand-solid-foreground";
 
 /**
- * `rules.erlaubte_stufen`. **The hidden `TextField` proxy is what makes a refusal land**:
+ * `rules.allowed_stufen`. **The hidden `TextField` proxy is what makes a refusal land**:
  * `ToggleButtonGroup` takes no `name`, so it joins no field context, and `focusFirstRefusal` finds a
  * control by its `name` alone. `display: none`, so nothing can land in it.
  */

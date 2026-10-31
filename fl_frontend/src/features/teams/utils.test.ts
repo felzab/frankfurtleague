@@ -1,12 +1,11 @@
-import { publishedLaufendeFassung } from "@/test-support/einwilligungDocument.ts";
+import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { side, spielFields } from "@/test-support/fixtures.ts";
 import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
 import { assert, describe, expect, it } from "vitest";
 
-import { FLSpielSchema } from "../spiele/schemas.ts";
 import { EINGETRAGEN_VON_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
 import { buildKontakteFacets, buildTeamFacets, KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung, TEAM_FACETS } from "./facets.ts";
-import { FLGruppenTeamSchema, FLTrikotFarbeSchema } from "./schemas.ts";
+import { FLTrikotFarbeSchema } from "./schemas.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
   buildEmptyKontaktperson,
@@ -22,32 +21,36 @@ import {
   toWebsiteUrl,
 } from "./utils.ts";
 
-import type { FLSaisonPhase } from "../saisons/schemas.ts";
-import type { FLSpiel } from "../spiele/schemas.ts";
-import type { FLGruppenTeam, FLKontaktperson, FLSaisonTeamKontakte, FLTeamWithMemberships } from "./schemas.ts";
+import type {
+  FLGruppenTeam,
+  FLKontaktperson,
+  FLSaisonPhase,
+  FLSaisonTeamKontakte,
+  FLTeamWithMemberships,
+} from "@/core/generated/client/types.ts";
+import type { FLSpiel } from "../spiele/types.ts";
 
 const TEAM_ID = (seed: number) => `6890a1b2c3d4e5f6071900${String(seed).padStart(2, "0")}`;
 
-/** Complete and parsed at construction: a drifted field fails where the fixture is built rather than wherever it is read. */
-const GRUPPEN_TEAM: FLGruppenTeam = FLGruppenTeamSchema.parse({
+const GRUPPEN_TEAM: FLGruppenTeam = {
   id: TEAM_ID(0),
   name: "SV Beispiel",
   shorthand: "SB",
   // Every counter at zero, so no fixture here states what a played match is worth: the ladder is the
-  // backend's and `.claude/CLAUDE.md` §7 **table** keeps it out of this surface entirely.
+  // backend's, and a ratified decision keeps the points per result off this surface entirely.
   statistik: {
-    anzahl_gespielte_spiele: 0,
+    count_gespielte_spiele: 0,
     siege: 0,
     niederlagen: 0,
     unentschieden: 0,
     tore_geschossen: 0,
     tore_kassiert: 0,
     punkte: 0,
-    anzahl_abgesagte_spiele: 0,
+    count_abgesagte_spiele: 0,
   },
   austritt_type: null,
-  anzahl_ausstehende_spiele: 0,
-} satisfies FLGruppenTeam);
+  count_pending_spiele: 0,
+};
 
 /**
  * One row of a standing. A team is walked past because `austritt_type` is non-null, never because of
@@ -57,8 +60,8 @@ const row = (seed: number, { gespielt = 3, ausstehend = 0, disqualified = false 
   ...GRUPPEN_TEAM,
   id: TEAM_ID(seed),
   austritt_type: disqualified ? "disqualifikation" : null,
-  statistik: { ...GRUPPEN_TEAM.statistik, anzahl_gespielte_spiele: gespielt },
-  anzahl_ausstehende_spiele: ausstehend,
+  statistik: { ...GRUPPEN_TEAM.statistik, count_gespielte_spiele: gespielt },
+  count_pending_spiele: ausstehend,
 });
 
 const marked = (teams: FLGruppenTeam[], qualifiersPerGroup = 2) => [...computeQualifyingTeamIds({ teams, qualifiersPerGroup })];
@@ -154,10 +157,13 @@ describe("computePlatzByTeamId", () => {
 const SUBJECT = TEAM_ID(1);
 const OPPONENT = TEAM_ID(2);
 
-/** Parsed at construction, for `GRUPPEN_TEAM`'s reason: a drifted field fails where it is built. */
-const SPIEL: FLSpiel = FLSpielSchema.parse(
-  spielFields({ id: "6890a1b2c3d4e5f607190101", team1: side(SUBJECT), team2: side(OPPONENT), spiel_nr: 1, saison_id: "2026" }),
-);
+const SPIEL: FLSpiel = spielFields({
+  id: "6890a1b2c3d4e5f607190101",
+  team1: side(SUBJECT),
+  team2: side(OPPONENT),
+  spiel_nr: 1,
+  saison_id: "2026",
+});
 
 const fixture = ({
   phase,
@@ -501,7 +507,7 @@ describe("describeReplacementUmfang", () => {
     }
   });
 
-  /* The repair is a reassignment, never the outgoing club's return: `REQ-SQUAD-001` judges the row's
+  /* The repair is a reassignment, never the outgoing club's return: `kader_team_not_in_saison` judges the row's
      `team_id` on the PATCH as well, so no season status stands between the row and its squad. */
   it("names the reassignment as the repair, and names it only where it retired a row", () => {
     for (const report of [umfang(0, 1), umfang(3, 9)]) {
@@ -531,7 +537,7 @@ const kontaktperson = (vorname: string): FLKontaktperson => ({
   email: `${vorname.toLowerCase()}@beispiel.de`,
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: kenntnisnahme({ text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" }),
+  einwilligung: kenntnisnahme({ text_version: "2025-08", datum: "2025-09-01", confirmed_at: "2025-09-02" }),
 });
 
 const club = (kontakte: FLSaisonTeamKontakte | null): FLTeamWithMemberships => ({
@@ -551,11 +557,13 @@ const club = (kontakte: FLSaisonTeamKontakte | null): FLTeamWithMemberships => (
       austritt: null,
       trikot_farbe: null,
       kontakte,
-      bestaetigungen: null,
-      adresswechsel: null,
+      confirmations: null,
+      address_change: null,
       kontakte_stand: "9f2c",
+      version: 0,
     },
   ],
+  version: 0,
 });
 
 describe("buildKontaktRows", () => {
@@ -568,7 +576,7 @@ describe("buildKontaktRows", () => {
           trainer: null,
           ansprechperson: kontaktperson("Erika"),
           stellvertretung: kontaktperson("Lena"),
-          trainer_ist_zugleich: null,
+          trainer_is_also: null,
         }),
       ],
       SAISON,
@@ -594,13 +602,13 @@ describe("buildKontaktRows", () => {
           trainer: kontaktperson("Tim"),
           ansprechperson: kontaktperson("Erika"),
           stellvertretung: kontaktperson("Lena"),
-          trainer_ist_zugleich: null,
+          trainer_is_also: null,
         }),
       ],
       SAISON,
     );
     const teilweise = buildKontaktRows(
-      [club({ trainer: null, ansprechperson: kontaktperson("Erika"), stellvertretung: null, trainer_ist_zugleich: null })],
+      [club({ trainer: null, ansprechperson: kontaktperson("Erika"), stellvertretung: null, trainer_is_also: null })],
       SAISON,
     );
 
@@ -615,7 +623,7 @@ describe("buildKontaktRows", () => {
           trainer: null,
           ansprechperson: kontaktperson("Erika"),
           stellvertretung: kontaktperson("Lena"),
-          trainer_ist_zugleich: "ansprechperson",
+          trainer_is_also: "ansprechperson",
         }),
       ],
       SAISON,
@@ -636,7 +644,7 @@ describe("buildKontaktRows", () => {
           trainer: shared,
           ansprechperson: kontaktperson("Max"),
           stellvertretung: shared,
-          trainer_ist_zugleich: "stellvertretung",
+          trainer_is_also: "stellvertretung",
         }),
       ],
       SAISON,
@@ -652,8 +660,8 @@ describe("buildKontaktRows", () => {
     const leer = { trainer: null, ansprechperson: null, stellvertretung: null } as const;
 
     expect(buildKontaktRows([club(null)], SAISON)).toStrictEqual([]);
-    expect(buildKontaktRows([club({ ...leer, trainer_ist_zugleich: null })], SAISON)).toStrictEqual([]);
-    expect(buildKontaktRows([club({ ...leer, trainer_ist_zugleich: "ansprechperson" })], SAISON)).toStrictEqual([]);
+    expect(buildKontaktRows([club({ ...leer, trainer_is_also: null })], SAISON)).toStrictEqual([]);
+    expect(buildKontaktRows([club({ ...leer, trainer_is_also: "ansprechperson" })], SAISON)).toStrictEqual([]);
   });
 });
 
@@ -661,7 +669,7 @@ describe("holdsNobody", () => {
   /* The seat-by-seat floor beside the two empty shapes: one seat held is somebody on file, whichever
      seat it is. */
   it("reads no block and a block of empty seats alike, and any one held seat as somebody", () => {
-    const leer: FLSaisonTeamKontakte = { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null };
+    const leer: FLSaisonTeamKontakte = { trainer: null, ansprechperson: null, stellvertretung: null, trainer_is_also: null };
 
     expect(holdsNobody(null)).toBe(true);
     expect(holdsNobody(leer)).toBe(true);
@@ -675,7 +683,7 @@ describe("holdsNobody", () => {
 
 describe("the club filter a link into the contacts list preselects", () => {
   const rows = buildKontaktRows(
-    [club({ trainer: kontaktperson("Tim"), ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null })],
+    [club({ trainer: kontaktperson("Tim"), ansprechperson: null, stellvertretung: null, trainer_is_also: null })],
     SAISON,
   );
 
@@ -695,9 +703,9 @@ describe("the club filter a link into the contacts list preselects", () => {
 
   /* Who seated a person is the one origin a seat keeps. */
   it("reads who seated each person, across the club's seats", () => {
-    const geseated = (eingetragen_von: FLKontaktperson["einwilligung"]["eingetragen_von"]) => ({
+    const geseated = (eingetragen_von: FLKontaktperson["einwilligung"]["entered_by"]) => ({
       ...kontaktperson("Tim"),
-      einwilligung: { ...kontaktperson("Tim").einwilligung, eingetragen_von },
+      einwilligung: { ...kontaktperson("Tim").einwilligung, entered_by: eingetragen_von },
     });
     const [row] = buildKontaktRows(
       [
@@ -705,7 +713,7 @@ describe("the club filter a link into the contacts list preselects", () => {
           trainer: geseated("bewerbung"),
           ansprechperson: geseated("liga"),
           stellvertretung: geseated("liga"),
-          trainer_ist_zugleich: null,
+          trainer_is_also: null,
         }),
       ],
       SAISON,
@@ -776,9 +784,9 @@ describe("what a website box reports upward", () => {
     expect(toWebsiteUrl("HTTP://www.beispielschule.de")).toBe("https://www.beispielschule.de");
   });
 
-  /* ONE spelling of "no website" is ever written, so no reader downstream tests for two.
-     `OptionalExternalUrlSchema` refuses `""` outright (`schemas.test.ts`), so an empty box
-     reported as one would be refused rather than stored. */
+  /* ONE spelling of "no website" is ever written, so no reader downstream tests for two. The
+     club payload refuses `""` outright (`schemas.test.ts`), so an empty box reported as one would
+     be refused rather than stored. */
   it("reports no website as null, never as the empty string", () => {
     expect(toWebsiteUrl("")).toBe(null);
     expect(toWebsiteUrl("   ")).toBe(null);
@@ -791,7 +799,7 @@ describe("what a new Kenntnisnahme cites", () => {
      wording, so a record citing nothing, or citing a value somebody keyed in, claims acknowledgement of a
      text the league cannot identify. */
   it("stamps the label it is handed, the one the backend runs", () => {
-    const laufend = publishedLaufendeFassung("bewerbung").text_version;
+    const laufend = laufendeFassung("bewerbung").text_version;
     const frisch = buildEmptyKontaktperson(laufend).einwilligung;
 
     expect(frisch.text_version, "a new Kenntnisnahme cites a version the league did not stamp").toBe(laufend);
@@ -810,7 +818,7 @@ describe("the kit palette", () => {
 describe("which kit colours the wish picker offers", () => {
   const alle = TRIKOT_FARBE_OPTIONS.map((option) => option.value);
   const values = (vergeben: readonly (typeof alle)[number][], value: (typeof alle)[number] | null = null) =>
-    offeredTrikotFarben({ vergeben: vergeben, value: value }).map((option) => option.value);
+    offeredTrikotFarben({ taken: vergeben, value: value }).map((option) => option.value);
 
   /* First, because every case below compares against the palette: a filter that had stopped reading
      `TRIKOT_FARBE_OPTIONS` would return nothing and make each of them pass over an empty list. */
@@ -873,7 +881,7 @@ describe("whether the list and the editor offer a club's retirement", () => {
       ids.map((saison_id) => ({ saison_id })),
     );
 
-  /* `REQ-RETIRE-001` reads every season the club stands in, so the selected one alone would offer a write it refuses. */
+  /* `retire_blocked` reads every season the club stands in, so the selected one alone would offer a write it refuses. */
   it("withholds it while a running or a planned season holds the club, whichever season is selected", () => {
     expect(inSaisons("2025", "2026")).toBe(false);
     expect(inSaisons("2025", "2027")).toBe(false);

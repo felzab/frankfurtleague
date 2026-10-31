@@ -1,12 +1,11 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { AdminBewerbungenView } from "@/features/bewerbungen/components/views/AdminBewerbungenView";
 import { BEWERBUNGEN_CRUD_COPY } from "@/features/bewerbungen/constants";
 import { getBewerbungenQueue } from "@/features/bewerbungen/queries";
 import { buildBewerbungRows } from "@/features/bewerbungen/utils";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
@@ -40,13 +39,12 @@ export default function AdminBewerbungenPage(props: NextPageProps) {
  * other seasons — the row-flag shape `/bereich/admin/teams` uses.
  */
 async function BewerbungenTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
-  await connection();
   const params = (await searchParams) ?? {};
   const richtung = parseLeserichtung(params);
 
   const [teamsRes, selectedSaison] = await Promise.all([
     // The clubs, because a picked one is stored as an id.
-    getTeamMemberships(),
+    getTeamSaisons(),
     resolveAdminSaison(searchParams),
   ]);
   const selectedSaisonId = selectedSaison?.id;
@@ -58,12 +56,12 @@ async function BewerbungenTable({ searchParams }: { searchParams: NextPageProps[
   return (
     <AdminBewerbungenView
       bewerbungen={buildBewerbungRows(bewerbungenRes.bewerbungen, teamsRes.teams, selectedSaisonId)}
-      anzahlJeStatus={bewerbungenRes.anzahl_je_status}
-      anzahlJeSaisonbezug={bewerbungenRes.anzahl_je_saisonbezug}
-      dublettenSchluessel={bewerbungenRes.dubletten_schluessel}
+      anzahlJeStatus={bewerbungenRes.count_per_status}
+      anzahlJeSaisonbezug={bewerbungenRes.count_per_saison_reference}
+      dublettenSchluessel={bewerbungenRes.duplicates_key}
       richtung={richtung}
       unvollstaendig={
-        bewerbungenRes.vollstaendig ? null : { richtung: richtung, umkehrHref: leserichtungHrefFromRoute(params, umgekehrt(richtung)) }
+        bewerbungenRes.complete ? null : { richtung: richtung, umkehrHref: leserichtungHrefFromRoute(params, umgekehrt(richtung)) }
       }
     />
   );

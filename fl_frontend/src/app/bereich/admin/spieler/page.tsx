@@ -1,18 +1,17 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { AdminSpielerView } from "@/features/spieler/components/views/AdminSpielerView";
 import { kaderName, SPIELER_CRUD_COPY } from "@/features/spieler/constants";
-import { getSpielerMemberships } from "@/features/spieler/queries";
+import { getSpielerSaisons } from "@/features/spieler/queries";
 import { countLiveSquadRows, squadIsFull } from "@/features/spieler/utils";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 
+import type { FLTeamWithMemberships } from "@/core/generated/client/types";
 import type { AdminSpielerRow, SpielerTeamOption } from "@/features/spieler/types";
-import type { FLTeamWithMemberships } from "@/features/teams/schemas";
 import type { NextPageProps } from "@/shared/types/types";
 
 function teamsInSaison(teams: FLTeamWithMemberships[], saisonId: string): SpielerTeamOption[] {
@@ -43,15 +42,13 @@ export default function AdminSpielerPage(props: NextPageProps) {
 
 /**
  * EVERY player across every season, each row carrying the SELECTED season's squad row
- * (`fl_frontend/src/features/spieler/queries.ts :: getSpielerMemberships`); a player in no squad is listed too.
+ * (`fl_frontend/src/features/spieler/queries.ts :: getSpielerSaisons`); a player in no squad is listed too.
  */
 async function SpielerTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
-  await connection();
-
   const [membershipsRes, selectedSaison, teamsRes] = await Promise.all([
-    getSpielerMemberships(),
+    getSpielerSaisons(),
     resolveAdminSaison(searchParams),
-    getTeamMemberships(),
+    getTeamSaisons(),
   ]);
   const selectedSaisonId = selectedSaison?.id ?? "";
 
@@ -88,7 +85,7 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
               nummer: selected.nummer ?? "",
               position: selected.position,
               stufe: selected.stufe,
-              ist_nachnominiert: selected.ist_nachnominiert,
+              ist_nachnominiert: selected.is_nachnominiert,
               rolle: selected.rolle,
               inactive_since: selected.inactive_since,
               // An unresolvable team is a squad row pointing at a deleted club: null, not a crash, so the row
@@ -104,7 +101,7 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
       spieler={rows}
       // The facet's options and both gates on the row reactivate read this: a filter naming
       // another season's club narrows to nothing, and a wider list would offer a reactivate
-      // `REQ-SQUAD-001` refuses.
+      // `kader_team_not_in_saison` refuses.
       teams={saisonTeams}
       selectedSaisonId={selectedSaisonId}
     />

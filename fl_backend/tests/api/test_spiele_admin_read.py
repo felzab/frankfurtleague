@@ -1,6 +1,6 @@
 import asyncio
 import functools
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterator, Mapping
 from typing import Any
 
 import pymongo
@@ -10,27 +10,25 @@ from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exception_handlers import DATABASE_FAILED
-from app.core.exceptions import DOCUMENT_NOT_FOUND
-from app.core.security import WRONG_ADMIN_KEY, WRONG_BASE_KEY
 from app.main import create_app
 from tests import documents
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, ADMINISTRATORS, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
+from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database_sync
 
 from .conftest import unwritten
 
 # Which guard refused, and so which route answered: `verify_access_base` guards the public router
 # and `verify_access_admin` the admin one, and no key satisfies both.
-BASE_GUARD_REFUSED = WRONG_BASE_KEY
-ADMIN_GUARD_REFUSED = WRONG_ADMIN_KEY
+BASE_GUARD_REFUSED = Code.ACCESS_KEY_REFUSED
+ADMIN_GUARD_REFUSED = Code.ACCESS_KEY_REFUSED
 
 # Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure,
 # the harness's own included.
-UNREACHED_DATABASE = DATABASE_FAILED
+UNREACHED_DATABASE = Code.DATABASE_FAILED
 
 SAISON_ID = "2026"
 
@@ -47,7 +45,7 @@ MIETPREIS = 80
 PAYMENT = 30
 
 PUBLIC_PATH = f"/api/v{API_VERSION}/spiele/{SPIEL_ID}"
-ADMIN_PATH = f"{PUBLIC_PATH}/admin"
+ADMIN_PATH = f"{PUBLIC_PATH}/verwaltung"
 
 # Joined onto `team2`, which is how a response proves it came through `build_spiele_pipeline` rather
 # than through a plain `find`.
@@ -62,8 +60,8 @@ def spiel_document() -> dict[str, Any]:
         saison_id=SAISON_ID,
         spiel_nr=1,
         spieltag_id=SPIELTAG_ID,
-        team1={"team_id": HOME, "name": "Alpha", "shorthand": "AL", "tore": 2},
-        team2={"team_id": AWAY, "name": "Beta", "shorthand": "BE", "tore": 1},
+        team1={"team_id": HOME, "name": "Alpha", "shorthand": "ALX", "tore": 2},
+        team2={"team_id": AWAY, "name": "Beta", "shorthand": "BEX", "tore": 1},
         datum="2026-03-15",
         uhrzeit="14:00:00",
         ort={"spielort_id": SPIELORT_ID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": MIETPREIS},
@@ -73,7 +71,7 @@ def spiel_document() -> dict[str, Any]:
 
 
 def junction_row() -> dict[str, Any]:
-    return documents.saison_team_document(SAISON_ID, AWAY, "Beta", "BE", austritt=dict(AUSTRITT))
+    return documents.saison_team_document(SAISON_ID, AWAY, "Beta", "BEX", austritt=dict(AUSTRITT))
 
 
 @functools.cache
@@ -86,9 +84,9 @@ def _served() -> FastAPI:
     return create_app(build_test_config())
 
 
-def answered(uri: str, path: str, headers: Mapping[str, str], *, admitting: Iterable[str] | None = None) -> Response:
+def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
     async def _answered() -> Response:
-        async with app_client(uri, app=_served(), admitting=admitting) as http:
+        async with app_client(uri, app=_served()) as http:
             with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
                 return await http.get(path, headers=dict(headers))
 
@@ -106,7 +104,7 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     client = MongoClient(mongo_replica_set_url)
     try:
         database = a_clean_database_sync(client, mongo_replica_set_url, database_name)
-        database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+        database[Collection.GRANTS].insert_many(grants_for_the_suite())
         database[Collection.SPIELE].insert_one(spiel_document())
         database[Collection.SAISON_TEAMS].insert_one(junction_row())
 
@@ -144,9 +142,8 @@ REACHING_CASES = [
 def test_the_matching_key_clears_the_guard_and_reaches_the_database(path: str, headers: Mapping[str, str]):
     """The control for the pair above: without it, a refusal from a route that does not exist would read as the guard's."""
 
-    # The actor check answered from the set, so the admin path's 500 is the handler's own read:
-    # against the unreachable grants, the check's read would answer it before the handler ran.
-    response = answered(UNANSWERED_URI, path, headers, admitting=ADMINISTRATORS)
+    # On the admin path the 500 is the actor check's grant read, which runs only once the key has cleared.
+    response = answered(UNANSWERED_URI, path, headers)
 
     assert response.status_code == 500
     assert response.json()["error_code"] == UNREACHED_DATABASE
@@ -156,7 +153,7 @@ def test_the_matching_key_clears_the_guard_and_reaches_the_database(path: str, h
 def test_a_malformed_id_is_a_404_on_the_admin_path_too(spiel_id: str):
     """`by_id`, not a bare `{spiel_id}`: the convertor is what keeps a malformed path id off the 422 a query id gets."""
 
-    path = f"/api/v{API_VERSION}/spiele/{spiel_id}/admin"
+    path = f"/api/v{API_VERSION}/spiele/{spiel_id}/verwaltung"
 
     assert answered(UNANSWERED_URI, path, ADMIN_AUTH).status_code == 404
 
@@ -184,9 +181,9 @@ def test_an_id_naming_no_fixture_is_a_404(seeded_url: str):
 
     response = answered(
         seeded_url,
-        f"/api/v{API_VERSION}/spiele/{ABSENT_SPIEL_ID}/admin",
+        f"/api/v{API_VERSION}/spiele/{ABSENT_SPIEL_ID}/verwaltung",
         ADMIN_AUTH,
     )
 
     assert response.status_code == 404
-    assert response.json()["error_code"] == DOCUMENT_NOT_FOUND
+    assert response.json()["error_code"] == Code.DOCUMENT_NOT_FOUND

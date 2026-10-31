@@ -32,11 +32,9 @@ import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { BESTAETIGUNGSLINK_TITEL, meldeLinkVersand } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
-import type { FLSchiedsrichterBestaetigung } from "@/features/schiedsrichter/schemas";
-import type { FLEinwilligung } from "@/features/spieler/schemas";
+import type { FLConfirmation, FLEinwilligung, FLOutboxStatus } from "@/core/generated/client/types";
 
 /**
  * The re-send's accessible name, its link named for this panel as the address change's panel names its
@@ -48,19 +46,27 @@ const BESTAETIGUNG_ERNEUT = benannt("Link erneut senden", "Bestätigung");
 const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.";
 
 /** What the last link reached, where one has gone out at all. */
-function LinkStand({ bestaetigung, offenUndAbgelaufen }: { bestaetigung: FLSchiedsrichterBestaetigung; offenUndAbgelaufen: boolean }) {
+function LinkStand({
+  confirmation: bestaetigung,
+  offenUndAbgelaufen,
+  delivery: zustellung,
+}: {
+  confirmation: FLConfirmation;
+  offenUndAbgelaufen: boolean;
+  delivery: FLOutboxStatus | null;
+}) {
   return (
     <dl className={FIELD_PAIR_CLASSES}>
       <LinkStandAngaben
-        verschicktAm={bestaetigung.verschickt_am}
+        verschicktAm={bestaetigung.sent_at}
         frist={bestaetigung.frist}
         istAbgelaufen={offenUndAbgelaufen}
-        zustellung={bestaetigung.zustellung}
+        zustellung={zustellung}
         vorZustellung={
           // A state rather than a gap: nothing reminds a referee, so „Keine Erinnerung“ is the fact
           // rather than a day that went missing.
           <Angabe label="Erinnert am">
-            {bestaetigung.erinnert_am === null ? <Leer>Keine Erinnerung</Leer> : formatSpielDatum(bestaetigung.erinnert_am)}
+            {bestaetigung.reminded_at === null ? <Leer>Keine Erinnerung</Leer> : formatSpielDatum(bestaetigung.reminded_at)}
           </Angabe>
         }
       />
@@ -95,7 +101,7 @@ function EinwilligungStand({
         />
       </Angabe>
       <Angabe label="Bestätigt am">
-        {einwilligung.bestaetigt_am === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.bestaetigt_am)}
+        {einwilligung.confirmed_at === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.confirmed_at)}
       </Angabe>
       {/* The key rather than a German gloss of it, which would be a second name for one wording. */}
       <Angabe label={EINWILLIGUNG_FASSUNG_FRAGE}>
@@ -120,8 +126,9 @@ export function FormBestaetigungSection({
   schiedsrichterId,
   hatAdresse,
   isRetired,
-  bestaetigung,
+  confirmation: bestaetigung,
   istAbgelaufen,
+  delivery: zustellung,
   einwilligung,
   istFassungBekannt,
   geburtsdatum,
@@ -131,9 +138,11 @@ export function FormBestaetigungSection({
   /** The STORED address, never the draft's: an unsaved box is not somewhere a message can go. */
   hatAdresse: boolean;
   isRetired: boolean;
-  bestaetigung: FLSchiedsrichterBestaetigung | null;
+  confirmation: FLConfirmation | null;
   /** The read's judgement of the link's deadline, never this browser's day. */
   istAbgelaufen: boolean;
+  /** What became of the last confirmation mail, off the Postausgang; null where none was owed. */
+  delivery: FLOutboxStatus | null;
   einwilligung: FLEinwilligung | null;
   /** Whether the registry holds the stored label, resolved by the page through the words read. */
   istFassungBekannt: boolean | null;
@@ -146,7 +155,7 @@ export function FormBestaetigungSection({
   const stepUp = useStepUp();
   const panel = formPanel();
 
-  const istBestaetigt = einwilligung?.bestaetigt_am != null;
+  const istBestaetigt = einwilligung?.confirmed_at != null;
   const sendeLabel = bestaetigung === null ? "Bestätigungslink senden" : "Link erneut senden";
   const sendeName = bestaetigung === null ? sendeLabel : BESTAETIGUNG_ERNEUT;
 
@@ -182,8 +191,8 @@ export function FormBestaetigungSection({
     }
 
     landing.landed();
-    // Graded as the editor's save grades its link: the earlier link is dead whichever way this one went.
-    meldeLinkVersand(res.versand, BESTAETIGUNGSLINK_TITEL, res.message);
+    // The link is owed and on its way; this panel's delivery line says what became of it once the page reads it again.
+    appToast.success("Bestätigungslink gesendet", { description: res.message });
   };
 
   return (
@@ -209,17 +218,18 @@ export function FormBestaetigungSection({
           <p className="muted-hint">Für diese Person wurde noch kein Bestätigungslink gesendet.</p>
         ) : (
           <LinkStand
-            bestaetigung={bestaetigung}
+            confirmation={bestaetigung}
             // A date an administrator reads as a deadline says nothing once it is past, and the
             // answer („einen neuen schicken“) is the control in this same panel; an answered link's says nothing at all.
             offenUndAbgelaufen={!istBestaetigt && istAbgelaufen}
+            delivery={zustellung}
           />
         )}
 
         {einwilligung === null ? (
           // The missing control belongs in the same breath, a reader of an empty panel among editable
           // ones looking for a way to record a consent; so does what waits on it, the save refusing to
-          // book an unconfirmed referee (`REQ-BOOKING-002`).
+          // book an unconfirmed referee (`booking_unconfirmed_schiedsrichter`).
           <p className="muted-hint">
             Diese Person hat ihren Eintrag noch nicht bestätigt, und eintragen lässt sich die Einwilligung nicht. Einteilen lässt sie sich erst,
             wenn sie bestätigt hat.

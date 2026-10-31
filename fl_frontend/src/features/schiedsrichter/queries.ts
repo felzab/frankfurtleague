@@ -1,7 +1,7 @@
 import { cache } from "react";
 
-import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
+import { schiedsrichterGetSchiedsrichter, schiedsrichterGetSchiedsrichterById, schiedsrichterGetSelf } from "@/core/generated/client/sdk";
 import { medienNochNicht } from "@/features/bewerbungen/utils";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { runAdminRead } from "@/shared/utils/adminRead";
@@ -11,11 +11,15 @@ import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { alterAusserhalb } from "./constants";
 import { postSchiedsrichterBestaetigungAnsicht } from "./mutations";
-import { FLSchiedsrichterListResponseSchema, FLSchiedsrichterSelbstResponseSchema, FLSchiedsrichterSingleResponseSchema } from "./schemas";
 
+import type {
+  FLSchiedsrichterListResponse,
+  FLSchiedsrichterSelfResponse,
+  FLSchiedsrichterSingleResponse,
+  SchiedsrichterGetSchiedsrichterParams,
+} from "@/core/generated/client/types";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLSchiedsrichterListResponse, FLSchiedsrichterSelbstResponse, FLSchiedsrichterSingleResponse } from "./schemas";
-import type { FLSchiedsrichterFilterParams, SchiedsrichterAnsicht, SchiedsrichterLinkZustand } from "./types";
+import type { SchiedsrichterAnsicht, SchiedsrichterLinkZustand } from "./types";
 
 /**
  * Every referee, with their contact details, school and fee. Admin-tier: a referee is a pupil
@@ -23,14 +27,9 @@ import type { FLSchiedsrichterFilterParams, SchiedsrichterAnsicht, Schiedsrichte
  *
  * **Uncached, and it stays uncached**: `"use cache"` keys on arguments, not on caller identity.
  */
-export async function getSchiedsrichter(filters: FLSchiedsrichterFilterParams = {}): Promise<FLSchiedsrichterListResponse> {
+export async function getSchiedsrichter(filters: SchiedsrichterGetSchiedsrichterParams = {}): Promise<FLSchiedsrichterListResponse> {
   // No cache tag either: one means nothing outside a cache scope.
-  return runAdminRead(() =>
-    apiClient<FLSchiedsrichterListResponse>("/schiedsrichter", FLSchiedsrichterListResponseSchema, {
-      authType: "admin",
-      params: filters,
-    }),
-  );
+  return runAdminRead(() => schiedsrichterGetSchiedsrichter(filters));
 }
 
 /**
@@ -43,9 +42,7 @@ export async function getSchiedsrichterById(schiedsrichterId: string): Promise<F
   return runAdminRead(() =>
     // `null` for "no such referee", which the editor page turns into `notFound()`. Every other
     // status still throws.
-    apiClient<FLSchiedsrichterSingleResponse>(`/schiedsrichter/${schiedsrichterId}`, FLSchiedsrichterSingleResponseSchema, {
-      authType: "admin",
-    }).catch((error: unknown) => {
+    schiedsrichterGetSchiedsrichterById(schiedsrichterId).catch((error: unknown) => {
       if (isRecordMissing(error)) return null;
       throw error;
     }),
@@ -58,14 +55,14 @@ export async function getSchiedsrichterById(schiedsrichterId: string): Promise<F
  * A token the backend will not parse matches no record, so the page calls the link void rather than
  * offering a reload that cannot succeed.
  */
-function mapSchiedsrichterAnsichtRefusal(error: unknown): "ungueltig" | null {
+function mapSchiedsrichterAnsichtRefusal(error: unknown): "invalid" | null {
   if (!isRefusal(error)) return null;
 
-  if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
+  if (error.serverErrorCode === "payload_refused") return "invalid";
 
   // Every rule's refusal alike, as the refused payload is: a confirmed or lapsed link answers its own
   // state in a 200, so a refusal is a token nothing could place, and a code nobody planned reads the same way.
-  return isRuleRefusal(error) ? "ungueltig" : null;
+  return isRuleRefusal(error) ? "invalid" : null;
 }
 
 export type SchiedsrichterBestaetigungRefusal = {
@@ -80,7 +77,7 @@ const ALTER_AUSSERHALB_UNGELESEN = "Mit diesem Geburtsdatum bist Du zu jung oder
 
 /** The link's own view, read again after a refused press: its floors where it is open, its state where not. */
 export type GelesenerSchiedsrichterLink =
-  | { readonly zustand: "gueltig"; readonly ansicht: { readonly mindestalter: number; readonly medien_mindestalter: number } }
+  | { readonly zustand: "valid"; readonly ansicht: { readonly minimum_age: number; readonly medien_minimum_age: number } }
   | { readonly zustand: SchiedsrichterLinkZustand };
 
 // A thunk, never a resolved read: the codes naming one state alone answer without it, and a caller resolving it
@@ -98,42 +95,42 @@ export async function mapSchiedsrichterBestaetigungRefusal(
 
   const ansicht = async () => {
     const link = await gelesen();
-    return link?.zustand === "gueltig" ? link.ansicht : null;
+    return link?.zustand === "valid" ? link.ansicht : null;
   };
   // The panel a reload opens on, which the press's own panel stands in for where the read finds the link open or reads nothing.
   const stand = async (sonst: SchiedsrichterLinkZustand): Promise<SchiedsrichterLinkZustand> => {
     const link = await gelesen();
-    return link === null || link.zustand === "gueltig" ? sonst : link.zustand;
+    return link === null || link.zustand === "valid" ? sonst : link.zustand;
   };
 
   switch (error.serverErrorCode) {
     // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
     // mail's link replaces.
-    case "REQ-VAL-002":
-    case "REQ-VAL-001":
+    case "body_unreadable":
+    case "payload_refused":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     // The switch is offered from the served age on the browser's day, so a clock disagreeing with the
     // backend's sends this, which a reopened link would offer again: switching it off is the repair.
-    case "REQ-SCHIEDSRICHTER-008":
-      return { error: medienNochNicht((await ansicht())?.medien_mindestalter ?? null) };
+    case "medien_age":
+      return { error: medienNochNicht((await ansicht())?.medien_minimum_age ?? null) };
     // The backend's judgement of the label: a page opened before a
     // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
-    case "REQ-EINWILLIGUNG-001":
+    case "wording_not_allowed":
       return { error: FASSUNG_NEU_OEFFNEN };
-    case "REQ-SCHIEDSRICHTER-002":
-      return { zustand: "ungueltig" };
+    case "link_invalid":
+      return { zustand: "invalid" };
     // Judged ahead of the ban, which the view ranks first: an address barred since reads as a reload shows it.
-    case "REQ-SCHIEDSRICHTER-003":
-      return { zustand: await stand("abgelaufen") };
-    case "REQ-SCHIEDSRICHTER-004":
-      return { zustand: await stand("bestaetigt") };
+    case "link_expired":
+      return { zustand: await stand("expired") };
+    case "confirmation_exists":
+      return { zustand: await stand("confirmed") };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
-    case "REQ-SCHIEDSRICHTER-009":
-      return { zustand: "gesperrt" };
+    case "link_barred":
+      return { zustand: "barred" };
     // The one refusal that spends nothing, so it lands on the field and the typed date survives it;
     // a `zustand` here would swap a live form for a dead-link panel.
-    case "REQ-SCHIEDSRICHTER-005": {
-      const floor = (await ansicht())?.mindestalter ?? null;
+    case "confirmation_age": {
+      const floor = (await ansicht())?.minimum_age ?? null;
 
       // A view that went unread names no floor: one guessed could send the person to correct a date that was right.
       return { fieldErrors: { geburtsdatum: floor === null ? ALTER_AUSSERHALB_UNGELESEN : alterAusserhalb(floor) } };
@@ -150,8 +147,7 @@ export async function mapSchiedsrichterBestaetigungRefusal(
 export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promise<SchiedsrichterAnsicht> {
   return runWithIncomingTrace(() =>
     postSchiedsrichterBestaetigungAnsicht({ token: token }).then(
-      (ansicht): SchiedsrichterAnsicht =>
-        ansicht.zustand === "gueltig" ? { zustand: "gueltig", ansicht: ansicht } : { zustand: ansicht.zustand },
+      (ansicht): SchiedsrichterAnsicht => (ansicht.state === "valid" ? { zustand: "valid", ansicht: ansicht } : { zustand: ansicht.state }),
       (error: unknown) => {
         // Anything but a refusal is a failed read, which is the page's own state rather than a panel
         // calling a live link void.
@@ -164,12 +160,8 @@ export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promi
 }
 
 /**
- * The signed-in referee's own records, refused `REQ-FUNKTION-001` where the backend holds no confirmed
+ * The signed-in referee's own records, refused `role_not_held` where the backend holds no confirmed
  * referee row for the address the page's own check passed.
  */
 // Never `"use cache"`, which keys on the arguments rather than the caller.
-export const getSchiedsrichterSelbst = cache(async (): Promise<FLSchiedsrichterSelbstResponse> =>
-  runPersonRead(() =>
-    apiClient<FLSchiedsrichterSelbstResponse>("/schiedsrichter/selbst", FLSchiedsrichterSelbstResponseSchema, { authType: "admin" }),
-  ),
-);
+export const getSchiedsrichterSelf = cache(async (): Promise<FLSchiedsrichterSelfResponse> => runPersonRead(() => schiedsrichterGetSelf()));

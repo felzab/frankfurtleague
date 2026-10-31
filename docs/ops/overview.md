@@ -49,8 +49,8 @@ reach it at otherwise.
 alone. No file here records either grant — the backend's was read from the cluster's users
 2026-08-02, and the sign-in store's is made by hand in the Atlas console. **Never give the two a
 shared login** — that makes the boundary a matter of trust rather than of configuration. The backend's
-user also needs `collMod`, a `dbAdmin` action `readWrite` does not carry, and the replay after a restore
-`listCollections`, which `readWrite` carries; `python -m app.core.constraints --check` asks for both.
+user needs `readWrite` and nothing beyond it: the boot builds indexes, and the replay after a restore
+lists the collections, each an action `readWrite` carries.
 
 ## The Cloudflare proxy
 
@@ -92,8 +92,9 @@ A backend route is unreachable from the internet unless an nginx location publis
 path nginx does not name to Next, so a route handler is reachable the moment it exists, and its own
 authorization is all that stands in front of it.
 
-FastAPI's Swagger UI sits at the app root (`/docs`), which the catch-all sends to Next, so the API
-documentation is a development and in-network tool.
+The API's documentation is the committed `fl_backend/openapi.json`: `fl_backend/app/main.py :: create_app`
+passes FastAPI's `openapi_url=None`, so the running app serves neither the document nor its `/docs` and
+`/redoc` pages.
 
 ## Security posture
 

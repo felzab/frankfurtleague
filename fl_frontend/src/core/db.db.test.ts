@@ -10,13 +10,7 @@ import { setTimeout as pause } from "node:timers/promises";
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
 import { isAPIError } from "better-auth/api";
-import {
-  MongoNetworkTimeoutError,
-  MongoNotConnectedError,
-  MongoOperationTimeoutError,
-  MongoServerSelectionError,
-  MongoClient as StoreProbe,
-} from "mongodb";
+import { MongoNetworkTimeoutError, MongoOperationTimeoutError, MongoServerSelectionError, MongoClient as StoreProbe } from "mongodb";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import type { MongoClient } from "mongodb";
@@ -235,13 +229,18 @@ registerAuthDoubles({
   },
 });
 
-/** The client a fresh evaluation of `db.ts` builds, the URL's suffix naming the evaluation. */
-async function storeOf(url: string): Promise<MongoClient> {
-  const { signInStore } = (await import(url)) as { signInStore: () => MongoClient };
+/** The client a fresh evaluation of `db.ts` builds, the URL's suffix naming the evaluation, and that evaluation's boot connect. */
+async function evaluated(url: string): Promise<{ client: MongoClient; connect: () => Promise<void> }> {
+  const { signInStore, connectSignInStore } = (await import(url)) as {
+    signInStore: () => MongoClient;
+    connectSignInStore: () => Promise<void>;
+  };
   const client = signInStore();
   closing(() => client.close());
-  return client;
+  return { client, connect: connectSignInStore };
 }
+
+const storeOf = async (url: string): Promise<MongoClient> => (await evaluated(url)).client;
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const client = await storeOf(PRODUCTION_DB);
@@ -255,12 +254,13 @@ const env = process.env as Record<string, string | undefined>;
 const nodeEnv = env.NODE_ENV;
 // Next declares `NODE_ENV` read-only, which is true of a build and not of this process.
 env.NODE_ENV = "development";
-const recoveringClient = await storeOf(`${import.meta.resolve("./db.ts")}?development`).finally(() => {
-  if (nodeEnv === undefined) delete env.NODE_ENV;
-  else env.NODE_ENV = nodeEnv;
-});
+const { client: recoveringClient, connect: connectRecovering } = await evaluated(`${import.meta.resolve("./db.ts")}?development`).finally(
+  () => {
+    if (nodeEnv === undefined) delete env.NODE_ENV;
+    else env.NODE_ENV = nodeEnv;
+  },
+);
 const handshakeClient = await storeOf(`${import.meta.resolve("./db.ts")}?handshake`);
-const closingClient = await storeOf(`${import.meta.resolve("./db.ts")}?closing`);
 
 // What a timer firing late on a loaded machine adds to the bound.
 const LATENESS_MS = 2000;
@@ -294,7 +294,6 @@ describe("the sign-in store's client bounds a cold start", () => {
   /* Only a client that has never connected takes the driver's automatic connect, which `timeoutMS`
      does not reach. */
   it("ends the first read against a server that never answers within its `serverSelectionTimeoutMS`", async () => {
-    const reopened = once(coldClient, "open");
     // Held to every operation's bound rather than read off the option: a removed option reads as the
     // driver's thirty-second default, and the case would follow it there.
     const outcome = await relay.hang(() =>
@@ -302,13 +301,9 @@ describe("the sign-in store's client bounds a cold start", () => {
     );
 
     assert.ok(outcome instanceof MongoServerSelectionError, `the cold read settled with ${String(outcome)}`);
-
-    // The reconnect after a hung first connect, awaited before the
-    // next case hangs the relay under it.
-    await settledWithin(OPERATION_BOUND + coldClient.options.minHeartbeatFrequencyMS, "the cold client's reconnect", () => reopened);
   });
 
-  /* The reconnect's own call: an explicit `connect()` checks a connection out, which `timeoutMS` does
+  /* The boot's own call: an explicit `connect()` checks a connection out, which `timeoutMS` does
      not reach, so only the handshake's bound ends it. */
   it("ends an explicit connect whose handshake the store never answers within its `connectTimeoutMS`", async () => {
     try {
@@ -334,7 +329,7 @@ describe("the sign-in store's client bounds every operation it sends", () => {
     const outcome = await relay.hang(() => settledWithin(OPERATION_BOUND, "the hung read", () => readServedSession(headers)));
 
     assert.ok(isAPIError(outcome) && outcome.status === "INTERNAL_SERVER_ERROR", `the hung read settled with ${String(outcome)}`);
-    expect(logged).toStrictEqual([{ event: "auth.library_failed", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }]);
+    expect(logged).toStrictEqual([{ event: "auth.library_failed", name: MongoOperationTimeoutError.name }]);
   });
 
   /* A code's sign-in runs the adapter's own transaction to consume its row, and the commit's own
@@ -361,11 +356,11 @@ describe("the sign-in store's client bounds every operation it sends", () => {
     assert.ok(outcome instanceof MongoOperationTimeoutError, `the hung commit settled with ${String(outcome)}`);
     // The abort the hang swallowed too: the one line saying the server may hold the transaction, the
     // commit's own failure being its caller's to log.
-    expect(logged).toStrictEqual([{ event: "auth.transaction_left_open", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }]);
+    expect(logged).toStrictEqual([{ event: "auth.transaction_left_open", name: MongoOperationTimeoutError.name }]);
   });
 
   /* A passkey removal runs from a server action, outside every endpoint, where the library writes this
-     line to the console; the json format's shim carries it into the envelope as `FE-CONSOLE-001`. */
+     line to the console, where it stays the library's own output. */
   it("writes a removal's transaction left open to the console when its commit and its abort both hang", async ({ onTestFinished }) => {
     const printed: unknown[][] = [];
     const printing = vi.spyOn(console, "error").mockImplementation((...line: unknown[]) => void printed.push(line));
@@ -476,43 +471,27 @@ async function transactionsHeld(): Promise<unknown[]> {
   }
 }
 
-describe("the sign-in store's client recovers from a cold start it could not complete", () => {
+describe("the boot's connect recovers from a cold start the store refused", () => {
   const probe = () => recoveringClient.db("store_bound").collection("probe").findOne({});
 
-  it("answers again once the store does, its first connect having been refused", async () => {
-    const reopened = once(recoveringClient, "open");
-    const refused = await relay.refuse(() => settledWithin(OPERATION_BOUND, "the refused read", probe));
-    assert.ok(refused instanceof MongoServerSelectionError, `the refused read settled with ${String(refused)}`);
+  /* The driver closes the topology a refused connect built and builds no other on its own, so only the boot's retry
+     opens the client again. */
+  it("opens the client once the store answers, its first attempt having been refused", async () => {
+    // Wrapped, so the refusal ends with the attempt failed rather than waiting on the connect it started.
+    const { connecting } = await relay.refuse(async () => {
+      const attemptFailed = once(recoveringClient, "topologyClosed");
+      const connected = connectRecovering();
+      await settledWithin(OPERATION_BOUND, "the refused attempt", () => attemptFailed);
+      return { connecting: connected };
+    });
 
-    // One attempt already under way, then the pause before the next.
-    await settledWithin(OPERATION_BOUND + recoveringClient.options.minHeartbeatFrequencyMS, "the reconnect", () => reopened);
+    // The attempt under way when the store answered, then the pause before the next.
+    await settledWithin(OPERATION_BOUND + recoveringClient.options.minHeartbeatFrequencyMS, "the boot's connect", () => connecting);
     expect(await settledWithin(OPERATION_BOUND, "the read after the store answered again", probe)).toBe(null);
   });
 
-  it("stays closed once closed, its first connect having been refused", async () => {
-    const read = () => closingClient.db("store_bound").collection("probe").findOne({});
-    let reopened = false;
-    closingClient.on("open", () => {
-      reopened = true;
-    });
-
-    const refused = await relay.refuse(async () => {
-      const outcome = await settledWithin(OPERATION_BOUND, "the refused read", read);
-      await settledWithin(OPERATION_BOUND, "the close", () => closingClient.close());
-      return outcome;
-    });
-    assert.ok(refused instanceof MongoServerSelectionError, `the refused read settled with ${String(refused)}`);
-
-    // The store answers again for as long as one attempt and the pause before it would take to open.
-    await pause(OPERATION_BOUND + closingClient.options.minHeartbeatFrequencyMS + LATENESS_MS);
-    const closedRead = await settledWithin(OPERATION_BOUND, "the read after the close", read);
-
-    expect(reopened, "the client its owner closed opened again once the store answered").toBe(false);
-    assert.ok(closedRead instanceof MongoNotConnectedError, `the read after the close settled with ${String(closedRead)}`);
-  });
-
   /* Its own process, so nothing of this file's holds the event loop open: once the read has failed,
-     the reconnect's pause is all that is left. */
+     the boot connect's pause is all that is left. */
   it("lets a process whose store refuses it exit once its read has failed", async () => {
     // A relay of the child's own, so what it refuses is the child's alone and never this file's clients'.
     const childRelay = new Relay();
@@ -530,8 +509,9 @@ describe("the sign-in store's client recovers from a cold start it could not com
         import.meta.resolve("../../scripts/tsconfig-alias-hook.mjs"),
         "--input-type=module",
         "--eval",
-        `const client = (await import("@/core/db.ts")).signInStore();
-await client.db("store_bound").collection("probe").findOne({}).catch(() => undefined);
+        `const { connectSignInStore, signInStore } = await import("@/core/db.ts");
+void connectSignInStore();
+await signInStore().db("store_bound").collection("probe").findOne({}).catch(() => undefined);
 process.stdout.write(process.env.FL_CHILD_SETTLED ?? "");`,
       ],
       // The marker travels as data in the environment rather than as source.

@@ -49,7 +49,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
 
   return (
     <RailPage
-      area="bereich"
+      scope="area"
       title={title}
       chip={chip}
       bar={

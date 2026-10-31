@@ -9,9 +9,9 @@ const errorWith = (issues: { path: PropertyKey[]; message: string }[]) => ({ iss
 
 describe("toFieldErrors", () => {
   it("keys each message by its dotted path", () => {
-    const found = toFieldErrors(errorWith([{ path: ["kader", "gute_spieler"], message: "Zu viele." }]));
+    const found = toFieldErrors(errorWith([{ path: ["kader", "good_spieler"], message: "Zu viele." }]));
 
-    expect(found).toStrictEqual({ "kader.gute_spieler": "Zu viele." });
+    expect(found).toStrictEqual({ "kader.good_spieler": "Zu viele." });
   });
 
   it("keeps the FIRST message on a path, which is the one the field shows", () => {

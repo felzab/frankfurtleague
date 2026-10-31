@@ -1,4 +1,7 @@
+import functools
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
+from http import HTTPStatus
 from typing import NamedTuple
 
 from fastapi import Depends, FastAPI, Request
@@ -7,29 +10,29 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import ConfigurationError, OperationFailure
 
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import MONGODB_URI_FILE, BackendConfig, get_app_config
 from app.core.constraints import apply_constraints
-from app.core.exceptions import NO_DATABASE_CLIENT, DatabaseUnavailableException
+from app.core.exceptions import APIError
 from app.core.logging import fl_logger
-from app.shared.folding import is_stored_identifier
 
 
 class Refusal(NamedTuple):
-    """A boot refusal's sentence and the code its log line carries.
+    """A boot refusal's log line key and the sentence its error carries.
 
-    One object rather than two constants, so a cause cannot be given a sentence and left without a code.
+    One object rather than two constants, so a cause cannot be given a key and left without a sentence.
     """
 
+    event: str
     sentence: str
-    error_code: str
 
 
-# The secret file's NAME and the fact, in one sentence each, used by the log line and the error alike.
-# The three share their opening, so an operator who found one of them reads which by its continuation.
-UNREACHABLE = Refusal(f"{MONGODB_URI_FILE}: the MongoDB server could not be reached, so the application will not start.", "SRV-BOOT-001")
-NO_SERVER = Refusal(f"{MONGODB_URI_FILE}: the value did not yield a server to connect to, so the application will not start.", "SRV-BOOT-002")
-REJECTED = Refusal(f"{MONGODB_URI_FILE}: the server refused to authenticate this value, so the application will not start.", "SRV-BOOT-003")
+# The secret file's NAME and the fact, in one sentence each, for the error. The three share their
+# opening, so an operator who found one of them reads which by its continuation.
+UNREACHABLE = Refusal("db.unreachable", f"{MONGODB_URI_FILE}: the MongoDB server could not be reached, so the application will not start.")
+NO_SERVER = Refusal("db.no_server", f"{MONGODB_URI_FILE}: the value did not yield a server to connect to, so the application will not start.")
+REJECTED = Refusal("db.rejected", f"{MONGODB_URI_FILE}: the server refused to authenticate this value, so the application will not start.")
 
 
 class DatabaseUnreachableError(Exception):
@@ -58,45 +61,33 @@ def _refusal_for(error: BaseException) -> Refusal:
     return UNREACHABLE
 
 
-class BootWarning(NamedTuple):
-    """`Refusal`'s pair for a line the boot goes on past.
-
-    Warnings rather than refusals: the public site needs no administrator, and a boot refused over the
-    grants would take it down to repair a state only a Playground paste repairs.
-    """
-
-    sentence: str
-    error_code: str
+# The two lines the boot goes on past: nobody can enter the administration, or no grant is out of an
+# administrator's reach. Warnings rather than refusals: the public site needs no administrator, and a
+# boot refused over the grants would take it down to repair a state only a Playground paste repairs.
+NO_GRANT = "grants.no_grant"
+NO_OWNER = "grants.no_owner"
 
 
-NO_GRANT = BootWarning("berechtigungen holds no live grant, so nobody can enter the administration.", "SRV-BOOT-005")
-NO_OWNER = BootWarning("berechtigungen holds no live owner row, so no grant is out of an administrator's reach.", "SRV-BOOT-006")
-DEAD_GRANT = BootWarning(
-    "berechtigungen holds {count} grant(s) whose address is empty, unfolded or refused by the address rule, which admit nobody.",
-    "SRV-BOOT-007",
-)
-
-
-async def warn_about_the_grants(berechtigungen_collection: AsyncCollection) -> None:
-    """Name a list that admits nobody, protects nobody, or holds a row no request matches: at boot, and after an erasure took a grant.
+async def warn_about_the_grants(grants_collection: AsyncCollection) -> None:
+    """Name a list that admits nobody or protects nobody: at boot, and after an erasure took a grant.
 
     Counts alone reach the line and never an address: the log outlives the grants it describes.
     """
 
-    grants = await berechtigungen_collection.find({}, projection={"adresse": 1, "verwaltung": 1}).to_list(length=None)
-    # The one reading every reader of a grant takes: the validator
-    # refuses no spelling, so a hand-typed row may be stored that no request matches.
-    live = [grant for grant in grants if is_stored_identifier(grant.get("adresse"))]
+    grants = await grants_collection.find({}, projection={"verwaltung": 1}).to_list(length=None)
 
-    if len(live) < len(grants):
-        fl_logger.warning(DEAD_GRANT.sentence.format(count=len(grants) - len(live)), extra={"error_code": DEAD_GRANT.error_code})
-
-    if not live:
-        fl_logger.warning(NO_GRANT.sentence, extra={"error_code": NO_GRANT.error_code})
+    if not grants:
+        fl_logger.warning(NO_GRANT)
         return
 
-    if all(grant.get("verwaltung") != "owner" for grant in live):
-        fl_logger.warning(NO_OWNER.sentence, extra={"error_code": NO_OWNER.error_code})
+    if all(grant.get("verwaltung") != "owner" for grant in grants):
+        fl_logger.warning(NO_OWNER)
+
+
+# Wider than the frontend's (`fl_frontend/src/core/db.ts :: options`), which a visitor's first request
+# waits on: here a request's shorter deadline governs, so only the boot waits this long. Bounded by the
+# window `scripts/ops/deploy.sh` waits for health in, so a failed ping's reason reaches its log excerpt.
+SERVER_SELECTION_TIMEOUT_MS = 15_000
 
 
 @asynccontextmanager
@@ -112,16 +103,15 @@ async def lifespan(app: FastAPI):
             # leave as the driver's own traceback, quoting what it read.
             client = AsyncMongoClient(
                 host=config.mongodb_uri.get_secret_value(),
-                serverSelectionTimeoutMS=config.db_server_selection_timeout,
-                minPoolSize=config.db_min_connections,
-                maxPoolSize=config.db_max_connections,
+                serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS,
                 uuidRepresentation="standard",
             )
             app.state.db_client = client
             await client.admin.command("ping")
         except Exception as error:
             refusal = _refusal_for(error)
-            fl_logger.critical(refusal.sentence, extra={"error_code": refusal.error_code})
+            # The file by its name, the one an operator goes and fixes; never its value.
+            fl_logger.critical(refusal.event, extra={"file": MONGODB_URI_FILE})
             # No `exc_info`, and a new error `from None`: the driver's own message carries the host
             # it resolved out of the value, which is the half an operator must not be handed.
             raise DatabaseUnreachableError(refusal.sentence) from None
@@ -130,20 +120,21 @@ async def lifespan(app: FastAPI):
         try:
             constraints = await apply_constraints(app.state.db_client[config.db_base_name])
         except Exception:
-            fl_logger.critical(
-                "Database constraints could not be applied, so the application will not start. Run "
-                "`python -m app.core.constraints --check` for the offending documents and the collMod privilege.",
-                exc_info=True,
-                extra={"error_code": "SRV-BOOT-004"},
-            )
+            fl_logger.critical("db.indexes_failed", exc_info=True)
             raise
         fl_logger.info(
-            f"Database constraints applied: {constraints.validators} validators, "
-            f"{constraints.unique_indexes} unique, {constraints.support_indexes} support "
-            f"and {constraints.ttl_indexes} TTL indexes."
+            "db.indexes_applied",
+            extra={
+                "unique_indexes": constraints.unique_indexes,
+                "support_indexes": constraints.support_indexes,
+                "ttl_indexes": constraints.ttl_indexes,
+            },
         )
 
-        await warn_about_the_grants(app.state.db_client[config.db_base_name][Collection.BERECHTIGUNGEN])
+        await warn_about_the_grants(app.state.db_client[config.db_base_name][Collection.GRANTS])
+
+        # The one line per start that says which build runs: the json-file driver records no image version of its own.
+        fl_logger.info("system.started", extra={"version": config.app_version})
 
         yield
 
@@ -156,7 +147,7 @@ async def lifespan(app: FastAPI):
 
 async def get_db_client(request: Request) -> AsyncMongoClient:
     if not hasattr(request.app.state, "db_client"):
-        raise DatabaseUnavailableException(error_code=NO_DATABASE_CLIENT)
+        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers={"Retry-After": "30"})
     return request.app.state.db_client
 
 
@@ -167,151 +158,15 @@ async def get_database(
     # The application's settings, not `get_config()`: reading the environment would resolve every
     # collection dependency against its database rather than the one the application was built with.
     if not hasattr(request.app.state, "db_client"):
-        raise DatabaseUnavailableException(error_code=NO_DATABASE_CLIENT)
+        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers={"Retry-After": "30"})
     return request.app.state.db_client[config.db_base_name]
 
 
-async def get_spiele_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELE]
+@functools.cache
+def collection_dependency(collection: Collection) -> Callable[..., Awaitable[AsyncCollection]]:
+    """The one dependency per collection, the same object on every call, so an override and FastAPI's per-request cache both key on it."""
 
+    async def get_collection(db: AsyncDatabase = Depends(get_database)) -> AsyncCollection:
+        return db[collection]
 
-async def get_spieler_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELER]
-
-
-async def get_spieltage_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELTAGE]
-
-
-async def get_teams_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.TEAMS]
-
-
-async def get_saisons_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SAISONS]
-
-
-async def get_spielorte_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELORTE]
-
-
-async def get_schiedsrichter_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SCHIEDSRICHTER]
-
-
-# The two junctions. A READ reaches them by name inside a `$lookup`; a write opens them directly,
-# there being nothing to join.
-async def get_saison_teams_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SAISON_TEAMS]
-
-
-async def get_aktionen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.AKTIONEN]
-
-
-async def get_saison_spieler_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SAISON_SPIELER]
-
-
-async def get_bewerbungen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.BEWERBUNGEN]
-
-
-async def get_sperrliste_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPERRLISTE]
-
-
-async def get_einladungen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.EINLADUNGEN]
-
-
-async def get_registrierungen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.REGISTRIERUNGEN]
-
-
-async def get_berechtigungen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.BERECHTIGUNGEN]
-
-
-async def get_berechtigungen_angekuendigt_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.BERECHTIGUNGEN_ANGEKUENDIGT]
-
-
-async def get_berechtigungen_postausgang_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.BERECHTIGUNGEN_POSTAUSGANG]
-
-
-async def get_drosselung_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.DROSSELUNG]
-
-
-async def get_adressanker_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.ADRESSANKER]
-
-
-async def get_spielbestaetigungen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELBESTAETIGUNGEN]
-
-
-async def get_spielberichte_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELBERICHTE]
-
-
-async def get_adresswechsel_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.ADRESSWECHSEL]
-
-
-async def get_adresswechsel_postausgang_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.ADRESSWECHSEL_POSTAUSGANG]
-
-
-async def get_berechtigungen_antraege_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.BERECHTIGUNGEN_ANTRAEGE]
+    return get_collection

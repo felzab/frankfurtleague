@@ -7,10 +7,9 @@ import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { categorizeActionRequired } from "../../utils";
 import { useAdmin } from "../providers/AdminContextProvider";
 
+import type { FLSpielbestaetigung, FLSpielJoinedAdmin } from "@/core/generated/client/types";
 import type { SpielberichtStand } from "@/features/spielberichte/types";
-import type { SpielbestaetigungenStand } from "@/features/spielbestaetigungen/types";
-import type { FLSpielAdmin, FLSpielWithDraftFields } from "@/features/spiele/schemas";
-import type { ActionRequiredCategory } from "@/features/spiele/types";
+import type { ActionRequiredCategory, FLSpielWithDraftFields } from "@/features/spiele/types";
 
 /**
  * The bridge for the match editor: it reads `useAdmin()` so `AdminEditSpielDataForm` never has to and
@@ -20,16 +19,14 @@ import type { ActionRequiredCategory } from "@/features/spiele/types";
 export function AdminSpielEditView({
   spielData,
   today,
-  isSpielSweepOn,
   bestaetigungen,
   spielbericht,
 }: {
-  spielData: FLSpielAdmin;
+  spielData: FLSpielJoinedAdmin;
   today: string;
-  isSpielSweepOn: boolean;
   /** `null` where the read failed, which the panel says. */
-  bestaetigungen: SpielbestaetigungenStand | null;
-  /** `null` where its read failed, which the panel says; absent where `SPIELBERICHT_EINGABE` reads off and no report stands. */
+  bestaetigungen: readonly FLSpielbestaetigung[] | null;
+  /** `null` where its read failed, which the panel says. */
   spielbericht?: SpielberichtStand | null;
 }) {
   const { teams, spielorte, schiedsrichter, saisonSpiele, numberOfGroups, isFinishedSaison, isActiveSaison } = useAdmin();
@@ -60,7 +57,6 @@ export function AdminSpielEditView({
         isFinishedSaison={isFinishedSaison}
         isActiveSaison={isActiveSaison}
         today={today}
-        isSpielSweepOn={isSpielSweepOn}
         bestaetigungen={bestaetigungen}
         spielbericht={spielbericht}
         categorize={categorize}

@@ -1,5 +1,5 @@
 from collections.abc import Mapping, Sequence, Set
-from typing import Any, Literal, NamedTuple
+from typing import Any, NamedTuple
 
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -14,16 +14,11 @@ from app.api.spiele.schemas import (
     FLSpielJoinedAdmin,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
-    FLSpielPriorOtherFields,
-    FLSpielPriorPaarung,
     FLSpielQuelleGruppe,
     FLSpielReleasedSide,
-    FLSpielRestorableField,
     FLSpielSlotHolder,
     FLSpielSlotHolderListAdapter,
     FLSpielTeamField,
-    FLSpielTeamFieldPayload,
-    other_fields_of,
 )
 from app.api.spiele.services import (
     BookedReferee,
@@ -47,9 +42,8 @@ from app.api.spiele.services import (
     reopens,
     resolve_bracket,
     slots_booked_against,
-    stored_in_slice,
 )
-from app.api.teams.schemas import FLGruppenNames, FLTeamListAdapter, FLTeamsFilterParams
+from app.api.teams.schemas import FLTeamListAdapter, FLTeamsFilterParams
 from app.api.teams.services import (
     ZERO_STATISTIK,
     DecidedStanding,
@@ -62,6 +56,7 @@ from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_one_in_db,
 from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.literals import FLGruppenNames, FLSpielSeite
 
 
 async def _resolve_one_saison(
@@ -83,7 +78,7 @@ async def _resolve_one_saison(
 
     # The groups the season RUNS alone: a standing built for any other would have the walk report a
     # reference to it as a table too short, where `find_gruppen_not_run` names the group.
-    gruppen_to_decide = referenced_gruppen & set(offered_gruppen(rules.number_of_groups))
+    gruppen_to_decide = referenced_gruppen & set(offered_gruppen(rules.number_of_gruppen))
 
     standings: Mapping[FLGruppenNames, DecidedStanding] = {}
     if gruppen_to_decide:
@@ -120,7 +115,7 @@ async def _resolve_one_saison(
 
     return BracketResolution(
         advancements=resolution.advancements,
-        bracket_faults=[*resolution.bracket_faults, *find_gruppen_not_run(spiele, number_of_groups=rules.number_of_groups)],
+        bracket_faults=[*resolution.bracket_faults, *find_gruppen_not_run(spiele, number_of_gruppen=rules.number_of_gruppen)],
     )
 
 
@@ -232,7 +227,7 @@ async def pull_booked_slots(
     claims: Sequence[SlotClaim],
     session: AsyncClientSession | None = None,
 ) -> list[BookedSlot]:
-    """Every other fixture's booking one of `claims` meets, as `REQ-CLASH-001` compares them.
+    """Every other fixture's booking one of `claims` meets, as `spiel_double_booked` compares them.
 
     `claims` is the caller's choice, and a save judges `find_claims_made`'s rather than every claim
     its fixture makes.
@@ -329,12 +324,12 @@ async def pull_booked_referee(
         return None
 
     row = await schiedsrichter_collection.find_one(
-        {"_id": schiedsrichter_id}, {"name": 1, "inactive_since": 1, "einwilligung.bestaetigt_am": 1}, session=session
+        {"_id": schiedsrichter_id}, {"name": 1, "inactive_since": 1, "einwilligung.confirmed_at": 1}, session=session
     )
     if row is None:
         return None
 
-    return BookedReferee(name=row["name"], inactive_since=row["inactive_since"], bestaetigt=is_confirmed(row.get("einwilligung")))
+    return BookedReferee(name=row["name"], inactive_since=row["inactive_since"], confirmed=is_confirmed(row.get("einwilligung")))
 
 
 async def anchor_a_booked_venue(
@@ -345,7 +340,7 @@ async def anchor_a_booked_venue(
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> None:
-    """Put a write booking this venue into the write set of `REQ-RETIRE-003`, which reads fixtures and writes the venue."""
+    """Put a write booking this venue into the write set of `spielort_still_booked`, which reads fixtures and writes the venue."""
 
     await anchor_in_db(
         collection=spielorte_collection,
@@ -361,7 +356,10 @@ async def anchor_a_booked_referee(
     # REQUIRED for `anchor_a_booked_venue`'s reason.
     session: AsyncClientSession,
 ) -> None:
-    """Put a write booking this referee into the write set of `REQ-RETIRE-004` and of the erasure: both judge fixtures and write this row."""
+    """Put a write booking this referee in the write set of `schiedsrichter_still_assigned` and of the erasure.
+
+    Both judge fixtures and write this row.
+    """
 
     await anchor_in_db(
         collection=schiedsrichter_collection,
@@ -390,7 +388,7 @@ def references_booked_again[Rewrite: (SlotAdvancement, SpieltagRelease)](
         # called-off fixture stays out of those still to be played.
         reopened = reopens(stored, ergebnis=None, sonderereignis=None if rewrite.voided_sonderereignis is not None else stored.sonderereignis)
 
-        # A lifted no-show claims its slot again even on a fixture that stays unplayed, which `REQ-CLASH-001` judges.
+        # A lifted no-show claims its slot again even on a fixture that stays unplayed, which `spiel_double_booked` judges.
         if not reopened and rewrite.voided_sonderereignis is None:
             continue
 
@@ -448,8 +446,7 @@ def _stored_side(side: FLSpielTeamField | None) -> Mapping[str, Any] | None:
     if side is None:
         return None
 
-    # `keep_oid` keeps `team_id` an ObjectId: as a string the `spiele` validator rejects the write,
-    # and the transaction takes the admin's own edit down with it.
+    # `keep_oid` keeps `team_id` an ObjectId: stored as a string, it would match no lookup by id.
     return side.model_dump(context={"keep_oid": True}, include=set(FLSpielTeamField.model_fields))
 
 
@@ -544,71 +541,7 @@ def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
     )
 
 
-def _payload_side(side: FLSpielTeamField | None) -> FLSpielTeamFieldPayload | None:
-    """One stored side as a payload names it. The display copies stay behind: the server composes them."""
-
-    return None if side is None else FLSpielTeamFieldPayload(team_id=side.team_id, tore=side.tore)
-
-
-def _prior_paarung(stored: FLSpiel, other_fields: FLSpielPriorOtherFields | None) -> FLSpielPriorPaarung:
-    return FLSpielPriorPaarung(
-        spiel_id=stored.id,
-        team1=_payload_side(stored.team1),
-        team2=_payload_side(stored.team2),
-        elfmeterschiessen=stored.elfmeterschiessen,
-        sonderereignis=stored.sonderereignis,
-        other_fields=other_fields,
-    )
-
-
-def _fields_this_write_replaced(stored: FLSpiel, patched: FLSpiel) -> FLSpielPriorOtherFields | None:
-    """The stored value of every field outside the Paarung this write overwrote, `None` where it overwrote none.
-
-    Only the fixture the request named can have any: a bracket resolution reaches the Paarung alone.
-    """
-
-    before = other_fields_of(stored)
-    after = other_fields_of(patched)
-    # Annotated, or pyright widens the mapping's `Literal` key to `str` and the model refuses the list.
-    replaced: list[FLSpielRestorableField] = [field for field, value in before.items() if value != after[field]]
-
-    return None if not replaced else FLSpielPriorOtherFields(replaced=replaced, **before)
-
-
-def report_prior_paarungen(
-    edited: CustomObjectId,
-    season: Sequence[FLSpiel],
-    patched: FLSpiel,
-    advanced_to: Sequence[FLSpielAdvancement],
-    released_sides: Sequence[FLSpielReleasedSide],
-) -> list[FLSpielPriorPaarung]:
-    """Every fixture this write changed, off the slice it was judged on.
-
-    Not either report's own view: the releases land before the resolution reads, so a fixture both
-    name would report an occupant one write out of date.
-    """
-
-    # `edited` is dropped from the set and prepended below instead: the resolution can advance the
-    # fixture the request named, and two entries for it would write that fixture twice on one undo.
-    moved = {report.spiel_id for report in (*advanced_to, *released_sides)} - {edited}
-    stored = sorted((spiel for spiel in season if spiel.id in moved), key=lambda spiel: spiel.spiel_nr)
-
-    # The rule's reading: a restore silently short of one fixture leaves it
-    # holding exactly what the admin asked to undo.
-    if len(stored) != len(moved):
-        raise ValueError(f"the season slice does not hold every fixture this write moved, so no restore over it can be trusted: {moved}")
-
-    named = stored_in_slice(edited, season)
-
-    # LEADING, because a restore replays this list in order: putting the named fixture back frees the
-    # occupants the resolution then hands to the moved ones, where the reverse order overwrites them.
-    return [
-        _prior_paarung(named, _fields_this_write_replaced(named, patched)),
-        *(_prior_paarung(spiel, None) for spiel in stored),
-    ]
-
-
-def _other_side(side: Literal["team1", "team2"]) -> Literal["team1", "team2"]:
+def _other_side(side: FLSpielSeite) -> FLSpielSeite:
     """The side facing `side`. One spelling, so the model and the `$set` cannot pair the two differently."""
 
     return "team2" if side == "team1" else "team1"
@@ -617,9 +550,8 @@ def _other_side(side: Literal["team1", "team2"]) -> Literal["team1", "team2"]:
 def apply_release_to_spiel(spiel: FLSpiel, release: SpieltagRelease) -> FLSpiel:
     """One fixture with the released side emptied.
 
-    The PREVIEW's model; the write spells the same rule as a `$set`, held to it by
-    `tests/api/test_spiele_write_execution.py`. The side left behind loses its goals too, scored
-    against the team being removed.
+    The PREVIEW's model; the write spells the same rule as a `$set`. The side left behind loses its
+    goals too, scored against the team being removed.
     """
 
     other = _other_side(release.side)

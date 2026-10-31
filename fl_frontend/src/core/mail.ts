@@ -3,25 +3,45 @@ import "server-only";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { authResendKey, frontend_config } from "./config";
+import { symmetricDecrypt } from "better-auth/crypto";
+
+import { KONTAKT_EMAIL } from "./brand";
+import { authResendKey, authSecret, frontend_config } from "./config";
+import { COPY } from "./copy";
 import { isOneBareMailbox, withAsciiDomain } from "./emailAddress";
+import { renderMail } from "./emailShell";
 import { APINetworkError, MailSendError } from "./errors";
+import { outboxPostHandout, outboxPostResult } from "./generated/client/sdk";
+import { OutboxPostResultBody } from "./generated/zod/inputs";
 import { logger } from "./logging";
-import { mayReceiveMail } from "./mailGate";
-import { boundCall, getRequestTraceId, recordWriteSent } from "./requestScope";
-import { buildSperreEmail } from "./sperrlisteEmail";
+import { mailFor, OUTBOX_TAG } from "./mailKinds";
+import { boundCall, getRequestTraceId } from "./requestScope";
 import { mintTraceId } from "./trace";
+
+import type { MailSender } from "./emailShell";
+import type { FLOutboxHandout, FLOutboxResultPayload, FLOutboxResultPayloadResult, FLOutboxResultResponse } from "./generated/client/types";
 
 const MAIL_ENDPOINT = "https://api.resend.com/emails";
 
-// One sender for every message the league sends. Splitting per stream isolates sending
-// reputation, which two low-volume transactional streams do not need, and costs a second address
-// to keep verified with the provider.
-const MAIL_FROM = "no-reply@frankfurtleague.de";
+// Two senders: sign-in codes and security notices from one address, everything else from the
+// other, the mail's kind choosing (`fl_frontend/src/core/emailShell.ts :: MailSender`). Each address
+// needs its own routing rule and its sender alignment at the provider.
+const SENDER_ADDRESSES: Readonly<Record<MailSender, string>> = {
+  anmeldung: "anmeldung@frankfurtleague.de",
+  liga: "liga@frankfurtleague.de",
+};
 
-// Bounds the WHOLE call the way `fl_frontend/src/core/api.ts :: BASE_FETCH_TIMEOUT_MS` bounds a
-// backend call: a per-attempt budget would multiply by the attempts below, and the application-form
-// notices are awaited inside an admin's own save.
+/** Every sender under the league's name, which needs no quoting: it holds no comma, quote or angle bracket. */
+function senderRow(sender: MailSender): string {
+  return `${COPY.marke.name} <${SENDER_ADDRESSES[sender]}>`;
+}
+
+/** Every reply reaches the league's mailbox, whichever address sent the mail. */
+const REPLY_TO = KONTAKT_EMAIL;
+
+// Bounds the WHOLE call the way `fl_frontend/src/core/api.ts :: FETCH_TIMEOUT_MS` bounds a
+// backend call: a per-attempt budget would multiply by the attempts below, and the backend's lease on a
+// page of sends is counted from both (`fl_backend/app/api/outbox/services.py :: LEASE_DURATION`).
 const MAIL_TIMEOUT_MS = 15000;
 
 /** Three, because the provider's own transient set is a rate limit or a blip and neither clears on the instant. */
@@ -34,97 +54,54 @@ const MAIL_RETRY_DELAY_MS = 400;
 // offers to commit -- with a sign-in code, a bearer credential, inside it.
 const MAIL_SINK_DIR = ".tmp-mail";
 
-/** Long enough for the biggest fan-out this application draws, short enough to end rather than spin. */
-const SINK_NAME_ATTEMPTS = 20;
-
 const SINK_SLUG_MAX = 40;
 
-export interface OutboundMail {
+interface OutboundMail {
   to: string;
   subject: string;
   html: string;
   text: string;
+  /** Which of the two senders, read off the mail's kind by `fl_frontend/src/core/emailShell.ts :: renderMail`. */
+  sender: MailSender;
   /**
    * Rides the send and comes back on every delivery event about it, which is what routes one back to
-   * the record it belongs to. Each name and value must be ASCII letters, digits, `_` or `-`.
+   * the row it was sent from. Each name and value must be ASCII letters, digits, `_` or `-`.
    */
-  tags?: Record<string, string>;
+  tags: Record<string, string>;
   /**
    * Collapses a repeat of the same send inside the provider's 24-hour window, answering the original
    * id rather than sending again. A key reused with a DIFFERENT body is refused rather than ignored.
    */
-  idempotencyKey?: string;
-  /**
-   * A person signing the message: `name` stands before the one sending address, which never changes. One
-   * field with the reply address, because a named sender invites replies and nobody reads the sending address.
-   */
-  absender?: { readonly name: string; readonly antwortAn: string };
-}
-
-/**
- * A display name as RFC 5322 quotes it: unquoted, the comma in „Name, Frankfurt League“ reads as a second
- * address. A break would end the header.
- */
-function absenderZeile(absender: OutboundMail["absender"]): string {
-  if (absender === undefined) return MAIL_FROM;
-
-  return `"${absender.name.replace(/[\r\n]+/g, " ").replace(/["\\]/g, "\\$&")}" <${MAIL_FROM}>`;
+  idempotencyKey: string;
 }
 
 /**
  * `null` where an accepted answer carried no id: the message went out, and no later delivery event
  * can be joined to it.
  */
-export type MailAccepted = { id: string | null };
+type MailAccepted = { id: string | null };
 
 /**
  * Raised where the deployment does not mail. Not a `MailSendError` and not in `errors.ts`: nothing
  * here reached a provider, so there is no status to carry and no retry decision to read off one.
  */
-export class MailWithheldError extends Error {
+class MailHeldError extends Error {
   constructor() {
-    // No recipient and no body in the message: this reaches `settleFanOut`, which logs an error's
-    // `name`.
     super("This deployment does not send mail.");
 
-    this.name = "MailWithheldError";
-  }
-}
-
-/**
- * Never merged with `MailWithheldError`: a withheld message is this deployment's to explain, a barred
- * one the address's, which no caller names.
- */
-export class MailBarredError extends Error {
-  constructor() {
-    super("The recipient is on the ban list.");
-
-    this.name = "MailBarredError";
+    this.name = "MailHeldError";
   }
 }
 
 /**
  * Raised where the recipient is not one bare mailbox, or its domain has no ASCII form. Beside
- * `MailWithheldError` rather than in `errors.ts` for its reason, and carrying no address for the same one.
+ * `MailHeldError` rather than in `errors.ts` for its reason, and carrying no address for the same one.
  */
-export class MailRecipientError extends Error {
+class MailRecipientError extends Error {
   constructor() {
     super("The recipient is not one mailbox with an ASCII domain.");
 
     this.name = "MailRecipientError";
-  }
-}
-
-/**
- * Nothing reached the provider: the request's deadline ran out first, or the ban list went unread,
- * each writing a line of its own. Not an `APINetworkError`, which a fan-out reads as a message that
- * may have gone.
- */
-class MailUnsentError extends Error {
-  constructor() {
-    super("Nothing reached the provider, so the message was not sent.");
-
-    this.name = "MailUnsentError";
   }
 }
 
@@ -150,19 +127,16 @@ function sinkFileStem(subject: string, at: Date): string {
   return slug === "" ? stamp : `${stamp}-${slug}`;
 }
 
-/**
- * A comment terminator and nothing else: a text part's `-- ` signature delimiter
- * (`fl_frontend/src/core/emailShell.ts :: stuffSignatureDelimiter`) has to survive byte for byte.
- */
+/** A comment terminator and nothing else: the rest of the text part has to survive byte for byte. */
 function forComment(value: string): string {
   return value.replaceAll("-->", "--&gt;").replaceAll("--!>", "--!&gt;");
 }
 
-function sinkDocument({ to, subject, html, text, tags, absender }: OutboundMail, traceId: string): string {
-  const pairs = Object.entries(tags ?? {}).map(([name, value]) => `${name}=${value}`);
+function sinkDocument({ to, subject, html, text, sender, tags }: OutboundMail, traceId: string): string {
+  const pairs = Object.entries(tags).map(([name, value]) => `${name}=${value}`);
   const header = [
-    `From: ${absenderZeile(absender)}`,
-    ...(absender === undefined ? [] : [`Reply-To: ${absender.antwortAn}`]),
+    `From: ${senderRow(sender)}`,
+    `Reply-To: ${REPLY_TO}`,
     `To: ${to}`,
     `Subject: ${subject}`,
     ...(pairs.length === 0 ? [] : [`Tags: ${pairs.join("; ")}`]),
@@ -177,40 +151,26 @@ function sinkDocument({ to, subject, html, text, tags, absender }: OutboundMail,
 }
 
 /**
- * The file's name, or `undefined` where nothing could be written. **Never throws**: the send is
- * refused either way, and a sink failure taking the refusal's place would report a message as sent.
+ * Files the message where a developer reads it. **Never throws**: the send is refused either way, and a
+ * sink failure taking the refusal's place would report a message as sent.
  */
-async function writeToSink(message: OutboundMail, traceId: string): Promise<string | undefined> {
+async function writeToSink(message: OutboundMail, traceId: string): Promise<void> {
   const directory = path.join(process.cwd(), MAIL_SINK_DIR);
   const stem = sinkFileStem(message.subject, new Date());
 
   try {
     await mkdir(directory, { recursive: true });
 
-    for (let attempt = 1; attempt <= SINK_NAME_ATTEMPTS; attempt++) {
-      const name = attempt === 1 ? `${stem}.html` : `${stem}-${String(attempt)}.html`;
-      try {
-        // `wx`, because one application's three contact people are three messages inside one
-        // millisecond: an overwrite here would report two of them as never rendered.
-        await writeFile(path.join(directory, name), sinkDocument(message, traceId), { encoding: "utf8", flag: "wx" });
-
-        return name;
-      } catch (error) {
-        if (errnoCode(error) !== "EEXIST") throw error;
-      }
-    }
-
-    throw new Error("No unused name was left for the message.");
+    // `wx`, so a message never overwrites another's file: the drain sends one at a time, a backend round trip apart, so
+    // two sharing a millisecond's name is a fault to see rather than a message to lose.
+    await writeFile(path.join(directory, `${stem}.html`), sinkDocument(message, traceId), { encoding: "utf8", flag: "wx" });
   } catch (error) {
     // The errno token, never the thrown message, which carries the path: the line says which failure
     // to fix without naming a directory the developer is about to be told to open anyway.
     logger.error("mail.sink_failed", undefined, {
-      error_code: "FE-MAIL-005",
       error_name: errnoCode(error) ?? (error instanceof Error ? error.name : "unknown"),
       trace_id: traceId,
     });
-
-    return undefined;
   }
 }
 
@@ -231,51 +191,149 @@ function pause(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 /**
- * Converted before the gate is asked: about the typed spelling the API answers by its own Unicode
- * tables while the provider is handed this runtime's conversion, and where the two disagree a barred
- * mailbox goes unbarred.
+ * The row's address as the provider is handed it: one bare mailbox, its domain in ASCII. The ban was judged at the
+ * hand-out, on the stored spelling.
  */
 function recipientOf(to: string): string {
-  // A domain IDNA cannot convert, and any spelling around a mailbox, which the gate would answer
-  // unbarred while the provider still reached the mailbox inside it.
+  // A domain IDNA cannot convert, and any spelling around a mailbox, which the provider would still reach the mailbox
+  // inside.
   const converted = withAsciiDomain(to);
   if (converted === undefined || !isOneBareMailbox(converted)) throw new MailRecipientError();
 
   return converted;
 }
 
-/** Every message the league sends but the ban's own notice, each asked of the ban list first. */
-export async function sendMail(mail: OutboundMail): Promise<MailAccepted> {
-  const to = recipientOf(mail.to);
+/** What drains settled: the backend's counts, summed over every report they made. */
+type DrainCount = Record<keyof FLOutboxResultResponse, number>;
 
-  // Ahead of the sink, so a stack that does not mail files only what production would send and the
-  // ban can be checked there.
-  const verdict = await mayReceiveMail(to);
-  if (verdict === "barred") throw new MailBarredError();
-  if (verdict === "failed") throw new MailUnsentError();
+const no = (): DrainCount => ({ sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 });
 
-  return deliver({ ...mail, to: to });
-}
+/** Every drain's counts since the hourly pass last took them, whichever started the drain: a write's or the pass. */
+let sinceLastPass = no();
 
 /**
- * The one message an address the ban list holds is sent: composed here from the ban's own facts, so
- * nothing a caller hands over can travel past the ban list under it.
+ * What every drain in this process settled since the last call, `abandoned` the mails the heartbeat reports: a mail is
+ * given up by whichever drain meets it, and most drains are a write's.
  */
-export async function sendSperreNotice({
-  to,
-  grund,
-  gesperrtBisSaisonId,
-  origin,
-}: { to: string } & Parameters<typeof buildSperreEmail>[0]): Promise<MailAccepted> {
-  return deliver({ to: recipientOf(to), ...buildSperreEmail({ grund: grund, gesperrtBisSaisonId: gesperrtBisSaisonId, origin: origin }) });
+export function takeDrainCounts(): DrainCount {
+  const taken = sinceLastPass;
+  sinceLastPass = no();
+
+  return taken;
+}
+
+/** The one drain this process runs, and the one every call made while it runs waits on. */
+let drainRunning: Promise<void> | undefined;
+let drainAfter: Promise<void> | undefined;
+
+/**
+ * Every mail owed now: claimed a page at a time, each sent, and each outcome reported as its send returns, so a drain
+ * cut short leaves no sent mail unreported but the one in flight. What it settled joins `takeDrainCounts`.
+ *
+ * One drain at a time in this process: a call while one runs waits on the next, started once that one settles however
+ * it settles. Rejects where a hand-out or a report fails, the rows it held going to the next drain once their lease
+ * lapses.
+ */
+export function drainOutbox(): Promise<void> {
+  if (drainRunning !== undefined) {
+    // Started from this call's context, so it runs under this call's scope rather than the running drain's, whose
+    // deadline may be what that drain failed on.
+    const after = () => {
+      drainAfter = undefined;
+      return drainOutbox();
+    };
+    drainAfter ??= drainRunning.then(after, after);
+    return drainAfter;
+  }
+
+  const run = drain().finally(() => {
+    drainRunning = undefined;
+  });
+  drainRunning = run;
+
+  return run;
+}
+
+/** Claims until a claim holds nothing: a mail handed back to wait its minute is no longer free, so the loop ends. */
+async function drain(): Promise<void> {
+  for (;;) {
+    const { lease, mails, abandoned } = await outboxPostHandout();
+    sinceLastPass.abandoned += abandoned;
+    if (lease === null) return;
+
+    for (const mail of mails) {
+      const report = { lease: lease, ...(await sendHandedOut(mail)) };
+      // The provider's name for a refusal is its own token, kept only where the endpoint takes it: the outcome stands
+      // without one, as `fl_frontend/src/app/api/mail/zustellung/route.ts` keeps a delivery event's.
+      const response = await outboxPostResult(OutboxPostResultBody.safeParse(report).data ?? { ...report, grund: null });
+      for (const field of Object.keys(response) as (keyof DrainCount)[]) sinceLastPass[field] += response[field];
+    }
+  }
 }
 
 /**
- * The one call against the mail provider, whichever entry asked for it. **A refusal never carries the
+ * One handed-out mail, rendered from its row and sent under the hand-out's own idempotency key: the provider collapses a
+ * repeat of this send, and a later hand-out mints a fresh link under a key of its own
+ * (https://resend.com/docs/dashboard/emails/idempotency-keys). The ban was judged at the hand-out.
+ */
+async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResultPayload, "lease">> {
+  // Opened here alone, sealed by `fl_frontend/src/core/auth.ts :: oweSignInMail` under the same key, and held by this
+  // scope alone: never on a line, never in an error.
+  let secret: string | null = null;
+  try {
+    if (mail.secret !== null) secret = await symmetricDecrypt({ key: authSecret(), data: mail.secret });
+  } catch (error) {
+    // Given up rather than thrown: sealed under a key since replaced, the row would stop every drain until it lapses,
+    // each claiming it first. The error's name alone, which quotes no value.
+    logger.error("outbox.secret_unreadable", undefined, { art: mail.data.art, name: error instanceof Error ? error.name : undefined });
+    return { id: mail.id, result: "abandon", message_id: null, grund: null };
+  }
+  const message = mailFor(mail.data.art, mail.data, { token: mail.token, secret: secret, origin: frontend_config.AUTH_URL });
+  if (message === undefined) {
+    // Handed back rather than given up: the row waits until its deadline for a deployment that builds its kind.
+    logger.error("outbox.art_without_template", undefined, { art: mail.data.art });
+    return { id: mail.id, result: "retry", message_id: null, grund: null };
+  }
+
+  try {
+    const { id } = await deliver({
+      to: recipientOf(mail.an),
+      ...renderMail(message),
+      tags: { [OUTBOX_TAG]: mail.id },
+      idempotencyKey: `outbox/${mail.id}/${String(mail.attempt)}`,
+    });
+    return { id: mail.id, result: "sent", message_id: id, grund: null };
+  } catch (error) {
+    // The row is the send's one record: the provider's own name for a refusal goes onto it, and no line.
+    return {
+      id: mail.id,
+      result: resultOf(error),
+      message_id: null,
+      grund: error instanceof MailSendError ? (error.providerErrorName ?? null) : null,
+    };
+  }
+}
+
+/**
+ * A failed send's outcome. A refusal the provider names temporary, its quota among them, and a send that broke off are
+ * tried again and never count toward giving up; any other refusal is one every send would meet.
+ */
+function resultOf(error: unknown): Exclude<FLOutboxResultPayloadResult, "sent"> {
+  if (error instanceof MailHeldError) return "held";
+  if (error instanceof MailRecipientError) return "abandon";
+  if (error instanceof MailSendError) return error.isTransient ? "retry" : "abandon";
+  if (error instanceof APINetworkError) return "retry";
+
+  // A fault of this code rather than of the send: the drain stops, and the row returns once its lease lapses.
+  throw error;
+}
+
+/**
+ * The one call against the mail provider, the drain's alone. **A refusal never carries the
  * provider's message**, which names the recipient -- `fl_frontend/src/core/errors.ts :: MailSendError`
  * takes the stable `name` field instead.
  */
-async function deliver({ to, subject, html, text, tags, idempotencyKey, absender }: OutboundMail): Promise<MailAccepted> {
+async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }: OutboundMail): Promise<MailAccepted> {
   const traceId = getRequestTraceId() ?? mintTraceId();
 
   // Both halves fail closed: the deployment says it is not the one that mails, and outside
@@ -285,29 +343,18 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey, absender
   if (frontend_config.APP_ENV !== "production" || apiKey === undefined) {
     // Never on production, which reaches this arm only where `SKIP_ENV_VALIDATION` stood the key's
     // requirement down: a file there would leave a live sign-in code on the host's disk.
-    const sinkFile =
-      frontend_config.APP_ENV === "production" ? undefined : await writeToSink({ to, subject, html, text, tags, absender }, traceId);
+    if (frontend_config.APP_ENV !== "production") await writeToSink({ to, subject, html, text, sender, tags, idempotencyKey }, traceId);
 
-    // Subject, tags and the file's name, never the recipient or a body: enough to say WHICH message
-    // stayed behind and where to read it, and the logging rule keeps the person off the line.
-    logger.error("mail.withheld", undefined, {
-      error_code: "FE-MAIL-004",
-      app_env: frontend_config.APP_ENV,
-      subject: subject,
-      tags: tags,
-      sink_file: sinkFile,
-      trace_id: traceId,
-    });
-
-    throw new MailWithheldError();
+    // No line of its own: the row's `zurueckgehalten` is the record, and the filed copy carries the row's id among its tags.
+    throw new MailHeldError();
   }
 
-  const bound = boundCall(MAIL_TIMEOUT_MS);
+  const signal = boundCall(MAIL_TIMEOUT_MS);
 
   const failNetwork = (error: unknown) =>
     new APINetworkError({
       message: "Mail request failed.",
-      isTimeout: error instanceof Error && error.name === "AbortError",
+      isTimeout: error instanceof Error && error.name === "TimeoutError",
       url: MAIL_ENDPOINT,
       method: "POST",
       readOnly: false,
@@ -315,42 +362,28 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey, absender
       originalError: error,
     });
 
-  // Logged where the detail exists: a caller on the sign-in path records the error's NAME alone, so
-  // a status and the provider's code reach no stream otherwise. The recipient never travels on
-  // either line.
-  const logNetwork = (failure: APINetworkError) => {
-    logger.error("mail.send_failed", undefined, {
-      error_code: failure.code,
-      is_timeout: failure.isTimeout,
-      trace_id: traceId,
-    });
-  };
-
   const headers: Record<string, string> = {
     // The narrowed local, never the config read again: a template literal renders an absent key as
     // `Bearer undefined` and the type checker says nothing.
     Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",
+    "Idempotency-Key": idempotencyKey,
   };
-  if (idempotencyKey !== undefined) headers["Idempotency-Key"] = idempotencyKey;
 
   const body = JSON.stringify({
-    from: absenderZeile(absender),
-    ...(absender === undefined ? {} : { reply_to: absender.antwortAn }),
+    from: senderRow(sender),
+    reply_to: REPLY_TO,
     to: to,
     subject,
     html,
     text,
-    ...(tags === undefined ? {} : { tags: Object.entries(tags).map(([name, value]) => ({ name: name, value: value })) }),
+    tags: Object.entries(tags).map(([name, value]) => ({ name: name, value: value })),
   });
 
   const attempt = async (): Promise<MailAccepted> => {
     let res: Response;
-    // A message is a write nothing takes back, and one whose answer never comes may still have gone. No
-    // attempt starts on a spent deadline: the checks before the first and after each pause refuse it.
-    recordWriteSent();
     try {
-      res = await fetch(MAIL_ENDPOINT, { method: "POST", headers: headers, body: body, signal: bound.signal });
+      res = await fetch(MAIL_ENDPOINT, { method: "POST", headers: headers, body: body, signal: signal });
     } catch (error) {
       throw failNetwork(error);
     }
@@ -363,7 +396,7 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey, absender
       } catch (error) {
         // A stalled body aborts here rather than inside `fetch`. An unreadable one still leaves a
         // message that WENT: reporting the send as failed would take a decision back that stands.
-        if (error instanceof Error && error.name === "AbortError") throw failNetwork(error);
+        if (error instanceof Error && error.name === "TimeoutError") throw failNetwork(error);
       }
 
       return { id: id };
@@ -375,8 +408,8 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey, absender
       providerErrorName = refused && typeof refused === "object" && "name" in refused ? String(refused.name) : undefined;
     } catch (error) {
       // A stalled body aborts here rather than inside `fetch`, as it does in
-      // `fl_frontend/src/core/api.ts :: apiClient`. An unparseable one is left to the status alone.
-      if (error instanceof Error && error.name === "AbortError") throw failNetwork(error);
+      // `fl_frontend/src/core/api.ts :: sendToBackend`. An unparseable one is left to the status alone.
+      if (error instanceof Error && error.name === "TimeoutError") throw failNetwork(error);
     }
 
     throw new MailSendError({
@@ -388,72 +421,31 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey, absender
     });
   };
 
-  /** The line a refusal nobody will retry leaves. `failNetwork` writes its own, so this one is the provider's alone. */
-  const logRefusal = (refusal: MailSendError) => {
-    logger.error("mail.send_failed", undefined, {
-      error_code: refusal.code,
-      status: refusal.statusCode,
-      provider_error_name: refusal.providerErrorName,
-      trace_id: traceId,
-    });
+  // The first attempt that broke off, which the provider may have accepted: a refusal answering a
+  // later attempt says nothing about it, so the send ends as that network failure, of unknown outcome.
+  let brokeOff: APINetworkError | undefined;
+  const giveUp = (error: unknown): never => {
+    throw brokeOff === undefined || error instanceof APINetworkError ? error : brokeOff;
   };
 
-  try {
-    // Refused unsent once the request's deadline is spent.
-    if (bound.signal.aborted) {
-      // `FE-NET-001`, the code a send that never reached the provider logs under.
-      logger.error("mail.send_failed", undefined, { error_code: "FE-NET-001", is_timeout: true, trace_id: traceId });
-      throw new MailUnsentError();
+  for (let attemptNumber = 1; ; attemptNumber++) {
+    try {
+      return await attempt();
+    } catch (error) {
+      if (error instanceof APINetworkError) brokeOff ??= error;
+
+      // A network failure is tried again under the send's idempotency key, which the provider documents as
+      // collapsing the repeat of a message it accepted before the connection broke.
+      const repeatable = error instanceof MailSendError ? error.isTransient : error instanceof APINetworkError;
+
+      // An aborted budget ends it too: the timeout that cut the attempt leaves nothing to retry in.
+      if (!repeatable || attemptNumber >= MAIL_ATTEMPTS || signal.aborted) giveUp(error);
+
+      await pause(MAIL_RETRY_DELAY_MS, signal);
+
+      // The budget ran out mid-wait. Attempting anyway would draw a request the aborted signal
+      // kills, reporting the provider's own refusal as this application's timeout.
+      if (signal.aborted) giveUp(error);
     }
-
-    /** The line a failure nobody will retry leaves, the provider's refusal or the broken request. */
-    const logGivenUp = (error: unknown) => {
-      if (error instanceof MailSendError) logRefusal(error);
-      else if (error instanceof APINetworkError) logNetwork(error);
-    };
-
-    // The first attempt that broke off, which the provider may have accepted: a refusal answering a
-    // later attempt says nothing about it, so the send ends as that network failure, of unknown outcome.
-    let brokeOff: APINetworkError | undefined;
-    const giveUp = (error: unknown): never => {
-      logGivenUp(error);
-      // A last attempt that broke off is already the network failure to end on, and its line is written.
-      if (brokeOff === undefined || error instanceof APINetworkError) throw error;
-
-      logNetwork(brokeOff);
-      throw brokeOff;
-    };
-
-    for (let attemptNumber = 1; ; attemptNumber++) {
-      try {
-        return await attempt();
-      } catch (error) {
-        if (error instanceof APINetworkError) brokeOff ??= error;
-
-        // A network failure is tried again only under an idempotency key, which the provider
-        // documents as collapsing the repeat of a message it accepted before the connection broke:
-        // without one, that repeat is a second message to a real person.
-        const repeatable =
-          error instanceof MailSendError ? error.isTransient : error instanceof APINetworkError && idempotencyKey !== undefined;
-
-        // An aborted budget ends it too: the timeout that cut the attempt leaves nothing to retry in.
-        if (!repeatable || attemptNumber >= MAIL_ATTEMPTS || bound.signal.aborted) giveUp(error);
-
-        logger.warn("mail.send_retried", {
-          error_code: error instanceof MailSendError || error instanceof APINetworkError ? error.code : undefined,
-          status: error instanceof MailSendError ? error.statusCode : undefined,
-          provider_error_name: error instanceof MailSendError ? error.providerErrorName : undefined,
-          trace_id: traceId,
-        });
-
-        await pause(MAIL_RETRY_DELAY_MS, bound.signal);
-
-        // The budget ran out mid-wait. Attempting anyway would draw a request the aborted signal
-        // kills, reporting the provider's own refusal as this application's timeout.
-        if (bound.signal.aborted) giveUp(error);
-      }
-    }
-  } finally {
-    bound.clear();
   }
 }

@@ -1,14 +1,8 @@
-import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
+import { GELOESCHT_ACTOR_MARKER } from "@/core/geloeschtActor";
 import { OFFENE_ANTRAEGE } from "@/core/seitenNamen";
 import { benannt } from "@/shared/utils/benannt";
 
-import type { FLGenehmigungVerwehrt, FLVerwaltung } from "./schemas";
-
-/**
- * The most outbox rows one stamp names, mirroring the backend's `LIST_LIMIT_DEFAULT`
- * (`fl_backend/app/shared/schemas/bounds.py`), which also caps what one claim hands out.
- */
-export const ANKUENDIGUNGEN_MAX = 1024;
+import type { FLApprovalDenied, FLVerwaltung } from "@/core/generated/client/types";
 
 // Its own module: every export of a `"use client"` view becomes a client reference.
 export const BERECHTIGUNGEN_CRUD_COPY = {
@@ -41,7 +35,7 @@ export const GELOESCHTE_PERSON = "Gelöschte Person";
 export function vonOderGesperrt(von: string | null, gesperrt: boolean): string {
   if (gesperrt || von === null) return GESPERRTE_ADRESSE;
 
-  return von === ERASED_ACTOR_MARKER ? GELOESCHTE_PERSON : von;
+  return von === GELOESCHT_ACTOR_MARKER ? GELOESCHTE_PERSON : von;
 }
 
 /**
@@ -51,7 +45,7 @@ export function vonOderGesperrt(von: string | null, gesperrt: boolean): string {
 export function nachVonOderGesperrt(von: string | null, gesperrt: boolean): string {
   if (gesperrt || von === null) return "einer gesperrten Adresse";
 
-  return von === ERASED_ACTOR_MARKER ? "einer nicht genannten Adresse" : von;
+  return von === GELOESCHT_ACTOR_MARKER ? "einer nicht genannten Adresse" : von;
 }
 
 /** What the runbook's Playground paste writes as `erteilt_von` (`docs/ops/runbooks.md` §3), which names nobody. */
@@ -89,7 +83,7 @@ export const NACH_ERNENNUNG_NEU_ANMELDEN = "Bist Du erst nach Deiner Anmeldung I
  */
 const ERNENNUNG_GENEHMIGT = "eine Ernennung eine andere Inhaberin oder ein anderer Inhaber";
 
-/** Why the revoke is closed to a session holding no owner's power, and the backend's `-005` in the same words. */
+/** Why the revoke is closed to a session holding no owner's power, and the backend's `grant_only_owner` in the same words. */
 export const NUR_INHABER_ENTZIEHT = `Den Zugang entziehen können nur Inhaberinnen und Inhaber. ${NACH_ERNENNUNG_NEU_ANMELDEN}`;
 
 /** The row a control's name tells apart after its words: the address, or the grant's day where the address is withheld. */
@@ -110,7 +104,7 @@ export const ZUGANG_ENTZOGEN_MESSAGE = "Diese Adresse hat keinen Zugang zur Verw
 
 /**
  * The grant's refusal of a barred address, which also closes a barred row's promotion: the backend
- * refuses to make a barred address an owner (`REQ-BERECHTIGUNG-003`).
+ * refuses to make a barred address an owner (`grant_barred`).
  */
 export const ADRESSE_GESPERRT = "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Zugang zur Verwaltung erhalten soll.";
 
@@ -131,12 +125,12 @@ export function stufeWorte({
   adresse,
   erteiltAm,
   ziel,
-  eigene,
+  own: eigene,
 }: {
   adresse: string | null;
   erteiltAm: string;
   ziel: FLVerwaltung;
-  eigene: boolean;
+  own: boolean;
 }): StufeWorte {
   const mail = "Alle mit Zugang erhalten eine E-Mail.";
   if (eigene) {
@@ -174,12 +168,6 @@ export const STUFE_GEAENDERT_MESSAGE: Readonly<Record<FLVerwaltung, string>> = {
   administration: "Diese Adresse ist nicht mehr Inhaberin oder Inhaber der Verwaltung und behält den Zugang.",
 };
 
-/** Rows the backend left out as no request can match them: a database paste to repair, never one this page can make. */
-export const uebersprungenHinweis = (anzahl: number): string =>
-  anzahl === 1
-    ? "Ein Eintrag in der Datenbank passt zu keiner Adresse und gewährt keinen Zugang."
-    : `${String(anzahl)} Einträge in der Datenbank passen zu keiner Adresse und gewähren keinen Zugang.`;
-
 /** What a request asks for, by the tier it names: `owner` is a promotion of a grant that stands. */
 export const ANTRAG_WAS: Readonly<Record<FLVerwaltung, string>> = {
   administration: "Zugang zur Verwaltung",
@@ -208,10 +196,10 @@ export const ERNENNUNG_BEANTRAGT_MESSAGE = `Eine andere Inhaberin oder ein ander
  * Why this administrator may not decide a request, in the backend's refusals' own words, so the closed press and
  * the refused one say it alike. The requester's own (`gestartet`) closes the approval alone: they withdraw it.
  */
-export const ANTRAG_ENTSCHEIDEN_VERWEHRT: Readonly<Record<Exclude<FLGenehmigungVerwehrt, "gestartet">, string>> = {
-  eigene: `Über einen Antrag, der Dich betrifft, entscheidet eine andere Person aus der Verwaltung, über ${ERNENNUNG_GENEHMIGT}.`,
-  inhaber: `Über eine Ernennung zur Inhaberin oder zum Inhaber entscheidet nur eine andere Inhaberin oder ein anderer Inhaber. ${NACH_ERNENNUNG_NEU_ANMELDEN}`,
-  juenger:
+export const ANTRAG_ENTSCHEIDEN_VERWEHRT: Readonly<Record<Exclude<FLApprovalDenied, "started">, string>> = {
+  own: `Über einen Antrag, der Dich betrifft, entscheidet eine andere Person aus der Verwaltung, über ${ERNENNUNG_GENEHMIGT}.`,
+  owner: `Über eine Ernennung zur Inhaberin oder zum Inhaber entscheidet nur eine andere Inhaberin oder ein anderer Inhaber. ${NACH_ERNENNUNG_NEU_ANMELDEN}`,
+  younger:
     "Entscheiden kann nur, wer schon vor dem Antrag Zugang zur Verwaltung hatte, über eine Ernennung nur, wer schon vorher Inhaberin oder Inhaber war.",
 };
 

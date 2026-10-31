@@ -9,20 +9,27 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.database import Database
 from pymongo.mongo_client import MongoClient
+from pymongo.uri_parser import parse_uri
 
 from app.core.constraints import apply_constraints
 
-# MongoDB's code for a document its `$jsonSchema` refused, which the driver names nowhere. Asserted on
-# rather than caught broadly, so an unrelated failure cannot pass as the refusal a case drives.
+# MongoDB's code for a document a `$jsonSchema` refused, which the driver names nowhere: a case forcing a
+# failure mid-transaction installs one. Asserted on rather than caught broadly, so an unrelated failure
+# cannot pass as the refusal a case drives.
 DOCUMENT_VALIDATION_FAILED = 121
 
-# One collection's enforcement: its validator, both validation modes, and every index it carries.
+# One collection's enforcement: any validator a case installed, both validation modes, and every index it carries.
 Enforcement = dict[str, Any]
 Schema = dict[str, Enforcement]
 
+# One database: the servers a url names and the database's name. A url's options never enter it, so
+# two spellings of one server -- a case adding `appName` for a fail point -- share one baseline;
+# keyed apart, the second spelling's rebuild drops what the first one's baseline still lists.
+_Key = tuple[tuple[tuple[str, int], ...], str]
+
 # A module global rather than a fixture: what reads it is the plain `on_a_*` helper each suite
 # defines, and the tier -- one worker of it, under `-n` -- runs in one process.
-_BUILT: dict[tuple[str, str], tuple[bool, Schema]] = {}
+_BUILT: dict[_Key, tuple[bool, Schema]] = {}
 
 # Module globals for `_BUILT`'s reason, torn down by `_release`.
 _LOOP: asyncio.AbstractEventLoop | None = None
@@ -89,13 +96,13 @@ def shared_client(url: str) -> AsyncMongoClient:
 
 
 _DRIFT = (
-    "'{database}' carries enforcement this session did not build ({moved}). A body that narrows a validator, or adds or drops"
+    "'{database}' carries enforcement this session did not build ({moved}). A body that installs a validator, or adds or drops"
     " an index, must say so where it seeds -- pass `mutates_schema=True` -- or what it changed poisons every test after it."
 )
 
 _DRIFT_SYNC = (
     "'{database}' carries enforcement this session did not build ({moved}). This fixture reads the schema where it seeds, so what"
-    " left it ran EARLIER in this database and the test named here only inherited it. A body that narrows a validator, or adds or"
+    " left it ran EARLIER in this database and the test named here only inherited it. A body that installs a validator, or adds or"
     " drops an index, takes a database no other test shares -- this one is `build_test_config`'s, which every app under test reads."
 )
 
@@ -187,31 +194,24 @@ def _guard(message: str, name: str, baseline: Schema, present: Schema, foreign: 
         raise AssertionError(message.format(database=name, moved=", ".join(moved)))
 
 
-def _reusable(key: tuple[str, str], constraints: bool, collections: Iterable[str]) -> Schema | None:
-    """The baseline to clear against, or `None` when this database has to be built.
+def _key(url: str, name: str) -> _Key:
+    return tuple(sorted(parse_uri(url)["nodelist"])), name
 
-    `collections` is verified rather than assumed: a caller asking for one a built database never
-    got would otherwise be handed a database without it.
-    """
+
+def _reusable(key: _Key, constraints: bool) -> Schema | None:
+    """The baseline to clear against, or `None` when this database has to be built."""
 
     built = _BUILT.get(key)
-    if built is None or built[0] != constraints or not set(collections) <= built[1].keys():
+    if built is None or built[0] != constraints:
         return None
 
     return built[1]
 
 
-async def _build(client: AsyncMongoClient, database: AsyncDatabase, constraints: bool, collections: Iterable[str]) -> Schema:
+async def _build(client: AsyncMongoClient, database: AsyncDatabase, constraints: bool) -> Schema:
     await client.drop_database(database.name)
     if constraints:
         await apply_constraints(database)
-    # What a caller asks of `collections` is that they EXIST -- a transaction cannot create one --
-    # and a constrained build has already made every validated collection, which `create_collection`
-    # would then refuse by name.
-    made = set(await database.list_collection_names())
-    for collection in collections:
-        if collection not in made:
-            await database.create_collection(collection)
 
     built, _ = await _schema(database)
 
@@ -234,28 +234,27 @@ async def a_clean_database(
     name: str,
     *,
     constraints: bool = True,
-    collections: Iterable[str] = (),
     mutates_schema: bool = False,
 ) -> AsyncIterator[tuple[AsyncMongoClient, AsyncDatabase]]:
     """The tier's client for this url, and a database emptied for this test on a schema built once.
 
-    `mutates_schema=True` is the opt-out for a body that narrows a validator or moves an index: what
+    `mutates_schema=True` is the opt-out for a body that installs a validator or moves an index: what
     it leaves is recorded nowhere, so the next caller rebuilds.
     """
 
     # Shared, and bound to `on_the_seed_loop`'s loop, which every seed runs on; closing it belongs to
     # `_release` at exit, so a body that raises leaves the next test a client rather than none.
     client = shared_client(url)
-    key = (str(url), name)
+    key = _key(url, name)
     database = client[name]
 
-    baseline = _reusable(key, constraints, collections)
+    baseline = _reusable(key, constraints)
     # Dropped before either path runs: a build or a clear that raises would otherwise leave an
     # entry describing a database that no longer matches it, failing the next test for this one.
     _BUILT.pop(key, None)
 
     if baseline is None:
-        baseline = await _build(client, database, constraints, collections)
+        baseline = await _build(client, database, constraints)
     else:
         await _clear(database, baseline)
 
@@ -275,7 +274,7 @@ def a_clean_database_sync(client: MongoClient, url: str, name: str, *, constrain
     Its check therefore runs at the next seed and refuses with `_DRIFT_SYNC` rather than `_DRIFT`.
     """
 
-    key = (str(url), name)
+    key = _key(url, name)
     database = client[name]
     built = _BUILT.get(key)
     _BUILT.pop(key, None)

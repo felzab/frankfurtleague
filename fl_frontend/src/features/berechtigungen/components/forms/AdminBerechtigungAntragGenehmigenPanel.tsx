@@ -16,13 +16,13 @@ import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
-import type { FLBerechtigungAntragZeile } from "@/features/berechtigungen/schemas";
+import type { FLGrantApprovalRequestRow } from "@/core/generated/client/types";
 
 const ANTRAG_GENEHMIGEN = "Antrag genehmigen";
 
 /** Why the approval is closed to this reader, in the words the backend's refusal of it is mapped to; `null` where it is open. */
-function genehmigenGrund({ verwehrt, steht }: FLBerechtigungAntragZeile): string | null {
-  if (verwehrt === "gestartet") return EIGENER_ANTRAG;
+function genehmigenGrund({ denied: verwehrt, stands: steht }: FLGrantApprovalRequestRow): string | null {
+  if (verwehrt === "started") return EIGENER_ANTRAG;
   if (verwehrt !== null) return ANTRAG_ENTSCHEIDEN_VERWEHRT[verwehrt];
 
   return steht ? null : ANTRAG_VERFALLEN;
@@ -41,7 +41,7 @@ export function AdminBerechtigungAntragGenehmigenPanel({
   antrag,
   zeile,
 }: {
-  antrag: FLBerechtigungAntragZeile;
+  antrag: FLGrantApprovalRequestRow;
   /** What tells the row apart in the control's name: the address, or the request's moment where it is withheld. */
   zeile: string;
 }) {

@@ -5,19 +5,20 @@ import { PLACEHOLDER } from "@/shared/utils/format";
 import { KARTEN_FARBE_LABELS, KARTEN_GRUND_LABELS, TORSCHUETZE_UNBEKANNT_LABEL } from "../../../constants";
 import { spielerLabel } from "../../../utils";
 
-import type { FLSaisonPhase } from "@/features/saisons/schemas";
-import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
-import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   FLKartenFarbe,
   FLKartenGrund,
-  FLSpielberichtAnsicht,
+  FLSaisonPhase,
   FLSpielberichtBerichtPayload,
   FLSpielberichtPayload,
-  FLSpielberichtSeite,
-  FLSpielberichtSonderereignis,
   FLSpielberichtSpieler,
-} from "../../../schemas";
+  FLSpielberichtVorschlag,
+  FLSpielSeite,
+} from "@/core/generated/client/types";
+import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
+import type { FieldErrors } from "@/shared/utils/validation";
+import type { FLSpielberichtSonderereignis } from "../../../schemas";
+import type { SpielberichtAnsicht } from "../../../types";
 
 /** One pupil a picker offers, labelled as the squad lists them. */
 export type KaderOption = { readonly id: string; readonly label: string };
@@ -27,11 +28,11 @@ export type SpielberichtKontext = {
   readonly team1Name: string;
   readonly team2Name: string;
   readonly saisonPhase: FLSaisonPhase;
-  readonly kader: Readonly<Record<FLSpielberichtSeite, readonly KaderOption[]>>;
+  readonly kader: Readonly<Record<FLSpielSeite, readonly KaderOption[]>>;
   /** The pupils the stored block names outside both live squads, so an older entry keeps its name. */
-  readonly genannt: readonly KaderOption[];
+  readonly named: readonly KaderOption[];
   /** The sides fielding another club than the report's last write found there. */
-  readonly seitenGeaendert: ReadonlySet<FLSpielberichtSeite>;
+  readonly seitenGeaendert: ReadonlySet<FLSpielSeite>;
 };
 
 /**
@@ -42,7 +43,7 @@ export const UNBEKANNT = "unbekannt";
 
 export type TorschuetzeDraft = {
   readonly key: number;
-  readonly seite: FLSpielberichtSeite | null;
+  readonly seite: FLSpielSeite | null;
   readonly spieler: string;
   readonly minute: string;
   readonly eigentor: boolean;
@@ -50,7 +51,7 @@ export type TorschuetzeDraft = {
 
 export type KarteDraft = {
   readonly key: number;
-  readonly seite: FLSpielberichtSeite | null;
+  readonly seite: FLSpielSeite | null;
   readonly spieler: string;
   readonly minute: string;
   readonly farbe: FLKartenFarbe | null;
@@ -129,7 +130,7 @@ export function eroeffnungOf(stored: FLSpielberichtBerichtPayload | null, kontex
   if (kontext.seitenGeaendert.size === 0)
     return { gespeichert: block, entwurf: block, geleert: { torschuetzen: new Set(), karten: new Set() } };
 
-  const veraltet = (seite: FLSpielberichtSeite | null, spieler: string): boolean =>
+  const veraltet = (seite: FLSpielSeite | null, spieler: string): boolean =>
     seite !== null &&
     kontext.seitenGeaendert.has(seite) &&
     spieler !== "" &&
@@ -183,15 +184,15 @@ export function wirePayloadOf(draft: SpielberichtDraft, stand: number | null): F
     bericht: {
       ...form.bericht,
       // Cast once here, the form schema having refused every null these narrow before a send reaches this.
-      ergebnis_vorschlag: form.bericht.ergebnis_vorschlag as FLSpielberichtBerichtPayload["ergebnis_vorschlag"],
+      ergebnis_vorschlag: form.bericht.ergebnis_vorschlag as FLSpielberichtVorschlag,
       torschuetzen: form.bericht.torschuetzen.map((eintrag) => ({
         ...eintrag,
-        seite: eintrag.seite as FLSpielberichtSeite,
+        seite: eintrag.seite as FLSpielSeite,
         spieler_id: eintrag.spieler_id === UNBEKANNT ? null : eintrag.spieler_id,
       })),
       karten: form.bericht.karten.map((karte) => ({
         ...karte,
-        seite: karte.seite as FLSpielberichtSeite,
+        seite: karte.seite as FLSpielSeite,
         farbe: karte.farbe as FLKartenFarbe,
       })),
     },
@@ -230,13 +231,12 @@ const minuteText = (minute: string): string => (minute === "" ? OFFEN : `${minut
 function descriptorsFor(
   kontext: SpielberichtKontext,
 ): readonly (FLFieldDescriptor<SpielberichtDraft, SpielberichtFieldGroup> & { path: SpielberichtFieldPath })[] {
-  const teamName = (seite: FLSpielberichtSeite | null): string =>
-    seite === null ? OFFEN : seite === "team1" ? kontext.team1Name : kontext.team2Name;
-  const personName = (seite: FLSpielberichtSeite | null, spieler: string): string => {
+  const teamName = (seite: FLSpielSeite | null): string => (seite === null ? OFFEN : seite === "team1" ? kontext.team1Name : kontext.team2Name);
+  const personName = (seite: FLSpielSeite | null, spieler: string): string => {
     if (spieler === UNBEKANNT) return TORSCHUETZE_UNBEKANNT_LABEL;
     if (spieler === "") return OFFEN;
     const kader = seite === null ? [] : kontext.kader[seite];
-    return [...kader, ...kontext.genannt].find((option) => option.id === spieler)?.label ?? spieler;
+    return [...kader, ...kontext.named].find((option) => option.id === spieler)?.label ?? spieler;
   };
 
   return [
@@ -308,12 +308,12 @@ function descriptorsFor(
 }
 
 export function deriveSpielberichtDraftStatus({
-  kontext,
+  context: kontext,
   stored,
   draft,
   fieldErrors,
 }: {
-  kontext: SpielberichtKontext;
+  context: SpielberichtKontext;
   stored: SpielberichtDraft;
   draft: SpielberichtDraft;
   fieldErrors: FieldErrors;
@@ -322,13 +322,13 @@ export function deriveSpielberichtDraftStatus({
 }
 
 /** The form's view of a report read, either reader's: a side not yet filled is named as the cards name it. */
-export function kontextOf(read: Pick<FLSpielberichtAnsicht, "spiel" | "kader" | "genannt" | "seiten_geaendert">): SpielberichtKontext {
+export function kontextOf(read: Pick<SpielberichtAnsicht, "spiel" | "kader" | "named" | "seiten_changed">): SpielberichtKontext {
   return {
     team1Name: read.spiel.team1?.name ?? PLACEHOLDER.slot,
     team2Name: read.spiel.team2?.name ?? PLACEHOLDER.slot,
     saisonPhase: read.spiel.saison_phase,
     kader: { team1: read.kader.team1.map(kaderOptionOf), team2: read.kader.team2.map(kaderOptionOf) },
-    genannt: read.genannt.map(kaderOptionOf),
-    seitenGeaendert: new Set(read.seiten_geaendert),
+    named: read.named.map(kaderOptionOf),
+    seitenGeaendert: new Set(read.seiten_changed),
   };
 }

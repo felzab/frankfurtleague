@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { getLaufendeFassung } from "@/core/einwilligung";
 import { gekeyteFassung, SPIELER_ABSATZ_SCHLUESSEL, SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
@@ -11,8 +10,7 @@ import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { openGraphFor } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
-import type { FLEinwilligungFassung } from "@/core/schemas";
-import type { FLRegistrierungSeite } from "@/features/registrierungen/schemas";
+import type { FLEinwilligungWording, FLRegistrierungConfirmationViewResponseSeite } from "@/core/generated/client/types";
 import type { SpielerBestaetigungStart, SpielerSeitenFassung } from "@/features/registrierungen/types";
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
@@ -45,7 +43,6 @@ export default function SpielerBestaetigungPage(props: NextPageProps) {
 }
 
 async function SpielerBestaetigungContent(props: NextPageProps) {
-  await connection();
   const { token } = await props.searchParams;
 
   // Beside the link's read, which names the page, and per request: a deploy moves the stamped label.
@@ -56,12 +53,12 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
       ? runWithIncomingTrace(() =>
           getSpielerBestaetigungAnsicht(token).then(
             (gelesen): SpielerBestaetigungStart =>
-              gelesen.zustand === "gueltig" ? { zustand: "gueltig", ansicht: gelesen.ansicht, token: token } : gelesen,
+              gelesen.zustand === "valid" ? { zustand: "valid", ansicht: gelesen.ansicht, token: token } : gelesen,
             // A failed read is its own state, the dead-link panel calling a live link void.
             (error: unknown): SpielerBestaetigungStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
           ),
         )
-      : ({ zustand: "ungueltig" } satisfies SpielerBestaetigungStart),
+      : ({ zustand: "invalid" } satisfies SpielerBestaetigungStart),
     runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler").catch(nullUnlessContractBreak)),
     runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler_wiederkehrend").catch(nullUnlessContractBreak)),
   ]);
@@ -69,7 +66,7 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
   return (
     <SpielerBestaetigungView
       start={start}
-      fassung={start.zustand === "gueltig" ? seitenFassung(start.ansicht.seite, neu, wiederkehrend) : null}
+      wording={start.zustand === "valid" ? seitenFassung(start.ansicht.seite, neu, wiederkehrend) : null}
     />
   );
 }
@@ -81,9 +78,9 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
  * boundary logs.
  */
 function seitenFassung(
-  seite: FLRegistrierungSeite,
-  neu: FLEinwilligungFassung | null,
-  wiederkehrend: FLEinwilligungFassung | null,
+  seite: FLRegistrierungConfirmationViewResponseSeite,
+  neu: FLEinwilligungWording | null,
+  wiederkehrend: FLEinwilligungWording | null,
 ): SpielerSeitenFassung | null {
   if (seite === "bestaetigung_spieler") {
     return neu === null ? null : { ...gekeyteFassung(neu, SPIELER_ABSATZ_SCHLUESSEL, EINWILLIGUNG_UMFANG_OPTIONS), seite: seite };

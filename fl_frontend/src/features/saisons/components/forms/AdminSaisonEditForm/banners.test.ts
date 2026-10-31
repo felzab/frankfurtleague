@@ -68,7 +68,7 @@ describe("buildSaisonBanners", () => {
     expect(breaches[1]?.body ?? "").toMatch(/nicht weiter verschlechtert/);
   });
 
-  /* THE SPLIT, over the two dangers worth having it for: an excess `REQ-RULES-007` lets stand,
+  /* THE SPLIT, over the two dangers worth having it for: an excess `rules_qualifiers_above_gruppe` lets stand,
      and an outgoing season the rollover answers. Both greet a
      reader who has touched nothing, and `change` would confirm forever. */
   it("keeps a danger the page opened on out of the confirmation, colour untouched", () => {

@@ -9,14 +9,14 @@ from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exceptions import DUPLICATE_KEY
 from app.main import create_app
-from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database_sync
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -55,7 +55,7 @@ MIETPREIS = 80
 
 
 def venue_document(spielort_id: ObjectId, name: str, *, inactive_since: str | None = None) -> dict[str, Any]:
-    """Every key the shipped `spielorte` validator requires, so the seed is a shape production stores."""
+    """Every key `FLSpielort` requires, so the seed is a shape the venue reads serve."""
 
     return {
         "_id": spielort_id,
@@ -92,7 +92,7 @@ def served(url: str, path: str, body: Mapping[str, Any], *, method: str = "POST"
 
     async def _answered() -> Response:
         async with app_client(url, app=_served()) as http:
-            return await http.request(method, path, json=dict(body), headers=SignedActor(ACTOR, ADMIN_KEY))
+            return await http.request(method, path, json=dict(body), headers=StampedHeaders(ACTOR, ADMIN_KEY))
 
     return asyncio.run(_answered())
 
@@ -109,7 +109,7 @@ def stored_names(url: str) -> list[str]:
 
 @pytest.fixture
 def seeded_url(mongo_replica_set_url: str) -> str:
-    """One standing venue and one retired one, on the shipped validators and indexes.
+    """One standing venue and one retired one, on the shipped indexes.
 
     The transactional server, because the edit below fans its rename out inside a transaction.
     """
@@ -117,7 +117,7 @@ def seeded_url(mongo_replica_set_url: str) -> str:
     client = MongoClient(mongo_replica_set_url)
     try:
         database = a_clean_database_sync(client, mongo_replica_set_url, DATABASE_NAME)
-        database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+        database[Collection.GRANTS].insert_many(grants_for_the_suite())
         database[Collection.SPIELORTE].insert_many(
             [
                 venue_document(STANDING_OID, STANDING_NAME),
@@ -136,14 +136,14 @@ class TestACreateUnderATakenVenueNameIsRefused:
     def test_the_name_a_standing_venue_holds_is_answered_409(self, seeded_url: str):
         response = served(seeded_url, SPIELORTE, payload(STANDING_NAME))
 
-        assert (response.status_code, response.json()["error_code"]) == (409, DUPLICATE_KEY)
+        assert (response.status_code, response.json()["error_code"]) == (409, Code.DUPLICATE_KEY)
 
     def test_the_name_a_retired_venue_holds_is_refused_the_same_way(self, seeded_url: str):
         """Nothing merges two venues, so a retired row keeps its name, and the index reaches every row as the referee's now does."""
 
         response = served(seeded_url, SPIELORTE, payload(RETIRED_NAME))
 
-        assert (response.status_code, response.json()["error_code"]) == (409, DUPLICATE_KEY)
+        assert (response.status_code, response.json()["error_code"]) == (409, Code.DUPLICATE_KEY)
 
     def test_the_refused_create_leaves_the_collection_as_it_was(self, seeded_url: str):
         served(seeded_url, SPIELORTE, payload(STANDING_NAME))
@@ -169,7 +169,7 @@ class TestAnEditOntoATakenVenueNameIsRefused:
     def test_the_edit_is_answered_409(self, seeded_url: str):
         response = served(seeded_url, f"{SPIELORTE}/{RETIRED_OID}", payload(STANDING_NAME), method="PATCH")
 
-        assert (response.status_code, response.json()["error_code"]) == (409, DUPLICATE_KEY)
+        assert (response.status_code, response.json()["error_code"]) == (409, Code.DUPLICATE_KEY)
 
     def test_the_refused_edit_leaves_both_venues_named_as_they_were(self, seeded_url: str):
         served(seeded_url, f"{SPIELORTE}/{RETIRED_OID}", payload(STANDING_NAME), method="PATCH")
@@ -181,3 +181,20 @@ class TestAnEditOntoATakenVenueNameIsRefused:
 
         assert response.status_code == 200, response.json()
         assert stored_names(seeded_url) == sorted([STANDING_NAME, FREE_NAME])
+
+
+class TestASecondRetireKeepsTheDayTheVenueLeft:
+    """`inactive_since` is the day the record left, so a retire repeated from a second open tab moves nothing."""
+
+    def test_the_stamp_stays_and_the_retire_answers_success(self, seeded_url: str):
+        response = served(seeded_url, f"{SPIELORTE}/{RETIRED_OID}", {}, method="DELETE")
+
+        assert response.status_code == 204
+
+        client = MongoClient(seeded_url)
+        try:
+            stored = client[DATABASE_NAME][Collection.SPIELORTE].find_one({"_id": RETIRED_OID}, {"inactive_since": 1})
+        finally:
+            client.close()
+
+        assert stored is not None and stored["inactive_since"] == RETIRED_SINCE

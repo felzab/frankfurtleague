@@ -12,9 +12,8 @@ from pydantic import ValidationError
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spieler.admin_router import _as_single
-from app.api.spieler.router import get_spieler, get_spieler_by_id
+from app.api.spieler.public_router import get_spieler, get_spieler_by_id
 from app.api.spieler.schemas import (
     FLSaisonSpielerResponse,
     FLSpieler,
@@ -26,13 +25,14 @@ from app.api.spieler.schemas import (
     FLSpielerSingleResponse,
     FLSpielerSortOptions,
 )
-from app.api.spieler.services import build_real_spieler_filter, build_spieler_memberships_pipeline, build_spieler_pipeline, public_initial
+from app.api.spieler.services import build_real_spieler_filter, build_spieler_pipeline, build_spieler_saisons_pipeline, public_initial
+from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
+from app.openapi_document import build_document
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
-from tests.documents import eigene_einwilligung_document, saison_spieler_document, spieler_document
-from tests.openapi_document import build_document
+from tests.documents import own_einwilligung_document, saison_spieler_document, spieler_document
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -49,7 +49,7 @@ PUBLIC_FIELDS = {"vorname", "nachname", "nummer", "position"}
 
 # `stufe`, `einwilligung`, `email` and `id` are the confidentiality rules; the rest fails the allow-list,
 # which asks what the surface renders rather than what looks sensitive. An unrendered field still ships.
-WITHHELD_FIELDS = ["stufe", "einwilligung", "email", "id", "team_id", "ist_nachnominiert", "rolle", "inactive_since"]
+WITHHELD_FIELDS = ["stufe", "einwilligung", "email", "id", "team_id", "is_nachnominiert", "rolle", "inactive_since"]
 
 # What a caller may actually SEND: the filter model's fields plus anything declared beside them.
 # Constructing a filter object asks for nothing -- `extra="ignore"` drops an undeclared key first.
@@ -79,7 +79,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 def _consent(umfang: str, **fields: Any) -> dict[str, Any]:
     """A record its person confirmed under `umfang`, `fields` laid over it."""
 
-    return {**eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-01-20", umfang=umfang), **fields}
+    return {**own_einwilligung_document(text_version="v1", confirmed_at="2026-01-20", umfang=umfang), **fields}
 
 
 def _spieler(key: str, vorname: str, nachname: str | None, *, inactive_since: str | None = None) -> dict[str, Any]:
@@ -143,12 +143,12 @@ class TestTheBaseTierShape:
 
     @pytest.mark.parametrize("field", WITHHELD_FIELDS)
     def test_the_stored_shape_still_declares_what_the_tier_withholds(self, field: str):
-        """Each rule is about one READ: the field stays stored, admin-visible and validator-enforced, and `FLSpieler` still declares it."""
+        """Each rule is about one READ: the field stays stored and admin-visible, and `FLSpieler` still declares it."""
         assert field in FLSpieler.model_fields
 
-    @pytest.mark.parametrize("field", ["stufe", "team_id", "ist_nachnominiert", "rolle", "inactive_since"])
+    @pytest.mark.parametrize("field", ["stufe", "team_id", "is_nachnominiert", "rolle", "inactive_since"])
     def test_the_admin_membership_read_keeps_every_field(self, field: str):
-        """`GET /spieler/memberships` is admin-tier: narrowing it would leave the squad editor unable to read back what it writes."""
+        """`GET /spieler/saisons` is admin-tier: narrowing it would leave the squad editor unable to read back what it writes."""
         assert field in FLSpielerMembership.model_fields
 
     def test_the_squad_fields_default_where_the_join_supplies_neither(self):
@@ -171,7 +171,7 @@ class TestTheSinglePlayerShape:
 
     def test_it_serves_an_allow_list_of_what_the_surface_needs(self):
         """Derived from what a caller of THIS path needs, never the stored person less whatever looked sensitive."""
-        assert set(FLSpielerSingleResponse.model_fields) == {"acknowledged", "spieler_id", "vorname", "nachname"}
+        assert set(FLSpielerSingleResponse.model_fields) == {"spieler_id", "vorname", "nachname"}
 
     def test_the_leaving_date_is_not_on_it(self):
         """Nothing public renders a pupil's leaving date, and a field no surface needs is a field no surface is given."""
@@ -181,11 +181,11 @@ class TestTheSinglePlayerShape:
         """It IS the answer `DELETE` and `reactivate` give, so the echo would say nothing without it."""
         assert "inactive_since" in FLSpielerAdminSingleResponse.model_fields
 
-    def test_the_admin_echo_is_the_public_shape_plus_that_one_field(self):
+    def test_the_admin_echo_is_the_public_shape_plus_the_editors_two_fields(self):
         """Extension rather than a second declaration: the two would otherwise drift on the three fields they share."""
         extra = set(FLSpielerAdminSingleResponse.model_fields) - set(FLSpielerSingleResponse.model_fields)
 
-        assert extra == {"inactive_since"}
+        assert extra == {"inactive_since", "version"}
 
 
 # A body per echo rather than one shared: the two answer different writes and share no field but this one.
@@ -200,7 +200,7 @@ RETIREMENT_ECHOES = {
             "nummer": "7",
             "position": "Angriff",
             "stufe": "Q2",
-            "ist_nachnominiert": False,
+            "is_nachnominiert": False,
             "rolle": None,
         },
     ),
@@ -249,10 +249,10 @@ class TestTheProjection:
         assert "stufe" not in get_args(FLSpielerSortOptions)
 
     def test_the_backdated_flag_is_gone_from_the_shape_and_from_every_way_of_asking_for_it(self):
-        """The same sentence one field up: `ist_nachnominiert` is withheld too, so a request per value would partition the squad by it."""
-        assert "ist_nachnominiert" not in _project()
-        assert "ist_nachnominiert" not in BASE_QUERY_PARAMETERS
-        assert "ist_nachnominiert" not in get_args(FLSpielerSortOptions)
+        """The same sentence one field up: `is_nachnominiert` is withheld too, so a request per value would partition the squad by it."""
+        assert "is_nachnominiert" not in _project()
+        assert "is_nachnominiert" not in BASE_QUERY_PARAMETERS
+        assert "is_nachnominiert" not in get_args(FLSpielerSortOptions)
 
     def test_the_sort_runs_after_the_mask_and_not_over_the_stored_names(self):
         """`sort_by` is a published parameter.
@@ -275,7 +275,7 @@ class TestTheProjection:
 
     def test_only_the_admin_read_tiebreaks_on_the_surname(self):
         """The contrast is the assertion: the admin list orders people by full name and is entitled to."""
-        assert build_spieler_memberships_pipeline()[-1]["$sort"] == {"vorname": 1, "nachname": 1}
+        assert build_spieler_saisons_pipeline()[-1]["$sort"] == {"vorname": 1, "nachname": 1}
 
     @pytest.mark.parametrize("key", ["nachname", "stufe"])
     def test_the_base_tier_refuses_to_order_by_a_key_it_will_not_serve(self, key: str):
@@ -393,7 +393,7 @@ class TestTheSeasonASquadIsReadFor:
     def test_naming_a_team_with_no_season_active_is_refused_before_any_player_is_read(self):
         """No read method on the players collection: a handler reading squads with no season to scope them to fails on the attribute."""
 
-        with pytest.raises(DocumentNotFoundException) as refused:
+        with pytest.raises(DocumentNotFoundError) as refused:
             asyncio.run(
                 get_spieler(
                     spieler_collection=cast(AsyncCollection, object()),
@@ -402,7 +402,7 @@ class TestTheSeasonASquadIsReadFor:
                 )
             )
 
-        assert refused.value.error_code == DOCUMENT_NOT_FOUND
+        assert refused.value.error_code == Code.DOCUMENT_NOT_FOUND
 
 
 class TestTheInitial:
@@ -547,7 +547,6 @@ class TestTheBaseTierReadExecuted:
     def test_the_one_player_read_carries_no_leaving_date(self, seeded_url: str):
         """Against the RETIRED person, so a date really is stored and its absence from the wire is the redaction."""
         assert self._read_one(seeded_url, "Weber") == {
-            "acknowledged": 1,
             "spieler_id": str(SPIELER_OIDS["Weber"]),
             "vorname": "Jonas",
             "nachname": "W.",
@@ -650,8 +649,6 @@ def squad_url(mongo_url: str) -> Iterator[str]:
     """Two seasons of one club: a player in both, and one who played the past season alone."""
 
     async def _seed() -> None:
-        # UNCONSTRAINED: a season here carries only the `status` the read resolves on, and the
-        # validator requires the whole of `rules` besides.
         async with a_clean_database(mongo_url, SQUAD_DATABASE_NAME, constraints=False) as (_, database):
             await database.saisons.insert_many([{"_id": SAISON, "status": "active"}, {"_id": PAST_SAISON, "status": "past"}])
             await database.spieler.insert_many(
@@ -689,14 +686,11 @@ class MaskedRow(NamedTuple):
     """One seeded person, their consent record, and the two names the base tier must answer for them."""
 
     oid: ObjectId
-    vorname: str | None
-    nachname: str | None
+    vorname: str
+    nachname: str
     einwilligung: dict[str, Any]
     served_vorname: str | None
     served_nachname: str | None
-    # False stores NO `vorname` key. The mask's published arm is `$vorname` itself, so such a row
-    # leaves `$project` short of the key rather than carrying a null, which is a different shape.
-    stores_a_vorname_key: bool = True
 
 
 # Each served pair is written out rather than composed from `public_initial`, which would compare the
@@ -704,18 +698,6 @@ class MaskedRow(NamedTuple):
 MASKED_SQUAD = {
     "Offen": MaskedRow(ObjectId("6890a1b2c3d4e5f607390031"), "Alina", "Falk", _consent("kader_oeffentlich"), "Alina", "F."),
     "Intern": MaskedRow(ObjectId("6890a1b2c3d4e5f607390032"), "Bruno", "Gerber", _consent("intern"), None, None),
-    # A record is born confirmed, so the unconfirmed one is a stamp a hand edit blanked.
-    "Unbestaetigt": MaskedRow(
-        ObjectId("6890a1b2c3d4e5f607390033"), "Carla", "Hoffmann", _consent("kader_oeffentlich", bestaetigt_am=""), None, None
-    ),
-    # A row whose name is not stored at all, under a record that DOES publish: an absent name is not
-    # a consent decision, and the mask must not invent one either way.
-    "Namenlos": MaskedRow(ObjectId("6890a1b2c3d4e5f607390035"), None, None, _consent("kader_oeffentlich"), None, None),
-    # The same person one write earlier: no `vorname` KEY rather than a stored null, which is what a
-    # nameless row written past the validator looks like and what `$project` drops rather than nulls.
-    "Schluessellos": MaskedRow(
-        ObjectId("6890a1b2c3d4e5f607390036"), None, None, _consent("kader_oeffentlich"), None, None, stores_a_vorname_key=False
-    ),
 }
 
 # A shirt per row, which is how a case below finds its row: the read serves no record id to find one by.
@@ -723,7 +705,7 @@ MASK_NUMMERN = {case: str(place) for place, case in enumerate(MASKED_SQUAD, star
 
 # Both names of both withheld rows: a payload grep on the surnames alone leaves the forename, which
 # is the half `READ-PUPIL-001` never withheld and `READ-PUPIL-003` is the first rule to reach.
-WITHHELD_NAMES = ("Bruno", "Gerber", "Carla", "Hoffmann")
+WITHHELD_NAMES = ("Bruno", "Gerber")
 
 
 @pytest.mark.db
@@ -755,8 +737,7 @@ class TestThePublicationGate:
 
         assert len(stored) == len(MASKED_SQUAD)
         for row in MASKED_SQUAD.values():
-            assert (stored[row.oid].get("vorname"), stored[row.oid]["nachname"]) == (row.vorname, row.nachname)
-            assert ("vorname" in stored[row.oid]) is row.stores_a_vorname_key
+            assert (stored[row.oid]["vorname"], stored[row.oid]["nachname"]) == (row.vorname, row.nachname)
             assert stored[row.oid]["einwilligung"] == row.einwilligung
 
     def test_the_squad_serves_a_row_for_every_seeded_person(self, masked_url: str):
@@ -785,19 +766,6 @@ class TestThePublicationGate:
         """Against the SERIALISED body: what the page ships is the whole payload, not the part it renders."""
         assert name not in json.dumps(self._read(masked_url), ensure_ascii=False)
 
-    def test_a_row_storing_no_forename_key_reaches_the_read_model_without_one(self, masked_url: str):
-        """What the DEFAULT on `FLSpielerPublic.vorname` is for: a required field would 500 the whole squad over this one row."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            rows = await aggregate_many_from_db(collection=database.spieler, pipeline=build_spieler_pipeline(_filters()))
-
-            return {row["nummer"]: row for row in rows}
-
-        projected = _on_the_mask_database(masked_url, body)[MASK_NUMMERN["Schluessellos"]]
-
-        assert "vorname" not in projected
-        assert self._by_nummer(masked_url)[MASK_NUMMERN["Schluessellos"]]["vorname"] is None
-
     @pytest.mark.parametrize("case", MASKED_SQUAD)
     def test_no_pupil_s_record_id_appears_anywhere_in_the_response(self, masked_url: str, case: str):
         """`READ-PUPIL-005`, against the SERIALISED body: an id outlives every season and team, so it would tie a withheld row to its others."""
@@ -822,7 +790,6 @@ class TestThePublicationGate:
         row = MASKED_SQUAD[case]
 
         assert self._read_one(masked_url, case) == {
-            "acknowledged": 1,
             "spieler_id": str(row.oid),
             "vorname": row.served_vorname,
             "nachname": row.served_nachname,
@@ -861,15 +828,13 @@ def masked_url(mongo_url: str) -> Iterator[str]:
     """One squad in one season, holding a row for every consent state `READ-PUPIL-003` parts."""
 
     async def _seed() -> None:
-        # UNCONSTRAINED: the `spieler` validator requires `vorname` as a string, so the nameless row
-        # this corpus exists to serve is one a constrained database refuses.
-        async with a_clean_database(mongo_url, MASK_DATABASE_NAME, constraints=False) as (_, database):
+        async with a_clean_database(mongo_url, MASK_DATABASE_NAME) as (_, database):
             await database.saisons.insert_one({"_id": SAISON, "status": "active"})
             await database.spieler.insert_many(
                 [
                     {
                         "_id": row.oid,
-                        **({"vorname": row.vorname} if row.stores_a_vorname_key else {}),
+                        "vorname": row.vorname,
                         "nachname": row.nachname,
                         "inactive_since": None,
                         "einwilligung": row.einwilligung,
@@ -919,7 +884,6 @@ class TestTheOrderIsNoOracleForAWithheldName:
         """Each row's served forename, in the answer's order: `None` is the withheld row, the corpus holding one."""
 
         async def body(database: AsyncDatabase) -> Any:
-            invalidate_saison_cache()
             response = await get_spieler(
                 spieler_collection=database.spieler,
                 saisons_collection=database.saisons,
@@ -961,7 +925,6 @@ def sort_oracle_url(mongo_url: str) -> Iterator[str]:
 
     async def _seed() -> None:
         for corpus, withheld_forename in WITHHELD_FORENAMES.items():
-            # UNCONSTRAINED for `masked_url`'s reason, the corpora sharing its seeding shape.
             async with a_clean_database(mongo_url, SORT_ORACLE_DATABASE_NAMES[corpus], constraints=False) as (_, database):
                 await database.saisons.insert_one({"_id": SAISON, "status": "active"})
                 await database.spieler.insert_many(

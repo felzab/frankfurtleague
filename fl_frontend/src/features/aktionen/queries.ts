@@ -1,12 +1,11 @@
-import { apiClient } from "@/core/api";
+import { actionLogGetActionLog } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { parseLeserichtung } from "@/shared/utils/leserichtung";
 
 import { aktionenLogFacetTerms } from "./facets";
-import { FLAktionenListResponseSchema } from "./schemas";
 
+import type { FLActionLogListResponse } from "@/core/generated/client/types";
 import type { Leserichtung } from "@/shared/utils/leserichtung";
-import type { FLAktionenListResponse } from "./schemas";
 
 /** The single-row narrowings a row's own actions write, `null` where the URL names neither. */
 export type AktionenLogSubjekt = { dokumentId: string | null; vorgangId: string | null };
@@ -29,13 +28,8 @@ export const getAktionen = async (
     document_id?: string;
     order?: Leserichtung;
   } = {},
-): Promise<FLAktionenListResponse> => {
-  return runAdminRead(() =>
-    apiClient<FLAktionenListResponse>("/aktionen", FLAktionenListResponseSchema, {
-      authType: "admin",
-      params: filters,
-    }),
-  );
+): Promise<FLActionLogListResponse> => {
+  return runAdminRead(() => actionLogGetActionLog(filters));
 };
 
 /**
@@ -50,7 +44,7 @@ export function readAktionenLogSubjekt(params: Readonly<Record<string, string | 
  * The log as one route's query string selects it. Here rather than at the page: a facet carries a `read`
  * function, which a Server Component may not import.
  */
-export async function getAktionenLog(params: Readonly<Record<string, string | string[] | undefined>>): Promise<FLAktionenListResponse> {
+export async function getAktionenLog(params: Readonly<Record<string, string | string[] | undefined>>): Promise<FLActionLogListResponse> {
   const { dokumentId, vorgangId } = readAktionenLogSubjekt(params);
 
   return getAktionen({

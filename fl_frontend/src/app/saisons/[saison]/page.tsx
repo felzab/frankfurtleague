@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 
 import { ListPage } from "@/kit/ListPage";
-import { MatchList } from "@/kit/MatchRow";
+import { SpielList } from "@/kit/SpielRow";
 import { chosenTab } from "@/kit/tabChoice";
 
 import { COPY } from "@/core/copy";
@@ -13,7 +13,7 @@ import { matchRowOf, readSaison, readSpielplan } from "./spielplan";
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: PageProps<"/saisons/[saison]">): Promise<Metadata> {
-  return pageMetadata(ROUTES.spielplan, ROUTES.spielplan.pfad((await params).saison));
+  return pageMetadata(ROUTES.spielplan, ROUTES.spielplan.path((await params).saison));
 }
 
 /**
@@ -46,7 +46,7 @@ async function Spielplan({
 
   return (
     <ListPage
-      head={{ area: "saison", title: { route: "spielplan" } }}
+      head={{ scope: "saison", title: { route: "spielplan" } }}
       list={{
         kind: "spieltage",
         tabs:
@@ -62,7 +62,7 @@ async function Spielplan({
                 tabs: matchdays.map((matchday) => ({
                   id: matchday.key,
                   label: matchday.label,
-                  panel: <MatchList matches={matchday.spiele.map(matchRowOf)} />,
+                  panel: <SpielList matches={matchday.spiele.map(matchRowOf)} />,
                 })),
               },
         empty: { kind: "noch", plural: COPY.spielplan.spieltage, glyph: "spielplan" },

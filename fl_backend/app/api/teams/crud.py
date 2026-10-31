@@ -6,10 +6,10 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielbestaetigungen.services import SeatVoid, build_team_rows_filter, group_seat_voids
-from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import find_entry_refusal
 from app.core.crud import anchor_in_db, patch_many_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.literals import FLGruppenNames
 
 
 async def refuse_a_full_gruppe(
@@ -24,7 +24,7 @@ async def refuse_a_full_gruppe(
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> None:
-    """Refuse `REQ-ENTER-001` through `REQ-ENTER-003` for one entry into one group.
+    """Refuse `entry_saison_not_future` through `entry_gruppe_full` for one entry into one group.
 
     Its own module rather than a private helper, because a rule reached from two packages is one a
     package can enter past.
@@ -55,7 +55,7 @@ async def pull_a_club_to_enter(
     # REQUIRED for `refuse_a_full_gruppe`'s reason: the anchor below closes the race.
     session: AsyncClientSession,
 ) -> Mapping[str, Any]:
-    """The club a junction row is about to name, read for `REQ-ENTER-005` and for the identity the row copies.
+    """The club a junction row is about to name, read for `team_retired` and for the identity the row copies.
 
     Its own module for `refuse_a_full_gruppe`'s reason: the entry, the acceptance and the replacement
     all name a club, from two packages.

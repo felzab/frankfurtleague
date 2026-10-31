@@ -33,8 +33,8 @@ two tool configurations sit at the top of this folder instead, in none of the fi
 production database to fill the local one — it copies out and never writes back. `--seed` reaches
 production only when there is no copy on disk yet. `export_journal.sh` reads the production
 backend's logs and writes host files beside them, never a database. `replay_journal.sh` reads the
-restored production database, and with `--apply` writes the person records, log rows and day counts its
-lines name.
+restored production database, and with `--apply` writes the person records and log rows its lines
+name.
 Everything else leaves production alone.
 
 `--fresh` is still destructive locally: it removes the volumes, the copy under `.local-db`, the
@@ -53,10 +53,10 @@ On Windows, run them from Git Bash, and prefix a hand-typed `docker run -v` with
 `MSYS_NO_PATHCONV=1` —
 [`../docs/ops/spec.md`](../docs/ops/spec.md) §3 says what MSYS does to the path without it.
 
-One runs from outside this folder, because it needs its package's own dependencies:
-`fl_backend/tests/openapi_document.py`, which the `--docs` scope runs in `--check` mode because the
-published document is composed from the application's own docstrings
-([`../docs/ops/spec.md`](../docs/ops/spec.md) §1.6).
+The published document's writer lives in its package rather than here, needing the application's
+own dependencies: `fl_backend/app/openapi_document.py`, which `pnpm run contract` in `fl_frontend`
+runs and the `--db` scope's contract check compares with the tree, the document being composed from
+the application's own routes, models and docstrings.
 
 ## Read next
 

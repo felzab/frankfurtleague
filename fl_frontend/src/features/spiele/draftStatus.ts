@@ -4,23 +4,21 @@ import { formatEuro, formatSpielDatum, formatUhrzeit } from "@/shared/utils/form
 import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_NONE_LABEL } from "./constants";
 import { formatQuelle } from "./utils";
 
+import type { FLSonderereignis, FLSpielJoinedAdmin, FLSpielQuelle } from "@/core/generated/client/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type {
-  FLSonderereignis,
+  ActionRequiredCategory,
   FLSpiel,
-  FLSpielAdmin,
   FLSpielElfmeterschiessenDraft,
   FLSpielOrtFieldDraft,
-  FLSpielQuelle,
   FLSpielSchiedsrichterFieldDraft,
   FLSpielTeamField,
   FLSpielWithDraftFields,
-} from "./schemas";
-import type { ActionRequiredCategory } from "./types";
+} from "./types";
 
 /**
  * A cleared currency field is `null` and an unpicked placing `NaN`, so a draft is not an
- * `FLSpielAdmin` — but that IS assignable to this, which lets one descriptor `read` serve stored and
+ * `FLSpielJoinedAdmin` — but that IS assignable to this, which lets one descriptor `read` serve stored and
  * draft both.
  */
 export type FLSpielDraftFields = {
@@ -58,7 +56,7 @@ export function admitsShootOut(
 
   if (saisonPhase === "gruppenphase") return false;
 
-  // A no-show's award is COMPOSED from the season's `forfeit_ergebnis`, and `REQ-RULES-010` refuses a
+  // A no-show's award is COMPOSED from the season's `forfeit_ergebnis`, and `rules_forfeit_unentschieden_in_a_knockout` refuses a
   // level one only as a STEP -- so a grandfathered season composes one, and a kept shoot-out would
   // advance the club that never appeared.
   if (sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2") return false;
@@ -185,7 +183,7 @@ type FieldDescriptor<TValue, TPath extends string> = {
  * Erased so rows over many value types share one array. `FieldDescriptor<any>` would need a lint
  * suppression and stop checking each row's `read`, `equals` and `format` against each other.
  */
-type ErasedFieldDescriptor<TPath extends string = string> = {
+type GeloeschtFieldDescriptor<TPath extends string = string> = {
   path: TPath;
   label: string;
   group: FLSpielFieldGroup;
@@ -196,7 +194,7 @@ type ErasedFieldDescriptor<TPath extends string = string> = {
   errorPaths?: readonly string[];
 };
 
-const describeField = <TValue, TPath extends string>(descriptor: FieldDescriptor<TValue, TPath>): ErasedFieldDescriptor<TPath> => {
+const describeField = <TValue, TPath extends string>(descriptor: FieldDescriptor<TValue, TPath>): GeloeschtFieldDescriptor<TPath> => {
   const equals = descriptor.equals ?? Object.is;
 
   return {
@@ -397,7 +395,7 @@ export function deriveSpielDraftStatus({
   expectedCategories,
   fieldErrors,
 }: {
-  stored: FLSpielAdmin;
+  stored: FLSpielJoinedAdmin;
   draft: FLSpielDraftFields;
   // Required, never defaulted: an editor leaving its seed out disables the save of a report equal to the stored result.
   uebernimmtBericht: number | null;

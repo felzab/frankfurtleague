@@ -2,10 +2,9 @@
 import { assert, describe, expect, it } from "vitest";
 
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "./draftStatus.ts";
-import { FLSpielAdminSchema } from "./schemas.ts";
 
+import type { FLSpielJoinedAdmin, FLSpielTeamFieldJoined } from "@/core/generated/client/types";
 import type { FLSpielDraftFields } from "./draftStatus.ts";
-import type { FLSpielAdmin, FLSpielTeamFieldJoined } from "./schemas.ts";
 import type { ActionRequiredCategory } from "./types.ts";
 
 const TEAM_1 = "6890a1b2c3d4e5f607182932";
@@ -22,11 +21,8 @@ const side = (team_id: string, name: string, shorthand: string, tore: number | n
   austritt_type: null,
 });
 
-/**
- * Fully populated, so every descriptor has something to compare against, and parsed at construction:
- * a drifted field fails where the fixture is built rather than wherever it is read.
- */
-const STORED: FLSpielAdmin = FLSpielAdminSchema.parse({
+/** Fully populated, so every descriptor has something to compare against. */
+const STORED: FLSpielJoinedAdmin = {
   id: "6890a1b2c3d4e5f607182900",
   spieltag_id: "6890a1b2c3d4e5f607182901",
   spiel_nr: 12,
@@ -44,15 +40,16 @@ const STORED: FLSpielAdmin = FLSpielAdminSchema.parse({
   ergebnis: "3:1",
   elfmeterschiessen: null,
   notiz: null,
-  ansetzung_bestaetigt: null,
-} satisfies FLSpielAdmin);
+  ansetzung_confirmed: null,
+  version: 1,
+};
 
-function makeStored(overrides: Partial<FLSpielAdmin> = {}): FLSpielAdmin {
+function makeStored(overrides: Partial<FLSpielJoinedAdmin> = {}): FLSpielJoinedAdmin {
   return { ...STORED, ...overrides };
 }
 
 /** The draft the form holds when nothing has been touched: exactly the stored fields. */
-function draftOf(stored: FLSpielAdmin, overrides: Partial<FLSpielDraftFields> = {}): FLSpielDraftFields {
+function draftOf(stored: FLSpielJoinedAdmin, overrides: Partial<FLSpielDraftFields> = {}): FLSpielDraftFields {
   return {
     datum: stored.datum,
     uhrzeit: stored.uhrzeit,
@@ -70,7 +67,7 @@ function draftOf(stored: FLSpielAdmin, overrides: Partial<FLSpielDraftFields> = 
 }
 
 function derive(
-  stored: FLSpielAdmin,
+  stored: FLSpielJoinedAdmin,
   draft: FLSpielDraftFields,
   categories: readonly ActionRequiredCategory[] = [],
   fieldErrors: Record<string, string> = {},
@@ -399,7 +396,7 @@ describe("applyDraftToSpiel · what a Sonderereignis does to the result", () => 
     }
   });
 
-  // NOT emptied here: `find_state_refusal` answers `REQ-STATE-002` and REFUSES the save, so a preview
+  // NOT emptied here: `find_state_refusal` answers `state_ergebnis_on_a_non_event` and REFUSES the save, so a preview
   // that quietly cleared the goals would hide the very contradiction the banner reports.
   it("leaves the typed result standing under an event that cannot carry one", () => {
     const stored = makeStored();

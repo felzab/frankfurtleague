@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import { FLPatchSaisonPayloadSchema, FLPostSaisonPayloadSchema } from "./schemas";
 
-import type { FLSaisonRules } from "./schemas";
+import type { FLSaisonRules } from "@/core/generated/client/types";
 
-const rules = saisonRules({ number_of_groups: 4, max_kadergroesse: 50, erlaubte_stufen: ["E1", "E2", "Q1", "Q2"] });
+const rules = saisonRules({ number_of_gruppen: 4, max_kadergroesse: 50, allowed_stufen: ["E1", "E2", "Q1", "Q2"] });
 
 // Any value under a rule's key: the cases hand the schema what it refuses.
 const create = (overrides: Partial<Record<keyof FLSaisonRules, unknown>> = {}) => ({
@@ -39,35 +39,35 @@ describe("FLPostSaisonPayloadSchema", () => {
 
   it("refuses a group qualifying more teams than it holds", () => {
     // 2 x 4 is 8, a bracket that pairs down, so this case reaches the over-qualify rule alone.
-    expect(pathsRefused(FLPostSaisonPayloadSchema, create({ number_of_groups: 2, qualifiers_per_group: 4, teams_per_group: 2 }))).toStrictEqual(
-      ["rules.qualifiers_per_group"],
-    );
+    expect(
+      pathsRefused(FLPostSaisonPayloadSchema, create({ number_of_gruppen: 2, qualifiers_per_gruppe: 4, teams_per_gruppe: 2 })),
+    ).toStrictEqual(["rules.qualifiers_per_gruppe"]);
   });
 
   it("takes a group that qualifies every team it holds, a seeding-only group stage being a real format", () => {
-    expect(pathsRefused(FLPostSaisonPayloadSchema, create({ qualifiers_per_group: 2, teams_per_group: 2 }))).toStrictEqual([]);
+    expect(pathsRefused(FLPostSaisonPayloadSchema, create({ qualifiers_per_gruppe: 2, teams_per_gruppe: 2 }))).toStrictEqual([]);
   });
 
   it("refuses a field that pairs down to no bracket", () => {
-    expect(pathsRefused(FLPostSaisonPayloadSchema, create({ number_of_groups: 3, qualifiers_per_group: 1, teams_per_group: 4 }))).toStrictEqual(
-      ["rules.qualifiers_per_group"],
-    );
+    expect(
+      pathsRefused(FLPostSaisonPayloadSchema, create({ number_of_gruppen: 3, qualifiers_per_gruppe: 1, teams_per_gruppe: 4 })),
+    ).toStrictEqual(["rules.qualifiers_per_gruppe"]);
   });
 
   /* This is the one message that asks the reader to multiply, so each factor is named as its own panel
      labels it: a bare „Qualifikanten“ reads as the total across the season and is the wrong arithmetic. */
   it("names both factors of the bracket product the way the panel labels them", () => {
-    const refused = messagesRefused(FLPostSaisonPayloadSchema, create({ number_of_groups: 3, qualifiers_per_group: 1, teams_per_group: 4 }));
+    const refused = messagesRefused(FLPostSaisonPayloadSchema, create({ number_of_gruppen: 3, qualifiers_per_gruppe: 1, teams_per_gruppe: 4 }));
 
     expect(refused.join(" ")).toMatch(/Die Zahl der Gruppen mal die Qualifikanten pro Gruppe/);
   });
 
   it("refuses a group too small to generate a fixture, and one past the list read's cap", () => {
     // A qualifier each, so a group of one reaches the size bound alone rather than the over-qualify rule.
-    expect(pathsRefused(FLPostSaisonPayloadSchema, create({ qualifiers_per_group: 1, teams_per_group: 1 }))).toStrictEqual([
-      "rules.teams_per_group",
+    expect(pathsRefused(FLPostSaisonPayloadSchema, create({ qualifiers_per_gruppe: 1, teams_per_gruppe: 1 }))).toStrictEqual([
+      "rules.teams_per_gruppe",
     ]);
-    expect(pathsRefused(FLPostSaisonPayloadSchema, create({ teams_per_group: 17 }))).toStrictEqual(["rules.teams_per_group"]);
+    expect(pathsRefused(FLPostSaisonPayloadSchema, create({ teams_per_gruppe: 17 }))).toStrictEqual(["rules.teams_per_gruppe"]);
   });
 
   it("names each side of the forfeit result on its own path, so the message lands under its own box", () => {
@@ -110,7 +110,7 @@ describe("FLPatchSaisonPayloadSchema", () => {
   it("takes rules that already breach either rule, so a dates-only edit reaches the server", () => {
     /* Both breaches at once. Each turns on the step from the stored rules, which this payload does not
        carry, so judging them here would refuse the repair. */
-    const breaching = { ...create({ number_of_groups: 3, qualifiers_per_group: 5, teams_per_group: 4 }), start_date: "2025-10-01" };
+    const breaching = { ...create({ number_of_gruppen: 3, qualifiers_per_gruppe: 5, teams_per_gruppe: 4 }), start_date: "2025-10-01" };
 
     expect(pathsRefused(FLPatchSaisonPayloadSchema, breaching)).toStrictEqual([]);
   });

@@ -6,7 +6,7 @@ import { applyFacets, readFacetSelection } from "@/shared/utils/facets";
 import { orderStufen, STUFE_OPTIONS } from "./constants.ts";
 import { buildSpielerFacets, SPIELER_FACETS } from "./facets.ts";
 
-import type { FLSpielerStufe } from "./schemas.ts";
+import type { FLSpielerStufe } from "@/core/generated/client/types";
 import type { AdminSpielerRow, SpielerTeamOption } from "./types.ts";
 
 /** One club, because the builder answers with the constant itself for an empty list. */
@@ -66,12 +66,12 @@ describe("the level filter the players list offers", () => {
     );
   });
 
-  /* `erlaubte_stufen` bounds the squad FORM and never a stored row (`docs/glossary.md :: stufe`), so
+  /* `allowed_stufen` bounds the squad FORM and never a stored row (`docs/glossary.md :: stufe`), so
      a level a season dropped still stands in the table and has to stay filterable. */
   it("offers every level the league has, whatever the season allows", () => {
     expect(
       OFFERED_STUFE_FACET?.options.map((option) => option.value),
-      "cut to a season's `erlaubte_stufen`, this filter offers no value that reaches a squad row on a level the season dropped",
+      "cut to a season's `allowed_stufen`, this filter offers no value that reaches a squad row on a level the season dropped",
     ).toStrictEqual([...STUFE_OPTIONS]);
   });
 

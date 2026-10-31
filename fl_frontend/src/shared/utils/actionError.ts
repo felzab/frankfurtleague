@@ -1,17 +1,13 @@
-import {
-  APIBadStatusError,
-  APIMalformedDataError,
-  APINetworkError,
-  isRecordMissing,
-  isRefusalCode,
-  mayHaveWritten,
-  RolledBackError,
-} from "@/core/errors";
+// Redesign: goes with its last importer.
+import { isEdgeRefusal } from "@/kit/edgeRefusal";
+
+import { APIBadStatusError, APINetworkError, isRecordMissing, isRefusalCode, mayHaveWritten, RolledBackError } from "@/core/errors";
 
 import { buildRefusal, LADE_DIE_SEITE_NEU, UNKNOWN_REFUSAL, VERSUCHE_ES_ERNEUT_SATZ } from "./refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "./validation";
 
 import type { SentRequest } from "@/core/errors";
+import type { Code } from "@/core/generated/client/types";
 import type { ActionFailure } from "@/shared/types/types";
 import type { ZodError } from "zod";
 import type { FieldErrors } from "./validation";
@@ -35,13 +31,6 @@ export const ZUGANG_WEG = "Dein Zugang zur Verwaltung besteht nicht mehr.";
 const GESPERRT_KEINE_AENDERUNG = "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Änderung möglich.";
 
 /**
- * What a signed-in person is told at the ceiling of the kind of person they write as
- * (`REQ-DROSSELUNG-001`): the count starts again at German midnight, so neither a retry nor a sign-in
- * is offered.
- */
-export const HEUTE_GENUG_GEAENDERT = "Du hast heute schon sehr viel geändert. Morgen geht es weiter.";
-
-/**
  * What a seat holder whose seat went after the page was drawn is told, by the person spine and by the
  * backend's own seat check: a reload draws the page they still hold, or the forbidden panel.
  */
@@ -53,20 +42,11 @@ export const SITZ_WEG = "Du bist in dieser Saison nicht mehr in diesem Team eing
  */
 export const FELD_ABGELEHNT = "Diese Angabe wurde so nicht übernommen.";
 
-/**
- * The unique index's refusal (`DB-COMMON-002`), which every undo answers with too: the conflict
- * is the same one whichever write met it.
- */
-export const KONFLIKT_MIT_BESTEHENDEM = "Der Eintrag steht im Konflikt mit einem, den es schon gibt.";
+/** The unique index's refusal (`duplicate_key`): the conflict is the same one whichever write met it. */
+const KONFLIKT_MIT_BESTEHENDEM = "Der Eintrag steht im Konflikt mit einem, den es schon gibt.";
 
 /**
- * What became of a change an undo did not take back, closing every sentence that says so. Here rather
- * than beside the undo spine, which loads the sign-in store: the browser's offer says it too.
- */
-export const AENDERUNG_STEHT_WEITERHIN = "Die Änderung steht weiterhin.";
-
-/**
- * An admin editor's answer to a `REQ-VAL-001` no rendered control takes, which only a page older than
+ * An admin editor's answer to a `payload_refused` no rendered control takes, which only a page older than
  * the running API can send: a retry resends the refused body, and a reload fetches the page that fits.
  */
 const EINZELNE_ANGABEN_ABGELEHNT = buildRefusal({ reason: "Einzelne Angaben wurden nicht übernommen", repair: LADE_DIE_SEITE_NEU });
@@ -80,11 +60,11 @@ export function isRefusal(error: unknown): error is APIBadStatusError {
 }
 
 /**
- * Whether the backend found the Funktion the request acts in not held (`REQ-FUNKTION-001`): a write
+ * Whether the backend found the Funktion the request acts in not held (`role_not_held`): a write
  * answers it with `SITZ_WEG`, and a page reading for that seat renders the forbidden panel.
  */
 export function isFunktionLost(error: unknown): error is APIBadStatusError {
-  return isRefusal(error) && error.serverErrorCode === "REQ-FUNKTION-001";
+  return isRefusal(error) && error.serverErrorCode === "role_not_held";
 }
 
 /**
@@ -97,7 +77,7 @@ export function isRuleRefusal(error: unknown): error is APIBadStatusError {
 }
 
 /**
- * The body fields a refusal names, a `REQ-VAL-001`'s or a rule's, keyed as the inputs are named, or `null`
+ * The body fields a refusal names, a `payload_refused`'s or a rule's, keyed as the inputs are named, or `null`
  * where it names none. A form showing nothing under any of them is `useServerFieldErrors`'s to announce.
  */
 function refusedFieldErrors(error: APIBadStatusError): FieldErrors | null {
@@ -147,20 +127,20 @@ export function refusedFailure(error: APIBadStatusError, sentence: string): Acti
 
 /**
  * The Spiel refusals `fl_frontend/src/features/spiele/refusals.ts :: mapSpielRefusal` does not map.
- * Three name an OCCUPANT, which the form places at fault; the two REQ-STATE codes name none, so
+ * Three name an OCCUPANT, which the form places at fault; the two `state_*` codes name none, so
  * their code rides back unused and the message lands as a toast.
  */
-const OCCUPANT_REFUSALS: Record<string, string> = {
+const OCCUPANT_REFUSALS: Readonly<Partial<Record<Code, string>>> = {
   // Three triggers: a re-dating or a changed Sonderereignis fires the rule as a new club does. Its
   // remedies ride the match editor's rail, from
   // `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/banners.ts`.
-  "REQ-ELIGIBILITY-001": "Dieses Team ist aus der Saison ausgeschieden und darf ab seinem Austritt nicht mehr aufgestellt sein.",
+  eligibility_disqualified: "Dieses Team ist aus der Saison ausgeschieden und darf ab seinem Austritt nicht mehr aufgestellt sein.",
 
-  "REQ-ELIGIBILITY-002": "Dieses Team nimmt nicht an dieser Saison teil.",
-  "REQ-STATE-002": "Ein Spiel mit diesem Sonderereignis wird nicht gewertet. Entferne zuerst die Tore.",
-  "REQ-STATE-003": "Ein Nichtantreten braucht beide Teams. Besetze zuerst den offenen Platz.",
+  eligibility_team_not_in_saison: "Dieses Team nimmt nicht an dieser Saison teil.",
+  state_ergebnis_on_a_non_event: "Ein Spiel mit diesem Sonderereignis wird nicht gewertet. Entferne zuerst die Tore.",
+  state_nichtantreten_without_two_sides: "Ein Nichtantreten braucht beide Teams. Besetze zuerst den offenen Platz.",
   // The repair is on the OTHER fixture, so it rides the same rail rather than this field.
-  "REQ-SPIELTAG-001": "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel.",
+  spieltag_occupied: "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel.",
 };
 
 /** The sentence of a write that may or may not have landed. */
@@ -173,49 +153,12 @@ export const SPEICHERUNG_UNKLAR = buildRefusal({
 const OUTCOME_UNKNOWN: ActionFailure = { success: false, error: SPEICHERUNG_UNKLAR, outcome: "unknown" };
 
 /**
- * The sentences the reader words by what the press that met a failure can do next. A save's form stays
- * open, so the same press may pass again; an undo's offer is gone once pressed
- * (`fl_frontend/src/shared/utils/adminUndo.ts :: UNDO_WORDING`).
- */
-export type Wording = {
-  /** A failure the same press may pass after: its reason, closed. `retry` offers that press again. */
-  readonly close: (reason: string, retry: string) => string;
-  /** A rule's refusal no arm words, or a throw naming no cause. */
-  readonly unworded: string;
-  /** A write that may or may not have landed. */
-  readonly unclear: string;
-  /** A sentence no press repairs, said whole: the undo adds what became of the change, as its guard's refusals do. */
-  readonly terminal: (sentence: string) => string;
-};
-
-const SAVE_WORDING: Wording = {
-  close: (reason, retry) => `${reason} ${retry}`,
-  unworded: UNKNOWN_REFUSAL,
-  unclear: SPEICHERUNG_UNKLAR,
-  terminal: (sentence) => sentence,
-};
-
-/**
  * A spine's answer where a write it sent may stand behind whatever the body made of it. Never an
  * action's rejection, which `unansweredAction` reads first.
  */
-export function outcomeUnknown(wording: Wording = SAVE_WORDING): ActionFailure {
-  return { success: false, error: wording.unclear, outcome: "unknown" };
+export function outcomeUnknown(): ActionFailure {
+  return { ...OUTCOME_UNKNOWN };
 }
-
-/**
- * An undo nobody can tell landed, said by the spine for a replay that threw and by the offer for
- * one that never answered: „nicht zurückgenommen“ would send the admin to undo by hand what may
- * already be undone.
- */
-export const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
-
-/**
- * The body of every 429 the edge answers itself (`nginx/shared/site.conf :: @edge_refusal`), which Next hands
- * a rejected action as its error's message only under a content type of exactly `text/plain`: so ASCII,
- * sent with no charset.
- */
-export const EDGE_REFUSAL_BODY = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.";
 
 /** A press the edge's rate refused, which never reached Next: nothing was written, and the meter refills within the minute. */
 export const ZU_VIELE_VERSUCHE_NICHTS_GESPEICHERT =
@@ -226,10 +169,6 @@ export const ZU_VIELE_VERSUCHE_NICHTS_GESPEICHERT =
  * refills within the minute. The public forms' answer to the same refusal too.
  */
 export const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.";
-
-function isEdgeRefusal(error: unknown): boolean {
-  return error instanceof Error && error.message === EDGE_REFUSAL_BODY;
-}
 
 /**
  * A send's state where its action rejected with the edge's own refusal, which reached nothing past the
@@ -282,19 +221,19 @@ export function unansweredRead(): ActionFailure {
 }
 
 /** A refusal in the words its code is given here, or `null` for one no arm words and no rule made. */
-function refusedAnswer(error: APIBadStatusError, wording: Wording): ActionFailure | null {
+function refusedAnswer(error: APIBadStatusError): ActionFailure | null {
   // A request the running API does not take, naming only a query parameter or the body whole, or
-  // unreadable (`REQ-VAL-002`): the page that fits it comes with a reload, where a retry resends it
+  // unreadable (`body_unreadable`): the page that fits it comes with a reload, where a retry resends it
   // unchanged.
-  if (error.serverErrorCode === "REQ-VAL-001" || error.serverErrorCode === "REQ-VAL-002") {
+  if (error.serverErrorCode === "payload_refused" || error.serverErrorCode === "body_unreadable") {
     return refusedFailure(error, EINZELNE_ANGABEN_ABGELEHNT);
   }
 
-  if (error.serverErrorCode === "REQ-WIRING-001") {
+  if (error.serverErrorCode === "wiring_unsupported") {
     // The form does not offer these shapes, so the request was built against a season that has since moved.
     return { success: false, error: "Die Saison wurde inzwischen geändert. Lade die Seite neu." };
   }
-  if (error.serverErrorCode === "REQ-WIRING-002") {
+  if (error.serverErrorCode === "wiring_seed_past_the_opening_round") {
     // NOT the reload above: the form offered this answer and a reload only closes it, so what the
     // admin wanted needs a different source rather than a fresh page.
     return {
@@ -306,7 +245,7 @@ function refusedAnswer(error: APIBadStatusError, wording: Wording): ActionFailur
       }),
     };
   }
-  if (error.serverErrorCode === "REQ-WIRING-003") {
+  if (error.serverErrorCode === "wiring_gruppe_not_run") {
     // The picker offers only the season's own groups, so this arriving means the season was
     // redrawn narrower under the open form: the offer itself is stale, and a reload renews it.
     return {
@@ -326,14 +265,14 @@ function refusedAnswer(error: APIBadStatusError, wording: Wording): ActionFailur
       return { success: false, error: occupantRefusal, errorCode: error.serverErrorCode };
     }
   }
-  if (error.serverErrorCode === "DB-COMMON-002") {
+  if (error.serverErrorCode === "duplicate_key") {
     // The ordinary outcome of a create hitting a unique index, possibly a retired row keeping its slot.
     return { success: false, error: KONFLIKT_MIT_BESTEHENDEM };
   }
   if (isRuleRefusal(error)) {
     // Any other code is a rule no mapper here words, and naming the unique index for it would send the
     // admin looking for an entry that may not exist.
-    return refusedFailure(error, wording.unworded);
+    return refusedFailure(error, UNKNOWN_REFUSAL);
   }
 
   return null;
@@ -343,62 +282,51 @@ function refusedAnswer(error: APIBadStatusError, wording: Wording): ActionFailur
  * Maps whatever a mutation threw onto the refusal the admin forms render. Each message names the way out rather
  * than the failure: the diagnosis is in the server log, and the toast's title says what became of the save.
  */
-export function toActionErrorResult(error: unknown, answering?: SentRequest, wording: Wording = SAVE_WORDING): ActionFailure {
+export function toActionErrorResult(error: unknown, answering?: SentRequest): ActionFailure {
   if (error instanceof APIBadStatusError) {
-    // Raised by the actor check before any handler, and by a write's transaction re-judging the
-    // grant before each attempt, so nothing was written: the grant went after the guard read it.
-    if (error.serverErrorCode === "REQ-AUTH-006") return { success: false, error: wording.terminal(ZUGANG_WEG) };
+    // Raised by the actor check before any handler, so nothing was written: the grant went after the guard read it.
+    if (error.serverErrorCode === "actor_not_admin") return { success: false, error: ZUGANG_WEG };
     // The person binder reads the ban per request, so a ban entered since the session was judged.
-    if (error.serverErrorCode === "REQ-AUTH-008") return { success: false, error: wording.terminal(GESPERRT_KEINE_AENDERUNG) };
-    // Every person's write route can answer it, so it is worded here rather than by each slice; the consent
-    // writes' mapper words a refused grant first (`fl_frontend/src/features/konto/einwilligung.ts :: ZUSTIMMEN_MORGEN`).
-    if (error.serverErrorCode === "REQ-DROSSELUNG-001") return { success: false, error: wording.terminal(HEUTE_GENUG_GEAENDERT) };
+    if (error.serverErrorCode === "person_barred") return { success: false, error: GESPERRT_KEINE_AENDERUNG };
   }
   // A rule's code, so ahead of the rule fallback below, which would name no reason for it.
-  if (isFunktionLost(error)) return { success: false, error: wording.terminal(SITZ_WEG) };
+  if (isFunktionLost(error)) return { success: false, error: SITZ_WEG };
 
   if (isRefusal(error)) {
-    const refused = refusedAnswer(error, wording);
+    const refused = refusedAnswer(error);
     if (refused !== null) return refused;
     if (isRecordMissing(error)) return { success: false, error: "Der Eintrag wurde nicht gefunden. Lade die Seite neu." };
   }
 
   if (error instanceof APIBadStatusError) {
-    if (error.statusCode === 500 && error.serverErrorCode === "DB-FAIL-002") {
+    if (error.statusCode === 500 && error.serverErrorCode === "unknown_outcome") {
       // A commit went unanswered, or the deadline cut a write, so the write may stand: "try again"
       // would repeat it, and the retry then meets its own "already exists".
-      return outcomeUnknown(wording);
+      return outcomeUnknown();
     }
-    // Only `DB-FAIL-001` says the write failed: any other 5xx can follow a commit, an unhandled crash
+    // Only `database_failed` says the write failed: any other 5xx can follow a commit, an unhandled crash
     // or a proxy's own answer among them.
-    if (error.statusCode >= 500 && error.serverErrorCode !== "DB-FAIL-001" && mayHaveWritten(error)) return outcomeUnknown(wording);
+    if (error.statusCode >= 500 && error.serverErrorCode !== "database_failed" && mayHaveWritten(error)) return outcomeUnknown();
 
-    return { success: false, error: wording.close("Der Server hat mit einem Fehler geantwortet.", VERSUCHE_ES_ERNEUT_SATZ) };
+    return { success: false, error: `Der Server hat mit einem Fehler geantwortet. ${VERSUCHE_ES_ERNEUT_SATZ}` };
   }
 
   if (error instanceof APINetworkError) {
     // A write whose answer never arrived may have landed, which a retry would repeat: a connection
     // lost after the send is as silent as a timeout. A read changed nothing, and trying again repairs it.
-    if (mayHaveWritten(error)) return outcomeUnknown(wording);
+    if (mayHaveWritten(error)) return outcomeUnknown();
 
     return {
       success: false,
       error: error.isTimeout
-        ? wording.close("Der Server hat zu lange nicht geantwortet.", VERSUCHE_ES_ERNEUT_SATZ)
-        : wording.close("Der Server ist gerade nicht erreichbar.", "Versuche es später erneut."),
+        ? `Der Server hat zu lange nicht geantwortet. ${VERSUCHE_ES_ERNEUT_SATZ}`
+        : "Der Server ist gerade nicht erreichbar. Versuche es später erneut.",
     };
-  }
-
-  if (error instanceof APIMalformedDataError) {
-    // A 2xx whose body failed its schema: the write landed, and only its answer is unreadable.
-    if (mayHaveWritten(error)) return outcomeUnknown(wording);
-
-    return { success: false, error: wording.close("Die Daten kamen fehlerhaft an.", VERSUCHE_ES_ERNEUT_SATZ) };
   }
 
   // This application's own throw carries no request, so the one its caller answers stands in: thrown
   // after a write, it leaves the row standing under a failure's title. A proven rollback wrote nothing.
-  if (answering !== undefined && mayHaveWritten(answering) && !(error instanceof RolledBackError)) return outcomeUnknown(wording);
+  if (answering !== undefined && mayHaveWritten(answering) && !(error instanceof RolledBackError)) return outcomeUnknown();
 
-  return { success: false, error: wording.unworded };
+  return { success: false, error: UNKNOWN_REFUSAL };
 }

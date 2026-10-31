@@ -60,12 +60,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The application too: this scope runs fl_backend/tests/openapi_document.py, which imports it.
+      # The route checker's interpreter.
       - uses: ./.github/actions/backend-toolchain
         with:
-          application: true
-          # The uv cache's one writer: on a miss every saving job would archive the whole cache.
-          save-cache: true
+          application: false
       - name: Run the docs scope
         run: ./scripts/gate/verify.sh --docs
 
@@ -93,13 +91,21 @@ jobs:
       - uses: ./.github/actions/backend-toolchain
         with:
           application: true
+          # The uv cache's one writer: on a miss every saving job would archive the whole cache. Its key
+          # carries the runner's OS release, so a writer on the db job's ubuntu-22.04 would serve no
+          # ubuntu-latest job.
+          save-cache: true
       - name: Run the backend scope
         run: ./scripts/gate/verify.sh --backend
 
-  # Both db tiers: the `db`-marked backend tests and the frontend's `*.db.test.*` files.
+  # Both db tiers: the `db`-marked backend tests and the frontend's `*.db.test.*` files; and the
+  # contract check, which regenerates openapi.json and the client from it and diffs both, needing
+  # both toolchains.
   db:
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912); 22.04's 6.8 it accepts.
-    # Back to ubuntu-latest once the image pins move to 8.3.14, which carries SERVER-131779's fix.
+    # Back to ubuntu-latest once the image pins move to 8.3.14, which carries SERVER-131779's fix. Until
+    # then this job restores none of the backend job's uv cache, whose key carries the runner's OS
+    # release, and installs from the registry on every run.
     runs-on: ubuntu-22.04
     timeout-minutes: 21
     steps:
@@ -236,6 +242,7 @@ jobs:
             ${{ env.VERIFY_TAG }}:frontend
             ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
+          build-args: APP_VERSION=${{ steps.meta-frontend.outputs.version }}
           outputs: type=docker,dest=${{ runner.temp }}/frontend.tar
           cache-from: ${{ github.event_name != 'push' && 'type=gha,scope=frontend' || '' }}
           cache-to: type=gha,scope=frontend,mode=max
@@ -248,6 +255,7 @@ jobs:
             ${{ env.VERIFY_TAG }}:backend
             ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
+          build-args: APP_VERSION=${{ steps.meta-backend.outputs.version }}
           outputs: type=docker,dest=${{ runner.temp }}/backend.tar
           cache-from: ${{ github.event_name != 'push' && 'type=gha,scope=backend' || '' }}
           cache-to: type=gha,scope=backend,mode=max
@@ -318,13 +326,10 @@ jobs:
         run: |
           mkdir -p .tmp-e2e/secrets .tmp-e2e/mail .tmp-e2e/nginx-log
           chmod 777 .tmp-e2e/mail .tmp-e2e/nginx-log
-          for name in auth_secret sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin; do
+          for name in auth_secret sperrliste_key internal_api_key_base internal_api_key_system internal_api_key_admin; do
             openssl rand -hex 32 | tr -d '\n' > ".tmp-e2e/secrets/${name}"
           done
-          openssl genpkey -algorithm ed25519 -out .tmp-e2e/secrets/fl_actor_signing_key
           chmod 644 .tmp-e2e/secrets/*
-          public="$(openssl pkey -in .tmp-e2e/secrets/fl_actor_signing_key -pubout -outform DER | tail -c 32 | basenc --base64url | tr -d '=\n')"
-          printf 'ACTOR_TOKEN_PUBLIC_KEY=%s\n' "$public" > .tmp-e2e/backend.env
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: images
@@ -344,7 +349,7 @@ jobs:
           base="$(docker compose exec -T backend sh -c 'printf %s "$DB_BASE_NAME"')"
           docker compose exec -T mongo sh -c 'cat > /tmp/made-up-seed.js' < scripts/ops/seed/seed.js
           docker compose exec -T mongo mongosh --quiet "mongodb://127.0.0.1:27017/${base}?directConnection=true" --file /tmp/made-up-seed.js
-          docker compose exec -T backend python -m app.core.constraints --check
+          docker compose exec -T backend python -m app.readback
       - name: Start the stack
         run: docker compose up -d --no-build --force-recreate --wait --wait-timeout 240
       - name: Run the journeys

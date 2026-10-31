@@ -13,7 +13,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from app.core.security import MISSING_TOKEN
+from app.core.codes import Code
 
 from .test_bewerbung_public_read import (
     ADDRESS,
@@ -84,16 +84,17 @@ class TestTheKuerzelCheck:
     @pytest.mark.parametrize(
         ("shorthand", "vergeben"),
         [
-            pytest.param("ZE", True, id="a live club's"),
-            pytest.param("VE", True, id="a RETIRED club's, which `uniq_shorthand` still holds"),
-            pytest.param("QQ", False, id="one nobody holds"),
+            pytest.param("ZEX", True, id="a live club's"),
+            pytest.param("zex", True, id="a live club's asked in lower case, folded as a submission folds it"),
+            pytest.param("VEX", True, id="a RETIRED club's, which `uniq_shorthand` still holds"),
+            pytest.param("QQX", False, id="one nobody holds"),
         ],
     )
     def test_a_taken_kuerzel_answers_taken(self, seeded_url: str, shorthand: str, vergeben: bool):
         response = answered(seeded_url, f"{PREFIX}/kuerzel/{shorthand}")
 
         assert response.status_code == 200
-        assert response.json()["vergeben"] is vergeben
+        assert response.json()["taken"] is vergeben
 
     def test_the_answer_names_no_club(self, seeded_url: str):
         """A shape distinguishing a retired holder from a live one would publish which schools have left."""
@@ -101,17 +102,17 @@ class TestTheKuerzelCheck:
         name, shorthand, _ = RETIRED_CLUB
         body = answered(seeded_url, f"{PREFIX}/kuerzel/{shorthand}").json()
 
-        assert set(body) == {"acknowledged", "shorthand", "vergeben"}
+        assert set(body) == {"shorthand", "taken"}
         assert name not in answered(seeded_url, f"{PREFIX}/kuerzel/{shorthand}").text
 
 
 # Every public route, bound once: a route added to one list alone would keep its reachability test
 # and silently lose its unauthorised-answer test.
 PUBLIC_PATHS = [
-    f"{PREFIX}/fenster",
-    f"{PREFIX}/fenster/{OPEN_SAISON}",
+    f"{PREFIX}/window",
+    f"{PREFIX}/window/{OPEN_SAISON}",
     f"{PREFIX}/schulen",
-    f"{PREFIX}/kuerzel/ZE",
+    f"{PREFIX}/kuerzel/ZEX",
     f"{PREFIX}/trikotfarben/{OPEN_SAISON}",
 ]
 
@@ -133,7 +134,7 @@ class TestTheTierTheseReadsAreServedAt:
         response = answered(seeded_url, path, headers={})
 
         assert response.status_code == 401
-        assert response.json()["error_code"] == MISSING_TOKEN
+        assert response.json()["error_code"] == Code.ACCESS_KEY_REFUSED
 
     def test_the_admin_list_at_this_prefix_still_refuses_the_base_key(self, seeded_url: str):
         """The control: a base-tier router joining an admin prefix must not have widened the two routers already there."""

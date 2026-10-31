@@ -12,7 +12,7 @@ import { Label } from "@heroui/react/label";
 
 import { ADRESSWECHSEL_WARTEZEIT_DAUER } from "@/core/adresswechsel";
 import { ADRESSWECHSEL_STOPPEN } from "@/core/adresswechselAntworten";
-import { formatZeitpunkt } from "@/core/format";
+import { formatInstant } from "@/core/format";
 import { LINK_AN_NEUE_ADRESSE } from "@/features/adresswechsel/components/forms/AdresswechselBeantragen";
 import { gibAdresswechselFreiAction, starteAdresswechselAction, stoppeAdresswechselAction } from "@/features/konto/personActions";
 import { FLKontoAdresswechselPayloadSchema } from "@/features/konto/schemas";
@@ -28,18 +28,15 @@ import { useConfirmationWindows } from "@/shared/hooks/useConfirmationWindows";
 import { LINK_UNKLAR, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
-import { meldeLinkVersand } from "@/shared/utils/linkVersandToast";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { pruefeInhaberAction } from "../../../actions";
 import { genehmigerText } from "../../../genehmiger";
 import { CodeConfirmation } from "../../ui/CodeConfirmation";
 
-import type { FLVerwaltung } from "@/features/berechtigungen/schemas";
-import type { FLKontoAdresswechselOffen, FLKontoAdresswechselResponse } from "@/features/konto/schemas";
+import type { FLAccountAddressChangeOpen, FLAccountAddressChangeResponse, FLVerwaltung } from "@/core/generated/client/types";
 import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
 import type { ActionFailure } from "@/shared/types/types";
-import type { VersandTitel } from "@/shared/utils/linkVersandToast";
 
 /** The press opening the box: „E-Mail-“ because this panel also lists the passkeys' and sign-ins' neighbours. */
 const E_MAIL_ADRESSE_AENDERN = "E-Mail-Adresse ändern";
@@ -48,13 +45,6 @@ const AENDERUNG_ZURUECKZIEHEN = "Änderung zurückziehen";
 
 /** Why the page asks before a start or an approval, said beside the control that asks. */
 const STEP_UP_HINT = "Für eine neue Adresse fragen wir kurz nach, ob Du es bist.";
-
-/** The account page's link titles, in the words its deletion link's press uses. */
-const KONTO_LINK_TITEL: VersandTitel = {
-  gesendet: "Link verschickt",
-  fehlgeschlagen: "Link nicht verschickt",
-  abgelegt: "Link zurückgehalten",
-};
 
 /** What the confirmation waits for: a start with its address, or the approval of the change the page showed. */
 type Wartend = { art: "start"; email: string } | { art: "freigabe"; id: string };
@@ -82,26 +72,26 @@ export type AdresswechselBestaetigung = ConfirmedUntil & {
  * The pending change's sentence, by the step it waits on. The address is the backend's string, whole where this
  * person typed it and masked where the league did, so a mistyped one is caught here before a stranger confirms it.
  */
-function offenSatz(offen: FLKontoAdresswechselOffen): string {
-  const bis = offen.gueltig_bis === null ? null : formatZeitpunkt(offen.gueltig_bis);
-  const { email, genehmigung } = offen;
+function offenSatz(offen: FLAccountAddressChangeOpen): string {
+  const bis = offen.valid_until === null ? null : formatInstant(offen.valid_until);
+  const { email, approval: genehmigung } = offen;
   // Owed besides the link: until it is given, the address on file keeps its grant and signs in as before.
   const zugang =
-    genehmigung === null || genehmigung.genehmigt
+    genehmigung === null || genehmigung.approved
       ? ""
-      : ` Weil Deine bisherige Adresse Zugang zur Verwaltung hat, muss außerdem ${genehmigerText(genehmigung.verwaltung)} zustimmen, bis ${formatZeitpunkt(genehmigung.bis)}. Bis zur Zustimmung meldest Du Dich weiter mit Deiner bisherigen Adresse an, mit vollem Zugang.`;
+      : ` Weil Deine bisherige Adresse Zugang zur Verwaltung hat, muss außerdem ${genehmigerText(genehmigung.verwaltung)} zustimmen, bis ${formatInstant(genehmigung.bis)}. Bis zur Zustimmung meldest Du Dich weiter mit Deiner bisherigen Adresse an, mit vollem Zugang.`;
 
-  if (offen.wartet_auf === "freigabe") {
+  if (offen.waits_on === "release") {
     return `Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen: ${email}. Sie gilt erst, wenn Du sie hier freigibst und sie danach über ihren Link bestätigt wird. Gib sie nur frei, wenn Du das selbst bei uns angefragt hast.${bis === null ? "" : ` Freigeben kannst Du bis ${bis}.`}${zugang}`;
   }
-  if (offen.wartet_auf === "genehmigung") {
+  if (offen.waits_on === "approval") {
     return `Die neue E-Mail-Adresse ${email} ist bestätigt.${zugang}`;
   }
-  if (offen.wartet_auf === "wartezeit") {
-    const ab = offen.wirksam_ab === null ? "" : ` und gilt ab ${formatZeitpunkt(offen.wirksam_ab)}`;
+  if (offen.waits_on === "waiting_period") {
+    const ab = offen.effective_from === null ? "" : ` und gilt ab ${formatInstant(offen.effective_from)}`;
     return `Die neue E-Mail-Adresse ${email} ist bestätigt${ab}. Bis dahin gilt Deine bisherige Adresse. Stimmt das nicht, stoppe die Änderung.${zugang}`;
   }
-  if (offen.weg === "wartezeit") {
+  if (offen.way === "waiting_period") {
     return `Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen, ${email}, weil Deine bisherige nicht mehr erreichbar sein soll. Bestätigt sie ihren Link, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} danach. Stimmt das nicht, stoppe die Änderung.${zugang}`;
   }
   // The link's deadline ends the change, never the old address's validity: that holds until the confirmation.
@@ -109,10 +99,10 @@ function offenSatz(offen: FLKontoAdresswechselOffen): string {
 }
 
 /** A lapsed change's sentence, naming the cause only where the person did their part and the administration did not. */
-function abgelaufenSatz(offen: FLKontoAdresswechselOffen): string {
+function abgelaufenSatz(offen: FLAccountAddressChangeOpen): string {
   const satz = `Die Änderung auf die neue E-Mail-Adresse ${offen.email} ist abgelaufen`;
   // Confirmed, so only the grant's approval can have lapsed.
-  const bestaetigt = offen.wartet_auf === "genehmigung" || offen.wartet_auf === "wartezeit";
+  const bestaetigt = offen.waits_on === "approval" || offen.waits_on === "waiting_period";
 
   return bestaetigt ? `${satz}, weil die Verwaltung ihr nicht rechtzeitig zugestimmt hat.` : `${satz}.`;
 }
@@ -126,7 +116,7 @@ export function AdresswechselPanel({
   adresswechsel,
   bestaetigung,
 }: {
-  adresswechsel: FLKontoAdresswechselResponse;
+  adresswechsel: FLAccountAddressChangeResponse;
   bestaetigung: AdresswechselBestaetigung;
 }) {
   const router = useRouter();
@@ -138,7 +128,7 @@ export function AdresswechselPanel({
   const feldRef = useRef<HTMLInputElement>(null);
   // Read at the press, before any confirmation dialog takes the focus, and kept until the write it waits for lands.
   const landungRef = useRef<ReturnType<typeof focusAfterWrite> | null>(null);
-  const { offen } = adresswechsel;
+  const { open: offen } = adresswechsel;
 
   const istInhaber = async (): Promise<boolean> => {
     const answer = await pruefeInhaberAction(bestaetigung.inhaberId);
@@ -174,11 +164,9 @@ export function AdresswechselPanel({
 
     landung.landed();
     if (was.art === "start") setEntwurf(null);
-    meldeLinkVersand(
-      res.versand,
-      was.art === "start" ? KONTO_LINK_TITEL : { ...KONTO_LINK_TITEL, gesendet: "Änderung freigegeben" },
-      res.message,
-    );
+    // The write owed the mail, which leaves behind the answer: whether it arrives is no press's to know.
+    // „verschickt“, in the words the deletion link's press on this page uses.
+    appToast.success(was.art === "start" ? "Link verschickt" : "Änderung freigegeben", { description: res.message });
   };
 
   /** Runs `was` now inside the window, and after the confirmation otherwise. */
@@ -229,13 +217,13 @@ export function AdresswechselPanel({
 
   const gezeigt = fehler !== null && fehler.zu === entwurf ? fehler.satz : null;
   // The person's own start is theirs to take back; a change somebody else asked for is stopped.
-  const stoppName = offen?.weg === "konto" ? AENDERUNG_ZURUECKZIEHEN : ADRESSWECHSEL_STOPPEN;
+  const stoppName = offen?.way === "account" ? AENDERUNG_ZURUECKZIEHEN : ADRESSWECHSEL_STOPPEN;
 
   return (
     <div className="flex flex-col gap-4">
       {/* A lapsed change's approval is refused until the hourly pass ends it, and a start replaces it: the panel offers
           the start, so the person never waits on the pass to change their address. */}
-      {offen === null || offen.abgelaufen ? (
+      {offen === null || offen.expired ? (
         <>
           {offen !== null && <p className="fluid-sm text-pretty text-foreground">{abgelaufenSatz(offen)}</p>}
           <p className="muted-hint text-pretty">
@@ -319,7 +307,7 @@ export function AdresswechselPanel({
         <>
           <p className="fluid-sm text-pretty text-foreground">{offenSatz(offen)}</p>
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
-            {offen.wartet_auf === "freigabe" && (
+            {offen.waits_on === "release" && (
               <FocusSlot name={ADRESSWECHSEL_PLACE}>
                 <Button
                   type="button"
@@ -343,7 +331,7 @@ export function AdresswechselPanel({
               </Button>
             </FocusSlot>
           </div>
-          {offen.wartet_auf === "freigabe" && <p className="muted-hint text-pretty">{STEP_UP_HINT}</p>}
+          {offen.waits_on === "release" && <p className="muted-hint text-pretty">{STEP_UP_HINT}</p>}
         </>
       )}
 

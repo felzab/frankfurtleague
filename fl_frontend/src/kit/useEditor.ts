@@ -1,36 +1,47 @@
 "use client";
 
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 
 import { COPY } from "@/core/copy";
 
 import { useHoldLeave } from "./LeaveGuard";
 import { statusOf, useFormAction } from "./useFormAction";
 
-import type { ActionAnswer, FormStatus } from "./useFormAction";
+import type { ActionAnswer } from "@/core/action";
+import type { Copy } from "@/core/copy";
+import type { FormStatus } from "./useFormAction";
 
 /** A value an editor's field holds: text, a figure, a choice, or nothing yet. */
 export type EditorValue = string | number | boolean | null | ReadonlyArray<string>;
 
 /**
- * A record as an editable read serves it: its id, the fingerprint of exactly what was served, and the
- * values the editor's fields start from.
+ * A record as an editable read serves it: its id, its stored `version`, which every write to it raises, and
+ * the values the editor's fields start from.
  */
 export type EditorRecord<Values extends Record<string, EditorValue>> = {
   id: string;
-  fingerprint: string;
+  version: number;
   values: Values;
 };
 
 /**
- * What a save sends: the record, the fingerprint the draft was made on, and only the fields that differ
- * from it. The server refuses the save as stale once the stored record no longer matches the fingerprint.
+ * What a save sends: the record, the version the draft was made on, and only the fields that differ from
+ * it. The server refuses the save as stale once the stored record's version is another.
  */
 export type EditorSave<Values extends Record<string, EditorValue>> = {
   id: string;
-  fingerprint: string;
+  version: number;
   changes: Partial<Values>;
 };
+
+const CHANGES = "changes.";
+
+/**
+ * The server's messages by the box each belongs to. The action keys a message by its field's whole path in what the
+ * save sends, so a box's message arrives under `changes.<name>`.
+ */
+const byBox = (fieldErrors: Readonly<Record<string, Copy>>): Readonly<Record<string, Copy>> =>
+  Object.fromEntries(Object.entries(fieldErrors).map(([path, text]) => [path.startsWith(CHANGES) ? path.slice(CHANGES.length) : path, text]));
 
 function sameValue(a: EditorValue | undefined, b: EditorValue | undefined) {
   if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((item, index) => item === b[index]);
@@ -45,42 +56,48 @@ function changesOf<Values extends Record<string, EditorValue>>(stored: Values, e
 type Held<Values extends Record<string, EditorValue>> = {
   /** The record the edits belong to: another id starts a fresh draft. */
   id: string;
-  /** The fingerprint the draft was made on, which a save sends. */
-  base: string;
+  /** The record's version the draft was made on, which a save sends. */
+  base: number;
   edits: Partial<Values>;
-  /** This editor's own save went through: the next fingerprint the page serves is the saved record's. */
-  adopt: boolean;
-  /** The last save: the record as the page served it when it was sent, and the changes it sent. */
-  sent: { from: EditorRecord<Values>; changes: Partial<Values> } | null;
+  /**
+   * This editor's own save went through and the page has not yet served what it stored: the version the save
+   * was sent on, the one it answered as stored, and the changes it sent.
+   */
+  settling: { from: number; stored: number; changes: Partial<Values> } | null;
   /** Counts the edits, so a refusal is shown only until the person edits again. */
-  version: number;
-  sentVersion: number;
-  /** The version the browser refused to send for its fields' own rules, before any request. */
-  blockedVersion: number;
+  editCount: number;
+  sentEditCount: number;
+  /** The count the browser refused to send at for its fields' own rules, before any request. */
+  blockedEditCount: number;
 };
 
 const fresh = <Values extends Record<string, EditorValue>>(record: EditorRecord<Values>): Held<Values> => ({
   id: record.id,
-  base: record.fingerprint,
+  base: record.version,
   edits: {},
-  adopt: false,
-  sent: null,
-  version: 0,
-  sentVersion: -1,
-  blockedVersion: -1,
+  settling: null,
+  editCount: 0,
+  sentEditCount: -1,
+  blockedEditCount: -1,
 });
+
+/** The edits less those a save sent that nobody has touched since: the record holds them now, in its own form. */
+function lessSent<Values extends Record<string, EditorValue>>(edits: Partial<Values>, sent: Partial<Values>) {
+  return Object.fromEntries(Object.entries(edits).filter(([key, value]) => !(key in sent && sameValue(value, sent[key])))) as Partial<Values>;
+}
 
 /**
  * The one way an editor holds its record: a draft made of the stored values and the person's edits, the
- * changes computed against the stored values, the fingerprint of the read the draft was made on, and the
- * save through the one form action. Keyed on the record's id, so a refreshed read never clears a draft and
- * another record always starts one fresh.
+ * changes computed against the stored values, the version of the read the draft was made on, and the save
+ * through the one form action. Keyed on the record's id, so a refreshed read never clears a draft and another
+ * record always starts one fresh.
  *
- * When the page serves the record anew, the draft takes the new fingerprint only where nothing unsaved
- * rests on the old one, or where this editor's own save produced it; a draft made on a read someone else
- * has since changed keeps the old fingerprint, so its save is refused as stale rather than overwriting. A
- * save the write stores as what was already stored is served back under the same fingerprint, and the draft
- * then holds what the record holds.
+ * A save answers the version of the record it stored, which the draft takes at once. The page's fresh serving
+ * is told apart by that version alone, never by when it arrives beside the answer: once it is served, the
+ * changes the save sent, untouched since, are what the record holds, a value the write stored in its own form
+ * (a trimmed note, a price without its leading zero) included. Any other new serving the draft takes only
+ * where nothing unsaved rests on the read before it; a draft made on a read someone else has since changed
+ * keeps its version, so its save is refused as stale rather than overwriting.
  *
  * While changes are unsaved, the frame's way back asks before it drops them, and the browser asks before a
  * reload or a closed tab. A „Gespeichert“ shown is cleared once the page is left, the documented reset; an
@@ -88,30 +105,26 @@ const fresh = <Values extends Record<string, EditorValue>>(record: EditorRecord<
  */
 export function useEditor<Values extends Record<string, EditorValue>>(
   record: EditorRecord<Values>,
-  save: (change: EditorSave<Values>) => Promise<ActionAnswer>,
+  save: (change: EditorSave<Values>) => Promise<ActionAnswer<number>>,
 ) {
   const [held, setHeld] = useState<Held<Values>>(() => fresh(record));
 
   // A new record, or a new read of this one, is taken while rendering, React's pattern for state that
   // follows a prop, so no render ever shows a draft on the wrong record.
   let current = held;
+  const { settling } = held;
   if (held.id !== record.id) {
     current = fresh(record);
-  } else if (held.base !== record.fingerprint) {
+  } else if (settling !== null && record.version === settling.stored) {
+    current = { ...held, base: record.version, edits: lessSent(held.edits, settling.changes), settling: null };
+  } else if (settling !== null && record.version === settling.from) {
+    // Still the read the save was sent on: the page's fresh serving is on its way.
+  } else if (settling !== null || held.base !== record.version) {
+    // A serving newer than this editor's read, or than its own save: someone else wrote.
     const pending = changesOf(record.values, held.edits);
-    if (held.adopt || Object.keys(pending).length === 0) {
-      current = { ...held, base: record.fingerprint, edits: pending, adopt: false };
-    }
-  } else if (held.adopt && held.sent !== null && record !== held.sent.from) {
-    // Served anew after this editor's own save under the fingerprint it was sent from: the write stored a value
-    // it reads as the one already stored, a trimmed note or a price without its leading zero. There is nothing
-    // to adopt, so the flag goes, or the next read someone else changed would be taken as this save's while
-    // edits rest on the old one. The edits the save sent, untouched since, are what the record now holds.
-    const gesendet = held.sent.changes;
-    const edits = Object.fromEntries(
-      Object.entries(held.edits).filter(([key, value]) => !(key in gesendet && sameValue(value, gesendet[key]))),
-    ) as Partial<Values>;
-    current = { ...held, edits, adopt: false };
+    // Under unsaved edits the draft keeps its version, set only where it changes, or each render would set it again.
+    if (Object.keys(pending).length === 0) current = { ...held, base: record.version, edits: pending, settling: null };
+    else if (settling !== null) current = { ...held, settling: null };
   }
   if (current !== held) setHeld(current);
 
@@ -120,17 +133,19 @@ export function useEditor<Values extends Record<string, EditorValue>>(
   const draft = { ...record.values, ...current.edits };
 
   const form = useFormAction(
-    async (sent: EditorSave<Values>) => {
+    async (sent: EditorSave<Values>): Promise<ActionAnswer> => {
       const answer = await save(sent);
+      if (!answer.ok) return answer;
+      const settled = { from: sent.version, stored: answer.value, changes: sent.changes };
       // A form's action runs in a transition, and an update after its `await` commits outside it.
-      if (answer.ok) startTransition(() => setHeld((state) => (state.id === sent.id ? { ...state, adopt: true } : state)));
-      return answer;
+      startTransition(() => setHeld((state) => (state.id === sent.id ? { ...state, base: answer.value, settling: settled } : state)));
+      return { ok: true, value: undefined, note: answer.note };
     },
     { resetOnLeave: true },
   );
 
   const discard = () => {
-    setHeld((state) => ({ ...state, edits: {}, version: state.version + 1 }));
+    setHeld((state) => ({ ...state, edits: {}, editCount: state.editCount + 1 }));
     form.reset();
   };
 
@@ -145,32 +160,35 @@ export function useEditor<Values extends Record<string, EditorValue>>(
   }, [count]);
 
   const { answer } = form;
-  const refused = answer !== null && !answer.ok && current.version === current.sentVersion ? answer : null;
+  const refused = answer !== null && !answer.ok && current.editCount === current.sentEditCount ? answer : null;
   // A refusal stands only over the draft it was sent with; the count of unsaved fields stands over a done save.
-  const answered = statusOf(answer?.ok === true ? answer : refused, current.blockedVersion === current.version, form.isPending);
+  const answered = statusOf(answer?.ok === true ? answer : refused, current.blockedEditCount === current.editCount, form.isPending);
   const status: FormStatus =
     answered?.tone !== "error" && count > 0 ? { tone: "changes", text: COPY.vorlage.aenderungenOffen(count) } : answered;
+  // One object while the refusal stands: React Aria shows a box's server message afresh whenever the object changes.
+  const refusedFields = refused?.fieldErrors;
+  const fieldErrors = useMemo(() => (refusedFields === undefined ? undefined : byBox(refusedFields)), [refusedFields]);
 
   return {
     /** The values the fields show. */
     draft,
     /** Sets one field's value. */
     set: <Key extends keyof Values & string>(key: Key, value: Values[Key]) =>
-      setHeld((state) => ({ ...state, edits: { ...state.edits, [key]: value }, version: state.version + 1 })),
+      setHeld((state) => ({ ...state, edits: { ...state.edits, [key]: value }, editCount: state.editCount + 1 })),
     /** The fields that differ from the stored record, with their draft values. */
     changes,
     /** How many fields differ from the stored record. */
     count,
     status,
     /** The server's message for each field it refused, by the field's `name`. */
-    fieldErrors: refused?.fieldErrors,
-    /** Saves the whole record: its changed fields, on the fingerprint the draft was made on. */
+    fieldErrors,
+    /** Saves the whole record: its changed fields, on the version the draft was made on. */
     submit: () => {
-      setHeld((state) => ({ ...state, sentVersion: state.version, adopt: false, sent: { from: record, changes } }));
-      form.submit({ id: record.id, fingerprint: current.base, changes });
+      setHeld((state) => ({ ...state, sentEditCount: state.editCount }));
+      form.submit({ id: record.id, version: current.base, changes });
     },
     /** The browser kept the save back for a field's own rule: the status line points at the fields. */
-    block: () => setHeld((state) => ({ ...state, blockedVersion: state.version })),
+    block: () => setHeld((state) => ({ ...state, blockedEditCount: state.editCount })),
     isPending: form.isPending,
     /** Drops every unsaved change, as the discard dialog does. */
     discard,

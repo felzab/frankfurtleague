@@ -28,7 +28,7 @@ import { formatSpielDatum, PLACEHOLDER } from "@/shared/utils/format";
 
 import { rolloverBlockedReason } from "./blockedReasons";
 
-import type { FLSaisonStatus } from "@/features/saisons/schemas";
+import type { FLSaisonStatus } from "@/core/generated/client/types";
 import type { SaisonLoeschungVorschau, SaisonRolloverContext } from "@/features/saisons/types";
 import type { SaisonBanner } from "./banners";
 
@@ -36,11 +36,11 @@ import type { SaisonBanner } from "./banners";
 const LISTED_OFFENE_SPIELE = 8;
 
 /**
- * What the operator reads before turning the switch on (`docs/ops/runbooks.md` §9). Said as a bound: the count
- * includes pupils whose stored address no request matches, whom the run passes over.
+ * Whom the activation deletes, said as a bound: the count includes pupils whose stored address no request matches,
+ * whom the run passes over.
  */
-function LoeschungsZeile({ loeschung: { abgeschlosseneSaisonId: seit, spieler, eingeschaltet } }: { loeschung: SaisonLoeschungVorschau }) {
-  if (eingeschaltet && spieler === 1) {
+function LoeschungsZeile({ loeschung: { abgeschlosseneSaisonId: seit, spieler } }: { loeschung: SaisonLoeschungVorschau }) {
+  if (spieler === 1) {
     return (
       <>
         Mit der Umstellung wird höchstens eine Spielerin oder ein Spieler ohne Kadereintrag seit Saison <strong>{seit}</strong> und ohne offene
@@ -48,26 +48,10 @@ function LoeschungsZeile({ loeschung: { abgeschlosseneSaisonId: seit, spieler, e
       </>
     );
   }
-  if (eingeschaltet) {
-    return (
-      <>
-        Mit der Umstellung werden bis zu {spieler} Spielerinnen und Spieler ohne Kadereintrag seit Saison <strong>{seit}</strong> und ohne
-        offene Registrierung gelöscht.
-      </>
-    );
-  }
-  if (spieler === 1) {
-    return (
-      <>
-        Die automatische Löschung ist ausgeschaltet. Eingeschaltet würde die Umstellung höchstens eine Spielerin oder einen Spieler ohne
-        Kadereintrag seit Saison <strong>{seit}</strong> und ohne offene Registrierung löschen.
-      </>
-    );
-  }
   return (
     <>
-      Die automatische Löschung ist ausgeschaltet. Eingeschaltet würde die Umstellung bis zu {spieler} Spielerinnen und Spieler ohne
-      Kadereintrag seit Saison <strong>{seit}</strong> und ohne offene Registrierung löschen.
+      Mit der Umstellung werden bis zu {spieler} Spielerinnen und Spieler ohne Kadereintrag seit Saison <strong>{seit}</strong> und ohne offene
+      Registrierung gelöscht.
     </>
   );
 }
@@ -92,7 +76,7 @@ export function FormRolloverSection({
   saisonId: string;
   saisonStatus: FLSaisonStatus;
   rollover: SaisonRolloverContext;
-  /** `REQ-ACTIVATE-003`: whether THIS season holds fixtures, which is what it would go live with. */
+  /** `activate_target_undrawn`: whether THIS season holds fixtures, which is what it would go live with. */
   hasDrawnSpiele: boolean;
   /** Runs before the write; `false` cancels. The editor refuses while a draft is unsaved. */
   onBeforeActivate: () => boolean;
@@ -100,7 +84,7 @@ export function FormRolloverSection({
 }) {
   const saisonHref = useSaisonHref();
   // Only a `future` season has an act on offer: the running season has nothing to switch to, and a
-  // `past` one is refused by `REQ-ACTIVATE-002`.
+  // `past` one is refused by `saison_past`.
   const panel = formPanel({ tone: saisonStatus === "future" ? "danger" : "neutral" });
   const twoPress = useTwoPressConfirm({ guard: onBeforeActivate, stepUp: true });
   const router = useRouter();
@@ -164,7 +148,7 @@ export function FormRolloverSection({
 
       <div className={panel.body()}>
         {isFinishedSaison ? (
-          // Closed rather than disabled with a hint: `REQ-ACTIVATE-002` has no remedy, and a hint
+          // Closed rather than disabled with a hint: `saison_past` has no remedy, and a hint
           // saying what would unblock it would name a route the system does not have.
           <Callout
             severity="info"
@@ -177,7 +161,7 @@ export function FormRolloverSection({
           // question only this control raises.
           <Callout
             severity="info"
-            title="Diese Saison ist aktiv">
+            title="Diese Saison läuft">
             Umgestellt wird auf der Seite der geplanten Saison.
           </Callout>
         ) : (
@@ -188,7 +172,7 @@ export function FormRolloverSection({
             <p className="muted-hint">
               {outgoing === null ? (
                 <>
-                  Derzeit ist keine Saison aktiv. Die Umstellung macht <strong>{saisonId}</strong> zur laufenden Saison.
+                  Derzeit läuft keine Saison. Die Umstellung macht <strong>{saisonId}</strong> zur laufenden Saison.
                 </>
               ) : (
                 <>
@@ -271,15 +255,14 @@ export function FormRolloverSection({
             {isConfirming && (
               <ConfirmReveal>
                 {/* The finality is said on the outgoing branch alone: with nothing active this press
-                    closes no season, and closing one is what `REQ-ACTIVATE-002` then refuses to undo. */}
+                    closes no season, and closing one is what `saison_past` then refuses to undo. */}
                 <p className="fluid-xxs leading-normal font-medium text-foreground">
                   {outgoing === null
                     ? `Saison ${saisonId} wird sofort öffentlich als laufende Saison angezeigt.`
                     : `Saison ${outgoing} ist danach abgeschlossen, und ${saisonId} wird sofort öffentlich als laufende Saison angezeigt. Es gibt in der Verwaltung keinen Weg zurück.`}
                 </p>
-                {/* The switch's word alone: with it off, this press deletes nobody, whatever the count above says it would.
-                    „Zurückholen“ and not „keinen Weg zurück“: the deletion takes the pupils' log images too. */}
-                {loeschung?.eingeschaltet === true && (
+                {/* „Zurückholen“ and not „keinen Weg zurück“: the deletion takes the pupils' log images too. */}
+                {loeschung !== null && (
                   <p className="fluid-xxs leading-normal font-medium text-foreground">
                     {loeschung.spieler === 1
                       ? "Dabei wird höchstens eine Spielerin oder ein Spieler gelöscht. Zurückholen lässt sich das nicht."

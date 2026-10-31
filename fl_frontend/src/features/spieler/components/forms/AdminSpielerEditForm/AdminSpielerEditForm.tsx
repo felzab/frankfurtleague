@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 
-import { patchSaisonSpielerAction, patchSpielerAction, undoAdminSpielerEditAction } from "@/features/spieler/actions";
+import { patchSaisonSpielerAction, patchSpielerAction } from "@/features/spieler/actions";
 import { KADER_ABSCHNITT, rolleLabel } from "@/features/spieler/constants";
 import { FLPatchSaisonSpielerPayloadSchema, FLPatchSpielerPayloadSchema } from "@/features/spieler/schemas";
 import { deriveSpielerDraftStatus } from "@/features/spieler/spielerDraftStatus";
@@ -22,8 +21,8 @@ import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
+import { appToast } from "@/shared/utils/appToast";
 import { fieldStatus } from "@/shared/utils/draftStatus";
-import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSpielerBanners } from "./banners";
 import { FormAdresseSection } from "./FormAdresseSection";
@@ -32,26 +31,13 @@ import { FormEinwilligungSection } from "./FormEinwilligungSection";
 import { FormKaderSection } from "./FormKaderSection";
 import { FormPersonSection } from "./FormPersonSection";
 
-import type {
-  FLEinwilligung,
-  FLPatchSaisonSpielerPayload,
-  FLPatchSpielerPayload,
-  FLSpielerPosition,
-  FLSpielerRolle,
-  FLSpielerStufe,
-} from "@/features/spieler/schemas";
+import type { FLEinwilligung, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import type { FLSpielerDraftFields, SpielerFieldPath } from "@/features/spieler/spielerDraftStatus";
 import type { AdminSpielerStored, SpielerPersonFields, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
-
-/** What the undo replays: the halves the save wrote, holding their PRE-SAVE values. */
-type SpielerUndoPayloads = {
-  person?: FLPatchSpielerPayload;
-  saison?: FLPatchSaisonSpielerPayload;
-};
 
 type AdminSpielerEditFormProps = {
   spieler: AdminSpielerStored;
@@ -77,7 +63,6 @@ export function AdminSpielerEditForm(props: AdminSpielerEditFormProps) {
 
 /** **One save bar over TWO endpoints**: a partial failure is toasted as well as shown inline. */
 function SpielerEditForm({ spieler, einwilligung, istFassungBekannt, saison, teams, pageHeader }: AdminSpielerEditFormProps) {
-  const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
 
@@ -283,36 +268,9 @@ function SpielerEditForm({ spieler, einwilligung, istFassungBekannt, saison, tea
         setSubmitFieldErrors({}, {});
         setHasSaved(true);
 
-        // `spieler` and `storedMembership` are this render's props, so they still carry the pre-save
-        // values. Built BEFORE leaving, because the toast outlives the page.
-        const undoPayloads: SpielerUndoPayloads = {
-          ...(personDirty
-            ? { person: { id: spieler.id, vorname: spieler.vorname, nachname: spieler.nachname, geburtsdatum: spieler.geburtsdatum } }
-            : {}),
-          ...(saisonDirty && storedMembership !== null
-            ? {
-                saison: {
-                  spieler_id: spieler.id,
-                  saison_id: saison.saisonId,
-                  team_id: storedMembership.team_id,
-                  nummer: storedMembership.nummer,
-                  position: storedMembership.position,
-                  stufe: storedMembership.stufe,
-                  rolle: storedMembership.rolle,
-                },
-              }
-            : {}),
-        };
         // A success rather than a warning: this save destroys nothing without another copy.
-        offerUndo({
-          undo: () => undoAdminSpielerEditAction(undoPayloads),
-          message: consequenceNotes.join(" ") || undefined,
-          fallback: "Die Spielerdaten wurden aktualisiert.",
-          router,
-        });
+        appToast.success("Änderung gespeichert", { description: consequenceNotes.join(" ") || "Die Spielerdaten wurden aktualisiert." });
 
-        // AFTER the undo payloads are built: leaving with typed values still in state lets a
-        // save-then-undo reopen on values the player does not hold.
         resetDraftToStored();
         leavePage();
       });

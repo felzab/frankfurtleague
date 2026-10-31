@@ -6,17 +6,17 @@ from bson import ObjectId
 from fastapi.routing import APIRoute
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.spiele.admin_router import get_spiel_for_admin, get_spiele_for_admin
-from app.api.spiele.router import get_spiele
+from app.api.spiele.admin_router import get_spiel_verwaltung, get_spiele_verwaltung
+from app.api.spiele.public_router import get_spiele
 from app.api.spiele.schemas import FLSpieleFilterParams
-from app.api.spieltage.admin_router import get_spieltag_for_admin, get_spieltage_for_admin
-from app.api.spieltage.router import get_spieltage
+from app.api.spieltage.admin_router import get_spieltag_verwaltung, get_spieltage_verwaltung
+from app.api.spieltage.public_router import get_spieltage
 from app.api.spieltage.schemas import FLSpieltageFilterParams
-from app.api.teams.admin_router import get_teams_for_admin
-from app.api.teams.router import get_teams
+from app.api.teams.admin_router import get_teams_verwaltung
+from app.api.teams.public_router import get_teams
 from app.api.teams.schemas import FLTeamsFilterParams
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
 from tests import documents
 from tests.core.app_source import api_routes, application
@@ -57,11 +57,11 @@ def saison_document(saison_id: str) -> dict[str, Any]:
 def team_document() -> dict[str, Any]:
     """One club, entered in all three seasons: the same id has to read differently per season."""
 
-    return documents.team_document(TEAM_OID, "Helmholtz", "HG", full_name="Helmholtz-Gymnasium")
+    return documents.team_document(TEAM_OID, "Helmholtz", "HGX", full_name="Helmholtz-Gymnasium")
 
 
 def junction_row(saison_id: str) -> dict[str, Any]:
-    return documents.saison_team_document(saison_id, TEAM_OID, "Helmholtz", "HG", gruppe=GRUPPE_OF[saison_id])
+    return documents.saison_team_document(saison_id, TEAM_OID, "Helmholtz", "HGX", gruppe=GRUPPE_OF[saison_id])
 
 
 def spiel_document(saison_id: str) -> dict[str, Any]:
@@ -70,7 +70,7 @@ def spiel_document(saison_id: str) -> dict[str, Any]:
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=an_id("3", saison_id),
-        team1={"team_id": TEAM_OID, "name": "Helmholtz", "shorthand": "HG", "tore": None},
+        team1={"team_id": TEAM_OID, "name": "Helmholtz", "shorthand": "HGX", "tore": None},
         datum=f"{saison_id}-03-15",
         uhrzeit="14:00:00",
     )
@@ -119,11 +119,11 @@ def on_a_league(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-def raised_by(url: str, body: Body) -> DocumentNotFoundException:
+def raised_by(url: str, body: Body) -> DocumentNotFoundError:
     """The refusal a read answered with, so a test asserts on its status rather than only that it refused."""
 
-    async def _catching(database: AsyncDatabase) -> DocumentNotFoundException:
-        with pytest.raises(DocumentNotFoundException) as refusal:
+    async def _catching(database: AsyncDatabase) -> DocumentNotFoundError:
+        with pytest.raises(DocumentNotFoundError) as refusal:
             await body(database)
 
         return refusal.value
@@ -132,7 +132,7 @@ def raised_by(url: str, body: Body) -> DocumentNotFoundException:
 
 
 async def admin_teams(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_teams_for_admin(
+    return await get_teams_verwaltung(
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
@@ -141,7 +141,7 @@ async def admin_teams(database: AsyncDatabase, saison_id: str) -> Any:
 
 
 async def admin_spiele(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_spiele_for_admin(
+    return await get_spiele_verwaltung(
         spiele_collection=database[Collection.SPIELE],
         saisons_collection=database[Collection.SAISONS],
         filters=FLSpieleFilterParams(saison_id=saison_id),
@@ -150,7 +150,7 @@ async def admin_spiele(database: AsyncDatabase, saison_id: str) -> Any:
 
 
 async def admin_spieltage(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_spieltage_for_admin(
+    return await get_spieltage_verwaltung(
         spieltage_collection=database[Collection.SPIELTAGE],
         saisons_collection=database[Collection.SAISONS],
         filters=FLSpieltageFilterParams(saison_id=saison_id),
@@ -158,7 +158,7 @@ async def admin_spieltage(database: AsyncDatabase, saison_id: str) -> Any:
 
 
 async def admin_spieltag(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_spieltag_for_admin(
+    return await get_spieltag_verwaltung(
         spieltag_id=an_id("3", saison_id),
         spieltage_collection=database[Collection.SPIELTAGE],
         saisons_collection=database[Collection.SAISONS],
@@ -205,13 +205,15 @@ ADMIN_READS_OF_A_SEASON: list[tuple[str, Read, Served]] = [
 
 ADMIN_READ_IDS = [label for label, _, _ in ADMIN_READS_OF_A_SEASON]
 
-PAIRED_TIERS: list[tuple[str, Read, Read]] = [
-    ("squad list", admin_teams, base_teams),
-    ("fixture list", admin_spiele, base_spiele),
-    ("matchday list", admin_spieltage, base_spieltage),
+# Each pair with what only the admin shape serves, as `model_dump`'s `exclude` spells it: the fixture's
+# `version`, which its editor's save sends back (`spiele/schemas.py :: FLSpielJoinedAdmin`).
+PAIRED_TIERS: list[tuple[str, Read, Read, dict[str, Any] | None]] = [
+    ("squad list", admin_teams, base_teams, None),
+    ("fixture list", admin_spiele, base_spiele, {"spiele": {"__all__": {"version"}}}),
+    ("matchday list", admin_spieltage, base_spieltage, None),
 ]
 
-PAIRED_IDS = [label for label, _, _ in PAIRED_TIERS]
+PAIRED_IDS = [label for label, _, _, _ in PAIRED_TIERS]
 
 
 @pytest.mark.db
@@ -235,14 +237,14 @@ def test_the_admin_tier_reads_a_readable_season_as_the_season_it_named(
 
 @pytest.mark.db
 @pytest.mark.parametrize("saison_id", [ARCHIVED, RUNNING])
-@pytest.mark.parametrize("label,admin_read,base_read", PAIRED_TIERS, ids=PAIRED_IDS)
+@pytest.mark.parametrize("label,admin_read,base_read,admin_only", PAIRED_TIERS, ids=PAIRED_IDS)
 def test_the_admin_read_answers_exactly_what_the_base_read_answers(
-    label: str, admin_read: Read, base_read: Read, saison_id: str, seeded_league: str
+    label: str, admin_read: Read, base_read: Read, admin_only: dict[str, Any] | None, saison_id: str, seeded_league: str
 ):
-    """The gate is meant to be the ONLY difference, so on a season the base tier may read the two agree field for field."""
+    """Past what only the admin shape serves, the gate is meant to be the ONLY difference, so the two agree field for field."""
 
     async def body(database: AsyncDatabase) -> tuple[Any, Any]:
-        return (await admin_read(database, saison_id)).model_dump(), (await base_read(database, saison_id)).model_dump()
+        return (await admin_read(database, saison_id)).model_dump(exclude=admin_only), (await base_read(database, saison_id)).model_dump()
 
     admin_answer, base_answer = on_a_league(seeded_league, body)
 
@@ -279,11 +281,11 @@ ROUTES = list(api_routes(application()))
 # Concrete ids, never `{spieltag_id}`: what is asked here is which route a REQUEST lands on, and a
 # literal segment reaching an id route is the failure these paths are shaped to rule out.
 ADMIN_TIER_ROUTES: list[tuple[str, Callable[..., Any]]] = [
-    ("/api/v0/teams/list/admin", get_teams_for_admin),
-    ("/api/v0/spiele/list/admin", get_spiele_for_admin),
-    ("/api/v0/spieltage/list/admin", get_spieltage_for_admin),
-    (f"/api/v0/spieltage/{an_id('3', PLANNED)}/admin", get_spieltag_for_admin),
-    (f"/api/v0/spiele/{an_id('2', PLANNED)}/admin", get_spiel_for_admin),
+    ("/api/v0/teams/list/verwaltung", get_teams_verwaltung),
+    ("/api/v0/spiele/list/verwaltung", get_spiele_verwaltung),
+    ("/api/v0/spieltage/list/verwaltung", get_spieltage_verwaltung),
+    (f"/api/v0/spieltage/{an_id('3', PLANNED)}/verwaltung", get_spieltag_verwaltung),
+    (f"/api/v0/spiele/{an_id('2', PLANNED)}/verwaltung", get_spiel_verwaltung),
 ]
 
 ADMIN_TIER_ROUTE_IDS = [endpoint.__name__ for _, endpoint in ADMIN_TIER_ROUTES]
@@ -331,8 +333,10 @@ def test_the_inventory_names_every_admin_tier_read_of_a_seasons_contents():
     mounted = {
         route.path
         for route in ROUTES
-        if "GET" in (route.methods or set()) and route.path.endswith("/admin") and route.path.startswith(GATED_PREFIXES)
+        if "GET" in (route.methods or set()) and route.path.endswith("/verwaltung") and route.path.startswith(GATED_PREFIXES)
     }
     covered = {route.path for route in (answering(path) for path, _ in ADMIN_TIER_ROUTES) if route is not None}
 
+    # Not empty, so a suffix the routes no longer end in cannot pass by matching nothing on either side.
+    assert mounted
     assert covered == mounted

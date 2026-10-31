@@ -75,10 +75,8 @@ _BACKEND: Final = frozenset({"backend"})
 # The three internal keys: one file each, read by both services.
 _BOTH: Final = frozenset({"frontend", "backend"})
 _EITHER_STACK: Final = {
-    # A holder of it mints any actor the backend trusts.
-    "fl_actor_signing_key": _FRONTEND,
     "auth_secret": _FRONTEND,
-    "sperrliste_schluessel": _BACKEND,
+    "sperrliste_key": _BACKEND,
     "internal_api_key_base": _BOTH,
     "internal_api_key_system": _BOTH,
     "internal_api_key_admin": _BOTH,
@@ -92,6 +90,7 @@ SECRET_HOLDERS: Final[dict[str, dict[str, tuple[frozenset[str], str]]]] = {
         "tunnel_token": (frozenset({"cloudflared"}), f"{SECRETS_PATH}/tunnel_token"),
         "auth_resend_key": (_FRONTEND, f"{SECRETS_PATH}/auth_resend_key"),
         "resend_webhook_secret": (_FRONTEND, f"{SECRETS_PATH}/resend_webhook_secret"),
+        "betterstack_heartbeat_url": (_FRONTEND, f"{SECRETS_PATH}/betterstack_heartbeat_url"),
         "turnstile_secret_key": (_FRONTEND, f"{SECRETS_PATH}/turnstile_secret_key"),
         "frontend_mongodb_uri": (_FRONTEND, f"{SECRETS_PATH}/frontend_mongodb_uri"),
         "backend_mongodb_uri": (_BACKEND, f"{SECRETS_PATH}/backend_mongodb_uri"),
@@ -113,7 +112,7 @@ CONFIG_HOLDERS: Final[dict[str, dict[str, frozenset[str]]]] = {
 MOVED_ENV_NAMES: Final = frozenset(
     {
         "MONGODB_URI",
-        "SPERRLISTE_SCHLUESSEL",
+        "SPERRLISTE_KEY",
         "AUTH_SECRET",
         "AUTH_RESEND_KEY",
         "RESEND_WEBHOOK_SECRET",
@@ -121,6 +120,7 @@ MOVED_ENV_NAMES: Final = frozenset(
         "INTERNAL_API_KEY_SYSTEM",
         "INTERNAL_API_KEY_ADMIN",
         "TURNSTILE_SECRET_KEY",
+        "BETTERSTACK_HEARTBEAT_URL",
     }
 )
 
@@ -349,15 +349,14 @@ FRONTEND_SERVICE: Final = "frontend"
 def frontend_schema_files(config: Path) -> tuple[frozenset[str], frozenset[str]]:
     """Every file the schema reads, and those it demands of production alone.
 
-    Read off `fl_frontend/src/core/config.ts :: SECRET_FILES`, `:: PRODUCTION_ONLY_REQUIRED` and the
-    signing key's path as spelled there, any other line shape refusing, so nothing here is a copy.
+    Read off `fl_frontend/src/core/config.ts :: SECRET_FILES` and `:: PRODUCTION_ONLY_REQUIRED` as
+    spelled there, any other line shape refusing, so nothing here is a copy.
     """
     text = config.read_bytes().decode()
     block = re.search(r"^const SECRET_FILES = \{\n(.*?)^\} as const;$", text, re.MULTILINE | re.DOTALL)
     demanded = re.search(r"^const PRODUCTION_ONLY_REQUIRED = \[([^\]]*)\] as const", text, re.MULTILINE)
-    signing = re.search(r'^\s+ACTOR_SIGNING_KEY_FILE: z\.[^\n]*\.default\("/run/secrets/([a-z_]+)"\),$', text, re.MULTILINE)
-    if block is None or demanded is None or signing is None:
-        raise ValueError(f"{config.name} declares no SECRET_FILES, PRODUCTION_ONLY_REQUIRED or signing key path this reads")
+    if block is None or demanded is None:
+        raise ValueError(f"{config.name} declares no SECRET_FILES or PRODUCTION_ONLY_REQUIRED this reads")
     lines = [line.strip() for line in block.group(1).splitlines() if line.strip()]
     pairs = [re.fullmatch(r'([A-Z_]+): "([a-z_]+)",', line) for line in lines]
     if not pairs or None in pairs:
@@ -366,7 +365,7 @@ def frontend_schema_files(config: Path) -> tuple[frozenset[str], frozenset[str]]
     production_only = re.findall(r'"([A-Z_]+)"', demanded.group(1))
     if unknown := sorted(set(production_only) - set(files)):
         raise ValueError(f"{config.name} :: PRODUCTION_ONLY_REQUIRED names {unknown}, which SECRET_FILES lacks")
-    return frozenset(files.values()) | {signing.group(1)}, frozenset(files[key] for key in production_only)
+    return frozenset(files.values()), frozenset(files[key] for key in production_only)
 
 
 def _mounted_files(definition: dict[str, Any]) -> frozenset[str]:
@@ -405,10 +404,10 @@ def frontend_files(model: dict[str, Any], name: str, stack: str, schema: tuple[f
     return findings
 
 
-# The backend's settings, whose secret half is the one declaration of the files it reads from `RUN_SECRETS`.
+# The backend's settings, whose credential fields are the one declaration of the files it reads from `RUN_SECRETS`.
 BACKEND_CONFIG: Final = REPO_ROOT / "fl_backend" / "app" / "core" / "config.py"
 BACKEND_SERVICE: Final = "backend"
-BACKEND_SECRETS: Final = "BackendSecrets"
+BACKEND_SECRETS: Final = "_SecretFields"
 
 # The pydantic classes a settings class may inherit from, each declaring no field of its own.
 PYDANTIC_ROOTS: Final = frozenset({"BaseModel", "BaseSettings"})
@@ -617,9 +616,9 @@ def _field_file(settings: _Settings, field: ast.AnnAssign, where: str) -> tuple[
 
 
 def backend_schema_files(config: Path) -> tuple[frozenset[str], frozenset[str]]:
-    """Every file the backend's secret half reads, and those it cannot boot without.
+    """Every file the backend's credential fields read, and those it cannot boot without.
 
-    Parsed rather than imported from `fl_backend/app/core/config.py :: BackendSecrets`, since the ops
+    Parsed rather than imported from `fl_backend/app/core/config.py :: _SecretFields`, since the ops
     scope's interpreter may lack pydantic; anything it cannot follow refuses.
     """
     settings = _settings(config)
@@ -638,7 +637,7 @@ def backend_schema_files(config: Path) -> tuple[frozenset[str], frozenset[str]]:
 
 
 def backend_files(model: dict[str, Any], name: str, schema: tuple[frozenset[str], frozenset[str]]) -> list[Finding]:
-    """The backend is handed every file its secret half requires and none it never reads, on either stack."""
+    """The backend is handed every file its credential fields require and none they never read, on either stack."""
     reads, required = schema
     mounted = _mounted_files(services(model, name).get(BACKEND_SERVICE) or {})
     findings: list[Finding] = []

@@ -1,6 +1,4 @@
-import { connection } from "next/server";
-
-import { funktionenOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/roles";
 import { getSubjectSession } from "@/core/subject";
 import { FunktionSwitcher } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
 
@@ -11,12 +9,10 @@ import { funktionOrteOf } from "../../utils";
  * the person's Funktionen lead to is the session's to say.
  */
 export async function PersonLaneFunktionSwitcher({ ohneOrt, mitBereich }: { ohneOrt: string; mitBereich: boolean }) {
-  // Its own, whatever is mounted above: the builder stage reaches no sign-in store.
-  await connection();
   // The hold's own read, memoised per render; nothing for a refused session, the page turning it away.
   const subject = await getSubjectSession();
   if (subject === null) return null;
-  const { funktionen } = funktionenOf(subject);
+  const { roles: funktionen } = rolesOf(subject);
 
   return (
     <FunktionSwitcher

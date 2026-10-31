@@ -1,3 +1,4 @@
+import { NEXT_CACHE_DOUBLE } from "@/test-support/actionDoubles.ts";
 import {
   ADMIN_EMAIL,
   configDouble,
@@ -74,7 +75,7 @@ const { sent } = registerAuthDoubles({
   specifiers: {
     "next/headers": { headers: () => Promise.resolve(requestHeaders) },
     // What the account page's spine calls once an action has written, which throws outside a server action.
-    "next/cache": { refresh: () => undefined },
+    "next/cache": NEXT_CACHE_DOUBLE,
   },
 });
 
@@ -281,7 +282,7 @@ describe("the index build against a real store", () => {
     expect(errors.length, JSON.stringify(errors)).toBe(1);
     expect(errors[0]).toStrictEqual({
       event: "auth.index_unbuilt",
-      fields: { error_code: "FE-AUTH-011", index: "session_token_uidx", name: "MongoServerError", code: 85, codeName: "IndexOptionsConflict" },
+      fields: { index: "session_token_uidx", name: "MongoServerError", code: 85, codeName: "IndexOptionsConflict" },
     });
     const names = (held: Record<string, Record<string, unknown>[]>) =>
       Object.entries(held).flatMap(([collection, indexes]) => indexes.map(({ name }) => `${collection}.${String(name)}`));
@@ -311,7 +312,7 @@ describe("the index build against a real store", () => {
     await buildAuthIndexes();
 
     expect(errors.map(({ fields }) => fields)).toStrictEqual([
-      { error_code: "FE-AUTH-011", index: "user_email_uidx", name: "MongoServerError", code: 11000, codeName: "DuplicateKey" },
+      { index: "user_email_uidx", name: "MongoServerError", code: 11000, codeName: "DuplicateKey" },
     ]);
     assert.ok(!JSON.stringify(errors).includes("@"), "the line quoted the address the refusal named");
   });

@@ -1,25 +1,22 @@
-import { cacheCalls, doubleActionRequest, doubleActions } from "@/test-support/actionDoubles.ts";
+import { doubleActionRequest, doubleActions } from "@/test-support/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
-import { publishedLaufendeFassung } from "@/test-support/einwilligungDocument.ts";
+import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
-import { doubleSendMail } from "@/test-support/mailDouble.ts";
-import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/test-support/publishedRefusals.ts";
+import { doubleOutbox } from "@/test-support/mailDouble.ts";
+import { answerShown, assertEachAnswered, DUPLICATE_KEY, refusalCodes, refused } from "@/test-support/refusals.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { APINetworkError } from "@/core/errors.ts";
-import { kontaktBestaetigungsLink } from "@/core/kontaktLink.ts";
-import { outcomeUnknown, toActionErrorResult } from "@/shared/utils/actionError.ts";
-import { formatSpielDatum } from "@/shared/utils/format.ts";
+import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
 import { mapAlreadyEnteredRefusal, mapCreatedClubEntryRefusal, mapEntryRefusal, mapReplacementRefusal } from "../teams/refusals.ts";
 import { ADRESSE_KORRIGIEREN, BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
-import { FLAblehnenBewerbungPayloadSchema, FLBewerbungSchema } from "./schemas.ts";
+import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
 
-import type { ApiCall } from "@/test-support/apiClientDouble.ts";
-import type { MailOutcome } from "@/test-support/mailDouble.ts";
+import type { Code, FLBewerbung } from "@/core/generated/client/types.ts";
 import type { TeamSaisonMembership } from "../teams/types.ts";
 
 const BEWERBUNG_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
@@ -54,33 +51,27 @@ const ORIGIN = "http://localhost:3000";
 const logged: unknown[][] = [];
 const record = (...args: unknown[]): void => void logged.push(args);
 /** The fields of each line the acceptance's read of the colliding application wrote. */
-const collisionReadLines = (): { error_code?: unknown }[] =>
-  logged
-    .filter(([message]) => message === "An application's collision read failed and its refusal takes the shared words")
-    .map(([, , meta]) => meta as { error_code?: unknown });
+const collisionReadLines = (): { name?: unknown }[] =>
+  logged.filter(([message]) => message === "bewerbung.collision_unread").map(([, , meta]) => meta as { name?: unknown });
 const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: ORIGIN } };
 const LOGGER_DOUBLE = { logger: { debug: record, info: record, warn: record, error: record } };
 
 /* The real actions and their mutations, called: the request they run in, the application three of
-   them read first, the club list, the backend client and the mailer are the doubles. */
+   them read first, the club list and the backend client are the doubles. Each write owes its mails in the backend's
+   own transaction, and the drain after the response is no case of this suite's. */
 doubleActionRequest();
-const { sent: mailed, answerWith: answerMailWith } = doubleSendMail();
+// Its drain made a no-op: the mails each write owes leave after a response this suite never sends.
+doubleOutbox();
 // After the request's own doubles, whose silent logger this one stands in front of: the stream is
 // where a token must never reach.
 vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
 vi.doMock("@/core/logging.ts", () => LOGGER_DOUBLE);
-/** Whether `call` is the delivery report a sent message files, after the write the case is about. */
-const reportsDelivery = ({ endpoint }: ApiCall): boolean => endpoint.startsWith("/bewerbungen/zustellung");
-/** The report's answer as the endpoint sends it: every seat the message named, applied. */
-const deliveryApplied = ({ body }: ApiCall) => ({ acknowledged: 1, angewendet: (JSON.parse(body ?? "{}") as { rollen: string[] }).rollen });
-
-const client = doubleApiAnswers((call) => Promise.resolve(reportsDelivery(call) ? deliveryApplied(call) : { acknowledged: 1 }));
+const client = doubleApiAnswers(() => Promise.resolve({}));
 const writes = client.calls;
-/** Answers the write a case presses with `next`, the delivery report after it as the endpoint does. */
-const answerWith = (next: () => Promise<unknown>): void =>
-  client.answerWith((call) => (reportsDelivery(call) ? Promise.resolve(deliveryApplied(call)) : next()));
+/** Answers the write a case presses with `next`. */
+const answerWith = (next: () => Promise<unknown>): void => client.answerWith(() => next());
 /** The label the backend runs on the application form, off the registry it generated. */
-const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
+const FORM_LABEL = laufendeFassung("bewerbung").text_version;
 // The running label's read answered at its module, so the writes below are the client's whole record:
 // `fl_frontend/src/core/einwilligung.test.ts` drives the read itself.
 doubleActions({ modules: ["@/core/einwilligung.ts"], answer: () => Promise.resolve(FORM_LABEL) });
@@ -100,43 +91,42 @@ const {
   einwilligungErneutSendenAction,
   kontaktEmailKorrigierenAction,
 } = await import("./actions.ts");
-/* After the doubles, as the actions are: a static import would load the real mail module first. */
-const { rollenText } = await import("./notifications.ts");
-const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
-const { boundCall, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 
-const ANNEHMEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/annehmen";
-const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/ablehnen";
-const ERNEUT_OPERATION = "POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut";
-/** Where the entry rules acceptance REUSES are declared: they belong to the season's boundary, not the triage's. */
-const ENTRY_OPERATION = "POST /teams/{team_id}/saisons";
+const ANNEHMEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/accept";
+const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/decline";
 
 /** The season's entry rules, which `annehmen_bewerbung` reaches rather than restating, and so the ones an acceptance can answer. */
-const REUSED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"];
-
-/** The one field of a submitted application an administrator may move, in the backend's own spelling. */
-const KORREKTUR_OPERATION = "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email";
-
-/** The one path that writes a whole person onto a submitted application, in the backend's own spelling. */
-const SITZ_OPERATION = "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}";
+const REUSED_ENTRY_CODES: Code[] = ["entry_saison_not_future", "entry_gruppe_not_offered", "entry_gruppe_full", "team_retired"];
 
 describe("the triage's refusals against the codes its endpoints publish", () => {
   it("answers every code the acceptance publishes through the triage's mapper", async () => {
-    const published = publishedRefusals(ANNEHMEN_OPERATION);
+    const published = refusalCodes(
+      "duplicate_key",
+      "bewerbung_already_decided",
+      "bewerbung_subject_unresolved",
+      "bewerbung_schule_unusable",
+      "bewerbung_kontakte_unconfirmed",
+      "entry_saison_not_future",
+      "entry_gruppe_not_offered",
+      "entry_gruppe_full",
+      "team_retired",
+    );
 
-    // A floor rather than the exact set: the backend grows an operation onto a rule whenever an
-    // endpoint starts reusing it, and what harms an admin is a published code nobody maps.
-    for (const code of ["REQ-BEWERBUNG-001", "REQ-BEWERBUNG-002"]) {
-      assert.ok(published.includes(code), `${code} is no longer published on the acceptance`);
-    }
     for (const code of published) {
-      expect(
-        answerShown(ANNEHMEN_OPERATION, code, acceptanceMapped),
-        `${code} is published on the acceptance and reaches the admin unmapped`,
-      ).not.toBe(null);
+      expect(answerShown(code, acceptanceMapped), `${code} is published on the acceptance and reaches the admin unmapped`).not.toBe(null);
     }
     await assertEachAnswered({
-      operation: ANNEHMEN_OPERATION,
+      codes: refusalCodes(
+        "duplicate_key",
+        "bewerbung_already_decided",
+        "bewerbung_subject_unresolved",
+        "bewerbung_schule_unusable",
+        "bewerbung_kontakte_unconfirmed",
+        "entry_saison_not_future",
+        "entry_gruppe_not_offered",
+        "entry_gruppe_full",
+        "team_retired",
+      ),
       refuseWith: answerWith,
       act: () => annehmenBewerbungAction(ANNAHME),
       mapped: acceptanceMapped,
@@ -144,17 +134,14 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
   });
 
   it("answers every code the decline publishes through the triage's mapper", async () => {
-    const published = publishedRefusals(ABLEHNEN_OPERATION);
+    const published = refusalCodes("bewerbung_already_decided");
 
-    expect(published).toStrictEqual(["REQ-BEWERBUNG-001"]);
+    expect(published).toStrictEqual(["bewerbung_already_decided"]);
     for (const code of published) {
-      expect(
-        answerShown(ABLEHNEN_OPERATION, code, declineMapped),
-        `${code} is published on the decline and reaches the admin unmapped`,
-      ).not.toBe(null);
+      expect(answerShown(code, declineMapped), `${code} is published on the decline and reaches the admin unmapped`).not.toBe(null);
     }
     await assertEachAnswered({
-      operation: ABLEHNEN_OPERATION,
+      codes: refusalCodes("bewerbung_already_decided"),
       refuseWith: answerWith,
       act: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, grund: "Die Liga ist voll." }),
       mapped: declineMapped,
@@ -164,28 +151,21 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
   /* Asked of the acceptance itself rather than of the entry endpoint: `annehmen_bewerbung` reaches the
      season's entry services, so each of their rules is one an acceptance can be refused on. */
   it("maps the entry rules the acceptance reuses", () => {
-    const published = publishedRefusals(ANNEHMEN_OPERATION);
-
     for (const code of REUSED_ENTRY_CODES) {
-      assert.ok(published.includes(code), `${code} is no longer published on the acceptance`);
-      expect(
-        acceptanceMapped(refusedOn(ANNEHMEN_OPERATION, code)),
-        `${code} can refuse an acceptance and the mapper does not answer it`,
-      ).not.toBe(null);
+      expect(acceptanceMapped(refused(code)), `${code} can refuse an acceptance and the mapper does not answer it`).not.toBe(null);
     }
   });
 
   /* The stored application tells a new school's `uniq_shorthand` collision from a picked club's
      `uniq_saison_id_team_id` one, and each gets the repair its own index asks for. */
   it("answers a new school's duplicate key with the Kürzel repair rather than the generic conflict", async () => {
-    assert.ok(publishedRefusals(ANNEHMEN_OPERATION).includes(DUPLICATE_KEY), "a duplicate key is no longer published on the acceptance");
-    answerWith(() => Promise.reject(refusedOn(ANNEHMEN_OPERATION, DUPLICATE_KEY)));
+    answerWith(() => Promise.reject(refused(DUPLICATE_KEY)));
 
     expect(errorOf(await annehmenBewerbungAction(ANNAHME)), "the collision names no way out of itself").toMatch(/Kürzel des anderen Teams/);
   });
 
   it("answers a picked club's duplicate key in the club editor's words for a club already in the season", async () => {
-    const collision = refusedOn(ANNEHMEN_OPERATION, DUPLICATE_KEY);
+    const collision = refused(DUPLICATE_KEY);
     answerWith(() => Promise.reject(collision));
     readWith(() => Promise.resolve(GEWAEHLT));
 
@@ -196,7 +176,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
 
   /* Neither sentence without the application: each tells the admin to repair something that may not be at fault. */
   it("leaves the duplicate key to the shared reader, logging nothing, where the network never answered the application's read", async () => {
-    const collision = refusedOn(ANNEHMEN_OPERATION, DUPLICATE_KEY);
+    const collision = refused(DUPLICATE_KEY);
     answerWith(() => Promise.reject(collision));
     readWith(() =>
       Promise.reject(
@@ -217,19 +197,19 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
 
   /* A bug in the read words the refusal as the shared reader does, which only its line tells apart. */
   it("leaves the duplicate key to the shared reader, logging the read's untyped failure", async () => {
-    const collision = refusedOn(ANNEHMEN_OPERATION, DUPLICATE_KEY);
+    const collision = refused(DUPLICATE_KEY);
     answerWith(() => Promise.reject(collision));
     readWith(() => Promise.reject(new TypeError("Cannot read properties of undefined (reading 'bewerbung')")));
 
     expect(errorOf(await annehmenBewerbungAction(ANNAHME))).toBe(toActionErrorResult(collision).error);
-    expect(collisionReadLines().map((meta) => meta.error_code)).toStrictEqual(["FE-ACT-001"]);
+    expect(collisionReadLines().map((meta) => meta.name)).toStrictEqual(["TypeError"]);
   });
 
   /* The loop above pins that it is answered, this what it says. Which of the school's fields
      fails never reaches the wire, so the message names the candidates, and no edit path turns the
      application into a shape acceptance takes. */
   it("names the school's own fields, and a repair that exists, when no club can be created", () => {
-    const refusal = acceptanceMapped(refusedOn(ANNEHMEN_OPERATION, "REQ-BEWERBUNG-003"))?.error ?? "";
+    const refusal = acceptanceMapped(refused("bewerbung_schule_unusable"))?.error ?? "";
 
     expect(refusal, "the refusal names no field an administrator could look at").toMatch(
       /Team, vollständiger Name, Kürzel, Adresse oder Website/,
@@ -238,31 +218,21 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
   });
 
   /* `fl_backend/app/api/bewerbungen/services.py :: find_unconfirmed_kontakte_refusal`'s code. A code the
-     mapper misses falls through to the shared fallback (`.claude/rules/cross-surface.md`). */
+     mapper misses falls through to the shared fallback, which names no reason. */
   it("answers the acceptance's refusal over an unconfirmed seat", () => {
-    assert.ok(
-      publishedRefusals(ANNEHMEN_OPERATION).includes("REQ-BEWERBUNG-013"),
-      "the unconfirmed seat's rule is no longer published on the acceptance",
-    );
-    expect(acceptanceMapped(refusedOn(ANNEHMEN_OPERATION, "REQ-BEWERBUNG-013"))?.error ?? "").toMatch(/Kontaktperson/);
-  });
-
-  /* `REQ-ENTER-004` guards a group MOVE, which no acceptance performs: a row is created here, never
-     moved. Reaching it from this action would refuse an acceptance over fixtures it does not touch. */
-  it("leaves the group move's own refusal on the move", () => {
-    assert.ok(!publishedRefusals(ANNEHMEN_OPERATION).includes("REQ-ENTER-004"), "the document moved the lock onto the acceptance");
+    expect(acceptanceMapped(refused("bewerbung_kontakte_unconfirmed"))?.error ?? "").toMatch(/Kontaktperson/);
   });
 });
 
 /**
  * The application a decision's write answers with: a proposed school, one seat holding a mailbox.
- * Parsed at construction, so a field the read model gains fails here rather than in the answer.
+ * Typed as the read model, so a field the read model gains fails here rather than in the answer.
  */
-const ENTSCHIEDEN = FLBewerbungSchema.parse({
+const ENTSCHIEDEN: FLBewerbung = {
   id: BEWERBUNG_ID,
   saison_id: "2026",
-  eingereicht_am: "2026-09-01",
-  status: "eingereicht",
+  submitted_at: "2026-09-01",
+  status: "submitted",
   team_id: null,
   schule: {
     team_name: "Gymnasium Beispiel",
@@ -279,23 +249,23 @@ const ENTSCHIEDEN = FLBewerbungSchema.parse({
       nachname: "Meier",
       telefon: "069 1234567",
       geburtsdatum: null,
-      einwilligung: kenntnisnahme({ text_version: FORM_LABEL, datum: "2026-09-01", bestaetigt_am: null }),
+      einwilligung: kenntnisnahme({ text_version: FORM_LABEL, datum: "2026-09-01", confirmed_at: null }),
     },
     stellvertretung: null,
-    trainer_ist_zugleich: null,
+    trainer_is_also: null,
   },
-  trikot: { vorhandener_satz: "Ein Satz", wunschfarbe: "rot" },
-  kader: { voraussichtliche_groesse: 14, gute_spieler: 2 },
+  trikot: { existing_satz: "Ein Satz", wunschfarbe: "rot" },
+  kader: { expected_size: 14, good_spieler: 2 },
   stufengroesse: 96,
   wunschgegner: null,
-  entscheidung: null,
-  bestaetigungen: {
+  decision: null,
+  confirmations: {
     trainer: null,
-    ansprechperson: { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null },
+    ansprechperson: { sent_at: "2026-09-01", reminded_at: null, declined_at: null, delivery: null },
     stellvertretung: null,
   },
-  bestaetigungsfrist: "2026-09-15",
-});
+  confirmation_deadline: "2026-09-15",
+};
 
 /** Both decisions, each pressed as its panel presses it and answered, where it lands, with `document`. */
 const DECISIONS = [
@@ -304,13 +274,12 @@ const DECISIONS = [
     betreff: "Zusage",
     operation: ANNEHMEN_OPERATION,
     landed: (document: object) => ({
-      acknowledged: 1,
       saison_id: "2026",
       gruppe: "A",
       trikot_farbe: null,
       created_team: true,
       team_id: GEWAEHLT.bewerbung.team_id,
-      updated_document: document,
+      id: (document as { id: string }).id,
     }),
     press: () => annehmenBewerbungAction(ANNAHME),
   },
@@ -318,14 +287,14 @@ const DECISIONS = [
     where: "the decline",
     betreff: "Absage",
     operation: ABLEHNEN_OPERATION,
-    landed: (document: object) => ({ acknowledged: 1, updated_document: document }),
+    landed: (document: object) => ({ id: (document as { id: string }).id }),
     press: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, grund: "Die Liga ist voll." }),
   },
 ] as const;
 
 /** Each repair's payload, as its control sends it for the Ansprechperson's seat. */
 const ERNEUT = { id: BEWERBUNG_ID, rolle: "ansprechperson" } as const;
-const KORREKTUR = { id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@example.de", bisherige_email: PERSON.email } as const;
+const KORREKTUR = { id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@example.de", previous_email: PERSON.email } as const;
 const SITZ = {
   id: BEWERBUNG_ID,
   rolle: "ansprechperson",
@@ -337,69 +306,53 @@ const SITZ = {
 } as const;
 
 /** The paths of the three repairs above, each a write that mints the seat's link and so spends the one it held. */
-const ERNEUT_PATH = `/bewerbungen/${BEWERBUNG_ID}/einwilligung/ansprechperson/erneut`;
+const ERNEUT_PATH = `/bewerbungen/${BEWERBUNG_ID}/einwilligung/ansprechperson/resend`;
 const KORREKTUR_PATH = `/bewerbungen/${BEWERBUNG_ID}/kontakte/ansprechperson/email`;
 const SITZ_PATH = `/bewerbungen/${BEWERBUNG_ID}/kontakte/ansprechperson`;
 
 /** The application read as the page drew it, with the deadline a seat's link stood under before any repair. */
-const VOR_DER_REPARATUR = { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: "2026-09-01" } };
-
-/** The correction's and the reseat's sentence where their link did not go out, which the strip shows as it stands. */
-const KORREKTUR_OHNE_LINK =
-  "Die Adresse ist korrigiert, aber die E-Mail mit dem neuen Link ging nicht raus, und der alte Link gilt nicht mehr. Schicke den Link erneut.";
-const BESETZUNG_OHNE_LINK =
-  "Die Person steht jetzt in der Bewerbung, aber die E-Mail mit ihrem Bestätigungslink ging nicht raus. Schicke den Link erneut.";
+const VOR_DER_REPARATUR = { bewerbung: { ...GELESEN.bewerbung, confirmation_deadline: "2026-09-01" } };
 
 /** The re-send's answer to each state it cannot compose a message from. */
-async function unsendableAnswers(): Promise<Record<"weg" | "leer" | "ohneAdresse" | "ohneTeam", string>> {
+async function unsendableAnswers(): Promise<Record<"way" | "leer" | "ohneAdresse" | "ohneTeam", string>> {
   const pressOn = async (gelesen: unknown): Promise<string> => {
     readWith(() => Promise.resolve(gelesen));
     return errorOf(await einwilligungErneutSendenAction(ERNEUT));
   };
 
   return {
-    weg: await pressOn(null),
+    way: await pressOn(null),
     leer: await pressOn({ bewerbung: { ...GELESEN.bewerbung, kontakte: { ansprechperson: null } } }),
     ohneAdresse: await pressOn({ bewerbung: { ...GELESEN.bewerbung, kontakte: { ansprechperson: { ...PERSON, email: "" } } } }),
     ohneTeam: await pressOn({ bewerbung: { ...GELESEN.bewerbung, schule: null, team_id: null } }),
   };
 }
 
-/** What the re-send's write answers where it lands, minting `token-neu` for the seat and mailbox it matched. */
+/** What the re-send's write answers where it lands, for the seat and the mailbox it matched. */
 const erneutGeschrieben = (overrides: object = {}) => ({
-  acknowledged: 1,
-  token: "token-neu",
   rolle: "ansprechperson",
   email: PERSON.email,
   rollen: ["ansprechperson"],
-  bestaetigungsfrist: "2026-09-18",
+  confirmation_deadline: "2026-09-18",
   ...overrides,
 });
 
-/** What the correction's write answers where it lands: by default over an address the fold calls the same mailbox. */
-const korrigiert = (abgangEmail: string | null = null) => ({
-  acknowledged: 1,
+/** What the correction's write answers where it lands. */
+const korrigiert = () => ({
   email: KORREKTUR.email,
   rollen: ["ansprechperson"],
-  token: "token-korrektur",
-  bestaetigungsfrist: "2026-09-18",
-  abgang_email: abgangEmail,
+  confirmation_deadline: "2026-09-18",
 });
 
 /** What the reseat's write answers where it lands, for the seats it filled and the address as it stored it. */
 const besetzt = (rollen: readonly string[] = ["ansprechperson"]) => ({
-  acknowledged: 1,
   email: SITZ.email,
   rollen: rollen,
-  token: "token-sitz",
-  bestaetigungsfrist: "2026-09-18",
+  confirmation_deadline: "2026-09-18",
 });
 
 /** A success's report, or the refusal's sentence where the action failed. */
 const answerOf = (result: { success: boolean; message?: string; error?: string }): string => result.message ?? result.error ?? "";
-
-/** What a landed write that moves no cached read leaves in `cacheCalls`: the spine's refresh, and nothing else. */
-const REFRESH_ALONE = [{ name: "refresh", args: [] }];
 
 describe("the application's writes", () => {
   it("reach each published path and method, the id and the seat in the path and the fields alone in the body", async () => {
@@ -415,145 +368,43 @@ describe("the application's writes", () => {
     answerWith(() => Promise.resolve(besetzt()));
     await besetzeKontaktSitzAction(SITZ);
 
-    // A delivery report's `am` is the moment the provider took the message, so it is held to its form alone.
-    const sent = requestsOf(writes).map((request) => {
-      if (request.body === undefined) return request;
-      const { am, ...body } = request.body as { am?: unknown };
-      if (am !== undefined) expect(String(am), "a delivery report dated in another form").toMatch(/^\d{4}-\d\d-\d\dT[\d:.]+Z$/);
-      return { ...request, body };
-    });
     const bewerbung = `/bewerbungen/${BEWERBUNG_ID}`;
-    // Filed under the id the provider gave the message: the two decisions' messages are the first two.
-    const report = (nachricht: number) => ({
-      endpoint: "/bewerbungen/zustellung/angenommen",
-      method: "POST",
-      body: { bewerbung_id: BEWERBUNG_ID, nachricht_id: `msg-${String(nachricht)}`, rollen: ["ansprechperson"] },
-    });
     const { id: _id, rolle: _rolle, ...person } = SITZ;
-    expect(sent).toStrictEqual([
-      { endpoint: `${bewerbung}/annehmen`, method: "POST", body: { gruppe: ANNAHME.gruppe, trikot_farbe: ANNAHME.trikot_farbe } },
-      { endpoint: `${bewerbung}/ablehnen`, method: "POST", body: { grund: "Die Liga ist voll." } },
-      { endpoint: `${bewerbung}/einwilligung/ansprechperson/erneut`, method: "POST", body: undefined },
-      report(3),
+    // The writes alone: each owes its mails in the backend's own transaction, so no report of a send follows one.
+    expect(requestsOf(writes)).toStrictEqual([
+      { endpoint: `${bewerbung}/accept`, method: "POST", body: { gruppe: ANNAHME.gruppe, trikot_farbe: ANNAHME.trikot_farbe } },
+      { endpoint: `${bewerbung}/decline`, method: "POST", body: { grund: "Die Liga ist voll." } },
+      { endpoint: `${bewerbung}/einwilligung/ansprechperson/resend`, method: "POST", body: undefined },
       // The address the page showed rides beside the corrected one: the backend judges the seat's holder by it.
       {
         endpoint: `${bewerbung}/kontakte/ansprechperson/email`,
         method: "POST",
-        body: { email: KORREKTUR.email, bisherige_email: PERSON.email },
+        body: { email: KORREKTUR.email, previous_email: PERSON.email },
       },
-      report(4),
       { endpoint: `${bewerbung}/kontakte/ansprechperson`, method: "POST", body: person },
-      report(5),
     ]);
   });
 });
 
-describe("what each decision moves", () => {
-  /* The acceptance created or entered a club, which is what the cached team reads answer. Both tags
-     or neither: the base one alone leaves a season-scoped read stale, and the granular one alone
-     leaves every unscoped read stale. */
-  it("invalidates the club reads the acceptance wrote into", async () => {
-    const [acceptance] = DECISIONS;
-    answerWith(() => Promise.resolve(acceptance.landed(ENTSCHIEDEN)));
-
-    expect((await acceptance.press()).success, "the acceptance never landed, so its tags are judged on nothing").toBe(true);
-    expect(cacheCalls, "the acceptance clears other than the club reads it wrote into").toStrictEqual([
-      { name: "updateTag", args: ["teams"] },
-      { name: "updateTag", args: ["teams:saison_id:2026"] },
-      ...REFRESH_ALONE,
-    ]);
-  });
-
-  /* A decline moves this application's own `status` and `entscheidung`, and nothing cached holds an
-     application: both triage reads are uncached because an application is personal data. */
-  it("moves no tag on a decline", async () => {
-    const [, decline] = DECISIONS;
-    answerWith(() => Promise.resolve(decline.landed(ENTSCHIEDEN)));
-
-    expect((await decline.press()).success, "the decline never landed, so its tags are judged on nothing").toBe(true);
-    expect(cacheCalls, "the decline clears a cached read its endpoint does not move").toStrictEqual(REFRESH_ALONE);
-  });
-});
-
-describe("the message that follows a decision", () => {
-  /* `core` may not read the colour sheet, so the action renders the label and the hex; and the sender
-     name the builder sets has to survive the fan-out's spread into the send. */
-  it("hands the acceptance mail the assigned colour's name and hex, and a signed season's sender", async () => {
-    const [acceptance] = DECISIONS;
-    answerWith(() => Promise.resolve({ ...acceptance.landed(ENTSCHIEDEN), saison_id: "2027", trikot_farbe: "hellgruen" }));
-
-    expect((await annehmenBewerbungAction({ ...ANNAHME, trikot_farbe: "hellgruen" })).success, "the acceptance never landed").toBe(true);
-    const [mail] = mailed;
-    assert.ok(mail?.text.includes("Trikotfarbe: Hellgrün (#75db06)"), "the mail lost the colour's name or its hex");
-    expect(mail?.absender, "the sender line or the reply address never reached the send").toStrictEqual({
-      name: "Jonathan Kroh, Frankfurt League",
-      antwortAn: "kontakt@frankfurtleague.de",
-    });
-  });
-
-  /* After the write in both, and the write is what the report is about: a message sent first would
-     tell a school it was accepted over a request the backend went on to refuse. */
-  it("mails nothing where the API write is refused", async () => {
-    for (const { where, operation, press } of DECISIONS) {
-      answerWith(() => Promise.reject(refusedOn(operation, "REQ-BEWERBUNG-001")));
-
-      const result = await press();
-
-      expect(result.success, `${where} was not refused, so the mail below is judged on nothing`).toBe(false);
-      expect(mailed, `${where} told the school of a decision the backend refused`).toStrictEqual([]);
-    }
-  });
-
-  /* The decision is committed and no endpoint takes it back, so nothing after the send may report a
-     failure — the addresses that were not reached travel in the success message instead. */
-  it("reports the decision as taken whatever the mail did", async () => {
-    answerMailWith(() => "refused");
-
+describe("what a decision says of its mails", () => {
+  /* The decision is committed with its mails owed in the same write, so the answer states it as taken and names who
+     the mail goes to, never whether it arrived. */
+  it("reports the decision as taken, its mail owed every contact person", async () => {
     for (const { where, betreff, landed, press } of DECISIONS) {
       answerWith(() => Promise.resolve(landed(ENTSCHIEDEN)));
 
       const result = await press();
 
-      expect(result.success, `${where} fails the whole decision over a message it could not send`).toBe(true);
-      expect(answerOf(result), `${where} drops the delivery report`).toMatch(
-        new RegExp(`Die ${betreff} konnte an niemanden verschickt werden`),
-      );
+      expect(result.success, `${where} did not land`).toBe(true);
+      assert.ok(answerOf(result).endsWith(`Die ${betreff} geht an jede Kontaktperson.`), `${where} names no mail: ${answerOf(result)}`);
     }
   });
 
-  /* A send broken off unanswered may have arrived: answered as the request's doubt, the decision would read as perhaps
-     unsaved and the sentence naming whom to tell by hand would go. */
-  it("reports the decision as taken where a send broke off unanswered, naming the address in doubt", async () => {
-    answerMailWith(() => "lost");
+  it("owes nothing where the API write is refused", async () => {
+    for (const { where, press } of DECISIONS) {
+      answerWith(() => Promise.reject(refused("bewerbung_already_decided")));
 
-    for (const { where, betreff, landed, press } of DECISIONS) {
-      answerWith(() => Promise.resolve(landed(ENTSCHIEDEN)));
-
-      const result = await press();
-
-      expect(result.success, `${where} answered a committed decision as of unknown outcome`).toBe(true);
-      assert.ok(
-        answerOf(result).endsWith(` Ob die ${betreff} bei ${PERSON.email} ankam, ist unklar. Melde Dich selbst bei ihnen.`),
-        `${where} drops the address in doubt`,
-      );
-    }
-  });
-
-  /* Told the ban is why, by count: an address in the report is one the administrator is asked to
-     write to by hand, which would name a barred person. */
-  it("reports a decision the ban list kept from every address as taken, naming nobody", async () => {
-    answerMailWith(() => "barred");
-
-    for (const { where, betreff, landed, press } of DECISIONS) {
-      answerWith(() => Promise.resolve(landed(ENTSCHIEDEN)));
-
-      const result = await press();
-
-      expect(result.success, `${where} fails the whole decision over a ban`).toBe(true);
-      expect(answerOf(result)).toMatch(
-        new RegExp(`Die ${betreff} ging an niemanden raus, weil jede Adresse der Bewerbung auf der Sperrliste steht`),
-      );
-      assert.ok(!answerOf(result).includes("@"), `${where} named an address`);
+      expect((await press()).success, `${where} reports a refused decision as taken`).toBe(false);
     }
   });
 });
@@ -614,13 +465,10 @@ const retiredBannerOn = (saisonStatus: TeamSaisonMembership["saisonStatus"]): Re
 const SAISON_STATUSES = ["future", "active", "past"] as const satisfies readonly TeamSaisonMembership["saisonStatus"][];
 
 const RETIRED_RENDERINGS = renderingsOf([
-  ...renderedBy("the triage", mapTriageRefusal(refusedOn(ANNEHMEN_OPERATION, "REQ-ENTER-005"), "bestehendes_team")),
-  ...renderedBy("the club editor's entry", mapEntryRefusal(refusedOn(ENTRY_OPERATION, "REQ-ENTER-005"))),
-  ...renderedBy("the team create's entry", mapCreatedClubEntryRefusal(refusedOn(ENTRY_OPERATION, "REQ-ENTER-005"))),
-  ...renderedBy(
-    "the club editor's replacement",
-    mapReplacementRefusal(refusedOn("POST /teams/{team_id}/saisons/{saison_id}/replace", "REQ-ENTER-005")),
-  ),
+  ...renderedBy("the triage", mapTriageRefusal(refused("team_retired"), "bestehendes_team")),
+  ...renderedBy("the club editor's entry", mapEntryRefusal(refused("team_retired"))),
+  ...renderedBy("the team create's entry", mapCreatedClubEntryRefusal(refused("team_retired"))),
+  ...renderedBy("the club editor's replacement", mapReplacementRefusal(refused("team_retired"))),
   ...SAISON_STATUSES.flatMap(retiredBannerOn),
 ]);
 
@@ -682,19 +530,19 @@ describe("the German one refusal code is given", () => {
   it("finds every rendering of the retired-club refusal before judging one", () => {
     expect(
       RETIRED_RENDERINGS.length,
-      `REQ-ENTER-005 is rendered in ${String(RETIRED_RENDERINGS.length)} places, not the seven this case reads`,
+      `team_retired is rendered in ${String(RETIRED_RENDERINGS.length)} places, not the seven this case reads`,
     ).toBe(7);
     for (const { where, sentences } of RETIRED_RENDERINGS) {
       expect(sentences.length, `${where} holds no rendered sentence`).not.toBe(0);
     }
   });
 
-  /* `REQ-ENTER-005` is `inactive_since`, whose verb pair `docs/glossary.md :: inactive_since` fixes:
+  /* `team_retired` is `inactive_since`, whose verb pair `docs/glossary.md :: inactive_since` fixes:
      _stilllegen_ retires the club across the league, _austragen_ takes one squad row out of one
      season. „Verlassen“ is an `austritt`, a third record on a third page. */
   it("calls a retired club stillgelegt in every branch that answers it", () => {
     for (const { where, german } of RETIRED_RENDERINGS) {
-      assert.ok(german.includes("stillgelegt"), `${where} gives REQ-ENTER-005 a state word other than „stillgelegt“`);
+      assert.ok(german.includes("stillgelegt"), `${where} gives team_retired a state word other than „stillgelegt“`);
       expect(german, `${where} names the club as something other than a „Team“`).toMatch(/\bTeam\b/);
 
       for (const banned of ["usgeschieden", "usgetragen", "verlassen", "Verein"]) {
@@ -712,16 +560,16 @@ describe("the German one refusal code is given", () => {
 });
 
 /**
- * The entry rules an acceptance and the club editor both answer. `REQ-ENTER-004` is not among them:
+ * The entry rules an acceptance and the club editor both answer. `entry_gruppe_locked` is not among them:
  * it guards a group MOVE, which no acceptance performs.
  */
-const SHARED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003"];
+const SHARED_ENTRY_CODES: Code[] = ["entry_saison_not_future", "entry_gruppe_not_offered", "entry_gruppe_full"];
 
 const ENTRY_RENDERINGS = SHARED_ENTRY_CODES.map((code) => ({
   code: code,
   renderings: renderingsOf([
-    ...renderedBy("the triage", acceptanceMapped(refusedOn(ANNEHMEN_OPERATION, code))),
-    ...renderedBy("the club editor", mapEntryRefusal(refusedOn(ENTRY_OPERATION, code))),
+    ...renderedBy("the triage", acceptanceMapped(refused(code))),
+    ...renderedBy("the club editor", mapEntryRefusal(refused(code))),
   ]),
 }));
 
@@ -784,26 +632,7 @@ describe("the pills the queue's card wears", () => {
   });
 });
 
-describe("a message that cannot be sent", () => {
-  /* Thrown out of a decision, a read AFTER its write turns one that stands into a reported failure,
-     and the retry it invites is refused as already taken (`REQ-BEWERBUNG-001`). Thrown BEFORE the
-     re-send's mint, the same read has cost nothing. */
-  it("reports a decision whose club read failed as taken, and tells the administrator to write to the contacts", async () => {
-    clubsWith(() => Promise.reject(new Error("the club list answered nothing")));
-
-    for (const { where, betreff, landed, press } of DECISIONS) {
-      // A picked club, whose name only the club list answers.
-      answerWith(() => Promise.resolve(landed({ ...ENTSCHIEDEN, schule: null, team_id: GEWAEHLT.bewerbung.team_id })));
-
-      const result = await press();
-
-      expect(result.success, `${where} reports a committed decision as one that did not happen`).toBe(true);
-      expect(answerOf(result), `${where} leaves the administrator no remedy for the message nobody received`).toMatch(
-        new RegExp(`Die ${betreff} konnte nicht verschickt werden\\. Melde Dich selbst bei den Kontaktpersonen der Bewerbung\\.`),
-      );
-    }
-  });
-
+describe("a repair whose link's mail cannot be composed", () => {
   it("lets the club read that precedes a mint throw, before any link is spent", async () => {
     readWith(() => Promise.resolve(GEWAEHLT));
     clubsWith(() => Promise.reject(new Error("the club list answered nothing")));
@@ -828,73 +657,41 @@ describe("the re-sent confirmation link", () => {
   /* The button carries no address box, so the repairs' „Trage eine andere Adresse ein“ would name a
      field that is not there: the sentence names the correction control beside it instead. */
   it("words a barred address with the control the administrator can use from the button", () => {
-    const answered = mapEinwilligungErneutRefusal(refusedOn(ERNEUT_OPERATION, "REQ-BEWERBUNG-019", 409));
+    const answered = mapEinwilligungErneutRefusal(refused("bewerbung_kontakt_barred", 409));
 
     assert.ok(String(answered).includes(`„${ADRESSE_KORRIGIEREN}“`), "the sentence names a control the strip does not label so");
     expect(String(answered)).not.toMatch(/Trage eine andere Adresse ein/);
   });
 
   it("answers every code the re-send publishes through its own mapper", async () => {
-    for (const code of publishedRefusals(ERNEUT_OPERATION)) {
-      expect(
-        answerShown(ERNEUT_OPERATION, code, mapEinwilligungErneutRefusal),
-        `${code} is published on the re-send and reaches the admin unmapped`,
-      ).not.toBe(null);
+    for (const code of refusalCodes("bewerbung_already_decided", "bewerbung_seat_already_answered", "bewerbung_kontakt_barred")) {
+      expect(answerShown(code, mapEinwilligungErneutRefusal), `${code} is published on the re-send and reaches the admin unmapped`).not.toBe(
+        null,
+      );
     }
     await assertEachAnswered({
-      operation: ERNEUT_OPERATION,
+      codes: refusalCodes("bewerbung_already_decided", "bewerbung_seat_already_answered", "bewerbung_kontakt_barred"),
       refuseWith: answerWith,
       act: () => einwilligungErneutSendenAction({ id: BEWERBUNG_ID, rolle: "ansprechperson" }),
       mapped: mapEinwilligungErneutRefusal,
     });
   });
 
-  /* A link built on the published origin sends a reader of the local stack into production. */
-  it("mints the re-sent link on the configured origin", async () => {
-    mailed.length = 0;
-    const frist = "2026-09-18";
-    readWith(() => Promise.resolve({ bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: frist } }));
-    answerWith(() =>
-      Promise.resolve({
-        acknowledged: 1,
-        token: "token-neu",
-        rolle: "ansprechperson",
-        email: PERSON.email,
-        rollen: ["ansprechperson"],
-        bestaetigungsfrist: frist,
-      }),
-    );
-
-    const result = await einwilligungErneutSendenAction({ id: BEWERBUNG_ID, rolle: "ansprechperson" });
-
-    expect(result.success, "the re-send mailed nothing, so the origin below is judged on nothing").toBe(true);
-    assert.ok(
-      mailed.some(({ text }) => text.includes(`${ORIGIN}/bestaetigung/kontakt?token=token-neu`)),
-      "the re-sent link is minted on an origin this run was not configured with",
-    );
-  });
-
-  /* The token is minted and the deadline moved by the time the message is composed, so the deadline it
-     states is the write's own answer rather than the page's copy, read before the write. */
-  it("mails nothing where the write is refused, and states the deadline the write set", async () => {
-    answerWith(() => Promise.reject(refusedOn(ERNEUT_OPERATION, publishedRefusals(ERNEUT_OPERATION)[0] ?? "")));
-
-    expect((await einwilligungErneutSendenAction(ERNEUT)).success, "the re-send was not refused, so nothing is judged").toBe(false);
-    expect(mailed.length, "the re-send mailed a link the backend refused to mint").toBe(0);
-
-    // Each press that mints a link, its write answering a deadline the page's read does not hold.
+  /* The write answers the address it owed the link at, and only the write knows it: a correction landing between the
+     page's read and the press moves the mailbox, and the API stores the fold of what was typed. */
+  it("names the address each repair's write answered, never the read's nor the typed one", async () => {
     for (const [where, press, answer, to] of [
-      ["the re-send", () => einwilligungErneutSendenAction(ERNEUT), erneutGeschrieben(), PERSON.email],
-      ["the correction", () => kontaktEmailKorrigierenAction(KORREKTUR), korrigiert(), KORREKTUR.email],
-      ["the reseat", () => besetzeKontaktSitzAction(SITZ), besetzt(), SITZ.email],
+      ["the re-send", () => einwilligungErneutSendenAction(ERNEUT), erneutGeschrieben({ email: "anna.neu@example.de" }), "anna.neu@example.de"],
+      ["the correction", () => kontaktEmailKorrigierenAction({ ...KORREKTUR, email: "Anna.Neu@Example.de" }), korrigiert(), KORREKTUR.email],
+      ["the reseat", () => besetzeKontaktSitzAction({ ...SITZ, email: "Berta@Example.de" }), besetzt(), SITZ.email],
     ] as const) {
       readWith(() => Promise.resolve(VOR_DER_REPARATUR));
       answerWith(() => Promise.resolve(answer));
 
-      expect((await press()).success, `${where} did not land, so its deadline is judged on nothing`).toBe(true);
-      const text = mailed.findLast((mail) => mail.to === to)?.text ?? "";
-      assert.ok(text.includes(formatSpielDatum("2026-09-18")), `${where}'s message states no deadline the write set`);
-      assert.ok(!text.includes(formatSpielDatum("2026-09-01")), `${where}'s message states the deadline the page held`);
+      const result = await press();
+
+      expect(result.success, `${where} did not land`).toBe(true);
+      expect(answerOf(result), `${where} names another address`).toBe(`Der neue Link geht an ${to}.`);
     }
   });
 
@@ -903,7 +700,7 @@ describe("the re-sent confirmation link", () => {
   it("refuses what it could not send before it spends the seat's link", async () => {
     const answers = await unsendableAnswers();
 
-    expect(answers.weg).toMatch(/Diese Bewerbung gibt es nicht mehr/);
+    expect(answers.way).toMatch(/Diese Bewerbung gibt es nicht mehr/);
     expect(answers.leer).toMatch(/Für diese Rolle steht niemand mehr in der Bewerbung/);
     expect(answers.ohneAdresse).toBe(ERNEUT_OHNE_ADRESSE);
     expect(answers.ohneTeam).toMatch(/Diese Bewerbung nennt kein Team/);
@@ -922,12 +719,11 @@ describe("the re-sent confirmation link", () => {
         .trim();
 
     const unsendable = Object.values(await unsendableAnswers());
-    answerMailWith(() => "refused");
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     answerWith(() => Promise.resolve(erneutGeschrieben()));
-    const unsent = answerOf(await einwilligungErneutSendenAction(ERNEUT));
+    const landed = answerOf(await einwilligungErneutSendenAction(ERNEUT));
 
-    const saetze = [...unsendable, unsent].map(comparable);
+    const saetze = [...unsendable, landed].map(comparable);
 
     assert.ok(
       saetze.every((satz) => satz !== ""),
@@ -935,283 +731,53 @@ describe("the re-sent confirmation link", () => {
     );
     expect(new Set(saetze).size, "two of the re-send's answers say the same thing").toBe(saetze.length);
   });
-
-  /* The mint stands, so the press landed: a link that never went out is reported as failed, never as
-     sent, and the sentence says what the press cost while the seat's previous link is spent. */
-  it("reports a message that did not go out as a failed send, naming what the press cost", async () => {
-    answerMailWith(() => "refused");
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
-
-    const result = await einwilligungErneutSendenAction(ERNEUT);
-
-    expect(result.success && result.versand, "a refused send is still reported as a link on its way").toBe("fehlgeschlagen");
-    expect(answerOf(result), "the report does not say the previous link is spent").toMatch(/Der alte Link gilt nicht mehr/);
-    expect(answerOf(result), "the report names no way out").toMatch(/Versuche es erneut/);
-  });
-
-  /* A link whose connection broke off may have reached the provider: the re-send's own reading is a
-     link on its way, and only the request's mark keeps the press from reporting one. */
-  it("answers a re-send whose message broke off in transit as of unknown outcome", async () => {
-    answerMailWith(() => "lost");
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
-
-    expect(await einwilligungErneutSendenAction(ERNEUT)).toStrictEqual(outcomeUnknown());
-  });
-
-  /* Outside production every send is withheld, and a failure there offers a retry no repeat of the
-     press can reach. */
-  it("answers a message this deployment withheld as the deployment's, not as a failure", async () => {
-    answerMailWith(() => "withheld");
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
-
-    const result = await einwilligungErneutSendenAction(ERNEUT);
-
-    expect(result).toStrictEqual({ success: true, message: ZURUECKGEHALTEN, versand: "zurueckgehalten" });
-  });
-
-  /* A retry meets the same ban, so a failure would offer one no repeat can reach; and the answer
-     names no address. */
-  it("answers a link the ban list kept from its address as no failure, naming nobody", async () => {
-    answerMailWith(() => "barred");
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
-
-    const result = await einwilligungErneutSendenAction(ERNEUT);
-
-    expect(result).toStrictEqual({
-      success: true,
-      message: "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht.",
-      versand: "gesperrt",
-    });
-  });
-
-  /* A message that did not go leaves the mint standing: the seat's old link is spent and its deadline
-     moved, which the page shows. */
-  it("refreshes the page after a re-send whose message did not go", async () => {
-    answerMailWith(() => "refused");
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
-
-    const result = await einwilligungErneutSendenAction(ERNEUT);
-
-    expect(result.success && result.versand, "the message went, so the refresh below is judged on nothing").toBe("fehlgeschlagen");
-    expect(cacheCalls.filter(({ name }) => name === "refresh").length, "the page keeps a link the mint has already spent").toBe(1);
-  });
-
-  /* A correction landing between the page's read and this write moves the mailbox, and only the
-     write's own image knows it: the read would mail the address the correction replaced. */
-  it("mails the address and the seats the write itself answered", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben({ email: "anna.neu@example.de", rollen: ["trainer", "ansprechperson"] })));
-
-    await einwilligungErneutSendenAction(ERNEUT);
-
-    expect(
-      mailed.map(({ to }) => to),
-      "the re-send mails the address its own read held",
-    ).toStrictEqual(["anna.neu@example.de"]);
-    assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the re-send names seats its own read paired");
-  });
-
-  /* The API stores the fold of what was typed, and the message goes where its delivery events are
-     matched back: the address the write answers, never the one in the box. */
-  it("mails a corrected and a seated person at the address the write stored, never as typed", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-
-    answerWith(() => Promise.resolve(korrigiert()));
-    await kontaktEmailKorrigierenAction({ ...KORREKTUR, email: "Anna.Neu@Example.de" });
-    answerWith(() => Promise.resolve(besetzt()));
-    await besetzeKontaktSitzAction({ ...SITZ, email: "Berta@Example.de" });
-
-    expect(mailed.map(({ to }) => to)).toStrictEqual([KORREKTUR.email, SITZ.email]);
-  });
-
-  /* The one thing on this path that must not reach a second reader. A toast, a log line or a returned
-     sentence carrying it hands the seat's credential to whoever can see the screen or the stream. */
-  it("spells the minted token into the link and into nothing else", async () => {
-    const token = "token-geheim";
-    const results: unknown[] = [];
-
-    // Every path a minted token is in scope on that answers or logs: a landed send, and each repair's refused one.
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben({ token })));
-    results.push(await einwilligungErneutSendenAction(ERNEUT));
-    assert.ok(
-      mailed.some(({ text }) => text.includes(kontaktBestaetigungsLink(ORIGIN, token))),
-      "the landed send mailed no link, so the token is judged on nothing",
-    );
-
-    answerMailWith(() => "refused");
-    results.push(await einwilligungErneutSendenAction(ERNEUT));
-
-    for (const [press, answer] of [
-      [
-        () => kontaktEmailKorrigierenAction(KORREKTUR),
-        { acknowledged: 1, token, email: KORREKTUR.email, rollen: ["ansprechperson"], abgang_email: null },
-      ],
-      [() => besetzeKontaktSitzAction(SITZ), { acknowledged: 1, token, email: SITZ.email, rollen: ["ansprechperson"] }],
-    ] as const) {
-      writes.length = 0;
-      answerWith(() => Promise.resolve({ ...answer, bestaetigungsfrist: "2026-09-18" }));
-      results.push(await press());
-    }
-
-    // The module logs on these paths, so a stream that recorded nothing is this case broken rather
-    // than a clean module.
-    assert.ok(logged.length > 0, "no logger call was recorded at all, so nothing below was judged");
-
-    const spelled = (value: unknown): string =>
-      JSON.stringify(value, (_key, inner: unknown) =>
-        inner instanceof Error ? `${inner.name}: ${inner.message} ${inner.stack ?? ""}` : inner,
-      );
-    for (const args of logged) assert.ok(!spelled(args).includes(token), `a log line names the token: ${spelled(args)}`);
-    for (const result of results) assert.ok(!spelled(result).includes(token), `an answer names the token: ${spelled(result)}`);
-  });
-
-  /* This moves the application's own confirmation block and its deadline, and no cached read holds an
-     application: both triage reads are uncached because an application is personal data. */
-  it("moves no tag", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
-
-    expect((await einwilligungErneutSendenAction(ERNEUT)).success, "the re-send never landed, so its tags are judged on nothing").toBe(true);
-    expect(cacheCalls, "the re-send clears a cached read its endpoint does not move").toStrictEqual(REFRESH_ALONE);
-  });
 });
 
 describe("the corrected contact address", () => {
   it("answers every code the correction publishes through its own mapper", async () => {
-    for (const code of publishedRefusals(KORREKTUR_OPERATION)) {
-      expect(
-        answerShown(KORREKTUR_OPERATION, code, mapKontaktEmailRefusal),
-        `${code} is published on the correction and reaches the admin unmapped`,
-      ).not.toBe(null);
+    for (const code of refusalCodes(
+      "bewerbung_already_decided",
+      "bewerbung_seat_already_answered",
+      "bewerbung_kontakt_email_taken",
+      "bewerbung_kontakt_barred",
+      "bewerbung_seat_differently_seated",
+    )) {
+      expect(answerShown(code, mapKontaktEmailRefusal), `${code} is published on the correction and reaches the admin unmapped`).not.toBe(null);
     }
     await assertEachAnswered({
-      operation: KORREKTUR_OPERATION,
+      codes: refusalCodes(
+        "bewerbung_already_decided",
+        "bewerbung_seat_already_answered",
+        "bewerbung_kontakt_email_taken",
+        "bewerbung_kontakt_barred",
+        "bewerbung_seat_differently_seated",
+      ),
       refuseWith: answerWith,
       act: () => kontaktEmailKorrigierenAction(KORREKTUR),
       mapped: mapKontaktEmailRefusal,
     });
   });
-
-  /* The read that carries the person's first name was taken BEFORE the write, so it still holds the
-     address the correction replaced. Mailing that one sends the new link to the bounced mailbox. */
-  it("mails the address the write stored, never the one the read still holds", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(korrigiert()));
-
-    await kontaktEmailKorrigierenAction(KORREKTUR);
-
-    expect(
-      mailed.map(({ to }) => to),
-      "the correction composes its message against the address the application held before the write",
-    ).toStrictEqual([KORREKTUR.email]);
-  });
-
-  /* The address IS corrected whatever the message did, so a failure arm here would tell the
-     administrator to try a correction that has already happened. */
-  it("reports a corrected address whose message did not go as a correction that stands", async () => {
-    answerMailWith(() => "refused");
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(korrigiert()));
-
-    const result = await kontaktEmailKorrigierenAction(KORREKTUR);
-
-    expect(result.success, "a refused send reports the correction as one that did not happen").toBe(true);
-    expect(result.success ? result.versand : undefined, "a refused send reports a link on its way").toBe("fehlgeschlagen");
-    // Its own words, sending the administrator to the re-send: a second correction over the moved row is refused.
-    expect(answerOf(result), "the report is not the correction's own").toBe(KORREKTUR_OHNE_LINK);
-  });
-
-  /* One press writes every seat the person holds, and only the write knows which: a pairing read before it can have
-     moved since, and the message then names a set the link does not answer for. */
-  it("names the seats the write itself answered rather than the pairing its read held", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve({ ...korrigiert(), rollen: ["trainer", "ansprechperson"] }));
-
-    await kontaktEmailKorrigierenAction(KORREKTUR);
-
-    assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the correction names the seats its read paired");
-  });
-
-  /* The old link may have reached its mailbox and opened until the write, so that mailbox is told it now opens nothing, on
-     the leaving notice's lane; the browser gets nothing naming it. */
-  it("tells the mailbox the write took the link from, nameless, and hands the browser none of its address", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(korrigiert("anna.alt@example.de")));
-
-    const result = await kontaktEmailKorrigierenAction(KORREKTUR);
-
-    const notice = mailed.find(({ to }) => to === "anna.alt@example.de");
-    expect(notice?.tags, "the mailbox the link left was not told on its lane").toStrictEqual({ kontakt_abgang: "hinweis" });
-    expect(notice?.text ?? "").toMatch(new RegExp(`nicht mehr als ${rollenText(["ansprechperson"])} für`));
-    // An application's seat was never asked about a fixture, so its notice names the confirmation's link alone.
-    expect(notice?.text ?? "", "the application's seat is told of fixture links it never held").not.toMatch(/Spielterminen/);
-    expect(`${notice?.subject ?? ""} ${notice?.text ?? ""}`, "the notice names the person").not.toMatch(new RegExp(PERSON.vorname));
-    expect(mailed.map(({ to }) => to).sort(), "the correction mailed someone beyond the two mailboxes it moved the link between").toStrictEqual(
-      ["anna.alt@example.de", KORREKTUR.email].sort(),
-    );
-    expect(JSON.stringify(result)).not.toMatch(/anna\.alt@/);
-  });
-
-  /* The correction is stored before either message, so the request's deadline cutting the leaving notice alone leaves
-     that notice in doubt and the correction answered by its own link. */
-  it("answers a correction whose leaving notice the request's deadline cut by its own link's outcome", async ({ onTestFinished }) => {
-    // The request's clock, which its deadline was set on as the press began.
-    let clock = 0;
-    const now = vi.spyOn(performance, "now").mockImplementation(() => clock);
-    onTestFinished(() => void now.mockRestore());
-    answerMailWith(async ({ to }): Promise<MailOutcome> => {
-      if (to !== "anna.alt@example.de") return "accepted";
-      // The notice bounded as the mailer bounds it, with a millisecond of the deadline left: the deadline cuts it.
-      clock = REQUEST_DEADLINE_MS - 1;
-      const bound = boundCall(REQUEST_DEADLINE_MS);
-      await new Promise((resolve) => bound.signal.addEventListener("abort", resolve, { once: true }));
-      bound.clear();
-      return "lost";
-    });
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(korrigiert("anna.alt@example.de")));
-
-    const result = await kontaktEmailKorrigierenAction(KORREKTUR);
-
-    expect(result).toStrictEqual({ success: true, message: `Der neue Link ging an ${KORREKTUR.email}.`, versand: "gesendet" });
-  });
-
-  it("tells nobody where the corrected address is the same mailbox", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(korrigiert(null)));
-
-    await kontaktEmailKorrigierenAction(KORREKTUR);
-
-    expect(mailed.map(({ to }) => to)).toStrictEqual([KORREKTUR.email]);
-  });
-
-  it("moves no tag", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(korrigiert()));
-
-    expect((await kontaktEmailKorrigierenAction(KORREKTUR)).success, "the correction never landed, so its tags are judged on nothing").toBe(
-      true,
-    );
-    expect(cacheCalls, "the correction clears a cached read its endpoint does not move").toStrictEqual(REFRESH_ALONE);
-  });
 });
 
 describe("the person seated where one stepped out", () => {
   it("answers every code the reseat publishes through its own mapper", async () => {
-    for (const code of publishedRefusals(SITZ_OPERATION)) {
-      expect(
-        answerShown(SITZ_OPERATION, code, mapKontaktSitzRefusal),
-        `${code} is published on the reseat and reaches the admin unmapped`,
-      ).not.toBe(null);
+    for (const code of refusalCodes(
+      "bewerbung_already_decided",
+      "bewerbung_seat_already_answered",
+      "bewerbung_kontakt_email_taken",
+      "bewerbung_kontakt_barred",
+      "wording_not_allowed",
+    )) {
+      expect(answerShown(code, mapKontaktSitzRefusal), `${code} is published on the reseat and reaches the admin unmapped`).not.toBe(null);
     }
     await assertEachAnswered({
-      operation: SITZ_OPERATION,
+      codes: refusalCodes(
+        "bewerbung_already_decided",
+        "bewerbung_seat_already_answered",
+        "bewerbung_kontakt_email_taken",
+        "bewerbung_kontakt_barred",
+        "wording_not_allowed",
+      ),
       refuseWith: answerWith,
       act: () =>
         besetzeKontaktSitzAction({
@@ -1251,64 +817,4 @@ describe("the person seated where one stepped out", () => {
 
     expect(writes, "the reseat seated a person behind a message nobody could compose").toStrictEqual([]);
   });
-
-  /* A pair recomputed from the page's read mirrors `paired_seat`, which drops a seat missing either half — and every
-     seat this write fills was emptied, so a message composed from it would name one seat of a pair. */
-  it("names the seats the write itself answered rather than recomputing the pair", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(besetzt(["trainer", "ansprechperson"])));
-
-    await besetzeKontaktSitzAction(SITZ);
-
-    assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the reseat recomputes a pair the emptied slots hide");
-  });
-
-  /* The person IS seated whatever the message did, so a failure arm here would tell the
-     administrator to seat somebody who is already in the application. */
-  it("reports a filled seat whose message did not go as a seat that stands", async () => {
-    answerMailWith(() => "refused");
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(besetzt()));
-
-    const result = await besetzeKontaktSitzAction(SITZ);
-
-    expect(result.success, "a refused send reports the seat as one that was never filled").toBe(true);
-    expect(result.success ? result.versand : undefined, "a refused send reports a link on its way").toBe("fehlgeschlagen");
-    // Its own words, sending the administrator to the re-send: a second reseat over the filled seat is refused.
-    expect(answerOf(result), "a refused send is reported as something other than the reseat's own").toBe(BESETZUNG_OHNE_LINK);
-  });
-
-  it("moves no tag", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(besetzt()));
-
-    expect((await besetzeKontaktSitzAction(SITZ)).success, "the reseat never landed, so its tags are judged on nothing").toBe(true);
-    expect(cacheCalls, "the reseat clears a cached read its endpoint does not move").toStrictEqual(REFRESH_ALONE);
-  });
-});
-
-/* The three repairs share one send, and a failure line naming another press sends whoever reads the
-   stream to the wrong action. */
-describe("the failure lines of the three repairs' shared send", () => {
-  const REPAIRS = [
-    { operation: "einwilligungErneutSendenAction", press: () => einwilligungErneutSendenAction(ERNEUT), wrote: erneutGeschrieben },
-    { operation: "kontaktEmailKorrigierenAction", press: () => kontaktEmailKorrigierenAction(KORREKTUR), wrote: korrigiert },
-    { operation: "besetzeKontaktSitzAction", press: () => besetzeKontaktSitzAction(SITZ), wrote: besetzt },
-  ] as const;
-
-  /** The operation each `bewerbung.mail_failed` line of the case names. */
-  const failedUnder = (): unknown[] =>
-    logged.filter(([line]) => line === "bewerbung.mail_failed").map(([, , fields]) => (fields as { operation?: unknown }).operation);
-
-  for (const { operation, press, wrote } of REPAIRS) {
-    it(`names ${operation} where its message was refused`, async () => {
-      answerMailWith(() => "refused");
-      readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-      answerWith(() => Promise.resolve(wrote()));
-
-      await press();
-
-      expect(failedUnder(), "the refused send logs under another press").toStrictEqual([operation]);
-    });
-  }
 });

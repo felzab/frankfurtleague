@@ -1,7 +1,7 @@
 import { ImElfmeterschiessen } from "@/features/spiele/components/ui/ImElfmeterschiessen";
 import { SONDEREREIGNIS_LABELS } from "@/features/spiele/constants";
 
-import type { FLSpielberichtVorschlag } from "../../schemas";
+import type { FLSpielberichtVorschlag } from "@/core/generated/client/types";
 
 /**
  * The proposal as one line: the score, its shoot-out, and the event, a no-show naming its event alone. The shoot-out

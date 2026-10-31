@@ -11,20 +11,15 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.teams.admin_router import replace_saison_team
-from app.api.teams.schemas import KONTAKT_ROLLEN, FLReplaceSaisonTeamPayload
-from app.api.teams.services import (
-    CLUB_RETIRED,
-    REPLACE_INCOMING_ALREADY_ENTERED,
-    REPLACE_ONE_CLUB_ON_BOTH_ENDS,
-    REPLACE_OUTGOING_HAS_A_RECORD,
-    REPLACE_SAISON_FINISHED,
-)
+from app.api.teams.schemas import FLReplaceSaisonTeamPayload
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    bestaetigte_kenntnisnahme,
+    confirmed_kenntnisnahme,
     saison_document,
     saison_spieler_document,
     saison_team_document,
@@ -36,10 +31,6 @@ from tests.worker import worker_database
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_replacement_test")
-
-# Its own name rather than a second schema under `DATABASE_NAME`: the constrained and unconstrained
-# cases enforce different things, and a shared name rebuilds whichever the last call did not ask for.
-UNCONSTRAINED_DATABASE_NAME = worker_database("fl_replacement_unconstrained_test")
 
 SAISON_ID = "2026"
 PRIOR_SAISON_ID = "2025"
@@ -56,30 +47,32 @@ ABSENT = ObjectId("6890a1b2c3d4e5f607260009")
 
 # The club's CURRENT identity, which is what a replacement seeds the row and the fixtures from.
 CLUB_NAMES = {
-    WITHDRAWN: ("Withdrawn", "WD"),
-    INCOMING: ("Incoming", "IN"),
-    RIVAL: ("Rival", "RI"),
-    ENTERED: ("Entered", "EN"),
-    RETIRED: ("Retired", "RE"),
+    WITHDRAWN: ("Withdrawn", "WDX"),
+    INCOMING: ("Incoming", "INX"),
+    RIVAL: ("Rival", "RIX"),
+    ENTERED: ("Entered", "ENX"),
+    RETIRED: ("Retired", "REX"),
 }
 
 # The season's own copy, deliberately NOT the club's current one: a reseed taken off the junction
 # row rather than off `teams` would leave these spellings in place and pass every other assertion.
 PLAYED_AS = {
-    WITHDRAWN: ("Withdrawn-Alt", "WX"),
-    RIVAL: ("Rival-Alt", "RX"),
-    ENTERED: ("Entered-Alt", "EX"),
-    PHANTOM: ("Phantom", "PH"),
+    WITHDRAWN: ("Withdrawn-Alt", "WXX"),
+    RIVAL: ("Rival-Alt", "RXX"),
+    ENTERED: ("Entered-Alt", "EXX"),
+    PHANTOM: ("Phantom", "PHX"),
 }
 
 EXIT = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-04-01"}
 
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072600f1")
 
-INCOMING_SIDE = {"team_id": INCOMING, "name": "Incoming", "shorthand": "IN", "tore": None}
+INCOMING_SIDE = {"team_id": INCOMING, "name": "Incoming", "shorthand": "INX", "tore": None}
 
 # The day the replacement runs, and a departure from the same squad that predates it.
 REPLACED_ON = "2026-04-15"
+# After the replacement day, so the season it runs on has not started.
+FIRST_GROUP_FIXTURE_DAY = "2026-05-01"
 NOW = datetime(2026, 4, 15, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`.
 REDACTED_AT = "2026-04-15T10:30:00+00:00"
@@ -100,14 +93,14 @@ OUTGOING_KONTAKTPERSON = {
     "email": "a.koerner@outgoing.example.de",
     "telefon": "+49 170 1234567",
     "geburtsdatum": "1984-05-09",
-    "einwilligung": bestaetigte_kenntnisnahme(),
+    "einwilligung": confirmed_kenntnisnahme(),
 }
 
 OUTGOING_KONTAKTE = {
     "trainer": dict(OUTGOING_KONTAKTPERSON),
     "ansprechperson": dict(OUTGOING_KONTAKTPERSON),
     "stellvertretung": dict(OUTGOING_KONTAKTPERSON),
-    "trainer_ist_zugleich": "ansprechperson",
+    "trainer_is_also": "ansprechperson",
 }
 
 OUTGOING_TRIKOT_FARBE = "bordeaux"
@@ -198,6 +191,7 @@ def gruppen_fixture(
     sonderereignis: str | None = None,
     tore: tuple[int | None, int | None] = (None, None),
     saison_id: str = SAISON_ID,
+    datum: str = FIRST_GROUP_FIXTURE_DAY,
 ) -> dict[str, Any]:
     """`datum`, `uhrzeit` and `spieltag_id` are the schedule a replacement leaves standing, so every fixture carries all three."""
 
@@ -206,7 +200,7 @@ def gruppen_fixture(
         saison_id=saison_id,
         spiel_nr=spiel_nr,
         spieltag_id=SPIELTAG_OID,
-        datum="2026-03-15",
+        datum=datum,
         uhrzeit="18:00:00",
         team1=side(home, tore[0]),
         team2=side(away, tore[1]),
@@ -251,19 +245,11 @@ def on_a_seeded_season(
     spiele: Sequence[dict[str, Any]] | None = None,
     saison_status: str = "active",
     junctions: Sequence[dict[str, Any]] | None = None,
-    constrained: bool = True,
 ) -> Any:
-    """`active` by default: a mid-season withdrawal is what this endpoint is for.
-
-    The SHIPPED validators too, `constrained=False` being the case whose subject is a row they forbid.
-    """
-
-    # `spiele` by hand where no validator is installed: a transaction cannot create a collection.
-    collections = () if constrained else (Collection.SPIELE,)
-    database_name = DATABASE_NAME if constrained else UNCONSTRAINED_DATABASE_NAME
+    """`active` by default: a mid-season withdrawal is what this endpoint is for."""
 
     async def _run() -> Any:
-        async with a_clean_database(url, database_name, constraints=constrained, collections=collections) as (client, database):
+        async with a_clean_database(url, DATABASE_NAME) as (client, database):
             # No case here turns on a season's rules; each season spans its own calendar year.
             await database[Collection.SAISONS].insert_many(
                 [saison_document(SAISON_ID, saison_status), saison_document(PRIOR_SAISON_ID, "past")]
@@ -299,7 +285,7 @@ async def call_replace(
         spiele_collection=database[Collection.SPIELE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         db=client,
         today=REPLACED_ON,
@@ -352,7 +338,7 @@ async def _squad_after(database: AsyncDatabase, client: AsyncMongoClient) -> Any
 async def _refused(database: AsyncDatabase, client: AsyncMongoClient, incoming: ObjectId = INCOMING) -> Any:
     """The code, plus the two surfaces a refusal has to have left alone."""
 
-    with pytest.raises(WriteRefusalException) as refusal:
+    with pytest.raises(APIError) as refusal:
         await call_replace(database, client, incoming_team_id=incoming)
 
     return refusal.value.error_code, await row_of(database, WITHDRAWN), await spiele_now(database)
@@ -379,7 +365,7 @@ class TestAllFourLayersMoveTogether:
         row = on_a_seeded_season(mongo_replica_set_url, _row_after)
 
         assert row is not None
-        assert (row["name"], row["shorthand"]) == ("Incoming", "IN")
+        assert (row["name"], row["shorthand"]) == ("Incoming", "INX")
 
     def test_every_side_the_club_held_moves_and_is_counted(self, mongo_replica_set_url: str):
         """Layer three, on both slots and past the group phase. Kills a single-pass rewrite, and a count assumed rather than returned."""
@@ -400,7 +386,7 @@ class TestAllFourLayersMoveTogether:
 
         spiele = on_a_seeded_season(mongo_replica_set_url, _spiele_after)
 
-        assert (spiele[1]["team1"]["name"], spiele[1]["team1"]["shorthand"]) == ("Incoming", "IN")
+        assert (spiele[1]["team1"]["name"], spiele[1]["team1"]["shorthand"]) == ("Incoming", "INX")
 
     def test_the_row_and_the_fixtures_spell_the_club_the_same_way(self, mongo_replica_set_url: str):
         """One read feeds both layers, so the two cannot part company."""
@@ -511,7 +497,7 @@ class TestTheOutgoingPeopleLeaveTheLog:
             )
             await call_replace(database, client)
 
-            return await database[Collection.AKTIONEN].find({"collection": str(Collection.SAISON_TEAMS)}).sort("_id", 1).to_list(length=None)
+            return await database[Collection.ACTION_LOG].find({"collection": str(Collection.SAISON_TEAMS)}).sort("_id", 1).to_list(length=None)
 
         rows = on_a_seeded_season(mongo_replica_set_url, body)
 
@@ -519,7 +505,7 @@ class TestTheOutgoingPeopleLeaveTheLog:
         for row in rows:
             image = row["before"]
             # The row was seeded before links existed, so its images hold no block for the redaction to add.
-            assert (image["kontakte"], "bestaetigungen" in image) == (None, False)
+            assert (image["kontakte"], "confirmations" in image) == (None, False)
             assert (image["austritt"], image["gruppe"], image["trikot_farbe"]) == (EXIT, "A", OUTGOING_TRIKOT_FARBE)
             assert row["redacted_at"] == REDACTED_AT
         assert OUTGOING_KONTAKTPERSON["email"] not in str(rows)
@@ -527,7 +513,7 @@ class TestTheOutgoingPeopleLeaveTheLog:
 
 
 class TestTheOutgoingClubsSquadIsRetired:
-    """The fifth surface, the one that does not move: `REQ-SQUAD-001` refuses a squad row whose club holds no junction row for the season."""
+    """The fifth surface, the one that does not move: `kader_team_not_in_saison` refuses a squad row whose club has no junction row there."""
 
     def test_the_live_rows_are_stamped_with_the_day_of_the_replacement(self, mongo_replica_set_url: str):
         """Kills leaving them standing: a season-and-team read of `GET /spieler` goes on serving the outgoing club's squad."""
@@ -569,7 +555,7 @@ class TestTheOutgoingClubsSquadIsRetired:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_replace(database, client)
-            return response.ausgetragene_squad_rows, await squad_now(database)
+            return response.ausgetragene_kader_rows, await squad_now(database)
 
         ausgetragen, squad = on_a_seeded_season(mongo_replica_set_url, body)
 
@@ -584,14 +570,8 @@ class TestTheOutgoingClubsSquadIsRetired:
                 await call_replace(database, client)
             return await squad_now(database)
 
-        # UNCONSTRAINED, alone in this file: `Z` is no group the shipped validator admits, and the
-        # defence under test is the endpoint's own guard against a stored one that got past it.
-        squad = on_a_seeded_season(
-            mongo_replica_set_url,
-            body,
-            junctions=[junction(WITHDRAWN, "Z", dict(EXIT)), junction(RIVAL, "A")],
-            constrained=False,
-        )
+        # `Z` is no group the model admits: the defence under test is the endpoint's own guard against a stored one.
+        squad = on_a_seeded_season(mongo_replica_set_url, body, junctions=[junction(WITHDRAWN, "Z", dict(EXIT)), junction(RIVAL, "A")])
 
         assert [squad[index]["inactive_since"] for index in (1, 2)] == [None, None]
 
@@ -634,7 +614,7 @@ class TestAPhantomRowIsRepaired:
         row = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _row_after(database, client, team_id=PHANTOM))
 
         assert row is not None
-        assert (row["gruppe"], row["name"], row["shorthand"]) == ("B", "Incoming", "IN")
+        assert (row["gruppe"], row["name"], row["shorthand"]) == ("B", "Incoming", "INX")
 
     def test_its_fixtures_move_with_it(self, mongo_replica_set_url: str):
         """Kills a fan-out composing the new side out of the OUTGOING club, which here has no document to read."""
@@ -665,71 +645,34 @@ class TestAPhantomRowIsRepaired:
         assert row is not None, "a gate refused the row this endpoint exists to repair"
 
 
-class TestAClubThatHasPlayedIsNotReplaced:
-    def test_a_played_fixture_refuses_it(self, mongo_replica_set_url: str):
-        """`REQ-REPLACE-002` through the route, with the whole write rolled back."""
+class TestAStartedSeasonIsNotReplaced:
+    def test_a_group_fixture_dated_on_the_replacement_day_refuses_it(self, mongo_replica_set_url: str):
+        """From the season's first fixture day a club leaves by its Austritt and is not replaced, with the whole write rolled back."""
 
         code, row, spiele = on_a_seeded_season(
             mongo_replica_set_url,
             _refused,
-            spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, ergebnis="2:1", tore=(2, 1)), gruppen_fixture(2, RIVAL, WITHDRAWN)],
+            spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, datum=REPLACED_ON), gruppen_fixture(2, RIVAL, WITHDRAWN)],
         )
 
-        assert code == REPLACE_OUTGOING_HAS_A_RECORD
+        assert code == Code.REPLACE_SAISON_STARTED
         assert row is not None, "the junction row was handed over anyway"
         assert spiele[2]["team2"] == side(WITHDRAWN), "the fan-out ran before the refusal, or outside the transaction"
-
-    def test_a_fixture_called_off_still_permits_it(self, mongo_replica_set_url: str):
-        """Kills trusting `REQ-SWAP-002`/`-004`'s summaries: `ausgefallen` is "called off" and leaves NO record to rewrite."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_replace(database, client)
-            return await row_of(database, INCOMING)
-
-        row = on_a_seeded_season(
-            mongo_replica_set_url,
-            body,
-            spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, sonderereignis="ausgefallen")],
-        )
-
-        assert row is not None
-
-    def test_a_goal_count_with_no_result_refuses_it(self, mongo_replica_set_url: str):
-        """The hand-edited shape. Kills a check reading `ergebnis` alone, which would hand another club somebody's goals."""
-
-        code, row, _ = on_a_seeded_season(
-            mongo_replica_set_url,
-            _refused,
-            spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, tore=(1, None))],
-        )
-
-        assert code == REPLACE_OUTGOING_HAS_A_RECORD
-        assert row is not None
-
-    def test_a_stored_shoot_out_refuses_it(self, mongo_replica_set_url: str):
-        """Through the route, so the endpoint's projection is proven to carry `elfmeterschiessen` to the predicate."""
-
-        decided = {**gruppen_fixture(1, WITHDRAWN, RIVAL), "elfmeterschiessen": {"team1": 5, "team2": 4}}
-
-        code, row, _ = on_a_seeded_season(mongo_replica_set_url, _refused, spiele=[decided])
-
-        assert code == REPLACE_OUTGOING_HAS_A_RECORD
-        assert row is not None
 
 
 class TestTheSeasonGateOnTheRoute:
     def test_a_finished_season_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
-        """`REQ-REPLACE-001` through the route: a past season's fixtures are the record of who played."""
+        """`saison_past` through the route: a past season's fixtures are the record of who played."""
 
         code, row, spiele = on_a_seeded_season(mongo_replica_set_url, _refused, saison_status="past")
 
-        assert code == REPLACE_SAISON_FINISHED
+        assert code == Code.SAISON_PAST
         assert row is not None
         assert spiele[1]["team1"] == side(WITHDRAWN)
 
     @pytest.mark.parametrize("saison_status", ["future", "active"])
-    def test_a_planned_or_started_season_permits_it(self, mongo_replica_set_url: str, saison_status: str):
-        """Kills borrowing the entry gate's `future`-only window (`REQ-ENTER-001`): a club withdraws from a season that has already started."""
+    def test_a_planned_or_activated_season_permits_it(self, mongo_replica_set_url: str, saison_status: str):
+        """Kills borrowing the entry gate's `future`-only window (`entry_saison_not_future`): an active season is open to its first fixture."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_replace(database, client)
@@ -740,19 +683,19 @@ class TestTheSeasonGateOnTheRoute:
 
 class TestWhoMayArrive:
     def test_a_club_already_in_the_season_is_refused(self, mongo_replica_set_url: str):
-        """`REQ-REPLACE-003`. Without it the write hits `uniq_saison_id_team_id` and answers a duplicate-key error instead."""
+        """`replace_incoming_already_entered`. Without it the write hits `uniq_saison_id_team_id` and answers a duplicate-key error instead."""
 
         code, row, _ = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=ENTERED))
 
-        assert code == REPLACE_INCOMING_ALREADY_ENTERED
+        assert code == Code.REPLACE_INCOMING_ALREADY_ENTERED
         assert row is not None
 
     def test_one_club_named_on_both_ends_is_refused_as_the_payload(self, mongo_replica_set_url: str):
-        """`REQ-REPLACE-004`, judged before any read, so the row and the fixtures are left alone."""
+        """`replace_one_team_on_both_ends`, judged before any read, so the row and the fixtures are left alone."""
 
         code, row, _ = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=WITHDRAWN))
 
-        assert code == REPLACE_ONE_CLUB_ON_BOTH_ENDS
+        assert code == Code.REPLACE_ONE_TEAM_ON_BOTH_ENDS
         assert row is not None
 
     def test_a_club_that_left_the_league_is_refused(self, mongo_replica_set_url: str):
@@ -760,13 +703,13 @@ class TestWhoMayArrive:
 
         code, _, _ = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=RETIRED))
 
-        assert code == CLUB_RETIRED
+        assert code == Code.TEAM_RETIRED
 
     def test_an_id_naming_no_club_is_a_404(self, mongo_replica_set_url: str):
         """Kills pointing the row at a club that is not there -- which is the phantom this endpoint exists to repair."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await call_replace(database, client, incoming_team_id=ABSENT)
             return await row_of(database, WITHDRAWN)
 
@@ -780,7 +723,7 @@ class TestWhatIsAddressed:
         """A replacement addresses a junction row, not a club: `RETIRED` holds a `teams` document and no row here."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await call_replace(database, client, team_id=RETIRED)
             return await spiele_now(database)
 
@@ -790,7 +733,7 @@ class TestWhatIsAddressed:
 
     def test_an_unknown_season_is_a_404(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await call_replace(database, client, saison_id="1999")
             return await row_of(database, WITHDRAWN)
 

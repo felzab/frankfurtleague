@@ -4,32 +4,30 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import { cache } from "react";
 import { headers } from "next/headers";
+import { connection } from "next/server";
 
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { passkey } from "@better-auth/passkey";
 import { betterAuth, getCurrentAdapter } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
 import { getSessionCookie, SECURE_COOKIE_PREFIX } from "better-auth/cookies";
-import { makeSignature } from "better-auth/crypto";
+import { makeSignature, symmetricEncrypt } from "better-auth/crypto";
 import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { MongoServerError } from "mongodb";
 
-import { mintRequestActor } from "./actorToken";
-import { ANMELDUNG_CODE, ANMELDUNG_TAG } from "./anmeldeTag";
-import { buildCodeEmail, CODE_VALIDITY_MINUTES } from "./authEmail";
+import { CODE_VALIDITY_MINUTES } from "./authEmail";
 import { MONGO_DB_NAME } from "./authIndexes";
 import { authSecret, frontend_config } from "./config";
 import { signInStore } from "./db";
 import { asSignInIdentifier } from "./emailAddress";
 import { BRAND_NAME } from "./emailShell";
 import { RolledBackError } from "./errors";
+import { outboxPostSignIn } from "./generated/client/sdk";
 import { KONTO_HREF } from "./kontoHref";
-import { buildLoeschungEmail, LOESCHUNG_LINK_GUELTIG_STUNDEN } from "./loeschungEmail";
+import { LOESCHUNG_LINK_GUELTIG_STUNDEN } from "./loeschungEmail";
 import { logger } from "./logging";
-import { sendMail } from "./mail";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "./passkeyCeremony";
-import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
 import { passkeyLastUse } from "./passkeyLastUse";
 import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
 import { getRequestActor, oncePerRequest, setRequestActor } from "./requestScope";
@@ -44,14 +42,14 @@ import {
 import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "./signInCode";
 import { lookUpAnmeldung, lookUpSubjekt, mayReceiveSignIn, signInVerdictOf } from "./signInGate";
 import { HOUR_MS } from "./timeUnits";
-import { versandAusfallOf } from "./versandAusfall";
+import { readTraceparent, TRACEPARENT_HEADER } from "./trace";
 import { madeSince, verwaltungOf } from "./verwaltung";
 
 import type { Passkey } from "@better-auth/passkey";
 import type { AuthContext, BetterAuthOptions, DBTransactionAdapter, GenericEndpointContext } from "better-auth";
 import type { MongoClient } from "mongodb";
-import type { PasskeyEmail } from "./passkeyEmail";
-import type { RequestActor } from "./requestScope";
+import type { FLOutboxSignInPayload, FLPasskeyDataArt } from "./generated/client/types";
+import type { ActorLane, RequestActor } from "./requestScope";
 import type { Lifetime } from "./sessionLifetimes";
 import type { AnmeldungRecords } from "./signInGate";
 import type { SubjectSession } from "./subject";
@@ -142,7 +140,7 @@ export const PASSKEY_FACTOR = "passkey";
 /** A code mailed to the address: whoever holds the mailbox holds this factor. */
 export const CODE_FACTOR = "code";
 
-type AuthFactor = typeof PASSKEY_FACTOR | typeof CODE_FACTOR;
+export type AuthFactor = typeof PASSKEY_FACTOR | typeof CODE_FACTOR;
 
 /** The session field naming, by `lineageOf`, the session a sign-in replaced. */
 const REPLACED_SESSION_FIELD = "replacedSession";
@@ -217,7 +215,6 @@ function asStepUpCaller(served: { user: { email: string }; session: object }, ve
 /** Logged where the grant was asked for, as the send gate's own failure is: the error's name alone. */
 function logUnreadVerwaltung(failed: unknown): void {
   logger.error("auth.verwaltung_unread", undefined, {
-    error_code: "FE-AUTH-010",
     name: failed instanceof Error ? failed.name : "unknown",
   });
 }
@@ -241,7 +238,7 @@ async function enrolmentAnmeldung(email: string): Promise<AnmeldungRecords> {
  * is one a ban's ending missed or a mint raced, and a passkey would outlive both.
  */
 function enrolmentGrant(anmeldung: AnmeldungRecords): boolean {
-  if (anmeldung.gesperrt) throw APIError.fromStatus("NOT_FOUND");
+  if (anmeldung.barred) throw APIError.fromStatus("NOT_FOUND");
   return anmeldung.verwaltung !== null;
 }
 
@@ -270,7 +267,7 @@ function carriedOrRefuse(ctx: object, userId: string): AnmeldungRecords {
 }
 
 /** The records where an unread read offers nothing: `null` where the backend could not say. */
-async function subjektOrNull(email: string): Promise<SubjectSession["subjekt"] | null> {
+async function subjektOrNull(email: string): Promise<SubjectSession["subject"] | null> {
   try {
     return await lookUpSubjekt(asSignInIdentifier(email));
   } catch (failed) {
@@ -480,7 +477,6 @@ async function endReplacedSession(
     // Logged and left: the new session is committed, and failing the sign-in now would strand it
     // without its cookie while the replaced one stayed alive anyway.
     logger.error("auth.session_rotation_failed", undefined, {
-      error_code: "FE-AUTH-006",
       name: failed instanceof Error ? failed.name : "unknown",
     });
   }
@@ -610,13 +606,20 @@ export async function forgiveCodeAttempt(body: object): Promise<void> {
   await unlessUnsettled(() => adapter.delete({ model: "verification", where: [{ field: "id", value: own }] }).then(() => undefined));
 }
 
+/**
+ * The edge's trace off the request a sign-in arrived on, whose access line holds the address it came from: a sign-in
+ * runs under no request scope of this application's, through the library's route or the code route's in-process call.
+ */
+function signInTrace(ctx: GenericEndpointContext): string | undefined {
+  return readTraceparent(new Headers(ctx.headers ?? ctx.request?.headers).get(TRACEPARENT_HEADER));
+}
+
 /** A count left standing expires on its own, so a bookkeeping failure never fails the sign-in it follows. */
 async function unlessUnsettled(settle: () => Promise<void>): Promise<void> {
   try {
     await settle();
   } catch (failed) {
     logger.warn("auth.code_attempt_unsettled", {
-      error_code: "FE-AUTH-009",
       name: failed instanceof Error ? failed.name : "unknown",
     });
   }
@@ -721,32 +724,43 @@ const DISABLED_PATHS: readonly string[] = [
 ];
 
 /**
- * A failed send leaves the change standing: a passkey row rolled back for an unreachable mailbox is
- * a lockout the reader never asked for.
+ * Owes one mail of the sign-in library through the Postausgang, which the write drains at once. A secret -- the code, the
+ * deletion token -- leaves sealed under this frontend's own secret by the library's own cipher
+ * (`better-auth/crypto :: symmetricEncrypt`), so no backend row holds it readable; the drain opens it
+ * (`fl_frontend/src/core/mail.ts :: sendHandedOut`). The backend tries the mail once: a failed send's repair is the
+ * library's own, a fresh code or link.
  */
-async function notify(message: PasskeyEmail, email: string): Promise<void> {
-  try {
-    await sendMail({ to: email, ...message });
-  } catch (failed) {
-    // Filed by a deployment that mails nothing, or kept from a barred address, each recorded by the
-    // mailer's own line.
-    const ausfall = versandAusfallOf(failed);
-    if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
+async function oweSignInMail(
+  an: string,
+  daten: FLOutboxSignInPayload["data"],
+  geheim?: { readonly wert: string; readonly gueltigMs: number },
+): Promise<void> {
+  await outboxPostSignIn({
+    an: an,
+    data: daten,
+    secret: geheim === undefined ? null : await symmetricEncrypt({ key: authSecret(), data: geheim.wert }),
+    valid_until: geheim === undefined ? null : new Date(Date.now() + geheim.gueltigMs).toISOString(),
+  });
+}
 
+/**
+ * A failed notice leaves the change standing: a passkey row rolled back for an unreachable backend is a lockout the
+ * reader never asked for. The account page is spelled on the serving origin by the drain, never `brand.ts :: SITE_URL`.
+ */
+async function notifyPasskey(art: FLPasskeyDataArt, email: string): Promise<void> {
+  try {
+    await oweSignInMail(email, { art: art, instant: new Date().toISOString(), account: KONTO_HREF });
+  } catch (failed) {
     // Name only, as the code's own send writes one: a failure here routinely carries the address.
     logger.error("auth.passkey_notice_failed", undefined, {
-      error_code: "FE-AUTH-004",
       name: failed instanceof Error ? failed.name : "unknown",
     });
   }
 }
 
-/**
- * Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens. Composed
- * on the serving origin, never `brand.ts :: SITE_URL`.
- */
+/** Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens. */
 export async function notifyPasskeyRemoved(email: string): Promise<void> {
-  await notify(buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(), origin: frontend_config.AUTH_URL, konto: KONTO_HREF }), email);
+  await notifyPasskey("passkey_erased", email);
 }
 
 // Matched on the OPENING of the library's own message, because each of these ends in the value it
@@ -806,31 +820,22 @@ const userOptions = {
     enabled: true,
     deleteTokenExpiresIn: LOESCHUNG_LINK_GUELTIG_STUNDEN * 60 * 60,
     sendDeleteAccountVerification: sendDeletionLink,
-    beforeDelete: eraseBeforeTheAccount,
+    beforeDelete: loeschenBeforeTheAccount,
   },
 } satisfies BetterAuthOptions["user"];
 
 /**
- * Mails the interstitial's link, spelled from the token: the library's own `url` deletes on a GET.
- * The library swallows a throw from here, logging it.
+ * Owes the interstitial's link, which the drain spells from the token: the library's own `url` deletes on a GET. The
+ * token is the library's verification token and completes the deletion, so it travels sealed, as the code does. The
+ * library swallows a throw from here, logging it.
  */
 async function sendDeletionLink({ user, token }: { user: { email: string }; token: string }): Promise<void> {
-  try {
-    // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`.
-    await sendMail({ to: user.email, ...buildLoeschungEmail({ origin: frontend_config.AUTH_URL, token: token }) });
-  } catch (failed) {
-    // Filed by a deployment that mails nothing, or kept from a barred address, each recorded by the
-    // mailer's own line.
-    const ausfall = versandAusfallOf(failed);
-    if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
-
-    throw failed;
-  }
+  await oweSignInMail(user.email, { art: "account_erasure" }, { wert: token, gueltigMs: LOESCHUNG_LINK_GUELTIG_STUNDEN * HOUR_MS });
 }
 
 /** Named, because the library's failure line records an error's name and nothing else. */
-class DeletionWithoutErasure extends Error {
-  override name = "DeletionWithoutErasure";
+class DeletionWithoutLoeschung extends Error {
+  override name = "DeletionWithoutLoeschung";
 }
 
 /** The library's answer to a link it completed (`better-auth/api :: deleteUser`), its one answer that deletes. */
@@ -844,22 +849,23 @@ class DeletionNotAnswered extends Error {
 // Our own dependency injection, never a compensation for the library: the hook takes no per-call
 // value, the backend's write lives in a slice's mutations module, and `core` imports no slice.
 /** The erasure of the league's records one press hands `deleteOwnAccount`, for the deletion that call makes. */
-const ownErasure = new AsyncLocalStorage<() => Promise<unknown>>();
+const ownLoeschung = new AsyncLocalStorage<() => Promise<unknown>>();
 
 /**
  * Runs after the library has checked the token against the signed-in user and before it deletes anything:
  * an account never goes while the league's records of its address stand.
  */
-async function eraseBeforeTheAccount(user: { id: string; email: string }): Promise<void> {
-  const erase = ownErasure.getStore();
+async function loeschenBeforeTheAccount(user: { id: string; email: string }): Promise<void> {
+  const loeschen = ownLoeschung.getStore();
   // The backend erases the request's person and the library deletes the session's user, so the two must
   // be one address; with no erasure handed in, no deletion goes ahead at all.
   const actor = getRequestActor();
-  if (erase === undefined || actor?.lane !== "person" || actor.email !== asSignInIdentifier(user.email)) throw new DeletionWithoutErasure();
+  if (loeschen === undefined || actor?.lane !== "person" || actor.email !== asSignInIdentifier(user.email))
+    throw new DeletionWithoutLoeschung();
 
   // Thrown on as it came, so the press reads the backend's refusal, or a write of unknown outcome, as every
   // person write does; the account and its passkeys stand for a fresh link.
-  await erase();
+  await loeschen();
 
   // Before the library deletes the user row: a failure past here leaves that row for the account sweep,
   // never passkeys whose account is gone.
@@ -985,6 +991,12 @@ const authOptions = (origin: URL, client: MongoClient) =>
             if (!ctx) return;
             await endReplacedSession(ctx, session);
             await unlessUnsettled(() => clearCodeFailures(ctx.context, session.userId));
+            // Every factor's sign-in passes here, and the line names the account by its id alone, never its address.
+            logger.info("auth.signed_in", {
+              user_id: session.userId,
+              factor: SESSION_FACTOR_BY_PATH.get(ctx.path),
+              trace_id: signInTrace(ctx),
+            });
           },
         },
         update: {
@@ -1022,17 +1034,17 @@ const authOptions = (origin: URL, client: MongoClient) =>
         const event = LIBRARY_EVENTS.find(([opening]) => message.startsWith(opening))?.[1] ?? LIBRARY_EVENT_UNKNOWN;
 
         // `args` is dropped whole: it carries the error object itself, which
-        // `fl_frontend/src/core/logFormat.ts :: serializeError` writes with its message and stack.
+        // `fl_frontend/src/core/logging.ts` writes with its message and stack.
         const raised = args.find((argument) => argument instanceof Error);
 
         // A second row for a credential the index holds: one authenticator enrolled twice at once without signing in, or
         // a credential another account holds. Set-ups of one authenticator at once conflict in a transaction retried to a 404.
         if (message.startsWith(REGISTRATION_FAILED) && isDuplicateCredential(raised)) {
-          logger.warn("auth.passkey_enrolment_conflict", { error_code: "FE-AUTH-005" });
+          logger.warn("auth.passkey_enrolment_conflict");
           return;
         }
 
-        logger.error(event, undefined, { error_code: "FE-AUTH-003", name: raised?.name ?? "unknown" });
+        logger.error(event, undefined, { name: raised?.name ?? "unknown" });
       },
     },
 
@@ -1064,7 +1076,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // The total read ahead of the plugin as well, so a full hour voids no held code; writing nothing
         // and naming nobody, it answers members and strangers alike. The counted row comes past the gate.
         if (recipient !== null && (await mailTotalReached(ctx.context))) {
-          logger.warn("auth.code_mail_total_capped", { error_code: "FE-AUTH-008" });
+          logger.warn("auth.code_mail_total_capped");
           return ctx.json({ success: true });
         }
 
@@ -1152,6 +1164,10 @@ const authOptions = (origin: URL, client: MongoClient) =>
         if (ctx.path === CODE_SIGN_IN_PATH && typeof ctx.body === "object" && ctx.body !== null) {
           const own = attemptRows.get(ctx.body);
           await unlessUnsettled(() => settleCodeAttempt(ctx.context, own, ctx.context.returned));
+          // The code refused, never a mint refusing past a right one, and by trace alone: the address stays off the line.
+          if (isAPIError(ctx.context.returned) && !refusedAtMint(ctx.context.returned)) {
+            logger.info("auth.code_refused", { trace_id: signInTrace(ctx) });
+          }
         }
 
         const offered: unknown = ctx.context.returned;
@@ -1168,12 +1184,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // would name an enrolment a later refusal never made.
         if (ctx.path === PASSKEY_REGISTRATION_PATH) {
           const enrolled = await getSessionFromCtx(ctx);
-          if (enrolled !== null) {
-            await notify(
-              buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date(), origin: frontend_config.AUTH_URL, konto: KONTO_HREF }),
-              enrolled.user.email,
-            );
-          }
+          if (enrolled !== null) await notifyPasskey("passkey_hinzugefuegt", enrolled.user.email);
         }
 
         // The browser client reads nothing off either body but whether it is there
@@ -1215,29 +1226,18 @@ const authOptions = (origin: URL, client: MongoClient) =>
             ctx === undefined ||
             (await withinBound(ctx.context, MAIL_TOTAL_IDENTIFIER, CODE_MAIL_TOTAL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS)) === null
           ) {
-            logger.warn("auth.code_mail_total_capped", { error_code: "FE-AUTH-008" });
+            logger.warn("auth.code_mail_total_capped");
             return;
           }
 
-          // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is
-          // not production must not mail production links.
-          const message = buildCodeEmail(otp, frontend_config.AUTH_URL);
-
+          // Awaited: the one caller a stranger reaches, `fl_frontend/src/features/auth/actions.ts :: handleSignIn`,
+          // runs this whole send behind its response, and the library's own send route is closed (`DISABLED_PATHS`).
           try {
-            // Tagged so the delivery webhook can tell this lane from the application flow's and put
-            // a bounce on the stream: a mailbox refusing the code locks out whoever holds no passkey,
-            // and an untagged event reaches no reader at all.
-            await sendMail({ to: email, ...message, tags: { [ANMELDUNG_TAG]: ANMELDUNG_CODE } });
+            await oweSignInMail(email, { art: "sign_in_code" }, { wert: otp, gueltigMs: CODE_VALIDITY_SECONDS * 1000 });
           } catch (failed) {
-            // Filed by a deployment that mails nothing, or kept from an address barred since the gate
-            // above read it, each recorded by the mailer's own line.
-            const ausfall = versandAusfallOf(failed);
-            if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
-
             // Name only: a failure on this path routinely carries the submitted address, and
-            // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and stack in full.
+            // `fl_frontend/src/core/logging.ts` writes its message and stack, an address alone scrubbed.
             logger.error("auth.code_send_failed", undefined, {
-              error_code: "FE-AUTH-002",
               name: failed instanceof Error ? failed.name : "unknown",
             });
           }
@@ -1479,7 +1479,7 @@ export const getKontoSession = cache(async (): Promise<JudgedSession | null> => 
   const subjekt = await lookUpSubjekt(asSignInIdentifier(served.user.email));
 
   // On every request, as the person guard's: a session its ban's ending missed is no session here.
-  if (subjekt.gesperrt) return null;
+  if (subjekt.barred) return null;
 
   const judged = { ...served, verwaltung: subjekt.verwaltung !== null };
   if (judged.verwaltung) return isAdminSession(served, subjekt) ? judged : null;
@@ -1524,7 +1524,7 @@ async function readLibrarySession(requestHeaders: Headers, slide: boolean): Prom
     return read === null ? null : projected(read);
   } catch (failed) {
     // The library's word for a row ended between its read and its refresh, which is no session at all;
-    // every other throw is the store's, worded `INTERNAL_SERVER_ERROR` and logged as `FE-AUTH-003`.
+    // every other throw is the store's, worded `INTERNAL_SERVER_ERROR` and logged through the library's `logger` above.
     if (isAPIError(failed) && failed.status === "UNAUTHORIZED") return null;
     throw failed;
   }
@@ -1541,7 +1541,12 @@ export async function readServedSession(requestHeaders: Headers): Promise<Served
 // React's `cache`, never `"use cache"`, which would hand one request's session to another: the
 // account page's guard, the person guard and the administrator's guard of one render share one read.
 /** The session this request's cookie names, as every guard serves it. */
-export const readRequestSession = cache(async (): Promise<ServedSession | null> => readServedSession(await headers()));
+export const readRequestSession = cache(async (): Promise<ServedSession | null> => {
+  // A render's one wait for a real request, before the sign-in store: the image's build reaches no store, and a
+  // prefetched shell must carry nothing a session decides.
+  await connection();
+  return readServedSession(await headers());
+});
 
 /**
  * The session the code route's second tab counts as signed in: every guard's read, and none where the
@@ -1641,7 +1646,7 @@ function passesButForItsGrant(served: ServedSession): boolean {
  * Whether this served session may act as an administrator — its address holding a grant it was made
  * since, inside both of the administrator's figures, and made by the passkey rather than by a mailed code alone.
  */
-export function isAdminSession(served: ServedSession, { verwaltung, berechtigt_seit }: Verwaltung): boolean {
+export function isAdminSession(served: ServedSession, { verwaltung, granted_since: berechtigt_seit }: Verwaltung): boolean {
   // A passkey enrolled before the grant still admits, on a sign-in after it: the grant is the privilege,
   // and a passkey the factor it asks, enrolled on the mailbox's own authority (`docs/ops/runbooks.md` §3).
   return verwaltung !== null && madeSince(served.session.createdAt, berechtigt_seit) && passesButForItsGrant(served);
@@ -1652,6 +1657,25 @@ export function isAdminSession(served: ServedSession, { verwaltung, berechtigt_s
  * caller for `noGrant`, nor for `grantGone`, a session passing but for its grant; the backend for `unread`.
  */
 export type AdminRefusal = "signIn" | "noGrant" | "grantGone" | "unread";
+
+/**
+ * The actor a guard records for this request, as the backend reads it beside the admin key. `null`
+ * where the session cannot be stated truthfully: no address to fold, an unreadable creation stamp, or
+ * a factor this league does not mint; the guard then answers no session.
+ */
+export function requestActorOf(
+  served: { readonly user: { readonly email: string }; readonly session: { readonly createdAt: Date | string; readonly authFactor?: unknown } },
+  lane: ActorLane,
+): RequestActor | null {
+  const email = asSignInIdentifier(served.user.email);
+  const authTime = Math.floor(new Date(served.session.createdAt).getTime() / 1000);
+  const factor = served.session.authFactor;
+
+  if (email === "" || !Number.isFinite(authTime)) return null;
+  if (factor !== PASSKEY_FACTOR && factor !== CODE_FACTOR) return null;
+
+  return { email: email, lane: lane, authTime: authTime, factor: factor };
+}
 
 // React's `cache` within a render and `oncePerRequest` within an action, never `"use cache"`, which
 // would hand one request's session to another: the backend still judges every call's actor.
@@ -1667,8 +1691,8 @@ const readAdminRequest = cache(
     // A session made before its grant among them, which a sign-in after the grant repairs.
     if (!isAdminSession(served, verwaltung)) return { refused: "signIn" };
 
-    // A session no token can state truthfully is repaired by signing in afresh.
-    const actor = await mintRequestActor(served, "admin");
+    // A session no actor can state truthfully is repaired by signing in afresh.
+    const actor = requestActorOf(served, "admin");
     if (actor === null) return { refused: "signIn" };
 
     return { session: { ...served, verwaltung: true }, actor: actor };
@@ -1723,6 +1747,8 @@ type Landing = { readonly destination: SignInDestination; readonly served: Serve
  * again is ended, whatever missed ending it before.
  */
 async function landingOf(requestHeaders: Headers): Promise<Landing> {
+  // `readRequestSession`'s wait, for the sign-in pages' read past it.
+  await connection();
   const read = await readLibrarySession(requestHeaders, false);
   if (read === null) return { destination: "/signin", served: null };
 
@@ -1738,7 +1764,7 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
 
   // The ban itself, never read through the grant: every guard behind `/bereich` refuses a barred session,
   // and one left standing serves again on the ban's lift with no sign-in.
-  if (subjekt.gesperrt) return ended(read);
+  if (subjekt.barred) return ended(read);
 
   return { destination: await destinationOf(served, subjekt), served: served };
 }
@@ -1804,7 +1830,7 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
   // An unread read offers no card, for the landing's reason; a barred subject none either, its
   // enrolment being refused.
   const subjekt = await subjektOrNull(served.user.email);
-  if (subjekt === null || subjekt.gesperrt) return null;
+  if (subjekt === null || subjekt.barred) return null;
 
   const step = await passkeyStepOf(served, subjekt.verwaltung !== null);
   if (step === null) return null;
@@ -1849,7 +1875,6 @@ async function deleteEndedSessions(adapter: Pick<DBTransactionAdapter, "deleteMa
   } catch (failed) {
     // Logged and left: the rows stand served by no lane, and the landing deletes each its browser brings back.
     logger.error("auth.ended_sessions_not_deleted", undefined, {
-      error_code: "FE-AUTH-006",
       name: failed instanceof Error ? failed.name : "unknown",
     });
   }
@@ -1942,19 +1967,19 @@ export const requestAccountDeletion = (requestHeaders: Headers) => auth.api.dele
 export type OwnAccountDeletion = "deleted" | "linkRefused";
 
 /**
- * Completes a mailed deletion link for the session `requestHeaders` names, `eraseRecords` erasing that
+ * Completes a mailed deletion link for the session `requestHeaders` names, `loeschenRecords` erasing that
  * person's league records first; a throw of the erasure, or of the store past it, comes back as thrown.
  */
 export async function deleteOwnAccount(
   token: string,
   requestHeaders: Headers,
-  eraseRecords: () => Promise<unknown>,
+  loeschenRecords: () => Promise<unknown>,
 ): Promise<OwnAccountDeletion> {
   // The library reads an empty token as a request for a new link, which it would mint and mail: no link at all.
   if (token === "") return "linkRefused";
 
   try {
-    const answer = await ownErasure.run(eraseRecords, () => auth.api.deleteUser({ body: { token: token }, headers: requestHeaders }));
+    const answer = await ownLoeschung.run(loeschenRecords, () => auth.api.deleteUser({ body: { token: token }, headers: requestHeaders }));
     // The library's own word for a deletion, never the absence of a throw. Its one other answer, a link's, comes
     // only for an empty token, which the guard above refuses first: no case reaches this check alone.
     if (answer.message !== ACCOUNT_DELETED) throw new DeletionNotAnswered();

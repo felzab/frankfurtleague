@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { frontend_config } from "@/core/config";
 import { getLaufendeFassung } from "@/core/einwilligung";
@@ -18,9 +17,6 @@ import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
 export async function generateMetadata(props: NextPageProps<{ saison_id: string }>): Promise<Metadata> {
-  // `generateMetadata` is not part of the App Shell, so it awaits at the top level.
-  await connection();
-
   // Answered here and thrown in the body: a `notFound()` in this function leaves the page the layout's
   // title, while the body's throw renders the same panel. The status is 200 either way.
   const saison_id = await parseSaisonIdParam(props.params);
@@ -40,7 +36,7 @@ export async function generateMetadata(props: NextPageProps<{ saison_id: string 
     alternates: { canonical: `/bewerbung/${saison_id}` },
     // A season with no deadline recorded, or a window this read could not reach, is one sentence rather
     // than content: an indexed copy outlives the day the window is there to show.
-    ...(antwort === undefined || antwort.fenster === null ? { robots: { index: false } } : {}),
+    ...(antwort === undefined || antwort.window === null ? { robots: { index: false } } : {}),
   };
 }
 
@@ -57,7 +53,6 @@ export default function BewerbungPage(props: NextPageProps<{ saison_id: string }
 }
 
 async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
-  await connection();
   const saison_id = await resolveSaisonIdParam(props.params);
 
   // The window and whether the season has ended, never the season: the backend withholds a `future` season
@@ -70,13 +65,13 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
     getBewerbungFenster(saison_id).catch((error: unknown) => nullUnlessContractBreak(error) ?? undefined),
   );
   if (antwort === null) notFound();
-  const fenster = antwort === undefined ? { isUnlesbar: true, fenster: null } : { isUnlesbar: false, fenster: antwort.fenster };
+  const fenster = antwort === undefined ? { isUnlesbar: true, fenster: null } : { isUnlesbar: false, fenster: antwort.window };
 
   // A closed page shows no picker, and the club list is a read of the league's roster nothing on
   // such a page asked for. A failure degrades to the new-school arm rather than taking the whole
   // form down with it.
   const schulen =
-    fenster.fenster?.laeuft === true
+    fenster.fenster?.running === true
       ? await runWithIncomingTrace(() =>
           getBewerbungSchulen().then(
             (antwort) => ({ isSchulenLesbar: true, schulen: antwort.schulen }),
@@ -88,10 +83,10 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
   // Degraded to the EMPTY set: a failed read means nothing is KNOWN to be taken, offering the whole
   // palette.
   const vergeben =
-    fenster.fenster?.laeuft === true
+    fenster.fenster?.running === true
       ? await runWithIncomingTrace(() =>
           getBewerbungTrikotfarben(saison_id).then(
-            (antwort) => antwort.vergeben,
+            (antwort) => antwort.taken,
             (error: unknown) => nullUnlessContractBreak(error) ?? [],
           ),
         )
@@ -100,10 +95,10 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
   // Per request and only for a running window: a deploy moves the label the submission is judged
   // against. A failed read is the page's own state rather than a form stamping nothing.
   const fassung =
-    fenster.fenster?.laeuft === true
+    fenster.fenster?.running === true
       ? await runWithIncomingTrace(() =>
           getLaufendeFassung("bewerbung").then(
-            (gelesen) => ({ textVersion: gelesen.text_version, absaetze: gelesen.absaetze, schalter: gelesen.schalter }),
+            (gelesen) => ({ textVersion: gelesen.text_version, absaetze: gelesen.absaetze, schalter: gelesen.switch }),
             nullUnlessContractBreak,
           ),
         )
@@ -115,12 +110,12 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
       fassung={fassung}
       fenster={fenster.fenster}
       isUnlesbar={fenster.isUnlesbar}
-      // Legal here: the connection() above already made the scope dynamic.
+      // Legal here: the reads above already made the scope dynamic.
       today={getGermanTodayStr()}
       schulen={schulen.schulen}
       isSchulenLesbar={schulen.isSchulenLesbar}
       vergebeneFarben={vergeben}
-      // Off the request's settings, past `connection()`: a prerendered shell would carry the build's, which is none.
+      // Off the request's settings, past the reads above: a prerendered shell would carry the build's, which is none.
       siteKey={frontend_config.TURNSTILE_SITE_KEY}
     />
   );

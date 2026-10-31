@@ -1,352 +1,342 @@
 import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "./brand";
-import { IMPRESSUM_TITEL } from "./seitenNamen";
+import { COPY } from "./copy";
+import { SERVER_COPY } from "./serverCopy";
 
-/** The league's name as every message spells it, in one place so no two messages can spell it apart. */
-export const BRAND_NAME = "Frankfurt League";
+/** The league's name as every message spells it. */
+export const BRAND_NAME: string = COPY.marke.name;
 
 /**
- * `fl_frontend/src/app/schemes/2027.css`'s light theme, hardcoded because email has no CSS variables.
- * Light first: a client ignoring the dark query inverts dark grounds too, so a dark-first message
- * would come out light with dark-palette text.
+ * What a mail is, which decides its sender, its „Nicht du?“ line and its Art. 21 line, so no caller can
+ * pair them apart: a sign-in code, a change to what signs in, the first word to an address somebody
+ * else typed, or anything else.
  */
-export const BRAND_COLOR = "#216c2d";
-/** `--accent-brand-solid`, the fill under a button label. It does not flip, so no dark rule may reach it. */
+type MailArt = "anmeldung" | "sicherheit" | "erstkontakt" | "mitteilung";
+
+/** The two sending addresses (`fl_frontend/src/core/mail.ts :: SENDER_ADDRESSES`). */
+export type MailSender = "anmeldung" | "liga";
+
+const SENDER: Readonly<Record<MailArt, MailSender>> = {
+  anmeldung: "anmeldung",
+  sicherheit: "anmeldung",
+  erstkontakt: "liga",
+  mitteilung: "liga",
+};
+
+/**
+ * One run of a sentence. Every run is folded to one line and escaped by the shell alone, so a value typed
+ * outside the league reaches neither version as markup or as a line of its own.
+ */
+export type Run = string | { readonly strong: string } | { readonly adresse: string } | { readonly url: string };
+
+/** One sentence, a plain string or its runs. */
+export type Sentence = string | readonly Run[];
+
+/** One paragraph, its sentences in order. The first sentence of the first paragraph is the mail's hidden preview. */
+export type Paragraph = readonly [Sentence, ...Sentence[]];
+
+/** One row of the facts block. A value keeps its line breaks: a stated reason is a paragraph. */
+export interface Fact {
+  readonly label: string;
+  readonly value: string;
+}
+
+/** The one button, its link printed below it. */
+interface Button {
+  readonly label: string;
+  readonly href: string;
+}
+
+/** One mail as its template states it: data only, which `renderMail` turns into both versions. */
+export interface Mail {
+  readonly art: MailArt;
+  /** The subject, topic first, which the heading repeats. */
+  readonly subjectLine: string;
+  /** Already through `mailOrigin`: the footer's links and the logo stand on it. */
+  readonly origin: string;
+  /** `""` where the first name is unknown, and the greeting then names nobody. */
+  readonly vorname: string;
+  readonly paragraphs: readonly [Paragraph, ...Paragraph[]];
+  /**
+   * The one facts block: a column of rows under the title naming them, the sign-in code, or a link a reader passes
+   * on, standing alone in its box.
+   */
+  readonly block?: { readonly title: string; readonly facts: readonly Fact[] } | { readonly code: string } | { readonly link: string };
+  readonly afterBlock?: readonly Paragraph[];
+  readonly button?: Button;
+}
+
+/** What a mail is handed to the mailer as. */
+export interface RenderedMail {
+  readonly subject: string;
+  readonly html: string;
+  readonly text: string;
+  readonly sender: MailSender;
+}
+
+// The 2027 scheme's light palette: one light design, in colours that still read where a mail app darkens it.
+const BRAND_COLOR = "#216c2d";
 const BRAND_SOLID_COLOR = "#033f11";
-export const SURFACE_COLOR = "#f5f5f5";
+const SURFACE_COLOR = "#f5f5f5";
 const CARD_COLOR = "#ffffff";
-export const TEXT_COLOR = "#525252";
-export const HEADING_COLOR = "#0a0a0a";
-export const RULE_COLOR = "#d4d4d4";
-/**
- * `--fg-on-brand`, the label on a brand fill. Equal to `CARD_COLOR` in this theme and NOT the same
- * token: the fill it sits on does not flip, so this must not follow the card into the dark palette.
- */
+const TEXT_COLOR = "#525252";
+const MUTED_COLOR = "#737373";
+const HEADING_COLOR = "#0a0a0a";
+const RULE_COLOR = "#d4d4d4";
 const ON_BRAND_COLOR = "#ffffff";
 
-/**
- * `fl_frontend/src/app/schemes/2027.css`'s `[data-theme="dark"]` block, token for token.
- */
-const DARK_SURFACE_COLOR = "#121212";
-const DARK_CARD_COLOR = "#030303";
-const DARK_TEXT_COLOR = "#a3a3a3";
-const DARK_HEADING_COLOR = "#ffffff";
-const DARK_RULE_COLOR = "#333333";
-/** `--accent-brand`, lightened for a dark ground. The button fill is `BRAND_SOLID_COLOR`, which does not flip. */
-const DARK_BRAND_COLOR = "#8dbf6c";
-
-/**
- * Hooks for the one stylesheet. An inline style outranks a rule, so every dark declaration carries
- * `!important` and every element it must reach carries one of these.
- */
-const PAGE_MAIL_CLASS = "fl-page";
-const CARD_MAIL_CLASS = "fl-card";
-export const PANEL_MAIL_CLASS = "fl-panel";
-export const TEXT_MAIL_CLASS = "fl-text";
-export const HEAD_MAIL_CLASS = "fl-head";
-export const BRAND_MAIL_CLASS = "fl-brand";
-export const RULE_MAIL_CLASS = "fl-rule";
-export const GHOST_MAIL_CLASS = "fl-ghost";
-
 const FONT_STACK = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
-const BODY_TEXT = `font-size:15px;line-height:1.6;color:${TEXT_COLOR};`;
-/** The aside grade the note above the controls is set in: still body copy, one step quieter. */
-export const ASIDE_TEXT = `font-size:13px;line-height:1.6;color:${TEXT_COLOR};`;
+const BODY_TEXT = `font-size:16px;line-height:24px;color:${TEXT_COLOR};`;
+const SMALL_TEXT = `font-size:14px;line-height:20px;color:${TEXT_COLOR};`;
+const FOOTER_TEXT = `font-size:12px;line-height:16px;color:${TEXT_COLOR};`;
+const MUTED_TEXT = `font-size:12px;line-height:16px;color:${MUTED_COLOR};`;
+
+/** "Takt 24": every gap of the shell, in pixels. */
+const GAP = {
+  card: 32,
+  cardPhone: 24,
+  band: 20,
+  headText: 16,
+  paragraph: 12,
+  block: 24,
+  factsTitle: 8,
+  factsInner: 16,
+  beforeLine: 32,
+  afterLine: 16,
+  footer: 4,
+} as const;
+
 /**
- * The value grade with its colour left open. Same size and line-height as the value beside it: two
- * grades in one row put their first baselines ~2px apart, which is what reads as a broken column.
+ * The card's width, stated twice because Outlook on Windows honours neither `max-width` nor a
+ * `<div>`'s padding: without the conditional table, the card reaches full width.
  */
-export const LABEL_TEXT = "font-size:15px;line-height:1.6;";
-const FOOTER_TEXT = `font-size:12px;line-height:1.6;color:${TEXT_COLOR};`;
-/** The small capitals over the heading, and over any panel a message titles: one grade for every label set above content. */
-export const EYEBROW_TEXT = `${FOOTER_TEXT}letter-spacing:1px;text-transform:uppercase;font-weight:700;`;
+const CARD_WIDTH = 480;
+
+/**
+ * The site's header band in one picture, `kit/Brand.tsx`'s mark and wordmark drawn at four times this size: the
+ * wordmark's face reaches no mail client as a font. Both sizes as attributes, which Outlook on Windows reads where
+ * it ignores the CSS, so the picture never shows at its file's width.
+ */
+const LOGO = { path: "/mail/logo.png", width: 181, height: 32 } as const;
 
 /**
  * Zeroed on every layout table: a screen reader announcing chrome as a data table is unusable, and
  * Outlook honours these attributes where it ignores the equivalent declarations.
  */
-export const TABLE_ATTRS = `role="presentation" cellpadding="0" cellspacing="0" border="0"`;
+const TABLE_ATTRS = `role="presentation" cellpadding="0" cellspacing="0" border="0"`;
 
 /**
- * The card's width, stated twice because Outlook on Windows honours neither `max-width` nor a
- * `<div>`'s padding: without the conditional table below, the card reaches a school full width.
+ * The phone's padding and the full-width button, the one thing inline styles cannot state. Built from
+ * constants alone: `escapeHtml` guards an HTML context, and a stylesheet is not one.
  */
-const CARD_WIDTH = 480;
-
-/**
- * `fl_frontend/src/shared/components/ui/formButtons.ts :: ctaButton` in email-safe terms: `min-h-12`,
- * `px-6`, `rounded-xl`, `font-bold` and `shadow-md` as fixed pixels, because no `<td>` honours a
- * utility class and Word computes no shorthand.
- */
-const BUTTON_HEIGHT = 48;
-/** `fluid-sm` clamps between 14 and 16px on viewport width, which a fixed-width card in an unknown window cannot express. */
-const BUTTON_FONT = 15;
-const BUTTON_LINE = 18;
-const BUTTON_PAD_X = 24;
-const BUTTON_RADIUS = 12;
-const BUTTON_GAP = 12;
-const BUTTON_SHADOW = "0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -2px rgba(0,0,0,0.1)";
-/**
- * `display:inline-block` is what makes the padded area clickable rather than the label alone. The
- * fill sits on the cell instead, because Outlook drops horizontal padding on an `<a>`.
- */
-const BUTTON_TEXT = `display:inline-block;font-family:${FONT_STACK};font-size:${BUTTON_FONT}px;line-height:${BUTTON_LINE}px;font-weight:700;text-decoration:none;`;
-
-/** The outline control's 1px border is part of the same 48px box, so its own padding gives that pixel back. */
-function buttonPadding(umrandet: boolean): string {
-  const rand = umrandet ? 1 : 0;
-
-  return `${(BUTTON_HEIGHT - BUTTON_LINE) / 2 - rand}px ${BUTTON_PAD_X - rand}px`;
-}
-
-/**
- * The only rules not stated inline, and the only place a caller's value must never reach:
- * `escapeHtml` guards an HTML context and a stylesheet is not one. Built from constants alone, which
- * the test pins by rendering it identical for every input.
- */
-const DARK_STYLE = `<style>
-      @media (prefers-color-scheme: dark) {
-        .${PAGE_MAIL_CLASS} { background-color: ${DARK_SURFACE_COLOR} !important; }
-        .${CARD_MAIL_CLASS} { background-color: ${DARK_CARD_COLOR} !important; }
-        .${PANEL_MAIL_CLASS} { background-color: ${DARK_SURFACE_COLOR} !important; border-color: ${DARK_RULE_COLOR} !important; }
-        .${TEXT_MAIL_CLASS} { color: ${DARK_TEXT_COLOR} !important; }
-        .${HEAD_MAIL_CLASS} { color: ${DARK_HEADING_COLOR} !important; }
-        .${BRAND_MAIL_CLASS} { color: ${DARK_BRAND_COLOR} !important; }
-        .${RULE_MAIL_CLASS} { border-top-color: ${DARK_RULE_COLOR} !important; }
-        .${GHOST_MAIL_CLASS} { border-color: ${DARK_RULE_COLOR} !important; }
-      }
+const PHONE_STYLE = `<style>
       @media (max-width: ${CARD_WIDTH}px) {
-        .fl-actions, .fl-actions tbody, .fl-actions tr, .fl-action, .fl-gap {
-          display: block !important;
-          width: 100% !important;
-        }
+        .fl-pad { padding: ${GAP.cardPhone}px !important; }
+        .fl-button, .fl-button td { width: 100% !important; }
+        .fl-button a { display: block !important; }
       }
     </style>`;
 
-/**
- * The HTML branch's only interpolation guard, and the app's only one. No value is trusted -- a team
- * name may be typed outside the league, a decline reason is an administrator's free text -- and each
- * lands inside markup no framework is watching.
- */
-export function escapeHtml(value: string): string {
+/** The one interpolation guard: no value is trusted, and each lands inside markup no framework is watching. */
+function escapeHtml(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
 
-/** Escaped first, so the break markup this adds is the only markup in the value. A `TextArea` submits either newline. */
-export function escapeHtmlLines(value: string): string {
-  return escapeHtml(value).replace(/\r\n?|\n/g, "<br />");
-}
-
-/** A body paragraph. `margin` and `grade` are the caller's: the last one before the controls closes quieter. */
-export function paragraph(inner: string, margin = "0 0 16px", grade = BODY_TEXT): string {
-  return `<p class="${TEXT_MAIL_CLASS}" style="margin:${margin};${grade}">${inner}</p>`;
-}
-
-/** The emphasis grade for the one fact a paragraph exists to carry. */
-export function strong(inner: string): string {
-  return `<strong class="${HEAD_MAIL_CLASS}" style="color:${HEADING_COLOR};">${inner}</strong>`;
-}
-
-/** Underlined as well as coloured, because colour alone is not a link to a reader who cannot see it. */
-export function link(href: string, label: string): string {
-  return `<a href="${escapeHtml(href)}" class="${BRAND_MAIL_CLASS}" style="color:${BRAND_COLOR};text-decoration:underline;">${escapeHtml(label)}</a>`;
-}
-
-/** The brand colour on the phrase a message turns on, wherever it stands. */
-export function brandPhrase(inner: string): string {
-  return `<strong class="${BRAND_MAIL_CLASS}" style="color:${BRAND_COLOR};">${inner}</strong>`;
-}
-
-/**
- * One line, whatever was typed. The text branch is line-oriented and `escapeHtml` guards the other
- * one, so a break here is the text half's injection: a value carrying one would render a line the
- * reader cannot tell from the facts around it.
- */
-export function einzeilig(value: string): string {
+/** One line, whatever was typed: a value carrying a break would render a line the reader cannot tell from the mail's own. */
+function singleLine(value: string): string {
   return value.replace(/[\r\n]+/g, " ");
 }
 
-/** One situation reads as one sentence to the person meeting it, in whichever message they meet it. */
-export const FALLBACK_SATZ = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
-
-/** One address a reader can copy. `label` is empty where the message carries a single one and there is nothing to tell apart. */
-export type Fallback = { readonly label: string; readonly url: string };
-
-/** The route for a reader whose client drew no button: the sentence, then each address marked as a link, since one a reader has to select and paste is not a route. */
-export function fallbackBloecke(adressen: readonly Fallback[], satz: string): string[] {
-  const adresse = ({ label, url }: Fallback, index: number): string => {
-    // Breaking inside a word: a token URL is longer than the card is wide and would otherwise push the card open.
-    const stil = `${ASIDE_TEXT}word-break:break-all;`;
-
-    return paragraph(
-      `${label === "" ? "" : `${escapeHtml(label)}: `}${link(url, url)}`,
-      index === adressen.length - 1 ? "0 0 16px" : "0 0 8px",
-      stil,
-    );
-  };
-
-  return [paragraph(satz, "0 0 8px", ASIDE_TEXT), ...adressen.map(adresse)];
-}
-
 /**
- * The Art. 21 DSGVO objection, in the one wording every first-contact message states. Art. 21(4) asks
- * it apart from all other information, so each message sets it as its own paragraph and line group.
- */
-export function art21Satz(adresse: string, { mehrere = false, zweck }: { mehrere?: boolean; zweck?: "für den Spielbetrieb" } = {}): string {
-  const angaben = zweck === undefined ? "Angaben" : `Angaben ${zweck}`;
-
-  return mehrere
-    ? `Der Verarbeitung Eurer ${angaben} kann jede und jeder von Euch jederzeit aus Gründen widersprechen, die sich aus der eigenen besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ${adresse} genügt.`
-    : `Der Verarbeitung Deiner ${angaben} kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ${adresse} genügt.`;
-}
-
-/** The league's address, which every close states whoever reads the replies. */
-export const ADRESS_SATZ_TEXT = `Unsere Adresse ist ${KONTAKT_EMAIL}.`;
-export const ADRESS_SATZ_HTML = `Unsere Adresse ist ${link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)}.`;
-/** Every message leaves from the no-reply address (`fl_frontend/src/core/mail.ts :: MAIL_FROM`), so every close without a reply address says so. */
-const NIEMAND_SATZ = "Antworten an die Absenderadresse liest niemand.";
-export const ANTWORT_SATZ_TEXT = `${NIEMAND_SATZ} ${ADRESS_SATZ_TEXT}`;
-export const ANTWORT_SATZ_HTML = `${NIEMAND_SATZ} ${ADRESS_SATZ_HTML}`;
-
-/**
- * The serving origin, refused rather than defaulted:
- * `SKIP_ENV_VALIDATION` lets a build past `config.ts`'s gate, and a message composed there would
- * carry a bare path.
+ * The serving origin, refused rather than defaulted: `SKIP_ENV_VALIDATION` lets a build past
+ * `config.ts`'s gate, and a message composed there would carry a bare path.
  */
 export function mailOrigin(raw: string): string {
   try {
-    // Through `URL` rather than used as typed: a configured trailing slash or path would otherwise
-    // reach every href in the close.
+    // Through `URL` rather than used as typed: a configured trailing slash or path would otherwise reach every href.
     return new URL(raw).origin;
   } catch {
     throw new Error("a message's links need an absolute origin, and the one handed to the shell is not a URL");
   }
 }
 
-/** Both legal pages, in the order every close names them. */
-function rechtsSeiten(origin: string): readonly { readonly label: string; readonly href: string }[] {
+function runs(sentence: Sentence): readonly Run[] {
+  return typeof sentence === "string" ? [sentence] : sentence;
+}
+
+function runText(run: Run): string {
+  if (typeof run === "string") return singleLine(run);
+  if ("strong" in run) return singleLine(run.strong);
+
+  return singleLine("adresse" in run ? run.adresse : run.url);
+}
+
+/** Underlined as well as coloured, because colour alone is not a link to a reader who cannot see it. */
+function linkHtml(href: string, label: string, extra = ""): string {
+  return `<a href="${escapeHtml(singleLine(href))}" style="color:${BRAND_COLOR};text-decoration:underline;${extra}">${escapeHtml(singleLine(label))}</a>`;
+}
+
+function runHtml(run: Run): string {
+  if (typeof run === "string") return escapeHtml(singleLine(run));
+  if ("strong" in run) return `<strong style="color:${HEADING_COLOR};">${escapeHtml(singleLine(run.strong))}</strong>`;
+  if ("adresse" in run) return linkHtml(`mailto:${run.adresse}`, run.adresse);
+
+  return linkHtml(run.url, run.url, "word-break:break-all;");
+}
+
+const sentenceText = (sentence: Sentence): string => runs(sentence).map(runText).join("");
+const paragraphText = (paragraph: Paragraph): string => paragraph.map(sentenceText).join(" ");
+const paragraphHtml = (paragraph: Paragraph): string => paragraph.map((sentence) => runs(sentence).map(runHtml).join("")).join(" ");
+
+/** A fact's value as lines, every line after the first indented so none of them begins where a label does. */
+const valueText = (value: string): string => value.replace(/\r\n|\r|\n/g, "\n  ");
+const valueHtml = (value: string): string => escapeHtml(value).replace(/\r\n?|\n/g, "<br />");
+
+/** The mail's hidden preview: the first sentence of its first paragraph. */
+function previewBy(mail: Mail): string {
+  return sentenceText(mail.paragraphs[0][0]);
+}
+
+/** The Art. 21 line, the address in it a link: a first contact's footer, and the ban-list mail's own last paragraph. */
+export const WIDERSPRUCH: Sentence = [
+  `${SERVER_COPY.mail.widerspruch.vor} `,
+  { adresse: KONTAKT_EMAIL },
+  ` ${SERVER_COPY.mail.widerspruch.nach}`,
+];
+
+function nichtDu(art: MailArt): string | undefined {
+  return art === "mitteilung" ? undefined : SERVER_COPY.mail.nichtDu[art];
+}
+
+/** One block of the card and the gap under it; the last block of the card takes none. */
+type Block = { readonly html: string; readonly gap: number };
+
+const p = (inner: string, grade = BODY_TEXT): string => `<p style="margin:0;${grade}">${inner}</p>`;
+
+/** The paragraphs of one group, a paragraph's gap between them and a block's gap after the last. */
+function paragraphBlocks(paragraphs: readonly Paragraph[]): Block[] {
+  return paragraphs.map((paragraph, index) => ({
+    html: p(paragraphHtml(paragraph)),
+    gap: index === paragraphs.length - 1 ? GAP.block : GAP.paragraph,
+  }));
+}
+
+function blockHtml(block: NonNullable<Mail["block"]>): Block {
+  const box = `background-color:${SURFACE_COLOR};border:1px solid ${RULE_COLOR};border-radius:8px;`;
+
+  if ("code" in block) {
+    return {
+      html: `<table ${TABLE_ATTRS} width="100%" style="${box}"><tr><td align="center" style="padding:${GAP.factsInner}px;font-family:${FONT_STACK};font-size:32px;line-height:40px;letter-spacing:6px;font-weight:700;color:${HEADING_COLOR};">${escapeHtml(singleLine(block.code))}</td></tr></table>`,
+      gap: GAP.headText,
+    };
+  }
+
+  // The code's box at body size, the address broken anywhere: a URL set at the code's size overflows a phone.
+  if ("link" in block) {
+    return {
+      html: `<table ${TABLE_ATTRS} width="100%" style="${box}"><tr><td style="padding:${GAP.factsInner}px;font-family:${FONT_STACK};${BODY_TEXT}">${linkHtml(block.link, block.link, "word-break:break-all;")}</td></tr></table>`,
+      gap: GAP.block,
+    };
+  }
+
+  const title = `<p style="margin:0 0 ${String(GAP.factsTitle)}px;font-size:14px;line-height:20px;font-weight:700;color:${HEADING_COLOR};">${escapeHtml(singleLine(block.title))}</p>`;
+  const rows = block.facts
+    .map(
+      ({ label, value }) =>
+        `<tr><td style="padding:4px 16px 4px 0;font-family:${FONT_STACK};${SMALL_TEXT}white-space:nowrap;vertical-align:top;">${escapeHtml(singleLine(label))}</td><td style="padding:4px 0;font-family:${FONT_STACK};font-size:14px;line-height:20px;color:${HEADING_COLOR};vertical-align:top;">${valueHtml(value)}</td></tr>`,
+    )
+    .join("");
+
+  return {
+    html: `${title}<table ${TABLE_ATTRS} width="100%" style="${box}"><tr><td style="padding:${GAP.factsInner - 4}px ${GAP.factsInner}px;"><table ${TABLE_ATTRS}>${rows}</table></td></tr></table>`,
+    gap: GAP.block,
+  };
+}
+
+/** The button, 44 px high (11 + 22 + 11) and full width on a phone, then its link printed to copy. */
+function buttonBlocks(button: Button): Block[] {
   return [
-    { label: "Datenschutzerklärung", href: `${origin}/datenschutz` },
-    { label: IMPRESSUM_TITEL, href: `${origin}/impressum` },
+    {
+      html: `<table ${TABLE_ATTRS} class="fl-button" align="center" style="margin:0 auto;"><tr><td align="center" style="background-color:${BRAND_SOLID_COLOR};border-radius:8px;"><a href="${escapeHtml(singleLine(button.href))}" style="display:inline-block;padding:11px 24px;font-family:${FONT_STACK};font-size:16px;line-height:22px;font-weight:700;color:${ON_BRAND_COLOR};text-decoration:none;">${escapeHtml(singleLine(button.label))}</a></td></tr></table>`,
+      gap: GAP.paragraph,
+    },
+    {
+      html: p(`${escapeHtml(SERVER_COPY.mail.knopfLink)}<br />${linkHtml(button.href, button.href, "word-break:break-all;")}`, SMALL_TEXT),
+      gap: GAP.block,
+    },
   ];
 }
 
-const VERANTWORTLICH = `${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}`;
-/* The one value the card interpolates that reaches it from neither a caller nor an escaping helper:
-   the address is replaced by hand, and an `&` in a c/o line would invalidate the document silently. */
-const VERANTWORTLICH_HTML = escapeHtml(VERANTWORTLICH);
-
-/**
- * Every message carries both legal pages and the controller: a reader who was mailed without ever
- * visiting the site has no footer to reach them from. In the shell, so no message can ship without
- * them.
- */
-function rechtszeilen(origin: string): readonly string[] {
-  return [...rechtsSeiten(origin).map(({ label, href }) => `${label}: ${href}`), VERANTWORTLICH];
+function legalLinks(origin: string): readonly { readonly label: string; readonly href: string }[] {
+  return [
+    { label: COPY.seite.datenschutz, href: `${origin}/datenschutz` },
+    { label: COPY.seite.impressum, href: `${origin}/impressum` },
+  ];
 }
 
-/** One control. `ton` picks the pair's two grades, which are the landing page's own primary and outline. */
-export interface Aktion {
-  readonly href: string;
-  readonly label: string;
-  readonly ton: "primary" | "outline";
-}
+const VEREIN_ROW = `${VEREIN_NAME} · ${VEREIN_ANSCHRIFT}`;
 
-/** Fill, radius and shadow ride on the cell; only the type and the padded hit area are the anchor's. */
-function aktionZelle(aktion: Aktion): string {
-  const umrandet = aktion.ton === "outline";
-  const polster = `padding:${buttonPadding(umrandet)};`;
+function renderHtml(mail: Mail, subjectLine: string): string {
+  const content: Block[] = [
+    {
+      html: `<h1 style="margin:0;font-size:24px;line-height:32px;font-weight:700;color:${HEADING_COLOR};">${escapeHtml(subjectLine)}</h1>`,
+      gap: GAP.headText,
+    },
+    { html: p(escapeHtml(singleLine(SERVER_COPY.mail.gruss(mail.vorname)))), gap: GAP.paragraph },
+    ...paragraphBlocks(mail.paragraphs),
+    ...(mail.block === undefined ? [] : [blockHtml(mail.block)]),
+    ...paragraphBlocks(mail.afterBlock ?? []),
+    ...(mail.button === undefined ? [] : buttonBlocks(mail.button)),
+  ];
+  // The gap before the footer's rule is the rule's own, whatever the last block asked for.
+  const last = content.length - 1;
+  const body = content.map((block, index) => (index === last ? { ...block, gap: GAP.beforeLine } : block));
 
-  /* The outline grade rests on the card rather than on a fill of its own, so it declares no
-     background: `bg-transparent` is what `ctaButton` gives it, and a declared one would need a
-     second dark rule to follow the card. */
-  if (umrandet) {
-    return `<td align="center" class="fl-action ${GHOST_MAIL_CLASS}" style="border:1px solid ${RULE_COLOR};border-radius:${BUTTON_RADIUS}px;">
-                      <a href="${escapeHtml(aktion.href)}" class="${HEAD_MAIL_CLASS}" style="${BUTTON_TEXT}${polster}color:${HEADING_COLOR};">${escapeHtml(aktion.label)}</a>
-                    </td>`;
-  }
+  const row = nichtDu(mail.art);
+  const footer: Block[] = [
+    { html: `<hr style="border:none;border-top:1px solid ${RULE_COLOR};margin:0;" />`, gap: GAP.afterLine },
+    { html: p(escapeHtml(VEREIN_ROW), FOOTER_TEXT), gap: GAP.footer },
+    {
+      html: p(
+        legalLinks(mail.origin)
+          .map(({ label, href }) => linkHtml(href, label))
+          .join(" · "),
+        FOOTER_TEXT,
+      ),
+      gap: GAP.footer,
+    },
+    ...(mail.art === "erstkontakt" ? [{ html: p(paragraphHtml([WIDERSPRUCH]), MUTED_TEXT), gap: GAP.footer }] : []),
+    // Last, after the footer: it is not part of the message's content.
+    ...(row === undefined ? [] : [{ html: p(escapeHtml(row), MUTED_TEXT), gap: 0 }]),
+  ];
 
-  return `<td align="center" class="fl-action" style="background-color:${BRAND_SOLID_COLOR};border-radius:${BUTTON_RADIUS}px;box-shadow:${BUTTON_SHADOW};">
-                      <a href="${escapeHtml(aktion.href)}" style="${BUTTON_TEXT}${polster}color:${ON_BRAND_COLOR};">${escapeHtml(aktion.label)}</a>
-                    </td>`;
-}
+  const blocks = [...body, ...footer];
+  const cells = blocks.map(
+    ({ html, gap }, index) => `<div style="margin:0 0 ${String(index === blocks.length - 1 ? 0 : gap)}px;">${html}</div>`,
+  );
 
-/**
- * The controls in one row, since Outlook has no flexbox. The stylesheet turns the cells into blocks
- * below the card's width, which is where a row of two stops fitting.
- */
-function renderAktionen(aktionen: readonly Aktion[]): string {
-  const abstand = `<td class="fl-gap" width="${BUTTON_GAP}" style="width:${BUTTON_GAP}px;height:${BUTTON_GAP}px;line-height:${BUTTON_GAP}px;font-size:${BUTTON_GAP}px;">&nbsp;</td>`;
-
-  return `<table ${TABLE_ATTRS} align="center" class="fl-actions" style="margin:0 auto;">
-                  <tr>
-                    ${aktionen.map(aktionZelle).join(`\n                    ${abstand}\n                    `)}
-                  </tr>
-                </table>`;
-}
-
-/**
- * One message as the shell draws it. Every markup field arrives escaped; `titel` is the one plain
- * string. `aktionen` may be empty, and the row and its upper rule are then left out rather than drawn empty.
- */
-interface Karte {
-  readonly titel: string;
-  readonly ueberschrift: string;
-  readonly bloecke: readonly string[];
-  readonly aktionen: readonly Aktion[];
-  readonly fuss: string;
-  /** Already through `mailOrigin`, which every builder calls once for its own links as well as this close. */
-  readonly origin: string;
-}
-
-/**
- * The card every message is drawn in, in tables. `bloecke`, `ueberschrift` and `fuss` are already-escaped
- * markup: everything reaching this has passed `escapeHtml`, so the shell interpolates without escaping
- * and no value gets escaped twice.
- */
-export function renderKarte({ titel, ueberschrift, bloecke, aktionen, fuss, origin }: Karte): string {
   return `<!doctype html>
 <html lang="de">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="color-scheme" content="light dark" />
-    <meta name="supported-color-schemes" content="light dark" />
-    <title>${escapeHtml(titel)}</title>
-    ${DARK_STYLE}
+    <title>${escapeHtml(subjectLine)}</title>
+    ${PHONE_STYLE}
   </head>
-  <body class="${PAGE_MAIL_CLASS}" style="margin:0;padding:0;background-color:${SURFACE_COLOR};">
-    <table ${TABLE_ATTRS} width="100%" class="${PAGE_MAIL_CLASS}" style="background-color:${SURFACE_COLOR};">
+  <body style="margin:0;padding:0;background-color:${SURFACE_COLOR};">
+    <div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:${SURFACE_COLOR};opacity:0;">${escapeHtml(previewBy(mail))}</div>
+    <table ${TABLE_ATTRS} width="100%" style="background-color:${SURFACE_COLOR};">
       <tr>
         <td align="center" style="padding:24px 12px;font-family:${FONT_STACK};">
-          <!--[if mso]><table ${TABLE_ATTRS} width="${CARD_WIDTH}" align="center"><tr><td><![endif]-->
-          <table ${TABLE_ATTRS} width="100%" align="center" lang="de" class="${CARD_MAIL_CLASS}" style="max-width:${CARD_WIDTH}px;margin:0 auto;background-color:${CARD_COLOR};border-radius:12px;">
+          <!--[if mso]><table ${TABLE_ATTRS} width="${String(CARD_WIDTH)}" align="center"><tr><td><![endif]-->
+          <table ${TABLE_ATTRS} width="100%" align="center" lang="de" style="max-width:${String(CARD_WIDTH)}px;margin:0 auto;background-color:${CARD_COLOR};border-radius:12px;">
             <tr>
-              <td style="padding:32px;font-family:${FONT_STACK};">
-                <p class="${TEXT_MAIL_CLASS}" style="margin:0 0 8px;${EYEBROW_TEXT}">${BRAND_NAME}</p>
-                <h1 class="${HEAD_MAIL_CLASS}" style="margin:0 0 20px;font-size:22px;line-height:1.3;color:${HEADING_COLOR};font-weight:800;">
-                  ${ueberschrift}
-                </h1>
-                ${bloecke.join("\n                ")}
-                ${
-                  aktionen.length === 0
-                    ? ""
-                    : `<hr class="${RULE_MAIL_CLASS}" style="border:none;border-top:1px solid ${RULE_COLOR};margin:24px 0;" />
-                ${renderAktionen(aktionen)}`
-                }
-                <hr class="${RULE_MAIL_CLASS}" style="border:none;border-top:1px solid ${RULE_COLOR};margin:24px 0 16px;" />
-                <p class="${TEXT_MAIL_CLASS}" style="margin:0;${FOOTER_TEXT}">
-                  ${fuss}
-                </p>
-                <p class="${TEXT_MAIL_CLASS}" style="margin:8px 0 0;${FOOTER_TEXT}">
-                  ${rechtsSeiten(origin)
-                    .map(({ label, href }) => link(href, label))
-                    .join(" · ")}
-                </p>
-                <p class="${TEXT_MAIL_CLASS}" style="margin:4px 0 0;${FOOTER_TEXT}">
-                  ${VERANTWORTLICH_HTML}
-                </p>
+              <td class="fl-pad" style="background-color:${BRAND_SOLID_COLOR};border-radius:12px 12px 0 0;padding:${String(GAP.band)}px ${String(GAP.card)}px;"><img src="${escapeHtml(`${mail.origin}${LOGO.path}`)}" width="${String(LOGO.width)}" height="${String(LOGO.height)}" alt="${escapeHtml(BRAND_NAME)}" style="display:block;width:${String(LOGO.width)}px;height:${String(LOGO.height)}px;border:0;outline:none;text-decoration:none;" /></td>
+            </tr>
+            <tr>
+              <td class="fl-pad" style="padding:${String(GAP.card)}px;font-family:${FONT_STACK};">
+                ${cells.join("\n                ")}
               </td>
             </tr>
           </table>
@@ -358,19 +348,38 @@ export function renderKarte({ titel, ueberschrift, bloecke, aktionen, fuss, orig
 </html>`;
 }
 
-/**
- * Stuffed rather than dropped: a client folding at the wrong delimiter hides every line below it.
- * RFC 3676 §4.4 space-stuffs a line it would misread the same way. Exported for its own test:
- * every message's body closes on fixed copy.
- */
-export function stuffSignatureDelimiter(value: string): string {
-  // Anchored on a preceding break: a body's first line is fixed copy, so no value begins a message.
-  // The end-of-string alternative covers a body ENDING on a value, which a reordering of the copy
-  // would produce and no message does today.
-  return value.replace(/(\r\n|\r|\n)-- (?=\r|\n|$)/g, "$1 -- ");
+function buttonText(button: Button): string[] {
+  return [`${singleLine(button.label)}: ${singleLine(button.href)}`];
 }
 
-/** The plain-text close, matching the card's rule and note. RFC 3676 §4.3: without the trailing space no client folds it. */
-export function textFooter(origin: string, saetze: readonly string[]): readonly string[] {
-  return ["", "-- ", ...saetze, ...rechtszeilen(origin)];
+function renderText(mail: Mail, subjectLine: string): string {
+  const groups: string[][] = [
+    [subjectLine],
+    [singleLine(SERVER_COPY.mail.gruss(mail.vorname))],
+    ...mail.paragraphs.map((paragraph) => [paragraphText(paragraph)]),
+    ...(mail.block === undefined
+      ? []
+      : [
+          "code" in mail.block
+            ? [singleLine(mail.block.code)]
+            : "link" in mail.block
+              ? [singleLine(mail.block.link)]
+              : [singleLine(mail.block.title), ...mail.block.facts.map(({ label, value }) => `${singleLine(label)}: ${valueText(value)}`)],
+        ]),
+    ...(mail.afterBlock ?? []).map((paragraph) => [paragraphText(paragraph)]),
+    ...(mail.button === undefined ? [] : [buttonText(mail.button)]),
+    [VEREIN_ROW, ...legalLinks(mail.origin).map(({ label, href }) => `${label}: ${href}`)],
+    ...(mail.art === "erstkontakt" ? [[sentenceText(WIDERSPRUCH)]] : []),
+  ];
+  const row = nichtDu(mail.art);
+
+  return [...groups, ...(row === undefined ? [] : [[row]])].map((group) => group.join("\n")).join("\n\n");
+}
+
+/** One mail in both versions, from the same data, with the sender its kind names. */
+export function renderMail(mail: Mail): RenderedMail {
+  // One line: a break in a subject is a header injection.
+  const subjectLine = singleLine(mail.subjectLine);
+
+  return { subject: subjectLine, html: renderHtml(mail, subjectLine), text: renderText(mail, subjectLine), sender: SENDER[mail.art] };
 }

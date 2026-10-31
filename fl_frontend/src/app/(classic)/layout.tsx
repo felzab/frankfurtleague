@@ -5,10 +5,10 @@ import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
 /** The league's pages every classic page links to: the header's two, and the footer's group with the legal pages. */
-const ABOUT = { label: COPY.seite.about, href: ROUTES.about.pfad() };
-const KONTAKT = { label: COPY.seite.kontakt, href: ROUTES.kontakt.pfad() };
-const IMPRESSUM = { label: COPY.seite.impressum, href: ROUTES.impressum.pfad() };
-const DATENSCHUTZ = { label: COPY.seite.datenschutz, href: ROUTES.datenschutz.pfad() };
+const ABOUT = { label: COPY.seite.about, href: ROUTES.about.path() };
+const KONTAKT = { label: COPY.seite.kontakt, href: ROUTES.contact.path() };
+const IMPRESSUM = { label: COPY.seite.impressum, href: ROUTES.legalNotice.path() };
+const DATENSCHUTZ = { label: COPY.seite.datenschutz, href: ROUTES.privacyNotice.path() };
 
 /**
  * The classic public frame around the pages it holds: the sign-in today. No sponsor is listed yet, so the
@@ -18,7 +18,7 @@ export default function ClassicLayout({ children }: { children: React.ReactNode 
   return (
     <ClassicFrame
       links={[ABOUT, KONTAKT]}
-      anmelden={ROUTES.anmeldung.pfad()}
+      signIn={ROUTES.signIn.path()}
       groups={[]}
       liga={[ABOUT, KONTAKT, IMPRESSUM, DATENSCHUTZ]}
       social={{ instagram: INSTAGRAM_URL, threads: THREADS_URL }}

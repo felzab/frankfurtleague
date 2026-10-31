@@ -1,27 +1,13 @@
-import { buildBewerbungBestaetigungEmail, buildBewerbungEingangOffenEmail } from "@/core/bewerbungEmail";
-import { frontend_config } from "@/core/config";
+// Redesign: goes with its last importer.
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
-import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { turnstileRefusal } from "@/core/turnstile";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken";
-import { BEWERBUNG_SEATS } from "@/features/bewerbungen/constants";
 import { postBewerbung } from "@/features/bewerbungen/mutations";
-import {
-  collectBewerbungEingangEmpfaenger,
-  rollenText,
-  seatsByMailbox,
-  sendBewerbungLinkMail,
-  sendBewerbungMail,
-} from "@/features/bewerbungen/notifications";
-import { getBewerbungSchulen } from "@/features/bewerbungen/queries";
 import { FLPostBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
-import { BEWERBUNG_VERALTET, empfangsSitze, mapBewerbungSubmitRefusal } from "@/features/bewerbungen/utils";
+import { BEWERBUNG_VERALTET, mapBewerbungSubmitRefusal } from "@/features/bewerbungen/utils";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
-import { formatSpielDatum } from "@/shared/utils/format";
-import { handlePublicRequest, readAfterAnsweredWrite } from "@/shared/utils/publicRoute";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
+import { handlePublicRequest } from "@/shared/utils/publicRoute";
 
-import type { BewerbungSeat } from "@/core/bewerbungEmail";
 import type { NextRequest } from "next/server";
 
 const ROUTE_NAME = "postBewerbung";
@@ -46,16 +32,15 @@ export async function POST(request: NextRequest) {
       const body: unknown = await request.json().catch(() => null);
 
       // No label check here, unlike the confirmation handlers: the backend judges the label after
-      // its replay lookup, and one here would refuse a retry whose first press is stored (`REQ-EINWILLIGUNG-001`).
+      // its replay lookup, and one here would refuse a retry whose first press is stored (`wording_not_allowed`).
       const parsed = FLPostBewerbungPayloadSchema.safeParse(body);
 
       if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, BEWERBUNG_VERALTET) };
 
-      let eingang;
       try {
         // Passed on as the page sent it, none included: a page loaded before the form sent a key
         // still submits, and the backend judges the key's shape.
-        eingang = await postBewerbung(parsed.data, request.headers.get(IDEMPOTENCY_KEY_HEADER));
+        await postBewerbung(parsed.data, request.headers.get(IDEMPOTENCY_KEY_HEADER));
       } catch (error) {
         // The refusal belongs under the field that caused it, not on the error page.
         const refusal = mapBewerbungSubmitRefusal(error);
@@ -63,91 +48,7 @@ export async function POST(request: NextRequest) {
         throw error;
       }
 
-      if (!eingang.acknowledged) {
-        return {
-          success: false as const,
-          error: buildRefusal({ reason: "Die Bewerbung wurde nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }),
-        };
-      }
-
       // No cache to move: no public read holds an application, and both triage reads are uncached.
-
-      const seats = eingang.bestaetigungen;
-      // A replay whose links may already be in an inbox hands none, and a second mail would ask each
-      // reader twice.
-      if (seats === null) return { success: true as const, message: EINGEGANGEN };
-
-      const { kontakte } = parsed.data;
-      const fristText = formatSpielDatum(eingang.bestaetigungsfrist);
-      // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
-      // production must not mail production links.
-      const origin = frontend_config.AUTH_URL;
-
-      // Read rather than taken from the payload, which names a picked club by id alone. A failed or cut
-      // read names no school, which beats no message: the application is stored, so the cut leaves no
-      // outcome unknown.
-      const neueSchule = parsed.data.schule?.team_name;
-      const schulen = neueSchule === undefined ? await readAfterAnsweredWrite(ROUTE_NAME, () => getBewerbungSchulen()) : null;
-      const schule = neueSchule ?? schulen?.schulen.find((option) => option.id === parsed.data.team_id)?.name ?? "";
-
-      const imEmpfang = empfangsSitze(kontakte.trainer_ist_zugleich);
-
-      const verlinkt = seatsByMailbox(
-        kontakte,
-        Object.fromEntries(
-          BEWERBUNG_SEATS.filter((seat) => !imEmpfang.includes(seat.value)).map((seat) => [
-            seat.value,
-            kontaktBestaetigungsLink(origin, seats[seat.value]),
-          ]),
-        ),
-      );
-
-      // After the write and never before it, and settled per address, so nobody's refusal costs the
-      // others theirs. The raw token reaches these two calls and no log line.
-      await sendBewerbungLinkMail({
-        operation: "postBewerbung",
-        // No idempotency key on either fan-out here: both messages carry links minted for this one
-        // submission, so no second send can ever compose the same body.
-        auftrag: { bewerbungId: eingang.created_id, anlass: "eingang" },
-        recipients: verlinkt,
-        buildMail: (seats) =>
-          buildBewerbungBestaetigungEmail({
-            saisonId: eingang.saison_id,
-            origin: origin,
-            schule: schule,
-            seats: seats,
-            fristText: fristText,
-          }),
-      });
-
-      // The same set the links were withheld for: a mirrored seat listed here would send the reader
-      // chasing themselves for a press their own link already makes.
-      const zugleich = kontakte.trainer_ist_zugleich;
-      const ausstehend: BewerbungSeat[] = BEWERBUNG_SEATS.filter(
-        (seat) => !imEmpfang.includes(seat.value) && (seat.value !== "trainer" || zugleich === null),
-      ).map((seat) => ({
-        vorname: kontakte[seat.value].vorname,
-        // Folded as `fl_frontend/src/features/bewerbungen/notifications.ts :: seatsByMailbox` folds it, one press answering both seats of
-        // a mirrored pair: two rows would name one person as two people still to be chased.
-        rolleText: seat.value === zugleich ? rollenText([seat.value, "trainer"]) : seat.label,
-      }));
-
-      await sendBewerbungMail({
-        operation: "postBewerbung",
-        auftrag: { bewerbungId: eingang.created_id, anlass: "empfang" },
-        // The Ansprechperson alone: this message names every seat still outstanding, and the
-        // submitter is the one person who can ask a colleague in the corridor.
-        recipients: collectBewerbungEingangEmpfaenger(kontakte),
-        buildMail: (rollenText) =>
-          buildBewerbungEingangOffenEmail({
-            saisonId: eingang.saison_id,
-            origin: origin,
-            rollenText: rollenText,
-            ausstehend: ausstehend,
-            fristText: fristText,
-            link: kontaktBestaetigungsLink(origin, seats.ansprechperson),
-          }),
-      });
 
       return { success: true as const, message: EINGEGANGEN };
     },

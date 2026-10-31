@@ -33,16 +33,18 @@ services:
     # public, so neither pull needs credentials.
     image: ghcr.io/felzab/frankfurtleague-frontend:latest
     restart: unless-stopped
-    # Past a request's bound and the work behind its answer, both of which Next's server waits out on a
-    # stop: killed sooner, a write or a mail already sent answers as a dropped connection.
+    # Past a request's bound and the 30-second work behind its answer, both of which Next's server waits
+    # out on a stop: killed sooner, a write or a mail already sent answers as a dropped connection. The
+    # Postausgang's drain behind an answer has no such bound: a stop cuts it here, and the rows it held go
+    # to the next drain once their lease lapses (`fl_backend/app/api/outbox/services.py ::
+    # LEASE_DURATION`).
     stop_grace_period: 61s
-    # The signing key is this service's alone: a holder of it mints any actor the backend trusts.
     secrets:
-      - fl_actor_signing_key
       - frontend_mongodb_uri
       - auth_secret
       - auth_resend_key
       - resend_webhook_secret
+      - betterstack_heartbeat_url
       - internal_api_key_base
       - internal_api_key_system
       - internal_api_key_admin
@@ -98,7 +100,7 @@ services:
     # The frontend's reason, and its group for the three internal keys.
     secrets:
       - backend_mongodb_uri
-      - sperrliste_schluessel
+      - sperrliste_key
       - internal_api_key_base
       - internal_api_key_system
       - internal_api_key_admin
@@ -114,7 +116,6 @@ services:
     healthcheck:
       # `/system/is_live` is the one probe that needs no key, and it deliberately does not touch
       # MongoDB — a liveness check that needs the database fails for reasons a restart cannot fix.
-      # `/system/is_ready` answers that question instead, and is guarded.
 
       # The API version is hardcoded here and must match
       # `fl_backend/app/core/config.py :: API_VERSION`, which records why it is a constant rather
@@ -237,8 +238,6 @@ services:
 secrets:
   tunnel_token:
     file: ./secrets/tunnel_token
-  fl_actor_signing_key:
-    file: ./secrets/fl_actor_signing_key
   frontend_mongodb_uri:
     file: ./secrets/frontend_mongodb_uri
   backend_mongodb_uri:
@@ -249,8 +248,10 @@ secrets:
     file: ./secrets/auth_resend_key
   resend_webhook_secret:
     file: ./secrets/resend_webhook_secret
-  sperrliste_schluessel:
-    file: ./secrets/sperrliste_schluessel
+  betterstack_heartbeat_url:
+    file: ./secrets/betterstack_heartbeat_url
+  sperrliste_key:
+    file: ./secrets/sperrliste_key
   internal_api_key_base:
     file: ./secrets/internal_api_key_base
   internal_api_key_system:

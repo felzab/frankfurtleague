@@ -58,16 +58,16 @@ type EmailAutofill = "email" | "username";
 type SingleLine = {
   width: "C2" | "C5" | "W3";
 } & (
-  | { kind: "text"; autofill?: Autofill; beispiel?: never; unit?: never }
+  | { kind: "text"; autofill?: Autofill; example?: never; unit?: never }
   /** `unit` stands after the field, outside it, as „€“ after a price. */
-  | { kind: "digits"; autofill?: Autofill; beispiel?: never; unit?: Copy }
-  | { kind: "email"; autofill?: EmailAutofill; beispiel?: never; unit?: never }
-  | { kind: "tel" | "search"; autofill?: never; beispiel?: never; unit?: never }
-  | { kind: "url"; autofill?: never; beispiel: Copy; unit?: never }
+  | { kind: "digits"; autofill?: Autofill; example?: never; unit?: Copy }
+  | { kind: "email"; autofill?: EmailAutofill; example?: never; unit?: never }
+  | { kind: "tel" | "search"; autofill?: never; example?: never; unit?: never }
+  | { kind: "url"; autofill?: never; example: Copy; unit?: never }
 );
 
 /** A paragraph: the column's width at four lines. */
-type Paragraph = { width: "W4"; kind: "text"; autofill?: never; beispiel?: never; unit?: never };
+type Paragraph = { width: "W4"; kind: "text"; autofill?: never; example?: never; unit?: never };
 
 export type TextFieldProps = Shared & Line & (SingleLine | Paragraph);
 
@@ -88,7 +88,7 @@ const KINDS = {
 } as const;
 
 /** The example a malformed value is shown, by kind; a URL names its own. */
-const BEISPIEL = { email: COPY.shared.feld.beispielAdresse, digits: COPY.shared.feld.beispielZiffern } as const;
+const EXAMPLE = { email: COPY.shared.feld.beispielAdresse, digits: COPY.shared.feld.beispielZiffern } as const;
 
 /** The line only once the field is invalid: it reads the field's validation, which the field provides to its children. */
 function LineWithError({ constraints }: { constraints: Constraints }) {
@@ -107,7 +107,7 @@ export function TextField(props: TextFieldProps) {
   const constraints: Constraints = {
     maxLength,
     minLength,
-    beispiel: props.kind === "url" ? props.beispiel : kind === "email" || kind === "digits" ? BEISPIEL[kind] : undefined,
+    example: props.kind === "url" ? props.example : kind === "email" || kind === "digits" ? EXAMPLE[kind] : undefined,
   };
   const frame = fieldFrame({ width, inset: "full", figures: kind === "digits" });
   const field =

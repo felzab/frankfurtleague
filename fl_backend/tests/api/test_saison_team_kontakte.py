@@ -9,38 +9,34 @@ from bson import ObjectId
 from pydantic import ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.identitaet.schemas import FLErasureResponse
 from app.api.teams.admin_router import patch_saison_team_kontakte
 from app.api.teams.schemas import (
     FLKontaktKenntnisnahmePayload,
     FLKontaktperson,
     FLKontaktpersonPayload,
-    FLKontaktRolle,
     FLPatchSaisonTeamKontaktePayload,
     FLTeamMembership,
 )
 from app.api.teams.services import (
-    KONTAKTE_MOVED_UNDER_THE_SAVE,
     compose_kontakte_herkunft,
-    departing_holders,
     kontakte_stand_of,
-    links_owed,
 )
-from app.core.adressanker import adressanker_id
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, saison_document, saison_team_document
 from tests.erasure import erased
 from tests.isolation import InterleavedCollection
+from tests.outbox import MAIL_NOW
+from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 # Marked per class rather than for the module: what the payload refuses and what the composition
-# decides are reached with no container (`.claude/rules/backend.md`'s `tests` clause), while which
+# decides are reached with no container (`docs/decisions.md`'s `tests` line), while which
 # KEYS a `$set` leaves alone only a stored document shows.
 DATABASE_NAME = worker_database("fl_saison_team_kontakte_test")
 
@@ -54,7 +50,7 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607240001")
 ABSENT_OID = ObjectId("6890a1b2c3d4e5f607240002")
 
 TEAM_NAME = "Adler"
-TEAM_SHORTHAND = "AD"
+TEAM_SHORTHAND = "ADX"
 
 # The three fields this endpoint must not reach, each seeded to a value entry never writes: a `$set`
 # carrying the whole payload would answer with `None` for all three.
@@ -105,16 +101,16 @@ def person(vorname: str, *, email: str | None = None, text_version: str = RUNNIN
     }
 
 
-def stored_person(vorname: str, *, email: str | None = None, bestaetigt_am: str | None = None) -> dict[str, Any]:
+def stored_person(vorname: str, *, email: str | None = None, confirmed_at: str | None = None) -> dict[str, Any]:
     """The same person as a row HOLDS them, provenance and birthdate included, the league having seated them."""
 
     sent = person(vorname, email=email, text_version=STORED_LABEL)
 
     return kontaktperson_document(
         vorname,
-        bestaetigt_am=bestaetigt_am,
+        confirmed_at=confirmed_at,
         einwilligung={"text_version": STORED_LABEL, "datum": sent["einwilligung"]["datum"]},
-        eingetragen_von="liga",
+        entered_by="liga",
         nachname=sent["nachname"],
         email=sent["email"],
         telefon=sent["telefon"],
@@ -128,7 +124,7 @@ def born(sent: dict[str, Any]) -> dict[str, Any]:
     Spelled out here rather than composed by the helper, so a composer drifting from it fails.
     """
 
-    return {**sent["einwilligung"], "bestaetigt_am": None, "medien": False, "eingetragen_von": "liga"}
+    return {**sent["einwilligung"], "confirmed_at": None, "medien": False, "entered_by": "liga"}
 
 
 def as_stored(kontakte: dict[str, Any]) -> dict[str, Any]:
@@ -143,7 +139,7 @@ def as_stored(kontakte: dict[str, Any]) -> dict[str, Any]:
 def unbestaetigt(einwilligung: dict[str, Any]) -> dict[str, Any]:
     """A stored record held unconfirmed: the stamp nulled."""
 
-    return {**einwilligung, "bestaetigt_am": None}
+    return {**einwilligung, "confirmed_at": None}
 
 
 def as_kept(stored: dict[str, Any]) -> dict[str, Any]:
@@ -157,7 +153,7 @@ SEEDED_KONTAKTE: dict[str, Any] = {
     "trainer": stored_person("Ida"),
     "ansprechperson": stored_person("Jonas"),
     "stellvertretung": stored_person("Klara"),
-    "trainer_ist_zugleich": None,
+    "trainer_is_also": None,
 }
 
 # The Trainer holding the Ansprechperson's seat too, so the two blocks are one person's.
@@ -165,7 +161,7 @@ NEW_KONTAKTE: dict[str, Any] = {
     "trainer": person("Lea"),
     "ansprechperson": person("Lea"),
     "stellvertretung": person("Nils"),
-    "trainer_ist_zugleich": "ansprechperson",
+    "trainer_is_also": "ansprechperson",
 }
 
 # What an erasure leaves behind, and what the editor has to be able to send back.
@@ -173,15 +169,15 @@ ONE_SLOT_FILLED: dict[str, Any] = {
     "trainer": person("Ove"),
     "ansprechperson": None,
     "stellvertretung": None,
-    "trainer_ist_zugleich": None,
+    "trainer_is_also": None,
 }
 
 # One seat its person confirmed, beside two nobody has.
 PARTLY_CONFIRMED: dict[str, Any] = {
-    "trainer": stored_person("Ida", bestaetigt_am=CONFIRMED_ON),
+    "trainer": stored_person("Ida", confirmed_at=CONFIRMED_ON),
     "ansprechperson": stored_person("Jonas"),
     "stellvertretung": stored_person("Klara"),
-    "trainer_ist_zugleich": None,
+    "trainer_is_also": None,
 }
 
 # The seeded block as the EDITOR sends it back: the same three people with the provenance stripped,
@@ -190,7 +186,7 @@ RESAVED_AS_RENDERED: dict[str, Any] = {
     "trainer": person("Ida", text_version=STORED_LABEL),
     "ansprechperson": person("Jonas", text_version=STORED_LABEL),
     "stellvertretung": person("Klara", text_version=STORED_LABEL),
-    "trainer_ist_zugleich": None,
+    "trainer_is_also": None,
 }
 
 # The same three seats before any of them answered their own link: a seat carries no date until the
@@ -200,8 +196,8 @@ UNDATED_SEEDED: dict[str, Any] = {
     **{slot: {**SEEDED_KONTAKTE[slot], "geburtsdatum": None} for slot in ("trainer", "ansprechperson", "stellvertretung")},
 }
 
-ERASED_SEAT = "ansprechperson"
-ERASED_EMAIL = str(RESAVED_AS_RENDERED[ERASED_SEAT]["email"])
+GELOESCHT_SEAT = "ansprechperson"
+GELOESCHT_EMAIL = str(RESAVED_AS_RENDERED[GELOESCHT_SEAT]["email"])
 
 
 def junction_document(saison_id: str, kontakte: dict[str, Any] | None) -> dict[str, Any]:
@@ -216,7 +212,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, seeded: dict[str, Any] | None = SEEDED_KONTAKTE) -> Any:
-    """`constraints=True`, so what this endpoint stores is judged by the database's own validator rather than by Pydantic alone."""
+    """`constraints=True`, so what this endpoint stores is judged by the database's own indexes rather than by Pydantic alone."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
@@ -250,18 +246,19 @@ async def write_kontakte(
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection,
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
-        adressanker_collection=database[Collection.ADRESSANKER],
         db=database.client,
-        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+        actor=fresh_admin_actor(),
         today=TODAY,
+        germany_now=MAIL_NOW,
     )
 
 
-async def erase_the_seats_person(database: AsyncDatabase) -> FLErasureResponse:
-    """The erasure of the person holding `ERASED_SEAT`, in a transaction of its own."""
+async def loeschen_the_seats_person(database: AsyncDatabase) -> FLErasureResponse:
+    """The erasure of the person holding `GELOESCHT_SEAT`, in a transaction of its own."""
 
-    return await erased(database, database.client, ERASED_EMAIL, germany_now=NOW)
+    return await erased(database, database.client, GELOESCHT_EMAIL, germany_now=NOW)
 
 
 class JunctionRunningAHookBeforeTheWrite(InterleavedCollection):
@@ -281,7 +278,7 @@ async def row_now(database: AsyncDatabase, saison_id: str = SAISON_ID) -> dict[s
 
 
 async def junction_log(database: AsyncDatabase) -> list[dict[str, Any]]:
-    return await database[Collection.AKTIONEN].find({"collection": str(Collection.SAISON_TEAMS)}).sort("_id", 1).to_list(length=None)
+    return await database[Collection.ACTION_LOG].find({"collection": str(Collection.SAISON_TEAMS)}).sort("_id", 1).to_list(length=None)
 
 
 @pytest.mark.db
@@ -359,12 +356,12 @@ class TestTheProvenanceIsTheServers:
 
         trainer = stored["kontakte"]["trainer"]
         assert trainer["telefon"] == OTHER_TELEFON, "the edit itself did not land, so this case proves nothing"
-        assert trainer["einwilligung"]["bestaetigt_am"] == CONFIRMED_ON
+        assert trainer["einwilligung"]["confirmed_at"] == CONFIRMED_ON
         # The date goes the same way, and by the same route: the payload names none, so a save that
         # did not carry it over would leave a stamped seat with no birthdate at all.
         assert trainer["geburtsdatum"] == GEBURTSDATUM
         assert response.kontakte is not None and response.kontakte.trainer is not None
-        assert response.kontakte.trainer.einwilligung.bestaetigt_am == CONFIRMED_ON
+        assert response.kontakte.trainer.einwilligung.confirmed_at == CONFIRMED_ON
 
     def test_a_confirmed_seat_renamed_at_its_own_address_starts_unconfirmed(self, mongo_replica_set_url: str):
         """A role mailbox handed from one teacher to the next, which the address alone cannot tell from an edit.
@@ -392,7 +389,7 @@ class TestTheProvenanceIsTheServers:
         assert trainer["einwilligung"] == born(successor)
         assert trainer["geburtsdatum"] is None
         assert response.kontakte is not None and response.kontakte.trainer is not None
-        assert response.kontakte.trainer.einwilligung.bestaetigt_am is None
+        assert response.kontakte.trainer.einwilligung.confirmed_at is None
 
     def test_a_confirmed_seat_handed_to_another_address_starts_unconfirmed(self, mongo_replica_set_url: str):
         """The confirmation is what one mailbox's owner clicked: a new address in the seat has clicked nothing."""
@@ -450,7 +447,7 @@ class TestNothingElseOnTheRowMoves:
 class TestAPairNoRowAnswers:
     def test_an_unknown_club_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await write_kontakte(database, NEW_KONTAKTE, team_id=ABSENT_OID)
 
             return await row_now(database), await junction_log(database)
@@ -465,7 +462,7 @@ class TestAPairNoRowAnswers:
         """The pair is what is addressed: a club that exists and a season that exists still name no row."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await write_kontakte(database, NEW_KONTAKTE, saison_id="2027")
 
             return await row_now(database)
@@ -474,30 +471,9 @@ class TestAPairNoRowAnswers:
 
 
 @pytest.mark.db
-class TestOnlyANewlySeatedAddressIsAnchored:
-    def test_a_save_keeping_two_seats_anchors_the_third_persons_address_alone(self, mongo_replica_set_url: str):
-        """A kept seat's address is on the row an erasure of it writes already.
-
-        Anchored too, it sends that person's own writes round against an administrator's save.
-        """
-
-        handed_on = {**RESAVED_AS_RENDERED, "stellvertretung": person("Nils")}
-
-        async def body(database: AsyncDatabase) -> Any:
-            await write_kontakte(database, handed_on)
-            expected = adressanker_id(str(handed_on["stellvertretung"]["email"]), schluessel=ban_list(database).schluessel)
-
-            return [row["_id"] async for row in database[Collection.ADRESSANKER].find()], expected
-
-        anchored, expected = on_a_league(mongo_replica_set_url, body)
-
-        assert anchored == [expected]
-
-
-@pytest.mark.db
 class TestTheWriteIsRecorded:
     def test_one_action_row_carries_the_block_this_write_replaced(self, mongo_replica_set_url: str):
-        """The undo path: the pre-image is the only copy of three people's details a mistake overwrote."""
+        """The log's pre-image is the only copy of three people's details a mistake overwrote."""
 
         async def body(database: AsyncDatabase) -> Any:
             await write_kontakte(database, NEW_KONTAKTE)
@@ -513,35 +489,35 @@ class TestTheWriteIsRecorded:
 
 
 @pytest.mark.db
-class TestAnErasureLandingMidSaveIsNotUndone:
+class TestAnLoeschungLandingMidSaveIsNotUndone:
     """Two administrators on one row: an erasure empties a seat while the editor holds the block it rendered.
 
     The editor replaces the block whole, so its payload puts the seat back unless the endpoint
     judges the row first.
     """
 
-    def test_a_seat_erased_under_the_save_is_refused_rather_than_put_back(self, mongo_replica_set_url: str):
+    def test_a_seat_geloescht_under_the_save_is_refused_rather_than_put_back(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            erasures: list[Any] = []
+            loeschungen: list[Any] = []
 
-            async def erase_between() -> None:
-                erasures.append(await erase_the_seats_person(database))
+            async def loeschen_between() -> None:
+                loeschungen.append(await loeschen_the_seats_person(database))
 
-            junction = JunctionRunningAHookBeforeTheWrite(database[Collection.SAISON_TEAMS], erase_between)
-            with pytest.raises(WriteRefusalException) as refused:
+            junction = JunctionRunningAHookBeforeTheWrite(database[Collection.SAISON_TEAMS], loeschen_between)
+            with pytest.raises(APIError) as refused:
                 await write_kontakte(database, RESAVED_AS_RENDERED, saison_teams_collection=junction)
             # An erasure committing first refuses the save at its read, before it reaches the write.
             junction.assert_landed_inside(serially=0)
 
-            return erasures[0], refused.value, await row_now(database)
+            return loeschungen[0], refused.value, await row_now(database)
 
-        erasure, refusal, stored = on_a_league(mongo_replica_set_url, body)
+        loeschung, refusal, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert erasure.kontakt_sitze == 1, "the interference emptied no seat, so the save had nothing to undo"
-        assert refusal.error_code == KONTAKTE_MOVED_UNDER_THE_SAVE
-        assert stored["kontakte"][ERASED_SEAT] is None, "the save put the person who asked to be forgotten back on the row"
+        assert loeschung.kontakt_seats == 1, "the interference emptied no seat, so the save had nothing to undo"
+        assert refusal.error_code == Code.KONTAKTE_MOVED_UNDER_THE_SAVE
+        assert stored["kontakte"][GELOESCHT_SEAT] is None, "the save put the person who asked to be forgotten back on the row"
 
-    def test_the_same_save_lands_the_seat_where_no_erasure_interferes(self, mongo_replica_set_url: str):
+    def test_the_same_save_lands_the_seat_where_no_loeschung_interferes(self, mongo_replica_set_url: str):
         """The control: without it the case above would pass on an endpoint that stored this seat for nobody."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -553,7 +529,7 @@ class TestAnErasureLandingMidSaveIsNotUndone:
 
         # The seeded row's own date rides along: the address is the same person's, and the payload
         # names none for the composition to prefer.
-        assert stored["kontakte"][ERASED_SEAT] == as_kept(SEEDED_KONTAKTE[ERASED_SEAT])
+        assert stored["kontakte"][GELOESCHT_SEAT] == as_kept(SEEDED_KONTAKTE[GELOESCHT_SEAT])
 
 
 @pytest.mark.db
@@ -562,39 +538,16 @@ class TestASaveComposedAgainstAnotherBlockIsRefused:
         """A refusal has to stop the write rather than accompany it: the pre-image is the only copy of the block."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await write_kontakte(database, NEW_KONTAKTE, stand=kontakte_stand_of(PARTLY_CONFIRMED))
 
             return refused.value, await row_now(database), await junction_log(database)
 
         refusal, stored, log = on_a_league(mongo_replica_set_url, body)
 
-        assert refusal.error_code == KONTAKTE_MOVED_UNDER_THE_SAVE
+        assert refusal.error_code == Code.KONTAKTE_MOVED_UNDER_THE_SAVE
         assert stored["kontakte"] == SEEDED_KONTAKTE
         assert log == []
-
-    def test_the_undo_replays_against_the_block_the_save_left(self, mongo_replica_set_url: str):
-        """The write's own answer is the undo's precondition: the save has already moved the row past what the editor read.
-
-        Under the running label: the save handed every seat on, so the replay seats each person afresh
-        (`TestTheLabelASaveNames`).
-        """
-
-        replayed: dict[str, Any] = {
-            slot: person(vorname) for slot, vorname in (("trainer", "Ida"), ("ansprechperson", "Jonas"), ("stellvertretung", "Klara"))
-        }
-        replayed["trainer_ist_zugleich"] = None
-
-        async def body(database: AsyncDatabase) -> Any:
-            saved = await write_kontakte(database, NEW_KONTAKTE)
-
-            await write_kontakte(database, replayed, stand=saved.kontakte_stand)
-
-            return await row_now(database)
-
-        stored = on_a_league(mongo_replica_set_url, body)
-
-        assert stored["kontakte"] == as_stored(replayed)
 
 
 @pytest.mark.db
@@ -608,7 +561,7 @@ class TestTheReadsTokenIsWhatTheWriteAccepts:
 
         async def body(database: AsyncDatabase) -> Any:
             # With the key the read composes after it (`app/api/teams/services.py :: mit_adresswechseln`), never stored.
-            served = FLTeamMembership.model_validate({**await row_now(database), "adresswechsel": None})
+            served = FLTeamMembership.model_validate({**await row_now(database), "address_change": None})
 
             await write_kontakte(database, NEW_KONTAKTE, stand=served.kontakte_stand)
 
@@ -622,7 +575,7 @@ class TestTheReadsTokenIsWhatTheWriteAccepts:
 class TestWhatThePayloadRefuses:
     """The provenance and the birthdate are on no payload: a field the editor merely hid would still be a route an API caller has."""
 
-    @pytest.mark.parametrize(("field", "value"), [("eingetragen_von", "bewerbung"), ("bestaetigt_am", CONFIRMED_ON)])
+    @pytest.mark.parametrize(("field", "value"), [("entered_by", "bewerbung"), ("confirmed_at", CONFIRMED_ON)])
     def test_a_consent_naming_its_source_or_its_stamp_is_refused(self, field: str, value: str):
         with pytest.raises(ValidationError) as failure:
             FLKontaktKenntnisnahmePayload.model_validate({**person("Ida")["einwilligung"], field: value})
@@ -641,7 +594,7 @@ class TestWhatThePayloadRefuses:
     def test_the_whole_block_is_refused_on_one_seats_source(self):
         """Through the endpoint's own payload, so the refusal reaches the wire as a 422 rather than a stored claim."""
 
-        block = {**NEW_KONTAKTE, "trainer": stored_person("Lea", bestaetigt_am=CONFIRMED_ON)}
+        block = {**NEW_KONTAKTE, "trainer": stored_person("Lea", confirmed_at=CONFIRMED_ON)}
 
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": block, "kontakte_stand": kontakte_stand_of(SEEDED_KONTAKTE)})
@@ -671,9 +624,9 @@ class TestTheTwoContactRules:
         """Two records of one person the erasure cannot pair up, each mailed a link of its own."""
 
         with pytest.raises(ValidationError) as failure:
-            FLPatchSaisonTeamKontaktePayload.model_validate(self.block(trainer_ist_zugleich="ansprechperson"))
+            FLPatchSaisonTeamKontaktePayload.model_validate(self.block(trainer_is_also="ansprechperson"))
 
-        assert "denen des Trainers" in str(failure.value)
+        assert "the Trainer also holds" in str(failure.value)
 
     @pytest.mark.parametrize(
         "emptied",
@@ -682,7 +635,7 @@ class TestTheTwoContactRules:
     def test_an_empty_side_of_the_pair_compares_with_nothing(self, emptied: str):
         """A seat an erasure or a Widerspruch emptied leaves the row editable."""
 
-        sent = self.block(**{"ansprechperson": person("Ida"), "trainer_ist_zugleich": "ansprechperson", emptied: None})
+        sent = self.block(**{"ansprechperson": person("Ida"), "trainer_is_also": "ansprechperson", emptied: None})
 
         assert FLPatchSaisonTeamKontaktePayload.model_validate(sent).kontakte is not None
 
@@ -690,7 +643,7 @@ class TestTheTwoContactRules:
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonTeamKontaktePayload.model_validate(self.block(ansprechperson={**person("Jonas"), "email": "IDA@example.com"}))
 
-        assert "E-Mail-Adressen" in str(failure.value)
+        assert [error["type"] for error in failure.value.errors()] == ["kontakt_email_twice"]
 
     def test_an_empty_seat_shares_nothing(self):
         """Two empty seats are not two people at one address."""
@@ -717,27 +670,18 @@ class TestTheCompositionDecidesFromItsArguments:
         composed = compose_kontakte_herkunft(kontakte=recased, stored=PARTLY_CONFIRMED)
 
         assert composed is not None
-        assert composed["trainer"]["einwilligung"]["bestaetigt_am"] == CONFIRMED_ON
+        assert composed["trainer"]["einwilligung"]["confirmed_at"] == CONFIRMED_ON
         assert composed["trainer"]["geburtsdatum"] == GEBURTSDATUM
 
     def test_a_domain_spelled_with_ss_where_it_held_sharp_s_is_another_mailbox(self):
         """IDNA 2008 and the sign-in fold read „straße“ and „strasse“ as two domains: a stamp carried across confirms an unproven inbox."""
 
-        held = {**PARTLY_CONFIRMED, "trainer": stored_person("Ida", email="ida@straße.de", bestaetigt_am=CONFIRMED_ON)}
+        held = {**PARTLY_CONFIRMED, "trainer": stored_person("Ida", email="ida@straße.de", confirmed_at=CONFIRMED_ON)}
         moved = {**held, "trainer": person("Ida", email="ida@strasse.de")}
         composed = compose_kontakte_herkunft(kontakte=moved, stored=held)
 
         assert composed is not None
-        assert composed["trainer"]["einwilligung"]["bestaetigt_am"] is None
-
-    def test_a_seat_stamped_with_an_empty_string_is_saved_as_unconfirmed(self):
-        """Carried across a save, `""` would stand as a confirmation nobody gave; the same person is held, so only the stamp decides."""
-
-        held = {**PARTLY_CONFIRMED, "trainer": stored_person("Ida", bestaetigt_am="")}
-        composed = compose_kontakte_herkunft(kontakte=RESAVED_AS_RENDERED, stored=held)
-
-        assert composed is not None
-        assert composed["trainer"]["einwilligung"] == unbestaetigt(held["trainer"]["einwilligung"])
+        assert composed["trainer"]["einwilligung"]["confirmed_at"] is None
 
     def test_a_null_slot_is_left_null(self):
         composed = compose_kontakte_herkunft(kontakte=ONE_SLOT_FILLED, stored=PARTLY_CONFIRMED)
@@ -749,7 +693,7 @@ class TestTheCompositionDecidesFromItsArguments:
         composed = compose_kontakte_herkunft(kontakte=NEW_KONTAKTE, stored=None)
 
         assert composed is not None
-        assert composed["trainer_ist_zugleich"] == "ansprechperson"
+        assert composed["trainer_is_also"] == "ansprechperson"
 
 
 class TestTheDateRidesWithThePerson:
@@ -761,7 +705,7 @@ class TestTheDateRidesWithThePerson:
         assert composed is not None
         # The floor under the claim below: a date standing beside a stamp would prove a confirmation
         # survived rather than the identity match that carries the date.
-        assert composed["trainer"]["einwilligung"]["bestaetigt_am"] is None, "the seed is confirmed, so this case proves nothing"
+        assert composed["trainer"]["einwilligung"]["confirmed_at"] is None, "the seed is confirmed, so this case proves nothing"
         assert [composed[slot]["geburtsdatum"] for slot in ("trainer", "ansprechperson", "stellvertretung")] == [GEBURTSDATUM] * 3
 
     def test_a_seat_handed_to_another_address_holds_no_date(self):
@@ -871,7 +815,7 @@ class TestTheTokenNamesWhatTheEditorWasServed:
         write judging it would stop agreeing after a restart.
         """
 
-        assert kontakte_stand_of(SEEDED_KONTAKTE) == "58607b46e0e8afe20231b5be55a56836ad360cd782add8c67d7d5bc4636e0bd2"
+        assert kontakte_stand_of(SEEDED_KONTAKTE) == "25982e22afb14f03426ccd20fc28aa7ebbad57f21b27f22c8018e6a4d7ba9738"
 
     def test_a_stored_blank_answers_the_token_of_the_null_the_read_model_makes_of_it(self):
         """`CustomOptionalDateString` nulls a blank on the way in, and the write judges the raw document.
@@ -897,8 +841,8 @@ class TestTheTokenNamesWhatTheEditorWasServed:
         ("moved", "id_of"),
         [
             pytest.param(PARTLY_CONFIRMED, "a seat confirmed since", id="a stamp arriving"),
-            pytest.param({**SEEDED_KONTAKTE, ERASED_SEAT: None}, "a seat emptied since", id="an erasure"),
-            pytest.param({**SEEDED_KONTAKTE, "trainer_ist_zugleich": "stellvertretung"}, "a claim made since", id="the shared seat"),
+            pytest.param({**SEEDED_KONTAKTE, GELOESCHT_SEAT: None}, "a seat emptied since", id="an erasure"),
+            pytest.param({**SEEDED_KONTAKTE, "trainer_is_also": "stellvertretung"}, "a claim made since", id="the shared seat"),
             pytest.param(None, "a block cleared since", id="a cleared block"),
         ],
     )
@@ -919,9 +863,9 @@ class TestAKeptRecordKeepsItsEvidence:
             "umfang": "kontaktdaten_whatsapp",
             "text_version": "2026-09-bestaetigungsseite-6",
             "datum": "2026-03-01",
-            "bestaetigt_am": CONFIRMED_ON,
+            "confirmed_at": CONFIRMED_ON,
             "medien": True,
-            "eingetragen_von": "bewerbung",
+            "entered_by": "bewerbung",
             "nachweis": {
                 "umfang": {"am": "2026-03-15T09:00:00+00:00", "text_version": "2026-09-bestaetigungsseite-6"},
                 "medien": {"am": "2026-03-20T09:00:00+00:00", "text_version": "2026-10-konto-kontakt"},
@@ -945,7 +889,7 @@ class TestAKeptRecordKeepsItsEvidence:
         """The commoner seat: the applicant or the league having seated them is what decides which page its link opens."""
 
         held = PARTLY_CONFIRMED["ansprechperson"]
-        seeded = {**PARTLY_CONFIRMED, "ansprechperson": {**held, "einwilligung": {**held["einwilligung"], "eingetragen_von": "bewerbung"}}}
+        seeded = {**PARTLY_CONFIRMED, "ansprechperson": {**held, "einwilligung": {**held["einwilligung"], "entered_by": "bewerbung"}}}
 
         async def body(database: AsyncDatabase) -> Any:
             await write_kontakte(database, RESAVED_AS_RENDERED, stand=kontakte_stand_of(seeded))
@@ -954,7 +898,7 @@ class TestAKeptRecordKeepsItsEvidence:
 
         stored = on_a_league(mongo_replica_set_url, body, seeded=seeded)
 
-        assert stored["kontakte"]["ansprechperson"]["einwilligung"]["eingetragen_von"] == "bewerbung"
+        assert stored["kontakte"]["ansprechperson"]["einwilligung"]["entered_by"] == "bewerbung"
 
     def test_a_seat_handed_to_another_person_is_born_afresh_by_the_league(self, mongo_replica_set_url: str):
         """Nothing of the person who left travels: their evidence, scope and media answer go with their data."""
@@ -974,7 +918,7 @@ class TestAKeptRecordKeepsItsEvidence:
 
 @pytest.mark.db
 class TestTheLabelASaveNames:
-    """`REQ-EINWILLIGUNG-001`: a seat the save fills names the running label; the same person may name back the label they hold."""
+    """`wording_not_allowed`: a seat the save fills names the running label; the same person may name back the label they hold."""
 
     @pytest.mark.parametrize(
         ("sent", "id_of"),
@@ -1000,14 +944,14 @@ class TestTheLabelASaveNames:
         """The second row is the one keyed on the PERSON: a seat keyed arm would admit the old holder's label for a stranger."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await write_kontakte(database, sent)
 
             return refused.value, await row_now(database), await junction_log(database)
 
         refusal, stored, log = on_a_league(mongo_replica_set_url, body)
 
-        assert (refusal.error_code, refusal.status_code) == (FASSUNG_UNZULAESSIG, 409), id_of
+        assert (refusal.error_code, refusal.status_code) == (Code.WORDING_NOT_ALLOWED, 409), id_of
         assert stored["kontakte"] == SEEDED_KONTAKTE
         assert log == []
 
@@ -1029,83 +973,18 @@ class TestTheLabelASaveNames:
 
         assert stored["kontakte"]["trainer"] == as_kept(SEEDED_KONTAKTE["trainer"])
 
-    def test_an_undo_putting_a_handed_seats_earlier_person_back_under_their_old_label_is_refused(self, mongo_replica_set_url: str):
-        """What the undo replays: the save being undone handed every seat on, so the replay seats each person afresh."""
+    def test_a_second_save_putting_a_handed_seats_earlier_person_back_under_their_old_label_is_refused(self, mongo_replica_set_url: str):
+        """The first save handed every seat on, so the second seats each person afresh."""
 
         async def body(database: AsyncDatabase) -> Any:
-            saved = await write_kontakte(database, NEW_KONTAKTE)
-            with pytest.raises(WriteRefusalException) as refused:
-                await write_kontakte(database, RESAVED_AS_RENDERED, stand=saved.kontakte_stand)
+            await write_kontakte(database, NEW_KONTAKTE)
+            stand = kontakte_stand_of((await row_now(database))["kontakte"])
+            with pytest.raises(APIError) as refused:
+                await write_kontakte(database, RESAVED_AS_RENDERED, stand=stand)
 
             return refused.value.error_code, await row_now(database)
 
         code, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert code == FASSUNG_UNZULAESSIG
+        assert code == Code.WORDING_NOT_ALLOWED
         assert stored["kontakte"] == as_stored(NEW_KONTAKTE)
-
-
-class TestWhomTheSaveTakesOffTheRow:
-    """The pure half of `abgaenge`, over the block and the links the endpoint composes from the payload."""
-
-    @staticmethod
-    def leaving(stored: Any, sent: Any) -> list[tuple[list[FLKontaktRolle], str]]:
-        return [(abgang.rollen, abgang.email) for abgang in TestWhomTheSaveTakesOffTheRow.abgaenge(stored, sent)]
-
-    @staticmethod
-    def abgaenge(stored: Any, sent: Any) -> list[Any]:
-        kontakte = compose_kontakte_herkunft(kontakte=sent, stored=stored)
-        owed = links_owed(kontakte=kontakte, stored=stored)
-
-        return departing_holders(stored=stored, kontakte=kontakte, owed=owed, schule=TEAM_NAME)
-
-    def test_a_seat_handed_to_another_person_answers_the_mailbox_it_held(self):
-        handed = {**RESAVED_AS_RENDERED, "stellvertretung": person("Lea")}
-
-        assert self.leaving(SEEDED_KONTAKTE, handed) == [(["stellvertretung"], "klara@example.com")]
-
-    def test_a_cleared_block_answers_every_mailbox_once_with_every_seat_it_held(self):
-        """The Trainer's second seat rides on the first's notice: one mailbox, one message."""
-
-        assert self.leaving(NEW_KONTAKTE, None) == [
-            (["trainer", "ansprechperson"], "lea@example.com"),
-            (["stellvertretung"], "nils@example.com"),
-        ]
-
-    def test_the_same_people_saved_again_answer_nobody(self):
-        recased = {**RESAVED_AS_RENDERED, "trainer": person("Ida", email="IDA@Example.com")}
-
-        assert self.leaving(SEEDED_KONTAKTE, recased) == []
-
-    def test_a_mailbox_seated_again_under_another_name_is_not_told_it_left(self):
-        """It is minted a fresh link (`links_owed` reads it as a handover), and a leaving notice beside that link would contradict it."""
-
-        renamed = {**RESAVED_AS_RENDERED, "trainer": {**person("Ida"), "vorname": "Ida-Marie"}}
-
-        assert self.leaving(SEEDED_KONTAKTE, renamed) == []
-
-    def test_a_person_moving_to_another_seat_of_the_row_is_not_told_they_left(self):
-        moved = {**RESAVED_AS_RENDERED, "ansprechperson": person("Klara"), "stellvertretung": person("Jonas")}
-
-        assert self.leaving(SEEDED_KONTAKTE, moved) == []
-
-    def test_a_trainer_losing_the_paired_seat_alone_is_told_of_that_seat(self):
-        """Still seated as the Trainer, so a rule asking whether the mailbox stays anywhere tells them nothing."""
-
-        unpaired = {**NEW_KONTAKTE, "ansprechperson": person("Jonas"), "trainer_ist_zugleich": None}
-
-        assert [(abgang.rollen, abgang.email, abgang.bleibt_als) for abgang in self.abgaenge(NEW_KONTAKTE, unpaired)] == [
-            (["ansprechperson"], "lea@example.com", ["trainer"])
-        ]
-
-    def test_a_trainer_keeping_the_paired_seat_alone_is_told_of_the_trainer_seat(self):
-        handed = {**NEW_KONTAKTE, "trainer": person("Jonas"), "trainer_ist_zugleich": None}
-
-        assert [(abgang.rollen, abgang.email, abgang.bleibt_als) for abgang in self.abgaenge(NEW_KONTAKTE, handed)] == [
-            (["trainer"], "lea@example.com", ["ansprechperson"])
-        ]
-
-    def test_a_mailbox_leaving_the_row_is_told_it_keeps_no_seat(self):
-        """The other arm: a notice saying a seat stays would leave a mailbox off the row waiting on links that died."""
-
-        assert [abgang.bleibt_als for abgang in self.abgaenge(NEW_KONTAKTE, None)] == [[], []]

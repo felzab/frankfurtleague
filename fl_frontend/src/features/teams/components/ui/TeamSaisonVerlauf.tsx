@@ -7,7 +7,7 @@ import { EmptyState } from "@/shared/components/ui/EmptyState";
 
 import { computeSaisonVerlauf } from "../../utils";
 
-import type { FLSpiel } from "@/features/spiele/schemas";
+import type { FLSpiel } from "@/features/spiele/types";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { ReactNode } from "react";
 import type { SaisonPhaseOutcome, SaisonPhaseVerlauf } from "../../utils";

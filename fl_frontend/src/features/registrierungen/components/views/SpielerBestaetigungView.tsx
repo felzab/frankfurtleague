@@ -62,13 +62,12 @@ import { EINWILLIGUNG_UMFANG_OPTIONS, SPIELER_UMFANG_FRAGE } from "../../constan
 import { buildRegistrierungBestaetigungPayloadSchema } from "../../schemas";
 
 import type { SpielerAbsatzSchluessel, SpielerWiederkehrendAbsatzSchluessel } from "@/core/einwilligungSeiten";
+import type { FLEinwilligungUmfang, FLRegistrierungConfirmationViewResponse } from "@/core/generated/client/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { Slots } from "@/shared/utils/stampedSlots";
 import type { Key } from "@heroui/react/rac";
 import type { CalendarDate } from "@internationalized/date";
-import type { FLEinwilligungUmfang } from "../../schemas";
 import type {
-  SpielerBestaetigungGeoeffnet,
   SpielerBestaetigungGespeichert,
   SpielerBestaetigungStart,
   SpielerFassung,
@@ -78,24 +77,29 @@ import type {
 
 // The words ride with the two states that show them, so neither can render without them.
 type Stand =
-  | (Extract<SpielerBestaetigungStart, { zustand: "gueltig" }> & { fassung: SpielerSeitenFassung })
-  | Exclude<SpielerBestaetigungStart, { zustand: "gueltig" }>
-  | { zustand: "erfolg"; ansicht: SpielerBestaetigungGeoeffnet; gespeichert: SpielerBestaetigungGespeichert; fassung: SpielerSeitenFassung };
+  | (Extract<SpielerBestaetigungStart, { zustand: "valid" }> & { wording: SpielerSeitenFassung })
+  | Exclude<SpielerBestaetigungStart, { zustand: "valid" }>
+  | {
+      zustand: "erfolg";
+      ansicht: FLRegistrierungConfirmationViewResponse;
+      gespeichert: SpielerBestaetigungGespeichert;
+      wording: SpielerSeitenFassung;
+    };
 
 /** An open link whose words could not be read is a page nobody can answer, which the failed read's panel says. */
 function anfang(start: SpielerBestaetigungStart, fassung: SpielerSeitenFassung | null): Stand {
-  if (start.zustand !== "gueltig") return start;
+  if (start.zustand !== "valid") return start;
 
-  return fassung === null ? { zustand: "unlesbar" } : { ...start, fassung: fassung };
+  return fassung === null ? { zustand: "unlesbar" } : { ...start, wording: fassung };
 }
 
 /** One heading per state, uppercased by the page rather than typed so, as the application page does it. A barred link's page has none. */
-const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
-  gueltig: "Registrierung bestätigen",
+const TITEL: Record<Exclude<Stand["zustand"], "barred">, string> = {
+  valid: "Registrierung bestätigen",
   erfolg: "Registrierung bestätigt",
-  bestaetigt: "Schon erledigt",
-  abgelaufen: "Link ungültig",
-  ungueltig: "Link ungültig",
+  confirmed: "Schon erledigt",
+  expired: "Link ungültig",
+  invalid: "Link ungültig",
   unlesbar: LINK_UNLESBAR_TITEL,
 };
 
@@ -183,7 +187,7 @@ function SpielerHinweise({ absaetze, werte }: { absaetze: Readonly<Record<Hinwei
  * **The one wording of the points**: the button describes itself by this block's `id` rather
  * than by a summary sentence beside it, which is how a reader meets the same promise twice.
  */
-function KlickBestaetigung({ id, fassung, werte }: { id: string; fassung: SpielerSeitenFassung; werte: Slots }) {
+function KlickBestaetigung({ id, wording: fassung, werte }: { id: string; wording: SpielerSeitenFassung; werte: Slots }) {
   // The returning page's points carry no consent: it asks none.
   const punkte =
     fassung.seite === "bestaetigung_spieler"
@@ -211,7 +215,7 @@ function KlickBestaetigung({ id, fassung, werte }: { id: string; fassung: Spiele
 }
 
 type Antwort =
-  | { success: true; ergebnis: "bestaetigt"; geburtsdatum: string | null; umfang: FLEinwilligungUmfang | null; medien: boolean | null }
+  | { success: true; ergebnis: "confirmed"; geburtsdatum: string | null; umfang: FLEinwilligungUmfang | null; medien: boolean | null }
   | (PublicEnvelope & { success: false; zustand?: SpielerLinkZustand });
 
 /**
@@ -220,15 +224,21 @@ type Antwort =
  * `fassung` is handed in rather than imported: the label freezes exactly what a reader saw, and a
  * component reaching for the current words would render a text no stored record cites.
  */
-export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBestaetigungStart; fassung: SpielerSeitenFassung | null }) {
+export function SpielerBestaetigungView({
+  start,
+  wording: fassung,
+}: {
+  start: SpielerBestaetigungStart;
+  wording: SpielerSeitenFassung | null;
+}) {
   const [stand, setStand] = useState<Stand>(() => anfang(start, fassung));
   const { ergebnisRef, beantwortet } = useLinkSeite(stand.zustand);
 
-  if (stand.zustand === "gesperrt") return <AdresseGesperrt panelRef={ergebnisRef} />;
+  if (stand.zustand === "barred") return <AdresseGesperrt panelRef={ergebnisRef} />;
 
   // Off the CURRENT state and never the one the page opened on: a link the write found dead is
   // answered by a panel that names nobody, and the banner beside it would name the team anyway.
-  const ansicht = stand.zustand === "gueltig" || stand.zustand === "erfolg" ? stand.ansicht : null;
+  const ansicht = stand.zustand === "valid" || stand.zustand === "erfolg" ? stand.ansicht : null;
 
   return (
     <section className={SEITE_CLASSES}>
@@ -236,7 +246,7 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
         {ansicht !== null && <SaisonChip isLaufend={false}>Saison {ansicht.saison_id}</SaisonChip>}
         <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>{TITEL[stand.zustand]}</h1>
 
-        {stand.zustand === "gueltig" && (
+        {stand.zustand === "valid" && (
           <FaktenBanner
             zeilen={[
               { label: "Team", wert: stand.ansicht.team },
@@ -247,16 +257,16 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
         )}
       </header>
 
-      {stand.zustand === "gueltig" && (
+      {stand.zustand === "valid" && (
         <SpielerBestaetigungForm
           token={stand.token}
           ansicht={stand.ansicht}
-          fassung={stand.fassung}
+          wording={stand.wording}
           onAbschluss={(abschluss) => {
             beantwortet();
             setStand(
               abschluss.zustand === "erfolg"
-                ? { zustand: "erfolg", ansicht: stand.ansicht, gespeichert: abschluss.gespeichert, fassung: stand.fassung }
+                ? { zustand: "erfolg", ansicht: stand.ansicht, gespeichert: abschluss.gespeichert, wording: stand.wording }
                 : { zustand: abschluss.zustand },
             );
           }}
@@ -270,13 +280,13 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
           <p className={ABSATZ_CLASSES}>
             Danke. Deine Registrierung für <Wert>{stand.ansicht.team}</Wert> ist bestätigt.
           </p>
-          {stand.fassung.seite === "bestaetigung_spieler" ? (
+          {stand.wording.seite === "bestaetigung_spieler" ? (
             <GespeicherteAngaben
               zeilen={[
                 ...(stand.gespeichert.geburtsdatum === null
                   ? []
                   : [{ label: "Geburtsdatum", wert: formatSpielDatum(stand.gespeichert.geburtsdatum) }]),
-                ...wahlZeilen(stand.fassung, stand.gespeichert.umfang, stand.gespeichert.medien),
+                ...wahlZeilen(stand.wording, stand.gespeichert.umfang, stand.gespeichert.medien),
               ]}
             />
           ) : (
@@ -292,7 +302,7 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
 
       {/* No name and no team from here on: a consumed or dead link may have been forwarded, and a
           dead link identifies nobody. */}
-      {stand.zustand === "bestaetigt" && (
+      {stand.zustand === "confirmed" && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
@@ -304,7 +314,7 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
 
       {/* One wording for both: after the deletion the record is gone and the two cannot be told
           apart, and telling them apart would tell a guessed link that a record once existed. */}
-      {(stand.zustand === "abgelaufen" || stand.zustand === "ungueltig") && (
+      {(stand.zustand === "expired" || stand.zustand === "invalid") && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">
@@ -330,12 +340,12 @@ type Abschluss = { zustand: "erfolg"; gespeichert: SpielerBestaetigungGespeicher
 function SpielerBestaetigungForm({
   token,
   ansicht,
-  fassung,
+  wording: fassung,
   onAbschluss,
 }: {
   token: string;
-  ansicht: SpielerBestaetigungGeoeffnet;
-  fassung: SpielerSeitenFassung;
+  ansicht: FLRegistrierungConfirmationViewResponse;
+  wording: SpielerSeitenFassung;
   onAbschluss: (abschluss: Abschluss) => void;
 }) {
   const [isPending, startSending] = useTransition();
@@ -352,7 +362,7 @@ function SpielerBestaetigungForm({
 
   // Built from the floor the link answered, never the module's own: the endpoint judges this
   // person, so a schema on a constant would let the press through at the wrong number.
-  const bestaetigungSchema = buildRegistrierungBestaetigungPayloadSchema(ansicht.mindestalter, fassung.seite);
+  const bestaetigungSchema = buildRegistrierungBestaetigungPayloadSchema(ansicht.minimum_age, fassung.seite);
 
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } =
     useDraftFieldErrors({
@@ -360,7 +370,7 @@ function SpielerBestaetigungForm({
       failureTitle: ANTWORT_NICHT_GESPEICHERT,
     });
 
-  const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), ansicht.mindestalter);
+  const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), ansicht.minimum_age);
 
   const fragtWahlen = fassung.seite === "bestaetigung_spieler";
 
@@ -369,15 +379,15 @@ function SpielerBestaetigungForm({
   const medienAngeboten =
     fragtWahlen &&
     entwurf.geburtsdatum !== "" &&
-    entwurf.geburtsdatum <= geburtsdatumSpanne(getGermanTodayStr(), ansicht.medien_mindestalter).spaeteste;
+    entwurf.geburtsdatum <= geburtsdatumSpanne(getGermanTodayStr(), ansicht.medien_minimum_age).spaeteste;
 
   // The DRAFT's shape rather than the payload's: `umfang` stands unanswered until it is picked, and
   // the schema is what turns that into a field error rather than this builder into a cast.
   const payload = () => ({
     token: token,
-    // None from the returning page: the press takes the stored person's (`REQ-REGISTRIERUNG-017` refuses one sent).
+    // None from the returning page: the press takes the stored person's (`registrierung_choices_unsuitable` refuses one sent).
     geburtsdatum: fragtWahlen ? entwurf.geburtsdatum : null,
-    // Both choices null from the returning page, which asks neither (`REQ-REGISTRIERUNG-017` refuses any other).
+    // Both choices null from the returning page, which asks neither (`registrierung_choices_unsuitable` refuses any other).
     umfang: fragtWahlen ? entwurf.umfang : null,
     // Never the draft's own `true` where no switch stands: one given before the date moved below the
     // media age would send a consent this page withheld.
@@ -395,8 +405,8 @@ function SpielerBestaetigungForm({
     team: ansicht.team,
     schule: ansicht.schule,
     saison: ansicht.saison_id,
-    minAlter: String(ansicht.mindestalter),
-    medienMinAlter: String(ansicht.medien_mindestalter),
+    minAlter: String(ansicht.minimum_age),
+    medienMinAlter: String(ansicht.medien_minimum_age),
     // Filled rather than left standing: `Gefuellt` leaves an unfilled slot as written, so the
     // consent text would spell its own placeholder on the live page.
     ...FESTE_WERTE,
@@ -474,7 +484,7 @@ function SpielerBestaetigungForm({
                 value={toCalendarDate(entwurf.geburtsdatum)}
                 onChange={(next) => setEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
                 onBlur={() => validatePaths("bestaetigung", payload(), ["geburtsdatum"])}
-                hint={`Daran prüfen wir, ob Du mindestens ${String(ansicht.mindestalter)} Jahre alt bist. Das Datum wird mit Deiner Registrierung gespeichert.`}
+                hint={`Daran prüfen wir, ob Du mindestens ${String(ansicht.minimum_age)} Jahre alt bist. Das Datum wird mit Deiner Registrierung gespeichert.`}
                 minValue={parseDate(frueheste)}
                 maxValue={parseDate(spaeteste)}
               />
@@ -488,7 +498,7 @@ function SpielerBestaetigungForm({
 
         {fassung.seite === "bestaetigung_spieler" ? (
           <WahlenAbschnitte
-            fassung={fassung}
+            wording={fassung}
             werte={werte}
             umfang={entwurf.umfang}
             medien={entwurf.medien}
@@ -522,7 +532,7 @@ function SpielerBestaetigungForm({
 
         <KlickBestaetigung
           id={klickPunkteId}
-          fassung={fassung}
+          wording={fassung}
           werte={werte}
         />
 
@@ -556,7 +566,7 @@ function SpielerBestaetigungForm({
 
 /** The new pupil's two choices, each below the paragraph it answers. */
 function WahlenAbschnitte({
-  fassung,
+  wording: fassung,
   werte,
   umfang,
   medien,
@@ -566,7 +576,7 @@ function WahlenAbschnitte({
   switchContentClassName,
   switchControlClassName,
 }: {
-  fassung: SpielerFassung;
+  wording: SpielerFassung;
   werte: Slots;
   umfang: FLEinwilligungUmfang | null;
   medien: boolean;

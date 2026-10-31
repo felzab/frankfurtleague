@@ -1,6 +1,15 @@
+import { FLGruppenNames } from "@/core/generated/client/types";
+import { KONTAKT_ROLLE_LANGFORM, TRIKOT_FARBEN } from "@/core/teamVocabulary";
 import { NICHT_HINTERLEGT, nichtHinterlegt } from "@/shared/utils/format";
 
-import type { FLAustrittType, FLKontaktKenntnisnahme, FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "./schemas";
+import type {
+  FLAustrittType,
+  FLKontaktEnteredBy,
+  FLKontaktKenntnisnahmeUmfang,
+  FLSchulform,
+  FLTrainerAlso,
+  FLTrikotFarbe,
+} from "@/core/generated/client/types";
 
 export const TEAMS_CRUD_COPY = {
   searchLabel: "Teams suchen",
@@ -20,7 +29,7 @@ export const TEAMS_CRUD_COPY = {
 export const TEAM_RETIREMENT_CONSEQUENCE =
   "Seine Spiele, Saisons und Tabellen bleiben erhalten, und sein Kürzel bleibt reserviert. Das Team steht nur nicht mehr zur Auswahl.";
 
-/** Why the list's row and the editor's header both close the retirement `REQ-RETIRE-001` would refuse, in one sentence. */
+/** Why the list's row and the editor's header both close the retirement `retire_blocked` would refuse, in one sentence. */
 export const TEAM_NICHT_STILLLEGBAR = "Stilllegen ist nur möglich, wenn das Team in keiner laufenden oder geplanten Saison spielt.";
 
 export const KONTAKTE_CRUD_COPY = {
@@ -38,12 +47,8 @@ export const SAISON_ABSCHNITT = "Saison";
 /** The club editor's contacts panel, named by its heading where a refusal sends the reader to it, so a renamed panel takes the refusal with it. */
 export const KONTAKTE_ABSCHNITT = "Kontakte";
 
-/**
- * The closed set, in the order every picker offers it. The ONE spelling on this surface, and here
- * rather than beside `fl_frontend/src/features/teams/schemas.ts :: FLGruppenNamesSchema`, which
- * derives from it: the runtime import runs this way.
- */
-export const GRUPPEN_OPTIONS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"] as const;
+/** The closed set, in the order every picker offers it and a season's groups take their names. */
+export const GRUPPEN_OPTIONS: readonly FLGruppenNames[] = Object.values(FLGruppenNames);
 
 type AustrittOption = {
   readonly value: FLAustrittType;
@@ -119,48 +124,14 @@ export function schulformLabel(schulform: FLSchulform): string {
   return SCHULFORM_OPTIONS.find((option) => option.value === schulform)?.label ?? "";
 }
 
-export type TrikotFarbeOption = {
-  readonly value: FLTrikotFarbe;
-  readonly label: string;
-  /**
-   * The swatch's fill, copied from the league's colour sheet and authoritative over any eyeballed
-   * match. A changed hex recolours every row already stored under its slug, and contradicts every
-   * acceptance mail already sent, which states the hex to the school.
-   */
-  readonly hex: string;
-};
+export type TrikotFarbeOption = (typeof TRIKOT_FARBEN)[number];
 
 /**
- * The league's kit palette in its colour sheet's order, neutrals first, then round the colour wheel.
- * A swatch draws from `hex`, never a Tailwind token: the colour sheet's hex codes are authoritative,
- * and no theme scale tracks them.
+ * The league's kit palette, which the mail builders state to a school too: `fl_frontend/src/core/teamVocabulary.ts ::
+ * TRIKOT_FARBEN` holds it. A swatch draws from `hex`, never a Tailwind token: the colour sheet's hex codes are
+ * authoritative, and no theme scale tracks them.
  */
-export const TRIKOT_FARBE_OPTIONS: readonly TrikotFarbeOption[] = [
-  { value: "schwarz", label: "Schwarz", hex: "#111111" },
-  { value: "weiss", label: "Weiß", hex: "#f5f5f5" },
-  { value: "grau", label: "Grau", hex: "#8a9199" },
-  { value: "braun", label: "Braun", hex: "#7a4a28" },
-  { value: "bordeaux", label: "Bordeaux", hex: "#8e2430" },
-  { value: "rot", label: "Rot", hex: "#e52521" },
-  { value: "koralle", label: "Koralle", hex: "#ff5f37" },
-  { value: "orange", label: "Orange", hex: "#f47b20" },
-  { value: "gold", label: "Gold", hex: "#e9a928" },
-  { value: "gelb", label: "Gelb", hex: "#fff84f" },
-  { value: "limette", label: "Limette", hex: "#a8c83a" },
-  { value: "hellgruen", label: "Hellgrün", hex: "#75db06" },
-  { value: "gruen", label: "Grün", hex: "#0e7615" },
-  { value: "smaragd", label: "Smaragd", hex: "#008f68" },
-  { value: "tuerkis", label: "Türkis", hex: "#00a6a6" },
-  { value: "cyan", label: "Cyan", hex: "#1ba8c8" },
-  { value: "hellblau", label: "Hellblau", hex: "#74d3fc" },
-  { value: "meerblau", label: "Meerblau", hex: "#5a87d6" },
-  { value: "blau", label: "Blau", hex: "#2455c3" },
-  { value: "dunkelblau", label: "Dunkelblau", hex: "#142b63" },
-  { value: "flieder", label: "Flieder", hex: "#d49cf1" },
-  { value: "violett", label: "Violett", hex: "#7138b5" },
-  { value: "magenta", label: "Magenta", hex: "#c52a87" },
-  { value: "rosa", label: "Rosa", hex: "#e14b9a" },
-];
+export const TRIKOT_FARBE_OPTIONS: readonly TrikotFarbeOption[] = TRIKOT_FARBEN;
 
 const trikotFarbeOption = (farbe: FLTrikotFarbe): TrikotFarbeOption | undefined => TRIKOT_FARBE_OPTIONS.find((o) => o.value === farbe);
 
@@ -202,7 +173,7 @@ export function kontaktGeburtsdatumLeer(bestaetigtAm: string | null, ohneLabel =
 }
 
 type EingetragenVonOption = {
-  readonly value: FLKontaktKenntnisnahme["eingetragen_von"];
+  readonly value: FLKontaktEnteredBy;
   readonly label: string;
 };
 
@@ -210,7 +181,7 @@ type EingetragenVonOption = {
 const EINGETRAGEN_VON_LABELS = {
   bewerbung: "Mit der Bewerbung eingetragen",
   liga: "Von der Liga eingetragen",
-} as const satisfies Record<FLKontaktKenntnisnahme["eingetragen_von"], string>;
+} as const satisfies Record<FLKontaktEnteredBy, string>;
 
 /**
  * Who seated a contact person, in the order the contacts facet offers them: the applicant on the form,
@@ -222,7 +193,7 @@ export const EINGETRAGEN_VON_OPTIONS: readonly EingetragenVonOption[] = [
 ];
 
 /** The Herkunft every surface renders for a contact seat: who seated the person. */
-export function eingetragenVonLabel(von: FLKontaktKenntnisnahme["eingetragen_von"]): string {
+export function eingetragenVonLabel(von: FLKontaktEnteredBy): string {
   return EINGETRAGEN_VON_LABELS[von];
 }
 
@@ -235,7 +206,7 @@ export const WEBSITE_URL_SCHEME = "https://";
 
 /** What an administrator's readout labels a seat's contact scope with, and its two values keyed by the scope. */
 export const KONTAKT_WHATSAPP_FRAGE = "WhatsApp";
-export const KONTAKT_WHATSAPP_LABELS: Readonly<Record<FLKontaktKenntnisnahme["umfang"], string>> = {
+export const KONTAKT_WHATSAPP_LABELS: Readonly<Record<FLKontaktKenntnisnahmeUmfang, string>> = {
   kontaktdaten_whatsapp: "erlaubt",
   kontaktdaten: "nicht erlaubt",
 };
@@ -244,14 +215,15 @@ export const KONTAKT_WHATSAPP_LABELS: Readonly<Record<FLKontaktKenntnisnahme["um
  * The three seats a season holds per club, in both surfaces' order.
  *
  * TWO wordings, as `AUSTRITT_OPTIONS` carries three: the admin takes the short form, the public one
- * the long form. Both live here, so no two surfaces name a seat differently.
+ * the long form, which `fl_frontend/src/core/teamVocabulary.ts :: KONTAKT_ROLLE_LANGFORM` holds for the mails too. Both
+ * are read from here, so no two surfaces name a seat differently.
  */
 export const KONTAKT_ROLLEN = [
   // The Ansprechperson leads and the Trainer closes: the coach claim is answered on the Trainer's
   // own panel, and it names a seat the reader has already typed.
-  { value: "ansprechperson", label: "Ansprechperson", langform: "Ansprechperson" },
-  { value: "stellvertretung", label: "Stellvertretung", langform: "Stellvertretung" },
-  { value: "trainer", label: "Trainer", langform: "Trainerin oder Trainer" },
+  { value: "ansprechperson", label: "Ansprechperson", langform: KONTAKT_ROLLE_LANGFORM.ansprechperson },
+  { value: "stellvertretung", label: "Stellvertretung", langform: KONTAKT_ROLLE_LANGFORM.stellvertretung },
+  { value: "trainer", label: "Trainer", langform: KONTAKT_ROLLE_LANGFORM.trainer },
 ] as const;
 
 export type KontaktRolle = (typeof KONTAKT_ROLLEN)[number]["value"];
@@ -259,7 +231,7 @@ export type KontaktRolle = (typeof KONTAKT_ROLLEN)[number]["value"];
 type TrainerZugleichOption = {
   /** A picker's key is a string; `null` is the answer „Eine eigene Person“ spells on the wire. */
   readonly key: string;
-  readonly value: FLTrainerZugleich | null;
+  readonly value: FLTrainerAlso | null;
   readonly label: string;
 };
 
@@ -281,6 +253,6 @@ export const TRAINER_ZUGLEICH_OPTIONS: readonly TrainerZugleichOption[] = [
 export const TRAINER_ZUGLEICH_FRAGE = "Die Trainerin oder der Trainer ist";
 
 /** What every surface renders for a stored claim, the null answer included. */
-export function trainerZugleichLabel(seat: FLTrainerZugleich | null): string {
+export function trainerZugleichLabel(seat: FLTrainerAlso | null): string {
   return TRAINER_ZUGLEICH_OPTIONS.find((option) => option.value === seat)?.label ?? "";
 }

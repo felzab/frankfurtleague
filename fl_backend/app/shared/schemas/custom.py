@@ -1,6 +1,7 @@
 import re
+from dataclasses import dataclass
 from datetime import date
-from typing import Annotated, Any
+from typing import Annotated, Any, LiteralString
 from urllib.parse import urlsplit
 
 from bson import ObjectId
@@ -14,8 +15,10 @@ from pydantic import (
     SerializationInfo,
     StringConstraints,
 )
-from pydantic.json_schema import JsonSchemaValue
-from pydantic_core import CoreSchema, core_schema
+from pydantic.json_schema import JsonSchemaValue, WithJsonSchema
+from pydantic_core import CoreSchema, PydanticCustomError, core_schema
+
+from app.shared.schemas.bounds import TEAM_SHORTHAND_LENGTH
 
 DATE_REGEX = r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
 
@@ -107,6 +110,55 @@ def parse_empty_string_to_none(value: Any) -> Any:
 
 CustomOptionalString = Annotated[str | None, BeforeValidator(parse_empty_string_to_none)]
 
+
+# What a blank input is before `parse_empty_string_to_none` reads it as absent.
+BLANK_PATTERN = r"^\s*$"
+
+
+@dataclass(frozen=True)
+class AdmitsOnInput:
+    """The request-side schema also admits what a before-validator folds away.
+
+    The document describes a value after its fold, and a client generated from it refuses what the
+    backend accepts unless the request side says so; the response side keeps the folded shape.
+    """
+
+    admitted: JsonSchemaValue
+
+    def __get_pydantic_json_schema__(self, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        schema = handler(core_schema)
+        if handler.mode != "validation":
+            return schema
+
+        # Flattened where the type is already a union, the optional ones being one.
+        alternatives = schema["anyOf"] if set(schema) == {"anyOf"} else [schema]
+
+        return {"anyOf": [*alternatives, self.admitted]}
+
+
+BLANK_ADMITTED = AdmitsOnInput({"type": "string", "pattern": BLANK_PATTERN})
+
+
+def fold_shorthand(value: Any) -> Any:
+    return value.strip().upper() if isinstance(value, str) else value
+
+
+SHORTHAND_PATTERN = rf"^[A-Z]{{{TEAM_SHORTHAND_LENGTH}}}$"
+
+# What the fold turns into `SHORTHAND_PATTERN`: either case, and padding the strip takes off.
+SHORTHAND_INPUT_PATTERN = rf"^\s*[A-Za-z]{{{TEAM_SHORTHAND_LENGTH}}}\s*$"
+
+# Folded before the pattern judges it, on every model carrying a club's code: `uniq_shorthand` and
+# every comparison of codes are byte for byte, so `abc` and `ABC` would otherwise be two clubs. The
+# fold sits outermost, after the constraint, so it runs first; the request side publishes what the
+# fold accepts, the response side the folded code.
+CustomShorthand = Annotated[
+    str,
+    StringConstraints(pattern=SHORTHAND_PATTERN),
+    BeforeValidator(fold_shorthand),
+    WithJsonSchema({"type": "string", "pattern": SHORTHAND_INPUT_PATTERN}, mode="validation"),
+]
+
 # An alias rather than a repeated `Field`, so a field cannot be added with the bound left off.
 CustomNonEmptyString = Annotated[str, StringConstraints(min_length=1)]
 
@@ -127,8 +179,8 @@ PHONE_REGEX = r"^([+]?[ 0-9\-().]{2,19}[0-9])$"
 # On the WRITE payloads only: a read model refusing a stored name 500s the response for one bad row.
 PERSON_NAME_PATTERN = r"^\p{L}[\p{L}\-' ]*$"
 
-# Paired with `strip_whitespace`, which runs first and
-# takes no NUL, so padding is repaired and an interior character refused.
+# Judged on the text as it arrives, before `str.strip` takes the padding, so a line break is refused wherever it stands;
+# the frontend strips what `str.strip` strips, White_Space and U+001C to U+001F.
 SINGLE_LINE_PATTERN = r"^[^\x00\n\v\f\r\u0085\u2028\u2029]*$"
 
 # Byte-for-byte the regex zod uses for `z.regexes.domain`, because `ExternalUrlSchema` tests the
@@ -147,7 +199,7 @@ def validate_calendar_date(value: str) -> str:
     try:
         date.fromisoformat(value)
     except ValueError as invalid_date_error:
-        raise ValueError("Date is not a real calendar date") from invalid_date_error
+        raise PydanticCustomError("date_not_in_calendar", "the date names no day of the calendar") from invalid_date_error
     return value
 
 
@@ -155,23 +207,24 @@ CustomDateString = Annotated[str, StringConstraints(pattern=DATE_REGEX, strict=T
 CustomTimeString = Annotated[str, StringConstraints(pattern=TIME_REGEX, strict=True)]
 
 
-def refuse_reversed_span(*, start: str, end: str, start_label: str, end_label: str) -> None:
+def refuse_reversed_span(*, start: str, end: str, kind: LiteralString) -> None:
     """From a PAYLOAD's `model_validator` alone: refusing a stored reversal on read would hide it from the edit that repairs it.
 
-    German for the log and the forms mirroring it, a 422 carrying no sentence.
+    `kind` names the span, since a model validator's refusal sits at the model and not at either date.
     """
 
     if end < start:
-        raise ValueError(f"{end_label} darf nicht vor {start_label} liegen.")
+        raise PydanticCustomError(kind, "the span ends before it starts")
 
 
-CustomOptionalDateString = Annotated[CustomDateString | None, BeforeValidator(parse_empty_string_to_none)]
-CustomOptionalTimeString = Annotated[CustomTimeString | None, BeforeValidator(parse_empty_string_to_none)]
+CustomOptionalDateString = Annotated[CustomDateString | None, BeforeValidator(parse_empty_string_to_none), BLANK_ADMITTED]
+CustomOptionalTimeString = Annotated[CustomTimeString | None, BeforeValidator(parse_empty_string_to_none), BLANK_ADMITTED]
 
 # Empty string coerces to None first, so "" is stored as absent rather than failing the pattern.
 CustomOptionalPhoneString = Annotated[
     Annotated[str, StringConstraints(pattern=PHONE_REGEX)] | None,
     BeforeValidator(parse_empty_string_to_none),
+    BLANK_ADMITTED,
 ]
 
 
@@ -191,22 +244,22 @@ def validate_external_url(value: str) -> str:
         # access. Bound to a name because a bare attribute access reads as dead code (ruff B018).
         _port = parts.port
     except ValueError as invalid_url_error:
-        raise ValueError("URL could not be parsed") from invalid_url_error
+        raise PydanticCustomError("url_not_accepted", "the URL could not be parsed") from invalid_url_error
 
     # zod compares the scheme case-insensitively, because it reads it back off a parsed URL object.
     if parts.scheme.lower() not in EXTERNAL_URL_SCHEMES:
-        raise ValueError("URL must use http or https")
+        raise PydanticCustomError("url_not_accepted", "the URL must use http or https")
 
     # `https://frankfurtleague.de@evil.com` resolves to `evil.com`: everything before the `@` is
     # userinfo, which every host check below excludes and never sees. A surface that renders the
     # string and follows the host sends a trusting reader to the attacker.
     if parts.username or parts.password:
-        raise ValueError("URL must not carry credentials before the @")
+        raise PydanticCustomError("url_not_accepted", "the URL must not carry credentials before the @")
 
     # `hostname` is the bare host: port stripped, userinfo excluded, already lowercased.
     host = parts.hostname
     if not host:
-        raise ValueError("URL must point at a domain name")
+        raise PydanticCustomError("url_not_accepted", "the URL must point at a domain name")
 
     # `DOMAIN_REGEX` is ASCII-only and `new URL` punycodes on the way in, so zod sees "xn--".
     # urlsplit does not, so encode first -- otherwise an umlaut domain fails on the read path.
@@ -219,13 +272,13 @@ def validate_external_url(value: str) -> str:
         else:
             host = host.encode("idna").decode("ascii")
     except UnicodeError as invalid_host_error:
-        raise ValueError("URL hostname is not a valid internationalised domain") from invalid_host_error
+        raise PydanticCustomError("url_not_accepted", "the URL's host is not a valid internationalised domain") from invalid_host_error
 
     # Python's `$` also matches before one final newline, and zod's does not. Harmless here:
     # `URL_STRIPPED_CHARACTERS`, the newline among them, is removed before parsing, and an encoded
     # `%0A` keeps its `%`, which no label admits.
     if not DOMAIN_REGEX.match(host):
-        raise ValueError("URL must point at a domain name")
+        raise PydanticCustomError("url_not_accepted", "the URL must point at a domain name")
 
     # What the checks ran on, and never `parts.geturl()`, which would also lowercase the scheme.
     return parsed

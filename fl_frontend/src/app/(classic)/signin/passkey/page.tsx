@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { connection } from "next/server";
 
 import { getPasskeyStep } from "@/core/auth";
 import { ROUTES } from "@/core/routes";
@@ -11,7 +10,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import type { Metadata } from "next";
 
 /** No description, as `/signin` carries none. */
-export const metadata: Metadata = pageMetadata(ROUTES.anmeldungPasskey, ROUTES.anmeldungPasskey.pfad());
+export const metadata: Metadata = pageMetadata(ROUTES.signInPasskey, ROUTES.signInPasskey.path());
 
 // Never under `/bereich/admin`: the session that must reach this page is the one the admin guard is
 // refusing, so a page behind that guard is a page nobody can open.
@@ -29,8 +28,6 @@ export default function PasskeyPage() {
 }
 
 async function PasskeyInhalt() {
-  await connection();
-
   // Which control stands here is the guard's answer and never this page's: the requirement it
   // enforces is judged per request, beside the session lifetimes.
   const schritt = await getPasskeyStep();

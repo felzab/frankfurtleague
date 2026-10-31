@@ -31,7 +31,7 @@ import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusRow, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLOffeneRegistrierung, FLRegistrierungAblehnungsgrund } from "@/features/registrierungen/schemas";
+import type { FLOpenRegistrierung, FLRegistrierungDeclinePayload } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
 import type { RefObject } from "react";
 
@@ -47,7 +47,7 @@ type Adresse = { team_id: string; saison_id: string };
  * pending row is listed, the unconfirmed ones too, so a team can tell nobody registering from
  * somebody not yet answering their link.
  */
-export function RegistrierungenList({ registrierungen, adresse }: { registrierungen: readonly FLOffeneRegistrierung[]; adresse: Adresse }) {
+export function RegistrierungenList({ registrierungen, adresse }: { registrierungen: readonly FLOpenRegistrierung[]; adresse: Adresse }) {
   return (
     // Named here because the section heading over it names the queue, not the list.
     <ul
@@ -68,7 +68,7 @@ export function RegistrierungenList({ registrierungen, adresse }: { registrierun
  * One row's card. Its own component so each card holds its own armed state:
  * one state shared across the list would leave a second card one press from a decision armed on the first.
  */
-function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffeneRegistrierung; adresse: Adresse }) {
+function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOpenRegistrierung; adresse: Adresse }) {
   const aufnahme = useTwoPressConfirm();
   const ablehnung = useTwoPressConfirm();
   const name = `${registrierung.vorname} ${registrierung.nachname}`;
@@ -102,7 +102,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
     });
   };
 
-  const ablehnen = (confirm: typeof aufnahme, grund: FLRegistrierungAblehnungsgrund | null) => {
+  const ablehnen = (confirm: typeof aufnahme, grund: FLRegistrierungDeclinePayload["grund"]) => {
     ablehnungZuletzt.current = confirm === ablehnung;
     entscheide(confirm, () => ablehnenRegistrierungAction({ ...ziel, grund: grund }), {
       erfolg: "Registrierung abgelehnt",
@@ -112,7 +112,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
 
   // The address resolved to somebody whose details differ: the yes names that person, and the no is a
   // decline telling the pupil to register under an address of their own.
-  const gefragt = person !== null && person.weicht_ab;
+  const gefragt = person !== null && person.deviates_from;
   // Each armed control names its effect, so one habitual press means the same in every card: the
   // primary is the safer answer, the stored record where the address resolved it.
   const gewaffnet = gefragt ? `Als ${kaderName(person)} aufnehmen` : "Ja, aufnehmen";
@@ -145,16 +145,16 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
         <div className={IDENTITY_STACK_CLASSES}>
           <div className={IDENTITY_HEAD_CLASSES}>
             <span className={IDENTITY_NAME_CLASSES}>{name}</span>
-            {!registrierung.aufnehmbar && <span className={labelBadge("warning")}>Noch nicht bestätigt</span>}
+            {!registrierung.admissible && <span className={labelBadge("warning")}>Noch nicht bestätigt</span>}
             {person !== null && <span className={labelBadge("info")}>War schon in der Liga</span>}
-            {registrierung.nummer_doppelt && <span className={labelBadge("warning")}>Nummer doppelt</span>}
+            {registrierung.nummer_double && <span className={labelBadge("warning")}>Nummer doppelt</span>}
           </div>
           {(registrierung.position !== null || registrierung.stufe !== null) && (
             <span className={IDENTITY_LINE_CLASSES}>
               {[registrierung.position, registrierung.stufe].filter((teil) => teil !== null).join(" · ")}
             </span>
           )}
-          <span className={IDENTITY_LINE_CLASSES}>Registriert am {formatSpielDatum(registrierung.eingereicht_am)}</span>
+          <span className={IDENTITY_LINE_CLASSES}>Registriert am {formatSpielDatum(registrierung.submitted_at)}</span>
         </div>
       </div>
 
@@ -189,7 +189,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
             <ConfirmPressButton
               confirm={aufnahme}
               // Closed rather than hidden: the control names what this row is waiting for.
-              reason={registrierung.aufnehmbar ? null : NOCH_NICHT_BESTAETIGT}
+              reason={registrierung.admissible ? null : NOCH_NICHT_BESTAETIGT}
               resting="Aufnehmen"
               restingName={benannt("Aufnehmen", name)}
               armed={gewaffnet}
@@ -210,7 +210,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
               type="button"
               variant="secondary"
               isPending={aufnahme.isPending}
-              onPress={() => ablehnen(aufnahme, "andere_person")}
+              onPress={() => ablehnen(aufnahme, "other_person")}
               className={formButton({ intent: "cancel", stacks: true })}>
               Andere Person, ablehnen
             </Button>

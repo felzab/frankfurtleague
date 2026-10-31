@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { frontend_config } from "@/core/config";
 import { RegistrierungView } from "@/features/registrierungen/components/views/RegistrierungView";
@@ -39,7 +38,6 @@ export default function RegistrierungPage(props: NextPageProps) {
 }
 
 async function RegistrierungContent(props: NextPageProps) {
-  await connection();
   const { token } = await props.searchParams;
 
   // A missing or repeated parameter is no link at all and reads as the dead link.
@@ -53,12 +51,12 @@ async function RegistrierungContent(props: NextPageProps) {
             (error: unknown): RegistrierungStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
           ),
         )
-      : { zustand: "ungueltig" };
+      : { zustand: "invalid" };
 
   return (
     <RegistrierungView
       start={start}
-      // Off the request's settings, past `connection()`: a prerendered shell would carry the build's, which is none.
+      // Off the request's settings, past the search parameters: a prerendered shell would carry the build's, which is none.
       siteKey={frontend_config.TURNSTILE_SITE_KEY}
     />
   );

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 
 import { parseDate, parseTime } from "@internationalized/date";
 
@@ -24,9 +23,9 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
-import { offerUndo } from "@/shared/utils/undoDispatch";
+import { appToast } from "@/shared/utils/appToast";
 
-import { patchAdminSpielDataAction, undoAdminSpielEditAction } from "../../../actions";
+import { patchAdminSpielDataAction } from "../../../actions";
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
 import { buildPatchSpielDataPayloadSchema, FLPatchSpielDataPayloadSchema } from "../../../schemas";
 import { collectKnockoutTeamIds, collectSpieltagTeamOccupancy, isFirstKnockoutRound, listDependentSpiele, toStoredSide } from "../../../utils";
@@ -41,37 +40,42 @@ import { SpielExpectedProvider } from "./SpielExpectedContext";
 import { SpielRail } from "./SpielRail";
 import { useVoidPreview } from "./useVoidPreview";
 
-import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
+import type {
+  FLGruppenNames,
+  FLPatchSpielDataPayload,
+  FLSchiedsrichter,
+  FLSonderereignis,
+  FLSpielberichtBericht,
+  FLSpielberichtVorschlag,
+  FLSpielbestaetigung,
+  FLSpielJoinedAdmin,
+  FLSpielort,
+  FLSpielQuelle,
+  FLTeam,
+} from "@/core/generated/client/types";
 import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
-import type { FLSpielberichtBericht, FLSpielberichtVorschlag } from "@/features/spielberichte/schemas";
 import type { SpielberichtStand } from "@/features/spielberichte/types";
-import type { SpielbestaetigungenStand } from "@/features/spielbestaetigungen/types";
 import type { FLSpielDraftFields } from "@/features/spiele/draftStatus";
 import type {
-  FLPatchSpielDataPayload,
+  ActionRequiredCategory,
   FLPatchSpielDataPayloadDraft,
-  FLSonderereignis,
   FLSpiel,
-  FLSpielAdmin,
   FLSpielElfmeterschiessenDraft,
   FLSpielOrtFieldDraft,
-  FLSpielQuelle,
   FLSpielSchiedsrichterFieldDraft,
   FLSpielTeamField,
   FLSpielWithDraftFields,
-} from "@/features/spiele/schemas";
-import type { ActionRequiredCategory } from "@/features/spiele/types";
-import type { FLSpielort } from "@/features/spielorte/schemas";
-import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
+} from "@/features/spiele/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate, Time } from "@internationalized/date";
 import type { SpielRefusalCode } from "./banners";
 
-const SPIELDATEN_AKTUALISIERT = "Die Spieldaten wurden aktualisiert.";
+// The two ways the adoption stamp misses (`fl_backend/app/api/spielberichte/crud.py :: stamp_the_adoption`): the report's
+// version moved, or it is about other teams than the save leaves, which no repeated adoption repairs.
 const BERICHT_NICHT_UEBERNOMMEN =
-  "Der Spielbericht wurde inzwischen geändert und gilt nicht als übernommen. Prüfe das Ergebnis und übernimm seinen Vorschlag erneut.";
+  "Der Spielbericht gilt nicht als übernommen, weil er inzwischen geändert wurde oder zu anderen Teams gehört, als das Spiel jetzt hat. Prüfe das Ergebnis und den Spielbericht.";
 
 /**
  * Lookup lists arrive as props: `useAdmin()` here would make `spiele` depend on `admin`.
@@ -89,26 +93,23 @@ export function AdminEditSpielDataForm({
   isFinishedSaison,
   isActiveSaison,
   today,
-  isSpielSweepOn,
   bestaetigungen,
   spielbericht,
   categorize,
   pageHeader,
 }: {
-  spielData: FLSpielAdmin;
+  spielData: FLSpielJoinedAdmin;
   teams: FLTeam[];
   spielorte: FLSpielort[];
   schiedsrichter: FLSchiedsrichter[];
   saisonSpiele: FLSpiel[];
-  /** The season's `rules.number_of_groups`, bounding the Herkunft group offer; `null` offers all. */
+  /** The season's `rules.number_of_gruppen`, bounding the Herkunft group offer; `null` offers all. */
   numberOfGroups: number | null;
   isFinishedSaison: boolean;
   isActiveSaison: boolean;
   today: string;
-  /** `SPIEL_SWEEP` reads `on`, so the confirmations' pass runs at all. */
-  isSpielSweepOn: boolean;
   /** The fixture's confirmations, `null` where their read failed; absent, the editor mounts no panel for them. */
-  bestaetigungen?: SpielbestaetigungenStand | null;
+  bestaetigungen?: readonly FLSpielbestaetigung[] | null;
   /** The fixture's report as the page read it on this open, `null` where the read failed; absent, the editor mounts no panel for it. */
   spielbericht?: SpielberichtStand | null;
   /** Rendered inside the scroll container, so it scrolls while the action bar stays put. */
@@ -120,7 +121,6 @@ export function AdminEditSpielDataForm({
    */
   categorize: (spiel: FLSpielWithDraftFields) => ReadonlySet<ActionRequiredCategory>;
 }) {
-  const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
 
@@ -274,7 +274,7 @@ export function AdminEditSpielDataForm({
     isEnabled: dependentSpiele.length > 0 || spieltagOccupancy.size > 0,
   });
 
-  // `previewKey` plus the date, the one judged input it leaves out: `REQ-ELIGIBILITY-001` fires on a
+  // `previewKey` plus the date, the one judged input it leaves out: `eligibility_disqualified` fires on a
   // re-dating with neither side touched.
   const refusalKey = `${previewKey}|${draft.datum ?? ""}`;
 
@@ -283,7 +283,7 @@ export function AdminEditSpielDataForm({
   const tore1 = team1Payload?.tore ?? null;
   const tore2 = team2Payload?.tore ?? null;
 
-  // `REQ-STATE-002`'s own subject: the write path refuses on ANY goal count standing beside an event
+  // `state_ergebnis_on_a_non_event`'s own subject: the write path refuses on ANY goal count standing beside an event
   // that awards nothing, so a lone 0 in one box is already the refusal.
   const hasAnyTore = tore1 !== null || tore2 !== null;
 
@@ -347,7 +347,6 @@ export function AdminEditSpielDataForm({
     ansetzung,
     storedAnsetzung,
     isActiveSaison,
-    isSpielSweepOn,
     // From `teams`, which joins each club's exit on every read; the payload's copy of a side carries none.
     austrittTage: [team1Payload, team2Payload].flatMap((seite) => {
       const datum = teams.find((team) => team.id === seite?.team_id)?.austritt?.datum;
@@ -375,8 +374,8 @@ export function AdminEditSpielDataForm({
 
   /**
    * **Leaving the page is not enough**: the App Router keeps the tree alive, so a discard that only
-   * navigated leaves the abandoned draft in the fields. `spielStateKey` puts a save-then-undo back
-   * on the same key, so a save needs this too.
+   * navigated leaves the abandoned draft in the fields. A save needs this too: a later write that puts
+   * the fixture back where it stood returns the editor to the same `spielStateKey`.
    */
   const resetDraftToStored = () => {
     // Every atom listed rather than looped: one added to the `useState` block above and forgotten
@@ -445,7 +444,7 @@ export function AdminEditSpielDataForm({
 
     startSaving(async () => {
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
-      const res = await patchAdminSpielDataAction(narrowed, spielData.saison_id, uebernimmtBericht).catch(unansweredAction);
+      const res = await patchAdminSpielDataAction(narrowed, uebernimmtBericht).catch(unansweredAction);
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
@@ -464,26 +463,14 @@ export function AdminEditSpielDataForm({
         setRefusal(null);
         setHasSaved(true);
 
-        // Built BEFORE leaving: these are this render's props and the toast outlives the page.
-        const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
-        // Asked to adopt, the save stamps nothing on a report changed meanwhile and lands all the same:
-        // the result it saved is the older proposal.
-        const nichtUebernommen = uebernimmtBericht !== null && (res.priorBericht ?? null) === null;
-        const gespeichert = res.message ?? SPIELDATEN_AKTUALISIERT;
-
-        offerUndo({
-          // Every fixture, and the report adoption it stamped, from the SAVE's own answer in its order: the props this
-          // render was served are older than the save, so an undo built from them would revert a field another writer moved.
-          undo: () =>
-            undoAdminSpielEditAction({
-              paarungen: res.priorPaarungen ?? [],
-              bericht: res.priorBericht ?? null,
-              saison_id: spielData.saison_id,
-            }),
-          message: nichtUebernommen ? `${gespeichert} ${BERICHT_NICHT_UEBERNOMMEN}` : res.message,
-          fallback: SPIELDATEN_AKTUALISIERT,
-          warn: affected.length > 0 || nichtUebernommen,
-          router,
+        // A save that moved another fixture is graded a warning: it cost a result or a slot the admin may not have meant.
+        const warn = (res.voidedFixtures ?? []).length > 0 || (res.releasedFixtures ?? []).length > 0;
+        // Asked to adopt, the save stamps nothing on a report changed meanwhile and lands all the same: the result it
+        // saved is the older proposal.
+        const nichtUebernommen = res.berichtUebernommen === false;
+        const raise = warn || nichtUebernommen ? appToast.warning : appToast.success;
+        raise(warn ? "Mit Folgen gespeichert" : "Änderung gespeichert", {
+          description: nichtUebernommen ? [res.message, BERICHT_NICHT_UEBERNOMMEN].filter(Boolean).join(" ") : res.message,
         });
 
         resetDraftToStored();
@@ -493,7 +480,7 @@ export function AdminEditSpielDataForm({
   };
 
   /**
-   * The backend answers one code per RULE (`fl_backend/app/core/domain.py :: RULES`), so the client works out
+   * The backend answers one code per RULE (`fl_backend/app/core/codes.py :: Code`), so the client works out
    * the side. A side it cannot identify produces no entry and the caller falls back to the toast,
    * so a refusal is never swallowed.
    */
@@ -517,16 +504,16 @@ export function AdminEditSpielDataForm({
       switch (errorCode) {
         // ANY `austritt`, whichever way the club left: `pull_saison_membership` keys the refusal on
         // the record's `datum` alone, so a withdrawal refuses exactly as a disqualification does.
-        case "REQ-ELIGIBILITY-001":
+        case "eligibility_disqualified":
           return (!stays || judgedInputMoved) && team !== undefined && team.austritt !== null;
         // The one rule that IS about a newly fielded club alone: one already standing here without a
         // junction row is a fault corrected on this very fixture, and refusing every save would trap
         // that correction.
-        case "REQ-ELIGIBILITY-002":
+        case "eligibility_team_not_in_saison":
           return !stays && team === undefined;
         // Judged on whichever clubs the payload fields, moved or not: the bracket resolution can put
         // one club on two fixtures of a Spieltag with neither side touched here.
-        case "REQ-SPIELTAG-001":
+        case "spieltag_occupied":
           return spieltagOccupancy.has(side.team_id) || side.team_id === (side === team1Payload ? team2Payload : team1Payload)?.team_id;
         default:
           return false;
@@ -557,7 +544,7 @@ export function AdminEditSpielDataForm({
               <SpielRail
                 previewSpiel={previewSpiel}
                 // The served verdict is about the stored Ansetzung, so it stands while the draft keeps that one.
-                ansetzungBestaetigt={ansetzungGeaendert(ansetzung, storedAnsetzung) ? null : spielData.ansetzung_bestaetigt}
+                ansetzungBestaetigt={ansetzungGeaendert(ansetzung, storedAnsetzung) ? null : spielData.ansetzung_confirmed}
                 today={today}
                 isFinishedSaison={isFinishedSaison}
                 banners={banners}
@@ -655,16 +642,14 @@ export function AdminEditSpielDataForm({
 
             {bestaetigungen !== undefined && (
               <SpielbestaetigungPanel
-                stand={bestaetigungen}
+                rows={bestaetigungen}
                 spiel={spielData}
                 parteien={{ teams: teams, schiedsrichter: schiedsrichter }}
                 // `teams` joins each club's exit from this season on every read.
                 austritte={new Map(teams.flatMap((team) => (team.austritt === null ? [] : [[team.id, team.austritt.datum]])))}
                 today={today}
-                isSpielSweepOn={isSpielSweepOn}
-                isActiveSaison={isActiveSaison}
                 // Into the two atoms `resetDraftToStored` restores, never a remount: every other unsaved edit stays,
-                // a discard drops the proposal with them, and Speichern still judges and offers its undo.
+                // a discard drops the proposal with them, and Speichern still judges it.
                 onVorschlagUebernehmen={(termin) => {
                   setDatum(parseDate(termin.datum));
                   setUhrzeit(parseTime(termin.uhrzeit));
@@ -725,15 +710,12 @@ export function AdminEditSpielDataForm({
         heading="Schiedsrichter anlegen">
         <AdminCreateSchiedsrichterForm
           onClose={closeCreating}
-          // Listed and never selected: a referee just created is unconfirmed, which the save refuses (`REQ-BOOKING-002`).
+          // Listed and never selected: a referee just created is unconfirmed, which the save refuses (`booking_unconfirmed_schiedsrichter`).
           onCreated={(referee) => {
             setCreatedSchiedsrichter((previous) => [...previous, referee]);
           }}
-          // The picker stays empty under the toast, so the toast says why nobody was booked however the link ended.
-          unbooked={{
-            title: "Angelegt. Einteilen kannst Du die Person, sobald sie ihren Eintrag bestätigt hat.",
-            addendum: "Einteilen kannst Du die Person, sobald sie ihren Eintrag bestätigt hat.",
-          }}
+          // The picker stays empty under the toast, so the toast says why nobody was booked.
+          unbooked={{ title: "Angelegt. Einteilen kannst Du die Person, sobald sie ihren Eintrag bestätigt hat." }}
         />
       </FormModal>
     </DraftStatusProvider>

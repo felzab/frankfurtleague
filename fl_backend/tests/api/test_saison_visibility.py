@@ -2,16 +2,17 @@ from collections.abc import Awaitable, Callable, Iterator
 from typing import Any
 
 import pytest
+from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.admin_router import get_saisons_for_admin
-from app.api.saisons.router import get_saison, get_saisons
+from app.api.saisons.admin_router import get_saisons_verwaltung
+from app.api.saisons.public_router import get_saison, get_saisons
 from app.api.saisons.schemas import FLSaisonsFilterParams
 from app.api.saisons.services import base_tier_status_term
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
-from tests.documents import saison_document
+from tests.documents import saison_document, spiel_document
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -24,6 +25,14 @@ PLANNED = "2026"
 
 
 SEEDED = [saison_document(ARCHIVED, "past"), saison_document(RUNNING, "active"), saison_document(PLANNED, "future")]
+
+# The day the admin read is asked on: the running season's group fixture is dated before it, the
+# planned season's after it, so one has started and the other has not.
+TODAY = "2025-12-01"
+FIXTURES = [
+    spiel_document(spiel_id=ObjectId(), saison_id=RUNNING, spiel_nr=1, spieltag_id=ObjectId(), datum="2025-09-06"),
+    spiel_document(spiel_id=ObjectId(), saison_id=PLANNED, spiel_nr=1, spieltag_id=ObjectId(), datum="2026-09-05"),
+]
 
 
 class TestTheTermItselfWithholdsThePlannedSeason:
@@ -54,6 +63,7 @@ def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
     async def _seed() -> None:
         async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_many([dict(document) for document in SEEDED])
+            await database[Collection.SPIELE].insert_many([dict(document) for document in FIXTURES])
 
     on_the_seed_loop(_seed())
 
@@ -97,7 +107,7 @@ class TestAPlannedSeasonIsWithheldFromTheBaseTier:
         """404 because the FILTER excludes it: a 403 would confirm that next season's draw exists."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundException) as refusal:
+            with pytest.raises(DocumentNotFoundError) as refusal:
                 await get_saison(saison_id=PLANNED, saisons_collection=database[Collection.SAISONS])
 
             return refusal.value
@@ -110,15 +120,25 @@ class TestTheAdminTierReadsEverySeason:
     def test_the_planned_season_is_listed_beside_the_others(self, seeded_league: str):
         """An admin who cannot select a planned season cannot enter a club into one, which is the only window there is."""
 
-        async def body(database: AsyncDatabase) -> Any:
-            return await get_saisons_for_admin(saisons_collection=database[Collection.SAISONS], filters=FLSaisonsFilterParams())
-
-        response = on_a_league(seeded_league, body)
+        response = on_a_league(seeded_league, admin_read(FLSaisonsFilterParams()))
 
         assert [saison.id for saison in response.saisons] == [ARCHIVED, RUNNING, PLANNED]
 
-    def test_it_still_honours_a_status_filter(self, seeded_league: str):
-        async def body(database: AsyncDatabase) -> Any:
-            return await get_saisons_for_admin(saisons_collection=database[Collection.SAISONS], filters=FLSaisonsFilterParams(status="future"))
+    def test_each_season_says_whether_it_has_started(self, seeded_league: str):
+        """`has_started`'s answer, which every start lock refuses on: a page closing a control on it closes exactly that."""
 
-        assert [saison.id for saison in on_a_league(seeded_league, body).saisons] == [PLANNED]
+        response = on_a_league(seeded_league, admin_read(FLSaisonsFilterParams()))
+
+        assert {saison.id: saison.begun for saison in response.saisons} == {ARCHIVED: False, RUNNING: True, PLANNED: False}
+
+    def test_it_still_honours_a_status_filter(self, seeded_league: str):
+        assert [saison.id for saison in on_a_league(seeded_league, admin_read(FLSaisonsFilterParams(status="future"))).saisons] == [PLANNED]
+
+
+def admin_read(filters: FLSaisonsFilterParams) -> Body:
+    async def body(database: AsyncDatabase) -> Any:
+        return await get_saisons_verwaltung(
+            saisons_collection=database[Collection.SAISONS], spiele_collection=database[Collection.SPIELE], filters=filters, today=TODAY
+        )
+
+    return body

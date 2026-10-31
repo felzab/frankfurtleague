@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { joinUnd } from "@/core/joinUnd";
+import { formatAufzaehlung } from "@/core/format";
 import { HANDLUNGSBEDARF_EINTRAG } from "@/features/admin/constants";
 import { EINSEHBAR_VERWEHRT } from "@/features/adresswechsel/einsehbar";
 import { ANTRAG_WAS } from "@/features/berechtigungen/constants";
@@ -9,10 +9,7 @@ import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldSt
 import { textLink } from "@/shared/components/ui/textLink";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 
-import type { FLErasureAnsichtResponse } from "@/features/funktionen/schemas";
-
-/** Every record the erasure would reach, as the backend answered it, the transport's own field left behind. */
-export type LoeschungAnsicht = Omit<FLErasureAnsichtResponse, "acknowledged">;
+import type { FLErasureViewResponse } from "@/core/generated/client/types";
 
 /** One line of the reveal, and the record's own page where the line names no person to recognise it by. */
 type Zeile = { readonly text: string; readonly href?: string };
@@ -39,14 +36,14 @@ function zeilenOf(
   {
     spieler,
     schiedsrichter,
-    sitze,
+    seats: sitze,
     bewerbungen,
     registrierungen,
-    eigener_adresswechsel,
-    adresswechsel,
+    own_address_change: eigener_adresswechsel,
+    address_change: adresswechsel,
     verwaltung,
-    antraege,
-  }: LoeschungAnsicht,
+    approval_requests: antraege,
+  }: FLErasureViewResponse,
   saisonHref: (path: string) => string,
 ): Zeile[] {
   return [
@@ -56,7 +53,7 @@ function zeilenOf(
       );
       const person = `Spielerin oder Spieler: ${nameOf(vorname, nachname)}`;
 
-      return { text: kaderTeile.length === 0 ? person : `${person}, ${joinUnd(kaderTeile)}` };
+      return { text: kaderTeile.length === 0 ? person : `${person}, ${formatAufzaehlung(kaderTeile)}` };
     }),
     ...schiedsrichter.map(({ name }) => ({
       text: name === null ? "Schiedsrichterin oder Schiedsrichter ohne Namen" : `Schiedsrichterin oder Schiedsrichter: ${name}`,
@@ -79,12 +76,12 @@ function zeilenOf(
       : [
           {
             text: EIGENER_ADRESSWECHSEL_ZEILE,
-            href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${eigener_adresswechsel.adresswechsel_id}`),
+            href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${eigener_adresswechsel.address_change_id}`),
           },
         ]),
     // A pending change names no person of its own, so its line opens the change in the address tool, or says why the
     // tool would refuse this reader and where it opens instead.
-    ...adresswechsel.map(({ adresswechsel_id, einsehbar_verwehrt }) =>
+    ...adresswechsel.map(({ address_change_id: adresswechsel_id, viewable_denied: einsehbar_verwehrt }) =>
       einsehbar_verwehrt === null
         ? { text: ADRESSWECHSEL_ZEILE, href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechsel_id}`) }
         : { text: `${ADRESSWECHSEL_ZEILE}. ${EINSEHBAR_VERWEHRT[einsehbar_verwehrt]}` },
@@ -119,7 +116,7 @@ const IMMER: readonly Zeile[] = [
 const NEUE_EINTEILUNG = `Spiele ohne Ergebnis, für die diese Person eingeteilt ist, brauchen danach eine neue Einteilung. Du findest sie dann unter „${HANDLUNGSBEDARF_EINTRAG.label}“.`;
 
 /** What the erasure of one address reaches, inside its armed reveal: the claim the confirmation rests on. */
-export function FormLoeschungAnsicht({ ansicht }: { ansicht: LoeschungAnsicht }) {
+export function FormLoeschungAnsicht({ ansicht }: { ansicht: FLErasureViewResponse }) {
   const saisonHref = useSaisonHref();
   const zeilen = zeilenOf(ansicht, saisonHref);
 
@@ -148,9 +145,9 @@ export function FormLoeschungAnsicht({ ansicht }: { ansicht: LoeschungAnsicht })
         </ul>
       </div>
 
-      {ansicht.schiedsrichter.some(({ spiele_ohne_ergebnis_saison_ids }) => spiele_ohne_ergebnis_saison_ids.length > 0) && (
-        <p className={ZEILE_CLASSES}>{NEUE_EINTEILUNG}</p>
-      )}
+      {ansicht.schiedsrichter.some(
+        ({ spiele_without_ergebnis_saison_ids: spiele_ohne_ergebnis_saison_ids }) => spiele_ohne_ergebnis_saison_ids.length > 0,
+      ) && <p className={ZEILE_CLASSES}>{NEUE_EINTEILUNG}</p>}
       <p className={ZEILE_CLASSES}>Zurückholen lässt sich das nicht.</p>
     </div>
   );

@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -66,7 +63,6 @@ const build = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]> = {})
     ansetzung: KEINE_ANSETZUNG,
     storedAnsetzung: KEINE_ANSETZUNG,
     isActiveSaison: true,
-    isSpielSweepOn: true,
     austrittTage: [],
     today: HEUTE,
     ...overrides,
@@ -74,7 +70,143 @@ const build = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]> = {})
 
 const ids = (banners: readonly SpielBanner[]): string[] => banners.map((banner) => banner.id);
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..", "..", "..", "..");
+/** Whether the hourly pass asks about a fixture, one condition moved per row from a fixture it asks about. */
+const ANFRAGE_IS_DUE_ROWS: unknown = [
+  {
+    fall: "a fixture set in full, three days out",
+    anders: {},
+    gefragt: true,
+  },
+  {
+    fall: "tomorrow",
+    anders: {
+      tage: 1,
+    },
+    gefragt: true,
+  },
+  {
+    fall: "the last day the pass asks about",
+    anders: {
+      tage: 21,
+    },
+    gefragt: true,
+  },
+  {
+    fall: "a day past the last the pass asks about",
+    anders: {
+      tage: 22,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "today",
+    anders: {
+      tage: 0,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "yesterday",
+    anders: {
+      tage: -1,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "no date",
+    anders: {
+      tage: null,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "no kick-off",
+    anders: {
+      uhrzeit: null,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "no ground",
+    anders: {
+      spielort: null,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "no first side",
+    anders: {
+      team1: null,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "no second side",
+    anders: {
+      team2: null,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "a lone goal count",
+    anders: {
+      tore: 2,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "a lone shoot-out",
+    anders: {
+      elfmeterschiessen: {
+        team1: 4,
+        team2: 3,
+      },
+    },
+    gefragt: false,
+  },
+  {
+    fall: "called off",
+    anders: {
+      sonderereignis: "ausgefallen",
+    },
+    gefragt: false,
+  },
+  {
+    fall: "a no-show",
+    anders: {
+      sonderereignis: "nichtantreten_team1",
+    },
+    gefragt: false,
+  },
+  {
+    fall: "abandoned",
+    anders: {
+      sonderereignis: "abgebrochen",
+    },
+    gefragt: false,
+  },
+  {
+    fall: "the second club gone before the day",
+    anders: {
+      austritt_tage: 1,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "the second club gone on the day",
+    anders: {
+      austritt_tage: 3,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "the second club gone after the day",
+    anders: {
+      austritt_tage: 4,
+    },
+    gefragt: true,
+  },
+];
 
 /**
  * The rows both tiers run, each moving one thing of a fixture set in full three days out. Strict, so a row moving
@@ -98,7 +230,7 @@ const ANFRAGE_IS_DUE = z
       gefragt: z.boolean(),
     }),
   )
-  .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "anfrage_is_due.json"), "utf8")));
+  .parse(ANFRAGE_IS_DUE_ROWS);
 
 /** One row's fixture: set in full three days out, one thing moved. */
 const zeilenAnsetzung = (anders: (typeof ANFRAGE_IS_DUE)[number]["anders"]): SpielBannerAnsetzung => ({
@@ -215,7 +347,7 @@ describe("buildSpielBanners", () => {
     expect(ids(build({ seedsFromTheGroups: false, sides: [side("team2")] }))).toStrictEqual(["spiel.team2-manual"]);
   });
 
-  /* A group fixture carrying wiring is refused under `REQ-WIRING-001` instead, whose repair is to
+  /* A group fixture carrying wiring is refused under `wiring_unsupported` instead, whose repair is to
      drop the wiring rather than to move it onto an earlier match. */
   it("leaves it off a group-phase fixture, which this rule does not reach", () => {
     const seeded = side("team1", { quelle: { type: "gruppe", gruppe: "A", platz: 1 } });
@@ -333,7 +465,7 @@ describe("buildSpielBanners", () => {
     assert.ok(!ids(built).includes("spiel.knockout-feeds"));
   });
 
-  // `REQ-STATE-002` refuses on ANY typed goal, so this banner's condition is not the decided-result one.
+  // `state_ergebnis_on_a_non_event` refuses on ANY typed goal, so this banner's condition is not the decided-result one.
   it("reports a result beside an unscored event as the refusal it is", () => {
     for (const sonderereignis of ["ausgefallen", "annulliert"] as const) {
       const refusal = build({ sonderereignis, hasAnyTore: true }).find((banner) => banner.id === "spiel.result-refused");
@@ -433,7 +565,7 @@ describe("buildSpielBanners", () => {
   it("carries the remedies the two rail-backed refusals leave off their field message", () => {
     // `fl_backend/app/api/spiele/services.py :: find_eligibility_refusal` keys on the austritt date,
     // so lifting it clears the refusal in every phase, which is what the one repair rests on.
-    const eligibility = build({ refusalCode: "REQ-ELIGIBILITY-001" });
+    const eligibility = build({ refusalCode: "eligibility_disqualified" });
     const body = eligibility.find((banner) => banner.id === "spiel.eligibility-refused")?.body ?? "";
 
     expect(ids(eligibility)).toStrictEqual(["spiel.eligibility-refused"]);
@@ -441,7 +573,7 @@ describe("buildSpielBanners", () => {
     // The alternative routes are gone: a refusal names the repair, not every other way round it.
     assert.ok(!/Nichtantreten|Gruppenphase/.test(body));
 
-    const spieltag = build({ refusalCode: "REQ-SPIELTAG-001" });
+    const spieltag = build({ refusalCode: "spieltag_occupied" });
 
     expect(ids(spieltag)).toStrictEqual(["spiel.spieltag-refused"]);
     expect(spieltag.find((banner) => banner.id === "spiel.spieltag-refused")?.body ?? "").toMatch(/Ändere dort die Herkunft/);
@@ -451,7 +583,7 @@ describe("buildSpielBanners", () => {
   // filters these two ids out of `resolveBlockingBanners`, a refusal being what already happened
   // rather than what a save would cause.
   it("gives both refusal banners the danger the save's own failure has", () => {
-    for (const refusalCode of ["REQ-ELIGIBILITY-001", "REQ-SPIELTAG-001"] as const) {
+    for (const refusalCode of ["eligibility_disqualified", "spieltag_occupied"] as const) {
       const [banner, ...rest] = build({ refusalCode });
 
       expect(rest.length, refusalCode).toBe(0);
@@ -467,12 +599,12 @@ describe("buildSpielBanners", () => {
     assert.ok(!built.includes("spiel.spieltag-refused"));
   });
 
-  // `REQ-STATE-003` is the boundary case: it reaches the same map of refusals and deliberately stays
+  // `state_nichtantreten_without_two_sides` is the boundary case: it reaches the same map of refusals and deliberately stays
   // a field message, so a widened guard would ask the rail for an entry it does not have.
   it("narrows onto the two codes the rail answers and no third", () => {
-    assert.ok(isSpielRefusalCode("REQ-ELIGIBILITY-001"));
-    assert.ok(isSpielRefusalCode("REQ-SPIELTAG-001"));
-    assert.ok(!isSpielRefusalCode("REQ-STATE-003"));
+    assert.ok(isSpielRefusalCode("eligibility_disqualified"));
+    assert.ok(isSpielRefusalCode("spieltag_occupied"));
+    assert.ok(!isSpielRefusalCode("state_nichtantreten_without_two_sides"));
     assert.ok(!isSpielRefusalCode(undefined));
   });
 
@@ -533,12 +665,7 @@ describe("buildSpielBanners", () => {
     }
   });
 
-  /* Off, as it ships, the pass runs at all nowhere, which no fixture's fields can say. */
-  it("raises nothing for a re-dated fixture while the confirmations' pass is switched off", () => {
-    assert.ok(!sofort({ ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(30)), isSpielSweepOn: false }));
-  });
-
-  /* The pass visits the running season alone, which the shared table below cannot say: it holds a fixture's own fields. */
+  /* The pass visits the running season alone, which the table below cannot say: it holds a fixture's own fields. */
   it("raises nothing for a re-dated fixture of a season not yet running", () => {
     assert.ok(!sofort({ ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(30)), isActiveSaison: false }));
   });
@@ -569,8 +696,8 @@ describe("buildSpielBanners", () => {
 });
 
 describe("wirdAngefragt", () => {
-  /* Read rather than retyped: the backend's predicate answers the same rows in its own suite, so a condition one tier
-     gains alone fails at the other. */
+  /* The editor's warning speaks of a request the pass would send, so it reads the pass's own conditions
+     (`fl_backend/app/api/spielbestaetigungen/services.py :: anfrage_is_due`). */
   for (const { fall, anders, gefragt } of ANFRAGE_IS_DUE) {
     it(`asks about a fixture exactly where the pass does: ${fall}`, () => {
       expect(

@@ -14,7 +14,7 @@ import {
 } from "@/features/bewerbungen/constants";
 import { BEWERBUNG_DUBLETTE_LABEL, BEWERBUNG_DUBLETTE_TINT } from "@/features/bewerbungen/duplicates";
 import { bewerbungHerkunft } from "@/features/bewerbungen/utils";
-import { hatUnerreichbarenSitz, ZUSTELLUNG_QUEUE_LABEL, ZUSTELLUNG_QUEUE_TINT } from "@/features/bewerbungen/zustellung";
+import { hatUnerreichbarenSitz, ZUSTELLUNG_QUEUE_LABEL, ZUSTELLUNG_QUEUE_TINT } from "@/features/bewerbungen/zustellLage";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
 import {
@@ -32,10 +32,10 @@ import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
 
+import type { FLKontaktperson } from "@/core/generated/client/types";
 import type { BewerbungDublette } from "@/features/bewerbungen/duplicates";
 import type { AdminBewerbungRow } from "@/features/bewerbungen/types";
 import type { KontaktRolle } from "@/features/teams/constants";
-import type { FLKontaktperson } from "@/features/teams/schemas";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { ReactNode } from "react";
 
@@ -45,7 +45,7 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
   none: BEWERBUNGEN_CRUD_COPY.emptyOverall,
 };
 
-/** What an application naming no team at all reads as — the one `REQ-BEWERBUNG-002` refuses to accept. */
+/** What an application naming no team at all reads as — the one `bewerbung_subject_unresolved` refuses to accept. */
 const NO_TEAM = nichtHinterlegt("Team");
 
 /** The eyebrow over each fact, one cell of the card's grid. */
@@ -136,7 +136,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
   const renderEingereicht = (bewerbung: AdminBewerbungRow) => (
     // `font-numeric` is what makes a fixed-format date a fixed WIDTH under a proportional
     // page face. Never truncate: a clipped year is a different date.
-    <span className="font-numeric fluid-sm text-foreground">{formatSpielDatum(bewerbung.eingereicht_am)}</span>
+    <span className="font-numeric fluid-sm text-foreground">{formatSpielDatum(bewerbung.submitted_at)}</span>
   );
 
   // The count and never a fourth `status` value: an application waits on its contacts inside

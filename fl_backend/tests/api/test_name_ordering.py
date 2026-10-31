@@ -13,12 +13,12 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.schiedsrichter.router import get_schiedsrichter
+from app.api.schiedsrichter.admin_router import get_schiedsrichter
 from app.api.schiedsrichter.schemas import FLSchiedsrichterFilterParams
-from app.api.spieler.admin_router import get_spieler_memberships
-from app.api.spielorte.router import get_spielorte
+from app.api.spieler.admin_router import get_spieler_saisons
+from app.api.spielorte.admin_router import get_spielorte
 from app.api.spielorte.schemas import FLSpielorteFilterParams
-from app.api.teams.admin_router import get_team_memberships
+from app.api.teams.admin_router import get_team_saisons
 from app.core.collections import Collection
 from tests.config import ADMINISTRATORS
 from tests.database import a_clean_database, on_the_seed_loop
@@ -79,7 +79,7 @@ def team_documents() -> list[dict[str, Any]]:
         {
             "_id": oid(200 + index),
             "name": name,
-            "shorthand": f"T{index}",
+            "shorthand": f"T{chr(65 + index // 26)}{chr(65 + index % 26)}",
             "full_name": name,
             "schulform": "gymnasium_g9",
             "address": {"strasse": "Kaiserstraße", "hausnummer": "1", "plz": "60311", "stadtteil": "Innenstadt", "stadt": "Frankfurt am Main"},
@@ -149,11 +149,12 @@ class TestEveryNameListIsOrderedAsGermanReads:
 
     def test_the_club_memberships_read_in_german(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            response = await get_team_memberships(
+            response = await get_team_saisons(
                 teams_collection=database[Collection.TEAMS],
-                adresswechsel_collection=database[Collection.ADRESSWECHSEL],
-                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
+                berechtigungen_collection=database[Collection.GRANTS],
+                berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+                outbox_collection=database[Collection.OUTBOX],
                 operator=ADMINISTRATORS[0],
                 auth_time=int(time.time()),
             )
@@ -164,10 +165,10 @@ class TestEveryNameListIsOrderedAsGermanReads:
 
     def test_the_squad_memberships_read_in_german(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            response = await get_spieler_memberships(
+            response = await get_spieler_saisons(
                 spieler_collection=database[Collection.SPIELER],
-                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                berechtigungen_collection=database[Collection.GRANTS],
+                berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
                 operator=ADMINISTRATORS[0],
                 auth_time=int(time.time()),
             )

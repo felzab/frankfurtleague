@@ -2,9 +2,7 @@
 
 import { afterTheResponse } from "@/core/afterResponse";
 import { accountStandsAt } from "@/core/auth";
-import { runBerechtigungenAbgleich } from "@/features/berechtigungen/abgleich";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { EinsehbarVerwehrtSchema } from "./einsehbar";
@@ -16,8 +14,7 @@ import {
   postAdresswechselVerwaltungAnsicht,
   verwirfAdresswechsel,
 } from "./mutations";
-import { describeAdresswechselMail, mailAdresswechsel } from "./notifications";
-import { runAdresswechselPostausgang } from "./postausgang";
+import { describeAdresswechselMail } from "./notifications";
 import {
   KONTO_BELEGT_ERNEUT,
   KONTO_BELEGT_START,
@@ -34,29 +31,24 @@ import {
   FLAdresswechselVerwaltungPayloadSchema,
   FLAdresswechselVerwerfenPayloadSchema,
 } from "./schemas";
+import { runAdresswechselUmzuege } from "./umzug";
 
-import type { ActionResult, QueryResult } from "@/shared/types/types";
-import type { HinweisVersand, LinkVersand } from "@/shared/utils/linkVersand";
-import type { EinsehbarVerwehrt } from "./einsehbar";
 import type {
-  FLAdresswechselEinladenPayload,
-  FLAdresswechselGenehmigungPayload,
-  FLAdresswechselVerwaltungAnsichtPayload,
-  FLAdresswechselVerwaltungAnsichtResponse,
-  FLAdresswechselVerwaltungPayload,
-  FLAdresswechselVerwerfenPayload,
-} from "./schemas";
+  FLAddressChangeVerwaltungPayload,
+  FLAddressChangeVerwaltungViewPayload,
+  FLAddressChangeVerwaltungViewResponse,
+  FLAddressChangeViewableDenied,
+} from "@/core/generated/client/types";
+import type { ActionResult, QueryResult } from "@/shared/types/types";
+import type { FLAdresswechselEinladenPayload, FLAdresswechselGenehmigungPayload, FLAdresswechselVerwerfenPayload } from "./schemas";
 
-/** What the tool's two link writes answer: each message's outcome. */
-export type AdresswechselGesendet = ActionResult<{ versand: LinkVersand | null; hinweis: HinweisVersand | null }>;
-
-// No write here moves a cache tag: no cached read holds an address, a pending one least of all, and the records a
-// change moves are served on admin reads alone, which are never cached.
+/** What the tool's two link writes answer: whether a link to the new mailbox is owed, the address on file asked first otherwise. */
+export type AdresswechselGesendet = ActionResult<{ link: boolean }>;
 
 /** What the address holds and the change pending at it, read when the administrator asks: a person's records are never browsed. */
 export async function readAdresswechselAnsichtAction(
-  rawPayload: FLAdresswechselVerwaltungAnsichtPayload,
-): Promise<QueryResult<{ ansicht: FLAdresswechselVerwaltungAnsichtResponse }>> {
+  rawPayload: FLAddressChangeVerwaltungViewPayload,
+): Promise<QueryResult<{ ansicht: FLAddressChangeVerwaltungViewResponse }>> {
   return runAdminMutation("readAdresswechselAnsichtAction", async () => {
     const validated = FLAdresswechselVerwaltungAnsichtPayloadSchema.safeParse(rawPayload);
 
@@ -76,7 +68,7 @@ export async function readAdresswechselAnsichtAction(
  * An administrator's start of a change for a person who says they cannot sign in: without a reason the address on
  * file approves it first, with one a waiting time follows the confirmation. Either way it gets a stop link.
  */
-export async function beantrageAdresswechselAction(rawPayload: FLAdresswechselVerwaltungPayload): Promise<AdresswechselGesendet> {
+export async function beantrageAdresswechselAction(rawPayload: FLAddressChangeVerwaltungPayload): Promise<AdresswechselGesendet> {
   return runAdminMutation("beantrageAdresswechselAction", { stepUp: true }, async () => {
     const validated = FLAdresswechselVerwaltungPayloadSchema.safeParse(rawPayload);
 
@@ -94,22 +86,12 @@ export async function beantrageAdresswechselAction(rawPayload: FLAdresswechselVe
       throw error;
     }
 
-    if (!mint.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht gesendet", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
-    const versand = await mailAdresswechsel({ operation: "beantrageAdresswechselAction", mint: mint, anlass: "empfang" });
-    // The approvers are told through the grants' outbox the start queued, drained behind
-    // the answer as an approval is: mailing them here too would tell each twice.
-    if (mint.genehmiger_anzahl > 0) afterTheResponse(runBerechtigungenAbgleich);
-
     return {
       success: true,
-      // The address the mint names, never the one typed: a rival request landing between the two
-      // replaced the mailbox the credential was made for.
-      message: describeAdresswechselMail(mint, versand),
-      versand: versand.link,
-      hinweis: versand.hinweis,
+      // The address the start names, never the one typed: a rival request landing between the two
+      // replaced the mailbox the link is owed.
+      message: describeAdresswechselMail(mint),
+      link: mint.way !== "release",
     };
   });
 }
@@ -125,7 +107,7 @@ export async function einladeAdresswechselAction(rawPayload: FLAdresswechselEinl
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
 
     // Before the re-mint, which kills the earlier link: a fresh one would be refused at its press.
-    if (await kontoAnNeuerAdresse({ adresswechsel_id: validated.data.id })) return { success: false, error: KONTO_BELEGT_ERNEUT };
+    if (await kontoAnNeuerAdresse({ address_change_id: validated.data.id })) return { success: false, error: KONTO_BELEGT_ERNEUT };
 
     let mint;
     try {
@@ -136,19 +118,11 @@ export async function einladeAdresswechselAction(rawPayload: FLAdresswechselEinl
       throw error;
     }
 
-    if (!mint.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht gesendet", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
-    const versand = await mailAdresswechsel({ operation: "einladeAdresswechselAction", mint: mint, anlass: "erneut" });
-
     return {
       success: true,
-      // Said whichever way the send went: the previous link is dead either way, which is the fact an
-      // administrator has to act on when the message did not leave.
-      message: `${describeAdresswechselMail(mint, versand)} Der vorherige Link gilt nicht mehr.`,
-      versand: versand.link,
-      hinweis: versand.hinweis,
+      // The previous link dies as the fresh one is handed out, which is the fact an administrator acts on.
+      message: `${describeAdresswechselMail(mint)} Der vorherige Link gilt nicht mehr.`,
+      link: true,
     };
   });
 }
@@ -160,17 +134,12 @@ export async function verwirfAdresswechselAction(rawPayload: FLAdresswechselVerw
 
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
 
-    let operation;
     try {
-      operation = await verwirfAdresswechsel(validated.data);
+      await verwirfAdresswechsel(validated.data);
     } catch (error) {
       const refusal = mapVerwaltungLinkRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
-    }
-
-    if (!operation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Änderung wurde nicht verworfen", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // True of every step a change can be discarded in: before an approval no link existed, and once confirmed it is spent.
@@ -187,7 +156,7 @@ export async function genehmigeAdresswechselAction(
   rawPayload: FLAdresswechselGenehmigungPayload,
   // The row's served reason the address tool refuses this approver, sent by the page: it words the discard a refusal
   // sends them to, and authorises nothing, the backend judging the approval and the tool on their own.
-  einsehbarVerwehrt: EinsehbarVerwehrt | null,
+  einsehbarVerwehrt: FLAddressChangeViewableDenied | null,
 ): Promise<ActionResult> {
   // The enrolment's window, the grant write's own: the approval hands a grant to another address.
   return runAdminMutation("genehmigeAdresswechselAction", { stepUp: "enrolment" }, async () => {
@@ -199,7 +168,7 @@ export async function genehmigeAdresswechselAction(
 
     // By the change's id, the approver perhaps being refused the tool's read of it; the effect would leave the account
     // at the new address standing beside the person's records.
-    if (await kontoAnNeuerAdresse({ adresswechsel_id: validated.data.id })) {
+    if (await kontoAnNeuerAdresse({ address_change_id: validated.data.id })) {
       return { success: false, error: kontoBelegtGenehmigung(verwehrt.data) };
     }
 
@@ -212,15 +181,10 @@ export async function genehmigeAdresswechselAction(
       throw error;
     }
 
-    if (!antwort.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Änderung wurde nicht genehmigt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
-    if (antwort.wirksam) {
-      // Behind the response, as a grant written on the administrators page is announced; the completion notice and the
-      // account's carry wait in the outbox the effect wrote, which the hourly pass drains where this one never runs.
-      afterTheResponse(runBerechtigungenAbgleich);
-      afterTheResponse(runAdresswechselPostausgang);
+    if (antwort.effective) {
+      // The effect owed its account's carry on the change: behind the response, and by the hourly pass where this one
+      // never runs.
+      afterTheResponse(runAdresswechselUmzuege);
       return { success: true, message: "Die neue Adresse gilt jetzt, und der Zugang zur Verwaltung ist mit ihr gewechselt." };
     }
 

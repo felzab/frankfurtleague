@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { kontakteMayMoveLinks } from "./linkMint.ts";
 
-import type { FLKontaktperson, FLKontaktpersonPayload } from "@/features/teams/schemas";
+import type { FLKontaktperson, FLKontaktpersonPayload } from "@/core/generated/client/types";
 
 const gespeichert = (vorname: string, email: string): FLKontaktperson => ({
   vorname,
@@ -11,7 +11,7 @@ const gespeichert = (vorname: string, email: string): FLKontaktperson => ({
   email,
   telefon: "069 501",
   geburtsdatum: null,
-  einwilligung: kenntnisnahme({ text_version: "1", datum: "2026-10-03", bestaetigt_am: null }),
+  einwilligung: kenntnisnahme({ text_version: "1", datum: "2026-10-03", confirmed_at: null }),
 });
 const gesendet = (vorname: string, email: string, telefon = "069 501"): FLKontaktpersonPayload => ({
   vorname,
@@ -21,15 +21,15 @@ const gesendet = (vorname: string, email: string, telefon = "069 501"): FLKontak
   einwilligung: { umfang: "kontaktdaten", text_version: "1", datum: "2026-10-03" },
 });
 
-const STORED = { trainer: null, ansprechperson: gespeichert("Anna", "anna@schule.example"), stellvertretung: null, trainer_ist_zugleich: null };
+const STORED = { trainer: null, ansprechperson: gespeichert("Anna", "anna@schule.example"), stellvertretung: null, trainer_is_also: null };
 const block = (ansprechperson: FLKontaktpersonPayload | null, stellvertretung: FLKontaktpersonPayload | null = null) => ({
   trainer: null,
   ansprechperson,
   stellvertretung,
-  trainer_ist_zugleich: null,
+  trainer_is_also: null,
 });
 
-/* A save that mints or voids a bearer link is a step-up write, and one moving no link keeps its undo:
+/* A save that mints or voids a bearer link is a step-up write, and one moving no link is not:
    each arm a passkey asked too often or a link moved unasked. */
 describe("whether a contacts save may move a seat's link", () => {
   it("asks where a seat is filled, handed to another person, or emptied", () => {

@@ -28,7 +28,7 @@ def refuse_server_fixtures(test: str, fixturenames: Iterable[str]) -> None:
 
     asked = sorted(SERVER_FIXTURES.intersection(fixturenames))
     if asked:
-        pytest.fail(_UNMARKED_FIXTURE.format(test=test, fixtures=", ".join(f"`{name}`" for name in asked)), pytrace=False)
+        pytest.fail(_UNMARKED_FIXTURE.format(test=test, spiele=", ".join(f"`{name}`" for name in asked)), pytrace=False)
 
 
 @dataclass

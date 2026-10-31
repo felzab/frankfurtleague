@@ -1,7 +1,6 @@
 import { untilAnswered } from "@/test-support/answersInFlight.ts";
 import { afterEach, beforeAll, beforeEach, expect, vi } from "vitest";
 
-import { withoutStoredValues } from "@/core/logFormat.ts";
 import { failureToastTitle } from "@/shared/utils/failureToastTitle.ts";
 
 import type { AdminRefusal } from "@/core/auth.ts";
@@ -145,11 +144,10 @@ export const NEXT_HEADERS_DOUBLE = { headers: () => Promise.resolve(new Headers(
 export type LoggedLine = { level: "debug" | "info" | "warn" | "error"; message: string; meta: unknown; attached?: unknown };
 
 /**
- * What the real logger writes of an attached error (`fl_frontend/src/core/logFormat.ts :: serializeError`): its message
- * and stack are where a submitted address reaches the log, so a suite's address check over these lines reads them too.
+ * An attached error's message and stack as thrown, before the real logger's address scrub: a suite's address check
+ * over these lines is held to what the caller handed over.
  */
-function writtenOf(attached: unknown): unknown {
-  const error = withoutStoredValues(attached);
+function writtenOf(error: unknown): unknown {
   return error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error;
 }
 
@@ -236,7 +234,7 @@ async function administratorOf({ session, served }: SignInAnswers): Promise<unkn
     const { setRequestActor } = await import("@/core/requestScope.ts");
     const { asSignInIdentifier } = await import("@/core/emailAddress.ts");
     // A token nobody verifies: the backend these suites reach is doubled.
-    setRequestActor({ email: asSignInIdentifier(session.user.email), lane: "admin", token: "doubled-actor-token-not-a-credential" });
+    setRequestActor({ email: asSignInIdentifier(session.user.email), lane: "admin", authTime: 0, factor: "passkey" });
   }
 
   // Served in the real guard's shape: the admin shell reads the step-up window off the row.
@@ -312,7 +310,7 @@ const subjectLookup = (answers: Pick<SignInAnswers, "subject" | "subjectReads">)
     // refused by the client; imported at the call, for `administratorOf`'s reason.
     if (answers.subject !== null && !(answers.subject instanceof Error)) {
       const { setRequestActor } = await import("@/core/requestScope.ts");
-      setRequestActor({ email: answers.subject.email, lane: "person", token: "doubled-person-token-not-a-credential" });
+      setRequestActor({ email: answers.subject.email, lane: "person", authTime: 0, factor: "code" });
     }
 
     return answering(answers.subject);
@@ -424,8 +422,8 @@ export interface RaisedToast {
   readonly variant: string;
   readonly title: string;
   readonly description: string | undefined;
-  /** Everything else the call passed: where an undo offer keeps its own `onPress`, and `failure` its marker. */
-  readonly options: { description?: string; actionProps?: { onPress?: () => void }; outcome?: ActionFailure["outcome"] } | undefined;
+  /** Everything else the call passed: where `failure` keeps its marker. */
+  readonly options: { description?: string; outcome?: ActionFailure["outcome"] } | undefined;
 }
 
 /**
@@ -444,26 +442,15 @@ export function doubleToasts(): { raised: RaisedToast[] } {
     };
   // Titled as the real module titles it, so a press marked partly saved or of unknown outcome reads so
   // in every suite rather than under the raising site's title.
-  const fail = (
-    title: string,
-    failure?: Pick<ActionFailure, "error" | "unplacedError" | "outcome">,
-    unklarTitle?: string,
-    teilweiseTitle?: string,
-  ): string =>
-    raise("danger")(failureToastTitle(title, failure?.outcome, unklarTitle, teilweiseTitle), {
+  const fail = (title: string, failure?: Pick<ActionFailure, "error" | "unplacedError" | "outcome">, unclearTitle?: string): string =>
+    raise("danger")(failureToastTitle(title, failure?.outcome, unclearTitle), {
       description: failure?.unplacedError ?? failure?.error,
       outcome: failure?.outcome,
     });
-  const inert = (): undefined => undefined;
-
   vi.doMock("@/shared/utils/appToast.ts", async (importOriginal) => {
     const { appToast } = await importOriginal<typeof AppToastModule>();
-    // `close` and `clear` raise nothing, and recording them would shift every index `raised` is read by.
-    const members = Object.keys(appToast).map((name) => [
-      name,
-      name === "close" || name === "clear" ? inert : name === "failure" ? fail : raise(name),
-    ]);
-    return { UNDO_TIMEOUT_MS: 1, appToast: Object.fromEntries(members) };
+    const members = Object.keys(appToast).map((name) => [name, name === "failure" ? fail : raise(name)]);
+    return { appToast: Object.fromEntries(members) };
   });
 
   return { raised };

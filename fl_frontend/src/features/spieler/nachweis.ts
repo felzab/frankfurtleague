@@ -1,11 +1,12 @@
+import { TIME_ZONE } from "@/core/format";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLEinwilligungBeleg, FLEinwilligungNachweis } from "./schemas";
+import type { FLEinwilligungBeleg, FLEinwilligungNachweis } from "@/core/generated/client/types";
 
 // Europe/Berlin, as every other date in this app is rendered: the evidence stores an instant in UTC,
 // and an administrator reading "22:30" for an act at 00:30 would put it on the day before.
 const BELEG_ZEITPUNKT = new Intl.DateTimeFormat("de-DE", {
-  timeZone: "Europe/Berlin",
+  timeZone: TIME_ZONE,
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
@@ -27,10 +28,10 @@ function beleg({ am, text_version }: FLEinwilligungBeleg): string {
  */
 export type Bestaetigung = { am: string; textVersion: string; gefragt: boolean | null } | null;
 
-type BestaetigterDatensatz = { bestaetigt_am: string | null; text_version: string };
+type BestaetigterDatensatz = { confirmed_at: string | null; text_version: string };
 
 /** The confirmation a consent record holds, for a choice every page confirming such a record asks. */
-export function bestaetigungOf({ bestaetigt_am, text_version }: BestaetigterDatensatz): Bestaetigung {
+export function bestaetigungOf({ confirmed_at: bestaetigt_am, text_version }: BestaetigterDatensatz): Bestaetigung {
   return bestaetigt_am === null ? null : { am: bestaetigt_am, textVersion: text_version, gefragt: true };
 }
 
@@ -55,7 +56,7 @@ export function medienBestaetigungOf(datensatz: BestaetigterDatensatz, medienFra
  */
 export function beschreibeNachweis(nachweis: FLEinwilligungNachweis | null, bestaetigung: Bestaetigung): string {
   if (nachweis !== null) {
-    const zuvor = nachweis.erteilt_zuvor === null ? "" : ` (zuvor erteilt am ${beleg(nachweis.erteilt_zuvor)})`;
+    const zuvor = nachweis.given_before === null ? "" : ` (zuvor erteilt am ${beleg(nachweis.given_before)})`;
     return `seit ${beleg(nachweis)}${zuvor}`;
   }
 

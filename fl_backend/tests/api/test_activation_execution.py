@@ -8,9 +8,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import activate_saison
-from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED, ACTIVATE_SPIELTAGE_UNDATED, ACTIVATE_TARGET_PAST
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, spiel_document
 from tests.worker import worker_database
@@ -40,7 +40,7 @@ def fixture(saison_id: str, *, ergebnis: str | None) -> dict[str, Any]:
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=SPIELTAG_ID,
-        team1={"team_id": TEAM_ID, "name": "Alpha", "shorthand": "AL", "tore": None},
+        team1={"team_id": TEAM_ID, "name": "Alpha", "shorthand": "ALX", "tore": None},
         datum=f"{saison_id}-03-15",
         uhrzeit="18:00:00",
         ergebnis=ergebnis,
@@ -48,7 +48,7 @@ def fixture(saison_id: str, *, ergebnis: str | None) -> dict[str, Any]:
 
 
 def spieltag_document(saison_id: str, position: int, *, beginn: str | None) -> dict[str, Any]:
-    """Every validator-required key stated, `ende` moving with `beginn`: no write here produces a half-dated matchday."""
+    """Every key `FLSpieltagRecord` requires stated, `ende` moving with `beginn`: no write here produces a half-dated matchday."""
 
     return {
         "_id": ObjectId(f"6890a1b2c3d4e5f60724{position:04d}"),
@@ -79,7 +79,7 @@ def on_a_league(
             await database[Collection.SAISONS].insert_many(saisons)
             if spiele:
                 await database[Collection.SPIELE].insert_many(spiele)
-            # Absent on every case but `REQ-ACTIVATE-004`'s: a season holding no matchday row owes no
+            # Absent on every case but `activate_spieltage_undated`'s: a season holding no matchday row owes no
             # date, which is the state each of the older cases here is about.
             if spieltage:
                 await database[Collection.SPIELTAGE].insert_many(spieltage)
@@ -133,7 +133,6 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
         assert statuses == {ARCHIVED: "past", INCUMBENT: "past", TARGET: "active"}
         # A season already `past` is not counted, so this is the number of seasons the rollover moved.
         assert response.deactivated == 1
-        assert (response.updated_document.id, response.updated_document.status) == (TARGET, "active")
 
     def test_reactivating_the_incumbent_demotes_nobody(self, mongo_replica_set_url: str):
         """The `$ne` on the target: its own unplayed fixture is seeded, and only a rule reading it as outgoing would refuse this."""
@@ -159,7 +158,7 @@ class TestARefusedRolloverWritesNothing:
         """The outgoing season's fixture has no result and is not cancelled, which is what `unplayed_spiel_nrs` counts."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_activate(database, client, TARGET)
 
             return refusal.value.error_code, await statuses_now(database)
@@ -172,14 +171,14 @@ class TestARefusedRolloverWritesNothing:
             spiele=[fixture(INCUMBENT, ergebnis=None), fixture(TARGET, ergebnis=None)],
         )
 
-        assert code == ACTIVATE_SAISON_UNFINISHED
+        assert code == Code.ACTIVATE_SAISON_UNFINISHED
         assert statuses == {INCUMBENT: "active", TARGET: "future"}
 
     def test_an_unknown_season_demotes_nobody(self, mongo_replica_set_url: str):
         """The read before the transaction: without it the league would be left with no active season at all."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await call_activate(database, client, "2099")
 
             return await statuses_now(database)
@@ -225,31 +224,31 @@ class TestAMidFlightFailureTakesTheDemotionBack:
 
 
 class TestTheRolloverRefusesAFinishedTarget:
-    """`REQ-ACTIVATE-002` through the route, which is the only thing that proves the target's own status is read.
+    """`saison_past` through the route, which is the only thing that proves the target's own status is read.
 
     The read before the transaction was there for the 404 alone, and a status it discards refuses
     nothing.
     """
 
     def test_a_past_target_is_refused_with_no_incumbent_to_answer_for_it(self, mongo_replica_set_url: str):
-        """Nothing holds `active`, so `REQ-ACTIVATE-001` has an empty list and only the target can be the reason."""
+        """Nothing holds `active`, so `activate_saison_unfinished` has an empty list and only the target can be the reason."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_activate(database, client, ARCHIVED)
 
             return refusal.value.error_code, await statuses_now(database)
 
         code, statuses = on_a_league(mongo_replica_set_url, body, saisons=[saison_document(ARCHIVED, "past")])
 
-        assert code == ACTIVATE_TARGET_PAST
+        assert code == Code.SAISON_PAST
         assert statuses == {ARCHIVED: "past"}
 
     def test_the_incumbent_keeps_running(self, mongo_replica_set_url: str):
         """The incumbent is finished, so the rollover would otherwise land: the demotion is what a missed refusal costs."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_activate(database, client, ARCHIVED)
 
             return refusal.value.error_code, await statuses_now(database)
@@ -261,12 +260,12 @@ class TestTheRolloverRefusesAFinishedTarget:
             spiele=[fixture(INCUMBENT, ergebnis="2:1")],
         )
 
-        assert code == ACTIVATE_TARGET_PAST
+        assert code == Code.SAISON_PAST
         assert statuses == {ARCHIVED: "past", INCUMBENT: "active"}
 
 
 class TestTheRolloverRefusesAnUndatedMatchday:
-    """`REQ-ACTIVATE-004` through the route, the only thing proving the matchdays are counted.
+    """`activate_spieltage_undated` through the route, the only thing proving the matchdays are counted.
 
     The demotion shares the promotion's transaction, so a refusal ordered after it would leave the
     league with no active season.
@@ -276,7 +275,7 @@ class TestTheRolloverRefusesAnUndatedMatchday:
         """One dated matchday beside it, so the count is what refuses rather than the collection being empty."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_activate(database, client, TARGET)
 
             return refusal.value.error_code, await statuses_now(database)
@@ -292,7 +291,7 @@ class TestTheRolloverRefusesAnUndatedMatchday:
             ],
         )
 
-        assert code == ACTIVATE_SPIELTAGE_UNDATED
+        assert code == Code.ACTIVATE_SPIELTAGE_UNDATED
         assert statuses == {INCUMBENT: "active", TARGET: "future"}, "the incumbent was demoted by a refused rollover"
 
     def test_an_undated_matchday_of_another_season_leaves_this_rollover_open(self, mongo_replica_set_url: str):

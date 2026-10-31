@@ -13,7 +13,7 @@ vi.doMock("@/shared/utils/adminRead.ts", async (importOriginal) => ({
 }));
 
 /** Every request the doubled client was asked for, cumulative across every pass in this file. */
-const reads = doubleApiClient(() => ({ acknowledged: 1, spieltag: {} }));
+const reads = doubleApiClient(() => ({ spieltag: {} }));
 
 serveServerReact();
 
@@ -31,7 +31,7 @@ describe("the matchday editor's read across a render pass", () => {
 
     await Promise.all([getAdminSpieltagById("s1"), getAdminSpieltagById("s1"), getAdminSpieltagById("s2")]);
 
-    expect(endpointsSince(before).sort()).toStrictEqual(["/spieltage/s1/admin", "/spieltage/s2/admin"]);
+    expect(endpointsSince(before).sort()).toStrictEqual(["/spieltage/s1/verwaltung", "/spieltage/s2/verwaltung"]);
   });
 
   /* 0 would be the cross-request leak `"use cache"` opens on an admin-tier read. */
@@ -44,6 +44,6 @@ describe("the matchday editor's read across a render pass", () => {
     await getAdminSpieltagById("s1");
     await getAdminSpieltagById("s1");
 
-    expect(endpointsSince(before)).toStrictEqual(["/spieltage/s1/admin"]);
+    expect(endpointsSince(before)).toStrictEqual(["/spieltage/s1/verwaltung"]);
   });
 });

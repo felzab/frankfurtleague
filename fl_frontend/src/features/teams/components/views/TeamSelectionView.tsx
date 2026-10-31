@@ -2,7 +2,7 @@ import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 
 import { TeamsGrid } from "../collections/TeamsGrid";
 
-import type { FLTeam } from "../../schemas";
+import type { FLTeam } from "@/core/generated/client/types";
 
 export function TeamSelectionView({
   urlPrefix,

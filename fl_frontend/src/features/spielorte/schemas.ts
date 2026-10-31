@@ -1,12 +1,12 @@
 import z from "zod";
 
-import { BaseAPIResponseSchema } from "@/core/schemas";
-import { CustomDateStringSchema, CustomObjectIdStringSchema, FLAddressPayloadSchema, FLAddressSchema } from "@/shared/schemas";
+import { CustomObjectIdStringSchema, FLAddressPayloadSchema } from "@/shared/schemas";
 
+// Redesign: goes with its last importer.
 /** Shared by create and patch, which mirror one backend class: the patch replaces the venue wholesale. */
 const spielortPayloadFields = {
   // Trimmed before the floor counts it, as `fl_backend/app/api/spielorte/schemas.py :: _SpielortPayload`
-  // is: the API refuses a name of spaces alone with a `REQ-VAL-001` marking the box with a generic
+  // is: the API refuses a name of spaces alone with a `payload_refused` marking the box with a generic
   // sentence, so a looser mirror loses the floor's German.
   name: z.string().trim().nonempty({ error: "Bitte gib einen Namen ein." }),
   default_mietpreis: z
@@ -15,60 +15,26 @@ const spielortPayloadFields = {
   address: FLAddressPayloadSchema,
 };
 
+// Redesign: goes with its last importer.
 export const FLPostSpielortPayloadSchema = z.object(spielortPayloadFields);
 export type FLPostSpielortPayload = z.infer<typeof FLPostSpielortPayloadSchema>;
 
+// Redesign: goes with its last importer.
 export const FLPatchSpielortPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   ...spielortPayloadFields,
 });
 export type FLPatchSpielortPayload = z.infer<typeof FLPatchSpielortPayloadSchema>;
 
+// Redesign: goes with its last importer.
 /** Widened at the money field: an emptied box holds `null`, which the schema above refuses at the submit. */
 export type FLSpielortPayloadDraft<T extends { default_mietpreis: number }> = Omit<T, "default_mietpreis"> & {
   default_mietpreis: number | null;
 };
 
+// Redesign: goes with its last importer.
 /** The retire and reactivate calls: an id in the path, no request body. */
 export const FLSpielortKeyPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
 });
 export type FLSpielortKeyPayload = z.infer<typeof FLSpielortKeyPayloadSchema>;
-
-export const FLSpielortSchema = z.object({
-  id: CustomObjectIdStringSchema,
-
-  address: FLAddressSchema,
-  name: z.string().nonempty(),
-  // On the read model and on no payload: the backend derives it from the name and address, so a
-  // client cannot set it.
-  maps_link: z.string().nonempty(),
-  default_mietpreis: z.int().nonnegative(),
-  // The day the venue was retired, null while it is in use. Deactivation goes through
-  // DELETE, so it is on no payload.
-  inactive_since: CustomDateStringSchema.nullable(),
-});
-export type FLSpielort = z.infer<typeof FLSpielortSchema>;
-
-export const FLSpielorteListResponseSchema = BaseAPIResponseSchema.extend({
-  spielorte: z.array(FLSpielortSchema),
-});
-export type FLSpielorteListResponse = z.infer<typeof FLSpielorteListResponseSchema>;
-
-export const FLPostSpielortResponseSchema = BaseAPIResponseSchema.extend({
-  created_id: CustomObjectIdStringSchema,
-});
-export type FLPostSpielortResponse = z.infer<typeof FLPostSpielortResponseSchema>;
-
-export const FLPatchSpielortResponseSchema = BaseAPIResponseSchema.extend({
-  updated_document: FLSpielortSchema,
-  // How many fixtures the rename reached. Reported because the fan-out fails silently.
-  fanned_out_to_spiele: z.int().nonnegative(),
-});
-export type FLPatchSpielortResponse = z.infer<typeof FLPatchSpielortResponseSchema>;
-
-/** What the retire and the reactivate both echo: the backend serves one model for the pair. */
-export const FLSpielortWriteResponseSchema = BaseAPIResponseSchema.extend({
-  updated_document: FLSpielortSchema,
-});
-export type FLSpielortWriteResponse = z.infer<typeof FLSpielortWriteResponseSchema>;

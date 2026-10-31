@@ -9,29 +9,28 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.saisons.admin_router import generate_spielplan, patch_saison, undraw_spielplan
-from app.api.saisons.cache import read_cached_saison, saison_cache_generation, store_cached_saison
+from app.api.saisons.admin_router import delete_spielplan, patch_saison, post_spielplan
 from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
     FLGenerateSpielplanResponse,
     FLPatchSaisonPayload,
-    FLPatchSaisonResponse,
     FLSaisonRules,
     FLUndrawSpielplanResponse,
 )
-from app.api.saisons.services import RULES_SHAPE_AFTER_DRAW, SPIELPLAN_BERICHTE_EINGEREICHT, SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
-from app.api.spiele.admin_router import patch_spiel_data
+from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.teams.admin_router import post_saison_team
-from app.api.teams.schemas import FLGruppenNames, FLPostSaisonTeamPayload, FLSaisonTeamResponse
-from app.api.teams.services import ENTRY_GRUPPE_FULL, offered_gruppen
+from app.api.teams.schemas import FLPostSaisonTeamPayload, FLSaisonTeamResponse
+from app.api.teams.services import offered_gruppen
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from app.core.logging import trace_id_var
+from app.shared.schemas.literals import FLGruppenNames
 from tests import documents
-from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -57,7 +56,7 @@ GROUPS = 4
 TEAMS_PER_GROUP = 4
 QUALIFIERS = 2
 
-# Wider than the shape the season was drawn from, which is the step `REQ-RULES-011` refuses while the
+# Wider than the shape the season was drawn from, which is the step `rules_shape_after_spielplan` refuses while the
 # season is drawn -- and the whole reason this endpoint exists.
 WIDER_PER_GROUP = 6
 
@@ -88,7 +87,7 @@ AKTIONEN_REFUSING_A_SAISON_ROW: dict[str, Any] = {"collection": {"$ne": str(Coll
 
 
 def rules_document(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: int = QUALIFIERS) -> dict[str, Any]:
-    return documents.rules_document(qualifiers_per_group=qualifiers, number_of_groups=groups, teams_per_group=teams)
+    return documents.rules_document(qualifiers_per_gruppe=qualifiers, number_of_gruppen=groups, teams_per_gruppe=teams)
 
 
 def saison_document(*, saison_id: str = SAISON_ID, status: str = "future", spielplan: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -117,7 +116,7 @@ def entry_rows(*, saison_id: str = SAISON_ID, offset: int = 0, groups: int = GRO
             saison_id,
             ObjectId(f"6890a1b2c3d4e5f6078{index + offset:05d}"),
             f"{gruppe}{seat + 1}-Schule",
-            f"{gruppe}{seat + 1}",
+            f"{gruppe}S{chr(65 + seat)}",
             _id=ObjectId(f"6890a1b2c3d4e5f6077{index + offset:05d}"),
             gruppe=gruppe,
         )
@@ -131,7 +130,7 @@ class Seed:
 
     saison: dict[str, Any] = field(default_factory=saison_document)
     entered: list[dict[str, Any]] = field(default_factory=entry_rows)
-    teams: list[dict[str, Any]] = field(default_factory=lambda: [team_document(NEWCOMER_OID, "NE")])
+    teams: list[dict[str, Any]] = field(default_factory=lambda: [team_document(NEWCOMER_OID, "NEX")])
     #: Seeded only by a case about what a removal must NOT reach: a database holding one season
     #: answers the same whether the removal was scoped or took the collection.
     neighbour: dict[str, Any] | None = None
@@ -142,9 +141,9 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutates_schema: bool = False) -> Any:
-    """The SHIPPED validators and unique indexes, so a document MongoDB would refuse in production fails here too.
+    """The shipped unique indexes, so a document MongoDB would refuse in production fails here too.
 
-    `mutates_schema=True` where the body narrows one of those validators (`tests/database.py :: a_clean_database`).
+    `mutates_schema=True` where the body installs a validator (`tests/database.py :: a_clean_database`).
     """
 
     seeded = seed or Seed()
@@ -168,7 +167,7 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutate
 
 
 async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, *, saison_id: str = SAISON_ID) -> FLGenerateSpielplanResponse:
-    return await generate_spielplan(
+    return await post_spielplan(
         saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -179,14 +178,14 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, *, saison
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(),
         today=TODAY,
-        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+        actor=fresh_admin_actor(),
     )
 
 
 async def call_undraw(
     database: AsyncDatabase, client: AsyncMongoClient, *, saison_id: str = SAISON_ID, spielberichte_collection: Any = None
 ) -> FLUndrawSpielplanResponse:
-    return await undraw_spielplan(
+    return await delete_spielplan(
         saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
@@ -197,7 +196,7 @@ async def call_undraw(
     )
 
 
-async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> FLPatchSaisonResponse:
+async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> None:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it moves."""
 
     seeded = saison_document()
@@ -219,6 +218,7 @@ async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> FLPatch
         spieltage_collection=database[Collection.SPIELTAGE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         db=database.client,
+        today=TODAY,
     )
 
 
@@ -296,7 +296,7 @@ def an_undrawn_season(url: str, *, dated: bool = False) -> UndrawnSeason:
             spieltage=spieltage,
             spiele=spiele,
             watermark=await watermark_now(database),
-            log=await database[Collection.AKTIONEN].find({}).sort("_id", 1).to_list(length=None),
+            log=await database[Collection.ACTION_LOG].find({}).sort("_id", 1).to_list(length=None),
         )
 
     undrawn = on_a_seeded_saison(url, body)
@@ -368,7 +368,7 @@ class TestTheRemovalKeepsEveryImage:
         patched = [row for row in undrawn.log if row["operation"] == "patch_one"][-1]
 
         assert patched["before"]["spielplan"] == {
-            "generiert_am": TODAY,
+            "generated_at": TODAY,
             "spieltage": undrawn.drawn.spieltage,
             "spiele": undrawn.drawn.spiele,
         }
@@ -384,7 +384,6 @@ class AbortedUndraw:
     spiele: int
     watermark: Any
     log: int
-    cached: dict[str, Any] | None
 
 
 class TestAnAbortedUndrawLeavesAllThreeStanding:
@@ -395,8 +394,6 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> AbortedUndraw:
             drawn = await call_draw(database, client)
-            # Stored AFTER the draw, which drops the cache on its own commit.
-            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
 
             # Narrowed after the draw, so what falls is the `$unset` itself -- by which point both
             # removals have run.
@@ -413,8 +410,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
                 spieltage=spieltage,
                 spiele=spiele,
                 watermark=await watermark_now(database),
-                log=await database[Collection.AKTIONEN].count_documents({}),
-                cached=read_cached_saison(SAISON_ID),
+                log=await database[Collection.ACTION_LOG].count_documents({}),
             )
 
         aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
@@ -422,13 +418,10 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
         # On the code, so this cannot pass because the undraw fell before it removed anything.
         assert aborted.write_error == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got {aborted.write_error}"
         assert (aborted.spieltage, aborted.spiele) == (aborted.drawn.spieltage, aborted.drawn.spiele), "a rolled-back undraw removed rows"
-        assert aborted.watermark == {"generiert_am": TODAY, "spieltage": aborted.drawn.spieltage, "spiele": aborted.drawn.spiele}
+        assert aborted.watermark == {"generated_at": TODAY, "spieltage": aborted.drawn.spieltage, "spiele": aborted.drawn.spiele}
         # The draw's three rows and nothing else: the removals record in-session, so the abort takes
         # their rows back too.
         assert aborted.log == 3
-        # Dropped however the undraw ended: from here a refusal and a commit whose answer was lost look
-        # alike, and the second may have landed (`app/api/saisons/cache.py :: dropping_the_saison_cache`).
-        assert aborted.cached is None
 
     def test_a_log_row_refused_after_the_clear_takes_the_cleared_watermark_back(self, mongo_replica_set_url: str):
         """Drop `session=` from the watermark clear and this fails.
@@ -442,7 +435,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
 
             # AFTER the draw, which writes a `saisons` row of its own: attached earlier, the draw is
             # what would fall and there would be no Spielplan to undraw.
-            await database.command("collMod", str(Collection.AKTIONEN), validator=AKTIONEN_REFUSING_A_SAISON_ROW, validationLevel="strict")
+            await database.command("collMod", str(Collection.ACTION_LOG), validator=AKTIONEN_REFUSING_A_SAISON_ROW, validationLevel="strict")
 
             with pytest.raises(OperationFailure) as failure:
                 await call_undraw(database, client)
@@ -455,8 +448,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
                 spieltage=spieltage,
                 spiele=spiele,
                 watermark=await watermark_now(database),
-                log=await database[Collection.AKTIONEN].count_documents({}),
-                cached=read_cached_saison(SAISON_ID),
+                log=await database[Collection.ACTION_LOG].count_documents({}),
             )
 
         aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
@@ -466,7 +458,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
 
         # The assertion that separates the two: everything else here holds with or without the
         # keyword, the two removals being bound to the transaction either way.
-        assert aborted.watermark == {"generiert_am": TODAY, "spieltage": aborted.drawn.spieltage, "spiele": aborted.drawn.spiele}
+        assert aborted.watermark == {"generated_at": TODAY, "spieltage": aborted.drawn.spieltage, "spiele": aborted.drawn.spiele}
 
         assert (aborted.spieltage, aborted.spiele) == (aborted.drawn.spieltage, aborted.drawn.spiele)
         assert aborted.log == 3
@@ -566,13 +558,13 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=ObjectId(),
-        team1={"team_id": home, "name": "Alpha", "shorthand": "AL", "tore": None},
-        team2={"team_id": ObjectId(), "name": "Beta", "shorthand": "BE", "tore": None},
+        team1={"team_id": home, "name": "Alpha", "shorthand": "ALX", "tore": None},
+        team2={"team_id": ObjectId(), "name": "Beta", "shorthand": "BEX", "tore": None},
         datum="2026-05-01",
         uhrzeit="18:00:00",
     )
 
-    return documents.spielbestaetigung_document(fixture, partei={"art": "team", "team_id": home})
+    return documents.spielbestaetigung_document(fixture, party={"art": "team", "team_id": home})
 
 
 class TestAnUndrawTakesTheSeasonsConfirmations:
@@ -635,7 +627,7 @@ class BerichteRunningARivalBeforeTheirRemoval(InterleavedCollection):
 
 
 class TestASubmittedReportKeepsTheSpielplan:
-    """`REQ-SPIELPLAN-007` wired: the undraw counts the season's submitted reports in its transaction and again outside it."""
+    """`spielplan_berichte_submitted` wired: the undraw counts the season's submitted reports in its transaction and again outside it."""
 
     def test_the_undraw_is_refused_and_removes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -647,7 +639,7 @@ class TestASubmittedReportKeepsTheSpielplan:
 
         drawn, outcome, counts, berichte = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert outcome == SPIELPLAN_BERICHTE_EINGEREICHT
+        assert outcome == Code.SPIELPLAN_BERICHTE_SUBMITTED
         assert (counts, berichte) == ((drawn.spieltage, drawn.spiele), 1)
 
     def test_a_report_whose_fixture_is_gone_refuses_nothing(self, mongo_replica_set_url: str):
@@ -679,7 +671,7 @@ class TestASubmittedReportKeepsTheSpielplan:
 
         drawn, outcome, counts, passes = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert (outcome, counts) == (SPIELPLAN_BERICHTE_EINGEREICHT, (drawn.spieltage, drawn.spiele))
+        assert (outcome, counts) == (Code.SPIELPLAN_BERICHTE_SUBMITTED, (drawn.spieltage, drawn.spiele))
         # Once: the insert conflicts with nothing, so no retry met it.
         assert passes == 1
 
@@ -690,7 +682,6 @@ class RefusedUndraw:
 
     drawn: FLGenerateSpielplanResponse
     error_code: str
-    message: str
     spieltage: int
     spiele: int
     watermark: Any
@@ -706,7 +697,7 @@ def an_undraw_refused_on(url: str, *, status: str | None = None, record: dict[st
         if record is not None:
             await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": record})
 
-        with pytest.raises(WriteRefusalException) as refused:
+        with pytest.raises(APIError) as refused:
             await call_undraw(database, client)
 
         spieltage, spiele = await counts_now(database)
@@ -714,7 +705,6 @@ def an_undraw_refused_on(url: str, *, status: str | None = None, record: dict[st
         return RefusedUndraw(
             drawn=drawn,
             error_code=refused.value.error_code,
-            message=refused.value.error_detail["message"],
             spieltage=spieltage,
             spiele=spiele,
             watermark=await watermark_now(database),
@@ -724,7 +714,7 @@ def an_undraw_refused_on(url: str, *, status: str | None = None, record: dict[st
 
 
 class TestTheWindowIsReachedThroughTheRoute:
-    """`REQ-SPIELPLAN-006` WIRED: the endpoint reads the season's status and its own fixtures inside the transaction."""
+    """`spielplan_undraw_outside_its_window` WIRED: the endpoint reads the season's status and its own fixtures inside the transaction."""
 
     @pytest.mark.parametrize("status", ["active", "past"])
     def test_a_season_outside_its_planning_keeps_its_whole_spielplan(self, mongo_replica_set_url: str, status: str):
@@ -732,8 +722,7 @@ class TestTheWindowIsReachedThroughTheRoute:
 
         refused = an_undraw_refused_on(mongo_replica_set_url, status=status)
 
-        assert refused.error_code == SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
-        assert status in refused.message
+        assert refused.error_code == Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
         assert (refused.spieltage, refused.spiele) == (refused.drawn.spieltage, refused.drawn.spiele)
         assert refused.watermark is not None
 
@@ -743,8 +732,7 @@ class TestTheWindowIsReachedThroughTheRoute:
 
         refused = an_undraw_refused_on(mongo_replica_set_url, record=record)
 
-        assert refused.error_code == SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
-        assert "1 fixture(s)" in refused.message
+        assert refused.error_code == Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
         assert (refused.spieltage, refused.spiele) == (refused.drawn.spieltage, refused.drawn.spiele)
 
     def test_a_dated_fixture_does_not_close_the_window(self, mongo_replica_set_url: str):
@@ -756,7 +744,7 @@ class TestTheWindowIsReachedThroughTheRoute:
 
 
 async def call_patch_spiel(database: AsyncDatabase, client: AsyncMongoClient, *, spiel_id: Any, payload: FLPatchSpielDataPayload) -> Any:
-    return await patch_spiel_data(
+    return await patch_spiel(
         spiel_id=spiel_id,
         spiel_data=payload,
         db=client,
@@ -804,7 +792,6 @@ class SeededBracket:
     stored_team1: Any
     stored_team1_quelle: Any
     error_code: str
-    message: str
     drawn: FLGenerateSpielplanResponse
     spieltage: int
     spiele: int
@@ -827,7 +814,7 @@ def a_bracket_slot_seeded_by_hand(url: str) -> SeededBracket:
 
         await call_patch_spiel(database, client, spiel_id=slot["_id"], payload=seeding_payload(slot, entered["team_id"]))
 
-        with pytest.raises(WriteRefusalException) as refused:
+        with pytest.raises(APIError) as refused:
             await call_undraw(database, client)
 
         stored = await database[Collection.SPIELE].find_one({"_id": slot["_id"]})
@@ -838,7 +825,6 @@ def a_bracket_slot_seeded_by_hand(url: str) -> SeededBracket:
             stored_team1=(stored or {}).get("team1"),
             stored_team1_quelle=(stored or {}).get("team1_quelle"),
             error_code=refused.value.error_code,
-            message=refused.value.error_detail["message"],
             drawn=drawn,
             spieltage=spieltage,
             spiele=spiele,
@@ -868,8 +854,7 @@ class TestABracketSlotSeededByHandKeepsTheWholeSpielplan:
 
         seeded = a_bracket_slot_seeded_by_hand(mongo_replica_set_url)
 
-        assert seeded.error_code == SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
-        assert "1 fixture(s)" in seeded.message
+        assert seeded.error_code == Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
 
     def test_the_season_keeps_every_matchday_and_every_fixture(self, mongo_replica_set_url: str):
         """The refusal is only worth anything if nothing was removed before it: both collections are counted after it."""
@@ -908,41 +893,12 @@ class TestAnUndrawOfASeasonHoldingNoSpielplan:
     def test_a_watermark_standing_with_no_fixtures_behind_it_is_cleared_and_reported(self, mongo_replica_set_url: str):
         """Report the clear off the counts and this fails: the claim is what is removed, and the rule says report it."""
 
-        seed = Seed(saison=saison_document(spielplan={"generiert_am": TODAY, "spieltage": 8, "spiele": 67}))
+        seed = Seed(saison=saison_document(spielplan={"generated_at": TODAY, "spieltage": 8, "spiele": 67}))
         undrawn = an_undraw_of(mongo_replica_set_url, seed=seed)
 
         assert (undrawn.response.spieltage, undrawn.response.spiele) == (0, 0)
         assert undrawn.response.watermark_cleared is True
         assert undrawn.watermark is None
-
-
-class TestTheSeasonCacheIsDroppedHoweverTheUndrawEnds:
-    """An undraw that raised may still have landed, so no outcome leaves the cached season standing."""
-
-    def test_a_committed_undraw_drops_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_draw(database, client)
-            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
-            await call_undraw(database, client)
-
-            return read_cached_saison(SAISON_ID)
-
-        assert on_a_seeded_saison(mongo_replica_set_url, body) is None
-
-    def test_a_refused_undraw_drops_it_too(self, mongo_replica_set_url: str):
-        """The drop costs the next reader one query, and a drop only after a clean commit keeps a season a lost answer may have changed."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_draw(database, client)
-            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
-            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "active"}})
-
-            with pytest.raises(WriteRefusalException):
-                await call_undraw(database, client)
-
-            return read_cached_saison(SAISON_ID)
-
-        assert on_a_seeded_saison(mongo_replica_set_url, body) is None
 
 
 @dataclass(frozen=True)
@@ -951,7 +907,7 @@ class ReopenedSeason:
 
     patch_refused: str
     entry_refused: str
-    widened: FLPatchSaisonResponse
+    widened_rules: dict[str, Any]
     entered: FLSaisonTeamResponse
     gruppe_a_holds: int
 
@@ -959,7 +915,7 @@ class ReopenedSeason:
 class TestWhatAnUndrawReopens:
     """Why the endpoint exists: a replace repairs a NARROWING alone.
 
-    Widening is refused by `REQ-SPIELPLAN-004` for the groups then short of the new size, and no club
+    Widening is refused by `spielplan_gruppen_off_rules` for the groups then short of the new size, and no club
     can be entered into a drawn season at all.
     """
 
@@ -969,27 +925,30 @@ class TestWhatAnUndrawReopens:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> ReopenedSeason:
             await call_draw(database, client)
 
-            with pytest.raises(WriteRefusalException) as refused_patch:
-                await call_patch_rules(database, teams_per_group=WIDER_PER_GROUP)
+            with pytest.raises(APIError) as refused_patch:
+                await call_patch_rules(database, teams_per_gruppe=WIDER_PER_GROUP)
 
-            with pytest.raises(WriteRefusalException) as refused_entry:
+            with pytest.raises(APIError) as refused_entry:
                 await call_entry(database)
 
             await call_undraw(database, client)
+            await call_patch_rules(database, teams_per_gruppe=WIDER_PER_GROUP)
+            widened = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
+            assert widened is not None
 
             return ReopenedSeason(
                 patch_refused=refused_patch.value.error_code,
                 entry_refused=refused_entry.value.error_code,
-                widened=await call_patch_rules(database, teams_per_group=WIDER_PER_GROUP),
+                widened_rules=widened["rules"],
                 entered=await call_entry(database),
                 gruppe_a_holds=await database[Collection.SAISON_TEAMS].count_documents({"saison_id": SAISON_ID, "gruppe": "A"}),
             )
 
         reopened = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert reopened.patch_refused == RULES_SHAPE_AFTER_DRAW
-        assert reopened.entry_refused == ENTRY_GRUPPE_FULL
-        # Read off the stored document the patch echoes, so a rule refused after the write cannot pass this.
-        assert reopened.widened.updated_document.rules.teams_per_group == WIDER_PER_GROUP
+        assert reopened.patch_refused == Code.RULES_SHAPE_AFTER_SPIELPLAN
+        assert reopened.entry_refused == Code.ENTRY_GRUPPE_FULL
+        # Read off the stored document, so a rule refused after the write cannot pass this.
+        assert reopened.widened_rules["teams_per_gruppe"] == WIDER_PER_GROUP
         assert (reopened.entered.team_id, reopened.entered.gruppe) == (NEWCOMER_OID, "A")
         assert reopened.gruppe_a_holds == TEAMS_PER_GROUP + 1

@@ -5,21 +5,23 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
+from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.einwilligung_router import post_einwilligung
+from app.api.bewerbungen.public_router import post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
-from app.api.bewerbungen.services import BEWERBUNG_KONTAKT_ALTER, compose_bestaetigungen, hash_token
-from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import kontaktperson_document
+from tests.documents import kontaktperson_document, minted_confirmations
 from tests.worker import worker_database
 
 # Module level, as the execution suite marks its own: every test below reaches a real mongod.
@@ -51,7 +53,7 @@ def paired_kontakte(**overrides: Any) -> dict[str, Any]:
         "trainer": kontaktperson_document("Wraxlington"),
         "ansprechperson": kontaktperson_document("Wraxlington"),
         "stellvertretung": kontaktperson_document("Bramblewick"),
-        "trainer_ist_zugleich": "ansprechperson",
+        "trainer_is_also": "ansprechperson",
         **overrides,
     }
 
@@ -60,11 +62,11 @@ def bewerbung_document(**overrides: Any) -> dict[str, Any]:
     stored = documents.bewerbung_document(
         BEWERBUNG_OID,
         SAISON_ID,
-        "eingereicht",
+        "submitted",
         kontakte=paired_kontakte(),
-        eingereicht_am="2026-03-20",
-        bestaetigungsfrist="2026-04-03",
-        schule=documents.neue_schule_document(SCHOOL_NAME, "ZX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
+        submitted_at="2026-03-20",
+        confirmation_deadline="2026-04-03",
+        schule=documents.new_schule_document(SCHOOL_NAME, "ZXX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
         link_prefix=RAW_PREFIX,
     )
 
@@ -75,7 +77,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]]) -> Any:
-    """The SHIPPED validators, so a planted document production would refuse fails here too."""
+    """A clean database carrying the shipped indexes."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
@@ -93,7 +95,7 @@ BEWERBER_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]
 async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, **overrides: Any) -> Any:
     body = {
         "token": token,
-        "antwort": "erteilt",
+        "antwort": "given",
         "geburtsdatum": AN_ADULTS_BIRTHDATE,
         "whatsapp": False,
         "medien": False,
@@ -101,13 +103,17 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         **overrides,
     }
 
+    if overrides.get("antwort") == "declined":
+        body = {"token": token, **overrides}
+
     return await post_einwilligung(
-        antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
+        antwort_data=TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         config=build_test_config(),
@@ -124,7 +130,7 @@ async def stored(database: AsyncDatabase) -> Mapping[str, Any]:
 
 
 async def log_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
-    return await database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN)}).sort("_id", 1).to_list(length=None)
+    return await database[Collection.ACTION_LOG].find({"collection": str(Collection.BEWERBUNGEN)}).sort("_id", 1).to_list(length=None)
 
 
 class TestAPairedDecline:
@@ -132,18 +138,18 @@ class TestAPairedDecline:
         """One person, two seats, one refusal: a decline reaching one slot would leave the other holding the person who refused."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["ansprechperson"], antwort="abgelehnt", geburtsdatum=None)
+            response = await answer(database, client, RAW["ansprechperson"], antwort="declined")
 
             return response, await stored(database), await log_rows(database)
 
         response, document, rows = on_a_league(mongo_replica_set_url, body, documents=[bewerbung_document()])
 
         assert (document["kontakte"]["trainer"], document["kontakte"]["ansprechperson"]) == (None, None)
-        assert document["bestaetigungen"]["trainer"]["abgelehnt_am"] == TODAY
-        assert document["bestaetigungen"]["ansprechperson"]["abgelehnt_am"] == TODAY
+        assert document["confirmations"]["trainer"]["declined_at"] == TODAY
+        assert document["confirmations"]["ansprechperson"]["declined_at"] == TODAY
         # The third seat keeps its person, and no seat carries a stamp, so all three stay outstanding.
         assert document["kontakte"]["stellvertretung"] is not None
-        assert (response.ergebnis, response.ausstehend) == ("abgelehnt", list(KONTAKT_ROLLEN))
+        assert response.ergebnis == "declined"
         assert len(rows) == 1
         image = rows[0]["before"]["kontakte"]
         assert (image["trainer"], image["ansprechperson"], rows[0]["redacted_at"]) == (None, None, "2026-04-01T10:30:00+00:00")
@@ -154,20 +160,20 @@ class TestAPairedDecline:
         """A dotted `$set` under a null parent aborts the transaction, so the person's own seat would be refused a 500 rather than declined."""
 
         emptied = bewerbung_document(
-            bestaetigungen={**compose_bestaetigungen(hashes=HASHES, today="2026-03-20"), "trainer": None},
+            confirmations={**minted_confirmations(hashes=HASHES, today="2026-03-20"), "trainer": None},
         )
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["ansprechperson"], antwort="abgelehnt", geburtsdatum=None)
+            response = await answer(database, client, RAW["ansprechperson"], antwort="declined")
 
             return response, await stored(database)
 
         response, document = on_a_league(mongo_replica_set_url, body, documents=[emptied])
 
-        assert response.ergebnis == "abgelehnt"
+        assert response.ergebnis == "declined"
         assert document["kontakte"]["ansprechperson"] is None
-        assert document["bestaetigungen"]["ansprechperson"]["abgelehnt_am"] == TODAY
-        assert document["bestaetigungen"]["trainer"] is None
+        assert document["confirmations"]["ansprechperson"]["declined_at"] == TODAY
+        assert document["confirmations"]["trainer"] is None
         assert document["kontakte"]["trainer"] == paired_kontakte()["trainer"]
 
 
@@ -180,19 +186,19 @@ class TestTheFloorIsThePersons:
     ):
         """The Trainer's link alone would take this date, and the press writes the seat that may not have it."""
 
-        held_by_the_trainer = {zweitsitz: kontaktperson_document("Wraxlington"), "trainer_ist_zugleich": zweitsitz}
+        held_by_the_trainer = {zweitsitz: kontaktperson_document("Wraxlington"), "trainer_is_also": zweitsitz}
         other = "stellvertretung" if zweitsitz == "ansprechperson" else "ansprechperson"
         paired = bewerbung_document(kontakte=paired_kontakte(**held_by_the_trainer, **{other: kontaktperson_document("Bramblewick")}))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW["trainer"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)
 
             return conflict.value.error_code, await stored(database), await log_rows(database)
 
         code, document, rows = on_a_league(mongo_replica_set_url, body, documents=[paired])
 
-        assert code == BEWERBUNG_KONTAKT_ALTER
+        assert code == Code.CONFIRMATION_AGE
         assert document == paired
         assert rows == []
 
@@ -204,10 +210,10 @@ class TestTheFloorIsThePersons:
 
             return response, await stored(database)
 
-        single = bewerbung_document(kontakte=paired_kontakte(trainer_ist_zugleich=None, ansprechperson=kontaktperson_document("Quillhilde")))
+        single = bewerbung_document(kontakte=paired_kontakte(trainer_is_also=None, ansprechperson=kontaktperson_document("Quillhilde")))
         response, document = on_a_league(mongo_replica_set_url, body, documents=[single])
 
-        assert response.ergebnis == "bestaetigt"
+        assert response.ergebnis == "confirmed"
         assert document["kontakte"]["trainer"]["geburtsdatum"] == A_SEVENTEEN_YEAR_OLDS_BIRTHDATE
 
 
@@ -224,9 +230,8 @@ class TestAPairedConfirmation:
 
         response, document = on_a_league(mongo_replica_set_url, body, documents=[emptied])
 
-        assert response.ergebnis == "bestaetigt"
+        assert response.ergebnis == "confirmed"
         assert document["kontakte"]["ansprechperson"]["geburtsdatum"] == AN_ADULTS_BIRTHDATE
-        assert document["kontakte"]["ansprechperson"]["einwilligung"]["bestaetigt_am"] == TODAY
+        assert document["kontakte"]["ansprechperson"]["einwilligung"]["confirmed_at"] == TODAY
         assert document["kontakte"]["trainer"] is None
         # The emptied seat has no stamp, so the application still cannot be accepted on it.
-        assert response.ausstehend == ["trainer", "stellvertretung"]

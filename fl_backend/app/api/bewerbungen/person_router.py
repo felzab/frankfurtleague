@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.schemas import FLBewerbungPersonEinwilligungPayload, FLBewerbungPersonEinwilligungResponse
+from app.api.bewerbungen.schemas import FLBewerbungAccountEinwilligungResponse
 from app.api.identitaet.services import eigene_sitze
 from app.api.konto.crud import press_widerruf
 from app.api.konto.services import (
@@ -16,17 +16,19 @@ from app.api.konto.services import (
     sitz_wahlen_der_zeile,
     widerruf_line,
 )
-from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import BewerbungenCollection, DBClient, get_germany_now
 from app.core.journal import Journal
 from app.core.recording import log_stamp
-from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, loeschung_journal_hash, verify_access_admin
+from app.core.security import erasure_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungChoice, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # The person lane's binder, as `app/api/teams/person_router.py` declares it and for its reason.
 router = APIRouter(
@@ -35,46 +37,37 @@ router = APIRouter(
 )
 
 
-# `/person/einwilligung`, its own segment, for `app/api/teams/person_router.py :: get_team_sitze`'s reason.
+# `/account/einwilligung`, its own segment, for `app/api/teams/person_router.py :: get_team_sitze`'s reason.
 @router.patch(
-    "/{bewerbung_id:objectid}/person/einwilligung",
-    response_model=FLBewerbungPersonEinwilligungResponse,
+    "/{bewerbung_id:objectid}/account/einwilligung",
+    response_model=FLBewerbungAccountEinwilligungResponse,
     summary="Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung",
 )
 async def patch_einwilligung(
     bewerbung_id: CustomRouteObjectId,
-    einwilligung_data: Annotated[FLBewerbungPersonEinwilligungPayload, Body()],
+    einwilligung_data: Annotated[FLSeatEinwilligungPayload, Body()],
     identifier: KontaktIdentifier,
     bewerbungen_collection: BewerbungenCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
-) -> FLBewerbungPersonEinwilligungResponse:
-    """
-    Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
+) -> FLBewerbungAccountEinwilligungResponse:
+    """Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
 
-    WITHDRAW-ONLY: the season seat's payload, a grant of either choice being the confirmation page's alone; the
-    account page offers it so taking a consent back is as easy as giving it was (Art. 7(3) DSGVO). One answer for
-    every seat the person holds there, each choice moving only where it differs from the application as the page
-    served it; no other seat, field or document is written, and a press moving no seat writes nothing. Nothing is
-    counted against the person's ceiling.
-
-    Refuses, in this order: an application that is decided or holds no confirmed seat of the address
-    (`REQ-FUNKTION-001`); a `nachweis_stand` other than the held seats' own, either choice having moved since the
-    page was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-EINWILLIGUNG-004`); and a `text_version`
-    naming no version of the account page's seat control (`REQ-EINWILLIGUNG-001`). Each refusal writes nothing.
+    A grant is refused. Refuses, writing nothing: `role_not_held`, `wording_not_allowed` (the choices moved since the
+    page was served), `giving_not_allowed` and `wording_not_allowed`.
     """
 
-    gedrueckt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
-    # For `app/api/spieler/selbst_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
+    gedrueckt: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
+    # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
     am = log_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted
-    async def write(session: AsyncClientSession) -> FLBewerbungPersonEinwilligungResponse:
+    async def write(session: AsyncClientSession) -> FLBewerbungAccountEinwilligungResponse:
         # Pending alone: an accepted application's seats are its season row's, and a declined one is decided.
         bewerbung = await bewerbungen_collection.find_one(
-            {"_id": bewerbung_id, "status": "eingereicht"},
+            {"_id": bewerbung_id, "status": "submitted"},
             {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung")},
             session=session,
         )
@@ -111,7 +104,7 @@ async def patch_einwilligung(
             )
         )
         line = widerruf_line(
-            person_hash=loeschung_journal_hash(identifier, schluessel=config.sperrliste_schluessel),
+            person_hash=erasure_journal_hash(identifier, key=config.sperrliste_key),
             collection=Collection.BEWERBUNGEN,
             record_id=bewerbung["_id"],
             bloecke=[sitz["einwilligung"] for sitz in sitze.values()],
@@ -125,7 +118,7 @@ async def patch_einwilligung(
         bloecke = [kontakte[slot]["einwilligung"] for slot in rollen]
 
         # For `app/api/teams/person_router.py :: patch_einwilligung`'s reason.
-        return FLBewerbungPersonEinwilligungResponse.model_validate(
+        return FLBewerbungAccountEinwilligungResponse.model_validate(
             {
                 "bewerbung_id": bewerbung_id,
                 "rollen": rollen,

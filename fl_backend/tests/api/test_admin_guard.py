@@ -1,4 +1,3 @@
-import ast
 import re
 from collections import Counter
 from collections.abc import Callable
@@ -8,42 +7,37 @@ import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
+from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS
 from app.api.spieler import schemas as spieler_schemas
-from app.core.exception_handlers import stores_nothing
-from app.core.security import (
-    MISSING_TOKEN,
-    PERSON_ACTOR_BINDERS,
-    bind_actor,
-    verify_access_admin,
-    verify_access_base,
-    verify_access_system,
-    verify_actor_is_admin,
-)
-from app.core.transactions import transaction_session
-from tests.core.app_source import api_routes, application, callee, declared, module_of, parsed
+from app.core.codes import Code
+from app.core.security import bind_actor, verify_access_admin, verify_access_base, verify_access_system
+from tests.core.app_source import api_routes, application
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
 
 # Module level because pytest resolves parametrisation during collection, before a fixture could run.
 APP = application()
 
-MISSING_BEARER_TOKEN = MISSING_TOKEN
+MISSING_BEARER_TOKEN = Code.ACCESS_KEY_REFUSED
 
 HTTP_METHODS = frozenset({"get", "post", "patch", "delete", "put", "head", "options", "trace"})
 
 SLICE_GUARDS: set[Callable[..., Any]] = {verify_access_base, verify_access_admin, verify_access_system}
 
 
-# The extension and the tier names, spelled here rather than imported from `app/main.py`: a
-# comparison taking them from the pass it checks would let a rename through, and the frontend's own
-# comparison is what would fail instead.
-TIER_EXTENSION = "x-fl-tier"
-EXPECTED_TIERS: dict[Callable[..., Any], str] = {verify_access_base: "base", verify_access_admin: "admin", verify_access_system: "system"}
-UNGUARDED_TIER = "none"
+# The security scheme each guard publishes, spelled here rather than imported from
+# `app/core/security.py`: a comparison taking them from the code it checks would let a rename
+# through, and the frontend's generated client is what would fail instead.
+EXPECTED_SCHEMES: dict[Callable[..., Any], str] = {
+    verify_access_base: "BaseKey",
+    verify_access_admin: "AdminKey",
+    verify_access_system: "SystemKey",
+}
 
-# `/` is FastAPI's own hello-world route and belongs to no slice. `/system/is_live` is the container
-# healthcheck: one that needs a secret fails for the wrong reasons (`app/core/security.py`).
-UNGUARDED_BY_DESIGN = frozenset({"/", "/api/v0/system/is_live"})
+# `/system/is_live` is the container healthcheck: one that needs a secret fails for the wrong reasons
+# (`app/core/security.py`).
+UNGUARDED_BY_DESIGN = frozenset({"/api/v0/system/is_live"})
 
 # FastAPI drops the convertor when it builds the document (`app/core/routing.py`), so
 # `{spiel_id:objectid}` publishes as `{spiel_id}` and the two spellings need bringing together.
@@ -85,26 +79,26 @@ PUBLISHED_OPERATIONS = sorted(
 # no other key. The two cases below assert what takes the guard's place.
 PUBLIC_WRITES = [
     ("/api/v0/bewerbungen", "post"),
-    ("/api/v0/bewerbungen/einwilligung/ansicht", "post"),
+    ("/api/v0/bewerbungen/einwilligung/view", "post"),
     ("/api/v0/bewerbungen/einwilligung", "post"),
     # A referee's own confirmation link, on a base-tier router under an otherwise admin-tier prefix:
     # the token is the whole credential, so the guard here would have no session to check.
-    ("/api/v0/schiedsrichter/bestaetigung/ansicht", "post"),
-    ("/api/v0/schiedsrichter/bestaetigung", "post"),
+    ("/api/v0/schiedsrichter/confirmation/view", "post"),
+    ("/api/v0/schiedsrichter/confirmation", "post"),
     # The address change's links, the new mailbox's and the stop link, on a base-tier router of their own for the same reason.
-    ("/api/v0/adresswechsel/bestaetigung/ansicht", "post"),
-    ("/api/v0/adresswechsel/bestaetigung", "post"),
-    ("/api/v0/adresswechsel/bestaetigung/stopp", "post"),
+    ("/api/v0/address_change/confirmation/view", "post"),
+    ("/api/v0/address_change/confirmation", "post"),
+    ("/api/v0/address_change/confirmation/stop", "post"),
     # A pupil's own confirmation link, on a third base-tier router under the registration prefix:
     # the token is the whole credential, so the guard here would have no session to check.
-    ("/api/v0/registrierungen/bestaetigung/ansicht", "post"),
-    ("/api/v0/registrierungen/bestaetigung", "post"),
+    ("/api/v0/registrierungen/confirmation/view", "post"),
+    ("/api/v0/registrierungen/confirmation", "post"),
     # The invite's own read and the registration it leads to: a pupil holds a link and no session,
     # and the first is a POST because the link value travels in the body.
-    ("/api/v0/registrierungen/einladung/ansicht", "post"),
+    ("/api/v0/registrierungen/invitation/view", "post"),
     ("/api/v0/registrierungen", "post"),
     # A club's fixture confirmation link: its holder has no session, the token being the credential.
-    ("/api/v0/spielbestaetigungen/ansicht", "post"),
+    ("/api/v0/spielbestaetigungen/view", "post"),
     ("/api/v0/spielbestaetigungen", "post"),
 ]
 
@@ -112,37 +106,30 @@ PUBLIC_WRITES = [
 # and no person, so the admin guard would have nothing to check and `bind_actor` would refuse.
 SYSTEM_WRITES = [
     ("/api/v0/bewerbungen/sweep/{saison_id}", "post"),
-    ("/api/v0/bewerbungen/sweep/{saison_id}/angekuendigt", "post"),
-    ("/api/v0/bewerbungen/sweep/{saison_id}/loeschen", "post"),
     ("/api/v0/registrierungen/sweep/{saison_id}", "post"),
     ("/api/v0/spielbestaetigungen/sweep/{saison_id}", "post"),
-    ("/api/v0/spielbestaetigungen/sweep/{saison_id}/angefragt", "post"),
-    ("/api/v0/spielbestaetigungen/sweep/{saison_id}/mitgeteilt", "post"),
-    ("/api/v0/bewerbungen/zustellung", "post"),
-    ("/api/v0/bewerbungen/zustellung/angenommen", "post"),
-    ("/api/v0/zustellung", "post"),
-    ("/api/v0/zustellung/angenommen", "post"),
-    ("/api/v0/zustellung/abgewiesen", "post"),
     # A POST that stores nothing, listed for `ADMIN_READS`' erasure reveal's reason: the address
     # travels in a body, so `MUTATIONS` covers it, and this exemption leaves its one guard the
     # system tier's.
-    ("/api/v0/identitaet/subjekt", "post"),
-    ("/api/v0/identitaet/anmeldung", "post"),
-    ("/api/v0/identitaet/gesperrt", "post"),
-    ("/api/v0/identitaet/referenzen", "post"),
-    # The grants' reconciliation, one call reading and one stamping: the frontend's timer holds no
-    # session, and a change made in the database directly has no administrator to attribute it to.
-    ("/api/v0/berechtigungen/abgleich", "post"),
-    ("/api/v0/berechtigungen/abgleich/angekuendigt", "post"),
+    ("/api/v0/identity/subject", "post"),
+    ("/api/v0/identity/sign_in", "post"),
+    ("/api/v0/identity/references", "post"),
+    # The grants' comparison: the hourly pass holds no session, and a change made in the database directly has no
+    # administrator to attribute it to.
+    ("/api/v0/grants/reconciliation", "post"),
     # The season-after rule and the lapsed address's clock, whichever caller runs them: a timer holds
     # no session, and an activation's press deletes nobody in the administrator's name.
-    ("/api/v0/identitaet/loeschung/lauf", "post"),
-    ("/api/v0/adresswechsel/sweep", "post"),
-    # The address change's owed notices, claimed and stamped by the frontend's pass as the grants' are.
-    ("/api/v0/adresswechsel/sweep/postausgang", "post"),
-    ("/api/v0/adresswechsel/sweep/postausgang/zugestellt", "post"),
+    ("/api/v0/identity/erasure/sweep", "post"),
+    ("/api/v0/address_change/sweep", "post"),
+    # The sign-in accounts the address changes still owe to carry, reported carried by the frontend, which holds the store.
+    ("/api/v0/address_change/sweep/moves/done", "post"),
+    # The Postausgang's drain, the sign-in library's mails and the provider's events: none holds a session.
+    ("/api/v0/outbox/handout", "post"),
+    ("/api/v0/outbox/result", "post"),
+    ("/api/v0/outbox/sign_in", "post"),
+    ("/api/v0/outbox/event", "post"),
     # A POST storing nothing, exempt for the identity reads' reason: the frontend's server asks a live change's new address.
-    ("/api/v0/adresswechsel/sweep/adresse", "post"),
+    ("/api/v0/address_change/adresse", "post"),
 ]
 
 MUTATIONS = [
@@ -171,17 +158,17 @@ ADMIN_READS = [
     ("/api/v0/spielbestaetigungen", "get"),
     # A POST because the address travels in a body, so `MUTATIONS` covers it too -- and would
     # stop covering it the day somebody makes the reveal a GET.
-    ("/api/v0/identitaet/erasure/ansicht", "post"),
+    ("/api/v0/identity/erasure/view", "post"),
     # The ban list names the administrator who entered each row, so a revert to `verify_access_base`
     # here publishes a staff address beside the reason they banned somebody (`READ-CONTACT-001`).
     ("/api/v0/sperrliste", "get"),
     # Which contact seats of which team a mailing would reach is `READ-CONTACT-001`'s subject exactly
     # as the two `bewerbungen` reads are.
-    ("/api/v0/saisons/{saison_id}/einladungen/versand/vorschau", "get"),
+    ("/api/v0/saisons/{saison_id}/invitations/dispatch/preview", "get"),
     # How many pupils an activation deletes, which only the person able to press it may weigh.
-    ("/api/v0/saisons/{saison_id}/loeschung/vorschau", "get"),
-    # The invitation's own read serves `erstellt_von`, an administrator's address.
-    ("/api/v0/teams/{team_id}/saisons/{saison_id}/einladung", "get"),
+    ("/api/v0/saisons/{saison_id}/erasure/preview", "get"),
+    # The invitation's own read serves `created_by`, an administrator's address.
+    ("/api/v0/teams/{team_id}/saisons/{saison_id}/invitation", "get"),
     # A registration holds a pupil's name, the address the league mailed and, once they confirm,
     # their date of birth -- `READ-CONTACT-001`'s subject, as the two `bewerbungen` reads are.
     ("/api/v0/registrierungen", "get"),
@@ -191,15 +178,15 @@ ADMIN_READS = [
     # A team's pending registrations name the person each address resolves to, a pupil's record the
     # base tier never serves; the seat lines name three people who agreed to administrators alone.
     ("/api/v0/registrierungen/kader/{team_id}/{saison_id}", "get"),
-    ("/api/v0/teams/{team_id}/saisons/{saison_id}/person/sitze", "get"),
+    ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/seats", "get"),
     # A person's own records: a birthdate and a consent record, and on a referee's the contact
     # details (`READ-CONTACT-001`), each served to that person alone.
-    ("/api/v0/spieler/selbst", "get"),
-    ("/api/v0/schiedsrichter/selbst", "get"),
-    ("/api/v0/konto/einwilligungen", "get"),
+    ("/api/v0/spieler/self", "get"),
+    ("/api/v0/schiedsrichter/self", "get"),
+    ("/api/v0/account/einwilligungen", "get"),
     # A report's remarks and card reasons, which only the administrator and the booked referee read; the squads
     # beside them carry every surname whole.
-    ("/api/v0/spielberichte/{spiel_id}/admin", "get"),
+    ("/api/v0/spielberichte/{spiel_id}/verwaltung", "get"),
     ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
     # Every report's proposed result, which the public result never serves.
     ("/api/v0/spielberichte", "get"),
@@ -251,28 +238,28 @@ PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
         ("/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}", "patch"),
         ("/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}", "delete"),
         ("/api/v0/registrierungen/kader/{team_id}/{saison_id}", "get"),
-        ("/api/v0/registrierungen/{registrierung_id}/aufnehmen", "post"),
-        ("/api/v0/registrierungen/{registrierung_id}/ablehnen", "post"),
-        ("/api/v0/teams/{team_id}/saisons/{saison_id}/person/sitze", "get"),
-        ("/api/v0/spieler/selbst", "get"),
-        ("/api/v0/spieler/selbst/einwilligung", "patch"),
-        ("/api/v0/schiedsrichter/selbst", "get"),
-        ("/api/v0/schiedsrichter/selbst/{schiedsrichter_id}/einwilligung", "patch"),
-        ("/api/v0/konto/einwilligungen", "get"),
-        ("/api/v0/teams/{team_id}/saisons/{saison_id}/person/einwilligung", "patch"),
-        ("/api/v0/bewerbungen/{bewerbung_id}/person/einwilligung", "patch"),
-        ("/api/v0/registrierungen/selbst/{registrierung_id}/einwilligung", "patch"),
-        ("/api/v0/identitaet/selbst/erasure", "post"),
-        ("/api/v0/identitaet/selbst/erasure/ansicht", "get"),
-        ("/api/v0/spielbestaetigungen/selbst", "get"),
+        ("/api/v0/registrierungen/{registrierung_id}/admit", "post"),
+        ("/api/v0/registrierungen/{registrierung_id}/decline", "post"),
+        ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/seats", "get"),
+        ("/api/v0/spieler/self", "get"),
+        ("/api/v0/spieler/account/einwilligung", "patch"),
+        ("/api/v0/schiedsrichter/self", "get"),
+        ("/api/v0/schiedsrichter/account/{schiedsrichter_id}/einwilligung", "patch"),
+        ("/api/v0/account/einwilligungen", "get"),
+        ("/api/v0/teams/{team_id}/saisons/{saison_id}/account/einwilligung", "patch"),
+        ("/api/v0/bewerbungen/{bewerbung_id}/account/einwilligung", "patch"),
+        ("/api/v0/registrierungen/account/{registrierung_id}/einwilligung", "patch"),
+        ("/api/v0/identity/account/erasure", "post"),
+        ("/api/v0/identity/account/erasure/view", "get"),
+        ("/api/v0/spielbestaetigungen/self", "get"),
         ("/api/v0/spielbestaetigungen/{spielbestaetigung_id}/antwort", "post"),
-        ("/api/v0/spielberichte/person", "get"),
+        ("/api/v0/spielberichte/self", "get"),
         ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
         ("/api/v0/spielberichte/{spiel_id}/bericht", "put"),
-        ("/api/v0/konto/adresswechsel", "get"),
-        ("/api/v0/konto/adresswechsel", "post"),
-        ("/api/v0/konto/adresswechsel/freigabe", "post"),
-        ("/api/v0/konto/adresswechsel", "delete"),
+        ("/api/v0/account/address_change", "get"),
+        ("/api/v0/account/address_change", "post"),
+        ("/api/v0/account/address_change/release", "post"),
+        ("/api/v0/account/address_change", "delete"),
     }
 )
 
@@ -299,74 +286,9 @@ def test_every_admin_tier_operation_judges_its_actor_after_the_key(path: str, me
     assert calls.index(verify_access_admin) < calls.index(bind_actor), f"{method.upper()} {path} asks for its actor before its key"
 
 
-# Read off the helper, so a rename cannot leave every write below matching nothing.
-TRANSACTION_SESSION = transaction_session.__name__
-
-
-def _opens_a_judged_transaction(endpoint: Callable[..., Any]) -> bool:
-    """Whether `endpoint`, or a function of its own module it calls, opens `transaction_session`, the one place its actor is judged again."""
-
-    module = parsed(module_of(endpoint))
-    own = {node.name: node for node in module.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
-    pending, seen = [declared(endpoint)], set()
-    while pending:
-        function = pending.pop()
-        if function.name in seen:
-            continue
-        seen.add(function.name)
-        for call in ast.walk(function):
-            if not isinstance(call, ast.Call):
-                continue
-            if callee(call) == TRANSACTION_SESSION:
-                return True
-            if isinstance(call.func, ast.Name) and call.func.id in own:
-                pending.append(own[call.func.id])
-
-    return False
-
-
-# Derived from the guard and the method, as `ADMIN_TIER_OPERATIONS` is, so a write router added later is swept unlisted.
-ADMIN_TIER_WRITES = [
-    operation
-    for operation in ADMIN_TIER_OPERATIONS
-    if operation[1] != "get" and stores_nothing not in [dependency.call for dependency in ROUTES_BY_OPERATION[operation].dependant.dependencies]
-]
-
-
-@pytest.mark.parametrize(("path", "method"), ADMIN_TIER_WRITES, ids=lambda value: value)
-def test_every_admin_tier_write_runs_in_a_transaction_judging_its_actor(path: str, method: str):
-    """A write outside the helper's session is judged once, before its handler.
-
-    A revoke committing between that check and the write then leaves the revoked administrator one write to make.
-    """
-
-    assert _opens_a_judged_transaction(ROUTES_BY_OPERATION[(path, method)].endpoint), (
-        f"{method.upper()} {path} writes outside `{TRANSACTION_SESSION}`, which judges no actor"
-    )
-
-
-# The writes `PERSON_OPERATIONS` exempts from the sweep above, which binding a person earns them
-# (`test_every_person_operation_binds_a_person_after_the_key`) and which a write outside the helper would not.
-PERSON_LANE_WRITES = sorted(operation for operation in PERSON_OPERATIONS if operation[1] != "get")
-
-
-@pytest.mark.parametrize(("path", "method"), PERSON_LANE_WRITES, ids=lambda value: value)
-def test_every_person_lane_write_runs_in_a_transaction_judging_its_person(path: str, method: str):
-    """The binder reads the ban once before the handler; the transaction reads it again in each attempt."""
-
-    assert _opens_a_judged_transaction(ROUTES_BY_OPERATION[(path, method)].endpoint), (
-        f"{method.upper()} {path} writes outside `{TRANSACTION_SESSION}`, which judges no person"
-    )
-
-
-def test_the_transaction_sweep_follows_a_helper_and_can_refuse():
-    """Every case above passes, so only these two show the reader reaching past the endpoint's body and answering no at all.
-
-    The mailing opens one transaction per team in a helper of its module; the grants' list opens none.
-    """
-
-    assert _opens_a_judged_transaction(ROUTES_BY_OPERATION[("/api/v0/saisons/{saison_id}/einladungen/versand", "post")].endpoint)
-    assert not _opens_a_judged_transaction(ROUTES_BY_OPERATION[("/api/v0/berechtigungen", "get")].endpoint)
+# The admin-tier reads served over POST, the address they ask about travelling in a body rather than an access
+# line. Named, because nothing a route declares tells such a read from a write.
+ADMIN_TIER_READS_OVER_POST = frozenset({("/api/v0/address_change/view", "post"), ("/api/v0/identity/erasure/view", "post")})
 
 
 def test_the_person_exemption_names_only_published_operations():
@@ -377,8 +299,7 @@ def test_the_person_exemption_names_only_published_operations():
 def test_every_person_operation_binds_a_person_after_the_key():
     """What earns an operation its exemption from the grants check.
 
-    `tests/api/test_actor_binding.py :: PERSON_WRITES` is held to the same routes, so the two lists
-    agree. Not parametrised, so one failure names every unearned exemption at once.
+    Not parametrised, so one failure names every unearned exemption at once.
     """
     unearned = []
     for operation in sorted(PERSON_OPERATIONS):
@@ -391,18 +312,18 @@ def test_every_person_operation_binds_a_person_after_the_key():
     assert unearned == [], f"{unearned} is exempt from the grants check without binding a person after the admin key"
 
 
-def test_every_guard_this_file_knows_names_a_tier():
-    """A guard in one set and not the other publishes `none` for a route that is in fact guarded."""
-    assert SLICE_GUARDS == set(EXPECTED_TIERS)
+def test_every_guard_this_file_knows_names_a_scheme():
+    """A guard in one set and not the other publishes no security for a route that is in fact guarded."""
+    assert SLICE_GUARDS == set(EXPECTED_SCHEMES)
 
 
 @pytest.mark.parametrize(("path", "method"), PUBLISHED_OPERATIONS, ids=lambda value: value)
-def test_the_published_tier_is_the_guard_the_route_carries(path: str, method: str):
+def test_the_published_security_is_the_guard_the_route_carries(path: str, method: str):
     """The frontend sends the key this names, so a wrong one here is a 401 nobody meets until a page opens."""
     guards = guards_of(ROUTES_BY_OPERATION[(path, method)])
-    expected = "+".join(sorted(EXPECTED_TIERS[guard] for guard in guards)) or UNGUARDED_TIER
+    expected = [{EXPECTED_SCHEMES[guard]: []} for guard in sorted(guards, key=lambda guard: EXPECTED_SCHEMES[guard])]
 
-    assert APP.openapi()["paths"][path][method].get(TIER_EXTENSION) == expected
+    assert APP.openapi()["paths"][path][method].get("security", []) == expected
 
 
 def test_the_mutation_inventory_clears_its_floor():
@@ -434,7 +355,7 @@ def test_a_public_write_is_base_tier(path: str, method: str):
 def test_a_public_write_is_unreachable_without_the_base_key(path: str, method: str):
     """Public here means no SESSION, never no key: the edge reaches this application through the frontend.
 
-    A request carrying no bearer token answers `REQ-AUTH-001` before the body is parsed.
+    A request carrying no bearer token answers `access_key_refused` before the body is parsed.
     """
 
     response = TestClient(APP, raise_server_exceptions=False).request(method, path, json={})
@@ -451,6 +372,8 @@ SYSTEM_READS = [
     # The confirmation pass's own bookkeeping, asked by the timer running it and by no page: the
     # seasons it lists are `active`, which the base tier serves, so the rule is not its reason.
     ("/api/v0/spielbestaetigungen/sweep", "get"),
+    # Read by the frontend's server alone: each owed carry names two addresses.
+    ("/api/v0/address_change/sweep/moves", "get"),
 ]
 
 

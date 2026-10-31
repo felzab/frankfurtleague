@@ -62,7 +62,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { spielplanHoldsADraw, spielplanPress, spielplanReplacesDraw } from "./blockedReasons";
 import { buildSpielplanControlInput, describeShapeRows, readShape, SHAPE_FIELDS } from "./spielplanShape";
 
-import type { FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
+import type { FLSaisonRules, FLSaisonStatus } from "@/core/generated/client/types";
 import type { SaisonGruppenOccupancy, SaisonSpielplanContext } from "@/features/saisons/types";
 import type { Key } from "@heroui/react/rac";
 import type { RedrawDraft } from "./spielplanShape";
@@ -101,16 +101,16 @@ export function FormSpielplanSection({
    * values would promise a season this press cannot write.
    */
   rules: FLSaisonRules;
-  /** The season's STORED span: `REQ-DATE-009`'s mirror judges the season the press would draw, never a draft. */
+  /** The season's STORED span: `saison_span_below_spielplan_as_stored`'s mirror judges the season the press would draw, never a draft. */
   startDate: string;
   endDate: string;
   /**
-   * How full this season's groups stand. **`REQ-SPIELPLAN-004` asks each offered group for exactly
-   * `teams_per_group`**, so the boxes' own floors admit redraw shapes the entries do not fit, which the
+   * How full this season's groups stand. **`spielplan_gruppen_off_rules` asks each offered group for exactly
+   * `teams_per_gruppe`**, so the boxes' own floors admit redraw shapes the entries do not fit, which the
    * press is closed over.
    */
   gruppenOccupancy: SaisonGruppenOccupancy;
-  /** `REQ-SPIELPLAN-001`: the season already holds fixtures, whoever put them there. */
+  /** `spielplan_already_drawn`: the season already holds fixtures, whoever put them there. */
   hasDrawnSpiele: boolean;
   /** Runs before either write; `false` cancels. The editor refuses while a draft is unsaved. */
   onBeforeWrite: () => boolean;
@@ -252,7 +252,7 @@ export function FormSpielplanSection({
         <PanelHeading
           className={panel.heading()}
           title={SPIELPLAN_ABSCHNITT}>
-          {/* The two bullets are the second half of the repair `REQ-RULES-011` sends an admin on, so
+          {/* The two bullets are the second half of the repair `rules_shape_after_spielplan` sends an admin on, so
               this hint keeps its wayfinding where an ordinary one would lose it. */}
           <Hint
             mode="reveal"
@@ -278,7 +278,7 @@ export function FormSpielplanSection({
           <Callout
             severity="info"
             title="Der Spielplan steht">
-            Angelegt am {formatSpielDatum(spielplan.generiert_am)}: {describeSpielplanUmfang(spielplan.spieltage, spielplan.spiele)}. Seinen
+            Angelegt am {formatSpielDatum(spielplan.generated_at)}: {describeSpielplanUmfang(spielplan.spieltage, spielplan.spiele)}. Seinen
             Zeitraum bekommt jeder Spieltag auf seiner eigenen Seite. Termin, Ort und Schiedsrichter trägst Du danach an den Spielen ein.
           </Callout>
         )}
@@ -364,7 +364,7 @@ export function FormSpielplanSection({
               <h3 className={FORM_SECTION_HEADING_CLASSES}>Aufbau des neuen Spielplans</h3>
               <div className={FIELD_TRIO_CLASSES}>
                 {SHAPE_FIELDS.map(({ key: shapeKey, label }) => {
-                  if (shapeKey === "teams_per_group")
+                  if (shapeKey === "teams_per_gruppe")
                     return (
                       <SaisonRuleNumberField
                         key={shapeKey}
@@ -374,8 +374,8 @@ export function FormSpielplanSection({
                         name={`shape.${shapeKey}`}
                         label={<Label className={FIELD_LABEL_CLASSES}>{label}</Label>}
                         minValue={teamsPerGroupFloor({
-                          qualifiers: shape.qualifiers_per_group,
-                          held: shape.teams_per_group,
+                          qualifiers: shape.qualifiers_per_gruppe,
+                          held: shape.teams_per_gruppe,
                           occupancy: gruppenOccupancy,
                         })}
                         maxValue={MAX_TEAMS_PER_GROUP}
@@ -402,17 +402,17 @@ export function FormSpielplanSection({
                       // the three are judged together, and an offer read off the stored season would
                       // keep offering a product this press refuses.
                       options={
-                        shapeKey === "number_of_groups"
+                        shapeKey === "number_of_gruppen"
                           ? drawGroupCountOptions({
-                              groups: shape.number_of_groups,
-                              qualifiers: shape.qualifiers_per_group,
-                              teams: shape.teams_per_group,
+                              groups: shape.number_of_gruppen,
+                              qualifiers: shape.qualifiers_per_gruppe,
+                              teams: shape.teams_per_gruppe,
                               occupancy: gruppenOccupancy,
                             })
                           : qualifierCountOptions({
-                              groups: shape.number_of_groups,
-                              qualifiers: shape.qualifiers_per_group,
-                              teams: shape.teams_per_group,
+                              groups: shape.number_of_gruppen,
+                              qualifiers: shape.qualifiers_per_gruppe,
+                              teams: shape.teams_per_gruppe,
                             })
                       }
                       value={shape[shapeKey]}

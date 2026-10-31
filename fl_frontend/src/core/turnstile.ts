@@ -8,6 +8,7 @@ import { logger } from "./logging";
 import { boundCall } from "./requestScope";
 import { MENSCH_BESTAETIGEN } from "./turnstileToken";
 
+import type { Copy } from "./copy";
 import type { LogMeta } from "./logging";
 
 /** Called from the server alone: a secret the page held would let anyone pass the check without a browser. */
@@ -47,7 +48,7 @@ const TOO_MANY_REQUESTS = 429;
 
 /** Logged once per submission let through unjudged; never the token, which passes the check until spent. */
 function unjudged(meta: LogMeta): null {
-  logger.error("turnstile.unjudged", undefined, { error_code: "FE-TURNSTILE-001", ...meta });
+  logger.error("turnstile.unjudged", undefined, meta);
 
   return null;
 }
@@ -69,7 +70,7 @@ async function ask(request: string, signal: AbortSignal): Promise<Answer> {
     if (!response.ok) return unjudged({ status: status });
     body = await response.json();
   } catch (failed) {
-    // The NAME alone: an `AbortError` is the bound, anything else the network or a body that is no JSON.
+    // The NAME alone: a `TimeoutError` is the bound, anything else the network or a body that is no JSON.
     return unjudged({ name: failed instanceof Error ? failed.name : "unknown" });
   }
 
@@ -80,42 +81,37 @@ async function ask(request: string, signal: AbortSignal): Promise<Answer> {
 }
 
 /**
- * The sentence a submission carrying `token` is refused with, or `null` where it may go on to send its mail.
- * Only an unreachable Cloudflare lets a submission through unjudged: it fronts the whole site anyway.
+ * The catalogue's sentence a submission carrying `token` is refused with, or `null` where it may go on to send its
+ * mail. Only an unreachable Cloudflare lets a submission through unjudged: it fronts the whole site anyway.
  */
-export async function turnstileRefusal(token: string | null): Promise<string | null> {
+export async function turnstileRefusal(token: string | null): Promise<Copy | null> {
   // Refused without asking: Cloudflare would answer either with a judgement against the token.
   if (token === null || token === "" || token.length > TOKEN_MAX_LENGTH) return MENSCH_BESTAETIGEN;
 
   // Outside every `try`, which lets an unanswered check through: a fault of this module's own must throw.
   // One key over both attempts, so Cloudflare answers a retry of one judgement rather than spending the token twice.
   const request = JSON.stringify({ secret: turnstileSecretKey(), response: token, idempotency_key: crypto.randomUUID() });
-  const bound = boundCall(SITEVERIFY_TIMEOUT_MS);
-  try {
-    let answer = await ask(request, bound.signal);
-    const theirsAlone = (judged: Answer): boolean =>
-      judged !== null && "codes" in judged && !judged.passed && judged.codes.length > 0 && judged.codes.every((code) => code === THEIRS);
-    if (theirsAlone(answer)) answer = await ask(request, bound.signal);
+  const signal = boundCall(SITEVERIFY_TIMEOUT_MS);
+  let answer = await ask(request, signal);
+  const theirsAlone = (judged: Answer): boolean =>
+    judged !== null && "codes" in judged && !judged.passed && judged.codes.length > 0 && judged.codes.every((code) => code === THEIRS);
+  if (theirsAlone(answer)) answer = await ask(request, signal);
 
-    if (answer === null) return null;
-    if ("refusedStatus" in answer) {
-      logger.error("turnstile.request_refused", undefined, { error_code: "FE-TURNSTILE-002", status: answer.refusedStatus });
-      return PRUEFUNG_GESTOERT;
-    }
-    if (answer.passed) return null;
-    if (answer.codes.some((code) => OURS.has(code))) {
-      logger.error("turnstile.request_refused", undefined, {
-        error_code: "FE-TURNSTILE-002",
-        codes: answer.codes.join(", "),
-        status: answer.status,
-      });
-      return PRUEFUNG_GESTOERT;
-    }
-    if (theirsAlone(answer)) return unjudged({ codes: answer.codes.join(", ") });
-
-    // Every other answer judged the token, an empty list included, which explains nothing.
-    return MENSCH_BESTAETIGEN;
-  } finally {
-    bound.clear();
+  if (answer === null) return null;
+  if ("refusedStatus" in answer) {
+    logger.error("turnstile.request_refused", undefined, { status: answer.refusedStatus });
+    return PRUEFUNG_GESTOERT;
   }
+  if (answer.passed) return null;
+  if (answer.codes.some((code) => OURS.has(code))) {
+    logger.error("turnstile.request_refused", undefined, {
+      codes: answer.codes.join(", "),
+      status: answer.status,
+    });
+    return PRUEFUNG_GESTOERT;
+  }
+  if (theirsAlone(answer)) return unjudged({ codes: answer.codes.join(", ") });
+
+  // Every other answer judged the token, an empty list included, which explains nothing.
+  return MENSCH_BESTAETIGEN;
 }

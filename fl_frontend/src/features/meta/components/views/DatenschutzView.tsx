@@ -8,6 +8,7 @@ import {
 } from "@/core/adresswechsel";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "@/core/brand";
+import { TIME_ZONE } from "@/core/format";
 import { DEIN_BEREICH_TITEL, IMPRESSUM_TITEL, ORGANISATION_TITEL } from "@/core/seitenNamen";
 import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
 import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signInCode";
@@ -35,7 +36,7 @@ import { LegalSection } from "../ui/LegalSection";
 const ABSATZ_CLASSES = "fluid-sm leading-relaxed font-medium text-pretty text-foreground";
 
 // Midday UTC holds the same calendar day in every zone Berlin's day could differ from.
-const STAND = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "numeric", month: "long", year: "numeric" }).format(
+const STAND = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "numeric", month: "long", year: "numeric" }).format(
   new Date(`${DATENSCHUTZ_STAND}T12:00:00Z`),
 );
 
@@ -173,9 +174,9 @@ const FRISTEN = [
   { daten: "Kontaktdaten der Kontaktpersonen einer Saison", frist: "Dieselbe Frist wie die angenommene Bewerbung" },
   {
     daten:
-      "Antwort eines Teams auf eine Spielbestätigung: Zusage oder Absage mit Datum und Rolle, dazu eine Begründung als freier Text, in dem auch der Name einer Person stehen kann, ein vorgeschlagener Termin, ein unlesbarer Schlüssel der antwortenden Person, die Bestätigungslinks als unlesbare Schlüssel und der Zustellstand ihrer E-Mails",
+      "Antwort eines Teams auf eine Spielbestätigung: Zusage oder Absage mit Datum und Rolle, dazu eine Begründung als freier Text, in dem auch der Name einer Person stehen kann, ein vorgeschlagener Termin, ein unlesbarer Schlüssel der antwortenden Person, die Bestätigungslinks als unlesbare Schlüssel",
     frist:
-      "Begründung, Schlüssel, Links und Zustellstand bis zum Ende der Saison, die auf die Saison des Spiels folgt, zusammen mit den Kontaktdaten dieser Saison. Zusage oder Absage, Datum, Rolle und vorgeschlagener Termin bleiben als Chronik der Saison bestehen. Wechselt die Person auf einem Platz, gilt ihr Link nicht mehr. Wird eine Kontaktperson auf Wunsch gelöscht, löschen wir auch die Begründungen, die sie geschrieben hat",
+      "Begründung, Schlüssel und Links bis zum Ende der Saison, die auf die Saison des Spiels folgt, zusammen mit den Kontaktdaten dieser Saison. Zusage oder Absage, Datum, Rolle und vorgeschlagener Termin bleiben als Chronik der Saison bestehen. Wechselt die Person auf einem Platz, gilt ihr Link nicht mehr. Wird eine Kontaktperson auf Wunsch gelöscht, löschen wir auch die Begründungen, die sie geschrieben hat",
   },
   {
     daten: "Registrierungslink eines Teams: der Link als unlesbarer Schlüssel, dazu das Datum und die anlegende Person aus der Verwaltung",
@@ -209,22 +210,23 @@ const FRISTEN = [
   {
     daten:
       "Änderung der E-Mail-Adresse eines Kontos, ein Eintrag je bisheriger Adresse: die neue Adresse, solange sie nicht gilt, dazu ihr Link und der Stopp-Link an die bisherige Adresse als unlesbare Schlüssel, das Versanddatum, die Frist, gegebenenfalls die Freigabe oder die Genehmigung durch die Verwaltung, der Grund der Verwaltung, die Bestätigung und der Zeitpunkt, ab dem sie gilt",
-    frist: `Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird, die Verwaltung sie verwirft, eine neuere Änderung derselben Adresse sie ersetzt, die Daten der bisherigen oder der neuen Adresse gelöscht werden oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund aus dem Eintrag; es bleibt ein Vermerk ohne Adresse, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach ${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Endet die Änderung, ohne zu gelten, löschen wir beides auch aus dem Änderungsprotokoll; gilt sie, bleibt der Grund dort zwölf Monate ab seinem Eintrag, damit nachvollziehbar bleibt, warum die Verwaltung die Adresse geändert hat. Die Nachricht, dass die Änderung gilt oder nicht gelten kann, halten wir mit den Adressen, die sie braucht, nur bis zu ihrem Versand bereit. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem Versand, der Stopp-Link bis die Änderung gilt. Ist eine Frist abgelaufen, endet die Änderung innerhalb einer Stunde. Hat die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung; kann sie dann nicht gelten, schreiben wir der neuen Adresse, dass sie nicht gilt, ohne den Grund zu nennen`,
+    frist: `Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird, die Verwaltung sie verwirft, eine neuere Änderung derselben Adresse sie ersetzt, die Daten der bisherigen oder der neuen Adresse gelöscht werden oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund aus dem Eintrag; es bleibt ein Vermerk, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach ${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Gilt die Änderung, behält der Vermerk bis dahin beide Adressen als unlesbare Schlüssel, damit eine Löschung der neuen Adresse auch die Nachrichten an die bisherige erreicht, und, wenn wir dein Konto auf die neue Adresse umtragen, beide Adressen selbst, bis das geschehen ist. Endet die Änderung, ohne zu gelten, löschen wir beides auch aus dem Änderungsprotokoll; gilt sie, bleibt der Grund dort zwölf Monate ab seinem Eintrag, damit nachvollziehbar bleibt, warum die Verwaltung die Adresse geändert hat. Die Nachricht, dass die Änderung gilt oder nicht gelten kann, halten wir mit den Adressen, die sie braucht, nur bis zu ihrem Versand bereit; danach behalten wir nur die Adresse, an die sie ging, und ihren Zustellstand, 30 Tage lang. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem Versand, der Stopp-Link bis die Änderung gilt. Ist eine Frist abgelaufen, endet die Änderung innerhalb einer Stunde. Hat die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung; kann sie dann nicht gelten, schreiben wir der neuen Adresse, dass sie nicht gilt, ohne den Grund zu nennen`,
   },
   {
     daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
     frist:
-      "Fünf volle Saisons nach der Saison des Eintrags; danach wird der Eintrag bei der nächsten Saisonaktivierung von selbst gelöscht. Die Verwaltung kann die Sperre jederzeit vorher aufheben. Bis dahin bleibt der Eintrag auch bestehen, wenn die übrigen Daten gelöscht werden",
+      "Fünf volle Saisons nach der Saison des Eintrags; danach wird der Eintrag bei der nächsten Umstellung auf eine neue Saison von selbst gelöscht. Die Verwaltung kann die Sperre jederzeit vorher aufheben. Bis dahin bleibt der Eintrag auch bestehen, wenn die übrigen Daten gelöscht werden",
   },
   {
     daten: "Zugang zur Verwaltung: E-Mail-Adresse, Stufe, Datum und die Person aus der Verwaltung, die ihn erteilt hat",
-    frist: "Bis der Zugang entzogen wird; eine Benachrichtigung über eine Änderung nur, bis sie versandt ist",
+    frist:
+      "Bis der Zugang entzogen wird; eine Benachrichtigung über eine Änderung, bis sie versandt ist, danach nur noch die Adresse, an die sie ging, und ihren Zustellstand, 30 Tage lang",
   },
   {
     daten:
       "Antrag auf einen Zugang zur Verwaltung oder darauf, Inhaberin oder Inhaber zu werden: E-Mail-Adresse, Stufe, Zeitpunkt und die Person aus der Verwaltung, die ihn gestellt hat",
     // The approval window of the address change, which a request shares (`fl_backend/app/api/berechtigungen/antraege.py :: compose_antrag`).
-    frist: `Bis eine zweite Person aus der Verwaltung ihn genehmigt oder ablehnt, die Person, die ihn gestellt hat, ihn zurückzieht, die Adresse, für die er gestellt ist, durch eine Änderung wechselt oder die Daten einer der beiden Personen gelöscht werden, längstens ${GENEHMIGUNG_DAUER}; danach löschen wir ihn, eine Benachrichtigung über seine Ablehnung oder sein Ende an die Person, die ihn gestellt hat, sobald sie versandt ist. Ist er entschieden, bleibt er wie jede Änderung der Verwaltung zwölf Monate im Änderungsprotokoll`,
+    frist: `Bis eine zweite Person aus der Verwaltung ihn genehmigt oder ablehnt, die Person, die ihn gestellt hat, ihn zurückzieht, die Adresse, für die er gestellt ist, durch eine Änderung wechselt oder die Daten einer der beiden Personen gelöscht werden, längstens ${GENEHMIGUNG_DAUER}; danach löschen wir ihn. Die Benachrichtigung an die Personen, die ihn genehmigen können, halten wir bereit, bis sie versandt ist oder der Antrag endet; danach behalten wir nur die Adresse, an die sie gerichtet war, und gegebenenfalls ihren Zustellstand, 30 Tage lang. Ist er entschieden, bleibt er wie jede Änderung der Verwaltung zwölf Monate im Änderungsprotokoll`,
   },
   {
     daten: "Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey",
@@ -235,18 +237,6 @@ const FRISTEN = [
   {
     daten: "Änderungsprotokoll: Änderungen der Verwaltung und Änderungen angemeldeter Personen",
     frist: "Zwölf Monate ab dem Eintrag",
-  },
-  {
-    daten: "Tageszähler einer angemeldeten Person, je Personengruppe",
-    frist:
-      "Bis kurz nach Mitternacht des Tages, den er zählt. Er enthält nur, als was Du angemeldet bist (Kontaktperson eines Teams, Spielerin oder Spieler, Schiedsrichterin oder Schiedsrichter), und wie oft Du in dieser Personengruppe an dem Tag etwas ändern wolltest, darunter auch Änderungen, die danach noch abgewiesen wurden, unter einem unlesbaren Schlüssel statt Deiner Adresse. Er begrenzt, wie viel Du in jeder dieser Personengruppen an einem Tag ändern kannst, damit ein missbrauchtes Konto nicht unbegrenzt schreibt; eine zurückgezogene Einwilligung zählt er nicht",
-  },
-  {
-    daten:
-      "Kurzzeitige Markierung einer E-Mail-Adresse: die Adresse als unlesbarer Schlüssel, ein Zähler und der Zeitpunkt ihrer letzten Änderung",
-    // MongoDB's expiry pass and its period, mirrored in `docs/datenschutz.md` §5 with the day it was read: the source moves without us.
-    frist:
-      "Kurz nach ihrer letzten Änderung: Die Datenbank löscht sie beim nächsten Aufräumen, das ungefähr jede Minute läuft und sich zum Beispiel bei hoher Last verzögern kann. Sie entsteht, wenn eine E-Mail-Adresse in unsere Daten kommt, wenn eine angemeldete Person etwas ändert und wenn wir die Daten einer Adresse löschen. Sie sorgt dafür, dass Angaben, die während einer Löschung unter dieser Adresse gespeichert werden, mit dieser Löschung gelöscht werden",
   },
   {
     daten: "Zugriffsprotokoll des Servers",
@@ -265,6 +255,13 @@ const FRISTEN = [
       "Wie das Betriebsprotokoll der Anwendung, in dem er steht, und außerdem in einer eigenen Datei je Tag, die wir 30 Tage nach ihrer letzten Änderung löschen. Damit können wir den Schritt erneut ausführen, falls wir eine Sicherungskopie der Datenbank einspielen, die älter ist als er",
   },
   { daten: "Sicherungskopien der Datenbank", frist: "Etwa acht Tage" },
+  // The outbox row a mail is sent from (`fl_backend/app/api/outbox/services.py :: final_update`, `:: RETENTION`): its
+  // data and any secret go when it is sent or given up, and a row carrying a secret goes at the secret's own lapse.
+  {
+    daten: "E-Mails der Liga in unserer Datenbank: Empfängeradresse, die Angaben, die die Nachricht braucht, und ihr Zustellstand",
+    frist:
+      "Die Angaben der Nachricht, bis sie versandt ist oder wir den Versand aufgeben; danach behalten wir nur die Adresse, an die sie gerichtet war, und gegebenenfalls ihren Zustellstand, 30 Tage lang. Eine Nachricht mit einem Anmeldecode oder einem Link zum Löschen eines Kontos löschen wir ganz, sobald der Code oder der Link abläuft",
+  },
   // Resend's own period, mirrored in `docs/datenschutz.md` §7 with the day it was read: no erasure of ours reaches it.
   {
     daten: "E-Mails der Liga beim Versanddienst Resend: Empfängeradresse, Betreff, Inhalt und Zustellstand",
@@ -402,8 +399,8 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>
             Alle E-Mails der Liga versenden wir über Resend. Unser Vertragspartner dafür ist die Plus Five Five, Inc. mit Sitz in den
             Vereinigten Staaten, die den Dienst unter diesem Namen betreibt. Absender ist no-reply@frankfurtleague.de. Zu Resend gelangen die
-            Empfängeradresse, der Betreff, der vollständige Inhalt der Nachricht und eine Kennung, mit der wir eine Zustellmeldung dem Eintrag
-            zuordnen, um den es geht. Wie lange Resend diese Daten aufbewahrt, steht in Abschnitt 13.
+            Empfängeradresse, der Betreff, der vollständige Inhalt der Nachricht und eine Kennung, mit der wir eine Zustellmeldung der Nachricht
+            zuordnen, zu der sie gehört. Wie lange Resend diese Daten aufbewahrt, steht in Abschnitt 13.
           </p>
           <p className={ABSATZ_CLASSES}>
             Resend speichert diese Daten in den Vereinigten Staaten. Das ist eine Übermittlung in ein Drittland. Sie stützt sich auf die
@@ -418,13 +415,9 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>
             Resend meldet uns aber zurück, was mit der Zustellung selbst geschehen ist: ob eine Nachricht angenommen, zugestellt oder verzögert
             wurde, ob sie unzustellbar war, ob Resend sie zurückgehalten hat und ob sie als Spam gemeldet wurde. Diesen Zustellstand speichern
-            wir bei dem Eintrag, um den es in der Nachricht geht. So sieht die Verwaltung, wen sie nicht erreicht. Gehört eine Nachricht zu
-            keinem Eintrag, den wir aufbewahren, etwa ein Anmeldecode oder der Hinweis, dass Du nicht mehr als Kontaktperson eingetragen bist,
-            schreiben wir jeden Zustellstand außer „zugestellt“ ohne Deine Adresse in das Betriebsprotokoll der Anwendung. Einige Hinweise
-            versenden wir ohne Kennung, etwa die zu Deinen Passkeys oder zu einer Änderung Deiner E-Mail-Adresse; ihren Zustellstand speichern
-            wir nirgends. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, zu erkennen, wen unsere Nachrichten
-            nicht erreichen. Der Zustellstand wird zusammen mit diesem Eintrag gelöscht; beim Registrierungslink eines Teams, dessen Eintrag
-            bestehen bleibt (Abschnitt 13), bleibt er bestehen. Im Betriebsprotokoll bleibt er so lange wie das Protokoll selbst (Abschnitt 13).
+            wir bei der Nachricht selbst, über die Kennung, die sie trägt. So sieht die Verwaltung, wen sie nicht erreicht. Rechtsgrundlage ist
+            Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, zu erkennen, wen unsere Nachrichten nicht erreichen. Der Zustellstand
+            wird mit der Nachricht gelöscht, 30 Tage nach ihrem Versand, bei einem Anmeldecode schon mit dessen Ablauf.
           </p>
         </LegalSection>
 
@@ -630,11 +623,10 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>
             Nach dem Spiel trägt die Schiedsrichterin oder der Schiedsrichter einen Spielbericht ein: das Ergebnis, zu jedem Tor die Minute und
             die Person, die getroffen hat, und zu jeder Karte die Person, die Minute, die Farbe und einen Grund aus einer festen Liste, der bei
-            Rot freiwillig ist. Dazu kommen Bemerkungen zum Spiel als freier Text. Einen Namen der Spielerinnen und Spieler beider Kader, der
-            Kontaktpersonen beider Teams oder der Schiedsrichterin oder des Schiedsrichters nehmen die Bemerkungen nicht an. Die
-            Administratorinnen und Administratoren der Liga können den Spielbericht berichtigen oder selbst eintragen. Den Spielbericht sehen
-            nur die Schiedsrichterin oder der Schiedsrichter des Spiels und die Administratorinnen und Administratoren der Liga; veröffentlicht
-            wird er nicht. Wie lange wir ihn aufbewahren, steht in Abschnitt 13.
+            Rot freiwillig ist. Dazu kommen Bemerkungen zum Spiel als freier Text. Die Administratorinnen und Administratoren der Liga können
+            den Spielbericht berichtigen oder selbst eintragen. Den Spielbericht sehen nur die Schiedsrichterin oder der Schiedsrichter des
+            Spiels und die Administratorinnen und Administratoren der Liga; veröffentlicht wird er nicht. Wie lange wir ihn aufbewahren, steht
+            in Abschnitt 13.
           </p>
           <p className={ABSATZ_CLASSES}>
             Eine E-Mail-Adresse gehört bei uns zu einer Person. Registriert sich jemand mit einer Adresse, unter der schon eine Person
@@ -761,13 +753,10 @@ export function DatenschutzView() {
             solange er gilt. Liegt Dein Geburtsdatum tatsächlich unter dem Mindestalter, bleibt es auch nach der Prüfung bei der Zurückweisung,
             weil die Liga jede Rolle erst ab ihrem Mindestalter vergibt. Eine Sperre kann die Verwaltung nach der Prüfung aufheben. Ist der
             Kader eines Teams voll, nimmt er keine weitere Registrierung an; das ist eine Grenze des Kaders und keine Entscheidung über Dich.
-            Zwei weitere Grenzen setzt die Website ebenso ohne einen Menschen. Einen Anmeldecode über die Anmeldeseite verschickt sie, eine
+            Eine weitere Grenze setzt die Website ebenso ohne einen Menschen. Einen Anmeldecode über die Anmeldeseite verschickt sie, eine
             Bewerbung und eine Registrierung nimmt sie erst an, wenn Cloudflare bestätigt hat, dass ein Mensch das Formular abschickt, oder wenn
             Cloudflare nicht antwortet (Abschnitt 11); bittet Cloudflare Dich um einen Klick, genügt der. Lässt Dich die Prüfung nicht durch,
-            schreib an <MailLink />, dann sieht sich jemand aus der Verwaltung Deinen Fall an. Und wer angemeldet ist, kann je Personengruppe an
-            einem Tag nur eine begrenzte Zahl von Änderungen abschicken; danach weist die Website weitere Änderungen bis Mitternacht zurück. Das
-            Zurückziehen einer Einwilligung weist sie dabei nie zurück, und auch diese Grenze prüft auf Deinen Wunsch ein Mensch, wenn Du an{" "}
-            <MailLink /> schreibst. Profiling findet nicht statt.
+            schreib an <MailLink />, dann sieht sich jemand aus der Verwaltung Deinen Fall an. Profiling findet nicht statt.
           </p>
         </LegalSection>
 
@@ -793,12 +782,8 @@ export function DatenschutzView() {
             Das Änderungsprotokoll: Jede Änderung an den Daten der Liga wird mit dem vorherigen Stand festgehalten, damit ein Fehler
             zurückgenommen werden kann. Dieses Protokoll kann deshalb auch Deine Daten enthalten. Bei einer Löschung auf Wunsch werden Deine
             Einträge darin sofort geleert. Bittest Du uns darum, hält das Protokoll die Löschung selbst fest, mit dem Datum und der Art Deiner
-            Anfrage. Das bleibt dort wie jede andere Änderung zwölf Monate stehen. Deinen Namen, so wie er bei uns eingetragen ist, lassen wir
-            in der Angabe zu Deiner Anfrage nicht zu, auch nicht in anderer Groß- oder Kleinschreibung. Stehen kann er dort für diese zwölf
-            Monate anders geschrieben, etwa mit „ue“ statt „ü“, als Teil eines längeren Wortes, als einzelner Buchstabe, als kurzer Namensteil
-            wie „von“ oder „Le“, auf den in Deinem Namen ein weiterer folgt, und als früherer Name, der bei uns nicht mehr eingetragen ist.
-            Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, Fehler in den Daten der Liga erkennen und
-            rückgängig machen zu können.
+            Anfrage. Das bleibt dort wie jede andere Änderung zwölf Monate stehen. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser
+            berechtigtes Interesse ist, Fehler in den Daten der Liga erkennen und rückgängig machen zu können.
           </p>
         </LegalSection>
 
@@ -860,11 +845,9 @@ export function DatenschutzView() {
             Ein Konto mit dieser Adresse bleibt wie jedes andere nur bestehen, solange es unter der Adresse noch etwas von dem gibt, was
             Abschnitt 13 bei der Anmeldung aufzählt. Bis die Sperre endet, kann sich damit niemand anmelden. Eine Kopie Deiner Daten oder ihre
             Löschung erhältst Du auch während einer Sperre über eine E-Mail an <MailLink />; wir bestätigen die Anfrage mit einer E-Mail an die
-            gesperrte Adresse. Der Grund ist ein freier Text. Einen Namen, so wie er unter der gesperrten Adresse eingetragen ist, lassen wir
-            darin nicht zu, auch nicht in anderer Groß- oder Kleinschreibung. In den Formen, die Abschnitt 13 für die Angabe zu einer Anfrage
-            nennt, kann ein Name darin stehen und bleibt dann mit dem Eintrag stehen. Dieser Eintrag bleibt auch nach einer Löschung bestehen,
-            bis die Sperre nach fünf vollen Saisons endet oder die Verwaltung sie vorher aufhebt. Wir speichern diesen Eintrag auf Grundlage
-            unseres berechtigten Interesses daran, eine gesperrte Adresse nicht erneut zuzulassen (Art. 6 Abs. 1 lit. f DSGVO).
+            gesperrte Adresse. Der Grund ist ein freier Text. Dieser Eintrag bleibt auch nach einer Löschung bestehen, bis die Sperre nach fünf
+            vollen Saisons endet oder die Verwaltung sie vorher aufhebt. Wir speichern diesen Eintrag auf Grundlage unseres berechtigten
+            Interesses daran, eine gesperrte Adresse nicht erneut zuzulassen (Art. 6 Abs. 1 lit. f DSGVO).
           </p>
         </LegalSection>
 

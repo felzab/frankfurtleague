@@ -1,18 +1,30 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.core.codes import Code
+from app.shared.schemas.custom import CustomObjectId
 
 
-class BaseAPIResponse(BaseModel):
-    # On every response model, so a client tells a successful empty result from a failure without
-    # reading the status code.
-    acknowledged: Literal[0, 1] = 1
+class BaseReadModel(BaseModel):
+    """Every served model's base, so a field the answer always carries is published as required.
+
+    Pydantic publishes a field with a default as optional unless this is set, and sets it per model,
+    so a nested model needs it as much as the body it sits in. A model a payload also declares stays
+    off it: its input and output schemas would part into two components.
+    """
+
+    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+
+
+class BaseAPIResponse(BaseReadModel):
+    """Every response body's base."""
 
 
 # The failure bodies as published, never as built: `app/core/exception_handlers.py :: error_response`
 # writes plain dicts, a model raising inside a handler leaving the caller with no answer at all.
 class FLFailureBody(BaseModel):
-    error_code: str
+    error_code: Code
     trace_id: str
 
 
@@ -27,3 +39,15 @@ class FLRefusedField(BaseModel):
 
 class FLRefusedPayloadBody(FLFailureBody):
     fields: list[FLRefusedField]
+
+
+class FLCreatedResponse(BaseAPIResponse):
+    """The id a create minted, which the caller reads the new record by."""
+
+    created_id: CustomObjectId
+
+
+class FLSweepSaisonsResponse(BaseAPIResponse):
+    """The seasons a system pass visits, for its caller to sweep one by one in the order given."""
+
+    saison_ids: list[str]

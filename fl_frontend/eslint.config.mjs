@@ -1,5 +1,5 @@
-import { existsSync, globSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, globSync, readFileSync } from "node:fs";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import css from "@eslint/css";
@@ -11,6 +11,7 @@ import { MatcherType, SelectorKind } from "eslint-plugin-better-tailwindcss/type
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
 
+import serverAction from "./eslint-rules/server-action.mjs";
 import tokenContrast from "./eslint-rules/token-contrast.mjs";
 
 // ---------------------------------------------------------------------------------------------------
@@ -145,17 +146,6 @@ const packageNamed = (...specifiers) => String.raw`^(?:${escaped(specifiers)})$`
 const packageUnder = (...specifiers) => String.raw`^(?:${escaped(specifiers)})(?:\x2F.*)?$`;
 
 /**
- * The actor's signing key, loaded by the two session guards and the boot alone: a module reaching it
- * from anywhere else could mint an actor no guard judged, and a client module would put the key
- * reader in a bundle.
- */
-const ACTOR_SIGNING = {
-  regex: moduleNamed("actorToken"),
-  message:
-    "actorToken signs the actor the backend believes: fl_frontend/src/core/auth.ts, fl_frontend/src/core/subject.ts and fl_frontend/src/instrumentation-node.ts load it, and a *.test.ts(x) file may; nothing else may.",
-};
-
-/**
  * Next's `after`, scheduled through the one helper giving its callback the deadline a stopping container waits
  * out: a callback scheduled bare keeps what is left of the request's deadline, or none, and a stop waits on it.
  */
@@ -166,29 +156,33 @@ const NEXT_AFTER = {
     "Schedule work behind the response through fl_frontend/src/core/afterResponse.ts :: afterTheResponse, which bounds it by the deadline a stopping container waits out.",
 };
 
-/** The settings module, which every server module imports and whose secret readers lint deals out one owner each. */
+/** The settings module, which every server module imports and whose secret readers lint deals out to their owners. */
 const CONFIG_MODULE = moduleNamed("config");
 
 /**
- * Each secret's reader in `fl_frontend/src/core/config.ts`, keyed by the one module that may import it:
+ * Each secret's reader in `fl_frontend/src/core/config.ts`, keyed by the secret, with the modules that may import it:
  * a reader anywhere else hands its secret to a module nothing reviewed as its holder.
  */
 const SECRET_READERS = Object.fromEntries(
   [
-    ["src/core/db.ts", ["mongodbUri"], "the sign-in store's credential"],
-    ["src/core/auth.ts", ["authSecret"], "the key every session is signed with"],
-    // The key lets a send leave without `sendMail`, and so without the ban list's gate.
-    ["src/core/mail.ts", ["authResendKey"], "the provider's key, which sends past the ban list's gate"],
-    ["src/app/api/mail/zustellung/route.ts", ["resendWebhookSecret"], "the key the provider's delivery reports are verified with"],
+    [["src/core/db.ts"], ["mongodbUri"], "the sign-in store's credential"],
+    // The drain opens a sign-in mail's secret with it, which `auth.ts` sealed (`better-auth/crypto :: symmetricDecrypt`).
+    [["src/core/auth.ts", "src/core/mail.ts"], ["authSecret"], "the key every session is signed with"],
+    // The key authorises a send, so a module holding it could mail past the Postausgang and the ban its hand-out judges;
+    // the drain's own send is module-private, which the compiler holds.
+    [["src/core/mail.ts"], ["authResendKey"], "the provider's key, which sends past the Postausgang"],
+    [["src/app/api/mail/zustellung/route.ts"], ["resendWebhookSecret"], "the key the provider's delivery reports are verified with"],
     // The system's key calls the backend as the system, past every guard on an admin's session.
-    ["src/core/api.ts", ["internalApiKeyBase", "internalApiKeySystem", "internalApiKeyAdmin"], "the backend's keys"],
-    ["src/core/turnstile.ts", ["turnstileSecretKey"], "the key the bot check's tokens are verified with"],
-  ].map(([owner, importNames, secret]) => [
-    owner,
+    [["src/core/api.ts"], ["internalApiKeyBase", "internalApiKeySystem", "internalApiKeyAdmin"], "the backend's keys"],
+    [["src/core/turnstile.ts"], ["turnstileSecretKey"], "the key the bot check's tokens are verified with"],
+    [["src/instrumentation-node.ts"], ["heartbeatUrl"], "the monitor's address, whose token reports the passes"],
+  ].map(([owners, importNames, secret]) => [
+    secret,
     {
+      owners,
       regex: CONFIG_MODULE,
       importNames,
-      message: `${importNames.join(", ")} ${importNames.length === 1 ? "hands" : "hand"} out ${secret}: fl_frontend/${owner} imports ${importNames.length === 1 ? "it" : "them"}, and a *.test.ts(x) file may; nothing else may.`,
+      message: `${importNames.join(", ")} ${importNames.length === 1 ? "hands" : "hand"} out ${secret}: ${owners.map((owner) => `fl_frontend/${owner}`).join(" and ")} ${owners.length === 1 ? "imports" : "import"} ${importNames.length === 1 ? "it" : "them"}, and a *.test.ts(x) file may; nothing else may.`,
     },
   ]),
 );
@@ -213,14 +207,6 @@ const SIGN_IN_STORE = {
     "signInStore hands out a client holding the store's login: fl_frontend/src/core/auth.ts and fl_frontend/src/core/authIndexes.ts import it, and a *.test.ts(x) file may; nothing else may.",
 };
 
-/** The ban's own notice skips the ban list's gate, so only the ban action, which checks the reason it carries, sends it. */
-const SPERRE_NOTICE = {
-  regex: moduleNamed("mail"),
-  importNames: ["sendSperreNotice"],
-  message:
-    "sendSperreNotice sends past the ban list's gate: fl_frontend/src/features/sperrliste/actions.ts imports it, and a *.test.ts(x) file may; nothing else may.",
-};
-
 /** The eraser is whatever its caller hands in, so a second caller could delete an account erasing nothing. */
 const OWN_ACCOUNT_DELETION = {
   regex: moduleNamed("auth"),
@@ -242,6 +228,14 @@ const NEXT_PRIVATE_CONTEXTS = {
  * The published origin, for what a crawler reads: a message built on it sends a reader of any other
  * stack to production.
  */
+/** `katalog` brands a whole tree as `Copy`; only the server's own catalogue calls it besides `copy.ts` itself. */
+const CATALOGUE_BRAND = {
+  regex: moduleNamed("copy"),
+  importNames: ["katalog"],
+  message:
+    "katalog brands a whole tree as Copy: fl_frontend/src/core/serverCopy.ts, the server's own catalogue, calls it, and nothing else may. Take the entry from COPY or SERVER_COPY, or add one there.",
+};
+
 const SITE_ORIGIN = {
   regex: moduleNamed("brand"),
   importNames: ["SITE_URL"],
@@ -262,6 +256,113 @@ const LOCALE_PROVIDER = {
 
 const importBan = (entry, reach, options) => ban("no-restricted-imports", entry, reach, options);
 
+// ---------------------------------------------------------------------------------------------------
+// The background passes. Each pass's generated sender is imported by its slice's wrapper and by the job
+// that runs it alone, and the wrapper by that job alone: the backend runs a pass on any system-key call,
+// so a second caller would run it outside the scheduler.
+// ---------------------------------------------------------------------------------------------------
+
+/** The generated client, by any path. */
+const GENERATED_SDK_PATH = "src/core/generated/client/sdk.ts";
+const GENERATED_SDK = String.raw`(?:^|\x2F)core\x2Fgenerated\x2Fclient\x2Fsdk(?:\.ts)?$`;
+
+/** Orval's names for one operation: its sender and the URL builder beside it, each a way to reach the path. */
+function sendersOf(operationId) {
+  const sender = operationId.replace(/_([a-z0-9])/g, (_, letter) => letter.toUpperCase());
+  return [sender, `get${sender.charAt(0).toUpperCase()}${sender.slice(1)}Url`];
+}
+
+/**
+ * Each pass by its operation ids: the module wrapping their senders, which the wrapper's ban names by its file name,
+ * the wrapper's exports, and the modules running it. The drain is `core/mail.ts`'s, run by the scheduler and by `drainSoon`; the activation press runs the pupils'
+ * deletion beside its job.
+ */
+const BACKGROUND_PASSES = [
+  {
+    operations: ["outbox_post_handout", "outbox_post_result"],
+    wrapper: { file: "src/core/mail.ts", names: ["drainOutbox"] },
+    runners: ["src/instrumentation-node.ts", "src/core/afterResponse.ts"],
+  },
+  {
+    operations: ["bewerbungen_get_sweep_saisons", "bewerbungen_sweep_saison"],
+    wrapper: { file: "src/features/bewerbungen/mutations.ts", names: ["getBewerbungSweepSaisons", "postBewerbungSweep"] },
+    runners: ["src/features/bewerbungen/sweep.ts"],
+  },
+  {
+    operations: ["registrierungen_sweep_registrierungen"],
+    wrapper: { file: "src/features/registrierungen/mutations.ts", names: ["postRegistrierungSweep"] },
+    runners: ["src/features/bewerbungen/sweep.ts"],
+  },
+  {
+    operations: ["address_change_sweep_address_change"],
+    wrapper: { file: "src/features/adresswechsel/mutations.ts", names: ["postAdresswechselSweep"] },
+    runners: ["src/features/adresswechsel/sweep.ts"],
+  },
+  {
+    operations: ["address_change_get_address_change_moves", "address_change_post_address_change_moves_done"],
+    wrapper: { file: "src/features/adresswechsel/mutations.ts", names: ["getAdresswechselUmzuege", "postAdresswechselUmzuegeErledigt"] },
+    runners: ["src/features/adresswechsel/umzug.ts"],
+  },
+  {
+    operations: ["identity_get_references"],
+    wrapper: { file: "src/features/funktionen/mutations.ts", names: ["postReferenzen"] },
+    runners: ["src/features/funktionen/sweep.ts"],
+  },
+  {
+    operations: ["identity_sweep_erasure"],
+    wrapper: { file: "src/features/saisons/mutations.ts", names: ["postLoeschungSweep"] },
+    runners: ["src/features/saisons/sweep.ts", "src/features/saisons/actions.ts"],
+  },
+  {
+    operations: ["spielbestaetigungen_get_sweep_saisons", "spielbestaetigungen_sweep_spielbestaetigungen"],
+    wrapper: {
+      file: "src/features/spielbestaetigungen/mutations.ts",
+      names: ["getSpielbestaetigungSweepSaisons", "postSpielbestaetigungSweep"],
+    },
+    runners: ["src/features/spielbestaetigungen/sweep.ts"],
+  },
+  {
+    operations: ["grants_post_grants_reconciliation"],
+    wrapper: { file: "src/features/berechtigungen/mutations.ts", names: ["postBerechtigungenAbgleich"] },
+    runners: ["src/features/berechtigungen/abgleich.ts"],
+  },
+];
+
+// A sender renamed in the contract, or a wrapper's export renamed, would drop out of its ban in silence, as a renamed
+// file would.
+const sourceOf = (path) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
+const GENERATED_SENDERS = sourceOf(GENERATED_SDK_PATH);
+const UNEXPORTED = BACKGROUND_PASSES.flatMap(({ operations, wrapper }) => {
+  const wrapped = sourceOf(wrapper.file);
+  return [
+    ...operations.flatMap(sendersOf).filter((name) => !GENERATED_SENDERS.includes(`export const ${name} =`)),
+    ...wrapper.names
+      .filter((name) => !new RegExp(String.raw`^export (?:async function|function|const) ${name}\b`, "m").test(wrapped))
+      .map((name) => `${wrapper.file} :: ${name}`),
+  ];
+});
+if (UNEXPORTED.length > 0) {
+  throw new Error(
+    `eslint.config.mjs bans exports that no longer exist: ${UNEXPORTED.join(", ")}. Name each pass's operations and its wrapper's exports anew.`,
+  );
+}
+
+const BACKGROUND_PASS_BANS = BACKGROUND_PASSES.flatMap(({ operations, wrapper, runners }) => {
+  const reached = (names, owners) =>
+    `${names.join(", ")} ${names.length === 1 ? "runs" : "run"} a background pass: fl_frontend/${owners.join(", fl_frontend/")} ${owners.length === 1 ? "imports" : "import"} ${names.length === 1 ? "it" : "them"}, and a *.test.ts(x) file may; nothing else may.`;
+  const senders = operations.flatMap(sendersOf);
+  return [
+    importBan({ regex: GENERATED_SDK, importNames: senders, message: reached(senders, [wrapper.file, ...runners]) }, PRODUCTION, {
+      allow: [wrapper.file, ...runners],
+    }),
+    importBan(
+      { regex: moduleNamed(basename(wrapper.file, ".ts")), importNames: wrapper.names, message: reached(wrapper.names, runners) },
+      PRODUCTION,
+      { allow: runners },
+    ),
+  ];
+});
+
 const IMPORT_BANS = [
   importBan(NEXT_PRIVATE_CONTEXTS, EVERY, { allow: ["src/test-support/nextContexts.ts"] }),
   // Layer boundaries, scoped to `core` and `shared` only: `admin` is a sanctioned aggregator slice,
@@ -271,26 +372,25 @@ const IMPORT_BANS = [
   // What a crawler reads, which stands on the published origin.
   importBan(SITE_ORIGIN, PRODUCTION, { allow: ["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts"] }),
   importBan(LOCALE_PROVIDER, PRODUCTION, { allow: ["src/core/providers/RootProviders.tsx"] }),
-  // The two session guards import the actor's signing module statically; the boot loads it by `import()`.
-  importBan(ACTOR_SIGNING, PRODUCTION, { allow: ["src/core/subject.ts", "src/core/auth.ts"] }),
   importBan(NEXT_AFTER, PRODUCTION, { allow: ["src/core/afterResponse.ts"] }),
-  ...Object.entries(SECRET_READERS).map(([owner, entry]) => importBan(entry, PRODUCTION, { allow: [owner] })),
-  // `no-restricted-imports` reads import and export declarations alone, so an `import()` would hand out every
-  // secret reader past the bans above. The boot alone loads the settings by `import()`: their validation throws
-  // while the module loads, and the boot turns that rejection into its refusal.
+  ...Object.values(SECRET_READERS).map(({ owners, ...entry }) => importBan(entry, PRODUCTION, { allow: owners })),
+  importBan(AUTH_INSTANCE, PRODUCTION, { allow: ["src/app/api/auth/[...all]/route.ts"] }),
+  importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth.ts", "src/core/authIndexes.ts"] }),
+  importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/konto/personActions.ts"] }),
+  importBan(CATALOGUE_BRAND, EVERY, { allow: ["src/core/serverCopy.ts"] }),
+  ...BACKGROUND_PASS_BANS,
+  // `no-restricted-imports` reads import and export declarations alone, so an `import()` would pass every ban above.
+  // The two files spared are the runtime split, Next's documented shape, and the boot, which turns the settings'
+  // failed validation into its refusal.
   ban(
     "no-restricted-syntax",
     syntax(
-      `ImportExpression[source.value=/${CONFIG_MODULE}/]`,
-      "Import fl_frontend/src/core/config.ts statically: lint holds each secret reader to its one owner through the static import alone.",
+      "ImportExpression",
+      "Import a module statically: the import bans read import and export declarations alone, so an `import()` passes every one of them.",
     ),
     PRODUCTION,
-    { allow: ["src/instrumentation-node.ts"] },
+    { allow: ["src/instrumentation.ts", "src/instrumentation-node.ts"] },
   ),
-  importBan(AUTH_INSTANCE, PRODUCTION, { allow: ["src/app/api/auth/[...all]/route.ts"] }),
-  importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth.ts", "src/core/authIndexes.ts"] }),
-  importBan(SPERRE_NOTICE, PRODUCTION, { allow: ["src/features/sperrliste/actions.ts"] }),
-  importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/konto/personActions.ts"] }),
 ];
 
 // ---------------------------------------------------------------------------------------------------
@@ -403,20 +503,8 @@ const TRANSITION_REWRAP = syntax(
   "An update after an `await` in a transition commits outside it: wrap it in another `startTransition` or the hook's own start function.",
 );
 
-/** A call declaring a write's cache tags: `invalidatesOnWrite`, or a slice's helper over it (`invalidateSpieler`). */
-const DECLARES_TAGS = "CallExpression[callee.name=/^invalidates?[A-Z]/]";
-
 /** Every read of `name` off a module's namespace: a member, or a destructured key. */
 const readsOff = (name) => [`MemberExpression[property.name=${name}]`, `ObjectPattern > Property[key.name=${name}]`].join(", ");
-
-/**
- * `fl_frontend/src/core/logFormat.ts :: serializeError` writes an error's message and stack, and a
- * failure on the sign-in or the mail path routinely carries the submitted address.
- */
-const LOGGED_ERROR = syntax(
-  'CallExpression[callee.object.name="logger"][callee.property.name="error"] > :not(Identifier[name="undefined"]).arguments:nth-child(2)',
-  "Hand `logger.error` `undefined` for the error on this path: its message and stack carry the submitted address.",
-);
 
 /** The names the image's builder stage sets, which a module may read while it loads. */
 const PROVIDED_WHILE_BUILDING = "CI|NEXT_RUNTIME|NEXT_TELEMETRY_DISABLED|NODE_ENV|NODE_VERSION|PATH|PNPM_HOME|SKIP_ENV_VALIDATION";
@@ -441,15 +529,6 @@ const LOAD_TIME_ENVIRONMENT = [
 const syntaxBan = (entry, reach, options) => ban("no-restricted-syntax", entry, reach, options);
 
 const SOURCE_BANS = [
-  syntaxBan(LOGGED_ERROR, SOURCE, {
-    allow: [
-      // Next's hook for a crash no code caught, whose stack is the only account of it.
-      "src/core/instrumentation.ts",
-      // A backend read's failure absorbed by a page, the error being the read's own answer, never a submitted form: its
-      // logging helper is private, and an action's or a route's failure logs through `actionFailure.ts`, under this ban.
-      "src/shared/utils/degradedRead.ts",
-    ],
-  }),
   syntaxBan(ENVIRONMENT_READ, SOURCE, { allow: ["src/core/config.ts"] }),
   syntaxBan(ACTION_STATE_BAN, SOURCE, { allow: ["src/kit/useFormAction.ts"] }),
   syntaxBan(
@@ -516,38 +595,54 @@ const SOURCE_BANS = [
     SOURCE,
   ),
   syntaxBan(
-    // The spine alone drops a tag, wherever a write may stand: one dropped after an awaited write is
-    // never reached by a write whose answer was lost.
+    // The spine alone clears the tag, wherever a write may stand: a clear after an awaited write is never
+    // reached by a write whose answer was lost.
     syntax(
       `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name="updateTag"], ${readsOff('"updateTag"')})`,
-      "Declare a write's cache tags with `invalidatesOnWrite` before the write: fl_frontend/src/shared/utils/adminMutation.ts drops them, a lost answer included.",
+      "The save spines, fl_frontend/src/core/action.ts on its administrator's and person's lanes and the old fl_frontend/src/shared/utils/adminMutation.ts, clear the site's cache tag after every write that may stand, a lost answer included: an action clears nothing itself.",
     ),
     SOURCE,
-    { allow: ["src/shared/utils/adminMutation.ts"] },
+    { allow: ["src/shared/utils/adminMutation.ts", "src/core/action.ts"] },
   ),
   syntaxBan(
-    // The FIRST declaration in a block, after an awaited statement of that block: a write awaited before
-    // it never has its tags dropped. A later one stays free, a tag known only from the answer.
-    syntax(
-      `BlockStatement > :has(AwaitExpression) ~ :has(${DECLARES_TAGS}):not(BlockStatement > :has(${DECLARES_TAGS}) ~ *)`,
-      "Declare a write's first cache tags before the body's first `await`: a write awaited ahead of the declaration whose answer is lost drops nothing.",
-    ),
-    SOURCE,
-  ),
-  syntaxBan(
-    // A route handler's half of the same rule: its spine drops the tags it was handed wherever its
-    // write may stand, where a drop of its own after the answer misses a lost one.
+    // A route handler's half of the same rule, Next refusing `updateTag` outside a server action.
     syntax(
       `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], ${readsOff("/^revalidate(?:Tag|Path)$/")})`,
-      "Hand a route's cache tags to its spine: `invalidatesOnWrite` under fl_frontend/src/shared/utils/publicRoute.ts.",
+      "fl_frontend/src/shared/utils/publicRoute.ts clears the site's cache tag after a route's write: a route clears nothing itself.",
+    ),
+    SOURCE,
+    { allow: ["src/shared/utils/publicRoute.ts"] },
+  ),
+  syntaxBan(
+    // Per function, where its tag and its lifetime stand beside it; a module-wide directive caches every export
+    // unseen. The lifetime is set in every scope, as Next's `use cache` reference asks ("Set an explicit cache
+    // lifetime with `cacheLife` in every `use cache` scope"): without it the scope takes the `default` profile.
+    syntax(
+      ':matches(Program > ExpressionStatement[directive=/^use cache/], :function:not(:has(CallExpression[callee.name="cacheTag"][arguments.0.name="SITE_CACHE_TAG"]):has(CallExpression[callee.name="cacheLife"])) > BlockStatement > ExpressionStatement[directive=/^use cache/])',
+      'Open each cached function with `"use cache"`, tag it with `cacheTag(SITE_CACHE_TAG)` from fl_frontend/src/core/siteCache.ts and set its lifetime with `cacheLife`: an untagged entry outlives every save, and one with no lifetime keeps Next\'s `default` profile, longer than `"minutes"`.',
+    ),
+    SOURCE,
+  ),
+  syntaxBan(
+    syntax(
+      'CallExpression[callee.name="cacheTag"]:not([arguments.length=1][arguments.0.name="SITE_CACHE_TAG"])',
+      "The site has one cache tag, `SITE_CACHE_TAG` from fl_frontend/src/core/siteCache.ts, which every save clears: a tag of its own is cleared by none.",
+    ),
+    SOURCE,
+  ),
+  syntaxBan(
+    // Bounds what a change no save makes stays stale: a background deletion waits at most this long.
+    syntax(
+      'CallExpression[callee.name="cacheLife"]:not([arguments.0.value="minutes"])',
+      'A league read keeps Next\'s `"minutes"` lifetime: the hourly passes and a hand edit clear no tag, so a longer one serves what they changed, a deleted person among it, for longer.',
     ),
     SOURCE,
     {
       allow: [
-        "src/shared/utils/publicRoute.ts",
-        // The drop is its whole work, made after the write it answers for landed elsewhere, so no write of its own can
-        // lose an answer ahead of it.
-        "src/app/api/revalidate/route.ts",
+        // A label's words never change, so nothing outside a save reaches them.
+        "src/core/einwilligung.ts",
+        // The footer's year, which no record holds.
+        "src/kit/ClassicFrame.tsx",
       ],
     },
   ),
@@ -723,7 +818,7 @@ const DESIGN_BANS = [
     ["EditorPage", ["src/app/**/(editor)/**"], "An editor is a page of an `(editor)` route group, whose layout draws its way back."],
     ["EditorBar", ["src/kit/EditorPage.tsx"], "A record's one save is the editor template's `EditorBar`: place the page in `EditorPage`."],
     ["OneShot", ["src/kit/MailedPage.tsx"], "The one-shot submit is the mailed-page template's: place the page in `MailedPage`."],
-    ["KontoBox", ["src/app/bereich/**/konto/**"], "A `KontoBox` saves one section of Konto, on Konto's own pages."],
+    ["AccountBox", ["src/app/bereich/**/konto/**"], "An `AccountBox` saves one section of Konto, on Konto's own pages."],
   ].map(([name, owners, message]) => kitImport({ regex: kitModule(name), message }, PRODUCTION, { allow: owners })),
   // The danger act is one row inside the editor's last box, which the editor template alone places.
   syntaxBan(
@@ -827,7 +922,7 @@ const DESIGN_BANS = [
     PRODUCTION,
     // The five blocks carrying a name: a table row's, a card row's, a match's, a record's facts and the page
     // header's title.
-    { allow: ["src/kit/Table.tsx", "src/kit/Card.tsx", "src/kit/MatchRow.tsx", "src/kit/Facts.tsx", "src/kit/RailFrame.tsx"] },
+    { allow: ["src/kit/Table.tsx", "src/kit/Card.tsx", "src/kit/SpielRow.tsx", "src/kit/Facts.tsx", "src/kit/RailFrame.tsx"] },
   ),
   // Only a confirmation asks a question.
   syntaxBan(
@@ -947,7 +1042,7 @@ const DESIGN_BANS = [
       "The catalogue writes none of these: three periods, „!“, a dash, a semicolon, „Bitte“, „erfolgreich“, „leider“, „wirklich“, „und mehr“, „z. B.“, „Mannschaft“, „noch einmal“, „Sie“ or a capitalised „Du“ inside a sentence.",
     ),
     EVERY,
-    { only: ["src/core/copy.ts"] },
+    { only: ["src/core/copy.ts", "src/core/serverCopy.ts"] },
   ),
 
   // Dates, numbers and the time.
@@ -1153,6 +1248,20 @@ const eslintConfig = defineConfig([
     rules: { "no-restricted-exports": ["error", { restrictedNamedExportsPattern: "^(?!POST$)[A-Z]+$" }] },
   },
 
+  // The one write path: every server action built by `src/core/action.ts`, which runs its lane's guard, and the
+  // route handlers no browser form posts to, the three that stay for callers that are not a browser.
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: TEST_FILES,
+    plugins: { fl: { rules: { "server-action": serverAction } } },
+    rules: {
+      "fl/server-action": [
+        "error",
+        { keptRoutes: ["src/app/api/auth/[...all]/route.ts", "src/app/api/mail/zustellung/route.ts", "src/app/api/client-error/route.ts"] },
+      ],
+    },
+  },
+
   // The a11y rule set. Only the rules are taken from the plugin: `eslint-config-next` already
   // registers it, and registering it twice is a flat-config error.
   {
@@ -1168,7 +1277,8 @@ const eslintConfig = defineConfig([
     rules: { "tokens/contrast": "error" },
   },
 
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "node_modules/"]),
+  // `src/core/generated/` is Orval's output, rewritten whole by every generation.
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "node_modules/", "src/core/generated/"]),
 ]);
 
 export default eslintConfig;

@@ -4,7 +4,7 @@ import { card } from "@/shared/components/ui/card";
 
 import { Tordifferenz } from "./Tordifferenz";
 
-import type { FLTeamStatistik } from "../../schemas";
+import type { FLTeamStatistik } from "@/core/generated/client/types";
 
 // Each step is n tiles of 9.5rem plus the `gap-4` between them: 9.5rem is the narrowest tile, at a
 // quarter-rem step, holding „15 / 10 / 12“ on one line at its largest type.
@@ -32,7 +32,7 @@ export function TeamSaisonStatistik({ statistik }: { statistik: FLTeamStatistik 
         <div className={`grid grid-cols-1 gap-4 ${COLUMNS_CLASSES}`}>
           {[
             { label: "Punkte", value: statistik.punkte, isSummary: true },
-            { label: "Spiele", value: statistik.anzahl_gespielte_spiele, isSummary: false },
+            { label: "Spiele", value: statistik.count_gespielte_spiele, isSummary: false },
             { label: "S / U / N", value: `${statistik.siege} / ${statistik.unentschieden} / ${statistik.niederlagen}`, isSummary: false },
             { label: "Tore", value: `${statistik.tore_geschossen}:${statistik.tore_kassiert}`, isSummary: false },
             {

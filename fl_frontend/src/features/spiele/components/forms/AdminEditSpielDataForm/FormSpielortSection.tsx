@@ -9,9 +9,9 @@ import { PickOrCreateAutocomplete } from "./PickOrCreateAutocomplete";
 import { StepFiveButton } from "./StepFiveButton";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
+import type { FLSpielort } from "@/core/generated/client/types";
 import type { SpielFieldPath } from "@/features/spiele/draftStatus";
-import type { FLSpielOrtFieldDraft } from "@/features/spiele/schemas";
-import type { FLSpielort } from "@/features/spielorte/schemas";
+import type { FLSpielOrtFieldDraft } from "@/features/spiele/types";
 
 /**
  * What the picker offers and what a pick writes back, which is every field of a venue this section

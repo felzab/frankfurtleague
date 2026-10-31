@@ -504,9 +504,7 @@ describe("where a session that is only read slides", () => {
   }) => {
     const { cookie, row } = await signIn("gesperrt@example.org");
     refreshedAgo(row, UPDATE_AGE_MS + MINUTE_MS);
-    const fetched = vi
-      .spyOn(globalThis, "fetch")
-      .mockImplementation(() => Promise.resolve(Response.json({ ...HOLDS_NOTHING, gesperrt: true })));
+    const fetched = vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.resolve(Response.json({ ...HOLDS_NOTHING, barred: true })));
     onTestFinished(() => void fetched.mockRestore());
 
     assert.ok(setSessionCookie(await visit(PERSON_URL, cookie), cookie), "nothing slid, so the case proves nothing");

@@ -18,10 +18,8 @@ from app.api.registrierungen.services import (
     build_offene_filter,
     build_registrierungen_sort,
 )
-from app.api.spieler.services import build_real_spieler_filter
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, pull_one_from_db
-from app.core.recording import build_redaction_filter, build_redaction_update
+from app.core.crud import aggregate_many_from_db, erase_many_from_db, pull_one_from_db, redact_log_rows_in_db
 from app.shared.folding import sign_in_identifier
 
 # What the admission reads of a person: who they are, for the question, and what it overwrites.
@@ -32,7 +30,7 @@ PERSON_FIELDS: tuple[str, ...] = (*PERSON_IDENTITY_FIELDS, "geburtsdatum", "emai
 PERSON_ANSICHT_FIELDS: tuple[str, ...] = (
     *PERSON_IDENTITY_FIELDS,
     "geburtsdatum",
-    "einwilligung.bestaetigt_am",
+    "einwilligung.confirmed_at",
 )
 
 
@@ -41,9 +39,8 @@ async def person_at_the_address(
 ) -> Mapping[str, Any] | None:
     """The one person `uniq_spieler_email` holds to this registration's address, matched on the folded form `spieler.email` stores."""
 
-    # Never the sentinel, whose missing address a hand edit can fill: matched, it picks the pupil's page and the date the press takes.
     return await spieler_collection.find_one(
-        build_real_spieler_filter(build_adressen_filter([sign_in_identifier(str(registrierung_raw.get("email") or ""))])),
+        build_adressen_filter([sign_in_identifier(str(registrierung_raw.get("email") or ""))]),
         projection=list(PERSON_ANSICHT_FIELDS),
         session=session,
     )
@@ -71,14 +68,14 @@ async def pull_offene_registrierungen(
         collection=registrierungen_collection,
         pipeline=[
             {"$match": build_offene_filter(saison_id=saison_id, team_id=team_id)},
-            {"$sort": dict(build_registrierungen_sort(sort_by="eingereicht_am", order=order))},
+            {"$sort": dict(build_registrierungen_sort(sort_by="submitted_at", order=order))},
             {"$limit": limit + 1},
             # An inclusion: nothing beyond the form's own fields, the consent stamp and the address
             # the join runs on reaches this handler, let alone the wire.
             {
                 "$project": {
-                    **{field: 1 for field in ("eingereicht_am", *PERSON_IDENTITY_FIELDS, "nummer", "position", "stufe")},
-                    **{field: 1 for field in ("email", "geburtsdatum", "einwilligung.bestaetigt_am")},
+                    **{field: 1 for field in ("submitted_at", *PERSON_IDENTITY_FIELDS, "nummer", "position", "stufe")},
+                    **{field: 1 for field in ("email", "geburtsdatum", "einwilligung.confirmed_at")},
                 }
             },
         ],
@@ -94,11 +91,9 @@ async def persons_at(
     if not adressen:
         return []
 
-    # Never the sentinel, whose missing address a hand edit can fill: matched, the admission writes the
-    # registration's person onto it.
     return await aggregate_many_from_db(
         collection=spieler_collection,
-        pipeline=[{"$match": build_real_spieler_filter(build_adressen_filter(adressen))}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
+        pipeline=[{"$match": build_adressen_filter(adressen)}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
         session=session,
     )
 
@@ -115,7 +110,7 @@ async def nummern_rows(
     )
 
 
-async def erase_registrierungen_in_session(
+async def loeschen_registrierungen_in_session(
     *,
     registrierungen_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
@@ -134,17 +129,14 @@ async def erase_registrierungen_in_session(
     ids = [row["_id"] for row in registrierungen]
     # Ids and their seasons alone: the log keeps a filter as text, so a key naming the person would
     # keep what this removal destroys.
-    erased = await erase_many_from_db(
+    geloescht = await erase_many_from_db(
         collection=registrierungen_collection,
         db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in registrierungen})}, "_id": {"$in": ids}},
         session=session,
     )
     # A delivery record and every pre-image a confirmation or a decline filed go with the document.
-    await patch_many_in_db(
-        collection=aktionen_collection,
-        db_filter=build_redaction_filter([(Collection.REGISTRIERUNGEN, ids)]),
-        update=build_redaction_update(at=stamp),
-        session=session,
+    await redact_log_rows_in_db(
+        action_log_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
     )
 
-    return erased.deleted_count
+    return geloescht.deleted_count

@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 
 # What a case reports where nothing refused at all. Reported rather than raised, so a write that
 # lands names the state it left instead of an exception that failed to arrive.
@@ -27,7 +27,7 @@ async def outcome_of(call: Awaitable[Any]) -> str:
 
     try:
         await call
-    except WriteRefusalException as refusal:
+    except APIError as refusal:
         return str(refusal.error_code)
 
     return COMMITTED

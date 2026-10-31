@@ -5,10 +5,12 @@ import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_OPTIONS, SPIEL_STATUS_LABELS } fr
 import { computeSpielStatus } from "./utils";
 
 import type { Facet, FacetOption } from "@/shared/utils/facets";
-import type { FLSpiel } from "./schemas";
+import type { FLSpiel, SpielStatus } from "./types";
 
 /** The five derived statuses, in the order a fixture passes through them. */
-const STATUS_OPTIONS: readonly FacetOption[] = (["ausstehend", "heute", "vergangen", "abgesagt", "unbekannt"] as const).map((status) => ({
+const STATUS_OPTIONS: readonly FacetOption[] = (
+  ["ausstehend", "heute", "vergangen", "abgesagt", "unbekannt"] as const satisfies readonly SpielStatus[]
+).map((status) => ({
   value: status,
   label: SPIEL_STATUS_LABELS[status],
 }));

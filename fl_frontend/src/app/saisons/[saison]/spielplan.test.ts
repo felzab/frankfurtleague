@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { currentMatchday, factsOf, matchRowOf, readSpielplan } from "./spielplan.ts";
 
-import type { FLSaison } from "@/features/saisons/schemas.ts";
-import type { FLSpiel } from "@/features/spiele/schemas.ts";
+import type { FLSaison } from "@/core/generated/client/types.ts";
+import type { FLSpiel } from "@/features/spiele/types.ts";
 import type { Matchday } from "./spielplan.ts";
 
 // A group matchday at position 3 and the final at position 1, as the backend serves them: `position` restarts
@@ -38,7 +38,7 @@ function spiel(fields: Partial<FLSpiel> = {}): FLSpiel {
     saison_phase: "gruppenphase",
     saison_id: "2027",
     notiz: null,
-    ansetzung_bestaetigt: null,
+    ansetzung_confirmed: null,
     ...fields,
   };
 }

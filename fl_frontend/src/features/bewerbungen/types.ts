@@ -1,40 +1,26 @@
-import type { FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "@/features/teams/schemas";
-import type { FLBewerbung, FLBewerbungEinwilligungAnsichtResponse, FLBewerbungKontaktpersonPayload, FLBewerbungSchulePayload } from "./schemas";
+import type {
+  FLBewerbung,
+  FLBewerbungEinwilligungViewResponse,
+  FLBewerbungEinwilligungViewResponseQuelle,
+  FLBewerbungKontaktpersonPayload,
+  FLBewerbungSchulePayload,
+  FLSchulform,
+  FLTrainerAlso,
+  FLTrikotFarbe,
+} from "@/core/generated/client/types";
 
 /** A club as the triage needs to know it, so any read carrying the two fields answers. */
 export type NamedTeam = { id: string; name: string };
 
 /**
  * One row of the triage list: the application as stored, plus the club it names resolved for
- * display. `null` where it names neither a school nor a club — the row `REQ-BEWERBUNG-002` refuses.
+ * display. `null` where it names neither a school nor a club — the row `bewerbung_subject_unresolved` refuses.
  */
 export type AdminBewerbungRow = FLBewerbung & {
   teamName: string | null;
   // Answered against the season the header names, so the facet reading it stays a pure function of a
   // row: `fl_frontend/src/shared/utils/facets.ts :: Facet` sees nothing but the item.
   inSelectedSaison: boolean;
-};
-
-type FLBewerbungenSortingOptions = "eingereicht_am";
-
-/**
- * What the triage list may narrow on. No `bewerbung_id`: `GET /bewerbungen/{bewerbung_id}` names one.
- *
- * Omission is meaningful: `apiClient` drops undefined params rather than serialising them, so an
- * absent `status` is every state rather than none.
- */
-export type FLBewerbungenFilterParams = {
-  saison_id?: string;
-  // Which side of `saison_id` the read covers, the endpoint reading it beside that season alone: the
-  // bar offers the complement, and no season id can express it.
-  saisonbezug?: string;
-  // Comma-joined rather than an array: `apiClient` serialises one value per key, and the endpoint
-  // splits this back into the `$in` a multi-select facet's selection needs.
-  status?: string;
-
-  limit?: number;
-  sort_by?: FLBewerbungenSortingOptions;
-  order?: "asc" | "desc";
 };
 
 /**
@@ -44,7 +30,7 @@ export type FLBewerbungenFilterParams = {
 export type BewerbungKontaktpersonDraft = Omit<FLBewerbungKontaktpersonPayload, "einwilligung"> & {
   // `erteilt` starts `false`, which `z.literal(true)` refuses: an untouched box is an acknowledgement
   // nobody made, and the payload type admits no other value.
-  einwilligung: { text_version: string; erteilt: boolean };
+  einwilligung: { text_version: string; given: boolean };
 };
 
 /** The three seats mid-entry. All three are present: an application is what three reachable people submitted. */
@@ -52,7 +38,7 @@ export type BewerbungKontakteDraft = {
   trainer: BewerbungKontaktpersonDraft;
   ansprechperson: BewerbungKontaktpersonDraft;
   stellvertretung: BewerbungKontaktpersonDraft;
-  trainer_ist_zugleich: FLTrainerZugleich | null;
+  trainer_is_also: FLTrainerAlso | null;
 };
 
 /**
@@ -63,7 +49,7 @@ export type BewerbungSchuleDraft = Omit<FLBewerbungSchulePayload, "schulform"> &
 
 /**
  * The public form's whole draft. **`auswahl` is the whole of „welche Schule“**: one field holds a
- * club id or the sentinel, so the both-at-once shape `REQ-BEWERBUNG-005` refuses cannot be composed.
+ * club id or the sentinel, so the both-at-once shape `bewerbung_submission_subject_unresolved` refuses cannot be composed.
  * A widened null is a control nobody has answered.
  */
 export type BewerbungFormDraft = {
@@ -71,8 +57,8 @@ export type BewerbungFormDraft = {
   auswahl: string | null;
   schule: BewerbungSchuleDraft;
   kontakte: BewerbungKontakteDraft;
-  trikot: { vorhandener_satz: string; wunschfarbe: FLTrikotFarbe | null };
-  kader: { voraussichtliche_groesse: number | null; gute_spieler: number | null };
+  trikot: { existing_satz: string; wunschfarbe: FLTrikotFarbe | null };
+  kader: { expected_size: number | null; good_spieler: number | null };
   // The head count of the Abi-Jahrgang the team comes from, never the whole school. Beside `kader`
   // rather than inside it: it counts a cohort, and the squad is drawn from that cohort.
   stufengroesse: number | null;
@@ -86,25 +72,19 @@ export type BewerbungFormDraft = {
  * Which state the page renders. `unlesbar` is not `fensterZustand`'s: the read failed, and a page
  * that answered "abgelaufen" there would state a deadline it never learnt.
  */
-export type FensterZustand = "laeuft" | "noch-nicht" | "geschlossen" | "vorbei" | "keine-frist";
+export type FensterZustand = "running" | "noch-nicht" | "closed" | "vorbei" | "keine-frist";
 
 /**
  * A blur-time verdict on a Kürzel, kept with the value it judged. **The value, not just the answer**:
  * a refusal about `GG` says nothing about the `GY` the box holds a keystroke later.
  */
-export type KuerzelVerdikt = { shorthand: string; vergeben: boolean };
+export type KuerzelVerdikt = { shorthand: string; taken: boolean };
 
 /**
  * An application's `abgelaufen` and `ungueltig` render one wording, since telling them apart tells a
  * guessed link that a record once existed; a season row's spent link is worded for the row its read named.
  */
-export type LinkZustand = "bestaetigt" | "abgelehnt" | "abgelaufen" | "ungueltig" | "gesperrt";
-
-/** A link still open, and so a seat the page can still be answered for. */
-export type EinwilligungGeoeffnet = FLBewerbungEinwilligungAnsichtResponse;
-
-/** Which record a link opened: an application's seat, or a seat an administrator typed onto a team's season row. */
-export type EinwilligungQuelle = FLBewerbungEinwilligungAnsichtResponse["quelle"];
+export type LinkZustand = "confirmed" | "declined" | "expired" | "invalid" | "barred";
 
 /**
  * A spent link keeps the record it opened where the read answered one, so its panel says what is true of
@@ -112,6 +92,6 @@ export type EinwilligungQuelle = FLBewerbungEinwilligungAnsichtResponse["quelle"
  */
 export type EinwilligungAnsicht =
   // One member per open state, so a check of `zustand` narrows to the one the caller handles.
-  | { zustand: "gueltig"; ansicht: EinwilligungGeoeffnet }
-  | { zustand: "saison_vorbei"; ansicht: EinwilligungGeoeffnet }
-  | { zustand: LinkZustand; quelle?: EinwilligungQuelle };
+  | { zustand: "valid"; ansicht: FLBewerbungEinwilligungViewResponse }
+  | { zustand: "saison_past"; ansicht: FLBewerbungEinwilligungViewResponse }
+  | { zustand: LinkZustand; quelle?: FLBewerbungEinwilligungViewResponseQuelle };

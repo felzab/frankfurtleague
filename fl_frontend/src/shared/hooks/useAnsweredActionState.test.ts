@@ -1,6 +1,7 @@
+import { EDGE_REFUSAL_BODY } from "@/kit/edgeRefusal.ts";
 import { describe, expect, it } from "vitest";
 
-import { EDGE_REFUSAL_BODY, ZU_VIELE_VERSUCHE } from "@/shared/utils/actionError.ts";
+import { ZU_VIELE_VERSUCHE } from "@/shared/utils/actionError.ts";
 
 import { answeringEdgeRefusal } from "./useAnsweredActionState.ts";
 

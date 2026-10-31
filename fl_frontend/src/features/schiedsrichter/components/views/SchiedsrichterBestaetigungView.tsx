@@ -61,8 +61,9 @@ import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
 import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 
 import type { GekeyteFassung, SchiedsrichterAbsatzSchluessel } from "@/core/einwilligungSeiten";
-import type { FLSchiedsrichterBestaetigungPayload, FLSchiedsrichterUmfang } from "@/features/schiedsrichter/schemas";
-import type { SchiedsrichterAnsichtGeoeffnet, SchiedsrichterLinkZustand } from "@/features/schiedsrichter/types";
+import type { FLEinwilligungUmfang, FLSchiedsrichterConfirmationViewResponse } from "@/core/generated/client/types";
+import type { FLSchiedsrichterConfirmationPayload } from "@/features/schiedsrichter/schemas";
+import type { SchiedsrichterLinkZustand } from "@/features/schiedsrichter/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { Slots } from "@/shared/utils/stampedSlots";
 import type { Key } from "@heroui/react/rac";
@@ -73,28 +74,28 @@ import type { CalendarDate } from "@internationalized/date";
  * state is a panel that names nobody, and a dead link handed onward identifies nobody either.
  */
 export type SchiedsrichterBestaetigungStart =
-  | { zustand: "gueltig"; ansicht: SchiedsrichterAnsichtGeoeffnet; token: string; fassung: SchiedsrichterFassung }
+  | { zustand: "valid"; ansicht: FLSchiedsrichterConfirmationViewResponse; token: string; wording: SchiedsrichterFassung }
   | { zustand: SchiedsrichterLinkZustand | "unlesbar" };
 
 /**
  * The referee page's words under the label its answer stamps, handed in by the page: a component
  * reaching for the running words would render a text no stored record cites.
  */
-type SchiedsrichterFassung = GekeyteFassung<SchiedsrichterAbsatzSchluessel, FLSchiedsrichterUmfang>;
+type SchiedsrichterFassung = GekeyteFassung<SchiedsrichterAbsatzSchluessel, FLEinwilligungUmfang>;
 
 type Absaetze = SchiedsrichterFassung["absaetze"];
 
-type Gespeichert = { geburtsdatum: string; umfang: FLSchiedsrichterUmfang; medien: boolean };
+type Gespeichert = { geburtsdatum: string; umfang: FLEinwilligungUmfang; medien: boolean };
 
 type Stand = SchiedsrichterBestaetigungStart | ({ zustand: "erfolg" } & Gespeichert);
 
 /** One heading per state, in the contact page's own words: one workflow's two ends read alike. A barred link's page has none. */
-const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
-  gueltig: "Eintrag bestätigen",
+const TITEL: Record<Exclude<Stand["zustand"], "barred">, string> = {
+  valid: "Eintrag bestätigen",
   erfolg: "Eintrag bestätigt",
-  bestaetigt: "Schon erledigt",
-  abgelaufen: "Link ungültig",
-  ungueltig: "Link ungültig",
+  confirmed: "Schon erledigt",
+  expired: "Link ungültig",
+  invalid: "Link ungültig",
   unlesbar: LINK_UNLESBAR_TITEL,
 };
 
@@ -220,7 +221,7 @@ function KlickBestaetigung({ absaetze, id, werte }: { absaetze: Absaetze; id: st
 // The DRAFT's shape rather than the payload's: `umfang` stands unanswered until it is picked, and
 // a draft that could not hold "unanswered" would send a choice nobody made.
 /** The date mid-entry is a string, `""` being the empty picker; the judged shape is the payload's. */
-type Entwurf = { geburtsdatum: string; umfang: FLSchiedsrichterUmfang | null; medien: boolean };
+type Entwurf = { geburtsdatum: string; umfang: FLEinwilligungUmfang | null; medien: boolean };
 
 const LEERER_ENTWURF: Entwurf = { geburtsdatum: "", umfang: null, medien: false };
 
@@ -233,13 +234,13 @@ function toCalendarDate(stored: string): CalendarDate | null {
  * What the press sends. `text_version` is the label this page rendered, which the handler admits only
  * where it is still the one it serves.
  */
-function antwortPayload(token: string, textVersion: string, entwurf: Entwurf, medienAngeboten: boolean): FLSchiedsrichterBestaetigungPayload {
+function antwortPayload(token: string, textVersion: string, entwurf: Entwurf, medienAngeboten: boolean): FLSchiedsrichterConfirmationPayload {
   return {
     token: token,
     geburtsdatum: entwurf.geburtsdatum,
     // The schema refuses a null, which is the refusal an unanswered question owes: the submit reports
     // it at the chips rather than sending a scope this person never picked.
-    umfang: entwurf.umfang as FLSchiedsrichterUmfang,
+    umfang: entwurf.umfang as FLEinwilligungUmfang,
     // Never the draft's own `true` where no switch stands: one given before the date moved below the
     // media age would send a consent this page withheld.
     medien: medienAngeboten && entwurf.medien,
@@ -254,16 +255,16 @@ type BestaetigungAntwort = ({ success: true } & Gespeichert) | (PublicEnvelope &
  * press records, and a required „gelesen“ switch would be a second act recording the same thing.
  */
 function SchiedsrichterFormPanel({
-  fassung,
+  wording: fassung,
   token,
-  mindestalter,
+  minimum_age: mindestalter,
   medienMindestalter,
   onAbschluss,
 }: {
-  fassung: SchiedsrichterFassung;
+  wording: SchiedsrichterFassung;
   token: string;
   /** The floor the link's own read answered; a constant here would be a number the endpoint never judges by. */
-  mindestalter: number;
+  minimum_age: number;
   /** The media age the link's own read answered, for `mindestalter`'s reason. */
   medienMindestalter: number;
   onAbschluss: (stand: Stand) => void;
@@ -299,7 +300,7 @@ function SchiedsrichterFormPanel({
   // telling a 190-year-old what the age rule costs them is the wrong repair.
   const istZuJung = fieldErrors.geburtsdatum !== undefined && entwurf.geburtsdatum !== "" && entwurf.geburtsdatum > spaeteste;
 
-  const sende = async (payload: FLSchiedsrichterBestaetigungPayload): Promise<void> => {
+  const sende = async (payload: FLSchiedsrichterConfirmationPayload): Promise<void> => {
     const gesendet = await postPublicForm<BestaetigungAntwort>("/api/bestaetigung/schiedsrichter", payload);
 
     if (!gesendet.answered) {
@@ -495,7 +496,7 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
   const [stand, setStand] = useState<Stand>(start);
   const { ergebnisRef, beantwortet } = useLinkSeite(stand.zustand);
 
-  if (stand.zustand === "gesperrt") return <AdresseGesperrt panelRef={ergebnisRef} />;
+  if (stand.zustand === "barred") return <AdresseGesperrt panelRef={ergebnisRef} />;
 
   return (
     <section className={SEITE_CLASSES}>
@@ -503,12 +504,12 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
         <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>{TITEL[stand.zustand]}</h1>
       </header>
 
-      {stand.zustand === "gueltig" && (
+      {stand.zustand === "valid" && (
         <SchiedsrichterFormPanel
-          fassung={stand.fassung}
+          wording={stand.wording}
           token={stand.token}
-          mindestalter={stand.ansicht.mindestalter}
-          medienMindestalter={stand.ansicht.medien_mindestalter}
+          minimum_age={stand.ansicht.minimum_age}
+          medienMindestalter={stand.ansicht.medien_minimum_age}
           onAbschluss={(naechster) => {
             beantwortet();
             setStand(naechster);
@@ -549,7 +550,7 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
 
       {/* No name from here on: a consumed or dead link may have been forwarded, and a dead link
           identifies nobody. */}
-      {stand.zustand === "bestaetigt" && (
+      {stand.zustand === "confirmed" && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
@@ -561,7 +562,7 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
 
       {/* One wording for both: a replaced link and an expired one cannot be told apart after the
           fact, and telling them apart would tell a guessed link that a record once existed. */}
-      {(stand.zustand === "abgelaufen" || stand.zustand === "ungueltig") && (
+      {(stand.zustand === "expired" || stand.zustand === "invalid") && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">

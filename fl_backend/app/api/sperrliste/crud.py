@@ -19,7 +19,7 @@ from app.core.crud import aggregate_many_from_db, pull_many_from_db
 # What a served row may hold BEYOND `_id`, which the projection keeps unless something drops it. An
 # inclusion rather than an exclusion: a field added to the collection is withheld until somebody
 # names it here.
-SERVED_FIELDS: Mapping[str, int] = {"grund": 1, "erstellt_von": 1, "erstellt_am": 1, "gesperrt_bis_saison_id": 1}
+SERVED_FIELDS: Mapping[str, int] = {"grund": 1, "created_by": 1, "created_at": 1, "barred_until_saison_id": 1}
 
 
 def build_sperrliste_page_pipeline(*, limit: int) -> list[Mapping[str, Any]]:
@@ -32,10 +32,10 @@ def build_sperrliste_page_pipeline(*, limit: int) -> list[Mapping[str, Any]]:
     return [
         {
             "$facet": {
-                # `_id` decides between two bans entered on one day: `erstellt_am` is a date, so it
+                # `_id` decides between two bans entered on one day: `created_at` is a date, so it
                 # orders a day's rows against each other not at all.
-                "rows": [{"$sort": {"erstellt_am": DESCENDING, "_id": DESCENDING}}, {"$limit": limit}, {"$project": dict(SERVED_FIELDS)}],
-                "gesamt": [{"$count": "anzahl"}],
+                "rows": [{"$sort": {"created_at": DESCENDING, "_id": DESCENDING}}, {"$limit": limit}, {"$project": dict(SERVED_FIELDS)}],
+                "total": [{"$count": "anzahl"}],
             }
         }
     ]
@@ -57,7 +57,7 @@ async def read_sperrliste_page(
 
     rows = list(faceted[0].get("rows") or [])
     # `$count` emits NO document for an empty collection rather than a zero.
-    counted = faceted[0].get("gesamt") or [{}]
+    counted = faceted[0].get("total") or [{}]
 
     return rows, int(counted[0].get("anzahl", 0))
 
@@ -123,7 +123,7 @@ async def gesperrte_adressen(
     adressen: Iterable[str],
     *,
     sperrliste_collection: AsyncCollection,
-    schluessel: SecretStr,
+    key: SecretStr,
     massgebliche_saison_id: str | None,
     session: AsyncClientSession | None = None,
 ) -> set[str]:
@@ -133,7 +133,7 @@ async def gesperrte_adressen(
     (`app/api/sperrliste/services.py :: stored_adresse_hash`).
     """
 
-    hashes = {adresse: gehasht for adresse in set(adressen) if (gehasht := stored_adresse_hash(adresse, schluessel=schluessel)) is not None}
+    hashes = {adresse: gehasht for adresse in set(adressen) if (gehasht := stored_adresse_hash(adresse, key=key)) is not None}
     barred = await gesperrte_hashes(
         sperrliste_collection=sperrliste_collection,
         adresse_hashes=hashes.values(),
@@ -148,4 +148,4 @@ def _standing(massgebliche_saison_id: str | None) -> Mapping[str, Any]:
     # The hash alone while no season is running, rather than an answer given without asking:
     # `find_keine_saison_refusal` leaves no row to find, and one that reached the collection another
     # way bars rather than passing unjudged.
-    return {} if massgebliche_saison_id is None else {"gesperrt_bis_saison_id": {"$gte": massgebliche_saison_id}}
+    return {} if massgebliche_saison_id is None else {"barred_until_saison_id": {"$gte": massgebliche_saison_id}}

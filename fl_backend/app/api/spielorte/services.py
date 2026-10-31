@@ -3,10 +3,8 @@ from http import HTTPStatus
 from typing import Any
 
 from app.api.spiele.schemas import unplayed_filter
+from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
-
-# A played fixture never blocks: its `ort` is an embedded record.
-VENUE_STILL_BOOKED = "REQ-RETIRE-003"
 
 
 def build_unplayed_booking_filter(spielort_id: Any) -> Mapping[str, Any]:
@@ -29,12 +27,7 @@ def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefu
     if not upcoming_spiel_nrs:
         return None
 
-    named = ", ".join(str(nr) for nr in upcoming_spiel_nrs[:5])
-    rest = f" and {len(upcoming_spiel_nrs) - 5} more" if len(upcoming_spiel_nrs) > 5 else ""
-
     return WriteRefusal(
-        error_code=VENUE_STILL_BOOKED,
+        error_code=Code.SPIELORT_STILL_BOOKED,
         status=HTTPStatus.CONFLICT,
-        message=f"{len(upcoming_spiel_nrs)} unplayed fixture(s) are booked here (spiel_nr {named}{rest}); "
-        "move them to another venue or cancel them first",
     )

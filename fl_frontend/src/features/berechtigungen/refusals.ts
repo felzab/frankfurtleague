@@ -13,6 +13,7 @@ import {
   NUR_INHABER_ENTZIEHT,
 } from "./constants";
 
+import type { Code } from "@/core/generated/client/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /** Both the rule and the unique index, which answers the same grant where two administrators press together. */
@@ -23,12 +24,12 @@ export function mapErteilenRefusal(error: unknown): { error?: string; fieldError
   if (!isRefusal(error)) return null;
 
   // No repair sentence: the box carrying the message is itself the way out.
-  if (error.serverErrorCode === "REQ-BERECHTIGUNG-001" || error.serverErrorCode === "DB-COMMON-002") {
+  if (error.serverErrorCode === "grant_exists" || error.serverErrorCode === "duplicate_key") {
     return { fieldErrors: { email: SCHON_ZUGANG } };
   }
 
-  if (error.serverErrorCode === "REQ-BERECHTIGUNG-003") return { fieldErrors: { email: ADRESSE_GESPERRT } };
-  if (error.serverErrorCode === "REQ-BERECHTIGUNG-008") return { fieldErrors: { email: ANTRAG_OFFEN } };
+  if (error.serverErrorCode === "grant_barred") return { fieldErrors: { email: ADRESSE_GESPERRT } };
+  if (error.serverErrorCode === "grant_approval_request_open") return { fieldErrors: { email: ANTRAG_OFFEN } };
 
   return null;
 }
@@ -38,14 +39,14 @@ export function mapEntziehenRefusal(error: unknown): { error?: string } | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
-    case "REQ-BERECHTIGUNG-005":
+    case "grant_only_owner":
       return { error: NUR_INHABER_ENTZIEHT };
     // An owner is demoted first and revoked after, which the repair names.
-    case "REQ-BERECHTIGUNG-002":
+    case "grant_owner":
       return {
         error: "Einer Inhaberin oder einem Inhaber lässt sich der Zugang nicht entziehen. Stufe die Person zuerst zur Verwaltung herab.",
       };
-    case "REQ-BERECHTIGUNG-004":
+    case "grant_minimum_count":
       return { error: "Die Verwaltung braucht mindestens zwei Personen mit Zugang. Füge zuerst eine weitere hinzu." };
     default:
       return null;
@@ -58,18 +59,18 @@ export function mapStufeRefusal(error: unknown): { error?: string } | null {
 
   switch (error.serverErrorCode) {
     // The acting owner was demoted while the page stood, another owner's demotion among the ways.
-    case "REQ-BERECHTIGUNG-005":
+    case "grant_only_owner":
       return { error: `Die Stufe eines Zugangs ändern können nur Inhaberinnen und Inhaber. ${NACH_ERNENNUNG_NEU_ANMELDEN}` };
-    case "REQ-BERECHTIGUNG-003":
+    case "grant_barred":
       return { error: INHABER_GESPERRT };
     // The last owner's demotion, their own step-down included.
-    case "REQ-BERECHTIGUNG-007":
+    case "grant_last_owner":
       return {
         error:
           "Die Verwaltung braucht mindestens eine Inhaberin oder einen Inhaber. Ernenne zuerst eine weitere Person zur Inhaberin oder zum Inhaber.",
       };
     // A promotion whose request waits already, asked by another owner or by this one.
-    case "REQ-BERECHTIGUNG-008":
+    case "grant_approval_request_open":
       return { error: ANTRAG_OFFEN };
     default:
       return null;
@@ -79,12 +80,12 @@ export function mapStufeRefusal(error: unknown): { error?: string } | null {
 /** Decided, withdrawn or lapsed since the page loaded, or a promotion whose grant has gone: the reload shows what stands. */
 const NICHT_MEHR_OFFEN = buildRefusal({ reason: "Dieser Antrag ist nicht mehr offen", repair: LADE_DIE_SEITE_NEU });
 
-/** Who may decide, the same for an approval and a refusal: `-009` is the subject's alone on a refusal, its requester withdrawing. */
+/** Who may decide, the same for an approval and a refusal: `grant_approval_denied` is the subject's alone on a refusal, its requester withdrawing. */
 const ENTSCHEIDEN_WORTE: Readonly<Record<string, string>> = {
-  "REQ-BERECHTIGUNG-009": ANTRAG_ENTSCHEIDEN_VERWEHRT.eigene,
-  "REQ-BERECHTIGUNG-010": ANTRAG_ENTSCHEIDEN_VERWEHRT.inhaber,
-  "REQ-BERECHTIGUNG-011": ANTRAG_ENTSCHEIDEN_VERWEHRT.juenger,
-};
+  grant_approval_denied: ANTRAG_ENTSCHEIDEN_VERWEHRT.own,
+  grant_approval_owner: ANTRAG_ENTSCHEIDEN_VERWEHRT.owner,
+  grant_approval_younger: ANTRAG_ENTSCHEIDEN_VERWEHRT.younger,
+} satisfies Partial<Record<Code, string>>;
 
 /**
  * Said beside the approval's press. The address's own refusals write nothing, the approval and the grant being one
@@ -92,12 +93,11 @@ const ENTSCHEIDEN_WORTE: Readonly<Record<string, string>> = {
  */
 const GENEHMIGUNG_WORTE: Readonly<Record<string, string>> = {
   ...ENTSCHEIDEN_WORTE,
-  "REQ-BERECHTIGUNG-009": ANTRAG_EIGENE_ODER_GESTELLT,
-  "REQ-BERECHTIGUNG-012": ANTRAG_VERFALLEN,
-  "REQ-BERECHTIGUNG-001": "Diese Adresse hat inzwischen Zugang zur Verwaltung, deshalb ist nichts genehmigt. Lehne den Antrag ab.",
-  "REQ-BERECHTIGUNG-003":
-    "Diese Adresse ist inzwischen gesperrt, deshalb ist nichts genehmigt. Lehne den Antrag ab, oder hebe zuerst die Sperre auf.",
-};
+  grant_approval_denied: ANTRAG_EIGENE_ODER_GESTELLT,
+  grant_approval_request_lapsed: ANTRAG_VERFALLEN,
+  grant_exists: "Diese Adresse hat inzwischen Zugang zur Verwaltung, deshalb ist nichts genehmigt. Lehne den Antrag ab.",
+  grant_barred: "Diese Adresse ist inzwischen gesperrt, deshalb ist nichts genehmigt. Lehne den Antrag ab, oder hebe zuerst die Sperre auf.",
+} satisfies Partial<Record<Code, string>>;
 
 /** The approval's refusal, or `null`, the unique index's among them, which the shared reader words. */
 export function mapAntragGenehmigungRefusal(error: unknown): string | null {

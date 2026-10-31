@@ -1,34 +1,90 @@
 from collections.abc import Mapping
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.results import InsertOneResult
 
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.spielorte.schemas import (
     FLPatchSpielortPayload,
     FLPatchSpielortResponse,
     FLPostSpielortPayload,
-    FLPostSpielortResponse,
     FLSpielort,
-    FLSpielortWriteResponse,
+    FLSpielorteFilterParams,
+    FLSpielorteListResponse,
+    FLSpielorteSingleResponse,
+    FLSpielortListAdapter,
 )
 from app.api.spielorte.services import build_unplayed_booking_filter, find_venue_retire_refusal
 from app.core.config import API_VERSION
-from app.core.crud import insert_live, patch_many_in_db, patch_one_in_db, pull_many_from_db, refuse, set_inactive_since
+from app.core.crud import (
+    GERMAN_COLLATION,
+    build_query,
+    build_sort,
+    insert_live,
+    patch_many_in_db,
+    patch_one_in_db,
+    pull_many_from_db,
+    pull_one_from_db,
+    refuse,
+    set_inactive_since,
+)
 from app.core.dependencies import DBClient, SpieleCollection, SpielorteCollection, get_german_date_str
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
+from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.responses import FLCreatedResponse
 
+# Admin-guarded, not base. `default_mietpreis` is money (`READ-MONEY-001`) and the only field
+# withheld: `address` moves with it because no public page reads the parts, not to hide them --
+# `maps_link` publishes the address whole (`READ-ADDRESS-001`).
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielorte",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
+
+
+@router.get("", response_model=FLSpielorteListResponse, summary="List Spielorte")
+async def get_spielorte(
+    spielorte_collection: SpielorteCollection,
+    filters: FLSpielorteFilterParams = Depends(),
+) -> FLSpielorteListResponse:
+    """An admin-tier read: the rent is money (`READ-MONEY-001`) and the address parts serve no public page (`READ-ADDRESS-001`).
+
+    Deactivated venues stay retrievable for a historical match. `maps_link` is a Maps search string, not a URL.
+    """
+
+    # Empty `terms`: nothing here is matched by value -- `include_inactive` is translated, and
+    # the rest is paging and ordering.
+    db_filter = build_query(filters, terms=frozenset(), include_inactive=filters.include_inactive)
+    db_sort = build_sort(sort_by=filters.sort_by, order=filters.order)
+
+    spielorte_raw = await pull_many_from_db(
+        collection=spielorte_collection,
+        db_filter=db_filter,
+        limit=filters.limit,
+        sort_by=db_sort,
+        collation=GERMAN_COLLATION,
+    )
+    spielorte = FLSpielortListAdapter.validate_python(spielorte_raw)
+
+    return FLSpielorteListResponse(spielorte=spielorte)
+
+
+@router.get(by_id("spielort_id"), response_model=FLSpielorteSingleResponse, summary="One Spielort")
+async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: SpielorteCollection) -> FLSpielorteSingleResponse:
+    """Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`).
+
+    Deactivated ones included -- a historical match's venue is the case worth answering.
+    """
+
+    spielort_raw = await pull_one_from_db(collection=spielorte_collection, db_filter={"_id": spielort_id})
+
+    return FLSpielorteSingleResponse(spielort=FLSpielort(**spielort_raw))
 
 
 def _maps_link(name: str, address: FLAddress) -> str:
@@ -36,12 +92,12 @@ def _maps_link(name: str, address: FLAddress) -> str:
     return f"{name}, {address.to_string}, Deutschland"
 
 
-@router.post("", response_model=FLPostSpielortResponse, status_code=201, summary="Create a Spielort", responses={409: DUPLICATE_KEY_RESPONSE})
+@router.post("", response_model=FLCreatedResponse, status_code=201, summary="Create a Spielort")
 async def post_spielort(
     spielort_data: Annotated[FLPostSpielortPayload, Body()],
     spielorte_collection: SpielorteCollection,
     db: DBClient,
-) -> FLPostSpielortResponse:
+) -> FLCreatedResponse:
     """Create a venue. `maps_link` is built server-side from the name and address and must not be submitted."""
 
     async def enter_the_venue(session: AsyncClientSession) -> InsertOneResult:
@@ -57,8 +113,7 @@ async def post_spielort(
     async with transaction_session(db) as session:
         post_operation = await session.with_transaction(enter_the_venue)
 
-    return FLPostSpielortResponse(
-        acknowledged=1 if post_operation.acknowledged else 0,
+    return FLCreatedResponse(
         created_id=post_operation.inserted_id,
     )
 
@@ -67,7 +122,6 @@ async def post_spielort(
     by_id("spielort_id"),
     response_model=FLPatchSpielortResponse,
     summary="Update a Spielort and fan the change out",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_spielort(
     spielort_id: CustomRouteObjectId,
@@ -89,7 +143,8 @@ async def patch_spielort(
         updated_document_raw = await patch_one_in_db(
             collection=spielorte_collection,
             db_filter={"_id": spielort_id},
-            update={"$set": {**spielort_data.model_dump(mode="json"), "maps_link": maps_link}},
+            update={"$set": {**spielort_data.model_dump(mode="json", exclude={"version"}), "maps_link": maps_link}},
+            expected_version=spielort_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )
@@ -102,7 +157,7 @@ async def patch_spielort(
             session=session,
         )
 
-        return FLPatchSpielortResponse(updated_document=updated_document, fanned_out_to_spiele=fan_out.modified_count)
+        return FLPatchSpielortResponse(fanned_out_to_spiele=fan_out.modified_count)
 
     # One transaction: a rename landing on the venue and not on its fixtures is the stale copy the
     # fan-out exists to prevent. `with_transaction` over a bare `start_transaction` -- the callback
@@ -113,9 +168,8 @@ async def patch_spielort(
 
 @router.delete(
     by_id("spielort_id"),
-    response_model=FLSpielortWriteResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Deactivate a Spielort (soft delete)",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def delete_spielort(
     spielort_id: CustomRouteObjectId,
@@ -123,12 +177,12 @@ async def delete_spielort(
     spiele_collection: SpieleCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> FLSpielortWriteResponse:
+) -> None:
     """
     Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.
 
     Matches embed a copy, so a hard delete would orphan every historical match that used it. Refused
-    while an unplayed fixture is still booked here (`REQ-RETIRE-003`).
+    while an unplayed fixture is still booked here (`spielort_still_booked`).
     """
 
     async def retire_the_venue(session: AsyncClientSession) -> Mapping[str, Any]:
@@ -148,28 +202,23 @@ async def delete_spielort(
     # conflicts on the venue it anchors rather than landing unseen
     # (`app/api/spiele/crud.py :: anchor_a_booked_venue`).
     async with transaction_session(db) as session:
-        updated_document_raw = await session.with_transaction(retire_the_venue)
-
-    return FLSpielortWriteResponse(updated_document=FLSpielort(**updated_document_raw))
+        await session.with_transaction(retire_the_venue)
 
 
 @router.post(
     f"{by_id('spielort_id')}/reactivate",
-    response_model=FLSpielortWriteResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Bring a deactivated Spielort back",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def reactivate_spielort(
     spielort_id: CustomRouteObjectId,
     spielorte_collection: SpielorteCollection,
     db: DBClient,
-) -> FLSpielortWriteResponse:
+) -> None:
     """Clear `inactive_since`, putting the venue back into the picker and every default read."""
 
     async def bring_the_venue_back(session: AsyncClientSession) -> Mapping[str, Any]:
         return await set_inactive_since(collection=spielorte_collection, db_filter={"_id": spielort_id}, when=None, session=session)
 
     async with transaction_session(db) as session:
-        updated_document_raw = await session.with_transaction(bring_the_venue_back)
-
-    return FLSpielortWriteResponse(updated_document=FLSpielort(**updated_document_raw))
+        await session.with_transaction(bring_the_venue_back)

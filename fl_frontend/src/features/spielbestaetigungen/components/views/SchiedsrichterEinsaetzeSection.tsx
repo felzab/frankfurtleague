@@ -50,7 +50,7 @@ import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLSpielbestaetigungSchiedsrichterZustand, FLSpielbestaetigungSelbst } from "@/features/spielbestaetigungen/schemas";
+import type { FLSpielbestaetigungSelf, FLSpielbestaetigungSelfState } from "@/core/generated/client/types";
 
 const EINSAETZE_LEER = "Du bist zurzeit für kein Spiel eingeteilt.";
 
@@ -62,11 +62,11 @@ const ZUSAGEN = "zusagen";
 const ABSAGEN = "absagen";
 
 /** What a spent row says in place of its controls. */
-const ERLEDIGT: Record<Exclude<FLSpielbestaetigungSchiedsrichterZustand, "gueltig">, { text: string; ton: "success" | "danger" | null }> = {
+const ERLEDIGT: Record<Exclude<FLSpielbestaetigungSelfState, "valid">, { text: string; ton: "success" | "danger" | null }> = {
   zugesagt: { text: "Zugesagt", ton: "success" },
-  abgelehnt: { text: "Abgesagt", ton: "danger" },
-  abgelaufen: { text: "Keine Antwort mehr möglich", ton: null },
-  ungueltig: { text: "Nicht mehr gültig: Termin oder Einteilung haben sich geändert", ton: null },
+  declined: { text: "Abgesagt", ton: "danger" },
+  expired: { text: "Keine Antwort mehr möglich", ton: null },
+  invalid: { text: "Nicht mehr gültig: Termin oder Einteilung haben sich geändert", ton: null },
   // The fixture's word as `SCHLIESSGRUND_LABELS` gives it, never „Abgesagt“ alone, which is the referee's own decline above.
   abgesagt: { text: "Spiel abgesagt", ton: "danger" },
 };
@@ -78,11 +78,11 @@ const EINGETRAGEN = { text: "Zusage von der Verwaltung eingetragen", ton: "succe
  * The Einteilung's mail leads here. Its own empty state stands beside the referee's data, and its heading stays when
  * the last open row is answered, so the focus has somewhere to land.
  */
-export function SchiedsrichterEinsaetzeSection({ einsaetze }: { einsaetze: readonly FLSpielbestaetigungSelbst[] }) {
+export function SchiedsrichterEinsaetzeSection({ einsaetze }: { einsaetze: readonly FLSpielbestaetigungSelf[] }) {
   const panel = formPanel();
   // Split as the read ordered them, which judged the day: the ones to come first, then the past, the latest first.
-  const kommend = einsaetze.filter((einsatz) => !einsatz.vergangen);
-  const vergangen = einsaetze.filter((einsatz) => einsatz.vergangen);
+  const kommend = einsaetze.filter((einsatz) => !einsatz.past);
+  const vergangen = einsaetze.filter((einsatz) => einsatz.past);
 
   return (
     <section
@@ -145,7 +145,7 @@ export function SchiedsrichterEinsaetzeSection({ einsaetze }: { einsaetze: reado
 }
 
 /** One row's card. Its own component so each card holds its own reason draft and pending press. */
-function EinsatzKarte({ einsatz }: { einsatz: FLSpielbestaetigungSelbst }) {
+function EinsatzKarte({ einsatz }: { einsatz: FLSpielbestaetigungSelf }) {
   const { ansetzung } = einsatz;
   const paarung = `${ansetzung.team1_name} gegen ${ansetzung.team2_name}`;
   const datum = formatSpielDatum(ansetzung.datum);
@@ -156,16 +156,16 @@ function EinsatzKarte({ einsatz }: { einsatz: FLSpielbestaetigungSelbst }) {
       {...focusRow(einsatz.id)}>
       <div className="flex flex-col gap-y-2">
         <p className="fluid-sm font-bold text-pretty text-foreground">{paarung}</p>
-        {einsatz.zustand !== "gueltig" && <Erledigt einsatz={einsatz} />}
+        {einsatz.state !== "valid" && <Erledigt einsatz={einsatz} />}
       </div>
 
       <dl className={FIELD_PAIR_CLASSES}>
         <Angabe label="Termin">{terminText(ansetzung)}</Angabe>
         <Angabe label="Ort">{ansetzung.spielort?.name ?? <Leer />}</Angabe>
-        {einsatz.zustand === "abgelehnt" && <Angabe label="Begründung">{einsatz.begruendung ?? <Leer />}</Angabe>}
+        {einsatz.state === "declined" && <Angabe label="Begründung">{einsatz.begruendung ?? <Leer />}</Angabe>}
       </dl>
 
-      {einsatz.zustand === "gueltig" && (
+      {einsatz.state === "valid" && (
         <Antwort
           spielbestaetigungId={einsatz.id}
           // The words first, which speech input says, then what tells the rows' controls apart (WCAG 2.5.3).
@@ -176,9 +176,9 @@ function EinsatzKarte({ einsatz }: { einsatz: FLSpielbestaetigungSelbst }) {
   );
 }
 
-function Erledigt({ einsatz }: { einsatz: FLSpielbestaetigungSelbst }) {
-  if (einsatz.zustand === "gueltig") return null;
-  const { text, ton } = einsatz.zustand === "zugesagt" && einsatz.eingetragen ? EINGETRAGEN : ERLEDIGT[einsatz.zustand];
+function Erledigt({ einsatz }: { einsatz: FLSpielbestaetigungSelf }) {
+  if (einsatz.state === "valid") return null;
+  const { text, ton } = einsatz.state === "zugesagt" && einsatz.entered ? EINGETRAGEN : ERLEDIGT[einsatz.state];
 
   return ton === null ? <Leer>{text}</Leer> : <span className={`${labelBadge(ton)} w-fit`}>{text}</span>;
 }

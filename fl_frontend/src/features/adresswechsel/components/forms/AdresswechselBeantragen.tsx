@@ -30,7 +30,7 @@ import { useStepUp } from "@/shared/hooks/useStepUp";
 import { LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
-import { meldeAdresswechselVersand } from "@/shared/utils/linkVersandToast";
+import { reportAddressChangeDispatch } from "@/shared/utils/linkDispatchToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -166,7 +166,8 @@ export function AdresswechselBeantragen({
 
     landing.landed();
     onGeschrieben();
-    meldeAdresswechselVersand(res, res.message);
+    // The start owed its mails, which leave behind the answer: whether each arrives is the change's own read.
+    reportAddressChangeDispatch(res.link, res.message);
   };
 
   // A refusal is kept with the value it was about and retracted by a keystroke away from it.

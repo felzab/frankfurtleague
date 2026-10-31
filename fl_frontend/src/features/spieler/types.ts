@@ -1,28 +1,5 @@
-import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
-import type {
-  FLPatchSaisonSpielerPayload,
-  FLPatchSpielerPayload,
-  FLPostSaisonSpielerPayload,
-  FLSpielerPosition,
-  FLSpielerRolle,
-  FLSpielerStufe,
-} from "./schemas";
-
-/** Mirrors `FLSpielerSortOptions`: every option is a field the base tier serves, and it serves neither `nachname` whole nor `stufe` at all. */
-type FLSpielerSortingOptions = "vorname" | "nummer" | "position";
-
-/**
- * A `team_id` without a `saison_id` reads the running season, and 404s while none is active; naming
- * neither lists every season the base tier is not withheld from.
- */
-export type FLSpielerFilterParams = {
-  team_id?: string;
-  saison_id?: string;
-
-  limit?: number;
-  sort_by?: FLSpielerSortingOptions;
-  order?: "asc" | "desc";
-};
+import type { FLAddressChangeViewableDenied, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
+import type { FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload } from "./schemas";
 
 /** The person half as the editor sends it: a cleared date picker submits `null`, which the schema refuses as a field error. */
 export type SpielerPersonPayloadDraft = Omit<FLPatchSpielerPayload, "geburtsdatum"> & {
@@ -75,7 +52,7 @@ export type SpielerSaisonMembership = {
   saisonId: string;
   saisonStatus: "past" | "active" | "future";
   membership: SpielerSquadFields | null;
-  /** `rules.erlaubte_stufen` — the only levels this season's picker offers, beside "Keine Angabe". */
+  /** `rules.allowed_stufen` — the only levels this season's picker offers, beside "Keine Angabe". */
   erlaubteStufen: FLSpielerStufe[];
   /**
    * The backend's verdict, never the season's status: an active season whose matchday 1 is undated or
@@ -100,7 +77,7 @@ export type AdminSpielerStored = {
   email: string;
   adresswechsel_id: string | null;
   /** Why the address tool refuses this administrator that change, as the read serves it: the editor then links nowhere. */
-  adresswechsel_einsehbar_verwehrt: EinsehbarVerwehrt | null;
+  adresswechsel_einsehbar_verwehrt: FLAddressChangeViewableDenied | null;
 };
 
 /** Where a retired squad row's return to the club it names stands; the editor and the list each word a refusal for their own reader. */
@@ -121,14 +98,14 @@ export type SpielerTeamOption = {
   /**
    * **Absent means UNKNOWN and refuses nothing**, the opposite default to `heldRollen`: a write the
    * endpoint may take stays on offer. Set, this team is at the season's `max_kadergroesse` bar the
-   * edited player's own row (`REQ-SQUAD-003`).
+   * edited player's own row (`kader_full`).
    */
   isSquadFull?: boolean;
 };
 
 /**
  * One row of the admin player list: EVERY player across every season, carrying the selected season's
- * squad row where one exists. Assembled from `GET /spieler/memberships`.
+ * squad row where one exists. Assembled from `GET /spieler/saisons`.
  */
 export type AdminSpielerRow = {
   id: string;

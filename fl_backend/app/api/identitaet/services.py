@@ -5,8 +5,6 @@ Here rather than in `crud.py`, which opens collections: a services module decide
 arguments, so a judgement left beside a handle is one that can grow a read of its own.
 """
 
-import re
-import unicodedata
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from http import HTTPStatus
@@ -14,23 +12,22 @@ from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
 
-from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt, FLVerwaltung
-from app.api.berechtigungen.services import OWNER, holds_an_owners_power, lebendige, verwaltung_des
+from app.api.berechtigungen.services import OWNER, holds_an_owners_power, verwaltung_des
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
-from app.api.identitaet.schemas import FLErasureAnsicht, FLSelbstErasureAnsicht, FLSubjekt, FLSubjektSitz
+from app.api.identitaet.schemas import FLKontoLoeschungAnsicht, FLLoeschungAnsicht, FLSubjectSeat, FLSubjekt
 from app.api.kontakte.services import rows_seating
-from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_erasure_registrierung_filter
-from app.api.saisons.schemas import FLSaisonStatus
+from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_loeschung_registrierung_filter
 from app.api.schiedsrichter.services import (
-    build_selbst_referee_filter,
+    build_self_referee_filter,
     build_unplayed_assignment_filter,
 )
-from app.api.spieler.services import build_real_spieler_filter, build_selbst_pupil_filter
-from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.api.spieler.services import build_self_pupil_filter
+from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.folding import composed_name, is_stored_identifier, sign_in_identifier
+from app.shared.folding import sign_in_identifier
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeViewableDenied, FLSaisonStatus, FLVerwaltung
 
 # --- The SELECTIONS, each shared with its record's own person-tier reads rather than spelled again.
 # Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen.
@@ -49,7 +46,7 @@ def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "team_id": 1,
                 "name": 1,
                 "austritt": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung.bestaetigt_am")},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung.confirmed_at")},
             }
         },
         # Ordered in the read rather than by the reader: two clubs' seats held by one inbox are
@@ -62,8 +59,8 @@ def build_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """The stored address rides along so `folds_to` can judge it, and the stamp so the confirmation can; nothing else of the person does."""
 
     return [
-        {"$match": build_selbst_referee_filter(identifier)},
-        {"$project": {"kontakt.email": 1, "einwilligung.bestaetigt_am": 1, "inactive_since": 1}},
+        {"$match": build_self_referee_filter(identifier)},
+        {"$project": {"kontakt.email": 1, "einwilligung.confirmed_at": 1, "inactive_since": 1}},
         {"$sort": {"_id": 1}},
     ]
 
@@ -72,13 +69,13 @@ def build_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 # preview and the erasure name one set and the narrowing above takes nothing out of either.
 
 # What a seat is named by in the preview, beside the address the fold judges it on.
-ERASURE_SEAT_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
+LOESCHUNG_SEAT_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
 
 
-def build_erasure_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+def build_loeschung_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every season row or application one of whose seats names the address, whatever its status.
 
-    `bestaetigungen` rides along whole: the clearing nulls a seat's bookkeeping only where the block
+    `confirmations` rides along whole: the clearing nulls a seat's bookkeeping only where the block
     exists (`app/api/kontakte/services.py :: build_clearing_update`).
     """
 
@@ -90,29 +87,29 @@ def build_erasure_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 # A season row's team, which the administrator's reveal links each seat to.
                 "team_id": 1,
                 "name": 1,
-                "bestaetigungen": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ERASURE_SEAT_FIELDS},
+                "confirmations": 1,
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in LOESCHUNG_SEAT_FIELDS},
             }
         },
         {"$sort": {"saison_id": 1, "_id": 1}},
     ]
 
 
-def build_erasure_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+def build_loeschung_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     return [
-        {"$match": build_selbst_referee_filter(identifier)},
+        {"$match": build_self_referee_filter(identifier)},
         {"$project": {"name": 1, "kontakt.email": 1, "inactive_since": 1}},
         {"$sort": {"_id": 1}},
     ]
 
 
-def build_erasure_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    return [{"$match": build_selbst_pupil_filter(identifier)}, {"$project": {"vorname": 1, "nachname": 1}}, {"$sort": {"_id": 1}}]
+def build_loeschung_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+    return [{"$match": build_self_pupil_filter(identifier)}, {"$project": {"vorname": 1, "nachname": 1}}, {"$sort": {"_id": 1}}]
 
 
-def build_erasure_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+def build_loeschung_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     return [
-        {"$match": build_erasure_registrierung_filter(identifier)},
+        {"$match": build_loeschung_registrierung_filter(identifier)},
         {"$project": {"saison_id": 1, "team_id": 1, "status": 1, "email": 1, "vorname": 1, "nachname": 1}},
         {"$sort": {"saison_id": 1, "_id": 1}},
     ]
@@ -141,7 +138,7 @@ def pupil_address(row: Mapping[str, Any]) -> Any:
 
 
 def build_unplayed_saison_pipeline(schiedsrichter_ids: Iterable[Any]) -> list[Mapping[str, Any]]:
-    """Each season holding a fixture still to be played that one of these referees is booked on, by `REQ-RETIRE-004`'s own filter."""
+    """Each season with a fixture still to be played that one of these referees is booked on, by `schiedsrichter_still_assigned`'s filter."""
 
     return [
         {"$match": build_unplayed_assignment_filter({"$in": list(schiedsrichter_ids)})},
@@ -151,7 +148,7 @@ def build_unplayed_saison_pipeline(schiedsrichter_ids: Iterable[Any]) -> list[Ma
     ]
 
 
-def build_erasure_kader_pipeline(spieler_ids: Iterable[Any]) -> list[Mapping[str, Any]]:
+def build_loeschung_kader_pipeline(spieler_ids: Iterable[Any]) -> list[Mapping[str, Any]]:
     """Every squad row of these pupils, a retired one included, as the pupil's step selects what it removes."""
 
     return [
@@ -201,7 +198,7 @@ def _kader_entry(row: Mapping[str, Any], team_names: Mapping[tuple[Any, Any], An
     }
 
 
-def compose_erasure_ansicht(
+def compose_loeschung_ansicht(
     identifier: str,
     *,
     saison_team_rows: Sequence[Mapping[str, Any]],
@@ -211,24 +208,24 @@ def compose_erasure_ansicht(
     registrierung_rows: Sequence[Mapping[str, Any]],
     adresswechsel_rows: Sequence[Mapping[str, Any]],
     team_rows: Sequence[Mapping[str, Any]],
-) -> FLSelbstErasureAnsicht:
+) -> FLKontoLoeschungAnsicht:
     """The preview, from the rows the erasure's own subject read holds; no address and no birthdate reaches it."""
 
     team_names = _team_names(team_rows)
 
-    return FLSelbstErasureAnsicht.model_validate(
+    return FLKontoLoeschungAnsicht.model_validate(
         {
             "spieler": [_pupil_entry(row) for row in pupil_rows],
             "schiedsrichter": [_referee_entry(row) for row in referee_rows],
-            "sitze": [{**_seat_entry(row, slot), "team_name": row.get("name")} for row, slot in seats_naming(saison_team_rows, identifier)],
+            "seats": [{**_seat_entry(row, slot), "team_name": row.get("name")} for row, slot in seats_naming(saison_team_rows, identifier)],
             "bewerbungen": [_seat_entry(row, slot) for row, slot in seats_naming(bewerbung_rows, identifier)],
             "registrierungen": [_registrierung_entry(row, team_names) for row in registrierung_rows],
-            "adresswechsel": len(adresswechsel_rows),
+            "address_change": len(adresswechsel_rows),
         }
     )
 
 
-def compose_erasure_ansicht_auf_anfrage(
+def compose_loeschung_ansicht_auf_anfrage(
     identifier: str,
     *,
     saison_team_rows: Sequence[Mapping[str, Any]],
@@ -238,13 +235,13 @@ def compose_erasure_ansicht_auf_anfrage(
     registrierung_rows: Sequence[Mapping[str, Any]],
     adresswechsel_rows: Sequence[Mapping[str, Any]],
     # Each address the tool refuses this reader, and why; one absent opens.
-    verwehrt: Mapping[str, FLAdresswechselEinsehbarVerwehrt],
-    eigener_adresswechsel: Mapping[str, Any] | None,
+    denied: Mapping[str, FLAddressChangeViewableDenied],
+    own_address_change: Mapping[str, Any] | None,
     antrag_rows: Sequence[Mapping[str, Any]],
     kader_rows: Sequence[Mapping[str, Any]],
     team_rows: Sequence[Mapping[str, Any]],
     unplayed_rows: Sequence[Mapping[str, Any]],
-) -> FLErasureAnsicht:
+) -> FLLoeschungAnsicht:
     """The administrator's reveal, from the rows the erasure's own subject read holds, by the ids the page links each record by.
 
     The pending changes are named, never counted: the page links each row to the tool acting on it.
@@ -252,7 +249,7 @@ def compose_erasure_ansicht_auf_anfrage(
 
     team_names = _team_names(team_rows)
 
-    return FLErasureAnsicht.model_validate(
+    return FLLoeschungAnsicht.model_validate(
         {
             "spieler": [
                 {
@@ -267,13 +264,13 @@ def compose_erasure_ansicht_auf_anfrage(
                     **_referee_entry(row),
                     "schiedsrichter_id": row["_id"],
                     "inactive_since": row.get("inactive_since"),
-                    "spiele_ohne_ergebnis_saison_ids": [
+                    "spiele_without_ergebnis_saison_ids": [
                         unplayed["saison_id"] for unplayed in unplayed_rows if unplayed["schiedsrichter_id"] == row["_id"]
                     ],
                 }
                 for row in referee_rows
             ],
-            "sitze": [
+            "seats": [
                 {**_seat_entry(row, slot), "team_name": row.get("name"), "team_id": row["team_id"]}
                 for row, slot in seats_naming(saison_team_rows, identifier)
             ],
@@ -282,14 +279,14 @@ def compose_erasure_ansicht_auf_anfrage(
                 {**_registrierung_entry(row, team_names), "registrierung_id": row["_id"], "team_id": row["team_id"], "status": row["status"]}
                 for row in registrierung_rows
             ],
-            "adresswechsel": [
-                {"adresswechsel_id": row["_id"], "einsehbar_verwehrt": verwehrt.get(str(row.get("adresse")))} for row in adresswechsel_rows
+            "address_change": [
+                {"address_change_id": row["_id"], "viewable_denied": denied.get(str(row.get("adresse")))} for row in adresswechsel_rows
             ],
-            "eigener_adresswechsel": None if eigener_adresswechsel is None else {"adresswechsel_id": eigener_adresswechsel["_id"]},
-            "antraege": [
+            "own_address_change": None if own_address_change is None else {"address_change_id": own_address_change["_id"]},
+            "approval_requests": [
                 {
-                    "antrag_id": row["_id"],
-                    "verwaltung": row["genehmigung"]["verwaltung"],
+                    "approval_request_id": row["_id"],
+                    "verwaltung": row["approval"]["verwaltung"],
                     "rolle": "betroffen" if row["adresse"] == identifier else "gestellt",
                 }
                 for row in antrag_rows
@@ -302,8 +299,8 @@ def build_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Equality and no pattern: `spieler.email` stores the folded form."""
 
     return [
-        {"$match": build_selbst_pupil_filter(identifier)},
-        {"$project": {"einwilligung.bestaetigt_am": 1, "inactive_since": 1}},
+        {"$match": build_self_pupil_filter(identifier)},
+        {"$project": {"einwilligung.confirmed_at": 1, "inactive_since": 1}},
         {"$sort": {"_id": 1}},
     ]
 
@@ -313,7 +310,7 @@ def build_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": build_eigene_bewerbung_filter(identifier)},
-        {"$project": {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung.bestaetigt_am")}},
+        {"$project": {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung.confirmed_at")}},
     ]
 
 
@@ -449,12 +446,7 @@ def grants_a_panel(saison_status: FLSaisonStatus) -> bool:
     return saison_status in ("active", "future")
 
 
-# The first refusal every person endpoint on a team's panel raises: who the caller is, so a 403
-# rather than a 409, whatever the team's own state.
-FUNKTION_NICHT_GEHALTEN = "REQ-FUNKTION-001"
-
-
-def holds_a_seat(sitze: Iterable[FLSubjektSitz], *, team_id: ObjectId, saison_id: str) -> bool:
+def holds_a_seat(sitze: Iterable[FLSubjectSeat], *, team_id: ObjectId, saison_id: str) -> bool:
     """Whether any of these seats, already narrowed to a season granting a panel, sits on this team in this season.
 
     Any slot alike: the Trainer's seat admits to everything an Ansprechperson's does, so no slot is read here.
@@ -464,7 +456,7 @@ def holds_a_seat(sitze: Iterable[FLSubjektSitz], *, team_id: ObjectId, saison_id
 
 
 # The grant predicates, one per kind of own record: each consent PATCH grants by its record's, and each
-# read's `erteilbar` is that same predicate.
+# read's `givable` is that same predicate.
 
 
 def may_grant_on_spieler(subjekt: FLSubjekt, spieler_id: ObjectId) -> bool:
@@ -475,8 +467,8 @@ def may_grant_on_schiedsrichter(subjekt: FLSubjekt, schiedsrichter_id: ObjectId)
     return any(eintrag.schiedsrichter_id == schiedsrichter_id for eintrag in subjekt.schiedsrichter)
 
 
-def find_funktion_refusal(*, sitze: Iterable[FLSubjektSitz], team_id: ObjectId, saison_id: str) -> WriteRefusal | None:
-    """`REQ-FUNKTION-001`: the signed-in person holds no seat on this team in this season.
+def find_funktion_refusal(*, sitze: Iterable[FLSubjectSeat], team_id: ObjectId, saison_id: str) -> WriteRefusal | None:
+    """`role_not_held`: the signed-in person holds no seat on this team in this season.
 
     One answer for another team, another season and a `past` one, so the refusal tells a stranger
     nothing about which teams or seasons exist.
@@ -486,15 +478,9 @@ def find_funktion_refusal(*, sitze: Iterable[FLSubjektSitz], team_id: ObjectId, 
         return None
 
     return WriteRefusal(
-        error_code=FUNKTION_NICHT_GEHALTEN,
+        error_code=Code.ROLE_NOT_HELD,
         status=HTTPStatus.FORBIDDEN,
-        message="the signed-in person holds no seat on this team in this season, so its panel is not theirs to read or change",
     )
-
-
-# Refused rather than warned of: with no owner left nobody may make one or change a tier again, and only
-# a database paste could hand the administration on.
-LETZTER_INHABER_ERASURE = "REQ-PURGE-004"
 
 
 def holds_an_owner_grant(identifier: str, grants: Iterable[Mapping[str, Any]]) -> bool:
@@ -503,8 +489,10 @@ def holds_an_owner_grant(identifier: str, grants: Iterable[Mapping[str, Any]]) -
     return any(grant["adresse"] == identifier and grant["verwaltung"] == OWNER for grant in grants)
 
 
-def find_letzter_inhaber_erasure_refusal(*, identifier: str, grants: Iterable[Mapping[str, Any]], barred: Iterable[str]) -> WriteRefusal | None:
-    """`REQ-PURGE-004`: the address holding the last live, unbarred `owner` grant erases itself only once another holds one.
+def find_letzter_inhaber_loeschung_refusal(
+    *, identifier: str, grants: Iterable[Mapping[str, Any]], barred: Iterable[str]
+) -> WriteRefusal | None:
+    """`last_owner_erasure`: the address holding the last live, unbarred `owner` grant erases itself only once another holds one.
 
     `grants` are the live ones. A barred `owner` admits nobody, so it is no owner here, as for a demotion.
     """
@@ -514,48 +502,34 @@ def find_letzter_inhaber_erasure_refusal(*, identifier: str, grants: Iterable[Ma
         return None
 
     return WriteRefusal(
-        error_code=LETZTER_INHABER_ERASURE,
+        error_code=Code.LAST_OWNER_ERASURE,
         status=HTTPStatus.CONFLICT,
-        message="the administration keeps at least one owner; make another administrator an owner before erasing yourself",
     )
 
 
-# 403 and not 409, `REQ-BERECHTIGUNG-005`'s precedent: the refusal is about who asks. An administrator's
-# own records go through their account page, or through an owner (`REQ-PURGE-005`).
-EIGENE_ADRESSE = "REQ-PURGE-003"
-
-
 def ist_eigene_adresse(*, identifier: str, akteur: str) -> bool:
-    """`REQ-PURGE-003`'s judgement, both folded: the refusal raises on it, and a read serving whether the tool opens an address asks it."""
+    """`own_adresse`'s judgement, both folded: the refusal raises on it, and a read serving whether the tool opens an address asks it."""
 
     return identifier == akteur
 
 
 def find_eigene_adresse_refusal(*, identifier: str, akteur: str) -> WriteRefusal | None:
-    """`REQ-PURGE-003`: an administrator's route on a mailbox refuses the mailbox they act as, both folded."""
+    """`own_adresse`: an administrator's route on a mailbox refuses the mailbox they act as, both folded."""
 
     if not ist_eigene_adresse(identifier=identifier, akteur=akteur):
         return None
 
     return WriteRefusal(
-        error_code=EIGENE_ADRESSE,
+        error_code=Code.OWN_ADRESSE,
         status=HTTPStatus.FORBIDDEN,
-        message="an administrator does not act on their own address here; their own account page does, or an owner",
     )
 
 
-# 403 for who asks, as `REQ-PURGE-003`: without it an administrator ends another's grant, which a revoke
-# reserves to an owner (`REQ-BERECHTIGUNG-005`).
-VERWALTUNG_ADRESSE = "REQ-PURGE-005"
-
 # The erasure's and its reveal's: the one ends the grant, the other opens the holder's records.
-JEDE_VERWALTUNG: Final[frozenset[str]] = frozenset(get_args(FLVerwaltung))
+JEDE_VERWALTUNG: Final[frozenset[str]] = frozenset(get_args(FLVerwaltung.__value__))
 # The sign-out's: an ended session is repaired by signing in again, so only an owner's is held back.
 NUR_INHABER: Final[frozenset[str]] = frozenset({OWNER})
 
-# 403 for who asks, as `REQ-PURGE-005`: an erasure ends every change naming its address, and ending a grant holder's
-# change is a discard, which only an owner may make of it.
-FREMDER_ADRESSWECHSEL = "REQ-PURGE-007"
 
 # The tiers whose holder's pending change an erasure ends only for an actor holding an owner's power: every one, the set
 # the erasure's preview withholds from anyone else, as only an owner discards an administrator's change.
@@ -571,7 +545,7 @@ def verwaltung_adresse_verwehrt(
     announced: Sequence[Mapping[str, Any]],
     geschuetzt: frozenset[str],
 ) -> bool:
-    """`REQ-PURGE-005`'s judgement: the address holds a live grant of a `geschuetzt` tier and the actor no owner's power."""
+    """`verwaltung_adresse`'s judgement: the address holds a live grant of a `geschuetzt` tier and the actor no owner's power."""
 
     return verwaltung_des(identifier, grants) in geschuetzt and not holds_an_owners_power(
         akteur=akteur, auth_time=auth_time, grants=grants, announced=announced
@@ -587,7 +561,7 @@ def find_verwaltung_adresse_refusal(
     announced: Sequence[Mapping[str, Any]],
     geschuetzt: frozenset[str],
 ) -> WriteRefusal | None:
-    """`REQ-PURGE-005`: an address holding a live grant of a `geschuetzt` tier is acted on only by an actor holding an owner's power.
+    """`verwaltung_adresse`: an address holding a live grant of a `geschuetzt` tier is acted on only by an actor holding an owner's power.
 
     `grants` and `announced` as stored, read where the caller judges, so a retry judges them afresh.
     """
@@ -598,9 +572,8 @@ def find_verwaltung_adresse_refusal(
         return None
 
     return WriteRefusal(
-        error_code=VERWALTUNG_ADRESSE,
+        error_code=Code.VERWALTUNG_ADRESSE,
         status=HTTPStatus.FORBIDDEN,
-        message="this address holds access to the administration; only an owner, signed in since becoming one, acts on it here",
     )
 
 
@@ -612,9 +585,10 @@ def find_fremder_adresswechsel_refusal(
     grants: Sequence[Mapping[str, Any]],
     announced: Sequence[Mapping[str, Any]],
 ) -> WriteRefusal | None:
-    """`REQ-PURGE-007`: an erasure ends no pending change of an address holding an `ADRESSWECHSEL_GESCHUETZT` grant without an owner's power.
+    """`foreign_address_change`: without an owner's power, an erasure ends no pending change of an address holding a protected grant.
 
-    `adressen` are the changes' own addresses, never the one erased; the message names none of them.
+    A protected grant is one `ADRESSWECHSEL_GESCHUETZT` names. `adressen` are the changes' own addresses, never the one erased; the
+    message names none of them.
     """
 
     if not any(
@@ -626,173 +600,27 @@ def find_fremder_adresswechsel_refusal(
         return None
 
     return WriteRefusal(
-        error_code=FREMDER_ADRESSWECHSEL,
+        error_code=Code.FOREIGN_ADDRESS_CHANGE,
         status=HTTPStatus.FORBIDDEN,
-        message="erasing this address would end an administrator's pending address change, which only an owner ends",
     )
 
 
 def adresswechsel_einsehbar_verwehrt(
     identifier: str, *, akteur: str, auth_time: int, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
-) -> FLAdresswechselEinsehbarVerwehrt | None:
+) -> FLAddressChangeViewableDenied | None:
     """Why the address tool refuses this administrator this address's change, in the order it refuses; `None` where it opens it.
 
     Their judgements, never their finders: a finder's code is published only on the operations `RULES` names.
     """
 
     if ist_eigene_adresse(identifier=identifier, akteur=akteur):
-        return "eigene"
+        return "own"
     if verwaltung_adresse_verwehrt(
         identifier=identifier, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced, geschuetzt=JEDE_VERWALTUNG
     ):
         return "verwaltung"
 
     return None
-
-
-# 422 on the box, as the address the payload's own validator refuses there: the value typed is what is
-# refused, and the administrator rephrases it.
-NAME_IM_ANLASS = "REQ-PURGE-006"
-
-# The ban's reason, by the same matcher and on its own box. Here rather than beside the
-# ban's other codes: `app/api/sperrliste/services.py` is imported by a module this one imports.
-NAME_IM_GRUND = "REQ-SPERRLISTE-004"
-
-# Exempt only before a later word of their field that is not one: alone, „der“ or „von“ would refuse most German
-# sentences, and a surname such as a referee's „Le“ ends its field.
-NAME_PARTICLES: frozenset[str] = frozenset(
-    {"von", "vom", "van", "der", "den", "de", "zu", "zur", "zum", "di", "da", "du", "la", "le", "ten", "ter", "dos"}
-)
-
-# Letters alone, never `\w`, which takes a digit and `_` into a word: no stored name holds either, so each ends one, and
-# „Müller2“ and „Löschung_Müller“ name „Müller“.
-_LETTERS = re.compile(r"[^\W\d_]+")
-_NO_LETTER_BEFORE, _NO_LETTER_AFTER = r"(?<![^\W\d_])", r"(?![^\W\d_])"
-
-# German writes a name's genitive, and a family's plural, with a bare s, „Annas“ and „Müllers“; a name ending in one
-# of these takes an apostrophe, which already ends the word.
-_ENDS_GENITIVE_FREE = ("s", "x", "z", "ß")
-# Shorter, „da“ and „de“ would refuse „das“ and „des“.
-_GENITIVE_FLOOR = 3
-
-
-def _named_words(whole: str) -> list[str]:
-    """`whole`'s words, a particle followed by a later word of its own that is not a particle excepted.
-
-    „Anna von der Heide“ names neither „von“ nor „der“ alone; „Thi Mai Le“ names „Le“.
-    """
-
-    words = _LETTERS.findall(whole)
-
-    return [
-        word
-        for index, word in enumerate(words)
-        if word.lower() not in NAME_PARTICLES or all(later.lower() in NAME_PARTICLES for later in words[index + 1 :])
-    ]
-
-
-def eigene_namen(
-    identifier: str,
-    *,
-    saison_team_rows: Sequence[Mapping[str, Any]],
-    bewerbung_rows: Sequence[Mapping[str, Any]],
-    referee_rows: Iterable[Mapping[str, Any]],
-    pupil_rows: Iterable[Mapping[str, Any]],
-    registrierung_rows: Iterable[Mapping[str, Any]],
-) -> frozenset[str]:
-    """Every name the person's own records hold, as the reveal names each: each field whole and each of its words (`_named_words`).
-
-    Capitals kept: a lowered „ẞ“ yields „SS“ in upper case, never its own „ẞ“, which `holds_a_name` compares.
-    """
-
-    fields = [
-        *(_pupil_entry(row)[part] for row in pupil_rows for part in ("vorname", "nachname")),
-        *(
-            _seat_entry(row, slot)[part]
-            for row, slot in seats_naming([*saison_team_rows, *bewerbung_rows], identifier)
-            for part in ("vorname", "nachname")
-        ),
-        *(row.get(part) for row in registrierung_rows for part in ("vorname", "nachname")),
-        *(_referee_entry(row)["name"] for row in referee_rows),
-    ]
-
-    return namen_aus(fields)
-
-
-def namen_aus(fields: Iterable[Any]) -> frozenset[str]:
-    """Every name these stored name fields hold: each field whole and each of its words (`_named_words`), for `holds_a_name`.
-
-    The one rule for every record whose free text refuses its people's names, whichever records it gathers the fields from.
-    """
-
-    wholes = {composed_name(field) for field in fields}
-    names = wholes | {word for whole in wholes for word in _named_words(whole)}
-
-    # Without the empty name of an absent field, which would stand as a whole word everywhere, and without one letter, an
-    # initial or the O' of an elision, which identifies nobody and would refuse „i. A.“.
-    return frozenset(name for name in names if len(name) > 1)
-
-
-def holds_a_name(text: str, names: Iterable[str]) -> bool:
-    """Whether a name of `names` stands in `text` as a whole word or words, or before a genitive s.
-
-    Equal in plain lower or plain upper case and no other spelling: „Weiss“ names „Weiß“, „Mueller“ nobody.
-    """
-
-    # Unicode's format characters (category Cf) go here alone, never from what is stored: a soft hyphen or a zero-width
-    # space pasted from a mail's subject splits a name, and `composed_name` keeps both.
-    composed = composed_name("".join(char for char in text if unicodedata.category(char) != "Cf"))
-
-    def stands_in(name: str) -> bool:
-        genitive = len(name) >= _GENITIVE_FLOOR and not name.lower().endswith(_ENDS_GENITIVE_FREE)
-
-        # Never `re.IGNORECASE`, which matches one character to one and so never „WEISS“ to „Weiß“: each case form is
-        # searched in the text cased the same way.
-        for cased in (str.lower, str.upper):
-            suffix = f"{cased('s')}?" if genitive else ""
-            if re.search(f"{_NO_LETTER_BEFORE}{re.escape(cased(name))}{suffix}{_NO_LETTER_AFTER}", cased(composed)):
-                return True
-
-        return False
-
-    return any(stands_in(name) for name in names)
-
-
-def find_name_im_anlass_refusal(*, anlass: str, names: Iterable[str]) -> WriteRefusal | None:
-    """`REQ-PURGE-006`: no name of the person's own records stands in the request the erasure answers (`holds_a_name`).
-
-    A common word equal to a name is refused with it, and the administrator rephrases.
-    """
-
-    if not holds_a_name(anlass, names):
-        return None
-
-    # Naming none of them: the message reaches the refusal's log line.
-    return WriteRefusal(
-        error_code=NAME_IM_ANLASS,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        message="the request this erasure answers names the person, and every log row the erasure files would keep that name for a year",
-        fields=(("anlass",),),
-    )
-
-
-def find_name_im_grund_refusal(*, grund: str, names: Iterable[str]) -> WriteRefusal | None:
-    """`REQ-SPERRLISTE-004`: no name of the records the address holds stands in the ban's reason (`holds_a_name`).
-
-    The reason is served, mailed to the address and kept past the person's erasure. A common word equal to a name is
-    refused with it.
-    """
-
-    if not holds_a_name(grund, names):
-        return None
-
-    # Naming none of them, as the erasure's own: the message reaches the refusal's log line.
-    return WriteRefusal(
-        error_code=NAME_IM_GRUND,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        message="the reason for this ban names a person the address's records hold, and the ban keeps it past that person's erasure",
-        fields=(("grund",),),
-    )
 
 
 # --- The REFERENCES: wider than the own records and than the sign-in gate alike.
@@ -818,16 +646,16 @@ def build_referee_references_pipeline(identifiers: Iterable[str]) -> list[Mappin
     """Retired rows too: a retired referee's account signs in to take back a consent."""
 
     return [
-        {"$match": build_selbst_referee_filter(*identifiers)},
+        {"$match": build_self_referee_filter(*identifiers)},
         {"$project": {"kontakt.email": 1}},
     ]
 
 
 def build_pupil_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
-    """`build_selbst_pupil_filter`'s equality over a batch, its `$type` term the unique index's partial filter, which `$in` does not imply."""
+    """`build_self_pupil_filter`'s equality over a batch, its `$type` term the unique index's partial filter, which `$in` does not imply."""
 
     return [
-        {"$match": {"email": {"$in": sorted(set(identifiers)), "$type": "string"}, **build_real_spieler_filter()}},
+        {"$match": {"email": {"$in": sorted(set(identifiers)), "$type": "string"}}},
         {"$project": {"email": 1}},
     ]
 
@@ -862,8 +690,8 @@ def referenced_addresses(
         # own fold: the set holds every address a record names, so a row read for another mailbox adds its own.
         *(row.get("email") for row in registrierung_rows if ist_eigene_registrierung(row, folded(row.get("email")) or "")),
         *(row.get("adresse") for row in grant_rows),
-        # An effect's notice owing its account's carry: swept before its drain, the account and its passkeys are gone.
-        *(row.get("bisherige_email") for row in carry_rows),
+        # An effect owing its account's carry: swept before it is carried, the account and its passkeys are gone.
+        *(row["move"]["von"] for row in carry_rows),
     )
 
     return frozenset(address for address in map(folded, stored) if address is not None)
@@ -875,22 +703,15 @@ def unreferenced(identifiers: Iterable[str], *, referenced: Collection[str]) -> 
     return list(dict.fromkeys(identifier for identifier in identifiers if sign_in_identifier(identifier) not in referenced))
 
 
-# Refused rather than answered: a league always holds a live `owner`,
-# so grants holding none were read from an empty or foreign database, which would answer every address
-# unreferenced.
-KEIN_INHABER = "REQ-REFERENZEN-001"
-
-
 def find_kein_inhaber_refusal(grant_rows: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
-    """`REQ-REFERENZEN-001`: no live grant is an `owner`'s, live as every reader of a grant reads one."""
+    """`no_owner`: no live grant is an `owner`'s, live as every reader of a grant reads one."""
 
-    if any(grant.get("verwaltung") == OWNER for grant in lebendige(grant_rows)):
+    if any(grant.get("verwaltung") == OWNER for grant in grant_rows):
         return None
 
     return WriteRefusal(
-        error_code=KEIN_INHABER,
+        error_code=Code.NO_OWNER,
         status=HTTPStatus.CONFLICT,
-        message="the grants hold no live owner, so the database read is not the league's and no address is judged unreferenced",
     )
 
 
@@ -951,19 +772,18 @@ def loeschung_faellig(*, email: Any, kader_saison_ids: Iterable[str], offene: Ab
     A retired squad row keeps its pupil as a live one does: removing a player retires the row.
     """
 
-    # Folding a hand-typed address instead would erase by a spelling the stored row does not hold, and remove nobody.
-    return behalten is not None and is_stored_identifier(email) and email not in offene and behalten.isdisjoint(kader_saison_ids)
+    return behalten is not None and isinstance(email, str) and email not in offene and behalten.isdisjoint(kader_saison_ids)
 
 
 def build_loeschung_pipeline(*, behalten: frozenset[str], offene: AbstractSet[str]) -> list[Mapping[str, Any]]:
-    """Every due pupil's id and address: `loeschung_faellig` as one read, its stored-address test excepted, which no stage spells.
+    """Every due pupil's id and address: `loeschung_faellig` as one read.
 
     An addressless pupil is never read: the registry erases by address.
     """
 
     return [
-        # The sentinel twice, by id and by holding no address: either term alone keeps it out.
-        {"$match": build_real_spieler_filter({"email": {"$type": "string", "$nin": sorted(offene)}})},
+        # The sentinel holds no address, so the `$type` term keeps it out.
+        {"$match": {"email": {"$type": "string", "$nin": sorted(offene)}}},
         {
             "$lookup": {
                 "from": DbCollection.SAISON_SPIELER,
@@ -994,9 +814,3 @@ def build_loeschung_seite_pipeline(
 
 def build_loeschung_anzahl_pipeline(*, behalten: frozenset[str], offene: AbstractSet[str]) -> list[Mapping[str, Any]]:
     return [*build_loeschung_pipeline(behalten=behalten, offene=offene), {"$count": "anzahl"}]
-
-
-def ohne_passende_adresse(rows: Iterable[Mapping[str, Any]]) -> list[Any]:
-    """The ids among `rows` whose stored address no request matches (`app/shared/folding.py :: is_stored_identifier`)."""
-
-    return [row["_id"] for row in rows if not is_stored_identifier(row.get("email"))]

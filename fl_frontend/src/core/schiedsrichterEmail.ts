@@ -1,26 +1,12 @@
 import "server-only";
 
-import { KONTAKT_EMAIL } from "./brand";
-import {
-  ANTWORT_SATZ_HTML,
-  ANTWORT_SATZ_TEXT,
-  art21Satz,
-  ASIDE_TEXT,
-  BRAND_NAME,
-  einzeilig,
-  escapeHtml,
-  FALLBACK_SATZ,
-  fallbackBloecke,
-  link,
-  mailOrigin,
-  paragraph,
-  renderKarte,
-  strong,
-  stuffSignatureDelimiter,
-  textFooter,
-} from "./emailShell";
+import { BRAND_NAME, mailOrigin } from "./emailShell";
+import { formatDatum } from "./format";
 
-import type { Aktion } from "./emailShell";
+import type { Mail } from "./emailShell";
+import type { CalendarDay } from "./format";
+import type { FLSchiedsrichterConfirmationData } from "./generated/client/types";
+import type { MailLink } from "./mailKinds";
 
 /** A segment of its own rather than a query on a shared page, so the sitemap and `robots.ts` answer it by name. */
 const SCHIEDSRICHTER_BESTAETIGUNG_PATH = "/bestaetigung/schiedsrichter";
@@ -30,109 +16,43 @@ const SCHIEDSRICHTER_BESTAETIGUNG_PATH = "/bestaetigung/schiedsrichter";
  * `nginx/shared/http.conf :: $credential_free_uri` matches that name; a second spelling reaches the access
  * line and the referer unredacted.
  */
-export function schiedsrichterBestaetigungsLink(origin: string, token: string): string {
+function schiedsrichterBestaetigungsLink(origin: string, token: string): string {
   return `${origin}${SCHIEDSRICHTER_BESTAETIGUNG_PATH}?token=${encodeURIComponent(token)}`;
 }
 
-const UEBERSCHRIFT = "Dein Eintrag als Schiedsrichterin oder Schiedsrichter";
-
-/**
- * For the reader who never agreed to officiate: an administrator typed this address. What ignoring
- * costs differs from every application message — the entry survives the deadline, and only the
- * publication waits on the press.
- */
-const ignorierSatz = (kontakt: string): string =>
-  `Du weißt nichts von einem Eintrag bei der ${BRAND_NAME}? Dann ignoriere diese E-Mail einfach: Ohne Deine Bestätigung erscheint Dein Name nirgends auf der Website. Sollen wir den Eintrag löschen, schreib uns an ${kontakt}.`;
-
-/** Named per message, as every application close is: a sentence saying who else read this has to be true of it. */
-const EMPFAENGER_SATZ = "Diese E-Mail geht nur an Dich.";
-
-export type SchiedsrichterEmail = { subject: string; html: string; text: string };
-
 // No name: an administrator typed this address and nobody has confirmed it, so behind a typo its
-// reader is a stranger, owed none.
-/** What one referee is asked to confirm. No season: a referee's entry is bound to none, so the deadline is the only date here. */
-export interface SchiedsrichterBestaetigungData {
-  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`. */
-  origin: string;
-  /** The raw token. It is a bearer credential and is never taken apart here. */
-  token: string;
-  /**
-   * The deadline as a German date, rendered by the caller for the reason
-   * `fl_frontend/src/core/bewerbungEmail.ts :: BewerbungBestaetigungData` gives:
-   * `fl_frontend/src/shared/utils/format.ts :: formatSpielDatum` sits in a layer `core` may not reach.
-   */
-  fristText: string;
-}
-
+// reader is a stranger, owed none. No season: a referee's entry is bound to none, so the deadline is
+// the only date here.
 /**
- * One control, as the sign-in message carries one: the message exists for this link alone, and a
- * second destination beside it competes with the one press a reader came for.
+ * What one referee is asked to confirm, from the facts the Postausgang row holds and the link its hand-out minted.
+ * `origin` is the serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`; `token` is a bearer credential and
+ * is never taken apart here.
  */
-function aktionen(url: string): readonly Aktion[] {
-  return [{ href: url, label: "Eintrag bestätigen", ton: "primary" }];
-}
-
-function renderHtml(url: string, frist: string, origin: string): string {
-  return renderKarte({
-    titel: `${BRAND_NAME}: ${UEBERSCHRIFT}`,
-    ueberschrift: escapeHtml(UEBERSCHRIFT),
-    bloecke: [
-      paragraph(
-        `Hallo, die Verwaltung der ${BRAND_NAME} hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen. ${strong("Bitte bestätige, dass das stimmt")}: Erst danach kannst Du auf der Website Ansetzungen annehmen und Spielberichte einreichen.`,
-      ),
-      // Both answers are named before the press: a reader who came to confirm an entry and meets a
-      // publication choice was asked something the message did not say.
-      paragraph(
-        `Auf der Seite trägst Du Dein Geburtsdatum ein und entscheidest, was im Spielplan von Deinem Namen zu sehen ist. Der Link ist bis zum ${strong(escapeHtml(frist))} gültig und funktioniert nur einmal. Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen.`,
-      ),
-      // The address as a marked link: one a reader has to select and paste is not a route.
-      paragraph(art21Satz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL), { zweck: "für den Spielbetrieb" })),
-      ...fallbackBloecke([{ label: "", url: url }], FALLBACK_SATZ),
-      // The address as a marked link here too: the escape route is one a reader has to select and paste otherwise.
-      paragraph(ignorierSatz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0", ASIDE_TEXT),
-    ],
-    aktionen: aktionen(url),
-    fuss: `${EMPFAENGER_SATZ} ${ANTWORT_SATZ_HTML}`,
-    origin: origin,
-  });
-}
-
-function renderText(url: string, frist: string, origin: string): string {
-  const oben = [
-    `${BRAND_NAME}: ${UEBERSCHRIFT}`,
-    "",
-    `Hallo, die Verwaltung der ${BRAND_NAME} hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen.`,
-    "Bitte bestätige, dass das stimmt: Erst danach kannst Du auf der Website Ansetzungen annehmen und Spielberichte einreichen.",
-    "",
-    "Auf der Seite trägst Du Dein Geburtsdatum ein und entscheidest, was im Spielplan von Deinem Namen zu sehen ist.",
-    `Der Link ist bis zum ${frist} gültig und funktioniert nur einmal.`,
-    "Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen.",
-    "",
-    art21Satz(KONTAKT_EMAIL, { zweck: "für den Spielbetrieb" }),
-    "",
-    url,
-    "",
-    ignorierSatz(KONTAKT_EMAIL),
-  ];
-
-  return [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(origin, [EMPFAENGER_SATZ, ANTWORT_SATZ_TEXT])].join("\n");
-}
-
-/**
- * **The two parts state the same facts**, as in the application messages
- * (`fl_frontend/src/core/bewerbungEmail.ts :: buildBewerbungBestaetigungEmail`).
- */
-export function buildSchiedsrichterBestaetigungEmail({ origin, token, fristText }: SchiedsrichterBestaetigungData): SchiedsrichterEmail {
+export function buildSchiedsrichterBestaetigungEmail({ frist }: FLSchiedsrichterConfirmationData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
-  // Folded before either branch: this message renders no fact panel, so nothing downstream would
-  // fold it, and the two halves have to state one string.
-  const frist = einzeilig(fristText);
-  const url = schiedsrichterBestaetigungsLink(site, token);
+  const fristText = formatDatum(frist as CalendarDay);
 
   return {
-    subject: `Bitte bestätigen: Dein Eintrag bei der ${BRAND_NAME}`,
-    html: renderHtml(url, frist, site),
-    text: renderText(url, frist, site),
+    art: "erstkontakt",
+    subjectLine: "Dein Eintrag als Schiedsrichterin oder Schiedsrichter",
+    origin: site,
+    vorname: "",
+    paragraphs: [
+      [
+        `Die Verwaltung der ${BRAND_NAME} hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen.`,
+        [
+          { strong: "Bitte bestätige, dass das stimmt" },
+          ": Erst danach kannst Du auf der Website Ansetzungen annehmen und Spielberichte einreichen.",
+        ],
+      ],
+      // Both answers are named before the press: a reader who came to confirm an entry and meets a
+      // publication choice was asked something the message did not say.
+      [
+        "Auf der Seite trägst Du Dein Geburtsdatum ein und entscheidest, was im Spielplan von Deinem Namen zu sehen ist.",
+        ["Der Link ist bis zum ", { strong: fristText }, " gültig und funktioniert nur einmal."],
+        "Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen.",
+      ],
+    ],
+    button: { label: "Eintrag bestätigen", href: schiedsrichterBestaetigungsLink(site, token) },
   };
 }

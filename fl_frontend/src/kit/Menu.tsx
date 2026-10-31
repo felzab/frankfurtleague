@@ -157,7 +157,7 @@ function LinkList({ label, links, size, onBack }: { label: Copy; links: Readonly
           className={item({ size })}>
           <Entry
             label={COPY.shared.zurueck}
-            icon="zurueck"
+            icon="back"
           />
         </MenuItem>
       )}

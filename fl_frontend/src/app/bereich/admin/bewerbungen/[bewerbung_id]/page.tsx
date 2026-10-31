@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { getLaufendeFassung, getLaufendesLabel } from "@/core/einwilligung";
 import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL } from "@/core/einwilligungSeiten";
@@ -10,7 +9,7 @@ import { resolveBewerbungId } from "@/features/bewerbungen/resolvers";
 import { bewerbungTeamName } from "@/features/bewerbungen/utils";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { getMedienFragen } from "@/features/spieler/medienFragen";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { buildGruppeOffer } from "@/features/teams/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
@@ -35,7 +34,6 @@ export default function AdminBewerbungPage(props: NextPageProps<{ bewerbung_id: 
  * the club into THAT season, whose rules bound the groups the picker may offer.
  */
 async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewerbung_id: string }>["params"] }) {
-  await connection();
   const bewerbungId = await resolveBewerbungId(params);
 
   // `null` is "no such application"; everything else throws.
@@ -47,10 +45,10 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
   const bewerbung = bewerbungRes.bewerbung;
 
   // The admin-tier season read, because this season is still planned — which is the only state a
-  // team is taken into (`REQ-ENTER-001`) and the one the base read withholds.
+  // team is taken into (`entry_saison_not_future`) and the one the base read withholds.
   const [saisonsRes, teamsRes, medienFragen, neubesetzung] = await Promise.all([
     getAdminSaisons(),
-    getTeamMemberships(),
+    getTeamSaisons(),
     runWithIncomingTrace(() => getMedienFragen(bewerbung.kontakte)),
     // `null` where either registry read failed: the reseat alone needs them, so it closes and the
     // decision above it stands. Words it cannot key reach the error boundary.
@@ -78,9 +76,9 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
     // Keyed by the record the decision is taken against, so the write's refresh remounts the view
     // onto the decided application rather than leaving the pickers standing over it.
     <AdminBewerbungView
-      key={JSON.stringify([bewerbung, bewerbungRes.bestaetigungsfrist_abgelaufen])}
+      key={JSON.stringify([bewerbung, bewerbungRes.confirmation_deadline_expired])}
       bewerbung={bewerbung}
-      fristAbgelaufen={bewerbungRes.bestaetigungsfrist_abgelaufen}
+      fristAbgelaufen={bewerbungRes.confirmation_deadline_expired}
       teamName={bewerbungTeamName(bewerbung, teamsRes.teams)}
       saisonStatus={saison?.status ?? null}
       neubesetzung={neubesetzung}

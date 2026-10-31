@@ -4,7 +4,6 @@ from typing import Any
 import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import OperationFailure
 
 from app.api.spieler.admin_router import (
     get_spieler_nachnominierung,
@@ -14,18 +13,15 @@ from app.api.spieler.admin_router import (
     reactivate_saison_spieler,
 )
 from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload
-from app.api.spieler.services import SQUAD_FULL, SQUAD_ROLLE_TAKEN, SQUAD_TEAM_NOT_IN_SAISON
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
-from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from app.core.codes import Code
+from app.core.exceptions import APIError, DocumentNotFoundError
+from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import EINWILLIGUNG, rules_document, saison_document, saison_spieler_document, saison_team_document, spieler_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_spieler_write_test")
-# Its own name: `a_clean_database` records one schema per name, so alternating constrained and
-# unconstrained callers on one would rebuild at every switch.
-UNCONSTRAINED_DATABASE_NAME = worker_database("fl_spieler_write_unconstrained_test")
 
 SAISON_ID = "2026"
 # Two, so a squad reaches its cap in two inserts and the third write is the refusal under test.
@@ -39,7 +35,7 @@ INCOMING_TEAM_OID = ObjectId("6890a1b2c3d4e5f607400003")
 # Injected rather than read from the clock, which `get_german_date_str` makes substitutable.
 TODAY = "2026-04-01"
 
-# Any well-formed date: no rule judges a pupil's age (`fl_backend/app/core/domain.py :: UNENFORCED`),
+# Any well-formed date: no rule judges a pupil's age (`docs/domain.md`'s what the model permits on purpose),
 # so a value chosen for how old it makes somebody would pin a refusal nothing runs.
 GEBURTSDATUM = "2008-05-17"
 
@@ -61,19 +57,18 @@ def squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | 
     return saison_spieler_document(spieler_id, SAISON_ID, team_id, rolle=rolle, inactive_since=inactive_since)
 
 
-def on_a_database(url: str, body: Body, *, constrained: bool = True) -> Any:
-    """The SHIPPED validators by default; `constrained=False` is for a body whose subject is a row they refuse."""
+def on_a_database(url: str, body: Body) -> Any:
+    """The SHIPPED indexes."""
 
     async def _run() -> Any:
-        database_name = DATABASE_NAME if constrained else UNCONSTRAINED_DATABASE_NAME
-        async with a_clean_database(url, database_name, constraints=constrained) as (_, database):
+        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
             await database.saisons.insert_one(saison_document(SAISON_ID, "active", rules=rules_document(max_kadergroesse=MAX_KADERGROESSE)))
-            # Both clubs entered, so `REQ-SQUAD-001` passes and every refusal below is the cap. The
+            # Both clubs entered, so `kader_team_not_in_saison` passes and every refusal below is the cap. The
             # season's own name and shorthand are required on the row and read by nothing here.
             await database.saison_teams.insert_many(
                 [
-                    saison_team_document(SAISON_ID, HOME_TEAM_OID, "Adler", "AD"),
-                    saison_team_document(SAISON_ID, AWAY_TEAM_OID, "Bieber", "BI", gruppe="B"),
+                    saison_team_document(SAISON_ID, HOME_TEAM_OID, "Adler", "ADX"),
+                    saison_team_document(SAISON_ID, AWAY_TEAM_OID, "Bieber", "BIX", gruppe="B"),
                 ]
             )
             # The one person `enter` names: the create reads them, and an id nobody holds is a 404 there.
@@ -157,7 +152,7 @@ class TestTheConsentRecordSurvivesTheOneWriteThatCouldReachIt:
 
 
 class TestThePersonsBirthdate:
-    """The two things a stored date has to survive: a later name write, and the shipped validator."""
+    """What a stored date has to survive: a later name write."""
 
     def test_correcting_a_name_leaves_the_date_standing(self, mongo_replica_set_url: str):
         """Restated rather than untouched: the patch payload requires the field, so a name correction carries the date it read."""
@@ -177,48 +172,22 @@ class TestThePersonsBirthdate:
         assert stored["vorname"] == "Maximilian"
         assert stored["geburtsdatum"] == GEBURTSDATUM
 
-    def test_the_database_refuses_a_date_that_is_no_string(self, mongo_replica_set_url: str):
-        """The half no model can prove: without the `$jsonSchema` property this field could hold any BSON type with the suite still green."""
-
-        async def refusal_code_for(database: AsyncDatabase, spieler_number: int, geburtsdatum: Any) -> int | None:
-            document = {
-                "_id": spieler_id_for(spieler_number),
-                "vorname": "Max",
-                "nachname": "Mustermann",
-                "einwilligung": dict(EINWILLIGUNG),
-                "inactive_since": None,
-                "geburtsdatum": geburtsdatum,
-            }
-            try:
-                await database.spieler.insert_one(document)
-            except OperationFailure as failure:
-                return failure.code
-            return None
-
-        async def body(database: AsyncDatabase) -> Any:
-            # A year as an int is what a hand-edit or an unvalidated import writes.
-            return await refusal_code_for(database, 94, GEBURTSDATUM), await refusal_code_for(database, 95, 2008)
-
-        # The floor is the first half: that code is every `$jsonSchema` refusal alike, so a document
-        # differing from it only in this field is what makes the second half this field's answer.
-        assert on_a_database(mongo_replica_set_url, body) == (None, DOCUMENT_VALIDATION_FAILED)
-
 
 class TestTheSquadCapOnEveryWritePath:
-    """`REQ-SQUAD-003` on all three: the cap belongs to the DESTINATION squad, never to the verb that fills it."""
+    """`kader_full` on all three: the cap belongs to the DESTINATION squad, never to the verb that fills it."""
 
     def test_entering_a_full_squad_is_refused(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> WriteRefusalException:
+        async def body(database: AsyncDatabase) -> APIError:
             await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE)
 
-            with pytest.raises(WriteRefusalException) as excinfo:
+            with pytest.raises(APIError) as excinfo:
                 await enter(database, spieler_id_for(90), HOME_TEAM_OID)
 
             return excinfo.value
 
         refusal = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == SQUAD_FULL
+        assert refusal.error_code == Code.KADER_FULL
 
     def test_entering_a_squad_with_room_goes_through(self, mongo_replica_set_url: str):
         """The floor under the case above, or that refusal could be a blanket one."""
@@ -244,18 +213,18 @@ class TestTheSquadCapOnEveryWritePath:
     def test_transferring_into_a_full_squad_is_refused(self, mongo_replica_set_url: str):
         """The DESTINATION is judged: the player's own place is in the team they are leaving."""
 
-        async def body(database: AsyncDatabase) -> WriteRefusalException:
+        async def body(database: AsyncDatabase) -> APIError:
             await fill(database, AWAY_TEAM_OID, MAX_KADERGROESSE)
             await enter(database, spieler_id_for(90), HOME_TEAM_OID)
 
-            with pytest.raises(WriteRefusalException) as excinfo:
+            with pytest.raises(APIError) as excinfo:
                 await move(database, spieler_id_for(90), AWAY_TEAM_OID)
 
             return excinfo.value
 
         refusal = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == SQUAD_FULL
+        assert refusal.error_code == Code.KADER_FULL
 
     def test_transferring_into_a_squad_with_room_goes_through(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
@@ -282,20 +251,20 @@ class TestTheSquadCapOnEveryWritePath:
     def test_reactivating_into_a_squad_that_has_since_filled_up_is_refused(self, mongo_replica_set_url: str):
         """The gap a create cannot cover: the retired row keeps the unique key, so reviving it is the only way back in."""
 
-        async def body(database: AsyncDatabase) -> WriteRefusalException:
+        async def body(database: AsyncDatabase) -> APIError:
             await database.saison_spieler.insert_one(
                 squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
             )
             await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE)
 
-            with pytest.raises(WriteRefusalException) as excinfo:
+            with pytest.raises(APIError) as excinfo:
                 await revive(database, spieler_id_for(90))
 
             return excinfo.value
 
         refusal = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == SQUAD_FULL
+        assert refusal.error_code == Code.KADER_FULL
 
     def test_reactivating_into_a_squad_with_room_goes_through(self, mongo_replica_set_url: str):
         """And it keeps the number the retired row carried, which is why reviving is not a re-create."""
@@ -315,18 +284,18 @@ class TestTheSquadCapOnEveryWritePath:
 
 
 class TestTheOneRolePerSquadOnEveryWritePath:
-    """`REQ-SQUAD-004` on all three, for the reason the cap is on all three: the role belongs to the DESTINATION squad."""
+    """`kader_rolle_taken` on all three, for the reason the cap is on all three: the role belongs to the DESTINATION squad."""
 
     def test_entering_a_squad_whose_role_is_taken_is_refused(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> WriteRefusalException:
+        async def body(database: AsyncDatabase) -> APIError:
             await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, rolle="kapitaen"))
 
-            with pytest.raises(WriteRefusalException) as excinfo:
+            with pytest.raises(APIError) as excinfo:
                 await enter(database, spieler_id_for(90), HOME_TEAM_OID, rolle="kapitaen")
 
             return excinfo.value
 
-        assert on_a_database(mongo_replica_set_url, body).error_code == SQUAD_ROLLE_TAKEN
+        assert on_a_database(mongo_replica_set_url, body).error_code == Code.KADER_ROLLE_TAKEN
 
     def test_entering_a_squad_whose_other_role_is_taken_goes_through(self, mongo_replica_set_url: str):
         """The floor under the case above: the rule is per role, so a squad with a Kapitaen still has its Co-Kapitaen to give."""
@@ -360,16 +329,16 @@ class TestTheOneRolePerSquadOnEveryWritePath:
     def test_transferring_a_role_into_a_squad_that_holds_it_is_refused(self, mongo_replica_set_url: str):
         """The DESTINATION is judged, as the cap judges it: the armband travels with the player."""
 
-        async def body(database: AsyncDatabase) -> WriteRefusalException:
+        async def body(database: AsyncDatabase) -> APIError:
             await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(80), team_id=AWAY_TEAM_OID, rolle="kapitaen"))
             await enter(database, spieler_id_for(90), HOME_TEAM_OID, rolle="kapitaen")
 
-            with pytest.raises(WriteRefusalException) as excinfo:
+            with pytest.raises(APIError) as excinfo:
                 await move(database, spieler_id_for(90), AWAY_TEAM_OID, rolle="kapitaen")
 
             return excinfo.value
 
-        assert on_a_database(mongo_replica_set_url, body).error_code == SQUAD_ROLLE_TAKEN
+        assert on_a_database(mongo_replica_set_url, body).error_code == Code.KADER_ROLLE_TAKEN
 
     def test_an_edit_that_keeps_the_role_where_it_is_passes(self, mongo_replica_set_url: str):
         """The over-breadth trap: counting the writing player's own row would refuse a captain changing their shirt."""
@@ -395,18 +364,18 @@ class TestTheOneRolePerSquadOnEveryWritePath:
     def test_reactivating_into_a_squad_that_has_since_given_the_role_away_is_refused(self, mongo_replica_set_url: str):
         """The path a rule can forget: no payload carries the role here, so the STORED row is what has to be judged."""
 
-        async def body(database: AsyncDatabase) -> WriteRefusalException:
+        async def body(database: AsyncDatabase) -> APIError:
             await database.saison_spieler.insert_one(
                 squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, rolle="kapitaen", inactive_since="2026-03-01")
             )
             await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, rolle="kapitaen"))
 
-            with pytest.raises(WriteRefusalException) as excinfo:
+            with pytest.raises(APIError) as excinfo:
                 await revive(database, spieler_id_for(90))
 
             return excinfo.value
 
-        assert on_a_database(mongo_replica_set_url, body).error_code == SQUAD_ROLLE_TAKEN
+        assert on_a_database(mongo_replica_set_url, body).error_code == Code.KADER_ROLLE_TAKEN
 
     def test_reactivating_a_roleless_row_asks_nothing(self, mongo_replica_set_url: str):
         """A row holding no role competes with nobody, so the rule must not stand between it and its return."""
@@ -422,7 +391,7 @@ class TestTheOneRolePerSquadOnEveryWritePath:
 
 
 class TestReactivatingIntoASeasonTheClubHasLeft:
-    """`REQ-SQUAD-001` on the third write path, which a replacement reaches: it retires a club's squad and hands that club's row away."""
+    """`kader_team_not_in_saison` on the third write path, a replacement's: it retires a club's squad and hands that club's row away."""
 
     def test_reviving_a_row_whose_club_left_the_season_is_refused(self, mongo_replica_set_url: str):
         """Kills the reactivate asking the cap alone: the row goes live naming a club the season holds no junction row for."""
@@ -433,14 +402,14 @@ class TestReactivatingIntoASeasonTheClubHasLeft:
             )
             await hand_the_junction_row_over(database, HOME_TEAM_OID)
 
-            with pytest.raises(WriteRefusalException) as excinfo:
+            with pytest.raises(APIError) as excinfo:
                 await revive(database, spieler_id_for(90))
 
             return excinfo.value, await database.saison_spieler.find_one({"spieler_id": spieler_id_for(90)})
 
         refusal, stored = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == SQUAD_TEAM_NOT_IN_SAISON
+        assert refusal.error_code == Code.KADER_TEAM_NOT_IN_SAISON
         # The second half kills a refusal asked after the write, which reports a state it has already created.
         assert stored["inactive_since"] == "2026-03-01"
 
@@ -460,19 +429,19 @@ class TestReactivatingIntoASeasonTheClubHasLeft:
     def test_the_club_is_asked_before_the_cap(self, mongo_replica_set_url: str):
         """Both refusals hold, the live rows seeded by hand: kills the two swapped, sending an admin to free a place in a squad with no club."""
 
-        async def body(database: AsyncDatabase) -> WriteRefusalException:
+        async def body(database: AsyncDatabase) -> APIError:
             await database.saison_spieler.insert_one(
                 squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
             )
             await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE)
             await hand_the_junction_row_over(database, HOME_TEAM_OID)
 
-            with pytest.raises(WriteRefusalException) as excinfo:
+            with pytest.raises(APIError) as excinfo:
                 await revive(database, spieler_id_for(90))
 
             return excinfo.value
 
-        assert on_a_database(mongo_replica_set_url, body).error_code == SQUAD_TEAM_NOT_IN_SAISON
+        assert on_a_database(mongo_replica_set_url, body).error_code == Code.KADER_TEAM_NOT_IN_SAISON
 
 
 class TestTheMarkerTheCreateStored:
@@ -481,12 +450,12 @@ class TestTheMarkerTheCreateStored:
 
         async def body(database: AsyncDatabase) -> Any:
             await database.saison_spieler.insert_one(
-                {**squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID), "ist_nachnominiert": True}
+                {**squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID), "is_nachnominiert": True}
             )
             echoed = await move(database, spieler_id_for(90), HOME_TEAM_OID, nummer="9")
             stored = await database.saison_spieler.find_one({"spieler_id": spieler_id_for(90)})
 
-            return echoed.ist_nachnominiert, stored["ist_nachnominiert"] if stored else None
+            return echoed.is_nachnominiert, stored["is_nachnominiert"] if stored else None
 
         assert on_a_database(mongo_replica_set_url, body) == (True, True)
 
@@ -511,7 +480,7 @@ class TestTheCreateDerivesTheLateEntryMarker:
             echoed = await enter(database, spieler_id_for(90), HOME_TEAM_OID)
             stored = await database.saison_spieler.find_one({"spieler_id": spieler_id_for(90)})
 
-            return announced.nachnominierung, echoed.ist_nachnominiert, bool(stored and stored["ist_nachnominiert"])
+            return announced.nachnominierung, echoed.is_nachnominiert, bool(stored and stored["is_nachnominiert"])
 
         return on_a_database(url, body)
 
@@ -534,5 +503,5 @@ class TestTheCreateDerivesTheLateEntryMarker:
                 saison_id="2031", saisons_collection=database.saisons, spieltage_collection=database.spieltage, today=TODAY
             )
 
-        with pytest.raises(DocumentNotFoundException):
+        with pytest.raises(DocumentNotFoundError):
             on_a_database(mongo_replica_set_url, body)

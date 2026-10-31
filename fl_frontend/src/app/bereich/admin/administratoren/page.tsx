@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { getAdminSession } from "@/core/auth";
 import { asSignInIdentifier } from "@/core/emailAddress";
@@ -38,15 +37,12 @@ export default function AdminAdministratorenPage() {
 
 /** Every grant, over every season: access to the administration is no season's. */
 async function Berechtigungen() {
-  await connection();
-
   const [berechtigungenRes, inhaberAdresse] = await Promise.all([getBerechtigungen(), inhaberAdresseOf()]);
 
   return (
     <AdminBerechtigungenView
-      berechtigungen={berechtigungenRes.berechtigungen}
-      uebersprungen={berechtigungenRes.uebersprungen}
-      antraege={berechtigungenRes.antraege}
+      berechtigungen={berechtigungenRes.grants}
+      antraege={berechtigungenRes.approval_requests}
       inhaberAdresse={inhaberAdresse}
     />
   );

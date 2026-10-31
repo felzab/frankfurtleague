@@ -2,18 +2,19 @@
 // storage and is reachable from the Edge bundle: `next/headers` is request-only and cannot be
 // bundled for it.
 import { headers } from "next/headers";
+import { connection } from "next/server";
 
 import { runWithRequestScope } from "@/core/requestScope";
-import { mintSpanId, mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "@/core/trace";
+import { mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "@/core/trace";
 
 /**
- * Runs `fn` under the trace the edge opened for this request. **`headers()` is allowed to throw here**, naming a
- * `"use cache"` misuse at the line that made it, where minting instead would hide it.
+ * Runs `fn` under the trace the edge opened for this request, past a wait for a real request: the image's build
+ * reaches no backend, and a prefetched shell carries none of what `fn` reads. **`headers()` is allowed to throw
+ * here**, naming a `"use cache"` misuse at the line that made it, where minting instead would hide it.
  */
 export async function runWithIncomingTrace<T>(fn: () => Promise<T>): Promise<T> {
+  await connection();
   const incoming = readTraceparent((await headers()).get(TRACEPARENT_HEADER));
 
-  // The incoming span is the edge's and is never adopted: a span names one hop's work, so reusing
-  // it would make two hops' lines indistinguishable.
-  return runWithRequestScope({ traceId: incoming?.traceId ?? mintTraceId(), spanId: mintSpanId() }, fn);
+  return runWithRequestScope({ traceId: incoming ?? mintTraceId() }, fn);
 }

@@ -1979,14 +1979,16 @@ def test_expect_names_a_row_past_its_bound_and_writes_none_for_it(tmp_path: Path
 
 # --- land -----------------------------------------------------------------------------------------
 
-# The generator stands in for `tests.openapi_document`: the document follows two source files, so
-# two branches each moving one move different parts of it.
+# The generator stands in for `app.openapi_document`: the document follows two source files, so
+# two branches each moving one move different parts of it. Like the real writer, an argument is the
+# path it writes instead, so a landing that passes one leaves the committed document stale.
 OPENAPI_WRITER: Final = (
+    "import sys\n"
     "from pathlib import Path\n"
     'parts = [Path(f"app/{name}.txt").read_bytes().strip() for name in ("schema", "extra")]\n'
-    'Path("openapi.json").write_bytes(b"{" + b", ".join(parts) + b"}\\n")\n'
+    'target = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("openapi.json")\n'
+    'target.write_bytes(b"{" + b", ".join(parts) + b"}\\n")\n'
 )
-EINWILLIGUNG_WRITER: Final = 'from pathlib import Path\nPath("einwilligung.json").write_bytes(b"{}\\n")\n'
 # Records every subject it is handed, and refuses one asking to be refused, so a test can tell a
 # commit that ran the hooks from one that did not.
 COMMIT_MSG_HOOK: Final = (
@@ -1998,7 +2000,7 @@ COMMIT_MSG_HOOK: Final = (
 
 
 def _repo(tmp_path: Path, branch: str = "agent") -> Path:
-    """A session branch holding a backend with both generated documents current, and an agent branch off it."""
+    """A session branch holding a backend with its generated document current, and an agent branch off it."""
     root = tmp_path / "repo"
     root.mkdir()
     hooks = tmp_path / "hooks"
@@ -2012,10 +2014,8 @@ def _repo(tmp_path: Path, branch: str = "agent") -> Path:
     write(root, ".gitignore", "__pycache__/\n")
     write(root, "fl_backend/app/schema.txt", '"a": 1')
     write(root, "fl_backend/app/extra.txt", '"b": 1')
-    write(root, "fl_backend/tests/openapi_document.py", OPENAPI_WRITER)
-    write(root, "fl_backend/tests/einwilligung_document.py", EINWILLIGUNG_WRITER)
+    write(root, "fl_backend/app/openapi_document.py", OPENAPI_WRITER)
     write(root, "fl_backend/openapi.json", '{"a": 1, "b": 1}\n')
-    write(root, "fl_backend/einwilligung.json", "{}\n")
     write(root, "docs/spec.md", TABLE_HEAD + "| I1 | one |\n")
     write(root, "notes.txt", "first\n")
     git(root, "add", "-A")
@@ -2219,8 +2219,8 @@ def test_a_row_merge_that_raises_aborts_the_merge(tmp_path: Path) -> None:
 
 def test_a_failing_regeneration_aborts_the_merge(tmp_path: Path) -> None:
     root = _repo(tmp_path)
-    _agent_commit(root, "Backend: The writer breaks", {"fl_backend/tests/openapi_document.py": "raise SystemExit(3)\n"})
-    assert "tests.openapi_document --write exited 3" in _stopped_clean(root, git(root, "rev-parse", "HEAD"), 4)
+    _agent_commit(root, "Backend: The writer breaks", {"fl_backend/app/openapi_document.py": "raise SystemExit(3)\n"})
+    assert "app.openapi_document exited 3" in _stopped_clean(root, git(root, "rev-parse", "HEAD"), 4)
 
 
 def test_a_merge_failing_a_touched_packages_type_check_aborts_the_merge(tmp_path: Path) -> None:

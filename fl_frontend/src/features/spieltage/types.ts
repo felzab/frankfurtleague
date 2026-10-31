@@ -1,17 +1,11 @@
-import type { FLSaisonPhase } from "../saisons/schemas";
+import type { FLSaisonPhase, FLSpieltag } from "@/core/generated/client/types";
+import type { FLSpiel } from "../spiele/types";
 
-// `natural` is the backend's played order and the default: phase in bracket order, then the stored
-// `position`. `anzahl_spiele` is not sortable — derived on read, so no Mongo sort can reach it.
-type FLSpieltageSortingOptions = "natural" | "beginn" | "ende";
+/** A matchday with its own fixtures, of either tier, joined on the frontend from the two list reads. */
+export type FLSpieltagWithSpiele = FLSpieltag & { spiele: FLSpiel[] };
 
-export type FLSpieltageFilterParams = {
-  saison_id?: string;
-  saison_phase?: "playoffs" | FLSaisonPhase;
-
-  limit?: number;
-  sort_by?: FLSpieltageSortingOptions;
-  order?: "asc" | "desc";
-};
+/** Every matchday of a season, each with its own fixtures, in the backend's played order. */
+export type FLSpielplan = { spieltage: FLSpieltagWithSpiele[] };
 
 export type AdminSpieltagRow = {
   id: string;

@@ -12,14 +12,14 @@ import { PILL_RADIUS_CLASSES, PILL_TINT_CLASSES } from "@/shared/components/ui/b
 import { SPIEL_STATUS_LABELS } from "../../constants";
 
 import type { PillTone } from "@/shared/components/ui/badges";
-import type { FLSpielStatus } from "../../schemas";
+import type { SpielStatus } from "../../types";
 
-// The chip's own vocabulary and never a member of `FLSpielStatus`, the backend's filter enum: no
+// The chip's own vocabulary and never a member of `SpielStatus`, the fixture's own status: no
 // reader filters fixtures by a confirmation.
-type SpielChipStatus = FLSpielStatus | "vorlaeufig";
+type SpielChipStatus = SpielStatus | "vorlaeufig";
 
-// Module scope so they do not rebuild per render, and `Record<SpielChipStatus,...>` so a backend
-// enum change is a compile error rather than a raw API value in the UI.
+// Module scope so they do not rebuild per render, and `Record<SpielChipStatus,...>` so a status
+// added to `SpielStatus` is a compile error rather than a raw value in the UI.
 const STATUS_TINT: Record<SpielChipStatus, PillTone> = {
   vergangen: "success",
   heute: "info",
@@ -78,7 +78,7 @@ const STATUS_LABELS: Record<SpielChipStatus, string> = { ...SPIEL_STATUS_LABELS,
  * `ansetzungBestaetigt` is required so that every mount decides what it passes: `null` where nobody was asked,
  * and wherever the Ansetzung shown is not the stored one the verdict is about.
  */
-export function SpielStatusChip({ spielStatus, ansetzungBestaetigt }: { spielStatus: FLSpielStatus; ansetzungBestaetigt: boolean | null }) {
+export function SpielStatusChip({ spielStatus, ansetzungBestaetigt }: { spielStatus: SpielStatus; ansetzungBestaetigt: boolean | null }) {
   // The scheduling state wins from match day on: a row minted last week is still open on the day.
   const chipStatus: SpielChipStatus = spielStatus === "ausstehend" && ansetzungBestaetigt === false ? "vorlaeufig" : spielStatus;
 

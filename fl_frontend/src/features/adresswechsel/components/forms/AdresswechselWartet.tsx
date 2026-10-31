@@ -28,10 +28,10 @@ import { LINK_UNKLAR, rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { FOCUS_HEADING, focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { meldeAdresswechselVersand } from "@/shared/utils/linkVersandToast";
+import { reportAddressChangeDispatch } from "@/shared/utils/linkDispatchToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
-import type { FLAdresswechselVerwaltungOffen, FLAdresswechselWartetAuf, FLAdresswechselWeg } from "@/features/adresswechsel/schemas";
+import type { FLAddressChangeVerwaltungOpen, FLAddressChangeWaitsOn, FLAddressChangeWay } from "@/core/generated/client/types";
 
 const ADRESSWECHSEL_ERNEUT = "Link erneut senden";
 const ADRESSWECHSEL_VERWERFEN = "Änderung verwerfen";
@@ -42,18 +42,18 @@ const VERWERFEN_FOLGE =
   "Die Änderung endet, und ihre Links öffnen danach nichts mehr. Die bisherige Adresse bleibt. Eine E-Mail darüber bekommt niemand.";
 
 /** How the change began, as the panel names it: the administrator reads off it who still has to act. */
-const WEG_LABEL: Readonly<Record<FLAdresswechselWeg, string>> = {
-  konto: "Im Konto angefragt",
-  freigabe: "Freigabe durch die bisherige Adresse",
-  wartezeit: "Ohne die bisherige Adresse",
+const WEG_LABEL: Readonly<Record<FLAddressChangeWay, string>> = {
+  account: "Im Konto angefragt",
+  release: "Freigabe durch die bisherige Adresse",
+  waiting_period: "Ohne die bisherige Adresse",
 };
 
 /** The step the change waits on, as the read serves it and never derived here. */
-const WARTET: Readonly<Record<FLAdresswechselWartetAuf, string>> = {
-  freigabe: "Neue Adresse wartet auf Freigabe durch die bisherige",
-  neue_adresse: "Neue Adresse wartet auf Bestätigung",
-  genehmigung: "Neue Adresse wartet auf Genehmigung durch die Verwaltung",
-  wartezeit: "Neue Adresse wartet auf das Ende der Wartezeit",
+const WARTET: Readonly<Record<FLAddressChangeWaitsOn, string>> = {
+  release: "Neue Adresse wartet auf Freigabe durch die bisherige",
+  new_adresse: "Neue Adresse wartet auf Bestätigung",
+  approval: "Neue Adresse wartet auf Genehmigung durch die Verwaltung",
+  waiting_period: "Neue Adresse wartet auf das Ende der Wartezeit",
 };
 
 /**
@@ -71,7 +71,7 @@ const VERWERFEN_OHNE_ANTWORT =
  * The change at the address, **the address on file still in force**. Both writes name it by id: an older page meets
  * its end, never its successor. The re-send stands only while the new mailbox is asked.
  */
-export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAdresswechselVerwaltungOffen; onGeschrieben: () => void }) {
+export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAddressChangeVerwaltungOpen; onGeschrieben: () => void }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
   const [sendet, setSendet] = useState(false);
@@ -99,8 +99,8 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAdressw
 
     landing.landed();
     onGeschrieben();
-    // Graded as the start's press grades its link: the earlier link is dead whichever way this one went.
-    meldeAdresswechselVersand(res, res.message);
+    // Graded as the start's press grades its link: the mail leaves behind the answer, and the earlier link dies with it.
+    reportAddressChangeDispatch(true, res.message);
   };
 
   const verwirf = () => {
@@ -124,10 +124,10 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAdressw
   };
 
   const titel =
-    offen.wartet_auf === "wartezeit" && offen.wirksam_ab !== null
-      ? `Neue Adresse gilt ab ${zeitpunktText(offen.wirksam_ab)}`
-      : WARTET[offen.wartet_auf];
-  const { genehmigung } = offen;
+    offen.waits_on === "waiting_period" && offen.effective_from !== null
+      ? `Neue Adresse gilt ab ${zeitpunktText(offen.effective_from)}`
+      : WARTET[offen.waits_on];
+  const { approval: genehmigung } = offen;
 
   return (
     // A block of the tool's panel under an `h3`, as the read's list beside it: a box here would hold the discard's
@@ -155,32 +155,32 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAdressw
 
       <dl className={FIELD_PAIR_CLASSES}>
         <Angabe label="Neue Adresse">{offen.email}</Angabe>
-        <Angabe label="Weg">{WEG_LABEL[offen.weg]}</Angabe>
+        <Angabe label="Weg">{WEG_LABEL[offen.way]}</Angabe>
         {offen.grund !== null && <Angabe label="Grund">{offen.grund}</Angabe>}
         {/* Only this step sent a link to the new mailbox: the request before it went to the address on file, and a
               confirmed change's link is spent. */}
-        {offen.wartet_auf === "neue_adresse" && offen.gueltig_bis !== null && (
+        {offen.waits_on === "new_adresse" && offen.valid_until !== null && (
           <LinkStandAngaben
-            verschicktAm={offen.verschickt_am}
-            frist={offen.gueltig_bis}
+            verschicktAm={offen.sent_at}
+            frist={offen.valid_until}
             fristArt="zeitpunkt"
-            istAbgelaufen={offen.abgelaufen}
-            zustellung={offen.zustellung}
+            istAbgelaufen={offen.expired}
+            zustellung={offen.delivery}
           />
         )}
-        {offen.wartet_auf === "freigabe" && (
+        {offen.waits_on === "release" && (
           <>
-            <Angabe label="Anfrage gesendet am">{formatSpielDatum(offen.verschickt_am)}</Angabe>
-            {offen.gueltig_bis !== null && <Angabe label="Freigabe bis">{zeitpunktText(offen.gueltig_bis)}</Angabe>}
+            <Angabe label="Anfrage gesendet am">{formatSpielDatum(offen.sent_at)}</Angabe>
+            {offen.valid_until !== null && <Angabe label="Freigabe bis">{zeitpunktText(offen.valid_until)}</Angabe>}
           </>
         )}
         {/* The address on file's own step, which the administrator reads off before trusting the new mailbox's. */}
-        {offen.freigegeben_am !== null && <Angabe label="Freigegeben am">{zeitpunktText(offen.freigegeben_am)}</Angabe>}
-        {offen.bestaetigt_am !== null && <Angabe label="Bestätigt am">{zeitpunktText(offen.bestaetigt_am)}</Angabe>}
-        {offen.wirksam_ab !== null && <Angabe label="Wirksam ab">{zeitpunktText(offen.wirksam_ab)}</Angabe>}
+        {offen.released_at !== null && <Angabe label="Freigegeben am">{zeitpunktText(offen.released_at)}</Angabe>}
+        {offen.confirmed_at !== null && <Angabe label="Bestätigt am">{zeitpunktText(offen.confirmed_at)}</Angabe>}
+        {offen.effective_from !== null && <Angabe label="Wirksam ab">{zeitpunktText(offen.effective_from)}</Angabe>}
         {genehmigung !== null && (
           <Angabe label="Genehmigung">
-            {genehmigung.genehmigt_am === null ? (
+            {genehmigung.approved_at === null ? (
               <>
                 Offen bis {zeitpunktText(genehmigung.bis)}.{" "}
                 {/* Pressed on the grant's own row, where granting and revoking already are: one place for the approval. */}
@@ -192,7 +192,7 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAdressw
                 </Link>
               </>
             ) : (
-              `Erteilt am ${zeitpunktText(genehmigung.genehmigt_am)}`
+              `Erteilt am ${zeitpunktText(genehmigung.approved_at)}`
             )}
           </Angabe>
         )}
@@ -205,7 +205,7 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAdressw
       )}
 
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        {offen.wartet_auf === "neue_adresse" && (
+        {offen.waits_on === "new_adresse" && (
           <FocusSlot name="adresswechsel-einladen">
             <Button
               type="button"

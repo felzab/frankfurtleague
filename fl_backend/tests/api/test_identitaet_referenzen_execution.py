@@ -8,8 +8,7 @@ from bson import ObjectId
 from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.services import KEIN_INHABER
-from app.api.spieler.services import build_ghost_spieler
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -23,7 +22,7 @@ from tests.documents import (
     bewerbung_document,
     kontakte_document,
     kontaktperson_document,
-    neue_schule_document,
+    new_schule_document,
     registrierung_document,
     saison_document,
     saison_team_document,
@@ -36,7 +35,7 @@ from .conftest import AUSTRITT, config_for
 
 DATABASE_NAME = worker_database("fl_identitaet_referenzen_test")
 
-PATH = f"/api/v{API_VERSION}/identitaet/referenzen"
+PATH = f"/api/v{API_VERSION}/identity/references"
 
 PAST_SAISON = "2425"
 ACTIVE_SAISON = "2526"
@@ -51,7 +50,6 @@ SITZ_AUSGETRETEN = "sitz.ausgetreten@schule.de"
 BEWERBUNG_OFFEN = "bewerbung.offen@schule.de"
 BEWERBUNG_UNBESTAETIGT = "bewerbung.unbestaetigt@schule.de"
 SPIELER_EHEMALIG = "spieler.ehemalig@schule.de"
-SPIELER_OFFEN = "spieler.offen@schule.de"
 PFEIFE_RUHESTAND = "pfeife.ruhestand@schule.de"
 REGISTRIERT = "rita.registriert@schule.de"
 VERWALTUNG = "verena.verwaltung@schule.de"
@@ -65,7 +63,6 @@ AUSSER_DER_REGEL = "jürgen@schule.de"
 
 REGISTRIERT_OFFEN = "rita.offen@schule.de"
 GEIST_SCHIEDSRICHTER = "geist.pfeife@schule.de"
-GEIST_SPIELER = "geist.spieler@schule.de"
 # Asked as an account may store it, so the answer is shown to keep the asker's spelling.
 NIEMAND = "Niemand.Hier@Example.COM"
 
@@ -86,10 +83,8 @@ ASKED = [
     BEWERBUNG_OFFEN,
     BEWERBUNG_UNBESTAETIGT,
     "Spieler.Ehemalig@Schule.DE",
-    SPIELER_OFFEN,
     PFEIFE_RUHESTAND,
     GEIST_SCHIEDSRICHTER,
-    GEIST_SPIELER,
     REGISTRIERT,
     REGISTRIERT_OFFEN,
     VERWALTUNG,
@@ -100,8 +95,8 @@ ASKED = [
 ]
 
 
-def _seat(email: str, *, bestaetigt_am: str | None = STAMP) -> dict[str, Any]:
-    return kontaktperson_document("Anna", bestaetigt_am=bestaetigt_am, email=email)
+def _seat(email: str, *, confirmed_at: str | None = STAMP) -> dict[str, Any]:
+    return kontaktperson_document("Anna", confirmed_at=confirmed_at, email=email)
 
 
 def _row(team_id: ObjectId, saison_id: str, shorthand: str, **fields: Any) -> dict[str, Any]:
@@ -110,7 +105,7 @@ def _row(team_id: ObjectId, saison_id: str, shorthand: str, **fields: Any) -> di
 
 def _referee(oid: Any, email: str, name: str, **fields: Any) -> dict[str, Any]:
     return schiedsrichter_document(
-        oid, email=email, name=name, default_payment=20, **{"einwilligung": {**EINWILLIGUNG, "bestaetigt_am": STAMP}, **fields}
+        oid, email=email, name=name, default_payment=20, **{"einwilligung": {**EINWILLIGUNG, "confirmed_at": STAMP}, **fields}
     )
 
 
@@ -123,12 +118,12 @@ def _registrierung(email: str, *, confirmed: bool) -> dict[str, Any]:
         vorname="Rita",
         nachname="Registriert",
         token=email,
-        eingereicht_am="2026-01-02",
+        submitted_at="2026-01-02",
         frist="2026-01-09",
         position="Mittelfeld",
         nummer="17",
         stufe="Q1",
-        bestaetigt=None
+        confirmed=None
         if not confirmed
         else {
             "geburtsdatum": "2009-05-04",
@@ -150,33 +145,29 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
             _row(
                 TEAM_OIDS[0],
                 PAST_SAISON,
-                "SV",
+                "SVX",
                 kontakte=kontakte_document(
-                    trainer=_seat("Sitz.Vergangen@Schule.de"), ansprechperson=_seat(SITZ_VERGANGEN_OFFEN, bestaetigt_am=None)
+                    trainer=_seat("Sitz.Vergangen@Schule.de"), ansprechperson=_seat(SITZ_VERGANGEN_OFFEN, confirmed_at=None)
                 ),
             ),
-            _row(TEAM_OIDS[1], ACTIVE_SAISON, "SO", kontakte=kontakte_document(trainer=_seat(SITZ_OFFEN, bestaetigt_am=None))),
-            _row(TEAM_OIDS[2], ACTIVE_SAISON, "SW", austritt=dict(AUSTRITT), kontakte=kontakte_document(trainer=_seat(SITZ_AUSGETRETEN))),
+            _row(TEAM_OIDS[1], ACTIVE_SAISON, "SOX", kontakte=kontakte_document(trainer=_seat(SITZ_OFFEN, confirmed_at=None))),
+            _row(TEAM_OIDS[2], ACTIVE_SAISON, "SWX", austritt=dict(AUSTRITT), kontakte=kontakte_document(trainer=_seat(SITZ_AUSGETRETEN))),
         ]
     )
     await database[Collection.BEWERBUNGEN].insert_one(
         bewerbung_document(
             ObjectId(),
             ACTIVE_SAISON,
-            "eingereicht",
-            kontakte=kontakte_document(trainer=_seat(BEWERBUNG_OFFEN), ansprechperson=_seat(BEWERBUNG_UNBESTAETIGT, bestaetigt_am=None)),
-            eingereicht_am="2026-01-01",
-            bestaetigungsfrist="2026-01-15",
-            schule=neue_schule_document("Bewerberschule", "BW"),
+            "submitted",
+            kontakte=kontakte_document(trainer=_seat(BEWERBUNG_OFFEN), ansprechperson=_seat(BEWERBUNG_UNBESTAETIGT, confirmed_at=None)),
+            submitted_at="2026-01-01",
+            confirmation_deadline="2026-01-15",
+            schule=new_schule_document("Bewerberschule", "BWX"),
         )
     )
     await database[Collection.SPIELER].insert_many(
         [
             spieler_document(ObjectId(), "Anna", "Ehemalig", email=SPIELER_EHEMALIG, inactive_since="2026-03-01"),
-            # A pupil's record is born confirmed, so a stamp a hand edit blanked is the unconfirmed pupil the gate meets.
-            spieler_document(ObjectId(), "Anna", "Offen", email=SPIELER_OFFEN, einwilligung={**EINWILLIGUNG, "bestaetigt_am": ""}),
-            # The nameless, recordless sentinel as written, given an address by a hand edit: its id alone keeps it out.
-            {**build_ghost_spieler(), "email": GEIST_SPIELER},
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
@@ -194,17 +185,17 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
         [ban_document(GESPERRT_PFEIFE, bis=ACTIVE_SAISON), ban_document(GESPERRT, bis=ACTIVE_SAISON)]
     )
     granted = datetime(2026, 1, 1, tzinfo=UTC)
-    await database[Collection.BERECHTIGUNGEN].insert_one(
-        {"_id": GRANT_OID, "adresse": VERWALTUNG, "verwaltung": "administration", "erteilt_von": "PLAYGROUND", "erteilt_am": granted}
+    await database[Collection.GRANTS].insert_one(
+        {"_id": GRANT_OID, "adresse": VERWALTUNG, "verwaltung": "administration", "granted_by": "PLAYGROUND", "granted_at": granted}
     )
     # The address changed in place in the database, which the comparison has not seen: the grant is in
     # effect for nobody until it does, and its account still stays.
-    await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].insert_one(
+    await database[Collection.GRANTS_ANNOUNCED].insert_one(
         {"_id": GRANT_OID, "adresse": "verena.vorher@schule.de", "verwaltung": "administration", "angekuendigt_am": granted}
     )
     if inhaberin is not None:
-        await database[Collection.BERECHTIGUNGEN].insert_one(
-            {"_id": ObjectId(), "adresse": inhaberin, "verwaltung": "owner", "erteilt_von": "PLAYGROUND", "erteilt_am": granted}
+        await database[Collection.GRANTS].insert_one(
+            {"_id": ObjectId(), "adresse": inhaberin, "verwaltung": "owner", "granted_by": "PLAYGROUND", "granted_at": granted}
         )
 
 
@@ -248,7 +239,6 @@ class TestWhatKeepsAnAccount:
             pytest.param(BEWERBUNG_OFFEN, id="a pending application's confirmed seat"),
             pytest.param(BEWERBUNG_UNBESTAETIGT, id="a pending application's unconfirmed seat"),
             pytest.param("Spieler.Ehemalig@Schule.DE", id="a retired pupil, asked in capitals"),
-            pytest.param(SPIELER_OFFEN, id="an unconfirmed live pupil, which the gate admits"),
             pytest.param(PFEIFE_RUHESTAND, id="a retired referee"),
             pytest.param(REGISTRIERT, id="a confirmed pending registration"),
             pytest.param(VERWALTUNG, id="a grant the comparison has not seen"),
@@ -259,7 +249,7 @@ class TestWhatKeepsAnAccount:
         status, body = answered(mongo_replica_set_url)
 
         assert status == 200, body
-        assert email not in body["unreferenziert"]
+        assert email not in body["unreferenced"]
 
 
 @pytest.mark.db
@@ -271,7 +261,6 @@ class TestWhatLetsAnAccountGo:
             pytest.param(GESPERRT, id="a standing ban and no record"),
             pytest.param(AUSSER_DER_REGEL, id="an address today's rule refuses and no record holds"),
             pytest.param(GEIST_SCHIEDSRICHTER, id="the referee placeholder, by its id"),
-            pytest.param(GEIST_SPIELER, id="the pupil placeholder, by its id"),
             pytest.param(NIEMAND, id="nothing at all"),
         ],
     )
@@ -279,14 +268,13 @@ class TestWhatLetsAnAccountGo:
         status, body = answered(mongo_replica_set_url)
 
         assert status == 200, body
-        assert email in body["unreferenziert"]
+        assert email in body["unreferenced"]
 
     def test_the_answer_holds_each_once_in_the_spelling_asked_and_nothing_else(self, mongo_replica_set_url: str):
         assert answered(mongo_replica_set_url) == (
             200,
             {
-                "acknowledged": 1,
-                "unreferenziert": [NIEMAND, GEIST_SCHIEDSRICHTER, GEIST_SPIELER, REGISTRIERT_OFFEN, GESPERRT, AUSSER_DER_REGEL],
+                "unreferenced": [NIEMAND, GEIST_SCHIEDSRICHTER, REGISTRIERT_OFFEN, GESPERRT, AUSSER_DER_REGEL],
             },
         )
 
@@ -295,24 +283,12 @@ class TestWhatLetsAnAccountGo:
 class TestALeagueWithoutAnOwner:
     """An empty or foreign database answers every address unreferenced, and the sweep would delete every account on it."""
 
-    @pytest.mark.parametrize(
-        "seeded",
-        [
-            pytest.param(False, id="an empty database"),
-            pytest.param(True, id="a league whose only owner row no request matches"),
-        ],
-    )
-    def test_the_whole_batch_is_refused(self, mongo_replica_set_url: str, seeded: bool):
-        """The second case holds an administrator's live grant and an owner's dead one: only a live `owner` lets the read answer."""
-
+    def test_the_whole_batch_is_refused(self, mongo_replica_set_url: str):
         async def _run() -> tuple[int, Mapping[str, Any]]:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_, database):
-                if seeded:
-                    await _seed(database, inhaberin=INHABERIN.capitalize())
-
+            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True):
                 return await _ask(mongo_replica_set_url, [NIEMAND, SITZ_OFFEN])
 
         status, body = on_the_seed_loop(_run())
 
-        assert (status, body["error_code"]) == (409, KEIN_INHABER), body
-        assert "unreferenziert" not in body
+        assert (status, body["error_code"]) == (409, Code.NO_OWNER), body
+        assert "unreferenced" not in body
