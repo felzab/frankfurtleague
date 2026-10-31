@@ -32,9 +32,9 @@ from app.api.outbox.schemas import (
 )
 from app.api.outbox.services import (
     LEASE_DURATION,
+    PAGE,
     REPETITION_AFTER,
     RETENTION,
-    SEITE,
     OwedMail,
     enqueue_mails,
 )
@@ -331,7 +331,7 @@ class TestTheSignInCode:
         """It has one attempt inside its lapse, so a queue of league mail ahead of it would spend the drain's deadline."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            for position in range(SEITE):
+            for position in range(PAGE):
                 await owe(database, client, f"sperre/{position}")
             code = await owe(database, client, "anmeldecode/1", data=FLSignInCodeData(art="sign_in_code"))
             answer = await claimed(database, client)
@@ -340,7 +340,7 @@ class TestTheSignInCode:
 
         code, handed = on_a_database(mongo_replica_set_url, body)
 
-        assert (handed[0], len(handed)) == (code, SEITE)
+        assert (handed[0], len(handed)) == (code, PAGE)
 
     def test_a_failed_send_gives_it_up_and_its_secret_goes_with_the_final_state(self, mongo_replica_set_url: str):
         """The library repairs a failed code with a fresh one, so the row is tried once; its own lapse stays its delete date."""

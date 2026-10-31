@@ -19,11 +19,11 @@ from app.api.outbox.schemas import (
 )
 from app.api.outbox.services import (
     FINAL_STATE,
-    FOLGT_AUF,
+    FOLLOWS,
     LEASE_DURATION,
-    SEITE,
+    PAGE,
     SIGN_IN_ARTEN,
-    UNGESPERRT,
+    UNBARRED,
     OwedMail,
     final_update,
     retry_update,
@@ -63,7 +63,7 @@ def _link_record_filter(row: Mapping[str, Any]) -> dict[str, Any]:
 
     return {
         "_id": row["reference"]["id"],
-        **{adresse: row["an"] for adresse in link["adressen"]},
+        **{address_path: row["an"] for address_path in link["adressen"]},
         **{parent: {"$type": "object"} for parent in sorted(parents)},
     }
 
@@ -110,23 +110,23 @@ async def post_handout(
         sign_in_arten = list(SIGN_IN_ARTEN)
         due: list[Mapping[str, Any]] = []
         for art_filter in ({"$in": sign_in_arten}, {"$nin": sign_in_arten}):
-            if len(due) == SEITE:
+            if len(due) == PAGE:
                 break
             due += await pull_many_from_db(
                 collection=outbox_collection,
                 db_filter={**_free(now), "frist": {"$gt": now}, "art": art_filter},
                 sort_by=[("recorded_at", ASCENDING), ("_id", ASCENDING)],
-                limit=SEITE - len(due),
+                limit=PAGE - len(due),
                 session=session,
             )
         if not due:
             return [], None, overdue.modified_count
 
         # The ban is judged here, at the last moment before the send, rather than when the mail was owed.
-        judged = {str(row["an"]) for row in due if row["art"] not in UNGESPERRT}
+        judged = {str(row["an"]) for row in due if row["art"] not in UNBARRED}
         barred = await adressen_gesperrt(sperrliste, judged, session=session) if judged else set()
-        barred_ids = [row["_id"] for row in due if row["art"] not in UNGESPERRT and row["an"] in barred]
-        entfallen: list[Any] = []
+        barred_ids = [row["_id"] for row in due if row["art"] not in UNBARRED and row["an"] in barred]
+        dropped_ids: list[Any] = []
 
         tokens: dict[Any, str] = {}
         for row in due:
@@ -140,7 +140,7 @@ async def post_handout(
                 session=session,
             )
             if not minted:
-                entfallen.append(row["_id"])
+                dropped_ids.append(row["_id"])
                 continue
             tokens[row["_id"]] = raw
 
@@ -151,15 +151,15 @@ async def post_handout(
                 update=final_update("barred", now=now),
                 session=session,
             )
-        if entfallen:
+        if dropped_ids:
             await patch_many_in_db(
                 collection=outbox_collection,
-                db_filter={"_id": {"$in": entfallen}},
+                db_filter={"_id": {"$in": dropped_ids}},
                 update=final_update("dropped", now=now),
                 session=session,
             )
 
-        handed = [row for row in due if row["_id"] not in barred_ids and row["_id"] not in entfallen]
+        handed = [row for row in due if row["_id"] not in barred_ids and row["_id"] not in dropped_ids]
         if not handed:
             return [], None, overdue.modified_count
 
@@ -229,9 +229,9 @@ async def post_result(
     result = result_data.result
     state = FINAL_STATE[result]
     # A send to be tried again ends here only where it may not be: a sign-in mail, or one past its deadline.
-    endet = {"$or": [{"art": {"$in": list(SIGN_IN_ARTEN)}}, {"frist": {"$lte": now}}]} if result == "retry" else {}
+    ends = {"$or": [{"art": {"$in": list(SIGN_IN_ARTEN)}}, {"frist": {"$lte": now}}]} if result == "retry" else {}
     counted: str
-    if await settled(final_update(state, now=now, message_id=result_data.message_id), endet):
+    if await settled(final_update(state, now=now, message_id=result_data.message_id), ends):
         counted = state
     elif result == "retry" and await settled(retry_update(now=now), {}):
         counted = "repeated"
@@ -283,7 +283,7 @@ async def post_event(
         collection=outbox_collection,
         db_filter={
             "_id": event_data.id,
-            "delivery.state": {"$in": list(FOLGT_AUF[event_data.state])},
+            "delivery.state": {"$in": list(FOLLOWS[event_data.state])},
         },
         update={"$set": {"delivery": {"state": event_data.state, "grund": event_data.grund, "am": event_data.am}}},
     )

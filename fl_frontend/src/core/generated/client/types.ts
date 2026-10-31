@@ -3060,7 +3060,7 @@ export interface FLPasskeyData {
 }
 
 /**
- * The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNGESPERRT`).
+ * The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNBARRED`).
  */
 export interface FLSperreData {
   art: "sperre";

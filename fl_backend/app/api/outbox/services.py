@@ -27,10 +27,10 @@ from app.api.outbox.schemas import (
 from app.core.crud import patch_many_in_db, post_many_to_db
 
 # The rows one claim hands out.
-SEITE: Final = 10
+PAGE: Final = 10
 
 # How long one claim holds its rows: past a page at its worst, so a drain still sending is never overtaken. The frontend's
-# drain runs under no deadline but each call's own bound, so the worst is the claim's answer, then each of `SEITE` sends
+# drain runs under no deadline but each call's own bound, so the worst is the claim's answer, then each of `PAGE` sends
 # and its report, at `fl_frontend/src/core/api.ts :: FETCH_TIMEOUT_MS` a call and `fl_frontend/src/core/mail.ts ::
 # MAIL_TIMEOUT_MS` a send: (1 + 2 x 10) x 15 s, 315 s (`tests/api/test_postausgang_lease.py`). A drain a stopping
 # container cuts leaves its rows to the next once this lapses.
@@ -42,7 +42,7 @@ REPETITION_AFTER: Final = timedelta(minutes=1)
 
 # How old a mail may grow unsent before it is given up, the one bound on its retries: past the provider's daily quota
 # resetting once, so a busy day delays a mail rather than losing it. A sign-in mail's bound is its secret's lapse.
-ZUSTELLFRIST: Final = timedelta(days=2)
+DELIVERY_DEADLINE: Final = timedelta(days=2)
 
 # A finished row's retention, matching the provider's own, so the delivery state lives as long as the message it is about.
 RETENTION: Final = timedelta(days=30)
@@ -51,7 +51,7 @@ RETENTION: Final = timedelta(days=30)
 SIGN_IN_ARTEN: Final[frozenset[FLOutboxArt]] = frozenset({"sign_in_code", "passkey_hinzugefuegt", "passkey_erased", "account_erasure"})
 
 # The one kind of mail a ban does not stop: the ban's own notice.
-UNGESPERRT: Final[frozenset[FLOutboxArt]] = frozenset({"sperre"})
+UNBARRED: Final[frozenset[FLOutboxArt]] = frozenset({"sperre"})
 
 # The final state each reported outcome settles a row in; a send to be tried again ends there only where it may not be.
 FINAL_STATE: Final[Mapping[FLOutboxResultArt, FLOutboxRowState]] = {
@@ -63,7 +63,7 @@ FINAL_STATE: Final[Mapping[FLOutboxResultArt, FLOutboxRowState]] = {
 
 # Each delivery state, and the states a row may hold for an event to move it there: never back from a later one, the
 # provider sending events in any order.
-FOLGT_AUF: Final[Mapping[FLOutboxDeliveryState, tuple[FLOutboxDeliveryState | None, ...]]] = {
+FOLLOWS: Final[Mapping[FLOutboxDeliveryState, tuple[FLOutboxDeliveryState | None, ...]]] = {
     "delayed": (None,),
     "delivered": (None, "delayed"),
     "undeliverable": (None, "delayed"),
@@ -145,7 +145,7 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
     if mail.link is not None and mail.reference is None:
         raise ValueError("a link is minted on the record a mail is about, and this mail names none")
 
-    frist = valid_until if valid_until is not None else now + ZUSTELLFRIST
+    frist = valid_until if valid_until is not None else now + DELIVERY_DEADLINE
     reference = mail.reference
 
     return {
