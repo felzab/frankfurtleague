@@ -4,6 +4,7 @@ import At from "@gravity-ui/icons/At";
 import CircleInfo from "@gravity-ui/icons/CircleInfo";
 import Eye from "@gravity-ui/icons/Eye";
 
+import { ROUTES } from "@/core/routes";
 import { ABOUT_TITEL, KONTAKT_TITEL } from "@/core/seitenNamen";
 import { BewerbungForm } from "@/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm";
 import { BewerbungInstagramBand } from "@/features/bewerbungen/components/ui/BewerbungInstagramBand";
@@ -19,17 +20,17 @@ import type { FLBewerbungWindowResponse, FLTrikotFarbe } from "@/core/generated/
 import type { BewerbungFassung } from "@/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection";
 
 /** Where a school goes when this page cannot take its application, whatever closed it. */
-const ZUM_KONTAKT = { href: "/kontakt", label: KONTAKT_TITEL };
+const ZUM_KONTAKT = { href: ROUTES.contact.path(), label: KONTAKT_TITEL };
 
 /**
- * The rest of the site, from a page reached cold. `/dashboard` carries no `?saison_id=` and redirects
- * to the RUNNING season, never the future one this page is about — which is why its label names that
- * season, not the nav's „Saisonübersicht“.
+ * The rest of the site, from a page reached cold. `ROUTES.saisons` opens the season the site is on,
+ * never the future one this page is about — which is why its label names that season, not the nav's
+ * „Saisonübersicht“.
  */
 const KOPF_LINKS = [
-  { href: "/about", label: ABOUT_TITEL, anlass: "Mehr erfahren", Icon: CircleInfo },
-  { href: "/kontakt", label: KONTAKT_TITEL, anlass: "Bei Fragen", Icon: At },
-  { href: "/dashboard", label: "Laufende Saison", anlass: "Zum Mitfiebern", Icon: Eye },
+  { href: ROUTES.about.path(), label: ABOUT_TITEL, anlass: "Mehr erfahren", Icon: CircleInfo },
+  { href: ROUTES.contact.path(), label: KONTAKT_TITEL, anlass: "Bei Fragen", Icon: At },
+  { href: ROUTES.saisons.path(), label: "Laufende Saison", anlass: "Zum Mitfiebern", Icon: Eye },
 ] as const;
 
 /**

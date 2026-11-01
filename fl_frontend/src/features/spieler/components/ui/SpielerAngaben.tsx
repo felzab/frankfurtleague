@@ -1,12 +1,12 @@
 import { Fragment } from "react";
 import Link from "next/link";
 
+import { ROUTES } from "@/core/routes";
 import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { textLink } from "@/shared/components/ui/textLink";
 import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
-import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { ausgetragenSeit, kaderName, NUMMER_NICHT_HINTERLEGT, rolleLabel } from "../../constants";
 
@@ -48,7 +48,7 @@ function KaderEintrag({ zeile }: { zeile: FLSpielerSelfKaderRow }) {
         )
       )}
       <Link
-        href={withSaisonId(`/dashboard/spieler/${zeile.team_id}`, zeile.saison_id)}
+        href={ROUTES.team.path(zeile.saison_id, zeile.team_id)}
         prefetch={false}
         className={`${textLink()} w-fit fluid-sm`}>
         Kader von {zeile.team_name} ansehen

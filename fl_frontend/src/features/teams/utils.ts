@@ -170,9 +170,9 @@ export function buildKontaktRows(teams: readonly FLTeamWithMemberships[], saison
 }
 
 /**
- * The season `/dashboard/teams/[team_id]` shows a club in, or `null` where that page would 404. A
- * planned season is withheld from the public tier, and a request naming one lands on the running
- * season (`fl_frontend/src/features/saisons/resolvers.ts :: resolveSaisonId`).
+ * The season whose club page (`fl_frontend/src/core/routes.ts :: ROUTES.team`) shows a club, or `null`
+ * where that page would 404. A planned season is withheld from the public tier, so a club picked in one
+ * is shown in the running season.
  */
 export function publicTeamSaisonId(
   saisons: readonly Pick<FLSaison, "id" | "status">[],
