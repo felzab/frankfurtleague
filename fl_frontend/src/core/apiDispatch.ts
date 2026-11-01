@@ -1,4 +1,4 @@
-import { mayHaveWritten } from "./errors";
+import { APIBadStatusError, mayHaveWritten } from "./errors";
 import { recordWriteSent } from "./requestScope";
 
 import type { SentRequest } from "./errors";
@@ -13,11 +13,30 @@ export const sentRequestOf = (method: string | undefined, readOnly: boolean | un
 });
 
 /**
- * Sends one call, a write recorded as sent before `send` runs: one whose answer never comes may still have landed.
- * Outside `api.ts` because the client's test double replaces that module and sends through here, so neither can
- * record a write the other does not.
+ * Whether a write's answer says it did not stand. The backend's promise: a 4xx refuses the request, and a write that
+ * may stand all the same answers `unknown_outcome`. A 5xx promises nothing, since the server may fail after a commit,
+ * and neither does an answer naming no code, an edge's own page or an unreadable body.
+ */
+const refusedUnwritten = (error: unknown): boolean =>
+  error instanceof APIBadStatusError &&
+  error.statusCode >= 400 &&
+  error.statusCode < 500 &&
+  error.serverErrorCode !== undefined &&
+  error.serverErrorCode !== "unknown_outcome";
+
+/**
+ * Sends one call, a write recorded as standing before `send` runs, since one whose answer never comes may still have
+ * landed, and taken back where `send` throws the backend's refusal of it. Outside `api.ts` because the client's test
+ * double replaces that module and sends through here, so neither can record a write the other does not.
  */
 export async function dispatchRequest<T>(sent: SentRequest, send: () => Promise<T>): Promise<T> {
-  if (mayHaveWritten(sent)) recordWriteSent();
-  return send();
+  if (!mayHaveWritten(sent)) return send();
+
+  const withdraw = recordWriteSent();
+  try {
+    return await send();
+  } catch (error) {
+    if (refusedUnwritten(error)) withdraw();
+    throw error;
+  }
 }

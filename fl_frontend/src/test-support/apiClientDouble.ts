@@ -37,9 +37,9 @@ type ApiOptions = {
 export function doubleApiClient(answer: (call: ApiCall) => unknown): ApiCall[] {
   const calls: ApiCall[] = [];
 
-  // Sent through the real client's own dispatch, so the write the admin spine judges its answer by is
-  // recorded here exactly as the real client records it. A generated call's query is already in `endpoint`, and its tier
-  // is the operation's own.
+  // Sent through the real client's own dispatch, so a write is recorded here, and taken back where `answer` throws the
+  // backend's refusal of it, exactly as the real client does. A generated call's query is already in `endpoint`, and its
+  // tier is the operation's own.
   const sendToBackend = async (endpoint: string, options: ApiOptions): Promise<unknown> => {
     const call: ApiCall = {
       endpoint,

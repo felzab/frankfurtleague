@@ -19,7 +19,7 @@ vi.doMock("@/core/afterResponse.ts", () => ({
 }));
 
 const { sendToBackend } = await import("./api.ts");
-const { runInBackground } = await import("./requestScope.ts");
+const { requestWriteMayStand, runInBackground, runWithRequestScope } = await import("./requestScope.ts");
 
 beforeEach(() => {
   drains = 0;
@@ -42,4 +42,20 @@ it("drains behind every write that landed, and behind nothing else", async () =>
   await runInBackground("0".repeat(32), () => sendToBackend("/outbox/handout", { authType: "system", method: "POST" }));
 
   expect(drains, "a read, a refused write or a background pass's write asked for a drain").toBe(1);
+});
+
+/* The action builder clears the site's cache by this count: a refusal judged outside the dispatch would clear on every
+   refused write, a guessed link's among them, and a 5xx taken for a refusal would leave a landed write's cache standing. */
+it.each([
+  [409, false],
+  [500, true],
+])("counts a write the backend answers with a coded %i as one that may stand: %s", async (answered, stands) => {
+  status = answered;
+
+  const counted = await runWithRequestScope({ traceId: "0".repeat(32) }, async () => {
+    await sendToBackend("/spielorte", { authType: "base", method: "POST", body: "{}" }).catch(() => undefined);
+    return requestWriteMayStand();
+  });
+
+  expect(counted).toBe(stands);
 });

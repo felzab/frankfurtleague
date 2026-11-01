@@ -174,14 +174,18 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
     });
   }
 
-  let res: Response;
-  try {
-    res = await dispatchRequest(sent, () => fetch(urlObj, { ...customOptions, headers, signal: signal }));
-  } catch (error) {
-    throw asNetworkError(error);
-  }
+  const res = await dispatchRequest(sent, async () => {
+    let answered: Response;
+    try {
+      answered = await fetch(urlObj, { ...customOptions, headers, signal: signal });
+    } catch (error) {
+      throw asNetworkError(error);
+    }
+    // Thrown inside the dispatch, which takes a write the backend refused back from those that may stand.
+    if (!answered.ok) throw await refusalOf({ res: answered, traceId, endpoint, sent });
+    return answered;
+  });
 
-  if (!res.ok) throw await refusalOf({ res, traceId, endpoint, sent });
   // Every write that landed may have owed a mail in its own transaction, so the Postausgang drains behind the response
   // after each, whichever slice sent it; the drain finds nothing where none was owed. A background pass's writes are
   // drained by the pass.

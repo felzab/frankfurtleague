@@ -64,25 +64,31 @@ vi.mock("./logging", () => ({
 
 const Venue = z.object({ name: z.string().min(1).max(10), plz: z.string().regex(/^\d{5}$/) });
 
-/** A refusal by its code, naming each body path given, as the backend names a code's fields. */
-const refusal = (code: Code, ...paths: (string | number)[][]) =>
+/** The backend's failure body at `statusCode` with `code`, naming each body path given, as the backend names a code's fields. */
+const failure = (statusCode: number, code: Code | undefined, ...paths: (string | number)[][]) =>
   new APIBadStatusError({
     message: "refused",
     url: "http://backend/api/v0/spielorte",
-    statusCode: 409,
+    statusCode,
     serverErrorCode: code,
-    refusedFields: paths.map((path) => bodyField(path, code)),
+    refusedFields: code === undefined ? [] : paths.map((path) => bodyField(path, code)),
     endpoint: "/spielorte",
     method: "POST",
     readOnly: false,
     traceId: "0",
   });
 
-/** A call sent through the transport's dispatch, as the generated client sends each: recorded, and answered at once. */
-const sends = (method: string, readOnly?: boolean) =>
-  dispatchRequest(sentRequestOf(method, readOnly), async () => void state.steps.push(`sent ${method}${readOnly === true ? " read-only" : ""}`));
+/** A refusal by its code, naming each body path given. */
+const refusal = (code: Code, ...paths: (string | number)[][]) => failure(409, code, ...paths);
 
-/** An admin create whose body records what it was handed and sends the create, which answers or throws `thrown`. */
+/** A call sent through the transport's dispatch, as the generated client sends each: recorded, and answered at once or with `thrown`. */
+const sends = (method: string, readOnly?: boolean, thrown?: unknown) =>
+  dispatchRequest(sentRequestOf(method, readOnly), async () => {
+    state.steps.push(`sent ${method}${readOnly === true ? " read-only" : ""}`);
+    if (thrown !== undefined) throw thrown;
+  });
+
+/** An admin create whose body records what it was handed and sends the create, which the backend answers with `thrown` where given. */
 function create(thrown?: unknown) {
   return action({
     lane: "admin",
@@ -93,8 +99,7 @@ function create(thrown?: unknown) {
     examples: { plz: COPY.verwaltung.spielort.plzExample },
     run: async (input) => {
       state.steps.push(`body ${JSON.stringify(input)}`);
-      await sends("POST");
-      if (thrown !== undefined) throw thrown;
+      await sends("POST", undefined, thrown);
       return { ok: true, value: undefined };
     },
   });
@@ -247,7 +252,7 @@ describe("the admin lane", () => {
     }
   });
 
-  it("answers every other code on the shared line its kind takes, and clears the tag behind each", async () => {
+  it("answers every other code on the shared line its kind takes, clearing the tag behind none", async () => {
     expect(await create(refusal("document_not_found"))({ name: "Nord", plz: "60438" })).toMatchObject({ reason: COPY.shared.failure.stale });
     expect(await create(refusal("actor_not_admin"))({ name: "Nord", plz: "60438" })).toMatchObject({ reason: COPY.shared.failure.accessGone });
     // Worded on another screen, never on this one.
@@ -256,7 +261,7 @@ describe("the admin lane", () => {
       errorCode: "spiel_outside_spieltag",
       reason: COPY.shared.failure.unexpected,
     });
-    expect(state.steps.filter((step) => step === "updateTag site")).toHaveLength(3);
+    expect(state.steps.filter((step) => step === "updateTag site")).toStrictEqual([]);
     // The backend logs its own refusals.
     expect(state.lines).toStrictEqual([]);
   });
@@ -393,10 +398,30 @@ describe("the site's cache", () => {
     expect(cacheSteps()).toStrictEqual(["updateTag site"]);
   });
 
-  it("is cleared for a write whose answer never came, which may have landed all the same", async () => {
-    const lost = () => dispatchRequest(sentRequestOf("POST", undefined), () => Promise.reject(new TypeError("fetch failed")));
+  it.each([
+    ["whose answer never came", new TypeError("fetch failed")],
+    ["the backend answered as one that may stand", failure(409, "unknown_outcome")],
+    // The server may fail after its commit.
+    ["the server failed on", failure(500, "database_failed")],
+    ["an edge's own page refused, naming no code", failure(429, undefined)],
+  ])("is cleared for a write %s, which may have landed all the same", async (_answer, thrown) => {
+    await onLane("admin", () => sends("POST", undefined, thrown))({ name: "Nord" });
 
-    expect(await onLane("admin", lost)({ name: "Nord" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.unexpected });
+    expect(cacheSteps()).toStrictEqual(["updateTag site"]);
+  });
+
+  it("is not cleared for a write the backend refused", async () => {
+    await onLane("public", () => sends("POST", undefined, refusal("link_invalid")))({ name: "Nord" });
+
+    expect(cacheSteps()).not.toContain("updateTag site");
+  });
+
+  it("is cleared where one write landed before another was refused", async () => {
+    await onLane("admin", async () => {
+      await sends("POST");
+      await sends("PATCH", undefined, refusal("version_stale"));
+    })({ name: "Nord" });
+
     expect(cacheSteps()).toStrictEqual(["updateTag site"]);
   });
 
