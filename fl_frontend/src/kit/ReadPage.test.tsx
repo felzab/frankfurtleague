@@ -1,0 +1,83 @@
+// @vitest-environment jsdom
+import { within } from "@testing-library/react";
+import { renderToReadableStream, renderToString } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+
+import { COPY } from "@/core/copy";
+
+import { ReadPage } from "./ReadPage";
+
+import type { ComponentProps, ReactElement } from "react";
+import type { ReadRecord } from "./ReadPage";
+
+vi.mock("next/link", () => ({
+  default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
+}));
+
+const { fact } = COPY.spielplan;
+
+const RECORD: ReadRecord = {
+  title: { route: "spiel", heim: "Goethe", gast: "Helmholtz" },
+  groups: [{ kind: "facts", facts: [{ label: fact.spieltag, value: "1. Spieltag" }] }],
+};
+
+/** The document once every boundary has its content. */
+async function streamed(page: ReactElement): Promise<HTMLElement> {
+  const stream = await renderToReadableStream(page);
+  await stream.allReady;
+  const root = document.createElement("div");
+  root.innerHTML = await new Response(stream).text();
+  return root;
+}
+
+describe("a match's own page", () => {
+  it("heads its facts with the match's head and what befell the match", async () => {
+    const page = await streamed(
+      <ReadPage
+        scope="saison"
+        record={Promise.resolve({
+          ...RECORD,
+          spiel: {
+            head: {
+              eyebrow: "1. Spieltag",
+              home: { name: "Goethe", plaque: { kuerzel: "GOE" } },
+              away: { name: "Helmholtz", plaque: { kuerzel: "HEL" } },
+            },
+            sonderereignis: { title: COPY.spielplan.sonderereignis.ausgefallen, text: COPY.spielplan.sonderereignis.consequence.ausgefallen },
+          },
+        })}
+      />,
+    );
+
+    const head = within(page).getByText("Goethe");
+    const callout = within(page).getByText(COPY.spielplan.sonderereignis.consequence.ausgefallen);
+    const facts = within(page).getByText(fact.spieltag);
+    expect(head.compareDocumentPosition(callout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(callout.compareDocumentPosition(facts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+describe("the read page's wait", () => {
+  it("draws the facts' skeleton while the record is read, and the record once it is", async () => {
+    const waiting = document.createElement("div");
+    waiting.innerHTML = renderToString(
+      <ReadPage
+        scope="saison"
+        record={new Promise(() => undefined)}
+      />,
+    );
+    expect(within(waiting).getByRole("status").textContent).toBe(COPY.shared.loading);
+    // The record names the page, so no heading stands until it is read.
+    expect(within(waiting).queryByRole("heading", { level: 1 })).toBeNull();
+
+    const read = await streamed(
+      <ReadPage
+        scope="saison"
+        record={Promise.resolve(RECORD)}
+      />,
+    );
+    expect(within(read).getByRole("heading", { level: 1 }).textContent).toBe(COPY.page.spiel("Goethe", "Helmholtz"));
+    expect(within(read).getByText("1. Spieltag")).toBeTruthy();
+    expect(within(read).queryByRole("status")).toBeNull();
+  });
+});

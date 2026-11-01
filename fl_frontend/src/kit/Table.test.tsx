@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
+import { compiledGlobals, selectorsOf } from "@/test-support/stylesheet.ts";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
 import { Table } from "./Table";
 
+import type { Rule } from "postcss";
 import type { TableProps } from "./Table";
 
 const LONG = "Sportanlage an der Bertha-von-Suttner-Schule Mitte";
@@ -39,8 +41,48 @@ describe("a table's name cell", () => {
     expect(row?.children.length).toBe(screen.getAllByRole("columnheader").length + 1);
   });
 
+  it("names the mark of fixtures called off beside a figure, with no line explaining it", () => {
+    render(<Table {...props([{ id: "1", name: "Goethe", cells: { stadtteil: { value: "5", cancelled: 2 } } }])} />);
+    const cell = screen.getByText("5").closest("td");
+    expect(cell?.textContent).toBe(`${COPY.shared.season.cancelled(2)}5`);
+    expect(cell?.querySelector("svg")).not.toBe(null);
+  });
+
   it("draws no chevron where no row leads anywhere", () => {
     render(<Table {...props([{ id: "1", name: "Goethe", cells: { stadtteil: "Nordend" } }])} />);
     expect(screen.getByRole("table").querySelector("svg")).toBe(null);
+  });
+});
+
+describe("a table row a link points to", () => {
+  afterEach(() => {
+    window.location.hash = "";
+  });
+
+  // A club's line in a match head opens the Tabelle at its row by the row's fragment: the browser makes the row
+  // the document's target, and the stylesheet marks the target.
+  it("is the document's target while the address names it, and the target is marked", async () => {
+    render(
+      <Table
+        {...props([
+          { id: "1", name: "Goethe", anchor: "goethe", cells: { stadtteil: "Nordend" } },
+          { id: "2", name: "Helmholtz", anchor: "helmholtz", cells: { stadtteil: "Bockenheim" } },
+        ])}
+      />,
+    );
+    window.location.hash = "#helmholtz";
+
+    const target = document.querySelector(":target");
+    expect(target).toBe(screen.getByText("Helmholtz").closest("tr"));
+
+    const marked: string[] = [];
+    (await compiledGlobals()).walkDecls("animation-name", (decl) => {
+      if (decl.parent?.type !== "rule") return;
+      const selectors = selectorsOf(decl.parent as Rule).map((selector) => selector.replace(/\\(.)/g, "$1"));
+      const classes = [...(target?.classList ?? [])];
+      if (selectors.some((selector) => selector.includes(":target") && classes.some((name) => selector.includes(`.${name}`))))
+        marked.push(decl.value);
+    });
+    expect(marked).toStrictEqual(["kit-target"]);
   });
 });

@@ -1,17 +1,43 @@
 // @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
 import { SpielHead } from "./SpielHead";
 import { NONE } from "./SpielRow";
 
+import type { ComponentProps } from "react";
+
+vi.mock("next/link", () => ({
+  default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
+}));
+
 const PAIRING = {
   eyebrow: "1. Spieltag",
   home: { name: "Goethe", plaque: { kuerzel: "GOE" } },
   away: { name: "Helmholtz", plaque: { kuerzel: "HEL" } },
 } as const;
+
+describe("the match head's clubs", () => {
+  it("links each club's name to its page and the line under it to where the club stands", () => {
+    render(
+      <SpielHead
+        {...PAIRING}
+        home={{
+          ...PAIRING.home,
+          href: "/saisons/2027/teams/goe",
+          standing: { text: "1. Platz · Gruppe A", href: "/saisons/2027/tabelle#goe" },
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Goethe" }).getAttribute("href")).toBe("/saisons/2027/teams/goe");
+    expect(screen.getByRole("link", { name: "1. Platz · Gruppe A" }).getAttribute("href")).toBe("/saisons/2027/tabelle#goe");
+    // A club not yet linked keeps its name as text.
+    expect(screen.queryByRole("link", { name: "Helmholtz" })).toBeNull();
+  });
+});
 
 describe("the match head", () => {
   it("says a shoot-out under the score", () => {

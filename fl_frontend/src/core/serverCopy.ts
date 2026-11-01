@@ -185,4 +185,14 @@ export const SERVER_COPY = catalogue({
     /** The classic frame's not-found page. */
     notFound: { title: "Seite nicht gefunden", sentence: "Die Seite wurde verschoben oder gelöscht, oder die Adresse stimmt nicht." },
   },
+
+  /** The kit's season blocks, drawn on the server alone: the Tabelle's groups and the K.-o.-Baum's rows. */
+  season: {
+    /** One group's table on the Tabelle. */
+    gruppe: (gruppe: string) => `Gruppe ${gruppe}`,
+    /** The match between the two semi-finals' losers, on its own row above the Finale. */
+    thirdPlace: "Spiel um Platz 3",
+    /** Where a club stands, under its name in a match head, linking to its row on the Tabelle. */
+    standing: (platz: number, gruppe: string) => `${formatNumber(platz)}. Platz · Gruppe ${gruppe}`,
+  },
 });

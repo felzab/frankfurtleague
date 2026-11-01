@@ -22,7 +22,7 @@
   "ignoreFiles": [
     // Session 3.
     "src/kit/BracketCard.tsx",
-    "src/kit/Skeleton.tsx",
+    "src/kit/BracketTree.tsx",
     "src/kit/StatusPage.tsx",
     "src/kit/LandingPage.tsx",
     "src/kit/LandingSection.tsx",

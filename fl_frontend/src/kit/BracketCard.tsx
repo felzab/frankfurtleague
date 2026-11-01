@@ -39,7 +39,10 @@ export function BracketCard({
   home,
   away,
   result,
+  anchor,
 }: {
+  /** The card's fragment, so a link elsewhere, such as a club's line in a match head, opens the tree at it. */
+  anchor?: string;
   href: Route;
   when: string;
   home: SpielSide;
@@ -48,7 +51,9 @@ export function BracketCard({
 }) {
   const score = figures(result);
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-bg text-sm">
+    <div
+      id={anchor}
+      className="kit-target overflow-hidden rounded-lg border border-border bg-bg text-sm">
       <Link
         href={href}
         placement="card">

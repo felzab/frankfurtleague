@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
+import { Link } from "./Link";
 import { RailFrame, RailPage } from "./RailFrame";
 
 import type { Account } from "./FrameNav";
@@ -109,6 +110,32 @@ async function renderPage() {
     ),
   );
 }
+
+describe("a rail page's title", () => {
+  it("carries the page's way on in the strip, after the title", async () => {
+    await act(async () =>
+      render(
+        <RailPage
+          scope="saison"
+          title={{ route: "spielplan" }}
+          action={
+            <Link
+              href={ROUTES.spielSearch.path("2027")}
+              placement="standalone"
+              label={COPY.page.spielSearch}
+            />
+          }>
+          <p>Seite</p>
+        </RailPage>,
+      ),
+    );
+
+    const title = screen.getByRole("heading", { level: 1 });
+    const action = screen.getByRole("link", { name: COPY.page.spielSearch });
+    expect(title.parentElement?.contains(action)).toBe(true);
+    expect(title.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
 
 /** The rail's own link for the entry, apart from the phone bar's for the same page. */
 function railLink(rail: HTMLElement) {
