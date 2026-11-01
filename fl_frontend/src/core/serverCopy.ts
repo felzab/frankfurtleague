@@ -15,8 +15,8 @@ export const SERVER_COPY = katalog({
    * code answers one of the shared failure lines `COPY.shared.fehler` holds. A form places a code on the field it
    * names, where the words are a field's phrase; anywhere else they are the status line's reason and its repair.
    */
-  ablehnung: {
-    duplicate_key: COPY.shared.feld.schonVergeben,
+  refusal: {
+    duplicate_key: COPY.shared.field.taken,
     spiel_outside_spieltag: "Außerhalb des Spieltags",
     state_ergebnis_on_a_non_event: "Nur ohne eingetragene Tore",
     state_nichtantreten_without_two_sides: "Nur mit beiden Teams",
@@ -35,12 +35,12 @@ export const SERVER_COPY = katalog({
    * schema cannot carry and a person can break: placed as `ablehnung` places a code. A field's rule is a field's
    * phrase; a rule over several fields is its reason and its repair.
    */
-  regel: {
+  rule: {
     saison_year_out_of_range: "Von 2026 bis nächstes Jahr",
     address_in_free_text: "Ohne E-Mail-Adresse",
-    email_not_accepted: COPY.shared.feld.format(COPY.shared.feld.beispielAdresse),
-    date_not_in_calendar: COPY.shared.feld.format(COPY.shared.feld.beispielDatum),
-    url_not_accepted: COPY.shared.feld.format(COPY.shared.feld.beispielWebadresse),
+    email_not_accepted: COPY.shared.field.format(COPY.shared.field.exampleAddress),
+    date_not_in_calendar: COPY.shared.field.format(COPY.shared.field.exampleDate),
+    url_not_accepted: COPY.shared.field.format(COPY.shared.field.exampleUrl),
     saison_ends_before_start: "Die Saison endet vor ihrem Beginn. Wähle ein Ende nach dem Beginn.",
     bewerbung_window_ends_before_start: "Die Bewerbungsfrist endet vor ihrem Beginn. Wähle ein Ende nach dem Beginn.",
     registrierung_window_ends_before_start: "Die Registrierungsfrist endet vor ihrem Beginn. Wähle ein Ende nach dem Beginn.",
@@ -62,22 +62,23 @@ export const SERVER_COPY = katalog({
   /** The mail shell's own lines; each mail's sentences are its template's until its area's session rewrites them. */
   mail: {
     /** The one greeting: the first name where it is known. */
-    gruss: (vorname: string) => (vorname === "" ? "Hallo," : `Hallo ${vorname},`),
+    greeting: (vorname: string) => (vorname === "" ? "Hallo," : `Hallo ${vorname},`),
     /** Under the button, above its link printed to copy. */
-    knopfLink: "Falls der Knopf nicht geht, öffne diesen Link:",
+    buttonLink: "Falls der Knopf nicht geht, öffne diesen Link:",
     /**
      * The Art. 21 DSGVO objection, set apart from the rest as Art. 21 (4) asks, in the two parts around the league's
      * address, which the shell sets as a link between them.
      */
-    widerspruch: {
-      vor: "Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an",
-      nach: "genügt.",
+    objection: {
+      before:
+        "Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an",
+      after: "genügt.",
     },
     /** The mail's last line, by its kind: what a reader the mail was not meant for does. */
-    nichtDu: {
-      anmeldung: "Du hast keinen Code angefordert? Dann ignoriere diese E-Mail.",
-      sicherheit: "Warst du das nicht? Dann antworte sofort auf diese E-Mail.",
-      erstkontakt: "Du weißt nichts davon? Dann antworte auf diese E-Mail, und wir löschen deine Angaben.",
+    notYou: {
+      signIn: "Du hast keinen Code angefordert? Dann ignoriere diese E-Mail.",
+      security: "Warst du das nicht? Dann antworte sofort auf diese E-Mail.",
+      firstContact: "Du weißt nichts davon? Dann antworte auf diese E-Mail, und wir löschen deine Angaben.",
     },
   },
 });

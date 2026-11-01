@@ -70,9 +70,9 @@ export function RailFrame({
   const extra =
     foot.kind === "signIn"
       ? [
-          { label: COPY.shared.verb.anmelden, href: foot.href },
-          { label: COPY.seite.impressum, href: ROUTES.legalNotice.path() },
-          { label: COPY.seite.datenschutz, href: ROUTES.privacyNotice.path() },
+          { label: COPY.shared.verb.signIn, href: foot.href },
+          { label: COPY.page.impressum, href: ROUTES.legalNotice.path() },
+          { label: COPY.page.datenschutz, href: ROUTES.privacyNotice.path() },
         ]
       : [];
   const pages = groups.flatMap((group) => group.entries.flatMap((entry) => (entry.saison === undefined ? [] : [entry.saison])));
@@ -108,7 +108,7 @@ export function RailFrame({
               ) : (
                 // Drawn as an entry is, its glyph before its words: collapsed, the glyph alone stands centred
                 // and the tooltip names it.
-                <RailTooltip label={COPY.shared.verb.anmelden}>
+                <RailTooltip label={COPY.shared.verb.signIn}>
                   <NextLink
                     href={foot.href}
                     data-kit-focus="ring"
@@ -119,7 +119,7 @@ export function RailFrame({
                         size={18}
                       />
                     </span>
-                    <span className={railFade()}>{COPY.shared.verb.anmelden}</span>
+                    <span className={railFade()}>{COPY.shared.verb.signIn}</span>
                   </NextLink>
                 </RailTooltip>
               )}
@@ -240,7 +240,7 @@ export function RailPage({
         )}
         {scope === "saison" && (
           <nav
-            aria-label={COPY.vorlage.navigation}
+            aria-label={COPY.template.navigation}
             className="ms-auto hidden gap-1 lg:flex">
             {[ROUTES.legalNotice, ROUTES.privacyNotice].map((page) => (
               <NextLink

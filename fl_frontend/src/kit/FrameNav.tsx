@@ -165,14 +165,14 @@ async function signOutAndLeave() {
     leaveDocumentFor("/");
     return;
   }
-  appToast("danger", COPY.shared.toast.fehler);
+  appToast("danger", COPY.shared.toast.failure);
 }
 
 /** The themes as next-themes names them, each by its glyph, in the order the owner set: dark, light, system. */
 const THEMES: readonly GlyphChoice[] = [
-  { id: "dark", glyph: "dunkel", label: COPY.vorlage.darstellung.dunkel },
-  { id: "light", glyph: "hell", label: COPY.vorlage.darstellung.hell },
-  { id: "system", glyph: "system", label: COPY.vorlage.darstellung.system },
+  { id: "dark", glyph: "dunkel", label: COPY.template.theme.dark },
+  { id: "light", glyph: "hell", label: COPY.template.theme.light },
+  { id: "system", glyph: "system", label: COPY.template.theme.system },
 ];
 
 /**
@@ -185,14 +185,14 @@ function AccountMenu({ account, trigger, beside }: { account: Account; trigger: 
   const { theme, setTheme } = useTheme();
   return (
     <Menu
-      label={COPY.vorlage.konto}
+      label={COPY.template.account}
       placement="above"
       beside={beside}
       head={account.name === undefined ? undefined : { name: account.name, detail: account.address }}
       groups={[
         [
-          { kind: "link", label: COPY.vorlage.konto, href: ROUTES.accountSignIn.path() },
-          { kind: "action", label: COPY.shared.verb.abmelden, onAction: () => void signOutAndLeave() },
+          { kind: "link", label: COPY.template.account, href: ROUTES.accountSignIn.path() },
+          { kind: "action", label: COPY.shared.verb.signOut, onAction: () => void signOutAndLeave() },
         ],
         [
           { kind: "link", label: ROUTES.legalNotice.title, href: ROUTES.legalNotice.path() },
@@ -200,11 +200,11 @@ function AccountMenu({ account, trigger, beside }: { account: Account; trigger: 
         ],
       ]}
       foot={{
-        label: COPY.seite.darstellung,
+        label: COPY.page.darstellung,
         control: (
           <Segmented
             placement="inline"
-            label={COPY.seite.darstellung}
+            label={COPY.page.darstellung}
             choices={THEMES}
             value={theme ?? null}
             onChange={setTheme}
@@ -276,7 +276,7 @@ export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup
     // heading or an entry's words, each kept on one line, outgrow the collapsed rail, which would carry every
     // entry's fill to the rail's edge and past it.
     <nav
-      aria-label={COPY.vorlage.navigation}
+      aria-label={COPY.template.navigation}
       className="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-y-auto px-3 py-2">
       {groups.map((group, index) => (
         <div
@@ -424,7 +424,7 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
 
   return (
     <nav
-      aria-label={COPY.vorlage.navigation}
+      aria-label={COPY.template.navigation}
       className="sticky bottom-0 z-20 grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg lg:hidden">
       {placed.map((entry) => (
         <NextLink
@@ -443,7 +443,7 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
       {(rest.length > 0 || extra.length > 0) && (
         <FreshPerPage>
           <Sheet
-            label={COPY.vorlage.mehr}
+            label={COPY.template.more}
             trigger={
               <AriaButton
                 data-kit-focus="inset"
@@ -452,7 +452,7 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
                   glyph="more"
                   size={18}
                 />
-                {COPY.vorlage.mehr}
+                {COPY.template.more}
               </AriaButton>
             }>
             <div className="grid gap-4 pt-2">
@@ -520,7 +520,7 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
             className={avatar({ size: "bar" })}>
             {initials(account.name ?? account.address)}
           </span>
-          {COPY.vorlage.konto}
+          {COPY.template.account}
         </AriaButton>
       }
     />
@@ -543,7 +543,7 @@ export function BackControl({ href }: { href: Route }) {
         glyph="back"
         size={18}
       />
-      {COPY.shared.zurueck}
+      {COPY.shared.back}
     </>
   );
 
@@ -559,9 +559,9 @@ export function BackControl({ href }: { href: Route }) {
   }
   return (
     <ConfirmDialog
-      verb="verwerfen"
-      subject={COPY.vorlage.aenderungen}
-      consequence={COPY.vorlage.aenderungenVerloren(guard.count)}
+      verb="discard"
+      subject={COPY.template.changes}
+      consequence={COPY.template.changesLost(guard.count)}
       tone="danger"
       onConfirm={() => {
         guard.discard();
@@ -603,7 +603,7 @@ export function HeaderLinks({ links, signIn }: { links: ReadonlyArray<HeaderLink
   return (
     <>
       <nav
-        aria-label={COPY.vorlage.navigation}
+        aria-label={COPY.template.navigation}
         className="hidden gap-2 lg:flex">
         {links.map((link) => (
           <NextLink
@@ -620,15 +620,15 @@ export function HeaderLinks({ links, signIn }: { links: ReadonlyArray<HeaderLink
         href={signIn}
         data-kit-focus="ring"
         className={frameLink({ tone: "band", class: "ms-auto hidden lg:flex" })}>
-        {COPY.shared.verb.anmelden}
+        {COPY.shared.verb.signIn}
       </NextLink>
       <div className="ms-auto lg:hidden">
         <FreshPerPage>
           <Sheet
-            label={COPY.vorlage.menue}
+            label={COPY.template.menu}
             trigger={
               <AriaButton
-                aria-label={COPY.vorlage.menue}
+                aria-label={COPY.template.menu}
                 data-kit-focus="ring"
                 className="flex size-11 items-center justify-center rounded-lg text-on-brand">
                 <Icon
@@ -638,7 +638,7 @@ export function HeaderLinks({ links, signIn }: { links: ReadonlyArray<HeaderLink
               </AriaButton>
             }>
             <div className="grid gap-1 pt-2">
-              {[...links, { label: COPY.shared.verb.anmelden, href: signIn }].map((link) => (
+              {[...links, { label: COPY.shared.verb.signIn, href: signIn }].map((link) => (
                 <NextLink
                   key={link.href}
                   href={link.href}

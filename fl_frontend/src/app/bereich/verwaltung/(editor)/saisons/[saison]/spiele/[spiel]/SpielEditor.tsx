@@ -91,7 +91,7 @@ export function SpielEditor({
                 short="second"
                 phone="stack">
                 <ComboBox
-                  label={ORT.objekt}
+                  label={ORT.object}
                   name="spielort"
                   options={spielorte.map((ort) => ort.option)}
                   value={draft.spielort}
@@ -102,7 +102,7 @@ export function SpielEditor({
                     if (gewaehlt !== undefined) set("mietpreis", String(gewaehlt.mietpreis));
                   }}
                   create={{
-                    label: ORT.anlegenEintrag,
+                    label: ORT.createEntry,
                     onCreate: (typed) => {
                       setNeuerName(typed);
                       setNeu(true);
@@ -116,7 +116,7 @@ export function SpielEditor({
                     name="mietpreis"
                     width="C5"
                     kind="digits"
-                    unit={COPY.shared.einheit.euro}
+                    unit={COPY.shared.unit.euro}
                     isRequired={mietpreisPflicht}
                     value={draft.mietpreis}
                     onChange={(mietpreis) => set("mietpreis", mietpreis)}
@@ -124,8 +124,8 @@ export function SpielEditor({
                 )}
               </FieldPair>
               <Dialog
-                title={COPY.shared.mitObjekt(ORT.objekt, "anlegen")}
-                act={{ verb: "anlegen", object: ORT.objekt }}
+                title={COPY.shared.withObject(ORT.object, "create")}
+                act={{ verb: "create", object: ORT.object }}
                 action={spielortAnlegen}
                 open={{ isOpen: neu, onOpenChange: setNeu }}>
                 <SpielortFelder

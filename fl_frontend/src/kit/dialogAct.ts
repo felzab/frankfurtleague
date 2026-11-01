@@ -23,5 +23,5 @@ export type DialogAct = {
 
 /** The act's label, on the dialog's own button and on a trigger naming the same act. */
 export function actLabel({ verb, object }: DialogAct["act"]): Copy {
-  return object === undefined ? COPY.shared.verb[verb] : COPY.shared.mitObjekt(object, verb);
+  return object === undefined ? COPY.shared.verb[verb] : COPY.shared.withObject(object, verb);
 }

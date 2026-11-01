@@ -4,9 +4,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: COPY.marke.name,
-    short_name: COPY.marke.kurzname,
-    description: COPY.marke.beschreibung,
+    name: COPY.brand.name,
+    short_name: COPY.brand.shortName,
+    description: COPY.brand.description,
     start_url: "/",
     display: "standalone",
     // Both copied from `fl_frontend/src/app/tokens.css` because the manifest is JSON. The title bar

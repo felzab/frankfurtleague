@@ -28,7 +28,7 @@ function Required({ checked = false }: { checked?: boolean }) {
       <Button
         variant="primary"
         type="submit"
-        label={COPY.shared.verb.speichern}
+        label={COPY.shared.verb.save}
       />
     </Form>
   );
@@ -41,9 +41,9 @@ describe("a required checkbox", () => {
     render(<Required />);
     expect(drawnBox().className).toContain("border-border-control");
 
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.speichern }));
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
 
-    expect(screen.getByText(COPY.shared.feld.pflichtfeld)).toBeTruthy();
+    expect(screen.getByText(COPY.shared.field.required)).toBeTruthy();
     expect(drawnBox().className).toContain("border-danger");
     expect(drawnBox().className).not.toContain("border-border-control");
   });

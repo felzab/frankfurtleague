@@ -67,7 +67,7 @@ export function AccountBox({
           <Button
             variant="primary"
             type="submit"
-            label={COPY.shared.verb.speichern}
+            label={COPY.shared.verb.save}
             isBusy={isPending}
           />
         </div>

@@ -131,11 +131,11 @@ async function bootAndStep(nodeEnv: string, steps: readonly number[]): Promise<s
 it("words every server parse in the German map once the server starts, below a message a schema names itself", async () => {
   // Zod's own English, so the case proves the start's install and never a map another suite left on `globalThis`.
   z.config({ customError: undefined });
-  expect(z.string().max(2).safeParse("abc").error?.issues[0]?.message).not.toBe(COPY.shared.feld.hoechstensZeichen(2));
+  expect(z.string().max(2).safeParse("abc").error?.issues[0]?.message).not.toBe(COPY.shared.field.maxChars(2));
 
   await bootAndStep("test", []);
 
-  expect(z.string().max(2).safeParse("abc").error?.issues[0]?.message).toBe(COPY.shared.feld.hoechstensZeichen(2));
+  expect(z.string().max(2).safeParse("abc").error?.issues[0]?.message).toBe(COPY.shared.field.maxChars(2));
   expect(z.string().max(2, { error: "Höchstens 2 in der Reihe" }).safeParse("abc").error?.issues[0]?.message).toBe("Höchstens 2 in der Reihe");
 });
 

@@ -35,7 +35,7 @@ export function buildAdresswechselEmail({ way: weg, valid_until: gueltigBis }: F
   const site = mailOrigin(origin);
 
   return {
-    art: "sicherheit",
+    art: "security",
     subjectLine: "Neue E-Mail-Adresse bestätigen",
     origin: site,
     vorname: "",
@@ -93,7 +93,7 @@ export function buildAdresswechselHinweisEmail(
   const site = mailOrigin(origin);
 
   return {
-    art: "sicherheit",
+    art: "security",
     // One subject for every way: the approval's request exists so a real holder can refuse a pretext, and a
     // subject telling them to approve would be its first instruction.
     subjectLine: "Deine E-Mail-Adresse soll sich ändern",
@@ -115,7 +115,7 @@ export function buildAdresswechselHinweisEmail(
  */
 export function buildAdresswechselWirksamEmail({ vorname, instant: zeitpunkt }: FLAddressChangeEffectiveData, { origin }: MailOrt): Mail {
   return {
-    art: "sicherheit",
+    art: "security",
     subjectLine: "Deine E-Mail-Adresse wurde geändert",
     origin: mailOrigin(origin),
     vorname: vorname ?? "",
@@ -135,7 +135,7 @@ export function buildAdresswechselWirksamEmail({ vorname, instant: zeitpunkt }: 
  */
 export function buildAdresswechselNichtWirksamEmail(_daten: FLAddressChangeDiscardedData, { origin }: MailOrt): Mail {
   return {
-    art: "sicherheit",
+    art: "security",
     subjectLine: "Deine E-Mail-Adresse wurde nicht geändert",
     origin: mailOrigin(origin),
     vorname: "",

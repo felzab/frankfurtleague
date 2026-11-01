@@ -50,7 +50,7 @@ function ansetzungText({ team1, team2, datum, uhrzeit, ort }: FLSpielMailAnsetzu
     team2: team2,
     datumText: datumText(datum),
     uhrzeitText: uhrzeitText(uhrzeit),
-    ortText: ort ?? COPY.shared.nichtHinterlegt,
+    ortText: ort ?? COPY.shared.notProvided,
   };
 }
 
@@ -85,7 +85,7 @@ export function buildSpielAnfrageEmail({ art, team, ansetzung: facts, frist }: F
   const spiel = `${ansetzung.team1} gegen ${ansetzung.team2} am ${ansetzung.datumText}`;
 
   return {
-    art: "mitteilung",
+    art: "notice",
     subjectLine: art === "spiel_request" ? `Bitte bestätigen: ${spiel}` : `Erinnerung: ${spiel} bestätigen`,
     // Through `mailOrigin` once, for the footer: the link is spelled by its own function, so a second derivation here
     // could send the two versions to different hosts.
@@ -126,7 +126,7 @@ export function buildSpielEinteilungEmail({ ansetzung: facts }: FLSpielEinteilun
   const ansetzung = ansetzungText(facts);
 
   return {
-    art: "mitteilung",
+    art: "notice",
     subjectLine: `Eingeteilt: ${ansetzung.team1} gegen ${ansetzung.team2} am ${ansetzung.datumText}`,
     origin: site,
     vorname: "",
@@ -185,7 +185,7 @@ export function buildSpielHinweisEmail({ art, recipient: empfaenger, appointment
 
   if (art === "spiel_new_angesetzt") {
     return {
-      art: "mitteilung",
+      art: "notice",
       subjectLine: `Neu angesetzt: ${team1} gegen ${team2}`,
       origin: mailOrigin(origin),
       vorname: "",
@@ -197,7 +197,7 @@ export function buildSpielHinweisEmail({ art, recipient: empfaenger, appointment
   }
 
   return {
-    art: "mitteilung",
+    art: "notice",
     subjectLine: `Abgesagt: ${team1} gegen ${team2} am ${datumText(alt.datum)}`,
     origin: mailOrigin(origin),
     vorname: "",
@@ -214,7 +214,7 @@ export function buildSpielHinweisEmail({ art, recipient: empfaenger, appointment
  */
 export function buildSpielEinteilungAufgehobenEmail({ appointment: alt }: FLSpielEinteilungLiftedData, { origin }: MailOrt): Mail {
   return {
-    art: "mitteilung",
+    art: "notice",
     subjectLine: `Nicht mehr eingeteilt: ${alt.team1} gegen ${alt.team2}`,
     origin: mailOrigin(origin),
     vorname: "",
@@ -239,7 +239,7 @@ export function buildSpielEinteilungAufgehobenEmail({ appointment: alt }: FLSpie
  */
 export function buildSpielVorschlagVerworfenEmail({ appointment: alt }: FLSpielVorschlagDiscardedData, { origin }: MailOrt): Mail {
   return {
-    art: "mitteilung",
+    art: "notice",
     subjectLine: `Termin bleibt: ${alt.team1} gegen ${alt.team2} am ${datumText(alt.datum)}`,
     origin: mailOrigin(origin),
     vorname: "",

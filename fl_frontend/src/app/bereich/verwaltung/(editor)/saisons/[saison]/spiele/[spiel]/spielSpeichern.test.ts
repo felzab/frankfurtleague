@@ -132,7 +132,7 @@ describe("the match editor's save", () => {
     expect(answer).toEqual({
       ok: true,
       value: 4,
-      note: COPY.verwaltung.spiel.gespeichertMitFolgen(
+      note: COPY.verwaltung.spiel.savedWithConsequences(
         "Die Paarung in Spiel 31 wurde ebenfalls aktualisiert. Das eingetragene Ergebnis in Spiel 31 wurde dabei gelöscht.",
       ),
     });
@@ -143,7 +143,7 @@ describe("the match editor's save", () => {
 
     const answer = await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { uhrzeit: "18:00:00" } });
 
-    expect(answer).toEqual({ ok: false, reason: COPY.shared.fehler.veraltet });
+    expect(answer).toEqual({ ok: false, reason: COPY.shared.failure.stale });
     expect(stand.gesendet).toEqual([]);
   });
 
@@ -189,7 +189,7 @@ describe("the match editor's save", () => {
 
     expect(answer).toEqual({
       ok: false,
-      fieldErrors: { "changes.mietpreis": COPY.shared.feld.format(COPY.verwaltung.spielort.mietpreisBeispiel) },
+      fieldErrors: { "changes.mietpreis": COPY.shared.field.format(COPY.verwaltung.spielort.mietpreisExample) },
     });
     expect(stand.gesendet).toEqual([]);
   });
@@ -197,7 +197,7 @@ describe("the match editor's save", () => {
   it("asks for a price while a venue is chosen, writing nothing", async () => {
     const answer = await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { mietpreis: "" } });
 
-    expect(answer).toEqual({ ok: false, fieldErrors: { "changes.mietpreis": COPY.shared.feld.pflichtfeld } });
+    expect(answer).toEqual({ ok: false, fieldErrors: { "changes.mietpreis": COPY.shared.field.required } });
     expect(stand.gesendet).toEqual([]);
   });
 
@@ -208,14 +208,14 @@ describe("the match editor's save", () => {
     expect(await spielSpeichern(save)).toEqual({
       ok: false,
       errorCode: "spiel_outside_spieltag",
-      fieldErrors: { "changes.datum": SERVER_COPY.ablehnung["spiel_outside_spieltag"] },
+      fieldErrors: { "changes.datum": SERVER_COPY.refusal["spiel_outside_spieltag"] },
     });
 
     stand.ablehnung = refusal("spiel_double_booked");
     expect(await spielSpeichern(save)).toEqual({
       ok: false,
       errorCode: "spiel_double_booked",
-      reason: SERVER_COPY.ablehnung["spiel_double_booked"],
+      reason: SERVER_COPY.refusal["spiel_double_booked"],
     });
 
     // The editor sets no team, so a team's refusal means the fixture changed under it.
@@ -227,11 +227,11 @@ describe("the match editor's save", () => {
       "eligibility_team_not_in_saison",
     ] as const) {
       stand.ablehnung = refusal(code);
-      expect(await spielSpeichern(save), code).toEqual({ ok: false, errorCode: code, reason: COPY.shared.fehler.veraltet });
+      expect(await spielSpeichern(save), code).toEqual({ ok: false, errorCode: code, reason: COPY.shared.failure.stale });
     }
 
     // The fixture changed since the editor read it: the write refused the version it was sent.
     stand.ablehnung = refusal("version_stale");
-    expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "version_stale", reason: COPY.shared.fehler.veraltet });
+    expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "version_stale", reason: COPY.shared.failure.stale });
   });
 });

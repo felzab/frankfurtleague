@@ -50,7 +50,7 @@ const CONFIG_DOUBLE = {
 const KINDS_DOUBLE = {
   OUTBOX_TAG: "outbox_id",
   mailFor: (_art: string, data: { grund: string }, { origin, secret }: { origin: string; secret: string | null }) => ({
-    art: "mitteilung",
+    art: "notice",
     subjectLine: "Sperre",
     origin: origin,
     vorname: "",

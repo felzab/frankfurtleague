@@ -9,7 +9,7 @@ import { COPY } from "@/core/copy";
 
 import { appToast, ToastRegion } from "./Toast";
 
-const TITLE = COPY.shared.toast.fehler;
+const TITLE = COPY.shared.toast.failure;
 
 const compiled = compiledGlobals();
 

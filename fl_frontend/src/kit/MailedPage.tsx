@@ -49,8 +49,8 @@ export function MailedPage(
         <StatusPage
           frame="classic"
           mark="warnung"
-          title={COPY.vorlage.linkUngueltig}
-          sentence={COPY.shared.ende.linkUngueltig}
+          title={COPY.template.linkInvalid}
+          sentence={COPY.shared.end.linkInvalid}
           next={props.next}
         />
       );

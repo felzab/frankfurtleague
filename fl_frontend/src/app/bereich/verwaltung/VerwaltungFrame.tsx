@@ -24,7 +24,7 @@ export const RAIL_GROUPS: RailGroup[] = [
     entries: [{ id: "uebersicht", label: ROUTES.verwaltungOverview.title, saison: "verwaltungOverview", icon: "overview" }],
   },
   {
-    heading: COPY.verwaltung.gruppe.saisonsUndSpiele,
+    heading: COPY.verwaltung.group.saisonsAndSpiele,
     entries: [
       { id: "saisons", label: ROUTES.verwaltungSaisons.title, href: ROUTES.verwaltungSaisons.path(), icon: "saisons" },
       { id: "spiele", label: ROUTES.verwaltungSpiele.title, saison: "verwaltungSpiele", icon: "spielplan" },
@@ -38,7 +38,7 @@ export const RAIL_GROUPS: RailGroup[] = [
     ],
   },
   {
-    heading: COPY.verwaltung.gruppe.schulenUndSpieler,
+    heading: COPY.verwaltung.group.schulenAndSpieler,
     entries: [
       { id: "bewerbungen", label: ROUTES.verwaltungBewerbungen.title, saison: "verwaltungBewerbungen", icon: "bewerbungen" },
       { id: "teams", label: ROUTES.verwaltungTeams.title, saison: "verwaltungTeams", icon: "teams" },
@@ -47,7 +47,7 @@ export const RAIL_GROUPS: RailGroup[] = [
     ],
   },
   {
-    heading: COPY.verwaltung.gruppe.zugangUndDatenschutz,
+    heading: COPY.verwaltung.group.accessAndPrivacy,
     entries: [
       {
         id: "administratoren",
@@ -116,7 +116,7 @@ async function readAccount(session: Session): Promise<Account | null> {
   const served = await session;
   if (served === null) return null;
   // An administrator is an address: the grant stores no name, so the row names the address.
-  return { role: COPY.verwaltung.rolle, address: served.user.email };
+  return { role: COPY.verwaltung.role, address: served.user.email };
 }
 
 /**

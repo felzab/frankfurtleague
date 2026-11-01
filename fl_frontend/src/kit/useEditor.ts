@@ -164,7 +164,7 @@ export function useEditor<Values extends Record<string, EditorValue>>(
   // A refusal stands only over the draft it was sent with; the count of unsaved fields stands over a done save.
   const answered = statusOf(answer?.ok === true ? answer : refused, current.blockedEditCount === current.editCount, form.isPending);
   const status: FormStatus =
-    answered?.tone !== "error" && count > 0 ? { tone: "changes", text: COPY.vorlage.aenderungenOffen(count) } : answered;
+    answered?.tone !== "error" && count > 0 ? { tone: "changes", text: COPY.template.changesPending(count) } : answered;
   // One object while the refusal stands: React Aria shows a box's server message afresh whenever the object changes.
   const refusedFields = refused?.fieldErrors;
   const fieldErrors = useMemo(() => (refusedFields === undefined ? undefined : byBox(refusedFields)), [refusedFields]);

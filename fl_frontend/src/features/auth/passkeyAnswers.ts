@@ -7,13 +7,13 @@ import type { Copy } from "@/core/copy";
  * The one refusal a reader can act on: the assertion ASKS for verification rather than demanding
  * it, so a passkey with no PIN and no biometric is offered by the browser and refused here.
  */
-const OHNE_BESTAETIGUNG = COPY.anmeldung.abgelehnt.ohneBestaetigung;
+const OHNE_BESTAETIGUNG = COPY.anmeldung.refusal.unverified;
 
 /**
  * An address holding no record of its own in the league, or a barred one, which a retry would not change.
  * One sentence for both, so no answer here tells who stands on the ban list.
  */
-export const OHNE_EINTRAG = COPY.anmeldung.abgelehnt.ohneEintrag;
+export const OHNE_EINTRAG = COPY.anmeldung.refusal.noRecord;
 
 /** Read off the answer rather than off its type: the client declares no `code`, and the body has one. */
 export const refusalCode = (error: unknown): string | undefined =>
@@ -35,7 +35,7 @@ const WORDED: ReadonlyMap<string, Copy> = new Map([
  * line; the refusals above are the exceptions, because retrying repeats them.
  */
 export function describeCeremonyRefusal(error: unknown): Copy {
-  return WORDED.get(refusalCode(error) ?? "") ?? COPY.shared.fehler.unerwartet;
+  return WORDED.get(refusalCode(error) ?? "") ?? COPY.shared.failure.unexpected;
 }
 
 /** Another ceremony took this one's place, which is no failure a reader made. */

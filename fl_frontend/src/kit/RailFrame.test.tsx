@@ -27,14 +27,14 @@ vi.mock("./Toast", async (original) => ({ ...(await original<Record<string, unkn
 const ADRESSE = "verwaltung@example.com";
 
 // An administrator: the grant stores no name.
-const ACCOUNT: Account = { role: COPY.verwaltung.rolle, address: ADRESSE };
+const ACCOUNT: Account = { role: COPY.verwaltung.role, address: ADRESSE };
 
 /** The frame of a one-page area around a page, its account read as given. */
 async function renderFrame(account: Promise<Account | null>) {
   await act(async () =>
     render(
       <RailFrame
-        groups={[{ entries: [{ id: "spielorte", label: COPY.seite.spielorte, href: "/bereich/verwaltung/spielorte", icon: "suche" }] }]}
+        groups={[{ entries: [{ id: "spielorte", label: COPY.page.spielorte, href: "/bereich/verwaltung/spielorte", icon: "suche" }] }]}
         bar={["spielorte"]}
         foot={{ kind: "account", account }}>
         <p>Seite</p>
@@ -45,7 +45,7 @@ async function renderFrame(account: Promise<Account | null>) {
 
 /** Opens the account menu from the rail's row, which holds the role. */
 async function openMenu() {
-  const row = screen.getByText(COPY.verwaltung.rolle).closest("button");
+  const row = screen.getByText(COPY.verwaltung.role).closest("button");
   if (row === null) throw new Error("the account row is no button");
   await userEvent.click(row);
 }
@@ -62,11 +62,11 @@ describe("the rail frame's account", () => {
     await renderFrame(account);
 
     expect(screen.getByText("Seite")).toBeTruthy();
-    expect(screen.getAllByRole("link", { name: COPY.seite.spielorte }).length).toBeGreaterThan(0);
-    expect(screen.queryByText(COPY.verwaltung.rolle)).toBeNull();
+    expect(screen.getAllByRole("link", { name: COPY.page.spielorte }).length).toBeGreaterThan(0);
+    expect(screen.queryByText(COPY.verwaltung.role)).toBeNull();
 
     await act(async () => resolve(ACCOUNT));
-    expect(screen.getByText(COPY.verwaltung.rolle)).toBeTruthy();
+    expect(screen.getByText(COPY.verwaltung.role)).toBeTruthy();
   });
 
   it("shows no account for a session the area turns away", async () => {
@@ -81,7 +81,7 @@ describe("the rail's entries", () => {
   it("mark the current page as every navigating list marks its place", async () => {
     await renderFrame(Promise.resolve(ACCOUNT));
 
-    const current = screen.getAllByRole("link", { name: COPY.seite.spielorte }).find((link) => link.getAttribute("aria-current") === "page");
+    const current = screen.getAllByRole("link", { name: COPY.page.spielorte }).find((link) => link.getAttribute("aria-current") === "page");
     expect(current?.hasAttribute("data-selected")).toBe(true);
   });
 });
@@ -91,7 +91,7 @@ async function renderPage() {
   await act(async () =>
     render(
       <RailFrame
-        groups={[{ entries: [{ id: "spielorte", label: COPY.seite.spielorte, href: "/bereich/verwaltung/spielorte", icon: "suche" }] }]}
+        groups={[{ entries: [{ id: "spielorte", label: COPY.page.spielorte, href: "/bereich/verwaltung/spielorte", icon: "suche" }] }]}
         bar={["spielorte"]}
         foot={{ kind: "signIn", href: ROUTES.signIn.path() }}>
         <RailPage
@@ -106,18 +106,18 @@ async function renderPage() {
 
 /** The rail's own link for the entry, apart from the phone bar's for the same page. */
 function railLink(rail: HTMLElement) {
-  return screen.getAllByRole("link", { name: COPY.seite.spielorte }).find((link) => rail.contains(link));
+  return screen.getAllByRole("link", { name: COPY.page.spielorte }).find((link) => rail.contains(link));
 }
 
 describe("the rail's collapse", () => {
   it("keeps each entry's name for a screen reader and names it in a tooltip only while collapsed", async () => {
     await renderPage();
-    const toggle = screen.getByRole("button", { name: COPY.vorlage.seitenleiste.einklappen });
+    const toggle = screen.getByRole("button", { name: COPY.template.sidebar.collapse });
     const rail = document.getElementById(toggle.getAttribute("aria-controls") ?? "");
     if (rail === null) throw new Error("the toggle controls no rail");
 
     // A tab from the rail's logo reaches the entry as a keyboard would, which is what opens a tooltip on focus.
-    const logo = screen.getAllByRole("link", { name: COPY.marke.name })[0];
+    const logo = screen.getAllByRole("link", { name: COPY.brand.name })[0];
     if (logo === undefined) throw new Error("the rail has no logo");
 
     // Expanded, the entry shows its own words: focusing it from the keyboard opens no tooltip.
@@ -128,19 +128,19 @@ describe("the rail's collapse", () => {
 
     await userEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.getByRole("button", { name: COPY.vorlage.seitenleiste.ausklappen })).toBe(toggle);
-    expect(railLink(rail)?.textContent).toBe(COPY.seite.spielorte);
+    expect(screen.getByRole("button", { name: COPY.template.sidebar.expand })).toBe(toggle);
+    expect(railLink(rail)?.textContent).toBe(COPY.page.spielorte);
     // The signed-out foot is an entry too: its words fade, and stay its name.
-    expect(within(rail).getByRole("link", { name: COPY.shared.verb.anmelden })).toBeTruthy();
+    expect(within(rail).getByRole("link", { name: COPY.shared.verb.signIn })).toBeTruthy();
     logo.focus();
     await userEvent.tab();
     expect(document.activeElement).toBe(railLink(rail));
-    expect(screen.getByRole("tooltip").textContent).toBe(COPY.seite.spielorte);
+    expect(screen.getByRole("tooltip").textContent).toBe(COPY.page.spielorte);
   });
 
   it("toggles with Ctrl+B, and with Cmd+B on a Mac, from anywhere on the page", async () => {
     await renderPage();
-    const toggle = screen.getByRole("button", { name: COPY.vorlage.seitenleiste.einklappen });
+    const toggle = screen.getByRole("button", { name: COPY.template.sidebar.collapse });
 
     await userEvent.keyboard("{Control>}b{/Control}");
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
@@ -157,7 +157,7 @@ describe("the rail's collapse", () => {
     act(() => void window.dispatchEvent(press));
 
     expect(press.defaultPrevented).toBe(false);
-    expect(screen.getByRole("button", { name: COPY.vorlage.seitenleiste.einklappen }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: COPY.template.sidebar.collapse }).getAttribute("aria-expanded")).toBe("true");
   });
 });
 
@@ -167,8 +167,8 @@ describe("the account menu", () => {
     await openMenu();
 
     expect(screen.getAllByText(ADRESSE)).toHaveLength(1);
-    expect(screen.getByRole("menuitem", { name: COPY.vorlage.konto })).toBeTruthy();
-    expect(screen.getByRole("menuitem", { name: COPY.seite.impressum })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: COPY.template.account })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: COPY.page.impressum })).toBeTruthy();
   });
 
   it("heads the menu with a person's name and address where the person has a name", async () => {
@@ -184,7 +184,7 @@ describe("the account menu", () => {
     await renderFrame(Promise.resolve(ACCOUNT));
     await openMenu();
 
-    await userEvent.click(screen.getByRole("menuitem", { name: COPY.shared.verb.abmelden }));
+    await userEvent.click(screen.getByRole("menuitem", { name: COPY.shared.verb.signOut }));
 
     await vi.waitFor(() => expect(leave.leaveDocumentFor).toHaveBeenCalledWith("/"));
     expect(leave.appToast).not.toHaveBeenCalled();
@@ -195,9 +195,9 @@ describe("the account menu", () => {
     await renderFrame(Promise.resolve(ACCOUNT));
     await openMenu();
 
-    await userEvent.click(screen.getByRole("menuitem", { name: COPY.shared.verb.abmelden }));
+    await userEvent.click(screen.getByRole("menuitem", { name: COPY.shared.verb.signOut }));
 
-    await vi.waitFor(() => expect(leave.appToast).toHaveBeenCalledWith("danger", COPY.shared.toast.fehler));
+    await vi.waitFor(() => expect(leave.appToast).toHaveBeenCalledWith("danger", COPY.shared.toast.failure));
     expect(leave.leaveDocumentFor).not.toHaveBeenCalled();
   });
 
@@ -206,16 +206,16 @@ describe("the account menu", () => {
     await openMenu();
 
     // Outside the menu's own list, so its keyboard model is untouched, in the order dark, light, system.
-    const row = screen.getByRole("radiogroup", { name: COPY.seite.darstellung });
+    const row = screen.getByRole("radiogroup", { name: COPY.page.darstellung });
     expect(screen.getByRole("menu").contains(row)).toBe(false);
-    const { darstellung } = COPY.vorlage;
+    const themes = COPY.template.theme;
     expect(screen.getAllByRole("radio").map((radio) => radio.getAttribute("aria-label"))).toStrictEqual([
-      darstellung.dunkel,
-      darstellung.hell,
-      darstellung.system,
+      themes.dark,
+      themes.light,
+      themes.system,
     ]);
-    expect(screen.getByRole("radio", { name: darstellung.system }).getAttribute("aria-checked")).toBe("true");
-    await userEvent.click(screen.getByRole("radio", { name: darstellung.dunkel }));
+    expect(screen.getByRole("radio", { name: themes.system }).getAttribute("aria-checked")).toBe("true");
+    await userEvent.click(screen.getByRole("radio", { name: themes.dark }));
 
     expect(theme.setTheme).toHaveBeenCalledWith("dark");
   });

@@ -22,7 +22,7 @@ export function buildEinladungEmail({ team: teamName, saison_id: saisonId }: FLI
   const site = mailOrigin(origin);
 
   return {
-    art: "mitteilung",
+    art: "notice",
     subjectLine: `Registrierungslink für ${teamName}`,
     origin: site,
     vorname: "",

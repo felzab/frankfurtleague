@@ -68,49 +68,49 @@ wherever it can.
 A message is written short enough for the narrowest place it appears, since it must fit one line
 there.
 
-| Kind                    | Ceiling                                     | Shape                                                                                           |
-| ----------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Navigation label        | 1 to 2 words                                | a noun                                                                                          |
-| Page or section heading | 4 words                                     | a noun phrase, no full stop; a sentence standing as a heading is a status or a consequence      |
-| Field label             | 3 words                                     | a noun, no colon                                                                                |
-| Button                  | 3 words                                     | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)            |
-| Field description       | 1 sentence, 90 characters, one visible line | says what the thing is; none where the label suffices; no field has a placeholder               |
-| Tooltip                 | 5 words                                     | names an icon-only control, nothing more                                                        |
-| Section info tip (ⓘ)    | 2 sentences, about 200 characters           | only where a named question needs it                                                            |
-| Field error             | one phrase, one line, 80 characters         | a fixed pattern                                                                                 |
-| Form or page error      | 2 sentences                                 | what happened, then the one repair; a failure no reason names, the one line `fehler.unerwartet` |
-| Empty state             | 1 sentence plus at most one button          | which narrowing emptied it                                                                      |
-| Toast                   | a title of 1 to 3 words, no body            | a past participle; a failure, the one line `fehler.unerwartet`                                  |
-| Page or section intro   | none                                        | a page's title is its explanation                                                               |
-| List-truncation banner  | none                                        | the load-more control instead                                                                   |
-| Page title              | the page's catalogue title                  | followed by the one suffix „\| Frankfurt League“; a match is „{Heim} gegen {Gast}“              |
-| Callout                 | a title plus at most 1 sentence             | a state or a consequence                                                                        |
-| Team description        | three lines                                 | then „Mehr …“ opening the rest                                                                  |
-| Mail subject            | 50 characters                               | what it is about first, no league name                                                          |
-| Mail body               | about 90 words                              | more only where the law requires it on a first contact                                          |
+| Kind                    | Ceiling                                     | Shape                                                                                            |
+| ----------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Navigation label        | 1 to 2 words                                | a noun                                                                                           |
+| Page or section heading | 4 words                                     | a noun phrase, no full stop; a sentence standing as a heading is a status or a consequence       |
+| Field label             | 3 words                                     | a noun, no colon                                                                                 |
+| Button                  | 3 words                                     | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)             |
+| Field description       | 1 sentence, 90 characters, one visible line | says what the thing is; none where the label suffices; no field has a placeholder                |
+| Tooltip                 | 5 words                                     | names an icon-only control, nothing more                                                         |
+| Section info tip (ⓘ)    | 2 sentences, about 200 characters           | only where a named question needs it                                                             |
+| Field error             | one phrase, one line, 80 characters         | a fixed pattern                                                                                  |
+| Form or page error      | 2 sentences                                 | what happened, then the one repair; a failure no reason names, the one line `failure.unexpected` |
+| Empty state             | 1 sentence plus at most one button          | which narrowing emptied it                                                                       |
+| Toast                   | a title of 1 to 3 words, no body            | a past participle; a failure, the one line `failure.unexpected`                                  |
+| Page or section intro   | none                                        | a page's title is its explanation                                                                |
+| List-truncation banner  | none                                        | the load-more control instead                                                                    |
+| Page title              | the page's catalogue title                  | followed by the one suffix „\| Frankfurt League“; a match is „{Heim} gegen {Gast}“               |
+| Callout                 | a title plus at most 1 sentence             | a state or a consequence                                                                         |
+| Team description        | three lines                                 | then „Mehr …“ opening the rest                                                                   |
+| Mail subject            | 50 characters                               | what it is about first, no league name                                                           |
+| Mail body               | about 90 words                              | more only where the law requires it on a first contact                                           |
 
 ## A recurring job takes its fixed pattern
 
 Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it applies.
 
-- **A field message** is one of `feld`'s patterns. A real rule takes the same form („Höchstens 11 in
-  der Startelf“) in its area. The address example is `feld.beispielAdresse`, a reserved domain, never
+- **A field message** is one of `field`'s patterns. A real rule takes the same form („Höchstens 11 in
+  der Startelf“) in its area. The address example is `field.exampleAddress`, a reserved domain, never
   a school's address.
 - **A refusal a person can cause knowingly from the screen** gets its own sentence: the reason, then
-  the one repair. Every other refusal takes a `fehler` line: `veraltet` for a stale page or a
-  concurrent change, `abgelaufen` for an ended sign-in, `unerwartet` for anything else.
-- **A saved record** shows `gespeichert` beside its save button, never as a toast.
+  the one repair. Every other refusal takes a `failure` line: `stale` for a stale page or a
+  concurrent change, `signInExpired` for an ended sign-in, `unexpected` for anything else.
+- **A saved record** shows `saved` beside its save button, never as a toast.
 - **A toast** is one of `toast`'s four titles, and only for an action that leaves nothing on the page
   to change.
-- **A busy button** keeps its label and shows a spinner named `laedt`; no „Speichert …“.
-- **An empty list** says `leer.suche`, `leer.filter` or `leer.noch` with its own plural;
-  `leer.filter` only where the list keeps a filter.
-- **A confirmation** asks `frage` with the verb, says one sentence of consequence, carries that verb
-  on its button and `zurueck` as the way back; never „Ja“.
-- **A page a mail opens** ends in one of `ende`'s states: done, already done saying what the person
-  did and when, or `linkUngueltig`, one message for an expired, mistyped or tampered link alike.
-  Each ends in one button to the logical next step: `verb.anmelden` after a confirmed seat or address
-  change, `ende.zurStartseite` after anything else.
+- **A busy button** keeps its label and shows a spinner named `loading`; no „Speichert …“.
+- **An empty list** says `empty.search`, `empty.filter` or `empty.none` with its own plural;
+  `empty.filter` only where the list keeps a filter.
+- **A confirmation** asks `question` with the verb, says one sentence of consequence, carries that verb
+  on its button and `back` as the way back; never „Ja“.
+- **A page a mail opens** ends in one of `end`'s states: done, already done saying what the person
+  did and when, or `linkInvalid`, one message for an expired, mistyped or tampered link alike.
+  Each ends in one button to the logical next step: `verb.signIn` after a confirmed seat or address
+  change, `end.toHome` after anything else.
 - **A Vorschau line** names the changed fields by their own labels; there are no change-list labels.
 
 ## Help text is one of three kinds
@@ -132,7 +132,7 @@ score and a season. Two rules no function states:
 - **A range is the only place a dash appears**, and the locale writes it, dropping what both ends
   share.
 - **After a shoot-out** a score is each side's goals and shoot-out goals added, with
-  `nachElfmeterschiessen` beside it.
+  `afterElfmeterschiessen` beside it.
 
 A date field shows „tt.mm.jjjj“ and a time field „––:––“ while empty; the field's locale writes both.
 

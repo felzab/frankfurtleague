@@ -88,7 +88,7 @@ export function RailToggle() {
     <span className="-mr-2.5 -ml-6 max-lg:hidden">
       <Button
         icon="seitenleiste"
-        label={rail.collapsed ? COPY.vorlage.seitenleiste.ausklappen : COPY.vorlage.seitenleiste.einklappen}
+        label={rail.collapsed ? COPY.template.sidebar.expand : COPY.template.sidebar.collapse}
         aria-expanded={!rail.collapsed}
         aria-controls={RAIL_ID}
         onPress={rail.toggle}

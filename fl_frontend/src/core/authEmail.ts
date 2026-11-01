@@ -24,7 +24,7 @@ export function buildCodeEmail(code: string, origin: string): Mail {
   const site = mailOrigin(origin);
 
   return {
-    art: "anmeldung",
+    art: "signIn",
     subjectLine: "Dein Anmeldecode",
     origin: site,
     vorname: "",

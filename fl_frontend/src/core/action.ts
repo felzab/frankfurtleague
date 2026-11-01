@@ -38,10 +38,10 @@ export type ActionAnswer<Value = undefined> =
   { ok: true; value: Value; note?: Copy } | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy; errorCode?: Code };
 
 /** A code the catalogue words in a person's own terms, `SERVER_COPY.ablehnung`'s keys. */
-type WordedCode = keyof typeof SERVER_COPY.ablehnung;
+type WordedCode = keyof typeof SERVER_COPY.refusal;
 
 /** A rule the catalogue words, by the kind a refused payload's field names it with, `SERVER_COPY.regel`'s keys. */
-type WordedRule = keyof typeof SERVER_COPY.regel;
+type WordedRule = keyof typeof SERVER_COPY.rule;
 
 /** The dotted path of every leaf of an input, a list counting as one leaf: the key its box's message is answered by. */
 type Field<T, Above extends string = ""> = T extends readonly unknown[]
@@ -129,15 +129,15 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
 
 /** The admin guard's refusals, each in the words of what repairs it. */
 const TURNED_AWAY: Readonly<Record<AdminRefusal, Copy>> = {
-  signIn: COPY.shared.fehler.abgelaufen,
-  noGrant: COPY.shared.fehler.zugangWeg,
-  grantGone: COPY.shared.fehler.zugangWeg,
-  unread: COPY.shared.fehler.zugangUngeprueft,
+  signIn: COPY.shared.failure.signInExpired,
+  noGrant: COPY.shared.failure.accessGone,
+  grantGone: COPY.shared.failure.accessGone,
+  unread: COPY.shared.failure.accessUnchecked,
 };
 
-const UNEXPECTED = { ok: false, reason: COPY.shared.fehler.unerwartet } as const;
+const UNEXPECTED = { ok: false, reason: COPY.shared.failure.unexpected } as const;
 
-const isWorded = (code: Code): code is Code & WordedCode => Object.hasOwn(SERVER_COPY.ablehnung, code);
+const isWorded = (code: Code): code is Code & WordedCode => Object.hasOwn(SERVER_COPY.refusal, code);
 
 // The backend's own strip, Python's `str.strip`: Unicode's White_Space and U+001C to U+001F, from both ends. A field
 // stripped by Pydantic's `strip_whitespace` keeps those four, which is safe, since the stripped text is what is sent.
@@ -201,7 +201,7 @@ function parsed<Schema extends z.ZodType>(
   return { answer: unplaced ? UNEXPECTED : { ok: false, fieldErrors } };
 }
 
-const isWordedRule = (kind: string): kind is WordedRule => Object.hasOwn(SERVER_COPY.regel, kind);
+const isWordedRule = (kind: string): kind is WordedRule => Object.hasOwn(SERVER_COPY.rule, kind);
 
 /**
  * A refused payload in this screen's words, each broken rule on the box the screen names for it, or `undefined` where
@@ -215,8 +215,8 @@ function brokenRules<Schema extends z.ZodType>(declared: Declared<Schema>, field
     const placed = isWordedRule(kind) ? declared.ownWords?.[kind] : undefined;
     if (placed === undefined || !isWordedRule(kind)) return undefined;
     // The first rule a box broke is the one it shows.
-    if (typeof placed === "string") fieldErrors[placed] ??= SERVER_COPY.regel[kind];
-    else reason ??= SERVER_COPY.regel[kind];
+    if (typeof placed === "string") fieldErrors[placed] ??= SERVER_COPY.rule[kind];
+    else reason ??= SERVER_COPY.rule[kind];
   }
   return {
     ok: false,
@@ -232,15 +232,15 @@ function refused<Schema extends z.ZodType>(declared: Declared<Schema>, code: Cod
   if (rules !== undefined) return rules;
   const placed = isWorded(code) ? declared.ownWords?.[code] : undefined;
   if (placed !== undefined && isWorded(code)) {
-    const text = SERVER_COPY.ablehnung[code];
+    const text = SERVER_COPY.refusal[code];
     return typeof placed === "string"
       ? { ok: false, errorCode: code, fieldErrors: { [placed]: text } }
       : { ok: false, errorCode: code, reason: text };
   }
-  if (STALE.has(code)) return { ok: false, errorCode: code, reason: COPY.shared.fehler.veraltet };
+  if (STALE.has(code)) return { ok: false, errorCode: code, reason: COPY.shared.failure.stale };
   // The grant went between the guard's read and the backend's.
-  if (code === "actor_not_admin") return { ok: false, errorCode: code, reason: COPY.shared.fehler.zugangWeg };
-  return { ok: false, errorCode: code, reason: COPY.shared.fehler.unerwartet };
+  if (code === "actor_not_admin") return { ok: false, errorCode: code, reason: COPY.shared.failure.accessGone };
+  return { ok: false, errorCode: code, reason: COPY.shared.failure.unexpected };
 }
 
 /**
@@ -255,7 +255,7 @@ function logFailure(name: string, error: unknown): void {
 /** A person turned away, logged as a page's turn-away is. */
 function turnedAwayPerson(operation: string, grund: "keine_sitzung" | "kein_sitz"): ActionAnswer<never> {
   logRefused(operation, grund);
-  return { ok: false, reason: grund === "keine_sitzung" ? COPY.shared.fehler.abgelaufen : COPY.shared.fehler.veraltet };
+  return { ok: false, reason: grund === "keine_sitzung" ? COPY.shared.failure.signInExpired : COPY.shared.failure.stale };
 }
 
 /** The lane's guard, the parse and the body, in that order: no part of the input is read before the guard admits. */

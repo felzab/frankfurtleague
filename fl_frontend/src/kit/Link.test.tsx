@@ -28,11 +28,11 @@ describe("the kit's link", () => {
       <Link
         href={SPIEL}
         placement="standalone"
-        label={COPY.shared.zumSpiel}
+        label={COPY.shared.toSpiel}
       />,
     );
 
-    const link = screen.getByRole("link", { name: COPY.shared.zumSpiel });
+    const link = screen.getByRole("link", { name: COPY.shared.toSpiel });
     expect(link.hasAttribute("data-client-navigation")).toBe(true);
   });
 
@@ -42,11 +42,11 @@ describe("the kit's link", () => {
         href={SPIEL}
         placement="standalone"
         fullPage
-        label={COPY.shared.zumSpiel}
+        label={COPY.shared.toSpiel}
       />,
     );
 
-    const link = screen.getByRole("link", { name: COPY.shared.zumSpiel });
+    const link = screen.getByRole("link", { name: COPY.shared.toSpiel });
     expect(link.hasAttribute("data-client-navigation")).toBe(false);
     expect(link.getAttribute("href")).toBe(SPIEL);
     expect(link.getAttribute("data-kit-focus")).toBe("ring");

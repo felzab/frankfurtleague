@@ -33,7 +33,7 @@ const SENDER_ADDRESSES: Readonly<Record<MailSender, string>> = {
 
 /** Every sender under the league's name, which needs no quoting: it holds no comma, quote or angle bracket. */
 function senderRow(sender: MailSender): string {
-  return `${COPY.marke.name} <${SENDER_ADDRESSES[sender]}>`;
+  return `${COPY.brand.name} <${SENDER_ADDRESSES[sender]}>`;
 }
 
 /** Every reply reaches the league's mailbox, whichever address sent the mail. */

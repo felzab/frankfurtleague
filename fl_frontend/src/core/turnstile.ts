@@ -34,7 +34,7 @@ const THEIRS = "internal-error";
 const SiteverifyAnswerSchema = z.object({ success: z.boolean(), "error-codes": z.array(z.string()).default([]) });
 
 /** The refusal a check of ours Cloudflare would not take answers: nothing the visitor does repairs it. */
-export const PRUEFUNG_GESTOERT = COPY.shared.pruefung.gestoert;
+export const PRUEFUNG_GESTOERT = COPY.shared.botCheck.disrupted;
 
 /**
  * One answer of Cloudflare's: its status and error codes, an empty list where it passed the token; the status

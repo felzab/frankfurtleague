@@ -143,7 +143,7 @@ export function RouteDialog({
         <div className="absolute -end-3 -top-3 z-10">
           <Button
             icon="close"
-            label={COPY.shared.schliessen}
+            label={COPY.shared.close}
             onPress={close}
           />
         </div>
@@ -214,7 +214,7 @@ function ActForm({
           />
           <Button
             variant="secondary"
-            label={COPY.shared.zurueck}
+            label={COPY.shared.back}
             onPress={close}
           />
           <Button

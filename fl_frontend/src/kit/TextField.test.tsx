@@ -13,7 +13,7 @@ describe("an address field's autofill", () => {
   it("offers the person's address by default", () => {
     render(
       <TextField
-        label={COPY.anmeldung.adresse}
+        label={COPY.anmeldung.address}
         kind="email"
         width="W3"
       />,
@@ -24,7 +24,7 @@ describe("an address field's autofill", () => {
   it("takes the token it is given, as the sign-in's account name", () => {
     render(
       <TextField
-        label={COPY.anmeldung.adresse}
+        label={COPY.anmeldung.address}
         kind="email"
         width="W3"
         autofill="username"
@@ -47,14 +47,14 @@ describe("a digits field", () => {
         <Button
           variant="primary"
           type="submit"
-          label={COPY.shared.verb.speichern}
+          label={COPY.shared.verb.save}
         />
       </Form>,
     );
     expect(screen.getByRole("textbox").getAttribute("pattern")).toBe("[0-9]*");
     await userEvent.type(screen.getByRole("textbox"), "6a");
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.speichern }));
-    expect(screen.getByText(COPY.shared.feld.format(COPY.shared.feld.beispielZiffern))).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
+    expect(screen.getByText(COPY.shared.field.format(COPY.shared.field.exampleDigits))).toBeTruthy();
   });
 
   it("sets its unit after the field and outside it, read once as the field's description", () => {
@@ -63,12 +63,12 @@ describe("a digits field", () => {
         label={COPY.shared.startelf}
         kind="digits"
         width="C5"
-        unit={COPY.shared.einheit.euro}
+        unit={COPY.shared.unit.euro}
       />,
     );
     const field = screen.getByRole("textbox");
     const unit = field.nextElementSibling;
-    expect(unit?.textContent).toBe(COPY.shared.einheit.euro);
+    expect(unit?.textContent).toBe(COPY.shared.unit.euro);
     expect(unit?.getAttribute("aria-hidden")).toBe("true");
     expect(field.getAttribute("aria-describedby")?.split(" ")).toContain(unit?.id);
     expect(field.contains(unit ?? null)).toBe(false);
@@ -103,7 +103,7 @@ describe("a field's message line", () => {
     render(
       <Form onSubmit={(event) => event.preventDefault()}>
         <TextField
-          label={COPY.anmeldung.adresse}
+          label={COPY.anmeldung.address}
           kind="email"
           width="W3"
           line="withError"
@@ -111,7 +111,7 @@ describe("a field's message line", () => {
         <Button
           variant="primary"
           type="submit"
-          label={COPY.shared.verb.speichern}
+          label={COPY.shared.verb.save}
         />
       </Form>,
     );
@@ -119,8 +119,8 @@ describe("a field's message line", () => {
     expect(field.parentElement?.children).toHaveLength(2);
 
     await userEvent.type(field, "lena");
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.speichern }));
-    const message = screen.getByText(COPY.shared.feld.format(COPY.shared.feld.beispielAdresse));
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
+    const message = screen.getByText(COPY.shared.field.format(COPY.shared.field.exampleAddress));
     expect(field.parentElement?.lastElementChild?.contains(message)).toBe(true);
     expect(field.getAttribute("aria-describedby")?.split(" ")).toContain(message.id);
   });

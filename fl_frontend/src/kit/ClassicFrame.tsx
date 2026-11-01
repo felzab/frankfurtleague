@@ -25,7 +25,7 @@ async function Year() {
   "use cache";
   cacheTag(SITE_CACHE_TAG);
   cacheLife("days");
-  return COPY.vorlage.copyright(now().getFullYear(), COPY.marke.name);
+  return COPY.template.copyright(now().getFullYear(), COPY.brand.name);
 }
 
 const footerLink = tv({ base: "rounded-md text-sm leading-6 text-fg-muted hover:text-fg" });
@@ -61,7 +61,7 @@ export function ClassicFrame({
   sponsors: ReadonlyArray<FooterSponsor>;
   children: ReactNode;
 }) {
-  const ligaLinks = [...liga, { label: COPY.seite.sponsoren, href: ROUTES.sponsors.path() }];
+  const ligaLinks = [...liga, { label: COPY.page.sponsoren, href: ROUTES.sponsors.path() }];
   return (
     // The header's height is `tokens.css`'s, read by the header, by a page filling the first screen under it
     // (`ClassicPage`) and by the toasts.
@@ -83,23 +83,23 @@ export function ClassicFrame({
           <div className="grid gap-6 lg:grid-cols-[2fr_1fr_1fr]">
             <div className="grid content-start gap-2">
               <Brand ground="page" />
-              <p className="text-sm text-fg-muted">{COPY.vorlage.oberstufenliga}</p>
+              <p className="text-sm text-fg-muted">{COPY.template.oberstufenliga}</p>
               <div className="flex gap-4">
                 <NextLink
                   href={social.instagram}
                   data-kit-focus="text"
                   className={footerLink()}>
-                  {COPY.vorlage.instagram}
+                  {COPY.template.instagram}
                 </NextLink>
                 <NextLink
                   href={social.threads}
                   data-kit-focus="text"
                   className={footerLink()}>
-                  {COPY.vorlage.threads}
+                  {COPY.template.threads}
                 </NextLink>
               </div>
             </div>
-            {[{ heading: COPY.vorlage.liga, links: ligaLinks }, ...groups].map((group) => (
+            {[{ heading: COPY.template.liga, links: ligaLinks }, ...groups].map((group) => (
               <nav
                 key={group.heading}
                 aria-label={group.heading}
@@ -119,7 +119,7 @@ export function ClassicFrame({
           </div>
           {sponsors.length > 0 && (
             <div className="grid gap-2">
-              <p className="text-xs text-fg-muted">{COPY.vorlage.mitUnterstuetzungVon}</p>
+              <p className="text-xs text-fg-muted">{COPY.template.supportedBy}</p>
               <div className="flex flex-wrap items-center gap-6">
                 {sponsors.map((sponsor) => (
                   <NextLink

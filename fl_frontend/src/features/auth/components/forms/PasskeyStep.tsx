@@ -17,7 +17,7 @@ import type { Copy } from "@/core/copy";
 type Step = "enrol" | "assert" | "offer";
 
 /** One set of words per step, so a heading and its control cannot drift apart. */
-const WORTE = { enrol: COPY.anmeldung.passkey.einrichten, assert: COPY.anmeldung.passkey.anmelden, offer: COPY.anmeldung.passkey.angebot };
+const WORTE = { enrol: COPY.anmeldung.passkey.setUp, assert: COPY.anmeldung.passkey.signIn, offer: COPY.anmeldung.passkey.offer };
 
 /** What the reader is told, and whether the step this view was handed may have moved on. */
 type Held = { readonly satz: Copy; readonly stale: boolean };
@@ -37,11 +37,11 @@ async function ceremonyHeld(step: Step): Promise<Held | null> {
 
     // The guard's own refusal, which an enrolment another tab or device finished first earns too: the step
     // this view was handed is then stale in the same way.
-    if (enrolling && refusalStatus(error) === 404) return { satz: COPY.shared.fehler.unerwartet, stale: true };
+    if (enrolling && refusalStatus(error) === 404) return { satz: COPY.shared.failure.unexpected, stale: true };
 
     return { satz: describeCeremonyRefusal(error), stale: false };
   } catch {
-    return { satz: COPY.shared.fehler.unerwartet, stale: false };
+    return { satz: COPY.shared.failure.unexpected, stale: false };
   }
 }
 
@@ -86,16 +86,16 @@ export function PasskeyStep(props: Props) {
   return (
     <SignInPage
       view="passkey"
-      titel={worte.titel}
-      satz={worte.satz}
+      titel={worte.title}
+      satz={worte.sentence}
       adresse={address}
       // `isBusy` is the whole of the double-press guard: a second prompt aborts the first, which this view would
       // then report as a refusal of a press made while it ran.
-      los={{ label: worte.knopf, isBusy: isPending, onPress: () => void run() }}
+      los={{ label: worte.button, isBusy: isPending, onPress: () => void run() }}
       // The session is unchanged, so a soft navigation is the right tool here.
       spaeter={
         props.step === "offer"
-          ? { label: COPY.anmeldung.passkey.spaeter, isDisabled: isPending, onPress: () => router.push(props.later) }
+          ? { label: COPY.anmeldung.passkey.later, isDisabled: isPending, onPress: () => router.push(props.later) }
           : undefined
       }
       row={fehler}

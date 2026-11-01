@@ -71,7 +71,7 @@ function create(wirft?: unknown) {
     name: "anlegen",
     input: Ort,
     ownWords: { duplicate_key: "name", spiel_double_booked: true },
-    examples: { plz: COPY.verwaltung.spielort.plzBeispiel },
+    examples: { plz: COPY.verwaltung.spielort.plzExample },
     run: async (input) => {
       stand.steps.push(`body ${JSON.stringify(input)}`);
       if (wirft !== undefined) throw wirft;
@@ -90,10 +90,10 @@ beforeEach(() => {
 
 describe("the admin lane", () => {
   it.each([
-    ["signIn", COPY.shared.fehler.abgelaufen],
-    ["noGrant", COPY.shared.fehler.zugangWeg],
-    ["grantGone", COPY.shared.fehler.zugangWeg],
-    ["unread", COPY.shared.fehler.zugangUngeprueft],
+    ["signIn", COPY.shared.failure.signInExpired],
+    ["noGrant", COPY.shared.failure.accessGone],
+    ["grantGone", COPY.shared.failure.accessGone],
+    ["unread", COPY.shared.failure.accessUnchecked],
   ])("turns a caller the guard refuses as %s away in the words of its repair, before anything else", async (refused, reason) => {
     stand.admin = { refused };
 
@@ -120,7 +120,7 @@ describe("the admin lane", () => {
   it("places a value its schema refuses on its box in the German map's words, sending nothing", async () => {
     expect(await create()({ name: "Sportpark Nordwest", plz: "6043" })).toStrictEqual({
       ok: false,
-      fieldErrors: { name: COPY.shared.feld.hoechstensZeichen(10), plz: COPY.shared.feld.format(COPY.verwaltung.spielort.plzBeispiel) },
+      fieldErrors: { name: COPY.shared.field.maxChars(10), plz: COPY.shared.field.format(COPY.verwaltung.spielort.plzExample) },
     });
     expect(stand.steps).toStrictEqual(["admin guard"]);
   });
@@ -141,12 +141,12 @@ describe("the admin lane", () => {
 
     expect(await ergebnis()({ team1: { tore: -1 }, team2: { tore: 100 } })).toStrictEqual({
       ok: false,
-      fieldErrors: { "team1.tore": COPY.shared.feld.zwischen(0, 99), "team2.tore": COPY.shared.feld.zwischen(0, 99) },
+      fieldErrors: { "team1.tore": COPY.shared.field.between(0, 99), "team2.tore": COPY.shared.field.between(0, 99) },
     });
     expect(await ergebnis(refusal("state_ergebnis_on_a_non_event"))({ team1: { tore: 1 }, team2: { tore: 2 } })).toStrictEqual({
       ok: false,
       errorCode: "state_ergebnis_on_a_non_event",
-      fieldErrors: { "team2.tore": SERVER_COPY.ablehnung["state_ergebnis_on_a_non_event"] },
+      fieldErrors: { "team2.tore": SERVER_COPY.refusal["state_ergebnis_on_a_non_event"] },
     });
   });
 
@@ -154,12 +154,12 @@ describe("the admin lane", () => {
     expect(await create(refusal("duplicate_key"))({ name: "Nord", plz: "60438" })).toStrictEqual({
       ok: false,
       errorCode: "duplicate_key",
-      fieldErrors: { name: SERVER_COPY.ablehnung["duplicate_key"] },
+      fieldErrors: { name: SERVER_COPY.refusal["duplicate_key"] },
     });
     expect(await create(refusal("spiel_double_booked"))({ name: "Nord", plz: "60438" })).toStrictEqual({
       ok: false,
       errorCode: "spiel_double_booked",
-      reason: SERVER_COPY.ablehnung["spiel_double_booked"],
+      reason: SERVER_COPY.refusal["spiel_double_booked"],
     });
   });
 
@@ -181,31 +181,31 @@ describe("the admin lane", () => {
     expect(await kontakte(twoRules)(input)).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
-      fieldErrors: { kontakte: SERVER_COPY.regel.kontakt_email_twice, datum: SERVER_COPY.regel.date_not_in_calendar },
+      fieldErrors: { kontakte: SERVER_COPY.rule.kontakt_email_twice, datum: SERVER_COPY.rule.date_not_in_calendar },
     });
     expect(await kontakte(refusedPayload([bodyField([], "good_spieler_exceed_kader")]))(input)).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
-      reason: SERVER_COPY.regel.good_spieler_exceed_kader,
+      reason: SERVER_COPY.rule.good_spieler_exceed_kader,
     });
     // One rule the screen does not word, a published bound among them: the page is older than the API.
     for (const kind of ["kontakt_telefon_twice", "string_too_long"]) {
       expect(await kontakte(refusedPayload([bodyField([], "kontakt_email_twice"), bodyField(["datum"], kind)]))(input), kind).toStrictEqual({
         ok: false,
         errorCode: "payload_refused",
-        reason: COPY.shared.fehler.veraltet,
+        reason: COPY.shared.failure.stale,
       });
     }
   });
 
   it("answers every other code on the shared line its kind takes, and clears the tag behind each", async () => {
-    expect(await create(refusal("document_not_found"))({ name: "Nord", plz: "60438" })).toMatchObject({ reason: COPY.shared.fehler.veraltet });
-    expect(await create(refusal("actor_not_admin"))({ name: "Nord", plz: "60438" })).toMatchObject({ reason: COPY.shared.fehler.zugangWeg });
+    expect(await create(refusal("document_not_found"))({ name: "Nord", plz: "60438" })).toMatchObject({ reason: COPY.shared.failure.stale });
+    expect(await create(refusal("actor_not_admin"))({ name: "Nord", plz: "60438" })).toMatchObject({ reason: COPY.shared.failure.accessGone });
     // Worded on another screen, never on this one.
     expect(await create(refusal("spiel_outside_spieltag"))({ name: "Nord", plz: "60438" })).toStrictEqual({
       ok: false,
       errorCode: "spiel_outside_spieltag",
-      reason: COPY.shared.fehler.unerwartet,
+      reason: COPY.shared.failure.unexpected,
     });
     expect(stand.steps.filter((step) => step === "updateTag site")).toHaveLength(3);
     // The backend logs its own refusals.
@@ -215,7 +215,7 @@ describe("the admin lane", () => {
   it("answers any other throw as the unexpected failure, logging its name alone, and clears the tag", async () => {
     const answer = await create(new Error("lena@example.com was refused"))({ name: "Nord", plz: "60438" });
 
-    expect(answer).toStrictEqual({ ok: false, reason: COPY.shared.fehler.unerwartet });
+    expect(answer).toStrictEqual({ ok: false, reason: COPY.shared.failure.unexpected });
     expect(stand.lines).toStrictEqual([{ level: "error", message: "action.failed", meta: { action: "anlegen", name: "Error" } }]);
     expect(stand.steps.at(-1)).toBe("updateTag site");
   });
@@ -255,7 +255,7 @@ describe("the person lane", () => {
 
   it("turns away a caller with no session, logging why, before the input is read", async () => {
     // An input the schema refuses: read first, it would answer with the box's message.
-    expect(await melden({ team_id: "", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.fehler.abgelaufen });
+    expect(await melden({ team_id: "", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
     expect(stand.steps).toStrictEqual(["person guard"]);
     expect(stand.lines).toStrictEqual([{ level: "info", message: "roles.refused", meta: { operation: "melden", grund: "keine_sitzung" } }]);
   });
@@ -266,7 +266,7 @@ describe("the person lane", () => {
   ])("refuses a seat the person holds %s, naming nothing of the address", async (_where, held) => {
     stand.subject = sitzend(held);
 
-    expect(await melden({ team_id: "t1", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.fehler.veraltet });
+    expect(await melden({ team_id: "t1", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
     expect(stand.steps).toStrictEqual(["person guard"]);
     expect(JSON.stringify(stand.lines)).not.toContain("@");
   });
@@ -292,12 +292,12 @@ describe("the public lane", () => {
   });
 
   it("answers the bot check's refusal before anything of the input is read", async () => {
-    stand.botCheck = COPY.shared.pruefung.bestaetigen;
+    stand.botCheck = COPY.shared.botCheck.confirm;
     const posted = new FormData();
     posted.set("email", "keine-adresse");
     posted.set("cf-turnstile-response", "token");
 
-    expect(await send(posted)).toStrictEqual({ ok: false, reason: COPY.shared.pruefung.bestaetigen });
+    expect(await send(posted)).toStrictEqual({ ok: false, reason: COPY.shared.botCheck.confirm });
     expect(stand.steps).toStrictEqual(["bot check token"]);
   });
 

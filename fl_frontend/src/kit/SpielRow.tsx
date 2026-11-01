@@ -124,7 +124,7 @@ function RowChip({ chip }: { chip?: ChipProps }) {
  */
 function SpielRow({ href, when, home, away, result, phase, chip }: SpielRowProps) {
   const score = figures(result);
-  const shootOut = score?.shootOut === true ? COPY.shared.nachElfmeterschiessen : null;
+  const shootOut = score?.shootOut === true ? COPY.shared.afterElfmeterschiessen : null;
 
   return (
     <div className="border-t border-border first:border-t-0">

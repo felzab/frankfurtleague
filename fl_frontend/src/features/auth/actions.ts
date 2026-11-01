@@ -24,7 +24,7 @@ export const handleSignIn = action({
   botCheck: true,
   name: "handleSignIn",
   input: SignInPayloadSchema,
-  examples: { email: COPY.shared.feld.beispielAdresse },
+  examples: { email: COPY.shared.field.exampleAddress },
   run: async ({ email: typed }) => {
     // Read once and closed over: the callback below runs after this action has answered.
     const requestHeaders = await headers();

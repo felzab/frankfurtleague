@@ -45,7 +45,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    template: `%s | ${COPY.marke.name}`,
+    template: `%s | ${COPY.brand.name}`,
     default: "Frankfurt League | Die Oberstufenliga",
   },
   description:

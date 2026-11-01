@@ -43,41 +43,41 @@ describe("a segmented control", () => {
 });
 
 const GLYPHS = [
-  { id: "dark", glyph: "dunkel", label: COPY.vorlage.darstellung.dunkel },
-  { id: "light", glyph: "hell", label: COPY.vorlage.darstellung.hell },
+  { id: "dark", glyph: "dunkel", label: COPY.template.theme.dark },
+  { id: "light", glyph: "hell", label: COPY.template.theme.light },
 ] as const;
 
 describe("a segmented control of glyphs", () => {
   it("names each segment for assistive technology and in its tooltip", async () => {
     render(
       <Segmented
-        label={COPY.seite.darstellung}
+        label={COPY.page.darstellung}
         choices={GLYPHS}
         value="dark"
       />,
     );
-    const chosen = screen.getByRole("radio", { name: COPY.vorlage.darstellung.dunkel });
+    const chosen = screen.getByRole("radio", { name: COPY.template.theme.dark });
     expect(chosen.getAttribute("aria-checked")).toBe("true");
     expect(chosen.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
     expect(chosen.textContent).toBe("");
 
     // Keyboard focus opens the tooltip, as it does on an icon-only button.
     await userEvent.tab();
-    expect(screen.getByRole("tooltip").textContent).toBe(COPY.vorlage.darstellung.dunkel);
+    expect(screen.getByRole("tooltip").textContent).toBe(COPY.template.theme.dark);
   });
 
   it("stands alone in a row the caller writes, named by its label, and chooses none while the answer is not known", () => {
     const { container } = render(
       <Segmented
         placement="inline"
-        label={COPY.seite.darstellung}
+        label={COPY.page.darstellung}
         choices={GLYPHS}
         value={null}
       />,
     );
-    const group = screen.getByRole("radiogroup", { name: COPY.seite.darstellung });
+    const group = screen.getByRole("radiogroup", { name: COPY.page.darstellung });
     expect(container.firstElementChild).toBe(group);
-    expect(screen.queryByText(COPY.seite.darstellung)).toBeNull();
+    expect(screen.queryByText(COPY.page.darstellung)).toBeNull();
     expect(screen.getAllByRole("radio").every((radio) => radio.getAttribute("aria-checked") === "false")).toBe(true);
   });
 });

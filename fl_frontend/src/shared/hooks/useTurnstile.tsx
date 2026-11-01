@@ -21,13 +21,13 @@ const TURNSTILE_API = "https://challenges.cloudflare.com/turnstile/v0/api.js?ren
 const TOKEN_WAIT_MS = 10_000;
 
 /** A press past `TOKEN_WAIT_MS` with no token minted. */
-const NOCH_NICHT_FERTIG = COPY.shared.pruefung.nichtFertig;
+const NOCH_NICHT_FERTIG = COPY.shared.botCheck.notReady;
 
 /**
  * A form's sentence for a check that did not load. A blocked check stays refused, so the league's address is the
  * way in for a browser that will not load it.
  */
-const NICHT_GELADEN = COPY.shared.pruefung.nichtGeladen;
+const NICHT_GELADEN = COPY.shared.botCheck.notLoaded;
 
 /** The calls of Cloudflare's script this hook makes, as its client-side rendering page documents them. */
 type TurnstileApi = {

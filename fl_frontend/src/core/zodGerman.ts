@@ -14,27 +14,27 @@ export type Beispiele = Readonly<Record<string, Copy>>;
  * finished issues no longer carry.
  */
 export function fieldMessage(issue: z.core.$ZodRawIssue, beispiele: Beispiele = {}): Copy {
-  const { feld, fehler } = COPY.shared;
+  const { field, failure } = COPY.shared;
 
   // Every check meeting an empty box asks for a value, whichever check it was.
-  if (issue.input === undefined || issue.input === null || issue.input === "") return feld.pflichtfeld;
+  if (issue.input === undefined || issue.input === null || issue.input === "") return field.required;
 
   if (issue.code === "too_small" || issue.code === "too_big") {
     if (issue.origin === "string") {
-      return issue.code === "too_small" ? feld.mindestensZeichen(Number(issue.minimum)) : feld.hoechstensZeichen(Number(issue.maximum));
+      return issue.code === "too_small" ? field.minChars(Number(issue.minimum)) : field.maxChars(Number(issue.maximum));
     }
     // A number's issue names the one bound it passed; the line names both, read off the schema holding them.
     if (issue.schema instanceof z.ZodNumber && issue.schema.minValue !== null && issue.schema.maxValue !== null) {
-      return feld.zwischen(issue.schema.minValue, issue.schema.maxValue);
+      return field.between(issue.schema.minValue, issue.schema.maxValue);
     }
   }
 
   // A value of the wrong shape is shown the shape: the field's own example, or the address example for an address.
   const example = beispiele[(issue.path ?? []).map(String).join(".")];
-  if (example !== undefined) return feld.format(example);
-  if (issue.code === "invalid_format" && issue.format === "email") return feld.format(feld.beispielAdresse);
+  if (example !== undefined) return field.format(example);
+  if (issue.code === "invalid_format" && issue.format === "email") return field.format(field.exampleAddress);
 
-  return fehler.unerwartet;
+  return failure.unexpected;
 }
 
 // Redesign: goes, with its call in `instrumentation.ts`, with the last parse that passes no map of its own, the old

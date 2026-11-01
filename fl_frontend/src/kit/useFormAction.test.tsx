@@ -29,7 +29,7 @@ describe("a form's action through the one wrapper", () => {
     const answered = answering(async () => {
       throw new Error("An unexpected response was received from the server.");
     }, refresh);
-    expect(await answered(undefined)).toStrictEqual({ ok: false, reason: COPY.shared.fehler.veraltet });
+    expect(await answered(undefined)).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
     expect(refresh).toHaveBeenCalledOnce();
   });
 
@@ -39,7 +39,7 @@ describe("a form's action through the one wrapper", () => {
     const answered = answering(async () => {
       throw new Error(EDGE_REFUSAL_BODY);
     }, refresh);
-    expect(await answered(undefined)).toStrictEqual({ ok: false, reason: COPY.shared.fehler.zuVieleVersuche });
+    expect(await answered(undefined)).toStrictEqual({ ok: false, reason: COPY.shared.failure.tooManyAttempts });
     expect(refresh).not.toHaveBeenCalled();
   });
 
@@ -51,15 +51,15 @@ describe("a form's action through the one wrapper", () => {
 
 describe("a form's status line for a refusal", () => {
   it("points at the fields rather than repeat a reason they already carry", () => {
-    const plz = COPY.shared.feld.pflichtfeld;
+    const plz = COPY.shared.field.required;
     expect(statusOf({ ok: false, fieldErrors: { plz }, reason: plz }, false, false)).toStrictEqual({
       tone: "error",
-      text: COPY.vorlage.felderPruefen,
+      text: COPY.template.checkFields,
     });
   });
 
   it("says nothing while the next send is on its way, so the same refusal again is announced again", () => {
-    expect(statusOf({ ok: false, reason: COPY.shared.fehler.zuVieleVersuche }, false, true)).toBeNull();
+    expect(statusOf({ ok: false, reason: COPY.shared.failure.tooManyAttempts }, false, true)).toBeNull();
   });
 });
 

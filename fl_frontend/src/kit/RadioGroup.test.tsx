@@ -34,15 +34,15 @@ describe("a radio group", () => {
         <Button
           variant="primary"
           type="submit"
-          label={COPY.shared.verb.speichern}
+          label={COPY.shared.verb.save}
         />
       </Form>,
     );
     expect(drawnBox(COPY.shared.startelf).className.split(" ")).toContain("border-border-control");
 
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.speichern }));
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
 
-    expect(screen.getByText(COPY.shared.feld.pflichtfeld)).toBeTruthy();
+    expect(screen.getByText(COPY.shared.field.required)).toBeTruthy();
     for (const answer of [COPY.shared.startelf, COPY.shared.bank]) {
       expect(drawnBox(answer).className.split(" ")).toContain("border-danger");
       expect(drawnBox(answer).className.split(" ")).not.toContain("border-border-control");
