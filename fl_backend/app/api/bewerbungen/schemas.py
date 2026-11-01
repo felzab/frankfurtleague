@@ -416,7 +416,7 @@ class FLBewerbungKaderPayload(FLBewerbungKader):
         """
 
         if self.good_spieler > self.expected_size:
-            raise PydanticCustomError("good_spieler_exceed_kader", "more strong players than the expected squad")
+            raise PydanticCustomError("good_spieler_exceed_kader", "more strong players than the expected squad", {"max": self.expected_size})
 
         return self
 

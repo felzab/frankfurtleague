@@ -2,8 +2,13 @@ import { APIBadStatusError } from "@/core/errors.ts";
 
 import type { FLRefusedField } from "@/core/generated/client/types.ts";
 
-/** One body field a refusal names, under the kind a validator's own refusal carries unless another is given. */
-export const bodyField = (path: readonly (string | number)[], kind = "value_error"): FLRefusedField => ({ in: "body", path: [...path], kind });
+/** One body field a refusal names, under the kind a validator's own refusal carries unless another is given, with the bounds its rule names. */
+export const bodyField = (path: readonly (string | number)[], kind = "value_error", ctx: FLRefusedField["ctx"] = {}): FLRefusedField => ({
+  in: "body",
+  path: [...path],
+  kind,
+  ctx,
+});
 
 /**
  * The `payload_refused` a refused payload arrives as, from `fl_frontend/src/core/api.ts :: sendToBackend`: one

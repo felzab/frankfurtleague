@@ -54,7 +54,7 @@ async def api_error_handler(request: Request, exc: APIError):
     # A 422 alone publishes `fields`, the refusal's own code as each one's `kind` where a `payload_refused`
     # carries pydantic's error type.
     fields = (
-        [{"in": "body", "path": list(path), "kind": exc.error_code} for path in exc.fields]
+        [{"in": "body", "path": list(path), "kind": exc.error_code, "ctx": {}} for path in exc.fields]
         if exc.status_code == HTTPStatus.UNPROCESSABLE_CONTENT
         else None
     )
@@ -123,7 +123,12 @@ def _refused_field(error: Any) -> dict[str, Any]:
     # FastAPI prefixes every `loc` with where the value arrived; the rest is the path inside it.
     location, *path = error["loc"]
 
-    return {"in": str(location), "path": path, "kind": error["type"]}
+    # A rule's bounds, which its caller words the field's line from: a context carries what the rule
+    # holds the refused value to, never that value. A member that is no JSON scalar, an exception
+    # among them, names nothing a caller could word.
+    context = {key: value for key, value in error.get("ctx", {}).items() if isinstance(value, str | int | float | bool)}
+
+    return {"in": str(location), "path": path, "kind": error["type"], "ctx": context}
 
 
 def rejected_fields_of(errors: Sequence[Any]) -> list[dict[str, str]]:

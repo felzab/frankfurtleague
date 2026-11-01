@@ -51,6 +51,11 @@ const infinitiv = (verb: Verb): string => `${VERB[verb].charAt(0).toLowerCase()}
 // One line for every failure no reason names, the same in a toast and in a status line.
 const UNEXPECTED = "Etwas ist schiefgelaufen";
 
+/** A range's end: a figure, or a year as a string, which as a season id takes no thousands separator. */
+type Bound = number | string;
+
+const bound = (value: Bound): string => (typeof value === "string" ? value : formatNumber(value));
+
 // The mark a result decided in a shoot-out carries: under the score in a match row, after it in a fact.
 const NACH_ELFMETERSCHIESSEN = "n. E.";
 
@@ -80,7 +85,12 @@ export const COPY = katalog({
       // Reserved as the address example's domain is.
       exampleUrl: "https://example.com",
       // Redesign: the first field taking a range reads it.
-      between: (von: number, bis: number) => `Zwischen ${formatNumber(von)} und ${formatNumber(bis)}`,
+      between: (from: Bound, to: Bound) => `Zwischen ${bound(from)} und ${bound(to)}`,
+      // One-sided bounds of a number or of a list, the box's label saying what is counted.
+      max: (count: number) => `Höchstens ${formatNumber(count)}`,
+      min: (count: number) => `Mindestens ${formatNumber(count)}`,
+      /** „Ohne E-Mail-Adresse“: what a text must not hold, by the catalogue's own name for it. */
+      without: (thing: Copy) => `Ohne ${thing}`,
       earliest: (tag: CalendarDay) => `Frühestens ${formatDatum(tag)}`,
       latest: (tag: CalendarDay) => `Spätestens ${formatDatum(tag)}`,
       // A unique index's refusal: a field's message, and the words `serverCopy.ts` answers its code in.

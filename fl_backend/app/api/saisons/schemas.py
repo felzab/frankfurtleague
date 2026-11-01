@@ -216,7 +216,9 @@ def refuse_a_saison_year_outside_the_league(value: str) -> str:
     # `int` is total only because the pattern ran first: drop it and `int`'s own message carries the
     # rejected value into the log.
     if not FIRST_SAISON_YEAR <= int(value) <= newest:
-        raise PydanticCustomError("saison_year_out_of_range", "the season id names a year outside the league's")
+        raise PydanticCustomError(
+            "saison_year_out_of_range", "the season id names a year outside the league's", {"min": FIRST_SAISON_YEAR, "max": newest}
+        )
 
     return value
 

@@ -17,7 +17,7 @@ import { getSubjectSession } from "./subject";
 import { mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "./trace";
 import { turnstileRefusal } from "./turnstile";
 import { TURNSTILE_FIELD } from "./turnstileToken";
-import { fieldMessage } from "./zodGerman";
+import { fieldMessage, isWordedRule, ruleMessage } from "./zodGerman";
 
 import type { z } from "zod";
 import type { AdminRefusal } from "./auth";
@@ -25,6 +25,7 @@ import type { Copy } from "./copy";
 import type { Code, FLRefusedField } from "./generated/client/types";
 import type { Role } from "./roles";
 import type { SubjectSession } from "./subject";
+import type { WordedRule } from "./zodGerman";
 
 /**
  * What a server action answers a form, as `action` builds it and the kit's `useFormAction` reads it: done, with
@@ -37,11 +38,8 @@ import type { SubjectSession } from "./subject";
 export type ActionAnswer<Value = undefined> =
   { ok: true; value: Value; note?: Copy } | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy; errorCode?: Code };
 
-/** A code the catalogue words in a person's own terms, `SERVER_COPY.ablehnung`'s keys. */
+/** A code the catalogue words in a person's own terms, `SERVER_COPY.refusal`'s keys. */
 type WordedCode = keyof typeof SERVER_COPY.refusal;
-
-/** A rule the catalogue words, by the kind a refused payload's field names it with, `SERVER_COPY.regel`'s keys. */
-type WordedRule = keyof typeof SERVER_COPY.rule;
 
 /** The dotted path of every leaf of an input, a list counting as one leaf: the key its box's message is answered by. */
 type Field<T, Above extends string = ""> = T extends readonly unknown[]
@@ -201,8 +199,6 @@ function parsed<Schema extends z.ZodType>(
   return { answer: unplaced ? UNEXPECTED : { ok: false, fieldErrors } };
 }
 
-const isWordedRule = (kind: string): kind is WordedRule => Object.hasOwn(SERVER_COPY.rule, kind);
-
 /**
  * A refused payload in this screen's words, each broken rule on the box the screen names for it, or `undefined` where
  * the screen does not word every rule the payload broke.
@@ -211,12 +207,12 @@ function brokenRules<Schema extends z.ZodType>(declared: Declared<Schema>, field
   if (fields.length === 0) return undefined;
   const fieldErrors: Record<string, Copy> = {};
   let reason: Copy | undefined;
-  for (const { kind } of fields) {
-    const placed = isWordedRule(kind) ? declared.ownWords?.[kind] : undefined;
-    if (placed === undefined || !isWordedRule(kind)) return undefined;
+  for (const refused of fields) {
+    const placed = isWordedRule(refused.kind) ? declared.ownWords?.[refused.kind] : undefined;
+    if (placed === undefined) return undefined;
     // The first rule a box broke is the one it shows.
-    if (typeof placed === "string") fieldErrors[placed] ??= SERVER_COPY.rule[kind];
-    else reason ??= SERVER_COPY.rule[kind];
+    if (typeof placed === "string") fieldErrors[placed] ??= ruleMessage(refused);
+    else reason ??= ruleMessage(refused);
   }
   return {
     ok: false,

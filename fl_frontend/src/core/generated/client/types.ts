@@ -3894,6 +3894,8 @@ export interface FLReferencesResponse {
   unreferenced: string[];
 }
 
+export type FLRefusedFieldCtx = { [key: string]: string | number | boolean };
+
 export type FLRefusedFieldIn = (typeof FLRefusedFieldIn)[keyof typeof FLRefusedFieldIn];
 
 export const FLRefusedFieldIn = {
@@ -3905,6 +3907,7 @@ export const FLRefusedFieldIn = {
 } as const;
 
 export interface FLRefusedField {
+  ctx: FLRefusedFieldCtx;
   in: FLRefusedFieldIn;
   kind: string;
   path: (string | number)[];

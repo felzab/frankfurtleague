@@ -12,7 +12,7 @@ import type { Code } from "./generated/client/types";
 export const SERVER_COPY = katalog({
   /**
    * A refusal's own words, by the backend's code, for a code a person causes knowingly from a screen; every other
-   * code answers one of the shared failure lines `COPY.shared.fehler` holds. A form places a code on the field it
+   * code answers one of the shared failure lines `COPY.shared.failure` holds. A form places a code on the field it
    * names, where the words are a field's phrase; anywhere else they are the status line's reason and its repair.
    */
   refusal: {
@@ -31,32 +31,18 @@ export const SERVER_COPY = katalog({
   } satisfies Partial<Record<Code, string>>,
 
   /**
-   * A rule's own words, by the kind the backend refuses a payload with (`fields[].kind`), for a rule its published
-   * schema cannot carry and a person can break: placed as `ablehnung` places a code. A field's rule is a field's
-   * phrase; a rule over several fields is its reason and its repair.
+   * A rule's own phrase, by the kind the backend refuses a payload with (`fields[].kind`), for a rule a person can
+   * break that no field pattern words: placed as `refusal` places a code. Every other rule is worded from the
+   * patterns by `fl_frontend/src/core/zodGerman.ts :: ruleMessage`.
    */
   rule: {
-    saison_year_out_of_range: "Von 2026 bis nächstes Jahr",
-    address_in_free_text: "Ohne E-Mail-Adresse",
-    email_not_accepted: COPY.shared.field.format(COPY.shared.field.exampleAddress),
-    date_not_in_calendar: COPY.shared.field.format(COPY.shared.field.exampleDate),
-    url_not_accepted: COPY.shared.field.format(COPY.shared.field.exampleUrl),
-    saison_ends_before_start: "Die Saison endet vor ihrem Beginn. Wähle ein Ende nach dem Beginn.",
-    bewerbung_window_ends_before_start: "Die Bewerbungsfrist endet vor ihrem Beginn. Wähle ein Ende nach dem Beginn.",
-    registrierung_window_ends_before_start: "Die Registrierungsfrist endet vor ihrem Beginn. Wähle ein Ende nach dem Beginn.",
-    spieltag_ends_before_start: "Der Spieltag endet vor seinem Beginn. Wähle ein Ende nach dem Beginn.",
-    good_spieler_exceed_kader:
-      "Es sind mehr gute Spieler angegeben, als der Kader voraussichtlich Spieler hat. Gib höchstens so viele an wie die voraussichtliche Kadergröße.",
     kontakt_email_twice: "Zwei Kontaktpersonen haben dieselbe E-Mail-Adresse. Gib jeder Person ihre eigene.",
     kontakt_telefon_twice: "Zwei Kontaktpersonen haben dieselbe Telefonnummer. Gib jeder Person ihre eigene.",
     elfmeterschiessen_without_winner: "Ein Elfmeterschießen endet nicht unentschieden. Trag für eine Seite mehr Treffer ein.",
     nichtantreten_with_tore: "Bei einem Nichtantreten stehen keine Tore im Bericht, das Ergebnis setzt die Liga. Lösche die Tore.",
     nichtantreten_with_torschuetzen: "Bei einem Nichtantreten gibt es keine Torschützen. Lösche die Einträge.",
-    ergebnis_missing_tore: "Zum Ergebnis gehören die Tore beider Teams. Trag sie für beide Teams ein.",
     elfmeterschiessen_without_draw: "Ein Elfmeterschießen folgt nur auf ein Unentschieden. Lösche es, oder trag ein Unentschieden ein.",
     torschuetzen_not_matching_tore: "Die Torschützen ergeben ein anderes Ergebnis als die Tore. Trag für jedes Tor genau einen Eintrag ein.",
-    decline_without_proposal: "Wer absagt, schlägt einen anderen Termin vor. Wähle einen Termin.",
-    decline_without_reason: "Wer absagt, nennt einen Grund. Schreib kurz, warum.",
   },
 
   /** The mail shell's own lines; each mail's sentences are its template's until its area's session rewrites them. */

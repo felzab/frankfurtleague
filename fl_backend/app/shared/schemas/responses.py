@@ -35,6 +35,9 @@ class FLRefusedField(BaseModel):
     # Pydantic's error `type`, never its English `msg`; on a domain rule's
     # 422, the rule's own code.
     kind: str
+    # The error's `ctx` as Pydantic reports it, its JSON scalars alone: the bounds a rule holds the
+    # value to, by the names the rule gives them. Empty where the rule names none.
+    ctx: dict[str, str | int | float | bool]
 
 
 class FLRefusedPayloadBody(FLFailureBody):

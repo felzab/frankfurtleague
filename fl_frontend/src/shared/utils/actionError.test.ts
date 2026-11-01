@@ -388,8 +388,8 @@ describe("a payload the API refused", () => {
 
   it("keeps the failure naming no field where nothing it names is inside the body, and answers the reload", () => {
     const result = refused([
-      { in: "query", path: ["limit"], kind: "int_parsing" },
-      { in: "body", path: [], kind: "json_invalid" },
+      { in: "query", path: ["limit"], kind: "int_parsing", ctx: {} },
+      { in: "body", path: [], kind: "json_invalid", ctx: {} },
     ]);
 
     // No control carries a query parameter or the body as a whole, so a map holding either would be

@@ -4,7 +4,7 @@ import logging
 import re
 from collections.abc import AsyncIterator
 from http import HTTPStatus
-from typing import Any
+from typing import Annotated, Any, Self
 
 import pytest
 from bson import ObjectId
@@ -12,7 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 from httpx2 import Response
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import AfterValidator, BaseModel, Field, ValidationError, model_validator
 from pymongo.errors import BulkWriteError, PyMongoError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -27,7 +27,7 @@ from app.core.exceptions import APIError
 from app.core.logging import JSONFormatter, TraceContextFilter
 from app.core.middlewares import TracedApp
 from app.main import create_app
-from app.shared.schemas.custom import PERSON_NAME_PATTERN
+from app.shared.schemas.custom import PERSON_NAME_PATTERN, refuse_reversed_span
 from tests.config import BASE_AUTH, build_test_config
 from tests.core.app_source import application
 
@@ -83,6 +83,32 @@ async def answer() -> dict[str, bool]:
 
 @VALIDATION_APP.post("/nested")
 async def refuse_a_nested_field(payload: NestedPayload) -> dict[str, bool]:
+    """Never reached: every case posts a body the route refuses."""
+
+    return {"ok": True}
+
+
+def refuse_plainly(value: str) -> str:
+    """A validator raising a bare `ValueError`, whose context Pydantic reports as the exception itself."""
+
+    raise ValueError("refused")
+
+
+class RuledPayload(BaseModel):
+    """A span the shared helper judges, beside a field a bare `ValueError` refuses."""
+
+    beginn: str
+    ende: str
+    note: Annotated[str, AfterValidator(refuse_plainly)] | None = None
+
+    @model_validator(mode="after")
+    def the_span_runs_forwards(self) -> Self:
+        refuse_reversed_span(start=self.beginn, end=self.ende, kind="spieltag_ends_before_start")
+        return self
+
+
+@VALIDATION_APP.post("/ruled")
+async def refuse_a_rule(payload: RuledPayload) -> dict[str, bool]:
     """Never reached: every case posts a body the route refuses."""
 
     return {"ok": True}
@@ -171,16 +197,32 @@ class TestTheRefusedFieldsReachTheCaller:
 
         # An integer rather than `"1"`: a caller joining the path gets the dotted name its input carries.
         assert body["fields"] == [
-            {"in": "body", "path": ["kontakt", "email"], "kind": "string_too_long"},
-            {"in": "body", "path": ["namen", 1, "vorname"], "kind": "string_pattern_mismatch"},
+            {"in": "body", "path": ["kontakt", "email"], "kind": "string_too_long", "ctx": {"max_length": 5}},
+            {"in": "body", "path": ["namen", 1, "vorname"], "kind": "string_pattern_mismatch", "ctx": {"pattern": PERSON_NAME_PATTERN}},
         ]
+
+    def test_a_rule_s_bound_reaches_the_caller_as_its_context(self):
+        """The caller words the line from the bound, so the start a span may not end before has to cross the wire."""
+
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post("/ruled", json={"beginn": "2026-09-05", "ende": "2026-09-01"})
+
+        assert response.json()["fields"] == [{"in": "body", "path": [], "kind": "spieltag_ends_before_start", "ctx": {"start": "2026-09-05"}}]
+
+    def test_a_context_member_no_json_scalar_holds_stays_off_the_wire(self):
+        """A bare `ValueError`'s context is the exception, which no JSON body could carry: the refusal answers 422, not 500."""
+
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(
+            "/ruled", json={"beginn": "2026-09-01", "ende": "2026-09-05", "note": "x"}
+        )
+
+        assert (response.status_code, response.json()["fields"]) == (422, [{"in": "body", "path": ["note"], "kind": "value_error", "ctx": {}}])
 
     def test_the_value_and_pydantics_english_stay_off_the_wire(self):
         body = refused({"kontakt": {"email": "a@b"}, "namen": [{"vorname": REJECTED_NAME}]})
 
         # The exact key sets, so a value or a message under any name moves this.
         assert set(body) == {"error_code", "trace_id", "fields"}
-        assert [set(field) for field in body["fields"]] == [{"in", "path", "kind"}]
+        assert [set(field) for field in body["fields"]] == [{"in", "path", "kind", "ctx"}]
         assert REJECTED_NAME not in str(body)
         assert "String should match pattern" not in str(body)
 
@@ -200,7 +242,7 @@ class TestARefusalIsAnsweredAtTheStatusItsCheckChose:
         response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(f"/refused/{int(HTTPStatus.UNPROCESSABLE_CONTENT)}")
 
         assert response.status_code == HTTPStatus.UNPROCESSABLE_CONTENT
-        assert response.json()["fields"] == [{"in": "body", "path": list(JUDGED_PATH), "kind": PLANTED_REFUSAL}]
+        assert response.json()["fields"] == [{"in": "body", "path": list(JUDGED_PATH), "kind": PLANTED_REFUSAL, "ctx": {}}]
 
     def test_a_refusal_off_422_carries_no_fields(self):
         response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(f"/refused/{int(HTTPStatus.CONFLICT)}")

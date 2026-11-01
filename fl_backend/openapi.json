@@ -9619,6 +9619,26 @@
       },
       "FLRefusedField": {
         "properties": {
+          "ctx": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "title": "Ctx",
+            "type": "object"
+          },
           "in": {
             "enum": [
               "body",
@@ -9652,7 +9672,8 @@
         "required": [
           "in",
           "path",
-          "kind"
+          "kind",
+          "ctx"
         ],
         "title": "FLRefusedField",
         "type": "object"

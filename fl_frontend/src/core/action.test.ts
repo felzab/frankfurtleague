@@ -181,12 +181,13 @@ describe("the admin lane", () => {
     expect(await kontakte(twoRules)(input)).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
-      fieldErrors: { kontakte: SERVER_COPY.rule.kontakt_email_twice, datum: SERVER_COPY.rule.date_not_in_calendar },
+      fieldErrors: { kontakte: SERVER_COPY.rule.kontakt_email_twice, datum: COPY.shared.field.format(COPY.shared.field.exampleDate) },
     });
-    expect(await kontakte(refusedPayload([bodyField([], "good_spieler_exceed_kader")]))(input)).toStrictEqual({
+    // A rule a pattern words takes its line from the bound the rule's context names.
+    expect(await kontakte(refusedPayload([bodyField([], "good_spieler_exceed_kader", { max: 8 })]))(input)).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
-      reason: SERVER_COPY.rule.good_spieler_exceed_kader,
+      reason: COPY.shared.field.max(8),
     });
     // One rule the screen does not word, a published bound among them: the page is older than the API.
     for (const kind of ["kontakt_telefon_twice", "string_too_long"]) {
