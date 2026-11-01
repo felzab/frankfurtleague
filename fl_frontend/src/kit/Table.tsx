@@ -46,6 +46,8 @@ export type TableRow = {
   qualifies?: boolean;
   /** A row that no longer counts, such as a disqualified team's: its text muted. */
   muted?: boolean;
+  /** The row's fragment, so a link elsewhere, such as a club's line in a match head, opens the page at it. */
+  anchor?: string;
 };
 
 export type TableProps = {
@@ -64,7 +66,8 @@ export type TableProps = {
 const table = tv({
   slots: {
     head: "h-10 bg-bg-surface px-3 text-xs font-medium tracking-caps whitespace-nowrap text-fg-muted uppercase",
-    row: "relative h-14 border-t border-border first:border-t-0 lg:h-13",
+    // A row a link may point to by its fragment, marked while the address names it.
+    row: "kit-target relative h-14 border-t border-border first:border-t-0 lg:h-13",
     cell: "px-3 whitespace-nowrap",
     // The name takes the room the facts leave and wraps where it is long, never narrower than 192 px, so a
     // long fact beside it cannot squeeze it to a letter a line.
@@ -204,6 +207,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty }: Tab
               return (
                 <tr
                   key={row.id}
+                  id={row.anchor}
                   className={table(marks).row()}>
                   {rankLabel !== undefined && (
                     <td className={table({ align: "centre", figures: true, qualifies: row.qualifies === true }).cell()}>{index + 1}</td>

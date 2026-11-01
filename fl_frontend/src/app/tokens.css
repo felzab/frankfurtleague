@@ -71,6 +71,12 @@
     --loading-delay: 1000ms;
   }
 
+  /* How long a place a link pointed to stays marked after the link brought the reader there (`kit-target`).
+     Defined under reduced motion too: the mark is a colour that fades, which moves nothing. */
+  :root {
+    --target-highlight: 2s;
+  }
+
   /* Defined only where motion is welcome: under `reduce` each name is unset, so a duration reading it
      is invalid at computed-value time and falls back to its initial `0s`. No easing is set; CSS's
      default `ease` applies. */
@@ -133,6 +139,31 @@
 @keyframes kit-appear {
   to {
     opacity: 1;
+  }
+}
+
+/* The place a link pointed to, such as a club's row in the Tabelle opened from its match: tinted as a chosen
+   value is, the tint fading to the place's own background. */
+@keyframes kit-target {
+  from {
+    background-color: color-mix(in srgb, var(--brand) 12%, transparent);
+  }
+}
+
+/* A place a link may point to by its fragment: the browser scrolls it into view clear of the frame's sticky
+   band or strip, and marks it while the address names it, CSS's `:target`. */
+@layer components {
+  .kit-target {
+    scroll-margin-top: var(--rail-band);
+
+    @variant lg {
+      scroll-margin-top: var(--rail-strip);
+    }
+
+    &:target {
+      animation-name: kit-target;
+      animation-duration: var(--target-highlight);
+    }
   }
 }
 

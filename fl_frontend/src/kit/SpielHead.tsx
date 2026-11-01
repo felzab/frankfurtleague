@@ -6,6 +6,7 @@ import { ERGEBNIS_SEPARATOR } from "@/core/format";
 import { Callout } from "./Callout";
 import { RouteDialog } from "./Dialog";
 import { Facts } from "./Facts";
+import { Link } from "./Link";
 import { figures, look, NONE, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
@@ -16,11 +17,26 @@ import type { ReactElement } from "react";
 import type { Fact } from "./Facts";
 import type { Figures, SpielRowProps, SpielSide } from "./SpielRow";
 
+/**
+ * A side as the head names it: the club's name a link to its page once the club is known, and under it a
+ * muted line saying where the club stands, such as its place in its group, a link to that place.
+ */
+type SpielHeadSide = SpielSide & {
+  href?: Route;
+  /**
+   * Its words, such as „3. Platz · Gruppe A“ or a knockout round's name, and its target, a fragment such as
+   * `…/tabelle#<anchor>`, which the browser scrolls into view and marks as the document's target, the row then
+   * drawing its highlight (`kit-target`, `:target`). The browser sets that target only on a document
+   * navigation, never on the history entry a client navigation pushes, so the line loads its page whole.
+   */
+  standing?: { text: string; href: Route };
+};
+
 export type SpielHeadProps = {
   /** The line above the pairing, as a competition's round stands over a scoreboard: the matchday. */
   eyebrow: string;
-  home: SpielSide;
-  away: SpielSide;
+  home: SpielHeadSide;
+  away: SpielHeadSide;
   /** Absent until a result is entered, so an unplayed match never reads 0:0. */
   result?: SpielRowProps["result"];
 };
@@ -36,6 +52,7 @@ const head = tv({
     eyebrow: "text-xs font-medium text-fg-muted",
     side: "grid min-w-0 justify-items-center gap-2 text-center",
     name: "min-w-0 text-sm [overflow-wrap:anywhere]",
+    standing: "min-w-0 text-xs [overflow-wrap:anywhere]",
   },
 });
 
@@ -43,13 +60,34 @@ function Goals({ score, part }: { score: Figures; part: "home" | "away" }) {
   return <span className={head(look(score, part)).goals()}>{score === null ? NONE : score[part]}</span>;
 }
 
-/** A side as the centred look sets it: the plaque over the name. */
-function Side({ side, score, part }: { side: SpielSide; score: Figures; part: "home" | "away" }) {
+/** A side as the centred look sets it: the plaque over the name, and under it where the club stands. */
+function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part: "home" | "away" }) {
   const style = head(look(score, part));
   return (
     <span className={style.side()}>
       <TeamPlaque {...side.plaque} />
-      <span className={style.name()}>{side.name}</span>
+      <span className={style.name()}>
+        {side.href === undefined ? (
+          side.name
+        ) : (
+          <Link
+            href={side.href}
+            placement="standalone"
+            text={side.name}
+          />
+        )}
+      </span>
+      {side.standing !== undefined && (
+        <span className={style.standing()}>
+          {/* Session 3: the muted placement once the kit's link has one. */}
+          <Link
+            href={side.standing.href}
+            placement="standalone"
+            fullPage
+            text={side.standing.text}
+          />
+        </span>
+      )}
     </span>
   );
 }
