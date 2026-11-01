@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { action } from "./action";
+import { afterTheResponse } from "./afterResponse";
+import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { COPY } from "./copy";
 import { APIBadStatusError } from "./errors";
 import { SERVER_COPY } from "./serverCopy";
@@ -21,10 +23,20 @@ const state = vi.hoisted(() => ({
   /** Every step in the order it ran. */
   steps: [] as string[],
   lines: [] as { level: string; message: string; meta: unknown }[],
+  /** Work handed to Next's `after`, run by a case once its action has answered, as Next runs it. */
+  behind: [] as (() => Promise<void>)[],
 }));
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-vi.mock("next/cache", () => ({ updateTag: (tag: string) => state.steps.push(`updateTag ${tag}`) }));
+vi.mock("next/cache", () => ({
+  updateTag: (tag: string) => state.steps.push(`updateTag ${tag}`),
+  refresh: () => state.steps.push("refresh"),
+}));
+vi.mock("next/server", async (original) => ({
+  ...(await original<object>()),
+  after: (task: () => Promise<void>) => void state.behind.push(task),
+}));
+vi.mock("./mail", () => ({ drainOutbox: async () => undefined }));
 vi.mock("./auth", () => ({
   judgeAdminRequest: async () => {
     state.steps.push("admin guard");
@@ -66,7 +78,11 @@ const refusal = (code: Code, ...paths: (string | number)[][]) =>
     traceId: "0",
   });
 
-/** An admin create whose body records what it was handed, or throws `thrown`. */
+/** A call sent through the transport's dispatch, as the generated client sends each: recorded, and answered at once. */
+const sends = (method: string, readOnly?: boolean) =>
+  dispatchRequest(sentRequestOf(method, readOnly), async () => void state.steps.push(`sent ${method}${readOnly === true ? " read-only" : ""}`));
+
+/** An admin create whose body records what it was handed and sends the create, which answers or throws `thrown`. */
 function create(thrown?: unknown) {
   return action({
     lane: "admin",
@@ -77,6 +93,7 @@ function create(thrown?: unknown) {
     examples: { plz: COPY.verwaltung.spielort.plzExample },
     run: async (input) => {
       state.steps.push(`body ${JSON.stringify(input)}`);
+      await sends("POST");
       if (thrown !== undefined) throw thrown;
       return { ok: true, value: undefined };
     },
@@ -89,6 +106,7 @@ beforeEach(() => {
   state.botCheck = null;
   state.steps = [];
   state.lines = [];
+  state.behind = [];
 });
 
 describe("the admin lane", () => {
@@ -104,14 +122,14 @@ describe("the admin lane", () => {
     expect(state.steps).toStrictEqual(["admin guard"]);
   });
 
-  it("strips every text as the backend does, parses it, runs the body and clears the site's tag", async () => {
+  it("strips every text as the backend does, parses it and runs the body", async () => {
     const posted = new FormData();
     posted.set("name", "\u00a0Nord\u3000");
     // U+001F is no White_Space, which Python's `str.strip` drops all the same.
     posted.set("plz", " 60438\u001f");
 
     expect(await create()(posted)).toStrictEqual({ ok: true, value: undefined });
-    expect(state.steps).toStrictEqual(["admin guard", 'body {"name":"Nord","plz":"60438"}', "updateTag site"]);
+    expect(state.steps).toStrictEqual(["admin guard", 'body {"name":"Nord","plz":"60438"}', "sent POST", "updateTag site"]);
   });
 
   it("keeps a character the backend's strip keeps", async () => {
@@ -306,7 +324,7 @@ describe("the person lane", () => {
     state.subject = seated({ team_id: "t2", saison_id: "2027" }, { team_id: "t1", saison_id: "2027" });
 
     expect(await register({ team_id: "t1", saison_id: "2027" })).toStrictEqual({ ok: true, value: undefined });
-    expect(state.steps).toStrictEqual(["person guard", "body 1", "updateTag site"]);
+    expect(state.steps).toStrictEqual(["person guard", "body 1", "refresh"]);
   });
 });
 
@@ -337,7 +355,77 @@ describe("the public lane", () => {
       ok: true,
       value: "lena@example.com",
     });
-    // A public write reaches no cached read, so the site's tag stands.
-    expect(state.steps).toStrictEqual(["bot check token", "body"]);
+    expect(state.steps).toStrictEqual(["bot check token", "body", "refresh"]);
   });
+});
+
+/** An action on `lane` taking a name, its body running `work`: the person's on a record of its own, the public one exempt. */
+function onLane(lane: "admin" | "person" | "public", work: () => Promise<unknown>) {
+  const declared = { name: lane, input: z.object({ name: z.string().min(1) }) };
+  const run = async () => {
+    await work();
+    return { ok: true, value: undefined } as const;
+  };
+  switch (lane) {
+    case "admin":
+      return action({ ...declared, lane, run });
+    case "person":
+      return action({ ...declared, lane, claim: "record", run });
+    case "public":
+      return action({ ...declared, lane, exempt: "a case's own action", run });
+  }
+}
+
+/** What the action did to the site's cache, in order. */
+const cacheSteps = () => state.steps.filter((step) => step.startsWith("updateTag") || step === "refresh");
+
+describe("the site's cache", () => {
+  beforeEach(() => {
+    state.subject = person();
+  });
+
+  it.each(["admin", "person", "public"] as const)("is cleared on the %s lane once the body sent a write", async (lane) => {
+    await onLane(lane, async () => {
+      await sends("GET");
+      await sends("POST");
+    })({ name: "Nord" });
+
+    expect(cacheSteps()).toStrictEqual(["updateTag site"]);
+  });
+
+  it("is cleared for a write whose answer never came, which may have landed all the same", async () => {
+    const lost = () => dispatchRequest(sentRequestOf("POST", undefined), () => Promise.reject(new TypeError("fetch failed")));
+
+    expect(await onLane("admin", lost)({ name: "Nord" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.unexpected });
+    expect(cacheSteps()).toStrictEqual(["updateTag site"]);
+  });
+
+  it.each(["admin", "person", "public"] as const)(
+    "stands on the %s lane when the body sent only reads, the page rendered again",
+    async (lane) => {
+      await onLane(lane, async () => {
+        await sends("GET");
+        await sends("POST", true);
+      })({ name: "Nord" });
+
+      expect(cacheSteps()).toStrictEqual(["refresh"]);
+    },
+  );
+
+  it("stands when the body's write runs behind the response", async () => {
+    await onLane("admin", async () => {
+      afterTheResponse(() => sends("POST"));
+    })({ name: "Nord" });
+    for (const task of state.behind.splice(0)) await task();
+
+    expect(state.steps).toStrictEqual(["admin guard", "refresh", "sent POST"]);
+  });
+
+  it.each(["admin", "person", "public"] as const)(
+    "is neither cleared nor the page rendered on the %s lane for an input the parse refuses",
+    async (lane) => {
+      expect(await onLane(lane, () => sends("POST"))({ name: "" })).toMatchObject({ ok: false });
+      expect(cacheSteps()).toStrictEqual([]);
+    },
+  );
 });

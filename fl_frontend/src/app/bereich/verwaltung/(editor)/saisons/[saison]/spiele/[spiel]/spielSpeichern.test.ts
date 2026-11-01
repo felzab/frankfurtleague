@@ -53,7 +53,7 @@ const stand = vi.hoisted(() => ({
 }));
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-vi.mock("next/cache", () => ({ updateTag: () => undefined }));
+vi.mock("next/cache", () => ({ updateTag: () => undefined, refresh: () => undefined }));
 vi.mock("@/core/auth", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
 
 vi.mock("@/features/spiele/queries", () => ({
