@@ -1,4 +1,9 @@
+import asyncio
+from collections.abc import Mapping
+from typing import Any
+
 from fastapi import APIRouter, Depends
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.crud import pull_active_saison
 from app.api.saisons.schemas import (
@@ -11,9 +16,13 @@ from app.api.saisons.schemas import (
     FLSaisonsSingleResponse,
 )
 from app.api.saisons.services import base_tier_status_term, with_schedule
+from app.api.saisons.visibility import PublicSaison, resolve_public_saison
+from app.api.spiele.services import build_spiele_pipeline
+from app.api.spieltage.schemas import FLKoRundeResponse, FLSpielplanResponse, FLSpielplanSpieltag
+from app.api.spieltage.services import build_spielplan, current_spieltag_id
 from app.core.config import API_VERSION
-from app.core.crud import build_query, build_sort, pull_many_from_db, pull_one_from_db
-from app.core.dependencies import SaisonsCollection
+from app.core.crud import aggregate_many_from_db, build_query, build_sort, pull_many_from_db, pull_one_from_db
+from app.core.dependencies import SaisonsCollection, SpieleCollection, SpieltageCollection
 from app.core.security import verify_access_base
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 
@@ -93,3 +102,78 @@ async def get_saison(saison_id: str, saisons_collection: SaisonsCollection) -> F
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id, **base_tier_status_term()})
 
     return FLSaisonsSingleResponse(saison=FLSaison.model_validate(with_schedule(saison_raw)))
+
+
+# The knockout phases, which the K.-o.-Runde shows of the same matchdays and matches the Spielplan does.
+_KNOCKOUT_TERM: Mapping[str, Any] = {"saison_phase": {"$ne": "gruppenphase"}}
+
+
+async def _spielplan_of(
+    *,
+    saison_id: str,
+    saisons_collection: AsyncCollection,
+    spieltage_collection: AsyncCollection,
+    spiele_collection: AsyncCollection,
+    phase_term: Mapping[str, Any],
+) -> tuple[PublicSaison, list[FLSpielplanSpieltag]]:
+    """The season and its matchdays holding their matches, in one round trip.
+
+    The two contents are read beside the resolve rather than after it: the id is the path's, so neither waits on it,
+    and nothing they hold is served before the resolve has passed.
+    """
+
+    db_filter = {"saison_id": saison_id, **phase_term}
+    saison, spieltage_raw, spiele_raw = await asyncio.gather(
+        resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
+        pull_many_from_db(collection=spieltage_collection, db_filter=db_filter),
+        aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter=db_filter)),
+    )
+
+    return saison, build_spielplan(spieltage_raw, spiele_raw, saison.rules)
+
+
+@router.get("/{saison_id}/spielplan", response_model=FLSpielplanResponse, summary="One Saison's Spielplan")
+async def get_spielplan(
+    saison_id: str,
+    saisons_collection: SaisonsCollection,
+    spieltage_collection: SpieltageCollection,
+    spiele_collection: SpieleCollection,
+) -> FLSpielplanResponse:
+    """Every matchday of one season with its matches, in playing order, and the matchday to open on.
+
+    The Spielplan and the Spielsuche both show this. 404 for a season this tier may not read.
+    """
+
+    saison, spieltage = await _spielplan_of(
+        saison_id=saison_id,
+        saisons_collection=saisons_collection,
+        spieltage_collection=spieltage_collection,
+        spiele_collection=spiele_collection,
+        phase_term={},
+    )
+
+    return FLSpielplanResponse(spieltage=spieltage, current_spieltag_id=current_spieltag_id(spieltage, saison_status=saison.status))
+
+
+@router.get("/{saison_id}/ko_runde", response_model=FLKoRundeResponse, summary="One Saison's K.-o.-Runde")
+async def get_ko_runde(
+    saison_id: str,
+    saisons_collection: SaisonsCollection,
+    spieltage_collection: SpieltageCollection,
+    spiele_collection: SpieleCollection,
+) -> FLKoRundeResponse:
+    """Every knockout matchday of one season with its matches, in playing order; empty before the draw.
+
+    A side whose club is not yet known is null beside the `quelle` it comes from. 404 for a season this tier may not
+    read.
+    """
+
+    _, spieltage = await _spielplan_of(
+        saison_id=saison_id,
+        saisons_collection=saisons_collection,
+        spieltage_collection=spieltage_collection,
+        spiele_collection=spiele_collection,
+        phase_term=_KNOCKOUT_TERM,
+    )
+
+    return FLKoRundeResponse(spieltage=spieltage)

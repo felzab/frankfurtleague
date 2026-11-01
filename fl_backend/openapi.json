@@ -7166,6 +7166,23 @@
         ],
         "type": "string"
       },
+      "FLKoRundeResponse": {
+        "description": "A season's knockout matchdays in the order they are played, each holding its matches.\n\nA side whose club is not yet known is null, and its `quelle` says where it comes from.",
+        "properties": {
+          "spieltage": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielplanSpieltag"
+            },
+            "title": "Spieltage",
+            "type": "array"
+          }
+        },
+        "required": [
+          "spieltage"
+        ],
+        "title": "FLKoRundeResponse",
+        "type": "object"
+      },
       "FLKontakt": {
         "properties": {
           "email": {
@@ -16007,6 +16024,36 @@
         "title": "FLSpielorteSingleResponse",
         "type": "object"
       },
+      "FLSpielplanResponse": {
+        "description": "A season's matchdays in the order they are played, and the one the Spielplan opens on.\n\n`current_spieltag_id` is the first matchday holding a match still to be played, else the last; in a finished\nseason, the last. Null for a season with no matchday.",
+        "properties": {
+          "current_spieltag_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{24}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Spieltag Id"
+          },
+          "spieltage": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielplanSpieltag"
+            },
+            "title": "Spieltage",
+            "type": "array"
+          }
+        },
+        "required": [
+          "spieltage",
+          "current_spieltag_id"
+        ],
+        "title": "FLSpielplanResponse",
+        "type": "object"
+      },
       "FLSpielplanShape": {
         "additionalProperties": false,
         "description": "The three rules a season's fixture list is a function of, as this draw is to run from.\n\nAll three or none: the draw is one function of the whole shape, and a payload naming half\nof it would take the rest off a season about to stop matching it.",
@@ -16035,6 +16082,84 @@
           "qualifiers_per_gruppe"
         ],
         "title": "FLSpielplanShape",
+        "type": "object"
+      },
+      "FLSpielplanSpieltag": {
+        "description": "One matchday as the Spielplan shows it, holding its matches in the order the draw numbered them.",
+        "properties": {
+          "beginn": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beginn"
+          },
+          "count_spiele": {
+            "minimum": 0.0,
+            "title": "Count Spiele",
+            "type": "integer"
+          },
+          "ende": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ende"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "position": {
+            "minimum": 1.0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "saison_id": {
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "saison_phase": {
+            "$ref": "#/components/schemas/FLSaisonPhase"
+          },
+          "spiele": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielJoined"
+            },
+            "title": "Spiele",
+            "type": "array"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "beginn",
+          "ende",
+          "position",
+          "saison_phase",
+          "saison_id",
+          "version",
+          "count_spiele",
+          "spiele"
+        ],
+        "title": "FLSpielplanSpieltag",
         "type": "object"
       },
       "FLSpieltag": {
@@ -23420,6 +23545,80 @@
         ]
       }
     },
+    "/api/v0/saisons/{saison_id}/ko_runde": {
+      "get": {
+        "description": "Every knockout matchday of one season with its matches, in playing order; empty before the draw.\n\nA side whose club is not yet known is null beside the `quelle` it comes from. 404 for a season this tier may not\nread.",
+        "operationId": "saisons_get_ko_runde",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLKoRundeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "BaseKey": []
+          }
+        ],
+        "summary": "One Saison's K.-o.-Runde",
+        "tags": [
+          "saisons"
+        ]
+      }
+    },
     "/api/v0/saisons/{saison_id}/spielplan": {
       "delete": {
         "description": "Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.\n\nEvery fixture's confirmations go with it.\n\nThe replace's window bounds it (`spielplan_undraw_outside_its_window`), and a submitted match report refuses it\n(`spielplan_berichte_submitted`). Undoing the draw is what reopens the shape rules to `PATCH` and the groups to\nan entry.",
@@ -23489,6 +23688,78 @@
           }
         ],
         "summary": "Undraw this Saison's Spielplan",
+        "tags": [
+          "saisons"
+        ]
+      },
+      "get": {
+        "description": "Every matchday of one season with its matches, in playing order, and the matchday to open on.\n\nThe Spielplan and the Spielsuche both show this. 404 for a season this tier may not read.",
+        "operationId": "saisons_get_spielplan",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielplanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "BaseKey": []
+          }
+        ],
+        "summary": "One Saison's Spielplan",
         "tags": [
           "saisons"
         ]

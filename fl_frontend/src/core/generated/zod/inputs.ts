@@ -1974,6 +1974,17 @@ export const SaisonsGetInvitationsDispatchPreviewQueryParams = zod.object({
 });
 
 /**
+ * Every knockout matchday of one season with its matches, in playing order; empty before the draw.
+ *
+ * A side whose club is not yet known is null beside the `quelle` it comes from. 404 for a season this tier may not
+ * read.
+ * @summary One Saison's K.-o.-Runde
+ */
+export const SaisonsGetKoRundeParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
  * Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.
  *
  * Every fixture's confirmations go with it.
@@ -1984,6 +1995,16 @@ export const SaisonsGetInvitationsDispatchPreviewQueryParams = zod.object({
  * @summary Undraw this Saison's Spielplan
  */
 export const SaisonsDeleteSpielplanParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
+ * Every matchday of one season with its matches, in playing order, and the matchday to open on.
+ *
+ * The Spielplan and the Spielsuche both show this. 404 for a season this tier may not read.
+ * @summary One Saison's Spielplan
+ */
+export const SaisonsGetSpielplanParams = zod.object({
   saison_id: zod.string(),
 });
 

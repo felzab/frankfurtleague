@@ -80,6 +80,7 @@ import type {
   FLKaderResponse,
   FLKaderRow,
   FLKontaktInviteResponse,
+  FLKoRundeResponse,
   FLOpenRegistrierungenResponse,
   FLOutboxEventPayload,
   FLOutboxEventResponse,
@@ -183,6 +184,7 @@ import type {
   FLSpieleSingleResponse,
   FLSpielorteListResponse,
   FLSpielorteSingleResponse,
+  FLSpielplanResponse,
   FLSpieltageListResponse,
   FLSpieltageSingleResponse,
   FLSpieltagWriteResponse,
@@ -2870,6 +2872,24 @@ export const saisonsGetInvitationsDispatchPreview = async (
   });
 };
 
+export const getSaisonsGetKoRundeUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/ko_runde`;
+};
+
+/**
+ * Every knockout matchday of one season with its matches, in playing order; empty before the draw.
+ *
+ * A side whose club is not yet known is null beside the `quelle` it comes from. 404 for a season this tier may not
+ * read.
+ * @summary One Saison's K.-o.-Runde
+ */
+export const saisonsGetKoRunde = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLKoRundeResponse> => {
+  return baseKeyTransport<FLKoRundeResponse>(getSaisonsGetKoRundeUrl(saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getSaisonsDeleteSpielplanUrl = (saisonId: string) => {
   return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spielplan`;
 };
@@ -2891,6 +2911,23 @@ export const saisonsDeleteSpielplan = async (
   return adminKeyTransport<FLUndrawSpielplanResponse>(getSaisonsDeleteSpielplanUrl(saisonId), {
     ...options,
     method: "DELETE",
+  });
+};
+
+export const getSaisonsGetSpielplanUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spielplan`;
+};
+
+/**
+ * Every matchday of one season with its matches, in playing order, and the matchday to open on.
+ *
+ * The Spielplan and the Spielsuche both show this. 404 for a season this tier may not read.
+ * @summary One Saison's Spielplan
+ */
+export const saisonsGetSpielplan = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSpielplanResponse> => {
+  return baseKeyTransport<FLSpielplanResponse>(getSaisonsGetSpielplanUrl(saisonId), {
+    ...options,
+    method: "GET",
   });
 };
 

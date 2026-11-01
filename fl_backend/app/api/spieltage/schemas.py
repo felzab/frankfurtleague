@@ -2,6 +2,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
+from app.api.spiele.schemas import FLSpielJoined
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_reversed_span
 from app.shared.schemas.literals import FLSaisonPhase, FLSortOrder
@@ -72,6 +73,35 @@ class FLPatchSpieltagPayload(BaseModel):
 
 class FLSpieltageListResponse(BaseAPIResponse):
     spieltage: list[FLSpieltag]
+
+
+class FLSpielplanSpieltag(FLSpieltag):
+    """One matchday as the Spielplan shows it, holding its matches in the order the draw numbered them."""
+
+    spiele: list[FLSpielJoined]
+
+
+FLSpielplanSpieltagListAdapter = TypeAdapter(list[FLSpielplanSpieltag])
+
+
+class FLSpielplanResponse(BaseAPIResponse):
+    """A season's matchdays in the order they are played, and the one the Spielplan opens on.
+
+    `current_spieltag_id` is the first matchday holding a match still to be played, else the last; in a finished
+    season, the last. Null for a season with no matchday.
+    """
+
+    spieltage: list[FLSpielplanSpieltag]
+    current_spieltag_id: CustomObjectId | None
+
+
+class FLKoRundeResponse(BaseAPIResponse):
+    """A season's knockout matchdays in the order they are played, each holding its matches.
+
+    A side whose club is not yet known is null, and its `quelle` says where it comes from.
+    """
+
+    spieltage: list[FLSpielplanSpieltag]
 
 
 class FLSpieltageSingleResponse(BaseAPIResponse):
