@@ -12,6 +12,9 @@ import CircleX from "lucide-react/icons/circle-x";
 import Clock from "lucide-react/icons/clock";
 import Ellipsis from "lucide-react/icons/ellipsis";
 import FileText from "lucide-react/icons/file-text";
+import Goal from "lucide-react/icons/goal";
+import GraduationCap from "lucide-react/icons/graduation-cap";
+import HandCoins from "lucide-react/icons/hand-coins";
 import Info from "lucide-react/icons/info";
 import LayoutDashboard from "lucide-react/icons/layout-dashboard";
 import ListFilter from "lucide-react/icons/list-filter";
@@ -37,6 +40,37 @@ import Whistle from "lucide-react/icons/whistle";
 import X from "lucide-react/icons/x";
 
 import { tv } from "./tv";
+
+/** What a glyph is handed: Lucide's drawings take all three, a network's mark its box's class alone. */
+type GlyphProps = { className?: string; strokeWidth?: number; "aria-hidden"?: boolean };
+
+/**
+ * Instagram's and Threads' marks, which Lucide does not draw: each file under `public/icons/footer/` as a
+ * mask over the text colour, so the mark takes the theme's colour as a Lucide glyph does.
+ */
+const network = tv({
+  base: "inline-block bg-current mask-contain mask-center mask-no-repeat",
+  variants: {
+    mark: {
+      instagram: "mask-[url('/icons/footer/instagram/instagram_logo_black.svg')]",
+      threads: "mask-[url('/icons/footer/threads/threads_logo_black.svg')]",
+    },
+  },
+});
+
+const Instagram = ({ className }: GlyphProps) => (
+  <span
+    aria-hidden
+    className={network({ mark: "instagram", className })}
+  />
+);
+
+const Threads = ({ className }: GlyphProps) => (
+  <span
+    aria-hidden
+    className={network({ mark: "threads", className })}
+  />
+);
 
 /**
  * Every glyph the site draws, by what it means rather than by its drawing, so a glyph changes here and
@@ -96,6 +130,14 @@ const GLYPHS = {
   erasures: Trash,
   addressChanges: Mail,
   log: ScrollText,
+
+  // The landing's: its three pillars, who plays (the Abi year), how it is played and what the takings pay
+  // for; and the two networks the league posts on.
+  pupils: GraduationCap,
+  play: Goal,
+  proceeds: HandCoins,
+  instagram: Instagram,
+  threads: Threads,
 };
 
 export type IconName = keyof typeof GLYPHS;
