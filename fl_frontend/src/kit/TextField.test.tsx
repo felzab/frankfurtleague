@@ -13,7 +13,7 @@ describe("an address field's autofill", () => {
   it("offers the person's address by default", () => {
     render(
       <TextField
-        label={COPY.anmeldung.address}
+        label={COPY.signIn.address}
         kind="email"
         width="W3"
       />,
@@ -24,7 +24,7 @@ describe("an address field's autofill", () => {
   it("takes the token it is given, as the sign-in's account name", () => {
     render(
       <TextField
-        label={COPY.anmeldung.address}
+        label={COPY.signIn.address}
         kind="email"
         width="W3"
         autofill="username"
@@ -103,7 +103,7 @@ describe("a field's message line", () => {
     render(
       <Form onSubmit={(event) => event.preventDefault()}>
         <TextField
-          label={COPY.anmeldung.address}
+          label={COPY.signIn.address}
           kind="email"
           width="W3"
           line="withError"

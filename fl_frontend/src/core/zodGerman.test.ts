@@ -87,9 +87,9 @@ describe("the same map over the backend's rules", () => {
     expect(rule("email_not_accepted")).toBe(field.format(field.exampleAddress));
     expect(rule("date_not_in_calendar")).toBe(field.format(field.exampleDate));
     expect(rule("url_not_accepted")).toBe(field.format(field.exampleUrl));
-    expect(rule("address_in_free_text")).toBe(field.without(COPY.anmeldung.address));
+    expect(rule("address_in_free_text")).toBe(field.without(COPY.signIn.address));
     // A repeat across the list of contact persons, which no box names: the line names the repeated value.
-    expect(rule("kontakt_email_twice")).toBe(COPY.template.namedField(COPY.anmeldung.address, field.taken));
+    expect(rule("kontakt_email_twice")).toBe(COPY.template.namedField(COPY.signIn.address, field.taken));
     expect(rule("kontakt_telefon_twice")).toBe(COPY.template.namedField(COPY.shared.phoneNumber, field.taken));
   });
 

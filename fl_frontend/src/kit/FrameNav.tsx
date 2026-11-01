@@ -200,11 +200,11 @@ function AccountMenu({ account, trigger, beside }: { account: Account; trigger: 
         ],
       ]}
       foot={{
-        label: COPY.page.darstellung,
+        label: COPY.page.accountAppearance,
         control: (
           <Segmented
             placement="inline"
-            label={COPY.page.darstellung}
+            label={COPY.page.accountAppearance}
             choices={THEMES}
             value={theme ?? null}
             onChange={setTheme}

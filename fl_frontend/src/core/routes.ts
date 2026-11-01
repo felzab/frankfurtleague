@@ -50,39 +50,39 @@ export const ROUTES = {
   // Session 3: its page is built.
   spielSearch: {
     path: (saison: string) => `/saisons/${saison}/search` as const,
-    title: COPY.page.spielsuche,
+    title: COPY.page.spielSearch,
     indexed: true,
   },
   about: { path: () => "/about" as const, title: COPY.page.about, indexed: true },
-  contact: { path: () => "/kontakt" as const, title: COPY.page.kontakt, indexed: true },
+  contact: { path: () => "/kontakt" as const, title: COPY.page.contact, indexed: true },
   // Session 3: its page is built.
-  sponsors: { path: () => "/sponsors" as const, title: COPY.page.sponsoren, indexed: true },
-  legalNotice: { path: () => "/impressum" as const, title: COPY.page.impressum, indexed: true },
-  privacyNotice: { path: () => "/datenschutz" as const, title: COPY.page.datenschutz, indexed: true },
+  sponsors: { path: () => "/sponsors" as const, title: COPY.page.sponsors, indexed: true },
+  legalNotice: { path: () => "/impressum" as const, title: COPY.page.legalNotice, indexed: true },
+  privacyNotice: { path: () => "/datenschutz" as const, title: COPY.page.privacyNotice, indexed: true },
   /** Signing in, which every page signed out offers as „Anmelden“. */
-  signIn: { path: () => "/signin" as const, title: COPY.anmeldung.title, indexed: false },
+  signIn: { path: () => "/signin" as const, title: COPY.signIn.title, indexed: false },
   /** The passkey step a sign-in reaches where its session is to set one up, use one or is offered one. */
-  signInPasskey: { path: () => "/signin/passkey" as const, title: COPY.anmeldung.passkeyTitle, indexed: false },
+  signInPasskey: { path: () => "/signin/passkey" as const, title: COPY.signIn.passkeyTitle, indexed: false },
 
   // Session 4: its page is built.
-  accountSignIn: { path: () => "/bereich/konto/signin" as const, title: COPY.page.anmeldung, indexed: false },
+  accountSignIn: { path: () => "/bereich/konto/signin" as const, title: COPY.page.accountSignIn, indexed: false },
   // Session 4: its page is built.
-  accountSecurity: { path: () => "/bereich/konto/security" as const, title: COPY.page.sicherheit, indexed: false },
+  accountSecurity: { path: () => "/bereich/konto/security" as const, title: COPY.page.accountSecurity, indexed: false },
   // Session 4: its page is built.
-  accountAppearance: { path: () => "/bereich/konto/appearance" as const, title: COPY.page.darstellung, indexed: false },
+  accountAppearance: { path: () => "/bereich/konto/appearance" as const, title: COPY.page.accountAppearance, indexed: false },
   // Session 4: its page is built.
-  accountEntries: { path: () => "/bereich/konto/entries" as const, title: COPY.page.deineEintraege, indexed: false },
+  accountEntries: { path: () => "/bereich/konto/entries" as const, title: COPY.page.accountEntries, indexed: false },
 
   // Session 8: its page is built.
   schiedsrichterOverview: {
     path: (saison: string) => `/bereich/schiedsrichter/${saison}` as const,
-    title: COPY.shared.uebersicht,
+    title: COPY.shared.overview,
     indexed: false,
   },
 
   teamOverview: {
     path: (team: string, saison: string) => `/bereich/team/${team}/${saison}` as const,
-    title: COPY.shared.uebersicht,
+    title: COPY.shared.overview,
     indexed: false,
   },
   // Session 8: its page is built.
@@ -93,7 +93,7 @@ export const ROUTES = {
   },
   teamKader: {
     path: (team: string, saison: string) => `/bereich/team/${team}/${saison}/kader` as const,
-    title: COPY.page.kader,
+    title: COPY.page.teamKader,
     indexed: false,
   },
   teamRegistrierungen: {
@@ -105,11 +105,11 @@ export const ROUTES = {
   // Session 5: its page is built.
   verwaltungOverview: {
     path: (saison: string) => `/bereich/verwaltung/saisons/${saison}` as const,
-    title: COPY.shared.uebersicht,
+    title: COPY.shared.overview,
     indexed: false,
   },
   // Session 5: its page is built.
-  verwaltungSaisons: { path: () => "/bereich/verwaltung/saisons" as const, title: COPY.page.saisons, indexed: false },
+  verwaltungSaisons: { path: () => "/bereich/verwaltung/saisons" as const, title: COPY.page.verwaltungSaisons, indexed: false },
   // Session 5: its page is built.
   verwaltungSpiele: {
     path: (saison: string) => `/bereich/verwaltung/saisons/${saison}/spiele` as const,
@@ -122,7 +122,7 @@ export const ROUTES = {
     title: COPY.page.spiel,
     indexed: false,
   },
-  verwaltungSpielorte: { path: () => "/bereich/verwaltung/spielorte" as const, title: COPY.page.spielorte, indexed: false },
+  verwaltungSpielorte: { path: () => "/bereich/verwaltung/spielorte" as const, title: COPY.page.verwaltungSpielorte, indexed: false },
   /** A venue's own page, named by the venue. */
   // Session 5: its page is built.
   verwaltungSpielort: {
@@ -133,7 +133,7 @@ export const ROUTES = {
   // Session 5: its page is built.
   verwaltungSchiedsrichter: {
     path: () => "/bereich/verwaltung/schiedsrichter" as const,
-    title: COPY.page.schiedsrichter,
+    title: COPY.page.verwaltungSchiedsrichter,
     indexed: false,
   },
   // Applications, teams, squads and registrations are a season's in the data, so their lists carry the season as
@@ -141,7 +141,7 @@ export const ROUTES = {
   // Session 6: its page is built.
   verwaltungBewerbungen: {
     path: (saison: string) => `/bereich/verwaltung/saisons/${saison}/bewerbungen` as const,
-    title: COPY.page.bewerbungen,
+    title: COPY.page.verwaltungBewerbungen,
     indexed: false,
   },
   // Session 6: its page is built.
@@ -153,7 +153,7 @@ export const ROUTES = {
   // Session 6: its page is built.
   verwaltungSpieler: {
     path: (saison: string) => `/bereich/verwaltung/saisons/${saison}/spieler` as const,
-    title: COPY.page.spieler,
+    title: COPY.page.verwaltungSpieler,
     indexed: false,
   },
   // Session 6: its page is built.
@@ -165,27 +165,27 @@ export const ROUTES = {
   // Session 7: its page is built.
   verwaltungAdministrators: {
     path: () => "/bereich/verwaltung/administrators" as const,
-    title: COPY.page.administratoren,
+    title: COPY.page.verwaltungAdministrators,
     indexed: false,
   },
   // Session 7: its page is built.
   verwaltungSperrliste: {
     path: () => "/bereich/verwaltung/sperrliste" as const,
-    title: COPY.page.sperrliste,
+    title: COPY.page.verwaltungSperrliste,
     indexed: false,
   },
   // Session 7: its page is built.
   verwaltungErasures: {
     path: () => "/bereich/verwaltung/loeschungen" as const,
-    title: COPY.page.loeschungen,
+    title: COPY.page.verwaltungErasures,
     indexed: false,
   },
   // Session 7: its page is built.
   verwaltungAddressChanges: {
     path: () => "/bereich/verwaltung/adressaenderungen" as const,
-    title: COPY.page.adressaenderungen,
+    title: COPY.page.verwaltungAddressChanges,
     indexed: false,
   },
   // Session 7: its page is built.
-  verwaltungActionLog: { path: () => "/bereich/verwaltung/log" as const, title: COPY.shared.protokoll, indexed: false },
+  verwaltungActionLog: { path: () => "/bereich/verwaltung/log" as const, title: COPY.page.verwaltungActionLog, indexed: false },
 } as const satisfies Record<string, RouteEntry>;

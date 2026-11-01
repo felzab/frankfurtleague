@@ -182,7 +182,7 @@ describe("the admin lane", () => {
       ok: false,
       errorCode: "payload_refused",
       fieldErrors: {
-        kontakte: COPY.template.namedField(COPY.anmeldung.address, COPY.shared.field.taken),
+        kontakte: COPY.template.namedField(COPY.signIn.address, COPY.shared.field.taken),
         datum: COPY.shared.field.format(COPY.shared.field.exampleDate),
       },
     });

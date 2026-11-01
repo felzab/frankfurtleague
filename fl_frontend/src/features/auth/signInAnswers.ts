@@ -3,7 +3,7 @@ import { CODE_FAILURE_WINDOW_HOURS } from "@/core/signInCode";
 
 import type { Copy } from "@/core/copy";
 
-const { refusal } = COPY.anmeldung;
+const { refusal } = COPY.signIn;
 
 /**
  * Every sentence the sign-in's send and its code route answer with a reason, as the catalogue holds it: the
@@ -17,7 +17,7 @@ const ANTWORTEN: readonly Copy[] = [
   refusal.codeUsedUp,
   refusal.noRecord,
   ...Object.values(COPY.shared.botCheck),
-  COPY.anmeldung.botCheckNotLoaded,
+  COPY.signIn.botCheckNotLoaded,
 ];
 
 /**

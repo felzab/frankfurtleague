@@ -51,7 +51,7 @@ describe("a segmented control of glyphs", () => {
   it("names each segment for assistive technology and in its tooltip", async () => {
     render(
       <Segmented
-        label={COPY.page.darstellung}
+        label={COPY.page.accountAppearance}
         choices={GLYPHS}
         value="dark"
       />,
@@ -70,14 +70,14 @@ describe("a segmented control of glyphs", () => {
     const { container } = render(
       <Segmented
         placement="inline"
-        label={COPY.page.darstellung}
+        label={COPY.page.accountAppearance}
         choices={GLYPHS}
         value={null}
       />,
     );
-    const group = screen.getByRole("radiogroup", { name: COPY.page.darstellung });
+    const group = screen.getByRole("radiogroup", { name: COPY.page.accountAppearance });
     expect(container.firstElementChild).toBe(group);
-    expect(screen.queryByText(COPY.page.darstellung)).toBeNull();
+    expect(screen.queryByText(COPY.page.accountAppearance)).toBeNull();
     expect(screen.getAllByRole("radio").every((radio) => radio.getAttribute("aria-checked") === "false")).toBe(true);
   });
 });

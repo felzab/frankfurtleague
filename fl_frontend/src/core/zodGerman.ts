@@ -89,9 +89,9 @@ const PATTERNED = {
   email_not_accepted: () => field.format(field.exampleAddress),
   date_not_in_calendar: () => field.format(field.exampleDate),
   url_not_accepted: () => field.format(field.exampleUrl),
-  address_in_free_text: () => field.without(COPY.anmeldung.address),
+  address_in_free_text: () => field.without(COPY.signIn.address),
   // A rule over the whole list of contact persons, so no box names the repeated value: the line names it.
-  kontakt_email_twice: () => COPY.template.namedField(COPY.anmeldung.address, field.taken),
+  kontakt_email_twice: () => COPY.template.namedField(COPY.signIn.address, field.taken),
   kontakt_telefon_twice: () => COPY.template.namedField(COPY.shared.phoneNumber, field.taken),
 } satisfies Readonly<Record<string, (context: Context) => Copy | undefined>>;
 

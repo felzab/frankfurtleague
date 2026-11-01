@@ -113,7 +113,7 @@ export const COPY = katalog({
     /** Beside the save button once the record is stored. */
     saved: "Gespeichert",
 
-    /** A contact person's phone, as the address's noun is `anmeldung.address`. */
+    /** A contact person's phone, as the address's noun is `signIn.address`. */
     phoneNumber: "Telefonnummer",
 
     /** The four toast titles; a toast carries no body. */
@@ -154,12 +154,11 @@ export const COPY = katalog({
     toSpiel: "Zum Spiel",
     // Redesign: the first fact its reader could supply, shown empty, reads it.
     notProvided: "Nicht hinterlegt",
-    uebersicht: "Übersicht",
+    overview: "Übersicht",
     // Redesign: the account menu reads it once it offers a second role.
     switchRole: "Funktion wechseln",
     more: "Mehr …",
     loadMore: "Weitere 50 laden",
-    protokoll: "Protokoll",
     kORunde: "K.-o.-Runde",
     // Session 3: its page reads it.
     kOBaum: "K.-o.-Baum",
@@ -189,35 +188,39 @@ export const COPY = katalog({
     },
   },
 
-  /** Each page's own name, which its tab title and its strip show; the route table names the key. */
+  /**
+   * Each page's own name, which its tab title and its strip show, keyed by its `ROUTES` key; a name several pages
+   * share is one entry, keyed by its noun.
+   */
   page: {
     spielplan: "Spielplan",
     tabelle: "Tabelle",
     teams: "Teams",
-    spielsuche: "Spielsuche",
+    spielSearch: "Spielsuche",
     /** A match's page, named by its two teams in the order the fixture lists them. */
     spiel: (heim: string, gast: string) => `${heim} gegen ${gast}`,
     about: "About",
-    kontakt: "Kontakt",
-    sponsoren: "Sponsoren",
-    impressum: "Impressum",
-    datenschutz: "Datenschutz",
-    anmeldung: "Anmeldung",
-    sicherheit: "Sicherheit",
-    darstellung: "Darstellung",
-    deineEintraege: "Deine Einträge",
-    saisons: "Saisons",
+    contact: "Kontakt",
+    sponsors: "Sponsoren",
+    legalNotice: "Impressum",
+    privacyNotice: "Datenschutz",
+    accountSignIn: "Anmeldung",
+    accountSecurity: "Sicherheit",
+    accountAppearance: "Darstellung",
+    accountEntries: "Deine Einträge",
+    verwaltungSaisons: "Saisons",
     spiele: "Spiele",
-    spielorte: "Spielorte",
-    schiedsrichter: "Schiedsrichter",
-    bewerbungen: "Bewerbungen",
-    spieler: "Spieler",
+    verwaltungSpielorte: "Spielorte",
+    verwaltungSchiedsrichter: "Schiedsrichter",
+    verwaltungBewerbungen: "Bewerbungen",
+    verwaltungSpieler: "Spieler",
     registrierungen: "Registrierungen",
-    kader: "Kader",
-    administratoren: "Administratoren",
-    sperrliste: "Sperrliste",
-    loeschungen: "Löschungen",
-    adressaenderungen: "Adressänderungen",
+    teamKader: "Kader",
+    verwaltungAdministrators: "Administratoren",
+    verwaltungSperrliste: "Sperrliste",
+    verwaltungErasures: "Löschungen",
+    verwaltungAddressChanges: "Adressänderungen",
+    verwaltungActionLog: "Protokoll",
   },
 
   /** The Spielplan, and a match's page, which opens as the pop-up over it. */
@@ -313,7 +316,7 @@ export const COPY = katalog({
   },
 
   /** Signing in: the address and its code, the passkey, and the answers either can meet. */
-  anmeldung: {
+  signIn: {
     /** The tab titles of `/signin` and `/signin/passkey`. */
     title: "Anmelden",
     passkeyTitle: "Passkey",

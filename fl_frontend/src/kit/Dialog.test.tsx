@@ -26,7 +26,7 @@ vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal
 
 type Spielort = { name: string };
 
-const NAME = COPY.page.spielorte;
+const NAME = COPY.page.verwaltungSpielorte;
 const INPUT = COPY.page.spiele;
 const DONE: ActionAnswer = { ok: true, value: undefined };
 

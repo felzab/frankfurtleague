@@ -8,7 +8,7 @@ import { SignInPage } from "./SignInPage";
 
 import type { Copy } from "@/core/copy";
 
-const WORTE = COPY.anmeldung;
+const WORTE = COPY.signIn;
 
 const ADRESSE = "lena@example.com";
 
@@ -87,7 +87,7 @@ describe("the sign-in template", () => {
         row={null}
         satz={WORTE.signedInAs}
         adresse={ADRESSE}
-        continue={{ label: COPY.shared.uebersicht, href: "/" }}
+        continue={{ label: COPY.shared.overview, href: "/" }}
         signOut={{ label: COPY.shared.verb.signOut, onPress: () => undefined }}
       />,
     );

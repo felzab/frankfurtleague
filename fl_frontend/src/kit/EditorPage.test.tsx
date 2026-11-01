@@ -17,7 +17,7 @@ import type { EditorSave } from "./useEditor";
 
 type Spielort = { name: string };
 
-const NAME = COPY.page.spielorte;
+const NAME = COPY.page.verwaltungSpielorte;
 const BACK = "/bereich/verwaltung/spielorte";
 
 vi.mock("next/navigation", () => ({

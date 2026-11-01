@@ -18,8 +18,8 @@ describe("Copy", () => {
 describe("a verb with its object", () => {
   // The label is capitalised and the infinitive after an object is not, an umlaut included.
   it("lower-cases the verb behind its object", () => {
-    expect(COPY.shared.withObject(COPY.shared.protokoll, "adopt")).toBe("Protokoll übernehmen");
-    expect(COPY.shared.question(COPY.shared.protokoll, "delete")).toBe("Protokoll löschen?");
+    expect(COPY.shared.withObject(COPY.page.verwaltungActionLog, "adopt")).toBe("Protokoll übernehmen");
+    expect(COPY.shared.question(COPY.page.verwaltungActionLog, "delete")).toBe("Protokoll löschen?");
   });
 });
 

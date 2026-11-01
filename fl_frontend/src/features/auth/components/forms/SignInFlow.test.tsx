@@ -30,8 +30,8 @@ describe("the sign-in's send", () => {
         siteKey=""
       />,
     );
-    const field = screen.getByRole("textbox", { name: COPY.anmeldung.address });
-    const send = screen.getByRole("button", { name: COPY.anmeldung.sendCode });
+    const field = screen.getByRole("textbox", { name: COPY.signIn.address });
+    const send = screen.getByRole("button", { name: COPY.signIn.sendCode });
 
     // A new address each time: the refusal stands as the field's custom validity until it is edited, and the
     // browser keeps the send back meanwhile.
@@ -58,8 +58,8 @@ describe("the sign-in's send", () => {
       />,
     );
     const line = screen.getByRole("status");
-    const send = screen.getByRole("button", { name: COPY.anmeldung.sendCode });
-    await userEvent.type(screen.getByRole("textbox", { name: COPY.anmeldung.address }), "lena@example.com");
+    const send = screen.getByRole("button", { name: COPY.signIn.sendCode });
+    await userEvent.type(screen.getByRole("textbox", { name: COPY.signIn.address }), "lena@example.com");
 
     await userEvent.click(send);
     await waitFor(() => expect(line.textContent).toBe(refusal.reason));

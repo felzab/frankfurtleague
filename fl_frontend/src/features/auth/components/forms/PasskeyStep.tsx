@@ -17,7 +17,7 @@ import type { Copy } from "@/core/copy";
 type Step = "enrol" | "assert" | "offer";
 
 /** One set of words per step, so a heading and its control cannot drift apart. */
-const WORTE = { enrol: COPY.anmeldung.passkey.setUp, assert: COPY.anmeldung.passkey.signIn, offer: COPY.anmeldung.passkey.offer };
+const WORTE = { enrol: COPY.signIn.passkey.setUp, assert: COPY.signIn.passkey.signIn, offer: COPY.signIn.passkey.offer };
 
 /** What the reader is told, and whether the step this view was handed may have moved on. */
 type Held = { readonly satz: Copy; readonly stale: boolean };
@@ -95,7 +95,7 @@ export function PasskeyStep(props: Props) {
       // The session is unchanged, so a soft navigation is the right tool here.
       spaeter={
         props.step === "offer"
-          ? { label: COPY.anmeldung.passkey.later, isDisabled: isPending, onPress: () => router.push(props.later) }
+          ? { label: COPY.signIn.passkey.later, isDisabled: isPending, onPress: () => router.push(props.later) }
           : undefined
       }
       row={fehler}

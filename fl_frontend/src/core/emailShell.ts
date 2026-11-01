@@ -270,8 +270,8 @@ function buttonBlocks(button: Button): Block[] {
 
 function legalLinks(origin: string): readonly { readonly label: string; readonly href: string }[] {
   return [
-    { label: COPY.page.datenschutz, href: `${origin}/datenschutz` },
-    { label: COPY.page.impressum, href: `${origin}/impressum` },
+    { label: COPY.page.privacyNotice, href: `${origin}/datenschutz` },
+    { label: COPY.page.legalNotice, href: `${origin}/impressum` },
   ];
 }
 

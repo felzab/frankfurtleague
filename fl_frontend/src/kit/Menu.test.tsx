@@ -72,7 +72,7 @@ describe("a menu's foot", () => {
         }
         groups={[[{ kind: "link", href: "/saisons/2027", text: "2027" }]]}
         foot={{
-          label: COPY.page.darstellung,
+          label: COPY.page.accountAppearance,
           control: (
             <Button
               variant="secondary"
@@ -91,6 +91,6 @@ describe("a menu's foot", () => {
     // In the menu's popover, after the menu (React Aria's focus sentinels stand between them).
     expect(row?.parentElement).toBe(menu.parentElement);
     expect(menu.compareDocumentPosition(row ?? menu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(row?.firstElementChild?.textContent).toBe(COPY.page.darstellung);
+    expect(row?.firstElementChild?.textContent).toBe(COPY.page.accountAppearance);
   });
 });
