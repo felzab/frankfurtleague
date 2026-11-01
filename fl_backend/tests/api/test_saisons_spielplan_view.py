@@ -6,13 +6,14 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_ko_runde, get_spielplan
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import FLSpielJoined
 from app.api.spieltage.schemas import FLSpielplanSpieltag
-from app.api.spieltage.services import current_spieltag_id
+from app.api.spieltage.services import build_spielplan, current_spieltag_id
 from app.core.collections import Collection
 from app.shared.schemas.literals import FLSaisonStatus, FLSonderereignis
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
-from tests.documents import saison_document, spiel_document
+from tests.documents import rules_document, saison_document, spiel_document
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -40,18 +41,8 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     async def _seed() -> None:
         async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_one(saison_document(SAISON, "active"))
-            await database[Collection.SPIELTAGE].insert_many(
-                [spieltag(FINALE_DAY, "finale", 1), spieltag(GROUP_DAY_2, "gruppenphase", 2), spieltag(GROUP_DAY_1, "gruppenphase", 1)]
-            )
-            await database[Collection.SPIELE].insert_many(
-                [
-                    spiel(6, FINALE_DAY, "finale"),
-                    spiel(5, FINALE_DAY, "finale"),
-                    spiel(4, GROUP_DAY_2),
-                    spiel(2, GROUP_DAY_1),
-                    spiel(1, GROUP_DAY_1),
-                ]
-            )
+            await database[Collection.SPIELTAGE].insert_many([dict(document) for document in STORED_SPIELTAGE])
+            await database[Collection.SPIELE].insert_many([dict(document) for document in STORED_SPIELE])
 
     on_the_seed_loop(_seed())
 
@@ -74,9 +65,34 @@ def served(url: str, read: Any) -> list[tuple[str, int, list[int]]]:
     return [(day.saison_phase, day.position, [match.spiel_nr for match in day.spiele]) for day in response.spieltage]
 
 
+# Two group matchdays and the Finale's, stored out of playing order, their matches out of number order.
+STORED_SPIELTAGE = [spieltag(FINALE_DAY, "finale", 1), spieltag(GROUP_DAY_2, "gruppenphase", 2), spieltag(GROUP_DAY_1, "gruppenphase", 1)]
+STORED_SPIELE = [
+    spiel(6, FINALE_DAY, "finale"),
+    spiel(5, FINALE_DAY, "finale"),
+    spiel(4, GROUP_DAY_2),
+    spiel(2, GROUP_DAY_1),
+    spiel(1, GROUP_DAY_1),
+]
+
+IN_PLAYING_ORDER = [("gruppenphase", 1, [1, 2]), ("gruppenphase", 2, [4]), ("finale", 1, [5, 6])]
+
+
+def test_the_spielplan_holds_each_matchday_s_matches_in_playing_order():
+    """The phase, then the position; each matchday's matches by number."""
+
+    # Each match as the pipeline yields it, beside the confirmation verdict only its join composes.
+    joined = [{**document, "ansetzung_confirmed": None} for document in STORED_SPIELE]
+    spieltage = build_spielplan(STORED_SPIELTAGE, joined, FLSaisonRules.model_validate(rules_document()))
+
+    assert [(day.saison_phase, day.position, [match.spiel_nr for match in day.spiele]) for day in spieltage] == IN_PLAYING_ORDER
+
+
 @pytest.mark.db
-def test_the_spielplan_holds_each_matchday_s_matches_in_playing_order(seeded_url: str):
-    assert served(seeded_url, get_spielplan) == [("gruppenphase", 1, [1, 2]), ("gruppenphase", 2, [4]), ("finale", 1, [5, 6])]
+def test_the_spielplan_read_hands_each_matchday_its_own_matches(seeded_url: str):
+    """The wiring: the read's pipeline yields what `build_spielplan` groups by `spieltag_id`, which the case above orders."""
+
+    assert served(seeded_url, get_spielplan) == IN_PLAYING_ORDER
 
 
 @pytest.mark.db
