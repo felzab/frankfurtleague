@@ -50,11 +50,14 @@ and answers the kit's `ActionAnswer`, the backend's refusal code with it; the li
 `fl/server-action` (`fl_frontend/eslint-rules/server-action.mjs`) refuses an action built any other
 way, and the forms not yet moved onto it are counted in the suppressions list until their area
 moves them. Every cached scope carries one tag, `fl_frontend/src/core/siteCache.ts ::
-SITE_CACHE_TAG`, and the save spines clear it after every write that may stand (the builder on its
-administrator's and person's lanes, a public action such as the sign-in reaching no cached read; the old
-`fl_frontend/src/shared/utils/adminMutation.ts :: runGuardedMutation`, and
-`fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest` for a route handler), so no
-write names the reads it moves. The league's reads keep Next's `minutes` lifetime; the read of a
+SITE_CACHE_TAG`, so no write names the reads it moves. The builder clears it at the end of an action
+exactly when the action's body sent a backend write that may have landed, on every lane, by the
+record `fl_frontend/src/core/apiDispatch.ts :: dispatchRequest` makes before each write is sent,
+since a write whose answer is lost may have landed; an action whose body sent none renders
+its page again through `refresh()` and leaves the cache standing, and a write behind the response
+clears nothing. The old `fl_frontend/src/shared/utils/adminMutation.ts :: runGuardedMutation`, and
+`fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest` for a route handler, clear it
+after a write that may stand. The league's reads keep Next's `minutes` lifetime; the read of a
 `Fassung` (`fl_frontend/src/core/einwilligung.ts :: getEinwilligungFassung`) keeps the longest,
 since a label's words never change. **The administration's reads are not cached**: each runs through
 `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`, which judges the session first.
