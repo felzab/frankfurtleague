@@ -28,9 +28,27 @@ IS_LIVE_PATH: Final = f"/api/v{API_VERSION}/system/is_live"
 # this one cannot: the hop in, the queue before this runs, the answer's way back.
 REQUEST_DEADLINE_S: Final = 10.0
 
-# Where the request's deadline falls, which pymongo holds and publishes no getter for: every abort
-# the request sends past it shares one grace after this instant.
-request_deadline_var: ContextVar[float | None] = ContextVar("request_deadline", default=None)
+
+@dataclass
+class RequestDeadline:
+    """Where the request's deadline falls, which pymongo holds and publishes no getter for, and what its aborts spent past it.
+
+    The aborts' grace (`app/core/transactions.py :: ABORT_GRACE_S`) is the time the request's aborts may
+    run past `at`, all of them together, charged after each abort: the first abort past the deadline
+    gets the whole grace, and each later one what the earlier ones left. Never time counted from `at`:
+    the request reaches an abort only when its next database operation meets the deadline, however
+    long after it, and every moment between would come out of the abort that frees the transaction's
+    documents. Never a grace apiece either: a loop of cut transactions would wait one out per
+    transaction.
+    """
+
+    at: float
+    aborting_s: float = 0.0
+
+
+# A mutable record set fresh per request, as `answer_var` is: an abort run in a copy of the context
+# still counts against the request's own grace.
+request_deadline_var: ContextVar[RequestDeadline | None] = ContextVar("request_deadline", default=None)
 
 
 @dataclass
@@ -79,7 +97,7 @@ class TraceContextMiddleware:
         answer = _Answer()
         answer_token = answer_var.set(answer)
         started = time.perf_counter()
-        deadline_token = request_deadline_var.set(time.monotonic() + REQUEST_DEADLINE_S)
+        deadline_token = request_deadline_var.set(RequestDeadline(time.monotonic() + REQUEST_DEADLINE_S))
 
         status: int | None = None
 
