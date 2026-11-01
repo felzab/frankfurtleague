@@ -15,9 +15,12 @@ paths:
 Each fails silently. The ratified decisions for the seams are in `docs/decisions.md`.
 
 - A backend refusal and its German are two sites. `fl_backend/app/core/codes.py :: Code` spells the
-  code, and a mapper in the feature slice words it for the save. The frontend reads a refusal by its
-  code, and the backend answers it at the status its check chose, so a code the mapper leaves
-  unmapped falls through, at any status, to the shared fallback in
-  `fl_frontend/src/shared/utils/actionError.ts`, which names no reason, and on a save sends the admin
-  to a retry the same rule refuses again. `fl_backend/openapi.json` lists every code once and names
-  none per endpoint, so which codes an endpoint answers is read from the service that raises them.
+  code and a rule's `PydanticCustomError` its kind and bounds; the catalogue words them, a code in
+  `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY.refusal` and a refused payload's rule through
+  `fl_frontend/src/core/zodGerman.ts :: ruleMessage`. A screen's lane in
+  `fl_frontend/src/core/action.ts` words only what its `ownWords` names, placing a refusal about one
+  field by its `paths`; anything else falls through, at any status, to a shared failure line in
+  `COPY.shared.failure`, which names no reason, and on a save sends the admin to a retry the same rule
+  refuses again. A bound the backend moves without naming it in the rule's context is a frontend
+  line that goes stale in silence. `fl_backend/openapi.json` lists every code once and names none per
+  endpoint, so which codes an endpoint answers is read from the service that raises them.
