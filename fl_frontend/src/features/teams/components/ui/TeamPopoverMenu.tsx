@@ -101,9 +101,8 @@ export function TeamPopoverMenu({
               {/* Wrapped and never clipped: this panel is where a name a card cuts short reads whole,
                   on touch as with a pointer. */}
               <span className="min-w-0 pr-2 text-balance wrap-break-word">{teamName}</span>
-              {/* `-strong` on the tint, as `SaisontabelleView`'s badge does: the plain accent measures
-                  3.76:1 on this panel in light and 4.06:1 in dark, both under the 4.5:1 this size
-                  answers to. */}
+              {/* `-strong` on the tint: the plain accent measures 3.76:1 on this panel in light and
+                  4.06:1 in dark, both under the 4.5:1 this size answers to. */}
               {teamAustritt !== null && (
                 <AustrittKuerzel
                   type={teamAustritt}

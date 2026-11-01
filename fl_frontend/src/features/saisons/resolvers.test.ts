@@ -1,44 +1,20 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { resolveIsFinishedSaison, resolveSaisonId, selectSaison } from "./resolvers.ts";
+import { resolveSaisonId, selectSaison } from "./resolvers.ts";
 
 import type { FLSaisonsListResponse } from "@/core/generated/client/types.ts";
 
-/** How often the stand-in list was read, which is the whole of what the absent-id case is about. */
-const reads = vi.hoisted(() => ({ count: 0 }));
-
 // The season list the resolver reads, standing in for the cached public read.
 vi.mock("./queries", () => {
-  const getSaisons = async (): Promise<FLSaisonsListResponse> => {
-    reads.count += 1;
-
-    return {
+  const getSaisons = async (): Promise<FLSaisonsListResponse> =>
+    ({
       saisons: [
         { id: "2025", status: "past" },
         { id: "2026", status: "active" },
       ],
-    } as unknown as FLSaisonsListResponse;
-  };
+    }) as unknown as FLSaisonsListResponse;
 
   return { getSaisons, getAdminSaisons: getSaisons };
-});
-
-beforeEach(() => {
-  reads.count = 0;
-});
-
-describe("whether a page shows a finished season", () => {
-  /* The page without `?saison_id=` shows the running season, and a ratified decision keeps the
-   season list unread on exactly that path. */
-  it("answers no for the running season without reading the season list", async () => {
-    expect(await resolveIsFinishedSaison(undefined)).toBe(false);
-    expect(reads.count, "the absent id read the season list").toBe(0);
-  });
-
-  it("reads a named season's status off the list", async () => {
-    expect(await resolveIsFinishedSaison("2025")).toBe(true);
-    expect(await resolveIsFinishedSaison("2026")).toBe(false);
-  });
 });
 
 /* The order every admin page and the admin header's default resolve in. */

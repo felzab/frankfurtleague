@@ -51,8 +51,7 @@ export async function getActiveSaisonOrNull(): Promise<FLSaisonsSingleResponse |
 
   return saisonsGetActiveSaison().catch((error: unknown) => {
     // Inside the cache scope: an error thrown out of one reaches the caller redacted to a digest,
-    // so a catch at the call site cannot recognise it
-    // (`fl_frontend/src/features/teams/queries.ts :: getTeam`).
+    // so a catch at the call site cannot recognise it.
     if (isRecordMissing(error)) return null;
     throw error;
   });

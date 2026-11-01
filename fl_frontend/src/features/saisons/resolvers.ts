@@ -43,14 +43,6 @@ export async function resolveSaisonId(
   redirect(searchWithoutSaisonId(uebrige));
 }
 
-/** An absent id is the running season and fetches nothing. */
-export async function resolveIsFinishedSaison(resolvedSaisonId: string | undefined): Promise<boolean> {
-  if (resolvedSaisonId === undefined) return false;
-
-  const { saisons } = await getSaisons();
-  return saisons.some((saison) => saison.id === resolvedSaisonId && saison.status === "past");
-}
-
 /**
  * An admin page's season and the admin header's default (`SaisonMetadataDisplay`), so the two never
  * differ. It returns rather than redirecting, so each page's own answer to `undefined` stays where a

@@ -43,18 +43,6 @@ export function formatUhrzeit(uhrzeit: string | null | undefined, fallback: stri
 /** A part holding only whitespace counts as blank: `stadtteil` reaches storage unstripped on both tiers. */
 const joinPresent = (parts: readonly string[], separator: string): string => parts.filter((part) => part.trim() !== "").join(separator);
 
-export function formatAddress(address?: FLAddress): string {
-  if (!address) return nichtHinterlegt("Adresse");
-
-  // Stadtteil is optional; an empty one renders nothing rather than an empty "()" tail.
-  const stadtteil = address.stadtteil.trim() === "" ? "" : ` (${address.stadtteil})`;
-  // Joined, as `formatAddressFull` is, so a blank hausnummer leaves no „Feldweg , 60437“ on the team page.
-  const strasse = joinPresent([address.strasse, address.hausnummer], " ");
-  const ort = joinPresent([address.plz, address.stadt], " ");
-
-  return `${joinPresent([strasse, ort], ", ")}${stadtteil}`;
-}
-
 export function formatAddressFull(address: FLAddress): string {
   // Joined at both levels rather than templated: the copied line is pasted into a message, where
   // „Feldweg , 60437“ reads as a typo nobody made.

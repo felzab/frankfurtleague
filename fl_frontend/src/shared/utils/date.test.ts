@@ -1,31 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getGermanTodayStr, sortByDate } from "./date.ts";
-
-describe("sortByDate", () => {
-  it("sorts ascending by the given key", () => {
-    const arr = [{ datum: "2026-07-30" }, { datum: "2026-07-28" }, { datum: "2026-07-29" }];
-    expect(sortByDate({ arr, key: "datum" }).map((x) => x.datum)).toStrictEqual(["2026-07-28", "2026-07-29", "2026-07-30"]);
-  });
-
-  it("puts null and undefined values last", () => {
-    const arr = [{ datum: null }, { datum: "2026-07-29" }, { datum: undefined }, { datum: "2026-07-28" }];
-    expect(sortByDate({ arr, key: "datum" }).map((x) => x.datum)).toStrictEqual(["2026-07-28", "2026-07-29", null, undefined]);
-  });
-
-  // The function spreads before sorting; callers rely on that to sort cached query results.
-  it("does not mutate the input array", () => {
-    const arr = [{ datum: "2026-07-30" }, { datum: "2026-07-28" }];
-    const result = sortByDate({ arr, key: "datum" });
-    expect(arr[0]?.datum).toStrictEqual("2026-07-30");
-    expect(result).not.toBe(arr);
-  });
-
-  it("handles empty and single-element arrays", () => {
-    expect(sortByDate({ arr: [] as { datum: string }[], key: "datum" })).toStrictEqual([]);
-    expect(sortByDate({ arr: [{ datum: "2026-07-29" }], key: "datum" })).toStrictEqual([{ datum: "2026-07-29" }]);
-  });
-});
+import { getGermanTodayStr } from "./date.ts";
 
 describe("getGermanTodayStr", () => {
   beforeEach(() => void vi.useFakeTimers({ toFake: ["Date"] }));

@@ -104,40 +104,6 @@ export const ergebnisTone = (spiel: Pick<FLSpiel, "ergebnis" | "sonderereignis">
 export type ErgebnisTone = Extract<FeedbackTone, "success" | "danger" | "warning">;
 
 /**
- * Sieg / Unentschieden / Niederlage / unknown, from one team's point of view, in the letters the
- * Saisontabelle and the Saisonstatistik head their columns with.
- */
-export type FLSpielErgebnisFor = "S" | "U" | "N" | "?";
-
-/**
- * The shape `fl_backend/app/shared/schemas/custom.py :: CustomErgebnisString` stores.
- * `[0-9]`, not `\d`: the backend's rust-regex `\d` is Unicode-aware, and `Number("٢")` is `NaN`.
- */
-const ERGEBNIS_PATTERN = /^([0-9]+):([0-9]+)$/;
-
-/**
- * Which side a team stands on, `null` for neither — the third answer being the point. A two-way
- * branch reads a team that is not in the fixture as team2, scoring it from the wrong side.
- */
-const sideOf = (spiel: Pick<FLSpiel, "team1" | "team2">, teamId: string): 1 | 2 | null =>
-  teamId === spiel.team1?.team_id ? 1 : teamId === spiel.team2?.team_id ? 2 : null;
-
-/** "?" wherever the answer is not certain, so no team is shown a result it did not earn. */
-export const computeErgebnisFor = ({ spiel, teamId }: { spiel: FLSpiel; teamId: string }): FLSpielErgebnisFor => {
-  // Matched, not split on ":": Number("") is 0, so ":" would read as a 0:0 draw and "3:" as a win.
-  const match = spiel.ergebnis?.match(ERGEBNIS_PATTERN);
-  if (!match) return "?";
-
-  const side = sideOf(spiel, teamId);
-  if (side === null) return "?";
-
-  const own = Number(match[side]);
-  const other = Number(match[side === 1 ? 2 : 1]);
-
-  return own === other ? "U" : own > other ? "S" : "N";
-};
-
-/**
  * The bracket's German vocabulary, derived from the reference and stored nowhere — this is the
  * only place it exists.
  */
@@ -173,7 +139,7 @@ export const deriveSlotHerkunft = ({ team, quelle }: { team: FLSpielTeamField | 
  * fed only from a strictly earlier round. Derived, not written out — a hand-written map compiles
  * with a newly added round ranked nowhere.
  */
-export const PHASE_RANK: Record<FLSaisonPhase, number> = Object.fromEntries(SAISON_PHASE_OPTIONS.map((phase, rank) => [phase, rank])) as Record<
+const PHASE_RANK: Record<FLSaisonPhase, number> = Object.fromEntries(SAISON_PHASE_OPTIONS.map((phase, rank) => [phase, rank])) as Record<
   FLSaisonPhase,
   number
 >;

@@ -1,8 +1,7 @@
 import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
-import { isRecordMissing } from "@/core/errors";
-import { teamsGetTeam, teamsGetTeams, teamsGetTeamSaisons, teamsGetTeamsVerwaltung } from "@/core/generated/client/sdk";
+import { teamsGetTeams, teamsGetTeamSaisons, teamsGetTeamsVerwaltung } from "@/core/generated/client/sdk";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
@@ -10,8 +9,6 @@ import type {
   FLTeamsGroupedResponse,
   FLTeamsListResponse,
   FLTeamsSaisonsResponse,
-  FLTeamsSingleResponse,
-  TeamsGetTeamParams,
   TeamsGetTeamsParams,
   TeamsGetTeamsVerwaltungParams,
 } from "@/core/generated/client/types";
@@ -27,24 +24,6 @@ export async function getTeams(filters: TeamsGetTeamsParams = {}): Promise<FLTea
   cacheLife("minutes");
 
   return teamsGetTeams(filters);
-}
-
-/**
- * `null` on a 404, and **the conversion must stay INSIDE this function**: an error thrown out of a
- * `"use cache"` scope reaches the caller redacted to a digest, so a catch at the call site cannot
- * recognise it. Other errors still throw.
- */
-export async function getTeam(teamId: string, filters: TeamsGetTeamParams = {}): Promise<FLTeamsSingleResponse | null> {
-  "use cache";
-
-  cacheTag(SITE_CACHE_TAG);
-  cacheLife("minutes");
-
-  return teamsGetTeam(teamId, filters).catch((error: unknown) => {
-    // A 404 is "no such team" OR "no junction row for this season": the join is strict.
-    if (isRecordMissing(error)) return null;
-    throw error;
-  });
 }
 
 /** One in-flight admin club read per filter set, held for the length of one render pass. */

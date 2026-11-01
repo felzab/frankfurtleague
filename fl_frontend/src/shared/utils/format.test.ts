@@ -2,7 +2,6 @@ import { assert, describe, expect, it } from "vitest";
 
 import {
   buildMapsSearchUrl,
-  formatAddress,
   formatAddressFull,
   formatEuro,
   formatSpielDatum,
@@ -26,34 +25,6 @@ const address = {
   stadtteil: "Ostend",
   stadt: "Frankfurt am Main",
 };
-
-describe("formatAddress", () => {
-  it("formats a complete address", () => {
-    expect(formatAddress(address)).toBe("Hanauer Landstraße 12a, 60314 Frankfurt am Main (Ostend)");
-  });
-
-  it("returns the placeholder when no address is given", () => {
-    expect(formatAddress(undefined)).toBe("Adresse nicht hinterlegt");
-    expect(formatAddress()).toBe("Adresse nicht hinterlegt");
-  });
-
-  // Stadtteil is optional: an address without one is complete, so nothing may render an empty "()" tail.
-  it("drops the stadtteil parenthesis when it is empty", () => {
-    expect(formatAddress({ ...address, stadtteil: "" })).toBe("Hanauer Landstraße 12a, 60314 Frankfurt am Main");
-  });
-
-  it("closes the street up to its comma where the hausnummer is empty", () => {
-    expect(formatAddress({ ...address, hausnummer: "" })).toBe("Hanauer Landstraße, 60314 Frankfurt am Main (Ostend)");
-  });
-
-  it("drops an empty hausnummer and an empty stadtteil together", () => {
-    expect(formatAddress({ ...address, hausnummer: "", stadtteil: "" })).toBe("Hanauer Landstraße, 60314 Frankfurt am Main");
-  });
-
-  it("reads a part holding only whitespace as empty", () => {
-    expect(formatAddress({ ...address, hausnummer: " ", stadtteil: " " })).toBe("Hanauer Landstraße, 60314 Frankfurt am Main");
-  });
-});
 
 describe("formatAddressFull", () => {
   it("appends the country and puts stadtteil before stadt", () => {

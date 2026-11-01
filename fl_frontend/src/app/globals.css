@@ -818,12 +818,6 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
     animation-delay: 0ms !important;
   }
 
-  /* The bracket sweep already moves nothing, so only the stagger is left to drop — dropped for the
-     cascade's reason, since two collections resolving differently here would state nothing. */
-  .bracket-sweep > * {
-    animation-delay: 0ms !important;
-  }
-
   /* `.toast__timer` is not stopped here: it is a timer readout, and a 3px bar shortening is no
      slide or loop. */
 }
@@ -946,25 +940,6 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   }
   .cards-cascade [role="listitem"]:nth-child(n + 8) {
     animation-delay: 175ms;
-  }
-
-  /* TIER 2 AT COLUMN SCOPE — the playoff bracket, one round per step. Its class
-     string is `BRACKET_SWEEP_CLASSES` in `shared/components/ui/motion.ts`. */
-  /* It fades and does not move, and that is forced: each gutter's connector is two
-     halves owned by adjacent columns, so any travel would break every joint for the
-     length of the stagger. */
-  .bracket-sweep > * {
-    animation: bracket-phase-enter var(--motion-slow) var(--motion-ease-enter) both;
-  }
-  /* The tree settles inside the cascade's own window. */
-  .bracket-sweep > *:nth-child(2) {
-    animation-delay: 50ms;
-  }
-  .bracket-sweep > *:nth-child(3) {
-    animation-delay: 100ms;
-  }
-  .bracket-sweep > *:nth-child(n + 4) {
-    animation-delay: 150ms;
   }
 }
 
@@ -1130,14 +1105,6 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   from {
     opacity: 0;
     transform: translateY(var(--card-enter-shift, 0.5rem));
-  }
-}
-
-/* No transform beside the fade, and no `--bracket-phase-shift` to reinstate one: the reason is the
-   split connector documented on `.bracket-sweep`, not a reduced-motion allowance. */
-@keyframes bracket-phase-enter {
-  from {
-    opacity: 0;
   }
 }
 
