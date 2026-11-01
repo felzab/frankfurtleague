@@ -805,10 +805,14 @@ const DESIGN_BANS = [
       }[element] ?? {},
     ),
   ),
-  // Only a template writes the page's heading and its main landmark.
-  ...["h1", "main"].map((element) =>
+  // Only a template writes the page's heading and its main landmark; the landing's template writes its
+  // hero's heading inside the classic page's landmark.
+  ...[
+    ["h1", ["src/kit/RailFrame.tsx", "src/kit/ClassicPage.tsx", "src/kit/LandingPage.tsx"]],
+    ["main", ["src/kit/RailFrame.tsx", "src/kit/ClassicPage.tsx"]],
+  ].map(([element, allow]) =>
     ban("react/forbid-elements", { element, message: "only a page template writes the page's heading and its main landmark." }, KIT, {
-      allow: ["src/kit/RailFrame.tsx", "src/kit/ClassicPage.tsx"],
+      allow,
     }),
   ),
   // Each save belongs to its owner: the record's one save to the editor template, the one-shot submit to
