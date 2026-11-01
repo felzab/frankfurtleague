@@ -163,10 +163,9 @@ async def get_landing(
     saison_spieler_collection: SaisonSpielerCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLLandingResponse:
-    """The season the site is on as the landing shows it, null for a league that has none, and today's open window.
+    """The season the site is on, `before_start`, `running` or `decided`, null for a league that has none; its figures counted on every read.
 
-    The season reads `before_start` until a group match is played on its date, `decided` once its places are, else
-    `running`. Its four figures are counted on every read.
+    Beside it, the application window open today by the rule the submission refuses on.
     """
 
     saison, open_window = await asyncio.gather(
@@ -330,10 +329,9 @@ async def get_ko_runde(
     spieltage_collection: SpieltageCollection,
     spiele_collection: SpieleCollection,
 ) -> FLKoRundeResponse:
-    """Every knockout matchday of one season with its matches, in playing order; empty before the draw.
+    """Every knockout matchday of one season with its matches in playing order, a side not yet known null beside its `quelle`.
 
-    A side whose club is not yet known is null beside the `quelle` it comes from. 404 for a season this tier may not
-    read.
+    Empty before the draw; 404 for a season this tier may not read.
     """
 
     _, spieltage = await _spielplan_of(
@@ -354,10 +352,9 @@ async def get_tabelle(
     teams_collection: TeamsCollection,
     spiele_collection: SpieleCollection,
 ) -> FLTabelleResponse:
-    """Each group's standing over the group phase, every row placed, and how many of each group advance.
+    """Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.
 
-    „Tore“ are the row's `tore_geschossen` and `tore_kassiert`, counted on every read; a club that left the season keeps
-    its row and holds no `platz`. 404 for a season this tier may not read.
+    A club that left the season keeps its row and holds no `platz`; 404 for a season this tier may not read.
     """
 
     saison = await resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id)
@@ -469,11 +466,10 @@ async def get_spiel(
     teams_collection: TeamsCollection,
     spielberichte_collection: SpielberichteCollection,
 ) -> FLSpielPageResponse:
-    """One match of one season as its page and its pop-up show it.
+    """One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
 
-    Each side of a group match comes with its group and `platz` in the Tabelle. The report's line-ups whenever a club
-    entered one, its scorers and cards only while the report is adopted and unchanged since, every pupil through the
-    public mask. 404 for a season this tier may not read and for a match the season does not hold.
+    Its report's line-ups whenever a club entered one, the scorers and cards only while the report is adopted and
+    unchanged since, every pupil through the public mask.
     """
 
     saison, spiele_raw, berichte_raw = await asyncio.gather(

@@ -2631,10 +2631,9 @@ export const getSaisonsGetLandingUrl = () => {
 };
 
 /**
- * The season the site is on as the landing shows it, null for a league that has none, and today's open window.
+ * The season the site is on, `before_start`, `running` or `decided`, null for a league that has none; its figures counted on every read.
  *
- * The season reads `before_start` until a group match is played on its date, `decided` once its places are, else
- * `running`. Its four figures are counted on every read.
+ * Beside it, the application window open today by the rule the submission refuses on.
  * @summary The landing
  */
 export const saisonsGetLanding = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLLandingResponse> => {
@@ -2900,10 +2899,9 @@ export const getSaisonsGetKoRundeUrl = (saisonId: string) => {
 };
 
 /**
- * Every knockout matchday of one season with its matches, in playing order; empty before the draw.
+ * Every knockout matchday of one season with its matches in playing order, a side not yet known null beside its `quelle`.
  *
- * A side whose club is not yet known is null beside the `quelle` it comes from. 404 for a season this tier may not
- * read.
+ * Empty before the draw; 404 for a season this tier may not read.
  * @summary One Saison's K.-o.-Runde
  */
 export const saisonsGetKoRunde = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLKoRundeResponse> => {
@@ -2918,11 +2916,10 @@ export const getSaisonsGetSpielUrl = (saisonId: string, spielId: string) => {
 };
 
 /**
- * One match of one season as its page and its pop-up show it.
+ * One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
  *
- * Each side of a group match comes with its group and `platz` in the Tabelle. The report's line-ups whenever a club
- * entered one, its scorers and cards only while the report is adopted and unchanged since, every pupil through the
- * public mask. 404 for a season this tier may not read and for a match the season does not hold.
+ * Its report's line-ups whenever a club entered one, the scorers and cards only while the report is adopted and
+ * unchanged since, every pupil through the public mask.
  * @summary One Spiel's page
  */
 export const saisonsGetSpiel = async (
@@ -3021,10 +3018,9 @@ export const getSaisonsGetTabelleUrl = (saisonId: string) => {
 };
 
 /**
- * Each group's standing over the group phase, every row placed, and how many of each group advance.
+ * Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.
  *
- * „Tore“ are the row's `tore_geschossen` and `tore_kassiert`, counted on every read; a club that left the season keeps
- * its row and holds no `platz`. 404 for a season this tier may not read.
+ * A club that left the season keeps its row and holds no `platz`; 404 for a season this tier may not read.
  * @summary One Saison's Tabelle
  */
 export const saisonsGetTabelle = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLTabelleResponse> => {
@@ -4245,14 +4241,10 @@ export const getSpielerGetSpielerUrl = (params: SpielerGetSpielerParams) => {
 };
 
 /**
- * List one team's squad in one season, the CURRENT season unless `saison_id` names another.
+ * One team's squad in the current season unless `saison_id` names another; 404 while none is active and for one this tier may not read.
  *
- * 404 while no season is active, and for a season this tier may not read. BASE TIER: a pupil reads
- * back redacted (`READ-PUPIL-001`).
- *
- * Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`);
- * the row keeps its `nummer` and `position`, and no row carries the person's record id
- * (`READ-PUPIL-005`).
+ * A surname reads as its initial, both names `null` where the pupil's consent does not publish them, the row keeping
+ * its `nummer` and `position`; no row carries the pupil's record id.
  * @summary List Spieler
  */
 export const spielerGetSpieler = async (
@@ -4488,12 +4480,7 @@ export const getSpielerGetSpielerByIdUrl = (spielerId: string) => {
 };
 
 /**
- * Return one player -- an id, a forename and an INITIAL, which is all this surface needs.
- *
- * Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`).
- *
- * NOT the flattened squad shape the list returns: those are season-scoped, and picking a season
- * here would make the answer depend on a default nobody asked for.
+ * One player's id, forename and surname initial, both names `null` where the pupil's consent does not publish them.
  * @summary One Spieler
  */
 export const spielerGetSpielerById = async (

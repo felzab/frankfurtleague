@@ -27,15 +27,10 @@ async def get_spieler(
     saisons_collection: SaisonsCollection,
     filters: FLSpielerFilterParams = Depends(),
 ) -> FLSpielerListResponse:
-    """
-    List one team's squad in one season, the CURRENT season unless `saison_id` names another.
+    """One team's squad in the current season unless `saison_id` names another; 404 while none is active and for one this tier may not read.
 
-    404 while no season is active, and for a season this tier may not read. BASE TIER: a pupil reads
-    back redacted (`READ-PUPIL-001`).
-
-    Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`);
-    the row keeps its `nummer` and `position`, and no row carries the person's record id
-    (`READ-PUPIL-005`).
+    A surname reads as its initial, both names `null` where the pupil's consent does not publish them, the row keeping
+    its `nummer` and `position`; no row carries the pupil's record id.
     """
 
     # Resolved here, never as a field default: a squad is one season's (`saison_spieler`), and a
@@ -51,14 +46,10 @@ async def get_spieler(
 
 @router.get(by_id("spieler_id"), response_model=FLSpielerSingleResponse, summary="One Spieler")
 async def get_spieler_by_id(spieler_id: CustomRouteObjectId, spieler_collection: SpielerCollection) -> FLSpielerSingleResponse:
-    """
-    Return one player -- an id, a forename and an INITIAL, which is all this surface needs.
+    """One player's id, forename and surname initial, both names `null` where the pupil's consent does not publish them."""
 
-    Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`).
-
-    NOT the flattened squad shape the list returns: those are season-scoped, and picking a season
-    here would make the answer depend on a default nobody asked for.
-    """
+    # NOT the flattened squad shape the list returns: those are season-scoped, and picking a season
+    # here would make the answer depend on a default nobody asked for.
 
     # An allow-list, as the list read's `$project` is: the whole person is a birthdate, an address
     # and a consent record, and one materialised here to be discarded is one a later edit can serve.
