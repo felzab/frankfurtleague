@@ -36,11 +36,11 @@ export const SERVER_COPY = katalog({
    * phrase; a rule over several fields is its reason and its repair.
    */
   regel: {
-    saison_year_out_of_range: "Ein Jahr von 2026 bis zum nächsten Jahr",
+    saison_year_out_of_range: "Von 2026 bis nächstes Jahr",
     address_in_free_text: "Ohne E-Mail-Adresse",
-    email_not_accepted: "Eine Adresse mit einer öffentlichen Domain hinter dem @",
-    date_not_in_calendar: "Ein Datum, das es im Kalender gibt",
-    url_not_accepted: "Eine Webadresse, die mit http:// oder https:// beginnt",
+    email_not_accepted: COPY.shared.feld.format(COPY.shared.feld.beispielAdresse),
+    date_not_in_calendar: COPY.shared.feld.format(COPY.shared.feld.beispielDatum),
+    url_not_accepted: COPY.shared.feld.format(COPY.shared.feld.beispielWebadresse),
     saison_ends_before_start: "Die Saison endet vor ihrem Beginn. Wähle ein Ende nach dem Beginn.",
     bewerbung_window_ends_before_start: "Die Bewerbungsfrist endet vor ihrem Beginn. Wähle ein Ende nach dem Beginn.",
     registrierung_window_ends_before_start: "Die Registrierungsfrist endet vor ihrem Beginn. Wähle ein Ende nach dem Beginn.",

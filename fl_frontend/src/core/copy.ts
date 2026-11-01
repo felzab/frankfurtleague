@@ -76,6 +76,9 @@ export const COPY = katalog({
       beispielAdresse: "name@example.com",
       // A digits field's example: figures alone, whatever the field counts.
       beispielZiffern: "123",
+      beispielDatum: "31.12.2026",
+      // Reserved as the address example's domain is.
+      beispielWebadresse: "https://example.com",
       // Redesign: the first field taking a range reads it.
       zwischen: (von: number, bis: number) => `Zwischen ${formatNumber(von)} und ${formatNumber(bis)}`,
       fruehestens: (tag: CalendarDay) => `Frühestens ${formatDatum(tag)}`,
