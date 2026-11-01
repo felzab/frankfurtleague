@@ -43,7 +43,7 @@ export function AdminKontakteEditView({
           chip: isRetired ? (
             <RetiredBadge since={team.inactive_since} />
           ) : (
-            // The TeamCard's chip, so the Kürzel wears one colour everywhere.
+            // The brand tile, so the Kürzel wears one colour everywhere.
             <span className={`${DISPLAY_HEADING_CLASSES} ${BRAND_TILE_CLASSES}`}>{team.shorthand}</span>
           ),
         }}

@@ -131,7 +131,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 **Is:** `elfmeterschiessen` on a match — the shoot-out's own scoreline, null on every match that did not finish level and on every no-show, whose award is composed rather than played.\
 **In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielElfmeterschiessen`, read by the frontend as the generated `fl_frontend/src/core/generated/client/types.ts :: FLSpielElfmeterschiessen`.\
-**Trap:** its readers disagree on purpose — the bracket takes a winner from the counts so a level knockout advances a side, and a club's own page names that winner in its rounds and fixtures (`fl_frontend/src/features/teams/utils.ts :: computeEntscheidungFor`), while the league table and every figure a page counts never consult them and score the fixture as the draw it was; a level shoot-out is refused, and a record stored against a group match or a decided one is discarded.
+**Trap:** its readers disagree on purpose — the bracket takes a winner from the counts so a level knockout advances a side (`fl_backend/app/api/spiele/services.py :: _outcome_of`), while the league table and every figure a page counts never consult them and score the fixture as the draw it was; a level shoot-out is refused, and a record stored against a group match or a decided one is discarded.
 
 ### `Gruppe` — a group within a season
 
