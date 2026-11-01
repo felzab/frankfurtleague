@@ -56,6 +56,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.logging import fl_logger
 from app.core.recording import log_stamp
+from app.core.routing import SAFE
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
 from app.shared.folding import sign_in_identifier
@@ -444,6 +445,7 @@ async def post_address_change_moves_done(
     "/adresse",
     response_model=FLAddressChangeAdresseResponse,
     summary="Say which address a live change would move to",
+    openapi_extra=SAFE,
 )
 async def get_address_change_adresse(
     adresse_data: Annotated[FLAddressChangeAdressePayload, Body()],

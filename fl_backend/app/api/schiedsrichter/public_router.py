@@ -31,6 +31,7 @@ from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import DBClient, SchiedsrichterCollection, get_german_date_str, get_germany_now
 from app.core.recording import log_stamp
+from app.core.routing import SAFE
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
@@ -50,6 +51,7 @@ router = APIRouter(
     "/view",
     response_model=FLSchiedsrichterConfirmationViewResponse,
     summary="What one Schiedsrichter confirmation link opens",
+    openapi_extra=SAFE,
 )
 async def get_confirmation_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],

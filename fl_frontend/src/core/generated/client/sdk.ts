@@ -1,4 +1,14 @@
-import { adminKeyTransport, baseKeyTransport, serializeQuery, systemKeyTransport, unkeyedTransport } from "@/core/transport";
+import {
+  adminKeyDryRunTransport,
+  adminKeyReadTransport,
+  adminKeyTransport,
+  baseKeyReadTransport,
+  baseKeyTransport,
+  serializeQuery,
+  systemKeyReadTransport,
+  systemKeyTransport,
+  unkeyedTransport,
+} from "@/core/transport";
 
 import type {
   ActionLogGetActionLogParams,
@@ -480,7 +490,7 @@ export const getAddressChangeGetAddressChangeAdresseUrl = () => {
  */
 export const addressChangeGetAddressChangeAdresse = async (
   fLAddressChangeAdressePayload: FLAddressChangeAdressePayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
+  options?: Parameters<typeof systemKeyReadTransport>[1],
 ): Promise<FLAddressChangeAdresseResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -494,7 +504,7 @@ export const addressChangeGetAddressChangeAdresse = async (
     }
     return headers;
   };
-  return systemKeyTransport<FLAddressChangeAdresseResponse>(getAddressChangeGetAddressChangeAdresseUrl(), {
+  return systemKeyReadTransport<FLAddressChangeAdresseResponse>(getAddressChangeGetAddressChangeAdresseUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -612,7 +622,7 @@ export const getAddressChangeGetAddressChangeViewUrl = () => {
  */
 export const addressChangeGetAddressChangeView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLAddressChangeViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -626,7 +636,7 @@ export const addressChangeGetAddressChangeView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLAddressChangeViewResponse>(getAddressChangeGetAddressChangeViewUrl(), {
+  return baseKeyReadTransport<FLAddressChangeViewResponse>(getAddressChangeGetAddressChangeViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -743,7 +753,7 @@ export const getAddressChangeGetAddressChangeVerwaltungViewUrl = () => {
  */
 export const addressChangeGetAddressChangeVerwaltungView = async (
   fLAddressChangeVerwaltungViewPayload: FLAddressChangeVerwaltungViewPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
+  options?: Parameters<typeof adminKeyReadTransport>[1],
 ): Promise<FLAddressChangeVerwaltungViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -757,7 +767,7 @@ export const addressChangeGetAddressChangeVerwaltungView = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLAddressChangeVerwaltungViewResponse>(getAddressChangeGetAddressChangeVerwaltungViewUrl(), {
+  return adminKeyReadTransport<FLAddressChangeVerwaltungViewResponse>(getAddressChangeGetAddressChangeVerwaltungViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -976,7 +986,7 @@ export const getBewerbungenGetEinwilligungViewUrl = () => {
  */
 export const bewerbungenGetEinwilligungView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLBewerbungEinwilligungViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -990,7 +1000,7 @@ export const bewerbungenGetEinwilligungView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLBewerbungEinwilligungViewResponse>(getBewerbungenGetEinwilligungViewUrl(), {
+  return baseKeyReadTransport<FLBewerbungEinwilligungViewResponse>(getBewerbungenGetEinwilligungViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1860,7 +1870,7 @@ export const getIdentityGetErasureViewUrl = () => {
  */
 export const identityGetErasureView = async (
   fLErasureAdressePayload: FLErasureAdressePayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
+  options?: Parameters<typeof adminKeyReadTransport>[1],
 ): Promise<FLErasureViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -1874,7 +1884,7 @@ export const identityGetErasureView = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLErasureViewResponse>(getIdentityGetErasureViewUrl(), {
+  return adminKeyReadTransport<FLErasureViewResponse>(getIdentityGetErasureViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1894,7 +1904,7 @@ export const getIdentityGetReferencesUrl = () => {
  */
 export const identityGetReferences = async (
   fLReferencesPayload: FLReferencesPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
+  options?: Parameters<typeof systemKeyReadTransport>[1],
 ): Promise<FLReferencesResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -1908,7 +1918,7 @@ export const identityGetReferences = async (
     }
     return headers;
   };
-  return systemKeyTransport<FLReferencesResponse>(getIdentityGetReferencesUrl(), {
+  return systemKeyReadTransport<FLReferencesResponse>(getIdentityGetReferencesUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1928,7 +1938,7 @@ export const getIdentityGetSignInUrl = () => {
  */
 export const identityGetSignIn = async (
   fLSubjectPayload: FLSubjectPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
+  options?: Parameters<typeof systemKeyReadTransport>[1],
 ): Promise<FLSignInResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -1942,7 +1952,7 @@ export const identityGetSignIn = async (
     }
     return headers;
   };
-  return systemKeyTransport<FLSignInResponse>(getIdentityGetSignInUrl(), {
+  return systemKeyReadTransport<FLSignInResponse>(getIdentityGetSignInUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -2004,7 +2014,7 @@ export const getIdentityGetSubjectUrl = () => {
  */
 export const identityGetSubject = async (
   fLSubjectPayload: FLSubjectPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
+  options?: Parameters<typeof systemKeyReadTransport>[1],
 ): Promise<FLSubjectResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -2018,7 +2028,7 @@ export const identityGetSubject = async (
     }
     return headers;
   };
-  return systemKeyTransport<FLSubjectResponse>(getIdentityGetSubjectUrl(), {
+  return systemKeyReadTransport<FLSubjectResponse>(getIdentityGetSubjectUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -2317,7 +2327,7 @@ export const getRegistrierungenGetConfirmationViewUrl = () => {
  */
 export const registrierungenGetConfirmationView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLRegistrierungConfirmationViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -2331,7 +2341,7 @@ export const registrierungenGetConfirmationView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLRegistrierungConfirmationViewResponse>(getRegistrierungenGetConfirmationViewUrl(), {
+  return baseKeyReadTransport<FLRegistrierungConfirmationViewResponse>(getRegistrierungenGetConfirmationViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -2353,7 +2363,7 @@ export const getRegistrierungenPostInvitationViewUrl = () => {
  */
 export const registrierungenPostInvitationView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLInvitationViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -2367,7 +2377,7 @@ export const registrierungenPostInvitationView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLInvitationViewResponse>(getRegistrierungenPostInvitationViewUrl(), {
+  return baseKeyReadTransport<FLInvitationViewResponse>(getRegistrierungenPostInvitationViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -2545,10 +2555,9 @@ export const getSaisonsGetSaisonsUrl = (params?: SaisonsGetSaisonsParams) => {
 };
 
 /**
- * List the seasons the public may read, optionally narrowed to `past` or `active`.
+ * Every season the public may read, a `future` one never among them, narrowed by `status` to `past` or `active`.
  *
- * Unlike the other resources, this does NOT default to the current season. A `future` season is
- * withheld here and served by `GET /saisons/list/verwaltung`.
+ * Without `status` it lists them all, never the season the site is on alone.
  * @summary List Saisons
  */
 export const saisonsGetSaisons = async (
@@ -2672,10 +2681,9 @@ export const getSaisonsGetSaisonUrl = (saisonId: string) => {
 };
 
 /**
- * Return one season by its id; 404 when none carries it, rather than an empty list.
+ * One season the public may read, by its id.
  *
- * A `future` season is one of those: it is withheld from this tier by the FILTER, so the miss is a
- * genuine one and nothing here has to know it was withheld.
+ * 404 where no season carries it or it is a `future` one.
  * @summary One Saison
  */
 export const saisonsGetSaison = async (
@@ -3248,7 +3256,7 @@ export const getSchiedsrichterGetConfirmationViewUrl = () => {
  */
 export const schiedsrichterGetConfirmationView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLSchiedsrichterConfirmationViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -3262,7 +3270,7 @@ export const schiedsrichterGetConfirmationView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLSchiedsrichterConfirmationViewResponse>(getSchiedsrichterGetConfirmationViewUrl(), {
+  return baseKeyReadTransport<FLSchiedsrichterConfirmationViewResponse>(getSchiedsrichterGetConfirmationViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -3946,7 +3954,7 @@ export const getSpielbestaetigungenGetSpielbestaetigungViewUrl = () => {
  */
 export const spielbestaetigungenGetSpielbestaetigungView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLSpielbestaetigungViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -3960,7 +3968,7 @@ export const spielbestaetigungenGetSpielbestaetigungView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLSpielbestaetigungViewResponse>(getSpielbestaetigungenGetSpielbestaetigungViewUrl(), {
+  return baseKeyReadTransport<FLSpielbestaetigungViewResponse>(getSpielbestaetigungenGetSpielbestaetigungViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -4194,7 +4202,7 @@ export const spielePatchSpiel = async (
   spielId: string,
   fLPatchSpielDataPayload: FLPatchSpielDataPayload,
   params?: SpielePatchSpielParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
+  options?: Parameters<typeof adminKeyDryRunTransport>[1],
 ): Promise<FLPatchSpielDataResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -4208,7 +4216,7 @@ export const spielePatchSpiel = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLPatchSpielDataResponse>(getSpielePatchSpielUrl(spielId, params), {
+  return adminKeyDryRunTransport<FLPatchSpielDataResponse>(getSpielePatchSpielUrl(spielId, params), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -4423,8 +4431,8 @@ export const getSpielerGetSpielerSaisonsUrl = () => {
 /**
  * Every player, retired ones included, each with every squad row they hold.
  *
- * `GET /spieler` answers it at no setting: the junction join is strict with a `saison_id`, and
- * without one a player with no live row has `nummer` and `position` null.
+ * `GET /spieler` answers it at no setting: it serves one team's squad in one season, the season the
+ * site is on where it names none, and so never a player outside that squad or their other rows.
  *
  * `address_change_id` names the live change of the pupil's address, which the address tool shows, and
  * `address_change_viewable_denied` why the tool refuses it this administrator, null where it opens it.
@@ -4818,10 +4826,9 @@ export const getSpieltageGetSpieltageUrl = (params?: SpieltageGetSpieltageParams
 };
 
 /**
- * List matchdays for a season, in the order they are played.
+ * One season's matchdays, by default in the order they are played: the phases in bracket order, each by `position`.
  *
- * That order is the phase in bracket order, then the stored `position` -- `sort_by=natural`.
- * Omitting `saison_id` returns the CURRENT season; one this tier may not read 404s.
+ * An omitted `saison_id` reads the season the site is on; 404 for a season this tier may not read.
  * @summary List Spieltage
  */
 export const spieltageGetSpieltage = async (
@@ -4862,10 +4869,9 @@ export const getSpieltageGetSpieltagUrl = (spieltagId: string) => {
 };
 
 /**
- * Return one matchday by its id.
+ * One matchday by its id, its match count derived from its own season's rules.
  *
- * Its OWN `saison_id` is resolved rather than the current season's, the derived match count needing
- * that season's rules. A matchday of a season this tier may not read 404s.
+ * 404 for a matchday of a season this tier may not read.
  * @summary One Spieltag
  */
 export const spieltageGetSpieltag = async (
@@ -4960,11 +4966,10 @@ export const getTeamsGetTeamsUrl = (params?: TeamsGetTeamsParams) => {
 };
 
 /**
- * List teams for a season.
+ * One season's teams as a list, or with `in_gruppen=true` keyed by every group it offers in standing order, as `format` names.
  *
- * `in_gruppen=true` returns the groups the season offers, keyed by group name, otherwise a plain list; check `format`.
- * Omitting `saison_id` returns the CURRENT season; one this tier may not read 404s, and a club that left the league
- * is listed in a `past` season alone.
+ * An omitted `saison_id` reads the season the site is on, and a club that left the league is listed in a `past` season
+ * alone; 404 for a season this tier may not read.
  * @summary List teams, flat or grouped
  */
 export const teamsGetTeams = async (
@@ -5079,10 +5084,9 @@ export const getTeamsGetTeamUrl = (teamId: string, params?: TeamsGetTeamParams) 
 };
 
 /**
- * Return one team, with its group and its statistics for a season.
+ * One team with its group and its figures in the season the query names, the season the site is on where it names none.
  *
- * The path names WHICH TEAM; the query names WHICH SEASON'S figures: `gruppe` and `statistik` are
- * season-scoped. 404 where the team, its row or the season is one this tier cannot read.
+ * 404 where the team, its row in that season or the season is one this tier may not read.
  * @summary One team
  */
 export const teamsGetTeam = async (

@@ -87,7 +87,7 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.recording import log_stamp
-from app.core.routing import by_id
+from app.core.routing import SAFE, by_id
 from app.core.security import bind_actor, get_actor_auth_time, get_actor_email, verify_access_admin, verify_recent_confirmation, verify_step_up
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
@@ -174,6 +174,7 @@ def _bestand(holdings: Bestand) -> FLAddressChangeVerwaltungHoldings:
     "/view",
     response_model=FLAddressChangeVerwaltungViewResponse,
     summary="Show what an address holds that a change moves, and its live change",
+    openapi_extra=SAFE,
 )
 async def get_address_change_verwaltung_view(
     ansicht_data: Annotated[FLAddressChangeVerwaltungViewPayload, Body()],

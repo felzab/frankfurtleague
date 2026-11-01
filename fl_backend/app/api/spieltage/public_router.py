@@ -28,11 +28,9 @@ async def get_spieltage(
     saisons_collection: SaisonsCollection,
     filters: FLSpieltageFilterParams = Depends(),
 ) -> FLSpieltageListResponse:
-    """
-    List matchdays for a season, in the order they are played.
+    """One season's matchdays, by default in the order they are played: the phases in bracket order, each by `position`.
 
-    That order is the phase in bracket order, then the stored `position` -- `sort_by=natural`.
-    Omitting `saison_id` returns the CURRENT season; one this tier may not read 404s.
+    An omitted `saison_id` reads the season the site is on; 404 for a season this tier may not read.
     """
 
     # Resolved here, never as a field default, which cannot reach the database. The `rules` come
@@ -67,11 +65,9 @@ async def get_spieltag(
     spieltage_collection: SpieltageCollection,
     saisons_collection: SaisonsCollection,
 ) -> FLSpieltageSingleResponse:
-    """
-    Return one matchday by its id.
+    """One matchday by its id, its match count derived from its own season's rules.
 
-    Its OWN `saison_id` is resolved rather than the current season's, the derived match count needing
-    that season's rules. A matchday of a season this tier may not read 404s.
+    404 for a matchday of a season this tier may not read.
     """
 
     spieltag_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})

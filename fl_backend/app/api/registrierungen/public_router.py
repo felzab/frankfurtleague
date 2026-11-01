@@ -68,6 +68,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.recording import log_stamp
+from app.core.routing import SAFE
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_CONFIRMATION_FRIST_DAYS, REGISTRIERUNG_MIN_AGE_YEARS
@@ -122,6 +123,7 @@ async def _open_einladung(*, einladungen_collection: Any, token: str, session: A
     "/invitation/view",
     response_model=FLInvitationViewResponse,
     summary="What a registration link opens",
+    openapi_extra=SAFE,
 )
 async def post_invitation_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],
@@ -347,6 +349,7 @@ async def post_registrierung(
     "/confirmation/view",
     response_model=FLRegistrierungConfirmationViewResponse,
     summary="What one registration confirmation link opens",
+    openapi_extra=SAFE,
 )
 async def get_confirmation_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],

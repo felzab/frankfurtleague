@@ -19,5 +19,6 @@ export const patchAdminSpielData = async (
  * the refusal rules, and once the two disagreed the warning would name the wrong fixtures — worse than none.
  */
 export const previewAdminSpielData = async ({ spiel_id, ...fields }: FLPatchSpielDataPayloadWithId): Promise<FLPatchSpielDataResponse> =>
-  // Sent as changing nothing, so the spine clears no cached read on a keystroke.
-  spielePatchSpiel(spiel_id, fields, { dry_run: true }, { readOnly: true });
+  // Sent as changing nothing, since the contract marks the save safe on its dry run, so the spine clears no cached read
+  // on a keystroke.
+  spielePatchSpiel(spiel_id, fields, { dry_run: true });

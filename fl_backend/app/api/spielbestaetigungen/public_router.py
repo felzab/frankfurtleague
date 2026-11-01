@@ -52,6 +52,7 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.exceptions import DocumentNotFoundError, WriteRefusal
+from app.core.routing import SAFE
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.confirmation import FLTokenPayload
@@ -75,6 +76,7 @@ def judged_as_a_proposal(refusal: WriteRefusal | None) -> WriteRefusal | None:
     "/view",
     response_model=FLSpielbestaetigungViewResponse,
     summary="What one fixture confirmation link opens",
+    openapi_extra=SAFE,
 )
 async def get_spielbestaetigung_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],

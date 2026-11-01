@@ -9,29 +9,48 @@ const DOCUMENT_PATH = SCRATCH ? `${SCRATCH}/openapi.json` : "../fl_backend/opena
 const GENERATED = SCRATCH ? `${SCRATCH}/generated` : "src/core/generated";
 const TRANSPORT_PATH = "@/core/transport";
 
-// Each key tier's scheme in the document's `components.securitySchemes`, and the transport export sending its key.
-const TRANSPORT_BY_SCHEME: Readonly<Record<string, string>> = {
-  BaseKey: "baseKeyTransport",
-  SystemKey: "systemKeyTransport",
-  AdminKey: "adminKeyTransport",
+/** The transport exports sending one key: a call that may write, one that writes nothing, and a dry run's. */
+type Transports = { write: string; read?: string; dryRun?: string };
+
+// Each key tier's scheme in the document's `components.securitySchemes`, and the transports sending its key.
+const TRANSPORTS_BY_SCHEME: Readonly<Record<string, Transports>> = {
+  BaseKey: { write: "baseKeyTransport", read: "baseKeyReadTransport" },
+  SystemKey: { write: "systemKeyTransport", read: "systemKeyReadTransport" },
+  AdminKey: { write: "adminKeyTransport", read: "adminKeyReadTransport", dryRun: "adminKeyDryRunTransport" },
 };
+const UNKEYED: Transports = { write: "unkeyedTransport" };
+
+// The one query parameter `fl_frontend/src/core/transport.ts :: adminKeyDryRunTransport` reads a dry run off.
+const DRY_RUN = "dry_run";
 
 type Security = readonly Readonly<Record<string, readonly string[]>>[];
-type Operation = { operationId: string; security?: Security };
+type Operation = { operationId: string; security?: Security; "x-safe"?: boolean; "x-safe-when"?: string };
 type Document = { security?: Security; paths: Record<string, Record<string, Operation>> };
 
 const document = JSON.parse(readFileSync(DOCUMENT_PATH, "utf8")) as Document;
 
 /**
- * The transport an operation is sent through, read off its `security`, so the key a call sends is the one the
- * backend's guard names and no call site chooses it. A scheme this map does not know fails the generation.
+ * The transport an operation is sent through, read off the operation itself, so no call site chooses either: the key
+ * its `security` names, and whether it writes, which the backend states where the method does not say it, as
+ * `x-safe` on a POST that writes nothing and `x-safe-when` on a write whose dry run writes nothing
+ * (`fl_backend/app/core/routing.py :: SAFE`). A scheme or a mark no transport here serves fails the generation.
  */
-function transportOf({ operationId, security = document.security ?? [] }: Operation): string {
+function transportOf(operation: Operation): string {
+  const { operationId, security = document.security ?? [] } = operation;
   const schemes = security.flatMap(Object.keys);
-  if (schemes.length === 0) return "unkeyedTransport";
+  const transports = schemes.length === 0 ? UNKEYED : schemes.length === 1 ? TRANSPORTS_BY_SCHEME[schemes[0] ?? ""] : undefined;
+  if (!transports) throw new Error(`${operationId}: no transport for the security ${JSON.stringify(security)}`);
 
-  const transport = schemes.length === 1 ? TRANSPORT_BY_SCHEME[schemes[0] ?? ""] : undefined;
-  if (!transport) throw new Error(`${operationId}: no transport for the security ${JSON.stringify(security)}`);
+  const safeWhen = operation["x-safe-when"];
+  const transport =
+    operation["x-safe"] === true
+      ? transports.read
+      : safeWhen === undefined
+        ? transports.write
+        : safeWhen === DRY_RUN
+          ? transports.dryRun
+          : undefined;
+  if (!transport) throw new Error(`${operationId}: no transport for its marks under the security ${JSON.stringify(security)}`);
   return transport;
 }
 

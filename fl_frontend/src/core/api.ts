@@ -26,7 +26,8 @@ export interface FetchOptions extends RequestInit {
   authType: "base" | "system" | "admin" | "none";
   /**
    * A call changing nothing whatever its method says, such as a POST keeping a token out of the URL or
-   * a dry run: its timeout is a read that failed, never a write of unknown outcome.
+   * a dry run: its timeout is a read that failed, never a write of unknown outcome. Set by the operation's
+   * transport from what the contract states (`fl_frontend/src/core/transport.ts`), never by a call site.
    */
   readOnly?: true;
 }

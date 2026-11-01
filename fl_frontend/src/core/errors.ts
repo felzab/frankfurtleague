@@ -7,7 +7,7 @@ import type { Code, FLRefusedField } from "./generated/client/types";
  */
 export type SentRequest = {
   method: string;
-  /** A call changing nothing whatever its method says, declared where it is made (`fl_frontend/src/core/api.ts :: FetchOptions`). */
+  /** A call changing nothing whatever its method says, as its operation's contract states (`fl_frontend/src/core/api.ts :: FetchOptions`). */
   readOnly: boolean;
 };
 

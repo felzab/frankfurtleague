@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from httpx2 import Response
 from pydantic import AfterValidator, BaseModel, Field, ValidationError, model_validator
 from pydantic_core import PydanticCustomError
-from pymongo.errors import BulkWriteError, PyMongoError
+from pymongo.errors import BulkWriteError, NetworkTimeout, PyMongoError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.codes import Code
@@ -28,6 +28,7 @@ from app.core.exception_handlers import (
 from app.core.exceptions import APIError
 from app.core.logging import JSONFormatter, TraceContextFilter
 from app.core.middlewares import TracedApp
+from app.core.routing import SAFE, SAFE_WHEN
 from app.main import create_app
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, refuse_reversed_span
 from tests.config import BASE_AUTH, build_test_config
@@ -407,9 +408,13 @@ async def break_after_the_status() -> StreamingResponse:
     return StreamingResponse(body())
 
 
+async def cut_by_the_deadline() -> None:
+    raise NetworkTimeout("the request's deadline cut the command")
+
+
 @functools.cache
 def _crashing_app() -> FastAPI:
-    """The shipped stack around two routes that fail: an app of its own, `APP` being every module's.
+    """The shipped stack around routes that fail: an app of its own, `APP` being every module's.
 
     Built on first use rather than at import, which every xdist worker pays at collection.
     """
@@ -417,6 +422,9 @@ def _crashing_app() -> FastAPI:
     crashing = create_app(build_test_config())
     crashing.add_api_route("/crash", crash)
     crashing.add_api_route("/broken-stream", break_after_the_status)
+    # Marked as the application's routes are, so the deadline's answer is judged by the route the router matched.
+    crashing.add_api_route("/cut-read", cut_by_the_deadline, methods=["POST"], openapi_extra=SAFE)
+    crashing.add_api_route("/cut-save", cut_by_the_deadline, methods=["PATCH"], openapi_extra=SAFE_WHEN)
 
     return crashing
 
@@ -467,3 +475,22 @@ class TestACrashIsAnsweredInsideItsRequest:
 
         assert [line[:2] for line in access] == [(status, "c0ffee00" * 4)]
         assert crashes == [access[0][1:]]
+
+
+CUTS = [
+    pytest.param("POST", "/cut-read", Code.DATABASE_FAILED, id="a read over POST, marked safe"),
+    pytest.param("PATCH", "/cut-save?dry_run=true", Code.DATABASE_FAILED, id="a save's dry run, marked safe when asked for"),
+    pytest.param("PATCH", "/cut-save", Code.UNKNOWN_OUTCOME, id="the same save, which may have written"),
+]
+
+
+@pytest.mark.parametrize(("method", "path", "code"), CUTS)
+def test_a_deadline_s_cut_is_of_unknown_outcome_only_where_the_request_could_write(method: str, path: str, code: Code):
+    """A cut read answered unknown tells the person a view may have saved something.
+
+    The frontend reads the same marks for its own lost answers.
+    """
+
+    response = TestClient(_crashing_app(), raise_server_exceptions=False).request(method, path)
+
+    assert (response.status_code, response.json()["error_code"]) == (500, code)

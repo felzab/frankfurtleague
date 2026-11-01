@@ -18719,7 +18719,8 @@
         "summary": "Say which address a live change would move to",
         "tags": [
           "address_change"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/address_change/confirmation": {
@@ -18938,7 +18939,8 @@
         "summary": "What one address link opens",
         "tags": [
           "address_change"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/address_change/sweep": {
@@ -19229,7 +19231,8 @@
         "summary": "Show what an address holds that a change moves, and its live change",
         "tags": [
           "address_change"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/address_change/{address_change_id}": {
@@ -19871,7 +19874,8 @@
         "summary": "What one confirmation link opens",
         "tags": [
           "bewerbungen"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/bewerbungen/kuerzel/{shorthand}": {
@@ -21962,7 +21966,8 @@
         "summary": "Show what an erasure of an address would remove",
         "tags": [
           "identity"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/identity/references": {
@@ -22035,7 +22040,8 @@
         "summary": "Say which of these sign-in addresses no record references",
         "tags": [
           "identity"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/identity/sign_in": {
@@ -22108,7 +22114,8 @@
         "summary": "Say whether one mailbox may be offered a sign-in",
         "tags": [
           "identity"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/identity/sign_out": {
@@ -22254,7 +22261,8 @@
         "summary": "Say which league records one mailbox holds",
         "tags": [
           "identity"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/outbox/event": {
@@ -22998,7 +23006,8 @@
         "summary": "What one registration confirmation link opens",
         "tags": [
           "registrierungen"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/registrierungen/invitation/view": {
@@ -23071,7 +23080,8 @@
         "summary": "What a registration link opens",
         "tags": [
           "registrierungen"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/registrierungen/kader/{team_id}/{saison_id}": {
@@ -23425,7 +23435,7 @@
     },
     "/api/v0/saisons": {
       "get": {
-        "description": "List the seasons the public may read, optionally narrowed to `past` or `active`.\n\nUnlike the other resources, this does NOT default to the current season. A `future` season is\nwithheld here and served by `GET /saisons/list/verwaltung`.",
+        "description": "Every season the public may read, a `future` one never among them, narrowed by `status` to `past` or `active`.\n\nWithout `status` it lists them all, never the season the site is on alone.",
         "operationId": "saisons_get_saisons",
         "parameters": [
           {
@@ -23929,7 +23939,7 @@
     },
     "/api/v0/saisons/{saison_id}": {
       "get": {
-        "description": "Return one season by its id; 404 when none carries it, rather than an empty list.\n\nA `future` season is one of those: it is withheld from this tier by the FILTER, so the miss is a\ngenuine one and nothing here has to know it was withheld.",
+        "description": "One season the public may read, by its id.\n\n404 where no season carries it or it is a `future` one.",
         "operationId": "saisons_get_saison",
         "parameters": [
           {
@@ -25523,7 +25533,8 @@
         "summary": "What one Schiedsrichter confirmation link opens",
         "tags": [
           "schiedsrichter"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/schiedsrichter/self": {
@@ -27100,7 +27111,8 @@
         "summary": "What one fixture confirmation link opens",
         "tags": [
           "spielbestaetigungen"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/antwort": {
@@ -27953,7 +27965,8 @@
         "summary": "Update a Spiel",
         "tags": [
           "spiele"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/v0/spiele/{spiel_id}/verwaltung": {
@@ -28592,7 +28605,7 @@
     },
     "/api/v0/spieler/saisons": {
       "get": {
-        "description": "Every player, retired ones included, each with every squad row they hold.\n\n`GET /spieler` answers it at no setting: the junction join is strict with a `saison_id`, and\nwithout one a player with no live row has `nummer` and `position` null.\n\n`address_change_id` names the live change of the pupil's address, which the address tool shows, and\n`address_change_viewable_denied` why the tool refuses it this administrator, null where it opens it.",
+        "description": "Every player, retired ones included, each with every squad row they hold.\n\n`GET /spieler` answers it at no setting: it serves one team's squad in one season, the season the\nsite is on where it names none, and so never a player outside that squad or their other rows.\n\n`address_change_id` names the live change of the pupil's address, which the address tool shows, and\n`address_change_viewable_denied` why the tool refuses it this administrator, null where it opens it.",
         "operationId": "spieler_get_spieler_saisons",
         "responses": {
           "200": {
@@ -29844,7 +29857,7 @@
     },
     "/api/v0/spieltage": {
       "get": {
-        "description": "List matchdays for a season, in the order they are played.\n\nThat order is the phase in bracket order, then the stored `position` -- `sort_by=natural`.\nOmitting `saison_id` returns the CURRENT season; one this tier may not read 404s.",
+        "description": "One season's matchdays, by default in the order they are played: the phases in bracket order, each by `position`.\n\nAn omitted `saison_id` reads the season the site is on; 404 for a season this tier may not read.",
         "operationId": "spieltage_get_spieltage",
         "parameters": [
           {
@@ -30128,7 +30141,7 @@
     },
     "/api/v0/spieltage/{spieltag_id}": {
       "get": {
-        "description": "Return one matchday by its id.\n\nIts OWN `saison_id` is resolved rather than the current season's, the derived match count needing\nthat season's rules. A matchday of a season this tier may not read 404s.",
+        "description": "One matchday by its id, its match count derived from its own season's rules.\n\n404 for a matchday of a season this tier may not read.",
         "operationId": "spieltage_get_spieltag",
         "parameters": [
           {
@@ -30419,7 +30432,7 @@
     },
     "/api/v0/teams": {
       "get": {
-        "description": "List teams for a season.\n\n`in_gruppen=true` returns the groups the season offers, keyed by group name, otherwise a plain list; check `format`.\nOmitting `saison_id` returns the CURRENT season; one this tier may not read 404s, and a club that left the league\nis listed in a `past` season alone.",
+        "description": "One season's teams as a list, or with `in_gruppen=true` keyed by every group it offers in standing order, as `format` names.\n\nAn omitted `saison_id` reads the season the site is on, and a club that left the league is listed in a `past` season\nalone; 404 for a season this tier may not read.",
         "operationId": "teams_get_teams",
         "parameters": [
           {
@@ -31051,7 +31064,7 @@
         ]
       },
       "get": {
-        "description": "Return one team, with its group and its statistics for a season.\n\nThe path names WHICH TEAM; the query names WHICH SEASON'S figures: `gruppe` and `statistik` are\nseason-scoped. 404 where the team, its row or the season is one this tier cannot read.",
+        "description": "One team with its group and its figures in the season the query names, the season the site is on where it names none.\n\n404 where the team, its row in that season or the season is one this tier may not read.",
         "operationId": "teams_get_team",
         "parameters": [
           {

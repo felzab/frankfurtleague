@@ -55,7 +55,7 @@ export async function einladeSchiedsrichter({ id }: FLSchiedsrichterEinladenPayl
  * backend's own route template does not redact.
  */
 export async function postSchiedsrichterBestaetigungAnsicht(payload: FLTokenPayload): Promise<FLSchiedsrichterConfirmationViewResponse> {
-  return schiedsrichterGetConfirmationView(payload, { readOnly: true });
+  return schiedsrichterGetConfirmationView(payload);
 }
 
 /**

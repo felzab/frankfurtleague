@@ -23,7 +23,7 @@ const PAYLOAD_REFUSED = "payload_refused";
 export const lookUpSubjekt = cache(async (email: string): Promise<SubjectSession["subject"]> => {
   // In the body and on no query parameter: a URL carrying an address reaches the edge's access
   // line, which nothing downstream un-logs.
-  const answer = await identityGetSubject({ email: email }, { readOnly: true });
+  const answer = await identityGetSubject({ email: email });
 
   // Field by field rather than the body: the generated call types the answer and parses nothing, so the body
   // would carry into the session whatever else the backend ever answered.
@@ -47,7 +47,7 @@ export type AnmeldungRecords = FLSignInResponse;
 /** The gate's answer for one folded mailbox. Throws on every backend failure, which `mayReceiveSignIn` closes on. */
 export const lookUpAnmeldung = cache(async (email: string): Promise<AnmeldungRecords> => {
   // In the body, for `lookUpSubjekt`'s reason.
-  const answer = await identityGetSignIn({ email: email }, { readOnly: true });
+  const answer = await identityGetSignIn({ email: email });
 
   // Field by field, for `lookUpSubjekt`'s reason.
   return { unconfirmed: answer.unconfirmed, account: answer.account, barred: answer.barred, verwaltung: answer.verwaltung };

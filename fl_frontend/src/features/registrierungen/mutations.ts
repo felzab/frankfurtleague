@@ -32,7 +32,7 @@ import type {
  * backend's own route template does not redact.
  */
 export async function postEinladungAnsicht(payload: FLTokenPayload): Promise<FLInvitationViewResponse> {
-  return registrierungenPostInvitationView(payload, { readOnly: true });
+  return registrierungenPostInvitationView(payload);
 }
 
 /** Records one pupil's registration and mints the confirmation token in the same transaction. */
@@ -45,7 +45,7 @@ export async function postRegistrierung(
 
 /** The confirmation link's own read, a POST for `postEinladungAnsicht`'s reason. */
 export async function postBestaetigungAnsicht(payload: FLTokenPayload): Promise<FLRegistrierungConfirmationViewResponse> {
-  return registrierungenGetConfirmationView(payload, { readOnly: true });
+  return registrierungenGetConfirmationView(payload);
 }
 
 /** Records the pupil's birthdate and consent and spends their token. */
