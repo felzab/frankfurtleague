@@ -12,7 +12,6 @@ import type { SpielortFeld } from "./spielortRegeln";
 const stand = vi.hoisted(() => ({ gesendet: [] as unknown[], ablehnung: null as unknown }));
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-vi.mock("next/cache", () => ({ updateTag: () => undefined, refresh: () => undefined }));
 vi.mock("@/core/auth", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
 vi.mock("@/core/generated/client/sdk", () => ({
   spielortePostSpielort: async (payload: unknown) => {

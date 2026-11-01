@@ -51,11 +51,14 @@ and answers the kit's `ActionAnswer`, the backend's refusal code with it; the li
 way, and the forms not yet moved onto it are counted in the suppressions list until their area
 moves them. Every cached scope carries one tag, `fl_frontend/src/core/siteCache.ts ::
 SITE_CACHE_TAG`, so no write names the reads it moves. The builder clears it at the end of an action
-exactly when the action's body sent a backend write that may have landed, on every lane, by the
-record `fl_frontend/src/core/apiDispatch.ts :: dispatchRequest` makes before each write is sent,
-since a write whose answer is lost may have landed; an action whose body sent none renders
-its page again through `refresh()` and leaves the cache standing, and a write behind the response
-clears nothing. The old `fl_frontend/src/shared/utils/adminMutation.ts :: runGuardedMutation`, and
+exactly when the action's body sent a backend write that may have landed, on every lane. It reads
+the count `fl_frontend/src/core/apiDispatch.ts :: dispatchRequest` keeps: each write is counted
+before it is sent, since a write whose answer is lost may have landed, and taken back once its
+answer is a 4xx carrying a code other than `unknown_outcome`, the backend's refusal of it. A 5xx
+keeps the count, since the server may fail after its commit. An action whose body sent no such write
+carries only its answer and renders no page again; one that changes state outside the cache, the
+sign-in store's, calls `refresh()` itself. A write behind the response clears nothing, so no league
+write moves there. The old `fl_frontend/src/shared/utils/adminMutation.ts :: runGuardedMutation`, and
 `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest` for a route handler, clear it
 after a write that may stand. The league's reads keep Next's `minutes` lifetime; the read of a
 `Fassung` (`fl_frontend/src/core/einwilligung.ts :: getEinwilligungFassung`) keeps the longest,

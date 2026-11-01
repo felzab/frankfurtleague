@@ -1,6 +1,6 @@
 import "server-only";
 
-import { refresh, updateTag } from "next/cache";
+import { updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
 
@@ -9,7 +9,7 @@ import { COPY } from "./copy";
 import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
 import { logger } from "./logging";
 import { logRefused } from "./refused";
-import { requestWriteSent, runWithRequestScope } from "./requestScope";
+import { requestWriteMayStand, runWithRequestScope } from "./requestScope";
 import { isSeatAt, rolesOf } from "./roles";
 import { isWordedRule, ruleMessage } from "./ruleMessage";
 import { SERVER_COPY } from "./serverCopy";
@@ -328,10 +328,11 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
 
 /**
  * The body and its call to the backend, answering the backend's refusal by its code and anything else as the
- * unexpected failure. A body that sent a backend write clears the site's one cache tag whatever it came to: a write
- * may stand behind a refusal, a throw or a lost answer, and every cached read carries the tag, so no write has to know
- * which it moves. A body that sent none leaves the cache standing and renders the page again all the same, as the
- * clearing does, since what it changed lies outside the cache.
+ * unexpected failure. A body that sent a backend write which may have landed clears the site's one cache tag, which
+ * also renders the page again, whatever the body came to: the write may stand behind a throw or a lost answer, and
+ * every cached read carries the tag, so no write has to know which it moves. A body whose writes were each refused, or
+ * that sent none, carries only its answer and renders nothing again: a refused editor keeps what was typed into it. A
+ * body changing state outside the cache, the sign-in store's, calls Next's `refresh()` itself.
  */
 async function body<Schema extends z.ZodType, Value>(
   lane: Lane<Schema, Value>,
@@ -348,8 +349,7 @@ async function body<Schema extends z.ZodType, Value>(
     logFailure(lane.name, error);
     return UNEXPECTED;
   } finally {
-    if (requestWriteSent()) updateTag(SITE_CACHE_TAG);
-    else refresh();
+    if (requestWriteMayStand()) updateTag(SITE_CACHE_TAG);
   }
 }
 
