@@ -224,10 +224,6 @@ const NEXT_PRIVATE_CONTEXTS = {
   message: "Mount Next's contexts through fl_frontend/src/test-support/nextContexts.ts rather than its private modules.",
 };
 
-/**
- * The published origin, for what a crawler reads: a message built on it sends a reader of any other
- * stack to production.
- */
 /** `catalogue` brands a whole tree as `Copy`; only the server's own catalogue calls it besides `copy.ts` itself. */
 const CATALOGUE_BRAND = {
   regex: moduleNamed("copy"),
@@ -236,6 +232,10 @@ const CATALOGUE_BRAND = {
     "catalogue brands a whole tree as Copy: fl_frontend/src/core/serverCopy.ts, the server's own catalogue, calls it, and nothing else may. Take the entry from COPY or SERVER_COPY, or add one there.",
 };
 
+/**
+ * The published origin, for what a crawler reads: a message built on it sends a reader of any other
+ * stack to production.
+ */
 const SITE_ORIGIN = {
   regex: moduleNamed("brand"),
   importNames: ["SITE_URL"],
