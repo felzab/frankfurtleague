@@ -7,7 +7,7 @@ import pytest
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLBracketFaultGruppe, FLSpiel, FLSpielListAdapter
 from app.api.spiele.services import BracketResolution, resolve_bracket
-from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamStatistik
+from app.api.teams.schemas import FLGruppen, FLGruppenTeam, FLTeam, FLTeamStatistik
 from app.api.teams.services import (
     CERTAINTY_FIXTURE_LIMIT,
     _decide_one_gruppe,
@@ -17,6 +17,7 @@ from app.api.teams.services import (
     build_decided_standings,
     build_gruppen,
     build_statistik_by_team,
+    build_tabelle,
 )
 from app.shared.schemas.literals import FLSpielerStufe
 
@@ -108,19 +109,12 @@ def table(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonR
 
 
 def platz_by_team_id(rows: Sequence[FLGruppenTeam]) -> dict[str, int]:
-    """`fl_frontend/src/features/teams/utils.ts :: computePlatzByTeamId` restated over the row shape it parses.
+    """The `platz` the Tabelle serves each club of these rows (`build_tabelle`), a club holding none left out.
 
-    The two surfaces must number the same clubs, and nothing else in either suite can fail when they
-    part company.
+    The Tabelle and the seeding must number the same clubs, and nothing else can fail when they part company.
     """
 
-    numbered: dict[str, int] = {}
-    for row in rows:
-        if row.austritt_type is not None or row.statistik.count_gespielte_spiele + row.count_pending_spiele == 0:
-            continue
-        numbered[str(row.id)] = len(numbered) + 1
-
-    return numbered
+    return {str(row.id): row.platz for row in build_tabelle(FLGruppen({"A": list(rows)})).root["A"] if row.platz is not None}
 
 
 def standing(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonRules = RULES):

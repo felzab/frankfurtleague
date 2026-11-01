@@ -58,12 +58,7 @@ BEFORE_THE_FIRST_ENDE = "2026-06-16"
 OTHER_SAISON_BEGINN = "2025-06-25"
 OTHER_SAISON_ENDE = "2025-06-26"
 
-# The shape the two match counts below follow from.
 RULES = documents.rules_document(number_of_gruppen=4, teams_per_gruppe=4, qualifiers_per_gruppe=2)
-
-# Spelled out rather than computed, so a `schedule_for` change that stops matching is visible here.
-GRUPPENPHASE_MATCHES = 8
-FINALE_MATCHES = 2
 
 
 def saison_document() -> dict[str, Any]:

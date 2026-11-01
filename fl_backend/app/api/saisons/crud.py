@@ -4,8 +4,9 @@ from typing import Any
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.bewerbungen.services import build_open_window_filter
 from app.api.saisons.schemas import FLSaisonRules
-from app.core.crud import pull_one_from_db
+from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.exceptions import DocumentNotFoundError
 
 CURRENT_SAISON_FILTER = {"status": "active"}
@@ -43,6 +44,24 @@ async def pull_massgebliche_saison_id(saisons_collection: AsyncCollection, sessi
         return None
 
     return str(running["_id"])
+
+
+async def pull_open_window_saison(*, saisons_collection: AsyncCollection, today: str) -> Mapping[str, Any] | None:
+    """The season taking applications today, its window and status alone; `None` where none is.
+
+    Sorted and limited rather than `find_one`: two open windows is a state an administrator can create, and an
+    arbitrary pick would move between reads. Newest season id first, ids being years.
+    """
+
+    open_saisons = await pull_many_from_db(
+        collection=saisons_collection,
+        db_filter=build_open_window_filter(today),
+        limit=1,
+        sort_by=[("_id", -1)],
+        projection=["bewerbung", "status"],
+    )
+
+    return open_saisons[0] if open_saisons else None
 
 
 async def has_started(*, spiele_collection: AsyncCollection, saison_id: str, today: str, session: AsyncClientSession | None = None) -> bool:

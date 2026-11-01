@@ -80,6 +80,8 @@ import type {
   FLKaderResponse,
   FLKaderRow,
   FLKontaktInviteResponse,
+  FLKoRundeResponse,
+  FLLandingResponse,
   FLOpenRegistrierungenResponse,
   FLOutboxEventPayload,
   FLOutboxEventResponse,
@@ -133,6 +135,7 @@ import type {
   FLRegistrierungSweepResponse,
   FLReplaceSaisonTeamPayload,
   FLReplaceSaisonTeamResponse,
+  FLSaisonFrameResponse,
   FLSaisonsAdminListResponse,
   FLSaisonsListResponse,
   FLSaisonSpielerResponse,
@@ -140,6 +143,7 @@ import type {
   FLSaisonTeamAccountEinwilligungResponse,
   FLSaisonTeamEinwilligungAntwortResponse,
   FLSaisonTeamResponse,
+  FLSaisonTeamsResponse,
   FLSchiedsrichterAccountEinwilligungResponse,
   FLSchiedsrichterConfirmationPayload,
   FLSchiedsrichterConfirmationResponse,
@@ -182,6 +186,8 @@ import type {
   FLSpieleSingleResponse,
   FLSpielorteListResponse,
   FLSpielorteSingleResponse,
+  FLSpielPageResponse,
+  FLSpielplanResponse,
   FLSpieltageListResponse,
   FLSpieltageSingleResponse,
   FLSpieltagWriteResponse,
@@ -190,6 +196,8 @@ import type {
   FLSwapGruppenPayload,
   FLSwapGruppenResponse,
   FLSweepSaisonsResponse,
+  FLTabelleResponse,
+  FLTeamPageResponse,
   FLTeamSeatsResponse,
   FLTeamsGroupedResponse,
   FLTeamsListResponse,
@@ -2603,6 +2611,38 @@ export const saisonsGetActiveSaison = async (options?: Parameters<typeof baseKey
   });
 };
 
+export const getSaisonsGetFrameUrl = () => {
+  return `/api/v0/saisons/frame`;
+};
+
+/**
+ * Every season the public may read, the newest first, and the one the site is on; that one is null for a league that has none.
+ * @summary The season pages' frame
+ */
+export const saisonsGetFrame = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSaisonFrameResponse> => {
+  return baseKeyTransport<FLSaisonFrameResponse>(getSaisonsGetFrameUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSaisonsGetLandingUrl = () => {
+  return `/api/v0/saisons/landing`;
+};
+
+/**
+ * The season the site is on, `before_start`, `running` or `decided`, null for a league that has none; its figures counted on every read.
+ *
+ * Beside it, the application window open today by the rule the submission refuses on.
+ * @summary The landing
+ */
+export const saisonsGetLanding = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLLandingResponse> => {
+  return baseKeyTransport<FLLandingResponse>(getSaisonsGetLandingUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getSaisonsGetSaisonsVerwaltungUrl = (params?: SaisonsGetSaisonsVerwaltungParams) => {
   const stringifiedParams = serializeQuery(params);
 
@@ -2854,6 +2894,45 @@ export const saisonsGetInvitationsDispatchPreview = async (
   });
 };
 
+export const getSaisonsGetKoRundeUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/ko_runde`;
+};
+
+/**
+ * Every knockout matchday of one season with its matches in playing order, a side not yet known null beside its `quelle`.
+ *
+ * Empty before the draw; 404 for a season this tier may not read.
+ * @summary One Saison's K.-o.-Runde
+ */
+export const saisonsGetKoRunde = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLKoRundeResponse> => {
+  return baseKeyTransport<FLKoRundeResponse>(getSaisonsGetKoRundeUrl(saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSaisonsGetSpielUrl = (saisonId: string, spielId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spiele/${encodeURIComponent(String(spielId))}`;
+};
+
+/**
+ * One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
+ *
+ * Its report's line-ups whenever a club entered one, the scorers and cards only while the report is adopted and
+ * unchanged since, every pupil through the public mask.
+ * @summary One Spiel's page
+ */
+export const saisonsGetSpiel = async (
+  saisonId: string,
+  spielId: string,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLSpielPageResponse> => {
+  return baseKeyTransport<FLSpielPageResponse>(getSaisonsGetSpielUrl(saisonId, spielId), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getSaisonsDeleteSpielplanUrl = (saisonId: string) => {
   return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spielplan`;
 };
@@ -2875,6 +2954,23 @@ export const saisonsDeleteSpielplan = async (
   return adminKeyTransport<FLUndrawSpielplanResponse>(getSaisonsDeleteSpielplanUrl(saisonId), {
     ...options,
     method: "DELETE",
+  });
+};
+
+export const getSaisonsGetSpielplanUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spielplan`;
+};
+
+/**
+ * Every matchday of one season with its matches, in playing order, and the matchday to open on.
+ *
+ * The Spielplan and the Spielsuche both show this. 404 for a season this tier may not read.
+ * @summary One Saison's Spielplan
+ */
+export const saisonsGetSpielplan = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSpielplanResponse> => {
+  return baseKeyTransport<FLSpielplanResponse>(getSaisonsGetSpielplanUrl(saisonId), {
+    ...options,
+    method: "GET",
   });
 };
 
@@ -2914,6 +3010,61 @@ export const saisonsPostSpielplan = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLGenerateSpielplanPayload),
+  });
+};
+
+export const getSaisonsGetTabelleUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/tabelle`;
+};
+
+/**
+ * Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.
+ *
+ * A club that left the season keeps its row and holds no `platz`; 404 for a season this tier may not read.
+ * @summary One Saison's Tabelle
+ */
+export const saisonsGetTabelle = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLTabelleResponse> => {
+  return baseKeyTransport<FLTabelleResponse>(getSaisonsGetTabelleUrl(saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSaisonsGetTeamsUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/teams`;
+};
+
+/**
+ * The clubs of one season by name, each under the name and shorthand it plays that season under.
+ *
+ * 404 for a season this tier may not read.
+ * @summary One Saison's teams
+ */
+export const saisonsGetTeams = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSaisonTeamsResponse> => {
+  return baseKeyTransport<FLSaisonTeamsResponse>(getSaisonsGetTeamsUrl(saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSaisonsGetTeamUrl = (saisonId: string, teamId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/teams/${encodeURIComponent(String(teamId))}`;
+};
+
+/**
+ * One club in one season: the club, its row of the Tabelle, its matches and its squad.
+ *
+ * 404 for a season this tier may not read and for a club the season does not hold.
+ * @summary One team's page in one Saison
+ */
+export const saisonsGetTeam = async (
+  saisonId: string,
+  teamId: string,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLTeamPageResponse> => {
+  return baseKeyTransport<FLTeamPageResponse>(getSaisonsGetTeamUrl(saisonId, teamId), {
+    ...options,
+    method: "GET",
   });
 };
 
@@ -3946,8 +4097,8 @@ export const getSpieleGetSpieleUrl = (params?: SpieleGetSpieleParams) => {
 /**
  * List the Spiele matching the filters, of the current season unless `saison_id` names another.
  *
- * A season this tier may not read lists nothing; `playoffs` means every phase but `gruppenphase`, and
- * `from_today` includes today.
+ * A season this tier may not read 404s; `playoffs` means every phase but `gruppenphase`, and `from_today`
+ * includes today.
  * @summary List Spiele
  */
 export const spieleGetSpiele = async (
@@ -4083,26 +4234,21 @@ export const spieleGetSpielVerwaltung = async (
   });
 };
 
-export const getSpielerGetSpielerUrl = (params?: SpielerGetSpielerParams) => {
+export const getSpielerGetSpielerUrl = (params: SpielerGetSpielerParams) => {
   const stringifiedParams = serializeQuery(params);
 
   return stringifiedParams.length > 0 ? `/api/v0/spieler?${stringifiedParams}` : `/api/v0/spieler`;
 };
 
 /**
- * List players, normally one team's squad in one season.
+ * One team's squad in the current season unless `saison_id` names another; 404 while none is active and for one this tier may not read.
  *
- * Naming a `team_id` without a `saison_id` returns that team's squad in the CURRENT season, and 404s
- * while no season is active. Naming neither lists every season's players, a season this tier may not
- * read adding no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).
- *
- * Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`);
- * the row keeps its `nummer` and `position`, and no row carries the person's record id
- * (`READ-PUPIL-005`).
+ * A surname reads as its initial, both names `null` where the pupil's consent does not publish them, the row keeping
+ * its `nummer` and `position`; no row carries the pupil's record id.
  * @summary List Spieler
  */
 export const spielerGetSpieler = async (
-  params?: SpielerGetSpielerParams,
+  params: SpielerGetSpielerParams,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLSpielerListResponse> => {
   return baseKeyTransport<FLSpielerListResponse>(getSpielerGetSpielerUrl(params), {
@@ -4334,12 +4480,7 @@ export const getSpielerGetSpielerByIdUrl = (spielerId: string) => {
 };
 
 /**
- * Return one player -- an id, a forename and an INITIAL, which is all this surface needs.
- *
- * Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`).
- *
- * NOT the flattened squad shape the list returns: those are season-scoped, and picking a season
- * here would make the answer depend on a default nobody asked for.
+ * One player's id, forename and surname initial, both names `null` where the pupil's consent does not publish them.
  * @summary One Spieler
  */
 export const spielerGetSpielerById = async (

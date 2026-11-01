@@ -1974,6 +1974,30 @@ export const SaisonsGetInvitationsDispatchPreviewQueryParams = zod.object({
 });
 
 /**
+ * Every knockout matchday of one season with its matches in playing order, a side not yet known null beside its `quelle`.
+ *
+ * Empty before the draw; 404 for a season this tier may not read.
+ * @summary One Saison's K.-o.-Runde
+ */
+export const SaisonsGetKoRundeParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
+ * One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
+ *
+ * Its report's line-ups whenever a club entered one, the scorers and cards only while the report is adopted and
+ * unchanged since, every pupil through the public mask.
+ * @summary One Spiel's page
+ */
+export const saisonsGetSpielPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const SaisonsGetSpielParams = zod.object({
+  saison_id: zod.string(),
+  spiel_id: zod.string().regex(saisonsGetSpielPathSpielIdRegExp),
+});
+
+/**
  * Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.
  *
  * Every fixture's confirmations go with it.
@@ -1984,6 +2008,16 @@ export const SaisonsGetInvitationsDispatchPreviewQueryParams = zod.object({
  * @summary Undraw this Saison's Spielplan
  */
 export const SaisonsDeleteSpielplanParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
+ * Every matchday of one season with its matches, in playing order, and the matchday to open on.
+ *
+ * The Spielplan and the Spielsuche both show this. 404 for a season this tier may not read.
+ * @summary One Saison's Spielplan
+ */
+export const SaisonsGetSpielplanParams = zod.object({
   saison_id: zod.string(),
 });
 
@@ -2037,6 +2071,39 @@ export const SaisonsPostSpielplanBody = zod
   .describe(
     "Whether this draw may REPLACE what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission. `spielplan_replace_outside_its_window` bounds a confirmed one.",
   );
+
+/**
+ * Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.
+ *
+ * A club that left the season keeps its row and holds no `platz`; 404 for a season this tier may not read.
+ * @summary One Saison's Tabelle
+ */
+export const SaisonsGetTabelleParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
+ * The clubs of one season by name, each under the name and shorthand it plays that season under.
+ *
+ * 404 for a season this tier may not read.
+ * @summary One Saison's teams
+ */
+export const SaisonsGetTeamsParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
+ * One club in one season: the club, its row of the Tabelle, its matches and its squad.
+ *
+ * 404 for a season this tier may not read and for a club the season does not hold.
+ * @summary One team's page in one Saison
+ */
+export const saisonsGetTeamPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const SaisonsGetTeamParams = zod.object({
+  saison_id: zod.string(),
+  team_id: zod.string().regex(saisonsGetTeamPathTeamIdRegExp),
+});
 
 /**
  * An admin-tier read: a referee is a pupil, so their contact and school are private (`READ-CONTACT-001`).
@@ -2932,8 +2999,8 @@ export const SpielbestaetigungenEnterSpielbestaetigungBody = zod
 /**
  * List the Spiele matching the filters, of the current season unless `saison_id` names another.
  *
- * A season this tier may not read lists nothing; `playoffs` means every phase but `gruppenphase`, and
- * `from_today` includes today.
+ * A season this tier may not read 404s; `playoffs` means every phase but `gruppenphase`, and `from_today`
+ * includes today.
  * @summary List Spiele
  */
 export const spieleGetSpieleQueryTeamIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3178,18 +3245,13 @@ export const SpieleGetSpielVerwaltungParams = zod.object({
 });
 
 /**
- * List players, normally one team's squad in one season.
+ * One team's squad in the current season unless `saison_id` names another; 404 while none is active and for one this tier may not read.
  *
- * Naming a `team_id` without a `saison_id` returns that team's squad in the CURRENT season, and 404s
- * while no season is active. Naming neither lists every season's players, a season this tier may not
- * read adding no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).
- *
- * Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`);
- * the row keeps its `nummer` and `position`, and no row carries the person's record id
- * (`READ-PUPIL-005`).
+ * A surname reads as its initial, both names `null` where the pupil's consent does not publish them, the row keeping
+ * its `nummer` and `position`; no row carries the pupil's record id.
  * @summary List Spieler
  */
-export const spielerGetSpielerQueryTeamIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const spielerGetSpielerQueryTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const spielerGetSpielerQueryLimitDefault = 1024;
 export const spielerGetSpielerQueryLimitMax = 1024;
 
@@ -3197,7 +3259,7 @@ export const spielerGetSpielerQuerySortByDefault = `position`;
 export const spielerGetSpielerQueryOrderDefault = `asc`;
 
 export const SpielerGetSpielerQueryParams = zod.object({
-  team_id: zod.union([zod.string().regex(spielerGetSpielerQueryTeamIdOneRegExp), zod.null()]).optional(),
+  team_id: zod.string().regex(spielerGetSpielerQueryTeamIdRegExp),
   saison_id: zod.union([zod.string(), zod.null()]).optional(),
   limit: zod.int().min(1).max(spielerGetSpielerQueryLimitMax).default(spielerGetSpielerQueryLimitDefault),
   sort_by: zod.enum(["vorname", "nummer", "position"]).default(spielerGetSpielerQuerySortByDefault),
@@ -3331,12 +3393,7 @@ export const SpielerDeleteSpielerParams = zod.object({
 });
 
 /**
- * Return one player -- an id, a forename and an INITIAL, which is all this surface needs.
- *
- * Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`).
- *
- * NOT the flattened squad shape the list returns: those are season-scoped, and picking a season
- * here would make the answer depend on a default nobody asked for.
+ * One player's id, forename and surname initial, both names `null` where the pupil's consent does not publish them.
  * @summary One Spieler
  */
 export const spielerGetSpielerByIdPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

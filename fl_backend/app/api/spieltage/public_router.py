@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.saisons.crud import pull_saison_id_and_rules
-from app.api.saisons.visibility import refuse_withheld_saison
+from app.api.saisons.visibility import resolve_public_saison
 from app.api.spieltage.schemas import (
     FLSpieltag,
     FLSpieltageFilterParams,
@@ -38,11 +37,8 @@ async def get_spieltage(
 
     # Resolved here, never as a field default, which cannot reach the database. The `rules` come
     # back in the same query, the derived match count needing them.
-    filters.saison_id, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
-
-    # After the resolve, so an omitted `saison_id` is judged on the season it landed on -- which is
-    # the `active` one, and never withheld.
-    await refuse_withheld_saison(saisons_collection=saisons_collection, saison_id=filters.saison_id)
+    saison = await resolve_public_saison(saisons_collection=saisons_collection, saison_id=filters.saison_id)
+    filters.saison_id, rules = saison.id, saison.rules
 
     db_filter = build_spieltage_filter(filters=filters)
     db_sort = build_spieltage_sort(sort_by=filters.sort_by, order=filters.order)
@@ -79,10 +75,9 @@ async def get_spieltag(
     """
 
     spieltag_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
-    saison_id, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=str(spieltag_raw["saison_id"]))
 
     # The matchday's own season, so an id belonging to a season being drawn up misses exactly as an
     # id belonging to no matchday does.
-    await refuse_withheld_saison(saisons_collection=saisons_collection, saison_id=saison_id)
+    saison = await resolve_public_saison(saisons_collection=saisons_collection, saison_id=str(spieltag_raw["saison_id"]))
 
-    return FLSpieltageSingleResponse(spieltag=FLSpieltag.model_validate(with_expected_matches(spieltag_raw, rules)))
+    return FLSpieltageSingleResponse(spieltag=FLSpieltag.model_validate(with_expected_matches(spieltag_raw, saison.rules)))

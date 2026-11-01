@@ -7,8 +7,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedAdmin, FLSpielSchiedsrichterFieldPublic
 from app.api.spiele.services import (
-    ANSETZUNG_BESTAETIGT,
-    EINSATZ_BESTAETIGT,
+    ANSETZUNG_CONFIRMED,
+    EINSATZ_CONFIRMED,
     NAME_IS_PUBLIC_KEY,
     SAISON_TEAMS_AS_NAME,
     SCHIEDSRICHTER_AS_NAME,
@@ -192,7 +192,7 @@ async def joined(database: AsyncDatabase) -> dict[str, Any]:
 
 
 async def verdict(database: AsyncDatabase) -> bool | None:
-    return (await joined(database))[ANSETZUNG_BESTAETIGT]
+    return (await joined(database))[ANSETZUNG_CONFIRMED]
 
 
 class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
@@ -205,7 +205,7 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
 
         document = on_a_fixture(mongo_url, fixture, rows, joined)
 
-        assert document[ANSETZUNG_BESTAETIGT] is True
+        assert document[ANSETZUNG_CONFIRMED] is True
         assert SPIELBESTAETIGUNGEN_AS_NAME not in document
 
     def test_a_club_yet_to_answer_leaves_it_provisional(self, mongo_url: str):
@@ -362,13 +362,13 @@ def on_a_refereed_fixture(
 
 
 async def einsatz(database: AsyncDatabase) -> bool | None:
-    return (await joined(database))["schiedsrichter"][EINSATZ_BESTAETIGT]
+    return (await joined(database))["schiedsrichter"][EINSATZ_CONFIRMED]
 
 
 def withheld(document: Mapping[str, Any]) -> bool:
     """The verdict and the base model both: a case reading one alone passes with the other gate reverted."""
 
-    return document["schiedsrichter"][EINSATZ_BESTAETIGT] is False and FLSpielJoined.model_validate(document).schiedsrichter is None
+    return document["schiedsrichter"][EINSATZ_CONFIRMED] is False and FLSpielJoined.model_validate(document).schiedsrichter is None
 
 
 class TestTheRefereeIsServedOnceAgreed:
@@ -382,8 +382,8 @@ class TestTheRefereeIsServedOnceAgreed:
         document = on_a_refereed_fixture(mongo_url, rows, joined, fixture=fixture)
 
         # The projection's pin: the join brings the verdict alone onto the block, never a field of the referee's record.
-        assert set(document["schiedsrichter"]) == {"schiedsrichter_id", "name", "payment", NAME_IS_PUBLIC_KEY, EINSATZ_BESTAETIGT}
-        assert document["schiedsrichter"][EINSATZ_BESTAETIGT] is True
+        assert set(document["schiedsrichter"]) == {"schiedsrichter_id", "name", "payment", NAME_IS_PUBLIC_KEY, EINSATZ_CONFIRMED}
+        assert document["schiedsrichter"][EINSATZ_CONFIRMED] is True
         assert FLSpielJoined.model_validate(document).schiedsrichter == FLSpielSchiedsrichterFieldPublic.model_validate(
             {"schiedsrichter_id": REFEREE_ID, "name": REFEREE_NAME, "name_is_public": True}
         )
@@ -394,7 +394,7 @@ class TestTheRefereeIsServedOnceAgreed:
 
         fixture = a_refereed_fixture()
         document = on_a_refereed_fixture(mongo_url, [a_referee_row(fixture, antwort=zugesagt())], joined, fixture=fixture)
-        document["schiedsrichter"][EINSATZ_BESTAETIGT] = None
+        document["schiedsrichter"][EINSATZ_CONFIRMED] = None
 
         assert FLSpielJoined.model_validate(document).schiedsrichter is None
 
@@ -425,7 +425,7 @@ class TestTheRefereeIsServedOnceAgreed:
         fixture = a_refereed_fixture()
         document = on_a_refereed_fixture(mongo_url, [a_referee_row(fixture)], joined, fixture=fixture)
 
-        assert document["schiedsrichter"][EINSATZ_BESTAETIGT] is False
+        assert document["schiedsrichter"][EINSATZ_CONFIRMED] is False
         assert FLSpielJoined.model_validate(document).schiedsrichter is None
         admin = FLSpielJoinedAdmin.model_validate(document).schiedsrichter
         assert admin is not None and admin.name == REFEREE_NAME

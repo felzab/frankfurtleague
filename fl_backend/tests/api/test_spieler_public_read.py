@@ -32,7 +32,7 @@ from app.core.crud import aggregate_many_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.openapi_document import build_document
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
-from tests.documents import own_einwilligung_document, saison_spieler_document, spieler_document
+from tests.documents import own_einwilligung_document, rules_document, saison_document, saison_spieler_document, spieler_document
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -41,7 +41,7 @@ DATABASE_NAME = worker_database("fl_spieler_public_read_test")
 
 SAISON = "2026"
 # A second season, named by no document this corpus stores: these cases assert on the pipeline's shape alone.
-WITHHELD_SAISON = "2027"
+EARLIER_SAISON = "2025"
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607390001")
 
 # What the base tier serves, and the whole of it.
@@ -123,8 +123,8 @@ def _sort(filters: FLSpielerFilterParams | None = None) -> dict[str, int]:
     return next(stage["$sort"] for stage in pipeline if "$sort" in stage)
 
 
-def _lookup_pipeline(filters: FLSpielerFilterParams | None = None, withheld: Sequence[str] = ()) -> list[Any]:
-    pipeline = build_spieler_pipeline(filters or _filters(), withheld)
+def _lookup_pipeline(filters: FLSpielerFilterParams | None = None) -> list[Any]:
+    pipeline = build_spieler_pipeline(filters or _filters())
 
     return next(stage["$lookup"] for stage in pipeline if "$lookup" in stage)["pipeline"]
 
@@ -298,31 +298,6 @@ class TestTheProjection:
         assert "include_inactive" not in BASE_QUERY_PARAMETERS
 
 
-class TestTheSeasonsThisTierMayNotRead:
-    """A squad row carries the season it belongs to; the row this read SERVES does not. So the narrowing happens here."""
-
-    def test_a_withheld_season_narrows_the_junction(self):
-        assert {"$match": {"saison_id": {"$nin": [WITHHELD_SAISON]}}} in _lookup_pipeline(FLSpielerFilterParams(), [WITHHELD_SAISON])
-
-    def test_it_narrows_the_junction_rather_than_what_the_junction_joined(self):
-        """A `$match` after the join would leave the row attached, and the loose `$unwind` above serves a person with no row at all."""
-        pipeline = build_spieler_pipeline(FLSpielerFilterParams(), [WITHHELD_SAISON])
-
-        assert [stage["$match"] for stage in pipeline if "$match" in stage] == [build_real_spieler_filter()]
-
-    def test_it_narrows_ahead_of_nothing_the_row_carries(self):
-        """Last of the junction's terms: the season is the one narrowing that costs a comparison per id, so the cheap equalities go first."""
-        assert _lookup_pipeline(FLSpielerFilterParams(), [WITHHELD_SAISON])[-1] == {"$match": {"saison_id": {"$nin": [WITHHELD_SAISON]}}}
-
-    def test_a_league_with_nothing_planned_runs_the_pipeline_it_always_ran(self):
-        """`$nin: []` narrows nothing, so an empty set is no stage rather than a stage matching everything."""
-        assert all("$nin" not in str(stage) for stage in _lookup_pipeline(FLSpielerFilterParams()))
-
-    def test_the_default_is_the_empty_set(self):
-        """A caller joining across seasons has to supply them; one that does not is a league where nothing is withheld."""
-        assert build_spieler_pipeline(FLSpielerFilterParams()) == build_spieler_pipeline(FLSpielerFilterParams(), [])
-
-
 class _Cursor:
     """An answer holding nobody, in both shapes the read iterates: `aggregate`'s cursor and `find(...).limit(...)`."""
 
@@ -334,13 +309,16 @@ class _Cursor:
 
 
 class _Seasons:
-    """A seasons collection holding at most one `active` season and withholding none."""
+    """A seasons collection holding at most one `active` season, and every other id it is asked for as a `past` one."""
 
     def __init__(self, active: str | None) -> None:
         self.active = active
 
     async def find_one(self, filter: Any = None, projection: Any = None, session: Any = None) -> dict[str, Any] | None:
-        return {"_id": self.active, "status": "active"} if self.active is not None and filter == {"status": "active"} else None
+        if filter == {"status": "active"}:
+            return None if self.active is None else {"_id": self.active, "status": "active", "rules": rules_document()}
+
+        return {"_id": filter["_id"], "status": "past", "rules": rules_document()}
 
     def find(self, **query: Any) -> _Cursor:
         return _Cursor()
@@ -378,17 +356,13 @@ class TestTheSeasonASquadIsReadFor:
             # Without the resolve a player in two of the club's seasons is two rows, and one who left last season stands in this one.
             pytest.param(None, SAISON, id="no season reads the active one"),
             # The resolve fills an ABSENT id only: a page on a past season asks for that season's squad.
-            pytest.param(WITHHELD_SAISON, WITHHELD_SAISON, id="a named season is read as named"),
+            pytest.param(EARLIER_SAISON, EARLIER_SAISON, id="a named season is read as named"),
         ],
     )
     def test_naming_a_team_reads_its_squad_in_one_season(self, named: str | None, read: str):
         terms = _junction_terms(FLSpielerFilterParams(team_id=TEAM_OID, saison_id=named), _Seasons(SAISON))
 
         assert {"team_id": TEAM_OID, "saison_id": read} in terms
-
-    def test_naming_neither_resolves_no_season(self):
-        """Every season's players: nothing names a squad, so no season is resolved to scope one."""
-        assert all("saison_id" not in term for term in _junction_terms(FLSpielerFilterParams(), _Seasons(SAISON)))
 
     def test_naming_a_team_with_no_season_active_is_refused_before_any_player_is_read(self):
         """No read method on the players collection: a handler reading squads with no season to scope them to fails on the attribute."""
@@ -481,12 +455,6 @@ class TestTheBaseTierReadExecuted:
     def test_a_retired_squad_row_stays_out(self, seeded_url: str):
         """The retirement this read does filter on, so dropping the person's match cannot be mistaken for dropping both."""
         assert RETIRED_ROW_VORNAME not in self._by_vorname(seeded_url)
-
-    def test_a_person_whose_every_squad_row_is_retired_still_reads(self, seeded_url: str):
-        """Neither id narrows, so the join is loose: Nils survives the unwind with no `saison_data`, and `$project` leaves both keys off."""
-        served = self._by_vorname(seeded_url, FLSpielerFilterParams())
-
-        assert (served["Nils"]["nummer"], served["Nils"]["position"]) == (None, None)
 
     def test_a_stored_surname_is_served_as_an_initial(self, seeded_url: str):
         assert self._by_vorname(seeded_url)["Maxim"]["nachname"] == "M."
@@ -590,6 +558,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
 
     async def _seed() -> None:
         async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
+            await database.saisons.insert_one(saison_document(SAISON, "active"))
             await database.spieler.insert_many(
                 [
                     # Distinct forenames, none of them holding a surname as a substring: the rows
@@ -650,7 +619,7 @@ def squad_url(mongo_url: str) -> Iterator[str]:
 
     async def _seed() -> None:
         async with a_clean_database(mongo_url, SQUAD_DATABASE_NAME, constraints=False) as (_, database):
-            await database.saisons.insert_many([{"_id": SAISON, "status": "active"}, {"_id": PAST_SAISON, "status": "past"}])
+            await database.saisons.insert_many([saison_document(SAISON, "active"), saison_document(PAST_SAISON, "past")])
             await database.spieler.insert_many(
                 [
                     {**_spieler("Mueller", "Paula", "Beispiel"), "_id": SQUAD_OIDS["Beide"]},
@@ -829,7 +798,7 @@ def masked_url(mongo_url: str) -> Iterator[str]:
 
     async def _seed() -> None:
         async with a_clean_database(mongo_url, MASK_DATABASE_NAME) as (_, database):
-            await database.saisons.insert_one({"_id": SAISON, "status": "active"})
+            await database.saisons.insert_one(saison_document(SAISON, "active"))
             await database.spieler.insert_many(
                 [
                     {
@@ -926,7 +895,7 @@ def sort_oracle_url(mongo_url: str) -> Iterator[str]:
     async def _seed() -> None:
         for corpus, withheld_forename in WITHHELD_FORENAMES.items():
             async with a_clean_database(mongo_url, SORT_ORACLE_DATABASE_NAMES[corpus], constraints=False) as (_, database):
-                await database.saisons.insert_one({"_id": SAISON, "status": "active"})
+                await database.saisons.insert_one(saison_document(SAISON, "active"))
                 await database.spieler.insert_many(
                     [
                         {

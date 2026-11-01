@@ -90,8 +90,8 @@ SAISON_PROJECTION = ["registrierung", "rules.allowed_stufen", "rules.max_kadergr
 # What a replay reads of the registration its key found: the digest it is compared by.
 WIEDERHOLUNG_PROJECTION = ["idempotency_fingerprint"]
 
-# `refuse_withheld_saison` is deliberately NOT called below, where every other base-tier season read
-# calls it: a season taking registrations is normally `future`, so that guard would 404 the flow
+# `resolve_public_saison` is deliberately NOT called below, where every other base-tier season read
+# calls it: a season taking registrations is normally `future`, so that resolve would 404 the flow
 # this exists for. The INVITE authorises instead.
 
 

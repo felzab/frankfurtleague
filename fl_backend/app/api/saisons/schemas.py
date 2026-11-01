@@ -3,14 +3,17 @@ from typing import Annotated, Final, Literal, Self
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 from pydantic_core import PydanticCustomError
 
-from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
+from app.api.spielberichte.schemas import FLSpielberichtPublic
+from app.api.spiele.schemas import FLSpielJoined
+from app.api.spieler.schemas import FLSpielerPublic
+from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLSaisonTeamEntry, FLTabelleRow, FLTeamPageClub
 from app.core import clock
 
 # Imported rather than restated. Acyclic: no model of `teams` imports this file --
 # `teams/services.py` does, and no model there.
 from app.core.crud import Anchored
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
-from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_reversed_span
+from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, refuse_reversed_span
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSortOrder, FLSpielerStufe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -284,6 +287,29 @@ class FLSaisonsAdminListResponse(BaseAPIResponse):
     saisons: list[FLSaisonAdmin]
 
 
+class FLSaisonFrameEntry(BaseReadModel):
+    """One season as the season pages' frame lists it: its id, its span and its status."""
+
+    id: str = Field(validation_alias="_id", serialization_alias="id")
+    start_date: CustomDateString
+    end_date: CustomDateString
+    status: FLSaisonStatus
+
+
+FLSaisonFrameEntryListAdapter = TypeAdapter(list[FLSaisonFrameEntry])
+
+
+class FLSaisonFrameResponse(BaseAPIResponse):
+    """Every season the public may read, the newest first, and the one the site is on.
+
+    `active_saison_id` is null for a league no season has been activated in; a season stays active, finished or not,
+    until the next is activated.
+    """
+
+    saisons: list[FLSaisonFrameEntry]
+    active_saison_id: str | None
+
+
 class FLSaisonsSingleResponse(BaseAPIResponse):
     format: Literal["single"] = "single"
     saison: FLSaison
@@ -364,3 +390,111 @@ class FLUndrawSpielplanResponse(BaseAPIResponse):
     spieltage: int = Field(ge=0)
     spiele: int = Field(ge=0)
     watermark_cleared: bool
+
+
+class FLTeamPageResponse(BaseAPIResponse):
+    """One club's page in one season: the club, its row of the Tabelle, its matches and its squad.
+
+    `standing` is null for a club no group of the Tabelle lists, one that left the league; `spiele` are in the order the
+    draw numbered them; the squad is the base tier's, names withheld where the pupil's consent does not publish them.
+    """
+
+    team: FLTeamPageClub
+    standing: FLTabelleRow | None
+    spiele: list[FLSpielJoined]
+    kader: list[FLSpielerPublic]
+
+
+class FLSpielSideStanding(BaseReadModel):
+    """Where one side of a group match stands in the Tabelle: its group, and its `platz`, null while it holds none."""
+
+    gruppe: FLGruppenNames
+    platz: int | None = Field(gt=0)
+
+
+class FLSpielSideStandings(BaseReadModel):
+    """Each side's place in the Tabelle on a group match.
+
+    Null on a knockout match, whose round is the match's own phase, and for a side the groups do not list.
+    """
+
+    team1: FLSpielSideStanding | None
+    team2: FLSpielSideStanding | None
+
+
+class FLSpielPageResponse(BaseAPIResponse):
+    """One match as its page and its pop-up show it.
+
+    The match, its matchday's `position`, where each side stands, and what the public may read of its report, null
+    where none is stored.
+    """
+
+    spiel: FLSpielJoined
+    spieltag_position: int = Field(ge=1)
+    standings: FLSpielSideStandings
+    bericht: FLSpielberichtPublic | None
+
+
+# Where the season the site is on stands: before its first group match is played, while it runs, and once its
+# winner is known.
+# The places the landing celebrates once a season is decided.
+PODIUM_PLACES: Final = 4
+
+type FLLandingState = Literal["before_start", "running", "decided"]
+
+
+class FLLandingKickoff(BaseReadModel):
+    """When the season's first match is set to start."""
+
+    datum: CustomDateString
+    uhrzeit: CustomTimeString | None
+
+
+class FLPodiumPlace(BaseReadModel):
+    """One of places one to four, under the name and shorthand the club played the season under."""
+
+    platz: int = Field(ge=1, le=PODIUM_PLACES)
+    team_id: CustomObjectId
+    name: str
+    shorthand: str
+
+
+class FLLandingCounts(BaseReadModel):
+    """The season's four figures, counted on every read: its clubs, its squads' live rows, its matches and matchdays."""
+
+    count_teams: int = Field(ge=0)
+    count_spieler: int = Field(ge=0)
+    count_spiele: int = Field(ge=0)
+    count_spieltage: int = Field(ge=0)
+
+
+class FLLandingSaison(BaseReadModel):
+    """The season the site is on as the landing shows it.
+
+    `first_kickoff` before the start, null while no group match is dated; `recent` and `upcoming` while it runs,
+    the latest results and the next matches; `podium` once decided, each place its match has decided.
+    """
+
+    id: str
+    state: FLLandingState
+    first_kickoff: FLLandingKickoff | None
+    recent: list[FLSpielJoined]
+    upcoming: list[FLSpielJoined]
+    podium: list[FLPodiumPlace]
+    counts: FLLandingCounts
+    teams: list[FLSaisonTeamEntry]
+
+
+class FLApplicationWindow(BaseReadModel):
+    """The application window open today, by the one rule the submission refuses on, and the season it is for."""
+
+    saison_id: str
+    von: CustomDateString
+    bis: CustomDateString
+
+
+class FLLandingResponse(BaseAPIResponse):
+    """The landing's facts: the season the site is on, null for a league that has none, and an open window."""
+
+    saison: FLLandingSaison | None
+    application_window: FLApplicationWindow | None

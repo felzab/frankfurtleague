@@ -89,7 +89,7 @@ def public_person(*, vorname: str | None, nachname: str | None, einwilligung: Ma
 
 
 def build_ghost_spieler() -> dict[str, Any]:
-    """The row an erased pupil's surviving entries are repointed to, as written.
+    """The row an erased pupil's scorer and card entries are repointed to, as written.
 
     Nameless and recordless, as `app/api/spieler/schemas.py :: FLSpielerRecord` admits for this row
     alone: a name here is published on every such entry, and a fabricated record is counted as consent.
@@ -135,14 +135,10 @@ def build_spieler_filter(spieler_id: Any) -> Mapping[str, Any]:
     return {"_id": {"$eq": spieler_id, **_NOT_THE_GHOST}}
 
 
-def build_spieler_pipeline(filters: FLSpielerFilterParams, withheld_saison_ids: Sequence[str] = ()) -> list[Mapping[str, Any]]:
-    """`withheld_saison_ids` are the seasons whose rows this read may not serve.
+def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, Any]]:
+    """One club's squad in one season as the base tier serves it: the caller resolves the season, which no default here can."""
 
-    Empty is the honest default -- a league planning none withholds none -- so the caller that joins
-    across seasons is the one supplying them (`app/api/spieler/public_router.py`).
-    """
-
-    # First, ahead of the loose join below, which keeps a person holding no squad row.
+    # First, so the sentinel never joins a squad row whatever the rows below hold.
     pipeline: list[Mapping[str, Any]] = [{"$match": build_real_spieler_filter()}]
 
     # Terms are NAMED, never excluded: a field added to the filter model would otherwise reach the
@@ -162,12 +158,6 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams, withheld_saison_ids: 
     if active_filters:
         lookup_pipeline.append({"$match": active_filters})
 
-    # Beside the caller's own terms rather than after the join: a row of a season this tier may not
-    # read must never attach, whatever else narrowed. Absent when nothing is withheld, so a league
-    # with no season planned runs the pipeline it always ran.
-    if withheld_saison_ids:
-        lookup_pipeline.append({"$match": {"saison_id": {"$nin": list(withheld_saison_ids)}}})
-
     pipeline.append(
         {
             "$lookup": {
@@ -179,18 +169,8 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams, withheld_saison_ids: 
         }
     )
 
-    # One row per membership, so a player in two seasons is two documents.
-    strict_join = bool(filters.saison_id or filters.team_id)
-    pipeline.append(
-        {
-            "$unwind": {
-                "path": f"${AS_NAME}",
-                # Preserved unless a season or team filter is set: without one, a player with no
-                # squad row is still a player.
-                "preserveNullAndEmptyArrays": not strict_join,
-            }
-        }
-    )
+    # Strict: a person holding no row of this squad is not in it.
+    pipeline.append({"$unwind": {"path": f"${AS_NAME}", "preserveNullAndEmptyArrays": False}})
 
     # An ALLOW-LIST: every key here is one the squad table renders. What is projected reaches the
     # page's payload whether rendered or not, so the consent record, the `stufe` (`READ-PUPIL-002`),

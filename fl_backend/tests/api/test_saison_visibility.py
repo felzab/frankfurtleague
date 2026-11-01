@@ -6,9 +6,10 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import get_saisons_verwaltung
-from app.api.saisons.public_router import get_saison, get_saisons
+from app.api.saisons.public_router import get_frame, get_saison, get_saisons
 from app.api.saisons.schemas import FLSaisonsFilterParams
 from app.api.saisons.services import base_tier_status_term
+from app.api.saisons.visibility import resolve_public_saison
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
@@ -18,10 +19,13 @@ from tests.worker import worker_database
 from .conftest import unwritten
 
 DATABASE_NAME = worker_database("fl_saison_visibility_test")
+FRESH_DATABASE_NAME = worker_database("fl_saison_visibility_fresh_test")
 
 ARCHIVED = "2024"
 RUNNING = "2025"
 PLANNED = "2026"
+# An id naming no season at all: what the withheld one has to be indistinguishable from.
+UNKNOWN = "2099"
 
 
 SEEDED = [saison_document(ARCHIVED, "past"), saison_document(RUNNING, "active"), saison_document(PLANNED, "future")]
@@ -113,6 +117,52 @@ class TestAPlannedSeasonIsWithheldFromTheBaseTier:
             return refusal.value
 
         assert on_a_league(seeded_league, body).status_code == 404
+
+
+@pytest.mark.db
+class TestThePublicSeasonResolver:
+    """The one resolve every base-tier read scoped by a season makes, and the two refusals it answers alike."""
+
+    @pytest.mark.parametrize("saison_id", [pytest.param(PLANNED, id="withheld"), pytest.param(UNKNOWN, id="unknown")])
+    def test_it_misses_a_season_this_tier_may_not_read_as_one_nobody_created(self, saison_id: str, seeded_league: str):
+        async def body(database: AsyncDatabase) -> Any:
+            with pytest.raises(DocumentNotFoundError) as refusal:
+                await resolve_public_saison(saisons_collection=database[Collection.SAISONS], saison_id=saison_id)
+
+            return refusal.value
+
+        assert on_a_league(seeded_league, body).status_code == 404
+
+    def test_naming_none_resolves_the_active_season(self, seeded_league: str):
+        async def body(database: AsyncDatabase) -> Any:
+            return await resolve_public_saison(saisons_collection=database[Collection.SAISONS], saison_id=None)
+
+        assert on_a_league(seeded_league, body).id == RUNNING
+
+
+async def frame_read(database: AsyncDatabase) -> Any:
+    return await get_frame(saisons_collection=database[Collection.SAISONS])
+
+
+@pytest.mark.db
+class TestTheFrame:
+    def test_it_lists_the_readable_seasons_newest_first_beside_the_active_one(self, seeded_league: str):
+        response = on_a_league(seeded_league, frame_read)
+
+        assert ([saison.id for saison in response.saisons], response.active_saison_id) == ([RUNNING, ARCHIVED], RUNNING)
+
+    def test_a_league_no_season_was_activated_in_names_none(self, mongo_replica_set_url: str):
+        """A fresh league whose first season is still being drawn up: the frontend shows the status page's empty state."""
+
+        async def body() -> Any:
+            async with a_clean_database(mongo_replica_set_url, FRESH_DATABASE_NAME) as (_, database):
+                await database[Collection.SAISONS].insert_one(saison_document(PLANNED, "future"))
+
+                return await frame_read(database)
+
+        response = on_the_seed_loop(body())
+
+        assert (response.saisons, response.active_saison_id) == ([], None)
 
 
 @pytest.mark.db

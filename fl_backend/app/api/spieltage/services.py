@@ -1,15 +1,17 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Any
 
 from app.api.saisons.schedule import expected_matches
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import PHASE_ORDER, PHASE_RANK
-from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
+from app.api.spiele.schemas import PHASE_ORDER, PHASE_RANK, is_unplayed
+from app.api.spieltage.schemas import FLSpielplanSpieltag, FLSpielplanSpieltagListAdapter, FLSpieltag, FLSpieltageFilterParams
 from app.core.codes import Code
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
+from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.literals import FLSaisonStatus
 
 
 def build_spieltage_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
@@ -31,7 +33,7 @@ def build_spieltage_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
     return build_sort(sort_by=sort_by, order=order, chain=(("position", 1), ("_id", 1)))
 
 
-def order_spieltage(spieltage: list[FLSpieltag]) -> list[FLSpieltag]:
+def order_spieltage[Spieltag: FLSpieltag](spieltage: list[Spieltag]) -> list[Spieltag]:
     """A season's matchdays in the order they are played: phase, then the stored `position`.
 
     The id tie-breaks a list spanning two seasons, whose positions repeat;
@@ -57,6 +59,39 @@ def with_expected_matches(spieltag_raw: Mapping[str, Any], rules: FLSaisonRules)
     """
 
     return {**spieltag_raw, "count_spiele": expected_matches(rules, spieltag_raw["saison_phase"])}
+
+
+def build_spielplan(
+    spieltage_raw: Iterable[Mapping[str, Any]], spiele_raw: Iterable[Mapping[str, Any]], rules: FLSaisonRules
+) -> list[FLSpielplanSpieltag]:
+    """A season's matchdays in the order they are played, each holding its matches by `spiel_nr`.
+
+    `spiele_raw` is what `app/api/spiele/services.py :: build_spiele_pipeline` yields for the same season.
+    """
+
+    spiele_by_spieltag: dict[Any, list[Mapping[str, Any]]] = {}
+    for spiel_raw in sorted(spiele_raw, key=lambda spiel_raw: spiel_raw["spiel_nr"]):
+        spiele_by_spieltag.setdefault(spiel_raw["spieltag_id"], []).append(spiel_raw)
+
+    spieltage = FLSpielplanSpieltagListAdapter.validate_python(
+        [{**with_expected_matches(raw, rules), "spiele": spiele_by_spieltag.get(raw["_id"], [])} for raw in spieltage_raw]
+    )
+
+    return order_spieltage(spieltage)
+
+
+def current_spieltag_id(spieltage: Sequence[FLSpielplanSpieltag], *, saison_status: FLSaisonStatus) -> CustomObjectId | None:
+    """The matchday the Spielplan opens on: the first holding a match still to be played, else the last.
+
+    A finished season has nothing left to play, whatever its fixtures still lack, so it opens on its last.
+    """
+
+    if saison_status != "past":
+        for spieltag in spieltage:
+            if any(is_unplayed(ergebnis=spiel.ergebnis, sonderereignis=spiel.sonderereignis) for spiel in spieltag.spiele):
+                return spieltag.id
+
+    return spieltage[-1].id if spieltage else None
 
 
 def build_erster_spieltag_filter(*, saison_id: str) -> dict[str, Any]:

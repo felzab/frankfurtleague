@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.saisons.crud import pull_active_saison_id
-from app.api.saisons.visibility import saison_is_withheld, withheld_saison_ids
+from app.api.saisons.visibility import resolve_public_saison
 from app.api.spieler.schemas import (
     FLSpielerFilterParams,
     FLSpielerListAdapter,
@@ -28,35 +27,17 @@ async def get_spieler(
     saisons_collection: SaisonsCollection,
     filters: FLSpielerFilterParams = Depends(),
 ) -> FLSpielerListResponse:
-    """
-    List players, normally one team's squad in one season.
+    """One team's squad in the current season unless `saison_id` names another; 404 while none is active and for one this tier may not read.
 
-    Naming a `team_id` without a `saison_id` returns that team's squad in the CURRENT season, and 404s
-    while no season is active. Naming neither lists every season's players, a season this tier may not
-    read adding no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).
-
-    Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`);
-    the row keeps its `nummer` and `position`, and no row carries the person's record id
-    (`READ-PUPIL-005`).
+    A surname reads as its initial, both names `null` where the pupil's consent does not publish them, the row keeping
+    its `nummer` and `position`; no row carries the pupil's record id.
     """
 
-    # Resolved here, never as a field default, and only beside a team: a squad is one season's
-    # (`saison_spieler`), and a season-less one lists a player once per season they stood in it.
-    if filters.saison_id is None and filters.team_id is not None:
-        filters.saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
+    # Resolved here, never as a field default: a squad is one season's (`saison_spieler`), and a
+    # season-less one lists a player once per season they stood in it.
+    filters.saison_id = (await resolve_public_saison(saisons_collection=saisons_collection, saison_id=filters.saison_id)).id
 
-    # Only where the caller NAMED one: the resolve above answers with the `active` season or 404s.
-    elif filters.saison_id is not None:
-        # Empty rather than 404, as `GET /spiele` answers it: an id naming no season already lists
-        # nothing here, so a refusal would be the one answer confirming a withheld one exists.
-        if await saison_is_withheld(saisons_collection=saisons_collection, saison_id=filters.saison_id):
-            return FLSpielerListResponse(spieler=[])
-
-    # The other half, and the reason it is a second read: the caller named no season, so the rows
-    # have to be narrowed on the whole withheld set. Skipped where one id already answered above.
-    withheld = [] if filters.saison_id is not None else await withheld_saison_ids(saisons_collection=saisons_collection)
-
-    pipeline = build_spieler_pipeline(filters=filters, withheld_saison_ids=withheld)
+    pipeline = build_spieler_pipeline(filters=filters)
     spieler_raw = await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline, collation=GERMAN_COLLATION)
 
     spieler = FLSpielerListAdapter.validate_python(spieler_raw)
@@ -65,14 +46,10 @@ async def get_spieler(
 
 @router.get(by_id("spieler_id"), response_model=FLSpielerSingleResponse, summary="One Spieler")
 async def get_spieler_by_id(spieler_id: CustomRouteObjectId, spieler_collection: SpielerCollection) -> FLSpielerSingleResponse:
-    """
-    Return one player -- an id, a forename and an INITIAL, which is all this surface needs.
+    """One player's id, forename and surname initial, both names `null` where the pupil's consent does not publish them."""
 
-    Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`).
-
-    NOT the flattened squad shape the list returns: those are season-scoped, and picking a season
-    here would make the answer depend on a default nobody asked for.
-    """
+    # NOT the flattened squad shape the list returns: those are season-scoped, and picking a season
+    # here would make the answer depend on a default nobody asked for.
 
     # An allow-list, as the list read's `$project` is: the whole person is a birthdate, an address
     # and a consent record, and one materialised here to be discarded is one a later edit can serve.

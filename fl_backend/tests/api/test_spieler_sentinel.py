@@ -9,8 +9,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter, build_real_referees_filter
 from app.api.spieler.admin_router import delete_spieler, get_spieler_saisons, patch_spieler, post_saison_spieler, reactivate_spieler
-from app.api.spieler.public_router import get_spieler, get_spieler_by_id
-from app.api.spieler.schemas import FLPatchSpielerPayload, FLPostSaisonSpielerPayload, FLSpielerFilterParams
+from app.api.spieler.public_router import get_spieler_by_id
+from app.api.spieler.schemas import FLPatchSpielerPayload, FLPostSaisonSpielerPayload
 from app.api.spieler.services import build_ghost_spieler, build_real_spieler_filter
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError
@@ -147,13 +147,10 @@ def test_an_id_nobody_holds_gets_no_squad_row(mongo_replica_set_url: str):
     assert on_a_league(mongo_replica_set_url, body) == 0
 
 
-def test_neither_collection_read_serves_the_sentinel_and_a_person_holding_no_squad_row_is_still_served(mongo_replica_set_url: str):
-    """Unnarrowed, both reads keep a person holding no squad row, which is exactly the shape the sentinel has."""
+def test_the_memberships_read_never_serves_the_sentinel_and_a_person_holding_no_squad_row_is_still_served(mongo_replica_set_url: str):
+    """It keeps a person holding no squad row, which is exactly the shape the sentinel has."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        listed = await get_spieler(
-            spieler_collection=database[Collection.SPIELER], saisons_collection=database[Collection.SAISONS], filters=FLSpielerFilterParams()
-        )
         memberships = await get_spieler_saisons(
             spieler_collection=database[Collection.SPIELER],
             berechtigungen_collection=database[Collection.GRANTS],
@@ -162,14 +159,9 @@ def test_neither_collection_read_serves_the_sentinel_and_a_person_holding_no_squ
             auth_time=int(time.time()),
         )
 
-        # By forename on the public list, which serves no record id (`READ-PUPIL-005`): the person's
-        # record publishes theirs, and the sentinel stores none.
-        return [row.vorname for row in listed.spieler], [row.id for row in memberships.spieler]
+        return [row.id for row in memberships.spieler]
 
-    listed, memberships = on_a_league(mongo_replica_set_url, body)
-
-    assert listed == ["Quillhilde"]
-    assert memberships == [PERSON_OID]
+    assert on_a_league(mongo_replica_set_url, body) == [PERSON_OID]
 
 
 def _referees() -> list[dict[str, Any]]:

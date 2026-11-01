@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.saisons.crud import pull_active_saison_id
-from app.api.saisons.visibility import refuse_withheld_saison, saison_is_withheld
+from app.api.saisons.visibility import resolve_public_saison
 from app.api.spiele.schemas import (
     FLSpieleFilterParams,
     FLSpieleListResponse,
@@ -34,19 +33,12 @@ async def get_spiele(
     """
     List the Spiele matching the filters, of the current season unless `saison_id` names another.
 
-    A season this tier may not read lists nothing; `playoffs` means every phase but `gruppenphase`, and
-    `from_today` includes today.
+    A season this tier may not read 404s; `playoffs` means every phase but `gruppenphase`, and `from_today`
+    includes today.
     """
 
     # Resolved here, never as a field default, which cannot reach the database.
-    if filters.saison_id is None:
-        filters.saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
-
-    # Only where the caller NAMED one: the resolve above answers with the `active` season or 404s.
-    # Empty rather than 404, because an id naming no season already lists nothing here and a
-    # withheld one must not read differently.
-    elif await saison_is_withheld(saisons_collection=saisons_collection, saison_id=filters.saison_id):
-        return FLSpieleListResponse(spiele=[])
+    filters.saison_id = (await resolve_public_saison(saisons_collection=saisons_collection, saison_id=filters.saison_id)).id
 
     db_filter = build_spiele_filter(filters=filters, today=today)
     db_sort = build_spiele_sort(sort_by=filters.sort_by, order=filters.order)
@@ -82,6 +74,6 @@ async def get_spiel(
 
     # The fixture's OWN season, after the read: a match of a season being drawn up then misses for
     # the same reason an id naming no match does.
-    await refuse_withheld_saison(saisons_collection=saisons_collection, saison_id=str(spiele_raw[0]["saison_id"]))
+    await resolve_public_saison(saisons_collection=saisons_collection, saison_id=str(spiele_raw[0]["saison_id"]))
 
     return FLSpieleSingleResponse(spiel=FLSpielJoined.model_validate(spiele_raw[0]))

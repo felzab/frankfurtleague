@@ -942,7 +942,7 @@ class TestWhatTheInvitesOwnReadAnswers:
     def test_a_future_season_is_read_and_registered_for(self, mongo_replica_set_url: str):
         """The withheld-season guard is waived on both operations, and a season taking registrations is normally `future`.
 
-        Calling `refuse_withheld_saison` here would 404 the whole flow; the invite is the
+        Calling `resolve_public_saison` here would 404 the whole flow; the invite is the
         authorisation instead.
         """
 

@@ -27,7 +27,6 @@ from app.api.bewerbungen.services import (
     EINWILLIGUNG_ANTWORT_FIELDS,
     SAISON_EINWILLIGUNG_ANTWORT_FIELDS,
     SAISON_EINWILLIGUNG_FIELDS,
-    SAISON_NOT_ENDED_FILTER,
     ansprechperson_mailbox,
     assigned_trikot_farben,
     bestaetigungsfrist_from,
@@ -78,6 +77,7 @@ from app.api.einwilligung.services import find_fassung_refusal, find_self_medien
 from app.api.kontakte.crud import redact_the_decliner, remove_their_reasons
 from app.api.outbox.schemas import FLBewerbungPerson, FLBewerbungWiderspruchData
 from app.api.outbox.services import OwedMail, enqueue_mails
+from app.api.saisons.crud import pull_open_window_saison
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hashes_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import kontakte_ohne, seat_void_of
@@ -177,22 +177,12 @@ async def get_open_window(saisons_collection: SaisonsCollection, today: str = De
     withholds a `future` one from this tier (`READ-BEWERBUNG-001`).
     """
 
-    # Compared in the query rather than after it, so a closed season is never read. ISO dates order
-    # lexicographically, which is how the rest of this application compares two.
-    db_filter = {"bewerbung.offen": True, "bewerbung.von": {"$lte": today}, "bewerbung.bis": {"$gte": today}, **SAISON_NOT_ENDED_FILTER}
+    open_saison = await pull_open_window_saison(saisons_collection=saisons_collection, today=today)
 
-    # Sorted and limited rather than `find_one`: two open windows is a state an administrator can
-    # create, and an arbitrary pick would move between reads. Newest season id first, ids being years.
-    open_seasons = await pull_many_from_db(
-        collection=saisons_collection, db_filter=db_filter, limit=1, sort_by=[("_id", -1)], projection=WINDOW_PROJECTION
-    )
-
-    bewerbung = open_seasons[0]["bewerbung"] if open_seasons else None
-
-    if bewerbung is None:
+    if open_saison is None:
         raise DocumentNotFoundError()
 
-    return _fenster(saison_id=str(open_seasons[0]["_id"]), saison_status=open_seasons[0]["status"], bewerbung=bewerbung, today=today)
+    return _fenster(saison_id=str(open_saison["_id"]), saison_status=open_saison["status"], bewerbung=open_saison["bewerbung"], today=today)
 
 
 @router.get(
@@ -274,7 +264,7 @@ async def get_trikotfarben(
     The SET alone, naming no club (`READ-BEWERBUNG-001`).
     """
 
-    # Not `refuse_withheld_saison`, which would 404 every season this read exists for: one taking
+    # Not `resolve_public_saison`, which would 404 every season this read exists for: one taking
     # applications is `future`. Whether it takes applications gates it instead, so
     # the carve-out stays the window reads' own.
     bewerbung, saison_status = await _pull_window(saisons_collection=saisons_collection, saison_id=saison_id)

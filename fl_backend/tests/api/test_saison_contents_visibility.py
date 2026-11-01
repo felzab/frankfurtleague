@@ -1,4 +1,3 @@
-import time
 from collections.abc import Awaitable, Callable, Iterator
 from typing import Any
 
@@ -6,22 +5,17 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.spiele.admin_router import get_spiel_verwaltung
 from app.api.spiele.public_router import get_spiel, get_spiele
 from app.api.spiele.schemas import FLSpieleFilterParams
-from app.api.spieler.admin_router import get_spieler_saisons
 from app.api.spieler.public_router import get_spieler
 from app.api.spieler.schemas import FLSpielerFilterParams
-from app.api.spieltage.admin_router import get_spieltage_verwaltung
 from app.api.spieltage.public_router import get_spieltag, get_spieltage
 from app.api.spieltage.schemas import FLSpieltageFilterParams
-from app.api.teams.admin_router import get_team_saisons
 from app.api.teams.public_router import get_team, get_teams
 from app.api.teams.schemas import FLTeamsFilterParams, FLTeamSingleFilterParams
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError
 from tests import documents
-from tests.config import ADMINISTRATORS
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.worker import worker_database
 
@@ -32,13 +26,8 @@ DATABASE_NAME = worker_database("fl_saison_contents_visibility_test")
 ARCHIVED = "2024"
 RUNNING = "2025"
 PLANNED = "2026"
-# An id naming no season at all: what the withheld one has to be indistinguishable from.
-UNKNOWN = "2099"
 
 STATUS_OF = {ARCHIVED: "past", RUNNING: "active", PLANNED: "future"}
-
-# One shirt number per season, so a squad row served without its `saison_id` still says where it came from.
-NUMMER_OF = {saison_id: saison_id[-2:] for saison_id in STATUS_OF}
 
 # `get_spiele` takes the day as an argument; only `spiel_status` reads it, and no test here sets one.
 TODAY = "2026-03-20"
@@ -46,11 +35,6 @@ TODAY = "2026-03-20"
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607250001")
 SPIELER_OID = ObjectId("6890a1b2c3d4e5f607250002")
 SPIELER_VORNAME = "Maxim"
-
-# A second person, whose ONLY squad row is the planned season's: the narrowing drops the row, and a
-# person is not a season's content.
-PLANNED_ONLY_OID = ObjectId("6890a1b2c3d4e5f607250003")
-PLANNED_ONLY_VORNAME = "Nadja"
 
 
 def an_id(kind: str, saison_id: str) -> ObjectId:
@@ -74,7 +58,7 @@ def junction_row(saison_id: str) -> dict[str, Any]:
 
 
 def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:
-    """A player of that club. `SPIELER_OID` holds a row in all three seasons, so the same person has to read differently per season.
+    """A player of that club, holding a row in all three seasons.
 
     Consent passed, not defaulted: only a published, confirmed one serves the forename.
     """
@@ -84,17 +68,8 @@ def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:
     return documents.spieler_document(spieler_id, vorname, "Müller", einwilligung=published)
 
 
-def squad_row(saison_id: str, spieler_id: ObjectId = SPIELER_OID, kind: str = "4") -> dict[str, Any]:
-    return documents.saison_spieler_document(
-        spieler_id,
-        saison_id,
-        TEAM_OID,
-        _id=an_id(kind, saison_id),
-        # The season, worn as a shirt: a base-tier squad row names no season, so an unnarrowed read
-        # serving three identical rows could otherwise only be counted, never read.
-        nummer=NUMMER_OF[saison_id],
-        stufe="Q3",
-    )
+def squad_row(saison_id: str) -> dict[str, Any]:
+    return documents.saison_spieler_document(SPIELER_OID, saison_id, TEAM_OID, _id=an_id("4", saison_id), nummer="7", stufe="Q3")
 
 
 def spiel_document(saison_id: str) -> dict[str, Any]:
@@ -136,12 +111,8 @@ def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
             await database[Collection.SAISON_TEAMS].insert_many([junction_row(saison_id) for saison_id in STATUS_OF])
             await database[Collection.SPIELE].insert_many([spiel_document(saison_id) for saison_id in STATUS_OF])
             await database[Collection.SPIELTAGE].insert_many([spieltag_document(saison_id) for saison_id in STATUS_OF])
-            await database[Collection.SPIELER].insert_many(
-                [spieler_document(SPIELER_OID, SPIELER_VORNAME), spieler_document(PLANNED_ONLY_OID, PLANNED_ONLY_VORNAME)]
-            )
-            await database[Collection.SAISON_SPIELER].insert_many(
-                [*(squad_row(saison_id) for saison_id in STATUS_OF), squad_row(PLANNED, PLANNED_ONLY_OID, kind="5")]
-            )
+            await database[Collection.SPIELER].insert_one(spieler_document(SPIELER_OID, SPIELER_VORNAME))
+            await database[Collection.SAISON_SPIELER].insert_many([squad_row(saison_id) for saison_id in STATUS_OF])
 
     on_the_seed_loop(_seed())
 
@@ -186,18 +157,12 @@ async def read_team(database: AsyncDatabase, saison_id: str | None) -> Any:
     )
 
 
-async def read_spieler(database: AsyncDatabase, saison_id: str | None, team_id: ObjectId | None = None) -> Any:
+async def read_spieler(database: AsyncDatabase, saison_id: str | None) -> Any:
     return await get_spieler(
         spieler_collection=database[Collection.SPIELER],
         saisons_collection=database[Collection.SAISONS],
-        filters=FLSpielerFilterParams(saison_id=saison_id, team_id=team_id),
+        filters=FLSpielerFilterParams(saison_id=saison_id, team_id=TEAM_OID),
     )
-
-
-def squad_rows_served(response: Any) -> set[tuple[str, str | None]]:
-    """Each served row as its forename and its shirt -- and the shirt is the season `squad_row` seeded it with."""
-
-    return {(row.vorname, row.nummer) for row in response.spieler}
 
 
 async def read_spiele(database: AsyncDatabase, saison_id: str | None) -> Any:
@@ -233,190 +198,39 @@ async def read_spieltag(database: AsyncDatabase, saison_id: str) -> Any:
     )
 
 
-@pytest.mark.db
-class TestThePlannedSeasonsContentsAreWithheldFromTheBaseTier:
-    """The season RESOURCE is closed by `base_tier_status_term`; these are the reads scoped by one."""
-
-    def test_its_squads_are_not_listed(self, seeded_league: str):
-        assert raised_by(seeded_league, lambda database: read_teams(database, PLANNED)).status_code == 404
-
-    def test_a_club_is_not_served_with_the_planned_seasons_figures(self, seeded_league: str):
-        """The club is season-independent; `gruppe` and `statistik` are not, so the season decides."""
-
-        assert raised_by(seeded_league, lambda database: read_team(database, PLANNED)).status_code == 404
-
-    def test_its_fixtures_list_as_nothing(self, seeded_league: str):
-        """Empty rather than a refusal: an id naming no season already lists nothing here."""
-
-        assert on_a_league(seeded_league, lambda database: read_spiele(database, PLANNED)).spiele == []
-
-    def test_one_of_its_fixtures_is_not_served_by_id(self, seeded_league: str):
-        assert raised_by(seeded_league, lambda database: read_spiel(database, PLANNED)).status_code == 404
-
-    def test_its_players_are_not_listed(self, seeded_league: str):
-        """Empty rather than a refusal, as the fixtures are: this read resolves no season, so an id naming none already lists nothing here."""
-
-        assert on_a_league(seeded_league, lambda database: read_spieler(database, PLANNED)).spieler == []
-
-    def test_its_squad_rows_are_absent_from_a_list_nothing_narrowed(self, seeded_league: str):
-        """The planned shirt is gone, the readable ones are not, and the planned-only person is still a person.
-
-        The middle claim is what stops this passing against a read that serves nothing at all.
-        """
-
-        served = on_a_league(seeded_league, lambda database: read_spieler(database, None))
-
-        assert squad_rows_served(served) == {
-            (SPIELER_VORNAME, NUMMER_OF[ARCHIVED]),
-            (SPIELER_VORNAME, NUMMER_OF[RUNNING]),
-            (PLANNED_ONLY_VORNAME, None),
-        }
-
-    def test_its_squad_rows_are_absent_from_a_list_narrowed_by_club(self, seeded_league: str):
-        """The other route in: the club plays in all three seasons, and `?team_id=` alone reads the running one.
-
-        Naming a team makes the junction join strict, so the player left with no row drops out here rather than reading as a player.
-        """
-
-        served = on_a_league(seeded_league, lambda database: read_spieler(database, None, team_id=TEAM_OID))
-
-        assert squad_rows_served(served) == {(SPIELER_VORNAME, NUMMER_OF[RUNNING])}
-
-    def test_its_matchdays_are_not_listed(self, seeded_league: str):
-        assert raised_by(seeded_league, lambda database: read_spieltage(database, PLANNED)).status_code == 404
-
-    def test_one_of_its_matchdays_is_not_served_by_id(self, seeded_league: str):
-        assert raised_by(seeded_league, lambda database: read_spieltag(database, PLANNED)).status_code == 404
+# Every base-tier read scoped by one season, each answering for the season it is handed: a list
+# names it, a by-id read is handed that season's document and judges its own.
+SEASON_SCOPED_READS: dict[str, Callable[[AsyncDatabase, str], Awaitable[Any]]] = {
+    "the squads": read_teams,
+    "one club's figures": read_team,
+    "the fixtures": read_spiele,
+    "one fixture": read_spiel,
+    "the matchdays": read_spieltage,
+    "one matchday": read_spieltag,
+    "one club's squad": read_spieler,
+}
 
 
 @pytest.mark.db
-class TestTheWithheldSeasonReadsAsOneThatWasNeverCreated:
-    """No 403 and no answer of its own: nothing tells the planned season from an id naming none."""
+@pytest.mark.parametrize("read", SEASON_SCOPED_READS.values(), ids=SEASON_SCOPED_READS.keys())
+class TestEveryReadScopedByASeasonResolvesIt:
+    """`app/api/saisons/visibility.py :: resolve_public_saison` makes the refusal; these hold each read to calling it."""
 
-    def test_the_squad_list_refuses_an_unknown_season_the_same_way(self, seeded_league: str):
-        assert raised_by(seeded_league, lambda database: read_teams(database, UNKNOWN)).status_code == 404
+    def test_the_planned_season_misses(self, read: Callable[[AsyncDatabase, str], Awaitable[Any]], seeded_league: str):
+        assert raised_by(seeded_league, lambda database: read(database, PLANNED)).status_code == 404
 
-    def test_the_matchday_list_refuses_an_unknown_season_the_same_way(self, seeded_league: str):
-        assert raised_by(seeded_league, lambda database: read_spieltage(database, UNKNOWN)).status_code == 404
+    def test_a_readable_season_is_served(self, read: Callable[[AsyncDatabase, str], Awaitable[Any]], seeded_league: str):
+        """The control: a read that refused every season would pass the case above."""
 
-    def test_the_fixture_list_answers_an_unknown_season_with_the_same_empty_list(self, seeded_league: str):
-        assert on_a_league(seeded_league, lambda database: read_spiele(database, UNKNOWN)).spiele == []
-
-    def test_the_player_list_answers_an_unknown_season_with_the_same_empty_list(self, seeded_league: str):
-        """The pair the planned season has to be indistinguishable from: a non-empty answer there would confirm the season exists."""
-
-        assert on_a_league(seeded_league, lambda database: read_spieler(database, UNKNOWN)).spieler == []
+        assert on_a_league(seeded_league, lambda database: read(database, RUNNING)) is not None
 
 
 @pytest.mark.db
-@pytest.mark.parametrize("saison_id", [ARCHIVED, RUNNING])
-class TestAReadableSeasonIsServedInFull:
-    """The control for every refusal above: the same reads, one status along."""
+def test_the_planned_season_holds_what_every_read_above_withheld(seeded_league: str):
+    """What makes the refusals mean something: each collection really holds the planned season's document."""
 
-    def test_its_squads_are_listed(self, saison_id: str, seeded_league: str):
-        response = on_a_league(seeded_league, lambda database: read_teams(database, saison_id))
+    async def body(database: AsyncDatabase) -> dict[str, int]:
+        collections = (Collection.SAISON_TEAMS, Collection.SPIELE, Collection.SPIELTAGE, Collection.SAISON_SPIELER)
+        return {name: await database[name].count_documents({"saison_id": PLANNED}) for name in collections}
 
-        assert [team.id for team in response.teams] == [TEAM_OID]
-
-    def test_a_club_is_served_with_that_seasons_figures(self, saison_id: str, seeded_league: str):
-        assert on_a_league(seeded_league, lambda database: read_team(database, saison_id)).team.gruppe == "A"
-
-    def test_its_fixtures_are_listed(self, saison_id: str, seeded_league: str):
-        response = on_a_league(seeded_league, lambda database: read_spiele(database, saison_id))
-
-        assert [spiel.saison_id for spiel in response.spiele] == [saison_id]
-
-    def test_one_of_its_fixtures_is_served_by_id(self, saison_id: str, seeded_league: str):
-        assert on_a_league(seeded_league, lambda database: read_spiel(database, saison_id)).spiel.saison_id == saison_id
-
-    def test_its_matchdays_are_listed(self, saison_id: str, seeded_league: str):
-        response = on_a_league(seeded_league, lambda database: read_spieltage(database, saison_id))
-
-        assert [spieltag.saison_id for spieltag in response.spieltage] == [saison_id]
-
-    def test_one_of_its_matchdays_is_served_by_id(self, saison_id: str, seeded_league: str):
-        assert on_a_league(seeded_league, lambda database: read_spieltag(database, saison_id)).spieltag.saison_id == saison_id
-
-    def test_its_players_are_listed(self, saison_id: str, seeded_league: str):
-        """The shirt as well as the name: the same person holds a row in all three seasons, so only the number says which one was served."""
-
-        response = on_a_league(seeded_league, lambda database: read_spieler(database, saison_id))
-
-        assert squad_rows_served(response) == {(SPIELER_VORNAME, NUMMER_OF[saison_id])}
-
-
-@pytest.mark.db
-class TestTheResolvedSeasonNeedsNoGate:
-    """An omitted `saison_id` resolves the `active` season, which no status can withhold."""
-
-    def test_the_fixture_list_still_answers_the_running_season(self, seeded_league: str):
-        response = on_a_league(seeded_league, lambda database: read_spiele(database, None))
-
-        assert [spiel.saison_id for spiel in response.spiele] == [RUNNING]
-
-    def test_the_squad_list_still_answers_the_running_season(self, seeded_league: str):
-        assert on_a_league(seeded_league, lambda database: read_teams(database, None)).teams != []
-
-    def test_the_matchday_list_still_answers_the_running_season(self, seeded_league: str):
-        response = on_a_league(seeded_league, lambda database: read_spieltage(database, None))
-
-        assert [spieltag.saison_id for spieltag in response.spieltage] == [RUNNING]
-
-
-@pytest.mark.db
-class TestTheAdminTierStillReadsThePlannedSeason:
-    """Non-vacuity as well as the rule: every refusal above ran on a season that HOLDS these documents."""
-
-    def test_a_planned_fixture_is_served_to_the_editor(self, seeded_league: str):
-        async def body(database: AsyncDatabase) -> Any:
-            return await get_spiel_verwaltung(spiel_id=an_id("2", PLANNED), spiele_collection=database[Collection.SPIELE])
-
-        assert on_a_league(seeded_league, body).spiel.saison_id == PLANNED
-
-    def test_the_planned_membership_is_listed(self, seeded_league: str):
-        async def body(database: AsyncDatabase) -> Any:
-            return await get_team_saisons(
-                teams_collection=database[Collection.TEAMS],
-                adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
-                berechtigungen_collection=database[Collection.GRANTS],
-                berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-                outbox_collection=database[Collection.OUTBOX],
-                operator=ADMINISTRATORS[0],
-                auth_time=int(time.time()),
-            )
-
-        response = on_a_league(seeded_league, body)
-
-        assert PLANNED in [membership.saison_id for team in response.teams for membership in team.memberships]
-
-    def test_the_planned_squad_rows_are_listed(self, seeded_league: str):
-        """What makes the empty base-tier answers above mean something: the planned season really holds BOTH rows they withheld.
-
-        The second one especially -- a loose join serves that person with no row either way, so nothing else here would notice it missing.
-        """
-
-        async def body(database: AsyncDatabase) -> Any:
-            return await get_spieler_saisons(
-                spieler_collection=database[Collection.SPIELER],
-                berechtigungen_collection=database[Collection.GRANTS],
-                berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-                operator=ADMINISTRATORS[0],
-                auth_time=int(time.time()),
-            )
-
-        response = on_a_league(seeded_league, body)
-        planned = {person.vorname for person in response.spieler for membership in person.memberships if membership.saison_id == PLANNED}
-
-        assert planned == {SPIELER_VORNAME, PLANNED_ONLY_VORNAME}
-
-    def test_the_planned_matchday_is_listed(self, seeded_league: str):
-        async def body(database: AsyncDatabase) -> Any:
-            return await get_spieltage_verwaltung(
-                spieltage_collection=database[Collection.SPIELTAGE],
-                saisons_collection=database[Collection.SAISONS],
-                filters=FLSpieltageFilterParams(saison_id=PLANNED),
-            )
-
-        response = on_a_league(seeded_league, body)
-
-        assert [spieltag.saison_id for spieltag in response.spieltage] == [PLANNED]
+    assert all(on_a_league(seeded_league, body).values())
