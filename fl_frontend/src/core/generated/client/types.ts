@@ -1210,6 +1210,17 @@ export interface FLAddressPayload {
   strasse: string;
 }
 
+/**
+ * The application window open today, by the one rule the submission refuses on, and the season it is for.
+ */
+export interface FLApplicationWindow {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  bis: string;
+  saison_id: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  von: string;
+}
+
 export type FLApprovalDenied = (typeof FLApprovalDenied)[keyof typeof FLApprovalDenied];
 
 export const FLApprovalDenied = {
@@ -3162,6 +3173,91 @@ export interface FLKontaktpersonPayload {
 }
 
 /**
+ * The season's four figures, counted on every read: its clubs, its squads' live rows, its matches and matchdays.
+ */
+export interface FLLandingCounts {
+  /** @minimum 0 */
+  count_spiele: number;
+  /** @minimum 0 */
+  count_spieler: number;
+  /** @minimum 0 */
+  count_spieltage: number;
+  /** @minimum 0 */
+  count_teams: number;
+}
+
+/**
+ * When the season's first match is set to start.
+ */
+export interface FLLandingKickoff {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  datum: string;
+  uhrzeit: string | null;
+}
+
+/**
+ * One of places one to four, under the name and shorthand the club played the season under.
+ */
+export interface FLPodiumPlace {
+  name: string;
+  /**
+   * @minimum 1
+   * @maximum 4
+   */
+  platz: number;
+  shorthand: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+}
+
+export type FLLandingState = (typeof FLLandingState)[keyof typeof FLLandingState];
+
+export const FLLandingState = {
+  before_start: "before_start",
+  running: "running",
+  decided: "decided",
+} as const;
+
+/**
+ * One club of a season as the Teams page lists it: the name and shorthand it plays this season under.
+ */
+export interface FLSaisonTeamEntry {
+  austritt_type: FLAustrittType | null;
+  gruppe: FLGruppenNames;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  /** @minLength 1 */
+  name: string;
+  /** @pattern ^[A-Z]{3}$ */
+  shorthand: string;
+}
+
+/**
+ * The season the site is on as the landing shows it.
+ *
+ * `first_kickoff` before the start, null while no group match is dated; `recent` and `upcoming` while it runs,
+ * the latest results and the next matches; `podium` once decided, each place its match has decided.
+ */
+export interface FLLandingSaison {
+  counts: FLLandingCounts;
+  first_kickoff: FLLandingKickoff | null;
+  id: string;
+  podium: FLPodiumPlace[];
+  recent: FLSpielJoined[];
+  state: FLLandingState;
+  teams: FLSaisonTeamEntry[];
+  upcoming: FLSpielJoined[];
+}
+
+/**
+ * The landing's facts: the season the site is on, null for a league that has none, and an open window.
+ */
+export interface FLLandingResponse {
+  application_window: FLApplicationWindow | null;
+  saison: FLLandingSaison | null;
+}
+
+/**
  * The stored person a confirmed registration's address resolves to, named so the team can be asked whether it is the same one.
  */
 export interface FLRegistrierungPerson {
@@ -4451,20 +4547,6 @@ export interface FLSaisonTeamEinwilligungAntwortResponse {
   medien: boolean;
   quelle: "saison";
   whatsapp: boolean;
-}
-
-/**
- * One club of a season as the Teams page lists it: the name and shorthand it plays this season under.
- */
-export interface FLSaisonTeamEntry {
-  austritt_type: FLAustrittType | null;
-  gruppe: FLGruppenNames;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  /** @minLength 1 */
-  name: string;
-  /** @pattern ^[A-Z]{3}$ */
-  shorthand: string;
 }
 
 /**

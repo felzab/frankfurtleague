@@ -2828,6 +2828,32 @@
         "title": "FLAddressPayload",
         "type": "object"
       },
+      "FLApplicationWindow": {
+        "description": "The application window open today, by the one rule the submission refuses on, and the season it is for.",
+        "properties": {
+          "bis": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bis",
+            "type": "string"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "von": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Von",
+            "type": "string"
+          }
+        },
+        "required": [
+          "saison_id",
+          "von",
+          "bis"
+        ],
+        "title": "FLApplicationWindow",
+        "type": "object"
+      },
       "FLApprovalDenied": {
         "enum": [
           "own",
@@ -7652,6 +7678,171 @@
         "title": "FLKontaktpersonPayload",
         "type": "object"
       },
+      "FLLandingCounts": {
+        "description": "The season's four figures, counted on every read: its clubs, its squads' live rows, its matches and matchdays.",
+        "properties": {
+          "count_spiele": {
+            "minimum": 0.0,
+            "title": "Count Spiele",
+            "type": "integer"
+          },
+          "count_spieler": {
+            "minimum": 0.0,
+            "title": "Count Spieler",
+            "type": "integer"
+          },
+          "count_spieltage": {
+            "minimum": 0.0,
+            "title": "Count Spieltage",
+            "type": "integer"
+          },
+          "count_teams": {
+            "minimum": 0.0,
+            "title": "Count Teams",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count_teams",
+          "count_spieler",
+          "count_spiele",
+          "count_spieltage"
+        ],
+        "title": "FLLandingCounts",
+        "type": "object"
+      },
+      "FLLandingKickoff": {
+        "description": "When the season's first match is set to start.",
+        "properties": {
+          "datum": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum",
+            "type": "string"
+          },
+          "uhrzeit": {
+            "anyOf": [
+              {
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uhrzeit"
+          }
+        },
+        "required": [
+          "datum",
+          "uhrzeit"
+        ],
+        "title": "FLLandingKickoff",
+        "type": "object"
+      },
+      "FLLandingResponse": {
+        "description": "The landing's facts: the season the site is on, null for a league that has none, and an open window.",
+        "properties": {
+          "application_window": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLApplicationWindow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "saison": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLLandingSaison"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "saison",
+          "application_window"
+        ],
+        "title": "FLLandingResponse",
+        "type": "object"
+      },
+      "FLLandingSaison": {
+        "description": "The season the site is on as the landing shows it.\n\n`first_kickoff` before the start, null while no group match is dated; `recent` and `upcoming` while it runs,\nthe latest results and the next matches; `podium` once decided, each place its match has decided.",
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/FLLandingCounts"
+          },
+          "first_kickoff": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLLandingKickoff"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "podium": {
+            "items": {
+              "$ref": "#/components/schemas/FLPodiumPlace"
+            },
+            "title": "Podium",
+            "type": "array"
+          },
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielJoined"
+            },
+            "title": "Recent",
+            "type": "array"
+          },
+          "state": {
+            "$ref": "#/components/schemas/FLLandingState"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/FLSaisonTeamEntry"
+            },
+            "title": "Teams",
+            "type": "array"
+          },
+          "upcoming": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielJoined"
+            },
+            "title": "Upcoming",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "first_kickoff",
+          "recent",
+          "upcoming",
+          "podium",
+          "counts",
+          "teams"
+        ],
+        "title": "FLLandingSaison",
+        "type": "object"
+      },
+      "FLLandingState": {
+        "enum": [
+          "before_start",
+          "running",
+          "decided"
+        ],
+        "type": "string"
+      },
       "FLOpenRegistrierung": {
         "description": "One pending registration as the team deciding it reads it.",
         "properties": {
@@ -9166,6 +9357,38 @@
           "fanned_out_to_saison_teams"
         ],
         "title": "FLPatchTeamResponse",
+        "type": "object"
+      },
+      "FLPodiumPlace": {
+        "description": "One of places one to four, under the name and shorthand the club played the season under.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "platz": {
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Platz",
+            "type": "integer"
+          },
+          "shorthand": {
+            "title": "Shorthand",
+            "type": "string"
+          },
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "platz",
+          "team_id",
+          "name",
+          "shorthand"
+        ],
+        "title": "FLPodiumPlace",
         "type": "object"
       },
       "FLPostBewerbungPayload": {
@@ -23514,6 +23737,69 @@
           }
         ],
         "summary": "The season pages' frame",
+        "tags": [
+          "saisons"
+        ]
+      }
+    },
+    "/api/v0/saisons/landing": {
+      "get": {
+        "description": "The season the site is on as the landing shows it, null for a league that has none, and today's open window.\n\nThe season reads `before_start` until a group match is played on its date, `decided` once its places are, else\n`running`. Its four figures are counted on every read.",
+        "operationId": "saisons_get_landing",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLLandingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "BaseKey": []
+          }
+        ],
+        "summary": "The landing",
         "tags": [
           "saisons"
         ]

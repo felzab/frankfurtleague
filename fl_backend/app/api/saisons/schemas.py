@@ -6,14 +6,14 @@ from pydantic_core import PydanticCustomError
 from app.api.spielberichte.schemas import FLSpielberichtPublic
 from app.api.spiele.schemas import FLSpielJoined
 from app.api.spieler.schemas import FLSpielerPublic
-from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLTabelleRow, FLTeamPageClub
+from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLSaisonTeamEntry, FLTabelleRow, FLTeamPageClub
 from app.core import clock
 
 # Imported rather than restated. Acyclic: no model of `teams` imports this file --
 # `teams/services.py` does, and no model there.
 from app.core.crud import Anchored
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
-from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_reversed_span
+from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, refuse_reversed_span
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSortOrder, FLSpielerStufe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -433,3 +433,68 @@ class FLSpielPageResponse(BaseAPIResponse):
     spieltag_position: int = Field(ge=1)
     standings: FLSpielSideStandings
     bericht: FLSpielberichtPublic | None
+
+
+# Where the season the site is on stands: before its first group match is played, while it runs, and once its
+# winner is known.
+# The places the landing celebrates once a season is decided.
+PODIUM_PLACES: Final = 4
+
+type FLLandingState = Literal["before_start", "running", "decided"]
+
+
+class FLLandingKickoff(BaseReadModel):
+    """When the season's first match is set to start."""
+
+    datum: CustomDateString
+    uhrzeit: CustomTimeString | None
+
+
+class FLPodiumPlace(BaseReadModel):
+    """One of places one to four, under the name and shorthand the club played the season under."""
+
+    platz: int = Field(ge=1, le=PODIUM_PLACES)
+    team_id: CustomObjectId
+    name: str
+    shorthand: str
+
+
+class FLLandingCounts(BaseReadModel):
+    """The season's four figures, counted on every read: its clubs, its squads' live rows, its matches and matchdays."""
+
+    count_teams: int = Field(ge=0)
+    count_spieler: int = Field(ge=0)
+    count_spiele: int = Field(ge=0)
+    count_spieltage: int = Field(ge=0)
+
+
+class FLLandingSaison(BaseReadModel):
+    """The season the site is on as the landing shows it.
+
+    `first_kickoff` before the start, null while no group match is dated; `recent` and `upcoming` while it runs,
+    the latest results and the next matches; `podium` once decided, each place its match has decided.
+    """
+
+    id: str
+    state: FLLandingState
+    first_kickoff: FLLandingKickoff | None
+    recent: list[FLSpielJoined]
+    upcoming: list[FLSpielJoined]
+    podium: list[FLPodiumPlace]
+    counts: FLLandingCounts
+    teams: list[FLSaisonTeamEntry]
+
+
+class FLApplicationWindow(BaseReadModel):
+    """The application window open today, by the one rule the submission refuses on, and the season it is for."""
+
+    saison_id: str
+    von: CustomDateString
+    bis: CustomDateString
+
+
+class FLLandingResponse(BaseAPIResponse):
+    """The landing's facts: the season the site is on, null for a league that has none, and an open window."""
+
+    saison: FLLandingSaison | None
+    application_window: FLApplicationWindow | None

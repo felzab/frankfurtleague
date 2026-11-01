@@ -1,12 +1,22 @@
 import asyncio
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Final
 
 from fastapi import APIRouter, Depends
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.saisons.crud import pull_active_saison
+from app.api.bewerbungen.services import saison_nimmt_bewerbungen_an
+from app.api.saisons.crud import has_started, pull_active_saison, pull_open_window_saison
+from app.api.saisons.schedule import knockout_phases_for, qualifier_count
 from app.api.saisons.schemas import (
+    PODIUM_PLACES,
+    FLApplicationWindow,
+    FLLandingCounts,
+    FLLandingKickoff,
+    FLLandingResponse,
+    FLLandingSaison,
+    FLLandingState,
+    FLPodiumPlace,
     FLSaison,
     FLSaisonFrameEntryListAdapter,
     FLSaisonFrameResponse,
@@ -22,8 +32,8 @@ from app.api.saisons.schemas import (
 from app.api.saisons.services import base_tier_status_term, with_schedule
 from app.api.saisons.visibility import PublicSaison, resolve_public_saison
 from app.api.spielberichte.services import SEITEN, build_public_bericht_pipeline, compose_public_bericht, team_id_of
-from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedListAdapter
-from app.api.spiele.services import build_spiele_pipeline
+from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedListAdapter, unplayed_filter
+from app.api.spiele.services import build_spiele_pipeline, podium_of
 from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerListAdapter
 from app.api.spieler.services import build_spieler_pipeline
 from app.api.spieltage.schemas import FLKoRundeResponse, FLSpielplanResponse, FLSpielplanSpieltag
@@ -31,9 +41,12 @@ from app.api.spieltage.services import build_spielplan, current_spieltag_id
 from app.api.teams.crud import pull_tabelle
 from app.api.teams.schemas import (
     FLPublicTeamsFilterParams,
+    FLSaisonTeamEntry,
     FLSaisonTeamEntryListAdapter,
     FLSaisonTeamsResponse,
+    FLTabelle,
     FLTabelleResponse,
+    FLTabelleRow,
     FLTeamPageClub,
     FLTeamsFilterParams,
 )
@@ -43,11 +56,13 @@ from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, build_query, build_sort, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     SaisonsCollection,
+    SaisonSpielerCollection,
     SpielberichteCollection,
     SpieleCollection,
     SpielerCollection,
     SpieltageCollection,
     TeamsCollection,
+    get_german_date_str,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
@@ -118,8 +133,132 @@ async def get_frame(saisons_collection: SaisonsCollection) -> FLSaisonFrameRespo
     return FLSaisonFrameResponse(saisons=saisons, active_saison_id=active_saison_id)
 
 
-# Declared after `/active` and `/frame`: routes match in declaration order, and the `objectid`
-# convertor cannot help here, a season id being a four-character string.
+# How many of the latest results, and of the next matches, the landing shows while the season runs.
+LANDING_SPIELE: Final = 2
+
+
+async def _active_or_none(saisons_collection: AsyncCollection) -> PublicSaison | None:
+    try:
+        return await resolve_public_saison(saisons_collection=saisons_collection, saison_id=None)
+    except DocumentNotFoundError:
+        return None
+
+
+def _podium_of_one_group(tabelle: FLTabelle) -> list[tuple[int, FLTabelleRow]]:
+    """A season with no bracket and one group is decided by its table once every match there is played or called off."""
+
+    rows = [row for rows in tabelle.root.values() for row in rows]
+    if not rows or any(row.count_pending_spiele for row in rows):
+        return []
+
+    return [(row.platz, row) for row in rows if row.platz is not None and row.platz <= PODIUM_PLACES]
+
+
+@router.get("/landing", response_model=FLLandingResponse, summary="The landing")
+async def get_landing(
+    saisons_collection: SaisonsCollection,
+    spiele_collection: SpieleCollection,
+    spieltage_collection: SpieltageCollection,
+    teams_collection: TeamsCollection,
+    saison_spieler_collection: SaisonSpielerCollection,
+    today: str = Depends(get_german_date_str),
+) -> FLLandingResponse:
+    """The season the site is on as the landing shows it, null for a league that has none, and today's open window.
+
+    The season reads `before_start` until a group match is played on its date, `decided` once its places are, else
+    `running`. Its four figures are counted on every read.
+    """
+
+    saison, open_window = await asyncio.gather(
+        _active_or_none(saisons_collection),
+        pull_open_window_saison(saisons_collection=saisons_collection, today=today),
+    )
+
+    # The submission's own rule over what the query found, so the landing never offers a window it refuses.
+    window = (
+        FLApplicationWindow(saison_id=str(open_window["_id"]), von=open_window["bewerbung"]["von"], bis=open_window["bewerbung"]["bis"])
+        if open_window is not None
+        and saison_nimmt_bewerbungen_an(saison_status=open_window["status"], bewerbung=open_window["bewerbung"], today=today)
+        else None
+    )
+
+    if saison is None:
+        return FLLandingResponse(saison=None, application_window=window)
+
+    in_saison = {"saison_id": saison.id}
+    # Two groups of reads sent at once, because one gather of nine types none of its results.
+    (started, first, recent_raw, upcoming_raw, finale_raw), (teams, count_spieler, count_spiele, count_spieltage) = await asyncio.gather(
+        asyncio.gather(
+            has_started(spiele_collection=spiele_collection, saison_id=saison.id, today=today),
+            spiele_collection.find_one(
+                {**in_saison, "saison_phase": "gruppenphase", "datum": {"$type": "string"}},
+                {"datum": 1, "uhrzeit": 1},
+                sort=[("datum", 1), ("uhrzeit", 1)],
+            ),
+            aggregate_many_from_db(
+                collection=spiele_collection,
+                pipeline=build_spiele_pipeline(
+                    db_filter={**in_saison, "ergebnis": {"$ne": None}},
+                    sort_by=[("datum", -1), ("uhrzeit", -1), ("spiel_nr", -1)],
+                    limit=LANDING_SPIELE,
+                ),
+            ),
+            aggregate_many_from_db(
+                collection=spiele_collection,
+                pipeline=build_spiele_pipeline(
+                    db_filter={**in_saison, "datum": {"$gte": today}, **unplayed_filter()},
+                    sort_by=[("datum", 1), ("uhrzeit", 1), ("spiel_nr", 1)],
+                    limit=LANDING_SPIELE,
+                ),
+            ),
+            aggregate_many_from_db(
+                collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={**in_saison, "saison_phase": "finale"})
+            ),
+        ),
+        asyncio.gather(
+            _clubs_of(teams_collection=teams_collection, saison_id=saison.id),
+            saison_spieler_collection.count_documents({**in_saison, "inactive_since": None}),
+            spiele_collection.count_documents(in_saison),
+            spieltage_collection.count_documents(in_saison),
+        ),
+    )
+
+    if knockout_phases_for(qualifier_count(saison.rules)):
+        podium = [
+            FLPodiumPlace(platz=platz, team_id=side.team_id, name=side.name, shorthand=side.shorthand)
+            for platz, side in podium_of(FLSpielJoinedListAdapter.validate_python(finale_raw))
+        ]
+    elif saison.rules.number_of_gruppen == 1:
+        tabelle = await pull_tabelle(
+            teams_collection=teams_collection, spiele_collection=spiele_collection, saison_id=saison.id, rules=saison.rules
+        )
+        podium = [
+            FLPodiumPlace(platz=platz, team_id=row.id, name=row.name, shorthand=row.shorthand) for platz, row in _podium_of_one_group(tabelle)
+        ]
+    else:
+        podium = []
+
+    state: FLLandingState = "decided" if any(place.platz == 1 for place in podium) else "running" if started else "before_start"
+
+    return FLLandingResponse(
+        saison=FLLandingSaison(
+            id=saison.id,
+            state=state,
+            first_kickoff=FLLandingKickoff(datum=first["datum"], uhrzeit=first.get("uhrzeit")) if state == "before_start" and first else None,
+            recent=FLSpielJoinedListAdapter.validate_python(recent_raw) if state == "running" else [],
+            upcoming=FLSpielJoinedListAdapter.validate_python(upcoming_raw) if state == "running" else [],
+            podium=podium if state == "decided" else [],
+            counts=FLLandingCounts(
+                count_teams=len(teams), count_spieler=count_spieler, count_spiele=count_spiele, count_spieltage=count_spieltage
+            ),
+            teams=teams,
+        ),
+        application_window=window,
+    )
+
+
+# Declared after `/active`, `/frame` and `/landing`: routes match in declaration order, and the
+# `objectid` convertor cannot help here, a season id being a four-character string.
 @router.get("/{saison_id}", response_model=FLSaisonsSingleResponse, summary="One Saison")
 async def get_saison(saison_id: str, saisons_collection: SaisonsCollection) -> FLSaisonsSingleResponse:
     """Return one season by its id; 404 when none carries it, rather than an empty list.
@@ -229,7 +368,7 @@ async def get_tabelle(
     return FLTabelleResponse(gruppen=tabelle, qualifiers_per_gruppe=saison.rules.qualifiers_per_gruppe)
 
 
-async def _clubs_of(*, teams_collection: AsyncCollection, saison_id: str) -> list[Any]:
+async def _clubs_of(*, teams_collection: AsyncCollection, saison_id: str) -> list[FLSaisonTeamEntry]:
     """A season's clubs as the Teams page and the landing list them, a club that left the league in a `past` season alone."""
 
     teams_raw = await aggregate_many_from_db(

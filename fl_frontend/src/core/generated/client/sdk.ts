@@ -81,6 +81,7 @@ import type {
   FLKaderRow,
   FLKontaktInviteResponse,
   FLKoRundeResponse,
+  FLLandingResponse,
   FLOpenRegistrierungenResponse,
   FLOutboxEventPayload,
   FLOutboxEventResponse,
@@ -2620,6 +2621,24 @@ export const getSaisonsGetFrameUrl = () => {
  */
 export const saisonsGetFrame = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSaisonFrameResponse> => {
   return baseKeyTransport<FLSaisonFrameResponse>(getSaisonsGetFrameUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSaisonsGetLandingUrl = () => {
+  return `/api/v0/saisons/landing`;
+};
+
+/**
+ * The season the site is on as the landing shows it, null for a league that has none, and today's open window.
+ *
+ * The season reads `before_start` until a group match is played on its date, `decided` once its places are, else
+ * `running`. Its four figures are counted on every read.
+ * @summary The landing
+ */
+export const saisonsGetLanding = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLLandingResponse> => {
+  return baseKeyTransport<FLLandingResponse>(getSaisonsGetLandingUrl(), {
     ...options,
     method: "GET",
   });

@@ -171,6 +171,15 @@ def saison_nimmt_bewerbungen_an(*, saison_status: Any, bewerbung: Any, today: st
 SAISON_NOT_ENDED_FILTER: Final[Mapping[str, Any]] = {"status": {"$ne": "past"}}
 
 
+def build_open_window_filter(today: str) -> dict[str, Any]:
+    """`saison_nimmt_bewerbungen_an` as a `saisons` filter, so a closed season is never read.
+
+    ISO dates order lexicographically, which is how the rest of this application compares two.
+    """
+
+    return {"bewerbung.offen": True, "bewerbung.von": {"$lte": today}, "bewerbung.bis": {"$gte": today}, **SAISON_NOT_ENDED_FILTER}
+
+
 def find_window_refusal(*, saison_status: Any, bewerbung: Any, today: str) -> WriteRefusal | None:
     """Why this season is taking no application today, or `None`.
 

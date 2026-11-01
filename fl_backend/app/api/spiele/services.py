@@ -28,6 +28,7 @@ from app.api.spiele.schemas import (
     FLSpielCommon,
     FLSpieleFilterParams,
     FLSpielElfmeterschiessen,
+    FLSpielJoined,
     FLSpielJoinedAdmin,
     FLSpielJoinedInternal,
     FLSpielOrtField,
@@ -39,6 +40,7 @@ from app.api.spiele.schemas import (
     FLSpielSchiedsrichterFieldPayload,
     FLSpielSlotHolder,
     FLSpielTeamField,
+    FLSpielTeamFieldJoined,
     FLSpielTeamFieldJoinedInternal,
     FLSpielTeamFieldPayload,
     is_unplayed,
@@ -718,6 +720,20 @@ def _outcome_of(spiel_nr: int, ausgang: str, walk: _BracketWalk) -> FLSpielTeamF
     if an_occupant_changed:
         return None
 
+    decided = winner_and_loser(team1, team2, spiel.elfmeterschiessen)
+    if decided is None:
+        return None
+
+    winner, loser = decided
+
+    return winner if ausgang == "sieger" else loser
+
+
+def winner_and_loser[Side: FLSpielTeamField](
+    team1: Side | None, team2: Side | None, elfmeterschiessen: FLSpielElfmeterschiessen | None
+) -> tuple[Side, Side] | None:
+    """A knockout match's winner and loser by its goals, a level one by its shoot-out; `None` while it names neither."""
+
     # The goals are the result: a save composes `ergebnis` from them, so the two agree.
     if team1 is None or team2 is None or team1.tore is None or team2.tore is None:
         return None
@@ -725,17 +741,37 @@ def _outcome_of(spiel_nr: int, ausgang: str, walk: _BracketWalk) -> FLSpielTeamF
     if team1.tore == team2.tore:
         # Read only here, so the bracket and the table disagree about this fixture on purpose. No group
         # fixture reaches this: a group feeder is a fault the walk reports before asking its outcome.
-        if spiel.elfmeterschiessen is None:
+        if elfmeterschiessen is None:
             return None
 
         # Total, because `FLSpielElfmeterschiessen` refuses a level shoot-out.
-        team1_won = spiel.elfmeterschiessen.team1 > spiel.elfmeterschiessen.team2
+        team1_won = elfmeterschiessen.team1 > elfmeterschiessen.team2
     else:
         team1_won = team1.tore > team2.tore
 
-    winner, loser = (team1, team2) if team1_won else (team2, team1)
+    return (team1, team2) if team1_won else (team2, team1)
 
-    return winner if ausgang == "sieger" else loser
+
+def podium_of(finale: Sequence[FLSpielJoined]) -> list[tuple[int, FLSpielTeamFieldJoined]]:
+    """Places one to four as the Finale's matchday decides them, each pair only once its match has.
+
+    The final gives places one and two; the match for third place, a side of which a semi-final's loser feeds, gives
+    three and four, and exists only where the bracket has semi-finals.
+    """
+
+    places: list[tuple[int, FLSpielTeamFieldJoined]] = []
+    for first, for_third in ((1, False), (3, True)):
+        matches = [spiel for spiel in finale if _plays_for_third(spiel) is for_third]
+        # One match per pair, or the matchday was wired by hand past what the draw writes, and it names nobody.
+        decided = winner_and_loser(matches[0].team1, matches[0].team2, matches[0].elfmeterschiessen) if len(matches) == 1 else None
+        if decided is not None:
+            places.extend(((first, decided[0]), (first + 1, decided[1])))
+
+    return places
+
+
+def _plays_for_third(spiel: FLSpielCommon) -> bool:
+    return any(isinstance(quelle, FLSpielQuelleSpiel) and quelle.ausgang == "verlierer" for quelle in (spiel.team1_quelle, spiel.team2_quelle))
 
 
 def _fault_order(fault: FLBracketFault) -> tuple[int, str, str, int]:
