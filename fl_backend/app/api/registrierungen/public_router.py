@@ -56,14 +56,20 @@ from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, ref
 from app.core.dependencies import (
     DBClient,
     InvitationsCollection,
+    InvitationsReadCollection,
     OutboxCollection,
     RegistrierungenCollection,
+    RegistrierungenReadCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
+    SaisonSpielerReadCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
+    SaisonTeamsReadCollection,
     SpielerCollection,
-    SpieltageCollection,
-    TeamsCollection,
+    SpielerReadCollection,
+    SpieltageReadCollection,
+    TeamsReadCollection,
     get_german_date_str,
     get_germany_now,
 )
@@ -127,12 +133,12 @@ async def _open_einladung(*, einladungen_collection: Any, token: str, session: A
 )
 async def post_invitation_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],
-    einladungen_collection: InvitationsCollection,
-    saisons_collection: SaisonsCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    saison_spieler_collection: SaisonSpielerCollection,
-    spieltage_collection: SpieltageCollection,
-    teams_collection: TeamsCollection,
+    einladungen_collection: InvitationsReadCollection,
+    saisons_collection: SaisonsReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    saison_spieler_collection: SaisonSpielerReadCollection,
+    spieltage_collection: SpieltageReadCollection,
+    teams_collection: TeamsReadCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLInvitationViewResponse:
     """
@@ -353,9 +359,9 @@ async def post_registrierung(
 )
 async def get_confirmation_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],
-    registrierungen_collection: RegistrierungenCollection,
-    teams_collection: TeamsCollection,
-    spieler_collection: SpielerCollection,
+    registrierungen_collection: RegistrierungenReadCollection,
+    teams_collection: TeamsReadCollection,
+    spieler_collection: SpielerReadCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLRegistrierungConfirmationViewResponse:

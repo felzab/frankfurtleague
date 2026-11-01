@@ -5,14 +5,14 @@ Here rather than in `services.py`, which decides from its arguments and names no
 """
 
 from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.spieltage.services import build_erster_spieltag_filter, nachnominierung_laeuft
+from app.core.readonly import ReadCollection
 
 
 async def nachnominierung_laeuft_in(
     *,
-    spieltage_collection: AsyncCollection,
+    spieltage_collection: ReadCollection,
     saison_id: str,
     today: str,
     # REQUIRED, `None` included: a transactional caller that forgot it would read outside its

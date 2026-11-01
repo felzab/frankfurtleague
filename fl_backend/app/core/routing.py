@@ -14,8 +14,9 @@ SAFE_METHODS: Final = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 # An operation writing nothing although it is served over POST, a token or an address travelling in its body rather
 # than its URL: "safe" as RFC 9110 section 9.2.1 means it. Stated as an OpenAPI specification extension, through
 # FastAPI's `openapi_extra`, so the published operation carries it, and the frontend's generated client sends such a
-# call as a read (`fl_frontend/orval.config.ts :: transportOf`). `tests/core/test_safe_operations.py` holds it to
-# the handler's writes.
+# call as a read (`fl_frontend/orval.config.ts :: transportOf`). Such an operation is handed read-only collections
+# alone (`app/core/readonly.py`), so pyright refuses its writes; `tests/core/test_safe_operations.py` holds the mark
+# to those types, both ways.
 SAFE: Final[dict[str, Any]] = {"x-safe": True}
 
 # An operation writing nothing whenever this boolean query parameter is true, a write's dry run.

@@ -34,22 +34,34 @@ from app.core.crud import aggregate_many_from_db, post_one_to_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
+    AddressChangeReadCollection,
     BewerbungenCollection,
+    BewerbungenReadCollection,
     DBClient,
     GrantApprovalRequestsCollection,
+    GrantApprovalRequestsReadCollection,
     GrantsAnnouncedCollection,
+    GrantsAnnouncedReadCollection,
     GrantsCollection,
+    GrantsReadCollection,
     InvitationsCollection,
     OutboxCollection,
     RegistrierungenCollection,
+    RegistrierungenReadCollection,
     SaisonSpielerCollection,
+    SaisonSpielerReadCollection,
     SaisonTeamsCollection,
+    SaisonTeamsReadCollection,
     SchiedsrichterCollection,
+    SchiedsrichterReadCollection,
+    SnapshotSession,
     SperrlisteCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
     SpielerCollection,
+    SpieleReadCollection,
+    SpielerReadCollection,
     get_germany_now,
 )
 from app.core.recording import act_row, anlass_var, log_stamp
@@ -82,18 +94,19 @@ router = APIRouter(
 )
 async def get_erasure_view(
     ansicht_data: Annotated[FLErasureAdressePayload, Body()],
-    saison_teams_collection: SaisonTeamsCollection,
-    bewerbungen_collection: BewerbungenCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    spieler_collection: SpielerCollection,
-    saison_spieler_collection: SaisonSpielerCollection,
-    registrierungen_collection: RegistrierungenCollection,
-    spiele_collection: SpieleCollection,
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    berechtigungen_antraege_collection: GrantApprovalRequestsCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    bewerbungen_collection: BewerbungenReadCollection,
+    schiedsrichter_collection: SchiedsrichterReadCollection,
+    spieler_collection: SpielerReadCollection,
+    saison_spieler_collection: SaisonSpielerReadCollection,
+    registrierungen_collection: RegistrierungenReadCollection,
+    spiele_collection: SpieleReadCollection,
+    berechtigungen_collection: GrantsReadCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedReadCollection,
+    berechtigungen_antraege_collection: GrantApprovalRequestsReadCollection,
+    adresswechsel_collection: AddressChangeReadCollection,
     sperrliste: SperrlisteLookup,
-    db: DBClient,
+    session: SnapshotSession,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
@@ -135,58 +148,58 @@ async def get_erasure_view(
     akteur = sign_in_identifier(operator)
     refuse(find_eigene_adresse_refusal(identifier=identifier, akteur=akteur))
 
-    # A snapshot, so the reveal names the records of one moment; never a transaction, a read writing
-    # nothing having no conflict to retry for.
-    async with db.start_session(snapshot=True) as session:
-        grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
-        announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
-        refuse(
-            find_verwaltung_adresse_refusal(
-                identifier=identifier, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced, geschuetzt=JEDE_VERWALTUNG
-            )
+    # Every read in the request's snapshot session, so the reveal names the records of one moment; never a transaction,
+    # a read writing nothing having no conflict to retry for.
+    grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
+    announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
+    refuse(
+        find_verwaltung_adresse_refusal(
+            identifier=identifier, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced, geschuetzt=JEDE_VERWALTUNG
         )
+    )
 
-        subject = await resolve_subject(
-            identifier,
-            saison_teams_collection=saison_teams_collection,
-            bewerbungen_collection=bewerbungen_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            spieler_collection=spieler_collection,
-            registrierungen_collection=registrierungen_collection,
-            key=config.sperrliste_key,
+    subject = await resolve_subject(
+        identifier,
+        saison_teams_collection=saison_teams_collection,
+        bewerbungen_collection=bewerbungen_collection,
+        schiedsrichter_collection=schiedsrichter_collection,
+        spieler_collection=spieler_collection,
+        registrierungen_collection=registrierungen_collection,
+        adresswechsel_collection=adresswechsel_collection,
+        key=config.sperrliste_key,
+        session=session,
+    )
+    kader_rows = (
+        await aggregate_many_from_db(
+            collection=saison_spieler_collection,
+            pipeline=build_loeschung_kader_pipeline(row["_id"] for row in subject.spieler),
             session=session,
         )
-        kader_rows = (
-            await aggregate_many_from_db(
-                collection=saison_spieler_collection,
-                pipeline=build_loeschung_kader_pipeline(row["_id"] for row in subject.spieler),
-                session=session,
-            )
-            if subject.spieler
-            else []
+        if subject.spieler
+        else []
+    )
+    # A registration and a squad row hold their team's id alone, and the season row is what names the club that season.
+    named = [*subject.registrierungen, *kader_rows]
+    team_rows = (
+        await aggregate_many_from_db(collection=saison_teams_collection, pipeline=build_season_team_pipeline(named), session=session)
+        if named
+        else []
+    )
+    unplayed_rows = (
+        await aggregate_many_from_db(
+            collection=spiele_collection,
+            pipeline=build_unplayed_saison_pipeline(row["_id"] for row in subject.schiedsrichter),
+            session=session,
         )
-        # A registration and a squad row hold their team's id alone, and the season row is what names the club that season.
-        named = [*subject.registrierungen, *kader_rows]
-        team_rows = (
-            await aggregate_many_from_db(collection=saison_teams_collection, pipeline=build_season_team_pipeline(named), session=session)
-            if named
-            else []
-        )
-        unplayed_rows = (
-            await aggregate_many_from_db(
-                collection=spiele_collection,
-                pipeline=build_unplayed_saison_pipeline(row["_id"] for row in subject.schiedsrichter),
-                session=session,
-            )
-            if subject.schiedsrichter
-            else []
-        )
-        # The stored-address judgement, as the Postausgang's hand-out judges a mail's address: an address no rule
-        # keys a ban under answers false, where keying the payload's spelling would raise.
-        gesperrt = await adressen_gesperrt(sperrliste, [ansicht_data.email], session=session)
-        antrag_rows = await read_the_antraege_of(
-            berechtigungen_antraege_collection=berechtigungen_antraege_collection, identifier=identifier, now=germany_now, session=session
-        )
+        if subject.schiedsrichter
+        else []
+    )
+    # The stored-address judgement, as the Postausgang's hand-out judges a mail's address: an address no rule
+    # keys a ban under answers false, where keying the payload's spelling would raise.
+    gesperrt = await adressen_gesperrt(sperrliste, [ansicht_data.email], session=session)
+    antrag_rows = await read_the_antraege_of(
+        berechtigungen_antraege_collection=berechtigungen_antraege_collection, identifier=identifier, now=germany_now, session=session
+    )
 
     verwehrt: dict[str, FLAddressChangeViewableDenied] = {
         str(row["adresse"]): grund
@@ -302,6 +315,7 @@ async def post_erasure(
             schiedsrichter_collection=schiedsrichter_collection,
             spieler_collection=spieler_collection,
             registrierungen_collection=registrierungen_collection,
+            adresswechsel_collection=adresswechsel_collection,
             key=config.sperrliste_key,
             session=session,
         )

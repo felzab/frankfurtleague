@@ -28,6 +28,7 @@ from pymongo.results import DeleteResult, InsertManyResult, InsertOneResult, Upd
 from app.core.codes import Code
 from app.core.collections import EDITED_COLLECTIONS
 from app.core.exceptions import APIError, DocumentNotFoundError, WriteRefusal
+from app.core.readonly import ReadCollection
 from app.core.recording import RedactionTarget, build_redaction_filter, build_redaction_update, record_write
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -42,7 +43,7 @@ GERMAN_COLLATION: Mapping[str, Any] = {"locale": "de"}
 
 async def pull_one_from_db(
     *,
-    collection: AsyncCollection,
+    collection: ReadCollection,
     db_filter: Mapping[str, Any],
     projection: Mapping[str, Any] | list[str] | None = None,
     session: AsyncClientSession | None = None,
@@ -58,7 +59,7 @@ async def pull_one_from_db(
 
 async def pull_many_from_db(
     *,
-    collection: AsyncCollection,
+    collection: ReadCollection,
     db_filter: Mapping[str, Any],
     limit: int = LIST_LIMIT_DEFAULT,
     sort_by: Sequence[tuple[str, int]] | None = None,
@@ -473,7 +474,7 @@ async def redact_log_rows_in_db(
 
 async def aggregate_many_from_db(
     *,
-    collection: AsyncCollection,
+    collection: ReadCollection,
     pipeline: Sequence[Mapping[str, Any]],
     collation: Mapping[str, Any] | None = None,
     session: AsyncClientSession | None = None,

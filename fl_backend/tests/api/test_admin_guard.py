@@ -291,7 +291,7 @@ def test_every_admin_tier_operation_judges_its_actor_after_the_key(path: str, me
 
 # The admin-tier reads served over POST, the address they ask about travelling in a body rather than an access
 # line: the operations the document marks safe (`app/core/routing.py :: SAFE`), a mark
-# `tests/core/test_safe_operations.py` holds to each handler's writes.
+# `tests/core/test_safe_operations.py` holds to the read-only handles each operation is handed.
 ADMIN_TIER_READS_OVER_POST = frozenset(
     (path, method) for path, method in ADMIN_TIER_OPERATIONS if method == "post" and APP.openapi()["paths"][path][method].get(SAFE_KEY) is True
 )

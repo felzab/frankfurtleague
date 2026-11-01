@@ -14,13 +14,13 @@ from typing import Annotated, Final
 from fastapi import Depends
 from pydantic import SecretStr
 from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import address_is_gesperrt, gesperrte_adressen, gesperrte_hashes
 from app.api.sperrliste.services import adresse_hash
 from app.core.config import BackendConfig, get_app_config
-from app.core.dependencies import SaisonsCollection, SperrlisteCollection
+from app.core.dependencies import SaisonsReadCollection, SperrlisteReadCollection
+from app.core.readonly import ReadCollection
 
 
 class RunningSeason:
@@ -35,8 +35,8 @@ Saison = str | None | RunningSeason
 
 @dataclass(frozen=True)
 class BanList:
-    sperrliste_collection: AsyncCollection
-    saisons_collection: AsyncCollection
+    sperrliste_collection: ReadCollection
+    saisons_collection: ReadCollection
     key: SecretStr
 
     def hash_of(self, adresse: str) -> str:
@@ -108,8 +108,8 @@ async def hashes_gesperrt(
 
 
 def get_ban_list(
-    sperrliste_collection: SperrlisteCollection,
-    saisons_collection: SaisonsCollection,
+    sperrliste_collection: SperrlisteReadCollection,
+    saisons_collection: SaisonsReadCollection,
     config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> BanList:
     """The request's ban list, keyed as every row of it is."""

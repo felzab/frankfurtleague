@@ -37,6 +37,7 @@ from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_fr
 from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
+    AddressChangeReadCollection,
     BewerbungenCollection,
     DBClient,
     GrantApprovalRequestsCollection,
@@ -449,7 +450,7 @@ async def post_address_change_moves_done(
 )
 async def get_address_change_adresse(
     adresse_data: Annotated[FLAddressChangeAdressePayload, Body()],
-    adresswechsel_collection: AddressChangeCollection,
+    adresswechsel_collection: AddressChangeReadCollection,
 ) -> FLAddressChangeAdresseResponse:
     """
     Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.

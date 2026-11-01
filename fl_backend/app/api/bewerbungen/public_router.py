@@ -89,12 +89,16 @@ from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db, pu
 from app.core.dependencies import (
     ActionLogCollection,
     BewerbungenCollection,
+    BewerbungenReadCollection,
     DBClient,
     OutboxCollection,
     SaisonsCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
+    SaisonTeamsReadCollection,
     SpielbestaetigungenCollection,
     TeamsCollection,
+    TeamsReadCollection,
     get_german_date_str,
     get_germany_now,
 )
@@ -464,7 +468,7 @@ async def post_bewerbung(
         return await session.with_transaction(store_or_replay)
 
 
-async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: TeamsCollection) -> str:
+async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: TeamsReadCollection) -> str:
     """The school's name as submitted, or the picked club's own."""
 
     if isinstance(bewerbung_raw.get("schule"), Mapping):
@@ -481,8 +485,8 @@ async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: Te
 async def _saison_ansicht(
     *,
     token_hash: str,
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    saisons_collection: SaisonsReadCollection,
     sperrliste: SperrlisteLookup,
     today: str,
 ) -> FLBewerbungEinwilligungViewResponse:
@@ -528,10 +532,10 @@ async def _saison_ansicht(
 )
 async def get_einwilligung_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],
-    bewerbungen_collection: BewerbungenCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    teams_collection: TeamsCollection,
+    bewerbungen_collection: BewerbungenReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    saisons_collection: SaisonsReadCollection,
+    teams_collection: TeamsReadCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungEinwilligungViewResponse:

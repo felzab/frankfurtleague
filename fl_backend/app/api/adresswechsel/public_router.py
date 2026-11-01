@@ -42,11 +42,15 @@ from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
+    AddressChangeReadCollection,
     BewerbungenCollection,
     DBClient,
     GrantApprovalRequestsCollection,
+    GrantApprovalRequestsReadCollection,
     GrantsAnnouncedCollection,
+    GrantsAnnouncedReadCollection,
     GrantsCollection,
+    GrantsReadCollection,
     InvitationsCollection,
     OutboxCollection,
     RegistrierungenCollection,
@@ -55,6 +59,7 @@ from app.core.dependencies import (
     SperrlisteCollection,
     SpielbestaetigungenCollection,
     SpielerCollection,
+    SpielerReadCollection,
     get_germany_now,
 )
 from app.core.journal import Journal
@@ -96,12 +101,12 @@ _NICHT_BESTAETIGBAR = frozenset({"ersetzte_gesperrt", "vergeben", "nicht_gedeckt
 )
 async def get_address_change_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],
-    adresswechsel_collection: AddressChangeCollection,
+    adresswechsel_collection: AddressChangeReadCollection,
     records: SubjektLookup,
-    spieler_collection: SpielerCollection,
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    berechtigungen_antraege_collection: GrantApprovalRequestsCollection,
+    spieler_collection: SpielerReadCollection,
+    berechtigungen_collection: GrantsReadCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedReadCollection,
+    berechtigungen_antraege_collection: GrantApprovalRequestsReadCollection,
     sperrliste: SperrlisteLookup,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeViewResponse:

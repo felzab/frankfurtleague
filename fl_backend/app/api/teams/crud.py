@@ -11,6 +11,7 @@ from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.schemas import FLPublicTeamsFilterParams, FLTabelle, FLTeamListAdapter
 from app.api.teams.services import build_gruppen, build_tabelle, build_team_pipeline, find_entry_refusal
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, anchor_in_db, patch_many_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.literals import FLGruppenNames
 
@@ -108,7 +109,7 @@ async def pull_tabelle(
 
 
 async def pull_team_names(
-    *, teams_collection: AsyncCollection, team_ids: Iterable[Any], session: AsyncClientSession | None = None
+    *, teams_collection: ReadCollection, team_ids: Iterable[Any], session: AsyncClientSession | None = None
 ) -> dict[Any, str]:
     """These clubs' names off their `teams` documents, one read and no command for none; a club no document holds is absent."""
 

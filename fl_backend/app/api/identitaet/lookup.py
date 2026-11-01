@@ -9,35 +9,35 @@ from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import Depends
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.core.dependencies import (
-    BewerbungenCollection,
-    RegistrierungenCollection,
-    SaisonsCollection,
-    SaisonTeamsCollection,
-    SchiedsrichterCollection,
-    SpielerCollection,
+    BewerbungenReadCollection,
+    RegistrierungenReadCollection,
+    SaisonsReadCollection,
+    SaisonTeamsReadCollection,
+    SchiedsrichterReadCollection,
+    SpielerReadCollection,
 )
+from app.core.readonly import ReadCollection
 
 
 @dataclass(frozen=True, kw_only=True)
 class RecordCollections:
-    saison_teams_collection: AsyncCollection
-    saisons_collection: AsyncCollection
-    spieler_collection: AsyncCollection
-    schiedsrichter_collection: AsyncCollection
-    bewerbungen_collection: AsyncCollection
-    registrierungen_collection: AsyncCollection
+    saison_teams_collection: ReadCollection
+    saisons_collection: ReadCollection
+    spieler_collection: ReadCollection
+    schiedsrichter_collection: ReadCollection
+    bewerbungen_collection: ReadCollection
+    registrierungen_collection: ReadCollection
 
 
 def get_record_collections(
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    bewerbungen_collection: BewerbungenCollection,
-    registrierungen_collection: RegistrierungenCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    saisons_collection: SaisonsReadCollection,
+    spieler_collection: SpielerReadCollection,
+    schiedsrichter_collection: SchiedsrichterReadCollection,
+    bewerbungen_collection: BewerbungenReadCollection,
+    registrierungen_collection: RegistrierungenReadCollection,
 ) -> RecordCollections:
     return RecordCollections(
         saison_teams_collection=saison_teams_collection,

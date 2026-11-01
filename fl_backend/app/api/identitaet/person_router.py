@@ -175,6 +175,7 @@ async def get_account_erasure_view(
     schiedsrichter_collection: SchiedsrichterCollection,
     spieler_collection: SpielerCollection,
     registrierungen_collection: RegistrierungenCollection,
+    adresswechsel_collection: AddressChangeCollection,
     berechtigungen_collection: GrantsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
@@ -216,6 +217,7 @@ async def get_account_erasure_view(
             schiedsrichter_collection=schiedsrichter_collection,
             spieler_collection=spieler_collection,
             registrierungen_collection=registrierungen_collection,
+            adresswechsel_collection=adresswechsel_collection,
             key=config.sperrliste_key,
             session=session,
         )
