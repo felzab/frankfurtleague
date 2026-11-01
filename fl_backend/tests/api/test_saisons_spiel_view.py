@@ -83,9 +83,16 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
         async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON, "active"))
             await database[Collection.SPIELTAGE].insert_one(
-                {"_id": spiel["spieltag_id"], "beginn": None, "ende": None, "position": 1, "saison_phase": "gruppenphase", "saison_id": SAISON}
+                {"_id": spiel["spieltag_id"], "beginn": None, "ende": None, "position": 3, "saison_phase": "gruppenphase", "saison_id": SAISON}
             )
             await database[Collection.SPIELE].insert_one(spiel)
+            # The two sides entered in one group, so the match's own 2:0 is the whole of the group's table.
+            await database[Collection.TEAMS].insert_many(
+                [documents.team_document(HOME, "Alpha", "ALP"), documents.team_document(AWAY, "Beta", "BET")]
+            )
+            await database[Collection.SAISON_TEAMS].insert_many(
+                [documents.saison_team_document(SAISON, HOME, "Alpha", "ALP"), documents.saison_team_document(SAISON, AWAY, "Beta", "BET")]
+            )
             await database[Collection.SPIELBERICHTE].insert_one(report_of(spiel))
             await database[Collection.SPIELER].insert_many(
                 [
@@ -107,12 +114,9 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
         yield mongo_url
 
 
-@pytest.mark.db
-def test_each_entry_reads_as_a_name_as_anonym_or_as_unbekannt(seeded_url: str):
-    """By minute; the intern pupil keeps their number and position, the erased one keeps nothing, and no card says why."""
-
+def the_page(url: str) -> Any:
     async def body() -> Any:
-        database: AsyncDatabase = shared_client(seeded_url)[DATABASE_NAME]
+        database: AsyncDatabase = shared_client(url)[DATABASE_NAME]
         return await get_spiel(
             saison_id=SAISON,
             spiel_id=adopted_match()["_id"],
@@ -122,7 +126,24 @@ def test_each_entry_reads_as_a_name_as_anonym_or_as_unbekannt(seeded_url: str):
             spielberichte_collection=database[Collection.SPIELBERICHTE],
         )
 
-    bericht = on_the_seed_loop(body()).bericht
+    return on_the_seed_loop(body())
+
+
+@pytest.mark.db
+def test_each_side_stands_at_its_place_and_the_page_names_its_matchday(seeded_url: str):
+    """The winner first and the loser second, each on its own side, so a swap or a join that matched nobody shows."""
+
+    page = the_page(seeded_url)
+
+    assert page.spieltag_position == 3
+    assert page.standings.model_dump() == {"team1": {"gruppe": "A", "platz": 1}, "team2": {"gruppe": "A", "platz": 2}}
+
+
+@pytest.mark.db
+def test_each_entry_reads_as_a_name_as_anonym_or_as_unbekannt(seeded_url: str):
+    """By minute; the intern pupil keeps their number and position, the erased one keeps nothing, and no card says why."""
+
+    bericht = the_page(seeded_url).bericht
     entries = [*bericht.torschuetzen, *bericht.karten]
     served = [(entry.minute, entry.spieler.type, entry.spieler.vorname, entry.spieler.nachname, entry.spieler.nummer) for entry in entries]
 
