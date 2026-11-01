@@ -37,6 +37,24 @@ describe("a card", () => {
     expect(line?.parentElement?.lastElementChild?.querySelector("svg")).not.toBe(null);
   });
 
+  it("keeps a long name on the chip's line, cut with its full text as its title", () => {
+    const name = "Carlo-Mierendorff-Schule Frankfurt-Preungesheim";
+    render(
+      <Card title={COPY.shared.saison}>
+        <CardRow
+          href="/saisons/2027"
+          name={name}
+          chip={{ tone: "warn", label: COPY.shared.startelf }}
+        />
+      </Card>,
+    );
+    // jsdom draws no layout, so the cut is read from its classes: the name truncates, its line never wraps.
+    const cut = screen.getByRole("link", { name }).parentElement;
+    expect(cut?.classList.contains("truncate")).toBe(true);
+    expect(cut?.getAttribute("title")).toBe(name);
+    expect(cut?.parentElement?.classList.contains("flex-wrap")).toBe(false);
+  });
+
   it("makes a chooser's card one link, its title and line read as its name", () => {
     render(
       <CardLink

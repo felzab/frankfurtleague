@@ -86,14 +86,17 @@ export function CardLink({ href, title, ...props }: { href: Route; title: Copy }
 }
 
 /**
- * One record in a card's rows: its name, which wraps where it is long, with its chip, a fact at the right, the
- * whole row a link through its name, the chevron at its end saying so.
+ * One record in a card's rows: its name with its chip on one line, a fact at the right, the whole row a link
+ * through its name, the chevron at its end saying so. A name too long for the line is cut with „…“ so the
+ * chip keeps its place beside it; the full name stays the link's accessible name and shows as its title.
  */
 export function CardRow({ href, name, chip, detail }: { href: Route; name: string; chip?: ChipProps; detail?: string }) {
   return (
     <div className="relative flex min-h-14 items-stretch gap-3 border-t border-border px-4 py-2 text-sm transition-colors duration-(--motion-state) first:border-t-0 hover:bg-bg-surface lg:min-h-13">
-      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-        <span className="min-w-0 break-words">
+      <span className="flex min-w-0 flex-1 items-center gap-2">
+        <span
+          title={name}
+          className="min-w-0 truncate">
           <Link
             href={href}
             placement="row"
