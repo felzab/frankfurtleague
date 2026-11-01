@@ -16,12 +16,17 @@ from tests.worker import worker_database
 from .conftest import unwritten
 
 RUNNING_DATABASE_NAME = worker_database("fl_saisons_landing_view_test")
+BEFORE_START_DATABASE_NAME = worker_database("fl_saisons_landing_view_before_start_test")
+DECIDED_DATABASE_NAME = worker_database("fl_saisons_landing_view_decided_test")
 EMPTY_DATABASE_NAME = worker_database("fl_saisons_landing_view_empty_test")
 
 SAISON, NEXT = "2026", "2027"
 TODAY = "2026-03-05"
 ALPHA, BETA = ObjectId("6890a1b2c3d4e5f607440001"), ObjectId("6890a1b2c3d4e5f607440002")
+# A club that left the league before this season, its junction row and a live squad row still standing.
+RETIRED = ObjectId("6890a1b2c3d4e5f607440003")
 DAY_1, DAY_2 = ObjectId("6890a1b2c3d4e5f607440011"), ObjectId("6890a1b2c3d4e5f607440012")
+FINALE_DAY = ObjectId("6890a1b2c3d4e5f607440013")
 
 # Open today, and for the season after the one the site is on, which the frame withholds.
 OPEN_WINDOW = {"offen": True, "von": "2026-03-01", "bis": "2026-03-31"}
@@ -31,49 +36,91 @@ def side(team_id: ObjectId, name: str, tore: int | None) -> dict[str, Any]:
     return {"team_id": team_id, "name": name, "shorthand": name[:3].upper(), "tore": tore}
 
 
-def match(spiel_nr: int, spieltag_id: ObjectId, datum: str, tore: tuple[int, int] | None) -> dict[str, Any]:
+def match(
+    spiel_nr: int,
+    spieltag_id: ObjectId,
+    datum: str | None,
+    tore: tuple[int, int] | None,
+    *,
+    uhrzeit: str | None = "14:00:00",
+    names: tuple[str, str] = ("Alpha", "Beta"),
+    saison_phase: str = "gruppenphase",
+) -> dict[str, Any]:
+    """Alpha against Beta unless `names` says otherwise, any other name a club of its own."""
+
+    ids = {"Alpha": ALPHA, "Beta": BETA}
+    home, away = (side(ids.get(name) or ObjectId(), name, None if tore is None else tore[index]) for index, name in enumerate(names))
+
     return documents.spiel_document(
         spiel_id=ObjectId(),
         saison_id=SAISON,
         spiel_nr=spiel_nr,
         spieltag_id=spieltag_id,
-        team1=side(ALPHA, "Alpha", None if tore is None else tore[0]),
-        team2=side(BETA, "Beta", None if tore is None else tore[1]),
+        saison_phase=saison_phase,
+        team1=home,
+        team2=away,
         datum=datum,
-        uhrzeit="14:00:00",
+        uhrzeit=uhrzeit,
         ergebnis=None if tore is None else f"{tore[0]}:{tore[1]}",
     )
 
 
-def spieltag(spieltag_id: ObjectId, position: int) -> dict[str, Any]:
-    return {"_id": spieltag_id, "beginn": None, "ende": None, "position": position, "saison_phase": "gruppenphase", "saison_id": SAISON}
+def spieltag(spieltag_id: ObjectId, position: int, saison_phase: str = "gruppenphase") -> dict[str, Any]:
+    return {"_id": spieltag_id, "beginn": None, "ende": None, "position": position, "saison_phase": saison_phase, "saison_id": SAISON}
+
+
+def seeded(url: str, database_name: str, collections: dict[str, list[dict[str, Any]]]) -> None:
+    """The season the site is on beside the next one, which takes applications today, and these documents."""
+
+    async def _seed() -> None:
+        async with a_clean_database(url, database_name) as (_, database):
+            await database[Collection.SAISONS].insert_many(
+                [documents.saison_document(SAISON, "active"), documents.saison_document(NEXT, "future", bewerbung=dict(OPEN_WINDOW))]
+            )
+            for name, rows in collections.items():
+                await database[name].insert_many(rows)
+
+    on_the_seed_loop(_seed())
 
 
 @pytest.fixture(scope="module")
 def running_url(mongo_url: str) -> Iterator[str]:
-    """A season under way: one match played, one to come; two clubs, one live squad row and one ausgetragen."""
+    """A season under way: three matches played and three to come, so both lists hold more than they show.
 
-    async def _seed() -> None:
-        async with a_clean_database(mongo_url, RUNNING_DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_many(
-                [documents.saison_document(SAISON, "active"), documents.saison_document(NEXT, "future", bewerbung=dict(OPEN_WINDOW))]
-            )
-            await database[Collection.TEAMS].insert_many(
-                [documents.team_document(ALPHA, "Alpha", "ALP"), documents.team_document(BETA, "Beta", "BET")]
-            )
-            await database[Collection.SAISON_TEAMS].insert_many(
-                [documents.saison_team_document(SAISON, ALPHA, "Alpha", "ALP"), documents.saison_team_document(SAISON, BETA, "Beta", "BET")]
-            )
-            await database[Collection.SPIELTAGE].insert_many([spieltag(DAY_1, 1), spieltag(DAY_2, 2)])
-            await database[Collection.SPIELE].insert_many([match(1, DAY_1, "2026-03-01", (2, 1)), match(2, DAY_2, "2026-03-08", None)])
-            await database[Collection.SAISON_SPIELER].insert_many(
-                [
-                    documents.saison_spieler_document(ObjectId(), SAISON, ALPHA),
-                    documents.saison_spieler_document(ObjectId(), SAISON, BETA, inactive_since="2026-02-01"),
-                ]
-            )
+    Three clubs, one of which left the league, and three squad rows: one live, one ausgetragen, and the retired club's.
+    """
 
-    on_the_seed_loop(_seed())
+    seeded(
+        mongo_url,
+        RUNNING_DATABASE_NAME,
+        {
+            Collection.TEAMS: [
+                documents.team_document(ALPHA, "Alpha", "ALP"),
+                documents.team_document(BETA, "Beta", "BET"),
+                documents.team_document(RETIRED, "Gamma", "GAM", inactive_since="2026-01-15"),
+            ],
+            Collection.SAISON_TEAMS: [
+                documents.saison_team_document(SAISON, ALPHA, "Alpha", "ALP"),
+                documents.saison_team_document(SAISON, BETA, "Beta", "BET"),
+                documents.saison_team_document(SAISON, RETIRED, "Gamma", "GAM"),
+            ],
+            Collection.SPIELTAGE: [spieltag(DAY_1, 1), spieltag(DAY_2, 2)],
+            # Inserted out of their order, so neither list can pass on the insertion order.
+            Collection.SPIELE: [
+                match(2, DAY_1, "2026-02-27", (0, 0)),
+                match(5, DAY_2, "2026-03-15", None),
+                match(1, DAY_1, "2026-02-20", (2, 1)),
+                match(6, DAY_2, "2026-03-22", None),
+                match(3, DAY_1, "2026-03-01", (1, 3)),
+                match(4, DAY_2, "2026-03-08", None),
+            ],
+            Collection.SAISON_SPIELER: [
+                documents.saison_spieler_document(ObjectId(), SAISON, ALPHA),
+                documents.saison_spieler_document(ObjectId(), SAISON, BETA, inactive_since="2026-02-01"),
+                documents.saison_spieler_document(ObjectId(), SAISON, RETIRED),
+            ],
+        },
+    )
 
     with unwritten(mongo_url, RUNNING_DATABASE_NAME):
         yield mongo_url
@@ -95,15 +142,65 @@ def landing(url: str, database_name: str) -> Any:
 
 
 @pytest.mark.db
-def test_a_running_season_shows_its_latest_result_its_next_match_and_its_figures(running_url: str):
+def test_a_running_season_shows_its_latest_results_its_next_matches_and_its_figures(running_url: str):
+    """The latest two results newest first and the next two soonest first; the retired club and its squad in neither figure."""
+
     response = landing(running_url, RUNNING_DATABASE_NAME)
     saison = response.saison
 
     assert (saison.id, saison.state, saison.first_kickoff, saison.podium) == (SAISON, "running", None, [])
-    assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == ([1], [2])
-    assert saison.counts.model_dump() == {"count_teams": 2, "count_spieler": 1, "count_spiele": 2, "count_spieltage": 2}
+    assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == ([3, 2], [4, 5])
+    assert saison.counts.model_dump() == {"count_teams": 2, "count_spieler": 1, "count_spiele": 6, "count_spieltage": 2}
     assert [team.name for team in saison.teams] == ["Alpha", "Beta"]
     assert response.application_window.model_dump() == {"saison_id": NEXT, "von": "2026-03-01", "bis": "2026-03-31"}
+
+
+@pytest.mark.db
+def test_a_season_before_its_first_match_shows_when_it_kicks_off(mongo_url: str):
+    """The opening day holds an untimed fixture beside two timed ones, which a null sorting ahead of every time would hide."""
+
+    seeded(
+        mongo_url,
+        BEFORE_START_DATABASE_NAME,
+        {
+            Collection.SPIELTAGE: [spieltag(DAY_1, 1), spieltag(DAY_2, 2)],
+            Collection.SPIELE: [
+                match(1, DAY_1, "2026-03-10", None, uhrzeit=None),
+                match(2, DAY_1, "2026-03-10", None, uhrzeit="17:30:00"),
+                match(3, DAY_1, "2026-03-10", None, uhrzeit="15:00:00"),
+                match(4, DAY_2, "2026-03-17", None, uhrzeit="10:00:00"),
+                match(5, DAY_2, None, None, uhrzeit=None),
+            ],
+        },
+    )
+
+    saison = landing(mongo_url, BEFORE_START_DATABASE_NAME).saison
+
+    assert (saison.state, saison.recent, saison.upcoming, saison.podium) == ("before_start", [], [], [])
+    assert saison.first_kickoff.model_dump() == {"datum": "2026-03-10", "uhrzeit": "15:00:00"}
+
+
+@pytest.mark.db
+def test_a_season_whose_final_is_played_shows_its_podium(mongo_url: str):
+    """The match for third place and the final, read off the Finale's matchday through the joined shape the landing serves."""
+
+    seeded(
+        mongo_url,
+        DECIDED_DATABASE_NAME,
+        {
+            Collection.SPIELTAGE: [spieltag(DAY_1, 1), spieltag(FINALE_DAY, 1, "finale")],
+            Collection.SPIELE: [
+                match(1, DAY_1, "2026-02-20", (2, 1)),
+                match(2, FINALE_DAY, "2026-03-01", (0, 1), names=("Cara", "Dora"), saison_phase="finale"),
+                match(3, FINALE_DAY, "2026-03-01", (2, 1), saison_phase="finale"),
+            ],
+        },
+    )
+
+    saison = landing(mongo_url, DECIDED_DATABASE_NAME).saison
+
+    assert (saison.state, saison.recent, saison.upcoming) == ("decided", [], [])
+    assert [(place.platz, place.name) for place in saison.podium] == [(1, "Alpha"), (2, "Beta"), (3, "Dora"), (4, "Cara")]
 
 
 @pytest.mark.db

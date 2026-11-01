@@ -130,6 +130,18 @@ async def get_frame(saisons_collection: SaisonsCollection) -> FLSaisonFrameRespo
 LANDING_SPIELE: Final = 2
 
 
+def _first_kickoff_pipeline(saison_id: str) -> list[Mapping[str, Any]]:
+    """The season's earliest dated group match, a timed one ahead of an untimed one on the same day."""
+
+    return [
+        {"$match": {"saison_id": saison_id, "saison_phase": "gruppenphase", "datum": {"$type": "string"}}},
+        # A null sorts ahead of every time, so an untimed fixture would otherwise hide the opening day's kick-off.
+        {"$set": {"untimed": {"$ne": [{"$type": "$uhrzeit"}, "string"]}}},
+        {"$sort": {"datum": 1, "untimed": 1, "uhrzeit": 1}},
+        {"$project": {"_id": 0, "datum": 1, "uhrzeit": 1}},
+    ]
+
+
 async def _active_or_none(saisons_collection: AsyncCollection) -> PublicSaison | None:
     try:
         return await resolve_public_saison(saisons_collection=saisons_collection, saison_id=None)
@@ -169,14 +181,10 @@ async def get_landing(
 
     in_saison = {"saison_id": saison.id}
     # Two groups of reads sent at once, because one gather of nine types none of its results.
-    (started, first, recent_raw, upcoming_raw, finale_raw), (teams, count_spieler, count_spiele, count_spieltage) = await asyncio.gather(
+    (started, first_raw, recent_raw, upcoming_raw, finale_raw), (teams, squads_raw, count_spiele, count_spieltage) = await asyncio.gather(
         asyncio.gather(
             has_started(spiele_collection=spiele_collection, saison_id=saison.id, today=today),
-            spiele_collection.find_one(
-                {**in_saison, "saison_phase": "gruppenphase", "datum": {"$type": "string"}},
-                {"datum": 1, "uhrzeit": 1},
-                sort=[("datum", 1), ("uhrzeit", 1)],
-            ),
+            aggregate_many_from_db(collection=spiele_collection, pipeline=_first_kickoff_pipeline(saison.id), limit=1),
             aggregate_many_from_db(
                 collection=spiele_collection,
                 pipeline=build_spiele_pipeline(
@@ -199,7 +207,12 @@ async def get_landing(
         ),
         asyncio.gather(
             _clubs_of(teams_collection=teams_collection, saison_id=saison.id),
-            saison_spieler_collection.count_documents({**in_saison, "inactive_since": None}),
+            # Under the collation `saison_spieler_saison_id_team_id_de` is built with, which an index serves a match by alone.
+            aggregate_many_from_db(
+                collection=saison_spieler_collection,
+                pipeline=[{"$match": {**in_saison, "inactive_since": None}}, {"$group": {"_id": "$team_id", "count": {"$sum": 1}}}],
+                collation=GERMAN_COLLATION,
+            ),
             spiele_collection.count_documents(in_saison),
             spieltage_collection.count_documents(in_saison),
         ),
@@ -210,6 +223,11 @@ async def get_landing(
         FLPodiumPlace(platz=platz, team_id=side.team_id, name=side.name, shorthand=side.shorthand)
         for platz, side in podium_of(FLSpielJoinedListAdapter.validate_python(finale_raw))
     ]
+
+    # The live rows of the clubs `count_teams` counts, so a club that left takes its squad out of the figure with it.
+    counted_teams = {team.id for team in teams}
+    count_spieler = sum(row["count"] for row in squads_raw if row["_id"] in counted_teams)
+    first = first_raw[0] if first_raw else None
 
     state: FLLandingState = "decided" if any(place.platz == 1 for place in podium) else "running" if started else "before_start"
 

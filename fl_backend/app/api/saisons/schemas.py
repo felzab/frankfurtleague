@@ -460,7 +460,7 @@ class FLPodiumPlace(BaseReadModel):
 
 
 class FLLandingCounts(BaseReadModel):
-    """The season's four figures, counted on every read: its clubs, its squads' live rows, its matches and matchdays."""
+    """The season's four figures, counted on every read: its clubs, those clubs' live squad rows, its matches and matchdays."""
 
     count_teams: int = Field(ge=0)
     count_spieler: int = Field(ge=0)

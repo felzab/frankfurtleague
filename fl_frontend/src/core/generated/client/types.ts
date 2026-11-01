@@ -3173,7 +3173,7 @@ export interface FLKontaktpersonPayload {
 }
 
 /**
- * The season's four figures, counted on every read: its clubs, its squads' live rows, its matches and matchdays.
+ * The season's four figures, counted on every read: its clubs, those clubs' live squad rows, its matches and matchdays.
  */
 export interface FLLandingCounts {
   /** @minimum 0 */
@@ -5845,7 +5845,7 @@ export interface FLTabelleRow {
 }
 
 /**
- * Every group the season offers, in standing order, each row numbered as a `Platz` is.
+ * Every group the season offers, in standing order, each row numbered as a `Platz` is: clubs the chain leaves level share one.
  */
 export type FLTabelle = Partial<Record<FLGruppenNames, FLTabelleRow[]>>;
 

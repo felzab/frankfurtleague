@@ -7679,7 +7679,7 @@
         "type": "object"
       },
       "FLLandingCounts": {
-        "description": "The season's four figures, counted on every read: its clubs, its squads' live rows, its matches and matchdays.",
+        "description": "The season's four figures, counted on every read: its clubs, those clubs' live squad rows, its matches and matchdays.",
         "properties": {
           "count_spiele": {
             "minimum": 0.0,
@@ -17172,7 +17172,7 @@
           },
           "type": "array"
         },
-        "description": "Every group the season offers, in standing order, each row numbered as a `Platz` is.",
+        "description": "Every group the season offers, in standing order, each row numbered as a `Platz` is: clubs the chain leaves level share one.",
         "propertyNames": {
           "$ref": "#/components/schemas/FLGruppenNames"
         },
