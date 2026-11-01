@@ -208,8 +208,8 @@ async def loeschen_person_in_session(
         session=session,
     )
 
-    # The squad rows first: the public read `$lookup`s outward from the person, so a row left
-    # behind is orphaned invisibly rather than surfacing as a fault somebody would notice.
+    # The squad rows first: the public read starts from them and drops a row whose person its `$lookup` cannot
+    # find, so a row left behind is orphaned invisibly rather than surfacing as a fault somebody would notice.
     geloescht_rows = await erase_many_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id}, session=session)
     geloescht_person = await erase_many_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, session=session)
 

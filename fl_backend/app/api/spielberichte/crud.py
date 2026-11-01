@@ -99,7 +99,7 @@ async def pull_genannt(
 ) -> list[FLSpielberichtSpieler]:
     """Every pupil the block names outside the squads served, so a stored entry keeps its name; every one where none is served.
 
-    An erased pupil comes nameless, read „anonym“ rather than as the id its entry keeps.
+    An erased pupil's entries name the sentinel, which comes nameless and reads „anonym“.
     """
 
     live = {row["spieler_id"] for seite in SEITEN for row in live_kader(lage, seite)} if kader_offen else set()
@@ -336,9 +336,9 @@ async def repoint_pupil_entries_in_session(
 ) -> int:
     """Repoint every scorer and card entry naming this pupil at the sentinel, answering how many reports changed.
 
-    The one place an erased pupil's entries are repointed; a further kind of entry naming a pupil, a
-    line-up's, is repointed here too. The report stands as the league's record of the match, its
-    adoption with it: `bericht.version` counts the referee's and the administrator's writes alone.
+    The one place an erased pupil's entries are repointed. A line-up's entries are not repointed: nothing writes one
+    before session 8, which owes their repoint here. The report stands as the league's record of the match, its adoption
+    with it: `bericht.version` counts the referee's and the administrator's writes alone.
     """
 
     # One update over both arrays, each through its own `$[<identifier>]` (the manual's
