@@ -1,4 +1,5 @@
 import { COPY } from "@/core/copy";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import { BracketCard } from "./BracketCard";
 import { tv } from "./tv";
@@ -120,7 +121,7 @@ function ThirdPlace({ match, width }: { match: BracketMatch; width: Width }) {
         className={style.gap()}
       />
       <Row
-        label={COPY.shared.season.thirdPlace}
+        label={SERVER_COPY.season.thirdPlace}
         matches={[match]}
         width={width}
       />

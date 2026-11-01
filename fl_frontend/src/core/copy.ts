@@ -165,14 +165,13 @@ export const COPY = catalogue({
     startelf: "Startelf",
     bank: "Bank",
 
-    /** The kit's season blocks: the Tabelle's marks and groups, and the K.-o.-Baum's rows. */
+    /**
+     * The kit's season blocks that a client component draws: a table's rows reach the list's client table. The
+     * rest, which only the server draws, stand in `SERVER_COPY.season`.
+     */
     season: {
-      /** The match between the two semi-finals' losers, on its own row above the Finale. */
-      thirdPlace: "Spiel um Platz 3",
       /** The name of the mark beside a club's figure: how many of its fixtures were called off. */
       cancelled: (count: number) => (count === 1 ? "1 Spiel abgesagt" : `${formatNumber(count)} Spiele abgesagt`),
-      /** One group's table on the Tabelle. */
-      gruppe: (gruppe: string) => `Gruppe ${gruppe}`,
     },
 
     /** The ⓘ's name, which its tooltip shows. */

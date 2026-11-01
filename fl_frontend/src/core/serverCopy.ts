@@ -64,4 +64,12 @@ export const SERVER_COPY = catalogue({
       firstContact: "Du weißt nichts davon? Dann antworte auf diese E-Mail, und wir löschen deine Angaben.",
     },
   },
+
+  /** The kit's season blocks, drawn on the server alone: the Tabelle's groups and the K.-o.-Baum's rows. */
+  season: {
+    /** One group's table on the Tabelle. */
+    gruppe: (gruppe: string) => `Gruppe ${gruppe}`,
+    /** The match between the two semi-finals' losers, on its own row above the Finale. */
+    thirdPlace: "Spiel um Platz 3",
+  },
 });

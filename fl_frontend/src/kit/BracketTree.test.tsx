@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import { BracketTree } from "./BracketTree";
 
@@ -84,7 +85,7 @@ describe("the K.-o.-Baum", () => {
     expect(rowsOf()).toStrictEqual([
       ["Viertelfinale", 4],
       ["Halbfinale", 2],
-      [COPY.shared.season.thirdPlace, 1],
+      [SERVER_COPY.season.thirdPlace, 1],
       ["Finale", 1],
     ]);
   });
