@@ -230,7 +230,7 @@ function season({ id, status, start, end, drawn, groups, dates, play, knockout =
   const seeded = (gruppe, platz) => ({ type: "gruppe", gruppe, platz });
   const [hf1Team1 = null, hf1Team2 = null] = knockout.halbfinale1 ?? [];
   const [hf2Team1 = null, hf2Team2 = null] = knockout.halbfinale2 ?? [];
-  const [thirdTeam1 = null, thirdTeam2 = null] = knockout.platz3 ?? [];
+  const [thirdTeam1 = null, thirdTeam2 = null] = knockout.thirdPlace ?? [];
   const [finalTeam1 = null, finalTeam2 = null] = knockout.finale ?? [];
   const first = spiel("halbfinale", halbfinale._id, hf1Team1, hf1Team2, [seeded(a, 1), seeded(b, 2)]);
   const second = spiel("halbfinale", halbfinale._id, hf2Team1, hf2Team2, [seeded(b, 1), seeded(a, 2)]);
@@ -308,7 +308,7 @@ const finished = season({
     // Within a group matchday group A's two pairs come first, then group B's in the same order.
     return nr <= 12 ? { ...played, tore: GROUP_SCORES[(matchday - 1) * 2 + ((nr - 1) % 2)] } : { ...played, ...KNOCKOUT_SCORES[nr] };
   },
-  knockout: { halbfinale1: ["Ahorn", "Esche"], halbfinale2: ["Ulme", "Birke"], platz3: ["Esche", "Ulme"], finale: ["Ahorn", "Birke"] },
+  knockout: { halbfinale1: ["Ahorn", "Esche"], halbfinale2: ["Ulme", "Birke"], thirdPlace: ["Esche", "Ulme"], finale: ["Ahorn", "Birke"] },
 });
 
 // The running season, new groups. Matchday 1 is played and holds a forfeit, matchday 2 is today,
