@@ -4423,6 +4423,20 @@ export interface FLSaisonTeamEinwilligungAntwortResponse {
 }
 
 /**
+ * One club of a season as the Teams page lists it: the name and shorthand it plays this season under.
+ */
+export interface FLSaisonTeamEntry {
+  austritt_type: FLAustrittType | null;
+  gruppe: FLGruppenNames;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  /** @minLength 1 */
+  name: string;
+  /** @pattern ^[A-Z]{3}$ */
+  shorthand: string;
+}
+
+/**
  * A junction row, which has no read model of its own -- so it is echoed as it was written.
  */
 export interface FLSaisonTeamResponse {
@@ -4437,6 +4451,13 @@ export interface FLSaisonTeamResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   trikot_farbe: FLTrikotFarbe | null;
+}
+
+/**
+ * A season's clubs, by name.
+ */
+export interface FLSaisonTeamsResponse {
+  teams: FLSaisonTeamEntry[];
 }
 
 export interface FLSaisonsAdminListResponse {
@@ -5617,6 +5638,37 @@ export interface FLSweepSaisonsResponse {
   saison_ids: string[];
 }
 
+/**
+ * One row of the Tabelle: the standing row and its placing, null for a club that can hold none.
+ */
+export interface FLTabelleRow {
+  austritt_type: FLAustrittType | null;
+  /** @minimum 0 */
+  count_pending_spiele: number;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  /** @minLength 1 */
+  name: string;
+  platz: number | null;
+  /** @pattern ^[A-Z]{3}$ */
+  shorthand: string;
+  statistik: FLTeamStatistik;
+}
+
+/**
+ * Every group the season offers, in standing order, each row numbered as a `Platz` is.
+ */
+export type FLTabelle = Partial<Record<FLGruppenNames, FLTabelleRow[]>>;
+
+/**
+ * One season's Tabelle: each group's standing over the group phase, and how many of each group advance.
+ */
+export interface FLTabelleResponse {
+  gruppen: FLTabelle;
+  /** @exclusiveMinimum 0 */
+  qualifiers_per_gruppe: number;
+}
+
 export interface FLTeam {
   address: FLAddress;
   austritt: FLAustritt | null;
@@ -5651,6 +5703,42 @@ export interface FLTeamMembership {
   saison_id: string;
   trikot_farbe: FLTrikotFarbe | null;
   version: number;
+}
+
+/**
+ * The club as its page in one season shows it: the school, its group, and how it left the season if it did.
+ *
+ * The whole `austritt` record, reason and day: this page is the one that publishes them.
+ */
+export interface FLTeamPageClub {
+  address: FLAddress;
+  austritt: FLAustritt | null;
+  /** @maxLength 4096 */
+  description: string;
+  /** @minLength 1 */
+  full_name: string;
+  gruppe: FLGruppenNames;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  /** @minLength 1 */
+  name: string;
+  schulform: FLSchulform | null;
+  /** @pattern ^[A-Z]{3}$ */
+  shorthand: string;
+  website_url: string | null;
+}
+
+/**
+ * One club's page in one season: the club, its row of the Tabelle, its matches and its squad.
+ *
+ * `standing` is null for a club no group of the Tabelle lists, one that left the league; `spiele` are in the order the
+ * draw numbered them; the squad is the base tier's, names withheld where the pupil's consent does not publish them.
+ */
+export interface FLTeamPageResponse {
+  kader: FLSpielerPublic[];
+  spiele: FLSpielJoined[];
+  standing: FLTabelleRow | null;
+  team: FLTeamPageClub;
 }
 
 /**

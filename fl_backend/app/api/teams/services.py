@@ -20,6 +20,8 @@ from app.api.teams.schemas import (
     FLGruppenTeam,
     FLKontaktMint,
     FLPublicTeamsFilterParams,
+    FLTabelle,
+    FLTabelleRow,
     FLTeam,
     FLTeamsFilterParams,
     FLTeamStatistik,
@@ -506,10 +508,38 @@ def _tiers(
     return tiers
 
 
+def _can_hold_a_platz(*, has_left: bool, counted: int, still_to_play: int) -> bool:
+    """The one placing rule: a club still in the season with a match that counts or still could."""
+
+    return not has_left and counted + still_to_play > 0
+
+
 def _may_hold_a_platz(team: FLTeam, still_to_play: int) -> bool:
     """Whether a team can hold a placing a bracket slot could name."""
 
-    return team.austritt is None and (team.statistik.count_gespielte_spiele + still_to_play) > 0
+    return _can_hold_a_platz(has_left=team.austritt is not None, counted=team.statistik.count_gespielte_spiele, still_to_play=still_to_play)
+
+
+def build_tabelle(gruppen: FLGruppen) -> FLTabelle:
+    """Each group's standing as the Tabelle shows it, every row numbered as a `Platz` is.
+
+    The number walks past a row that can hold none, which reads null, so a club that left takes no place and hides
+    none, as the bracket seeds them (`_placings`).
+    """
+
+    tabelle: dict[FLGruppenNames, list[FLTabelleRow]] = {}
+    for name, rows in gruppen.root.items():
+        placed: list[FLTabelleRow] = []
+        platz = 0
+        for row in rows:
+            holds = _can_hold_a_platz(
+                has_left=row.austritt_type is not None, counted=row.statistik.count_gespielte_spiele, still_to_play=row.count_pending_spiele
+            )
+            platz += holds
+            placed.append(FLTabelleRow.model_validate({**row.model_dump(), "platz": platz if holds else None}))
+        tabelle[name] = placed
+
+    return FLTabelle(tabelle)
 
 
 def _spiele_by_gruppe(

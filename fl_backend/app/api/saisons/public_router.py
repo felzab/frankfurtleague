@@ -14,17 +14,34 @@ from app.api.saisons.schemas import (
     FLSaisonsFilterParams,
     FLSaisonsListResponse,
     FLSaisonsSingleResponse,
+    FLTeamPageResponse,
 )
 from app.api.saisons.services import base_tier_status_term, with_schedule
 from app.api.saisons.visibility import PublicSaison, resolve_public_saison
+from app.api.spiele.schemas import FLSpielJoinedListAdapter
 from app.api.spiele.services import build_spiele_pipeline
+from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerListAdapter
+from app.api.spieler.services import build_spieler_pipeline
 from app.api.spieltage.schemas import FLKoRundeResponse, FLSpielplanResponse, FLSpielplanSpieltag
 from app.api.spieltage.services import build_spielplan, current_spieltag_id
+from app.api.teams.crud import pull_tabelle
+from app.api.teams.schemas import (
+    FLPublicTeamsFilterParams,
+    FLSaisonTeamEntryListAdapter,
+    FLSaisonTeamsResponse,
+    FLTabelleResponse,
+    FLTeamPageClub,
+    FLTeamsFilterParams,
+)
+from app.api.teams.services import build_team_pipeline
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, build_query, build_sort, pull_many_from_db, pull_one_from_db
-from app.core.dependencies import SaisonsCollection, SpieleCollection, SpieltageCollection
+from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, build_query, build_sort, pull_many_from_db, pull_one_from_db
+from app.core.dependencies import SaisonsCollection, SpieleCollection, SpielerCollection, SpieltageCollection, TeamsCollection
+from app.core.exceptions import DocumentNotFoundError
+from app.core.routing import by_id
 from app.core.security import verify_access_base
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/saisons",
@@ -177,3 +194,102 @@ async def get_ko_runde(
     )
 
     return FLKoRundeResponse(spieltage=spieltage)
+
+
+@router.get("/{saison_id}/tabelle", response_model=FLTabelleResponse, summary="One Saison's Tabelle")
+async def get_tabelle(
+    saison_id: str,
+    saisons_collection: SaisonsCollection,
+    teams_collection: TeamsCollection,
+    spiele_collection: SpieleCollection,
+) -> FLTabelleResponse:
+    """Each group's standing over the group phase, every row placed, and how many of each group advance.
+
+    „Tore“ are the row's `tore_geschossen` and `tore_kassiert`, counted on every read; a club that left the season keeps
+    its row and holds no `platz`. 404 for a season this tier may not read.
+    """
+
+    saison = await resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id)
+    tabelle = await pull_tabelle(
+        teams_collection=teams_collection, spiele_collection=spiele_collection, saison_id=saison.id, rules=saison.rules
+    )
+
+    return FLTabelleResponse(gruppen=tabelle, qualifiers_per_gruppe=saison.rules.qualifiers_per_gruppe)
+
+
+async def _clubs_of(*, teams_collection: AsyncCollection, saison_id: str) -> list[Any]:
+    """A season's clubs as the Teams page and the landing list them, a club that left the league in a `past` season alone."""
+
+    teams_raw = await aggregate_many_from_db(
+        collection=teams_collection,
+        pipeline=build_team_pipeline(filters=FLPublicTeamsFilterParams(saison_id=saison_id), rules=None),
+        collation=GERMAN_COLLATION,
+    )
+
+    return FLSaisonTeamEntryListAdapter.validate_python(
+        [{**raw, "austritt_type": (raw.get("austritt") or {}).get("type")} for raw in teams_raw]
+    )
+
+
+@router.get("/{saison_id}/teams", response_model=FLSaisonTeamsResponse, summary="One Saison's teams")
+async def get_teams(saison_id: str, saisons_collection: SaisonsCollection, teams_collection: TeamsCollection) -> FLSaisonTeamsResponse:
+    """The clubs of one season by name, each under the name and shorthand it plays that season under.
+
+    404 for a season this tier may not read.
+    """
+
+    _, teams = await asyncio.gather(
+        resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
+        _clubs_of(teams_collection=teams_collection, saison_id=saison_id),
+    )
+
+    return FLSaisonTeamsResponse(teams=teams)
+
+
+@router.get(f"/{{saison_id}}/teams{by_id('team_id')}", response_model=FLTeamPageResponse, summary="One team's page in one Saison")
+async def get_team(
+    saison_id: str,
+    team_id: CustomRouteObjectId,
+    saisons_collection: SaisonsCollection,
+    teams_collection: TeamsCollection,
+    spiele_collection: SpieleCollection,
+    spieler_collection: SpielerCollection,
+) -> FLTeamPageResponse:
+    """One club in one season: the club, its row of the Tabelle, its matches and its squad.
+
+    404 for a season this tier may not read and for a club the season does not hold.
+    """
+
+    saison = await resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id)
+
+    # A club that left the league stays addressable by id, as `GET /teams/{team_id}` keeps it: a caller holding one
+    # was given it by something.
+    club_filters = FLTeamsFilterParams(saison_id=saison.id, include_inactive=True)
+    club_raw, tabelle, spiele_raw, kader_raw = await asyncio.gather(
+        aggregate_many_from_db(collection=teams_collection, pipeline=build_team_pipeline(filters=club_filters, rules=None, team_id=team_id)),
+        pull_tabelle(teams_collection=teams_collection, spiele_collection=spiele_collection, saison_id=saison.id, rules=saison.rules),
+        aggregate_many_from_db(
+            collection=spiele_collection,
+            pipeline=build_spiele_pipeline(
+                db_filter={"saison_id": saison.id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
+                sort_by=[("spiel_nr", 1)],
+            ),
+        ),
+        aggregate_many_from_db(
+            collection=spieler_collection,
+            pipeline=build_spieler_pipeline(FLSpielerFilterParams(team_id=team_id, saison_id=saison.id)),
+            collation=GERMAN_COLLATION,
+        ),
+    )
+
+    if not club_raw:
+        raise DocumentNotFoundError()
+
+    standing = next((row for rows in tabelle.root.values() for row in rows if row.id == team_id), None)
+
+    return FLTeamPageResponse(
+        team=FLTeamPageClub.model_validate(club_raw[0]),
+        standing=standing,
+        spiele=FLSpielJoinedListAdapter.validate_python(spiele_raw),
+        kader=FLSpielerListAdapter.validate_python(kader_raw),
+    )

@@ -500,6 +500,54 @@ class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLGruppenTeam]]]):
     """
 
 
+class FLTabelleRow(FLGruppenTeam):
+    """One row of the Tabelle: the standing row and its placing, null for a club that can hold none."""
+
+    platz: int | None = Field(gt=0)
+
+
+class FLTabelle(RootModel[Mapping[FLGruppenNames, list[FLTabelleRow]]]):
+    """Every group the season offers, in standing order, each row numbered as a `Platz` is."""
+
+
+class FLTabelleResponse(BaseAPIResponse):
+    """One season's Tabelle: each group's standing over the group phase, and how many of each group advance."""
+
+    gruppen: FLTabelle
+    qualifiers_per_gruppe: int = Field(gt=0)
+
+
+class FLSaisonTeamEntry(BaseReadModel):
+    """One club of a season as the Teams page lists it: the name and shorthand it plays this season under."""
+
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    name: CustomNonEmptyString
+    shorthand: CustomShorthand
+    gruppe: FLGruppenNames
+    # The type alone, as a standing row carries it: the club's own page publishes the reason and the date.
+    austritt_type: FLAustrittType | None
+
+
+FLSaisonTeamEntryListAdapter = TypeAdapter(list[FLSaisonTeamEntry])
+
+
+class FLSaisonTeamsResponse(BaseAPIResponse):
+    """A season's clubs, by name."""
+
+    teams: list[FLSaisonTeamEntry]
+
+
+class FLTeamPageClub(_TeamWritable, BaseReadModel):
+    """The club as its page in one season shows it: the school, its group, and how it left the season if it did.
+
+    The whole `austritt` record, reason and day: this page is the one that publishes them.
+    """
+
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    gruppe: FLGruppenNames
+    austritt: FLAustritt | None
+
+
 class FLTeamMembership(BaseReadModel):
     """One junction row as seen from its club: which season, which group, and the record if any."""
 

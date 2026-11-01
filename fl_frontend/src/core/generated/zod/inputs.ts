@@ -2060,6 +2060,40 @@ export const SaisonsPostSpielplanBody = zod
   );
 
 /**
+ * Each group's standing over the group phase, every row placed, and how many of each group advance.
+ *
+ * „Tore“ are the row's `tore_geschossen` and `tore_kassiert`, counted on every read; a club that left the season keeps
+ * its row and holds no `platz`. 404 for a season this tier may not read.
+ * @summary One Saison's Tabelle
+ */
+export const SaisonsGetTabelleParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
+ * The clubs of one season by name, each under the name and shorthand it plays that season under.
+ *
+ * 404 for a season this tier may not read.
+ * @summary One Saison's teams
+ */
+export const SaisonsGetTeamsParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
+ * One club in one season: the club, its row of the Tabelle, its matches and its squad.
+ *
+ * 404 for a season this tier may not read and for a club the season does not hold.
+ * @summary One team's page in one Saison
+ */
+export const saisonsGetTeamPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const SaisonsGetTeamParams = zod.object({
+  saison_id: zod.string(),
+  team_id: zod.string().regex(saisonsGetTeamPathTeamIdRegExp),
+});
+
+/**
  * An admin-tier read: a referee is a pupil, so their contact and school are private (`READ-CONTACT-001`).
  *
  * The fee is admin-tier as money, not as a pupil's detail (`READ-MONEY-001`). Deactivated ones

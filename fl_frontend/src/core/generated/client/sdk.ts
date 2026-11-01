@@ -142,6 +142,7 @@ import type {
   FLSaisonTeamAccountEinwilligungResponse,
   FLSaisonTeamEinwilligungAntwortResponse,
   FLSaisonTeamResponse,
+  FLSaisonTeamsResponse,
   FLSchiedsrichterAccountEinwilligungResponse,
   FLSchiedsrichterConfirmationPayload,
   FLSchiedsrichterConfirmationResponse,
@@ -193,6 +194,8 @@ import type {
   FLSwapGruppenPayload,
   FLSwapGruppenResponse,
   FLSweepSaisonsResponse,
+  FLTabelleResponse,
+  FLTeamPageResponse,
   FLTeamSeatsResponse,
   FLTeamsGroupedResponse,
   FLTeamsListResponse,
@@ -2967,6 +2970,62 @@ export const saisonsPostSpielplan = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLGenerateSpielplanPayload),
+  });
+};
+
+export const getSaisonsGetTabelleUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/tabelle`;
+};
+
+/**
+ * Each group's standing over the group phase, every row placed, and how many of each group advance.
+ *
+ * „Tore“ are the row's `tore_geschossen` and `tore_kassiert`, counted on every read; a club that left the season keeps
+ * its row and holds no `platz`. 404 for a season this tier may not read.
+ * @summary One Saison's Tabelle
+ */
+export const saisonsGetTabelle = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLTabelleResponse> => {
+  return baseKeyTransport<FLTabelleResponse>(getSaisonsGetTabelleUrl(saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSaisonsGetTeamsUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/teams`;
+};
+
+/**
+ * The clubs of one season by name, each under the name and shorthand it plays that season under.
+ *
+ * 404 for a season this tier may not read.
+ * @summary One Saison's teams
+ */
+export const saisonsGetTeams = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSaisonTeamsResponse> => {
+  return baseKeyTransport<FLSaisonTeamsResponse>(getSaisonsGetTeamsUrl(saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSaisonsGetTeamUrl = (saisonId: string, teamId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/teams/${encodeURIComponent(String(teamId))}`;
+};
+
+/**
+ * One club in one season: the club, its row of the Tabelle, its matches and its squad.
+ *
+ * 404 for a season this tier may not read and for a club the season does not hold.
+ * @summary One team's page in one Saison
+ */
+export const saisonsGetTeam = async (
+  saisonId: string,
+  teamId: string,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLTeamPageResponse> => {
+  return baseKeyTransport<FLTeamPageResponse>(getSaisonsGetTeamUrl(saisonId, teamId), {
+    ...options,
+    method: "GET",
   });
 };
 

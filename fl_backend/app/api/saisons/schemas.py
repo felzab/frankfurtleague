@@ -3,7 +3,9 @@ from typing import Annotated, Final, Literal, Self
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 from pydantic_core import PydanticCustomError
 
-from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
+from app.api.spiele.schemas import FLSpielJoined
+from app.api.spieler.schemas import FLSpielerPublic
+from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLTabelleRow, FLTeamPageClub
 from app.core import clock
 
 # Imported rather than restated. Acyclic: no model of `teams` imports this file --
@@ -387,3 +389,16 @@ class FLUndrawSpielplanResponse(BaseAPIResponse):
     spieltage: int = Field(ge=0)
     spiele: int = Field(ge=0)
     watermark_cleared: bool
+
+
+class FLTeamPageResponse(BaseAPIResponse):
+    """One club's page in one season: the club, its row of the Tabelle, its matches and its squad.
+
+    `standing` is null for a club no group of the Tabelle lists, one that left the league; `spiele` are in the order the
+    draw numbered them; the squad is the base tier's, names withheld where the pupil's consent does not publish them.
+    """
+
+    team: FLTeamPageClub
+    standing: FLTabelleRow | None
+    spiele: list[FLSpielJoined]
+    kader: list[FLSpielerPublic]
