@@ -3,6 +3,7 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
+from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_landing
@@ -11,6 +12,7 @@ from app.api.spiele.services import podium_of
 from app.core.collections import Collection
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.plans import plans_of_sent_reads
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -126,19 +128,19 @@ def running_url(mongo_url: str) -> Iterator[str]:
         yield mongo_url
 
 
-def landing(url: str, database_name: str) -> Any:
-    async def _run() -> Any:
-        database: AsyncDatabase = shared_client(url)[database_name]
-        return await get_landing(
-            saisons_collection=database[Collection.SAISONS],
-            spiele_collection=database[Collection.SPIELE],
-            spieltage_collection=database[Collection.SPIELTAGE],
-            teams_collection=database[Collection.TEAMS],
-            saison_spieler_collection=database[Collection.SAISON_SPIELER],
-            today=TODAY,
-        )
+async def landing_of(database: AsyncDatabase, _client: AsyncMongoClient | None = None) -> Any:
+    return await get_landing(
+        saisons_collection=database[Collection.SAISONS],
+        spiele_collection=database[Collection.SPIELE],
+        spieltage_collection=database[Collection.SPIELTAGE],
+        teams_collection=database[Collection.TEAMS],
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        today=TODAY,
+    )
 
-    return on_the_seed_loop(_run())
+
+def landing(url: str, database_name: str) -> Any:
+    return on_the_seed_loop(landing_of(shared_client(url)[database_name]))
 
 
 @pytest.mark.db
@@ -153,6 +155,21 @@ def test_a_running_season_shows_its_latest_results_its_next_matches_and_its_figu
     assert saison.counts.model_dump() == {"count_teams": 2, "count_spieler": 1, "count_spiele": 6, "count_spieltage": 2}
     assert [team.name for team in saison.teams] == ["Alpha", "Beta"]
     assert response.application_window.model_dump() == {"saison_id": NEXT, "von": "2026-03-01", "bis": "2026-03-31"}
+
+
+@pytest.mark.db
+def test_the_squad_count_walks_the_season_index(running_url: str):
+    """Read on every uncached landing, so a count the collated index cannot serve scans every season's squad rows."""
+
+    async def body() -> list[tuple[str, str]]:
+        database: AsyncDatabase = shared_client(running_url)[RUNNING_DATABASE_NAME]
+        _, sent = await plans_of_sent_reads(running_url, database, landing_of, lambda collection, _: collection == Collection.SAISON_SPIELER)
+
+        return sent
+
+    [(_, plan)] = on_the_seed_loop(body())
+
+    assert plan == "IXSCAN { saison_id: 1, team_id: 1 }"
 
 
 @pytest.mark.db
