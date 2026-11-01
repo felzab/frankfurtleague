@@ -240,7 +240,7 @@ const SITE_ORIGIN = {
   regex: moduleNamed("brand"),
   importNames: ["SITE_URL"],
   message:
-    "SITE_URL is the published origin, for the metadata base, robots.txt and the sitemap alone: a link a message carries stands on frontend_config.AUTH_URL.",
+    "SITE_URL is the published origin, for the metadata base, robots.txt, the sitemap and the JSON-LD block alone: a link a message carries stands on frontend_config.AUTH_URL.",
 };
 
 /**
@@ -370,7 +370,7 @@ const IMPORT_BANS = [
   importBan(LAYER_BOUNDARY.core, LAYER("core")),
   importBan(LAYER_BOUNDARY.shared, LAYER("shared")),
   // What a crawler reads, which stands on the published origin.
-  importBan(SITE_ORIGIN, PRODUCTION, { allow: ["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts"] }),
+  importBan(SITE_ORIGIN, PRODUCTION, { allow: ["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts", "src/kit/JsonLd.tsx"] }),
   importBan(LOCALE_PROVIDER, PRODUCTION, { allow: ["src/core/providers/RootProviders.tsx"] }),
   importBan(NEXT_AFTER, PRODUCTION, { allow: ["src/core/afterResponse.ts"] }),
   ...Object.values(SECRET_READERS).map(({ owners, ...entry }) => importBan(entry, PRODUCTION, { allow: owners })),
@@ -805,10 +805,14 @@ const DESIGN_BANS = [
       }[element] ?? {},
     ),
   ),
-  // Only a template writes the page's heading and its main landmark.
-  ...["h1", "main"].map((element) =>
+  // Only a template writes the page's heading and its main landmark; the landing's template writes its
+  // hero's heading inside the classic page's landmark.
+  ...[
+    ["h1", ["src/kit/RailFrame.tsx", "src/kit/ClassicPage.tsx", "src/kit/LandingPage.tsx"]],
+    ["main", ["src/kit/RailFrame.tsx", "src/kit/ClassicPage.tsx"]],
+  ].map(([element, allow]) =>
     ban("react/forbid-elements", { element, message: "only a page template writes the page's heading and its main landmark." }, KIT, {
-      allow: ["src/kit/RailFrame.tsx", "src/kit/ClassicPage.tsx"],
+      allow,
     }),
   ),
   // Each save belongs to its owner: the record's one save to the editor template, the one-shot submit to
@@ -901,16 +905,16 @@ const DESIGN_BANS = [
       { allow: homes },
     ),
   ),
-  // A segmented control's glyph segment and a link of the collapsed rail are the other icon-only controls:
-  // each one's name is its tooltip too.
+  // A segmented control's glyph segment, a link of the collapsed rail and an icon-only link are the other
+  // icon-only controls: each one's name is its tooltip too.
   kitImport(
     {
       regex: kitModule("Tooltip"),
       message:
-        "The kit's `Tooltip` names an icon-only `Button`, a glyph segment of `ChoiceButtons` or a link of the collapsed rail, and nothing else.",
+        "The kit's `Tooltip` names an icon-only `Button`, a glyph segment of `ChoiceButtons`, a link of the collapsed rail or `Link`'s icon-only placement, and nothing else.",
     },
     PRODUCTION,
-    { allow: ["src/kit/Button.tsx", "src/kit/ChoiceButtons.tsx", "src/kit/RailState.tsx"] },
+    { allow: ["src/kit/Button.tsx", "src/kit/ChoiceButtons.tsx", "src/kit/RailState.tsx", "src/kit/IconLink.tsx"] },
   ),
   // A chip stands right after the name it belongs to, so only the blocks carrying a name render one.
   kitImport(

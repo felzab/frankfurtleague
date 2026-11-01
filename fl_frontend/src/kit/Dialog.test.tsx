@@ -144,6 +144,7 @@ describe("the route dialog", () => {
           <Link
             href="/saisons/2027/spiele/1"
             placement="button"
+            look="primary"
             label={COPY.shared.toSpiel}
           />
         }>

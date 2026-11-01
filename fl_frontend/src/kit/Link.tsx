@@ -1,11 +1,14 @@
 import NextLink from "next/link";
 
 import { buttonLook } from "./buttonStyles";
+import { Icon } from "./Icon";
+import { IconLink } from "./IconLink";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactNode } from "react";
+import type { IconName } from "./Icon";
 
 const link = tv({
   variants: {
@@ -15,11 +18,13 @@ const link = tv({
     placement: {
       text: "text-brand underline",
       standalone: "text-brand",
+      // A line of detail that leads on, such as a team's place under its name: muted until the pointer is over it.
+      detail: "text-fg-muted transition-colors duration-(--motion-state) hover:text-fg",
       // A row's name takes its row's colour, muted in a row that no longer counts.
       row: "text-inherit after:absolute after:inset-0 after:content-['']",
       card: "block text-fg transition-colors duration-(--motion-state) hover:bg-bg-surface",
-      // A page's one next step, drawn as the primary button: a status card's and a mailed page's way on.
-      button: buttonLook({ look: "primary", host: "link" }),
+      // Drawn by `buttonLook` in the look the link names.
+      button: "",
     },
   },
 });
@@ -61,11 +66,24 @@ export const menuEntry = tv({
 // The focus file's mark for each placement: a ring hugging the words, a ring with its gap, a ring drawn
 // inside the row the link covers, or one inside the card, which a list's card would otherwise clip; a link
 // drawn as a button rings as a button does.
-const FOCUS = { text: "text", standalone: "ring", row: "row", card: "inset", button: "ring" } as const;
+const FOCUS = { text: "text", standalone: "ring", detail: "ring", row: "row", card: "inset", button: "ring" } as const;
 
 type Words =
   | { /** Catalogue words. */ label: Copy; text?: never; children?: never }
   | { /** A record's own name, such as a club's or a venue's: data, not catalogue text. */ text: string; label?: never; children?: never };
+
+/**
+ * A link drawn as a button: `primary` for a page's one next step, such as a status card's way on;
+ * `secondary` for a way on beside it, or one standing where the page has no single next step. Its words may
+ * lead with a glyph.
+ */
+type Button = { placement: "button"; look: "primary" | "secondary"; leadingIcon?: IconName } & Words;
+
+/**
+ * A glyph alone, in the icon-only button's look: `label`, at most five words, is its name, which the kit's
+ * tooltip shows above it.
+ */
+type IconOnly = { placement: "icon"; icon: IconName; label: Copy; text?: never; children?: never; fullPage?: never; newTab?: never };
 
 type Card = {
   placement: "card";
@@ -83,36 +101,56 @@ type Card = {
  * The one way to go somewhere: Next's link, prefetching on hover and in view, so a page of links loads
  * no React Aria. Its ring comes from `:focus-visible` in the focus file, hugging the words inside text.
  */
-export function Link<T extends string>({
-  href,
-  placement,
-  newTab = false,
-  fullPage = false,
-  ...content
-}: {
-  href: Route<T>;
-  /** Opens the target in a new tab; nothing else does. */
-  newTab?: boolean;
-  /**
-   * Loads the target as a whole document, the plain anchor's navigation, rather than Next's client one. An
-   * intercepting route catches every client navigation to its address, so this is the one way from a pop-up
-   * to the page it stands for: Next shows that page, not the pop-up, on a full page load.
-   */
-  fullPage?: boolean;
-} & (
-  | ({
-      /** `row` only inside a table row, which `Table` writes; `button` for a page's one next step. */
-      placement: "text" | "standalone" | "row" | "button";
-    } & Words)
-  | Card
-)) {
+export function Link<T extends string>(
+  props: {
+    href: Route<T>;
+    /** Opens the target in a new tab; nothing else does. */
+    newTab?: boolean;
+    /**
+     * Loads the target as a whole document, the plain anchor's navigation, rather than Next's client one. An
+     * intercepting route catches every client navigation to its address, so this is the one way from a pop-up
+     * to the page it stands for: Next shows that page, not the pop-up, on a full page load.
+     */
+    fullPage?: boolean;
+  } & (
+    | ({
+        /** `row` only inside a table row, which `Table` writes. */
+        placement: "text" | "standalone" | "detail" | "row";
+      } & Words)
+    | Button
+    | IconOnly
+    | Card
+  ),
+) {
+  const { href, newTab = false, fullPage = false } = props;
+  if (props.placement === "icon") {
+    return (
+      <IconLink
+        href={href}
+        icon={props.icon}
+        label={props.label}
+        className={buttonLook({ look: "icon", host: "link" })}
+      />
+    );
+  }
+  const button = props.placement === "button" ? props : undefined;
   const anchor = {
     href,
-    "data-kit-focus": FOCUS[placement],
-    className: link({ placement }),
+    "data-kit-focus": FOCUS[props.placement],
+    className: button === undefined ? link({ placement: props.placement }) : buttonLook({ look: button.look, host: "link" }),
     target: newTab ? "_blank" : undefined,
     rel: newTab ? "noopener noreferrer" : undefined,
   };
-  const words = content.children ?? content.label ?? content.text;
+  const words = (
+    <>
+      {button?.leadingIcon !== undefined && (
+        <Icon
+          glyph={button.leadingIcon}
+          size={16}
+        />
+      )}
+      {props.children ?? props.label ?? props.text}
+    </>
+  );
   return fullPage ? <a {...anchor}>{words}</a> : <NextLink {...anchor}>{words}</NextLink>;
 }

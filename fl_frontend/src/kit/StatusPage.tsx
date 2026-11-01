@@ -1,3 +1,4 @@
+import { Button } from "./Button";
 import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
@@ -9,7 +10,7 @@ import type { Route } from "next";
 import type { RailPageHead } from "./RailFrame";
 
 /** What the end says at a glance: done, a fact, a link or a page that is no more, a failure; each names its glyph. */
-export type StatusMark = "done" | "info" | "warning" | "error";
+type StatusMark = "done" | "info" | "warning" | "error";
 
 /** One end state: its mark, its one sentence, and its one way on, a label and an address per page in the catalogue. */
 export type StatusCardProps = {
@@ -17,6 +18,15 @@ export type StatusCardProps = {
   sentence: Copy;
   next: { label: Copy; href: Route };
 };
+
+/**
+ * An error page's one act, which the card takes in place of its way on: trying again what failed, from the
+ * error boundary's own retry, so only a client error page can hand it.
+ */
+type Retry = { label: Copy; onRetry: () => void };
+
+/** The card's one act: a link on, or a retry where the page is an error's. */
+type Act = StatusCardProps["next"] | Retry;
 
 const card = tv({
   slots: {
@@ -35,8 +45,11 @@ const card = tv({
   },
 });
 
-/** The hairline card every end state shares: its mark, the title where the frame carries none, one sentence, one link on. */
-export function StatusCard({ mark, sentence, next, title }: StatusCardProps & { title?: Copy | string }) {
+/**
+ * The hairline card every end state shares: its mark, the title where the frame carries none, one sentence, one
+ * act. It writes no landmark, so a page inside an old shell's `main` places it alone.
+ */
+export function StatusCard({ mark, sentence, next, title }: Omit<StatusCardProps, "next"> & { next: Act; title?: Copy | string }) {
   const slots = card({ mark });
   return (
     <div className={slots.root()}>
@@ -48,11 +61,20 @@ export function StatusCard({ mark, sentence, next, title }: StatusCardProps & { 
       </span>
       {title !== undefined && <ClassicTitle text={title} />}
       <p className={slots.sentence()}>{sentence}</p>
-      <Link
-        href={next.href}
-        placement="button"
-        label={next.label}
-      />
+      {"href" in next ? (
+        <Link
+          href={next.href}
+          placement="button"
+          look="primary"
+          label={next.label}
+        />
+      ) : (
+        <Button
+          variant="primary"
+          label={next.label}
+          onPress={next.onRetry}
+        />
+      )}
     </div>
   );
 }
@@ -62,7 +84,9 @@ export function StatusCard({ mark, sentence, next, title }: StatusCardProps & { 
  * finishes, plainly said, in the frame the address belongs to. In the classic frame the card carries the
  * page's title; in the rail frames the strip does, and the card none.
  */
-export function StatusPage(props: StatusCardProps & ({ frame: "classic"; title: Copy } | ({ frame: "rail" } & RailPageHead))) {
+export function StatusPage(
+  props: Omit<StatusCardProps, "next"> & { next: Act } & ({ frame: "classic"; title: Copy } | ({ frame: "rail" } & RailPageHead)),
+) {
   const card = (
     <StatusCard
       mark={props.mark}

@@ -117,10 +117,10 @@ function RowChip({ chip }: { chip?: ChipProps }) {
 }
 
 /**
- * A match in a list, the whole row a link to it. On desktop one line, 56 px: when, the home side, the
- * score with „n. E.“ centred under it, the away side, the phase, the chevron. On a phone a card of two lines
- * under the date line, each side with its goals at the right, „n. E.“ on the date line, and no chevron; every
- * row the same height with or without a shoot-out.
+ * A match in a list, the whole row a link to it. In a wide list one line, 56 px: when, the home side, the
+ * score with „n. E.“ centred under it, the away side, the phase, the chevron. In a narrow one a card of two
+ * lines under the date line, each side with its goals at the right, „n. E.“ on the date line, and no chevron;
+ * every row the same height with or without a shoot-out.
  */
 function SpielRow({ href, when, home, away, result, phase, chip }: SpielRowProps) {
   const score = figures(result);
@@ -131,7 +131,7 @@ function SpielRow({ href, when, home, away, result, phase, chip }: SpielRowProps
       <Link
         href={href}
         placement="card">
-        <span className="grid min-h-14 grid-cols-[9.5rem_minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_auto] grid-rows-[1.5rem_1rem] content-center items-center gap-x-3 px-4 text-sm max-lg:hidden">
+        <span className="grid min-h-14 grid-cols-[9.5rem_minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_auto] grid-rows-[1.5rem_1rem] content-center items-center gap-x-3 px-4 text-sm @max-2xl:hidden">
           <span className="col-start-1 row-span-2 row-start-1 font-numeric text-fg-muted">{when}</span>
           <span className="col-start-2 row-span-2 row-start-1">
             <Side
@@ -168,7 +168,7 @@ function SpielRow({ href, when, home, away, result, phase, chip }: SpielRowProps
             <RowEnd />
           </span>
         </span>
-        <span className="grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[1rem_1.5rem_1.5rem] items-center gap-x-3 gap-y-1 px-4 py-3 text-base lg:hidden">
+        <span className="grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[1rem_1.5rem_1.5rem] items-center gap-x-3 gap-y-1 px-4 py-3 text-base @2xl:hidden">
           <span className="truncate font-numeric text-xs text-fg-muted">{when}</span>
           <span className="text-end text-xs text-fg-muted">{shootOut}</span>
           <span className="flex min-w-0 items-center gap-2">
@@ -206,11 +206,14 @@ function SpielRow({ href, when, home, away, result, phase, chip }: SpielRowProps
 
 /**
  * Matches one under another in one box with the card corners and the hairline, the rows parted by lines:
- * a matchday's matches, or the matches a read page lists.
+ * a matchday's matches, the matches a read page lists, or the landing's last and next in its season card.
+ * The box's own width picks the rows' form, not the screen's: from 42 rem (`@container` on the box, Tailwind's
+ * `@2xl`) the one-line row, which a rail page's content holds at the rail's 1024-px breakpoint, 704 px wide,
+ * and below it the two-line card a phone shows and the landing's narrower card holds on any screen.
  */
 export function SpielList({ matches }: { matches: ReadonlyArray<SpielRowProps & { id: string }> }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-bg">
+    <div className="@container overflow-hidden rounded-lg border border-border bg-bg">
       {matches.map(({ id, ...spiel }) => (
         <SpielRow
           key={id}
