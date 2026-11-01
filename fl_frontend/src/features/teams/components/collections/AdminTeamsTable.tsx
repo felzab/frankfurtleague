@@ -130,7 +130,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
           onPress={(pressed) => reactivate({ id: team.id }, { pressed })}
         />
       ) : (
-        /* Present but DISABLED where the write path would refuse (`REQ-RETIRE-001`), so the rule is
+        /* Present but DISABLED where the write path would refuse (`retire_blocked`), so the rule is
            discoverable rather than a mystery. */
         <RowActionDelete
           disabledReason={team.isRetireable ? null : TEAM_NICHT_STILLLEGBAR}

@@ -1,8 +1,9 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
+import { APIBadStatusError, APINetworkError } from "@/core/errors.ts";
 
+import type { FLReferencesPayload, FLReferencesResponse } from "@/core/generated/client/types.ts";
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 
 /** One line a pass wrote, as the logger was handed it: an error's message is kept, since that is where an address would hide. */
@@ -18,23 +19,25 @@ let listing: () => Promise<readonly string[]> = () => Promise.resolve(accounts);
 const deleteCalls: string[] = [];
 /** Per address, what `deleteAccountFor` does where it was not simply there to delete. */
 const deleteOutcomes = new Map<string, "gone" | "throws">();
-/** Every load of `fl_frontend/src/core/mail.ts`, the one module reaching the mail provider, which the sweep never reaches. */
-const mailerLoads: string[] = [];
+/** Every drain the sweep started, the one way a mail reaches the provider, which the sweep never starts. */
+const drains: string[] = [];
 
-// Watched rather than doubled, the real module standing: any load is the regression, at import or at a send.
-vi.doMock("@/core/mail.ts", async (importOriginal) => {
-  mailerLoads.push("@/core/mail.ts");
-  return importOriginal();
-});
+// Doubled at the drain alone, the module standing: the client every slice sends through loads it, so a load is no send.
+vi.doMock("@/core/mail.ts", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  drainOutbox: () => {
+    drains.push("drain");
+    return Promise.resolve();
+  },
+}));
 
 /** Which of `identifiers` the doubled read answers unreferenced, handed the batch alone or an address re-asked alone. */
 let referenzen: (identifiers: readonly string[]) => readonly string[] = () => [];
 
 // Replaced at the module boundary: the real client reaches a backend no test process runs.
-const calls = doubleApiClient((call, schema) => {
-  const { identifiers } = JSON.parse(call.body ?? "{}") as { identifiers: string[] };
-  // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift.
-  return schema.parse({ acknowledged: 1, unreferenziert: referenzen(identifiers) });
+const calls = doubleApiClient((call) => {
+  const { identifiers } = JSON.parse(call.body ?? "{}") as FLReferencesPayload;
+  return { unreferenced: [...referenzen(identifiers)] } satisfies FLReferencesResponse;
 });
 
 const record =
@@ -60,10 +63,9 @@ vi.doMock("@/core/logging.ts", () => ({
 
 const { runKontoSweep } = await import("./sweep.ts");
 const { REFERENZEN_ADRESSEN_MAX } = await import("./constants.ts");
-const { FLReferenzenPayloadSchema } = await import("./schemas.ts");
 
 /** The addresses one call asked about. */
-const askedIn = (call: ApiCall): string[] => FLReferenzenPayloadSchema.parse(JSON.parse(call.body ?? "{}")).identifiers;
+const askedIn = (call: ApiCall): string[] => (JSON.parse(call.body ?? "{}") as FLReferencesPayload).identifiers;
 
 /** `count` distinct addresses, as the store folds them. */
 const adressen = (count: number, prefix = "person"): string[] => Array.from({ length: count }, (_, at) => `${prefix}${String(at)}@schule.de`);
@@ -129,11 +131,10 @@ describe("the batches a pass asks in", () => {
   });
 
   // An empty batch is refused whole too.
-  it("asks the backend nothing for an empty store, and still writes its completion line", async () => {
+  it("asks the backend nothing for an empty store", async () => {
     await runKontoSweep();
 
     expect(calls).toStrictEqual([]);
-    expect(lines.at(-1)?.event).toStrictEqual("konto.sweep_completed");
   });
 });
 
@@ -146,11 +147,12 @@ describe("a pass meeting a failure", () => {
       return identifiers;
     };
 
-    await runKontoSweep();
+    // The batch it could not judge is what the pass left, which the heartbeat names.
+    expect((await runKontoSweep()).open).toBe(REFERENZEN_ADRESSEN_MAX);
 
     expect(deleteCalls).toStrictEqual(zweiter);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
-      { event: "konto.referenzen_failed", fields: { error_code: "FE-SWEEP-003", name: "TypeError", anzahl: REFERENZEN_ADRESSEN_MAX } },
+      { event: "account.references_failed", fields: { name: "TypeError", anzahl: REFERENZEN_ADRESSEN_MAX } },
     ]);
   });
 
@@ -165,9 +167,9 @@ describe("a pass meeting a failure", () => {
     expect(failures()).toStrictEqual([
       {
         level: "ERROR",
-        event: "konto.delete_failed",
+        event: "account.delete_failed",
         error: undefined,
-        fields: { error_code: "FE-SWEEP-003", name: "TypeError", anzahl: undefined },
+        fields: { name: "TypeError", anzahl: undefined },
       },
     ]);
   });
@@ -183,27 +185,19 @@ describe("a pass meeting a failure", () => {
 
     expect(deleteCalls).toStrictEqual(["a@schule.de", "c@schule.de"]);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
-      { event: "konto.delete_failed", fields: { error_code: "FE-SWEEP-003", name: "TypeError", anzahl: undefined } },
+      { event: "account.delete_failed", fields: { name: "TypeError", anzahl: undefined } },
     ]);
   });
 
-  /* The store unreachable: an unhandled rejection an hour after its tick otherwise, and a completion line
-     would say a pass ran that listed nothing. */
-  it("ends a pass whose store cannot be listed with one failure line, asking the backend nothing", async () => {
-    listing = () => Promise.reject(new TypeError("no connection for erika@schule.de"));
+  /* The store unreachable: the scheduler's heartbeat names the job only where it rejects, and a completion line would
+     say a pass ran that listed nothing. */
+  it("rejects a pass whose store cannot be listed, asking the backend nothing and writing no line", async () => {
+    listing = () => Promise.reject(new TypeError("no connection"));
 
-    await runKontoSweep();
+    await expect(runKontoSweep()).rejects.toThrow(TypeError);
 
     expect(calls).toStrictEqual([]);
-    expect(lines).toStrictEqual([
-      {
-        level: "ERROR",
-        event: "konto.sweep_failed",
-        error: undefined,
-        fields: { error_code: "FE-SWEEP-003", name: "TypeError", anzahl: undefined },
-      },
-    ]);
-    assert.ok(!JSON.stringify(lines).includes("@"), "a line carries an address");
+    expect(lines).toStrictEqual([]);
   });
 
   /* The backend refuses the read whole where the grants it reads hold no live owner: an empty or wrong
@@ -213,12 +207,12 @@ describe("a pass meeting a failure", () => {
     referenzen = () => {
       throw new APIBadStatusError({
         message: "The backend refused the request.",
-        url: "http://backend:8000/api/v0/identitaet/referenzen",
-        endpoint: "/identitaet/referenzen",
+        url: "http://backend:8000/api/v0/identity/references",
+        endpoint: "/identity/references",
         method: "POST",
         readOnly: true,
         statusCode: 409,
-        serverErrorCode: "REQ-REFERENZEN-001",
+        serverErrorCode: "no_owner",
         traceId: TRACE_ID,
       });
     };
@@ -228,12 +222,11 @@ describe("a pass meeting a failure", () => {
     expect(deleteCalls).toStrictEqual([]);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
       {
-        event: "konto.referenzen_failed",
+        event: "account.references_failed",
         fields: {
-          error_code: "FE-SWEEP-003",
           name: "APIBadStatusError",
           status: 409,
-          server_error_code: "REQ-REFERENZEN-001",
+          server_error_code: "no_owner",
           trace_id: TRACE_ID,
           anzahl: 2,
         },
@@ -242,13 +235,13 @@ describe("a pass meeting a failure", () => {
   });
 
   /* No status: the backend never answered, so the trace is all that finds the request in its log, if it
-     arrived there at all (`FE-SWEEP-003`). */
+     arrived there at all. */
   it("names an unanswered call's trace on its failure line", async () => {
     accounts = ["a@schule.de"];
     referenzen = () => {
       throw new APINetworkError({
         message: "The backend did not answer.",
-        url: "http://backend:8000/api/v0/identitaet/referenzen",
+        url: "http://backend:8000/api/v0/identity/references",
         method: "POST",
         readOnly: true,
         traceId: TRACE_ID,
@@ -260,32 +253,7 @@ describe("a pass meeting a failure", () => {
 
     expect(deleteCalls).toStrictEqual([]);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
-      { event: "konto.referenzen_failed", fields: { error_code: "FE-SWEEP-003", name: "APINetworkError", trace_id: TRACE_ID, anzahl: 1 } },
-    ]);
-  });
-
-  it("names a malformed answer's status and trace on its failure line", async () => {
-    accounts = ["a@schule.de"];
-    referenzen = () => {
-      throw new APIMalformedDataError({
-        message: "The backend's answer did not match its schema.",
-        url: "http://backend:8000/api/v0/identitaet/referenzen",
-        endpoint: "/identitaet/referenzen",
-        method: "POST",
-        readOnly: true,
-        statusCode: 200,
-        traceId: TRACE_ID,
-      });
-    };
-
-    await runKontoSweep();
-
-    expect(deleteCalls).toStrictEqual([]);
-    expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
-      {
-        event: "konto.referenzen_failed",
-        fields: { error_code: "FE-SWEEP-003", name: "APIMalformedDataError", status: 200, trace_id: TRACE_ID, anzahl: 1 },
-      },
+      { event: "account.references_failed", fields: { name: "APINetworkError", trace_id: TRACE_ID, anzahl: 1 } },
     ]);
   });
 
@@ -301,51 +269,30 @@ describe("a pass meeting a failure", () => {
 
     await runKontoSweep();
 
-    expect(lines.map(({ event }) => event)).toStrictEqual(["konto.referenzen_failed", "konto.delete_failed", "konto.sweep_completed"]);
+    expect(lines.map(({ event }) => event)).toStrictEqual(["account.references_failed", "account.delete_failed"]);
     assert.ok(!JSON.stringify(lines).includes("@"), "a line carries an address");
-    expect(mailerLoads, "the sweep reached the mailer").toStrictEqual([]);
+    // No mail owed through the sign-in library's route, and none sent: every other mail is a backend write's to owe.
+    expect(
+      calls.filter(({ endpoint }) => endpoint.startsWith("/outbox/")),
+      "the sweep owed a mail",
+    ).toStrictEqual([]);
+    expect(drains, "the sweep drained the Postausgang").toStrictEqual([]);
   });
 });
 
-describe("one pass at a time", () => {
-  /* A pass slower than the hour would otherwise ask and delete beside itself over the same accounts. */
-  it("skips a tick arriving while a pass runs, with one line and no call", async () => {
-    // Every list held open is released, so a second pass that ran beside the first fails the case
-    // rather than leaving it waiting on a list nobody answers.
-    const held: ((value: readonly string[]) => void)[] = [];
-    let lists = 0;
-    listing = () => {
-      lists += 1;
-      return new Promise((resolve) => void held.push(resolve));
-    };
-
-    const first = runKontoSweep();
-    const second = runKontoSweep();
-    for (const release of held) release([]);
-    await Promise.all([first, second]);
-
-    expect(lists, "the second tick listed the store beside the running pass").toBe(1);
-    expect(lines.map(({ level, event }) => `${level} ${event}`)).toStrictEqual(["INFO konto.sweep_skipped", "INFO konto.sweep_completed"]);
-  });
-});
-
-describe("the line a completed pass writes", () => {
-  /* Nothing is stored, so this line is the whole answer to whether the sweep runs and what it did. A failure keeping an
-     account makes it a warning, a level above INFO dropping the INFO a clean pass writes. */
-  it("counts what it listed, what was answered unreferenced, deleted, already gone and failed, warning over a failure", async () => {
+describe("what a completed pass answers", () => {
+  /* Nothing is stored, so these counts on the scheduler's pass line are the whole record of what the sweep did, and
+     the failed ones what the heartbeat names as left. */
+  it("counts what was answered unreferenced, deleted, already gone and failed", async () => {
     accounts = ["geloescht@schule.de", "fort@schule.de", "referenziert@schule.de", "neu@schule.de", "fehler@schule.de"];
     referenzen = (identifiers) =>
       identifiers.length > 1 ? unreferencedBut("referenziert@schule.de")(identifiers) : unreferencedBut("neu@schule.de")(identifiers);
     deleteOutcomes.set("fort@schule.de", "gone");
     deleteOutcomes.set("fehler@schule.de", "throws");
 
-    await runKontoSweep();
-
-    expect(lines.at(-1)).toStrictEqual({
-      level: "WARN",
-      event: "konto.sweep_completed",
-      error: undefined,
-      fields: { error_code: "FE-SWEEP-003", gelistet: 5, unreferenziert: 4, geloescht: 1, bereits_geloescht: 1, fehlgeschlagen: 1 },
+    expect(await runKontoSweep()).toStrictEqual({
+      count: { unreferenziert: 4, geloescht: 1, bereits_geloescht: 1, fehlgeschlagen: 1 },
+      open: 1,
     });
   });
 });

@@ -107,7 +107,7 @@ function Entry({ label, icon, hasMore }: { label: string; icon?: IconName; hasMo
       {hasMore === true && (
         <span className="ml-auto text-fg-muted">
           <Icon
-            glyph="vor"
+            glyph="forward"
             size={16}
           />
         </span>
@@ -150,14 +150,14 @@ function LinkList({ label, links, size, onBack }: { label: Copy; links: Readonly
       {/* „Zurück“ stands outside the links' section, so it is no choice among them. */}
       {onBack !== undefined && (
         <MenuItem
-          textValue={COPY.shared.zurueck}
+          textValue={COPY.shared.back}
           shouldCloseOnSelect={false}
           onAction={onBack}
           data-kit-focus="item"
           className={item({ size })}>
           <Entry
-            label={COPY.shared.zurueck}
-            icon="zurueck"
+            label={COPY.shared.back}
+            icon="back"
           />
         </MenuItem>
       )}

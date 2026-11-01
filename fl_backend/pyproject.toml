@@ -14,17 +14,11 @@ dependencies = [
     "pydantic>=2.14.1",
     "pydantic-core>=2.50.1",
     "pydantic-settings>=2.16.0",
-    # Imported as `jwt`. `[crypto]` because Ed25519 verification is `cryptography`'s: without the
-    # extra, a key for `EdDSA` raises `MissingCryptographyError` on the first actor token.
-    "pyjwt[crypto]>=2.15.1",
     # The driver, through `AsyncMongoClient`. Also the home of `bson`, which app/ imports under
     # that name.
     "pymongo>=4.19.0",
-    # Imported as `dotenv`, for the parser pydantic-settings reads `.env` with: a refusal numbers an
-    # undeclared name's line by it rather than printing the name the file spells.
-    "python-dotenv>=1.2.4",
     "starlette>=1.8.0",
-    # `ZoneInfo("Europe/Berlin")` in app/core/dependencies.py reads the operating system's time-zone
+    # `ZoneInfo("Europe/Berlin")` in app/core/clock.py reads the operating system's time-zone
     # database. Windows has none at all and a slim image promises none, so this package is where the
     # zone comes from; without it that call raises `ZoneInfoNotFoundError`.
     "tzdata>=2026.5",
@@ -113,9 +107,9 @@ select = [
     # written beside it is then untrue. `scripts/ruff.toml` extends this list, so both trees carry it.
     "RUF100",  # unused noqa directive
     "TID251",  # banned-api, the list below
-    # A root-logger call's record is no child of ours, so `app/core/logging.py ::
-    # ForwardedFailureFilter` codes it as a library's failure, hiding a missing code.
-    "LOG015",  # root-logger-call
+    # A log message is a constant `<slice>.<event>` with its values in `extra=` fields
+    # (`app/core/logging.py`): G004 refuses a value formatted into the message.
+    "G",  # flake8-logging-format
     # Characters a reviewer cannot see in a diff: a bidirectional control reorders the line around
     # it (PEP 672), and a raw control or zero-width space in a string changes its value unseen.
     "PLE2502",  # bidirectional-unicode
@@ -126,20 +120,34 @@ select = [
     "PLE2515",  # invalid-character-zero-width-space
 ]
 ignore = ["B008"]
+# The `G` rules read only a call on a receiver they know to be a logger, and `fl_logger.info(f"…")`
+# passes unread without these names.
+logger-objects = ["app.core.logging.fl_logger", "app.core.logging.journal_logger"]
 
 [tool.ruff.lint.per-file-ignores]
 # `scripts/ruff.toml` extends this file, and the gate's tooling there reads its own environment by
 # design: every entry in the banned list guards the backend alone.
 "../scripts/**" = ["TID251"]
+# Every entry guards the application, and a test reads both freely: it stages stored instants against
+# the wall clock it runs under, and it builds settings from the environment to judge them.
+"tests/**" = ["TID251"]
 
-# A handler reading the environment's settings answers with those whatever the app was built with,
-# and the dependency walk in `tests/core/test_config.py` never sees a call inside a body.
+# A handler reading the environment's settings answers with those whatever the app was built with.
+# The ban reaches every spelling of a read, an import, an attribute through `app.core.config` and a
+# dependency alike, which makes it the one guard against a route reading them.
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # Each permitted import carries its own `noqa`, which RUF100 reports once nothing there needs it;
 # the preflight in `scripts/ops/deploy.sh` is a shell string ruff never reads.
-"app.core.config.get_config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-"os.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-"os.getenv".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
+"app.core.config.get_config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, `app/readback.py`, the journal replay and the deploy preflight."
+"os.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, `app/readback.py`, the journal replay and the deploy preflight."
+"os.getenv".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, `app/readback.py`, the journal replay and the deploy preflight."
+# The wall clock, read in `app/core/clock.py` alone, so every rule judging "now" or "today" reads one
+# instant in one zone.
+"datetime.datetime.now".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
+"datetime.date.today".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
+"datetime.datetime.today".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
+"datetime.datetime.utcnow".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
+"time.time".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
 
 [tool.ruff.format]
 quote-style = "double"

@@ -6,11 +6,16 @@ import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/a
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
-import { alterAusserhalb, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "./constants";
+import { alterAusserhalb } from "./constants";
 
+import type {
+  FLInvitationViewResponse,
+  FLPostRegistrierungPayload,
+  FLRegistrierung,
+  FLRegistrierungConfirmationPayload,
+} from "@/core/generated/client/types";
 import type { NamedTeam } from "@/features/bewerbungen/types";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLEinladungAnsichtResponse, FLPostRegistrierungPayload, FLRegistrierung, FLRegistrierungBestaetigungPayload } from "./schemas";
 import type { AdminRegistrierungRow, RegistrierungFormDraft, SpielerLinkZustand } from "./types";
 
 /**
@@ -19,8 +24,8 @@ import type { AdminRegistrierungRow, RegistrierungFormDraft, SpielerLinkZustand 
  * A link pasted after the window closed has to read „geschlossen“, or its holder goes away
  * believing an administrator revoked it. `laeuft` is the server's whole judgement.
  */
-export function einladungZustand(ansicht: FLEinladungAnsichtResponse): "gueltig" | "geschlossen" {
-  return ansicht.laeuft ? "gueltig" : "geschlossen";
+export function einladungZustand(ansicht: FLInvitationViewResponse): "valid" | "closed" {
+  return ansicht.running ? "valid" : "closed";
 }
 
 /**
@@ -29,11 +34,11 @@ export function einladungZustand(ansicht: FLEinladungAnsichtResponse): "gueltig"
  * A shut window outranks the rest; a missing team is the team's own to repair; a full squad reopens
  * when a place falls free.
  */
-export function formularZustand(ansicht: FLEinladungAnsichtResponse): "gueltig" | "geschlossen" | "team-fehlt" | "kader-voll" {
-  if (!ansicht.laeuft) return "geschlossen";
-  if (!ansicht.team_eingetragen) return "team-fehlt";
+export function formularZustand(ansicht: FLInvitationViewResponse): "valid" | "closed" | "team-fehlt" | "kader-voll" {
+  if (!ansicht.running) return "closed";
+  if (!ansicht.team_entered) return "team-fehlt";
 
-  return ansicht.kader_frei ? "gueltig" : "kader-voll";
+  return ansicht.kader_free ? "valid" : "kader-voll";
 }
 
 /**
@@ -61,28 +66,25 @@ export function registrierungPayload(draft: RegistrierungFormDraft, token: strin
  */
 export function mapRegistrierungSubmitRefusal(
   error: unknown,
-): { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: "ungueltig"; schonAngekommen?: true } | null {
+): { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: "invalid"; schonAngekommen?: true } | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
     // Every body rule the form can break is mirrored, so a refusal no box can take is of a drifted
     // client, which the team's link replaces.
-    case "REQ-VAL-002":
-    case "REQ-VAL-001":
+    case "body_unreadable":
+    case "payload_refused":
       return refusedPayloadAnswer(error, REGISTRIERUNG_NEU_OEFFNEN);
-    // The link died between the page loading and this press, and the whole page is the answer: a
-    // banner over a form nothing accepts invites a second attempt.
-    case "REQ-EINLADUNG-003":
-    // With the record missing, the season or the club the link names is gone: as dead a link.
-    case "DB-COMMON-001":
-      return { zustand: "ungueltig" };
+    // The link died between the page loading and this press, or the season or the club it names is
+    // gone: the whole page is the answer, since a banner over a form nothing accepts invites a second attempt.
+    case "document_not_found":
+      return { zustand: "invalid" };
     // Each reachable only where the season moved after this page loaded, and the team's link reopens
     // onto a page read since: the window's or the team's own panel, or the Stufen offered now.
-    case "REQ-REGISTRIERUNG-001":
-    case "REQ-REGISTRIERUNG-002":
-    case "REQ-REGISTRIERUNG-003":
+    case "registrierung_closed":
+    case "registrierung_stufe_not_allowed":
       return { error: REGISTRIERUNG_NEU_OEFFNEN };
-    case "REQ-REGISTRIERUNG-008":
+    case "registrierung_kader_full":
       return {
         error: buildRefusal({
           reason: "Der Kader dieses Teams ist voll",
@@ -91,7 +93,7 @@ export function mapRegistrierungSubmitRefusal(
       };
     // The press this form repeated stands, under the details first sent: a banner rather than a
     // field, since whichever box changed since then is not the one at fault.
-    case "REQ-REGISTRIERUNG-011":
+    case "registrierung_key_differing":
       return {
         schonAngekommen: true,
         error: buildRefusal({
@@ -101,7 +103,7 @@ export function mapRegistrierungSubmitRefusal(
       };
     // The same press, replayed after the team admitted it: the key outlives the registration on the
     // squad row, so the answer is the admission rather than a second registration.
-    case "REQ-REGISTRIERUNG-016":
+    case "registrierung_already_admitted":
       return {
         schonAngekommen: true,
         error: buildRefusal({
@@ -111,7 +113,7 @@ export function mapRegistrierungSubmitRefusal(
       };
     // Neutral, and under the address it was judged on: a stranger learns nothing about a list, and
     // the person it does concern already knows why.
-    case "REQ-REGISTRIERUNG-009":
+    case "registrierung_adresse_barred":
       return {
         fieldErrors: {
           email: `Mit dieser E-Mail-Adresse ist keine Registrierung möglich. Wenn Du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`,
@@ -120,21 +122,6 @@ export function mapRegistrierungSubmitRefusal(
     default:
       return null;
   }
-}
-
-/**
- * What a pupil is told where the provider refused their confirmation mail outright.
- *
- * It names a second attempt because the write refuses nothing on the strength of a pending row:
- * registering again mints a fresh link.
- */
-const MAIL_ABGEWIESEN =
-  "An diese Adresse konnten wir keine E-Mail schicken. Prüfe sie und registriere Dich über denselben Link erneut. " +
-  `Der Eintrag von eben löscht sich nach ${String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen von selbst.`;
-
-/** The refused send as the form shows it. */
-export function abgewiesenerVersand(): { error?: string; fieldErrors?: FieldErrors } {
-  return { fieldErrors: { email: MAIL_ABGEWIESEN } };
 }
 
 /** `alterAusserhalb` where the link's view serves no floor to name: both bounds, never a number of its own. */
@@ -149,18 +136,12 @@ const GESPEICHERTES_GEBURTSDATUM_AUSSERHALB = buildRefusal({
   repair: `Du siehst es in Deinem Konto. Stimmt es nicht, schreib uns an ${KONTAKT_EMAIL}`,
 });
 
-/** The returning pupil's page meeting a person the league holds no birthdate for: the page has no field, so the league is the repair. */
-const GESPEICHERTES_GEBURTSDATUM_FEHLT = buildRefusal({
-  reason: "Zu Deinem Eintrag haben wir kein Geburtsdatum gespeichert, deshalb können wir Deine Registrierung hier nicht bestätigen",
-  repair: `Schreib uns an ${KONTAKT_EMAIL}, damit wir es eintragen`,
-});
-
 /** What one refused confirmation asks its caller to do. */
 export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: SpielerLinkZustand };
 
 /** The link's own view, read again after a refused press: its floors where it is open, its state where not. A failed read is `null` beside it. */
 export type GelesenerLink =
-  | { readonly zustand: "gueltig"; readonly ansicht: { readonly mindestalter: number; readonly medien_mindestalter: number } }
+  | { readonly zustand: "valid"; readonly ansicht: { readonly minimum_age: number; readonly medien_minimum_age: number } }
   | { readonly zustand: SpielerLinkZustand };
 
 // A THUNK and never a resolved read: the codes naming one state alone answer without it, and a caller
@@ -173,61 +154,58 @@ export type GelesenerLink =
  */
 export async function mapBestaetigungRefusal(
   error: unknown,
-  gesendet: Pick<FLRegistrierungBestaetigungPayload, "geburtsdatum">,
+  gesendet: Pick<FLRegistrierungConfirmationPayload, "geburtsdatum">,
   gelesen: () => Promise<GelesenerLink | null>,
 ): Promise<BestaetigungRefusal | null> {
   if (!isRefusal(error)) return null;
 
   const ansicht = async () => {
     const link = await gelesen();
-    return link?.zustand === "gueltig" ? link.ansicht : null;
+    return link?.zustand === "valid" ? link.ansicht : null;
   };
   // The panel a reload opens on, which the press's own panel stands in for where the read finds the link open or reads nothing.
   const stand = async (sonst: SpielerLinkZustand): Promise<SpielerLinkZustand> => {
     const link = await gelesen();
-    return link === null || link.zustand === "gueltig" ? sonst : link.zustand;
+    return link === null || link.zustand === "valid" ? sonst : link.zustand;
   };
 
   switch (error.serverErrorCode) {
     // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
     // mail's link replaces.
-    case "REQ-VAL-002":
-    case "REQ-VAL-001":
+    case "body_unreadable":
+    case "payload_refused":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     // The switch is offered from the served age on the browser's day, so a clock disagreeing with the
     // backend's sends this, which a reopened link would offer again: switching it off is the repair.
-    case "REQ-REGISTRIERUNG-010":
-      return { error: medienNochNicht((await ansicht())?.medien_mindestalter ?? null) };
+    case "medien_age":
+      return { error: medienNochNicht((await ansicht())?.medien_minimum_age ?? null) };
     // Answers the page did not ask: a drifted client, the label check refusing a page whose person
     // changed since it opened first. The mail's link reopens it.
-    case "REQ-REGISTRIERUNG-017":
+    case "registrierung_choices_unsuitable":
       return { error: ANTWORT_NEU_OEFFNEN };
-    // Never the mail's link: every reopening takes the same undated person.
-    case "REQ-REGISTRIERUNG-019":
-      return { error: GESPEICHERTES_GEBURTSDATUM_FEHLT };
     // The backend's judgement of the label: a page opened before a
     // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
-    case "REQ-EINWILLIGUNG-001":
+    case "wording_not_allowed":
       return { error: FASSUNG_NEU_OEFFNEN };
-    case "REQ-REGISTRIERUNG-004":
-      return { zustand: "ungueltig" };
+    case "link_invalid":
+      return { zustand: "invalid" };
     // Judged ahead of a confirmation and of the ban, which the view ranks first: a link confirmed in another window,
     // or an address barred since, reads as a reload shows it.
-    case "REQ-REGISTRIERUNG-005":
-      return { zustand: await stand("abgelaufen") };
+    case "link_expired":
+      return { zustand: await stand("expired") };
     // Judged ahead of the ban, which the view ranks first.
-    case "REQ-REGISTRIERUNG-006":
-      return { zustand: await stand("bestaetigt") };
+    case "confirmation_exists":
+      return { zustand: await stand("confirmed") };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
-    case "REQ-REGISTRIERUNG-012":
-      return { zustand: "gesperrt" };
+    case "link_barred":
+      return { zustand: "barred" };
     // The one refusal that spends no token, so a typed date's refusal lands on its field and the date survives it;
     // a `zustand` here would swap a live form for a dead-link panel.
-    case "REQ-REGISTRIERUNG-007": {
-      // No date sent is the returning pupil's stored one judged: their page asks none (`REQ-REGISTRIERUNG-017`).
+    case "confirmation_age": {
+      // No date sent is the returning pupil's stored one judged: their page asks none (`registrierung_choices_unsuitable`).
       if (gesendet.geburtsdatum === null) return { error: GESPEICHERTES_GEBURTSDATUM_AUSSERHALB };
 
-      const floor = (await ansicht())?.mindestalter ?? null;
+      const floor = (await ansicht())?.minimum_age ?? null;
 
       // A view that went unread names no floor: one guessed could send the person to correct a date that was right.
       return { fieldErrors: { geburtsdatum: floor === null ? ALTER_AUSSERHALB_UNGELESEN : alterAusserhalb(floor) } };
@@ -249,12 +227,12 @@ export function buildAdminRegistrierungRows(registrierungen: readonly FLRegistri
     id: registrierung.id,
     vorname: registrierung.vorname,
     nachname: registrierung.nachname,
-    eingereicht_am: registrierung.eingereicht_am,
+    submitted_at: registrierung.submitted_at,
     team_id: registrierung.team_id,
     teamName: teamNamen.get(registrierung.team_id) ?? null,
     saison_id: registrierung.saison_id,
     stufe: registrierung.stufe,
-    bestaetigt: registrierung.bestaetigt,
+    confirmed: registrierung.confirmed,
   }));
 }
 
@@ -285,42 +263,42 @@ export function mapAufnahmeRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
-    case "DB-COMMON-001":
+    case "document_not_found":
       return REGISTRIERUNG_SCHON_ENTSCHIEDEN;
     // The list marks the row and offers no press, so only a page older than the pupil's state sends this.
-    case "REQ-REGISTRIERUNG-013":
+    case "registrierung_unconfirmed":
       return buildRefusal({
         reason: "Diese Registrierung ist noch nicht bestätigt",
         repair: "Nimm sie auf, sobald die Person ihren Link bestätigt hat",
       });
-    case "REQ-REGISTRIERUNG-009":
+    case "registrierung_adresse_barred":
       return buildRefusal({ reason: "Diese Registrierung kann nicht aufgenommen werden", repair: "Wende Dich an die Liga" });
-    case "REQ-REGISTRIERUNG-003":
+    case "registrierung_stufe_not_allowed":
       return buildRefusal({
         reason: "Diese Stufe ist in dieser Saison nicht zugelassen",
         repair: "Lehne die Registrierung ab oder wende Dich an die Liga",
       });
     // The page sends exactly the person the read resolved, so this is a page older than
     // the stored person it names.
-    case "REQ-REGISTRIERUNG-014":
+    case "registrierung_person_not_named":
       return buildRefusal({
         reason: "Wen diese Registrierung meint, hat sich seit dem Laden der Seite geändert",
         repair: "Lade die Seite neu und entscheide erneut",
       });
     // The pupil confirmed as a person the league has erased since, and gave no answers a new person
     // could stand on: only a fresh registration asks them.
-    case "REQ-REGISTRIERUNG-018":
+    case "registrierung_person_missing":
       return buildRefusal({
         reason: "Die Person zu dieser Registrierung ist bei uns nicht mehr gespeichert",
         repair: "Lehne die Registrierung ab. Die Person kann sich danach erneut registrieren",
       });
-    case "REQ-REGISTRIERUNG-015":
+    case "registrierung_already_in_kader":
       return buildRefusal({
         reason: "Diese Person steht in dieser Saison schon in einem Kader",
         repair: "Lehne die Registrierung ab oder wende Dich an die Liga",
       });
     // The administrator's remedy, raising the cap, is no seat holder's: the league is.
-    case "REQ-SQUAD-003":
+    case "kader_full":
       return buildRefusal({
         reason: "Der Kader Deines Teams ist für diese Saison voll",
         repair: "Wende Dich an die Liga, wenn noch jemand dazukommen soll",
@@ -334,7 +312,7 @@ export function mapAufnahmeRefusal(error: unknown): string | null {
 export function mapAblehnungRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "DB-COMMON-001" ? REGISTRIERUNG_SCHON_ENTSCHIEDEN : null;
+  return error.serverErrorCode === "document_not_found" ? REGISTRIERUNG_SCHON_ENTSCHIEDEN : null;
 }
 
 /**
@@ -343,16 +321,16 @@ export function mapAblehnungRefusal(error: unknown): string | null {
  * Every rule's refusal alike: a spent link answers its own state in a 200, so a refusal is a token
  * nothing could place.
  */
-export function mapRegistrierungAnsichtRefusal(error: unknown): "ungueltig" | null {
+export function mapRegistrierungAnsichtRefusal(error: unknown): "invalid" | null {
   if (!isRefusal(error)) return null;
 
   // A token the backend will not parse matches no record, so the page calls the link void rather
   // than offering a reload that cannot succeed.
-  if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
+  if (error.serverErrorCode === "payload_refused") return "invalid";
 
   // The season or club an invitation names gone, which the invitation's read answers as the sign-up
   // does; the confirmation's read and write meet no gone record.
-  if (isRecordMissing(error)) return "ungueltig";
+  if (isRecordMissing(error)) return "invalid";
 
-  return isRuleRefusal(error) ? "ungueltig" : null;
+  return isRuleRefusal(error) ? "invalid" : null;
 }

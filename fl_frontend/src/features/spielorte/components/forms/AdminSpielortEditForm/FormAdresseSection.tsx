@@ -7,8 +7,8 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
+import type { FLAddress } from "@/core/generated/client/types";
 import type { SpielortFieldPath } from "@/features/spielorte/spielortDraftStatus";
-import type { FLAddress } from "@/shared/schemas";
 import type { SpielortBanner } from "./banners";
 
 /**

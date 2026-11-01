@@ -9,18 +9,17 @@ from typing import Any
 
 import pytest
 
-from app.api.identitaet import sweep_router
+from app.api.identitaet import system_router
 from app.api.identitaet.services import (
     abgeschlossene_saison_id,
     behaltene_saison_ids,
     geschlossen_durch,
     loeschung_faellig,
     offene_adressen,
-    ohne_passende_adresse,
     statuses_after_activating,
 )
-from app.api.saisons.schemas import FLSaisonStatus
 from app.core.middlewares import REQUEST_DEADLINE_S
+from app.shared.schemas.literals import FLSaisonStatus
 
 LEAGUE: dict[str, FLSaisonStatus] = {"2023": "past", "2024": "past", "2025": "past", "2026": "active", "2027": "future"}
 ADDRESS = "thessaly.okonkwo@beispielschule.de"
@@ -80,32 +79,18 @@ class TestTheDueJudgement:
         assert faellig(kader) is due
 
     def test_a_pending_registration_keeps_its_pupil(self):
-        offene = offene_adressen([{"status": "eingereicht", "email": ADDRESS}])
+        offene = offene_adressen([{"status": "submitted", "email": ADDRESS}])
 
         assert offene == {ADDRESS}
         assert not faellig([], offene=offene)
 
     def test_a_declined_registration_keeps_nobody(self):
-        assert offene_adressen([{"status": "abgelehnt", "email": ADDRESS}]) == frozenset()
+        assert offene_adressen([{"status": "declined", "email": ADDRESS}]) == frozenset()
 
     def test_a_pupil_holding_no_address_is_never_due(self):
         """The registry erases by address, and nothing else may erase by a name."""
 
         assert not faellig([], email=None)
-
-    @pytest.mark.parametrize(
-        "email",
-        [
-            pytest.param("Thessaly.Okonkwo@beispielschule.de", id="unfolded"),
-            pytest.param("", id="empty"),
-            pytest.param("thessaly.okonkwo", id="refused by the address rule"),
-        ],
-    )
-    def test_a_stored_address_no_request_matches_is_never_due_and_is_named(self, email: str):
-        """A hand correction leaves such a spelling, and the erasure would remove nobody by it."""
-
-        assert not faellig([], email=email)
-        assert ohne_passende_adresse([{"_id": 1, "email": email}, {"_id": 2, "email": ADDRESS}]) == [1]
 
 
 class TestTheStatusesAnActivationLeaves:
@@ -126,7 +111,7 @@ class TestTheStatusesAnActivationLeaves:
 
 # One pupil's commands on the wire, pinned by
 # `fl_backend/tests/api/test_loeschung_sweep.py :: TestOnePupilCostsTheCommandsItsShareIsSizedAt`.
-COMMANDS_A_PERSON = 22
+COMMANDS_A_PERSON = 20
 
 # The call's other commands, pinned on the wire by
 # `fl_backend/tests/api/test_loeschung_sweep.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`: three aggregates,
@@ -136,11 +121,11 @@ OTHER_COMMANDS = 3 + 1
 # The per-command cost, the largest of two windows timing whole calls locally, 2026-10-16.
 PER_COMMAND_S = 0.00203
 
-# The round trip `sweep_router.LOESCHUNGEN_PER_PASS`'s comment sizes the share for.
+# The round trip `system_router.LOESCHUNGEN_PER_PASS`'s comment sizes the share for.
 ROUND_TRIP_S = 0.037
 
 
 def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names():
     """A share raised past its budget passes every case counting its own pupils, and times out a whole call in production."""
 
-    assert (sweep_router.LOESCHUNGEN_PER_PASS * COMMANDS_A_PERSON + OTHER_COMMANDS) * (ROUND_TRIP_S + PER_COMMAND_S) < REQUEST_DEADLINE_S
+    assert (system_router.LOESCHUNGEN_PER_PASS * COMMANDS_A_PERSON + OTHER_COMMANDS) * (ROUND_TRIP_S + PER_COMMAND_S) < REQUEST_DEADLINE_S

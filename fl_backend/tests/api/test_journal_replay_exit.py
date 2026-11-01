@@ -66,7 +66,7 @@ def test_a_window_it_cannot_read_as_one_is_refused_before_the_settings(
     assert named in done.stderr.decode()
 
 
-def test_the_replay_names_the_erasure_page_as_the_sidemenu_does():
+def test_the_replay_names_the_loeschung_page_as_the_sidemenu_does():
     """A label the sidemenu does not show sends the operator after a restore looking for a page that is not there."""
 
     module, name = LOESCHUNG_EINTRAG

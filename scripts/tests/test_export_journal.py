@@ -74,7 +74,7 @@ from app.core.logging import JSONFormatter
 for spec in sys.argv[1:]:
     created, message = spec.split(":", 1)
     message = message.replace("JOURNAL", JOURNAL_TOKEN)
-    record = logging.LogRecord("frankfurtleague.loeschung", logging.INFO, "crud.py", 1, message, None, None)
+    record = logging.LogRecord("frankfurtleague.erasure", logging.INFO, "crud.py", 1, message, None, None)
     record.created = float(created)
     print(JSONFormatter().format(record))
 """

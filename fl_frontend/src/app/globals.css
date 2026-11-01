@@ -792,9 +792,9 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
 
   /* Session 8: the spinner's and the skeleton's rules go with HeroUI's `Spinner` and `Skeleton`, by this
      session at the latest. */
-  /* HeroUI stops its OWN spinner here and this app does not: `appToast.pending`
-     raises a toast with `timeout: 0`, so its spinner is the only thing saying the
-     request is still running. The value is the vendor's token. */
+  /* HeroUI stops its OWN spinner here and this app does not: a pending `Button`'s
+     spinner is the only thing saying the request is still running. The value is the
+     vendor's token. */
   .spinner,
   .spinner::before,
   .spinner::after {
@@ -891,7 +891,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
 
   /* THE DISMISS CONTROL — a WCAG 2.2.1 fix. HeroUI restores its opacity and
      pointer events only under `:hover`, and a touch screen has none, so a timed
-     message carrying an undo offer could only be waited out. */
+     message could only be waited out. */
   /* Frontmost and not closing. HeroUI reveals a stacked toast's control under the pointer expanding
      the stack, and hides a closing toast's by a rule this one would outrank by source order.
      Vendored: `@heroui/styles` `toast.css`, both attributes included. */
@@ -1008,7 +1008,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
     @apply border border-brand font-bold;
   }
 
-  /* The chosen day, in the pair `StufenPicker` and the toast's action button already carry. */
+  /* The chosen day, in the pair `StufenPicker` already carries. */
   .calendar__cell[data-selected="true"],
   .calendar-year-picker__year-cell[data-selected="true"],
   .calendar-year-picker__year-cell[aria-selected="true"] {

@@ -105,7 +105,6 @@ function rebuildOnRecovery(): void {
  */
 function logUnbuilt(index: string, failed: unknown): void {
   logger.error("auth.index_unbuilt", undefined, {
-    error_code: "FE-AUTH-011",
     index: index,
     name: failed instanceof Error ? failed.name : "unknown",
     code: failed instanceof MongoError ? failed.code : undefined,

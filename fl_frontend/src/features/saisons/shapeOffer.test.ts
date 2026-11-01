@@ -1,7 +1,8 @@
 import { saisonRules } from "@/test-support/saisonRules.ts";
 import { assert, describe, expect, it } from "vitest";
 
-import { FLPostSaisonPayloadSchema, MAX_QUALIFIERS } from "@/features/saisons/schemas";
+import { MAX_QUALIFIERS } from "@/features/saisons/constants";
+import { FLPostSaisonPayloadSchema } from "@/features/saisons/schemas";
 import { GRUPPEN_OPTIONS } from "@/features/teams/constants";
 
 import {
@@ -21,13 +22,13 @@ import {
   teamsPerGroupFloor,
 } from "./shapeOffer.ts";
 
-import type { FLSpielplanShape } from "@/features/saisons/schemas";
+import type { FLSpielplanShape } from "@/core/generated/client/types";
 import type { SaisonGruppenOccupancy } from "@/features/saisons/types";
 
-const RULES = saisonRules({ max_kadergroesse: 50, erlaubte_stufen: ["E1"] });
+const RULES = saisonRules({ max_kadergroesse: 50, allowed_stufen: ["E1"] });
 
 /**
- * The PAYLOAD rather than a field schema: `REQ-RULES-001` and `REQ-RULES-007` read two of the three
+ * The PAYLOAD rather than a field schema: `rules_bracket_impossible` and `rules_qualifiers_above_gruppe` read two of the three
  * numbers each, so they are refinements on the season, and an offer is held to them rather than to a
  * second copy of itself.
  */
@@ -52,16 +53,16 @@ const refusalOf = (options: readonly { id: string; refusal: string | null }[], c
   options.find((row) => row.id === String(count))?.refusal;
 
 describe("the group count offer", () => {
-  /* The whole claim, one row at a time: an open row the create refuses is the offer
-     `.claude/rules/cross-surface.md`'s **saisons** clause bars, and a closed row it would have taken
-     is an offer narrowed past the rules. */
+  /* The whole claim, one row at a time: an open row the create refuses offers what the write path
+     refuses, which a ratified decision bars, and a closed row it would have taken is an offer
+     narrowed past the rules. */
   it("opens exactly the counts a create saves", () => {
     for (const qualifiers of SHAPE_COUNT_UNIVERSE) {
       for (const row of groupCountOptions({ groups: 1, qualifiers, occupancy: NOBODY_ENTERED })) {
         const groups = Number(row.id);
-        // Groups of the largest size the schema takes, so `REQ-RULES-007` cannot be what closes a row
+        // Groups of the largest size the schema takes, so `rules_qualifiers_above_gruppe` cannot be what closes a row
         // here: the team count bounds the qualifiers and never the groups.
-        const shape = { number_of_groups: groups, qualifiers_per_group: qualifiers, teams_per_group: MAX_TEAMS_PER_GROUP };
+        const shape = { number_of_gruppen: groups, qualifiers_per_gruppe: qualifiers, teams_per_gruppe: MAX_TEAMS_PER_GROUP };
 
         expect(row.refusal === null, `${String(groups)} groups qualifying ${String(qualifiers)}`).toBe(saves(shape));
       }
@@ -75,7 +76,7 @@ describe("the group count offer", () => {
       const offered = new Set(counts(groupCountOptions({ groups: 1, qualifiers, occupancy: NOBODY_ENTERED })));
 
       for (const groups of upTo(MAX_GROUPS + 1)) {
-        const shape = { number_of_groups: groups, qualifiers_per_group: qualifiers, teams_per_group: MAX_TEAMS_PER_GROUP };
+        const shape = { number_of_gruppen: groups, qualifiers_per_gruppe: qualifiers, teams_per_gruppe: MAX_TEAMS_PER_GROUP };
         if (!saves(shape)) continue;
 
         assert.ok(offered.has(groups), `${String(groups)} groups qualifying ${String(qualifiers)} saves and is not on offer`);
@@ -96,12 +97,12 @@ describe("the group count offer", () => {
 
 describe("the qualifier count offer", () => {
   /* The group count's own case, from the other side, and against the team count as well: this is the
-     one control all three of `REQ-RULES-001` and `REQ-RULES-007`'s combinations reach. */
+     one control all three of `rules_bracket_impossible` and `rules_qualifiers_above_gruppe`'s combinations reach. */
   it("opens exactly the counts a create saves", () => {
     for (const groups of GROUP_COUNT_UNIVERSE) {
       for (const teams of [MIN_TEAMS_PER_GROUP, 4, MAX_TEAMS_PER_GROUP]) {
         for (const row of qualifierCountOptions({ groups, qualifiers: 1, teams })) {
-          const shape = { number_of_groups: groups, qualifiers_per_group: Number(row.id), teams_per_group: teams };
+          const shape = { number_of_gruppen: groups, qualifiers_per_gruppe: Number(row.id), teams_per_gruppe: teams };
 
           expect(row.refusal === null, `${String(groups)} groups of ${String(teams)} qualifying ${row.id}`).toBe(saves(shape));
         }
@@ -120,7 +121,7 @@ describe("the qualifier count offer", () => {
      group's size, which is where a bound off by one opens a row the create refuses: a group of three
      qualifying four. */
   it("closes a qualifier count one past the group's size, which a create refuses", () => {
-    const shape = { number_of_groups: 1, qualifiers_per_group: 4, teams_per_group: 3 };
+    const shape = { number_of_gruppen: 1, qualifiers_per_gruppe: 4, teams_per_gruppe: 3 };
 
     expect(saves(shape), "the create takes four qualifiers from a group of three, so the row below may stand open").toBe(false);
     expect(refusalOf(qualifierCountOptions({ groups: 1, qualifiers: 1, teams: 3 }), 4)).toBe(SHAPE_REFUSAL_NOTE.overQualifies);
@@ -138,7 +139,7 @@ describe("the qualifier count offer", () => {
 });
 
 describe("what a closed row says", () => {
-  /* Two notes for `REQ-RULES-001` and not one: a bracket too large comes down and one too small goes
+  /* Two notes for `rules_bracket_impossible` and not one: a bracket too large comes down and one too small goes
      up, and the note is the whole of what tells a reader which way to move. */
   it("parts a bracket that is too small from one that is too large", () => {
     expect(refusalOf(groupCountOptions({ groups: 1, qualifiers: 1, occupancy: NOBODY_ENTERED }), 1)).toBe(SHAPE_REFUSAL_NOTE.noBracket);
@@ -147,7 +148,7 @@ describe("what a closed row says", () => {
     );
   });
 
-  /* `REQ-RULES-007` ahead of `REQ-RULES-001`, as `find_rules_refusal` judges them: name the bracket
+  /* `rules_qualifiers_above_gruppe` ahead of `rules_bracket_impossible`, as `find_rules_refusal` judges them: name the bracket
      here and the reader is sent to a number that is not what shut the row. */
   it("names the group's own size where both rules would close a row", () => {
     expect(refusalOf(qualifierCountOptions({ groups: MAX_GROUPS, qualifiers: 1, teams: MIN_TEAMS_PER_GROUP }), 4)).toBe(
@@ -159,7 +160,7 @@ describe("what a closed row says", () => {
 describe("the team count", () => {
   /* Drift either bound and the stepper offers a size the create refuses, or hides one it takes. */
   it("is bounded where the schema bounds it", () => {
-    const held = (teams: number) => ({ number_of_groups: 2, qualifiers_per_group: 2, teams_per_group: teams });
+    const held = (teams: number) => ({ number_of_gruppen: 2, qualifiers_per_gruppe: 2, teams_per_gruppe: teams });
 
     expect(saves(held(MIN_TEAMS_PER_GROUP))).toBe(true);
     expect(saves(held(MIN_TEAMS_PER_GROUP - 1))).toBe(false);
@@ -182,7 +183,7 @@ describe("the team count", () => {
 });
 
 describe("what the season's own groups close", () => {
-  /* `REQ-RULES-002`: a count the season's clubs are entered past. Every row, because a rule reading
+  /* `rules_gruppen_in_use`: a count the season's clubs are entered past. Every row, because a rule reading
      only the row below the stored count passes on a season whose clubs sit in one group. */
   it("closes a group count that would stop running a group holding clubs", () => {
     const rows = groupCountOptions({ groups: 4, qualifiers: 2, occupancy: { A: 4, B: 4, C: 4, D: 4 } });
@@ -204,7 +205,7 @@ describe("what the season's own groups close", () => {
       expect(refusalOf(rows, count), `${String(count)} groups is closed as a stranding`).not.toBe(SHAPE_REFUSAL_NOTE.groupsInUse);
   });
 
-  /* `find_rules_refusal` judges `REQ-RULES-001` before `REQ-RULES-002`, and the note is the whole of
+  /* `find_rules_refusal` judges `rules_bracket_impossible` before `rules_gruppen_in_use`, and the note is the whole of
      what sends a reader to the number that shut the row. */
   it("names the bracket where both that rule and the occupancy would close a row", () => {
     const rows = groupCountOptions({ groups: 1, qualifiers: MAX_QUALIFIERS, occupancy: { A: 2, B: 2, C: 2 } });
@@ -221,7 +222,7 @@ describe("what the season's own groups close", () => {
     expect(refusalOf(rows, 2)).toBe(SHAPE_REFUSAL_NOTE.groupsInUse);
   });
 
-  /* `REQ-RULES-003` from the fullest group, which is the figure `find_rules_refusal` weighs a lowered
+  /* `rules_capacity_below_use` from the fullest group, which is the figure `find_rules_refusal` weighs a lowered
      count against. */
   it("takes the team count's floor from the fullest group as well", () => {
     expect(teamsPerGroupFloor({ qualifiers: 2, held: MAX_TEAMS_PER_GROUP, occupancy: { A: 5, B: 9 } })).toBe(9);
@@ -235,7 +236,7 @@ describe("what the season's own groups close", () => {
 });
 
 describe("the draw's own offer", () => {
-  /* `REQ-SPIELPLAN-004` asks each offered group for EXACTLY the team count, so a redraw shape the
+  /* `spielplan_gruppen_off_rules` asks each offered group for EXACTLY the team count, so a redraw shape the
      entries do not fit costs a press rather than a save. */
   it("closes every group count the entries do not fit exactly", () => {
     const rows = drawGroupCountOptions({ groups: 2, qualifiers: 2, teams: 4, occupancy: { A: 4, B: 4 } });
@@ -264,7 +265,7 @@ describe("the draw's own offer", () => {
       const occupancy: SaisonGruppenOccupancy = Object.fromEntries(
         GRUPPEN_OPTIONS.slice(0, groups).map((gruppe) => [gruppe, MIN_TEAMS_PER_GROUP]),
       );
-      const shape = { number_of_groups: groups, qualifiers_per_group: 2, teams_per_group: MIN_TEAMS_PER_GROUP };
+      const shape = { number_of_gruppen: groups, qualifiers_per_gruppe: 2, teams_per_gruppe: MIN_TEAMS_PER_GROUP };
       const refusal = refusalOf(drawGroupCountOptions({ groups, qualifiers: 2, teams: MIN_TEAMS_PER_GROUP, occupancy }), groups);
 
       expect(refusal === null, `${String(groups)} groups of ${String(MIN_TEAMS_PER_GROUP)}`).toBe(saves(shape));
@@ -274,7 +275,7 @@ describe("the draw's own offer", () => {
 
 describe("the draw's refusal over the groups the season's clubs stand in", () => {
   /* Every shape these entries can be drawn in, spelled out rather than derived: a second derivation of
-     `REQ-SPIELPLAN-004` here would agree with a wrong first one. */
+     `spielplan_gruppen_off_rules` here would agree with a wrong first one. */
   it("lets a draw through exactly where every offered group holds the team count", () => {
     const occupancies: SaisonGruppenOccupancy[] = [
       {},
@@ -330,18 +331,18 @@ describe("the draw's refusal over a replace's three numbers", () => {
   /* `find_spielplan_refusal` runs ahead of `find_rules_refusal`, so where both refuse the groups are named. */
   it("names the groups ahead of the bracket, and the bracket where the groups fit", () => {
     const shape = (over: Partial<FLSpielplanShape>): FLSpielplanShape => ({
-      number_of_groups: 2,
-      teams_per_group: 4,
-      qualifiers_per_group: 2,
+      number_of_gruppen: 2,
+      teams_per_gruppe: 4,
+      qualifiers_per_gruppe: 2,
       ...over,
     });
 
     expect(drawShapeRefusal({ shape: shape({}), occupancy: { A: 4, B: 4 } })).toBe(null);
-    expect(drawShapeRefusal({ shape: shape({ teams_per_group: 5, qualifiers_per_group: 3 }), occupancy: { A: 4, B: 4 } })).toBe(
+    expect(drawShapeRefusal({ shape: shape({ teams_per_gruppe: 5, qualifiers_per_gruppe: 3 }), occupancy: { A: 4, B: 4 } })).toBe(
       "gruppenOffSize",
     );
-    expect(drawShapeRefusal({ shape: shape({ qualifiers_per_group: 3 }), occupancy: { A: 4, B: 4 } })).toBe("noBracket");
-    expect(drawShapeRefusal({ shape: shape({ qualifiers_per_group: 16 }), occupancy: { A: 4, B: 4 } })).toBe("bracketTooLarge");
+    expect(drawShapeRefusal({ shape: shape({ qualifiers_per_gruppe: 3 }), occupancy: { A: 4, B: 4 } })).toBe("noBracket");
+    expect(drawShapeRefusal({ shape: shape({ qualifiers_per_gruppe: 16 }), occupancy: { A: 4, B: 4 } })).toBe("bracketTooLarge");
   });
 });
 
@@ -350,14 +351,14 @@ describe("the draw's refusal over a replace's three numbers", () => {
    undercount offers a replace the span refuses. */
 describe("the matchdays a replace's numbers imply", () => {
   it("counts an even group's round robin one short of its size, and an odd group's at its size", () => {
-    const oneGroup = (teams: number): number => drawnSpieltage({ number_of_groups: 1, teams_per_group: teams, qualifiers_per_group: 1 });
+    const oneGroup = (teams: number): number => drawnSpieltage({ number_of_gruppen: 1, teams_per_gruppe: teams, qualifiers_per_gruppe: 1 });
 
     expect([2, 3, 4, 5, 16].map(oneGroup)).toStrictEqual([1, 3, 3, 5, 15]);
   });
 
   it("adds one per knockout round, and none for a product no bracket takes", () => {
     const sixteenPerGroup = (groups: number, qualifiers: number): number =>
-      drawnSpieltage({ number_of_groups: groups, teams_per_group: 16, qualifiers_per_group: qualifiers });
+      drawnSpieltage({ number_of_gruppen: groups, teams_per_gruppe: 16, qualifiers_per_gruppe: qualifiers });
 
     expect([
       sixteenPerGroup(1, 1),
@@ -376,6 +377,6 @@ describe("the group cap", () => {
      ceiling is a third spelling of it. Let them part and the picker offers a season the create
      refuses outright. */
   it("is a group count a create saves", () => {
-    expect(saves({ number_of_groups: MAX_GROUPS, qualifiers_per_group: 1, teams_per_group: MAX_TEAMS_PER_GROUP })).toBe(true);
+    expect(saves({ number_of_gruppen: MAX_GROUPS, qualifiers_per_gruppe: 1, teams_per_gruppe: MAX_TEAMS_PER_GROUP })).toBe(true);
   });
 });

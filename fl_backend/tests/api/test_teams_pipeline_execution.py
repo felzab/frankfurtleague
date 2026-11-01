@@ -4,7 +4,6 @@ import pytest
 from bson import ObjectId
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
-from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import (
     FLTeamListAdapter,
     FLTeamsFilterParams,
@@ -12,6 +11,7 @@ from app.api.teams.schemas import (
     FLTeamStatistikScope,
 )
 from app.api.teams.services import build_team_pipeline
+from app.shared.schemas.literals import FLSpielerStufe
 
 from .conftest import AUSTRITT, SAISON, SeededLeague
 
@@ -23,13 +23,13 @@ STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 STANDARD_RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
-    qualifiers_per_group=2,
-    number_of_groups=4,
-    teams_per_group=4,
+    qualifiers_per_gruppe=2,
+    number_of_gruppen=4,
+    teams_per_gruppe=4,
     tiebreak_order="tordifferenz",
     max_kadergroesse=18,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
-    erlaubte_stufen=STUFEN,
+    allowed_stufen=STUFEN,
 )
 
 
@@ -55,18 +55,18 @@ def table(league: SeededLeague, **kwargs: Any) -> dict[str, dict[str, int]]:
 
 def test_the_default_scope_counts_only_the_gruppenphase(league: SeededLeague):
     """Helmholtz has played four matches and three of them are league matches."""
-    assert table(league)["Helmholtz"]["anzahl_gespielte_spiele"] == 3
+    assert table(league)["Helmholtz"]["count_gespielte_spiele"] == 3
 
 
 def test_the_gesamt_scope_adds_the_playoff_match(league: SeededLeague):
     """The divergence that keeps the default scope at `gruppenphase`."""
-    assert table(league, scope="gesamt")["Helmholtz"]["anzahl_gespielte_spiele"] == 4
+    assert table(league, scope="total")["Helmholtz"]["count_gespielte_spiele"] == 4
 
 
 def test_the_playoff_win_moves_points_and_goals_too(league: SeededLeague):
     """A scope that counted the phase but dropped its goals would pass on the match count alone."""
     gruppenphase = table(league)["Helmholtz"]
-    gesamt = table(league, scope="gesamt")["Helmholtz"]
+    gesamt = table(league, scope="total")["Helmholtz"]
 
     assert (gruppenphase["punkte"], gruppenphase["tore_geschossen"]) == (4, 5)
     assert (gesamt["punkte"], gesamt["tore_geschossen"]) == (7, 10)
@@ -74,28 +74,28 @@ def test_the_playoff_win_moves_points_and_goals_too(league: SeededLeague):
 
 def test_the_scopes_agree_for_a_team_with_no_playoff_match(league: SeededLeague):
     """Lessing played no Viertelfinale, so the scope must be invisible to it."""
-    assert table(league)["Lessing"] == table(league, scope="gesamt")["Lessing"]
+    assert table(league)["Lessing"] == table(league, scope="total")["Lessing"]
 
 
 def test_a_no_show_carrying_its_awarded_result_still_counts(league: SeededLeague):
     """Bock's only Gruppenphase win is a forfeit; a `sonderereignis` filter here would leave it on one match."""
     bock = table(league)["Bock"]
 
-    assert bock["anzahl_gespielte_spiele"] == 2
+    assert bock["count_gespielte_spiele"] == 2
     assert bock["siege"] == 1
 
 
 def test_a_match_without_an_ergebnis_does_not_count(league: SeededLeague):
     """Bock has a third Gruppenphase fixture that has not been played."""
-    assert table(league)["Bock"]["anzahl_gespielte_spiele"] == 2
+    assert table(league)["Bock"]["count_gespielte_spiele"] == 2
 
 
 def test_an_ergebnis_without_goal_counts_does_not_count(league: SeededLeague):
     """Without the goal-count filters this match groups as a 0:0 draw, giving Lessing a fourth match and Ohne its first."""
     figures = table(league)
 
-    assert figures["Lessing"]["anzahl_gespielte_spiele"] == 3
-    assert figures["Ohne"]["anzahl_gespielte_spiele"] == 0
+    assert figures["Lessing"]["count_gespielte_spiele"] == 3
+    assert figures["Ohne"]["count_gespielte_spiele"] == 0
 
 
 def test_a_match_from_another_season_does_not_count(league: SeededLeague):
@@ -112,36 +112,36 @@ def test_goals_are_oriented_towards_each_team(league: SeededLeague):
 
 
 class TestACalledOffFixture:
-    """The two counts are deliberately not a partition: a forfeit is in this figure and in `anzahl_gespielte_spiele` both."""
+    """The two counts are deliberately not a partition: a forfeit is in this figure and in `count_gespielte_spiele` both."""
 
     def test_it_is_counted_for_both_teams(self, league: SeededLeague):
         """The `$expr` reaches either side: Ohne holds slot two of Spiel 10 and slot one of Spiel 13, so a one-slot match leaves it on 1."""
         figures = table(league)
 
-        assert figures["Helmholtz"]["anzahl_abgesagte_spiele"] == 1
-        assert figures["Ohne"]["anzahl_abgesagte_spiele"] == 2
+        assert figures["Helmholtz"]["count_abgesagte_spiele"] == 1
+        assert figures["Ohne"]["count_abgesagte_spiele"] == 2
 
     def test_an_abandoned_fixture_is_counted_as_played_and_not_as_an_absage(self, league: SeededLeague):
         """The distinction one flag could not draw: Spiel 14 was abandoned with a score, so it reaches one figure and not the other."""
         komplett = table(league)["Komplett"]
 
-        assert komplett["anzahl_gespielte_spiele"] == 2
+        assert komplett["count_gespielte_spiele"] == 2
         assert komplett["siege"] == 2
-        assert komplett["anzahl_abgesagte_spiele"] == 0
+        assert komplett["count_abgesagte_spiele"] == 0
 
     def test_an_annulled_fixture_is_an_absage_and_never_a_match_played(self, league: SeededLeague):
         """Spiel 13 did not take place, so it joins the absage Ohne's Spiel 10 earns while the played figure stays where it was."""
         ohne = table(league)["Ohne"]
 
-        assert ohne["anzahl_gespielte_spiele"] == 0
-        assert ohne["anzahl_abgesagte_spiele"] == 2
+        assert ohne["count_gespielte_spiele"] == 0
+        assert ohne["count_abgesagte_spiele"] == 2
 
     def test_it_moves_none_of_the_figures_the_table_is_built_from(self, league: SeededLeague):
         """An accumulator admitting a cancellation lands it in `unentschieden`, since `$eq: [null, null]` is true."""
         helmholtz = table(league)["Helmholtz"]
 
-        assert {field: helmholtz[field] for field in FLTeamStatistik.model_fields if field != "anzahl_abgesagte_spiele"} == {
-            "anzahl_gespielte_spiele": 3,
+        assert {field: helmholtz[field] for field in FLTeamStatistik.model_fields if field != "count_abgesagte_spiele"} == {
+            "count_gespielte_spiele": 3,
             "siege": 1,
             "unentschieden": 1,
             "niederlagen": 1,
@@ -154,23 +154,23 @@ class TestACalledOffFixture:
         """Both figures together: a filter excluding the forfeit from this count leaves the match tally right."""
         bock = table(league)["Bock"]
 
-        assert bock["anzahl_gespielte_spiele"] == 2
-        assert bock["anzahl_abgesagte_spiele"] == 1
+        assert bock["count_gespielte_spiele"] == 2
+        assert bock["count_abgesagte_spiele"] == 1
 
     def test_the_scope_narrows_it_like_every_figure_beside_it(self, league: SeededLeague):
         """Helmholtz's second cancellation is a Halbfinale, so the league table must not count it and a team's own page must."""
-        assert table(league)["Helmholtz"]["anzahl_abgesagte_spiele"] == 1
-        assert table(league, scope="gesamt")["Helmholtz"]["anzahl_abgesagte_spiele"] == 2
+        assert table(league)["Helmholtz"]["count_abgesagte_spiele"] == 1
+        assert table(league, scope="total")["Helmholtz"]["count_abgesagte_spiele"] == 2
 
     def test_a_team_with_no_cancellation_reads_zero(self, league: SeededLeague):
         """Komplett rather than a team with no match: only a team `$group` produced a document for proves the `$ifNull`."""
-        assert table(league)["Komplett"]["anzahl_abgesagte_spiele"] == 0
+        assert table(league)["Komplett"]["count_abgesagte_spiele"] == 0
 
 
 def test_wins_draws_and_losses_partition_the_matches(league: SeededLeague):
-    for name, figures in table(league, scope="gesamt").items():
+    for name, figures in table(league, scope="total").items():
         total = figures["siege"] + figures["unentschieden"] + figures["niederlagen"]
-        assert total == figures["anzahl_gespielte_spiele"], f"{name} does not add up"
+        assert total == figures["count_gespielte_spiele"], f"{name} does not add up"
 
 
 def test_points_come_from_the_seasons_own_rules(league: SeededLeague):
@@ -190,7 +190,7 @@ def test_a_team_with_no_counting_match_is_served_zeroes(league: SeededLeague):
     ohne = table(league)["Ohne"]
 
     assert set(ohne) == set(FLTeamStatistik.model_fields)
-    assert set(value for field, value in ohne.items() if field != "anzahl_abgesagte_spiele") == {0}
+    assert set(value for field, value in ohne.items() if field != "count_abgesagte_spiele") == {0}
 
 
 def test_a_team_with_no_junction_row_disappears(league: SeededLeague):
@@ -230,8 +230,8 @@ class TestTheSeasonsOwnIdentity:
         club = league.database.teams.find_one({"_id": league.team_oids["Helmholtz"]})
         projected = {row["name"]: row for row in rows(league)}
 
-        assert club is not None and club["shorthand"] == "HG"
-        assert projected["Helmholtz"]["shorthand"] == "HE"
+        assert club is not None and club["shorthand"] == "HGX"
+        assert projected["Helmholtz"]["shorthand"] == "HEX"
 
     def test_a_club_never_renamed_reads_the_same_either_way(self, league: SeededLeague):
         """So the two assertions above cannot be passing because the projection lost the field entirely."""
@@ -239,8 +239,8 @@ class TestTheSeasonsOwnIdentity:
         club = league.database.teams.find_one({"_id": league.team_oids["Bock"]})
         projected = {row["name"]: row for row in rows(league)}
 
-        assert club is not None and (club["name"], club["shorthand"]) == ("Bock", "BO")
-        assert projected["Bock"]["shorthand"] == "BO"
+        assert club is not None and (club["name"], club["shorthand"]) == ("Bock", "BOX")
+        assert projected["Bock"]["shorthand"] == "BOX"
 
 
 def test_a_stored_statistik_on_the_junction_is_ignored(league: SeededLeague):
@@ -262,7 +262,7 @@ def test_a_single_team_query_returns_only_that_team(league: SeededLeague):
     only = rows(league, team_id=league.team_oids["Bock"])
 
     assert [row["name"] for row in only] == ["Bock"]
-    assert only[0]["statistik"]["anzahl_gespielte_spiele"] == 2
+    assert only[0]["statistik"]["count_gespielte_spiele"] == 2
 
 
 def test_the_table_comes_back_sorted_by_name(league: SeededLeague):

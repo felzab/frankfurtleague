@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { redirect } from "next/navigation";
 
-import { funktionenOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/roles";
 import { getSubjectSession } from "@/core/subject";
 import { isFunktionLost } from "@/shared/utils/actionError";
 
@@ -33,7 +33,7 @@ export async function requireTeamSeats(
   params: Promise<{ team_id: string; saison_id: string }>,
 ): Promise<readonly [TeamSeat, ...TeamSeat[]] | null> {
   const { team_id, saison_id } = await params;
-  const [erster, ...weitere] = seatsAt(funktionenOf(await requireSubjectSession()).funktionen, team_id, saison_id);
+  const [erster, ...weitere] = seatsAt(rolesOf(await requireSubjectSession()).roles, team_id, saison_id);
 
   return erster === undefined ? null : [erster, ...weitere];
 }
@@ -49,6 +49,6 @@ export async function readAsSeatHolder<T>(read: () => Promise<T>): Promise<{ dat
   } catch (error) {
     if (!isFunktionLost(error)) throw error;
     // Built without JSX, the module keeping the name for a slice's resolvers.
-    return { forbidden: createElement(TeamForbiddenPanel, { funktionen: funktionenOf(await requireSubjectSession()).funktionen }) };
+    return { forbidden: createElement(TeamForbiddenPanel, { funktionen: rolesOf(await requireSubjectSession()).roles }) };
   }
 }

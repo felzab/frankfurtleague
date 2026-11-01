@@ -28,7 +28,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 
-import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/features/spieler/schemas";
+import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import type { SpielerFieldPath } from "@/features/spieler/spielerDraftStatus";
 import type { SpielerSaisonContext, SpielerTeamOption } from "@/features/spieler/types";
 import type { Key } from "@heroui/react/rac";
@@ -280,7 +280,7 @@ export function FormKaderSection({
                 error={entryTeamError ?? undefined}
               />
               {/* Its cap refusal is the picker's beside it: `teamId` starts null on this branch and
-                  `TeamSelect` is its only writer, so a squad at `REQ-SQUAD-003`'s cap never gets here. */}
+                  `TeamSelect` is its only writer, so a squad at `kader_full`'s cap never gets here. */}
               {/* Closed until a team is picked, rather than pressed into a refusal whose message lands under the
                   picker and moves the row. */}
               <Hint

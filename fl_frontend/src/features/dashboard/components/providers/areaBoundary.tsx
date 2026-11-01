@@ -2,8 +2,6 @@
 
 import { catchError } from "next/error";
 
-import { asCaughtError } from "@/shared/utils/caughtError";
-
 import { DashboardErrorBoundary } from "../ui/DashboardErrorBoundary";
 
 import type { ErrorInfo } from "next/error";
@@ -18,7 +16,7 @@ export function areaBoundary(Shell: ComponentType<{ children: ReactNode }>) {
     return (
       <Shell>
         <DashboardErrorBoundary
-          error={asCaughtError(error)}
+          error={error}
           retry={retry}
         />
       </Shell>

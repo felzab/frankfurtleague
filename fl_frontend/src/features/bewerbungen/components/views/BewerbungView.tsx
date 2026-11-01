@@ -15,9 +15,8 @@ import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import type { FLBewerbungWindowResponse, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { BewerbungFassung } from "@/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection";
-import type { FLBewerbungFensterResponse } from "@/features/bewerbungen/schemas";
-import type { FLTrikotFarbe } from "@/features/teams/schemas";
 
 /** Where a school goes when this page cannot take its application, whatever closed it. */
 const ZUM_KONTAKT = { href: "/kontakt", label: KONTAKT_TITEL };
@@ -54,7 +53,7 @@ export function BewerbungView({
   /** The form's words and the label they stamp, `null` where the page could not read them. */
   fassung: BewerbungFassung | null;
   /** `null` where the season takes no applications at all, which is its own answer. */
-  fenster: FLBewerbungFensterResponse | null;
+  fenster: FLBewerbungWindowResponse | null;
   /** The window could not be read. Never folded into a closed state: no deadline was learnt. */
   isUnlesbar: boolean;
   /** Resolved by the page, which is where the request scope that makes a clock legal is opened. */
@@ -68,7 +67,7 @@ export function BewerbungView({
 }) {
   const fensterStand = isUnlesbar ? "unlesbar" : fensterZustand(fenster, today);
   // A running window whose words could not be read offers no form: one without them stamps nothing.
-  const zustand = fensterStand === "laeuft" && fassung === null ? "worteUnlesbar" : fensterStand;
+  const zustand = fensterStand === "running" && fassung === null ? "worteUnlesbar" : fensterStand;
 
   return (
     <section className={SEITE_CLASSES}>
@@ -86,12 +85,12 @@ export function BewerbungView({
             Dein Team hier ein“ above a panel saying the window is shut is the page contradicting itself. */}
         <p className="max-w-xl muted-hint">
           Die Frankfurt League ist das Fußballturnier der Frankfurter Oberstufen.{" "}
-          {zustand === "laeuft"
+          {zustand === "running"
             ? "Trag Dein Team hier ein. Nach dem Abschicken bekommt jede Kontaktperson eine E-Mail mit einem Link, über den sie ihren Eintrag bestätigt."
             : "Auf dieser Seite melden Schulen ihr Team für eine Saison an."}
         </p>
 
-        {zustand === "laeuft" && fenster !== null && (
+        {zustand === "running" && fenster !== null && (
           <FensterFakten
             saisonId={saisonId}
             bis={fenster.bis}
@@ -123,7 +122,7 @@ export function BewerbungView({
         </nav>
       </header>
 
-      {zustand === "laeuft" && fenster !== null && fassung !== null && (
+      {zustand === "running" && fenster !== null && fassung !== null && (
         <BewerbungForm
           saisonId={saisonId}
           fassung={fassung}
@@ -145,7 +144,7 @@ export function BewerbungView({
       )}
 
       {/* Its own answer, and never „abgelaufen“: nothing ran out, the league closed it. */}
-      {zustand === "geschlossen" && (
+      {zustand === "closed" && (
         <ZustandPanel
           titel="Die Bewerbung ist gerade geschlossen"
           text={`Für die Saison ${saisonId} nehmen wir im Moment keine Bewerbungen an. Schreib uns, dann sagen wir Dir, wann es wieder losgeht.`}

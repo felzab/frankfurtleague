@@ -32,7 +32,7 @@ export const SPIELER_FACETS: readonly Facet<AdminSpielerRow>[] = [
   {
     param: "stufe",
     label: "Stufe",
-    // The league's set rather than the season's `erlaubte_stufen`: a season narrowed after the fact
+    // The league's set rather than the season's `allowed_stufen`: a season narrowed after the fact
     // still has rows carrying a level it no longer offers.
     // Why the sibling group facet does cut is `fl_frontend/src/features/teams/facets.ts :: buildTeamFacets`.
     options: STUFE_OPTIONS.map((stufe) => ({ value: stufe, label: stufe })),

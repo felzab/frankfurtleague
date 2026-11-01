@@ -11,11 +11,11 @@ from app.api.saisons.services import find_rules_refusal
 from app.api.saisons.spielplan import EnteredTeam, Spielplan, draw_spielplan
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielListAdapter
 from app.api.spiele.services import find_wiring_refusal, judge_spieltag_occupancy, resolve_bracket
-from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding
+from app.shared.schemas.literals import FLGruppenNames
 from tests.documents import rules_document
 
-GRUPPEN: tuple[FLGruppenNames, ...] = get_args(FLGruppenNames)
+GRUPPEN: tuple[FLGruppenNames, ...] = get_args(FLGruppenNames.__value__)
 
 SAISON_ID = "2026"
 
@@ -40,7 +40,7 @@ PAYLOAD_FIELDS: tuple[str, ...] = tuple(FLPatchSpielDataPayload.model_fields)
 def rules(*, groups: int, teams: int, qualifiers: int) -> FLSaisonRules:
     return FLSaisonRules.model_validate(
         rules_document(
-            qualifiers_per_group=qualifiers, number_of_groups=groups, teams_per_group=teams, erlaubte_stufen=["E1", "E2", "Q1", "Q2"]
+            qualifiers_per_gruppe=qualifiers, number_of_gruppen=groups, teams_per_gruppe=teams, allowed_stufen=["E1", "E2", "Q1", "Q2"]
         )
     )
 
@@ -54,7 +54,7 @@ def entered_for(groups: int, teams: int) -> tuple[EnteredTeam, ...]:
             team_id=ObjectId(f"6890a1b2c3d4e5f6072{index:05d}"),
             gruppe=gruppe,
             name=f"{gruppe}{seat + 1}-Schule",
-            shorthand=f"{index:02d}",
+            shorthand=f"T{chr(65 + index // 26)}{chr(65 + index % 26)}",
         )
         for index, (seat, gruppe) in enumerate(product(range(teams), GRUPPEN[:groups]))
     )
@@ -106,7 +106,6 @@ class TestTheShapesAreSeasonsThatCanExist:
 
         assert (
             find_rules_refusal(
-                saison_status="future",
                 stored=None,
                 proposed=rules(groups=groups, teams=teams, qualifiers=qualifiers),
                 occupancy_by_gruppe={},
@@ -130,9 +129,11 @@ class TestTheDrawnWiringIsWiringTheWritePathAccepts:
         season = season_of(shape)
 
         refused = [
-            (raw["spiel_nr"], refusal.message)
+            (raw["spiel_nr"], refusal.error_code)
             for raw in drawn(shape).spiele
-            if (refusal := find_wiring_refusal(raw["_id"], payload_of(raw), with_the_slot_cleared(season, raw["_id"]), number_of_groups=groups))
+            if (
+                refusal := find_wiring_refusal(raw["_id"], payload_of(raw), with_the_slot_cleared(season, raw["_id"]), number_of_gruppen=groups)
+            )
             is not None
         ]
 

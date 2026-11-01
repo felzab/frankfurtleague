@@ -1,9 +1,9 @@
-import { joinUnd } from "@/core/joinUnd";
+import { rollenText } from "@/core/teamVocabulary";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
+import type { FLBewerbungStatus } from "@/core/generated/client/types";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { PillTone } from "@/shared/components/ui/badges";
-import type { FLBewerbungStatus } from "./schemas";
 
 // Its own module and not an export of a `"use client"` view: every export of a client module becomes
 // a client reference on the server side.
@@ -27,9 +27,9 @@ type BewerbungStatusOption = {
  * here as one fact, so no two surfaces can name one state differently.
  */
 export const BEWERBUNG_STATUS_OPTIONS: readonly BewerbungStatusOption[] = [
-  { value: "eingereicht", label: "Eingereicht" },
-  { value: "angenommen", label: "Angenommen" },
-  { value: "abgelehnt", label: "Abgelehnt" },
+  { value: "submitted", label: "Eingereicht" },
+  { value: "accepted", label: "Angenommen" },
+  { value: "declined", label: "Abgelehnt" },
 ];
 
 export function bewerbungStatusLabel(status: FLBewerbungStatus): string {
@@ -42,9 +42,9 @@ export function bewerbungStatusLabel(status: FLBewerbungStatus): string {
  * seat's Widerspruch already wears.
  */
 export const BEWERBUNG_STATUS_TINT: Record<FLBewerbungStatus, PillTone> = {
-  eingereicht: "info",
-  angenommen: "success",
-  abgelehnt: "danger",
+  submitted: "info",
+  accepted: "success",
+  declined: "danger",
 };
 
 /** Which of the two things an application asks the league to enter: a school it does not hold yet, or a club it does. */
@@ -63,15 +63,15 @@ export const BEWERBUNG_HERKUNFT_LABELS: Record<BewerbungHerkunft, string> = {
 export const BEWERBUNG_GRUND_MAX_LENGTH = 1000;
 
 /**
- * A club's Kürzel is exactly this many characters, mirrored from
- * `fl_backend/app/shared/schemas/bounds.py`. Every site that counts a code reads it from here, the
- * application form and the club editor alike, so no two can disagree about a complete code.
+ * A club's Kürzel is exactly this many letters, as the backend's pattern `^[A-Z]{3}$` publishes it. A client control
+ * cannot import the generated module that holds the pattern, so `constants.test.ts` holds the two equal; a control's
+ * `maxLength` and the check of a complete code read the length from here.
  */
-export const KUERZEL_LAENGE = 2;
+export const KUERZEL_LAENGE = 3;
 
 /**
  * The submission's own ceilings, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound here too because
- * the public endpoint's `REQ-VAL-001` marks an over-long box with a generic sentence rather than the bound's German.
+ * the public endpoint's `payload_refused` marks an over-long box with a generic sentence rather than the bound's German.
  */
 export const BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH = 500;
 export const BEWERBUNG_KADER_GROESSE_MAX = 200;
@@ -101,12 +101,11 @@ export const BEWERBUNG_MAX_ALTER = 120;
 export const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
 
 /**
- * Every seat a contact person holds on one row, as the one phrase the contact page and the account page
- * name them by, in the table's order and joined as
- * `fl_frontend/src/features/bewerbungen/notifications.ts :: rollenText` joins them.
+ * Every seat a contact person holds on one row, as the one phrase the contact page, the account page and the mails
+ * name them by (`fl_frontend/src/core/teamVocabulary.ts :: rollenText`); an emptied seat names nobody.
  */
 export const rollenLangform = (rollen: readonly (KontaktRolle | null)[]): string =>
-  joinUnd(KONTAKT_ROLLEN.filter((eintrag) => rollen.includes(eintrag.value)).map((eintrag) => eintrag.langform));
+  rollenText(rollen.filter((rolle): rolle is KontaktRolle => rolle !== null));
 
 /**
  * The floor the Ansprechperson and the Stellvertretung clear, mirrored from
@@ -129,16 +128,10 @@ export const BEWERBUNG_ERINNERUNG_TAGE = 3;
 
 /**
  * The raw token's ceiling, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound at the two
- * consent payloads because a link mangled longer than any mint answers a `REQ-VAL-001` naming the
+ * consent payloads because a link mangled longer than any mint answers a `payload_refused` naming the
  * token, which no control renders, so it tells a visitor nothing about their link.
  */
 export const BEWERBUNG_TOKEN_MAX_LENGTH = 128;
-
-/**
- * How many ids one sweep pass sends back, restated from
- * `fl_backend/app/api/bewerbungen/schemas.py :: DELETIONS_LISTED_PER_PASS`.
- */
-export const DELETIONS_LISTED_PER_PASS = 83;
 
 /**
  * The picker key standing for „meine Schule ist nicht dabei“.

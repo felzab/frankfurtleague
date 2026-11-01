@@ -70,7 +70,7 @@ type Words =
 type Card = {
   placement: "card";
   /**
-   * The card's content, which is the link's accessible name, so it is read as one line. Only `MatchRow`,
+   * The card's content, which is the link's accessible name, so it is read as one line. Only `SpielRow`,
    * `BracketCard` and `Card` place a card link, and nothing interactive stands inside one: no button, link
    * or menu, which a link may not contain.
    */

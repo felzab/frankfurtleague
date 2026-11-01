@@ -7,7 +7,6 @@ import pytest
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLBracketFaultGruppe, FLSpiel, FLSpielListAdapter
 from app.api.spiele.services import BracketResolution, resolve_bracket
-from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamStatistik
 from app.api.teams.services import (
     CERTAINTY_FIXTURE_LIMIT,
@@ -19,6 +18,7 @@ from app.api.teams.services import (
     build_gruppen,
     build_statistik_by_team,
 )
+from app.shared.schemas.literals import FLSpielerStufe
 
 TEAM_ID = "6890a1b2c3d4e5f60719{:04d}"
 MATCH_ID = "6890a1b2c3d4e5f60718{:04d}"
@@ -29,13 +29,13 @@ STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
-    qualifiers_per_group=2,
-    number_of_groups=4,
-    teams_per_group=4,
+    qualifiers_per_gruppe=2,
+    number_of_gruppen=4,
+    teams_per_gruppe=4,
     tiebreak_order="tordifferenz",
     max_kadergroesse=18,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
-    erlaubte_stufen=STUFEN,
+    allowed_stufen=STUFEN,
 )
 
 # The walk keys on the field being non-null, never on what it says, so one value serves every case.
@@ -53,9 +53,9 @@ MatchFactory = Callable[..., dict[str, Any]]
 
 
 def shorthand_of(seed: int) -> str:
-    """A club's shorthand, which `FLTeam` fixes at two characters: a group at the largest legal size counts past nine in letters."""
+    """A club's shorthand, which `FLTeam` fixes at three letters, one per club of a group at the largest legal size."""
 
-    return f"T{'0123456789abcdefghijklmnopqrstuvwxyz'[seed]}"
+    return f"T{chr(65 + seed // 26)}{chr(65 + seed % 26)}"
 
 
 @pytest.fixture
@@ -63,7 +63,7 @@ def a_team(team: PayloadFactory, statistik: PayloadFactory) -> TeamFactory:
     """Figures are set, not computed, so a case may state a table its match list does not add up to; only head-to-head reads matches."""
 
     def make(seed: int, *, punkte: int = 0, geschossen: int = 0, kassiert: int = 0, gespielt: int = 3, **overrides: Any) -> FLTeam:
-        figures = statistik(punkte=punkte, tore_geschossen=geschossen, tore_kassiert=kassiert, anzahl_gespielte_spiele=gespielt)
+        figures = statistik(punkte=punkte, tore_geschossen=geschossen, tore_kassiert=kassiert, count_gespielte_spiele=gespielt)
 
         return FLTeam.model_validate(
             team(_id=TEAM_ID.format(seed), name=f"Team {seed}", shorthand=shorthand_of(seed), statistik=figures, **overrides)
@@ -116,7 +116,7 @@ def platz_by_team_id(rows: Sequence[FLGruppenTeam]) -> dict[str, int]:
 
     numbered: dict[str, int] = {}
     for row in rows:
-        if row.austritt_type is not None or row.statistik.anzahl_gespielte_spiele + row.anzahl_ausstehende_spiele == 0:
+        if row.austritt_type is not None or row.statistik.count_gespielte_spiele + row.count_pending_spiele == 0:
             continue
         numbered[str(row.id)] = len(numbered) + 1
 
@@ -156,7 +156,7 @@ def as_stated(row: FLTeamStatistik | None) -> dict[str, int]:
         "punkte": row.punkte,
         "geschossen": row.tore_geschossen,
         "kassiert": row.tore_kassiert,
-        "gespielt": row.anzahl_gespielte_spiele,
+        "gespielt": row.count_gespielte_spiele,
     }
 
 
@@ -494,7 +494,7 @@ class TestTheTableAndTheSeedingNumberTheSameClubs:
 
         teams = [a_team(1, punkte=0, gespielt=0), a_team(2, punkte=0, gespielt=0)]
 
-        assert [row.anzahl_ausstehende_spiele for row in table(teams, [played(1, 1, 2)])] == [1, 1]
+        assert [row.count_pending_spiele for row in table(teams, [played(1, 1, 2)])] == [1, 1]
 
     def test_a_group_before_its_first_fixture_numbers_every_club(self, a_team: TeamFactory, played: MatchFactory):
         """A league table numbers its clubs from the day it is drawn; nothing here may read `N/A`."""
@@ -551,7 +551,7 @@ class TestTheTableAndTheSeedingNumberTheSameClubs:
         rows = table(teams, across_the_groups)
         numbered = platz_by_team_id(rows)
 
-        assert [(row.name, row.anzahl_ausstehende_spiele) for row in rows] == [("Team 2", 0), ("Team 1", 1)]
+        assert [(row.name, row.count_pending_spiele) for row in rows] == [("Team 2", 0), ("Team 1", 1)]
         assert standing(teams, across_the_groups).eligible == len(numbered) == 2
 
 
@@ -582,12 +582,12 @@ class TestWhenAPlacingIsFinal:
 
         assert decided.by_platz[1].name == "Team 1"
 
-    def test_a_lead_a_remaining_match_could_erase_is_not_decided(self, a_team: TeamFactory, played: MatchFactory):
+    def test_a_lead_a_remaining_match_could_loeschen_is_not_decided(self, a_team: TeamFactory, played: MatchFactory):
         teams = [a_team(1, punkte=6), a_team(2, punkte=3), a_team(3, punkte=3)]
 
         assert standing(teams, [played(9, 2, 3)]).by_platz == {}
 
-    def test_a_lead_only_a_goal_margin_could_erase_is_not_decided(self, a_team: TeamFactory, played: MatchFactory):
+    def test_a_lead_only_a_goal_margin_could_loeschen_is_not_decided(self, a_team: TeamFactory, played: MatchFactory):
         """Nothing bounds how much Team 2 could win by, so today's goal difference cannot seed a bracket."""
 
         teams = [a_team(1, punkte=6, geschossen=20, kassiert=0), a_team(2, punkte=3, geschossen=0, kassiert=1), a_team(3, punkte=0)]
@@ -714,7 +714,7 @@ class TestAGroupPastTheFixtureLimit:
         assert standing(teams, fixtures).by_platz[1].name == "Team 1"
         assert standing(teams, [*fixtures, unentered]).by_platz == {}
 
-    def test_a_lead_a_draw_can_erase_is_not_seeded_where_a_season_scores_the_draw_higher(self, a_team: TeamFactory, played: MatchFactory):
+    def test_a_lead_a_draw_can_loeschen_is_not_seeded_where_a_season_scores_the_draw_higher(self, a_team: TeamFactory, played: MatchFactory):
         """A stored season may score a draw above a win.
 
         `fl_backend/app/api/saisons/services.py` refuses one only where the excess grows, so a season
@@ -897,7 +897,7 @@ class TestSeedingTheSlot:
 
         teams = [a_team(1, punkte=3), a_team(2, punkte=3)]
         decided = standing(teams, [played(9, 1, 2)])
-        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "T1", "tore": None}
+        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "TAB", "tore": None}
 
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel, stored=stored)
 
@@ -908,7 +908,7 @@ class TestSeedingTheSlot:
         """A typo, not an outcome: erasing a team over a number nobody can resolve destroys more than it reports."""
 
         decided = standing([a_team(1, punkte=9), a_team(2, punkte=6)], [])
-        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "T1", "tore": None}
+        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "TAB", "tore": None}
 
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 5}, spiel, stored=stored)
 
@@ -922,7 +922,7 @@ class TestSeedingTheSlot:
 
         teams = [a_team(1, punkte=6, geschossen=5, kassiert=5), a_team(2, punkte=6, geschossen=5, kassiert=5)]
         decided = standing(teams, [played(1, 1, 2, 1, 1)])
-        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "T1", "tore": None}
+        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "TAB", "tore": None}
 
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel, stored=stored)
 
@@ -933,7 +933,7 @@ class TestSeedingTheSlot:
         """Idempotence across the group-seeded half too."""
 
         decided = standing([a_team(1, punkte=9), a_team(2, punkte=6)], [])
-        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "T1", "tore": None}
+        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "TAB", "tore": None}
 
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel, stored=stored)
 

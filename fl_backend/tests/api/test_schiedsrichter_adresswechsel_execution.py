@@ -16,23 +16,24 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.adresswechsel.admin_router import post_adresswechsel_verwaltung
-from app.api.adresswechsel.schemas import FLAdresswechselVerwaltungPayload
-from app.api.bewerbungen.services import hash_token
-from app.api.schiedsrichter.admin_router import einladen_schiedsrichter, patch_schiedsrichter
-from app.api.schiedsrichter.bestaetigung_router import post_bestaetigung
-from app.api.schiedsrichter.router import get_schiedsrichter_by_id
-from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterBestaetigungPayload
-from app.api.schiedsrichter.services import BESTAETIGUNG_FELD, SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL
+from app.api.adresswechsel.admin_router import post_address_change_verwaltung
+from app.api.adresswechsel.schemas import FLAddressChangeVerwaltungPayload
+from app.api.schiedsrichter.admin_router import get_schiedsrichter_by_id, invite_schiedsrichter, patch_schiedsrichter
+from app.api.schiedsrichter.public_router import post_confirmation
+from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterConfirmationPayload
+from app.api.schiedsrichter.services import BESTAETIGUNG_FELD
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.tokens import hash_token
 from tests import documents
-from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
 from tests.config import ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.outbox import MAIL_NOW, drained
 from tests.records import record_collections
+from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 # Module level: every case below reaches a real mongod, each write being one transaction.
@@ -71,25 +72,28 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
-    """The SHIPPED validators, a running season, and one referee who answered their own link unless `confirmed` says otherwise."""
+    """The SHIPPED indexes, a running season, and one referee who answered their own link unless `confirmed` says otherwise."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
             await database[Collection.SCHIEDSRICHTER].insert_one(referee_document())
-            minted = await einladen_schiedsrichter(
+            await invite_schiedsrichter(
                 schiedsrichter_id=SCHIEDSRICHTER_OID,
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                outbox_collection=database[Collection.OUTBOX],
                 sperrliste=ban_list(database),
                 db=client,
                 today=TODAY,
+                now=MAIL_NOW,
             )
+            (mail,) = await drained(database, client)
             if confirmed:
-                await post_bestaetigung(
-                    antwort_data=FLSchiedsrichterBestaetigungPayload.model_validate(
+                await post_confirmation(
+                    antwort_data=FLSchiedsrichterConfirmationPayload.model_validate(
                         {
-                            "token": minted.bestaetigung.token,
+                            "token": mail.token,
                             "geburtsdatum": "1984-05-09",
                             "umfang": "kader_oeffentlich",
                             "medien": True,
@@ -116,30 +120,29 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
-        adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
         today=TODAY,
-        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+        now=MAIL_NOW,
+        actor=fresh_admin_actor(),
     )
 
 
 async def request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    """An administrator's start through the address tool, with a reason, so the new mailbox is minted its link at once."""
+    """An administrator's start through the address tool, with a reason, so the new mailbox is owed its link at once."""
 
-    return await post_adresswechsel_verwaltung(
-        adresswechsel_data=FLAdresswechselVerwaltungPayload.model_validate({"adresse": EMAIL, "email": NEW_EMAIL, "grund": GRUND}),
-        adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+    return await post_address_change_verwaltung(
+        adresswechsel_data=FLAddressChangeVerwaltungPayload.model_validate({"adresse": EMAIL, "email": NEW_EMAIL, "grund": GRUND}),
+        adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
         records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-        berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-        berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
-        berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
-        adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
+        berechtigungen_collection=database[Collection.GRANTS],
+        berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+        outbox_collection=database[Collection.OUTBOX],
+        berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
         sperrliste=ban_list(database),
-        adressanker_collection=database[Collection.ADRESSANKER],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         db=client,
         operator="admin@frankfurtleague.de",
         auth_time=0,
@@ -151,10 +154,11 @@ async def read(database: AsyncDatabase) -> Any:
     return await get_schiedsrichter_by_id(
         schiedsrichter_id=SCHIEDSRICHTER_OID,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+        adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
         today=TODAY,
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-        berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+        berechtigungen_collection=database[Collection.GRANTS],
+        berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+        outbox_collection=database[Collection.OUTBOX],
         operator=ADMINISTRATORS[0],
         auth_time=int(time.time()),
     )
@@ -168,14 +172,14 @@ async def stored(database: AsyncDatabase) -> Mapping[str, Any]:
 
 
 async def refused_code(call: Awaitable[Any]) -> str:
-    with pytest.raises(WriteRefusalException) as refused:
+    with pytest.raises(APIError) as refused:
         await call
 
     return refused.value.error_code
 
 
 class TestTheSaveOnAConfirmedReferee:
-    """`REQ-SCHIEDSRICHTER-011`: a confirmed referee's address is who signs in as them, and the save moves it never."""
+    """`schiedsrichter_adresse_only_per_change`: a confirmed referee's address is who signs in as them, and the save moves it never."""
 
     @pytest.mark.parametrize("retired", [False, True], ids=["serving", "retired"])
     def test_a_save_moving_it_is_refused_and_nothing_of_the_save_lands(self, mongo_replica_set_url: str, retired: bool):
@@ -188,7 +192,7 @@ class TestTheSaveOnAConfirmedReferee:
 
         code, before, row = on_a_league(mongo_replica_set_url, body)
 
-        assert code == SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL
+        assert code == Code.SCHIEDSRICHTER_ADRESSE_ONLY_PER_CHANGE
         assert row == before
 
     def test_a_save_keeping_it_with_its_domain_respelled_lands_and_leaves_a_pending_change_standing(self, mongo_replica_set_url: str):
@@ -196,13 +200,13 @@ class TestTheSaveOnAConfirmedReferee:
             minted = await request(database, client)
             saved = await save(database, client, email="ortwin.pfeiffenberger@EXAMPLE.com")
 
-            return minted, saved, await stored(database), await database[Collection.ADRESSWECHSEL].find_one({"_id": minted.id})
+            return minted, saved, await stored(database), await database[Collection.ADDRESS_CHANGES].find_one({"_id": minted.id})
 
         minted, saved, row, change = on_a_league(mongo_replica_set_url, body)
 
-        assert saved.bestaetigung is None
+        assert saved.confirmation is None
         assert row["default_payment"] == 25
-        assert (change["beendet"], change["token_hash"]) == (None, hash_token(str(minted.token)))
+        assert (change["ended"], change["email"]) == (None, NEW_EMAIL)
 
 
 class TestAnUnconfirmedReferee:
@@ -210,13 +214,16 @@ class TestAnUnconfirmedReferee:
 
     def test_the_address_moves_at_once_and_a_fresh_consent_link_is_answered(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await save(database, client, email=NEW_EMAIL), await stored(database)
+            saved = await save(database, client, email=NEW_EMAIL)
+            (mail,) = await drained(database, client)
 
-        saved, row = on_a_league(mongo_replica_set_url, body, confirmed=False)
+            return saved, mail, await stored(database)
 
-        assert saved.bestaetigung is not None
-        assert row["kontakt"]["email"] == NEW_EMAIL
-        assert row[BESTAETIGUNG_FELD]["token_hash"] == hash_token(saved.bestaetigung.token)
+        saved, mail, row = on_a_league(mongo_replica_set_url, body, confirmed=False)
+
+        assert saved.confirmation is not None
+        assert (mail.an, row["kontakt"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
+        assert row[BESTAETIGUNG_FELD]["token_hashes"] == [hash_token(str(mail.token))]
 
 
 class TestTheEditorsRead:
@@ -226,7 +233,7 @@ class TestTheEditorsRead:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await read(database)
             minted = await request(database, client)
-            return before.adresswechsel_id, (await read(database)).adresswechsel_id, minted.id
+            return before.address_change_id, (await read(database)).address_change_id, minted.id
 
         before, after, minted = on_a_league(mongo_replica_set_url, body)
 
@@ -237,13 +244,14 @@ class TestTheEditorsRead:
             answered = await get_schiedsrichter_by_id(
                 schiedsrichter_id=SCHIEDSRICHTER_OID,
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+                adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
                 today="2026-04-16",
-                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                berechtigungen_collection=database[Collection.GRANTS],
+                berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+                outbox_collection=database[Collection.OUTBOX],
                 operator=ADMINISTRATORS[0],
                 auth_time=int(time.time()),
             )
-            return answered.bestaetigung_abgelaufen, answered.adresswechsel_id
+            return answered.confirmation_expired, answered.address_change_id
 
         assert on_a_league(mongo_replica_set_url, body, confirmed=False) == (True, None)

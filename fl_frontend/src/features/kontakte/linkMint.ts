@@ -1,6 +1,6 @@
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
-import type { FLSaisonTeamKontakte, FLSaisonTeamKontaktePayload } from "@/features/teams/schemas";
+import type { FLSaisonTeamKontakte, FLSaisonTeamKontaktePayload } from "@/core/generated/client/types";
 
 /** The three seats, off the one list every seat control renders. */
 const SITZE = KONTAKT_ROLLEN.map(({ value }) => value);

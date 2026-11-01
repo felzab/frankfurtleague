@@ -9,7 +9,7 @@ import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 import { AdminBewerbungenList } from "../collections/AdminBewerbungenList";
 import { BewerbungenUnvollstaendigNotice } from "../ui/BewerbungenUnvollstaendigNotice";
 
-import type { FLBewerbungenListResponse } from "@/features/bewerbungen/schemas";
+import type { FLBewerbungenListResponse } from "@/core/generated/client/types";
 import type { AdminBewerbungRow } from "@/features/bewerbungen/types";
 import type { Leserichtung } from "@/shared/utils/leserichtung";
 import type { BewerbungenUnvollstaendig } from "../ui/BewerbungenUnvollstaendigNotice";
@@ -39,10 +39,10 @@ export function AdminBewerbungenView({
 }: {
   bewerbungen: AdminBewerbungRow[];
   /** The endpoint's own counts, one map per facet the read narrows on: `bewerbungen` holds only what those selected. */
-  anzahlJeStatus: FLBewerbungenListResponse["anzahl_je_status"];
-  anzahlJeSaisonbezug: FLBewerbungenListResponse["anzahl_je_saisonbezug"];
+  anzahlJeStatus: FLBewerbungenListResponse["count_per_status"];
+  anzahlJeSaisonbezug: FLBewerbungenListResponse["count_per_saison_reference"];
   /** Which keys collide over the WHOLE queue, which is the only place a pair the read's cap parted is visible. */
-  dublettenSchluessel: FLBewerbungenListResponse["dubletten_schluessel"];
+  dublettenSchluessel: FLBewerbungenListResponse["duplicates_key"];
   /** Required whether or not the read was cut short: the bar offers the other end of a complete queue too. */
   richtung: Leserichtung;
   /** Present only where the endpoint answered with part of the queue, and then carrying the ways out of it. */
@@ -59,7 +59,7 @@ export function AdminBewerbungenView({
         items={bewerbungen}
         searchKeys={SEARCH_KEYS}
         facets={BEWERBUNGEN_FACETS}
-        facetCounts={bewerbungenQueueFacetCounts({ anzahl_je_status: anzahlJeStatus, anzahl_je_saisonbezug: anzahlJeSaisonbezug })}
+        facetCounts={bewerbungenQueueFacetCounts({ count_per_status: anzahlJeStatus, count_per_saison_reference: anzahlJeSaisonbezug })}
         leserichtung={richtung}
         shape="cards"
         renderTable={({ filteredItems, emptiness }) => (

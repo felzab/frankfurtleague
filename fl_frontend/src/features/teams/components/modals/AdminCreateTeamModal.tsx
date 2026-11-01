@@ -11,7 +11,7 @@ import type { TeamCreateSaisonOption } from "@/features/teams/types";
  * Props rather than a fetch: the trigger renders above the page's data boundary.
  *
  * `saisonOptions` is only the PLANNED seasons — any other would be a create the backend must
- * refuse (`REQ-ENTER-001`).
+ * refuse (`entry_saison_not_future`).
  */
 export function AdminCreateTeamModal({
   saisonOptions,

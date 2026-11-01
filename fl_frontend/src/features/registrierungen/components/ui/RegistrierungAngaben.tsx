@@ -3,7 +3,7 @@ import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schemas";
+import type { FLSpielerPosition, FLSpielerStufe } from "@/core/generated/client/types";
 
 /** What one pending registration stores, as its pupil typed it: the registration form's own labels. */
 type Angaben = {

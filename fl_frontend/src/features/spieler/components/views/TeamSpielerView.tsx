@@ -13,7 +13,7 @@ import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { istNameZurueckgehalten, KADER_LEER, spielerAnzeigename, spielerInitialen } from "../../constants";
 
-import type { FLSpielerPublic } from "../../schemas";
+import type { FLSpielerPublic } from "@/core/generated/client/types";
 
 /**
  * `"use client"` is required: `Table.Body` takes a `renderEmptyState` render prop, which a Server

@@ -9,7 +9,7 @@ import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
 import { Select } from "@/shared/components/ui/Select";
 
-import type { FLGruppenNames } from "@/features/teams/schemas";
+import type { FLGruppenNames } from "@/core/generated/client/types";
 import type { GruppeOffer } from "@/features/teams/types";
 import type { Key } from "@heroui/react/rac";
 
@@ -17,7 +17,7 @@ import type { Key } from "@heroui/react/rac";
  * Judged on CHANGE rather than on blur — a selection is complete the moment it is made.
  *
  * A full group stays visible and DISABLED, so the admin sees why it cannot be picked.
- * `REQ-ENTER-002/003` stays the authoritative check.
+ * `entry_gruppe_not_offered/003` stays the authoritative check.
  */
 export function GruppeSelect({
   value,

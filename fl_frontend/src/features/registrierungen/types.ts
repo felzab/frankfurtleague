@@ -1,6 +1,11 @@
 import type { GekeyteFassung, SpielerAbsatzSchluessel, SpielerWiederkehrendAbsatzSchluessel } from "@/core/einwilligungSeiten";
-import type { FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schemas";
-import type { FLEinladungAnsichtResponse, FLEinwilligungUmfang, FLRegistrierungBestaetigungAnsichtResponse } from "./schemas";
+import type {
+  FLEinwilligungUmfang,
+  FLInvitationViewResponse,
+  FLRegistrierungConfirmationViewResponse,
+  FLSpielerPosition,
+  FLSpielerStufe,
+} from "@/core/generated/client/types";
 
 /**
  * One pending registration on the administrator's list: what its card shows, and nothing else of the
@@ -11,13 +16,13 @@ export type AdminRegistrierungRow = {
   vorname: string;
   nachname: string;
   // The day the read orders by, so a cut-short list's end can be told from its card.
-  eingereicht_am: string;
+  submitted_at: string;
   team_id: string;
   // Null where the club read knows no team of this id: the card says so rather than showing the id.
   teamName: string | null;
   saison_id: string;
   stufe: FLSpielerStufe | null;
-  bestaetigt: boolean;
+  confirmed: boolean;
 };
 
 /**
@@ -26,11 +31,11 @@ export type AdminRegistrierungRow = {
  * either buys nothing.
  */
 export type RegistrierungStart =
-  | { zustand: "gueltig"; ansicht: FLEinladungAnsichtResponse; token: string }
-  | { zustand: "geschlossen"; ansicht: FLEinladungAnsichtResponse }
+  | { zustand: "valid"; ansicht: FLInvitationViewResponse; token: string }
+  | { zustand: "closed"; ansicht: FLInvitationViewResponse }
   // One member per tag rather than one carrying both: a union-valued discriminant narrows on the
   // positive branch alone, so the two-in-one shape leaves `ansicht` unreachable after the guard.
-  | { zustand: "ungueltig" }
+  | { zustand: "invalid" }
   | { zustand: "unlesbar" };
 
 /**
@@ -52,16 +57,14 @@ export type RegistrierungFormDraft = {
  * What a link is once the backend has looked it up. `abgelaufen` and `ungueltig` render one wording:
  * telling them apart would tell a guessed link that a record once existed.
  */
-export type SpielerLinkZustand = "bestaetigt" | "abgelaufen" | "ungueltig" | "gesperrt";
+export type SpielerLinkZustand = "confirmed" | "expired" | "invalid" | "barred";
 
-/** A link still open, and so a registration the page can still be answered for. */
-export type SpielerBestaetigungGeoeffnet = FLRegistrierungBestaetigungAnsichtResponse;
-
-export type SpielerBestaetigungAnsicht = { zustand: "gueltig"; ansicht: SpielerBestaetigungGeoeffnet } | { zustand: SpielerLinkZustand };
+export type SpielerBestaetigungAnsicht =
+  { zustand: "valid"; ansicht: FLRegistrierungConfirmationViewResponse } | { zustand: SpielerLinkZustand };
 
 /** What the confirmation page opens on, the token riding only with a link a press can still spend. */
 export type SpielerBestaetigungStart =
-  { zustand: "gueltig"; ansicht: SpielerBestaetigungGeoeffnet; token: string } | { zustand: SpielerLinkZustand | "unlesbar" };
+  { zustand: "valid"; ansicht: FLRegistrierungConfirmationViewResponse; token: string } | { zustand: SpielerLinkZustand | "unlesbar" };
 
 /**
  * What a confirmed pupil's answer panel states: what this page asked and they sent, so nothing at all on the

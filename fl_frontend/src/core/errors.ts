@@ -1,9 +1,9 @@
-import type { FLRefusedField } from "./schemas";
+import type { Code, FLRefusedField } from "./generated/client/types";
 
 /**
- * What an error says about the request it answers. Required on every API error rather than defaulted:
- * a failed write may have landed and a failed read changed nothing, and
- * `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult` tells them apart by it.
+ * What a request was, a write that may have landed or a read that changed nothing, which
+ * `fl_frontend/src/core/api.ts :: sendToBackend` judges every landed write's drain by. Required on every API error
+ * rather than defaulted, since a failed write may have landed and a failed read changed nothing.
  */
 export type SentRequest = {
   method: string;
@@ -71,28 +71,15 @@ export class PersonReadWithoutSubjectError extends Error {
   }
 }
 
-/**
- * A write the request's deadline refused before it was sent, too little being left to wait out its answer
- * (`fl_frontend/src/core/api.ts :: WRITE_NEEDS_MS`): it changed nothing, as `fl_frontend/src/core/mail.ts ::
- * MailUnsentError` says of a message. `FE-NET-001`, a call the network never answered.
- */
-export class ApiUnsentError extends Error {
-  readonly code = "FE-NET-001";
-  override name = "ApiUnsentError";
-
-  constructor(method: string) {
-    super(`Too little of the request's deadline was left to wait out this ${method}, so it was never sent.`);
-  }
-}
-
 export class APIBadStatusError extends Error {
-  readonly code = "FE-API-001";
   traceId: string;
   statusCode: number;
-  serverErrorCode?: string;
+  serverErrorCode?: Code;
   refusedFields: readonly FLRefusedField[];
   url: string;
   endpoint: string;
+  // Redesign: these two fields, here and on `APINetworkError`, go with their last readers, the old write path's
+  // `shared/utils/actionError.ts` and `shared/utils/writeOutcome.ts`.
   method: string;
   readOnly: boolean;
 
@@ -111,7 +98,7 @@ export class APIBadStatusError extends Error {
     message: string;
     url: string;
     statusCode: number;
-    serverErrorCode?: string;
+    serverErrorCode?: Code;
     refusedFields?: readonly FLRefusedField[];
     endpoint: string;
     traceId: string;
@@ -135,92 +122,59 @@ export class APIBadStatusError extends Error {
 }
 
 /**
- * The protocol's code families: a credential, a request the API cannot take, a route it does not serve, a person's
- * day ceiling. None is a rule refusing what was asked, and each family grows codes the backend adds to it.
+ * Every code that is no rule refusing what was asked: a credential, a request the API cannot take, a route it does
+ * not serve, the store answering, the server failing. Every other code is one a slice's mapper words, the unique
+ * index's `duplicate_key` among them.
  */
-const PROTOCOL_FAMILIES: readonly string[] = ["AUTH", "VAL", "ROUTE", "DROSSELUNG"];
+const NOT_A_REFUSAL: ReadonlySet<Code> = new Set<Code>([
+  "access_key_refused",
+  "missing_actor",
+  "actor_not_admin",
+  "session_refused",
+  "person_barred",
+  "confirmation_required",
+  "payload_refused",
+  "body_unreadable",
+  "no_route",
+  "method_not_served",
+  "document_not_found",
+  "version_stale",
+  "no_database_client",
+  "database_failed",
+  "unknown_outcome",
+  "unhandled_crash",
+  "stored_data_invalid",
+]);
 
-const PROTOCOL_CLASS = new RegExp(`^REQ-(?:${PROTOCOL_FAMILIES.join("|")})-`);
-
-/**
- * Whether a code is one a slice's mapper words: a rule's, or the unique index's `DB-COMMON-002`. By the
- * code's class alone, never its status: every other `DB-` code is the store answering, not a rule.
- */
-export function isRefusalCode(code: string | undefined): boolean {
-  if (code === undefined) return false;
-
-  return code === "DB-COMMON-002" || (code.startsWith("REQ-") && !PROTOCOL_CLASS.test(code));
+/** Whether a code is one a slice's mapper words, by the code alone, never its status. */
+export function isRefusalCode(code: Code | undefined): boolean {
+  return code !== undefined && !NOT_A_REFUSAL.has(code);
 }
 
 /**
  * Whether the API answered that the record a read names does not exist. By the code, never the status:
- * any other 404 is a route the framework did not serve (`REQ-ROUTE-001`) or the edge's own, a failure.
+ * any other 404 is a route the framework did not serve (`no_route`) or the edge's own, a failure.
  */
 export function isRecordMissing(error: unknown): boolean {
-  return error instanceof APIBadStatusError && error.statusCode === 404 && error.serverErrorCode === "DB-COMMON-001";
-}
-
-export class APIMalformedDataError extends Error {
-  readonly code = "FE-API-002";
-  traceId: string;
-  statusCode: number;
-  url: string;
-  endpoint: string;
-  method: string;
-  readOnly: boolean;
-
-  constructor({
-    message,
-    url,
-    statusCode,
-    endpoint,
-    method,
-    readOnly,
-    traceId,
-    zodIssues,
-  }: SentRequest & {
-    message: string;
-    url: string;
-    statusCode: number;
-    endpoint: string;
-    traceId: string;
-    zodIssues?: unknown;
-  }) {
-    const errorCause = zodIssues ? { zodIssues, traceId, url } : { traceId, url };
-    super(message, { cause: errorCause });
-
-    this.name = "APIMalformedDataError";
-    this.traceId = traceId;
-    this.statusCode = statusCode;
-    this.url = url;
-    this.endpoint = endpoint;
-    this.method = method;
-    this.readOnly = readOnly;
-  }
+  return error instanceof APIBadStatusError && error.statusCode === 404 && error.serverErrorCode === "document_not_found";
 }
 
 /**
  * The backend answering against what this frontend was built for, such as a registry running no label
- * on a page this frontend serves. Only a deploy repairs it, so no page renders it as a failed read.
+ * on a page this frontend serves, or a sweep answering a place not past the one it was sent. Named,
+ * because a job's or a drain's failure line records an error's name alone, never its message: the name
+ * is what tells a broken contract from a crash. Only a deploy repairs it, so no page renders it as a
+ * failed read.
  */
 export class ContractBreakError extends Error {
   override name = "ContractBreakError";
 }
 
-/**
- * Whether an error says the backend answered against what this frontend was built for, never that
- * a read failed. Told apart only outside a `"use cache"` scope, whose throws lose their class in every
- * build.
- */
-export function isContractBreak(error: unknown): boolean {
-  return error instanceof ContractBreakError || error instanceof APIMalformedDataError;
-}
-
 export class APINetworkError extends Error {
-  readonly code = "FE-NET-001";
   traceId: string;
   url: string;
   isTimeout: boolean;
+  // Redesign: these two fields go with `APIBadStatusError`'s.
   method: string;
   readOnly: boolean;
 
@@ -252,13 +206,20 @@ export class APINetworkError extends Error {
 }
 
 /**
+ * Whether the backend answered the call with a failure of its own, which its line records: a refusal on the access
+ * line, a 5xx with its stack. The frontend logs only what the backend never answered or answered unreadably.
+ */
+export function loggedByBackend(error: unknown): boolean {
+  return error instanceof APIBadStatusError && error.serverErrorCode !== undefined;
+}
+
+/**
  * What a failed call says of its request, for a sweep's line, and nothing of a person: the status and code
  * tell a refusal from a crash, and the trace joins the backend's own line.
  */
 export function requestOf(error: unknown): { status?: number; server_error_code?: string; trace_id?: string } {
   if (error instanceof APIBadStatusError)
     return { status: error.statusCode, server_error_code: error.serverErrorCode, trace_id: error.traceId };
-  if (error instanceof APIMalformedDataError) return { status: error.statusCode, trace_id: error.traceId };
   if (error instanceof APINetworkError) return { trace_id: error.traceId };
   return {};
 }
@@ -279,7 +240,6 @@ const TRANSIENT_PROVIDER_ERRORS: ReadonlySet<string> = new Set([
 ]);
 
 export class MailSendError extends Error {
-  readonly code = "FE-MAIL-001";
   traceId: string;
   statusCode: number;
   providerErrorName?: string;

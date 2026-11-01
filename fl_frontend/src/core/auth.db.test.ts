@@ -15,7 +15,7 @@ import {
   signInByCode,
 } from "@/test-support/authDoubles.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
-import { answerAt, SITZ } from "@/test-support/subjectFixtures.ts";
+import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
 import { registrationFor } from "@/test-support/testAuthenticator.ts";
 import { MongoServerError } from "mongodb";
 import { afterAll, assert, beforeEach, describe, expect, it } from "vitest";
@@ -151,7 +151,7 @@ const { sent } = registerAuthDoubles({
 });
 
 /** What the sign-in gate's backend read answers every address; a case sets it and `beforeEach` resets it. */
-let gateAnswer: Pick<LookupFixture, "sitze" | "gesperrt" | "konto"> = { sitze: [], gesperrt: false, konto: false };
+let gateAnswer: Pick<LookupFixture, "seats" | "barred" | "account"> = { seats: [], barred: false, account: false };
 
 // The backend's origin alone: every other request, the container runtime's among them, goes out as it came.
 const ORIGINAL_FETCH = globalThis.fetch;
@@ -166,7 +166,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
     ...HOLDS_NOTHING,
     verwaltung: granted ? "administration" : null,
     // Before every session a case makes.
-    berechtigt_seit: granted ? "2026-01-01T00:00:00Z" : null,
+    granted_since: granted ? "2026-01-01T00:00:00Z" : null,
     ...gateAnswer,
   });
   return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
@@ -242,7 +242,7 @@ afterAll(() => {
 });
 
 beforeEach(async () => {
-  gateAnswer = { sitze: [], gesperrt: false, konto: false };
+  gateAnswer = { seats: [], barred: false, account: false };
   barrier.disarm();
   counting.disarm();
   warnings.length = 0;
@@ -398,7 +398,7 @@ describe("a passkey setup that signs in, against a real database", () => {
   it("refuses a setup naming a credential another account holds as the plugin's failure, on the conflict's warning", async () => {
     const administrator = await offer(await signIn(ADMIN_EMAIL));
     expect((await verify(administrator, AUTHENTICATOR_A)).status, "the administrator holds no passkey, so nothing is named twice").toBe(200);
-    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
+    gateAnswer = { seats: [SEAT], barred: false, account: true };
     const person = await offer(await signIn("zweites-konto@example.org"));
     warnings.length = 0;
     const mailedBefore = sent.length;
@@ -607,7 +607,7 @@ describe("an address's failures after a code signs in, against a real database",
      the real store as on the memory one. */
   it("counts no refusal at the mint, and still counts a wrong code", async () => {
     const email = "gesperrt-mit-code@example.org";
-    gateAnswer = { sitze: [SITZ], gesperrt: true, konto: true };
+    gateAnswer = { seats: [SEAT], barred: true, account: true };
     const otp = await auth.api.createVerificationOTP({ body: { email, type: "sign-in" } });
 
     await expect(auth.api.signInEmailOTP({ body: { email, otp }, headers: new Headers(ORIGIN) })).rejects.toSatisfy(
@@ -680,12 +680,12 @@ describe("a set-up the gate refuses, against a real database", () => {
   it("writes no passkey for a person holding nothing by the set-up, and leaves them signed in by code", async () => {
     const email = "ohne-sitz-spaeter@example.org";
 
-    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
+    gateAnswer = { seats: [SEAT], barred: false, account: true };
     const cookie = cookieHeader(await signInByCode(auth, email));
     expect((await sessionRows()).length, "the seated person was not signed in, so the case below proves nothing").toBe(1);
 
     const offered = await offer(cookie);
-    gateAnswer = { sitze: [], gesperrt: false, konto: false };
+    gateAnswer = { seats: [], barred: false, account: false };
     const refused = await verify(offered, AUTHENTICATOR_A, { createSession: true });
 
     expect(refused.status, await refused.clone().text()).toBe(403);
@@ -701,7 +701,7 @@ describe("a code sign-in through the mint, against a real database", () => {
   const PERSON = "spielerin-mit-code@example.org";
 
   it("stamps the session it mints `code`, and ends the one the browser held", async () => {
-    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
+    gateAnswer = { seats: [SEAT], barred: false, account: true };
     const held = await signIn(PERSON);
     const [before] = await sessionRows();
     assert.ok(before !== undefined, "the first code sign-in minted nothing, so nothing below is replaced");
@@ -719,7 +719,7 @@ describe("a code sign-in through the mint, against a real database", () => {
   /* The sibling read and delete run on the real adapter's id and reference types, which the memory
      store's plain strings never test. */
   it("leaves only the later of two sessions minted to replace one cookie", async () => {
-    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
+    gateAnswer = { seats: [SEAT], barred: false, account: true };
     const held = await signIn(PERSON);
 
     const earlier = cookieHeader(await signInByCode(auth, PERSON, { ...ORIGIN, cookie: held }));
@@ -733,11 +733,11 @@ describe("a code sign-in through the mint, against a real database", () => {
   });
 
   it("mints nothing for a barred address and ends nothing the browser held", async () => {
-    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
+    gateAnswer = { seats: [SEAT], barred: false, account: true };
     const held = await signIn(PERSON);
     const before = await sessionRows();
 
-    gateAnswer = { sitze: [SITZ], gesperrt: true, konto: true };
+    gateAnswer = { seats: [SEAT], barred: true, account: true };
     await expect(signInByCode(auth, PERSON, { ...ORIGIN, cookie: held })).rejects.toSatisfy((error: { body?: { code?: unknown } }) => {
       return error.body?.code === "SIGN_IN_BARRED";
     });
@@ -754,7 +754,7 @@ describe("a session only read, against a real database", () => {
     const { proxy } = await import("../proxy.ts");
     const { NextRequest } = await import("next/server");
 
-    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
+    gateAnswer = { seats: [SEAT], barred: false, account: true };
     const cookie = await signIn("leserin-mit-code@example.org");
     const expiresIn = (auth.options.session?.expiresIn ?? Number.NaN) * 1000;
     const updatedAt = new Date(Date.now() - (auth.options.session?.updateAge ?? Number.NaN) * 1000 - 60_000);
@@ -777,7 +777,7 @@ describe("a session only read, against a real database", () => {
 
 /** One signed-in address with every row the store keeps of it: a session, a passkey, a live code, a failed guess, three mails' counts and a deletion token. */
 async function seedAccount(email: string): Promise<{ cookie: string; userId: string; pending: string[]; token: string }> {
-  gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
+  gateAnswer = { seats: [SEAT], barred: false, account: true };
   const cookie = await signIn(email);
   const account = await authDb().collection("user").find({ email }).toArray();
   const userId = String(account[0]?._id ?? assert.fail("the sign-in wrote no account"));
@@ -835,22 +835,21 @@ describe("an account deleted, against a real database", () => {
     const { runWithRequestScope } = await import("./requestScope.ts");
     const bystander = await seedAccount("unbeteiligt-db@example.org");
     const person = await seedAccount("loeschende-db@example.org");
-    let erased = 0;
+    let geloescht = 0;
 
     const answer = await runWithRequestScope(
       {
         traceId: `${"0".repeat(31)}4`,
-        spanId: `${"0".repeat(15)}4`,
-        actor: { email: "loeschende-db@example.org", lane: "person", token: "doubled-person-token-not-a-credential" },
+        actor: { email: "loeschende-db@example.org", lane: "person", authTime: 0, factor: "code" },
       },
       () =>
         deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
-          erased += 1;
+          geloescht += 1;
           return Promise.resolve({});
         }),
     );
 
-    expect([answer, erased]).toStrictEqual(["deleted", 1]);
+    expect([answer, geloescht]).toStrictEqual(["deleted", 1]);
     expect(await heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
     expect(await heldOf(bystander)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
@@ -866,8 +865,7 @@ describe("an account deleted, against a real database", () => {
       runWithRequestScope(
         {
           traceId: `${"0".repeat(31)}5`,
-          spanId: `${"0".repeat(15)}5`,
-          actor: { email: "nutzerzeile-db@example.org", lane: "person", token: "doubled-person-token-not-a-credential" },
+          actor: { email: "nutzerzeile-db@example.org", lane: "person", authTime: 0, factor: "code" },
         },
         () => deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => Promise.resolve({})),
       ),

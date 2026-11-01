@@ -1,9 +1,7 @@
-import { apiClient } from "@/core/api";
+import { spieleGetSpieleActionRequired } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import { FLSpieleActionRequiredResponseSchema } from "../spielberichte/schemas";
-
-import type { FLSpieleActionRequiredResponse } from "../spielberichte/schemas";
+import type { FLSpieleActionRequiredResponse } from "@/core/generated/client/types";
 
 /**
  * Uncached deliberately, as every admin-authed read is. Being uncached is
@@ -13,9 +11,6 @@ export const getAdminSpieleActionRequired = async (filters: { saison_id?: string
   return runAdminRead(() =>
     // Optional as the server's parameter is, yet never omitted by a page: the backend resolves an omitted
     // one to the active season, which need not be the header's.
-    apiClient<FLSpieleActionRequiredResponse>("/spiele/action_required", FLSpieleActionRequiredResponseSchema, {
-      authType: "admin",
-      params: filters,
-    }),
+    spieleGetSpieleActionRequired(filters),
   );
 };

@@ -51,7 +51,7 @@ export function AdminSaisonsView({ saisons }: { saisons: AdminSaisonRow[] }) {
       {!saisons.some((saison) => saison.status === "active") && (
         <Callout
           severity="info"
-          title="Derzeit ist keine Saison aktiv">
+          title="Derzeit läuft keine Saison">
           {noticeBody(saisons)}
         </Callout>
       )}

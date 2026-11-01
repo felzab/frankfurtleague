@@ -1,0 +1,16 @@
+[
+  { "case": "an address after a line break", "text": "an:\nanna@schule.de", "scrubbed": "an:\n[address]" },
+  { "case": "an umlaut domain", "text": "an käthe@müller-schule.de", "scrubbed": "an [address]" },
+  { "case": "a local part holding what RFC 5322 allows", "text": "an o'brien+liga@example.com", "scrubbed": "an [address]" },
+  { "case": "a punycode top-level domain", "text": "an ada@schule.xn--p1ai", "scrubbed": "an [address]" },
+  {
+    "case": "a duplicate key's report",
+    "text": "dup key: { email: \"Anna@Schule.DE\" }",
+    "scrubbed": "dup key: { email: \"[address]\" }"
+  },
+  {
+    "case": "a package store's version in a stack frame's path",
+    "text": "at handler (/app/node_modules/.pnpm/next@16.4.2_@babel+core@7.2_e0268e9110b65f8ed131cf3a3f5c687c/node_modules/next/dist/server.js:2:1234)",
+    "scrubbed": "at handler (/app/node_modules/.pnpm/next@16.4.2_@babel+core@7.2_e0268e9110b65f8ed131cf3a3f5c687c/node_modules/next/dist/server.js:2:1234)"
+  }
+]

@@ -10,7 +10,7 @@ import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 
 import { spieltagLabels } from "../../utils";
 
-import type { FLSpielplan } from "../../schemas";
+import type { FLSpielplan } from "../../types";
 
 export function SpielplanView({
   spielplanData,

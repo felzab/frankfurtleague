@@ -12,15 +12,17 @@ const options = {
     strict: true,
     deprecationErrors: true,
   },
-  // Per operation, and an admin action runs up to seven: three session reads of two commands
-  // (measured against `next start` on 2026-09-24) and a refresh, so a slow store costs it up to 21 s.
+  // Per operation, never per request: a session read is one aggregate, and a session a passkey made
+  // adds that passkey's lookup (`fl_frontend/src/core/auth.ts :: servedSessionOf`). An admin action reads
+  // the session in the proxy's slide, its guard and the render after it, so a slow store costs it
+  // several times this.
 
   // Shared inside a transaction, which the adapter runs through `withTransaction`: its operations,
   // commit and retries draw on one budget, so a store slow at each step times the whole out. Its
   // abort after a failed commit has its own.
   timeoutMS: 3000,
   // A visitor's first request after a cold start connects without `timeoutMS`, so an unreachable
-  // server is met here. Tighter than `fl_backend/app/core/config.py :: db_server_selection_timeout`,
+  // server is met here. Tighter than `fl_backend/app/core/db.py :: SERVER_SELECTION_TIMEOUT_MS`,
   // which only the backend's boot waits on, where no visitor does.
   serverSelectionTimeoutMS: 3000,
   // The handshake of the reconnect's explicit `connect()`, which `timeoutMS` does not reach and the
@@ -28,50 +30,6 @@ const options = {
   // handshake takes longer reads as down.
   connectTimeoutMS: 3000,
 };
-
-/**
- * The driver closes the topology a failed connect built and never builds another itself, so every
- * later operation would fail until a restart. The same client is
- * connected again: the adapter holds its `Db`.
- */
-class SignInStoreClient extends MongoClient {
-  // The driver's `connect()` builds a topology for a client already closed, so the reconnect asks
-  // this before each attempt rather than the driver.
-  #closed = false;
-
-  constructor(url: string) {
-    super(url, options);
-    let opened = false;
-    let reconnecting = false;
-    this.once("open", () => {
-      opened = true;
-    });
-    // Before the first open only a failed connect or a close ends a topology: once open, the driver
-    // reconnects on its own.
-    this.on("topologyClosed", () => {
-      if (opened || reconnecting || this.#closed) return;
-      reconnecting = true;
-      void (async () => {
-        while (!opened && !this.#closed) {
-          // The driver's own least interval between two checks of one server, and unreferenced: a retry
-          // that never succeeds must not hold open a process that would otherwise exit.
-          await pause(this.options.minHeartbeatFrequencyMS, undefined, { ref: false });
-          if (this.#closed) return;
-          // Unlogged: each session read meanwhile logs the same failure (`FE-AUTH-003`).
-          await this.connect().catch(() => undefined);
-        }
-        // A close landing while an attempt resolves a `mongodb+srv` host finds none of that attempt's
-        // topology yet, which then opens.
-        if (this.#closed) await super.close();
-      })();
-    });
-  }
-
-  override async close(force?: boolean): Promise<void> {
-    this.#closed = true;
-    await super.close(force);
-  }
-}
 
 let client: MongoClient | undefined;
 
@@ -85,10 +43,30 @@ export function signInStore(): MongoClient {
   // The development branch caches the client on `global`, or hot reloads exhaust the pool.
   if (process.env.NODE_ENV === "development") {
     const globalWithMongo = global as typeof globalThis & { _mongoClient?: MongoClient };
-    globalWithMongo._mongoClient ??= new SignInStoreClient(mongodbUri());
+    globalWithMongo._mongoClient ??= new MongoClient(mongodbUri(), options);
     client = globalWithMongo._mongoClient;
   } else {
-    client = new SignInStoreClient(mongodbUri());
+    client = new MongoClient(mongodbUri(), options);
   }
   return client;
+}
+
+/**
+ * Opens the store's client at the boot, its documented use (the driver's `MongoClient.connect`: "generally useful at
+ * application boot-time"), and again at the driver's own least interval between two checks of one server until it
+ * opens. The driver closes the topology a failed connect built and builds no other on its own, so without this a store
+ * down at the boot would fail every operation until a restart; once open, the driver reconnects by itself. Never
+ * rejects: each failed attempt goes unlogged, every session read meanwhile logging the same failure.
+ */
+export async function connectSignInStore(): Promise<void> {
+  const store = signInStore();
+  for (;;) {
+    try {
+      await store.connect();
+      return;
+    } catch {
+      // Unreferenced: a store that never answers must not hold open a process that would otherwise exit.
+      await pause(store.options.minHeartbeatFrequencyMS, undefined, { ref: false });
+    }
+  }
 }

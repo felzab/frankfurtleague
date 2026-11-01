@@ -33,26 +33,14 @@ services:
       # http URL, because the sign-in library derives the session cookie's Secure prefix from this
       # protocol. Loopback is the one exemption.
       - AUTH_URL=http://localhost:3000
-      # The point of this stack is the production behaviour, and the developer's `fl_frontend/.env`
-      # legitimately holds `console` for `pnpm dev` -- overridden so the stack always writes the
-      # production stream.
-      - LOG_FORMAT=json
-      # This stack runs the production build, so nothing but this line holds the sweep off. An armed
-      # pass deletes applications and stamps rows in the copy below; APP_ENV withholds every notice
-      # it raises.
-      - BEWERBUNG_SWEEP=off
-      # The account sweep's own switch, for the same reason: an armed pass deletes every account
-      # signed in here that no record references, its passkeys with it.
-      - KONTO_SWEEP=off
       # Cloudflare's published site key that always passes, which the published secret the frontend
       # reads where no file is handed over verifies; production refuses both at boot
       # (https://developers.cloudflare.com/turnstile/troubleshooting/testing/, read 2026-10-04).
       - TURNSTILE_SITE_KEY=1x00000000000000000000AA
-    # Production's list without `auth_resend_key`, `resend_webhook_secret` and `turnstile_secret_key`:
-    # this stack mails nothing, is sent no provider event, and verifies the bot check with Cloudflare's
-    # published secret. The login is the config below.
+    # Production's list without `auth_resend_key`, `resend_webhook_secret`, `turnstile_secret_key` and
+    # `betterstack_heartbeat_url`: this stack mails nothing, is sent no provider event, verifies the bot
+    # check with Cloudflare's published secret and pings no monitor. The login is the config below.
     secrets: !override
-      - fl_actor_signing_key
       - auth_secret
       - internal_api_key_base
       - internal_api_key_system
@@ -75,13 +63,9 @@ services:
     build:
       context: ./fl_backend
       dockerfile: Dockerfile
-    environment:
-      # Same reason as the frontend's override above: the stack shows the production stream even
-      # when the developer's `fl_backend/.env` selects the console format for `fastapi dev`.
-      - LOG_FORMAT=json
     # Production's list without the login, which the config below replaces as the frontend's does.
     secrets: !override
-      - sperrliste_schluessel
+      - sperrliste_key
       - internal_api_key_base
       - internal_api_key_system
       - internal_api_key_admin
@@ -89,7 +73,7 @@ services:
       - source: local_mongodb_uri
         target: /run/secrets/backend_mongodb_uri
     depends_on:
-      # Healthy, not started: the lifespan applies every validator before it yields and refuses the
+      # Healthy, not started: the lifespan builds every index before it yields and refuses the
       # boot if it cannot, so a backend reaching an unelected node fails the whole start.
       mongo:
         condition: service_healthy
@@ -171,12 +155,10 @@ services:
 # This machine's own files (`docs/ops/runbooks.md` §16), and none for the connector, which never
 # starts.
 secrets: !override
-  fl_actor_signing_key:
-    file: ./secrets/fl_actor_signing_key
   auth_secret:
     file: ./secrets/auth_secret
-  sperrliste_schluessel:
-    file: ./secrets/sperrliste_schluessel
+  sperrliste_key:
+    file: ./secrets/sperrliste_key
   internal_api_key_base:
     file: ./secrets/internal_api_key_base
   internal_api_key_system:

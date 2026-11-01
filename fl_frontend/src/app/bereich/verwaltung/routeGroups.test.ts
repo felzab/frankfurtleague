@@ -31,7 +31,7 @@ describe("the administration's route groups", () => {
         .filter((segment) => segment !== "" && !/^\(.+\)$/.test(segment))
         .map((segment) => (segment.startsWith("[") ? "[]" : segment));
     const entries = RAIL_GROUPS.flatMap((group) => group.entries).map((entry) =>
-      segments(entry.season === undefined ? entry.href : ROUTES[entry.season].pfad("[saison]")),
+      segments(entry.saison === undefined ? entry.href : ROUTES[entry.saison].path("[saison]")),
     );
     const editors = filesUnder(path.join(VERWALTUNG, "(editor)"), (name) => name === "page.tsx", 1).map((file) =>
       shown(APP, path.dirname(file)),

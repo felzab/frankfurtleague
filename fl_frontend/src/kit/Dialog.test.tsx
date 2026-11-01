@@ -16,35 +16,35 @@ import { Link } from "./Link";
 import { TextField } from "./TextField";
 import { useEditor } from "./useEditor";
 
+import type { ActionAnswer } from "@/core/action";
 import type * as Navigation from "next/navigation";
 import type { EditorSave } from "./useEditor";
-import type { ActionAnswer } from "./useFormAction";
 
 // The route dialog's way back, which jsdom's history, one entry long, sends to the page beneath.
-const router = vi.hoisted(() => ({ back: vi.fn(), push: vi.fn() }));
+const router = vi.hoisted(() => ({ back: vi.fn(), push: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal<typeof Navigation>()), useRouter: () => router }));
 
 type Spielort = { name: string };
 
-const NAME = COPY.seite.spielorte;
-const INPUT = COPY.seite.spiele;
+const NAME = COPY.page.verwaltungSpielorte;
+const INPUT = COPY.page.spiele;
 const DONE: ActionAnswer = { ok: true, value: undefined };
 
 function CreateDialog({ create }: { create: (formData: FormData) => Promise<ActionAnswer> }) {
   return (
     <Dialog
       title={NAME}
-      act={{ verb: "anlegen", objekt: NAME }}
+      act={{ verb: "create", object: NAME }}
       action={create}
       trigger={
         <Button
           variant="secondary"
-          label={COPY.shared.verb.anlegen}
+          label={COPY.shared.verb.create}
         />
       }>
       <TextField
         label={INPUT}
-        name="neu"
+        name="created"
         width="W3"
         kind="text"
       />
@@ -56,10 +56,10 @@ function EditorHoldingDialog({
   save,
   create,
 }: {
-  save: (change: EditorSave<Spielort>) => Promise<ActionAnswer>;
+  save: (change: EditorSave<Spielort>) => Promise<ActionAnswer<number>>;
   create: (formData: FormData) => Promise<ActionAnswer>;
 }) {
-  const editor = useEditor({ id: "ort-1", fingerprint: "f1", values: { name: "Riedberg" } }, save);
+  const editor = useEditor({ id: "ort-1", version: 1, values: { name: "Riedberg" } }, save);
   return (
     <EditorPage
       title={{ record: "Riedberg" }}
@@ -89,9 +89,9 @@ function EditorHoldingDialog({
 
 /** Opens the dialog, types into its one field and presses its act. */
 async function createThroughTheDialog() {
-  await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.anlegen }));
+  await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.create }));
   await userEvent.type(screen.getByRole("textbox", { name: INPUT }), "Sportpark Nord");
-  await userEvent.click(screen.getByRole("button", { name: COPY.shared.mitObjekt(NAME, "anlegen") }));
+  await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create") }));
 }
 
 /**
@@ -115,20 +115,20 @@ describe("the kit's confirmation", () => {
   it("stands in the overlay every dialog shares", async () => {
     render(
       <ConfirmDialog
-        verb="loeschen"
+        verb="delete"
         subject={NAME}
-        consequence={COPY.shared.fehler.veraltet}
+        consequence={COPY.shared.failure.stale}
         tone="danger"
         trigger={
           <Button
             variant="secondary"
-            label={COPY.shared.verb.loeschen}
+            label={COPY.shared.verb.delete}
           />
         }
         onConfirm={() => undefined}
       />,
     );
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.loeschen }));
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.delete }));
 
     expectTheSharedOverlay(screen.getByRole("alertdialog"));
   });
@@ -144,7 +144,7 @@ describe("the route dialog", () => {
           <Link
             href="/saisons/2027/spiele/1"
             placement="button"
-            label={COPY.shared.zumSpiel}
+            label={COPY.shared.toSpiel}
           />
         }>
         <p>Spiel</p>
@@ -153,7 +153,7 @@ describe("the route dialog", () => {
 
     expect(screen.getByRole("dialog", { name: NAME })).toBeTruthy();
     // The kit's button, not the dismiss button React Aria keeps for a screen reader under the same name.
-    const close = screen.getAllByRole("button", { name: COPY.shared.schliessen }).find((button) => button.hasAttribute("data-kit-focus"));
+    const close = screen.getAllByRole("button", { name: COPY.shared.close }).find((button) => button.hasAttribute("data-kit-focus"));
     if (close === undefined) throw new Error("the dialog drew no closing button");
     await userEvent.click(close);
     expect(router.push).toHaveBeenCalledWith("/saisons/2027");
@@ -168,11 +168,11 @@ describe("the kit's dialog", () => {
     await createThroughTheDialog();
 
     await waitFor(() => expect(create).toHaveBeenCalledOnce());
-    expect(create.mock.calls[0]?.[0].get("neu")).toBe("Sportpark Nord");
+    expect(create.mock.calls[0]?.[0].get("created")).toBe("Sportpark Nord");
   });
 
   it("opened inside an editor's section, runs its own act and never the editor's save", async () => {
-    const save = vi.fn(async (): Promise<ActionAnswer> => ({ ok: true, value: undefined }));
+    const save = vi.fn(async (): Promise<ActionAnswer<number>> => ({ ok: true, value: 2 }));
     const create = vi.fn(async (_formData: FormData): Promise<ActionAnswer> => DONE);
     render(
       <EditorHoldingDialog
@@ -187,7 +187,7 @@ describe("the kit's dialog", () => {
     await waitFor(() => expect(create).toHaveBeenCalledOnce());
     expect(save).not.toHaveBeenCalled();
     // The editor's draft stands, waiting for its own save.
-    expect(screen.getByText(COPY.vorlage.aenderungenOffen(1))).toBeTruthy();
+    expect(screen.getByText(COPY.template.changesPending(1))).toBeTruthy();
   });
 
   it("closes once its act is done", async () => {
@@ -199,29 +199,29 @@ describe("the kit's dialog", () => {
   });
 
   it("stays open on a refused act, the input kept, the field's message under it and the line beside the acts", async () => {
-    render(<CreateDialog create={async () => ({ ok: false, fieldErrors: { neu: COPY.shared.feld.schonVergeben } })} />);
+    render(<CreateDialog create={async () => ({ ok: false, fieldErrors: { created: COPY.shared.field.taken } })} />);
 
     await createThroughTheDialog();
 
-    await waitFor(() => expect(screen.getByText(COPY.shared.feld.schonVergeben)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(COPY.shared.field.taken)).toBeTruthy());
     const input = screen.getByRole("textbox", { name: INPUT });
     expect(input.getAttribute("aria-invalid")).toBe("true");
     expect((input as HTMLInputElement).value).toBe("Sportpark Nord");
-    expect(screen.getByText(COPY.vorlage.felderPruefen)).toBeTruthy();
+    expect(screen.getByText(COPY.template.checkFields)).toBeTruthy();
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
   it("shows the reason a refusal brings in its status line", async () => {
-    render(<CreateDialog create={async () => ({ ok: false, reason: COPY.shared.fehler.veraltet })} />);
+    render(<CreateDialog create={async () => ({ ok: false, reason: COPY.shared.failure.stale })} />);
 
     await createThroughTheDialog();
 
-    await waitFor(() => expect(screen.getByText(COPY.shared.fehler.veraltet)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(COPY.shared.failure.stale)).toBeTruthy());
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
   it("empties its status line while its act is on its way, so the same refusal twice is announced twice", async () => {
-    const refusal: ActionAnswer = { ok: false, reason: COPY.shared.fehler.veraltet };
+    const refusal: ActionAnswer = { ok: false, reason: COPY.shared.failure.stale };
     const second = Promise.withResolvers<ActionAnswer>();
     // React batches ongoing transitions together, so an act left unsettled by a failing case holds the next one's.
     onTestFinished(() => second.resolve(refusal));
@@ -230,13 +230,13 @@ describe("the kit's dialog", () => {
 
     await createThroughTheDialog();
     const line = within(screen.getByRole("dialog")).getByRole("status");
-    await waitFor(() => expect(line.textContent).toBe(COPY.shared.fehler.veraltet));
+    await waitFor(() => expect(line.textContent).toBe(COPY.shared.failure.stale));
 
     // A polite live region speaks only where its words change.
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.mitObjekt(NAME, "anlegen") }));
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create") }));
     await waitFor(() => expect(line.textContent).toBe(""));
     await act(async () => second.resolve(refusal));
-    expect(line.textContent).toBe(COPY.shared.fehler.veraltet);
+    expect(line.textContent).toBe(COPY.shared.failure.stale);
   });
 
   it("answers an act that throws with the stale-page line, and stays open", async () => {
@@ -250,52 +250,52 @@ describe("the kit's dialog", () => {
 
     await createThroughTheDialog();
 
-    await waitFor(() => expect(screen.getByText(COPY.shared.fehler.veraltet)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(COPY.shared.failure.stale)).toBeTruthy());
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
   it("stands in the overlay every dialog shares", async () => {
     render(<CreateDialog create={async () => DONE} />);
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.anlegen }));
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.create }));
 
     expectTheSharedOverlay(screen.getByRole("dialog"));
   });
 
   it("opens again without the refusal it showed before it closed", async () => {
-    render(<CreateDialog create={async () => ({ ok: false, reason: COPY.shared.fehler.veraltet })} />);
+    render(<CreateDialog create={async () => ({ ok: false, reason: COPY.shared.failure.stale })} />);
 
     await createThroughTheDialog();
-    await waitFor(() => expect(screen.getByText(COPY.shared.fehler.veraltet)).toBeTruthy());
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.zurueck }));
+    await waitFor(() => expect(screen.getByText(COPY.shared.failure.stale)).toBeTruthy());
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.back }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.anlegen }));
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.create }));
 
     expect(screen.getByRole("dialog")).toBeTruthy();
-    expect(screen.queryByText(COPY.shared.fehler.veraltet)).toBeNull();
+    expect(screen.queryByText(COPY.shared.failure.stale)).toBeNull();
   });
 
   it("opened from a combo box's create entry, starts from the typed name and closes on „Zurück“", async () => {
-    render(<VenueFieldWithDialog />);
+    render(<SpielortFieldWithDialog />);
     await userEvent.type(screen.getByRole("combobox"), "Sportpark Süd");
-    await userEvent.click(screen.getByRole("option", { name: COPY.verwaltung.spielort.anlegenEintrag }));
+    await userEvent.click(screen.getByRole("option", { name: COPY.verwaltung.spielort.createEntry }));
 
     expect((screen.getByRole("textbox", { name: INPUT }) as HTMLInputElement).value).toBe("Sportpark Süd");
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.zurueck }));
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.back }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });
 
 /** The match editor's venue field and its create dialog, which the field's last entry opens. */
-function VenueFieldWithDialog() {
+function SpielortFieldWithDialog() {
   const [isOpen, setOpen] = useState(false);
   const [name, setName] = useState("");
   return (
     <>
       <ComboBox
-        label={COPY.verwaltung.spielort.objekt}
+        label={COPY.verwaltung.spielort.object}
         options={[{ id: "ost", label: "Sportplatz Ost" }]}
         create={{
-          label: COPY.verwaltung.spielort.anlegenEintrag,
+          label: COPY.verwaltung.spielort.createEntry,
           onCreate: (typed) => {
             setName(typed);
             setOpen(true);
@@ -304,12 +304,12 @@ function VenueFieldWithDialog() {
       />
       <Dialog
         title={NAME}
-        act={{ verb: "anlegen", objekt: NAME }}
+        act={{ verb: "create", object: NAME }}
         action={async () => DONE}
         open={{ isOpen, onOpenChange: setOpen }}>
         <TextField
           label={INPUT}
-          name="neu"
+          name="created"
           width="W3"
           kind="text"
           defaultValue={name}

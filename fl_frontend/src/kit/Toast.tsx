@@ -66,7 +66,7 @@ export function ToastRegion({ frame }: { frame: "rail" | "classic" }) {
           className="pointer-events-auto flex min-h-11 max-w-full items-center gap-3 rounded-xl border border-border bg-bg px-4 py-3 text-sm font-medium whitespace-nowrap text-fg shadow-dialog transition-opacity duration-(--motion-in) starting:opacity-0">
           <span className={toast.content.tone === "success" ? "text-success" : "text-danger"}>
             <Icon
-              glyph={toast.content.tone === "success" ? "erledigt" : "fehler"}
+              glyph={toast.content.tone === "success" ? "done" : "error"}
               size={16}
             />
           </span>

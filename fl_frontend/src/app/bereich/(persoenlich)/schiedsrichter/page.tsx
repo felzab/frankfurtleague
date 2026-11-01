@@ -1,12 +1,10 @@
 import { redirect } from "next/navigation";
-import { connection } from "next/server";
 
-import { frontend_config } from "@/core/config";
-import { funktionenOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/roles";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { logPageVerweigert } from "@/features/funktionen/verweigert";
-import { SchiedsrichterSelbstView } from "@/features/schiedsrichter/components/views/SchiedsrichterSelbstView";
-import { getSchiedsrichterSelbst } from "@/features/schiedsrichter/queries";
+import { SchiedsrichterSelfView } from "@/features/schiedsrichter/components/views/SchiedsrichterSelfView";
+import { getSchiedsrichterSelf } from "@/features/schiedsrichter/queries";
 import { getSchiedsrichterSpielberichte } from "@/features/spielberichte/queries";
 import { getEigeneSpielbestaetigungen } from "@/features/spielbestaetigungen/queries";
 import { isFunktionLost } from "@/shared/utils/actionError";
@@ -16,33 +14,29 @@ import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 import type { SchiedsrichterSpielberichte } from "@/features/spielberichte/types";
 
 export default async function PersoenlichSchiedsrichterPage() {
-  await connection();
   const subject = await requireSubjectSession();
 
   // To the landing rather than a 404: the address exists, and the landing sends a person on to
   // whatever they do hold.
-  if (!funktionenOf(subject).funktionen.some((funktion) => funktion.art === "schiedsrichter")) {
+  if (!rolesOf(subject).roles.some((funktion) => funktion.art === "schiedsrichter")) {
     logPageVerweigert("/bereich/schiedsrichter", "keine_funktion");
     redirect("/bereich");
   }
 
   let selbst, einsaetze, spielberichte;
   try {
-    // Side by side: no read waits on another, and each answers the same lost record alike. Nothing is read while the
-    // reports are closed: their section then says why it offers no fixture.
+    // Side by side: no read waits on another, and each answers the same lost record alike.
     [selbst, einsaetze, spielberichte] = await Promise.all([
-      getSchiedsrichterSelbst(),
+      getSchiedsrichterSelf(),
       getEigeneSpielbestaetigungen(),
       // A failed report read is its section's own state, so the answers to an Einteilung stand; a lost record still
       // lands through the two reads beside it.
-      frontend_config.SPIELBERICHT_EINGABE === "on"
-        ? runWithIncomingTrace(() =>
-            getSchiedsrichterSpielberichte().then(
-              (gelesen): SchiedsrichterSpielberichte => ({ spiele: gelesen.spiele, fruehere: gelesen.fruehere }),
-              (error: unknown): SchiedsrichterSpielberichte => nullUnlessContractBreak(error) ?? "unlesbar",
-            ),
-          )
-        : ("geschlossen" as const),
+      runWithIncomingTrace(() =>
+        getSchiedsrichterSpielberichte().then(
+          (gelesen): SchiedsrichterSpielberichte => ({ spiele: gelesen.spiele, earlier: gelesen.earlier }),
+          (error: unknown): SchiedsrichterSpielberichte => nullUnlessContractBreak(error) ?? "unlesbar",
+        ),
+      ),
     ]);
   } catch (error) {
     // The row went between the page's own check and the backend's, which is the check above failing
@@ -52,7 +46,7 @@ export default async function PersoenlichSchiedsrichterPage() {
   }
 
   return (
-    <SchiedsrichterSelbstView
+    <SchiedsrichterSelfView
       schiedsrichter={selbst.schiedsrichter}
       einsaetze={einsaetze.spielbestaetigungen}
       spielberichte={spielberichte}

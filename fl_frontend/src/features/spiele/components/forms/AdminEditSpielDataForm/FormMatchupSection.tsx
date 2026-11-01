@@ -10,8 +10,8 @@ import { collectUsedQuelleKeys } from "../../../utils";
 import { FormTeamPicker } from "./FormTeamPicker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
-import type { FLPatchSpielDataPayload, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
-import type { FLTeam } from "@/features/teams/schemas";
+import type { FLPatchSpielDataPayload, FLSpielQuelle, FLTeam } from "@/core/generated/client/types";
+import type { FLSpiel, FLSpielTeamField } from "@/features/spiele/types";
 import type { SpielBanner } from "./banners";
 
 /**
@@ -40,7 +40,7 @@ export function FormMatchupSection({
   spielData: FLSpiel;
   saisonSpiele: FLSpiel[];
   teams: FLTeam[];
-  /** The season's `rules.number_of_groups`, bounding each picker's group offer; `null` offers all. */
+  /** The season's `rules.number_of_gruppen`, bounding each picker's group offer; `null` offers all. */
   numberOfGroups: number | null;
   knockoutTeamIds: ReadonlySet<string>;
   /**

@@ -26,9 +26,9 @@ import { FormTorschuetzenSection } from "./FormTorschuetzenSection";
 import { FormVorschlagSection } from "./FormVorschlagSection";
 import { deriveSpielberichtDraftStatus, eroeffnungOf, formPayloadOf, wirePayloadOf } from "./spielberichtDraft";
 
+import type { FLSpielberichtBericht } from "@/core/generated/client/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
-import type { FLSpielberichtBericht } from "../../../schemas";
 import type { SpielberichtLeser } from "../../../utils";
 import type { SpielberichtDraft, SpielberichtKontext } from "./spielberichtDraft";
 
@@ -88,7 +88,7 @@ export function SpielberichtForm({
       failureTitle: "Spielbericht nicht gespeichert",
     });
 
-  const status = deriveSpielberichtDraftStatus({ kontext, stored: gespeichert, draft, fieldErrors });
+  const status = deriveSpielberichtDraftStatus({ context: kontext, stored: gespeichert, draft, fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
 
   // The latch's job ends when the refreshed report arrives and the two agree.

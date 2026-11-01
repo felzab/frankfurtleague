@@ -5,13 +5,8 @@ import pytest
 from bson import ObjectId
 
 from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, verein_fields
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungTermin
+from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
 from app.api.spielbestaetigungen.services import (
-    ANSETZUNG_BEANTWORTET,
-    ANSETZUNG_ENTSCHIEDEN,
-    ANSETZUNG_FRIST_VORBEI,
-    ANSETZUNG_GEAENDERT,
-    ANSETZUNG_GESCHLOSSEN,
     AnsetzungLage,
     ansetzung_stand_of,
     ansicht_ansetzung_of,
@@ -27,6 +22,7 @@ from app.api.spielbestaetigungen.services import (
     zustand_of,
 )
 from app.api.spiele.schemas import FLSpiel
+from app.core.codes import Code
 
 TEAM1 = ObjectId("650000000000000000000101")
 TEAM2 = ObjectId("650000000000000000000102")
@@ -59,8 +55,8 @@ def spiel(**overrides: Any) -> dict[str, Any]:
         "uhrzeit": "18:30:00",
         "ort": {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "mietpreis": 40},
         "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": REFEREE, "payment": 20},
-        "team1": {"team_id": TEAM1, "name": "Adler", "shorthand": "AD", "tore": None},
-        "team2": {"team_id": TEAM2, "name": "Biber", "shorthand": "BI", "tore": None},
+        "team1": {"team_id": TEAM1, "name": "Adler", "shorthand": "ADX", "tore": None},
+        "team2": {"team_id": TEAM2, "name": "Biber", "shorthand": "BIX", "tore": None},
         "team1_quelle": None,
         "team2_quelle": None,
         "ergebnis": None,
@@ -96,11 +92,11 @@ def zeile(**overrides: Any) -> dict[str, Any]:
         "_id": ObjectId("650000000000000000000110"),
         "saison_id": "2027",
         "spiel_id": spiel()["_id"],
-        "partei": {"art": "team", "team_id": TEAM1},
+        "party": {"art": "team", "team_id": TEAM1},
         "ansetzung": compose_ansetzung(spiel()),
         "frist": FRIST,
         "antwort": None,
-        "geschlossen": None,
+        "closed": None,
         **overrides,
     }
 
@@ -108,46 +104,50 @@ def zeile(**overrides: Any) -> dict[str, Any]:
 ANSWERED = {"art": "zugesagt", "am": TODAY, "von": {"art": "kontakt", "rolle": "trainer"}, "vorschlag": None, "begruendung": None}
 DISCARDED_DECLINE = {
     **ANSWERED,
-    "art": "abgelehnt",
+    "art": "declined",
     "vorschlag": {"datum": AFTER_THE_DAY, "uhrzeit": "18:30:00"},
     "begruendung": "Halle belegt",
 }
 
 
 class TestASpentLinkMeetsTheCodeThatNamesWhy:
-    """Each code alone, then every pair in the order the answer meets them: a row both answered and moved is `-002`."""
+    """Each code alone, then every pair in the order the answer meets them: a row both answered and moved is `ansetzung_answered`."""
 
     @pytest.mark.parametrize(
         ("row", "situation", "today", "code"),
         [
-            pytest.param({"antwort": ANSWERED}, {}, TODAY, ANSETZUNG_BEANTWORTET, id="answered"),
-            pytest.param({}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, TODAY, ANSETZUNG_GEAENDERT, id="moved"),
-            pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, ANSETZUNG_ENTSCHIEDEN, id="a-result"),
-            pytest.param({}, {"spiel_overrides": {"sonderereignis": "ausgefallen"}}, TODAY, ANSETZUNG_ENTSCHIEDEN, id="called-off"),
+            pytest.param({"antwort": ANSWERED}, {}, TODAY, Code.ANSETZUNG_ANSWERED, id="answered"),
+            pytest.param({}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, TODAY, Code.ANSETZUNG_CHANGED, id="moved"),
+            pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, Code.ANSETZUNG_DECIDED, id="a-result"),
+            pytest.param({}, {"spiel_overrides": {"sonderereignis": "ausgefallen"}}, TODAY, Code.ANSETZUNG_DECIDED, id="called-off"),
             pytest.param(
-                {"antwort": ANSWERED, "geschlossen": {"am": TODAY, "grund": "ansetzung_geaendert"}},
+                {"antwort": ANSWERED, "closed": {"am": TODAY, "grund": "ansetzung_changed"}},
                 {"spiel_overrides": {"uhrzeit": "19:00:00"}},
                 "2027-05-08",
-                ANSETZUNG_BEANTWORTET,
+                Code.ANSETZUNG_ANSWERED,
                 id="answered-ahead-of-closed-late-and-moved",
             ),
             pytest.param(
-                {"geschlossen": {"am": TODAY, "grund": "ansetzung_geaendert"}},
+                {"closed": {"am": TODAY, "grund": "ansetzung_changed"}},
                 {"spiel_overrides": {"uhrzeit": "19:00:00"}},
                 "2027-05-08",
-                ANSETZUNG_GESCHLOSSEN,
+                Code.ANSETZUNG_CLOSED,
                 id="closed-ahead-of-late-and-moved",
             ),
             # What the close would shut the row for, ahead of the deadline, as the view ranks them.
-            pytest.param({}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, "2027-05-08", ANSETZUNG_GEAENDERT, id="moved-ahead-of-late"),
-            pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, "2027-05-08", ANSETZUNG_ENTSCHIEDEN, id="decided-ahead-of-late"),
+            pytest.param({}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, "2027-05-08", Code.ANSETZUNG_CHANGED, id="moved-ahead-of-late"),
+            pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, "2027-05-08", Code.ANSETZUNG_DECIDED, id="decided-ahead-of-late"),
             # The close's own order: a decided fixture is owed no notice that it moved.
             pytest.param(
-                {}, {"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}}, TODAY, ANSETZUNG_ENTSCHIEDEN, id="decided-ahead-of-moved"
+                {},
+                {"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}},
+                TODAY,
+                Code.ANSETZUNG_DECIDED,
+                id="decided-ahead-of-moved",
             ),
             # Its day gone by unplayed, the close's last reason, is a deadline gone by too and answers as one.
-            pytest.param({}, {}, AFTER_THE_DAY, ANSETZUNG_FRIST_VORBEI, id="the-day-passed"),
-            pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, AFTER_THE_DAY, ANSETZUNG_ENTSCHIEDEN, id="decided-ahead-of-the-day"),
+            pytest.param({}, {}, AFTER_THE_DAY, Code.ANSETZUNG_FRIST_PAST, id="the-day-passed"),
+            pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, AFTER_THE_DAY, Code.ANSETZUNG_DECIDED, id="decided-ahead-of-the-day"),
         ],
     )
     def test_the_first_reason_in_order_answers(self, row: dict[str, Any], situation: dict[str, Any], today: str, code: str):
@@ -160,9 +160,9 @@ class TestASpentLinkMeetsTheCodeThatNamesWhy:
             refusal = find_spent_link_refusal(spielbestaetigung_raw=zeile(**row), lage=lage(**situation), today=today)
             return None if refusal is None else refusal.error_code
 
-        assert code_of({"geschlossen": {"am": TODAY, "grund": "verworfen"}}, {}) == ANSETZUNG_GESCHLOSSEN
-        assert code_of({}, {}, today="2027-05-08") == ANSETZUNG_FRIST_VORBEI
-        assert code_of({}, {"austritt": DATUM}) == ANSETZUNG_ENTSCHIEDEN
+        assert code_of({"closed": {"am": TODAY, "grund": "discarded"}}, {}) == Code.ANSETZUNG_CLOSED
+        assert code_of({}, {}, today="2027-05-08") == Code.ANSETZUNG_FRIST_PAST
+        assert code_of({}, {"austritt": DATUM}) == Code.ANSETZUNG_DECIDED
 
     def test_an_open_row_about_the_fixture_as_it_stands_answers_on_its_deadline_day(self):
         """The deadline's own day still answers, and a club leaving AFTER the fixture's day decides nothing about it."""
@@ -173,30 +173,30 @@ class TestASpentLinkMeetsTheCodeThatNamesWhy:
 class TestWhatAReopenedLinkShows:
     """The view's states in their order: the ban first, then a moved stand, then the answer, then a lapse."""
 
-    OTHER = FLSpielbestaetigungTermin(datum="2027-05-20", uhrzeit="18:00:00")
+    OTHER = FLSpielbestaetigungAppointment(datum="2027-05-20", uhrzeit="18:00:00")
 
     @pytest.mark.parametrize(
-        ("row", "situation", "today", "gesperrt", "vorschlag", "zustand"),
+        ("row", "situation", "today", "barred", "vorschlag", "state"),
         [
-            pytest.param({"antwort": ANSWERED}, {}, TODAY, True, None, "gesperrt", id="barred-ahead-of-answered"),
+            pytest.param({"antwort": ANSWERED}, {}, TODAY, True, None, "barred", id="barred-ahead-of-answered"),
             # The move's notice called every link of the row void, the answering seat's sibling links included.
             pytest.param(
-                {"antwort": ANSWERED}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, TODAY, False, None, "ungueltig", id="answered-then-moved"
+                {"antwort": ANSWERED}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, TODAY, False, None, "invalid", id="answered-then-moved"
             ),
             pytest.param(
-                {"antwort": ANSWERED, "geschlossen": {"am": TODAY, "grund": "ansetzung_geaendert"}},
+                {"antwort": ANSWERED, "closed": {"am": TODAY, "grund": "ansetzung_changed"}},
                 {"spiel_overrides": {"uhrzeit": "19:00:00"}},
                 TODAY,
                 False,
                 None,
-                "ungueltig",
+                "invalid",
                 id="answered-and-closed-for-the-move",
             ),
             pytest.param(
                 {"antwort": ANSWERED}, {"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, False, None, "zugesagt", id="answered-then-decided"
             ),
             pytest.param(
-                {"antwort": ANSWERED, "geschlossen": {"am": AFTER_THE_DAY, "grund": "spiel_vergangen"}},
+                {"antwort": ANSWERED, "closed": {"am": AFTER_THE_DAY, "grund": "spiel_past"}},
                 {},
                 AFTER_THE_DAY,
                 False,
@@ -204,31 +204,29 @@ class TestWhatAReopenedLinkShows:
                 "zugesagt",
                 id="answered-and-closed-past-its-day",
             ),
-            pytest.param({"antwort": {**ANSWERED, "art": "abgelehnt"}}, {}, TODAY, False, None, "abgelehnt", id="declined"),
-            pytest.param({}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, "2027-05-08", False, None, "ungueltig", id="moved-ahead-of-late"),
+            pytest.param({"antwort": {**ANSWERED, "art": "declined"}}, {}, TODAY, False, None, "declined", id="declined"),
+            pytest.param({}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, "2027-05-08", False, None, "invalid", id="moved-ahead-of-late"),
             pytest.param(
-                {}, {"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}}, TODAY, False, None, "abgelaufen", id="decided-and-moved"
+                {}, {"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}}, TODAY, False, None, "expired", id="decided-and-moved"
             ),
-            pytest.param({}, {"austritt": DATUM}, TODAY, False, None, "abgelaufen", id="a-club-left-by-the-day"),
+            pytest.param({}, {"austritt": DATUM}, TODAY, False, None, "expired", id="a-club-left-by-the-day"),
             pytest.param(
-                {"geschlossen": {"am": TODAY, "grund": "schiedsrichter_gewechselt"}}, {}, TODAY, False, None, "ungueltig", id="referee-changed"
+                {"closed": {"am": TODAY, "grund": "schiedsrichter_switched"}}, {}, TODAY, False, None, "invalid", id="referee-changed"
             ),
+            pytest.param({"closed": {"am": TODAY, "grund": "spiel_past"}}, {}, TODAY, False, None, "expired", id="closed-otherwise"),
             pytest.param(
-                {"geschlossen": {"am": TODAY, "grund": "spiel_vergangen"}}, {}, TODAY, False, None, "abgelaufen", id="closed-otherwise"
-            ),
-            pytest.param(
-                {"geschlossen": {"am": AFTER_THE_DAY, "grund": "spiel_vergangen"}},
+                {"closed": {"am": AFTER_THE_DAY, "grund": "spiel_past"}},
                 {},
                 AFTER_THE_DAY,
                 False,
                 None,
-                "abgelaufen",
+                "expired",
                 id="day-passed",
             ),
-            pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, False, None, "abgelaufen", id="decided"),
-            pytest.param({}, {}, "2027-05-08", False, OTHER, "abgelaufen", id="late-ahead-of-a-proposal"),
+            pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, False, None, "expired", id="decided"),
+            pytest.param({}, {}, "2027-05-08", False, OTHER, "expired", id="late-ahead-of-a-proposal"),
             pytest.param({}, {}, TODAY, False, OTHER, "vorschlag", id="the-other-club-proposes"),
-            pytest.param({}, {}, TODAY, False, None, "gueltig", id="open"),
+            pytest.param({}, {}, TODAY, False, None, "valid", id="open"),
         ],
     )
     def test_the_first_matching_state_wins(
@@ -236,13 +234,13 @@ class TestWhatAReopenedLinkShows:
         row: dict[str, Any],
         situation: dict[str, Any],
         today: str,
-        gesperrt: bool,
-        vorschlag: FLSpielbestaetigungTermin | None,
-        zustand: str,
+        barred: bool,
+        vorschlag: FLSpielbestaetigungAppointment | None,
+        state: str,
     ):
         assert (
-            zustand_of(spielbestaetigung_raw=zeile(**row), lage=lage(**situation), today=today, gesperrt=gesperrt, vorschlag_offen=vorschlag)
-            == zustand
+            zustand_of(spielbestaetigung_raw=zeile(**row), lage=lage(**situation), today=today, barred=barred, vorschlag_offen=vorschlag)
+            == state
         )
 
 
@@ -274,7 +272,7 @@ def loaded_by(projection: Mapping[str, Any], path: str) -> bool:
 class TestTheProjectionsHoldEverythingTheJudgesRead:
     """The other half of the db sheet's `TestWhatAnAnonymousReadLoads`: a path a judge reads that a projection drops reads as null.
 
-    So a decided fixture would show `gueltig`, or a seat's address read as empty pass the ban, with nothing failing.
+    So a decided fixture would show `valid`, or a seat's address read as empty pass the ban, with nothing failing.
     """
 
     def test_the_view_reads_nothing_its_projections_leave_out(self):
@@ -286,12 +284,12 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
             vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)],
         )
 
-        assert zustand_of(spielbestaetigung_raw=zeile(), lage=situation, today=TODAY, gesperrt=False, vorschlag_offen=None) == "gueltig"
+        assert zustand_of(spielbestaetigung_raw=zeile(), lage=situation, today=TODAY, barred=False, vorschlag_offen=None) == "valid"
         ansicht_ansetzung_of(situation.spiel)
         seat_adresse(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
 
         # The premise: `entscheidung_of` read the fixture to its last test.
-        assert {"ergebnis", "elfmeterschiessen", "sonderereignis", "team2.tore", "austritt.datum"} <= spiel_seen | vereine_seen
+        assert {"ergebnis", "sonderereignis", "team2.tore", "austritt.datum"} <= spiel_seen | vereine_seen
         assert [path for path in sorted(spiel_seen) if not loaded_by(ANSICHT_SPIEL_FIELDS, path)] == []
         projection = verein_fields(team_id=TEAM1, seat="trainer")
         assert [path for path in sorted(vereine_seen) if not loaded_by(projection, path)] == []
@@ -320,7 +318,6 @@ SITUATIONS = [
     pytest.param({"spiel_overrides": {"uhrzeit": "19:00:00"}}, "2027-05-08", id="moved-and-late"),
     pytest.param({"spiel_overrides": {"team2": None}}, TODAY, id="a-side-gone"),
     pytest.param({"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, id="a-result"),
-    pytest.param({"spiel_overrides": {"elfmeterschiessen": {"team1": 4, "team2": 3}}}, TODAY, id="a-lone-shoot-out"),
     pytest.param({"spiel_overrides": {"sonderereignis": "ausgefallen"}}, TODAY, id="called-off"),
     pytest.param({"austritt": DATUM}, TODAY, id="a-club-left-by-the-day"),
     pytest.param({"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}}, "2027-05-08", id="moved-decided-and-late"),
@@ -329,7 +326,12 @@ SITUATIONS = [
 ]
 
 # The page a refused answer's code sends the reader to (`fl_frontend/src/features/spielbestaetigungen/utils.ts`).
-STATE_OF_CODE = {None: "gueltig", ANSETZUNG_GEAENDERT: "ungueltig", ANSETZUNG_ENTSCHIEDEN: "abgelaufen", ANSETZUNG_FRIST_VORBEI: "abgelaufen"}
+STATE_OF_CODE = {
+    None: "valid",
+    Code.ANSETZUNG_CHANGED: "invalid",
+    Code.ANSETZUNG_DECIDED: "expired",
+    Code.ANSETZUNG_FRIST_PAST: "expired",
+}
 
 
 def called_off(situation: dict[str, Any]) -> bool:
@@ -342,7 +344,7 @@ class TestTheLinkAndTheCloseReadOneVerdict:
     @pytest.mark.parametrize(("situation", "today"), SITUATIONS)
     def test_the_view_shows_the_state_the_answer_refuses_with(self, situation: dict[str, Any], today: str):
         refusal = find_spent_link_refusal(spielbestaetigung_raw=zeile(), lage=lage(**situation), today=today)
-        shown = zustand_of(spielbestaetigung_raw=zeile(), lage=lage(**situation), today=today, gesperrt=False, vorschlag_offen=None)
+        shown = zustand_of(spielbestaetigung_raw=zeile(), lage=lage(**situation), today=today, barred=False, vorschlag_offen=None)
         # A call-off refuses with a decision's code, on which the page reads the view again, and the view names it.
         expected = "abgesagt" if called_off(situation) else STATE_OF_CODE[None if refusal is None else refusal.error_code]
 
@@ -361,32 +363,32 @@ class TestTheLinkAndTheCloseReadOneVerdict:
         situated = lage(**situation)
         austritte = {} if "austritt" not in situation else {TEAM1: situation["austritt"]}
         grund = grund_to_close(row=zeile(antwort=antwort), spiel=situated.spiel, austritte=austritte, today=today)
-        closed = zeile(antwort=antwort, geschlossen=None if grund is None else {"am": today, "grund": grund})
+        closed = zeile(antwort=antwort, closed=None if grund is None else {"am": today, "grund": grund})
 
-        before = zustand_of(spielbestaetigung_raw=zeile(antwort=antwort), lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
-        after = zustand_of(spielbestaetigung_raw=closed, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
+        before = zustand_of(spielbestaetigung_raw=zeile(antwort=antwort), lage=situated, today=today, barred=False, vorschlag_offen=None)
+        after = zustand_of(spielbestaetigung_raw=closed, lage=situated, today=today, barred=False, vorschlag_offen=None)
 
         assert before == after
 
     @pytest.mark.parametrize(("situation", "today"), SITUATIONS)
     def test_a_discard_shows_the_same_state_once_the_close_ends_it(self, situation: dict[str, Any], today: str):
-        """A move among them: ended by it, the discard would read `ungueltig` where its club's link read `abgelehnt`.
+        """A move among them: ended by it, the discard would read `invalid` where its club's link read `declined`.
 
-        Standing about the fixture as it is, it reads `verworfen`, the league having kept the date.
+        Standing about the fixture as it is, it reads `discarded`, the league having kept the date.
         """
 
         situated = lage(**situation)
         austritte = {} if "austritt" not in situation else {TEAM1: situation["austritt"]}
-        discarded = zeile(antwort=DISCARDED_DECLINE, geschlossen={"am": TODAY, "grund": "verworfen"})
+        discarded = zeile(antwort=DISCARDED_DECLINE, closed={"am": TODAY, "grund": "discarded"})
         grund = grund_to_end(row=discarded, spiel=situated.spiel, austritte=austritte, today=today)
-        ended = {**discarded, "geschlossen": discarded["geschlossen"] if grund is None else {"am": today, "grund": grund}}
+        ended = {**discarded, "closed": discarded["closed"] if grund is None else {"am": today, "grund": grund}}
 
-        before = zustand_of(spielbestaetigung_raw=discarded, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
-        after = zustand_of(spielbestaetigung_raw=ended, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
+        before = zustand_of(spielbestaetigung_raw=discarded, lage=situated, today=today, barred=False, vorschlag_offen=None)
+        after = zustand_of(spielbestaetigung_raw=ended, lage=situated, today=today, barred=False, vorschlag_offen=None)
 
         standing = grund is None and ansetzung_stand_of(situated.spiel) == discarded["ansetzung"]["stand"]
         # A call-off reads as one ahead of every answer, the discarded decline's too.
-        assert before == after == ("abgesagt" if called_off(situation) else "verworfen" if standing else "abgelehnt")
+        assert before == after == ("abgesagt" if called_off(situation) else "discarded" if standing else "declined")
 
 
 class TestWhatTheViewStatesOfTheFixture:
@@ -402,7 +404,7 @@ class TestWhatTheViewStatesOfTheFixture:
         """Its season row went to the incoming club, which a replacement also seats in the fixture: only `teams` names the club that left."""
 
         replaced = AnsetzungLage(
-            spiel=spiel(team2={"team_id": ObjectId(), "name": "Dachs", "shorthand": "DA", "tore": None}), vereine=[verein(TEAM1)]
+            spiel=spiel(team2={"team_id": ObjectId(), "name": "Dachs", "shorthand": "DAX", "tore": None}), vereine=[verein(TEAM1)]
         )
 
         assert clubs_without_a_season_row(spielbestaetigung_raw=zeile(), lage=replaced) == [TEAM2]
@@ -418,7 +420,7 @@ class TestTheProposalIsTheFixtureOnItsNewDate:
         """Every reference and the event kept, so the judges weigh the claims a moved date makes and nothing else."""
 
         stored = FLSpiel.model_validate(spiel())
-        proposed = proposal_payload(stored, FLSpielbestaetigungTermin(datum="2027-05-15", uhrzeit="17:00:00"))
+        proposed = proposal_payload(stored, FLSpielbestaetigungAppointment(datum="2027-05-15", uhrzeit="17:00:00"))
 
         assert (proposed.datum, proposed.uhrzeit) == ("2027-05-15", "17:00:00")
         assert proposed.ort is not None and stored.ort is not None and proposed.ort.spielort_id == stored.ort.spielort_id
@@ -432,4 +434,4 @@ class TestAProposalBeforeToday:
     def test_today_is_no_day_before_today(self):
         """A club proposing today is refused with a sentence saying its date has passed, which it has not."""
 
-        assert find_vorschlag_vergangen_refusal(vorschlag=FLSpielbestaetigungTermin(datum=TODAY, uhrzeit="18:00:00"), today=TODAY) is None
+        assert find_vorschlag_vergangen_refusal(vorschlag=FLSpielbestaetigungAppointment(datum=TODAY, uhrzeit="18:00:00"), today=TODAY) is None

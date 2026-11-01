@@ -16,7 +16,7 @@ const drawnBox = () => {
   return box;
 };
 
-function Pflicht({ checked = false }: { checked?: boolean }) {
+function Required({ checked = false }: { checked?: boolean }) {
   return (
     <Form onSubmit={(event) => event.preventDefault()}>
       <Checkbox
@@ -28,7 +28,7 @@ function Pflicht({ checked = false }: { checked?: boolean }) {
       <Button
         variant="primary"
         type="submit"
-        label={COPY.shared.verb.speichern}
+        label={COPY.shared.verb.save}
       />
     </Form>
   );
@@ -38,18 +38,18 @@ describe("a required checkbox", () => {
   // Read from the class, since jsdom draws nothing: the edge follows the field's invalid state, which only a
   // failed send reaches, so no look at the page shows it missing.
   it("draws its box with the red edge once a send finds it empty, as every other field shows its error", async () => {
-    render(<Pflicht />);
+    render(<Required />);
     expect(drawnBox().className).toContain("border-border-control");
 
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.speichern }));
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
 
-    expect(screen.getByText(COPY.shared.feld.pflichtfeld)).toBeTruthy();
+    expect(screen.getByText(COPY.shared.field.required)).toBeTruthy();
     expect(drawnBox().className).toContain("border-danger");
     expect(drawnBox().className).not.toContain("border-border-control");
   });
 
   it("carries the asterisk after its label, as every required field does, hidden from assistive technology", () => {
-    render(<Pflicht />);
+    render(<Required />);
     const mark = screen.getByText(COPY.shared.startelf).lastElementChild;
     expect(mark?.textContent).toBe(" *");
     expect(mark?.getAttribute("aria-hidden")).toBe("true");

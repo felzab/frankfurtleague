@@ -13,7 +13,7 @@ vi.doMock("@/shared/utils/adminRead.ts", async (importOriginal) => ({
 }));
 
 /** Every request the doubled client was asked for, cumulative across every pass in this file. */
-const reads = doubleApiClient(({ endpoint }) => ({ acknowledged: 1, saison_id: endpoint.split("/").at(-1), nachnominierung: false }));
+const reads = doubleApiClient(({ endpoint }) => ({ saison_id: endpoint.split("/").at(-1), nachnominierung: false }));
 
 serveServerReact();
 

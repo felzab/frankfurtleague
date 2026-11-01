@@ -1,4 +1,4 @@
-import type { FLSubjektSitz } from "@/core/schemas.ts";
+import type { FLSubjectSeat } from "@/core/generated/client/types.ts";
 import type { SubjectSession } from "@/core/subject.ts";
 
 /**
@@ -18,42 +18,46 @@ export function deepFrozen<T>(value: T): T {
  * The records a mailbox holding nothing answers. Spread under every subject a suite builds, so a field
  * the lookup gains reaches each of them here rather than by hand at every literal.
  */
-export const NO_RECORDS: SubjectSession["subjekt"] = deepFrozen({
-  sitze: [],
+export const NO_RECORDS: SubjectSession["subject"] = deepFrozen({
+  seats: [],
   spieler: [],
   schiedsrichter: [],
-  unbestaetigt: false,
-  gesperrt: false,
+  unconfirmed: false,
+  barred: false,
   verwaltung: null,
-  berechtigt_seit: null,
+  granted_since: null,
   inhaber_seit: null,
 });
 
 /**
- * What a suite's backend holds for one address. `konto` is stated, never worked out from the lists:
+ * What a suite's backend holds for one address. `account` is stated, never worked out from the lists:
  * which records count is the backend's rule, and a double deriving it hands each case its own copy's answer.
  */
-export type LookupFixture = Partial<SubjectSession["subjekt"]> & { readonly acknowledged?: 0 | 1; readonly konto: boolean };
+export type LookupFixture = Partial<SubjectSession["subject"]> & { readonly account: boolean };
 
-/** The path the sign-in gate reads, its own beside the subject read every guard takes. */
-const GATE_ENDPOINT = "/identitaet/anmeldung";
+/**
+ * The path the sign-in gate reads, its own beside the subject read every guard takes. Spelled rather than built by
+ * `getIdentityGetSignInUrl`: a suite imports this module ahead of its own doubles, and the generated client
+ * loaded here would bind the real transport and config before them. A renamed path answers the gate the subject's
+ * shape, which no sign-in case passes.
+ */
+const GATE_ENDPOINT = "/identity/sign_in";
 
 /** One table of fixtures answering the subject read and the gate alike, each in its read's shape. */
 export function answerAt(endpoint: string, held: LookupFixture): Record<string, unknown> {
-  const { konto, ...subjekt } = held;
-  if (!endpoint.endsWith(GATE_ENDPOINT)) return subjekt;
+  const { account, ...subject } = held;
+  if (!endpoint.endsWith(GATE_ENDPOINT)) return subject;
 
   return {
-    acknowledged: 1,
-    unbestaetigt: subjekt.unbestaetigt ?? false,
-    konto: konto,
-    gesperrt: subjekt.gesperrt ?? false,
-    verwaltung: subjekt.verwaltung ?? null,
+    unconfirmed: subject.unconfirmed ?? false,
+    account: account,
+    barred: subject.barred ?? false,
+    verwaltung: subject.verwaltung ?? null,
   };
 }
 
 /** One contact seat on a running season, which grants a panel. */
-export const SITZ: FLSubjektSitz = deepFrozen({
+export const SEAT: FLSubjectSeat = deepFrozen({
   saison_id: "2526",
   team_id: "6890a1b2c3d4e5f607250011",
   rolle: "ansprechperson",
@@ -61,11 +65,11 @@ export const SITZ: FLSubjektSitz = deepFrozen({
   saison_status: "active",
 });
 
-export const sitz = (fields: Partial<FLSubjektSitz> = {}): FLSubjektSitz => ({ ...SITZ, ...fields });
+export const seat = (fields: Partial<FLSubjectSeat> = {}): FLSubjectSeat => ({ ...SEAT, ...fields });
 
 /** A person holding what `records` names and nothing else, and the administrator's verdict where `admin` is set. */
-export const person = (records: Partial<SubjectSession["subjekt"]> = {}, admin = false): SubjectSession => ({
+export const person = (records: Partial<SubjectSession["subject"]> = {}, admin = false): SubjectSession => ({
   email: "pia@example.org",
   admin: admin,
-  subjekt: { ...NO_RECORDS, ...records },
+  subject: { ...NO_RECORDS, ...records },
 });

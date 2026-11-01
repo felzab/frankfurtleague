@@ -1,4 +1,6 @@
-import type { FLSonderereignis, FLSpielStatus } from "./schemas";
+import { FLSonderereignis } from "@/core/generated/client/types";
+
+import type { SpielStatus } from "./types";
 
 /**
  * The note's bound, mirroring the backend's `SPIEL_NOTIZ_MAX_LENGTH`
@@ -6,12 +8,6 @@ import type { FLSonderereignis, FLSpielStatus } from "./schemas";
  * here, so no two can disagree about the cap.
  */
 export const NOTIZ_MAX_LENGTH = 4096;
-
-/**
- * The most fixtures one undo replays, mirroring the backend's `LIST_LIMIT_DEFAULT`
- * (`fl_backend/app/shared/schemas/bounds.py`), the season read's ceiling.
- */
-export const PAARUNGEN_MAX = 1024;
 
 /**
  * The days before its fixture a team's answer is due, mirroring the backend's
@@ -54,7 +50,7 @@ export const SONDEREREIGNIS_LABELS: Record<FLSonderereignis, string> = {
  * two spellings of one state read as two. Not the schema value, which would couple the visible German
  * to the API contract.
  */
-export const SPIEL_STATUS_LABELS: Record<FLSpielStatus, string> = {
+export const SPIEL_STATUS_LABELS: Record<SpielStatus, string> = {
   ausstehend: "Ausstehend",
   heute: "Heute",
   vergangen: "Vergangen",
@@ -69,13 +65,7 @@ export const SPIEL_STATUS_LABELS: Record<FLSpielStatus, string> = {
 export const SONDEREREIGNIS_NONE_LABEL = "Regulär";
 
 /**
- * Declaration order is the order the editor's control and the filter offer them — how often an admin
- * reaches for one, ending with the member that strikes a fixture from the record altogether.
+ * In the order the backend declares `FLSonderereignis`, which the editor's control and the filter offer: how often
+ * an admin reaches for one, ending with the member that strikes a fixture from the record altogether.
  */
-export const SONDEREREIGNIS_OPTIONS: readonly FLSonderereignis[] = [
-  "ausgefallen",
-  "nichtantreten_team1",
-  "nichtantreten_team2",
-  "abgebrochen",
-  "annulliert",
-];
+export const SONDEREREIGNIS_OPTIONS: readonly FLSonderereignis[] = Object.values(FLSonderereignis);

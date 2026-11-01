@@ -13,19 +13,19 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.admin_router import get_sperrliste
 from app.api.sperrliste.crud import address_is_gesperrt
-from app.api.sperrliste.services import SPERRLISTE_KEINE_SAISON, adresse_hash
+from app.api.sperrliste.services import adresse_hash
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from tests import documents
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
-from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -50,24 +50,23 @@ LAST_COVERED = "2031"
 FIRST_CLEAR = "2032"
 
 TEAM_ID = ObjectId("6890a1b2c3d4e5f607250001")
-# `spiele.spieltag_id` is `objectId` and NOT nullable in the shipped validator, so a drawn fixture
-# names a matchday whether or not one is seeded; nothing checks that the row exists.
+# A drawn fixture names a matchday whether or not one is seeded; nothing checks that the row exists.
 SPIELTAG_ID = ObjectId("6890a1b2c3d4e5f6072500a1")
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def saison_document(saison_id: str, status: str) -> dict[str, Any]:
-    """The span and the rules are what the shipped validator requires of any season; `status` is what this suite varies."""
+    """The span and the rules are what the season's record model requires; `status` is what this suite varies."""
 
-    return documents.saison_document(saison_id, status, rules=documents.rules_document(number_of_groups=2, erlaubte_stufen=["E1"]))
+    return documents.saison_document(saison_id, status, rules=documents.rules_document(number_of_gruppen=2, allowed_stufen=["E1"]))
 
 
 async def a_drawn_target(database: AsyncDatabase, saison_id: str) -> None:
     """A `future` season and the one fixture that makes it activatable at all.
 
-    `REQ-ACTIVATE-003` refuses an undrawn target before the rollover writes anything, and no matchday
-    row is seeded, a season holding none owing no date (`REQ-ACTIVATE-004`).
+    `activate_target_undrawn` refuses an undrawn target before the rollover writes anything, and no matchday
+    row is seeded, a season holding none owing no date (`activate_spieltage_undated`).
     """
 
     await database[Collection.SAISONS].insert_one(saison_document(saison_id, "future"))
@@ -77,18 +76,18 @@ async def a_drawn_target(database: AsyncDatabase, saison_id: str) -> None:
             saison_id=saison_id,
             spiel_nr=1,
             spieltag_id=SPIELTAG_ID,
-            team1={"team_id": TEAM_ID, "name": "Alpha", "shorthand": "AL", "tore": None},
+            team1={"team_id": TEAM_ID, "name": "Alpha", "shorthand": "ALX", "tore": None},
         )
     )
 
 
 def on_a_league(url: str, seasons: list[dict[str, Any]], body: Body) -> Any:
-    """The SHIPPED validator and the unique index, so a document production would refuse fails here too."""
+    """The shipped unique index, so a duplicate production would refuse fails here too."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             # The ban re-judges its actor's grant inside its transaction.
-            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             if seasons:
                 await database[Collection.SAISONS].insert_many(seasons)
 
@@ -113,7 +112,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str =
 async def is_gesperrt(database: AsyncDatabase, *, against: str | None, email: str = BANNED) -> bool:
     return await address_is_gesperrt(
         sperrliste_collection=database[Collection.SPERRLISTE],
-        adresse_hash=adresse_hash(email, schluessel=CONFIG.sperrliste_schluessel),
+        adresse_hash=adresse_hash(email, key=CONFIG.sperrliste_key),
         massgebliche_saison_id=against,
     )
 
@@ -138,7 +137,7 @@ class TestWhatTheWriteRecords:
             stored = await database[Collection.SPERRLISTE].find_one({})
 
             assert stored is not None
-            return str(stored["gesperrt_bis_saison_id"]), created.gesperrt_bis_saison_id
+            return str(stored["barred_until_saison_id"]), created.barred_until_saison_id
 
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == (LAST_COVERED, LAST_COVERED)
 
@@ -152,7 +151,7 @@ class TestWhatTheWriteRecords:
 
         served = on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body)
 
-        assert served.sperrliste[0].gesperrt_bis_saison_id == LAST_COVERED
+        assert served.sperrliste[0].barred_until_saison_id == LAST_COVERED
         assert "adresse_hash" not in served.model_dump_json()
 
 
@@ -188,26 +187,6 @@ class TestTheSeasonTheBanIsCountedFrom:
 
         assert on_a_league(mongo_replica_set_url, [saison_document("2027", "future")], body) is None
 
-    def test_only_a_caller_without_a_session_is_answered_from_the_season_cache(self, mongo_replica_set_url: str):
-        """BOTH sides: a helper never consulting the cache fails the first answer, and one consulting it under a session fails the second."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str | None]:
-            saisons = database[Collection.SAISONS]
-            await pull_massgebliche_saison_id(saisons_collection=saisons)
-            # Moved by hand, so nothing drops the season the read above cached.
-            await saisons.update_one({"_id": ENTERED_UNDER}, {"$set": {"status": "past"}})
-            await saisons.update_one({"_id": "2027"}, {"$set": {"status": "active"}})
-
-            async with client.start_session() as session:
-                cached = await pull_massgebliche_saison_id(saisons_collection=saisons)
-                sessioned = await pull_massgebliche_saison_id(saisons_collection=saisons, session=session)
-
-            return cached, sessioned
-
-        seasons = [saison_document(ENTERED_UNDER, "active"), saison_document("2027", "future")]
-
-        assert on_a_league(mongo_replica_set_url, seasons, body) == (ENTERED_UNDER, "2027")
-
     def test_the_running_season_is_read_through_the_session(self, mongo_replica_set_url: str):
         """A season the transaction wrote is seen through its session alone, so the helper answers it only when handed that session."""
 
@@ -242,10 +221,10 @@ class TestALeagueWithNoSeasonRunning:
         """Driven through the endpoint, so the refusal is shown to stand before the insert rather than beside it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            with pytest.raises(WriteRefusalException) as raised:
+            with pytest.raises(APIError) as raised:
                 await ban(database, client)
 
-            assert raised.value.error_code == SPERRLISTE_KEINE_SAISON
+            assert raised.value.error_code == Code.SPERRLISTE_NO_SAISON
 
             return await database[Collection.SPERRLISTE].count_documents({})
 
@@ -281,29 +260,6 @@ class TestTheBoundaryTheCheckReads:
 
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == (False, 1)
 
-    def test_a_row_carrying_no_lapse_season_at_all_is_refused_before_the_check_reads_it(self, mongo_replica_set_url: str):
-        """The conforming twin below stores, so the refusal is the missing key's rather than anything else in the row.
-
-        Why the key is required at all stands at it in `fl_backend/app/core/constraints.py`.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, int]:
-            await ban(database, client)
-            keyless = documents.ban_document(OTHER, bis=LAST_COVERED)
-            del keyless["gesperrt_bis_saison_id"]
-
-            with pytest.raises(OperationFailure) as refused:
-                await database[Collection.SPERRLISTE].insert_one(keyless)
-
-            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(OTHER, bis=LAST_COVERED))
-
-            return refused.value.code, await database[Collection.SPERRLISTE].count_documents({})
-
-        code, stored = on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body)
-
-        assert code == DOCUMENT_VALIDATION_FAILED
-        assert stored == 2
-
 
 class TestTheSweepAtAnActivation:
     def test_a_lapsed_ban_goes_and_a_covered_one_stands(self, mongo_replica_set_url: str):
@@ -316,13 +272,13 @@ class TestTheSweepAtAnActivation:
             # activation reaches, which covers it.
             await ban(database, client, email=OTHER)
             await database[Collection.SPERRLISTE].update_one(
-                {"adresse_hash": adresse_hash(OTHER, schluessel=CONFIG.sperrliste_schluessel)},
-                {"$set": {"gesperrt_bis_saison_id": FIRST_CLEAR}},
+                {"adresse_hash": adresse_hash(OTHER, key=CONFIG.sperrliste_key)},
+                {"$set": {"barred_until_saison_id": FIRST_CLEAR}},
             )
 
             await activate(database, client, FIRST_CLEAR)
 
-            return [str(row["gesperrt_bis_saison_id"]) async for row in database[Collection.SPERRLISTE].find()]
+            return [str(row["barred_until_saison_id"]) async for row in database[Collection.SPERRLISTE].find()]
 
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == [FIRST_CLEAR]
 
@@ -360,7 +316,7 @@ class TestTheSweepAtAnActivation:
             await ban(database, client)
             await a_drawn_target(database, "2040")
             await activate(database, client, "2040")
-            recorded = await database[Collection.AKTIONEN].find_one({"collection": "sperrliste"})
+            recorded = await database[Collection.ACTION_LOG].find_one({"collection": "sperrliste"})
 
             assert recorded is not None
             return recorded

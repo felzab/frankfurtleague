@@ -1,3 +1,5 @@
+import { installGermanMap } from "./core/zodGerman";
+
 import type { onRequestError as logRequestErrorImpl } from "./core/instrumentation";
 
 /**
@@ -18,6 +20,9 @@ export async function onRequestError(...args: Parameters<typeof logRequestErrorI
  * silently stop running in the container.
  */
 export async function register() {
+  // Before the runtime split, so a parse on either runtime words its issues in German.
+  installGermanMap();
+
   // Excludes Edge rather than requiring Node, one of the two shapes Next's instrumentation reference
   // gives; the build writes each runtime's name over the variable, so both compile alike, and this one
   // also boots under the suite, where nothing writes it.

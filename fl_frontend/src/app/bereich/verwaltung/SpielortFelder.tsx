@@ -34,7 +34,7 @@ export function SpielortFelder({
         defaultValue={name}
         isRequired={pflicht.name}
       />
-      <FieldGroup name={WORTE.adresse}>
+      <FieldGroup name={WORTE.address}>
         <FieldPair
           short="second"
           phone="pair">
@@ -72,9 +72,7 @@ export function SpielortFelder({
             width="C5"
             kind="digits"
             isRequired={pflicht.plz}
-            // The write's postcode is five digits (`fl_frontend/src/shared/schemas.ts :: FLAddressSchema`), a rule
-            // the field holds itself: `spielortAnlegen` answers the write schema's refusals as the unexpected
-            // failure, their words being the old pages'.
+            // The write's postcode is five digits, a rule the field holds itself before the send as well.
             maxLength={5}
             minLength={5}
           />
@@ -83,19 +81,19 @@ export function SpielortFelder({
             name="stadt"
             width="W3"
             kind="text"
-            defaultValue={WORTE.stadtVorgabe}
+            defaultValue={WORTE.stadtDefault}
             isRequired={pflicht.stadt}
             maxLength={hoechstens.stadt}
           />
         </FieldPair>
       </FieldGroup>
-      <FieldGroup name={WORTE.konditionen}>
+      <FieldGroup name={WORTE.terms}>
         <TextField
           label={WORTE.mietpreis}
           name="mietpreis"
           width="C5"
           kind="digits"
-          unit={COPY.shared.einheit.euro}
+          unit={COPY.shared.unit.euro}
           isRequired={pflicht.mietpreis}
         />
       </FieldGroup>

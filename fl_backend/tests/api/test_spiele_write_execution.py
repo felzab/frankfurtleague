@@ -6,12 +6,12 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel_data
+from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel
 from app.api.spiele.crud import apply_release_to_spiel
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_NO_SHOW,
@@ -25,16 +25,11 @@ from app.api.spiele.schemas import (
     FLSpielListAdapter,
 )
 from app.api.spiele.services import (
-    BOOKING_UNCONFIRMED_REFEREE,
-    BOOKING_UNKNOWN_RESOURCE,
-    ELIGIBILITY_DISQUALIFIED,
-    FIXTURE_DOUBLE_BOOKED,
-    FIXTURE_OUTSIDE_SPIELTAG,
-    STATE_RESULT_ON_A_NON_EVENT,
     judge_spieltag_occupancy,
 )
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
@@ -59,7 +54,7 @@ BETA = ObjectId("6890a1b2c3d4e5f607220002")
 GAMMA = ObjectId("6890a1b2c3d4e5f607220003")
 DELTA = ObjectId("6890a1b2c3d4e5f607220004")
 
-NAMES = {ALPHA: ("Alpha", "AL"), BETA: ("Beta", "BE"), GAMMA: ("Gamma", "GA"), DELTA: ("Delta", "DE")}
+NAMES = {ALPHA: ("Alpha", "ALX"), BETA: ("Beta", "BEX"), GAMMA: ("Gamma", "GAX"), DELTA: ("Delta", "DEX")}
 
 SPIELTAG_GRUPPE = ObjectId("6890a1b2c3d4e5f6072200a1")
 SPIELTAG_VIERTELFINALE = ObjectId("6890a1b2c3d4e5f6072200a2")
@@ -116,7 +111,7 @@ def junction(team_id: ObjectId) -> dict[str, Any]:
 def saison_document() -> dict[str, Any]:
     """`rules` is all this path reads a season for: the points and the tiebreak decide the placings `bracket_season` resolves."""
 
-    rules = documents.rules_document(win_points=3, draw_points=1, qualifiers_per_group=2, tiebreak_order="tordifferenz")
+    rules = documents.rules_document(win_points=3, draw_points=1, qualifiers_per_gruppe=2, tiebreak_order="tordifferenz")
 
     return documents.saison_document(SAISON_ID, "active", rules=rules)
 
@@ -364,7 +359,7 @@ def referee_documents() -> list[dict[str, Any]]:
             "einwilligung": (
                 None
                 if schiedsrichter_id in (SCHIEDSRICHTER_UNBESTAETIGT, GHOST_SCHIEDSRICHTER_ID)
-                else documents.eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-01-20")
+                else documents.own_einwilligung_document(text_version="v1", confirmed_at="2026-01-20")
             ),
         }
         for schiedsrichter_id, (name, inactive_since) in REFEREES.items()
@@ -403,6 +398,19 @@ def one_venue_twice(*, sonderereignis: str | None) -> list[dict[str, Any]]:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
+# The save's own bookkeeping, which neither a pure model nor a preview carries: the count of writes it raises, and
+# whether it stamped an adoption.
+SAVE_ONLY = frozenset({"version", "bericht_adopted"})
+
+
+def but_its_bookkeeping(stored: Any) -> Any:
+    """A model or a raw document without `SAVE_ONLY`, so it compares with what the pure model or the preview predicts."""
+
+    raw = stored.model_dump() if isinstance(stored, BaseModel) else stored
+
+    return {key: value for key, value in raw.items() if key not in SAVE_ONLY}
+
+
 def on_a_seeded_season(url: str, body: Body, *, spiele: list[dict[str, Any]], mutates_schema: bool = False) -> Any:
     """`mutates_schema=True` where the body attaches a validator (`tests/database.py :: a_clean_database`)."""
 
@@ -432,7 +440,7 @@ async def call_patch(
     dry_run: bool = False,
     uebernimmt_bericht: int | None = None,
 ) -> FLPatchSpielDataResponse:
-    return await patch_spiel_data(
+    return await patch_spiel(
         spiel_id=spiel_id,
         spiel_data=spiel_data,
         db=client,
@@ -444,7 +452,7 @@ async def call_patch(
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
-        uebernimmt_bericht=uebernimmt_bericht,
+        adopts_bericht=uebernimmt_bericht,
         now=ADOPTED_AT,
         dry_run=dry_run,
     )
@@ -492,14 +500,14 @@ class TestTheBookingReadAsksWhoUsedTheGround:
 
             try:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
-            except WriteRefusalException as conflict:
+            except APIError as conflict:
                 return conflict.error_code
 
             return None
 
         answered = on_a_seeded_season(mongo_replica_set_url, body, spiele=one_venue_twice(sonderereignis=sonderereignis))
 
-        assert (answered == FIXTURE_DOUBLE_BOOKED) is refused
+        assert (answered == Code.SPIEL_DOUBLE_BOOKED) is refused
 
 
 def an_unbooked_spieltag() -> list[dict[str, Any]]:
@@ -519,14 +527,14 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, GRUPPE_FILLING, ort={"spielort_id": chosen, "mietpreis": 80})
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
             return refused.value.error_code, await spiele_now(database)
 
         code, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
 
-        assert code == BOOKING_UNKNOWN_RESOURCE
+        assert code == Code.BOOKING_UNKNOWN_RESOURCE
         # The whole save is taken back, so the booking does not land without the rule that judges it.
         assert spiele[GRUPPE_FILLING_NR]["ort"] is None
 
@@ -537,12 +545,12 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
             assigned = {"schiedsrichter_id": SCHIEDSRICHTER_RETIRED, "payment": 20}
             spiel_data = await payload_for(database, GRUPPE_FILLING, schiedsrichter=assigned)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
             return refused.value.error_code
 
-        assert on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag()) == BOOKING_UNKNOWN_RESOURCE
+        assert on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag()) == Code.BOOKING_UNKNOWN_RESOURCE
 
     def test_booking_a_referee_whose_person_has_not_confirmed_is_refused(self, mongo_replica_set_url: str):
         """The confirmation is read off the referee's own record in the save's transaction, never off the payload."""
@@ -551,12 +559,12 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
             assigned = {"schiedsrichter_id": SCHIEDSRICHTER_UNBESTAETIGT, "payment": 20}
             spiel_data = await payload_for(database, GRUPPE_FILLING, schiedsrichter=assigned)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
             return refused.value.error_code, (await spiele_now(database))[GRUPPE_FILLING_NR]["schiedsrichter"]
 
-        assert on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag()) == (BOOKING_UNCONFIRMED_REFEREE, None)
+        assert on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag()) == (Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER, None)
 
     @pytest.mark.parametrize("dry_run", [pytest.param(True, id="preview"), pytest.param(False, id="save")])
     @pytest.mark.parametrize(
@@ -572,7 +580,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, GRUPPE_FILLING, sonderereignis=None)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data, dry_run=dry_run)
 
             return refused.value.error_code, await spiele_now(database)
@@ -580,7 +588,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         held, filling = an_unbooked_spieltag()
         code, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=[held, {**filling, **kept, "sonderereignis": "ausgefallen"}])
 
-        assert (code, spiele[GRUPPE_FILLING_NR]["sonderereignis"]) == (BOOKING_UNKNOWN_RESOURCE, "ausgefallen")
+        assert (code, spiele[GRUPPE_FILLING_NR]["sonderereignis"]) == (Code.BOOKING_UNKNOWN_RESOURCE, "ausgefallen")
 
     def test_a_live_venue_is_stored_under_the_name_the_venue_carries(self, mongo_replica_set_url: str):
         """The composition end to end: the ground and the rent are the payload's, the name and the link the venue's."""
@@ -610,7 +618,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         assert spiele[GRUPPE_FILLING_NR]["schiedsrichter"] == assignment(SCHIEDSRICHTER, payment=35)
 
     def test_a_retired_venue_an_old_fixture_already_holds_blocks_no_edit(self, mongo_replica_set_url: str):
-        """`REQ-RETIRE-003` lets a venue retire while only played fixtures still name it; refusing their edits would be a false refusal."""
+        """`spielort_still_booked` lets a venue retire while only played fixtures name it; refusing their edits would be a false refusal."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, GRUPPE_FILLING, uhrzeit="19:00:00")
@@ -660,7 +668,7 @@ class TestAHandEditedFixtureOfAnotherSeasonAnswersTheRefusal:
 
             try:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
-            except WriteRefusalException as refused:
+            except APIError as refused:
                 return refused.error_code
             except ValidationError:
                 return ValidationError
@@ -669,7 +677,7 @@ class TestAHandEditedFixtureOfAnotherSeasonAnswersTheRefusal:
 
         answered = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
 
-        assert answered == (ValidationError if raises else BOOKING_UNKNOWN_RESOURCE)
+        assert answered == (ValidationError if raises else Code.BOOKING_UNKNOWN_RESOURCE)
 
 
 class TestASavedSideIsNamedByTheSeason:
@@ -677,7 +685,7 @@ class TestASavedSideIsNamedByTheSeason:
         """A club renamed while the season runs: the fixture's copy is rewritten from the junction on the next save of it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SAISON_TEAMS].update_one({"team_id": GAMMA}, {"$set": {"name": "Gamma-Schule", "shorthand": "GS"}})
+            await database[Collection.SAISON_TEAMS].update_one({"team_id": GAMMA}, {"$set": {"name": "Gamma-Schule", "shorthand": "GSX"}})
             spiel_data = await payload_for(database, GRUPPE_FILLING)
             await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
@@ -685,7 +693,7 @@ class TestASavedSideIsNamedByTheSeason:
 
         spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
 
-        assert spiele[GRUPPE_FILLING_NR]["team1"] == {"team_id": GAMMA, "name": "Gamma-Schule", "shorthand": "GS", "tore": None}
+        assert spiele[GRUPPE_FILLING_NR]["team1"] == {"team_id": GAMMA, "name": "Gamma-Schule", "shorthand": "GSX", "tore": None}
         # Composed from its OWN row, which the rename above did not touch: the change followed the
         # junction rather than one name reaching every side.
         assert spiele[GRUPPE_FILLING_NR]["team2"] == side(DELTA)
@@ -698,14 +706,14 @@ class TestTheStateRefusalIsReachedThroughTheRoute:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, VIERTELFINALE, sonderereignis="ausgefallen", team1=side(ALPHA, 3), team2=side(BETA, 1))
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await call_patch(database, client, VIERTELFINALE, spiel_data)
 
             return refused.value, await spiele_now(database)
 
         refused, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=bracket_season())
 
-        assert refused.error_code == STATE_RESULT_ON_A_NON_EVENT
+        assert refused.error_code == Code.STATE_ERGEBNIS_ON_A_NON_EVENT
         # The whole save is taken back, so the event does not land without the refusal that judges it.
         assert spiele[VIERTELFINALE_NR]["sonderereignis"] is None
 
@@ -728,10 +736,10 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
     @pytest.mark.parametrize(
         ("datum", "error_code"),
         [
-            pytest.param(GAMMA_DEPARTED_FROM, ELIGIBILITY_DISQUALIFIED, id="moved onto the exit"),
+            pytest.param(GAMMA_DEPARTED_FROM, Code.ELIGIBILITY_DISQUALIFIED, id="moved onto the exit"),
             # The control: one day earlier the same save clears this rule and is refused by the NEXT
             # one, so the refusal above is about the exit rather than about any date at all.
-            pytest.param(A_DAY_SHORT_OF_THE_EXIT, FIXTURE_OUTSIDE_SPIELTAG, id="moved a day short of it"),
+            pytest.param(A_DAY_SHORT_OF_THE_EXIT, Code.SPIEL_OUTSIDE_SPIELTAG, id="moved a day short of it"),
         ],
     )
     def test_a_fixture_re_dated_past_its_own_occupants_exit_is_judged_as_a_newly_fielded_club_is(
@@ -743,7 +751,7 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
             await database[Collection.SAISON_TEAMS].update_one({"team_id": GAMMA}, {"$set": {"austritt": GAMMA_AUSTRITT}})
             spiel_data = await payload_for(database, GRUPPE_FILLING, datum=datum)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
             return refused.value, await spiele_now(database)
@@ -763,15 +771,14 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
             )
             spiel_data = await payload_for(database, GRUPPE_FILLING, datum=GAMMA_DEPARTED_FROM)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
             return refused.value
 
         refused = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
 
-        assert refused.error_code == ELIGIBILITY_DISQUALIFIED
-        assert "Gamma-Schule" in refused.error_detail["message"]
+        assert refused.error_code == Code.ELIGIBILITY_DISQUALIFIED
 
 
 class TestASavedResultCarriesThroughTheBracket:
@@ -788,7 +795,7 @@ class TestASavedResultCarriesThroughTheBracket:
 
         assert spiele[VIERTELFINALE_NR]["ergebnis"] == "3:1"
 
-        assert spiele[HALBFINALE_NR]["team1"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "AL", "tore": None}
+        assert spiele[HALBFINALE_NR]["team1"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "ALX", "tore": None}
         assert spiele[HALBFINALE_NR]["ergebnis"] is None
         # The stale shoot-out is the damage: the bracket would name a winner the goals no longer support.
         assert spiele[HALBFINALE_NR]["elfmeterschiessen"] is None, "the shoot-out outlived the side that won it"
@@ -809,7 +816,7 @@ class TestASavedResultCarriesThroughTheBracket:
     def test_a_refilled_slot_takes_the_no_show_it_was_holding_with_it(
         self, mongo_replica_set_url: str, stored_event: str, after_the_advancement: str | None
     ):
-        """A no-show naming a club the bracket replaced describes nobody, and `REQ-STATE-003` then refuses every later save of it."""
+        """A no-show naming a club the bracket replaced names nobody, and `state_nichtantreten_without_two_sides` refuses every later save."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1))
@@ -843,6 +850,25 @@ class TestASavedResultCarriesThroughTheBracket:
         assert response.advanced_to == []
         assert spiele[HALBFINALE_NR]["team1"]["team_id"] == BETA
         assert spiele[HALBFINALE_NR]["elfmeterschiessen"] == {"team1": 4, "team2": 3}
+
+
+class TestASaveOpenedOnAnOlderVersionIsRefused:
+    """The editor's save carries the `version` it was served, and the save answers the one its next save sends."""
+
+    def test_a_save_on_the_version_the_first_save_raised_is_refused(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            opened = await payload_for(database, VIERTELFINALE, version=0)
+            first = await call_patch(database, client, VIERTELFINALE, opened)
+            with pytest.raises(APIError) as refused:
+                await call_patch(database, client, VIERTELFINALE, opened.model_copy(update={"notiz": "veraltet"}))
+
+            return first, refused.value, await spiele_now(database)
+
+        first, refusal, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=bracket_season())
+
+        assert first.version == 1
+        assert (refusal.status_code, refusal.error_code) == (409, Code.VERSION_STALE)
+        assert (spiele[VIERTELFINALE_NR]["notiz"], spiele[VIERTELFINALE_NR]["version"]) == (None, 1)
 
 
 class TestAMidFlightFailureTakesTheWholeSaveBack:
@@ -958,9 +984,9 @@ class TestAReleaseWritesWhatThePureModelPredicts:
             spiele=one_spieltag(opponent=opponent, ergebnis=ergebnis, tore=tore, sonderereignis=sonderereignis),
         )
 
-        assert run.after_save == run.predicted
+        assert but_its_bookkeeping(run.after_save) == but_its_bookkeeping(run.predicted)
         assert run.after_preview == run.before, "the dry run wrote something"
-        assert run.saved == run.preview, "the preview answered differently from the save it previews"
+        assert but_its_bookkeeping(run.saved) == but_its_bookkeeping(run.preview), "the preview answered differently from the save it previews"
 
         (released,) = run.saved.released_sides
         assert (released.spiel_nr, released.side, released.team_name) == (GRUPPE_HELD_NR, "team1", "Alpha")
@@ -971,7 +997,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
 
         # Asserted on both, so a seed that never landed cannot pass as an event correctly cleared.
         assert run.before.sonderereignis == sonderereignis
-        # `REQ-STATE-003` refuses a no-show beside an unresolved slot, so one outliving this release
+        # `state_nichtantreten_without_two_sides` refuses a no-show beside an unresolved slot, so one outliving this release
         # would leave a fixture the admin's next save is refused over.
         assert run.after_save.sonderereignis == (None if sonderereignis in ("nichtantreten_team1", "nichtantreten_team2") else sonderereignis)
 
@@ -1010,7 +1036,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
                 saved=saved,
                 # The action log is where a second `$set` would still show, once merging stopped it
                 # from failing: one released fixture is one row.
-                writes_against_the_held_fixture=await database[Collection.AKTIONEN].count_documents({"document_id": GRUPPE_HELD}),
+                writes_against_the_held_fixture=await database[Collection.ACTION_LOG].count_documents({"document_id": GRUPPE_HELD}),
             )
 
         run = on_a_seeded_season(
@@ -1019,10 +1045,10 @@ class TestAReleaseWritesWhatThePureModelPredicts:
             spiele=one_spieltag(opponent=BETA, ergebnis="2:1", tore=(2, 1)),
         )
 
-        assert run.after_save == run.predicted
+        assert but_its_bookkeeping(run.after_save) == but_its_bookkeeping(run.predicted)
         assert (run.after_save.team1, run.after_save.team2, run.after_save.ergebnis) == (None, None, None)
         assert run.after_preview == run.before, "the dry run wrote something"
-        assert run.saved == run.preview, "the preview answered differently from the save it previews"
+        assert but_its_bookkeeping(run.saved) == but_its_bookkeeping(run.preview), "the preview answered differently from the save it previews"
 
         # Two rows, because both clubs left this fixture and the admin is told about each.
         assert [(entry.spiel_nr, entry.side, entry.team_name) for entry in run.saved.released_sides] == [
@@ -1060,7 +1086,9 @@ class TestAReleaseWritesWhatThePureModelPredicts:
 
         run = on_a_seeded_season(mongo_replica_set_url, body, spiele=two_held_fixtures())
 
-        assert run.after_save == run.predicted
+        assert {nr: but_its_bookkeeping(spiel) for nr, spiel in run.after_save.items()} == {
+            nr: but_its_bookkeeping(spiel) for nr, spiel in run.predicted.items()
+        }
 
         for spiel_nr in (GRUPPE_HELD_NR, GRUPPE_HELD_OTHER_NR):
             after = run.after_save[spiel_nr]
@@ -1111,7 +1139,7 @@ class TestAResultThatReordersItsGroupIsPreviewedAsItIsSaved:
 
         advanced = [(entry.spiel_nr, entry.voided_ergebnis) for entry in run.saved.advanced_to]
         assert advanced == [(HALBFINALE_FROM_GRUPPE_NR, "2:1")]
-        assert run.preview == run.saved, "the preview answered differently from the save it previews"
+        assert but_its_bookkeeping(run.preview) == but_its_bookkeeping(run.saved), "the preview answered differently from the save it previews"
 
 
 # The quarter-final corrected so Alpha won it, which hands Alpha the semi-final's first slot and voids
@@ -1199,14 +1227,14 @@ class TestAFixtureTheResolutionReopensKeepsARetiredBooking:
         )
 
         assert len(run.saved.advanced_to) == 1
-        assert run.preview == run.saved, "the preview answered differently from the save it previews"
+        assert but_its_bookkeeping(run.preview) == but_its_bookkeeping(run.saved), "the preview answered differently from the save it previews"
 
         assert (booking_faults(run.faults), booking_faults(run.saved.bracket_faults)) == (reported, [])
 
     def test_the_replays_result_is_entered_at_the_retired_ground(self, mongo_replica_set_url: str):
         """The way out needing no reactivation: keeping the booking on a fixture already unplayed books nothing new.
 
-        `REQ-BOOKING-001` judges what a save books, and this one books nothing.
+        `booking_unknown_resource` judges what a save books, and this one books nothing.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1307,7 +1335,7 @@ def holders_at_every_arm() -> list[dict[str, Any]]:
 
 
 class TestTheQueueReadsTheHoldersTheRefusalReads:
-    """`GET /spiele/action_required` reads the other fixtures through `REQ-CLASH-001`'s own filter, so each arm of it is driven here."""
+    """`GET /spiele/action_required` reads the other fixtures through `spiel_double_booked`'s own filter, so each arm of it is driven here."""
 
     def test_every_season_and_the_neighbouring_day_are_read_and_a_freed_slot_is_not(self, mongo_replica_set_url: str):
         faults = on_a_seeded_season(mongo_replica_set_url, lambda database, _: faults_now(database), spiele=holders_at_every_arm())
@@ -1376,12 +1404,12 @@ class TestOnlyALandedSaveStamps:
 
         assert spiele_after[VIERTELFINALE_NR]["ergebnis"] == "3:1"
         stamped = after[VIERTELFINALE]
-        assert (stamped["uebernommene_version"], stamped["version"], stamped["uebernommen_von"]) == (
+        assert (stamped["adopted_version"], stamped["version"], stamped["adopted_by"]) == (
             SEEDED_VERSION,
             SEEDED_VERSION,
             {"art": "admin"},
         )
-        assert stamped["uebernommen_am"].replace(tzinfo=UTC) == ADOPTED_AT
+        assert stamped["adopted_at"].replace(tzinfo=UTC) == ADOPTED_AT
         assert after[HALBFINALE] == before[HALBFINALE], "a save stamped a report of a fixture it did not write"
 
     def test_a_save_leaving_the_fixture_as_stored_still_stamps(self, mongo_replica_set_url: str):
@@ -1398,18 +1426,20 @@ class TestOnlyALandedSaveStamps:
 
         before, spiele_after, after = on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
 
-        assert spiele_after[VIERTELFINALE_NR] == before[VIERTELFINALE_NR], "the premise: this save changes nothing on the fixture"
-        assert after[VIERTELFINALE]["uebernommene_version"] == SEEDED_VERSION, "a save changing nothing on the fixture adopted nothing"
+        assert but_its_bookkeeping(spiele_after[VIERTELFINALE_NR]) == but_its_bookkeeping(before[VIERTELFINALE_NR]), (
+            "the premise: this save changes nothing on the fixture"
+        )
+        assert after[VIERTELFINALE]["adopted_version"] == SEEDED_VERSION, "a save changing nothing on the fixture adopted nothing"
 
-    @pytest.mark.parametrize("dry_run", [pytest.param(False, id="refused-REQ-DATE-001"), pytest.param(True, id="dry-run")])
+    @pytest.mark.parametrize("dry_run", [pytest.param(False, id="refused-spiel_outside_spieltag"), pytest.param(True, id="dry-run")])
     def test_a_refused_save_and_a_preview_stamp_nothing(self, mongo_replica_set_url: str, dry_run: bool):
-        """The same seed and version as the accepted save; a refused commit is `fl_backend/tests/api/test_erasure_commit_fail_points.py`'s."""
+        """The same seed and version as the accepted save; a refused commit is `fl_backend/tests/api/test_loeschung_commit_fail_points.py`'s."""
 
         spiele, reports = a_bracket_with_reports(quarter_final_at=SEEDED_VERSION)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await with_reports(database, reports)
-            # A day off its matchday's span on the save, so the refusal is `REQ-DATE-001`; the preview carries the result alone.
+            # A day off its matchday's span on the save, so the refusal is `spiel_outside_spieltag`; the preview carries the result alone.
             datum = None if dry_run else "2026-05-02"
             spiel_data = await payload_for(
                 database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1), **({} if datum is None else {"datum": datum})
@@ -1417,7 +1447,7 @@ class TestOnlyALandedSaveStamps:
             refusal = None
             try:
                 await call_patch(database, client, VIERTELFINALE, spiel_data, dry_run=dry_run, uebernimmt_bericht=SEEDED_VERSION)
-            except WriteRefusalException as refused:
+            except APIError as refused:
                 refusal = refused.error_code
 
             return refusal, await spiele_now(database), before, await reports_now(database)
@@ -1425,7 +1455,7 @@ class TestOnlyALandedSaveStamps:
         refusal, spiele_after, before, after = on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
 
         # The premise first: the save was refused, or the preview ran, and neither wrote the fixture.
-        assert (refusal, spiele_after[VIERTELFINALE_NR]["ergebnis"]) == (None if dry_run else FIXTURE_OUTSIDE_SPIELTAG, "1:3")
+        assert (refusal, spiele_after[VIERTELFINALE_NR]["ergebnis"]) == (None if dry_run else Code.SPIEL_OUTSIDE_SPIELTAG, "1:3")
         assert after[VIERTELFINALE] == before[VIERTELFINALE]
 
 

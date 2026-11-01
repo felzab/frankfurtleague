@@ -1,85 +1,45 @@
-import { apiClient } from "@/core/api";
-
 import {
-  FLBerechtigungAbgleichResponseSchema,
-  FLBerechtigungAngekuendigtResponseSchema,
-  FLBerechtigungAntragAbgelehntResponseSchema,
-  FLBerechtigungAntragGenehmigtResponseSchema,
-  FLBerechtigungStufeResponseSchema,
-  FLBerechtigungWriteResponseSchema,
-  FLPostBerechtigungResponseSchema,
-} from "./schemas";
+  grantsDeleteApprovalRequest,
+  grantsDeleteGrant,
+  grantsPatchGrant,
+  grantsPostApprovalRequestApproval,
+  grantsPostGrant,
+  grantsPostGrantsReconciliation,
+} from "@/core/generated/client/sdk";
 
 import type {
-  FLBerechtigungAbgleichResponse,
-  FLBerechtigungAngekuendigtPayload,
-  FLBerechtigungAngekuendigtResponse,
-  FLBerechtigungAntragAbgelehntResponse,
-  FLBerechtigungAntragGenehmigtResponse,
-  FLBerechtigungAntragKeyPayload,
-  FLBerechtigungKeyPayload,
-  FLBerechtigungStufeResponse,
-  FLBerechtigungWriteResponse,
-  FLPatchBerechtigungPayload,
-  FLPostBerechtigungPayload,
-  FLPostBerechtigungResponse,
-} from "./schemas";
+  FLGrantApprovalRequestDeclinedResponse,
+  FLGrantReconciliationResponse,
+  FLGrantStufeResponse,
+  FLGrantWriteResponse,
+  FLPostGrantPayload,
+  FLPostGrantResponse,
+} from "@/core/generated/client/types";
+import type { FLBerechtigungAntragKeyPayload, FLBerechtigungKeyPayload, FLPatchGrantPayload } from "./schemas";
 
-export async function postBerechtigung(payload: FLPostBerechtigungPayload): Promise<FLPostBerechtigungResponse> {
-  return apiClient<FLPostBerechtigungResponse>("/berechtigungen", FLPostBerechtigungResponseSchema, {
-    method: "POST",
-    authType: "admin",
-    body: JSON.stringify(payload),
-  });
+export async function postBerechtigung(payload: FLPostGrantPayload): Promise<FLPostGrantResponse> {
+  return grantsPostGrant(payload);
 }
 
 // Hard, as the ban's removal is: a revoked grant keeps nothing to restore.
-export async function deleteBerechtigung({ id }: FLBerechtigungKeyPayload): Promise<FLBerechtigungWriteResponse> {
-  return apiClient<FLBerechtigungWriteResponse>(`/berechtigungen/${id}`, FLBerechtigungWriteResponseSchema, {
-    method: "DELETE",
-    authType: "admin",
-  });
+export async function deleteBerechtigung({ id }: FLBerechtigungKeyPayload): Promise<FLGrantWriteResponse> {
+  return grantsDeleteGrant(id);
 }
 
-export async function patchBerechtigung({ id, ...fields }: FLPatchBerechtigungPayload): Promise<FLBerechtigungStufeResponse> {
-  return apiClient<FLBerechtigungStufeResponse>(`/berechtigungen/${id}`, FLBerechtigungStufeResponseSchema, {
-    method: "PATCH",
-    authType: "admin",
-    body: JSON.stringify(fields),
-  });
+export async function patchBerechtigung({ id, verwaltung }: FLPatchGrantPayload): Promise<FLGrantStufeResponse> {
+  return grantsPatchGrant(id, { verwaltung: verwaltung });
 }
 
-export async function postAntragGenehmigung({ id }: FLBerechtigungAntragKeyPayload): Promise<FLBerechtigungAntragGenehmigtResponse> {
-  return apiClient<FLBerechtigungAntragGenehmigtResponse>(
-    `/berechtigungen/antraege/${id}/genehmigung`,
-    FLBerechtigungAntragGenehmigtResponseSchema,
-    { method: "POST", authType: "admin" },
-  );
+export async function postAntragGenehmigung({ id }: FLBerechtigungAntragKeyPayload): Promise<FLGrantWriteResponse> {
+  return grantsPostApprovalRequestApproval(id);
 }
 
 // Hard, as the revoke is: a refused or withdrawn request keeps nothing to restore.
-export async function deleteAntrag({ id }: FLBerechtigungAntragKeyPayload): Promise<FLBerechtigungAntragAbgelehntResponse> {
-  return apiClient<FLBerechtigungAntragAbgelehntResponse>(`/berechtigungen/antraege/${id}`, FLBerechtigungAntragAbgelehntResponseSchema, {
-    method: "DELETE",
-    authType: "admin",
-  });
+export async function deleteAntrag({ id }: FLBerechtigungAntragKeyPayload): Promise<FLGrantApprovalRequestDeclinedResponse> {
+  return grantsDeleteApprovalRequest(id);
 }
 
-/**
- * The pass's claim, system tier: it writes, turning a change made in the database directly into an
- * outbox row and claiming the rows no live claim holds, so it is never marked `readOnly`.
- */
-export async function postBerechtigungenAbgleich(): Promise<FLBerechtigungAbgleichResponse> {
-  return apiClient<FLBerechtigungAbgleichResponse>("/berechtigungen/abgleich", FLBerechtigungAbgleichResponseSchema, {
-    method: "POST",
-    authType: "system",
-  });
-}
-
-export async function postBerechtigungenAngekuendigt(payload: FLBerechtigungAngekuendigtPayload): Promise<FLBerechtigungAngekuendigtResponse> {
-  return apiClient<FLBerechtigungAngekuendigtResponse>("/berechtigungen/abgleich/angekuendigt", FLBerechtigungAngekuendigtResponseSchema, {
-    method: "POST",
-    authType: "system",
-    body: JSON.stringify(payload),
-  });
+/** The comparison, system tier: it writes, owing a notice of every change made in the database directly. */
+export async function postBerechtigungenAbgleich(): Promise<FLGrantReconciliationResponse> {
+  return grantsPostGrantsReconciliation();
 }

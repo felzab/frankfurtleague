@@ -5,7 +5,6 @@ import { toast } from "@heroui/react/toast";
 import { failureToastTitle } from "./failureToastTitle";
 
 import type { ActionFailure } from "@/shared/types/types";
-import type { ButtonProps } from "@heroui/react/button";
 import type { ReactNode } from "react";
 
 /**
@@ -23,33 +22,19 @@ function readingDuration(title: string, description?: string): number {
   return Math.min(MAX_MS, Math.max(MIN_MS, NOTICE_MS + characters * MS_PER_CHARACTER));
 }
 
-/**
- * A decision window, not a reading time — stated rather than derived by `readingDuration`. Long enough to weigh the sentence naming what
- * went, short enough that the page's data cannot go stale enough for the replay to be refused.
- */
-export const UNDO_TIMEOUT_MS = 15000;
-
 interface AppToastOptions {
   /** The detail — what the reader needs in order to act. Omit it when the title is the whole message. */
   description?: string;
-  /** Adds a button to the toast. Give it `children` and an `onPress`; `variant` picks its treatment. */
-  actionProps?: ButtonProps;
-  /** Only for a timing the text length cannot imply — an offer standing until it expires. `0` never auto-closes. */
-  timeout?: number;
   /** Replaces the severity glyph. The default is right for almost everything. */
   indicator?: ReactNode;
   onClose?: () => void;
 }
 
-function raise(
-  variant: "success" | "warning" | "danger" | "info",
-  title: string,
-  { description, timeout, ...rest }: AppToastOptions = {},
-): string {
+function raise(variant: "success" | "warning" | "danger" | "info", title: string, { description, ...rest }: AppToastOptions = {}): string {
   return toast[variant](title, {
     ...rest,
     description,
-    timeout: timeout ?? readingDuration(title, description),
+    timeout: readingDuration(title, description),
   });
 }
 
@@ -64,26 +49,11 @@ export const appToast = {
    * An action answered a failure: `title` says what did not happen, and the failure's own sentence is the
    * description. A marked outcome's own title stands in for it.
    */
-  failure: (
-    title: string,
-    failure: Pick<ActionFailure, "error" | "unplacedError" | "outcome">,
-    unklarTitle?: string,
-    teilweiseTitle?: string,
-  ) =>
+  failure: (title: string, failure: Pick<ActionFailure, "error" | "unplacedError" | "outcome">, unklarTitle?: string) =>
     // A toast marks nothing, so a refused payload speaks its sentence for a map no control shows.
-    raise("danger", failureToastTitle(title, failure.outcome, unklarTitle, teilweiseTitle), {
+    raise("danger", failureToastTitle(title, failure.outcome, unklarTitle), {
       description: failure.unplacedError ?? failure.error,
     }),
   /** Neither an outcome nor a failure — a standing fact worth one line. */
   info: (title: string, options?: AppToastOptions) => raise("info", title, options),
-
-  /**
-   * A request in flight, closed by its own key when the answer arrives. `timeout: 0` is explicit because HeroUI applies
-   * its own default to any `timeout` it is not given — omitting one hides the spinner while the request still runs.
-   */
-  pending: (title: string) => toast(title, { isLoading: true, timeout: 0 }),
-
-  close: (key: string) => toast.close(key),
-  /** Closes every toast, including ones this page did not raise. Prefer `close` where a key exists. */
-  clear: () => toast.clear(),
 };

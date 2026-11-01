@@ -48,22 +48,22 @@ const FIELD_DESCRIPTORS = [
     errorPaths: ["rules.forfeit_ergebnis", "rules.forfeit_ergebnis.sieger_tore", "rules.forfeit_ergebnis.verlierer_tore"],
   },
   {
-    path: "rules.number_of_groups",
+    path: "rules.number_of_gruppen",
     label: "Gruppen",
     group: REGELN_ABSCHNITT,
-    read: (source) => numberAsNull(source.rules.number_of_groups),
+    read: (source) => numberAsNull(source.rules.number_of_gruppen),
   },
   {
-    path: "rules.teams_per_group",
+    path: "rules.teams_per_gruppe",
     label: "Teams pro Gruppe",
     group: REGELN_ABSCHNITT,
-    read: (source) => numberAsNull(source.rules.teams_per_group),
+    read: (source) => numberAsNull(source.rules.teams_per_gruppe),
   },
   {
-    path: "rules.qualifiers_per_group",
+    path: "rules.qualifiers_per_gruppe",
     label: "Qualifikanten pro Gruppe",
     group: REGELN_ABSCHNITT,
-    read: (source) => numberAsNull(source.rules.qualifiers_per_group),
+    read: (source) => numberAsNull(source.rules.qualifiers_per_gruppe),
   },
   {
     path: "rules.max_kadergroesse",
@@ -72,13 +72,13 @@ const FIELD_DESCRIPTORS = [
     read: (source) => numberAsNull(source.rules.max_kadergroesse),
   },
   {
-    path: "rules.erlaubte_stufen",
+    path: "rules.allowed_stufen",
     label: "Erlaubte Stufen",
     group: REGELN_ABSCHNITT,
     // Read in the LEAGUE's order, so pressing a level off and back on is not a change. Empty renders
     // as null, so clearing the last level reads as a removal — which it is, and the schema refuses it.
     read: (source) => {
-      const ordered = STUFE_OPTIONS.filter((stufe) => source.rules.erlaubte_stufen.includes(stufe));
+      const ordered = STUFE_OPTIONS.filter((stufe) => source.rules.allowed_stufen.includes(stufe));
       return ordered.length === 0 ? null : ordered.join(", ");
     },
   },

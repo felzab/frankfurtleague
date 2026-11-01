@@ -26,38 +26,30 @@ export const verwaltungAmFeld = (): { fieldErrors: FieldErrors } => ({
  */
 export const schonGesperrtAmFeld = (): { fieldErrors: FieldErrors } => ({ fieldErrors: { email: "Diese Adresse ist schon gesperrt." } });
 
-/**
- * One sentence about the value, in the erasure's words: the box is the way out, its hint asking for no name.
- * The refusal names no word and takes a common word equal to a name.
- */
-const NAME_IM_GRUND = "Der Grund enthält ein Wort, das einem Namen der Person gleicht.";
-
-/** `null` where the refusal is something else. Each lands on the box holding the value it refuses, the address or the reason. */
+/** `null` where the refusal is something else. A refusal of the address lands on its box. */
 export function mapSperreRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  // Both codes: the rule refuses a second ban and `uniq_sperrliste_adresse_hash` refuses it again
-  // where two administrators press together, so which of them answers is a race.
-  if (error.serverErrorCode === "REQ-SPERRLISTE-001" || error.serverErrorCode === "DB-COMMON-002") return schonGesperrtAmFeld();
+  // The rule refuses a second ban, and `uniq_sperrliste_adresse_hash` refuses it again where two
+  // administrators press together: one code for both.
+  if (error.serverErrorCode === "duplicate_key") return schonGesperrtAmFeld();
 
-  if (error.serverErrorCode === "REQ-SPERRLISTE-002") {
+  if (error.serverErrorCode === "sperrliste_no_saison") {
     return { error: KEINE_SAISON };
   }
 
-  if (error.serverErrorCode === "REQ-SPERRLISTE-003") return verwaltungAmFeld();
-
-  if (error.serverErrorCode === "REQ-SPERRLISTE-004") return { fieldErrors: { grund: NAME_IM_GRUND } };
+  if (error.serverErrorCode === "sperrliste_verwaltung") return verwaltungAmFeld();
 
   return null;
 }
 
 /**
  * The list read's two refusals, `null` for the rest. Each refuses a grant holder's address, the administrator's own
- * (`REQ-PURGE-003`) or, to one holding no owner's power, any other (`REQ-PURGE-005`), which the ban would refuse too:
+ * (`own_adresse`) or, to one holding no owner's power, any other (`verwaltung_adresse`), which the ban would refuse too:
  * answered in the ban's words.
  */
 export function mapAnsichtRefusal(error: unknown): { fieldErrors: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "REQ-PURGE-003" || error.serverErrorCode === "REQ-PURGE-005" ? verwaltungAmFeld() : null;
+  return error.serverErrorCode === "own_adresse" || error.serverErrorCode === "verwaltung_adresse" ? verwaltungAmFeld() : null;
 }

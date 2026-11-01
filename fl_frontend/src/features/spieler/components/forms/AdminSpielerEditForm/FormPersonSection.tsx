@@ -81,7 +81,7 @@ export function FormPersonSection({
         <div className={FIELD_PAIR_CLASSES}>
           {/* Its own row: a third column in the name pair above would read the birthdate as part of a name. */}
           {/* No span: the calendar greys out what is offered, and this editor judges no age
-              (`fl_backend/app/core/domain.py :: UNENFORCED`). A cleared picker is refused at the save. */}
+              (`docs/domain.md`, „What the model permits on purpose“). A cleared picker is refused at the save. */}
           <AppDatePicker
             name="geburtsdatum"
             label={<FieldLabel<SpielerFieldPath> path="geburtsdatum">Geburtsdatum</FieldLabel>}

@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { connection } from "next/server";
 
 import { getSignInDestination } from "@/core/auth";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
@@ -9,8 +8,8 @@ import { openGraphFor } from "@/shared/utils/metadata";
 import type { Metadata } from "next";
 
 /**
- * `noindex` as `/signin` spells it. It
- * carries no parameter, so `.claude/rules/frontend.md` **auth** has nothing to allowlist.
+ * `noindex` as `/signin` spells it. It carries no parameter, so no return destination rides it, and the allowlist one
+ * would need first (`docs/decisions.md`, **auth**) has nothing to judge.
  */
 export const metadata: Metadata = {
   title: "Anmeldung",
@@ -33,8 +32,6 @@ export default function AnmeldungWeiterPage() {
 }
 
 async function AnmeldungWeiterInhalt() {
-  await connection();
-
   // The one decision this page renders, and it decides none of it: the passkey requirement and the
   // session lifetimes are judged per request in the guard `getSignInDestination` asks.
   return redirect(await getSignInDestination());

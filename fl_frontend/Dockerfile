@@ -58,10 +58,6 @@ ENV SKIP_ENV_VALIDATION=true
 # manifest or lockfile written after it.
 COPY --exclude=package.json --exclude=pnpm-lock.yaml --exclude=pnpm-workspace.yaml* . .
 
-# Emitted rather than kept by hand: a tracked copy of the schema's names would be a second artefact
-# to keep current, and this one cannot disagree with the schema the same image was built from.
-RUN pnpm run environment-names environment-names.json
-
 RUN --mount=type=cache,id=next-cache,target=/app/.next/cache \
     pnpm run build
 
@@ -86,14 +82,14 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Root-owned, as public/ is: only the deploy's preflight reads these
-# (`scripts/ops/deploy.sh :: check_frontend_env_names`), and the running app has no business rewriting them.
-
-# The mode is spelled rather than left to the builder's umask: the reader runs as the host's user, not
-# root, so a 0600 pair would answer the advisory on every deploy, never the refusal.
-COPY --from=builder --chmod=644 /app/environment-names.json /app/scripts/check-environment-names.mjs ./
-
 USER nextjs
 EXPOSE 3000
+
+# The version the deploy stamps on the image (`.github/workflows/verify.yml`'s build argument, the tag its
+# `org.opencontainers.image.version` label carries), which the start-up line logs. Last, so a new value per commit
+# rebuilds no layer above it. A build handed none sets the variable to the empty string, since an `ENV` cannot
+# leave it unset, and the settings read an empty variable as unset, so that build logs it as null.
+ARG APP_VERSION
+ENV APP_VERSION=$APP_VERSION
 
 CMD ["tini", "--", "node", "server.js"]

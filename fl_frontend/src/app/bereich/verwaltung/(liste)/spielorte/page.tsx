@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { ListPage } from "@/kit/ListPage";
 
@@ -13,13 +12,13 @@ import { spielortAnlegen } from "../../spielortAnlegen";
 import { SpielortFelder } from "../../SpielortFelder";
 import { SPIELORT_REGELN } from "../../spielortRegeln";
 
-import type { FLSpielort } from "@/features/spielorte/schemas";
+import type { FLSpielort } from "@/core/generated/client/types";
 import type { TableRow } from "@/kit/Table";
 import type { Metadata } from "next";
 
 const WORTE = COPY.verwaltung.spielort;
 
-export const metadata: Metadata = pageMetadata(ROUTES.verwaltungSpielorte, ROUTES.verwaltungSpielorte.pfad());
+export const metadata: Metadata = pageMetadata(ROUTES.verwaltungSpielorte, ROUTES.verwaltungSpielorte.path());
 
 /** One venue's row: its name, „Stillgelegt“ and muted once retired, its street and its price. */
 const zeile = (ort: FLSpielort): TableRow => ({
@@ -27,9 +26,9 @@ const zeile = (ort: FLSpielort): TableRow => ({
   name: ort.name,
   // No `href` while no venue page answers at `ROUTES.verwaltungSpielort`: a row linking there would open the
   // not-found page. The record page brings the link back.
-  ...(ort.inactive_since === null ? {} : { chip: { tone: "neutral" as const, label: WORTE.stillgelegt }, muted: true }),
+  ...(ort.inactive_since === null ? {} : { chip: { tone: "neutral" as const, label: WORTE.retired }, muted: true }),
   cells: {
-    adresse: WORTE.strasseMitNummer(ort.address.strasse, ort.address.hausnummer),
+    adresse: WORTE.strasseWithHausnummer(ort.address.strasse, ort.address.hausnummer),
     mietpreis: formatEuro(ort.default_mietpreis),
   },
 });
@@ -44,31 +43,30 @@ export default function SpielortePage() {
 }
 
 async function Spielorte() {
-  await connection();
   // Retired included: the list will be the one way into a retired venue's page.
   const { spielorte } = await getSpielorte({ include_inactive: true });
 
   return (
     <ListPage
-      head={{ area: "bereich", title: { route: "verwaltungSpielorte" } }}
-      search={{ label: WORTE.suchen }}
+      head={{ scope: "area", title: { route: "verwaltungSpielorte" } }}
+      search={{ label: WORTE.search }}
       create={{
-        title: COPY.shared.mitObjekt(WORTE.objekt, "anlegen"),
-        act: { verb: "anlegen", objekt: WORTE.objekt },
+        title: COPY.shared.withObject(WORTE.object, "create"),
+        act: { verb: "create", object: WORTE.object },
         action: spielortAnlegen,
         children: <SpielortFelder regeln={SPIELORT_REGELN} />,
       }}
       list={{
         kind: "table",
         table: {
-          label: ROUTES.verwaltungSpielorte.titel,
+          label: ROUTES.verwaltungSpielorte.title,
           nameLabel: WORTE.name,
           columns: [
-            { key: "adresse", label: WORTE.adresse, hideOnPhone: true },
+            { key: "adresse", label: WORTE.address, hideOnPhone: true },
             { key: "mietpreis", label: WORTE.mietpreis, figures: true },
           ],
           rows: spielorte.map(zeile),
-          empty: { kind: "noch", plural: ROUTES.verwaltungSpielorte.titel, glyph: "spielorte" },
+          empty: { kind: "none", plural: ROUTES.verwaltungSpielorte.title, glyph: "spielorte" },
         },
       }}
     />

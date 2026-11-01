@@ -1,9 +1,9 @@
 """
 API · every write moving a season seat's holder voids that seat's links on its team's match confirmations, at the write
 
-Each writer of an existing season row's seats is driven against the shipped validators, and straight after it commits,
-with no sweep run, each link is opened through the link's own view (`app/api/spielbestaetigungen/router.py ::
-get_spielbestaetigung_ansicht`): a link it refuses with `REQ-ANSETZUNG-001` is voided. A contact's erasure and their
+Each writer of an existing season row's seats is driven against the shipped indexes, and straight after it commits,
+with no sweep run, each link is opened through the link's own view (`app/api/spielbestaetigungen/public_router.py ::
+get_spielbestaetigung_ansicht`): a link it refuses with `link_ungueltig` is voided. A contact's erasure and their
 Widerspruch also take every reason they typed, matched on the holder each answer stored.
 """
 
@@ -17,30 +17,32 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.einwilligung_router import post_einwilligung
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
-from app.api.bewerbungen.services import hash_token
-from app.api.bewerbungen.sweep_router import sweep_saison
-from app.api.identitaet.services import build_erasure_seat_pipeline
+from app.api.bewerbungen.public_router import post_einwilligung
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungDeclined
+from app.api.bewerbungen.system_router import sweep_saison
+from app.api.identitaet.services import build_loeschung_seat_pipeline
 from app.api.identitaet.wiederherstellung import Read, Window, replay_line
-from app.api.kontakte.crud import erase_kontaktperson_in_session
-from app.api.spielbestaetigungen.router import get_spielbestaetigung_ansicht
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAnsichtPayload
+from app.api.kontakte.crud import loeschen_kontaktperson_in_session
+from app.api.spielbestaetigungen.public_router import get_spielbestaetigung_view
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
-from app.api.teams.schemas import KONTAKT_ROLLEN, FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
+from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_one_in_db
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from app.core.journal import JournalLine
-from app.core.security import loeschung_journal_hash
+from app.core.security import erasure_journal_hash
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.schemas.confirmation import FLTokenPayload
+from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.tokens import hash_token
 from tests import documents
-from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.outbox import MAIL_NOW
+from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -90,7 +92,7 @@ def stored(vorname: str) -> dict[str, Any]:
     return documents.kontaktperson_document(
         vorname,
         einwilligung={"text_version": sent["einwilligung"]["text_version"], "datum": sent["einwilligung"]["datum"]},
-        eingetragen_von="liga",
+        entered_by="liga",
         nachname=sent["nachname"],
         email=sent["email"],
         telefon=sent["telefon"],
@@ -98,8 +100,8 @@ def stored(vorname: str) -> dict[str, Any]:
 
 
 SEATED = {"trainer": "Ida", "ansprechperson": "Jonas", "stellvertretung": "Klara"}
-STORED = {**{seat: stored(name) for seat, name in SEATED.items()}, "trainer_ist_zugleich": None}
-SENT = {**{seat: person(name) for seat, name in SEATED.items()}, "trainer_ist_zugleich": None}
+STORED = {**{seat: stored(name) for seat, name in SEATED.items()}, "trainer_is_also": None}
+SENT = {**{seat: person(name) for seat, name in SEATED.items()}, "trainer_is_also": None}
 
 
 def row_link(seat: str) -> str:
@@ -119,7 +121,7 @@ def fixture(spiel_id: ObjectId, *, saison_id: str = SAISON_ID, spiel_nr: int = 1
 
     sides = {
         f"team{position}": {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": None}
-        for position, (team_id, name, shorthand) in enumerate(((TEAM_OID, "Adler", "AD"), (OTHER_TEAM_OID, "Falken", "FA")), start=1)
+        for position, (team_id, name, shorthand) in enumerate(((TEAM_OID, "Adler", "ADX"), (OTHER_TEAM_OID, "Falken", "FAX")), start=1)
     }
 
     return documents.spiel_document(
@@ -137,10 +139,10 @@ def confirmation_row(row: str, team_id: ObjectId, spiel: Mapping[str, Any], **fi
 
     return documents.spielbestaetigung_document(
         spiel,
-        partei={"art": "team", "team_id": team_id},
+        party={"art": "team", "team_id": team_id},
         frist="2026-04-11",
-        angefragt_am=TODAY,
-        kontakte={seat: {"token_hashes": [hash_token(link(row, seat))], "zustellung": None} for seat in KONTAKT_ROLLEN},
+        asked_at=TODAY,
+        kontakte={seat: {"token_hashes": [hash_token(link(row, seat))], "delivery": None} for seat in KONTAKT_ROLLEN},
         **fields,
     )
 
@@ -165,11 +167,15 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, saison_status))
             # The season after, ended, which is what lets the sweep clear this one's blocks.
             await database[Collection.SAISONS].insert_one(documents.saison_document(LATER_SAISON_ID, "past"))
-            for team_id, name, shorthand in ((TEAM_OID, "Adler", "AD"), (OTHER_TEAM_OID, "Falken", "FA"), (INCOMING_TEAM_OID, "Eulen", "EU")):
+            for team_id, name, shorthand in (
+                (TEAM_OID, "Adler", "ADX"),
+                (OTHER_TEAM_OID, "Falken", "FAX"),
+                (INCOMING_TEAM_OID, "Eulen", "EUX"),
+            ):
                 await database[Collection.TEAMS].insert_one(
                     documents.team_document(team_id, name, shorthand, website_url=None, schulform="gymnasium_g9")
                 )
@@ -181,15 +187,15 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
                             SAISON_ID,
                             TEAM_OID,
                             "Adler",
-                            "AD",
+                            "ADX",
                             kontakte=STORED,
-                            bestaetigungen={
-                                seat: compose_kontakt_bestaetigung(token_hash=hash_token(row_link(seat)), today=TODAY)
+                            confirmations={
+                                seat: {**compose_kontakt_bestaetigung(today=TODAY), "token_hashes": [hash_token(row_link(seat))]}
                                 for seat in KONTAKT_ROLLEN
                             },
                         ),
                     },
-                    {"_id": OTHER_ROW_OID, **documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, "Falken", "FA", kontakte=None)},
+                    {"_id": OTHER_ROW_OID, **documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, "Falken", "FAX", kontakte=None)},
                 ]
             )
             await database[Collection.SPIELE].insert_many([dict(spiel) for spiel in FIXTURES])
@@ -197,7 +203,7 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
 
             await body(database, client)
 
-            logged = await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.SPIELBESTAETIGUNGEN)})
+            logged = await database[Collection.ACTION_LOG].count_documents({"collection": str(Collection.SPIELBESTAETIGUNGEN)})
 
             return await links_answering(database), await answers(database), logged
 
@@ -205,15 +211,15 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
 
 
 async def links_answering(database: AsyncDatabase) -> dict[str, set[str]]:
-    """Per row, the seats whose mailed link the link's view still opens; a seat absent here is refused `REQ-ANSETZUNG-001`."""
+    """Per row, the seats whose mailed link the link's view still opens; a seat absent here is refused `link_invalid`."""
 
     answering: dict[str, set[str]] = {}
     for row in ROWS:
         answering[row] = set()
         for seat in KONTAKT_ROLLEN:
             try:
-                await get_spielbestaetigung_ansicht(
-                    ansicht_data=FLSpielbestaetigungAnsichtPayload(token=link(row, seat)),
+                await get_spielbestaetigung_view(
+                    ansicht_data=FLTokenPayload(token=link(row, seat)),
                     spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                     spiele_collection=database[Collection.SPIELE],
                     saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -222,8 +228,8 @@ async def links_answering(database: AsyncDatabase) -> dict[str, set[str]]:
                     sperrliste=ban_list(database),
                     today=TODAY,
                 )
-            except WriteRefusalException as refused:
-                assert refused.error_code == "REQ-ANSETZUNG-001"
+            except APIError as refused:
+                assert refused.error_code == "link_invalid"
                 continue
             answering[row].add(seat)
 
@@ -244,11 +250,12 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Mapp
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
-        adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
-        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+        actor=fresh_admin_actor(),
         today=TODAY,
+        germany_now=MAIL_NOW,
     )
 
 
@@ -271,7 +278,7 @@ async def replace_the_club(database: AsyncDatabase, client: AsyncMongoClient) ->
         spiele_collection=database[Collection.SPIELE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         db=client,
         today=TODAY,
@@ -279,22 +286,22 @@ async def replace_the_club(database: AsyncDatabase, client: AsyncMongoClient) ->
     )
 
 
-async def erase_the_trainer(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+async def loeschen_the_trainer(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """The erasure registry's seat member, given the rows the person erasure reads for it."""
 
     identifier = "ida@example.com"
 
     async def in_session(session: Any) -> Any:
         rows = await aggregate_many_from_db(
-            collection=database[Collection.SAISON_TEAMS], pipeline=build_erasure_seat_pipeline(identifier), session=session
+            collection=database[Collection.SAISON_TEAMS], pipeline=build_loeschung_seat_pipeline(identifier), session=session
         )
-        return await erase_kontaktperson_in_session(
+        return await loeschen_kontaktperson_in_session(
             saison_teams_collection=database[Collection.SAISON_TEAMS],
             bewerbungen_collection=database[Collection.BEWERBUNGEN],
-            aktionen_collection=database[Collection.AKTIONEN],
+            aktionen_collection=database[Collection.ACTION_LOG],
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
             identifier=identifier,
-            schluessel=CONFIG.sperrliste_schluessel,
+            key=CONFIG.sperrliste_key,
             saison_team_rows=rows,
             bewerbung_rows=[],
             stamp=AM,
@@ -314,10 +321,10 @@ async def clear_the_blocks(database: AsyncDatabase, client: AsyncMongoClient) ->
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
-        sperrliste=ban_list(database),
+        outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=TODAY,
         germany_now=NOW,
@@ -327,22 +334,14 @@ async def clear_the_blocks(database: AsyncDatabase, client: AsyncMongoClient) ->
 async def contradict(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """The Trainer's Widerspruch through the season row's own link."""
 
-    body = {
-        "token": row_link("trainer"),
-        "antwort": "abgelehnt",
-        "geburtsdatum": None,
-        "whatsapp": False,
-        "medien": False,
-        "text_version": SEAT_PAGE,
-    }
-
     return await post_einwilligung(
-        antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
+        antwort_data=FLBewerbungEinwilligungDeclined(token=row_link("trainer"), antwort="declined"),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         config=CONFIG,
@@ -355,12 +354,12 @@ async def replay_the_widerspruch(database: AsyncDatabase, client: AsyncMongoClie
     """The Trainer's Widerspruch replayed onto a restore from a snapshot older than the press."""
 
     line = JournalLine(
-        person_hash=loeschung_journal_hash("ida@example.com", schluessel=CONFIG.sperrliste_schluessel),
+        person_hash=erasure_journal_hash("ida@example.com", key=CONFIG.sperrliste_key),
         art="widerspruch",
         collection=Collection.SAISON_TEAMS,
         record_id=ROW_OID,
         am=AM,
-        sitze=("trainer",),
+        seats=("trainer",),
     )
     # The snapshot taken the morning the links went, so the row's links are the snapshot's own.
     window = Window(since=datetime(2026, 4, 1, 7, 0, tzinfo=UTC), until=datetime(2026, 4, 2, 6, 0, tzinfo=UTC))
@@ -368,7 +367,7 @@ async def replay_the_widerspruch(database: AsyncDatabase, client: AsyncMongoClie
         Read(timestamp=datetime(2026, 4, 1, 10, 30, 1, tzinfo=UTC), line=line),
         client,
         database,
-        schluessel=CONFIG.sperrliste_schluessel,
+        key=CONFIG.sperrliste_key,
         now=datetime(2026, 4, 2, 9, 0, tzinfo=UTC),
         window=window,
     )
@@ -388,7 +387,7 @@ class TestEverySeatWriteVoidsItsLinks:
             pytest.param(hand_the_trainer_on, {"trainer"}, "active", ALL, id="the contacts save handing a seat on"),
             pytest.param(empty_the_trainer, {"trainer"}, "active", ALL, id="the contacts save emptying a seat"),
             pytest.param(replace_the_club, ALL, "active", ALL, id="the club's replacement"),
-            pytest.param(erase_the_trainer, {"trainer"}, "active", ALL, id="the person erasure's seat member"),
+            pytest.param(loeschen_the_trainer, {"trainer"}, "active", ALL, id="the person erasure's seat member"),
             # The season's end strips every team row of the season, a club whose block was empty already included.
             pytest.param(clear_the_blocks, ALL, "past", set(), id="the sweep clearing a past season's blocks"),
             pytest.param(contradict, {"trainer"}, "active", ALL, id="the Widerspruch on the season row"),
@@ -429,7 +428,7 @@ class TestEverySeatWriteVoidsItsLinks:
         """A void that changes nothing files no log row naming a write that changed nothing; the open row's Trainer entry is null."""
 
         async def hand_on_an_unasked_seat(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELBESTAETIGUNGEN].update_many({"partei.team_id": TEAM_OID}, {"$set": {"kontakte.trainer": None}})
+            await database[Collection.SPIELBESTAETIGUNGEN].update_many({"party.team_id": TEAM_OID}, {"$set": {"kontakte.trainer": None}})
             return await hand_the_trainer_on(database, client)
 
         _, _, logged = on_a_league(mongo_replica_set_url, hand_on_an_unasked_seat)
@@ -450,7 +449,7 @@ def declined(row: str, team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, 
         team_id,
         spiel,
         antwort=documents.kontakt_antwort_document(rolle, adresse, begruendung=begruendung),
-        geschlossen={"am": TODAY, "grund": "ansetzung_geaendert"},
+        closed={"am": TODAY, "grund": "ansetzung_changed"},
     )
 
 
@@ -493,7 +492,7 @@ class TestALeavingContactsReasonsGo:
     @pytest.mark.parametrize(
         "write",
         [
-            pytest.param(erase_the_trainer, id="their erasure"),
+            pytest.param(loeschen_the_trainer, id="their erasure"),
             pytest.param(contradict, id="their Widerspruch on the season row"),
             pytest.param(replay_the_widerspruch, id="the replay of that Widerspruch"),
         ],
@@ -511,7 +510,7 @@ class TestALeavingContactsReasonsGo:
                 await patch_one_in_db(
                     collection=collection,
                     db_filter={"_id": row["_id"]},
-                    update={"$set": {"erinnert_am": [TODAY]}},
+                    update={"$set": {"reminded_at": [TODAY]}},
                     return_document=ReturnDocument.BEFORE,
                 )
             async with client.start_session() as session:
@@ -522,7 +521,7 @@ class TestALeavingContactsReasonsGo:
             found["rows"] = sorted(
                 [left_behind(NAMED[row["spiel_id"]], row["antwort"]) async for row in collection.find({"spiel_id": {"$in": list(NAMED)}})]
             )
-            logged = database[Collection.AKTIONEN].find({"collection": str(Collection.SPIELBESTAETIGUNGEN), "before": {"$ne": None}})
+            logged = database[Collection.ACTION_LOG].find({"collection": str(Collection.SPIELBESTAETIGUNGEN), "before": {"$ne": None}})
             found["images"] = sorted(
                 [
                     left_behind(NAMED[image["spiel_id"]], image["antwort"])
@@ -548,7 +547,7 @@ class TestAnAnsweredRowsLinkOutlivesNoHolder:
 
         links, stored_answers, _ = on_a_league(mongo_replica_set_url, hand_on_then_bar)
 
-        # Refused `REQ-ANSETZUNG-001` (`links_answering` admits no other refusal), never served as `gesperrt`.
+        # Refused `link_invalid` (`links_answering` admits no other refusal), never served as `barred`.
         assert links["answered"] == ALL - {"trainer"}
         assert stored_answers == [row["antwort"] for row in ROWS.values()]
 
@@ -559,7 +558,7 @@ class TestALeavingPersonsLinksLeaveTheLog:
     @pytest.mark.parametrize(
         ("write", "gone"),
         [
-            pytest.param(erase_the_trainer, {"trainer"}, id="their erasure"),
+            pytest.param(loeschen_the_trainer, {"trainer"}, id="their erasure"),
             pytest.param(contradict, {"trainer"}, id="their Widerspruch"),
             pytest.param(replay_the_widerspruch, {"trainer"}, id="the replay of their Widerspruch"),
             # A seat handed on is no leaving of a person: the season row's own images keep the predecessor too.
@@ -570,18 +569,18 @@ class TestALeavingPersonsLinksLeaveTheLog:
         found: dict[str, Any] = {}
 
         async def after_an_image(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            delivered = {"nachricht_id": "msg-1", "stand": "zugestellt", "grund": None, "am": "2026-04-01T09:00:00+00:00"}
+            delivered = {"message_id": "msg-1", "state": "delivered", "grund": None, "am": "2026-04-01T09:00:00+00:00"}
             await database[Collection.SPIELBESTAETIGUNGEN].update_one(
-                {"_id": ROWS["answered"]["_id"]}, {"$set": {"kontakte.trainer.zustellung": delivered}}
+                {"_id": ROWS["answered"]["_id"]}, {"$set": {"kontakte.trainer.delivery": delivered}}
             )
             await patch_one_in_db(
                 collection=database[Collection.SPIELBESTAETIGUNGEN],
                 db_filter={"_id": ROWS["answered"]["_id"]},
-                update={"$set": {"erinnert_am": [TODAY]}},
+                update={"$set": {"reminded_at": [TODAY]}},
                 return_document=ReturnDocument.BEFORE,
             )
             await write(database, client)
-            image = await database[Collection.AKTIONEN].find_one({"document_id": ROWS["answered"]["_id"], "before": {"$ne": None}})
+            image = await database[Collection.ACTION_LOG].find_one({"document_id": ROWS["answered"]["_id"], "before": {"$ne": None}})
             found["held"] = {seat for seat in KONTAKT_ROLLEN if (image or {}).get("before", {}).get("kontakte", {}).get(seat) is not None}
 
         on_a_league(mongo_replica_set_url, after_an_image)

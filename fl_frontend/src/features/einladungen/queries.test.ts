@@ -19,9 +19,9 @@ beforeEach(beginRenderPass);
 
 const { calls } = doubleApiAnswers(({ endpoint }) =>
   Promise.resolve(
-    endpoint.includes("/vorschau")
-      ? { acknowledged: 1, saison_id: SAISON_ID, zeilen: [] }
-      : { acknowledged: 1, saison_id: SAISON_ID, team_id: TEAM_ID, einladung: null, laeuft: true },
+    endpoint.includes("/preview")
+      ? { saison_id: SAISON_ID, rows: [] }
+      : { saison_id: SAISON_ID, team_id: TEAM_ID, invitation: null, running: true },
   ),
 );
 
@@ -38,10 +38,10 @@ describe("the invite slice's reads", () => {
     await getEinladungVersandVorschau(SAISON_ID, false);
     await getEinladungVersandVorschau(SAISON_ID, true);
 
-    const vorschau = `/saisons/${SAISON_ID}/einladungen/versand/vorschau`;
+    const vorschau = `/saisons/${SAISON_ID}/invitations/dispatch/preview`;
     expect(requestsOf(calls)).toStrictEqual([
-      { endpoint: `${vorschau}?erneut=false`, method: undefined, body: undefined },
-      { endpoint: `${vorschau}?erneut=true`, method: undefined, body: undefined },
+      { endpoint: `${vorschau}?resend=false`, method: "GET", body: undefined },
+      { endpoint: `${vorschau}?resend=true`, method: "GET", body: undefined },
     ]);
   });
 
@@ -49,7 +49,7 @@ describe("the invite slice's reads", () => {
     await getEinladung(TEAM_ID, SAISON_ID);
 
     expect(requestsOf(calls)).toStrictEqual([
-      { endpoint: `/teams/${TEAM_ID}/saisons/${SAISON_ID}/einladung`, method: undefined, body: undefined },
+      { endpoint: `/teams/${TEAM_ID}/saisons/${SAISON_ID}/invitation`, method: "GET", body: undefined },
     ]);
   });
 });
@@ -68,8 +68,8 @@ describe("one team's invite across a render pass", () => {
     await Promise.all([getEinladung(TEAM_ID, SAISON_ID), getEinladung(TEAM_ID, SAISON_ID), getEinladung(OTHER_TEAM_ID, SAISON_ID)]);
 
     expect(endpointsSince(before).sort()).toStrictEqual([
-      `/teams/${TEAM_ID}/saisons/${SAISON_ID}/einladung`,
-      `/teams/${OTHER_TEAM_ID}/saisons/${SAISON_ID}/einladung`,
+      `/teams/${TEAM_ID}/saisons/${SAISON_ID}/invitation`,
+      `/teams/${OTHER_TEAM_ID}/saisons/${SAISON_ID}/invitation`,
     ]);
   });
 
@@ -82,6 +82,6 @@ describe("one team's invite across a render pass", () => {
     await getEinladung(TEAM_ID, SAISON_ID);
     await getEinladung(TEAM_ID, SAISON_ID);
 
-    expect(endpointsSince(before)).toStrictEqual([`/teams/${TEAM_ID}/saisons/${SAISON_ID}/einladung`]);
+    expect(endpointsSince(before)).toStrictEqual([`/teams/${TEAM_ID}/saisons/${SAISON_ID}/invitation`]);
   });
 });

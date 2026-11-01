@@ -1,7 +1,7 @@
 import { laufendDot } from "@/features/saisons/components/ui/laufendDot";
 import { labelBadge } from "@/shared/components/ui/badges";
 
-import type { FLSaisonStatus } from "@/features/saisons/schemas";
+import type { FLSaisonStatus } from "@/core/generated/client/types";
 import type { PillTone } from "@/shared/components/ui/badges";
 
 // A record rather than a chain: `FLSaisonStatus` is a closed enum, so a fourth state fails to

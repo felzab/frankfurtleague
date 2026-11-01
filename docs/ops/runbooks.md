@@ -11,7 +11,7 @@ and renumbering what stands would repoint every citation of it, the scripts' own
 | Section                                                                                                                        | Answers                                                        |
 | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
 | [1. The server](#1-the-server)                                                                                                 | What a deploy does, and what a failed one leaves running       |
-| [2. Before deploying a change to the database's constraints](#2-before-deploying-a-change-to-the-databases-constraints)        | The one check to run before a constraint reaches production    |
+| [2. Before deploying a change to a stored shape or an index](#2-before-deploying-a-change-to-a-stored-shape-or-an-index)       | The order a shape or index change runs in, then the read-back  |
 | [3. Granting or revoking admin access](#3-granting-or-revoking-admin-access)                                                   | Who can sign in, and what revoking actually ends               |
 | [4. When the application queue has been flooded](#4-when-the-application-queue-has-been-flooded)                               | What the triage page still shows, and what stops new rows      |
 | [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)  | Where each role's data is read, and how a request is answered  |
@@ -28,7 +28,7 @@ and renumbering what stands would repoint every citation of it, the scripts' own
 | [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                      | Who meets it, when it lifts, and what clearing it costs        |
 | [18. The Node a checkout runs](#18-the-node-a-checkout-runs)                                                                   | What `pnpm install` fetches, and what a bare `node` still runs |
 | [19. The database's storage alert](#19-the-databases-storage-alert)                                                            | What fills the tier unseen, and the two alerts that show it    |
-| [20. After a hand edit in MongoDB](#20-after-a-hand-edit-in-mongodb)                                                           | What a hand edit leaves cached, and the one call that drops it |
+| [20. After a hand edit in MongoDB](#20-after-a-hand-edit-in-mongodb)                                                           | What a hand edit leaves cached, and for how long               |
 
 ---
 
@@ -44,11 +44,11 @@ the machine is outside the repository. What it does tell you:
   `./secrets/` the stack mounts, and `./certs/` must all exist beside the compose file — preflight
   checks each before anything is pulled. What each secret file holds, who owns it and how it is
   made, is §16.
-- **A line naming a value a secret file holds, or `ALLOWED_ADMIN_EMAILS`, refuses the deploy at exit
-  2 before compose is asked anything**, giving each line by file, number and the name as the list
-  spells it, never by anything the line holds
+- **A line naming a value a secret file holds, `ALLOWED_ADMIN_EMAILS` or a job switch the hourly
+  scheduler replaced refuses the deploy at exit 2 before compose is asked anything**, giving each
+  line by file, number and the name as the list spells it, never by anything the line holds
   (`scripts/lib/_lib.sh :: refuse_credential_lines`): delete it, a credential being its file's (§16)
-  and the administrator list read by nothing.
+  and the administrator list and the switches read by nothing.
 - **A line of either `.env` that is not blank, a line opening with `#`, or `NAME=VALUE` refuses the
   deploy at exit 2 before compose is asked anything**, each line listed
   as `file:line` alone, never by anything the line holds. Rewrite it with nothing
@@ -85,26 +85,15 @@ the machine is outside the repository. What it does tell you:
   past. It does not catch a misspelling whose value is EMPTY, which the settings reader drops before
   the check judges it; a line the two parsers
   could read differently was refused before either image was asked.
-- **The pulled frontend image is asked the same of `fl_frontend/.env`**
-  (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: **a name the
-  frontend does not declare, given by its line number, and a name it requires that the file omits,
-  given by name, each refuse the deploy at exit 2 with nothing recreated**. The remedy differs by
-  kind — open a numbered line, then delete it, correct its spelling, or declare the name in the
-  schema, nothing in that schema reading an undeclared one;
-  **write a missing required one into the file with its value**. That is where a release adding a
-  required name meets a host nobody edited. Every VALUE, an empty one included, is the frontend's own
-  boot's to judge, in the step below. It does catch the misspelling whose value is EMPTY that the
-  backend's reader drops, and a line its reader cannot take at all is an advisory rather than a
-  refusal ([`spec.md`](spec.md) §1.5).
 - **Each application service's own boot then judges its settings and secret files, before anything
   is recreated**, in a one-off container started as the stack starts the service, so with its
   variables, as its own user and in its own group. The frontend's runs the image's own server, which
   runs every boot gate and ends there (`scripts/lib/_lib.sh :: check_frontend_boot_config`): **a value
-  the schema refuses, a secret file missing, blank, not a file or unreadable by that user, a signing
-  key it cannot read, and an `APP_ENV` naming another deployment than the one being deployed each
-  refuse the deploy at exit 2** with nothing recreated — Cloudflare's published test site key under
+  the schema refuses, a secret file missing, blank, not a file or unreadable by that user, and an
+  `APP_ENV` naming another deployment than the one being deployed each refuse the deploy at exit
+  2** with nothing recreated — Cloudflare's published test site key under
   production and a sign-in secret below its library's floor of 32 characters among them. The
-  `CRITICAL` line above the refusal names the variable, the file or the key's path and never a value:
+  `CRITICAL` line above the refusal names the variable or the file and never a value:
   correct a variable in `fl_frontend/.env`, and give a file §16's contents, owner or mode. The
   backend's container builds its settings as its boot does
   (`scripts/lib/_lib.sh :: check_backend_boot_config`), so a file it cannot use and a value its
@@ -183,11 +172,11 @@ the machine is outside the repository. What it does tell you:
     name, so that build's player list in the administration answers 500, and its public
     `GET /spieler`, asked for neither a team nor a season, serves the sentinel as a player with no
     name;
-  - an administrator's queues a grant notice withheld as `geloescht`, and that build's hourly grant
+  - an administrator's queues a grant notice withheld as `erased`, and that build's hourly grant
     pass writes its claim on the row before reading anything, a write that build's validator refuses
     with code 121, so every pass fails and no change of access is mailed again, where the row is
     still queued as that build boots;
-  - that build's boot attaches its own validators again (§2), which refuse any write over either row.
+  - that build's boot attaches its own validators again, which refuse any write over either row.
 - **Never deploy by tag a build published before `sha-3eebe79`, the first build requiring the
   records as the deletion of every pupil and referee row and the emptying of the action log left
   them; roll forward instead.** Such a build's returning pupil's page stamps a consent label
@@ -199,7 +188,7 @@ the machine is outside the repository. What it does tell you:
   leaves a row's links standing when it hands a seat to another person, and the confirmation finds a
   seat by its link alone (`fl_backend/app/api/bewerbungen/services.py :: build_saison_token_filter`),
   so the link the seat's earlier person still holds would confirm the new person's seat or empty it.
-  The re-send replaces the seat's link (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`).
+  The re-send replaces the seat's link (`fl_backend/app/api/teams/admin_router.py :: invite_kontakt`).
   A row whose season has ended or whose team has left it refuses the re-send: there, empty the seat in
   the contacts editor and save, then enter the person again and save, which voids the old link and
   mints the person a new one.
@@ -210,228 +199,86 @@ the machine is outside the repository. What it does tell you:
   healthy pair is no statement about whether the edge in front of it reaches the pair or what it
   loads.
 
-## 2. Before deploying a change to the database's constraints
+## 2. Before deploying a change to a stored shape or an index
+
+**What a stored document may hold is its record model** — the model `fl_backend/app/readback.py ::
+RECORD_MODELS` maps its collection to — and nothing in the database refuses a document of another
+shape: the boot builds the indexes alone (`fl_backend/app/core/constraints.py`). So a change to a
+stored shape lands with the Playground paste that moves every stored document into it, and the
+read-back command is what says they all moved:
 
 ```bash
-cd fl_backend && .venv/Scripts/python -m app.core.constraints --check
+docker compose -f docker-compose.yml exec -T backend python -m app.readback
 ```
 
-Dev, on Windows; on the server it is `python -m app.core.constraints --check` inside the backend container.
-It writes nothing and exit 0 means clean. Run it whenever `fl_backend/app/core/constraints.py` changes:
-it reports the stored documents a constraint would refuse, and whether the database user holds `find`, `collMod`
-and `listCollections`. `--apply` does the same work startup does, which is how to
-put a corrected constraint in place without waiting for a deploy.
+On the server, from the checkout. It reads every document through its record model, writes nothing,
+prints each refused document's collection, id and error location and never a value, and exits 0 when
+every document validates, 1 when any is refused, and 2 when the database could not be read. Its last
+line names the collections it does not read.
 
-**Run it BEFORE the deploy, from a checkout carrying the new constraints while the old image is still
-serving.** A container built from the previous commit carries the previous validators and reads clean on
-the very documents the new ones reject, so the only run that answers the question is the one made against
-the constraints that are about to land. Nothing later in the pipeline compares stored documents against a
-validator.
+**Run it after the paste and the deploy, never before**: it judges stored documents against the
+models of the image it runs in, so a run inside the old image reads the old shape clean.
 
-**On the server that checkout reaches the container as a bind mount**, the image carrying an `app/` of its
-own:
+**A field that is RENAMED cannot be renamed before the deploy.** The still-serving image reads and
+writes the old name, so a rename pasted first breaks every read of the field until the new image
+is up. **This repository holds no migration runner and no migration**: the command belongs to the
+change that needs it and is run by hand as a MongoDB Playground paste against the cluster, as every
+migration here is, so what is written here is the order alone.
 
-```bash
-docker run --rm --network <compose-network> --user 0:0 \
-  -v "$PWD/fl_backend/app:/app/app:ro" \
-  -v "$PWD/fl_backend/.env:/app/.env:ro" \
-  -v "$PWD/secrets/backend_mongodb_uri:/run/secrets/backend_mongodb_uri:ro" \
-  -v "$PWD/secrets/sperrliste_schluessel:/run/secrets/sperrliste_schluessel:ro" \
-  -v "$PWD/secrets/internal_api_key_base:/run/secrets/internal_api_key_base:ro" \
-  -v "$PWD/secrets/internal_api_key_system:/run/secrets/internal_api_key_system:ro" \
-  -v "$PWD/secrets/internal_api_key_admin:/run/secrets/internal_api_key_admin:ro" \
-  <backend-image> python -m app.core.constraints --check
-```
+1. Deploy. Every read of the renamed field fails from here until step 2 lands.
+2. **At once**, the rename, written as every paste is: a count of the rows still holding the old
+   name, the rename, and the same count again, which must read 0.
+3. The read-back: exit 0.
+4. Drop any index the previous name held, by a `dropIndex` line in the same paste —
+   `create_index` refuses a name already held at different options and creates nothing under a
+   name it does not declare, so the boot leaves the old one standing forever.
 
-**`--user 0:0` is not optional.** The image runs as uid 1002, and the internal keys are root's and
-group 1003's (§16), a group a bare `docker run` does not add, so without it the run cannot read them
-and exits on a permission error before it checks anything. Root inside the
-container reads them; `--check` writes nothing either way. **Each of the backend's five files is
-mounted by name, and never `secrets/` whole**, which would hand this container the frontend's
-credentials and the signing key besides.
-
-**Every setting given no default is required, and the environment file and the five secret files
-are what supply them.** A run reaching none of them exits 1 on a validation error naming each; the
-settings class reads the package's file from the image's own working directory
-(`fl_backend/app/core/config.py :: model_config`) and the secret files from `/run/secrets`, which is
-where the mounts land them.
-**Mounted rather than retyped, because the URI carries the cluster's credential**: passing them as
-`-e` values instead puts that one in the shell's history and in the process list, and sends the
-operator looking up values `--check` never reads — the run touches the database URI and
-`DB_BASE_NAME` and nothing else the settings require.
-
-One caveat, untested against the server itself: an SELinux host needs `:z` on each mount.
-
-**Counting a key's presence is not a substitute for the run.** The report reads each validator back as a
-query, so it fails a document whose key is there with the wrong BSON type; a `$exists` count passes that
-same document and reports clean.
-
-**A validator that newly REQUIRES a field fails every row written before it.** `--check` is what says how
-many and names a few of them, and back-filling those rows belongs to the change that added the field
-rather than to a follow-up: `--apply` attaches the validator without touching stored documents, so the
-first read that parses one is where the omission surfaces.
-
-**A validator that WIDENS what it accepts can fail no stored row, and owes no backfill.** `--check` reads
-clean before such a change lands as well as after, so the run is confirmation rather than the gate the
-paragraph above describes. The `spieltage` span is of that kind: `beginn` and `ende` accept a null beside a
-string, which every row already holding a date satisfies.
-
-**A property declared OUTSIDE `required` is the weaker case, and only for a key nothing stores yet.** An
-absent key passes, which is the whole of what `required` decides; a stored key of the wrong shape fails
-exactly as it would inside the list. `saisons.spielplan` is declared that way, and `--check` is what says
-whether any season already carries the key — declaring a shape over a key some row already holds is an
-ordinary constraint change, and assuming which of the two you are in is what this procedure replaces.
-
-**A collection the change ADDS is the free case, and `--check` says so by counting nothing.** The
-namespace does not exist, so `report_violations` answers `0 of 0` and there is no backfill to hunt:
-`_apply_validator` creates the collection with the validator already attached
-(`fl_backend/app/core/constraints.py :: NAMESPACE_NOT_FOUND`), which either `--apply` or the deploy's
-own boot reaches. A `0 of 0` against a collection you expected to hold rows is the case to stop on.
-
-The order does not change either way: `--check` from the new checkout while the old image still serves,
-then `--apply` or the deploy's own boot to attach the validators
-(`fl_backend/app/core/db.py :: lifespan` applies them before it yields, so a new image attaches before it
-serves), then `--check` again.
-
-**A field that is RENAMED is the one case where the backfill cannot precede the validator.** The
-validator is attached strict (`fl_backend/app/core/constraints.py :: _apply_validator`) and the
-previous one lists the old name under `required`, so a `$rename` run under it produces a document
-missing a required field and is refused for every row; the same strictness refuses an erasure's
-`$set` over a row the NEW validator finds invalid,
-which is why the rename cannot wait either. **This repository holds no migration runner and no
-migration**: the command belongs to the change that needs it and is run by hand as a MongoDB
-Playground paste against the cluster, as every migration here is, so what is written here is the
-order alone.
-
-1. `--check` from the new checkout while the old image still serves. Every row is reported as
-   missing the new name, which is the confirmation that the rename is owed rather than a finding to
-   fix — and it is the count step 3 is read against.
-2. Deploy. The boot attaches the new validator before the image serves.
-3. **At once**, the rename. Between this step and the previous one every read of the renamed field
-   fails and an erasure over such a row is refused, so paste it as the deploy reports healthy.
-4. `--check` again: clean.
-5. Drop any index the previous name held, by hand — `create_index` refuses a name already held at
-   different options and creates nothing under a name it does not declare, so the boot leaves the old
-   one standing forever.
-
-**Three things decide whether the command pasted at step 3 is the right one.**
+**Three things decide whether the command pasted at step 2 is the right one.**
 
 - **`$rename` is atomic per document**, so no row is ever seen holding both names or neither.
-- **`updateMany` is ordered**, so a count below what step 1 reported means it stopped at a row the
-  new validator refuses for a reason of its own. Repair the row the error names and paste it again:
-  a filter on the old name's `$exists` skips every row already moved, which is what makes the command
-  re-runnable rather than a thing to get right once.
+- **A filter on the old name's `$exists`** skips every row already moved, which is what makes the
+  command re-runnable rather than a thing to get right once.
 - **A dotted path through a nullable block is renamed ONE PATH AT A TIME.** `$rename` refuses the
   whole document where a segment has to traverse a null —
   `cannot use the part (…) to traverse the element ({trainer: null})` — so one update naming the
   three `kontakte` seats moves rows until it meets the first club holding one seat and not another
-  and then stops, the earlier rows moved and the later ones not, inside the window step 3 exists to
+  and then stops, the earlier rows moved and the later ones not, inside the window step 2 exists to
   keep short. One update per path, each filtered on its own `$exists`, cannot traverse a null at all,
   a document matching that filter necessarily holding the segment. Measured against a copy of
   production, 2026-09-08.
 
-The alternative order — `--apply` and the rename from the checkout, THEN the deploy — closes the
-window for reads and erasures and opens a worse one: every recorded write of the still-serving old
-image is refused until the new image is up, because it writes the old name.
-
-**Where the renamed field sits inside `kontakte`, step 3's window is wider than step 3 says.**
+**Where the renamed field sits inside `kontakte`, step 1's window is wider than it says.**
 `fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme` requires the block's names, and
 `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung` declares the same block, so the contacts
 editor, a club's season panel and the whole application queue answer 500 on every stored row until
-the rename lands. A junction contacts save over a seat its person keeps is refused too: it writes
-that seat's stored record back whole (`fl_backend/app/api/teams/services.py :: _confirmation_held_by`),
-under the old name, which the renamed validator refuses. **A
-contact person's own confirmation link still OPENS**, serving no contact record
-(`READ-BEWERBUNG-002`) — but the answer behind its button is a write over the same block and is
-refused with everything else, so a person who confirms or objects in that window is told nothing
-landed. Every public club read keeps working, the junction join withholding the block from the base
-tier.
+the rename lands. Every public club read keeps working, the junction join withholding the block from the base tier.
 
-**A change that only adds a read index has nothing for `--check` to answer**, and a clean report is not
-evidence it landed: those indexes constrain nothing, so no stored document can be in breach of one
-(`fl_backend/app/core/constraints.py :: SupportIndex`). `--apply` or the next boot is what builds it, and
-either fails loudly if it cannot.
+**A change that only adds an index has nothing for the read-back to answer**: no stored document can
+be in breach of a read index (`fl_backend/app/core/constraints.py :: SupportIndex`). The next boot
+builds it, and fails loudly if it cannot. A new unique index is the exception: one Playground
+aggregate grouping the collection by its keys, counting the groups holding more than one document,
+says before the deploy whether its build will meet a duplicate, which fails the boot.
 
 **Two index changes stop the deploy, and both for one reason.** `create_index` refuses a name already
 held at different options rather than moving it, so `apply_constraints` raises and
 `fl_backend/app/core/db.py :: lifespan` fails the boot — the old index still serving, which the
-refusal does not say. **A changed RETENTION bound** is moved at the keyboard first, from the same
-shell the `--check` above runs in: a `collMod` on the `aktionen` collection, naming the index
-`aktionen_retention` and setting its `expireAfterSeconds` to the new bound.
-
-Dropping the index instead also works, the next boot rebuilding it at the declared bound; `collMod`
-is the smaller window, no read losing the index in between. The new bound must equal
-`fl_backend/app/shared/schemas/bounds.py :: AKTION_RETENTION_SECONDS` in the checkout about to
+refusal does not say. **A changed RETENTION bound** is moved first by a paste on the owner's
+checklist, setting the `action_log_retention` index's `expireAfterSeconds` to the new bound, which must
+equal `fl_backend/app/shared/schemas/bounds.py :: ACTION_LOG_ENTRY_RETENTION_SECONDS` in the checkout about to
 deploy, or the boot raises on the difference that is left.
 
-**A uniqueness rule narrowed to a `partial_filter`** cannot be moved that way, because a narrowing
-is a different index rather than a changed one: `collMod`'s `index` option reaches four properties —
-`expireAfterSeconds`, `hidden`, `prepareUnique` and `unique` — and never the filter deciding which
-rows the rule indexes, so an index can be made unique in place and cannot be made to cover fewer
-rows. Mirrored from <https://www.mongodb.com/docs/manual/reference/command/collMod/>, which moves
-without us; read 2026-09-09. The live index is dropped by hand while the stack is down, and the boot
-that follows builds the narrowed one from `fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`. The
-drop is the whole procedure, and it belongs in the deploy's own window rather than ahead of it —
-between the stack coming down and the new build coming up, because the refusal above is what the boot
-answers with while the old index stands.
-
-**A uniqueness rule WIDENED — a `partial_filter` removed — is the same refusal from the other side,
-and the drop is only half the procedure.** `collMod` reaches the filter in neither direction, so the
-live index still goes by hand; what the widening adds is that rows the narrow rule excused fall
-inside the wide one, so any that would collide have to move before the boot rebuilds it, which fixes
-the order: move the rows while the old build still serves, drop the index in the deploy's own window
-as above. The moves are a Playground paste as every migration here is, keyed on a state the previous
-statement leaves so a paste that dies partway is repaired by pasting it again. **Run the `--check` at
-the head of this section only once the rows have moved**: it groups every row against the widened
-rule, so before the move it answers about a database the boot will not meet.
+**A uniqueness rule narrowed or widened by a `partial_filter`** is a different index rather than a
+changed one, so the live index is dropped by a `dropIndex` line, and the boot that follows builds the
+new one from `fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`. The drop belongs in the deploy's
+own window, between the stack coming down and the new build coming up, because the refusal above is
+what the boot answers with while the old index stands. A widening also lets rows the narrow rule
+excused fall inside the wide one, so any that would collide move first, by a paste keyed on a state
+the previous statement leaves, so that one dying partway is repaired by pasting it again.
 
 **A rolled-back deploy can put the narrow index back.** Where the build being rolled back to declares
 it, that build's own boot rebuilds it narrowed, and the retry's boot then meets the same refusal —
 dropping it again before the retry is what clears it. Where the earlier build declares no index of
 that name, nothing rebuilds it and the retry needs only the rows.
-
-**When `every junction row names a club that exists (saison_teams)` reports a group**, it has found a
-`saison_teams` row whose `team_id` matches no `teams` document. Nothing on the API produces one now — entry
-reads the club and answers 404 for an id `teams` does not hold
-(`fl_backend/app/api/teams/admin_router.py :: post_saison_team`), and the acceptance that also writes these
-rows either creates the club in the same transaction or takes the id from the club document it resolved
-in-session (`fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung`) — and nothing on the API
-removes one, the junction having no DELETE. **That says nothing about where the row came from.** A row older than that read
-arrived through `POST /teams/{team_id}/saisons` itself: entry resolved no club then, so a `team_id` that was
-well-formed and wrong inserted a row with nobody touching the database at all. It is invisible from the side
-worth checking first: `GET /teams` starts from `teams` and never joins the orphan, so the club list and every
-league table read normally.
-
-**Which reading is right is a judgement, and one of the two has a command behind it.** An id mistyped at entry names
-a club that never existed, so there is nothing to restore and the row's place belongs to whichever club should
-have been entered instead: `POST /teams/{team_id}/saisons/{saison_id}/replace` hands the row over, reseeding
-its `name` and `shorthand` from the incoming club and carrying that club into the season's fixtures. It
-resolves the INCOMING club alone and never the one the path names, which is exactly what lets it act on a row
-whose `team_id` resolves to nothing (`fl_backend/app/core/domain.py :: REFERENCES`). Its own refusals bound how
-far it reaches: not a `past` season (`REQ-REPLACE-001`), and not once one of that club's fixtures has left a
-record (`REQ-REPLACE-002`). An orphan in a season that was played is therefore still a database edit, and so
-is one whose place no club should hold at all: the replacement brings a club in for one going out, and removes
-no row.
-
-A club document that went missing is the other reading, and restoring it is that repair — but no route deletes
-a club, retirement being soft and leaving the document in place
-(`fl_backend/app/api/teams/admin_router.py :: delete_team`), so that history needs a database edit of its own
-before it is worth acting on. **Settle which reading applies before running anything**: the replacement writes
-a club into the season's record, so run on the second reading it names a club that never played. Only somebody
-who knows whether that club played that season can say. Re-run `--check` afterwards.
-
-**The junction failure that does stop the site is the other report**, the validator one: a `saison_teams`
-row missing `name` takes `PATCH /spiele/{spiel_id}` down for every fixture in that season, the save and
-its `dry_run` preview alike, because `fl_backend/app/api/spiele/crud.py :: pull_saison_membership` indexes
-that field directly — and it takes the season's club reads with it: the name is what
-`fl_backend/app/api/teams/services.py :: build_team_pipeline` projects, and `GET /teams`, `GET /teams/{team_id}`
-and the admin twin `GET /teams/list/admin` (`fl_backend/app/api/teams/admin_router.py :: get_teams_for_admin`)
-are each built on that pipeline. `GET /spiele/action_required` for that season goes down with them once its
-knockout slots draw on a group placing, because `fl_backend/app/api/spiele/crud.py :: find_bracket_faults`
-resolves those against that same pipeline. Every other season's queue still loads, so a queue failing for one
-season alone points at that season's rows — or at a malformed `uhrzeit` on another season's fixture booked
-within a day onto one of its venues or referees. The two reports are independent: an orphan row can carry
-a perfectly good name, and a row missing its name can name a club that exists.
 
 ## 3. Granting or revoking admin access
 
@@ -448,41 +295,41 @@ administration is shut while it is down. Each of these is easy to get wrong:
   wherever another owner could**: it takes effect once that person
   approves it on the same page, someone who held their own grant since before the request. Only an administrator, or an owner, nobody else could stand beside acts alone. Tell the
   colleague: a request nobody decides lapses after the days
-  `fl_backend/app/shared/schemas/bounds.py :: GENEHMIGUNG_TAGE` counts,
+  `fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS` counts,
   and one whose requester was revoked, demoted or barred since is approved by nobody and waits for a
   refusal.
 - **An `owner` is made, and steps down, only through the tier change an `owner` makes**
-  (`PATCH /berechtigungen/{berechtigung_id}`): it mails every
+  (`PATCH /grants/{grant_id}`): it mails every
   administrator and is logged, and the last live, unbarred `owner` is demoted by nobody. The person made an owner signs in once more before acting as
   one: an older sign-in keeps administering and is offered no owner's control. A demotion takes the tier at once. An `owner` is revoked only once made an administrator, and in
   the application only an `owner` revokes; an erasure of the
   holder's own data removes the grant whatever its tier, the last
-  live owner's own erasure refused (`REQ-PURGE-004`).
+  live owner's own erasure refused (`last_owner_erasure`).
 - **The database is written directly for two things alone: the first owner, before anybody can sign
   in, and recovery when no owner can sign in.** Write in MongoDB Playground, never
   `mongosh`, into the `berechtigungen` collection of the application database (`DB_BASE_NAME`,
-  which `fl_backend/.env` names). The row holds four fields, each typed by the validator: `adresse`,
-  the address FOLDED — trimmed, the letters of both halves lower-case, the domain in punycode — or it
-  admits nobody, the validator refusing no spelling and the boot counting it as `SRV-BOOT-007`
-  without naming it; `verwaltung`, `owner` or `administration`; `erteilt_von`, a marker naming the
-  paste, such as `PLAYGROUND`; and `erteilt_am`, a date rather than a string. Removing the row by its
+  which `fl_backend/.env` names). The row holds five fields: `adresse`,
+  the address in the form the sign-in stores it (`fl_backend/app/shared/folding.py ::
+sign_in_identifier`) — trimmed, the letters of both halves lower-case, the domain in punycode —
+  which the application then reads as typed; `verwaltung`, `owner` or `administration`; `granted_by`, a marker naming the
+  paste, such as `PLAYGROUND`; `granted_at`, a date rather than a string; and `version: 0`, which
+  the tier change takes into its filter, so on a row without it every tier change is refused as stale. Removing the row by its
   folded address revokes it. A paste asks nobody's approval, which is why it serves these two cases
   alone. The statement itself is kept off this public repository.
 - **Paste only into a database a boot of the release carrying `berechtigungen` has reached.** That
-  boot creates the validator and the unique index; a paste before it creates the collection with
-  neither, and a duplicate address in it then fails the next boot's index build (`SRV-BOOT-004`).
+  boot creates the unique index; a paste before it creates the collection without it, and a duplicate address in it then fails the next boot's index build (`db.indexes_failed`).
   Until the paste lands no address holds a grant, so the site admits no administrator; the public
   site is untouched.
 - **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer, the tier change to leave no owner, and the Playground refuses nothing: the boot warns with
-  `SRV-BOOT-005` where no grant is left and `SRV-BOOT-006` where no owner is, and serves the public
+  `berechtigungen.no_grant` where no grant is left and `berechtigungen.no_owner` where no owner is, and serves the public
   site either way. An erasure refuses neither short of the last owner's own, and the same two
   warnings follow its commit; nothing warns where one grant is left.
 - **A barred address is granted nothing, and a granted one is banned by nothing**: lift the ban first, or revoke the grant first. A grant the
   Playground writes onto a barred address is refused by nothing and admits nobody, neither to the
   site nor to the admin tier while the ban stands, and the reconciliation flags it.
 - **Every change is announced, a Playground one naming no administrator**. A Playground change undone again before the next claim is
-  announced by nothing, and deleting a row of `berechtigungen_angekuendigt` or
-  `berechtigungen_postausgang` by hand announces that grant again as new, or silences its notice.
+  announced by nothing, and deleting a row of `berechtigungen_angekuendigt` by hand announces that
+  grant again as new; deleting its owed `outbox` row silences its notice.
   The first also shuts its holder out until the pass finds the grant again, and asks them to sign in
   once more after it.
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
@@ -501,14 +348,13 @@ administration is shut while it is down. Each of these is easy to get wrong:
   address only where its mailbox is trusted as an administrator's.
 - **A Playground grant is dated twice, so whoever it admits signs in once more.** Until the
   reconciliation's next pass (`fl_frontend/src/features/berechtigungen/abgleich.ts ::
-ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `erteilt_am`, or by the moment its
+ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `granted_at`, or by the moment its
   `_id` was generated where that is later — so leave `_id` to the Playground, write `new Date()` for
-  `erteilt_am`, and any sign-in after the paste admits. Once found, it is dated by that moment instead: a session signed in between the paste and the find is sent back to
+  `granted_at`, and any sign-in after the paste admits. Once found, it is dated by that moment instead: a session signed in between the paste and the find is sent back to
   the sign-in, and the next passkey sign-in admits.
 - **A row the pass has read is no fresh paste: edit it and it admits nobody until the pass finds the
   edit**, and then only on a sign-in after the find. That holds for
-  an address changed in place, a spelling the boot named folded to the stored form, and a removed
-  row put back with its `_id`; the pass marks every row it reads `gesehen_am`, so leave that field
+  an address changed in place and a removed row put back with its `_id`; the pass marks every row it reads `gesehen_am`, so leave that field
   as it stands. To hand a grant to another mailbox at once, paste a new row and remove the old one.
 - **A promotion to `owner` written in the Playground holds once the pass finds it, and then on a
   sign-in after the find**: until then its holder is answered as the
@@ -546,8 +392,8 @@ ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `erteilt_am`, or by
 
 **The state announces itself, and the read degrades rather than refusing.** `GET /bewerbungen` serves at most
 `LIST_LIMIT_DEFAULT` rows and reads one row past that to answer whether more exist, so it never counts the
-filtered set (`fl_backend/app/api/bewerbungen/router.py :: get_bewerbungen`). Where more do exist it answers
-`vollstaendig: false` and the triage page raises a standing warning that cannot be dismissed
+filtered set (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen`). Where more do exist it answers
+`complete: false` and the triage page raises a standing warning that cannot be dismissed
 (`fl_frontend/src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.tsx ::
 BewerbungenUnvollstaendigNotice`). Answering short and saying so is the deliberate choice over refusing past a
 threshold: these rows are written by an anonymous public form, so a hard failure would hand whoever writes
@@ -578,7 +424,7 @@ Ansicht bleibt unvollständig` whichever end is loaded. Reversing swaps which ro
 reduce how many are.
 
 **Narrowing by status is offered and buys nothing here.** The server sets `status` on write, so every
-flooded row is `eingereicht` and the queue's own default already selects them; season narrowing is not
+flooded row is `submitted` and the queue's own default already selects them; season narrowing is not
 offered and would not separate a flood either, a submission being admitted only while one season's window
 is open (`fl_backend/app/api/bewerbungen/services.py :: find_window_refusal`). Reaching `saison_id` anyway
 would mean a backend call, and the edge carries exactly one backend path
@@ -586,10 +432,10 @@ would mean a backend call, and the edge carries exactly one backend path
 the backend container. Nothing in this repository wraps that.
 
 **Declining does not shrink the working set.** A decided application stays listed, the record being what the
-decision was taken against (`fl_backend/app/api/bewerbungen/router.py :: get_bewerbungen`), so an operator who declines down the queue and sees the
+decision was taken against (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen`), so an operator who declines down the queue and sees the
 notice unchanged has not found a fault. Removal is not an alternative either: the collection's whole write
-surface is the two decisions (`fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung` and
-`:: ablehnen_bewerbung`) plus the public submission, so a flooded row stays.
+surface is the two decisions (`fl_backend/app/api/bewerbungen/admin_router.py :: accept_bewerbung` and
+`:: decline_bewerbung`) plus the public submission, so a flooded row stays.
 
 **Closing the window is what stops new rows**, and it is the season's own edit rather than anything here. The
 `offen` flag and the span beside it are the season editor's application section
@@ -622,20 +468,21 @@ record, and the action log records the writes you make rather than the request t
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
 One person can hold several — a referee is a pupil, and a contact person can be both.
 
-| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/bereich/admin/spieler/{spieler_id}`, and the squad rows under each season; `/bereich/admin/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour, its minute and, until the season-end strip, its reason (`spielberichte.bericht.torschuetzen.spieler_id`, `spielberichte.bericht.karten.spieler_id`), which no page lists by person and a read-only Playground query on those two fields finds; plus every remark describing them by shirt number (`spielberichte.bericht.bemerkungen`), which their erasure does not reach and which stands until the season-end strip, read in the reports on their team's fixtures of each season they played for it, against their number then                                                                                                                                                                                                                                                                             |
-| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.partei.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds; plus the remarks, until the season-end strip, of every match report they first sent (`spielberichte.bericht.eingereicht_von.schiedsrichter_id`) and of every report on a fixture booked to them (`spiele.schiedsrichter.schiedsrichter_id`), which they may have written over another writer's: a report's page shows it to the referee booked now alone, so a read-only Playground query on those two fields finds them whole                                                                                                                                                                                                                                                                                                |
-| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.entscheidung.von`), which no page renders and a read-only Playground query on that field finds; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address as the actor of every log row they wrote (`aktionen.actor.email`, `/bereich/admin/aktionen`) and as the author of every ban, invite and application decision they made (`sperrliste.erstellt_von`, `einladungen.erstellt_von`, `bewerbungen.entscheidung.von`), and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `erteilt_von` on every grant they made, and each queued notice naming them in `berechtigungen_postausgang`; plus every request for a grant they asked or one is asked for them (`berechtigungen_antraege.genehmigung.gestartet_von`, `berechtigungen_antraege.adresse`), listed under „Offene Anträge“ on `/bereich/admin/administratoren`, and every address change of a grant holder they started or approved (`adresswechsel.genehmigung.gestartet_von`, `adresswechsel.genehmigung.genehmigt_von`), which a read-only Playground query on those fields finds |
-| Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`adresswechsel.email`), found as the holder of a pending new address below, and a request for a grant typed for it (`berechtigungen_antraege.adresse`), listed under „Offene Anträge“                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pupil          | `/bereich/admin/spieler/{spieler_id}`, and the squad rows under each season; `/bereich/admin/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour, its minute and, until the season-end strip, its reason (`spielberichte.bericht.torschuetzen.spieler_id`, `spielberichte.bericht.karten.spieler_id`), which no page lists by person and a read-only Playground query on those two fields finds; plus every remark describing them by shirt number (`spielberichte.bericht.bemerkungen`), which their erasure does not reach and which stands until the season-end strip, read in the reports on their team's fixtures of each season they played for it, against their number then                                                                                                                                                                                                                                                                                                  |
+| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.party.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds; plus the remarks, until the season-end strip, of every match report they first sent (`spielberichte.bericht.submitted_by.schiedsrichter_id`) and of every report on a fixture booked to them (`spiele.schiedsrichter.schiedsrichter_id`), which they may have written over another writer's: a report's page shows it to the referee booked now alone, so a read-only Playground query on those two fields finds them whole                                                                                                                                                                                                                                                                                                                         |
+| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.decision.von`), which no page renders and a read-only Playground query on that field finds; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address as the actor of every log row they wrote (`aktionen.actor.email`, `/bereich/admin/aktionen`) and as the author of every ban, invite and application decision they made (`sperrliste.created_by`, `einladungen.created_by`, `bewerbungen.decision.von`), and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `granted_by` on every grant they made, and each notice naming them still owed in `outbox` (`data.changed_by`, `data.now.adresse`, `data.before.adresse`); plus every request for a grant they asked or one is asked for them (`berechtigungen_antraege.approval.started_by`, `berechtigungen_antraege.adresse`), listed under „Offene Anträge“ on `/bereich/admin/administratoren`, and every address change of a grant holder they started or approved (`adresswechsel.approval.started_by`, `adresswechsel.approval.approved_by`), which a read-only Playground query on those fields finds |
+| Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`adresswechsel.email`), found as the holder of a pending new address below, and a request for a grant typed for it (`berechtigungen_antraege.adresse`), listed under „Offene Anträge“                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 **Whatever the role, a pending change of their address and its owed notices are read apart.** Type
 the address on file into the address tool, `/bereich/admin/adresswechsel`
-(`POST /adresswechsel/ansicht`), the one read serving a live change's new address and reason; the
-editors show only that a change waits. A notice an ended change still owes either address sits in
-`adresswechsel_postausgang` (`bisherige_email`, `email`, and on some rows the first name), which no
-page renders and a read-only Playground query on those two fields finds.
+(`POST /address_change/view`), the one read serving a live change's new address and reason; the
+editors show only that a change waits. A notice an ended change still owes either address sits in `outbox` (`an`, and on some rows
+`data.vorname`), and an effect's owed account carry on the change itself (`adresswechsel.move.von`,
+`adresswechsel.move.nach`); no page renders either, and a read-only Playground query on those fields
+finds them.
 
 **Anybody who has signed in is in the sign-in store too, and no erasure leaves their account
 behind.** A person's first sign-in writes their `user` row and a session in the `auth` database, a
@@ -656,13 +503,13 @@ address as the sign-in box folds it, in lower case
 **A contact person's fixture confirmations are found from their address only through its digest.**
 A seat's answer stores neither the address nor a name: the reason its holder typed
 (`antwort.begruendung`) sits beside a keyed digest of the holder's address (`antwort.von.halter`),
-so compute that address's digest under `secrets/sperrliste_schluessel` — the same derivation
+so compute that address's digest under `secrets/sperrliste_key` — the same derivation
 `fl_backend/app/api/spielbestaetigungen/services.py :: halter_of` performs, label and fold included
 — and look it up against `spielbestaetigungen.antwort.von.halter`, which finds every answer they
 gave from any seat. The paste belongs in the operator's own checklist, as the ban's does (below).
 Their seats' links and the delivery records of the messages that carried them sit under
 `kontakte.<seat>` on their club's rows of each season in which they hold a seat now (`saison_id`,
-`partei.team_id`), read beside that season's contact block, which says whose seat it is: a seat they
+`party.team_id`), read beside that season's contact block, which says whose seat it is: a seat they
 have left took its entries off every row of that team and season, answered and closed ones too. Send the fixture, the answer, its day and the
 reason, and never the digest, the value that identifies them.
 **Once the season's contact block is cleared, its rows keep the answers alone**: the reasons, the
@@ -685,7 +532,7 @@ it as the proof of that consent.
 
 **A ban is the one record no search finds from the address it is about.** The row holds a keyed hash
 and nothing else of the person, so `/bereich/admin/sperrliste` cannot be asked whether a given address is on
-it: the question is answered by computing that address's hash under `secrets/sperrliste_schluessel` — the
+it: the question is answered by computing that address's hash under `secrets/sperrliste_key` — the
 same derivation `fl_backend/app/api/sperrliste/services.py :: adresse_hash` performs, label and fold
 included — and looking the value up against `sperrliste.adresse_hash`. The paste that does it belongs
 in the operator's own checklist and in no file here. What the answer then says is the row's reason,
@@ -709,14 +556,14 @@ seat, registration and grant the address holds, so one sign-in stays whole.
 - **The person can still sign in.** Point them to their account page, `/bereich/konto`, „E-Mail-Adresse
   ändern“. They confirm it is them by passkey or by a code to the address on file, a holder of
   access to the Verwaltung by passkey alone, type the new address, and confirm it from its own
-  mailbox within `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours; the address on
+  mailbox within `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS` hours; the address on
   file is told, with a
   link that stops the change. Never start a change for a
   person who can sign in: a request arriving by mail proves nothing about who sent it.
 - **They say they cannot sign in.** Ask the address on file first: start the change in the address
-  tool with both addresses and no reason (`POST /adresswechsel`). Nothing goes to the new address
+  tool with both addresses and no reason (`POST /address_change`). Nothing goes to the new address
   until the address on file signs in and approves the change on its account page within
-  `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours. Where the mailbox in fact still works, its holder approves or
+  `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS` hours. Where the mailbox in fact still works, its holder approves or
   stops it, so a request sent in somebody else's name reaches the real person; where nobody
   approves, the change lapses and the next bullet applies.
 - **The address on file is gone**: the approval lapsed unanswered, or the school or the provider
@@ -727,37 +574,37 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   on the season row, confirming in writing from their own confirmed address; for a referee, a call
   to the telephone number on their record, or in person at a fixture. Where neither is possible,
   refuse and say why. Record how you checked as the reason, naming nobody and no address: the reason
-  stays twelve months in the log, and the backend refuses a name of the person
-  (`REQ-ADRESSWECHSEL-008`). Start the change in the address tool with it. The new address confirms
-  by link within `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours,
-  and the change takes effect `:: ADRESSWECHSEL_WARTEZEIT_TAGE` days later, judged again then; until
+  stays twelve months in the log, and nothing checks it for a name. Start the change in the address tool
+  with it. The new address confirms
+  by link within `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS` hours,
+  and the change takes effect `:: ADDRESS_CHANGE_WAITING_PERIOD_DAYS` days later, judged again then; until
   then the address on file, should it still be read, stops it by link or on its account page. A stopped change means the mailbox is not gone: talk to the
   person before starting again.
 - **The address holds a grant of access.** The change also waits on another administrator's
   approval on the administrators page, an owner's for an owner's grant, within
-  `fl_backend/app/shared/schemas/bounds.py :: GENEHMIGUNG_TAGE` days of its start;
+  `fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS` days of its start;
   neither the changed address nor whoever started the change gives it. Revoking the grant while a confirmed change waits needs
   no approval after it: the next hourly pass makes the change take effect, the grant moving nowhere. The tool starts a grant holder's change for an owner
-  alone (`REQ-PURGE-005`), and a last owner names another owner before changing their own address. On the effect the grant moves to the new address under the
+  alone (`verwaltung_adresse`), and a last owner names another owner before changing their own address. On the effect the grant moves to the new address under the
   approver, announced to every administrator as a revoke and a grant.
 - **The mailbox has passed to somebody else**, a school account given to a new pupil say. Whoever
   holds the address on file can sign in as the person, stop every change started here and start one
   of their own, and no administrator's route overrides them. The remedy is outside the site: settle
   it with the school or provider that reassigned the mailbox, and with the person through a channel
   the league already holds.
-- **What refuses an administrator's start**: the ban list (`REQ-ADRESSWECHSEL-009`), another pupil
+- **What refuses an administrator's start**: the ban list (`address_change_barred`), another pupil
   signing in on the new address where a pupil row moves, an address
-  holding nothing a change moves (`REQ-ADRESSWECHSEL-010`), and your own address
-  (`REQ-PURGE-003`), which you change on your own account page, and a new address any entry names,
-  confirmed or not (`REQ-ADRESSWECHSEL-018`), which the confirmation would refuse too: where the two
+  holding nothing a change moves (`address_change_nothing`), and your own address
+  (`own_adresse`), which you change on your own account page, and a new address any entry names,
+  confirmed or not (`address_change_occupied`), which the confirmation would refuse too: where the two
   addresses are one person's, the league merges their records by hand.
 - **Re-send** a link only while the change waits on the new mailbox
-  (`POST /adresswechsel/{adresswechsel_id}/einladen`), and **discard** a change that turns out to be
-  wrong (`DELETE /adresswechsel/{adresswechsel_id}`). A change whose step lapses ends within the hour
+  (`POST /address_change/{address_change_id}/invite`), and **discard** a change that turns out to be
+  wrong (`DELETE /address_change/{address_change_id}`). A change whose step lapses ends within the hour
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
 - **Once a change takes effect**, the replaced address is told. Where the person started it or the
   address on file approved it, their sign-in account moves to the new address and every session of
-  it ends, unless the new address holds an account of its own (`FE-AUTH-013` at `WARN`), where the
+  it ends, unless the new address holds an account of its own (`address_change.account_not_moved` at `WARN`), where the
   old account keeps its sessions until the sweep below; after a change started on a recorded reason, or onto such an address, they
   sign in anew, and the account sweep
   deletes the replaced address's account within the hour, its passkeys with it, once nothing else
@@ -778,7 +625,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   no booking to consent for; reactivating them later mints a fresh link and mails it to the
   corrected address.
 - **A contact seat.** Correct it through
-  `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`, which rewrites the
+  `fl_backend/app/api/bewerbungen/admin_router.py :: post_kontakt_email`, which rewrites the
   address and nothing else of the person. It mints the fresh link, voids the old one and restarts the
   confirmation deadline, and where one person holds two seats it corrects both. It refuses a seat its
   person confirmed or answered, and a decided application, and never reaches a season row. A seat
@@ -798,15 +645,15 @@ arriving by mail at the control for its record, which the person reaches by sign
 address that record holds:
 
 - **A referee's publication scope and media consent:**
-  `PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung`.
+  `PATCH /schiedsrichter/account/{schiedsrichter_id}/einwilligung`.
 - **A seat's WhatsApp scope and media consent on a team's season row:**
-  `PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`, for every seat the address holds
+  `PATCH /teams/{team_id}/saisons/{saison_id}/account/einwilligung`, for every seat the address holds
   on that row.
 - **A seat's WhatsApp scope and media consent on a pending application:**
-  `PATCH /bewerbungen/{bewerbung_id}/person/einwilligung`, which withdraws them and never grants
+  `PATCH /bewerbungen/{bewerbung_id}/account/einwilligung`, which withdraws them and never grants
   either.
 - **A pending registration's publication scope and media consent:**
-  `PATCH /registrierungen/selbst/{registrierung_id}/einwilligung`, which withdraws them and grants
+  `PATCH /registrierungen/account/{registrierung_id}/einwilligung`, which withdraws them and grants
   neither. The admission deletes the registration, and its choices then move on the pupil's own
   control above.
 - **A pupil's:** the paragraph below.
@@ -817,10 +664,10 @@ that seat's own link, not by the person's role; a seat on a team's season row is
 
 - **The seat is unanswered and its link still works.** Their own Widerspruch, on the confirmation
   page the link opens, empties the seat at once and tells the submitter so the school can name
-  somebody else (`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung`).
+  somebody else (`fl_backend/app/api/bewerbungen/public_router.py :: post_einwilligung`).
   Send them the link again rather than erasing for them; the record then says the person refused
   rather than that an administrator removed them. **An address the ban list holds takes no second
-  link** (`REQ-BEWERBUNG-019`), and the link it already holds opens on the ban's sentence alone,
+  link** (`bewerbung_kontakt_barred`), and the link it already holds opens on the ban's sentence alone,
   offering no Widerspruch: its withdrawal reaches the league's
   mailbox and is performed by hand, on „Löschung auf Anfrage“ (`/bereich/admin/loeschung`), which erases everything the
   address holds rather than this seat alone. Once the school has named a replacement, seat them
@@ -830,8 +677,8 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   and neither does one half of a claimed pair whose other half has not stepped out: that application
   takes only the Absage.
 - **The seat has already answered, or the link is over.** A seat that has confirmed or already
-  contradicted takes no second answer (`REQ-BEWERBUNG-011`), and a link whose deadline has passed
-  (`REQ-BEWERBUNG-017`) or whose application has been decided (`REQ-BEWERBUNG-010`) takes none either —
+  contradicted takes no second answer (`bewerbung_seat_already_answered`), and a link whose deadline has passed
+  (`bewerbung_token_past_deadline`) or whose application has been decided (`link_expired`) takes none either —
   each is a refusal the person meets on the page, not something to talk them through. The route is „Löschung auf Anfrage“
   like any other.
 - **The application has been decided.** „Löschung auf Anfrage“, as above.
@@ -839,15 +686,14 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   is live, and the Widerspruch empties the seat and mails nobody, an administrator rather than a
   submitter having entered them (`docs/glossary.md :: Bestätigung`). A lost or lapsed link is sent
   again with „Bestätigungslink senden“ on that seat in the team's contacts editor
-  (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`), which replaces the old link
-  whole. It refuses an address the ban list holds (`REQ-KONTAKT-003`) and a row whose season has
-  ended or whose team has left it (`REQ-KONTAKT-005`), though a link
+  (`fl_backend/app/api/teams/admin_router.py :: invite_kontakt`), which replaces the old link
+  whole. It refuses an address the ban list holds (`kontakt_seat_barred`) and a row whose season has
+  ended or whose team has left it (`kontakt_row_without_saison`), though a link
   such a row already holds still takes a Widerspruch. Where no live link is left, or the seat has
   already answered, the route is „Löschung auf Anfrage“.
 
 **A pupil withdrawing the consent that publishes their name does it on their account page.**
-`PATCH /spieler/selbst/einwilligung` moves the record, and no administrator route writes it
-(`fl_backend/app/core/domain.py :: FIELD_POLICIES`). A request arriving
+`PATCH /spieler/account/einwilligung` moves the record, and no administrator route writes it. A request arriving
 by mail instead has two answers, and which one you give is the person's to choose:
 
 - **They want off the website and out of the league.** „Löschung auf Anfrage“ on the address their
@@ -897,7 +743,7 @@ once the person's own address stands on it again**
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)): on a row the person
 has not confirmed, save that address in the referee editor, which on a row still in service mails
 them a confirmation link first, then erase it; a confirmed row's editor refuses the save
-(`REQ-SCHIEDSRICHTER-011`) and the address tool finds no row by an empty address, so rewrite it by
+(`schiedsrichter_adresse_only_per_change`) and the address tool finds no row by an empty address, so rewrite it by
 hand as [section 9](#9-checking-that-the-hourly-passes-have-run) rewrites a pupil's. The page mails
 the person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
@@ -915,7 +761,7 @@ and nothing verifies it: what surfaces is somebody recognising the person or the
 Decline the application and bar the address at `/bereich/admin/sperrliste` with the reason in your own words
 and no person named in it, the row outliving that person's erasure
 ([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up-and-from-the-leagues-mail)). An
-address holding a grant is refused (`REQ-SPERRLISTE-003`) until the grant is revoked
+address holding a grant is refused (`sperrliste_verwaltung`) until the grant is revoked
 ([section 3](#3-granting-or-revoking-admin-access)). **The write
 mails the person itself where the address holds a sign-in account**, naming the reason you typed and
 the last season the ban covers, so there is nothing to send by hand; an address that never signed in
@@ -926,16 +772,16 @@ record holds the address ([`../datenschutz.md`](../datenschutz.md#6-retention-is
 page says so too, every person page refuses the sessions as no session at all, and each is deleted the next time its browser reaches the sign-in
 page. **Every later sign-in of the address
 is refused as its session would be created**, by a code or a passkey alike. **Beyond that the ban refuses the sign-ups that ask it and the
-administration.** A pupil's registration asks it and is refused (`REQ-REGISTRIERUNG-009`), and so do
-an application naming the address on any seat (`REQ-BEWERBUNG-018`), an administrator's correction,
-reseat or re-send of a seat to it (`REQ-BEWERBUNG-019`) and every referee write that mints a link,
+administration.** A pupil's registration asks it and is refused (`registrierung_adresse_barred`), and so do
+an application naming the address on any seat (`bewerbung_adresse_barred`), an administrator's correction,
+reseat or re-send of a seat to it (`bewerbung_kontakt_barred`) and every referee write that mints a link,
 and both sweeps withhold the reminder they would send it, logging per season how many they held
-back and never which; nothing marks the row, so each pass counts it again until its deadline. A grant of the address is refused (`REQ-BERECHTIGUNG-003`), a grant the Playground
+back and never which; nothing marks the row, so each pass counts it again until its deadline. A grant of the address is refused (`grant_barred`), a grant the Playground
 wrote onto it admits nobody, and no admin read shows it as a grant's holder or as the author of a
 grant, a ban, an invitation, a decision or a log row: each reads „Gesperrte Adresse“ there instead. **Every confirmation link
 already mailed to the address stops confirming at once**, however long ago it went out: a pupil's
-(`REQ-REGISTRIERUNG-012`), a referee's (`REQ-SCHIEDSRICHTER-009`) and a contact seat's
-(`REQ-BEWERBUNG-020`) link opens on the ban's sentence alone, with nothing to press, and a press
+(`link_barred`), a referee's (`link_barred`) and a contact seat's
+(`link_barred`) link opens on the ban's sentence alone, with nothing to press, and a press
 already under way is refused. A
 contact person's Widerspruch then reaches the league's address, as the withdrawal bullet above says.
 Nothing of the ban is written on those records, so lifting a mistaken ban lets a link still inside
@@ -958,7 +804,7 @@ it; work through it before the second press, since the dialog closes on the ban.
 
 - a referee: „Spiele der Saison … neu besetzen“, one link for each season holding an unplayed
   fixture they are booked on, opens the fixture search at that season to reassign them, then
-  „Schiedsrichter stilllegen“ retires them, which `REQ-RETIRE-004` holds to that order across every
+  „Schiedsrichter stilllegen“ retires them, which `schiedsrichter_still_assigned` holds to that order across every
   season; a referee retired already is offered „Eintrag ansehen“ instead;
 - a pupil's squad row: „Kadereintrag austragen“ retires it, which takes the pupil off the public
   squad list; a row taken out already is offered „Eintrag ansehen“ instead;
@@ -997,15 +843,14 @@ and not entropy** (`fl_backend/app/core/config.py :: SPERRLISTE_KEY_MIN_LENGTH`)
 repeated letters pass it and are worthless: what makes the value a key is that it came from this
 command and not from a keyboard.
 
-**The ban list's key, `secrets/sperrliste_schluessel`, can never be rotated, and losing it costs the whole list**: replacing it
+**The ban list's key, `secrets/sperrliste_key`, can never be rotated, and losing it costs the whole list**: replacing it
 disarms every ban in silence, the one
 sign being a second ban of an address already on the list admitted rather than refused. It keys the
 action log's pseudonyms of signed-in people too, so a replacement leaves one person's rows under two
 pseudonyms and the older can never be recomputed; the erasure journal's hashes, so every line
 written before a replacement matches no address a restore holds and its erasure cannot be run again
-after the restore (§13); the digests naming who answered a fixture confirmation, so an erasure
-after a replacement finds none of the reasons its person typed before it; and the addresses'
-anchors, which a replacement merely strands until their next expiry pass. Treat it as
+after the restore (§13); and the digests naming who answered a fixture confirmation, so an erasure
+after a replacement finds none of the reasons its person typed before it. Treat it as
 the one backend secret with no recovery: back it up where the database's own access details are
 backed up, and where it is genuinely gone, clear the list and enter the bans again from whatever
 record names the addresses.
@@ -1042,7 +887,7 @@ dashboard rather than here.
 **The durable answer to "what was changed, and by whom" is the action log rather than a container
 log.** Every recorded write appends a row carrying the actor, the route, the collection, the
 operation and the image of what the write replaced or removed
-([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)), read
+([`../glossary.md`](../glossary.md#aktion--action_log_entry--one-recorded-write-and-what-it-replaced-or-removed)), read
 at `/bereich/admin/aktionen`. An erasure overwrites the values it destroys inside each image and
 stamps the row, so what survives it is that the write
 happened and what it held of anybody else.
@@ -1277,262 +1122,183 @@ whatever closed the host's inbound 80 and 443 is opened.
 
 ## 9. Checking that the hourly passes have run
 
-**One call answers it for the retention sweep**, on the system key, from inside the frontend container: the backend publishes
-no port on the host, and the container holds the key, so it never passes through your shell.
+**The heartbeat answers it.** After every hourly pass the scheduler
+(`fl_frontend/src/instrumentation-node.ts :: armScheduler`) pings Better Stack's heartbeat monitor,
+and pings it with `/fail` where a job threw, left owed deletions or erasures, or the drain gave a
+mail up, its output naming each: `konto failed`, `loeschung left 3`, `postausgang gave up 2`. The
+monitor alerts on a failing ping and on a missing one, so an alert names the job whose lines to read
+in the frontend's log, and `scheduler.job_failed` names a job that threw. **A missing ping means no
+pass finished**: the frontend process holds the timer, so the container can be up while the timer
+inside it is not, and a `scheduler.pass_skipped` line in every hour says a pass is stuck. Recreating
+the frontend service arms a fresh timer, and the jobs select on dates, lapses and season statuses
+rather than on the hour that ran them, so the pass that follows does whatever the missed hours owed.
+
+**Each hourly pass that did anything writes one line**, `scheduler.pass`, every job's counts in
+it:
 
 ```bash
-docker compose exec frontend node -e "fetch('http://backend:8000/api/v0/bewerbungen/sweep',{headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim()}}).then(r=>r.text()).then(console.log)"
+docker compose logs --since 2h frontend | grep scheduler.pass
 ```
 
-**`sweep_gelaufen_am` and `registrierung_sweep_gelaufen_am` are the days those two passes last ran,
-and both are today or yesterday on a healthy stack.** A pass that reminds nobody and deletes nothing
-records its day exactly as a busy one does ([`spec.md`](spec.md) §1.1), so the dates are the answer
-and the absence of log lines is not.
+**A half that did not finish says why in the frontend's log.** Each files its own failure line,
+`bewerbung.sweep_failed` and `registrierung.sweep_failed`, naming the season, so the event name is what names the
+half. Every other half and season still runs, and the job then fails, which `scheduler.job_failed` names as
+`bewerbungen` and the heartbeat as `bewerbungen failed`. A pass that ran but passed rows over reaches the heartbeat
+as `bewerbungen left <n>`.
 
-**A stale date says its own pass did not finish, and the frontend's log says why.** One hourly tick
-runs the two halves of each season independently, and each files its own failure line —
-`bewerbung.sweep_failed` and `registrierung.sweep_failed`, both under `FE-SWEEP-001` — so the event name is what names the
-half, and the date alone is not: the application's endpoint stamps its day before the calls that
-follow it, so a throw after that stamp leaves a fresh application date beside a stale registration
-one just as a failed registration call would.
-
-**A row either pass cannot write is passed over and named, and the date still moves.** The
+**A row either pass cannot write is passed over and named, and the pass goes on.** The
 backend's line names the application, the registration or the season row by id, the error's class
-and what locates it, never a person's values: `DB-FAIL-001` is a write the database refused, with
-the properties its validator refused; `SRV-VAL-001` a stored value the answer cannot carry, such as
-a hand-edited deadline or an empty first name, with the fields refused; and `SRV-FAIL-001` any other
+and what locates it, never a person's values: `database_failed` is a write the database refused;
+`stored_data_invalid` a stored value the answer cannot carry, such as
+a hand-edited deadline or an empty first name, with the fields refused; and `unhandled_crash` any other
 failure, with the file, line and function it was raised in. The rest of that clock's rows go, and
-the named one stays due: every later pass names it again until its record is repaired. **An application whose
-announcement stamp is passed over is mailed its deletion notice again each day**, and stands past
-its fourteen days until the stamp lands or its season is `past`. **The confirmation strip clock
+the named one stays due: every later pass names it again until its record is repaired. **An application the fourteen-day clock passes over is owed no notice**: the notice is owed in the erasure's own
+write, so the application stands past its fourteen days, nobody told, until the erasure lands or its season is
+`past`. Every reminder and deletion notice the sweep owes leaves through the Postausgang's drain, whose own lines
+report a mail that did not go. **The confirmation strip clock
 names the season**, as it takes an ended season's fixture confirmations whole: its line says what of
 theirs the season's end could not strip, the contact blocks clear all the same, and every later pass
 tries again.
 
-**A fresh date beside a `bewerbung.sweep_pass` or `registrierung.sweep_pass` warning is a clock
-passing rows over, not a pass that ran clean.** A clock failing on every row still moves its date,
-so this count is the only sign of it. Each pass writes one line for each half, its `fehlgeschlagen`
-summing the rows that half's clocks passed over across every season: `INFO` at zero, and a warning
-under `FE-SWEEP-001` above it. The backend's lines then name each row, as above:
-
-```bash
-docker compose logs --since 2h frontend | grep -E 'bewerbung.sweep_pass|registrierung.sweep_pass'
-```
+**A `bewerbung_failed` or `registrierung_failed` above zero is a clock passing rows
+over, not a pass that ran clean.** A clock failing on every row still finishes its pass, so this
+count, summing the rows that half's clocks passed over across every season, is the only sign of it.
+The backend's lines then name each row, as above.
 
 **A clock owing a message answers what it had done when the deadline stops it taking rows apart;
 every other clock fails the call.** The clocks owing one are the two reminder clocks and the
 registrations' season's end. For them a warning that the database deadline passed, or that it held
 no further attempt, is the call answering every half that committed, and the next pass goes on;
-where the warning names a commit unanswered, under `DB-FAIL-002`, the rows it names may have been
+where the warning names a commit unanswered, under `unknown_outcome`, the rows it names may have been
 written with nobody told, and a later pass meets again only those it did not write. Any other clock
-the deadline stops there fails its call with the date left stale, as a failure the dates above
-report.
+the deadline stops there fails its call, as the failure lines above report.
 
-**The half after the seasons stamps no day, so its own line is the record.** Every pass ends by
-ending the address changes whose step lapsed and making the due ones take effect, then draining the
-outbox those ends wrote: each replaced address gets its completion notice and the new address of a
-confirmed change refused at its due time or lapsed unapproved a notice naming nobody. It writes one line per pass holding its
-counts and no person, `adresswechsel.sweep_pass`, at `INFO` where the pass left no row due, which a
-`LOG_LEVEL` above `INFO` drops, and as a warning where it left rows due; a half that threw files
-`adresswechsel.sweep_failed` under `FE-SWEEP-001` besides.
+**The half after the seasons stamps no day, so its counts are the record.** Every pass ends by
+ending the address changes whose step lapsed and making the due ones take effect, each end owing its
+notice to the Postausgang: each replaced address gets its completion notice and the new address of a
+confirmed change refused at its due time or lapsed unapproved a notice naming nobody. The pass ends
+by carrying each sign-in account an effect still owes
+(`fl_frontend/src/features/adresswechsel/umzug.ts :: runAdresswechselUmzuege`). Its counts and no person
+are the pass line's `address_change_` ones, `address_change_remaining` the rows it left due. A half that threw fails the applications' job once the seasons have run, which
+`scheduler.job_failed` names as `bewerbungen`.
 
-**A notice the drain could not send stays owed, and goes out again at a later drain** — behind the
-next confirmation or approval, or after the next pass — once its lease
-(`fl_backend/app/api/berechtigungen/services.py :: BEANSPRUCHUNG_DAUER`) lapses. A drain that failed
-files `FE-SWEEP-005`; a refused send `FE-MAIL-002`; a sign-in account the store failed to carry
-`FE-AUTH-013`, at `ERROR`, and its completion notice waits for the carry. After the hand-outs
-`:: VERSUCHE_HOECHSTENS` allows, the notice is given up under `FE-MAIL-016`, the account left at the
-replaced address, and nobody can be named afterwards, so repair the refusal while those lines stand:
+**A notice the drain could not send stays owed in the Postausgang**, which retries it as it retries
+every owed mail, and a notice it gives up is counted on the pass's line and reported to
+the heartbeat. **An account's carry the pass could not
+make stays owed on the change**, and the account sweep keeps the replaced address's account until it
+is made: the next pass, or the next confirmation, tries it again, and a pass whose carry threw
+rejects, for the heartbeat to name. A carry the new address refused files
+`address_change.account_not_moved`:
 
 ```bash
-docker compose logs --since 2h frontend | grep -E 'adresswechsel\.(postausgang_failed|stempel_failed|notice_abandoned|wirksam_failed|nicht_wirksam_failed|konto_nicht_umgezogen)'
+docker compose logs --since 2h frontend | grep -E 'address_change\.account_not_moved|scheduler\.job_failed'
 ```
 
-A `konto_nicht_umgezogen` line at `WARN` needs no repair: reading `grund: "belegt"`, the new address
+A `account_not_moved` line at `WARN` needs no repair: reading `grund: "belegt"`, the new address
 held an account of its own, and the person signs in there anew.
 
-**The pupils' deletion runs on a timer of its own wherever `LOESCHUNG_SWEEP` reads `on`**, a
-minute after the frontend starts and then hourly, whatever `BEWERBUNG_SWEEP` reads
-(`fl_frontend/src/features/saisons/sweep.ts :: armLoeschungSweep`). It stamps no day either: each
+**The pupils' deletion runs on every pass**
+(`fl_frontend/src/features/saisons/sweep.ts :: runLoeschungSweep`). It stamps no day either: each
 pass deletes the pupils the season-after rule makes due, drops the squad cache after its last call,
-and writes one `loeschung.sweep_pass` line, at `INFO` where it left no pupil due and as a warning
-where it left pupils it failed or passed over; a pass whose call threw files `loeschung.sweep_failed`
-under `FE-SWEEP-001` besides. A `loeschung.sweep_skipped` line says a tick found the previous pass
-still running, and one in every hour says that pass is stuck, which recreating the frontend service
-ends:
-
-```bash
-docker compose logs --since 2h frontend | grep loeschung.sweep_
-```
+and counts on the pass's line what it erased and the pupils it failed or passed over; a pass whose
+call threw fails the job, its counts on that line all the same, which `scheduler.job_failed` names
+as `loeschung`.
 
 **Activating a season runs the same deletion first, inside the press, but only as far as the
 press's own deadline reaches** (`fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS`): the
 press sends no deletion call it could not wait out to its answer. Wherever more pupils are due than
-that, the run stops there: the press files the warning `loeschung.umstellung_cut_short`, which
+that, the run stops there: the press files the warning `erasure.activation_cut_short`, which
 needs nothing from you, and its message tells the administrator the hourly pass finishes the rest.
-`loeschung.umstellung_failed`, an error under `FE-SWEEP-001`, is a call that failed rather than ran
+`erasure.activation_failed`, an error, is a call that failed rather than ran
 out of time. The caches the press drops as it answers hold none of the pupils it deleted. **A call
 can still be deleting once the press has answered only where it outlasted the backend's own deadline
 and the margin the press allows past it**, and a pupil such a call deletes stays on a cached squad
-page until the next hourly pass, which drops that cache after its own deletion whatever it deleted. **A drop that failed is the
-error `cache.revalidation_failed` under `FE-CACHE-001`**, naming the status the route answered or
-the error's name: the next pass drops it again, and
-[section 20](#20-after-a-hand-edit-in-mongodb)'s call drops it at once.
+page for at most the lifetime [section 20](#20-after-a-hand-edit-in-mongodb) states.
 
-**A pupil counted `fehlgeschlagen` stays due, and every later pass meets them again.** The
+**A pupil counted `failed` stays due, and every later pass meets them again.** The
 backend's line names that pupil's id, the error's class and what locates it, never an address:
-under `DB-FAIL-001` the properties a validator refused the erasure's write on, under `SRV-VAL-001`
-the fields a model refused, and under `SRV-FAIL-001` the file, line and function a failure the
+under `database_failed` the write the database refused, under `stored_data_invalid`
+the fields a model refused, and under `unhandled_crash` the file, line and function a failure the
 database did not raise came from. Find the record it points to and repair it, and the pass after
 deletes the pupil. A warning saying the database deadline
 passed at a pupil or at an address change is the call stopping in time rather than a refusal: the
 pass goes on from the next call, and it needs nothing from you. Where it adds that the erasure, the
-removal or the effect went unanswered, under `DB-FAIL-002`, that one's outcome is unknown: one that
+removal or the effect went unanswered, under `unknown_outcome`, that one's outcome is unknown: one that
 did not commit is judged afresh by the next pass, and an effect or a refusal that did is told by
 the outbox's drain, its notice queued in the same transaction.
 
-**A `SRV-VAL-001` warning naming pupils left out of the deletion is a stored address no request
+**A `stored_data_invalid` warning naming pupils left out of the deletion is a stored address no request
 matches** — empty, not in the form sign-in folds it to, or refused by the address rule, which only
 a hand edit of the record leaves.
 The run passes those pupils over on every pass until their address is stored in that form. **No
 route repairs one**: the address tool and the account page find a pupil by the folded address alone
-(`fl_backend/app/api/spieler/services.py :: build_selbst_pupil_filter`), so a change started for it
-finds nothing to move (`REQ-ADRESSWECHSEL-010`), and the tool takes no address the rule refuses.
+(`fl_backend/app/api/spieler/services.py :: build_self_pupil_filter`), so a change started for it
+finds nothing to move (`address_change_nothing`), and the tool takes no address the rule refuses.
 Rewrite it by hand as a MongoDB Playground paste kept in the operator's checklist (§2): a spelling
 that differs from its fold only in case, surrounding spaces or the domain's form to that fold, and
 an empty one or one the rule refuses to the folded address the person is established to hold, as
 [section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it) establishes a lost
 mailbox's.
 
-**Null means no pass of that kind has ever run against this database**, which on production is one
-of the ways [`spec.md`](spec.md) §1.1 lists: `BEWERBUNG_SWEEP` off,
-`fl_frontend/src/instrumentation-node.ts :: registerOnNode` not reached, or a build that is not a production
-one. `BEWERBUNG_SWEEP` arms the whole pass, so two nulls point at the frontend container's
-environment and its startup rather than at the backend. `LOESCHUNG_SWEEP` holds the pupils'
-deletion alone, its hourly timer and the activation press both, and `BEWERBUNG_SWEEP` reaches
-neither.
-
-**Two promises rest on `BEWERBUNG_SWEEP`**, both the address-change half's to keep
+**Two promises rest on the retention sweep's pass**
 (`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepAdresswechsel`): the privacy notice's word
 that a change whose step lapsed ends „innerhalb einer Stunde“, and the word, in the notice and in
 both mails the change sends (`fl_frontend/src/core/adresswechselEmail.ts`), that a change an
-administrator started with a reason takes effect its waiting time after its confirmation. While `BEWERBUNG_SWEEP` is off neither is kept: a lapsed change keeps
-its new address and its reason, and a change past its waiting time takes effect only where an
-approval it still owed is pressed after it. **The activation press's message that the next hourly pass deletes what it left („Was noch
-aussteht, löscht der nächste stündliche Durchlauf“) rests on `LOESCHUNG_SWEEP` alone**: the switch
-the press deletes under arms that pass, and with it the squad cache's drop after it.
+administrator started with a reason takes effect its waiting time after its confirmation. While no
+pass runs neither is kept: a lapsed change keeps its new address and its reason, and a change past
+its waiting time takes effect only where an approval it still owed is pressed after it. **The
+activation press's message that the next hourly pass deletes what it left („Was noch aussteht,
+löscht der nächste stündliche Durchlauf“) rests on the pupils' deletion running every pass**, and
+with it the squad cache's drop after it.
 
-**A date more than a day old means the timer stopped**: the frontend process holds it
-, so the container is up and the timer inside it is not. Recreating the
-frontend service arms a fresh one, and the clocks select on dates and season statuses rather than
-on the hour that ran them, so the pass that follows does whatever the missed days owed.
+**Read the season page's count before pressing the rollover.** Beside the press it says at most
+how many pupils activating the season deletes, and which season it closes. It is a bound because it
+counts the pupils the run passes over too (`stored_data_invalid` above). A figure naming more people than
+the league lost is the signal to hold the press and ask why, and a line saying the count is not
+available is a read that failed: reload the page until it gives a figure.
 
-**Turn the pupils' deletion on only after reading the season page's count.** `LOESCHUNG_SWEEP`
-ships off, so neither an activation nor a pass deletes a pupil until you set it.
+**The fixture confirmations run on every pass**
+(`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`).
 
-1. Open the planned season's page and read the count beside its rollover press: at most how many
-   pupils activating it would delete, and which season it closes. It is a bound because it counts
-   the pupils the run passes over too (`SRV-VAL-001` above). A figure naming more people than the
-   league lost is the signal to leave the switch off and ask why, and a line saying the count is not
-   available is a read that failed: reload the page until it gives a figure.
-2. Add `LOESCHUNG_SWEEP=on` to the server's `fl_frontend/.env` and deploy (§1). The frontend reads
-   it once as it boots, arming the hourly deletion, and the season page then says the press will
-   delete them.
-
-**Switching it off is that line set to `off`, and a deploy**: until the frontend has booted on it, a
-pass or a press can still delete.
-
-**The fixture confirmations run on a timer of their own wherever `SPIEL_SWEEP` reads `on`**, a
-minute after the frontend starts and then hourly, whatever any other switch reads
-(`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: armSpielSweep`). One call answers
-whether they ran, as the retention sweep's does:
-
-```bash
-docker compose exec frontend node -e "fetch('http://backend:8000/api/v0/spielbestaetigungen/sweep',{headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim()}}).then(r=>r.text()).then(console.log)"
-```
-
-**`spiel_sweep_gelaufen_am` is the day the last pass ran**, today or yesterday on a healthy stack
-with the switch on, and null where none ever has. Each pass that could list the seasons writes one
-`spielbestaetigung.sweep_pass` line counting the rows it closed, the first requests and Einteilungen
-it stamped as asked, the reminders the backend stamped for it to mail, whether or not each then
-went, the notices it stamped out, told or given up, the notices given up and the rows it passed over, at `INFO`,
-and as a warning under `FE-SWEEP-004` where it passed rows over or gave a notice up. A notice of a
-move, a referee taken off or a call-off is answered on every pass until its stamp lands, and given
-up after the attempts `fl_backend/app/api/spielbestaetigungen/services.py :: MITTEILUNG_VERSUCHE_HOECHSTENS`
-allows or once its day has passed, a move's once both the slot it left and the fixture's new one have.
-Each notice given up writes a `spielbestaetigung.mitteilung_aufgegeben` warning naming its
-`spiel_id` and its `partei`, a club's contacts or the referee nobody told: open that fixture's
-confirmations panel in the match editor and tell them by hand. The line is written before the
-notice's stamp, so it repeats every hour until a stamp lands. A season it could not sweep files `spielbestaetigung.sweep_failed` besides, and a listing
-that failed files that line and no pass line, its cache drop still running and filing
-`cache.revalidation_failed` where that fails. A request or an Einteilung whose stamp never landed
-is asked again on every pass until one does or the row stops taking an answer (a club's after its
-deadline, a referee's after the fixture's day), each address whose last
-mail the provider refused passed over, so a stamp call failing hour after hour mails those seats
-and referees hourly: switch the confirmations off until it is repaired. Every link such a mail
-carried stays live until the deadline beside the later ones. A `spielbestaetigung.sweep_skipped` line in every hour says a pass is stuck, which
-recreating the frontend service ends:
+**Each pass that could list the seasons counts on the pass's line**, the record of what it did:
+the rows it closed, the rows it asked and reminded, the mails it owed and the rows it passed over. Every mail
+it owes, a request, a reminder, an Einteilung or the notice of a move, a referee taken off or a
+call-off, is a Postausgang row written in the transaction that writes its confirmation row, so a
+row reads as asked exactly where its mail is owed; the drain after the pass sends them and retries
+each, and a mail it gives up is counted on the pass's line and reported to the
+heartbeat. A notice about a day gone by is owed nobody. A listing or a season's pass that fails
+ends the job, which the scheduler logs and the heartbeat reports; the next pass repeats nothing
+that committed. Every link a mail carried stays live until the deadline beside the later ones:
 
 ```bash
 docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_
 ```
 
-**Turn the confirmations on once, on a day you choose, in the same edit as the report form's switch
-below: the first armed passes are a burst.**
-`SPIEL_SWEEP` ships off, so a deploy mails no team. Armed, the passes ask about every dated fixture
-of the running season inside the answer window
-(`fl_backend/app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE` plus
-`:: SPIEL_ANFRAGE_VORLAUF_TAGE` days ahead), every mailbox of both clubs' seats and each booked
+**The first passes to meet a running season's unasked fixtures are a burst**: they ask about every
+dated fixture of the running season inside the answer window
+(`fl_backend/app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_FRIST_DAYS` plus
+`:: SPIEL_REQUEST_LEAD_TIME_DAYS` days ahead), every mailbox of both clubs' seats and each booked
 referee, spread over as many hourly passes as the per-pass share needs, and a fixture inside the
 deadline's own days is due the day it is asked.
 
-1. Add `SPIEL_SWEEP=on` and `SPIELBERICHT_EINGABE=on` to the server's `fl_frontend/.env` and
-   deploy (§1). The frontend reads both once as it boots.
-2. The next day, read `spiel_sweep_gelaufen_am` with the call above, and the pass lines.
+**The account sweep stores no date, so its counts on the pass's line are the answer**
+([`spec.md`](spec.md) §1.1): the accounts answered unreferenced, deleted, already gone, and those a
+failure left for the next pass, never naming an address. A pass whose sign-in store could not be
+listed rejects, which `scheduler.job_failed`
+names as `konto` and the heartbeat as `konto failed`. Every other failure inside a pass is a line of
+its own, and the next pass asks again.
 
-**Switching it off is that line set to `off`, and a deploy**, and it stops every season's fixture
-mail at once, the lever for an outage or a fault at the mail provider: until the frontend has booted
-on it, a pass can still mail.
-
-**The referee's report form opens on `SPIELBERICHT_EINGABE=on`, added to `fl_frontend/.env` in the
-same edit as `SPIEL_SWEEP=on`.** It ships off: until the frontend has booted on it, the form shows a closed state and both
-the referee's save and the administrator's refuse before any request leaves. Off again is that line
-set to `off` and a deploy; it stops no mail, which is `SPIEL_SWEEP`'s alone.
-
-**The account sweep stores no date, so its own line in the frontend's log is the answer**
-([`spec.md`](spec.md) §1.1). Every pass that completes writes one `konto.sweep_completed` line,
-counting the accounts it listed, those answered unreferenced, deleted, already gone, and those a
-failure left for the next pass, never naming an address:
-
-```bash
-docker compose logs --since 2h frontend | grep konto.sweep_
-```
-
-**`KONTO_SWEEP=off` in the server's `fl_frontend/.env`, and a deploy (§1), stop it**: the frontend
-reads the switch once as it boots, and it ships `on`, so the sweep runs wherever the file sets none.
-
-**No `konto.sweep_completed` line in two hours means no pass completed, or the line went
-unwritten.** A `LOG_LEVEL` above `INFO` drops it where no failure left an account for the next
-pass, the line then being `INFO`, while a pass leaving one warns; otherwise `KONTO_SWEEP` is
-off, the build is not a production one, or the timer stopped, which recreating the frontend service
-re-arms. A `konto.sweep_failed` line says the sign-in store could not be listed. A
-`konto.sweep_skipped` line says a tick found the previous pass still running, and one in every hour
-says that pass is stuck, which recreating the service ends too. Every failure inside a pass is an
-`FE-SWEEP-003` line, and the next pass
-asks again.
-
-**A `konto.referenzen_failed` line carrying `REQ-REFERENZEN-001` means the backend reads no live
-`owner` grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass still writes its
-`konto.sweep_completed` line, its `fehlgeschlagen` equal to its `gelistet`, so a completion line
-alone does not say the sweep works. Either the backend reads another database than the league's,
+**An `account.references_failed` line carrying `no_owner` means the backend reads no live
+`owner` grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass still counts, its
+`fehlgeschlagen` every account the store listed, so a pass's line alone does not say the sweep works. Either the backend reads another database than the league's,
 which `DB_BASE_NAME` in `fl_backend/.env` names, or the `owner` grant is gone; the backend's boot warns
-`SRV-BOOT-005` or `SRV-BOOT-006` in both cases. Repair the setting, or write the `owner` grant as
+`berechtigungen.no_grant` or `berechtigungen.no_owner` in both cases. Repair the setting, or write the `owner` grant as
 [section 3](#3-granting-or-revoking-admin-access) says.
 
 **The erasure journal's export answers in its unit's status and its file names** (§7): the status
 says when the last pass ran and how it ended, and every pass writes a file for each day of the last
 thirty that the backend's logs hold a line of, an empty one where no erasure fell. The backend logs
-every request at `INFO`, its own health probe's among them, so at the default `LOG_LEVEL_APP` every
+every request at `INFO`, its own health probe's among them, so every
 day it ran has a file, today's from that day's first pass, and a day missing among them is one no
 pass read while the stream or a deploy copy still held it:
 
@@ -1582,10 +1348,10 @@ question.
 
 ## 11. A contact seat's birthdate that no confirmation stamped
 
-**The state is a seat holding a date beside no `bestaetigt_am`**, and nothing in the product clears
+**The state is a seat holding a date beside no `confirmed_at`**, and nothing in the product clears
 one: the date arrives with a person's own confirmation and rides with their address through every
 later edit (`fl_backend/app/api/teams/services.py :: _geburtsdatum_held_by`), so no save reaches it,
-and no validator expresses the pairing either, so `--check` reports nothing about it.
+and no record model expresses the pairing either, so the read-back (§2) reports nothing about it.
 
 **It sits on TWO collections, three seats each, and clearing one leaves the other.** One pair of
 declarations builds the block on a `saison_teams` row and on the `bewerbungen` document the people
@@ -1596,17 +1362,17 @@ paste against the cluster, as every migration here is** (§2), the backend image
 database shell. Four things decide whether the one pasted is right:
 
 - **Count before clearing, per seat and per collection, on the term the clear will use** — a date
-  that is not null beside a `bestaetigt_am` that is null — and read the number of documents each
+  that is not null beside a `confirmed_at` that is null — and read the number of documents each
   update reports as modified against its count.
 - **The `null` half matches the stored null every unconfirmed seat holds**, the key being
-  required (`fl_backend/app/core/constraints.py :: _KONTAKT_KENNTNISNAHME`), and the `$ne: null`
+  required (`fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme`), and the `$ne: null`
   half a stored value alone, so an empty seat and an already-clear one match neither.
 - **Null rather than `$unset`**, which is the shape every write path stores and every read answers
   as none (`fl_backend/app/api/bewerbungen/services.py :: compose_kontakte`).
 - **One update per seat, each carrying its own seat's term**, for the reason §2's rename gives: a
   dotted path cannot traverse a null, and a document the term matched necessarily holds that seat.
 
-Then `--check` again.
+Then the read-back (§2): exit 0.
 
 ## 13. After a restore from a snapshot
 
@@ -1622,47 +1388,26 @@ own, which stands as its person made it.
 **Never restore a snapshot taken before 2026-10-28 08:25 (Europe/Berlin)**, the moment by which
 every pupil and referee row had been deleted and the action log emptied. It brings back those rows
 and that log, holding addresses nobody asked to keep, and records citing consent labels the
-registry does not hold, which §2's `--check` never reads. The rule lapses once the hosting holds no
+registry does not hold, which §2's read-back passes, a record model taking any label. The rule lapses once the hosting holds no
 snapshot taken before that moment, its snapshot window being about eight days
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); delete it then.
 
-**Before restoring, switch `LOESCHUNG_SWEEP` off (§9), and switch it on again only once every step
-below is done:** until then nothing may call `POST /identitaet/loeschung/lauf`. The run deletes each
-pupil the season-after rule makes due under the restored state, a returning pupil whose admission
-the snapshot predates among them, and nothing brings one back. Re-enter the squad rows and
-registrations written since the snapshot, and activate again a season whose activation it predates,
-the switch still off. Its deletions are re-derived rather than replayed: it journals none, so the steps below never list them.
+**Before restoring, start the frontend held: add `RESTORE_HOLD=on` to the server's
+`fl_frontend/.env` and deploy (§1), and take the line out again only at the last step below.** The
+steps below are done on the admin pages, so the frontend runs throughout, and every hourly pass
+would act on the restored state before they are done. The pupils' deletion would delete each pupil
+the season-after rule makes due under it, a returning pupil whose squad row the snapshot predates
+among them, and nothing brings one back. The fixture confirmations would mail seat holders and
+referees whose erasure has not run again, and the retention sweep would remind the seats of erased
+people. The drain would send what the snapshot held unsent. Held, the frontend reads the line once
+as it boots: it arms no pass, logging `scheduler.held`, and no write's drain sends, each mail it owes
+waiting in the Postausgang for the first drain after the hold. So, while it holds:
 
-**Before restoring, switch `SPIEL_SWEEP` off as well (§9), and on again only once every step below
-is done:** the restore brings back every seat holder and referee erased since the snapshot, still
-seated or booked and holding their address, and a pass before their erasure runs again below mails
-them a request or a booking.
-
-**Switched on again, it asks once more about what the window asked**, the restore having taken back
-every confirmation row minted and every answer given since the snapshot:
-
-- **A request mailed inside the window** names a row that is gone, so its link answers nothing; the
-  first pass mints the fixture again and mails a fresh request.
-- **An answer given inside the window** is gone, and the fixture reads unconfirmed again. The link
-  of a first request mailed before the snapshot answers again; a reminder's mailed inside the
-  window does not.
-- **A referee's answer given inside the window** is gone with their row. Their decline also took
-  them off the fixture, so the restore books them onto it again with no row, and the first pass
-  mails them a fresh Einteilung; until they agree again the fixture names no referee.
-
-Write to each club mailed inside the window, which the mail provider's list of sent messages names
-by subject, that a link from those days answers nothing and an answer given then is to be given
-again. Write to each referee booked onto a fixture still to come, at the address their record
-holds, that an answer given on their panel in those days is to be given again there, a decline
-included: no record the restore keeps says which of them answered.
-
-**A match report sent or corrected inside the window is gone, and nothing tells its referee**: the
-fixture reads as the snapshot left it, open on the referee's panel where no report stood then. No
-record names whose report went, the log being rolled back too, and a report can be sent or
-corrected on any day from the match day until its season ends, so write to the referees booked on
-every fixture played by the restore day in a season the restore leaves running, which the fixture
-list names, to look at their panel and enter again what it lacks; an administrator's correction
-made inside the window is gone too.
+- **The heartbeat alerts**, no pass pinging it (§9). That alert is expected until the last step.
+- **No sign-in code is mailed.** Sign in by passkey, which every administrator holds and which the
+  owner's steps below ask for anyway.
+- **A season's activation still deletes**: its press runs the pupils' deletion itself, which is why
+  it comes last.
 
 **The action log cannot be the list, because the restore rolls it back too; the erasure journal is.**
 Everything written between the snapshot and the restore is gone, the log's own rows about it
@@ -1688,24 +1433,6 @@ count; the day files cannot say it, since a pass rewrites one only where it foun
 hourly passes keep the stamp's mtime inside §7's age bound, so only thirty days with no pass reading
 the stream remove it, and the replay refuses then as well.
 
-**`python -m app.core.constraints --check` BEFORE anything else** (§2). A snapshot taken before a
-constraint landed restores rows the current validators reject, and the validators are attached strict,
-so such a row refuses any erasure or replay below that writes over it rather than removing it.
-Its privileges must read `ok` for `listCollections` too: the replay reads every stored validator
-through it, and without it judges no line, exiting 2 on a database it cannot read.
-
-**Then, once `--check` is clean, attach this build's constraints again**, from the checkout:
-
-```bash
-docker compose -f docker-compose.yml exec -T backend python -m app.core.constraints --apply
-```
-
-A restore can bring back the snapshot's validators with its data, older than the build that writes
-below: one refuses a replay's write, as the log's did before it admitted the pseudonym replay's row,
-and another admits a row this build refuses. The replay judges no line, exiting 2 and naming the
-collections, until every validator is this build's
-(`fl_backend/app/api/identitaet/wiederherstellung.py :: stale_validators`).
-
 **Then list what the lines ask for, giving both moments written down above, each with its offset:**
 
 ```bash
@@ -1722,9 +1449,9 @@ the export wrote no file for. Each line is listed by its act and its record, nev
 - **An erasure** is followed by every collection, document and field holding its address, or by
   "held nowhere". Every stored spelling is matched, folded as the sign-in folds it. The `auth`
   database is not read, an account whose
-  address no league record holds going with the account sweep within the hour (§5). Held nowhere,
-  the address leaves its pseudonym and its holder digest: where the pseudonym still marks log rows or
-  day counts, or the digest still finds a confirmation or a log image holding a reason of theirs,
+  address no league record holds going with the account sweep's first pass after the hold (§5). Held nowhere,
+  the address leaves its pseudonym and its holder digest: where the pseudonym still marks log rows,
+  or the digest still finds a confirmation or a log image holding a reason of theirs,
   which a restore brings back with the snapshot, the listing says how many, with the log rows' ids,
   and reads `to replay`; a line naming
   neither a pseudonym nor a holder digest reads `nothing to run`.
@@ -1743,16 +1470,16 @@ has run` where the same person's erasure, held nowhere, is in the same listing.
 It exits 0 once nothing is left; 1 while an erasure is to run, a line to replay, a record to review,
 a replay that failed or a line it could not read is left, each counted on its closing `Left:` line;
 2 where it judged no line, a moment refused, the container's settings or the restored database
-unreadable, naming files and never a value, or a validator not this build's; and 3 or more where it crashed, a 1 ending without that
+unreadable, naming files and never a value; and 3 or more where it crashed, a 1 ending without that
 `Left:` line among them, as Compose answers for a backend that is not running.
 
 **Then replay them: the same command with `--apply`.** Each line standing to be replayed is judged
 again in a transaction of its own. A choice is written as its person's own press wrote it, the same
 update and the same log redaction, its evidence stamped with the instant on its line, the moment the
 person acted and never the replay's.
-An erasure held nowhere has its pseudonym's log rows marked, its day counts erased and every reason
+An erasure held nowhere has its pseudonym's log rows marked and every reason
 its holder digest finds nulled with the digest, on the rows and in the log's images, as the erasure
-did; the log keeps one row under „Pseudonyme“ for the marks and the counts. The action log records each under
+did; the log keeps one row under „Pseudonyme“ for the marks. The action log records each under
 the system, its call reading `REPLAY` and the line's act, record and journalling instant, never its
 person nor the journal's token, and a second run writes nothing. **An end that told somebody
 queues its notice again**: a request's refusal or its end by an address change tells its requester,
@@ -1771,15 +1498,15 @@ review`, the restored database holding no change to move: ask the person to star
   sign-in store comes back with the cluster** (the last bullet below), so the account and its
   passkeys stand at the replaced address again beside the records: the person signs in there to
   start again, and the new change's effect moves the account with the records, as a replayed one does,
-  unless the new address holds records or an account of its own ( `FE-AUTH-013`). A
+  unless the new address holds records or an account of its own (`address_change.account_not_moved`). A
   grant holder's effect whose approval came after the snapshot also reads `left for review`: the
   restored change waits on an approval again, and where its week is past an approval is refused
-  (`REQ-ADRESSWECHSEL-003`), so discard it and have the person start again. A change started,
+  (`link_expired`), so discard it and have the person start again. A change started,
   confirmed or approved inside the window and not yet in effect is in no journal: its person starts
   it again too.
 - **An address an administrator corrected inside the window**: a referee's who had not confirmed,
   retired or not, in the referee editor, or a contact seat's through
-  `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`. No line records an
+  `fl_backend/app/api/bewerbungen/admin_router.py :: post_kontakt_email`. No line records an
   administrator's correction, so the tool cannot list these either: the restored record holds the
   replaced address again, and the link the correction voided, which the mailbox it went to can
   answer again until its deadline. The mail thread that asked for each correction is its record:
@@ -1819,10 +1546,14 @@ guard reads something the restore took away:
 - **Anybody who had signed in, whatever their role.** The `auth` database is on the same cluster
   , so a restore of the cluster brings back their `user`, `session`,
   `account` and `passkey` rows with everything else. Once the erasure above has run again, the
-  account sweep deletes each within the hour, a barred address's included (section 5).
+  account sweep's first pass after the hold deletes each, a barred address's included (section 5).
 
 **The log's redactions came back as well**, so re-running each erasure is also what redoes the
 redactions it had stamped.
+
+**Then re-enter the squad rows and registrations written since the snapshot**, from the clubs'
+mail threads: the pupils' deletion runs on the state the last steps leave, so a returning pupil
+whose row is back by then is no longer due.
 
 **Then re-run every grant and ban change made inside the window**, which the restore undid as it
 undid the erasures, and which nothing re-runs:
@@ -1830,41 +1561,75 @@ undid the erasures, and which nothing re-runs:
 - **A grant revoked, or a tier changed, after the snapshot is back as it was.** The grant and its
   announced row return together, so the reconciliation mails nobody, and the grant admits its
   holder again; an erased administrator's goes with their erasure above. Revoke any other again with
-  `DELETE /berechtigungen/{berechtigung_id}`, or repeat the tier change
+  `DELETE /grants/{grant_id}`, or repeat the tier change
   ([section 3](#3-granting-or-revoking-admin-access)). A grant made after the snapshot is gone and
   is made again. The record of each is the mail every change sent every administrator.
 - **A request refused, withdrawn or ended by a change of its address inside the window replays from its line** and is removed again. One approved inside the window is back as a request beside the
   grant the restore took: approve it again, or refuse it. One asked inside the window is gone and is
   asked again.
 - **A ban entered after the snapshot is gone, and one lifted after it is back.** Enter each again
-  at `/bereich/admin/sperrliste`, which mails the person again, and lift the others there; the mail
-  thread that asked for each is the record, the log having rolled back with it.
-
-**One consequence more.** The retention sweep repairs itself, its clocks being stored dates — but a
-deletion notice already sent whose stamp the restore took back is sent a second time, that sweep
-mailing before it erases.
+  at `/bereich/admin/sperrliste`, which owes the person its notice again, sent once the hold is
+  lifted, and lift the others there; the mail thread that asked for each is the record, the log
+  having rolled back with it.
 
 **Then list once more**: nothing may be left but the records for review you settled by hand,
 and with none of those it exits 0.
 
-**Last, once every step above is done, run [section 20](#20-after-a-hand-edit-in-mongodb)'s call.** A
-restore drops no cache tag, so the public pages go on serving what they cached before it, the people
-erased again and the publication consents withdrawn again above among them, until each entry
-expires. A drop made before the erasures and the replay refills the caches from the rows they are
-about to take.
+**Then activate again each season whose activation the snapshot predates**, last of all: its press
+runs the pupils' deletion over the state the steps above re-entered. Its deletions are re-derived
+rather than replayed: it journals none, so no listing names them.
+
+**Last, restart without the hold: take `RESTORE_HOLD=on` out of the server's `fl_frontend/.env`
+and deploy (§1).** The first pass runs a minute after the boot and pings the heartbeat, and the
+drain sends what waited, so these follow:
+
+- **The Postausgang came back with the snapshot**, so every mail open in it then goes out with the
+  first drain, a second time where the lost window had sent it already, beside the mails the steps
+  above owed.
+- **The retention sweep repairs itself**, its clocks being stored dates, but a deletion notice
+  already sent whose stamp the restore took back is sent a second time, that sweep mailing before
+  it erases.
+- **The fixture confirmations ask once more about what the window asked**, the restore having taken
+  back every confirmation row minted and every answer given since the snapshot:
+  - **A request mailed inside the window** names a row that is gone, so its link answers nothing;
+    the first pass mints the fixture again and mails a fresh request.
+  - **An answer given inside the window** is gone, and the fixture reads unconfirmed again. The link
+    of a first request mailed before the snapshot answers again; a reminder's mailed inside the
+    window does not.
+  - **A referee's answer given inside the window** is gone with their row. Their decline also took
+    them off the fixture, so the restore books them onto it again with no row, and the first pass
+    mails them a fresh Einteilung; until they agree again the fixture names no referee.
+
+Write to each club mailed inside the window, which the mail provider's list of sent messages names
+by subject, that a link from those days answers nothing and an answer given then is to be given
+again. Write to each referee booked onto a fixture still to come, at the address their record
+holds, that an answer given on their panel in those days is to be given again there, a decline
+included: no record the restore keeps says which of them answered.
+
+**A match report sent or corrected inside the window is gone, and nothing tells its referee**: the
+fixture reads as the snapshot left it, open on the referee's panel where no report stood then. No
+record names whose report went, the log being rolled back too, and a report can be sent or
+corrected on any day from the match day until its season ends, so write to the referees booked on
+every fixture played by the restore day in a season the restore leaves running, which the fixture
+list names, to look at their panel and enter again what it lacks; an administrator's correction
+made inside the window is gone too.
+
+**Nothing needs running for the caches.** A restore clears no cache tag, so the public pages serve
+what they cached before it, the people erased again and the publication consents withdrawn again
+above among them, for at most the lifetime [section 20](#20-after-a-hand-edit-in-mongodb) states.
 
 ## 14. The `auth` database's indexes
 
 **Every production boot of the frontend builds them, and serves the site whether or not each is
 built** (`fl_frontend/src/core/authIndexes.ts :: AUTH_INDEXES`). An
-index the boot could not build is one `FE-AUTH-011` line naming it, and only a store that did not answer is built again before the next boot, so read the frontend's log for that code after every deploy:
+index the boot could not build is one `auth.index_unbuilt` line naming it, and only a store that did not answer is built again before the next boot, so read the frontend's log for that event after every deploy:
 
 | The line's `code` | What stands                                                       | What to do                                                                                                                                                               |
 | ----------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `85`              | An index on the same key under another name, which keeps serving  | Give the list's entry the name the Atlas console shows, in a release                                                                                                     |
 | `11000`           | Rows sharing a value the index keeps unique; no index on that key | Group the collection on the key in the Atlas console to find them. Which row stays is a judgement about those accounts, and the next boot builds the index once one does |
 | `13`              | Nothing: the sign-in store's database user may not build an index | Grant that user `readWrite` on `auth` in the Atlas console, which carries `createIndex`, then restart the frontend container                                             |
-| none              | Nothing: the store did not answer the boot                        | Nothing: the frontend builds them again when the store answers, and logs `FE-AUTH-011` again for any still refused                                                       |
+| none              | Nothing: the store did not answer the boot                        | Nothing: the frontend builds them again when the store answers, and logs `auth.index_unbuilt` again for any still refused                                                |
 
 **A name in the list is the one production's index carries.** Three of them — the `passkey`
 collection's unique `credentialID` and both expiry indexes — were made in the Atlas console before
@@ -1887,8 +1652,7 @@ cookie comes back. With an expiry-after of zero seconds the stored value is the 
   for the library's full `expiresIn` otherwise, and with the index the store stops serving what the
   guards in `fl_frontend/src/core/auth.ts` would refuse anyway.
 
-**An index dropped by hand after a boot is reported by nothing until the next one**, and
-`app.core.constraints --check` (§2) reads the backend's own declared indexes, which these are not.
+**An index dropped by hand after a boot is reported by nothing until the next one.**
 
 **A Better Auth release that declares an index of its own on a key the list covers throws on every
 write to that collection**, its adapter building the library's name where the list's already
@@ -1901,14 +1665,15 @@ them before it ships; the repair is the list's entry taking the library's name.
 whether a code went or not, so the frontend's log is the only record, and no line on this path
 carries the address. Ask when they tried and read that window:
 
-- `auth.sign_in_gate_failed` under `FE-AUTH-002`: the send gate could not read what the backend
+- `auth.sign_in_gate_failed`: the send gate could not read what the backend
   holds for the address, its ban included, so it sent nothing — the backend unreachable, failing,
   or answering unreadably.
-- `auth.sign_in_gate_address_refused` under `FE-AUTH-002`: the backend refused the address as none
+- `auth.sign_in_gate_address_refused`: the backend refused the address as none
   its own rule accepts, though the sign-in form took it; the two address rules disagree.
-- `auth.code_send_failed` or `auth.sign_in_failed` under `FE-AUTH-002`: the gate admitted the
-  address, and the send or the library call around it failed; `FE-MAIL-001` under the same trace id
-  is the provider refusing the message.
+- `auth.code_send_failed` or `auth.sign_in_failed`: the gate admitted the
+  address, and the send or the library call around it failed; the code's own Postausgang row
+  (`art: "sign_in_code"`) reading `abandoned` is the provider refusing it, its `grund` the provider's own
+  name for the refusal.
 - `auth.code_mail_capped`, an info line: five codes had been asked for the address inside the
   hour, so this one was sent nothing. The five count every request,
   a stranger's and one the gate refused included, so an address can be capped with nothing mailed;
@@ -1917,14 +1682,15 @@ carries the address. Ask when they tried and read that window:
   deletion link past their address's five mails of the hour, codes and links counted together
   (`address`), or past every address's hundred (`total`), so nothing was minted or mailed and the
   press read as sent. A link they already hold stands for its day.
-- `auth.code_mail_total_capped` under `FE-AUTH-008`: a hundred codes had been mailed across every
+- `auth.code_mail_total_capped`: a hundred codes had been mailed across every
   address inside the hour, so nobody was sent one; a code a
   person already held still stands, bar a send racing the hundredth. Only admitted addresses count,
   so a run of these is a flood over members' addresses or an evening outgrowing the figure; it lifts
   within the hour, or at once by the sweep in §17.
-- `mail.withheld`: a stack that is not production mails nothing, and the message is in its sink.
-  On the local stack that is `.tmp-mail/`, which every `./scripts/ops/local.sh` start empties of what
-  earlier runs filed, so a code there is this run's.
+- A stack that is not production mails nothing: the code's Postausgang row reads `held`,
+  and the message is in its sink. On the local stack that is `.tmp-mail/`, which
+  every `./scripts/ops/local.sh` start empties of what earlier runs filed, so a code there is this
+  run's.
 
 **A refusal by the gate writes no line.** It refuses an address that is barred, or that holds no
 record of its own (`docs/glossary.md :: Konto`) and none awaiting its confirmation; an address whose
@@ -1942,19 +1708,18 @@ Which service reads which, and each file's owner and mode on the server, is that
 **A file holds its value and nothing else**: no `NAME=`, no quotes, no comment. Both readers drop a
 trailing newline and surrounding blanks, and everything else in the file is part of the value.
 
-**Each machine has its own.** The internal keys, the ban list's key, the sign-in secret and the
-actor token's key pair authenticate one machine's processes to each other, so a development machine
+**Each machine has its own.** The internal keys, the ban list's key and the sign-in secret
+authenticate one machine's processes to each other, so a development machine
 generates fresh ones and never copies production's. **A development machine holds no production
 login at all**: its two database URI files name the local stack's database through the port that
 stack publishes on loopback, the local stack itself hands its services an inline config naming its
 own database, and the one production file a development machine holds is `secrets/dump_mongodb_uri` below.
 
 On a development machine, in Git Bash at the checkout root, this writes every file `pnpm dev`,
-`fastapi dev` and the local stack read but the actor token's key pair, which its own command below
-writes, each readable by its writer alone, and prints nothing:
+`fastapi dev` and the local stack read, each readable by its writer alone, and prints nothing:
 
 ```bash
-(umask 077 && mkdir -p secrets && for name in internal_api_key_base internal_api_key_system internal_api_key_admin sperrliste_schluessel auth_secret; do openssl rand -hex 32 | tr -d '\r\n' > "secrets/$name"; done && printf 'mongodb://localhost:27017/?directConnection=true' | tee secrets/frontend_mongodb_uri > secrets/backend_mongodb_uri)
+(umask 077 && mkdir -p secrets && for name in internal_api_key_base internal_api_key_system internal_api_key_admin sperrliste_key auth_secret; do openssl rand -hex 32 | tr -d '\r\n' > "secrets/$name"; done && printf 'mongodb://localhost:27017/?directConnection=true' | tee secrets/frontend_mongodb_uri > secrets/backend_mongodb_uri)
 ```
 
 `openssl rand -hex 32` is the 64 characters every key's floor or length demands. Neither of the
@@ -1997,52 +1762,11 @@ one is written again. **Where it names an `INTERNAL_API_KEY_*`, that key carries
 the class** ([`spec.md`](spec.md) §1.5): generate all three again on the server, each with
 `openssl rand -hex 32 | tr -d '\r\n' | sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<key>`,
 and update the password-manager entry. Both containers are recreated by the same deploy, so the new
-keys never meet the old. **`sperrliste_schluessel` is never replaced**: every ban is stored under it,
+keys never meet the old. **After a suspected leak of `internal_api_key_admin`**, generate all three
+the same way: its holder, reaching the backend on the private network, can act as any administrator,
+so rotating is not finished until `aktionen` has been read for every `berechtigungen` write since the
+leak, and every grant nobody can account for is revoked in the Playground. **`sperrliste_key` is never replaced**: every ban is stored under it,
 and a new one disarms them all in silence (§5). **A new `auth_secret` signs everybody out.**
-
-**Each machine also has its own actor token key pair**: an Ed25519
-private key the frontend signs with, and its public half the backend verifies with. In Git Bash on a
-development machine, or in a shell on the server, at the checkout root, this writes the private half
-to a directory of its own that `mktemp -d` makes readable by its writer alone, and appends the public
-half to `fl_backend/.env`, printing nothing:
-
-```bash
-t="$(mktemp -d)" && (umask 077 && openssl genpkey -algorithm ed25519 | tr -d '\r' > "$t/key") && printf '\nACTOR_TOKEN_PUBLIC_KEY=%s\n' "$(openssl pkey -in "$t/key" -pubout -outform DER | tail -c 32 | basenc --base64url | tr -d '=\r\n')" >> fl_backend/.env
-```
-
-The `tr` calls are there because Git Bash's `openssl` ends each line with a carriage return. The
-public half is the key's last 32 bytes in DER form, which is the raw Ed25519 key that
-`ACTOR_TOKEN_PUBLIC_KEY` holds. The newline before it keeps it off a last line that has none. The
-`umask` is what keeps the private half from ever existing under the shell's default mode, which
-lets every account on the host read a new file. **The key is written outside `secrets/`** because
-the deploying user cannot write there on the server, where the directory is root's.
-
-Then put the private half in place, from the same shell, which still holds `$t`:
-
-- **On the server**, owned by the frontend's user and readable by it alone:
-  `sudo install -o 1001 -g 1001 -m 400 "$t/key" secrets/fl_actor_signing_key && rm -rf "$t"`.
-  `install` replaces a key the deploying user cannot write, which is what an earlier pair left
-  behind. `deploy.sh` warns where the key's mode lets any other account reach it.
-- **On a development machine**:
-  `(umask 077 && mkdir -p secrets && mv "$t/key" secrets/fl_actor_signing_key) && rm -rf "$t"`.
-- **For `pnpm dev`**, write nothing more: the `dev` script names the file itself
-  ([`spec.md`](spec.md) §1.5). Never name it in `fl_frontend/.env`, which the frontend container
-  reads too: it would look for the key at that path rather than at its mount, and refuse to start.
-- **Rotating** is the same two steps and a deploy, after deleting the old `ACTOR_TOKEN_PUBLIC_KEY`
-  line from `fl_backend/.env`. A token lives sixty seconds, and the deploy recreates both containers
-  together. The pair is kept nowhere else: a lost key is replaced by generating a new pair.
-- **After a suspected leak of the signing key together with `internal_api_key_admin`**, the two can
-  have minted a grant credited to any administrator, which neither can alone. Rotating both is not
-  finished until `aktionen` has been read for every `berechtigungen` write since the leak, and every
-  grant nobody can account for is revoked in the Playground.
-
-`deploy.sh` and `local.sh` refuse a missing key file before anything starts. The frontend's boot,
-run as §1 says, then refuses a key it cannot read where its environment points it or one that is not
-Ed25519, naming the path: where that path is not `/run/secrets/fl_actor_signing_key`, delete the
-`ACTOR_SIGNING_KEY_FILE` line from `fl_frontend/.env`. Last, the frontend service's own container,
-handed the `ACTOR_TOKEN_PUBLIC_KEY` line alone, judges the pair: an `ACTOR_TOKEN_PUBLIC_KEY` that is
-missing, malformed or not the key's public half. Each refusal names the fault and never a value, and
-the remedy is to run the command above again.
 
 ## 17. Clearing an address's code lock
 
@@ -2068,8 +1792,8 @@ every row whose `identifier` starts with `sign-in-mail-`, which gives every addr
 **Twenty member addresses are enough to close code sign-in for everyone, and to close it again every
 hour.** Only mailed codes count toward the total, and a person's address is mailed up to five an
 hour, so anyone who knows twenty addresses the gate admits can ask for the hundredth code alone;
-while the total is full nobody is mailed a code, and a passkey still signs its holder in. Lines
-under `FE-AUTH-008` that come back hour after hour, or soon after a sweep, are that case rather
+while the total is full nobody is mailed a code, and a passkey still signs its holder in. `auth.code_mail_total_capped` lines
+that come back hour after hour, or soon after a sweep, are that case rather
 than a busy evening. The sweep above reopens code sign-in only until the requests come again, since
 it clears the per-address rows too; while it recurs, point the people who sign in by code at a
 passkey, and repeat the sweep when it closes again.
@@ -2095,10 +1819,10 @@ of the line keeps every security flaw fixed since.
 **Nothing in this repository watches how full the database is, and the production tier has a hard
 limit**: 5 GB of documents and indexes together. What a write meets past it is unverified: MongoDB's
 page on the limit states the size and not the behaviour, so plan for every save failing at once.
-What keeps one person from filling it is the daily write ceiling (its numbers `fl_backend/app/shared/schemas/bounds.py :: DROSSELUNG_KONTAKT_PRO_TAG` and its two
-siblings), sized so that no one person writing 10 KB a write at their ceiling every day reaches the
-first alert below within a year. The alerts show the rest: many people at once, the action log's own
-growth, or counts that stopped expiring.
+Nothing bounds how much one signed-in person writes: the alerts below show one person writing far
+past any legitimate day as surely as many people at once or the action log's own growth, and the log
+page shows which records that person's pseudonym wrote, which name the seat, the pupil or the referee
+record they act through, whose address a ban then stops.
 
 **No alert on a Flex cluster reads the limit's own measure at a threshold we choose.** The one size
 condition it takes a threshold on, `DB Data Size is`, reads documents alone, so it is set low enough
@@ -2121,36 +1845,13 @@ us; read 2026-10-07:
 - the alerts a new project gets: <https://www.mongodb.com/docs/atlas/configure-alerts/>
 
 **When either fires, find the collection that grew**, from the cluster's collection and index sizes
-in the Atlas console. `drosselung` holds one row per person, kind of person and day, which its TTL
-index removes, so a large one there is the TTL monitor stopping
-rather than people writing. Indexes larger than the documents put step 1's alert behind step 2's:
+in the Atlas console. Indexes larger than the documents put step 1's alert behind step 2's:
 lower its threshold below 4 GB times the documents' share of documents and indexes.
 
 ## 20. After a hand edit in MongoDB
 
-**A hand edit invalidates no cached page**: the frontend serves the league's reads as it cached
-them until a visit refreshes each entry once its day has passed, which may be any time up to its
-week. **One call drops them,
-from inside the frontend container**, which reads the system key there, so the key never passes
-through your shell or its history. It prints `204`:
-
-```bash
-docker compose exec frontend node -e "fetch('http://127.0.0.1:3000/api/revalidate',{method:'POST',headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim(),'Content-Type':'application/json'},body:JSON.stringify({tags:['saisons','spiele','spieler','spieltage','teams']})}).then(r=>console.log(r.status))"
-```
-
-**It names every tag whatever the edit touched**: one costs a cold read on the next visit to each
-page carrying it, where naming fewer means working out which reads the edited document reaches, and
-a season reaches all of them.
-
-**After a season edit, wait out the backend's own season cache first**
-(`fl_backend/app/api/saisons/cache.py :: SAISON_CACHE_TTL_SECONDS`): dropped sooner, the frontend
-refills from the season the backend still holds, and serves that until a visit past another day
-refreshes it.
-
-**Any other status dropped nothing.** `401` is a key the server did not boot with: a rewritten
-`secrets/internal_api_key_system` is read once, as the container starts
-([section 16](#16-the-secret-files)). `422` is a tag off the list. `404` is the server inside the
-container, which the call reaches without passing nginx, answering a route its image predates:
-deploy the running build again by the tag `./scripts/ops/deploy.sh --status` names, which starts a
-new frontend holding no cached entry, its cache living in the server's memory
-([section 1](#1-the-server) names the builds never to deploy by tag).
+**A hand edit reaches the site within Next's `minutes` lifetime**, and nothing needs running. Every
+cached league read keeps that lifetime: the first visit a minute or more after an entry was filled
+still gets the entry and refills it behind its answer, and an entry nobody visits for an hour
+expires, so the next visit waits for a fresh read. A save made on the site clears every
+cached entry at once; a hand edit, a restore and the hourly passes clear none.

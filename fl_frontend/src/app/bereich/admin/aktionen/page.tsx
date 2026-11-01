@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { AdminAktionenView } from "@/features/aktionen/components/views/AdminAktionenView";
 import { AKTIONEN_CRUD_COPY } from "@/features/aktionen/constants";
@@ -33,18 +32,17 @@ export default function AdminAktionenPage(props: NextPageProps) {
 }
 
 async function AktionenTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
-  await connection();
   const params = (await searchParams) ?? {};
   const { dokumentId, vorgangId } = readAktionenLogSubjekt(params);
   const aktionenRes = await getAktionenLog(params);
 
   return (
     <AdminAktionenView
-      aktionen={aktionenRes.aktionen}
-      vollstaendig={aktionenRes.vollstaendig}
-      anzahlJeCollection={aktionenRes.anzahl_je_collection}
-      anzahlJeOperation={aktionenRes.anzahl_je_operation}
-      anzahlJeHerkunft={aktionenRes.anzahl_je_herkunft}
+      aktionen={aktionenRes.action_log}
+      vollstaendig={aktionenRes.complete}
+      anzahlJeCollection={aktionenRes.count_per_collection}
+      anzahlJeOperation={aktionenRes.count_per_operation}
+      anzahlJeHerkunft={aktionenRes.count_per_herkunft}
       dokumentId={dokumentId}
       vorgangId={vorgangId}
       // Re-read here as the narrowings are, so the rows served and the control naming their end

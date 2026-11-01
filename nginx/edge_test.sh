@@ -10,13 +10,12 @@
 #
 # Invariants:
 # - A credential a URL carries never reaches an access line, and every line holds the edge's own span.
-# - A visitor's `traceparent` and `X-FL-Actor` are replaced or cleared on every location proxying to
-#   the frontend.
+# - A visitor's `traceparent` is replaced on every location proxying to the frontend.
 # - Each security header is sent once, as written, on every location's response.
 # - No visitor is named in the container's own streams.
 # - Each upstream is found by name as nginx serves, and the capabilities the model grants are enough
 #   to start it.
-# - `docs/ops/spec.md` §1.3's server-action and link-page pairs.
+# - `docs/ops/spec.md` §1.3's server-action, link-page and account-page pairs.
 #
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
 #   ./nginx/edge_test.sh --help
@@ -100,7 +99,6 @@ server {
     # Off, so the stub's own lines stay out of the stream being asserted.
     access_log off;
     add_header X-Seen-Traceparent $http_traceparent always;
-    add_header X-Seen-Actor $http_x_fl_actor always;
     add_header X-Seen-Next-Action $http_next_action always;
 STUB
   for name in "${!SECURITY_HEADERS[@]}"; do printf '    add_header %s "upstream" always;\n' "$name"; done
@@ -565,23 +563,13 @@ HEADER_PATHS=()
 # Set for a location whose `proxy_pass` names the backend: nothing listens as `backend` until the
 # last case, so what it hands upstream is not read.
 declare -A TO_BACKEND=()
-# The status a location answers itself with, forwarding nothing: graded on that status and on Next
-# never seeing the request, rather than on the headers it would hand upstream.
-declare -A REFUSED_WITH=()
-# Whether the location being read added a path, so a named location's `return` marks none.
-_probed=0
 while IFS= read -r location_line; do
   if [[ "$location_line" =~ ^[[:space:]]*proxy_pass[[:space:]]+http://\$backend_upstream\; ]]; then
     TO_BACKEND[$(( ${#HEADER_PATHS[@]} - 1 ))]=1
     continue
   fi
-  if (( _probed )) && [[ "$location_line" =~ ^[[:space:]]*return[[:space:]]+(4[0-9][0-9])\; ]]; then
-    REFUSED_WITH[$(( ${#HEADER_PATHS[@]} - 1 ))]="${BASH_REMATCH[1]}"
-    continue
-  fi
   [[ "$location_line" =~ ^[[:space:]]*location[[:space:]]+(.*)[[:space:]]*\{ ]] || continue
   location_args="${BASH_REMATCH[1]%"${BASH_REMATCH[1]##*[![:space:]]}"}"
-  _probed=1
   case "$location_args" in
     "= "*) HEADER_PATHS+=( "${location_args#= }" ) ;;
     /*/) HEADER_PATHS+=( "${location_args}probe" ) ;;
@@ -589,7 +577,7 @@ while IFS= read -r location_line; do
     /*) HEADER_PATHS+=( "${location_args}/probe" ) ;;
     # Reached through `error_page` alone, never a path: the server-action pair below asks it with a
     # request the edge refuses.
-    @*) _probed=0 ;;
+    @*) ;;
     # A regex location answers no path this can derive, and probing around it would call the file
     # covered while one of its locations went unasked.
     *) refuse "nginx/shared/site.conf declares 'location ${location_args}', whose path this probe cannot derive." ;;
@@ -597,11 +585,10 @@ while IFS= read -r location_line; do
 done < "${REPO_ROOT}/nginx/shared/site.conf"
 (( ${#HEADER_PATHS[@]} > 0 )) || refuse "nginx/shared/site.conf yielded no location to probe."
 
-# The two headers a visitor may not choose, sent on every
-# request below: nginx forwards every request header no `proxy_set_header` names, so a location
-# dropping the inherited set hands both to Next as they arrived.
+# The header a visitor may not choose, sent on every request below: nginx forwards every request
+# header no `proxy_set_header` names, so a location dropping the inherited set hands it to Next as
+# it arrived.
 CLIENT_TRACE="0af7651916cd43dd8448eb211c80319c"
-CLIENT_ACTOR="fl-edge-actor-probe"
 # On a GET, which the action pair's key leaves out, and inside the burst of every zone keyed on a GET,
 # so every location answers.
 CLIENT_ACTION="fl-edge-action-probe"
@@ -611,47 +598,20 @@ HEADER_REQUESTS=()
 for _i in "${!HEADER_PATHS[@]}"; do
   if (( _i > 0 )); then HEADER_REQUESTS+=( --next ); fi
   HEADER_REQUESTS+=( -s -o /dev/null -D "${SCRATCH}/headers-${_i}" --max-time 5 -H "Host: localhost"
-    -H "traceparent: 00-${CLIENT_TRACE}-b7ad6b7169203331-01" -H "X-FL-Actor: ${CLIENT_ACTOR}"
+    -H "traceparent: 00-${CLIENT_TRACE}-b7ad6b7169203331-01"
     -H "Next-Action: ${CLIENT_ACTION}" "${BASE}${HEADER_PATHS[_i]}" )
 done
 curl "${HEADER_REQUESTS[@]}" || true
-REFUSED_FAILURES=0
-# A refusing location's answer, its headers read already: its own status, and none of the headers the
-# stub adds, any of which means the request reached Next.
-grade_refused() { # $1 what the request was, $2 its header file, $3 the status the location returns
-  local status_line=""
-  if [[ -f "$2" ]]; then IFS= read -r status_line < "$2" || true; fi
-  status_line="${status_line%$'\r'}"
-  if [[ "$status_line" != "HTTP/"*" $3"* ]]; then
-    fail "REFUSED $1"
-    detail "expected the edge's own $3, it answered '${status_line}'"
-    REFUSED_FAILURES=$(( REFUSED_FAILURES + 1 ))
-  fi
-  if [[ -n "${SENT[x-seen-traceparent]:-}" ]]; then
-    fail "REFUSED $1"
-    detail "the request reached Next through the edge, which handed it '${SENT_VALUE[x-seen-traceparent]}'"
-    REFUSED_FAILURES=$(( REFUSED_FAILURES + 1 ))
-  fi
-}
 UPSTREAM_READ=0
 for _i in "${!HEADER_PATHS[@]}"; do
   read_headers "${SCRATCH}/headers-${_i}"
   grade_security_headers "${HEADER_PATHS[_i]}"
   [[ -z "${TO_BACKEND[$_i]:-}" ]] || continue
-  if [[ -n "${REFUSED_WITH[$_i]:-}" ]]; then
-    grade_refused "${HEADER_PATHS[_i]}" "${SCRATCH}/headers-${_i}" "${REFUSED_WITH[$_i]}"
-    continue
-  fi
   UPSTREAM_READ=$(( UPSTREAM_READ + 1 ))
   seen_trace="${SENT_VALUE[x-seen-traceparent]:-}"
   if [[ ! "$seen_trace" =~ ^00-[0-9a-f]{32}-[0-9a-f]{16}-01$ || "$seen_trace" == *"$CLIENT_TRACE"* ]]; then
     fail "UPSTREAM ${HEADER_PATHS[_i]}"
     detail "expected the edge's own traceparent at Next, Next received '${seen_trace}'"
-    HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
-  fi
-  if [[ -n "${SENT_VALUE[x-seen-actor]:-}" ]]; then
-    fail "UPSTREAM ${HEADER_PATHS[_i]}"
-    detail "expected no X-FL-Actor at Next, Next received '${SENT_VALUE[x-seen-actor]}'"
     HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
   # That no location clears the id a server action is posted with; the empty one is the relay's below.
@@ -660,32 +620,6 @@ for _i in "${!HEADER_PATHS[@]}"; do
     detail "expected Next-Action ${CLIENT_ACTION} at Next, Next received '${SENT_VALUE[x-seen-next-action]:-}'"
     HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
-done
-
-# --- the paths the edge refuses outright ------------------------------------------------------------
-
-# Each posted as its one caller posts it, a key and a body, under every spelling nginx resolves before
-# choosing a location: a spelling the refusal missed would fall to `location /` and reach Next.
-REFUSED_LABELS=()
-REFUSED_STATUS=()
-REFUSED_REQUESTS=()
-for _i in "${!REFUSED_WITH[@]}"; do
-  refused_path="${HEADER_PATHS[_i]}"
-  refused_rest="${refused_path#/}"
-  for spelling in "/${refused_path}" "/${refused_rest%%/*}/./${refused_rest#*/}" \
-    "/$(printf '%%%02X' "'${refused_rest:0:1}")${refused_rest:1}" "${refused_path}?tags=spieler"; do
-    if (( ${#REFUSED_LABELS[@]} > 0 )); then REFUSED_REQUESTS+=( --next ); fi
-    REFUSED_LABELS+=( "$spelling" )
-    REFUSED_STATUS+=( "${REFUSED_WITH[$_i]}" )
-    REFUSED_REQUESTS+=( -s -o /dev/null -D "${SCRATCH}/refused-${#REFUSED_LABELS[@]}" --path-as-is --max-time 5
-      -H "Host: localhost" -X POST -H "Authorization: Bearer fl-edge-key-probe" -H "Content-Type: application/json"
-      --data '{"tags":["spieler"]}' "${BASE}${spelling}" )
-  done
-done
-if (( ${#REFUSED_REQUESTS[@]} > 0 )); then curl "${REFUSED_REQUESTS[@]}" || true; fi
-for _j in "${!REFUSED_LABELS[@]}"; do
-  read_headers "${SCRATCH}/refused-$(( _j + 1 ))"
-  grade_refused "POST ${REFUSED_LABELS[_j]}" "${SCRATCH}/refused-$(( _j + 1 ))" "${REFUSED_STATUS[_j]}"
 done
 
 # --- an empty Next-Action, as Next would receive it --------------------------------------------------
@@ -827,6 +761,14 @@ done
 # gateway's link check may send, the second.
 spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/bestaetigung/spiel?token=${TOK}"
 spent_request link-head -A "$LINK_MARKER" --head "${BASE}/bestaetigung/spiel?token=${TOK}"
+
+# The account page's pair, on JSON posts the action pair's key leaves out, so only `account` can refuse.
+# Its burst read off the file, flooded past with five more for the refill the run takes.
+ACCOUNT_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=account burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
+[[ -n "$ACCOUNT_BURST" ]] || refuse "nginx/shared/site.conf declares no account burst this test can read."
+for _ in $(seq 1 $(( ACCOUNT_BURST + 5 ))); do
+  action_request account-flood -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/bereich/konto"
+done
 
 mapfile -t -O "$ACTION_SENT" ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
 expect_action() { # $1 label, $2 the status every transfer of it must answer, or "some:<status>"
@@ -998,6 +940,7 @@ expect_action link-json some:429
 grade_spent link-json
 expect_action link-head some:429
 grade_spent link-head head
+expect_action account-flood some:429
 
 # A refusal's error line repeats the request line, live token included, so `limit_req_log_level` keeps
 # it below the log's own level. Read once every kept refusal's access line is written, which comes
@@ -1367,17 +1310,17 @@ for edge in local prod; do
   if verbose; then info "the ${edge} edge answered from the moved backend only after ${MOVED_AFTER[$edge]}s"; fi
 done
 
-if (( HEADER_FAILURES + REFUSED_FAILURES + ACTION_FAILURES + CONTROL_FAILURES + RESOLVE_FAILURES > 0 )); then
-  die "${HEADER_FAILURES} header, ${REFUSED_FAILURES} refusal, ${ACTION_FAILURES} server-action, ${CONTROL_FAILURES} Control API and ${RESOLVE_FAILURES} upstream cases failed.
+if (( HEADER_FAILURES + ACTION_FAILURES + CONTROL_FAILURES + RESOLVE_FAILURES > 0 )); then
+  die "${HEADER_FAILURES} header, ${ACTION_FAILURES} server-action, ${CONTROL_FAILURES} Control API and ${RESOLVE_FAILURES} upstream cases failed.
 Each is what nginx SENT or ANSWERED, or what reached Next through it."
 fi
 
 ok "${#CASES[@]} redaction cases clean, no visitor in the container's own streams,
 ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written,
-${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor,
-${#REFUSED_WITH[@]} refused at the edge and still refused under ${#REFUSED_LABELS[@]} other spellings, an empty
+${UPSTREAM_READ} of those paths handing Next the edge's own traceparent, an empty
 Next-Action handed to no one, server
 actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, every link page
-metered on every request under every spelling, its load refused with the edge's own page and no token reaching the error log, the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker,
+metered on every request under every spelling, its load refused with the edge's own page and no token reaching the error log, the
+account page's posts metered on its own pair, the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker,
 every upstream named through a variable and found through Docker's DNS alone, holding an answer ${RESOLVER_VALID}s, both edges reaching a backend recreated at a new address
 without a reload, and each upstream's redirect naming itself handed back as the visitor's origin"

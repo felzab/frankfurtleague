@@ -1,199 +1,223 @@
 import { KONTAKT_EMAIL } from "./brand";
-import { formatDatum, formatDatumLang, formatDatumMitWochentag, formatErgebnis, formatUhrzeit, formatZahl } from "./format";
+import { formatDatum, formatDatumLong, formatDatumWithWeekday, formatErgebnis, formatNumber, formatUhrzeit } from "./format";
 
-import type { Kalendertag, Paar, Uhrzeit } from "./format";
+import type { CalendarDay, Pair, Uhrzeit } from "./format";
 
-declare const copyMarke: unique symbol;
+declare const copyBrand: unique symbol;
 
 /**
  * A string the catalogue wrote. Every kit text prop takes this type, so a string typed into a page
  * does not compile; `as Copy` outside this file is the one way round it.
  */
-export type Copy = string & { readonly [copyMarke]: true };
+export type Copy = string & { readonly [copyBrand]: true };
 
-type Katalog<T> = T extends string
+type Catalogue<T> = T extends string
   ? Copy
   : T extends (...args: infer A) => string
     ? (...args: A) => Copy
-    : { readonly [K in keyof T]: Katalog<T[K]> };
+    : { readonly [K in keyof T]: Catalogue<T[K]> };
 
-// The only assertion to `Copy`: the whole tree is branded at once, so no entry can be left plain.
-const katalog = <const T>(baum: T): Katalog<T> => baum as Katalog<T>;
+/**
+ * The only assertion to `Copy`: the whole tree is branded at once, so no entry can be left plain. Exported for the
+ * server's own catalogue, `serverCopy.ts`, alone.
+ */
+export const catalogue = <const T>(tree: T): Catalogue<T> => tree as Catalogue<T>;
 
-// Each label is the verb's infinitive capitalised, so `mitObjekt` lower-cases its first letter alone.
+// Each label is the verb's infinitive capitalised, so `withObject` lower-cases its first letter alone.
 const VERB = {
-  anlegen: "Anlegen",
-  speichern: "Speichern",
-  loeschen: "Löschen",
-  entfernen: "Entfernen",
-  zurueckziehen: "Zurückziehen",
-  austragen: "Austragen",
-  senden: "Senden",
-  abschicken: "Abschicken",
-  bestaetigen: "Bestätigen",
-  ablehnen: "Ablehnen",
-  widersprechen: "Widersprechen",
-  uebernehmen: "Übernehmen",
-  verwerfen: "Verwerfen",
-  aufstellen: "Aufstellen",
-  anmelden: "Anmelden",
-  abmelden: "Abmelden",
+  create: "Anlegen",
+  save: "Speichern",
+  delete: "Löschen",
+  remove: "Entfernen",
+  withdraw: "Zurückziehen",
+  deregister: "Austragen",
+  send: "Senden",
+  submit: "Abschicken",
+  confirm: "Bestätigen",
+  decline: "Ablehnen",
+  oppose: "Widersprechen",
+  adopt: "Übernehmen",
+  discard: "Verwerfen",
+  lineUp: "Aufstellen",
+  signIn: "Anmelden",
+  signOut: "Abmelden",
 } as const;
 
 /** The closed set of button verbs: a button names its act with one of these. */
 export type Verb = keyof typeof VERB;
 
-const infinitiv = (verb: Verb): string => `${VERB[verb].charAt(0).toLowerCase()}${VERB[verb].slice(1)}`;
+const infinitive = (verb: Verb): string => `${VERB[verb].charAt(0).toLowerCase()}${VERB[verb].slice(1)}`;
 
 // One line for every failure no reason names, the same in a toast and in a status line.
-const UNERWARTET = "Etwas ist schiefgelaufen";
+const UNEXPECTED = "Etwas ist schiefgelaufen";
+
+/** A range's end: a figure, or a year as a string, which as a season id takes no thousands separator. */
+type Bound = number | string;
+
+const bound = (value: Bound): string => (typeof value === "string" ? value : formatNumber(value));
 
 // The mark a result decided in a shoot-out carries: under the score in a match row, after it in a fact.
-const NACH_ELFMETERSCHIESSEN = "n. E.";
+const AFTER_ELFMETERSCHIESSEN = "n. E.";
 
-export const COPY = katalog({
+export const COPY = catalogue({
   /** What every area draws from; an area adds a key of its own only for a string this lacks. */
   shared: {
     verb: VERB,
     /** „Team anlegen“: a button whose verb needs its object. */
-    mitObjekt: (objekt: Copy, verb: Verb) => `${objekt} ${infinitiv(verb)}`,
+    withObject: (object: Copy, verb: Verb) => `${object} ${infinitive(verb)}`,
 
     /** The units a field's figure is counted in, set after the field. */
-    einheit: {
+    unit: {
       euro: "€",
     },
 
     /** A field's one message line: what is expected, never the field's name. */
-    feld: {
-      pflichtfeld: "Pflichtfeld",
-      hoechstensZeichen: (anzahl: number) => `Höchstens ${formatZahl(anzahl)} Zeichen`,
-      mindestensZeichen: (anzahl: number) => `Mindestens ${formatZahl(anzahl)} Zeichen`,
-      format: (beispiel: Copy) => `Format: ${beispiel}`,
+    field: {
+      required: "Pflichtfeld",
+      maxChars: (count: number) => `Höchstens ${formatNumber(count)} Zeichen`,
+      minChars: (count: number) => `Mindestens ${formatNumber(count)} Zeichen`,
+      format: (example: Copy) => `Format: ${example}`,
       // A reserved domain, so no reader takes the example for the address the league expects.
-      beispielAdresse: "name@example.com",
+      exampleAddress: "name@example.com",
       // A digits field's example: figures alone, whatever the field counts.
-      beispielZiffern: "123",
+      exampleDigits: "123",
+      exampleDate: "31.12.2026",
+      // Reserved as the address example's domain is.
+      exampleUrl: "https://example.com",
       // Redesign: the first field taking a range reads it.
-      zwischen: (von: number, bis: number) => `Zwischen ${formatZahl(von)} und ${formatZahl(bis)}`,
-      fruehestens: (tag: Kalendertag) => `Frühestens ${formatDatum(tag)}`,
-      spaetestens: (tag: Kalendertag) => `Spätestens ${formatDatum(tag)}`,
-      schonVergeben: "Schon vergeben",
+      between: (from: Bound, to: Bound) => `Zwischen ${bound(from)} und ${bound(to)}`,
+      // One-sided bounds of a number or of a list, the box's label saying what is counted.
+      max: (count: number) => `Höchstens ${formatNumber(count)}`,
+      min: (count: number) => `Mindestens ${formatNumber(count)}`,
+      /** „Ohne E-Mail-Adresse“: what a text must not hold, by the catalogue's own name for it. */
+      without: (thing: Copy) => `Ohne ${thing}`,
+      earliest: (day: CalendarDay) => `Frühestens ${formatDatum(day)}`,
+      latest: (day: CalendarDay) => `Spätestens ${formatDatum(day)}`,
+      // A unique index's refusal: a field's message, and the words `serverCopy.ts` answers its code in.
+      taken: "Schon vergeben",
     },
 
     /** The three lines every refusal no person causes knowingly from the screen falls back to. */
-    fehler: {
-      unerwartet: UNERWARTET,
-      veraltet: "Die Seite ist nicht mehr aktuell. Lade sie neu.",
-      abgelaufen: "Deine Anmeldung ist abgelaufen. Melde dich neu an.",
+    failure: {
+      unexpected: UNEXPECTED,
+      stale: "Die Seite ist nicht mehr aktuell. Lade sie neu.",
+      signInExpired: "Deine Anmeldung ist abgelaufen. Melde dich neu an.",
       /** The edge refused the press for its rate before anything behind it ran; the meter refills within the minute. */
-      zuVieleVersuche: "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.",
+      tooManyAttempts: "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.",
+      /** An administrator's grant is gone or was never held: no sign-in and no retry repairs it. */
+      accessGone: "Dein Zugang zur Verwaltung besteht nicht mehr.",
+      /** The backend left the grant unread: nothing ran, and a sign-in would meet the same outage. */
+      accessUnchecked: "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen. Versuch es erneut.",
     },
 
     /** Beside the save button once the record is stored. */
-    gespeichert: "Gespeichert",
+    saved: "Gespeichert",
 
     /** The four toast titles; a toast carries no body. */
     toast: {
       // Redesign: these three are read once copying, sending a link and signing out each toast through the kit.
-      kopiert: "Kopiert",
-      linkGesendet: "Link gesendet",
-      abgemeldet: "Abgemeldet",
-      fehler: UNERWARTET,
+      copied: "Kopiert",
+      linkSent: "Link gesendet",
+      signedOut: "Abgemeldet",
+      failure: UNEXPECTED,
     },
 
     /** The spinner's accessible name; a busy button keeps its own label. */
-    laedt: "Lädt",
+    loading: "Lädt",
 
     /** The plural is the list's own title entry. */
-    leer: {
-      suche: (plural: Copy) => `Keine ${plural} für diese Suche.`,
+    empty: {
+      search: (plural: Copy) => `Keine ${plural} für diese Suche.`,
       filter: (plural: Copy) => `Keine ${plural} für diese Filter.`,
-      noch: (plural: Copy) => `Noch keine ${plural}.`,
+      none: (plural: Copy) => `Noch keine ${plural}.`,
     },
 
     /** „Passkey löschen?“: a confirmation asks with the verb its button carries. */
-    frage: (objekt: Copy, verb: Verb) => `${objekt} ${infinitiv(verb)}?`,
-    zurueck: "Zurück",
+    question: (object: Copy, verb: Verb) => `${object} ${infinitive(verb)}?`,
+    back: "Zurück",
     /** The name of the icon button closing a pop-up that asks nothing, such as the match pop-up. */
-    schliessen: "Schließen",
+    close: "Schließen",
 
     /** The end states of a page a mail opens; each page names its own sentence for the done state. */
     // Session 4: the mailed pages read these.
-    ende: {
-      erledigtAm: (erledigt: Copy, tag: Kalendertag) => `${erledigt} am ${formatDatumLang(tag)}.`,
-      linkUngueltig: "Dieser Link gilt nicht mehr.",
-      zurStartseite: "Zur Startseite",
-      zumKonto: "Zum Konto",
+    end: {
+      doneOn: (done: Copy, day: CalendarDay) => `${done} am ${formatDatumLong(day)}.`,
+      linkInvalid: "Dieser Link gilt nicht mehr.",
+      toHome: "Zur Startseite",
+      toAccount: "Zum Konto",
     },
 
     /** The match pop-up's way to the match's own page. */
-    zumSpiel: "Zum Spiel",
+    toSpiel: "Zum Spiel",
     // Redesign: the first fact its reader could supply, shown empty, reads it.
-    nichtHinterlegt: "Nicht hinterlegt",
-    uebersicht: "Übersicht",
+    notProvided: "Nicht hinterlegt",
+    overview: "Übersicht",
     // Redesign: the account menu reads it once it offers a second role.
-    funktionWechseln: "Funktion wechseln",
-    mehr: "Mehr …",
-    weitereLaden: "Weitere 50 laden",
-    protokoll: "Protokoll",
+    switchRole: "Funktion wechseln",
+    more: "Mehr …",
+    loadMore: "Weitere 50 laden",
     kORunde: "K.-o.-Runde",
     // Session 3: its page reads it.
     kOBaum: "K.-o.-Baum",
-    nachElfmeterschiessen: NACH_ELFMETERSCHIESSEN,
+    afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
     // Session 3: its page reads it.
-    disqualifiziert: "DQ",
+    disqualified: "DQ",
     // Redesign: a line-up's chips read these.
     startelf: "Startelf",
     bank: "Bank",
 
     /** The ⓘ's name, which its tooltip shows. */
-    hilfe: "Hilfe",
+    help: "Hilfe",
     /** A phone's filter button, and the sheet it opens, closed by „Fertig“. */
     filter: "Filter",
-    fertig: "Fertig",
+    done: "Fertig",
     /** The season button's menu. */
     saison: "Saison",
     /** A season by its id, which is its year and so takes no thousands separator: „Saison 2027“. */
     saisonName: (id: string) => `Saison ${id}`,
 
     /** The bot check before a public send: refused, disturbed, not yet done, or not loaded at all. */
-    pruefung: {
-      bestaetigen: "Bestätige kurz, dass du ein Mensch bist.",
-      gestoert: "Die Prüfung, ob du ein Mensch bist, ist gerade gestört. Versuche es später erneut.",
-      nichtFertig: "Die Prüfung, ob du ein Mensch bist, ist noch nicht fertig. Versuche es gleich erneut.",
-      nichtGeladen: `Die Prüfung, ob du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in deinem Browser oder Werbeblocker und lade die Seite neu, oder schreib uns an ${KONTAKT_EMAIL}.`,
+    botCheck: {
+      confirm: "Bestätige kurz, dass du ein Mensch bist.",
+      disrupted: "Die Prüfung, ob du ein Mensch bist, ist gerade gestört. Versuche es später erneut.",
+      notReady: "Die Prüfung, ob du ein Mensch bist, ist noch nicht fertig. Versuche es gleich erneut.",
+      notLoaded: `Die Prüfung, ob du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in deinem Browser oder Werbeblocker und lade die Seite neu, oder schreib uns an ${KONTAKT_EMAIL}.`,
     },
   },
 
-  /** Each page's own name, which its tab title and its strip show; the route table names the key. */
-  seite: {
+  /**
+   * Each page's own name, which its tab title and its strip show, keyed by its `ROUTES` key; a name several pages
+   * share is one entry, keyed by its noun.
+   */
+  page: {
     spielplan: "Spielplan",
     tabelle: "Tabelle",
     teams: "Teams",
-    spielsuche: "Spielsuche",
+    spielSearch: "Spielsuche",
     /** A match's page, named by its two teams in the order the fixture lists them. */
     spiel: (heim: string, gast: string) => `${heim} gegen ${gast}`,
     about: "About",
-    kontakt: "Kontakt",
-    sponsoren: "Sponsoren",
-    impressum: "Impressum",
-    datenschutz: "Datenschutz",
-    anmeldung: "Anmeldung",
-    sicherheit: "Sicherheit",
-    darstellung: "Darstellung",
-    deineEintraege: "Deine Einträge",
-    saisons: "Saisons",
+    contact: "Kontakt",
+    sponsors: "Sponsoren",
+    legalNotice: "Impressum",
+    privacyNotice: "Datenschutz",
+    accountSignIn: "Anmeldung",
+    accountSecurity: "Sicherheit",
+    accountAppearance: "Darstellung",
+    accountEntries: "Deine Einträge",
+    verwaltungSaisons: "Saisons",
     spiele: "Spiele",
-    spielorte: "Spielorte",
-    schiedsrichter: "Schiedsrichter",
-    bewerbungen: "Bewerbungen",
-    spieler: "Spieler",
+    verwaltungSpielorte: "Spielorte",
+    verwaltungSchiedsrichter: "Schiedsrichter",
+    verwaltungBewerbungen: "Bewerbungen",
+    verwaltungSpieler: "Spieler",
     registrierungen: "Registrierungen",
-    kader: "Kader",
-    administratoren: "Administratoren",
-    sperrliste: "Sperrliste",
-    loeschungen: "Löschungen",
-    adressaenderungen: "Adressänderungen",
+    teamKader: "Kader",
+    verwaltungAdministrators: "Administratoren",
+    verwaltungSperrliste: "Sperrliste",
+    verwaltungErasures: "Löschungen",
+    verwaltungAddressChanges: "Adressänderungen",
+    verwaltungActionLog: "Protokoll",
   },
 
   /** The Spielplan, and a match's page, which opens as the pop-up over it. */
@@ -201,22 +225,22 @@ export const COPY = katalog({
     /** The matchday tabs' name, and the plural an empty Spielplan names. */
     spieltage: "Spieltage",
     /** When a match is played, as its row shows it; until it is dated, what is still to settle. */
-    wann: (tag: Kalendertag | null, zeit: Uhrzeit | null) =>
-      tag === null ? "Termin offen" : zeit === null ? formatDatumMitWochentag(tag) : `${formatDatumMitWochentag(tag)} · ${formatUhrzeit(zeit)}`,
+    when: (day: CalendarDay | null, time: Uhrzeit | null) =>
+      day === null ? "Termin offen" : time === null ? formatDatumWithWeekday(day) : `${formatDatumWithWeekday(day)} · ${formatUhrzeit(time)}`,
     /** The score, a shoot-out's goals added to each side's, with the shoot-out's mark after it. */
-    ergebnis: (tore: Paar, elfmeterschiessen: Paar | null) =>
-      elfmeterschiessen === null ? formatErgebnis(tore) : `${formatErgebnis(tore, elfmeterschiessen)} ${NACH_ELFMETERSCHIESSEN}`,
+    ergebnis: (tore: Pair, elfmeterschiessen: Pair | null) =>
+      elfmeterschiessen === null ? formatErgebnis(tore) : `${formatErgebnis(tore, elfmeterschiessen)} ${AFTER_ELFMETERSCHIESSEN}`,
 
     /** A side the draw has not settled: its source short in the dashed plaque, and in full as its name. */
     quelle: {
-      gruppeKurz: (gruppe: string, platz: number) => `${gruppe}${formatZahl(platz)}`,
-      gruppe: (gruppe: string, platz: number) => `${formatZahl(platz)}. der Gruppe ${gruppe}`,
-      siegerKurz: (spiel: number) => `S${formatZahl(spiel)}`,
-      sieger: (spiel: number) => `Sieger von Spiel ${formatZahl(spiel)}`,
-      verliererKurz: (spiel: number) => `V${formatZahl(spiel)}`,
-      verlierer: (spiel: number) => `Verlierer von Spiel ${formatZahl(spiel)}`,
+      gruppeShort: (gruppe: string, platz: number) => `${gruppe}${formatNumber(platz)}`,
+      gruppe: (gruppe: string, platz: number) => `${formatNumber(platz)}. der Gruppe ${gruppe}`,
+      siegerShort: (spiel: number) => `S${formatNumber(spiel)}`,
+      sieger: (spiel: number) => `Sieger von Spiel ${formatNumber(spiel)}`,
+      verliererShort: (spiel: number) => `V${formatNumber(spiel)}`,
+      verlierer: (spiel: number) => `Verlierer von Spiel ${formatNumber(spiel)}`,
       /** A side with neither a club nor a source yet. */
-      offen: "Noch offen",
+      open: "Noch offen",
     },
 
     /** What befell a match, as a visitor reads it: a no-show names the club that did not turn up. */
@@ -230,158 +254,160 @@ export const COPY = katalog({
        * struck out awards nothing, a no-show awards the side that turned up the forfeit the season's rules
        * set, which the score shows, and an abandoned match owes a result until one is entered.
        */
-      folge: {
+      consequence: {
         ausgefallen: "Das Spiel hat nicht stattgefunden und wird nicht gewertet.",
         nichtAngetreten: (gegner: string) => `Das Spiel wird für ${gegner} gewertet.`,
-        abgebrochenGewertet: "Das Spiel wurde abgebrochen. Das eingetragene Ergebnis wird gewertet.",
-        abgebrochenOffen: "Das Spiel wurde abgebrochen. Wie es gewertet wird, steht noch nicht fest.",
+        abgebrochenScored: "Das Spiel wurde abgebrochen. Das eingetragene Ergebnis wird gewertet.",
+        abgebrochenOpen: "Das Spiel wurde abgebrochen. Wie es gewertet wird, steht noch nicht fest.",
         annulliert: "Das Spiel wurde annulliert und wird nicht gewertet.",
       },
     },
 
     /** A match's facts, each by its label. */
-    fakt: {
+    fact: {
       ergebnis: "Ergebnis",
       sonderereignis: "Sonderereignis",
       spieltag: "Spieltag",
       datum: "Datum",
       uhrzeit: "Uhrzeit",
-      ort: "Ort",
+      spielort: "Ort",
       schiedsrichter: "Schiedsrichter",
       notiz: "Notiz",
     },
   },
 
   /** The page templates' own words: the frames around a page, the editor's bar, a list's paging, the end states. */
-  vorlage: {
+  template: {
     /** The phone bar's place opening the rest of the menu, without the ellipsis a truncated text's link takes. */
-    mehr: "Mehr",
+    more: "Mehr",
     /** The name of a frame's menu, the rail's and the phone bar's. */
     navigation: "Navigation",
     /** The account's place: the rail's account row and the phone bar's avatar. */
-    konto: "Konto",
+    account: "Konto",
     /** The classic header's button opening its links on a phone. */
-    menue: "Menü",
+    menu: "Menü",
     /** The account menu's theme choice, under the name of Konto's page for it: the system's, or one set here. */
-    darstellung: { system: "System", hell: "Hell", dunkel: "Dunkel" },
+    theme: { system: "System", light: "Hell", dark: "Dunkel" },
     /** The strip's toggle folding the rail to its glyphs and back, named for what the next press does. */
-    seitenleiste: { einklappen: "Seitenleiste einklappen", ausklappen: "Seitenleiste ausklappen" },
+    sidebar: { collapse: "Seitenleiste einklappen", expand: "Seitenleiste ausklappen" },
 
     /** The footer: the league's group, which holds the sponsors' page, and the line over the sponsors' logos. */
     liga: "Liga",
     oberstufenliga: "Die Frankfurter Oberstufenliga",
-    mitUnterstuetzungVon: "Mit Unterstützung von",
+    supportedBy: "Mit Unterstützung von",
     instagram: "Instagram",
     threads: "Threads",
-    copyright: (jahr: number, marke: Copy) => `© ${String(jahr)} ${marke}`,
+    copyright: (year: number, brand: Copy) => `© ${String(year)} ${brand}`,
 
     /** An editor's changes not yet saved: the status line names their count, the discard dialog asks before they go. */
-    aenderungen: "Änderungen",
-    aenderungenOffen: (anzahl: number) => (anzahl === 1 ? "1 Änderung" : `${formatZahl(anzahl)} Änderungen`),
-    aenderungenVerloren: (anzahl: number) => (anzahl === 1 ? "1 Änderung geht verloren." : `${formatZahl(anzahl)} Änderungen gehen verloren.`),
+    changes: "Änderungen",
+    changesPending: (count: number) => (count === 1 ? "1 Änderung" : `${formatNumber(count)} Änderungen`),
+    changesLost: (count: number) => (count === 1 ? "1 Änderung geht verloren." : `${formatNumber(count)} Änderungen gehen verloren.`),
     /** A save refused for its fields: the fields say what, the status line says where to look. */
-    felderPruefen: "Prüfe die markierten Felder.",
+    checkFields: "Prüfe die markierten Felder.",
+    /** A refusal about a field the screen shows no box for: the field's name, then the line its box would show. */
+    namedField: (name: Copy, line: Copy) => `${name}: ${line}`,
 
     /** A page a mail opened whose link no longer holds, above the catalogue's sentence for it. */
-    linkUngueltig: "Link nicht mehr gültig",
+    linkInvalid: "Link nicht mehr gültig",
   },
 
   /** Signing in: the address and its code, the passkey, and the answers either can meet. */
-  anmeldung: {
+  signIn: {
     /** The tab titles of `/signin` and `/signin/passkey`. */
-    titel: "Anmelden",
-    passkeyTitel: "Passkey",
+    title: "Anmelden",
+    passkeyTitle: "Passkey",
 
-    adresse: "E-Mail-Adresse",
-    codeSenden: "Code senden",
-    oder: "oder",
-    mitPasskey: "Mit Passkey anmelden",
+    address: "E-Mail-Adresse",
+    sendCode: "Code senden",
+    or: "oder",
+    withPasskey: "Mit Passkey anmelden",
     /** The bot check that did not load, naming the passkey, which signs in without it. */
-    pruefungNichtGeladen: `Die Prüfung, ob du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in deinem Browser oder Werbeblocker und lade die Seite neu, melde dich mit einem Passkey an oder schreib uns an ${KONTAKT_EMAIL}.`,
+    botCheckNotLoaded: `Die Prüfung, ob du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in deinem Browser oder Werbeblocker und lade die Seite neu, melde dich mit einem Passkey an oder schreib uns an ${KONTAKT_EMAIL}.`,
 
     /**
      * The code view: one sentence for every address, so it says nothing about who holds an account, in the two
      * parts around the address, which the template sets semibold between them.
      */
-    postfach: "Prüfe dein Postfach",
-    codeUnterwegs: { vor: "Falls zu", nach: "ein Konto gehört, ist ein Anmeldecode unterwegs." },
+    inbox: "Prüfe dein Postfach",
+    codeOnItsWay: { before: "Falls zu", after: "ein Konto gehört, ist ein Anmeldecode unterwegs." },
     /** The six boxes' accessible name: no label stands above them. */
     code: "Code aus der E-Mail",
-    andereAdresse: "Andere E-Mail-Adresse verwenden",
+    otherAddress: "Andere E-Mail-Adresse verwenden",
 
     /** `/signin` for somebody already signed in, in the two parts around the address, as the code view's sentence. */
-    angemeldetAls: { vor: "Du bist als", nach: "angemeldet." },
+    signedInAs: { before: "Du bist als", after: "angemeldet." },
 
     passkey: {
-      einrichten: { titel: "Passkey einrichten", satz: "Die Verwaltung ist erst mit einem Passkey erreichbar.", knopf: "Jetzt einrichten" },
-      anmelden: { titel: "Mit Passkey anmelden", satz: "Melde dich mit dem Passkey an, den du eingerichtet hast.", knopf: "Jetzt anmelden" },
-      angebot: {
-        titel: "Passkey einrichten",
-        satz: "Mit einem Passkey meldest du dich künftig sicher ohne Code an.",
-        knopf: "Jetzt einrichten",
+      setUp: { title: "Passkey einrichten", sentence: "Die Verwaltung ist erst mit einem Passkey erreichbar.", button: "Jetzt einrichten" },
+      signIn: { title: "Mit Passkey anmelden", sentence: "Melde dich mit dem Passkey an, den du eingerichtet hast.", button: "Jetzt anmelden" },
+      offer: {
+        title: "Passkey einrichten",
+        sentence: "Mit einem Passkey meldest du dich künftig sicher ohne Code an.",
+        button: "Jetzt einrichten",
       },
-      spaeter: "Später",
+      later: "Später",
     },
 
     /**
      * The code's and the passkey's refusals: the code route answers them, and the page finds each one here
      * again. A barred address and one holding no record meet one sentence, so nobody can probe the ban list.
      */
-    abgelehnt: {
-      codeFalsch: "Der Code stimmt nicht oder gilt nicht mehr. Nimm den Code aus der neuesten E-Mail oder fordere einen neuen an.",
-      codeAbgelaufen: "Der Code ist abgelaufen. Fordere einen neuen an.",
-      codeZuOft: "Zu viele Versuche mit diesem Code. Fordere einen neuen an.",
-      adresseZuOft: (stunden: number) =>
-        `Zu viele Versuche mit dieser Adresse. Melde dich mit einem Passkey an oder versuche es in ${formatZahl(stunden)} Stunden erneut.`,
-      codeVerbraucht:
-        "Die Anmeldung hat gerade nicht geklappt, und dein Code ist damit verbraucht. Fordere in ein paar Minuten einen neuen an.",
-      ohneEintrag: `Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`,
-      ohneBestaetigung:
-        "Dieser Passkey hat nicht bestätigt, dass du es bist. Nimm einen Passkey mit PIN, Fingerabdruck oder Gesichtserkennung.",
+    refusal: {
+      codeWrong: "Der Code stimmt nicht oder gilt nicht mehr. Nimm den Code aus der neuesten E-Mail oder fordere einen neuen an.",
+      codeExpired: "Der Code ist abgelaufen. Fordere einen neuen an.",
+      codeTooOften: "Zu viele Versuche mit diesem Code. Fordere einen neuen an.",
+      addressTooOften: (hours: number) =>
+        `Zu viele Versuche mit dieser Adresse. Melde dich mit einem Passkey an oder versuche es in ${formatNumber(hours)} Stunden erneut.`,
+      codeUsedUp: "Die Anmeldung hat gerade nicht geklappt, und dein Code ist damit verbraucht. Fordere in ein paar Minuten einen neuen an.",
+      noRecord: `Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`,
+      unverified: "Dieser Passkey hat nicht bestätigt, dass du es bist. Nimm einen Passkey mit PIN, Fingerabdruck oder Gesichtserkennung.",
     },
   },
 
   /** The administration's own words: its frame, the Spielorte list and the match editor. */
   verwaltung: {
     /** The role an administrator acts in, the account row's second line. */
-    rolle: "Verwaltung",
+    role: "Verwaltung",
     /** The rail's headings over its groups; the Übersicht stands above them with none. */
-    gruppe: {
-      saisonsUndSpiele: "Saisons und Spiele",
-      schulenUndSpieler: "Schulen und Spieler",
-      zugangUndDatenschutz: "Zugang und Datenschutz",
+    group: {
+      saisonsAndSpiele: "Saisons und Spiele",
+      schulenAndSpieler: "Schulen und Spieler",
+      accessAndPrivacy: "Zugang und Datenschutz",
     },
     /** A record's own page, named by the record. */
-    datensatz: (name: string) => name,
+    record: (name: string) => name,
 
     spielort: {
       /** The object of „Spielort anlegen“. */
-      objekt: "Spielort",
-      suchen: "Spielorte suchen",
+      object: "Spielort",
+      search: "Spielorte suchen",
       name: "Name",
       /** The create dialog's two groups: the address's lines, and the record's terms, the price among them. */
-      adresse: "Adresse",
-      konditionen: "Konditionen",
+      address: "Adresse",
+      terms: "Konditionen",
       strasse: "Straße",
       hausnummer: "Nr.",
       plz: "PLZ",
       stadtteil: "Stadtteil",
       stadt: "Stadt",
       /** What a new venue's city starts as: the league plays in one city. */
-      stadtVorgabe: "Frankfurt am Main",
+      stadtDefault: "Frankfurt am Main",
       mietpreis: "Mietpreis",
-      /** The example a figure's message line shows. */
-      mietpreisBeispiel: "60",
-      stillgelegt: "Stillgelegt",
+      /** The examples each box's message line shows where its value is off its pattern. */
+      mietpreisExample: "60",
+      plzExample: "60438",
+      hausnummerExample: "12a",
+      retired: "Stillgelegt",
       /** The venue list's last entry, which opens the create dialog with the name typed so far. */
-      anlegenEintrag: "Spielort anlegen …",
+      createEntry: "Spielort anlegen …",
       /** One line of a venue's address: its street and number. */
-      strasseMitNummer: (strasse: string, hausnummer: string) => `${strasse} ${hausnummer}`,
+      strasseWithHausnummer: (strasse: string, hausnummer: string) => `${strasse} ${hausnummer}`,
     },
 
     spiel: {
       /** The editor of a match whose two teams are not both known yet, named by its number. */
-      nummer: (nummer: number) => `Spiel ${formatZahl(nummer)}`,
+      number: (nr: number) => `Spiel ${formatNumber(nr)}`,
       ansetzung: "Ansetzung",
       ergebnis: "Ergebnis",
       notiz: "Notiz",
@@ -389,42 +415,26 @@ export const COPY = katalog({
       uhrzeit: "Uhrzeit",
       sonderereignis: "Sonderereignis",
       /** The Sonderereignis' first entry: nothing beyond the match being played. */
-      keines: "Keines",
+      none: "Keines",
       ausgefallen: "Ausgefallen",
       nichtantretenTeam1: "Nichtantreten Team 1",
       nichtantretenTeam2: "Nichtantreten Team 2",
+      /** The fixture's two sides, by the names the Sonderereignis' entries give them. */
+      team1: "Team 1",
+      team2: "Team 2",
       abgebrochen: "Abgebrochen",
       annulliert: "Annulliert",
       /** Why a no-show cannot be picked while a side is open. */
-      beideSeitenNoetig: "beide Seiten nötig",
+      needsBothSides: "beide Seiten nötig",
       /** The save's done line where the write moved other matches too, `folgen` naming them in today's editor's words. */
-      gespeichertMitFolgen: (folgen: string) => `Gespeichert. ${folgen}`,
-
-      /** The save's refusals, by the rule the backend names, in the words today's editor shows. */
-      abgelehnt: {
-        datumAusserhalb: "Dieses Datum liegt außerhalb des Spieltags.",
-        unbestaetigt: "Diese Schiedsrichterin oder dieser Schiedsrichter hat den eigenen Eintrag noch nicht bestätigt.",
-        teamMitErgebnis:
-          "Dieses Spiel hat ein Ergebnis, deshalb lässt sich das Team nicht entfernen. Wähle ein anderes Team, oder lösche zuerst die Tore.",
-        stillgelegt:
-          "Spielort oder Schiedsrichter ist stillgelegt oder gelöscht und kann keinem Spiel neu zugeteilt werden, auch keinem, dessen Absage oder Ergebnis du gerade entfernst. Wähle einen anderen, oder reaktiviere den Eintrag, falls er nur stillgelegt ist.",
-        zeitgleich:
-          "Spielort oder Schiedsrichter ist zu dieser Zeit schon für ein anderes Spiel eingeteilt. Wähle eine Uhrzeit mit mindestens vier Stunden Abstand, oder teile das Spiel anders ein.",
-        doppeltAmSpieltag:
-          "Mit dieser Änderung würde der KO-Baum ein Team in zwei Spielen desselben Spieltags aufstellen. Gib einer der beiden Seiten eine andere Herkunft, oder nimm ein von Hand gesetztes Team aus einem der beiden Spiele.",
-        ausgeschieden: "Dieses Team ist aus der Saison ausgeschieden und darf ab seinem Austritt nicht mehr aufgestellt sein.",
-        nichtInSaison: "Dieses Team nimmt nicht an dieser Saison teil.",
-        ohneWertung: "Ein Spiel mit diesem Sonderereignis wird nicht gewertet. Entferne zuerst die Tore.",
-        beideTeamsNoetig: "Ein Nichtantreten braucht beide Teams. Besetze zuerst den offenen Platz.",
-        schonAmSpieltag: "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel.",
-      },
+      savedWithConsequences: (consequences: string) => `Gespeichert. ${consequences}`,
     },
   },
 
   /** The league's own name, which ends every tab title, and what an installed app calls itself. */
-  marke: {
+  brand: {
     name: "Frankfurt League",
-    kurzname: "FL",
-    beschreibung: "Die Frankfurt League ist die Oberstufenliga der Frankfurter Schulen. Finde heraus, welche Schule gewinnt!",
+    shortName: "FL",
+    description: "Die Frankfurt League ist die Oberstufenliga der Frankfurter Schulen. Finde heraus, welche Schule gewinnt!",
   },
 });

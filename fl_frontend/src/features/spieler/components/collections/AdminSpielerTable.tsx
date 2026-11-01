@@ -72,7 +72,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   filteredSpieler: AdminSpielerRow[];
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
-  /** The clubs holding a junction row in the selected season — the one collection `REQ-SQUAD-001` counts. */
+  /** The clubs holding a junction row in the selected season — the one collection `kader_team_not_in_saison` counts. */
   saisonTeams: readonly SpielerTeamOption[];
   /** Which season the squad columns describe — the sidemenu selector's, resolved by the page. */
   selectedSaisonId: string;

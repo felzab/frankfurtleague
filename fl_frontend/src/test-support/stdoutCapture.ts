@@ -33,7 +33,7 @@ function beginCapture(): { written: WrittenLines; restore: () => void } {
   };
 }
 
-/** The awaited twin, for a route handler or an `apiClient` call that writes its line asynchronously. */
+/** The awaited twin, for a route handler or a backend call that writes its line asynchronously. */
 export async function documentsWrittenByAsync(run: () => Promise<unknown>): Promise<Record<string, unknown>[]> {
   const { written, restore } = beginCapture();
   try {

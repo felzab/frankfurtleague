@@ -3,8 +3,8 @@ from http import HTTPStatus
 from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after
-from app.api.schiedsrichter.schemas import FLSchiedsrichterBestaetigungZustand
 from app.api.spiele.schemas import unplayed_filter
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
@@ -15,19 +15,17 @@ from app.shared.folding import canonical_address, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     MEDIEN_MIN_AGE_YEARS,
-    SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
+    SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS,
     SCHIEDSRICHTER_MIN_AGE_YEARS,
 )
 from app.shared.schemas.kontakt import FLKontakt
-
-# A played fixture never blocks: its `schiedsrichter` is a record of who officiated.
-REFEREE_STILL_ASSIGNED = "REQ-RETIRE-004"
+from app.shared.schemas.literals import FLConfirmationState
 
 
 def build_ghost_schiedsrichter() -> dict[str, Any]:
     """The row an erased referee's fixtures are repointed to, as it is first written.
 
-    Retired, so `REQ-BOOKING-001` refuses it every new fixture under the rule a retired referee
+    Retired, so `booking_unknown_resource` refuses it every new fixture under the rule a retired referee
     already meets rather than under one written for the ghost.
     """
 
@@ -147,39 +145,22 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRe
     if not upcoming_spiel_nrs:
         return None
 
-    named = ", ".join(str(nr) for nr in upcoming_spiel_nrs[:5])
-    rest = f" and {len(upcoming_spiel_nrs) - 5} more" if len(upcoming_spiel_nrs) > 5 else ""
-
     return WriteRefusal(
-        error_code=REFEREE_STILL_ASSIGNED,
+        error_code=Code.SCHIEDSRICHTER_STILL_ASSIGNED,
         status=HTTPStatus.CONFLICT,
-        message=(
-            f"{len(upcoming_spiel_nrs)} unplayed fixture(s) are assigned to them (spiel_nr {named}{rest}); "
-            "reassign or cancel those fixtures first"
-        ),
     )
 
 
-# --- The CONFIRMATION LINK. Every predicate below reads a missing `bestaetigung` block as "nothing
+# --- The CONFIRMATION LINK. Every predicate below reads a missing `confirmation` block as "nothing
 # was ever mailed": a retired referee whose corrected address was stored unmailed holds none.
 
-# What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
-SCHIEDSRICHTER_RETIRED = "REQ-SCHIEDSRICHTER-001"
-SCHIEDSRICHTER_TOKEN_UNKNOWN = "REQ-SCHIEDSRICHTER-002"
-SCHIEDSRICHTER_TOKEN_EXPIRED = "REQ-SCHIEDSRICHTER-003"
-SCHIEDSRICHTER_ALREADY_CONFIRMED = "REQ-SCHIEDSRICHTER-004"
-SCHIEDSRICHTER_ALTER = "REQ-SCHIEDSRICHTER-005"
-SCHIEDSRICHTER_KEINE_ADRESSE = "REQ-SCHIEDSRICHTER-006"
-# Its own code and never `app/api/sperrliste/services.py :: SPERRLISTE_ADRESSE_GESPERRT`, which a
-# client already maps to a second ban of one address: two conditions under one code are two a
-# frontend cannot part.
-SCHIEDSRICHTER_ADRESSE_GESPERRT = "REQ-SCHIEDSRICHTER-007"
-SCHIEDSRICHTER_MEDIEN_ALTER = "REQ-SCHIEDSRICHTER-008"
-SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT = "REQ-SCHIEDSRICHTER-009"
 
-# The carrier key, which `app/api/zustellung/services.py :: ZIEL_PFADE` also spells for this kind.
-# A test holds the two equal: parted, a bounce would be filed under a path no link is stored at.
-BESTAETIGUNG_FELD: Final = "bestaetigung"
+# The record's confirmation block, under which the hand-out stores the hashes it mints.
+BESTAETIGUNG_FELD: Final = "confirmation"
+
+# Where the hand-out stores the hashes of the links it mints, and the address it mints them for.
+TOKEN_HASHES_PFAD: Final = f"{BESTAETIGUNG_FELD}.token_hashes"
+ADRESSE_PFAD: Final = "kontakt.email"
 
 EINWILLIGUNG_FELD: Final = "einwilligung"
 
@@ -187,36 +168,32 @@ EINWILLIGUNG_FELD: Final = "einwilligung"
 def bestaetigung_frist_from(*, today: str) -> str:
     """The day the link stops working, counted from the mint -- a re-send restarts it."""
 
-    return days_after(day=today, days=SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)
+    return days_after(day=today, days=SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS)
 
 
-def compose_bestaetigung(*, token_hash: str, today: str) -> dict[str, Any]:
-    """The bookkeeping every mint writes: a live hash, handed out today, nobody reminded."""
+def compose_bestaetigung(*, today: str) -> dict[str, Any]:
+    """The bookkeeping every owed link writes: no hash until the hand-out mints one, owed today, nobody reminded."""
 
-    return {"token_hash": token_hash, "verschickt_am": today, "erinnert_am": None, "frist": bestaetigung_frist_from(today=today)}
+    return {"token_hashes": [], "sent_at": today, "reminded_at": None, "frist": bestaetigung_frist_from(today=today)}
 
 
-def compose_mint_update(*, token_hash: str, today: str) -> dict[str, Any]:
-    """The WHOLE block, so the delivery state of the message the old link went out in goes with it.
+def compose_mint_update(*, today: str) -> dict[str, Any]:
+    """The WHOLE block, so every link the referee was sent before stops working at this write."""
 
-    A refusal recorded against a replaced address would otherwise hold the fresh link's referee
-    unreachable for ever.
-    """
-
-    return {BESTAETIGUNG_FELD: compose_bestaetigung(token_hash=token_hash, today=today)}
+    return {BESTAETIGUNG_FELD: compose_bestaetigung(today=today)}
 
 
 def compose_einwilligung(*, umfang: str, medien: bool, text_version: str, today: str) -> dict[str, Any]:
     """The record as the person's own press writes it.
 
-    `datum` and `bestaetigt_am` are one day here where a pupil's are two: nobody enters this record
+    `datum` and `confirmed_at` are one day here where a pupil's are two: nobody enters this record
     administratively, so it is given and confirmed in the same press.
     """
 
     return {
         "umfang": umfang,
         "datum": today,
-        "bestaetigt_am": today,
+        "confirmed_at": today,
         "text_version": text_version,
         "medien": medien,
     }
@@ -239,7 +216,7 @@ def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool,
 def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
     """The hash alone finds the referee. No `inactive_since` term: a person retired after the mint still owns the answer they give."""
 
-    return {f"{BESTAETIGUNG_FELD}.token_hash": token_hash}
+    return {TOKEN_HASHES_PFAD: token_hash}
 
 
 def vorname_of(name: Any) -> str | None:
@@ -254,35 +231,31 @@ def vorname_of(name: Any) -> str | None:
     return parts[0] if parts else None
 
 
-def link_is_over(*, frist: Any, today: str) -> bool:
-    """Whether the deadline has passed. A block carrying no readable deadline is over: nothing can say it is still running."""
+def link_is_over(*, frist: str, today: str) -> bool:
+    """Whether the deadline has passed: its own day still takes the answer."""
 
-    return not isinstance(frist, str) or frist < today
-
-
-def frist_abgelaufen(block: Any, *, today: str) -> bool:
-    """Whether a link block a row holds has passed its deadline: `link_is_over` over a block that exists."""
-
-    return isinstance(block, Mapping) and link_is_over(frist=block.get("frist"), today=today)
+    return frist < today
 
 
-def frist_of(bestaetigung: Any) -> Any:
-    return bestaetigung.get("frist") if isinstance(bestaetigung, Mapping) else None
+def frist_abgelaufen(block: Mapping[str, Any] | None, *, today: str) -> bool:
+    """Whether the link a referee holds has passed its deadline; false where they hold none."""
+
+    return block is not None and link_is_over(frist=block["frist"], today=today)
 
 
-def zustand_of(*, einwilligung: Any, bestaetigung: Any, today: str, gesperrt: bool) -> FLSchiedsrichterBestaetigungZustand:
+def zustand_of(*, einwilligung: Any, confirmation: Mapping[str, Any], today: str, barred: bool) -> FLConfirmationState:
     """What a reopened link shows: the ban first, then a stamp over the deadline.
 
     A person who answered on the last valid day is shown that they did.
     """
 
-    if gesperrt:
-        return "gesperrt"
+    if barred:
+        return "barred"
 
     if is_confirmed(einwilligung=einwilligung):
-        return "bestaetigt"
+        return "confirmed"
 
-    return "abgelaufen" if link_is_over(frist=frist_of(bestaetigung), today=today) else "gueltig"
+    return "expired" if link_is_over(frist=confirmation["frist"], today=today) else "valid"
 
 
 def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
@@ -296,22 +269,20 @@ def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_TOKEN_UNKNOWN,
+        error_code=Code.LINK_INVALID,
         status=HTTPStatus.NOT_FOUND,
-        message="this link opens no referee's entry; it may have been replaced by a newer one, or the entry is gone",
     )
 
 
-def find_expired_token_refusal(*, frist: Any, today: str) -> WriteRefusal | None:
+def find_expired_token_refusal(*, frist: str, today: str) -> WriteRefusal | None:
     """Why this link is over, or `None`."""
 
     if not link_is_over(frist=frist, today=today):
         return None
 
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_TOKEN_EXPIRED,
+        error_code=Code.LINK_EXPIRED,
         status=HTTPStatus.GONE,
-        message="this link has expired; the administration can send a fresh one",
     )
 
 
@@ -323,24 +294,22 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_ALREADY_CONFIRMED,
+        error_code=Code.CONFIRMATION_EXISTS,
         status=HTTPStatus.CONFLICT,
-        message="this entry has already been confirmed; an answer is given once",
     )
 
 
-def find_bestaetigung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-SCHIEDSRICHTER-009`: the ban list holds the address this link was mailed to, however long ago it was minted."""
+def find_bestaetigung_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
+    """`link_barred`: the ban list holds the address this link was mailed to, however long ago it was minted."""
 
-    if not gesperrt:
+    if not barred:
         return None
 
-    # 403 where the editor's `-007` is 409: this caller is the barred person, holding the mailbox the
+    # 403 where the editor's `schiedsrichter_adresse_barred` is 409: this caller is the barred person, holding the mailbox the
     # token was sent to, where the editor's is an administrator writing about an entry.
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT,
+        error_code=Code.LINK_BARRED,
         status=HTTPStatus.FORBIDDEN,
-        message="the email address this link was sent to is on the ban list, so it confirms nothing",
     )
 
 
@@ -351,18 +320,16 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
 
     if age < SCHIEDSRICHTER_MIN_AGE_YEARS:
         return WriteRefusal(
-            error_code=SCHIEDSRICHTER_ALTER,
+            error_code=Code.CONFIRMATION_AGE,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
-            message=f"this consent is given from {SCHIEDSRICHTER_MIN_AGE_YEARS} years of age, and the date entered does not reach it",
         )
 
     if age > BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
         return WriteRefusal(
-            error_code=SCHIEDSRICHTER_ALTER,
+            error_code=Code.CONFIRMATION_AGE,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
-            message=f"a date giving an age over {BEWERBUNG_KONTAKT_MAX_AGE_YEARS} years is a mistyped century rather than a birthdate",
         )
 
     return None
@@ -379,10 +346,9 @@ def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> Write
         return None
 
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_MEDIEN_ALTER,
+        error_code=Code.MEDIEN_AGE,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         fields=(("medien",),),
-        message=f"a consent to publishing photographs, video and interviews is taken from {MEDIEN_MIN_AGE_YEARS} years of age only",
     )
 
 
@@ -397,16 +363,15 @@ def find_retired_refusal(*, inactive_since: Any) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_RETIRED,
+        error_code=Code.SCHIEDSRICHTER_RETIRED,
         status=HTTPStatus.CONFLICT,
-        message="this referee is retired and takes no new fixtures, so there is nothing left to collect a consent for; reactivate them first",
     )
 
 
 def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
     """Why there is nobody to send to, or `None`.
 
-    Refused here and not at the calling surface alone: a mint that wrote `verschickt_am` for a row
+    Refused here and not at the calling surface alone: a mint that wrote `sent_at` for a row
     with no address would record a message that was never composed.
     """
 
@@ -421,22 +386,20 @@ def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
             return None
 
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_KEINE_ADRESSE,
+        error_code=Code.SCHIEDSRICHTER_NO_ADRESSE,
         status=HTTPStatus.CONFLICT,
-        message="this referee has no usable email address, so no confirmation link can be sent; enter one first",
     )
 
 
-def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
+def find_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
     """Why no link may be sent to this address, or `None`. Worded for the administrator who typed it, every site raising it being admin-tier."""
 
-    if not gesperrt:
+    if not barred:
         return None
 
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_ADRESSE_GESPERRT,
+        error_code=Code.SCHIEDSRICHTER_ADRESSE_BARRED,
         status=HTTPStatus.CONFLICT,
-        message="this email address is on the ban list, so no confirmation link may be sent to it; lift the entry first",
     )
 
 
@@ -459,30 +422,25 @@ def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> boo
     return _address_moves(stored=stored, payload_email=payload_email)
 
 
-# What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
-SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL = "REQ-SCHIEDSRICHTER-011"
-
-
 def find_bestaetigte_adresse_refusal(*, stored: Mapping[str, Any], payload_email: str) -> WriteRefusal | None:
-    """`REQ-SCHIEDSRICHTER-011`: a save moving a CONFIRMED referee's address, on which their sign-in is keyed: only an address change moves it.
+    """`schiedsrichter_adresse_only_per_change`: a save moving a CONFIRMED referee's address, which keys their sign-in.
 
-    Refused whole: landing the rest, an editor stale on the address would lose its other fields unseen.
+    Only an address change moves it. Refused whole: landing the rest, an editor stale on the address would lose its other fields unseen.
     """
 
     if not is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)) or not _address_moves(stored=stored, payload_email=payload_email):
         return None
 
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL,
+        error_code=Code.SCHIEDSRICHTER_ADRESSE_ONLY_PER_CHANGE,
         status=HTTPStatus.CONFLICT,
-        message="this referee has confirmed their entry, so their address moves only through an address change; keep the stored one here",
     )
 
 
 def compose_korrektur_update(
-    *, stored: Mapping[str, Any], payload: Mapping[str, Any], payload_email: str, token_hash: str, today: str
+    *, stored: Mapping[str, Any], payload: Mapping[str, Any], payload_email: str, today: str
 ) -> tuple[dict[str, Any], bool]:
-    """The save's update, and whether it minted a fresh consent link.
+    """The save's update, and whether it owes a fresh consent link.
 
     A RETIRED unconfirmed referee's new address is stored and mailed nothing, and their old link
     goes, its mailbox replaced; the reactivation is what asks them.
@@ -496,7 +454,7 @@ def compose_korrektur_update(
 
     # An UNCONFIRMED referee's old link went to a mailbox nobody reads, and leaving it live is a
     # credential in the wrong inbox.
-    return {"$set": {**payload, **compose_mint_update(token_hash=token_hash, today=today)}}, True
+    return {"$set": {**payload, **compose_mint_update(today=today)}}, True
 
 
 def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
@@ -515,7 +473,7 @@ def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
 # An INCLUSION and never an exclusion: a base-tier caller holds the whole credential, so the rest
 # of the row is what must not reach them.
 BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
-    f"{EINWILLIGUNG_FELD}.bestaetigt_am": 1,
+    f"{EINWILLIGUNG_FELD}.confirmed_at": 1,
     f"{BESTAETIGUNG_FELD}.frist": 1,
     # For the ban list alone, as the answer's read takes it: the response model declares no field to
     # carry it.
@@ -527,16 +485,16 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
 # Narrower than the view's: the answer takes its wording from the payload rather than the row. The
 # address is what the press asks the ban list of, and no answer carries it.
 BESTAETIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
-    f"{EINWILLIGUNG_FELD}.bestaetigt_am": 1,
+    f"{EINWILLIGUNG_FELD}.confirmed_at": 1,
     f"{BESTAETIGUNG_FELD}.frist": 1,
     "kontakt.email": 1,
 }
 
 # What the re-send judges, and the address it hashes against the ban list.
-EINLADEN_FIELDS: Mapping[str, int] = {"inactive_since": 1, "kontakt.email": 1, f"{EINWILLIGUNG_FELD}.bestaetigt_am": 1}
+EINLADEN_FIELDS: Mapping[str, int] = {"inactive_since": 1, "kontakt.email": 1, f"{EINWILLIGUNG_FELD}.confirmed_at": 1}
 
 
-def build_selbst_referee_filter(*identifiers: str, schiedsrichter_id: Any = None) -> Mapping[str, Any]:
+def build_self_referee_filter(*identifiers: str, schiedsrichter_id: Any = None) -> Mapping[str, Any]:
     """The referee rows of these addresses, retired ones included: a withdrawal reaches them too."""
 
     return {
@@ -559,10 +517,10 @@ SELBST_FIELDS: Mapping[str, int] = {
 }
 
 
-def build_selbst_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+def build_self_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """The referee rows a person's own pages read, each a candidate for `app/api/identitaet/services.py :: ist_eigener_schiedsrichter`.
 
     Unbounded: a capped list reads as a person holding fewer records.
     """
 
-    return [{"$match": build_selbst_referee_filter(identifier)}, {"$project": dict(SELBST_FIELDS)}, {"$sort": {"_id": 1}}]
+    return [{"$match": build_self_referee_filter(identifier)}, {"$project": dict(SELBST_FIELDS)}, {"$sort": {"_id": 1}}]

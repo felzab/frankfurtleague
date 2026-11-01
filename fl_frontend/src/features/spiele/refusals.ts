@@ -6,18 +6,18 @@ import { CLASH_BUFFER_TEXT } from "./constants";
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /**
- * The refusals a match write answers here. `REQ-DATE-001` and `REQ-BOOKING-002` land on the field that
+ * The refusals a match write answers here. `spiel_outside_spieltag` and `booking_unconfirmed_schiedsrichter` land on the field that
  * caused each; the rest travel as a message, naming no single control. Every other code falls to
  * `fl_frontend/src/shared/utils/actionError.ts :: OCCUPANT_REFUSALS`.
  */
 export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  if (error.serverErrorCode === "REQ-DATE-001") {
+  if (error.serverErrorCode === "spiel_outside_spieltag") {
     return { fieldErrors: { datum: "Dieses Datum liegt außerhalb des Spieltags." } };
   }
   // The referee alone, so the picker takes it: a kept one too, which a lifted call-off or a cleared result books again.
-  if (error.serverErrorCode === "REQ-BOOKING-002") {
+  if (error.serverErrorCode === "booking_unconfirmed_schiedsrichter") {
     return {
       fieldErrors: {
         // One sentence: picking another referee is the box's own repair.
@@ -25,7 +25,7 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
       },
     };
   }
-  if (error.serverErrorCode === "REQ-RESULT-001") {
+  if (error.serverErrorCode === "ergebnis_side_emptied") {
     return {
       error: buildRefusal({
         reason: "Dieses Spiel hat ein Ergebnis, deshalb lässt sich das Team nicht entfernen",
@@ -37,7 +37,7 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
 
   // A reactivation is one of two ways out rather than the way out: the row an erasure repoints a
   // fixture at is permanently retired, and a repair promising one sends a teacher into a refusal.
-  if (error.serverErrorCode === "REQ-BOOKING-001") {
+  if (error.serverErrorCode === "booking_unknown_resource") {
     return {
       error: buildRefusal({
         // The second clause for the save that picked nothing: lifting a call-off or clearing a result
@@ -49,7 +49,7 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
     };
   }
   // Never on the picker: the draft's own choice is not at fault, the slot moved under it.
-  if (error.serverErrorCode === "REQ-BOOKING-003") {
+  if (error.serverErrorCode === "booking_schiedsrichter_moved") {
     return {
       error: buildRefusal({
         reason: "Die Schiedsrichtereinteilung dieses Spiels hat sich geändert, seit Du es geöffnet hast, etwa weil die Person abgesagt hat",
@@ -57,7 +57,7 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
       }),
     };
   }
-  if (error.serverErrorCode === "REQ-CLASH-001") {
+  if (error.serverErrorCode === "spiel_double_booked") {
     return {
       error: buildRefusal({
         reason: "Spielort oder Schiedsrichter ist zu dieser Zeit schon für ein anderes Spiel eingeteilt",
@@ -65,9 +65,9 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
       }),
     };
   }
-  // Mapped here rather than beside `REQ-SPIELTAG-001` in the shared fallback: that sentence points at
+  // Mapped here rather than beside `spieltag_occupied` in the shared fallback: that sentence points at
   // the team the admin just picked, and this refusal is about a slot the KO-Baum fills by itself.
-  if (error.serverErrorCode === "REQ-SPIELTAG-002") {
+  if (error.serverErrorCode === "spieltag_occupied_by_the_resolution") {
     return {
       error: buildRefusal({
         // Never a result: `find_advancement_occupancy_refusal` runs on every save and every dry run,
@@ -81,33 +81,3 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
   }
   return null;
 }
-
-// One replay carries every fixture, so no row below names a single one.
-/**
- * What the undo's replay of `PATCH /spiele/paarungen` meets, in German written for the undo: the
- * save's own words name a field this toast has not got, and a repair that would undo the undo.
- */
-export const PAARUNGEN_REPLAY_REFUSALS: Readonly<Record<string, string>> = {
-  // No „inzwischen“: the row can have retired before the save being undone, as one a reopening kept booked has.
-  "REQ-BOOKING-001":
-    "Ein ursprünglicher Spielort oder Schiedsrichter ist stillgelegt oder gelöscht, und der ursprüngliche Stand würde ihn einem Spiel wieder zuteilen.",
-  "REQ-BOOKING-002":
-    "Eine ursprünglich eingeteilte Person hat ihren Eintrag nicht bestätigt, und der ursprüngliche Stand würde sie einem Spiel wieder zuteilen.",
-  // Never met in practice: a restore is judged against the fixture's own referee.
-  "REQ-BOOKING-003": "Die Schiedsrichtereinteilung eines Spiels hat sich inzwischen geändert.",
-  "REQ-CLASH-001": "Ein ursprünglicher Spielort oder Schiedsrichter ist zu dieser Zeit inzwischen für ein anderes Spiel eingeteilt.",
-  "REQ-DATE-001": "Ein ursprüngliches Datum liegt nicht mehr im Zeitraum seines Spieltags.",
-  "REQ-ELIGIBILITY-001":
-    "Ein ursprünglich aufgestelltes Team ist inzwischen aus der Saison ausgeschieden und darf ab seinem Austritt nicht mehr aufgestellt sein.",
-  "REQ-ELIGIBILITY-002": "Ein ursprünglich aufgestelltes Team nimmt nicht mehr an dieser Saison teil.",
-  "REQ-RESULT-001": "Ein Spiel ist inzwischen gewertet, und der ursprüngliche Stand lässt eine Seite ohne Team.",
-  "REQ-SPIELTAG-001": "Ein ursprünglich aufgestelltes Team spielt am selben Spieltag inzwischen schon in einem anderen Spiel.",
-  // The restored STATE and never a result: the refusal is raised by the resolution the replay would
-  // run, which a restored Herkunft moves as readily as a restored scoreline.
-  "REQ-SPIELTAG-002": "Mit dem ursprünglichen Stand würde der KO-Baum ein Team in zwei Spielen desselben Spieltags aufstellen.",
-  "REQ-STATE-002": "Ein Spiel mit dem ursprünglichen Sonderereignis wird nicht gewertet und darf keine Tore tragen.",
-  "REQ-STATE-003": "Ein Nichtantreten braucht beide Teams, und im ursprünglichen Stand ist ein Platz offen.",
-  "REQ-WIRING-001": "Eine ursprüngliche Herkunft passt nicht mehr in den KO-Baum dieser Saison.",
-  "REQ-WIRING-002": "Eine ursprüngliche Herkunft ist ein Platz in einer Gruppe, und das ist nur in der ersten KO-Runde der Saison möglich.",
-  "REQ-WIRING-003": "Eine ursprüngliche Herkunft ist ein Platz in einer Gruppe, die es in dieser Saison nicht gibt.",
-};

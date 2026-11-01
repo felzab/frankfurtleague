@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { BEWERBUNG_DUBLETTE_LABEL, markBewerbungDubletten } from "./duplicates.ts";
 
-import type { FLBewerbung } from "./schemas.ts";
+import type { FLBewerbung } from "@/core/generated/client/types.ts";
 
 /** The five fields the derivation reads, so a fixture is an application without being a whole one. */
 type Kandidat = Pick<FLBewerbung, "id" | "saison_id" | "status" | "team_id" | "schule">;
@@ -21,7 +21,7 @@ function schule(shorthand: string): FLBewerbung["schule"] {
 
 /**
  * One application by what it names. `team` is a picked club's id and `kuerzel` a proposed school's
- * code; naming both is the shape `REQ-BEWERBUNG-005` refuses, and the fixture cannot compose it.
+ * code; naming both is the shape `bewerbung_submission_subject_unresolved` refuses, and the fixture cannot compose it.
  */
 function bewerbung(
   id: string,
@@ -29,7 +29,7 @@ function bewerbung(
     team = null,
     kuerzel = null,
     saisonId = "2627",
-    status = "eingereicht",
+    status = "submitted",
   }: { team?: string | null; kuerzel?: string | null; saisonId?: string; status?: FLBewerbung["status"] },
 ): Kandidat {
   return {
@@ -79,28 +79,13 @@ describe("applications a triage has to decide between", () => {
     ]);
   });
 
-  /* And the second: two proposed schools asking for one Kürzel, which no club holds yet, so nothing
-     the backend refuses on submission catches it. The server folds the case as this side does, so one
-     key answers for both spellings. */
-  it("marks both applications proposing one Kürzel, whichever case it was typed in", () => {
-    const dubletten = markBewerbungDubletten(
-      [bewerbung("a", { kuerzel: "GG" }), bewerbung("b", { kuerzel: " gg " }), bewerbung("c", { kuerzel: "ER" })],
-      [SHORTHAND_COLLIDES],
-    );
-
-    expect([...dubletten]).toStrictEqual([
-      ["a", "kuerzel"],
-      ["b", "kuerzel"],
-    ]);
-  });
-
   /* A decided application is the record its decision was taken against: two open applications may
      collide on a code a third, declined one also carries, and the server names that key. */
   it("passes over a decided application whose key collides", () => {
     const dubletten = markBewerbungDubletten(
       [
-        bewerbung("a", { team: CLUB, status: "angenommen" }),
-        bewerbung("b", { kuerzel: "GG", status: "abgelehnt" }),
+        bewerbung("a", { team: CLUB, status: "accepted" }),
+        bewerbung("b", { kuerzel: "GG", status: "declined" }),
         bewerbung("c", { kuerzel: "GG" }),
       ],
       [CLUB_KOLLIDIERT, SHORTHAND_COLLIDES],
@@ -128,7 +113,7 @@ describe("applications a triage has to decide between", () => {
     expect(dubletten.size).toBe(0);
   });
 
-  /* The row `REQ-BEWERBUNG-002` refuses: it names neither, so there is no key to look up and no
+  /* The row `bewerbung_subject_unresolved` refuses: it names neither, so there is no key to look up and no
      answer from the server can reach it. */
   it("passes over an application naming neither a club nor a Kürzel", () => {
     const dubletten = markBewerbungDubletten([bewerbung("a", {}), bewerbung("b", { kuerzel: "  " })], [SHORTHAND_COLLIDES]);

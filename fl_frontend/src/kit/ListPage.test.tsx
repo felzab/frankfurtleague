@@ -20,20 +20,20 @@ describe("the list template's matchday list", () => {
   it("shows its empty state in the tabs' place while the season has no matchday", () => {
     render(
       <ListPage
-        head={{ area: "saison", title: { route: "spielplan" } }}
-        list={{ kind: "spieltage", tabs: null, empty: { kind: "noch", plural: SPIELTAGE } }}
+        head={{ scope: "saison", title: { route: "spielplan" } }}
+        list={{ kind: "spieltage", tabs: null, empty: { kind: "none", plural: SPIELTAGE } }}
       />,
     );
 
-    expect(screen.getByText(COPY.shared.leer.noch(SPIELTAGE))).toBeTruthy();
+    expect(screen.getByText(COPY.shared.empty.none(SPIELTAGE))).toBeTruthy();
     expect(screen.queryByRole("navigation", { name: SPIELTAGE })).toBeNull();
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(COPY.seite.spielplan);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(COPY.page.spielplan);
   });
 
   it("shows the tabs and the chosen matchday's matches alone, and no empty state, once a matchday stands", () => {
     render(
       <ListPage
-        head={{ area: "saison", title: { route: "spielplan" } }}
+        head={{ scope: "saison", title: { route: "spielplan" } }}
         list={{
           kind: "spieltage",
           tabs: {
@@ -44,7 +44,7 @@ describe("the list template's matchday list", () => {
               { id: "2", label: "2. Spieltag", panel: "Spiele des zweiten" },
             ],
           },
-          empty: { kind: "noch", plural: SPIELTAGE },
+          empty: { kind: "none", plural: SPIELTAGE },
         }}
       />,
     );
@@ -53,6 +53,6 @@ describe("the list template's matchday list", () => {
     expect(within(tabs).getByRole("link", { name: "2. Spieltag" }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByText("Spiele des zweiten")).toBeTruthy();
     expect(screen.queryByText("Spiele des ersten")).toBeNull();
-    expect(screen.queryByText(COPY.shared.leer.noch(SPIELTAGE))).toBeNull();
+    expect(screen.queryByText(COPY.shared.empty.none(SPIELTAGE))).toBeNull();
   });
 });

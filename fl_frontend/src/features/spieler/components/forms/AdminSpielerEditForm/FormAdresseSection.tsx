@@ -6,7 +6,7 @@ import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
-import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
+import type { FLAddressChangeViewableDenied } from "@/core/generated/client/types";
 
 /**
  * The pupil's sign-in address, read here and changed nowhere on this page: the save never carries it, and a change
@@ -20,7 +20,7 @@ export function FormAdresseSection({
   /** The stored, folded address: every pupil holds one, their registration's. */
   email: string;
   adresswechselId: string | null;
-  adresswechselVerwehrt: EinsehbarVerwehrt | null;
+  adresswechselVerwehrt: FLAddressChangeViewableDenied | null;
 }) {
   const panel = formPanel();
 

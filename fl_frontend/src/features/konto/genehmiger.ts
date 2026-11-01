@@ -1,4 +1,4 @@
-import type { FLVerwaltung } from "@/features/berechtigungen/schemas";
+import type { FLVerwaltung } from "@/core/generated/client/types";
 
 /**
  * Who else must agree to a change moving a grant of `verwaltung`, one wording for every sentence the account page

@@ -15,8 +15,8 @@ import { AuswahlSelect } from "./AuswahlSelect";
 import { EntfernenButton, HinzufuegenButton, MinuteField, ohneKader, personHinweis, personOptionen, seitenOptionen } from "./eintragFelder";
 import { UNBEKANNT } from "./spielberichtDraft";
 
+import type { FLSpielSeite } from "@/core/generated/client/types";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLSpielberichtSeite } from "../../../schemas";
 import type { SpielberichtFieldPath, SpielberichtKontext, TorschuetzeDraft } from "./spielberichtDraft";
 
 /**
@@ -103,7 +103,7 @@ export function FormTorschuetzenSection({
                     </div>
 
                     <div className={FIELD_PAIR_CLASSES}>
-                      <AuswahlSelect<FLSpielberichtSeite>
+                      <AuswahlSelect<FLSpielSeite>
                         name={`${pfad}.seite`}
                         label="Team"
                         placeholder="Team wählen"

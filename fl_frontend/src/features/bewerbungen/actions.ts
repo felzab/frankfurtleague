@@ -2,27 +2,16 @@
 
 import { unstable_rethrow } from "next/navigation";
 
-import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
-import { frontend_config } from "@/core/config";
 import { APIBadStatusError } from "@/core/errors";
-import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
-import { logger } from "@/core/logging";
-import { runAnsweringOwnCut } from "@/core/requestScope";
-import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
-import { mailKontaktAbgang } from "@/features/kontakte/notifications";
-import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
-import { getTeamMemberships } from "@/features/teams/queries";
-import { linkVersandOf } from "@/features/zustellung/notifications";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { logActionFailure } from "@/shared/utils/actionFailure";
-import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { explainsItself } from "@/shared/utils/degradedRead";
-import { formatSpielDatum } from "@/shared/utils/format";
-import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
+import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { ERNEUT_OHNE_ADRESSE } from "./constants";
 import { ablehnenBewerbung, annehmenBewerbung, besetzenKontaktSitz, erneutSendenEinwilligung, korrigierenKontaktEmail } from "./mutations";
-import { collectBewerbungEmpfaenger, describeBewerbungMail, rollenText, sendBewerbungMail } from "./notifications";
 import { getBewerbungById } from "./queries";
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals";
 import {
@@ -34,87 +23,27 @@ import {
 } from "./schemas";
 import { bewerbungHerkunft, bewerbungTeamName, describeAufnahme } from "./utils";
 
-import type { BewerbungEmail } from "@/core/bewerbungEmail";
-import type { KontaktRolle } from "@/features/teams/constants";
-import type { ActionResult } from "@/shared/types/types";
-import type { LinkVersand } from "@/shared/utils/linkVersand";
-import type { BewerbungHerkunft } from "./constants";
-import type { BewerbungBetreff } from "./notifications";
 import type {
-  FLAblehnenBewerbungPayload,
-  FLAnnehmenBewerbungPayload,
+  FLAcceptBewerbungPayload,
   FLBewerbung,
   FLBewerbungKontaktEmailPayload,
-  FLBewerbungKontaktSitzPayload,
-  FLEinwilligungErneutPayload,
-} from "./schemas";
+  FLBewerbungKontaktSeatPayload,
+  FLDeclineBewerbungPayload,
+  FLKontaktRolle,
+} from "@/core/generated/client/types";
+import type { ActionResult } from "@/shared/types/types";
+import type { BewerbungHerkunft } from "./constants";
 
 /**
- * The club the message to the school is addressed to. `null` where the application names neither a
- * school nor a club — a decline reaches that row, and nobody may guess a name for an outbound message.
+ * The club a confirmation link names. `null` where the application names neither a school nor a club, and nobody may
+ * guess a name for a contact who never heard of the application.
  */
 async function resolveBewerbungTeamName(bewerbung: FLBewerbung): Promise<string | null> {
   // The club list is asked for only where the application picked a club: a proposed school carries
-  // its own name, and nothing else has to be read to address the message.
-  const teams = bewerbung.schule === null && bewerbung.team_id !== null ? (await getTeamMemberships()).teams : [];
+  // its own name, and nothing else has to be read.
+  const teams = bewerbung.schule === null && bewerbung.team_id !== null ? (await getTeamSaisons()).teams : [];
 
   return bewerbungTeamName(bewerbung, teams);
-}
-
-/**
- * Sends one decision's message to everyone the application names and reports who it reached.
- *
- * **The decision stands whatever this returns**: the write has committed and no endpoint takes it back.
- */
-async function notifyBewerbung({
-  operation,
-  betreff,
-  bewerbung,
-  buildMail,
-}: {
-  operation: string;
-  /** The bare noun the report inflects: „Zusage“, „Absage“. */
-  betreff: BewerbungBetreff;
-  bewerbung: FLBewerbung;
-  /**
-   * Composed from the club's name, resolved once here rather than at each call site, and from the
-   * seats the reader in hand holds — the one part of a decision's message that differs per recipient.
-   */
-  buildMail: (teamName: string, rollenText: string) => BewerbungEmail;
-}): Promise<string> {
-  let teamName: string | null;
-
-  try {
-    teamName = await resolveBewerbungTeamName(bewerbung);
-  } catch (error) {
-    // The decision has committed by the time this runs, so a read that fails on the way to the
-    // message must not come back as a write that did not happen. Name only, never the error.
-    logger.error("bewerbung.mail_failed", undefined, {
-      error_code: "FE-MAIL-002",
-      name: error instanceof Error ? error.name : undefined,
-      operation: operation,
-    });
-
-    return `Die ${betreff} konnte nicht verschickt werden. Melde Dich selbst bei den Kontaktpersonen der Bewerbung.`;
-  }
-
-  if (teamName === null) {
-    return `Zu dieser Bewerbung ist kein Teamname hinterlegt, deshalb ging die ${betreff} an niemanden raus.`;
-  }
-
-  const benanntesTeam = teamName;
-
-  // The decision has committed: a send broken off is worded in the report's own sentence, never as the request's doubt,
-  // which would drop the sentence naming whom to tell by hand.
-  const outcome = await runAnsweringOwnCut(() =>
-    sendBewerbungMail({
-      operation: operation,
-      recipients: collectBewerbungEmpfaenger(bewerbung.kontakte),
-      buildMail: (rollenText) => buildMail(benanntesTeam, rollenText),
-    }),
-  );
-
-  return describeBewerbungMail(betreff, outcome);
 }
 
 /**
@@ -122,28 +51,31 @@ async function notifyBewerbung({
  * whose sentence it decides. `null` where that read fails, which leaves the key to the shared reader.
  */
 async function kollisionsHerkunft(error: unknown, bewerbungId: string): Promise<BewerbungHerkunft | null> {
-  if (!(error instanceof APIBadStatusError) || error.serverErrorCode !== "DB-COMMON-002") return null;
+  if (!(error instanceof APIBadStatusError) || error.serverErrorCode !== "duplicate_key") return null;
 
   const gelesen = await getBewerbungById(bewerbungId).catch((failed: unknown) => {
     // A redirect the read's admin guard threw is a navigation, never a failed read.
     unstable_rethrow(failed);
     // Logged and settled, a contract break included: only the refusal's wording rests on this read.
-    if (!explainsItself(failed)) logActionFailure("An application's collision read failed and its refusal takes the shared words", failed);
+    if (!explainsItself(failed)) logActionFailure("bewerbung.collision_unread", failed);
     return null;
   });
 
   return gelesen === null ? null : bewerbungHerkunft(gelesen.bewerbung);
 }
 
+/** What a decision tells the administrator about its mails, which the write owed every person of the application. */
+const ENTSCHEIDUNG_GEHT_AN_ALLE = (betreff: "Zusage" | "Absage") => `Die ${betreff} geht an jede Kontaktperson.`;
+
 /**
- * Accepts the application, and tells the people who applied.
+ * Accepts the application, and owes every person of it the acceptance in the same write.
  *
  * **IRREVERSIBLE**: `saison_teams` has no DELETE, so a club entered in error leaves only through an
  * `austritt`. The control pressing this arms first.
  */
 export async function annehmenBewerbungAction(
-  rawPayload: FLAnnehmenBewerbungPayload,
-): Promise<ActionResult<{ updated_document?: FLBewerbung; team_id?: string }>> {
+  rawPayload: { id: string } & FLAcceptBewerbungPayload,
+): Promise<ActionResult<{ team_id?: string }>> {
   return runAdminMutation("annehmenBewerbungAction", { stepUp: true }, async () => {
     const validated = FLAnnehmenBewerbungPayloadSchema.safeParse(rawPayload);
 
@@ -155,10 +87,6 @@ export async function annehmenBewerbungAction(
       };
     }
 
-    // A club is created or entered. The base tag ahead of the write, every team read carrying it, so a
-    // lost answer leaves none stale; the season's tag once the answer names it.
-    invalidatesOnWrite("teams");
-
     // The refusal belongs in the panel that asked, not on the error page.
     let annahmeOperation;
     try {
@@ -169,36 +97,6 @@ export async function annehmenBewerbungAction(
       throw error;
     }
 
-    if (!annahmeOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Bewerbung wurde nicht angenommen", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
-    invalidatesOnWrite(`teams:saison_id:${annahmeOperation.saison_id}`);
-
-    const zustellung = await notifyBewerbung({
-      operation: "annehmenBewerbungAction",
-      betreff: "Zusage",
-      bewerbung: annahmeOperation.updated_document,
-      buildMail: (teamName, rollenText) =>
-        buildBewerbungZusageEmail({
-          teamName: teamName,
-          saisonId: annahmeOperation.saison_id,
-          // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is
-          // not production must not mail production links.
-          origin: frontend_config.AUTH_URL,
-          rollenText: rollenText,
-          gruppe: annahmeOperation.gruppe,
-          // Rendered here: the label and the hex live in
-          // `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS`, which
-          // `core/bewerbungEmail.ts` may not import.
-          trikotFarbeLabel: annahmeOperation.trikot_farbe === null ? null : trikotFarbeLabel(annahmeOperation.trikot_farbe),
-          trikotFarbeHex: annahmeOperation.trikot_farbe === null ? null : trikotFarbeHex(annahmeOperation.trikot_farbe),
-          // Off the STORED application rather than off any form: the acceptance payload carries no
-          // wish, and the message names what the school actually submitted.
-          wunschgegner: annahmeOperation.updated_document.wunschgegner,
-        }),
-    });
-
     const aufnahme = describeAufnahme({
       createdTeam: annahmeOperation.created_team,
       gruppe: annahmeOperation.gruppe,
@@ -207,20 +105,14 @@ export async function annehmenBewerbungAction(
 
     return {
       success: true,
-      updated_document: annahmeOperation.updated_document,
       team_id: annahmeOperation.team_id,
-      message: `${aufnahme} ${zustellung}`,
+      message: `${aufnahme} ${ENTSCHEIDUNG_GEHT_AN_ALLE("Zusage")}`,
     };
   });
 }
 
-/**
- * Declines the application, recording who decided and the reason they gave, and tells the people who
- * applied.
- */
-export async function ablehnenBewerbungAction(
-  rawPayload: FLAblehnenBewerbungPayload,
-): Promise<ActionResult<{ updated_document?: FLBewerbung }>> {
+/** Declines the application, recording who decided and the reason they gave; every person of it is owed the decline. */
+export async function ablehnenBewerbungAction(rawPayload: { id: string } & FLDeclineBewerbungPayload): Promise<ActionResult> {
   return runAdminMutation("ablehnenBewerbungAction", { stepUp: true }, async () => {
     const validated = FLAblehnenBewerbungPayloadSchema.safeParse(rawPayload);
 
@@ -232,43 +124,19 @@ export async function ablehnenBewerbungAction(
       };
     }
 
-    let absageOperation;
     try {
-      absageOperation = await ablehnenBewerbung(validated.data);
+      await ablehnenBewerbung(validated.data);
     } catch (error) {
       const refusal = mapTriageRefusal(error, null);
       if (refusal) return refusalResult(refusal);
       throw error;
     }
 
-    if (!absageOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Bewerbung wurde nicht abgelehnt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     // No tag moves, unlike the acceptance: this moves the application's own `status` and
     // `entscheidung`, and no cached read holds an application. The spine's refresh is what brings
     // the uncached triage reads back.
 
-    const zustellung = await notifyBewerbung({
-      operation: "ablehnenBewerbungAction",
-      betreff: "Absage",
-      bewerbung: absageOperation.updated_document,
-      buildMail: (teamName, rollenText) =>
-        buildBewerbungAbsageEmail({
-          teamName: teamName,
-          saisonId: absageOperation.updated_document.saison_id,
-          origin: frontend_config.AUTH_URL,
-          rollenText: rollenText,
-          // The administrator's own wording, carried verbatim into the message.
-          grund: validated.data.grund,
-        }),
-    });
-
-    return {
-      success: true,
-      updated_document: absageOperation.updated_document,
-      message: `Die Bewerbung ist abgelehnt. ${zustellung}`,
-    };
+    return { success: true, message: `Die Bewerbung ist abgelehnt. ${ENTSCHEIDUNG_GEHT_AN_ALLE("Absage")}` };
   });
 }
 
@@ -278,99 +146,17 @@ const BEWERBUNG_WEG = buildRefusal({ reason: "Diese Bewerbung gibt es nicht mehr
 /** A seat with nobody in it shows no control at all, so a press reaching this came off a page whose state has moved. */
 const SITZ_LEER = buildRefusal({ reason: "Für diese Rolle steht niemand mehr in der Bewerbung", repair: LADE_DIE_SEITE_NEU });
 
-/** A confirmation asks somebody to confirm for a named school, and `REQ-BEWERBUNG-002` refuses to accept this row anyway. */
+/** A confirmation asks somebody to confirm for a named school, and `bewerbung_subject_unresolved` refuses to accept this row anyway. */
 const KEIN_TEAM = buildRefusal({ reason: "Diese Bewerbung nennt kein Team", repair: "Lehne die Bewerbung ab" });
 
-/** What the re-send cost where no message went out: the mint voided the seat's previous link on its way. */
-const KEIN_LINK_VERSCHICKT = buildRefusal({
-  reason: "Der alte Link gilt nicht mehr, und die E-Mail mit dem neuen ging nicht raus",
-  repair: VERSUCHE_ES_ERNEUT,
-});
-
-/*
- * The correction's and the reseat's own, sending the administrator to the re-send: a second correction or reseat over
- * the row it already moved is refused, so the re-send's „Versuche es erneut.“ would send them into that refusal.
- */
-const KORREKTUR_OHNE_LINK =
-  "Die Adresse ist korrigiert, aber die E-Mail mit dem neuen Link ging nicht raus, und der alte Link gilt nicht mehr. Schicke den Link erneut.";
-const BESETZUNG_OHNE_LINK =
-  "Die Person steht jetzt in der Bewerbung, aber die E-Mail mit ihrem Bestätigungslink ging nicht raus. Schicke den Link erneut.";
-
-/** How a repair's link ended, in the sentence its administrator is told. */
-type Zustellung = { versand: LinkVersand; message: string };
-
-/** Where no message went out, in the words of the press that sent none: the seat's previous link is spent all the same. */
-const nichtVerschickt = (message: string): Zustellung => ({ versand: "fehlgeschlagen", message: message });
-
-/**
- * The token is minted and the deadline moved by the time this runs, so it never throws and each ANSWER reports a
- * write that stands: a refused send is a message to try again.
- */
-async function sendeBestaetigungErneut({
-  operation,
-  bewerbungId,
-  saisonId,
-  person,
-  benanntesTeam,
-  sitze,
-  token,
-  frist,
-  ohneLink,
-}: {
-  /** The press this send belongs to, which every failure line below names. */
-  operation: string;
-  bewerbungId: string;
-  saisonId: string;
-  person: { vorname: string; email: string };
-  benanntesTeam: string;
-  /** Every seat this one link answers for. Phrased here rather than by each caller, so the message and the delivery record name one set. */
-  sitze: readonly KontaktRolle[];
-  token: string;
-  /**
-   * The deadline the write's own answer set, never the page's read: a frontend clock reckoning fourteen days itself
-   * would disagree with the server across midnight.
-   */
-  frist: string;
-  /** What the calling press cost where no message went out, in that press's own words. */
-  ohneLink: string;
-}): Promise<Zustellung> {
-  const fristText = formatSpielDatum(frist);
-  const origin = frontend_config.AUTH_URL;
-
-  const sitzeText = rollenText(sitze);
-
-  const outcome = await sendBewerbungMail({
-    operation: operation,
-    // No idempotency key: the token in this message is minted per press, and a key reused over a
-    // changed body is refused rather than collapsed.
-    auftrag: { bewerbungId: bewerbungId, anlass: "erneut" },
-    recipients: [{ address: person.email, rollen: sitze, rollenText: sitzeText }],
-    buildMail: () =>
-      buildBewerbungBestaetigungEmail({
-        saisonId: saisonId,
-        origin: origin,
-        schule: benanntesTeam,
-        // One link whatever it answers for: a person holding two seats reads one control, and the
-        // role text beside it is what tells them the answer covers both.
-        seats: [{ vorname: person.vorname, rolleText: sitzeText, link: kontaktBestaetigungsLink(origin, token) }],
-        fristText: fristText,
-      }),
-  });
-
-  const versand = linkVersandOf(outcome);
-
-  // Naming no address, as every barred send's report names none.
-  if (versand === "gesperrt") return { versand: versand, message: "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht." };
-  if (versand === "zurueckgehalten") return { versand: versand, message: ZURUECKGEHALTEN };
-
-  return versand === "gesendet" ? { versand: versand, message: `Der neue Link ging an ${person.email}.` } : nichtVerschickt(ohneLink);
-}
+/** What a repair tells the administrator: its write owed the fresh link to the address it answered, in the same transaction. */
+const linkSatz = (email: string): string => `Der neue Link geht an ${email}.`;
 
 /**
  * No confirmation step: a second link is undone by ignoring it, and the seat's own answer is what
  * the league acts on either way.
  */
-export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungErneutPayload): Promise<ActionResult<{ versand: LinkVersand }>> {
+export async function einwilligungErneutSendenAction(rawPayload: { id: string; rolle: FLKontaktRolle }): Promise<ActionResult> {
   return runAdminMutation("einwilligungErneutSendenAction", { stepUp: true }, async () => {
     const validated = FLEinwilligungErneutPayloadSchema.safeParse(rawPayload);
 
@@ -378,8 +164,7 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // Unguarded, and BEFORE the mint: nothing has been written yet, so a throw here is a failure to
-    // report rather than the seat's live link spent on a message this press could never compose.
+    // BEFORE the write: nothing has been written yet, so a press this application cannot answer costs no live link.
     const gelesen = await getBewerbungById(validated.data.id);
 
     if (gelesen === null) return { success: false, error: BEWERBUNG_WEG };
@@ -389,10 +174,7 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
 
     if (person === null) return { success: false, error: SITZ_LEER };
     if (person.email === "") return { success: false, error: ERNEUT_OHNE_ADRESSE };
-
-    const benanntesTeam = await resolveBewerbungTeamName(bewerbung);
-
-    if (benanntesTeam === null) return { success: false, error: KEIN_TEAM };
+    if ((await resolveBewerbungTeamName(bewerbung)) === null) return { success: false, error: KEIN_TEAM };
 
     let erneutOperation;
     try {
@@ -403,40 +185,18 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
       throw error;
     }
 
-    if (!erneutOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht neu verschickt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     // No tag moves, as on the decline: this moves the application's own confirmation block
     // and its deadline, and no cached read holds an application — both triage reads are uncached.
 
-    const zustellung = await sendeBestaetigungErneut({
-      operation: "einwilligungErneutSendenAction",
-      bewerbungId: validated.data.id,
-      saisonId: bewerbung.saison_id,
-      // The address and the seats the WRITE matched, never the read above: a correction landing
-      // between the two moved the mailbox, and this link replaces the one the correction mailed.
-      person: { vorname: person.vorname, email: erneutOperation.email },
-      benanntesTeam: benanntesTeam,
-      sitze: erneutOperation.rollen,
-      token: erneutOperation.token,
-      frist: erneutOperation.bestaetigungsfrist,
-      ohneLink: KEIN_LINK_VERSCHICKT,
-    });
-
-    // A success whichever way the send went: the mint stands, the seat's old link spent and its deadline moved.
-    return { success: true, message: zustellung.message, versand: zustellung.versand };
+    // The address the WRITE matched, never the read above: a correction landing between the two moved the mailbox.
+    return { success: true, message: linkSatz(erneutOperation.email) };
   });
 }
 
-/**
- * Rewrites one contact person's e-mail address and sends a fresh link to it. **The write stands
- * whatever the message did**, so a refused send is a link to try again rather than a correction that
- * did not happen.
- */
+/** Rewrites one contact person's e-mail address and owes a fresh link to it in the same write. */
 export async function kontaktEmailKorrigierenAction(
-  rawPayload: FLBewerbungKontaktEmailPayload,
-): Promise<ActionResult<{ versand: LinkVersand }>> {
+  rawPayload: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktEmailPayload,
+): Promise<ActionResult> {
   return runAdminMutation("kontaktEmailKorrigierenAction", { stepUp: true }, async () => {
     const validated = FLBewerbungKontaktEmailPayloadSchema.safeParse(rawPayload);
 
@@ -444,20 +204,12 @@ export async function kontaktEmailKorrigierenAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // BEFORE the write, as the re-send reads: nothing has been rewritten yet, so a throw here costs
-    // a report rather than the seat's live link spent on a message this press could never compose.
+    // BEFORE the write, as the re-send reads.
     const gelesen = await getBewerbungById(validated.data.id);
 
     if (gelesen === null) return { success: false, error: BEWERBUNG_WEG };
-
-    const { bewerbung } = gelesen;
-    const person = bewerbung.kontakte[validated.data.rolle];
-
-    if (person === null) return { success: false, error: SITZ_LEER };
-
-    const benanntesTeam = await resolveBewerbungTeamName(bewerbung);
-
-    if (benanntesTeam === null) return { success: false, error: KEIN_TEAM };
+    if (gelesen.bewerbung.kontakte[validated.data.rolle] === null) return { success: false, error: SITZ_LEER };
+    if ((await resolveBewerbungTeamName(gelesen.bewerbung)) === null) return { success: false, error: KEIN_TEAM };
 
     let korrekturOperation;
     try {
@@ -468,52 +220,18 @@ export async function kontaktEmailKorrigierenAction(
       throw error;
     }
 
-    if (!korrekturOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Adresse wurde nicht geändert", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     // No tag moves, as on the decline: this moves the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
 
-    // The mailbox the write took a live link from, told as a contacts save tells one it takes off a seat: read off the
-    // write's own answer, and never returned, so the browser holds no address the correction replaced.
-    const { abgang_email: abgangEmail } = korrekturOperation;
-    const abgang =
-      abgangEmail === null
-        ? Promise.resolve()
-        : mailKontaktAbgang({
-            operation: "kontaktEmailKorrigierenAction",
-            saisonId: bewerbung.saison_id,
-            // Every seat the person held moves with the address, and no other person shares a mailbox with them.
-            abgang: { email: abgangEmail, rollen: korrekturOperation.rollen, schule: benanntesTeam, bleibt_als: [] },
-            quelle: "bewerbung",
-          });
-
-    const zustellung = await sendeBestaetigungErneut({
-      operation: "kontaktEmailKorrigierenAction",
-      bewerbungId: validated.data.id,
-      saisonId: bewerbung.saison_id,
-      // The address the write just stored, never the one the read still holds nor the one typed: the message the
-      // administrator asked for is the one going to the corrected mailbox, in the form its delivery events name.
-      person: { vorname: person.vorname, email: korrekturOperation.email },
-      benanntesTeam: benanntesTeam,
-      // The seats the WRITE answered, as the leaving notice above names them, never a pairing read before it.
-      sitze: korrekturOperation.rollen,
-      token: korrekturOperation.token,
-      frist: korrekturOperation.bestaetigungsfrist,
-      ohneLink: KORREKTUR_OHNE_LINK,
-    });
-    await abgang;
-
-    return { success: true, ...zustellung };
+    // The address the write just stored, never the one typed: the form its mail goes to.
+    return { success: true, message: linkSatz(korrekturOperation.email) };
   });
 }
 
-/**
- * **The seat stands filled whatever the message did**, as the correction's address does: a refused
- * send is a link to try again rather than a person who was never seated.
- */
-export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSitzPayload): Promise<ActionResult<{ versand: LinkVersand }>> {
+/** Seats another person in an emptied seat and owes them their link in the same write. */
+export async function besetzeKontaktSitzAction(
+  rawPayload: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktSeatPayload,
+): Promise<ActionResult> {
   return runAdminMutation("besetzeKontaktSitzAction", { stepUp: true }, async () => {
     const validated = FLBewerbungKontaktSitzPayloadSchema.safeParse(rawPayload);
 
@@ -521,15 +239,11 @@ export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSit
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // BEFORE the write, as both repairs read: the school's name is what the message names, and a
-    // throw here costs a report rather than a seat filled behind a message nobody could compose.
+    // BEFORE the write, as both repairs read: the school's name is what the link's mail names.
     const gelesen = await getBewerbungById(validated.data.id);
 
     if (gelesen === null) return { success: false, error: BEWERBUNG_WEG };
-
-    const benanntesTeam = await resolveBewerbungTeamName(gelesen.bewerbung);
-
-    if (benanntesTeam === null) return { success: false, error: KEIN_TEAM };
+    if ((await resolveBewerbungTeamName(gelesen.bewerbung)) === null) return { success: false, error: KEIN_TEAM };
 
     let sitzOperation;
     try {
@@ -540,27 +254,10 @@ export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSit
       throw error;
     }
 
-    if (!sitzOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Rolle wurde nicht neu besetzt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     // No tag moves, for the correction's reason: this writes the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
 
-    const zustellung = await sendeBestaetigungErneut({
-      operation: "besetzeKontaktSitzAction",
-      bewerbungId: validated.data.id,
-      saisonId: gelesen.bewerbung.saison_id,
-      // As stored, never as typed: the form its delivery events name.
-      person: { vorname: validated.data.vorname, email: sitzOperation.email },
-      benanntesTeam: benanntesTeam,
-      // The WRITE's own answer: `paired_seat` drops an emptied seat from the pair, and every seat this write filled was emptied.
-      sitze: sitzOperation.rollen,
-      token: sitzOperation.token,
-      frist: sitzOperation.bestaetigungsfrist,
-      ohneLink: BESETZUNG_OHNE_LINK,
-    });
-
-    return { success: true, ...zustellung };
+    // As stored, never as typed.
+    return { success: true, message: linkSatz(sitzOperation.email) };
   });
 }

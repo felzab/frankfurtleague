@@ -1,13 +1,13 @@
+// Redesign: goes with its last importer.
 import z from "zod";
 
 import { afterTheResponse } from "@/core/afterResponse";
 import { kontoAnNeuerAdresse } from "@/features/adresswechsel/konto";
 import { ansichtOf } from "@/features/adresswechsel/link";
 import { postAdresswechselAnsicht, postAdresswechselAntwort, postAdresswechselStopp } from "@/features/adresswechsel/mutations";
-import { runAdresswechselPostausgang } from "@/features/adresswechsel/postausgang";
 import { mapAdresswechselPresseRefusal } from "@/features/adresswechsel/refusals";
 import { FLAdresswechselAntwortPayloadSchema, FLAdresswechselStoppPayloadSchema } from "@/features/adresswechsel/schemas";
-import { runBerechtigungenAbgleich } from "@/features/berechtigungen/abgleich";
+import { runAdresswechselUmzuege } from "@/features/adresswechsel/umzug";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { handlePublicRequest, readAfterAnsweredWrite } from "@/shared/utils/publicRoute";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       const presse = parsed.data;
       // The sign-in store is this server's, so the backend's press cannot refuse an account at the new address: refused
       // here, in the panel its own refusals of the address open. A decline is refused nothing.
-      if (presse.antwort === "bestaetigt" && (await kontoAnNeuerAdresse({ token: presse.token }))) {
+      if (presse.antwort === "confirmed" && (await kontoAnNeuerAdresse({ token: presse.token }))) {
         return { success: false as const, zustand: "nicht_bestaetigbar" as const };
       }
 
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       try {
         if (presse.antwort === "gestoppt") {
           await postAdresswechselStopp({ token: presse.token });
-          return gedrueckt("gestoppt");
+          return gedrueckt("stopped");
         }
         antwort = await postAdresswechselAntwort(presse);
       } catch (error) {
@@ -61,18 +61,14 @@ export async function POST(request: NextRequest) {
         return { success: false as const, ansicht: ansicht };
       }
 
-      // The effect queued its notice and its account's carry in its own transaction: delivered behind the response, and
-      // by the hourly pass where this drain never runs. No address reaches this handler.
-      if (antwort.wirksam) {
-        afterTheResponse(runAdresswechselPostausgang);
-        // A grant the effect moved is announced now, as the approval announces one, not at the next five-minute pass.
-        afterTheResponse(runBerechtigungenAbgleich);
-      }
+      // The effect owed its account's carry in its own transaction: behind the response, and by the hourly pass where
+      // this one never runs. No address reaches this handler.
+      if (antwort.effective) afterTheResponse(runAdresswechselUmzuege);
 
       return gedrueckt(antwort.antwort, {
-        wirksam: antwort.wirksam,
-        wirksam_ab: antwort.wirksam_ab,
-        genehmigung_offen: antwort.genehmigung_offen,
+        effective: antwort.effective,
+        effective_from: antwort.effective_from,
+        approval_open: antwort.approval_open,
       });
     },
   });
@@ -80,10 +76,10 @@ export async function POST(request: NextRequest) {
 
 function gedrueckt(
   antwort: AdresswechselGedrueckt["antwort"],
-  stand: Pick<AdresswechselGedrueckt, "wirksam" | "wirksam_ab" | "genehmigung_offen"> = {
-    wirksam: false,
-    wirksam_ab: null,
-    genehmigung_offen: false,
+  stand: Pick<AdresswechselGedrueckt, "effective" | "effective_from" | "approval_open"> = {
+    effective: false,
+    effective_from: null,
+    approval_open: false,
   },
 ): AdresswechselGedrueckt {
   return { success: true, antwort: antwort, ...stand };

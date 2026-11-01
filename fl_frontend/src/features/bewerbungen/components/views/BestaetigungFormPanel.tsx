@@ -31,8 +31,12 @@ import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 import { BestaetigungHinweise, KlickBestaetigung, MedienHinweis, WhatsappHinweis, WiderspruchFolge } from "./BestaetigungHinweise";
 import { ANTWORT_NICHT_GESPEICHERT, ANTWORT_NICHT_GESPEICHERT_SATZ, BestaetigungAbschnitt } from "./BestaetigungPanels";
 
-import type { FLBewerbungEinwilligungAntwortPayload } from "@/features/bewerbungen/schemas";
-import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/types";
+import type {
+  FLBewerbungEinwilligungDeclined,
+  FLBewerbungEinwilligungGiven,
+  FLBewerbungEinwilligungViewResponse,
+} from "@/core/generated/client/types";
+import type { LinkZustand } from "@/features/bewerbungen/types";
 import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { CalendarDate } from "@internationalized/date";
@@ -43,11 +47,11 @@ export type BestaetigungAbschluss =
   | { zustand: "erfolg"; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
   | { zustand: "widersprochen-neu" }
   // `ansicht` is the read the route made after the refusal, where it found a closed season.
-  | { zustand: LinkZustand | "saison_vorbei"; ansicht?: EinwilligungGeoeffnet };
+  | { zustand: LinkZustand | "saison_vorbei"; ansicht?: FLBewerbungEinwilligungViewResponse };
 
 type EinwilligungAntwort =
   | { success: true; ergebnis: "bestaetigt" | "abgelehnt"; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
-  | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei"; ansicht?: EinwilligungGeoeffnet });
+  | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei"; ansicht?: FLBewerbungEinwilligungViewResponse });
 
 /**
  * What the armed press sends. A constant rather than a literal in the branch: it is where
@@ -64,7 +68,7 @@ const geburtsdatumHinweis = (mindestalter: number): string =>
 type Entwurf = { geburtsdatum: string; whatsapp: boolean; medien: boolean };
 
 const beurteilt = (entwurf: Entwurf, medienAngeboten: boolean) => ({
-  geburtsdatum: entwurf.geburtsdatum === "" ? null : entwurf.geburtsdatum,
+  geburtsdatum: entwurf.geburtsdatum,
   whatsapp: entwurf.whatsapp,
   // Never the draft's own `true` where no switch stands: one given before the date moved below the
   // media age would send a consent this page withheld.
@@ -83,24 +87,17 @@ function toCalendarDate(stored: string): CalendarDate | null {
   return stored === "" ? null : parseDate(stored);
 }
 
-/**
- * An objection sends no date and no consent, whatever the draft holds: an objection carrying a
- * consent switched on is a contradiction the page must not be able to send.
- */
+/** An objection sends the token alone, whatever the draft holds: its seat stores no person to date or consent. */
 function antwortPayload(
   token: string,
   textVersion: string,
   entwurf: Entwurf,
   ablehnen: boolean,
   medienAngeboten: boolean,
-): FLBewerbungEinwilligungAntwortPayload {
-  // Stamped on an objection as well: the record has to name the words that were on screen when the
-  // seat was refused, and a null there would leave the refusal citing nothing.
-  const fassung = { token: token, text_version: textVersion };
+): FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined {
+  if (ablehnen) return { token: token, antwort: "declined" };
 
-  if (ablehnen) return { ...fassung, antwort: "abgelehnt", geburtsdatum: null, whatsapp: false, medien: false };
-
-  return { ...fassung, antwort: "erteilt", ...beurteilt(entwurf, medienAngeboten) };
+  return { token: token, antwort: "given", text_version: textVersion, ...beurteilt(entwurf, medienAngeboten) };
 }
 
 /**
@@ -344,7 +341,7 @@ export function BestaetigungFormPanel({
   // sending a 190-year-old to the submitter for a replacement is the wrong repair.
   const istZuJung = fieldErrors.geburtsdatum !== undefined && entwurf.geburtsdatum !== "" && entwurf.geburtsdatum > spaeteste;
 
-  const sende = async (payload: FLBewerbungEinwilligungAntwortPayload): Promise<void> => {
+  const sende = async (payload: FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined): Promise<void> => {
     const gesendet = await postPublicForm<EinwilligungAntwort>("/api/bestaetigung/kontakt", payload);
 
     if (!gesendet.answered) {

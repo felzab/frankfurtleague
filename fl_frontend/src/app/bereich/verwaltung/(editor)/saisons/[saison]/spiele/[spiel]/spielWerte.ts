@@ -1,5 +1,5 @@
-import type { Kalendertag, Uhrzeit } from "@/core/format";
-import type { FLSpielAdmin } from "@/features/spiele/schemas";
+import type { CalendarDay, Uhrzeit } from "@/core/format";
+import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";
 
 /** The Sonderereignis select's first entry, which saves as no event. */
 export const KEIN_SONDEREREIGNIS = "keines";
@@ -9,7 +9,7 @@ export const KEIN_SONDEREREIGNIS = "keines";
  * match; the Sonderereignis' choice; the note. A price is the text typed, read as a figure by the save.
  */
 export type SpielWerte = {
-  datum: Kalendertag | null;
+  datum: CalendarDay | null;
   uhrzeit: Uhrzeit | null;
   spielort: string | null;
   mietpreis: string;
@@ -17,10 +17,8 @@ export type SpielWerte = {
   notiz: string;
 };
 
-export type SpielFeld = keyof SpielWerte;
-
 /** The editor's values as a stored fixture gives them. */
-export function werteOf(spiel: FLSpielAdmin): SpielWerte {
+export function werteOf(spiel: FLSpielJoinedAdmin): SpielWerte {
   return {
     // Both already parsed as a calendar day and a time of day by the read's schema.
     datum: spiel.datum as SpielWerte["datum"],

@@ -8,16 +8,16 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import advance_bracket_winners
-from app.api.teams.admin_router import get_teams_for_admin
-from app.api.teams.router import get_team, get_teams
+from app.api.teams.admin_router import get_teams_verwaltung
+from app.api.teams.public_router import get_team, get_teams
 from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamsFilterParams, FLTeamSingleFilterParams
 from app.api.teams.services import build_team_pipeline
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.openapi_document import build_document
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
-from tests.documents import bestaetigte_kenntnisnahme
-from tests.openapi_document import build_document
+from tests.documents import confirmed_kenntnisnahme
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -54,14 +54,15 @@ KONTAKT_GEBURTSDATUM = "1984-05-09"
 # The models the two endpoints DECLARE: FastAPI builds the query parameters from these, so what a
 # caller may ask for is settled here rather than by anything a handler body does with the answer.
 BASE_FILTERS: type[BaseModel] = get_type_hints(get_teams)["filters"]
-ADMIN_FILTERS: type[BaseModel] = get_type_hints(get_teams_for_admin)["filters"]
+ADMIN_FILTERS: type[BaseModel] = get_type_hints(get_teams_verwaltung)["filters"]
 
 # What a caller may actually SEND, read off the app's own schema: a model's fields plus anything the
 # handler declares beside them. Constructing a filter object asks for nothing -- `extra="ignore"`
 # drops an undeclared key before any read sees it.
 _PUBLISHED_PATHS = build_document()["paths"]
 BASE_QUERY_PARAMETERS = {parameter["name"] for parameter in _PUBLISHED_PATHS[f"/api/v{API_VERSION}/teams"]["get"]["parameters"]}
-ADMIN_QUERY_PARAMETERS = {parameter["name"] for parameter in _PUBLISHED_PATHS[f"/api/v{API_VERSION}/teams/list/admin"]["get"]["parameters"]}
+_ADMIN_LIST = _PUBLISHED_PATHS[f"/api/v{API_VERSION}/teams/list/verwaltung"]
+ADMIN_QUERY_PARAMETERS = {parameter["name"] for parameter in _ADMIN_LIST["get"]["parameters"]}
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
@@ -69,7 +70,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 def saison_document(saison_id: str = SAISON, status: str = "active") -> dict[str, Any]:
     """The grouped read derives every figure in the table from these rules, and the finale is seeded from the placings they rank."""
 
-    rules = documents.rules_document(win_points=3, draw_points=1, qualifiers_per_group=2, tiebreak_order="tordifferenz")
+    rules = documents.rules_document(win_points=3, draw_points=1, qualifiers_per_gruppe=2, tiebreak_order="tordifferenz")
 
     return documents.saison_document(saison_id, status, rules=rules)
 
@@ -85,7 +86,7 @@ def kontaktperson(nachname: str) -> dict[str, Any]:
         "email": KONTAKT_EMAIL,
         "telefon": KONTAKT_TELEFON,
         "geburtsdatum": KONTAKT_GEBURTSDATUM,
-        "einwilligung": bestaetigte_kenntnisnahme(),
+        "einwilligung": confirmed_kenntnisnahme(),
     }
 
 
@@ -103,7 +104,7 @@ def junction_row(key: str, shorthand: str, saison_id: str = SAISON) -> dict[str,
             "trainer": kontaktperson("Trainerin"),
             "ansprechperson": kontaktperson("Ansprechpartnerin"),
             "stellvertretung": kontaktperson("Vertretung"),
-            "trainer_ist_zugleich": None,
+            "trainer_is_also": None,
         },
     )
 
@@ -119,19 +120,19 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
             await database[Collection.SAISONS].insert_many([saison_document(), saison_document(PAST_SAISON, status="past")])
             await database[Collection.TEAMS].insert_many(
                 [
-                    team_document("Helmholtz", "HG", inactive_since=None),
-                    team_document("Lessing", "LE", inactive_since=RETIRED_ON),
-                    team_document("Goethe", "GO", inactive_since=GOETHE_RETIRED_ON),
+                    team_document("Helmholtz", "HGX", inactive_since=None),
+                    team_document("Lessing", "LEX", inactive_since=RETIRED_ON),
+                    team_document("Goethe", "GOX", inactive_since=GOETHE_RETIRED_ON),
                 ]
             )
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
-                    junction_row("Helmholtz", "HG"),
-                    junction_row("Lessing", "LE"),
-                    junction_row("Helmholtz", "HG", saison_id=PAST_SAISON),
-                    junction_row("Lessing", "LE", saison_id=PAST_SAISON),
-                    junction_row("Goethe", "GO", saison_id=PAST_SAISON),
-                    junction_row("Lessing", "LE", saison_id=UNDATED_SAISON),
+                    junction_row("Helmholtz", "HGX"),
+                    junction_row("Lessing", "LEX"),
+                    junction_row("Helmholtz", "HGX", saison_id=PAST_SAISON),
+                    junction_row("Lessing", "LEX", saison_id=PAST_SAISON),
+                    junction_row("Goethe", "GOX", saison_id=PAST_SAISON),
+                    junction_row("Lessing", "LEX", saison_id=UNDATED_SAISON),
                 ]
             )
 
@@ -163,8 +164,8 @@ async def read_teams(database: AsyncDatabase, filters: Any) -> Any:
     )
 
 
-async def read_teams_for_admin(database: AsyncDatabase, filters: FLTeamsFilterParams) -> Any:
-    return await get_teams_for_admin(
+async def read_teams_verwaltung(database: AsyncDatabase, filters: FLTeamsFilterParams) -> Any:
+    return await get_teams_verwaltung(
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
@@ -252,7 +253,7 @@ class TestARetiredClubStaysOutOfTheBaseTierReads:
     def test_the_admin_read_still_un_hides_it(self, seeded_url: str):
         """Non-vacuity as well as the rule: the same corpus, one tier along, answers with the club every case above refused."""
         filters = FLTeamsFilterParams(saison_id=SAISON, in_gruppen=True, include_inactive=True)
-        response = on_a_league(seeded_url, lambda database: read_teams_for_admin(database, filters))
+        response = on_a_league(seeded_url, lambda database: read_teams_verwaltung(database, filters))
 
         assert sorted(standing_names(response)) == ["Helmholtz", "Lessing"]
 
@@ -302,7 +303,7 @@ FINALE_SPIELTAG = ObjectId("6890a1b2c3d4e5f607420102")
 FINALE = ObjectId("6890a1b2c3d4e5f607420103")
 
 
-SHORTHANDS = {"Helmholtz": "HG", "Lessing": "LE", "Goethe": "GO"}
+SHORTHANDS = {"Helmholtz": "HGX", "Lessing": "LEX", "Goethe": "GOX"}
 
 
 def side(key: str, tore: int) -> dict[str, Any]:

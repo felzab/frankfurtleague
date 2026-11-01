@@ -1,11 +1,11 @@
-import { readFacetSelectionFromRoute } from "@/shared/utils/facets";
+import { FLActionLogEntryHerkunft, FLActionLogEntryOperation } from "@/core/generated/client/types";
+import { pickedOf, readFacetSelectionFromRoute } from "@/shared/utils/facets";
 
 import { AKTION_COLLECTION_LABELS, AKTION_HERKUNFT_LABELS, AKTION_OPERATION_LABELS } from "./constants";
 import { herkunftOfAktor } from "./utils";
 
+import type { ActionLogGetActionLogParams, FLActionLogEntry, FLActionLogListResponse } from "@/core/generated/client/types";
 import type { Facet, FacetCounts } from "@/shared/utils/facets";
-import type { FLAktionenListResponse } from "./schemas";
-import type { AdminAktionRow } from "./types";
 
 /**
  * Spelled as `fl_backend/app/api/aktionen/schemas.py :: FLAktionenFilterParams` spells its own terms,
@@ -21,7 +21,7 @@ const toOptions = (labels: Record<string, string>) => Object.entries(labels).map
 
 // Module scope is load-bearing: `AdminCrudView`'s memo and the react-aria collection behind it both
 // key on the array's identity.
-export const AKTIONEN_FACETS: readonly Facet<AdminAktionRow>[] = [
+export const AKTIONEN_FACETS: readonly Facet<FLActionLogEntry>[] = [
   {
     param: AKTIONEN_COLLECTION_PARAM,
     label: "Bereich",
@@ -53,20 +53,19 @@ export const AKTIONEN_FACETS: readonly Facet<AdminAktionRow>[] = [
 ];
 
 /**
- * What `GET /aktionen` is asked to narrow to, comma-joined for the wire and `undefined` for everything.
- * The bar's own reader answers it, so the served rows and the pills cannot disagree about one query string.
+ * What `GET /action_log` is asked to narrow to, a list per facet and `undefined` for everything. The bar's own
+ * reader answers it, so the served rows and the pills cannot disagree about one query string.
  */
-export function aktionenLogFacetTerms(params: Readonly<Record<string, string | string[] | undefined>>): {
-  collection?: string;
-  operation?: string;
-  herkunft?: string;
-} {
+export function aktionenLogFacetTerms(
+  params: Readonly<Record<string, string | string[] | undefined>>,
+): Pick<ActionLogGetActionLogParams, "collection" | "operation" | "herkunft"> {
   const selection = readFacetSelectionFromRoute(AKTIONEN_FACETS, params);
 
   return {
-    collection: selection[AKTIONEN_COLLECTION_PARAM]?.join(","),
-    operation: selection[AKTIONEN_OPERATION_PARAM]?.join(","),
-    herkunft: selection[AKTIONEN_HERKUNFT_PARAM]?.join(","),
+    // A collection name rather than a value of the contract: the log keeps the names of collections since retired.
+    collection: selection[AKTIONEN_COLLECTION_PARAM]?.slice(),
+    operation: pickedOf(FLActionLogEntryOperation, selection[AKTIONEN_OPERATION_PARAM]),
+    herkunft: pickedOf(FLActionLogEntryHerkunft, selection[AKTIONEN_HERKUNFT_PARAM]),
   };
 }
 
@@ -75,11 +74,11 @@ export function aktionenLogFacetTerms(params: Readonly<Record<string, string | s
  * `FilterPanel` counts the missing one off the rows served — which the cap already cut.
  */
 export function aktionenLogFacetCounts(
-  counts: Pick<FLAktionenListResponse, "anzahl_je_collection" | "anzahl_je_operation" | "anzahl_je_herkunft">,
+  counts: Pick<FLActionLogListResponse, "count_per_collection" | "count_per_operation" | "count_per_herkunft">,
 ): FacetCounts {
   return {
-    [AKTIONEN_COLLECTION_PARAM]: counts.anzahl_je_collection,
-    [AKTIONEN_OPERATION_PARAM]: counts.anzahl_je_operation,
-    [AKTIONEN_HERKUNFT_PARAM]: counts.anzahl_je_herkunft,
+    [AKTIONEN_COLLECTION_PARAM]: counts.count_per_collection,
+    [AKTIONEN_OPERATION_PARAM]: counts.count_per_operation,
+    [AKTIONEN_HERKUNFT_PARAM]: counts.count_per_herkunft,
   };
 }

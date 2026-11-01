@@ -6,7 +6,7 @@ import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 import { AdminSchiedsrichterTable } from "../collections/AdminSchiedsrichterTable";
 import { AdminDeleteSchiedsrichterModal } from "../modals/AdminDeleteSchiedsrichterModal";
 
-import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
+import type { FLSchiedsrichter } from "@/core/generated/client/types";
 
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render.
 const SEARCH_KEYS = ["name", "schule", "kontakt.email", "kontakt.telefon"] as const;

@@ -2,10 +2,11 @@ from typing import get_args
 
 from bson import ObjectId
 
-from app.api.spiele.schemas import SONDEREREIGNIS_RECORDING_AN_ABSENCE, FLSonderereignis, FLSpieleFilterParams
+from app.api.spiele.schemas import SONDEREREIGNIS_RECORDING_AN_ABSENCE, FLSpieleFilterParams
 from app.api.spiele.services import build_spiele_filter
 from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
 from app.api.spieltage.services import build_spieltage_filter, build_spieltage_sort, order_spieltage
+from app.shared.schemas.literals import FLSonderereignis
 
 TODAY = "2026-07-31"
 
@@ -24,7 +25,7 @@ class TestSpieleFilter:
 
         compiled = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "abgesagt"}), today=TODAY)
 
-        assert "abgebrochen" in get_args(FLSonderereignis)
+        assert "abgebrochen" in get_args(FLSonderereignis.__value__)
         assert "abgebrochen" not in compiled["sonderereignis"]["$in"]
 
     def test_passes_saison_id_through_under_its_own_name(self):
@@ -46,14 +47,14 @@ class TestSpieleFilter:
         assert build_spiele_filter(filters=filters, today=TODAY)["saison_phase"] == {"$ne": "gruppenphase"}
 
     def test_status_maps_to_a_date_comparison_against_today(self):
-        """`ausstehend` is `$gte` by intent: the upcoming list must show today's fixtures, so a tightening to `$gt` is the regression."""
-        vergangen = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "vergangen"}), today=TODAY)
-        ausstehend = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "ausstehend"}), today=TODAY)
-        heute = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "heute"}), today=TODAY)
+        """`from_today` is `$gte` by intent: the upcoming list must show today's fixtures, so a tightening to `$gt` is the regression."""
+        past = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "past"}), today=TODAY)
+        from_today = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "from_today"}), today=TODAY)
+        today = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "today"}), today=TODAY)
 
-        assert vergangen["datum"] == {"$lt": TODAY}
-        assert ausstehend["datum"] == {"$gte": TODAY}
-        assert heute["datum"] == TODAY
+        assert past["datum"] == {"$lt": TODAY}
+        assert from_today["datum"] == {"$gte": TODAY}
+        assert today["datum"] == TODAY
 
     def test_team_id_matches_either_side_of_the_fixture_as_an_objectid(self):
         """Both sides via `$or`, and as a real `ObjectId`: a string here would match nothing and return empty."""
@@ -106,7 +107,7 @@ class TestSpieltageOrder:
                 "_id": ObjectId(oid),
                 "beginn": beginn,
                 "ende": beginn,
-                "anzahl_spiele": 4,
+                "count_spiele": 4,
                 "position": position,
                 "saison_phase": phase,
                 "saison_id": "2026",

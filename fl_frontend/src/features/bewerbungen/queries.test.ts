@@ -30,7 +30,7 @@ beforeEach(beginRenderPass);
 
 const { getBewerbungById, getBewerbungen, getBewerbungFenster, getBewerbungKuerzel, getBewerbungSchulen, getOffenesBewerbungFenster } =
   await import("./queries.ts");
-const { refusedOn } = await import("@/test-support/publishedRefusals.ts");
+const { refused } = await import("@/test-support/refusals.ts");
 
 /**
  * Runs `read` against a client that throws, and leaves `calls` as it found it: the cases below
@@ -70,7 +70,7 @@ describe("the four base-tier public reads", () => {
     await getBewerbungSchulen();
     await getBewerbungKuerzel("GG");
 
-    for (const endpoint of ["/bewerbungen/fenster", "/bewerbungen/fenster/2627", "/bewerbungen/schulen", "/bewerbungen/kuerzel/GG"]) {
+    for (const endpoint of ["/bewerbungen/window", "/bewerbungen/window/2627", "/bewerbungen/schulen", "/bewerbungen/kuerzel/GG"]) {
       assert.ok(
         calls.some((call) => call.endpoint === endpoint),
         `nothing asked for ${endpoint}`,
@@ -84,7 +84,7 @@ describe("the four base-tier public reads", () => {
     await getBewerbungFenster("26/27");
     await getBewerbungKuerzel("G/G");
 
-    for (const endpoint of ["/bewerbungen/fenster/26%2F27", "/bewerbungen/kuerzel/G%2FG"]) {
+    for (const endpoint of ["/bewerbungen/window/26%2F27", "/bewerbungen/kuerzel/G%2FG"]) {
       assert.ok(
         calls.some((call) => call.endpoint === endpoint),
         `a path segment reached the client unencoded; expected ${endpoint}`,
@@ -95,15 +95,15 @@ describe("the four base-tier public reads", () => {
   /* A season the visitor may not read is a state rather than a failure: the page renders „noch nicht
      offen“ or „abgelaufen“ off it, and a throw here would answer the error page instead. */
   it("reads a 404 on either window as no window rather than as a failure", async () => {
-    expect(await failing(refusedOn("GET /bewerbungen/fenster", "DB-COMMON-001"), () => getOffenesBewerbungFenster())).toBe(null);
-    expect(await failing(refusedOn("GET /bewerbungen/fenster/{saison_id}", "DB-COMMON-001"), () => getBewerbungFenster("2627"))).toBe(null);
+    expect(await failing(refused("document_not_found"), () => getOffenesBewerbungFenster())).toBe(null);
+    expect(await failing(refused("document_not_found"), () => getBewerbungFenster("2627"))).toBe(null);
   });
 });
 
 describe("the one path segment a caller interpolates", () => {
   /* `fl_frontend/src/core/apiPath.ts :: isPathAsSpelled` cannot see an id carrying a plain `/`: it
-     survives parsing untouched and reads as a nested endpoint. Only the caller can refuse it, and
-     today's 24-hex id schema makes that positional. */
+     survives parsing untouched and reads as a nested endpoint, so the generated path builder
+     percent-encodes it before the client sees it. */
   it("encodes the id rather than letting it open a path segment", async () => {
     const before = calls.length;
 
@@ -134,8 +134,8 @@ describe("the two memoised reads across a render pass", () => {
     expect(endpointsSince(before).sort()).toStrictEqual([
       `/bewerbungen/${ONE_ID}`,
       `/bewerbungen/${OTHER_ID}`,
-      "/bewerbungen/fenster/2627",
-      "/bewerbungen/fenster/2728",
+      "/bewerbungen/window/2627",
+      "/bewerbungen/window/2728",
     ]);
   });
 
@@ -150,6 +150,6 @@ describe("the two memoised reads across a render pass", () => {
     await Promise.all([getBewerbungById(ONE_ID), getBewerbungFenster("2627")]);
     await Promise.all([getBewerbungById(ONE_ID), getBewerbungFenster("2627")]);
 
-    expect(endpointsSince(before).sort()).toStrictEqual([`/bewerbungen/${ONE_ID}`, "/bewerbungen/fenster/2627"]);
+    expect(endpointsSince(before).sort()).toStrictEqual([`/bewerbungen/${ONE_ID}`, "/bewerbungen/window/2627"]);
   });
 });

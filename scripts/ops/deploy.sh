@@ -187,8 +187,8 @@ Compose's own output is above."
   ok "this host holds the images ${EDGE_IMAGE_SERVICES[*]} run"
 }
 
-# `read_environment`, never `BackendEnvironment()`: pydantic renders `input_value=` on its own
-# ValidationError, and everything below reaches this script's output. The environment half alone:
+# `read_environment`, never `BackendConfig()`: pydantic renders `input_value=` on its own
+# ValidationError, and everything below reaches this script's output. No secret file is opened:
 # this caller's uid reads no secret file (`scripts/lib/_lib.sh :: check_backend_boot_config` does).
 ENV_NAME_CHECK='
 # No single quote anywhere in this program: the shell string holding it would end there.
@@ -218,8 +218,8 @@ except Exception as unexpected:
     raise SystemExit(4)
 '
 
-# One mount, one user and one filter for either package's reader: the two judge different things and
-# each says so itself, but a second copy of this is how one arm's mount drifts from the other's.
+# The backend's reader, mounted read-only into a throwaway container as the caller's own user, its
+# output through the credential filter.
 read_env_names() {
   # Off, so a trace never prints what the container said before `redact_uri_credentials` reads it.
   local -
@@ -248,11 +248,11 @@ check_env_names() {
   read_env_names fl_backend "$IMAGE_BACKEND" python -c "$ENV_NAME_CHECK" "$ENV_MOUNTS" || rc=$?
   if (( rc == 3 )); then
     refuse "the backend refuses this host's fl_backend/.env, and the line above is its own answer: the
-variables it declares and could not accept, by name; the lines declaring a name it does not, by
-number alone; or the type of a read that failed before it reached one. No value is printed, and no
-name the backend does not declare. A named variable is a value to correct; a numbered line is one
-to open, then delete or answer with a field in the settings class, nothing in that class reading
-its name -- so it reads as omitted and the shipped default serves production.
+variables it declares and could not accept, by name; how many names it does not declare, as a
+count alone; or the type of a read that failed before it reached one. No value is printed, and no
+name the backend does not declare. A named variable is a value to correct; an undeclared name is a
+line to find and delete, nothing in the settings class reading it -- so it reads as omitted and the
+shipped default serves production.
 NOTHING has been recreated, and the site is untouched."
   elif (( rc )); then
     # An advisory rather than a refusal: this reads a file the running stack never reads, so a check
@@ -261,46 +261,6 @@ NOTHING has been recreated, and the site is untouched."
 here says whether the backend accepts what it holds. Its own answer is above."
   else
     ok "the backend accepts every name and value in fl_backend/.env, as python-dotenv parses them"
-  fi
-}
-
-# Its own arm, because the frontend's reader judges names alone: the image carries the schema's key
-# sets (`fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES` and
-# `:: REQUIRED_ENVIRONMENT_NAMES`) rather than the schema itself.
-check_frontend_env_names() {
-  local rc=0
-  read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs "${ENV_MOUNTS}/.env" || rc=$?
-  if (( rc == 3 )); then
-    refuse "the frontend refuses this host's fl_frontend/.env, and the lines above give each undeclared
-variable by its line number alone, never by name, and each missing one by name. An undeclared name
-is one nothing in the schema reads, so the line reads as omitted and the shipped default serves
-production -- open the line, then delete it, correct its spelling, or declare it in the schema. A missing
-name is one the frontend requires that the file omits, which the boot gate would meet instead,
-after the recreate and behind an edge already answering 502 -- write it into the file with its
-value. Whether a value, an empty one included, is accepted is the boot gate's to judge, in the step
-below.
-NOTHING has been recreated, and the site is untouched."
-  elif (( rc )); then
-    # An advisory rather than a refusal, for the reason `check_env_names` carries.
-    warn "the pulled frontend image could not be asked to read fl_frontend/.env (exit ${rc}), so nothing
-here says whether it holds every name the frontend requires and none it does not declare.
-Its own answer is above."
-  else
-    ok "fl_frontend/.env holds every name the frontend requires and none it does not declare"
-  fi
-}
-
-# Compose hands the key over with the host file's owner and mode (`docs/ops/spec.md` §1.2): a key
-# another account can read passes every check here, while any login on this host could mint an actor.
-signing_key_mode_advisory() {
-  local mode=""
-  if ! mode="$(stat -c '%a' "$SIGNING_KEY_FILE" 2>/dev/null)" || [[ ! "$mode" =~ ^[0-7]+$ ]]; then
-    warn "the mode of ${SIGNING_KEY_FILE} could not be read, so nothing here says whether another account on this host can read it."
-  # A warning rather than a refusal: the stack runs either way, and the exposure is already there.
-  elif (( 8#$mode & 8#077 )); then
-    warn "${SIGNING_KEY_FILE} has mode ${mode}, so an account other than its owner can reach it, and with it mint
-any actor the backend trusts. Give it to the frontend's user alone (docs/ops/runbooks.md §16):
-  sudo chown 1001:1001 ${SIGNING_KEY_FILE} && sudo chmod 400 ${SIGNING_KEY_FILE}"
   fi
 }
 
@@ -901,8 +861,6 @@ require_file "nginx/shared/http.conf" "nginx/prod/prod.conf includes it from the
 require_file "nginx/shared/site.conf" "nginx/prod/prod.conf includes it from the nginx/shared mount; without it nginx refuses the whole configuration."
 require_file "nginx/shared/security_headers.conf" "nginx/shared/site.conf includes it; without it nginx refuses the whole configuration."
 require_file "secrets/tunnel_token" "The connector reads it with --token-file and registers no tunnel without it, which leaves the site with no route in at all."
-require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate the pair: docs/ops/runbooks.md §16."
-signing_key_mode_advisory
 # Each file once, the two services sharing the internal keys.
 for secret_file in $(printf '%s\n' "${FRONTEND_SECRETS[@]}" "${BACKEND_SECRETS[@]}" | sort -u); do
   require_file "secrets/${secret_file}" "A service reads it at /run/secrets/${secret_file}. Write it as docs/ops/runbooks.md §16 says."
@@ -1157,7 +1115,6 @@ fi
 # pulled image's, so a variable this release renamed is a variable only this release can judge.
 step "The environment files, read by the builds about to run"
 check_env_names
-check_frontend_env_names
 
 step "Each service's settings and secret files, as its own boot builds them"
 # Through compose: only the service's own container holds its variables, mounts and the user its files
@@ -1168,10 +1125,6 @@ check_frontend_boot_config "NOTHING has been recreated, and the site is untouche
 check_backend_boot_config "NOTHING has been recreated, and the site is untouched." \
   docker compose -f "$COMPOSE" run --rm --no-deps -T
 
-step "The actor token's key pair"
-# After the frontend's boot, which has refused a key it cannot read where its environment points it.
-check_actor_key "NOTHING has been recreated, and the site is untouched." \
-  docker compose -f "$COMPOSE" run --rm --no-deps -T frontend
 
 # --- the streams the recreate destroys, copied off first ---------------------------------------------
 
@@ -1329,7 +1282,7 @@ two. Ask from somewhere else before acting."
     SITE_VERIFIED=0
     fail "the edge answered /api/v0/system/is_live with ${probe_code}, not 200, so what is running
 above is not what a visitor is being served. An uptime monitor watching it sees the same thing."
-    detail "Check nginx's liveness location, api_trusted_hosts, and whether anything in front is" \
+    detail "Check nginx's liveness location, and whether anything in front is" \
            "redirecting."
   fi
 

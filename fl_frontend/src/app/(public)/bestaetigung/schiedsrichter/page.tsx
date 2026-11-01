@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { getLaufendeFassung } from "@/core/einwilligung";
 import { gekeyteFassung, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
@@ -42,12 +41,11 @@ export default function SchiedsrichterBestaetigungPage(props: NextPageProps) {
 }
 
 async function SchiedsrichterBestaetigungContent(props: NextPageProps) {
-  await connection();
   const { token } = await props.searchParams;
 
   // A missing or repeated parameter is no link at all and reads as the dead link. Caught, so a
   // failed read is its own state: the dead-link panel there would call a live link void.
-  if (typeof token !== "string" || token === "") return <SchiedsrichterBestaetigungView start={{ zustand: "ungueltig" }} />;
+  if (typeof token !== "string" || token === "") return <SchiedsrichterBestaetigungView start={{ zustand: "invalid" }} />;
 
   // Beside the link's read, and per request: a deploy moves the label the answer must stamp. Settled
   // together, so a contract break in either read reaches the error boundary whatever the link's state
@@ -58,14 +56,14 @@ async function SchiedsrichterBestaetigungContent(props: NextPageProps) {
   ]);
 
   if (gelesen === null) return <SchiedsrichterBestaetigungView start={{ zustand: "unlesbar" }} />;
-  if (gelesen.zustand !== "gueltig") return <SchiedsrichterBestaetigungView start={gelesen} />;
+  if (gelesen.zustand !== "valid") return <SchiedsrichterBestaetigungView start={gelesen} />;
 
   // A page with no words to show cannot be answered, which the failed read's panel says.
   if (geleseneWorte === null) return <SchiedsrichterBestaetigungView start={{ zustand: "unlesbar" }} />;
 
   // Uncaught: words this page cannot key are a broken contract, which the error boundary logs.
   const worte = gekeyteFassung(geleseneWorte, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL, SCHIEDSRICHTER_UMFANG_WERTE);
-  const start: SchiedsrichterBestaetigungStart = { zustand: "gueltig", ansicht: gelesen.ansicht, token: token, fassung: worte };
+  const start: SchiedsrichterBestaetigungStart = { zustand: "valid", ansicht: gelesen.ansicht, token: token, wording: worte };
 
   return <SchiedsrichterBestaetigungView start={start} />;
 }

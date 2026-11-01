@@ -6,20 +6,20 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.spiele.admin_router import get_spiel_for_admin
-from app.api.spiele.router import get_spiel, get_spiele
+from app.api.spiele.admin_router import get_spiel_verwaltung
+from app.api.spiele.public_router import get_spiel, get_spiele
 from app.api.spiele.schemas import FLSpieleFilterParams
-from app.api.spieler.admin_router import get_spieler_memberships
-from app.api.spieler.router import get_spieler
+from app.api.spieler.admin_router import get_spieler_saisons
+from app.api.spieler.public_router import get_spieler
 from app.api.spieler.schemas import FLSpielerFilterParams
-from app.api.spieltage.admin_router import get_spieltage_for_admin
-from app.api.spieltage.router import get_spieltag, get_spieltage
+from app.api.spieltage.admin_router import get_spieltage_verwaltung
+from app.api.spieltage.public_router import get_spieltag, get_spieltage
 from app.api.spieltage.schemas import FLSpieltageFilterParams
-from app.api.teams.admin_router import get_team_memberships
-from app.api.teams.router import get_team, get_teams
+from app.api.teams.admin_router import get_team_saisons
+from app.api.teams.public_router import get_team, get_teams
 from app.api.teams.schemas import FLTeamsFilterParams, FLTeamSingleFilterParams
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from tests import documents
 from tests.config import ADMINISTRATORS
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
@@ -66,11 +66,11 @@ def saison_document(saison_id: str) -> dict[str, Any]:
 def team_document() -> dict[str, Any]:
     """One club, entered in all three seasons: the same id has to read differently per season."""
 
-    return documents.team_document(TEAM_OID, "Helmholtz", "HG", full_name="Helmholtz-Gymnasium")
+    return documents.team_document(TEAM_OID, "Helmholtz", "HGX", full_name="Helmholtz-Gymnasium")
 
 
 def junction_row(saison_id: str) -> dict[str, Any]:
-    return documents.saison_team_document(saison_id, TEAM_OID, "Helmholtz", "HG", gruppe="A")
+    return documents.saison_team_document(saison_id, TEAM_OID, "Helmholtz", "HGX", gruppe="A")
 
 
 def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:
@@ -79,7 +79,7 @@ def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:
     Consent passed, not defaulted: only a published, confirmed one serves the forename.
     """
 
-    published = documents.eigene_einwilligung_document(text_version=documents.EINWILLIGUNG["text_version"], bestaetigt_am="2026-01-20")
+    published = documents.own_einwilligung_document(text_version=documents.EINWILLIGUNG["text_version"], confirmed_at="2026-01-20")
 
     return documents.spieler_document(spieler_id, vorname, "Müller", einwilligung=published)
 
@@ -103,7 +103,7 @@ def spiel_document(saison_id: str) -> dict[str, Any]:
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=an_id("3", saison_id),
-        team1={"team_id": TEAM_OID, "name": "Helmholtz", "shorthand": "HG", "tore": None},
+        team1={"team_id": TEAM_OID, "name": "Helmholtz", "shorthand": "HGX", "tore": None},
         datum=f"{saison_id}-03-15",
         uhrzeit="14:00:00",
     )
@@ -156,11 +156,11 @@ def on_a_league(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-def raised_by(url: str, body: Body) -> DocumentNotFoundException:
+def raised_by(url: str, body: Body) -> DocumentNotFoundError:
     """The refusal a read answered with, so a test asserts on its status rather than only that it refused."""
 
-    async def _catching(database: AsyncDatabase) -> DocumentNotFoundException:
-        with pytest.raises(DocumentNotFoundException) as refusal:
+    async def _catching(database: AsyncDatabase) -> DocumentNotFoundError:
+        with pytest.raises(DocumentNotFoundError) as refusal:
             await body(database)
 
         return refusal.value
@@ -369,17 +369,18 @@ class TestTheAdminTierStillReadsThePlannedSeason:
 
     def test_a_planned_fixture_is_served_to_the_editor(self, seeded_league: str):
         async def body(database: AsyncDatabase) -> Any:
-            return await get_spiel_for_admin(spiel_id=an_id("2", PLANNED), spiele_collection=database[Collection.SPIELE])
+            return await get_spiel_verwaltung(spiel_id=an_id("2", PLANNED), spiele_collection=database[Collection.SPIELE])
 
         assert on_a_league(seeded_league, body).spiel.saison_id == PLANNED
 
     def test_the_planned_membership_is_listed(self, seeded_league: str):
         async def body(database: AsyncDatabase) -> Any:
-            return await get_team_memberships(
+            return await get_team_saisons(
                 teams_collection=database[Collection.TEAMS],
-                adresswechsel_collection=database[Collection.ADRESSWECHSEL],
-                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
+                berechtigungen_collection=database[Collection.GRANTS],
+                berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+                outbox_collection=database[Collection.OUTBOX],
                 operator=ADMINISTRATORS[0],
                 auth_time=int(time.time()),
             )
@@ -395,10 +396,10 @@ class TestTheAdminTierStillReadsThePlannedSeason:
         """
 
         async def body(database: AsyncDatabase) -> Any:
-            return await get_spieler_memberships(
+            return await get_spieler_saisons(
                 spieler_collection=database[Collection.SPIELER],
-                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                berechtigungen_collection=database[Collection.GRANTS],
+                berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
                 operator=ADMINISTRATORS[0],
                 auth_time=int(time.time()),
             )
@@ -410,7 +411,7 @@ class TestTheAdminTierStillReadsThePlannedSeason:
 
     def test_the_planned_matchday_is_listed(self, seeded_league: str):
         async def body(database: AsyncDatabase) -> Any:
-            return await get_spieltage_for_admin(
+            return await get_spieltage_verwaltung(
                 spieltage_collection=database[Collection.SPIELTAGE],
                 saisons_collection=database[Collection.SAISONS],
                 filters=FLSpieltageFilterParams(saison_id=PLANNED),

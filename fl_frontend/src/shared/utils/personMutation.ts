@@ -1,18 +1,19 @@
+// Redesign: goes with its last importer.
 import { refresh } from "next/cache";
 
 import { APIBadStatusError } from "@/core/errors";
-import { funktionenOf, isSeatAt } from "@/core/funktionen";
+import { logRefused } from "@/core/refused";
+import { isSeatAt, rolesOf } from "@/core/roles";
 import { getSubjectSession } from "@/core/subject";
 
 import { ANMELDUNG_ABGELAUFEN, SITZ_WEG } from "./actionError";
 import { logActionFailure } from "./actionFailure";
 import { runGuardedMutation, stepUpRequired } from "./adminMutation";
-import { logVerweigert } from "./verweigert";
 
-import type { Funktion } from "@/core/funktionen";
+import type { Refusal } from "@/core/refused";
+import type { Role } from "@/core/roles";
 import type { SubjectSession } from "@/core/subject";
 import type { ActionFailure } from "@/shared/types/types";
-import type { Verweigerung } from "./verweigert";
 
 /** The team and season a person's write claims a seat on, as the action's own argument carries them. */
 export type SeatClaim = { readonly team_id: string; readonly saison_id: string };
@@ -20,7 +21,7 @@ export type SeatClaim = { readonly team_id: string; readonly saison_id: string }
 /** What a guarded body runs for: the person the spine resolved, and every seat they hold at the claimed address. */
 export type PersonHeld = {
   readonly subject: SubjectSession;
-  readonly seats: readonly [Extract<Funktion, { art: "kontakt" }>, ...Extract<Funktion, { art: "kontakt" }>[]];
+  readonly seats: readonly [Extract<Role, { art: "kontakt" }>, ...Extract<Role, { art: "kontakt" }>[]];
 };
 
 /**
@@ -32,7 +33,7 @@ export async function runPersonMutation<T extends { success: boolean }>(
   claimed: SeatClaim,
   fn: (held: PersonHeld) => Promise<T>,
 ): Promise<T | ActionFailure> {
-  const verdict: { grund: Extract<Verweigerung, "keine_sitzung" | "kein_sitz"> } = { grund: "keine_sitzung" };
+  const verdict: { grund: Extract<Refusal, "keine_sitzung" | "kein_sitz"> } = { grund: "keine_sitzung" };
 
   // A request can hand a server action anything at all, so the claim is read as possibly absent: an
   // address it does not carry holds no seat.
@@ -45,12 +46,12 @@ export async function runPersonMutation<T extends { success: boolean }>(
     const [erster, ...weitere] =
       subject === null || typeof teamId !== "string" || typeof saisonId !== "string"
         ? []
-        : funktionenOf(subject).funktionen.filter((funktion) => isSeatAt(funktion, teamId, saisonId));
+        : rolesOf(subject).roles.filter((funktion) => isSeatAt(funktion, teamId, saisonId));
 
     if (subject !== null && erster !== undefined) return { subject: subject, seats: [erster, ...weitere] };
 
     verdict.grund = subject === null ? "keine_sitzung" : "kein_sitz";
-    logVerweigert(mutationName, verdict.grund);
+    logRefused(mutationName, verdict.grund);
     return null;
   };
 
@@ -71,10 +72,10 @@ export async function runPersonRecordMutation<T extends { success: boolean }>(
   fn: (subject: SubjectSession) => Promise<T>,
 ): Promise<T | ActionFailure> {
   const resolve = async (): Promise<SubjectSession | null> => {
-    // Never narrowed through `funktionenOf`: a withdrawal must reach a past season's seat and a retired
+    // Never narrowed through `rolesOf`: a withdrawal must reach a past season's seat and a retired
     // record, which no Funktion carries.
     const subject = await getSubjectSession();
-    if (subject === null) logVerweigert(mutationName, "keine_sitzung");
+    if (subject === null) logRefused(mutationName, "keine_sitzung");
 
     return subject;
   };
@@ -86,7 +87,7 @@ export async function runPersonRecordMutation<T extends { success: boolean }>(
       // A grant holder's write the backend's own window refused, one the page's check admitted at the
       // window's edge: answered as the admin spine answers it, so the page's next press asks for the
       // passkey.
-      if (!(error instanceof APIBadStatusError && error.serverErrorCode === "REQ-AUTH-009")) throw error;
+      if (!(error instanceof APIBadStatusError && error.serverErrorCode === "confirmation_required")) throw error;
 
       logActionFailure(`Person mutation refused for want of a confirmation: ${mutationName}`, error);
       refresh();

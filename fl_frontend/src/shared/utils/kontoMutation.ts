@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import { getKontoSession, isFreshlySignedIn } from "@/core/auth";
 import { ENROLMENT_WINDOW_MS, isWithinEnrolmentWindow, STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
 

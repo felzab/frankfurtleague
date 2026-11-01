@@ -13,16 +13,16 @@ export function mapEinladenRefusal(error: unknown): string | null {
 
   switch (error.serverErrorCode) {
     // The application page's re-send words its twin refusal so (`fl_frontend/src/features/bewerbungen/refusals.ts`).
-    case "REQ-KONTAKT-002":
+    case "kontakt_seat_without_confirmation":
       return buildRefusal({
         reason: "Für diese Rolle steht keine Bestätigung mehr aus",
         repair: LADE_DIE_SEITE_NEU,
       });
-    case "REQ-KONTAKT-003":
+    case "kontakt_seat_barred":
       return SPERRLISTE_ADRESSE_GESPERRT;
     // The editor offers no send on a row whose season is over or whose team has left it, so this
     // answers a page read before that change, which the reload shows.
-    case "REQ-KONTAKT-005":
+    case "kontakt_row_without_saison":
       return buildRefusal({
         reason: "Diese Saison ist vorbei oder das Team ist ausgetreten",
         repair: "Lade die Seite neu, um den aktuellen Stand zu sehen",
@@ -42,16 +42,16 @@ export function mapKontakteRefusal(error: unknown): string | null {
   switch (error.serverErrorCode) {
     // The backend's judgement of a seat's label: an editor opened
     // before a deploy moved the form's label sends it for a person the row did not hold.
-    case "REQ-EINWILLIGUNG-001":
+    case "wording_not_allowed":
       return BEWERBUNG_VERALTET;
-    case "REQ-KONTAKT-001":
+    case "kontakte_moved_under_the_save":
       return buildRefusal({
         reason:
           "Die Kontakte dieser Saison wurden inzwischen geändert, etwa weil eine Kontaktperson ihren Eintrag bestätigt oder ihm widersprochen hat oder gelöscht wurde",
         repair: "Lade die Seite neu und trage Deine Änderung dort erneut ein",
       });
     // Not the re-send's sentence: the refusal names no seat, so „Diese E-Mail-Adresse“ would point at none.
-    case "REQ-KONTAKT-003":
+    case "kontakt_seat_barred":
       return buildRefusal({
         reason: "Eine neu eingetragene E-Mail-Adresse steht auf der Sperrliste",
         repair: { before: "Trage eine andere Adresse ein oder hebe die Sperre", after: "auf" },
@@ -61,24 +61,3 @@ export function mapKontakteRefusal(error: unknown): string | null {
       return null;
   }
 }
-
-export const KONTAKTE_REPLAY_REFUSALS: Readonly<Record<string, string>> = {
-  // Only a deploy between the label's read and the write leaves the replay naming a label the backend
-  // has moved past.
-  "REQ-EINWILLIGUNG-001":
-    "Die Rücknahme würde eine Kontaktperson unter einer Fassung der Hinweise eintragen, die nicht mehr gilt. " +
-    "Sie wurde nicht ausgeführt. Lade die Seite neu und trage die Kontakte dort erneut ein.",
-  // The replay seats an earlier person anew, which the backend refuses for an address barred since.
-  "REQ-KONTAKT-003":
-    "Die Rücknahme würde eine Kontaktperson eintragen, deren E-Mail-Adresse inzwischen auf der Sperrliste steht. Sie wurde nicht ausgeführt.",
-};
-
-/**
- * Its own close, the one undo row without the change standing: it already says the undo did not run,
- * and why. Worded for the undo, whose toast has not got the save's form.
- */
-export const STALE_BLOCK_REFUSAL: Readonly<Record<string, string>> = {
-  "REQ-KONTAKT-001":
-    "Die Kontakte dieser Saison wurden nach dem Speichern erneut geändert, etwa weil eine Kontaktperson ihren Eintrag bestätigt oder ihm widersprochen hat oder gelöscht wurde. " +
-    "Die Rücknahme wurde nicht ausgeführt, damit sie die neueren Angaben nicht überschreibt.",
-};

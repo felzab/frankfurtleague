@@ -1,9 +1,8 @@
-import { readPublishedDocument, REGENERATE_CITATION } from "@/test-support/openapiDocument.ts";
 import { assert, describe, expect, it } from "vitest";
 
 import { applyFacets, countFacetOptions, isFacetOptionReachable, readFacetSelection } from "@/shared/utils/facets.ts";
 
-import { AKTION_HERKUNFT_LABELS } from "./constants.ts";
+import { AKTION_HERKUNFT_LABELS, AKTOR_HERKUNFT } from "./constants.ts";
 import {
   AKTIONEN_COLLECTION_PARAM,
   AKTIONEN_FACETS,
@@ -12,20 +11,18 @@ import {
   aktionenLogFacetCounts,
   aktionenLogFacetTerms,
 } from "./facets.ts";
-import { FLAktorSchema } from "./schemas.ts";
 
+import type { ActionLogGetActionLogParams, FLActionLogEntry } from "@/core/generated/client/types.ts";
 import type { Facet, FacetSelection } from "@/shared/utils/facets.ts";
 // A type import, and it has to be: `./queries.ts` reaches `next/headers`, which the runner resolves
 // to no file, so importing the read as a value would fail this file before a case ran.
 import type { getAktionen } from "./queries.ts";
-import type { FLAktor } from "./schemas.ts";
-import type { AdminAktionRow } from "./types.ts";
 
 /** The facet under test, cut out by its parameter. */
 const HERKUNFT_FACET = AKTIONEN_FACETS.find((facet) => facet.param === AKTIONEN_HERKUNFT_PARAM);
 
 /** One row, of which only the actor carries anything the facet under test reads. */
-function row(id: string, actor: FLAktor): AdminAktionRow {
+function row(id: string, actor: FLActionLogEntry["actor"]): FLActionLogEntry {
   return {
     id: id,
     at: "2026-08-20T14:23:05+00:00",
@@ -39,21 +36,21 @@ function row(id: string, actor: FLAktor): AdminAktionRow {
     modified_count: null,
     redacted_at: null,
     anlass: null,
-    stand_gesichert: true,
+    stand_secured: true,
   };
 }
 
 /** A valid actor of each kind: a signed-in person carries a pseudonym and a Funktion where every other kind carries `email`. */
-function actorOf(kind: FLAktor["kind"]): FLAktor {
+function actorOf(kind: FLActionLogEntry["actor"]["kind"]): FLActionLogEntry["actor"] {
   return kind === "person_session"
     ? { kind: kind, pseudonym: "5e".repeat(32), funktion: "kontakt" }
-    : { kind: kind, email: `${kind}@beispiel.de`, email_gesperrt: false };
+    : { kind: kind, email: `${kind}@beispiel.de`, email_barred: false };
 }
 
-/** One row per kind the read model accepts, so a kind added there is swept without anyone listing it. */
-const ROWS = FLAktorSchema.options
-  .flatMap((variant) => variant.shape.kind.options)
-  .map((kind, index) => row(`row-${String(index)}`, actorOf(kind)));
+/** One row per kind the origin map places, which its type holds to every kind the read model accepts. */
+const ROWS = (Object.keys(AKTOR_HERKUNFT) as FLActionLogEntry["actor"]["kind"][]).map((kind, index) =>
+  row(`row-${String(index)}`, actorOf(kind)),
+);
 
 const PUBLIC_ROW = ROWS.find((entry) => entry.actor.kind === "public");
 
@@ -106,16 +103,6 @@ describe("the origin facet on the change log", () => {
 const AREA_FACET = AKTIONEN_FACETS.find((facet) => facet.param === AKTIONEN_COLLECTION_PARAM);
 const KIND_FACET = AKTIONEN_FACETS.find((facet) => facet.param === AKTIONEN_OPERATION_PARAM);
 
-/** Every query parameter `GET /aktionen` publishes, read off the document rather than retyped here. */
-function publishedQueryNames(): string[] {
-  const document = readPublishedDocument() as {
-    paths: Record<string, { get?: { parameters?: { in?: string; name?: string }[] } }>;
-  };
-  const listed = Object.entries(document.paths).find(([published]) => /^\/api\/v\d+\/aktionen$/.test(published));
-
-  return (listed?.[1].get?.parameters ?? []).filter((parameter) => parameter.in === "query").map((parameter) => String(parameter.name));
-}
-
 describe("the dimensions the read itself narrows on", () => {
   /* First: a facet the cut fails to find would leave every assertion below reading `undefined`. */
   it("offers the area and the operation as facets at all", () => {
@@ -123,22 +110,16 @@ describe("the dimensions the read itself narrows on", () => {
     assert.ok(KIND_FACET, "no facet reads the operation parameter");
   });
 
-  /* Read off the published document, so a backend rename fails here rather than leaving every term the
-     bar sends naming a parameter the endpoint does not read. */
+  /* Held by `tsc` against the generated query type, so a backend rename fails the type check rather than leaving
+     every term the bar sends naming a parameter the endpoint does not read. */
   it("writes the endpoint's own parameter names", () => {
-    const published = publishedQueryNames();
-    // The keys and not one selection's: the reader writes every parameter it can, `undefined` included.
-    const sent = Object.keys(aktionenLogFacetTerms({}));
+    type Unpublished = Exclude<keyof ReturnType<typeof aktionenLogFacetTerms>, keyof ActionLogGetActionLogParams>;
+    /** Instantiable while nothing is unpublished, and by no other argument. */
+    type EveryTermPublished<T extends never> = T[];
 
-    // First: a path this reader cannot place answers an empty list, on which the comparison below passes.
-    assert.ok(
-      published.length > 0,
-      `no GET /aktionen query parameters in openapi.json — refresh it with the command ${REGENERATE_CITATION} declares`,
-    );
-    expect(
-      sent.filter((name) => !published.includes(name)),
-      `the endpoint publishes ${published.join(", ")} — refresh the document with the command ${REGENERATE_CITATION} declares if a term was just added`,
-    ).toStrictEqual([]);
+    const unpublished: EveryTermPublished<Unpublished> = [];
+
+    expect(unpublished).toStrictEqual([]);
   });
 
   /* Held by `tsc` rather than by an assertion, a declaration reaching no runtime: a term the read does
@@ -164,23 +145,23 @@ describe("what the log asks the endpoint to narrow to", () => {
   });
 
   it("forwards a picked area", () => {
-    expect(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "teams" }).collection).toBe("teams");
+    expect(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "teams" }).collection).toStrictEqual(["teams"]);
   });
 
   it("carries a two-area selection, which is why the parameter is a list on both sides", () => {
-    expect(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "teams,spiele" }).collection).toBe("teams,spiele");
+    expect(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "teams,spiele" }).collection).toStrictEqual(["teams", "spiele"]);
   });
 
   it("forwards a picked operation on its own parameter", () => {
-    expect(aktionenLogFacetTerms({ [AKTIONEN_OPERATION_PARAM]: "insert,delete_many" }).operation).toBe("insert,delete_many");
+    expect(aktionenLogFacetTerms({ [AKTIONEN_OPERATION_PARAM]: "insert,delete_many" }).operation).toStrictEqual(["insert", "delete_many"]);
   });
 
   it("drops a value the facet does not offer rather than sending one the endpoint refuses with a 422", () => {
     // A pasted or hand-edited link is the live case, and the operation parameter is a closed set on
     // the endpoint, so an invented member reaches it as a refusal the page has nothing to render.
     expect(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "erfunden" }).collection).toBe(undefined);
-    expect(aktionenLogFacetTerms({ [AKTIONEN_OPERATION_PARAM]: "insert,erfunden" }).operation).toBe("insert");
-    expect(aktionenLogFacetTerms({ [AKTIONEN_HERKUNFT_PARAM]: "system,erfunden" }).herkunft).toBe("system");
+    expect(aktionenLogFacetTerms({ [AKTIONEN_OPERATION_PARAM]: "insert,erfunden" }).operation).toStrictEqual(["insert"]);
+    expect(aktionenLogFacetTerms({ [AKTIONEN_HERKUNFT_PARAM]: "system,erfunden" }).herkunft).toStrictEqual(["system"]);
   });
 
   it("asks for nothing once a parameter is emptied, which is the facet turned off", () => {
@@ -189,7 +170,7 @@ describe("what the log asks the endpoint to narrow to", () => {
 });
 
 /** What one narrowed answer holds: the picked area's rows, the cap having cut every other. */
-const ONLY_TEAMS: AdminAktionRow[] = ROWS.map((entry, index) => ({ ...entry, id: `teams-${String(index)}`, collection: "teams" }));
+const ONLY_TEAMS: FLActionLogEntry[] = ROWS.map((entry, index) => ({ ...entry, id: `teams-${String(index)}`, collection: "teams" }));
 
 /** Which options `FilterPanel :: FacetCell` would leave pressable, given the counts it was handed. */
 function pressableAreas(counts: Record<string, number>, picked: readonly string[]): string[] {
@@ -222,17 +203,17 @@ describe("the counts the area facet is told", () => {
 });
 
 /** Two areas, each written by one kind of actor alone, so picking an origin empties one of them outright. */
-const MIXED_LOG: AdminAktionRow[] = [
-  { ...row("system-1", { kind: "system", email: "SYSTEM", email_gesperrt: false }), collection: "teams" },
-  { ...row("system-2", { kind: "system", email: "SYSTEM", email_gesperrt: false }), collection: "teams" },
-  { ...row("person-1", { kind: "admin_session", email: "eine.person@beispiel.de", email_gesperrt: false }), collection: "spielorte" },
+const MIXED_LOG: FLActionLogEntry[] = [
+  { ...row("system-1", { kind: "system", email: "SYSTEM", email_barred: false }), collection: "teams" },
+  { ...row("system-2", { kind: "system", email: "SYSTEM", email_barred: false }), collection: "teams" },
+  { ...row("person-1", { kind: "admin_session", email: "eine.person@beispiel.de", email_barred: false }), collection: "spielorte" },
 ];
 
 /**
  * What the endpoint answers for one facet: over the WHOLE log, with every other dimension it narrows on
  * applied and this facet's own selection ignored. The shared counter, so no second exclusion rule exists.
  */
-function toldCounts(log: AdminAktionRow[], selection: FacetSelection, facet: Facet<AdminAktionRow>): Record<string, number> {
+function toldCounts(log: FLActionLogEntry[], selection: FacetSelection, facet: Facet<FLActionLogEntry>): Record<string, number> {
   const narrowing = AKTIONEN_FACETS.filter((candidate) => candidate.narrowsTheRead === true);
 
   return countFacetOptions([...log], narrowing, selection, facet);
@@ -262,16 +243,16 @@ describe("the counts the endpoint can answer", () => {
   /* The request half: the endpoint cannot count what it is not told, so the term rides with the two the
      bar already sends. */
   it("asks the endpoint to narrow to a picked origin", () => {
-    expect(aktionenLogFacetTerms({ [AKTIONEN_HERKUNFT_PARAM]: "system" }).herkunft).toBe("system");
+    expect(aktionenLogFacetTerms({ [AKTIONEN_HERKUNFT_PARAM]: "system" }).herkunft).toStrictEqual(["system"]);
   });
 
   /* A facet absent from the map is counted off the rows served instead (`FilterPanel :: FilterPanelBody`),
      which is the cap counting rather than the endpoint. */
   it("hands the panel a told map for every facet", () => {
     const told = aktionenLogFacetCounts({
-      anzahl_je_collection: { teams: 40 },
-      anzahl_je_operation: { insert: 7 },
-      anzahl_je_herkunft: { system: 2 },
+      count_per_collection: { teams: 40 },
+      count_per_operation: { insert: 7 },
+      count_per_herkunft: { system: 2 },
     });
 
     expect(AKTIONEN_FACETS.filter((facet) => told[facet.param] === undefined).map((facet) => facet.param)).toStrictEqual([]);

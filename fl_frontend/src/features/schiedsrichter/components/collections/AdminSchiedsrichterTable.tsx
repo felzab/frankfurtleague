@@ -39,8 +39,8 @@ import { formatEuro, nichtHinterlegt } from "@/shared/utils/format";
 
 import { hatAdresse } from "../../schemas";
 
+import type { FLSchiedsrichter } from "@/core/generated/client/types";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
-import type { FLSchiedsrichter } from "../../schemas";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
   searched: SCHIEDSRICHTER_CRUD_COPY.emptyForQuery,

@@ -1,17 +1,12 @@
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
+from pydantic_core import PydanticCustomError
 
 from app.api.berechtigungen.schemas import FLUtcInstant
-from app.api.spiele.schemas import (
-    SONDEREREIGNIS_NO_SHOW,
-    FLBracketFault,
-    FLSaisonPhase,
-    FLSonderereignis,
-    FLSpielElfmeterschiessen,
-    FLSpielJoinedAdmin,
-)
-from app.shared.schemas.bounds import SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH, SPIELBERICHT_EINTRAEGE_MAX
+from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLBracketFault, FLSpielElfmeterschiessen, FLSpielJoinedAdmin
+from app.shared.schemas.actor import FLVonAdmin
+from app.shared.schemas.bounds import SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH, SPIELBERICHT_ENTRIES_MAX
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomNonEmptyString,
@@ -19,6 +14,7 @@ from app.shared.schemas.custom import (
     CustomTimeString,
     parse_empty_string_to_none,
 )
+from app.shared.schemas.literals import FLSaisonPhase, FLSonderereignis, FLSpielSeite
 from app.shared.schemas.responses import BaseAPIResponse
 
 # The minute as the DFB's report writes it: the played minute, and stoppage time after a plus, `45+2`.
@@ -27,18 +23,17 @@ MINUTE_PATTERN = r"^[0-9]{1,3}(\+[0-9]{1,2})?$"
 CustomSpielberichtMinute = Annotated[str, StringConstraints(pattern=MINUTE_PATTERN)]
 
 # Multi-line, unlike a confirmation's reason: the referee's prose about the match, read on the editor's panel alone.
-# Stripped before the floor counts, so spaces alone are no remark.
+# The ceiling counts what arrives, so the published one is what is accepted; the floor counts after the strip, so
+# spaces alone are no remark.
 CustomSpielberichtBemerkungen = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH)
+    str, StringConstraints(max_length=SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
 ]
 
-FLSpielberichtSeite = Literal["team1", "team2"]
-
-FLKartenFarbe = Literal["gelb", "gelb_rot", "rot"]
+type FLKartenFarbe = Literal["gelb", "gelb_rot", "rot"]
 
 # Why a card was shown, from a closed list: a characterisation of a named pupil's conduct, so served on the
 # administrator's and the referee's reads alone.
-FLKartenGrund = Literal[
+type FLKartenGrund = Literal[
     "foulspiel",
     "unsportlichkeit",
     "handspiel",
@@ -57,7 +52,7 @@ FLSpielberichtSonderereignis = Literal["abgebrochen", "nichtantreten_team1", "ni
 
 # Derived on every read from the report and the fixture, and stored nowhere. `abgesagt` is a report on a fixture called
 # off or struck out since it was sent: the match took no place, so nothing awaits the administrator.
-FLSpielberichtZustand = Literal["vorgeschlagen", "uebernommen", "abweichend", "abgesagt", "teams_geaendert"]
+type FLSpielberichtState = Literal["vorgeschlagen", "adopted", "differing", "abgesagt", "teams_changed"]
 
 
 class FLSpielberichtVorschlag(BaseModel):
@@ -76,7 +71,7 @@ class FLSpielberichtVorschlag(BaseModel):
 class FLSpielberichtTorschuetze(BaseModel):
     """One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one."""
 
-    seite: FLSpielberichtSeite
+    seite: FLSpielSeite
     spieler_id: CustomObjectId | None
     minute: CustomSpielberichtMinute
     # An own goal keeps the scorer's side and counts for the other one.
@@ -86,7 +81,7 @@ class FLSpielberichtTorschuetze(BaseModel):
 class FLSpielberichtKarte(BaseModel):
     """One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons."""
 
-    seite: FLSpielberichtSeite
+    seite: FLSpielSeite
     spieler_id: CustomObjectId
     minute: CustomSpielberichtMinute
     farbe: FLKartenFarbe
@@ -94,11 +89,10 @@ class FLSpielberichtKarte(BaseModel):
 
 
 class FLSpielberichtKartePayload(FLSpielberichtKarte):
-    """One card as a write sends it.
+    """One card as a write sends it: a caution names its reason unless the stored card's reason was stripped."""
 
-    A caution's reason is judged against the stored block, never here: a correction after the strip resends the
-    cautions whose reasons it stripped (`app/api/spielberichte/services.py :: find_grund_fehlt_refusal`).
-    """
+    # Judged against the stored block, never here: a correction after the strip resends the cautions whose
+    # reasons it stripped (`find_grund_fehlt_refusal`).
 
     model_config = ConfigDict(extra="forbid")
 
@@ -108,17 +102,7 @@ class FLSpielberichtVonSchiedsrichter(BaseModel):
     schiedsrichter_id: CustomObjectId
 
 
-class FLSpielberichtVonAdmin(BaseModel):
-    """An administrator who wrote the block first, naming nobody, as an administrator's settle does."""
-
-    art: Literal["admin"]
-
-
-FLSpielberichtVon = Annotated[FLSpielberichtVonSchiedsrichter | FLSpielberichtVonAdmin, Field(discriminator="art")]
-
-
-class FLSpielberichtUebernommenVon(BaseModel):
-    art: Literal["admin"]
+FLSpielberichtVon = Annotated[FLSpielberichtVonSchiedsrichter | FLVonAdmin, Field(discriminator="art")]
 
 
 class FLSpielberichtSeiten(BaseModel):
@@ -132,7 +116,7 @@ class FLSpielberichtSeiten(BaseModel):
 
 
 class FLSpielberichtBericht(BaseModel):
-    """The referee's account of one match, one proposal, a correction after its adoption reading `abweichend`.
+    """The referee's account of one match, one proposal, a correction after its adoption reading `differing`.
 
     `version` rises with each write of the content and the adoption records the one it took: adopted means equal, never
     a clock.
@@ -144,13 +128,13 @@ class FLSpielberichtBericht(BaseModel):
     # Its length is the payload's: the read keeps a ban reason's floor alone.
     bemerkungen: CustomNonEmptyString | None
     seiten: FLSpielberichtSeiten
-    eingereicht_am: FLUtcInstant
-    eingereicht_von: FLSpielberichtVon
-    geaendert_am: FLUtcInstant
+    submitted_at: FLUtcInstant
+    submitted_by: FLSpielberichtVon
+    changed_at: FLUtcInstant
     version: int
-    uebernommen_am: FLUtcInstant | None
-    uebernommen_von: FLSpielberichtUebernommenVon | None
-    uebernommene_version: int | None
+    adopted_at: FLUtcInstant | None
+    adopted_by: FLVonAdmin | None
+    adopted_version: int | None
 
 
 class FLSpielbericht(BaseModel):
@@ -160,6 +144,8 @@ class FLSpielbericht(BaseModel):
     saison_id: str
     spiel_id: CustomObjectId
     bericht: FLSpielberichtBericht | None
+    # 0 until a write raises it, as the create stamps it.
+    version: int = 0
 
 
 # --- The WRITES: the referee's PUT and the administrator's PATCH take one body, so a refusal naming
@@ -170,8 +156,8 @@ class FLSpielberichtBerichtPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ergebnis_vorschlag: FLSpielberichtVorschlag
-    torschuetzen: Annotated[list[FLSpielberichtTorschuetze], Field(max_length=SPIELBERICHT_EINTRAEGE_MAX)]
-    karten: Annotated[list[FLSpielberichtKartePayload], Field(max_length=SPIELBERICHT_EINTRAEGE_MAX)]
+    torschuetzen: Annotated[list[FLSpielberichtTorschuetze], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
+    karten: Annotated[list[FLSpielberichtKartePayload], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
     bemerkungen: Annotated[CustomSpielberichtBemerkungen | None, BeforeValidator(parse_empty_string_to_none)]
 
     @model_validator(mode="after")
@@ -186,16 +172,16 @@ class FLSpielberichtBerichtPayload(BaseModel):
 
         if vorschlag.sonderereignis in SONDEREREIGNIS_NO_SHOW:
             if vorschlag.team1_tore is not None or vorschlag.team2_tore is not None or vorschlag.elfmeterschiessen is not None:
-                raise ValueError("Bei einem Nichtantreten stehen keine Tore im Bericht: Das Ergebnis ist die Wertung der Liga.")
+                raise PydanticCustomError("nichtantreten_with_tore", "a no-show proposes no goals: the league composes them")
             if self.torschuetzen:
-                raise ValueError("Bei einem Nichtantreten gibt es keine Torschützen.")
+                raise PydanticCustomError("nichtantreten_with_torschuetzen", "a no-show credits no scorer")
             return self
 
         if vorschlag.team1_tore is None or vorschlag.team2_tore is None:
-            raise ValueError("Zum Ergebnis gehören die Tore beider Teams.")
+            raise PydanticCustomError("ergebnis_missing_tore", "a result names both sides' goals")
 
         if vorschlag.elfmeterschiessen is not None and vorschlag.team1_tore != vorschlag.team2_tore:
-            raise ValueError("Ein Elfmeterschießen folgt nur auf ein Unentschieden.")
+            raise PydanticCustomError("elfmeterschiessen_without_draw", "a shoot-out follows a draw alone")
 
         gutgeschrieben = {"team1": 0, "team2": 0}
         for tor in self.torschuetzen:
@@ -204,11 +190,7 @@ class FLSpielberichtBerichtPayload(BaseModel):
             gutgeschrieben[seite] += 1
 
         if (gutgeschrieben["team1"], gutgeschrieben["team2"]) != (vorschlag.team1_tore, vorschlag.team2_tore):
-            raise ValueError(
-                "Für jedes Tor braucht es genau einen Eintrag. "
-                f"Die Einträge ergeben {gutgeschrieben['team1']}:{gutgeschrieben['team2']}, "
-                f"das Ergebnis lautet {vorschlag.team1_tore}:{vorschlag.team2_tore}."
-            )
+            raise PydanticCustomError("torschuetzen_not_matching_tore", "the scorers credit other goals than the result reads")
 
         return self
 
@@ -223,6 +205,8 @@ class FLSpielberichtPayload(BaseModel):
     # with no default, as `kontakte_stand` is: an omitted one would judge nothing
     # (`app/api/spielberichte/services.py :: find_bericht_stand_refusal`).
     bericht_stand: int | None
+    # The document's `version` the form was served; absent, the save is checked against nothing.
+    version: int | None = None
 
 
 # --- The READS. The referee's form and the administrator's panel read one shape: the fixture, both live
@@ -269,17 +253,20 @@ class _SpielberichtAnsicht(BaseAPIResponse):
     kader: FLSpielberichtKader
     # Every pupil the stored block names outside the squads served -- one ausgetragen since the match, or of a club a
     # knockout slot has since replaced -- so an entry stored before keeps its name.
-    genannt: list[FLSpielberichtSpieler]
+    named: list[FLSpielberichtSpieler]
     bericht: FLSpielberichtBericht | None
-    # The sides fielding another club than the report's last write found there, which reads `teams_geaendert`.
-    seiten_geaendert: list[FLSpielberichtSeite]
+    # The sides fielding another club than the report's last write found there, which reads `teams_changed`.
+    seiten_changed: list[FLSpielSeite]
+    # The document's count of writes, null where none is stored: a save sending it back is refused once another write
+    # has raised it. Not `bericht.version`, the report's own, which only its content's writes raise.
+    version: int | None
 
 
 class FLSpielberichtSchiedsrichterResponse(_SpielberichtAnsicht):
-    """The booked referee's form: the remarks and the card reasons included, and no `zustand`."""
+    """The booked referee's form: the remarks and the card reasons included, and no `state`."""
 
-    # The fixture's season has ended: the page shows the report and offers no write (`REQ-BERICHT-007`).
-    abgeschlossen: bool
+    # The fixture's season has ended: the page shows the report and offers no write (`saison_past`).
+    completed: bool
 
 
 class FLSpielberichtAdminResponse(_SpielberichtAnsicht):
@@ -288,10 +275,10 @@ class FLSpielberichtAdminResponse(_SpielberichtAnsicht):
     Both squads empty unless the read asks `kader`, the correction's form; a write answers them always.
     """
 
-    zustand: FLSpielberichtZustand | None
+    state: FLSpielberichtState | None
 
 
-class FLSpielberichtPersonEintrag(BaseModel):
+class FLSpielberichtPersonEntry(BaseModel):
     """One played fixture booked to the signed-in referee, and when its report, whoever wrote it, was first sent."""
 
     spiel_id: CustomObjectId
@@ -299,34 +286,34 @@ class FLSpielberichtPersonEintrag(BaseModel):
     uhrzeit: CustomTimeString | None
     team1_name: str | None
     team2_name: str | None
-    eingereicht_am: FLUtcInstant | None
+    submitted_at: FLUtcInstant | None
 
 
-class FLSpielberichtPersonFruehererEintrag(FLSpielberichtPersonEintrag):
+class FLSpielberichtPersonEarlierEntry(FLSpielberichtPersonEntry):
     """One reported fixture of an ended season, its date null where it was cleared after the report: the report still stands."""
 
     datum: CustomDateString | None
 
 
-class FLSpielberichtePersonResponse(BaseAPIResponse):
-    """`spiele` of the running season, which the referee reports on; `fruehere` of ended ones, each holding a report they only read."""
+class FLSpielberichteSelfResponse(BaseAPIResponse):
+    """`spiele` of the running season, which the referee reports on; `earlier` of ended ones, each holding a report they only read."""
 
-    spiele: list[FLSpielberichtPersonEintrag]
-    fruehere: list[FLSpielberichtPersonFruehererEintrag]
+    spiele: list[FLSpielberichtPersonEntry]
+    earlier: list[FLSpielberichtPersonEarlierEntry]
 
 
-class FLSpielberichtZustandEintrag(BaseModel):
+class FLSpielberichtStateEntry(BaseModel):
     """One fixture's report as the triage reads it: its state and what it proposes."""
 
     spiel_id: CustomObjectId
-    zustand: FLSpielberichtZustand
+    state: FLSpielberichtState
     ergebnis_vorschlag: FLSpielberichtVorschlag
 
 
 class FLSpielberichteSaisonResponse(BaseAPIResponse):
     """Every report of one season that holds a block, each with its state."""
 
-    spielberichte: list[FLSpielberichtZustandEintrag]
+    spielberichte: list[FLSpielberichtStateEntry]
 
 
 # Here rather than beside the fixtures' models: it composes the fixtures' read and the reports', and this module imports those.
@@ -342,4 +329,4 @@ class FLSpieleActionRequiredResponse(BaseAPIResponse):
     spiele: list[FLSpielJoinedAdmin]
     bracket_faults: list[FLBracketFault] = Field(default_factory=list)
     # The states the union above was judged on, served rather than read again beside it: one snapshot for both.
-    spielberichte: list[FLSpielberichtZustandEintrag]
+    spielberichte: list[FLSpielberichtStateEntry]

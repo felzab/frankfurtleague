@@ -11,8 +11,8 @@ import { IN_NEUEM_TAB, NEW_TAB_ATTRIBUTES } from "@/shared/components/ui/NewTabL
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { buildMapsSearchUrl, formatAddressFull } from "@/shared/utils/format";
 
+import type { FLAddress } from "@/core/generated/client/types";
 import type { TeamFieldPath } from "@/features/teams/teamDraftStatus";
-import type { FLAddress } from "@/shared/schemas";
 
 const MAPS_LINK_LABEL = "Adresse auf Google Maps öffnen";
 

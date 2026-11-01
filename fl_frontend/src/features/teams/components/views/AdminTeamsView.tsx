@@ -15,7 +15,7 @@ const SEARCH_KEYS = ["name", "full_name", "shorthand"] as const;
 /** Club-centric rows spanning every season, with the selected season's junction data beside them. */
 export function AdminTeamsView({ teams, numberOfGroups }: { teams: AdminTeamRow[]; numberOfGroups: number | null }) {
   // Built here rather than handed down: a facet carries a `read` function, which a Server Component
-  // may not pass to a Client one (`.claude/rules/frontend.md`).
+  // may not pass to a Client one, which neither `tsc` nor the build sees.
   const facets = useMemo(() => buildTeamFacets(numberOfGroups), [numberOfGroups]);
 
   return (

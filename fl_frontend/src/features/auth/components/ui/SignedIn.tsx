@@ -29,20 +29,20 @@ export function SignedIn({ address }: { address: string }) {
     if (result?.success === true) return leaveDocumentFor("/");
 
     setIsPending(false);
-    setFehler(COPY.shared.fehler.unerwartet);
+    setFehler(COPY.shared.failure.unexpected);
   };
 
   return (
     <SignInPage
-      view="angemeldet"
-      titel={COPY.anmeldung.titel}
-      satz={COPY.anmeldung.angemeldetAls}
-      adresse={address}
+      view="signedIn"
+      title={COPY.signIn.title}
+      sentence={COPY.signIn.signedInAs}
+      address={address}
       // A link and never a press: the landing decides where a signed-in visitor goes, as after every sign-in.
-      weiter={{ label: COPY.shared.uebersicht, href: SIGN_IN_LANDING }}
+      continue={{ label: COPY.shared.overview, href: SIGN_IN_LANDING }}
       // One press, as every sign-out is.
-      abmelden={{ label: COPY.shared.verb.abmelden, isBusy: isPending, onPress: () => void abmelden() }}
-      zeile={fehler}
+      signOut={{ label: COPY.shared.verb.signOut, isBusy: isPending, onPress: () => void abmelden() }}
+      row={fehler}
     />
   );
 }

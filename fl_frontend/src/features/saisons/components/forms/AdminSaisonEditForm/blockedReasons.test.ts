@@ -11,7 +11,7 @@ import {
   spielplanUndrawBlockedReason,
 } from "./blockedReasons.ts";
 
-import type { FLSpielplanShape } from "@/features/saisons/schemas.ts";
+import type { FLSpielplanShape } from "@/core/generated/client/types.ts";
 import type { SpielplanControlInput, SpielplanOperation } from "./blockedReasons.ts";
 
 const spielplanInput = (overrides: Partial<SpielplanControlInput> = {}): SpielplanControlInput => ({
@@ -54,7 +54,7 @@ describe("spielplanBlockedReason", () => {
     expect(spielplanBlock()).toBe(null);
   });
 
-  /* `REQ-SPIELPLAN-003` refuses `past` alone, so a running season is drawable and the panel has to
+  /* `saison_past` refuses `past` alone, so a running season is drawable and the panel has to
      offer it: activation is one-way, and one activated undrawn has no other way out. */
   it("offers the draw for a running season, which only `past` closes", () => {
     expect(spielplanBlock({ saisonStatus: "active" })).toBe(null);
@@ -74,7 +74,7 @@ describe("spielplanBlockedReason", () => {
     }
   });
 
-  /* Both halves of `REQ-SPIELPLAN-005` under one condition, as the endpoint has one code for them.
+  /* Both halves of `spielplan_replace_outside_its_window` under one condition, as the endpoint has one code for them.
      Each sentence names the half that closed the window, and the record half names its way back. */
   it("closes the replace outside its window, and says which half closed it", () => {
     // Given copy rather than a sentence derived from the rules: the status half states the rule and
@@ -91,7 +91,7 @@ describe("spielplanBlockedReason", () => {
     for (const kind of [/Ergebnis/, /Ausfall/, /Ort/, /Schiedsrichter/, /Notiz/, /Herkunft/]) expect(erfasst).toMatch(kind);
   });
 
-  /* A running season may still be drawn a FIRST time (`REQ-SPIELPLAN-003` refuses `past` alone), so
+  /* A running season may still be drawn a FIRST time (`saison_past` refuses `past` alone), so
      the window may only be read where the press would actually replace something. */
   it("leaves an undrawn running season its first draw, which the replace window would refuse", () => {
     expect(spielplanBlock({ saisonStatus: "active" })).toBe(null);
@@ -110,7 +110,7 @@ describe("spielplanBlockedReason", () => {
     }
   });
 
-  /* `REQ-RULES-014` reaches the draw on its `stored=None` path, where it reduces to a qualifier
+  /* `rules_bracket_impossible` reaches the draw on its `stored=None` path, where it reduces to a qualifier
      product no bracket has a shape for. It closes the control rather than warning beside a live
      press, which would offer what the write path refuses. */
   it("closes the draw where the rules reach no knockout round, and names the repair", () => {
@@ -124,7 +124,7 @@ describe("spielplanBlockedReason", () => {
     expect(spielplanBlock({ ...DRAWN, hasKoRunden: false, erfassteSpieleCount: 1 }) ?? "").toMatch(/schon etwas eingetragen/);
   });
 
-  /* `REQ-DATE-009` mirrored as a date subtraction against the served schedule's own sum: the season
+  /* `saison_span_below_spielplan_as_stored` mirrored as a date subtraction against the served schedule's own sum: the season
      read carries the span and the schedule together, so no scheduling rule is recomputed here. */
   it("closes the draw where the span cannot hold the schedule, and names the repair", () => {
     const reason = spielplanBlock({ startDate: "2026-05-01", endDate: "2026-05-07", vorschauSpieltage: 8 });
@@ -144,8 +144,8 @@ describe("spielplanBlockedReason", () => {
     expect(spielplanBlock({ hasKoRunden: false, endDate: "2026-05-01" }) ?? "").toMatch(/keine KO-Runde/);
   });
 
-  /* The one place this mirror parts from `find_spielplan_refusal`, which judges `REQ-SPIELPLAN-005`
-     ahead of `REQ-SPIELPLAN-003`: neither closure has a way out, so a finished season reads the state
+  /* The one place this mirror parts from `find_spielplan_refusal`, which judges `spielplan_replace_outside_its_window`
+     ahead of `saison_past`: neither closure has a way out, so a finished season reads the state
      it stands in whether or not it holds a draw. */
   it("names the finished season's own freeze where a drawn season is also finished", () => {
     const reason = spielplanBlock({ ...DRAWN, saisonStatus: "past", spieltageCount: 4 });
@@ -155,13 +155,13 @@ describe("spielplanBlockedReason", () => {
     expect(reason ?? "").not.toMatch(/laufende Saisons/);
   });
 
-  /* Undrawn, so there is nothing for the window to bound — `REQ-SPIELPLAN-003` is what answers, and
+  /* Undrawn, so there is nothing for the window to bound — `saison_past` is what answers, and
      its wording may not survive as dead text behind the window. */
   it("keeps the finished-season freeze reachable on a season holding nothing", () => {
     expect(spielplanBlock({ saisonStatus: "past" }) ?? "").toMatch(/abgeschlossen/);
   });
 
-  /* The window is `REQ-SPIELPLAN-005`'s two figures and nothing else. Widen either half and the
+  /* The window is `spielplan_replace_outside_its_window`'s two figures and nothing else. Widen either half and the
      panel arms a destruction the endpoint answers with a 409, over a season whose numbers the same
      press would have moved. */
   it("opens the replace on a planned season with nothing recorded, and on nothing else", () => {
@@ -177,7 +177,7 @@ describe("spielplanBlockedReason", () => {
 const SKEWED = { groups: 4, teams: 4, occupancy: { A: 4, B: 3, C: 2, D: 1 } } as const;
 
 describe("the draw over the groups the season's clubs stand in", () => {
-  /* The press would answer `REQ-SPIELPLAN-004`, so the control says so first rather than offering a
+  /* The press would answer `spielplan_gruppen_off_rules`, so the control says so first rather than offering a
      draw the page already knows the endpoint refuses. */
   it("closes a first draw whose groups are off the rules, in the words the refused press is given", () => {
     expect(spielplanBlock({ gruppen: SKEWED })).toBe(GRUPPEN_OFF_RULES);
@@ -206,7 +206,7 @@ const FULL = { A: 4, B: 4 };
 
 const shapeBlock = (shape: Partial<FLSpielplanShape> = {}, occupancy: Record<string, number> = FULL, endDate = "2026-07-31"): string | null =>
   spielplanShapeBlockedReason({
-    shape: { number_of_groups: 2, teams_per_group: 4, qualifiers_per_group: 2, ...shape },
+    shape: { number_of_gruppen: 2, teams_per_gruppe: 4, qualifiers_per_gruppe: 2, ...shape },
     occupancy,
     startDate: "2026-05-01",
     endDate,
@@ -219,18 +219,18 @@ describe("spielplanShapeBlockedReason", () => {
 
   /* The stepper's floor is the fullest group, so a count above every group is a number the box takes. */
   it("refuses a team count the groups do not hold exactly, in the words the refused press is given", () => {
-    expect(shapeBlock({ teams_per_group: 5 })).toBe(GRUPPEN_OFF_RULES);
-    expect(shapeBlock({ number_of_groups: 1 }), "a club outside the offered groups is drawn").toBe(GRUPPEN_OFF_RULES);
+    expect(shapeBlock({ teams_per_gruppe: 5 })).toBe(GRUPPEN_OFF_RULES);
+    expect(shapeBlock({ number_of_gruppen: 1 }), "a club outside the offered groups is drawn").toBe(GRUPPEN_OFF_RULES);
   });
 
-  /* `REQ-RULES-001` on the numbers the press carries, too large and shapeless alike. */
+  /* `rules_bracket_impossible` on the numbers the press carries, too large and shapeless alike. */
   it("refuses a product with no bracket, and names the two boxes that make it", () => {
     // Sixteen groups of two, which the entries fit, so the bracket of 32 is the one fact that refuses.
     const sixteenGroups = Object.fromEntries([..."ABCDEFGHIJKLMNOP"].map((gruppe) => [gruppe, 2]));
 
     for (const [shape, occupancy] of [
-      [{ qualifiers_per_group: 3 }, FULL],
-      [{ number_of_groups: 16, teams_per_group: 2, qualifiers_per_group: 2 }, sixteenGroups],
+      [{ qualifiers_per_gruppe: 3 }, FULL],
+      [{ number_of_gruppen: 16, teams_per_gruppe: 2, qualifiers_per_gruppe: 2 }, sixteenGroups],
     ] as const) {
       const reason = shapeBlock(shape, occupancy);
       expect(reason ?? "", `${JSON.stringify(shape)} is offered`).toMatch(/keine KO-Runde/);
@@ -240,20 +240,20 @@ describe("spielplanShapeBlockedReason", () => {
 
   /* Four days, and two groups of four with one qualifying imply four matchdays: three rounds and a final. */
   it("weighs the span against the matchdays the sent numbers imply, counting both ends", () => {
-    expect(shapeBlock({ qualifiers_per_group: 1 }, FULL, "2026-05-04")).toBe(null);
+    expect(shapeBlock({ qualifiers_per_gruppe: 1 }, FULL, "2026-05-04")).toBe(null);
     expect(shapeBlock({}, FULL, "2026-05-04") ?? "").toMatch(/zu kurz für die Spieltage, die sich aus diesen Zahlen ergeben/);
-    expect(shapeBlock({ qualifiers_per_group: 1 }, FULL, "2026-05-03") ?? "").toMatch(/Abschnitt Zeitraum/);
+    expect(shapeBlock({ qualifiers_per_gruppe: 1 }, FULL, "2026-05-03") ?? "").toMatch(/Abschnitt Zeitraum/);
   });
 
   /* The endpoint's order: `find_spielplan_refusal`, then `find_rules_refusal`, then the span. */
   it("names the groups ahead of the bracket, and the bracket ahead of the span", () => {
-    expect(shapeBlock({ teams_per_group: 5, qualifiers_per_group: 3 }, FULL, "2026-05-01")).toBe(GRUPPEN_OFF_RULES);
-    expect(shapeBlock({ qualifiers_per_group: 3 }, FULL, "2026-05-01") ?? "").toMatch(/keine KO-Runde/);
+    expect(shapeBlock({ teams_per_gruppe: 5, qualifiers_per_gruppe: 3 }, FULL, "2026-05-01")).toBe(GRUPPEN_OFF_RULES);
+    expect(shapeBlock({ qualifiers_per_gruppe: 3 }, FULL, "2026-05-01") ?? "").toMatch(/keine KO-Runde/);
   });
 });
 
 describe("spielplanPress", () => {
-  const STORED_SHAPE: FLSpielplanShape = { number_of_groups: 2, teams_per_group: 4, qualifiers_per_group: 2 };
+  const STORED_SHAPE: FLSpielplanShape = { number_of_gruppen: 2, teams_per_gruppe: 4, qualifiers_per_gruppe: 2 };
   const press = (overrides: Partial<SpielplanControlInput>, picked: SpielplanOperation | null = null, shape = STORED_SHAPE) =>
     spielplanPress({ input: spielplanInput(overrides), picked, shape });
 
@@ -283,7 +283,7 @@ describe("spielplanPress", () => {
 
   /* The boxes are the replace's payload and nothing else's: a first draw sends the stored rules, and the undraw sends none. */
   it("judges the boxes on the replace's press alone", () => {
-    const refused: FLSpielplanShape = { ...STORED_SHAPE, teams_per_group: 5 };
+    const refused: FLSpielplanShape = { ...STORED_SHAPE, teams_per_gruppe: 5 };
 
     expect(press(DRAWN, "anlegen", refused).closedReason).toBe(GRUPPEN_OFF_RULES);
     expect(press(DRAWN, "anlegen", refused).standingReason, "a closure the next step lifts is a standing one").toBe(null);
@@ -310,7 +310,7 @@ describe("spielplanUndrawBlockedReason", () => {
     }
   });
 
-  /* Both halves of `REQ-SPIELPLAN-006` under one condition, as the endpoint has one code for them.
+  /* Both halves of `spielplan_undraw_outside_its_window` under one condition, as the endpoint has one code for them.
      Each sentence names the half that closed the window, and the record half names its way back. */
   it("closes the undraw outside its window, and says which half closed it", () => {
     for (const status of ["active", "past"] as const) {
@@ -324,7 +324,7 @@ describe("spielplanUndrawBlockedReason", () => {
     expect(erfasst).toMatch(/Zurücknehmen lässt sich der Spielplan/);
   });
 
-  /* `REQ-SPIELPLAN-007`: the endpoint refuses both writes while a report stands, so offering either would put the
+  /* `spielplan_berichte_submitted`: the endpoint refuses both writes while a report stands, so offering either would put the
      admin through the destructive dialog to a refusal. A recorded fact goes first, as it names its own way back. */
   it("closes the undraw and the replace while a submitted report stands, in the refusal's own words", () => {
     expect(undrawBlock({ ...DRAWN, eingereichteBerichteCount: 1 })).toBe(SPIELBERICHTE_HALTEN_DEN_SPIELPLAN);
@@ -398,7 +398,7 @@ describe("rolloverBlockedReason", () => {
     expect(rolloverBlock()).toBe(null);
   });
 
-  /* `REQ-ACTIVATE-003`: a season with nothing drawn would go live with nothing to play, and the
+  /* `activate_target_undrawn`: a season with nothing drawn would go live with nothing to play, and the
      draw is the remedy the message has to name. */
   it("closes the rollover on an undrawn season and points at the draw", () => {
     const reason = rolloverBlock({ hasDrawnSpiele: false });
@@ -422,7 +422,7 @@ describe("rolloverBlockedReason", () => {
   });
 
   /* The declaration rather than a copy of its words: `features/saisons/actions.ts` returns the same
-     constant for `REQ-ACTIVATE-004`, so a sentence retyped at either site parts the two. */
+     constant for `activate_spieltage_undated`, so a sentence retyped at either site parts the two. */
   it("closes the rollover on an undated matchday with the one declared sentence", () => {
     expect(rolloverBlock({ hasUndatierteSpieltage: true })).toBe(SPIELTAGE_UNDATED);
     expect(rolloverBlock({ hasUndatierteSpieltage: false })).toBe(null);

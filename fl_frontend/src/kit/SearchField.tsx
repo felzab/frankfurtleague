@@ -24,7 +24,7 @@ export function SearchField({ label, value, onChange }: { label: Copy; value?: s
         className={fieldFrame({ width: "W3", inset: "none", layout: "group" })}>
         <span className={searchGlyph()}>
           <Icon
-            glyph="suche"
+            glyph="search"
             size={16}
           />
         </span>
@@ -36,7 +36,7 @@ export function SearchField({ label, value, onChange }: { label: Copy; value?: s
           data-kit-focus
           className={searchClear()}>
           <Icon
-            glyph="schliessen"
+            glyph="close"
             size={16}
           />
         </Button>

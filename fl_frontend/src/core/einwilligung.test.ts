@@ -1,13 +1,9 @@
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
-import {
-  einwilligungAnswer,
-  publishedFassung,
-  publishedLaufendeFassung,
-  readEinwilligungDocument,
-} from "@/test-support/einwilligungDocument.ts";
+import { EINWILLIGUNG_REGISTRY, einwilligungAnswer, fassungOf, laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { APIBadStatusError, APIMalformedDataError } from "@/core/errors.ts";
+import { APIBadStatusError } from "@/core/errors.ts";
 
 import {
   gekeyteFassung,
@@ -18,15 +14,15 @@ import {
   SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL,
 } from "./einwilligungSeiten.ts";
 
-import type { FLEinwilligungFassung } from "./schemas.ts";
+import type { Code, FLEinwilligungWording } from "./generated/client/types.ts";
 
 /** What the backend answers one call; the registry's own answer unless a case names another. */
 type Answer = (endpoint: string) => Promise<unknown>;
 const registry: Answer = (endpoint) => Promise.resolve(einwilligungAnswer(endpoint));
 let answering: Answer = registry;
 
-/** Every endpoint the client was asked for in this case, in order. */
-const calls: string[] = [];
+/** Every call the client was asked for in this case, in order. */
+const calls = doubleApiClient((call) => answering(call.endpoint));
 /** Every lifetime a cached read declared in this case, in order. */
 const lifetimes: unknown[] = [];
 
@@ -38,47 +34,44 @@ beforeEach(() => {
 
 const inert = (): undefined => undefined;
 
-// The client replaced at its module, each answer passed through the caller's schema as a real response
-// is; `next/cache` answered inert, so the cached read's own declarations run outside a Next build.
-vi.doMock("@/core/api.ts", () => ({
-  apiClient: async (endpoint: string, schema: { parse: (value: unknown) => unknown }) => {
-    calls.push(endpoint);
-    return schema.parse(await answering(endpoint));
-  },
-}));
+// `next/cache` answered inert, so the cached read's own declarations run outside a Next build.
 vi.doMock("next/cache", () => ({ cacheLife: (profile: unknown) => void lifetimes.push(profile), cacheTag: inert }));
 
-const api = { calls: calls, answerWith: (next: Answer) => void (answering = next) };
+const api = {
+  get calls(): string[] {
+    return calls.map(({ endpoint }) => endpoint);
+  },
+  answerWith: (next: Answer) => void (answering = next),
+};
 
 serveServerReact();
 
 const { getEinwilligungFassung, getLaufendeFassung, getLaufendesLabel, istFassungBekannt } = await import("./einwilligung.ts");
 
-const DOCUMENT = readEinwilligungDocument();
-const BEWERBUNG = publishedLaufendeFassung("bewerbung", DOCUMENT);
-const KONTAKT = publishedLaufendeFassung("bestaetigung_kontakt", DOCUMENT);
+const BEWERBUNG = laufendeFassung("bewerbung");
+const KONTAKT = laufendeFassung("bestaetigung_kontakt");
 /** The two contact pages beside the applicant's: a seat the administration filled, and one on a team's season row. */
-const KONTAKT_VERWALTUNG = publishedLaufendeFassung("bestaetigung_kontakt_verwaltung", DOCUMENT);
-const KONTAKT_SAISON = publishedLaufendeFassung("bestaetigung_kontakt_saison", DOCUMENT);
+const KONTAKT_VERWALTUNG = laufendeFassung("bestaetigung_kontakt_verwaltung");
+const KONTAKT_SAISON = laufendeFassung("bestaetigung_kontakt_saison");
 /** Every contact page's running label, which the link's view picks among. */
 const KONTAKTSEITEN = [KONTAKT, KONTAKT_VERWALTUNG, KONTAKT_SAISON];
-const SPIELER = publishedLaufendeFassung("bestaetigung_spieler", DOCUMENT);
+const SPIELER = laufendeFassung("bestaetigung_spieler");
 /** The pupil page a returning pupil's link opens, which asks no choice. */
-const SPIELER_WIEDERKEHREND = publishedLaufendeFassung("bestaetigung_spieler_wiederkehrend", DOCUMENT);
-const SCHIEDSRICHTER = publishedLaufendeFassung("bestaetigung_schiedsrichter", DOCUMENT);
+const SPIELER_WIEDERKEHREND = laufendeFassung("bestaetigung_spieler_wiederkehrend");
+const SCHIEDSRICHTER = laufendeFassung("bestaetigung_schiedsrichter");
 const UMFANG = ["kader_oeffentlich", "intern"] as const;
 
 /** A page's keyed words, which every case on the two consent pages reads by name. */
-const gekeyt = (fassung: FLEinwilligungFassung) =>
+const gekeyt = (fassung: FLEinwilligungWording) =>
   gekeyteFassung(fassung, fassung === SPIELER ? SPIELER_ABSATZ_SCHLUESSEL : SCHIEDSRICHTER_ABSATZ_SCHLUESSEL, UMFANG);
 
-const failure = (statusCode: number, serverErrorCode: string | undefined): APIBadStatusError =>
+const failure = (statusCode: number, serverErrorCode: Code | undefined): APIBadStatusError =>
   new APIBadStatusError({
     message: "refused",
-    url: "http://backend/api/v0/einwilligung/fassungen/x",
+    url: "http://backend/api/v0/einwilligung/wordings/x",
     statusCode: statusCode,
     serverErrorCode: serverErrorCode,
-    endpoint: "/einwilligung/fassungen/x",
+    endpoint: "/einwilligung/wordings/x",
     method: "GET",
     readOnly: true,
     traceId: "0",
@@ -88,15 +81,15 @@ describe("the words read", () => {
   it("answers a stored label with that label's own words, asked for by the label alone", async () => {
     const fassung = await getEinwilligungFassung("2026-09-bestaetigungsseite-2");
 
-    expect(fassung).toStrictEqual(publishedFassung("2026-09-bestaetigungsseite-2", DOCUMENT));
-    expect(api.calls).toStrictEqual(["/einwilligung/fassungen/2026-09-bestaetigungsseite-2"]);
+    expect(fassung).toStrictEqual(fassungOf("2026-09-bestaetigungsseite-2"));
+    expect(api.calls).toStrictEqual(["/einwilligung/wordings/2026-09-bestaetigungsseite-2"]);
   });
 
   // A label read off a stored record is data, so one carrying a separator must not address another path.
   it("sends a label as one path segment whatever it holds", async () => {
     await getEinwilligungFassung("2026/../seiten");
 
-    expect(api.calls).toStrictEqual(["/einwilligung/fassungen/2026%2F..%2Fseiten"]);
+    expect(api.calls).toStrictEqual(["/einwilligung/wordings/2026%2F..%2Fseiten"]);
   });
 
   /* The failure this registry exists to prevent: the running words under an old label are a record
@@ -113,7 +106,7 @@ describe("the words read", () => {
     expect(await istFassungBekannt("2026-09-bestaetigung-3")).toBe(true);
     expect(await istFassungBekannt("liga-2019-01-erfunden")).toBe(false);
     expect(await istFassungBekannt(null)).toBe(true);
-    expect(api.calls).toStrictEqual(["/einwilligung/fassungen/2026-09-bestaetigung-3", "/einwilligung/fassungen/liga-2019-01-erfunden"]);
+    expect(api.calls).toStrictEqual(["/einwilligung/wordings/2026-09-bestaetigung-3", "/einwilligung/wordings/liga-2019-01-erfunden"]);
   });
 
   it("keeps a label's words, and a label the registry does not hold, at the longest life", async () => {
@@ -123,30 +116,9 @@ describe("the words read", () => {
     expect(lifetimes).toStrictEqual(["max", "max"]);
   });
 
-  /* Answered inside the cached scope and thrown outside it: a production build redacts a cached
-     function's throw to a digest, which every page would read as a failed read. */
-  it("throws words off their schema as a contract break, kept only briefly", async () => {
-    const malformed = new APIMalformedDataError({
-      message: "API returned malformed data.",
-      url: "http://backend/api/v0/einwilligung/fassungen/x",
-      statusCode: 200,
-      endpoint: "/einwilligung/fassungen/x",
-      method: "GET",
-      readOnly: true,
-      traceId: "0",
-    });
-    api.answerWith(() => Promise.reject(malformed));
-
-    await expect(getEinwilligungFassung("2026-10-spielerseite-5")).rejects.toMatchObject({
-      name: "ContractBreakError",
-      message: expect.stringMatching(/2026-10-spielerseite-5/),
-    });
-    expect(lifetimes, "a malformed answer is kept as long as words are, or declared twice").toStrictEqual(["seconds"]);
-  });
-
   // Only the record-missing code is an unknown label: a 404 carrying none is a route nothing served.
   it("throws every other failure rather than calling the label unknown", async () => {
-    for (const thrown of [failure(404, undefined), failure(500, "SYS-001")]) {
+    for (const thrown of [failure(404, undefined), failure(500, "unhandled_crash")]) {
       api.answerWith(() => Promise.reject(thrown));
 
       await expect(getEinwilligungFassung("2026-10-spielerseite-5")).rejects.toSatisfy((error) => error === thrown);
@@ -183,14 +155,14 @@ describe("the running label", () => {
       ["bestaetigung_spieler_wiederkehrend", SPIELER_WIEDERKEHREND],
       ["bestaetigung_schiedsrichter", SCHIEDSRICHTER],
     ] as const) {
-      expect(await getLaufendesLabel(seite)).toBe(DOCUMENT.laufende_fassungen[seite]);
+      expect(await getLaufendesLabel(seite)).toBe(EINWILLIGUNG_REGISTRY.running_wordings[seite]);
       expect(await getLaufendeFassung(seite)).toStrictEqual(fassung);
     }
   });
 
   it("throws for a page the backend runs no label on, rather than stamping one of its own", async () => {
     beginRenderPass();
-    api.answerWith(() => Promise.resolve({ acknowledged: 1, laufende_fassungen: { bewerbung: BEWERBUNG.text_version } }));
+    api.answerWith(() => Promise.resolve({ running_wordings: { bewerbung: BEWERBUNG.text_version } }));
 
     await expect(getLaufendesLabel("bestaetigung_kontakt")).rejects.toMatchObject({
       name: "ContractBreakError",
@@ -203,7 +175,7 @@ describe("the running label", () => {
     beginRenderPass();
     api.answerWith((endpoint) =>
       endpoint === "/einwilligung/seiten"
-        ? Promise.resolve({ acknowledged: 1, laufende_fassungen: { bewerbung: "2026-01-nirgends" } })
+        ? Promise.resolve({ running_wordings: { bewerbung: "2026-01-nirgends" } })
         : Promise.resolve(einwilligungAnswer(endpoint)),
     );
 
@@ -253,7 +225,7 @@ describe("a page's keyed words", () => {
   // An earlier label's keys were never kept, and another page's are not this page's.
   it("refuses a label whose keys were never kept, and another page's label", () => {
     // No controls on that label, so the throw is the paragraph map's alone.
-    expect(() => gekeyteFassung(publishedFassung("2026-09-bestaetigungsseite-5", DOCUMENT), KONTAKT_ABSATZ_SCHLUESSEL)).toThrow();
+    expect(() => gekeyteFassung(fassungOf("2026-09-bestaetigungsseite-5"), KONTAKT_ABSATZ_SCHLUESSEL)).toThrow();
     expect(() => gekeyteFassung(SCHIEDSRICHTER, SPIELER_ABSATZ_SCHLUESSEL)).toThrow();
   });
 
@@ -425,13 +397,13 @@ describe("the wording the backend runs", () => {
   });
 
   it("keeps the retired wording retired: the old label answers the old words and no newer ones", () => {
-    const alt = publishedFassung("2026-08", DOCUMENT);
+    const alt = fassungOf("2026-08");
 
     // The 2026-08 switch consented to a stored birthdate, and the confirmation wording asks each person
     // for their own, so one label may not answer the other's words.
     assert.ok(alt.absaetze.join(" ").includes("Geburtsdatum speichert"), "the retired wording lost the words that identify it");
     assert.ok(!BEWERBUNG.absaetze.join(" ").includes("Geburtsdatum speichert"), "the current wording answers under the old label");
-    expect(alt.schalter, "both versions label the switch the same way").not.toBe(BEWERBUNG.schalter);
+    expect(alt.switch, "both versions label the switch the same way").not.toBe(BEWERBUNG.switch);
   });
 
   /* The form's label is stamped on a record the applicant made and on one an administrator made, and

@@ -20,7 +20,7 @@ from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import address_is_gesperrt, gesperrte_adressen, gesperrte_hashes
 from app.api.sperrliste.services import adresse_hash
 from app.core.config import BackendConfig, get_app_config
-from app.core.db import get_saisons_collection, get_sperrliste_collection
+from app.core.dependencies import SaisonsCollection, SperrlisteCollection
 
 
 class RunningSeason:
@@ -37,12 +37,12 @@ Saison = str | None | RunningSeason
 class BanList:
     sperrliste_collection: AsyncCollection
     saisons_collection: AsyncCollection
-    schluessel: SecretStr
+    key: SecretStr
 
     def hash_of(self, adresse: str) -> str:
         """The stored form of an address a payload carries, keyed from its own spelling."""
 
-        return adresse_hash(adresse, schluessel=self.schluessel)
+        return adresse_hash(adresse, key=self.key)
 
 
 async def sperrliste_saison(sperrliste: BanList, *, session: AsyncClientSession | None = None) -> str | None:
@@ -67,7 +67,7 @@ async def adressen_gesperrt(
     return await gesperrte_adressen(
         adressen,
         sperrliste_collection=sperrliste.sperrliste_collection,
-        schluessel=sperrliste.schluessel,
+        key=sperrliste.key,
         massgebliche_saison_id=await _saison(sperrliste, massgebliche_saison_id, session=session),
         session=session,
     )
@@ -108,13 +108,13 @@ async def hashes_gesperrt(
 
 
 def get_ban_list(
-    sperrliste_collection: Annotated[AsyncCollection, Depends(get_sperrliste_collection)],
-    saisons_collection: Annotated[AsyncCollection, Depends(get_saisons_collection)],
+    sperrliste_collection: SperrlisteCollection,
+    saisons_collection: SaisonsCollection,
     config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> BanList:
     """The request's ban list, keyed as every row of it is."""
 
-    return BanList(sperrliste_collection=sperrliste_collection, saisons_collection=saisons_collection, schluessel=config.sperrliste_schluessel)
+    return BanList(sperrliste_collection=sperrliste_collection, saisons_collection=saisons_collection, key=config.sperrliste_key)
 
 
 SperrlisteLookup = Annotated[BanList, Depends(get_ban_list)]

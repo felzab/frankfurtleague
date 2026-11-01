@@ -14,8 +14,8 @@ import type { SpieltagFieldPath } from "@/features/spieltage/spieltagDraftStatus
 import type { SpieltagBanner } from "./banners";
 
 /**
- * **Every picker is bounded by the season's span** (`REQ-DATE-002`), so a day outside the season is
- * greyed out. `REQ-DATE-003` and `REQ-DATE-008` grey out nothing: a greyed day states neither the
+ * **Every picker is bounded by the season's span** (`spieltag_outside_saison`), so a day outside the season is
+ * greyed out. `spieltag_span_below_spiele` and `spieltag_beginn_out_of_order` grey out nothing: a greyed day states neither the
  * rows they read nor the escape each turns on.
  */
 export function FormZeitraumSection({
@@ -36,7 +36,7 @@ export function FormZeitraumSection({
   isSingleDay: boolean;
   onBeginnChange: (next: string) => void;
   onEndeChange: (next: string) => void;
-  /** The season's own `start_date`/`end_date`, which bound every picker (`REQ-DATE-002`). */
+  /** The season's own `start_date`/`end_date`, which bound every picker (`spieltag_outside_saison`). */
   saisonSpan?: { start: string; end: string };
   banners: readonly SpieltagBanner[];
 }) {
@@ -78,7 +78,7 @@ export function FormZeitraumSection({
 
         <div className={FIELD_PAIR_CLASSES}>
           {isSingleDay ? (
-            // The Datum label sits on the `beginn` path because `REQ-DATE-002` is the only refusal
+            // The Datum label sits on the `beginn` path because `spieltag_outside_saison` is the only refusal
             // this save can put on a field, and one picker leaves one place for it to land.
             <AppDatePicker
               name="beginn"

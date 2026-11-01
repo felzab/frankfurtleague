@@ -21,13 +21,13 @@ const TURNSTILE_API = "https://challenges.cloudflare.com/turnstile/v0/api.js?ren
 const TOKEN_WAIT_MS = 10_000;
 
 /** A press past `TOKEN_WAIT_MS` with no token minted. */
-const NOCH_NICHT_FERTIG = COPY.shared.pruefung.nichtFertig;
+const NOCH_NICHT_FERTIG = COPY.shared.botCheck.notReady;
 
 /**
  * A form's sentence for a check that did not load. A blocked check stays refused, so the league's address is the
  * way in for a browser that will not load it.
  */
-const NICHT_GELADEN = COPY.shared.pruefung.nichtGeladen;
+const NICHT_GELADEN = COPY.shared.botCheck.notLoaded;
 
 /** The calls of Cloudflare's script this hook makes, as its client-side rendering page documents them. */
 type TurnstileApi = {
@@ -39,7 +39,7 @@ type TurnstileApi = {
 const turnstileApi = (): TurnstileApi | undefined => (window as Window & { turnstile?: TurnstileApi }).turnstile;
 
 /** Minting, holding a token, showing Cloudflare's click, or failed until Cloudflare's own retry mints one. */
-type Stand = "laedt" | "bereit" | "interaktiv" | "fehlgeschlagen";
+type Stand = "laedt" | "bereit" | "interaktiv" | "failed";
 
 /** A press's token, or the sentence it is answered with instead: a press never posts an empty token. */
 type Anfrage = { readonly token: string } | { readonly satz: string };
@@ -80,7 +80,7 @@ export function useTurnstile(
   // Reported once per form: Cloudflare retries by itself, calling back again for the one fault.
   const fail = (code: string): void => {
     token.current = null;
-    setStand("fehlgeschlagen");
+    setStand("failed");
     settle(null);
     if (reported.current) return;
     reported.current = true;
@@ -155,7 +155,7 @@ export function useTurnstile(
       return { token: minted };
     };
     const withoutToken = (): Anfrage => {
-      if (standNow.current === "fehlgeschlagen") return { satz: fehlgeschlagen };
+      if (standNow.current === "failed") return { satz: fehlgeschlagen };
       return { satz: standNow.current === "interaktiv" ? MENSCH_BESTAETIGEN : NOCH_NICHT_FERTIG };
     };
 
@@ -182,7 +182,7 @@ export function useTurnstile(
           // callback costs a margin and never the challenge.
           className={stand === "interaktiv" ? "pb-4" : undefined}
         />
-        {stand === "fehlgeschlagen" && <p className={`${FIELD_ERROR_CLASSES} pb-4`}>{fehlgeschlagen}</p>}
+        {stand === "failed" && <p className={`${FIELD_ERROR_CLASSES} pb-4`}>{fehlgeschlagen}</p>}
         {/* `onReady` rather than `onLoad`: it runs again on every mount, a client navigation back included. */}
         <Script
           src={TURNSTILE_API}

@@ -1,34 +1,19 @@
 import errno
+import os
 import re
 import warnings
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated, Final, Literal, Self
+from typing import Annotated, Any, Final
 
-# Unpublished: python-dotenv's `__all__` offers no reader of line numbers, and these are the parser
-# its own `dotenv_values` runs. uv.lock pins the release, so a reshaped one arrives by a lock bump,
-# which the line-number cases in `tests/core/test_config.py` meet.
-from dotenv.parser import Original, parse_stream
 from fastapi import Request
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator, model_validator
-from pydantic_core import PydanticCustomError
+from pydantic import AfterValidator, BaseModel, Field, SecretStr, ValidationError, field_validator
+from pydantic_core import ErrorDetails
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SecretsSettingsSource, SettingsConfigDict, SettingsError
-
-from app.core.actor_token import ActorTokenKey
-
-LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 # A property of THIS CODE, never a deployment's: an environment able to set it could serve
 # `/api/v2/` from code implementing v0.
 API_VERSION = 0
-
-# A bare `*` and a leading `*.` are the only wildcards `TrustedHostMiddleware` reads; every other
-# entry it compares literally, so a shape it cannot match takes the whole API to 400.
-HOSTNAME = re.compile(r"\*|(?:\*\.)?[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*")
-
-# Scheme, host and optional port, and nothing after them: `CORSMiddleware` compares this against an
-# `Origin` header, which carries no path, so a trailing slash matches no browser's request.
-ORIGIN = re.compile(r"https?://[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::\d{1,5})?")
 
 # The length `fl_frontend/src/core/config.ts` pins each internal key to (`length(64)`). An equality
 # rather than a floor: the pair only works when the two values are identical, so a key one side
@@ -75,132 +60,15 @@ class EnvironmentValidationError(Exception):
     """
 
 
-def _entries(value: str) -> list[str]:
-    """One splitter for every list variable, so the validators below and the accessors on the model agree on what an entry is."""
-    return [entry.strip() for entry in value.split(",")]
-
-
-# A model validator judges a PAIR, and pydantic gives its issue an empty `loc`, so the fields it
-# read are recovered from the error type it raised rather than from the issue's own location.
-POOL_BOUNDS_ERROR: Final = "db_pool_bounds"
-MODEL_ERROR_FIELDS: Final = {POOL_BOUNDS_ERROR: ("db_min_connections", "db_max_connections")}
-
-
-def _failing_names(error: ValidationError) -> list[str]:
-    """The failing fields, spelled as their source spells them.
-
-    An issue's own message and its `input_value` each quote what was rejected, so neither is read.
-    A model-level issue's `input_value` is the WHOLE settings mapping, so this path never widens.
-    """
-    # `<unknown>` mirrors the frontend gate's answer for a locationless issue.
-    names: set[str] = set()
-    for issue in error.errors():
-        if issue["loc"]:
-            names.add(str(issue["loc"][0]))
-        elif fields := MODEL_ERROR_FIELDS.get(issue["type"]):
-            names.update(fields)
-        else:
-            names.add("<unknown>")
-    return sorted(names)
-
-
-class _EnvironmentFields(BaseModel):
-    """What the environment configures, read by both the boot's environment half and `BackendConfig`."""
-
-    api_trusted_hosts: str = Field(description="The trusted hosts for this API")
-    api_cors_allowed_origins: str = Field(description="The allowed CORS origins for this API")
-
-    @property
-    def api_trusted_hosts_list(self) -> list[str]:
-        return _entries(self.api_trusted_hosts)
-
-    @property
-    def api_cors_allowed_origins_list(self) -> list[str]:
-        return _entries(self.api_cors_allowed_origins)
-
-    # The characters MongoDB accepts in a database name: a value carrying a separator or a space
-    # would otherwise open a namespace no other tool on this host can name.
-    db_base_name: str = Field(pattern=r"^[A-Za-z0-9_-]+$", description="Base DB name")
-    db_server_selection_timeout: int = Field(
-        # Wider than the frontend's (`fl_frontend/src/core/db.ts :: options`), which a visitor's first
-        # request waits on. Here a request's shorter deadline governs, so only the boot waits this long,
-        # and no visitor waits on the boot.
-        default=15000,
-        # Milliseconds. Zero fails every operation before the driver has looked at anything, and the
-        # ceiling keeps a failed ping inside the window `scripts/ops/deploy.sh` waits for health in, so
-        # the reason reaches the log excerpt it prints.
-        gt=0,
-        le=60_000,
-        description="MongoDB server-selection timeout in ms",
-    )
-    db_min_connections: int = Field(default=5, ge=0, description="Min pool size")
-    # At least one: pymongo refuses a zero maximum at construction, which is a stack trace during
-    # the lifespan rather than a named variable at the gate.
-    db_max_connections: int = Field(default=100, ge=1, description="Max pool size")
-
-    # A plain `str`: the public half of the frontend's signing pair, which verifies and signs nothing.
-    actor_token_public_key: str = Field(description="The Ed25519 public key an actor token is verified with, as RFC 8037's `x`")
-
-    log_level_app: LogLevel = Field(
-        default="INFO",
-        description="The minimal level a log has to reach to be processed",
-    )
-    log_level_db: LogLevel = Field(
-        default="WARNING",
-        description="The minimal level a database related log has to reach to be processed",
-    )
-    # Defaults to the production format: a `.env` omitting the variable must not log ANSI-colourised
-    # output into the container's json-file stream.
-    log_format: Literal["console", "json"] = Field(default="json", description="The log format; json unless explicitly set to console")
-
-    @field_validator("log_level_app", "log_level_db", "log_format", mode="before")
-    def normalize_logging_case(cls, value: object) -> object:
-        # `LOG_FORMAT=JSON` or `LOG_LEVEL_APP=info` must select the intended branch rather than fail
-        # the boot over casing.
-        if isinstance(value, str):
-            return value.lower() if value.lower() in ("console", "json") else value.upper()
-        return value
-
-    @field_validator("actor_token_public_key")
-    def validate_actor_token_public_key(cls, value: str) -> str:
-        # The key built here is discarded: building it is the check, so a key that cannot verify
-        # refuses the boot by name rather than every admin request at 401.
-        ActorTokenKey.from_public_key(value)
-        return value
-
-    @field_validator("api_trusted_hosts")
-    def validate_api_trusted_hosts(cls, value: str) -> str:
-        # Per entry rather than over the whole string: a trailing comma yields an empty host, which
-        # matches no request and reads in the middleware as a list that simply trusts less.
-        for entry in _entries(value):
-            if HOSTNAME.fullmatch(entry) is None:
-                raise ValueError("every entry must be a hostname, a bare '*', or a '*.' wildcard")
-        return value
-
-    @field_validator("api_cors_allowed_origins")
-    def validate_api_cors_allowed_origins(cls, value: str) -> str:
-        for entry in _entries(value):
-            if ORIGIN.fullmatch(entry) is None:
-                raise ValueError("every entry must be an http:// or https:// origin carrying no path")
-        return value
-
-    @model_validator(mode="after")
-    def validate_the_pool_bounds_against_each_other(self) -> Self:
-        # Each bound alone admits a minimum above the maximum. pymongo refuses that pair while
-        # CONSTRUCTING the client, and `db.py :: _refusal_for` reads its `ValueError` as an
-        # unopenable URI -- blaming the URI's file for these two.
-        if self.db_min_connections > self.db_max_connections:
-            # `PydanticCustomError` rather than a `ValueError`, whose issue type `value_error` every
-            # field validator here shares: the token is what `_failing_names` recovers the pair from.
-            raise PydanticCustomError(POOL_BOUNDS_ERROR, "the pool minimum must not exceed the maximum")
-        return self
+# The issue pydantic raises for a name the dotenv file holds and the class does not declare.
+UNDECLARED: Final = "extra_forbidden"
 
 
 # Parsed rather than imported by `scripts/checks/check_compose_model.py :: backend_schema_files`, which
 # holds the compose files to these fields: a file named by any shape but a string or a module constant
 # refuses there.
 class _SecretFields(BaseModel):
-    """The credentials, read by `BackendSecrets` from one file each and by `BackendConfig` from it."""
+    """The credentials, each read from its own file under `SECRETS_DIR`."""
 
     mongodb_uri: SecretStr = Field(validation_alias=MONGODB_URI_FILE, description="MongoDB Connection URI")
 
@@ -211,7 +79,7 @@ class _SecretFields(BaseModel):
     # The floor is HMAC-SHA256's own digest width in characters: shorter, and the ban list's rows
     # are cheaper to break than the addresses they were taken from
     # (`app/api/sperrliste/services.py :: adresse_hash`). No ceiling — HMAC takes a key of any length.
-    sperrliste_schluessel: SecretStr = Field(
+    sperrliste_key: SecretStr = Field(
         min_length=SPERRLISTE_KEY_MIN_LENGTH, description="HMAC master key every keyed hash of an address derives its own sub-key from"
     )
 
@@ -223,11 +91,23 @@ class _SecretFields(BaseModel):
         return value
 
 
-class BackendEnvironment(BaseSettings, _EnvironmentFields):
-    """The environment half of the boot's settings: the process environment and the package's dotenv file, never a secret file."""
+# The file each secret field is read from: its alias where one is set, its own name otherwise.
+SECRET_FILES: Final = tuple(str(field.validation_alias or name) for name, field in _SecretFields.model_fields.items())
 
-    # A path and never a secret: the directory the secret half reads each credential from.
-    secrets_dir: str = Field(default=DEFAULT_SECRETS_DIR, description="The directory each secret file is read from")
+
+class BackendConfig(BaseSettings, _SecretFields):
+    """The settings: each credential from its own file, every other value from the environment or the package's dotenv file.
+
+    Built without `_secrets_dir`, it opens no secret file: `get_config` hands it the directory `SECRETS_DIR` names.
+    """
+
+    # The characters MongoDB accepts in a database name: a value carrying a separator or a space
+    # would otherwise open a namespace no other tool on this host can name.
+    db_base_name: str = Field(pattern=r"^[A-Za-z0-9_-]+$", description="Base DB name")
+
+    # The image's version from its build argument (`fl_backend/Dockerfile`), which the start-up line logs; unset in a run
+    # outside an image, and empty, so read as unset, in a build handed none.
+    app_version: str | None = Field(default=None, min_length=1, description="The image's version")
 
     model_config = SettingsConfigDict(
         # The package's file, the one `docker-compose.yml` lists, so a run from `fl_backend/` reads what
@@ -238,12 +118,15 @@ class BackendEnvironment(BaseSettings, _EnvironmentFields):
         # default serves production. Only the dotenv source hands this class an undeclared name, and it
         # drops one carrying no value.
         extra="forbid",
+        # An empty variable reads as unset: an image built without an argument carries its `ENV` as the
+        # empty string, which Docker cannot leave unset. A secret file is judged as written either way.
+        env_ignore_empty=True,
     )
 
     # Declared, or a type checker reads the fields as the constructor's arguments and demands the
-    # required ones, which only the sources below supply.
-    def __init__(self) -> None:
-        super().__init__()
+    # required ones, which the sources supply; `_secrets_dir` and `_env_file` are the library's own.
+    def __init__(self, **values: Any) -> None:
+        super().__init__(**values)
 
     @classmethod
     def settings_customise_sources(
@@ -254,110 +137,76 @@ class BackendEnvironment(BaseSettings, _EnvironmentFields):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        return init_settings, env_settings, dotenv_settings
+        # The secret files above the environment, "the order of the returned callables decides the
+        # priority of inputs" (https://pydantic.dev/docs/validation/latest/concepts/pydantic_settings/):
+        # the default ranks a variable above its file, so one left behind would win in silence.
+        return init_settings, file_secret_settings, env_settings, dotenv_settings
 
 
-class BackendSecrets(BaseSettings, _SecretFields):
-    """The secret half: one file per credential, and no other source at all.
+def _refusal(issues: list[ErrorDetails], *, files: set[str], files_read: bool) -> EnvironmentValidationError:
+    """Each failing variable upper-cased as the environment spells it, a count of the undeclared, and each failing file by name.
 
-    pydantic-settings ranks the environment and a dotenv file ABOVE a secrets directory, so a
-    variable left behind would win over its file in silence.
+    A failing credential is its file where the build read the files, and otherwise the variable or
+    dotenv line that stood in for it. An issue's own message and its `input_value` each quote what
+    was rejected, so neither is read. An undeclared name is the file's own text, which a pasted key's
+    line keeping the dotenv shape would be, so it is counted and nothing names it. The first sentence
+    is the frontend gate's (`fl_frontend/src/core/config.ts :: frontend_config`), so one hint in
+    `scripts/ops/deploy.sh` covers both.
     """
+    # `<unknown>` mirrors the frontend gate's answer for a locationless issue.
+    failing = {str(issue["loc"][0]) if issue["loc"] else "<unknown>" for issue in issues if issue["type"] != UNDECLARED}
+    read_from_files = failing & set(SECRET_FILES) if files_read else set()
+    variables = sorted(failing - read_from_files)
+    files = files | read_from_files
+    undeclared = sum(issue["type"] == UNDECLARED for issue in issues)
 
-    # No `env_prefix`: pydantic-settings puts it on a secret file's name too, and `SECRET_FILES`, the
-    # preflight and the compose check name each file without one
-    # (`fl_backend/tests/core/test_config.py :: TestTheSecretFiles`).
-    model_config = SettingsConfigDict(extra="forbid")
-
-    # The directory is the one argument, for `BackendEnvironment.__init__`'s reason; pydantic-settings
-    # takes it as `_secrets_dir` (https://pydantic.dev/docs/validation/latest/concepts/pydantic_settings/).
-    def __init__(self, directory: Path) -> None:
-        super().__init__(_secrets_dir=directory)
-
-    @classmethod
-    def settings_customise_sources(
-        cls,
-        settings_cls: type[BaseSettings],
-        init_settings: PydanticBaseSettingsSource,
-        env_settings: PydanticBaseSettingsSource,
-        dotenv_settings: PydanticBaseSettingsSource,
-        file_secret_settings: PydanticBaseSettingsSource,
-    ) -> tuple[PydanticBaseSettingsSource, ...]:
-        return (file_secret_settings,)
+    sentences = [f"Invalid environment variables: {', '.join(name.upper() for name in variables)}"] if variables else []
+    if undeclared:
+        sentences.append(f"Undeclared environment variables: {undeclared}")
+    if files:
+        sentences.append(f"Invalid secret files: {', '.join(sorted(files))}")
+    return EnvironmentValidationError("; ".join(sentences))
 
 
-# The file each secret field is read from: its alias where one is set, its own name otherwise.
-SECRET_FILES: Final = tuple(str(field.validation_alias or name) for name, field in BackendSecrets.model_fields.items())
+def read_environment() -> None:
+    """The deploy's preflight: the variables and the dotenv file, refused as the boot refuses them, opening no secret file.
 
-
-class BackendConfig(_EnvironmentFields, _SecretFields):
-    """The settings every consumer reads: both halves, as `get_config` built them, reading no source of its own."""
-
-    # By name, because the secret fields carry their file's name as the alias the file source reads.
-    model_config = ConfigDict(extra="forbid", validate_by_name=True)
-
-
-# Every name either half declares, as the environment spells it: the names a refusal may print. Any
-# other is the dotenv file's own text, which a pasted key's line keeping the dotenv shape would be.
-SETTING_NAMES: Final = frozenset(name.upper() for name in BackendEnvironment.model_fields | BackendConfig.model_fields)
-
-
-def read_environment() -> BackendEnvironment:
-    """The environment half, refused by the names it could not accept; the deploy's preflight reads this alone."""
+    Its caller's uid reads none, so the class is built with no secrets directory, and the credentials
+    that leaves missing are no question of this one.
+    """
     try:
-        return BackendEnvironment()
+        BackendConfig()
     except ValidationError as error:
-        failing = _failing_names(error)
+        issues = [issue for issue in error.errors() if not (issue["type"] == "missing" and issue["loc"] and issue["loc"][0] in SECRET_FILES)]
     except ValueError as error:
         # Below `ValidationError`'s arm, which is a `ValueError` too: both `SettingsError` and the
         # dotenv read's `UnicodeDecodeError` land here, both CHAIN what they wrapped, and neither
         # names a field -- so the type alone leaves.
         raise EnvironmentValidationError(f"The environment could not be read: {type(error).__name__}") from None
+    else:
+        return
     # Outside the arm and `from None`, so nothing chains the `ValidationError`, whose own rendering
     # quotes each rejected value into the traceback uvicorn prints.
-    raise _environment_refusal(failing) from None
-
-
-def _environment_refusal(failing: list[str]) -> EnvironmentValidationError:
-    """A declared name by name, upper-cased as the environment spells it; any other by the line declaring it, and a count.
-
-    The first sentence is the frontend gate's (`fl_frontend/src/core/config.ts :: frontend_config`),
-    so one hint in `scripts/ops/deploy.sh` covers both.
-    """
-    named = [name.upper() for name in failing if name.upper() in SETTING_NAMES or name == "<unknown>"]
-    undeclared = {name.lower() for name in failing if name.upper() not in SETTING_NAMES and name != "<unknown>"}
-    sentences = [f"Invalid environment variables: {', '.join(named)}"] if named else []
-    if undeclared:
-        # python-dotenv's own parser, opened as it opens the file.
-        with Path(str(BackendEnvironment.model_config.get("env_file"))).open(encoding="utf-8") as stream:
-            lines = sorted(_name_line(binding.original) for binding in parse_stream(stream) if (binding.key or "").lower() in undeclared)
-        sentences.append(f"Undeclared environment variables on {len(lines)} line(s): {', '.join(map(str, lines))}")
-    return EnvironmentValidationError("; ".join(sentences))
-
-
-def _name_line(original: Original) -> int:
-    """The line a binding's name stands on: python-dotenv numbers a binding from the blank lines it opens with."""
-    leading = original.string[: len(original.string) - len(original.string.lstrip())]
-    return original.line + leading.count("\n")
+    if issues:
+        raise _refusal(issues, files=set(), files_read=False) from None
 
 
 def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:
     """Each unreadable file as `<path> (<errno>)`, and each required one missing or any one blank, by name.
 
-    Asked before the build, which stops at its first failing read; never a decode error's text,
-    which quotes the file.
+    Asked before the build, which stops at its first failing read and takes a variable where a file is
+    missing; never a decode error's text, which quotes the file.
     """
     if not directory.is_dir():
         return [f"{directory} ({'ENOTDIR' if directory.exists() else 'ENOENT'})"], []
     unreadable: list[str] = []
     absent: list[str] = []
-    # The library's own setting rather than its default: a file it would not find must be missing here too.
-    case_sensitive = bool(BackendSecrets.model_config.get("case_sensitive"))
-    for name, field in zip(SECRET_FILES, BackendSecrets.model_fields.values(), strict=True):
-        path = SecretsSettingsSource.find_case_path(directory, name, case_sensitive=case_sensitive)
+    # The fields of the class the build constructs, which a default it declares spares a file.
+    for name, field in zip(SECRET_FILES, [BackendConfig.model_fields[field] for field in _SecretFields.model_fields], strict=True):
+        path = SecretsSettingsSource.find_case_path(directory, name, case_sensitive=False)
         if path is None:
-            # Counted here as well as by the build, whose lookup may find a stand-in for a missing file
-            # (`fl_backend/tests/core/test_config.py :: TestTheSecretFiles`).
+            # Counted here as well as by the build, which a variable, or a file under the field's own
+            # name, may stand in for.
             if field.is_required():
                 absent.append(name)
             continue
@@ -375,47 +224,42 @@ def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:
     return unreadable, absent
 
 
-def read_secrets(directory: Path) -> BackendSecrets:
-    """The secret half, read from `directory` alone and refused by file name, never by value."""
+@lru_cache
+def get_config() -> BackendConfig:
+    """The settings, built once and reused, the credentials read from the directory `SECRETS_DIR` names.
+
+    A FUNCTION rather than a module-level instance, which would make importing any module touching
+    configuration read the environment as a side effect.
+    """
+    # Read before the build, which takes the directory as an argument: the settings loader is the one
+    # reader of the environment the ban permits.
+    directory = Path(os.environ.get("SECRETS_DIR", DEFAULT_SECRETS_DIR))  # noqa: TID251
     unreadable, absent = _unusable_files(directory)
     if unreadable:
         # The missing and the blank beside them, which the build would never reach.
         also = f"; Invalid secret files: {', '.join(sorted(absent))}" if absent else ""
         raise EnvironmentValidationError(f"Unreadable secret files: {', '.join(unreadable)}{also}") from None
-    # Built even where a file is missing, so every present file's value is judged as well; a missing
-    # one is refused whatever the library found to stand in for it.
+    # Built even where a file is missing, so every present value is judged as well; a missing one is
+    # refused whatever the library found to stand in for it.
     try:
-        # Raised rather than printed: the source only WARNS for a missing directory and for a
-        # directory at a file's path, and a warning leaves outside the log envelope.
+        # Raised rather than printed: the source only WARNS for a directory at a file's path, and a
+        # warning leaves outside the log envelope.
         with warnings.catch_warnings(action="error"):
-            secrets = BackendSecrets(directory)
+            config = BackendConfig(_secrets_dir=directory)
     except ValidationError as error:
-        invalid = {*absent, *_failing_names(error)}
+        refused = _refusal(error.errors(), files=set(absent), files_read=True)
     except Warning, SettingsError:
         # A file that became unreadable after the question above was asked: asked again.
         unreadable, _ = _unusable_files(directory)
         raise EnvironmentValidationError(f"Unreadable secret files: {', '.join(unreadable) or directory}") from None
+    except ValueError as error:
+        # For `read_environment`'s reason.
+        raise EnvironmentValidationError(f"The environment could not be read: {type(error).__name__}") from None
     else:
         if not absent:
-            return secrets
-        invalid = set(absent)
-    raise EnvironmentValidationError(f"Invalid secret files: {', '.join(sorted(invalid))}") from None
-
-
-@lru_cache
-def get_config() -> BackendConfig:
-    """The settings, built once and reused: the environment half first, then the files its `SECRETS_DIR` names.
-
-    A FUNCTION rather than a module-level instance, which would make importing any module touching
-    configuration read the environment as a side effect.
-    """
-    environment = read_environment()
-    secrets = read_secrets(Path(environment.secrets_dir))
-
-    return BackendConfig(
-        **environment.model_dump(include=set(_EnvironmentFields.model_fields)),
-        **secrets.model_dump(),
-    )
+            return config
+        refused = EnvironmentValidationError(f"Invalid secret files: {', '.join(sorted(absent))}")
+    raise refused from None
 
 
 def get_app_config(request: Request) -> BackendConfig:

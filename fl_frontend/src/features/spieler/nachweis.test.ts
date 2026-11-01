@@ -7,7 +7,7 @@ describe("the act a consent choice is read back with", () => {
      choice's own act is what an administrator must read beside it. */
   it("names the choice's own act, in Berlin time, over the confirmation's", () => {
     const satz = beschreibeNachweis(
-      { am: "2026-10-03T22:30:00Z", text_version: "2026-10-konto-spieler", erteilt_zuvor: null },
+      { am: "2026-10-03T22:30:00Z", text_version: "2026-10-konto-spieler", given_before: null },
       { am: "2026-03-14", textVersion: "1", gefragt: true },
     );
 
@@ -19,7 +19,7 @@ describe("the act a consent choice is read back with", () => {
       {
         am: "2026-10-04T08:00:00Z",
         text_version: "2026-10-konto-spieler",
-        erteilt_zuvor: { am: "2026-09-01T10:00:00Z", text_version: "2026-10-spielerseite-5" },
+        given_before: { am: "2026-09-01T10:00:00Z", text_version: "2026-10-spielerseite-5" },
       },
       { am: "2026-03-14", textVersion: "1", gefragt: true },
     );
@@ -59,7 +59,7 @@ describe("the act a consent choice is read back with", () => {
   /* The question is the confirmed label's, as the page read it off the registry; a label it holds no answer for is
      unchecked rather than asked. */
   it("takes whether a seat's media choice was asked off its confirmed label", () => {
-    const seat = (textVersion: string, bestaetigtAm: string | null) => ({ bestaetigt_am: bestaetigtAm, text_version: textVersion });
+    const seat = (textVersion: string, bestaetigtAm: string | null) => ({ confirmed_at: bestaetigtAm, text_version: textVersion });
     const fragen = { vor: false, nach: true };
 
     expect(medienBestaetigungOf(seat("vor", "2026-09-20"), fragen)?.gefragt).toBe(false);
@@ -71,7 +71,7 @@ describe("the act a consent choice is read back with", () => {
   /* The read model refuses no stored value, so an instant it cannot read arrives here rather than failing. */
   it("keeps an unreadable instant as stored rather than failing the panel", () => {
     expect(
-      beschreibeNachweis({ am: "kaputt", text_version: "x", erteilt_zuvor: null }, { am: "2026-03-14", textVersion: "1", gefragt: true }),
+      beschreibeNachweis({ am: "kaputt", text_version: "x", given_before: null }, { am: "2026-03-14", textVersion: "1", gefragt: true }),
     ).toBe("seit kaputt, Fassung x");
   });
 });

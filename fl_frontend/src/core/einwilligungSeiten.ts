@@ -1,24 +1,19 @@
 import z from "zod";
 
-import type { FLEinwilligungFassung } from "./schemas";
+import type { FLEinwilligungWording } from "./generated/client/types";
 
-// A list rather than a bare union, so `fl_frontend/src/core/einwilligungSeiten.test.ts` holds it equal
-// to the pages the backend runs: a page added on one side alone goes red there.
 /** The pages this frontend renders a running label's words on, spelled as the backend keys them. */
-export const EINWILLIGUNG_SEITEN = [
-  "bewerbung",
-  "bestaetigung_kontakt",
-  "bestaetigung_kontakt_verwaltung",
-  "bestaetigung_kontakt_saison",
-  "bestaetigung_spieler",
-  "bestaetigung_spieler_wiederkehrend",
-  "bestaetigung_schiedsrichter",
-  "konto_spieler",
-  "konto_schiedsrichter",
-  "konto_kontakt",
-] as const;
-
-export type EinwilligungSeite = (typeof EINWILLIGUNG_SEITEN)[number];
+export type EinwilligungSeite =
+  | "bewerbung"
+  | "bestaetigung_kontakt"
+  | "bestaetigung_kontakt_verwaltung"
+  | "bestaetigung_kontakt_saison"
+  | "bestaetigung_spieler"
+  | "bestaetigung_spieler_wiederkehrend"
+  | "bestaetigung_schiedsrichter"
+  | "konto_spieler"
+  | "konto_schiedsrichter"
+  | "konto_kontakt";
 
 // Each list is its page's whole set: a served map missing or adding a key fails `gekeyteFassung`
 // rather than rendering a gap or dropping a paragraph. The contact pages share one set, placing
@@ -127,14 +122,14 @@ const genau = <K extends string>(schluessel: readonly K[]) =>
  * page's: a label of another page, or one whose keys were never kept.
  */
 export function gekeyteFassung<A extends string, B extends string = never>(
-  fassung: FLEinwilligungFassung,
+  fassung: FLEinwilligungWording,
   absatzSchluessel: readonly A[],
   bedienSchluessel: readonly B[] = [],
 ): GekeyteFassung<A, B> {
   return {
     textVersion: fassung.text_version,
     absaetze: genau(absatzSchluessel).parse(fassung.absaetze_nach_schluessel) as Record<A, string>,
-    schalter: fassung.schalter,
-    bedienelemente: genau(bedienSchluessel).parse(fassung.bedienelemente) as Record<B, string>,
+    schalter: fassung.switch,
+    bedienelemente: genau(bedienSchluessel).parse(fassung.controls) as Record<B, string>,
   };
 }

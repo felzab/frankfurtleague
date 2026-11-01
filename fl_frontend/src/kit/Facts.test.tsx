@@ -12,10 +12,10 @@ describe("a fact's link", () => {
       <Facts
         facts={[
           {
-            label: COPY.spielplan.fakt.ort,
+            label: COPY.spielplan.fact.spielort,
             elsewhere: { href: "https://www.google.com/maps/search/?api=1&query=Ahornweg", text: "Sportplatz Ahornweg" },
           },
-          { label: COPY.spielplan.fakt.spieltag, link: { href: "/saisons/2027", text: "1. Spieltag" } },
+          { label: COPY.spielplan.fact.spieltag, link: { href: "/saisons/2027", text: "1. Spieltag" } },
         ]}
       />,
     );
@@ -32,13 +32,13 @@ describe("a fact's glyph", () => {
     render(
       <Facts
         look="free"
-        facts={[{ label: COPY.spielplan.fakt.datum, glyph: "kalender", value: "14.03.2027", figures: true }]}
+        facts={[{ label: COPY.spielplan.fact.datum, glyph: "calendar", value: "14.03.2027", figures: true }]}
       />,
     );
 
-    const term = screen.getByText(COPY.spielplan.fakt.datum);
+    const term = screen.getByText(COPY.spielplan.fact.datum);
     const glyph = term.querySelector("svg");
     expect(glyph?.getAttribute("aria-hidden")).toBe("true");
-    expect(term.textContent).toBe(COPY.spielplan.fakt.datum);
+    expect(term.textContent).toBe(COPY.spielplan.fact.datum);
   });
 });

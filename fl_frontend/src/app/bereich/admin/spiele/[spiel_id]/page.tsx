@@ -1,8 +1,6 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
-import { frontend_config } from "@/core/config";
 import { AdminContextWrapper } from "@/features/admin/components/providers/AdminContextWrapper";
 import { AdminSpielEditView } from "@/features/admin/components/views/AdminSpielEditView";
 import { getAdminSpielbericht } from "@/features/spielberichte/queries";
@@ -35,7 +33,6 @@ export default function AdminSpielEditPage(props: NextPageProps<{ spiel_id: stri
 }
 
 async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel_id: string }>["params"] }) {
-  await connection();
   const spielId = await resolveSpielId(params);
 
   const [spielRes, berichtRes] = await Promise.all([
@@ -46,17 +43,13 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
     // is `null`, which the panel says, as the confirmations' panel says its own.
     runWithIncomingTrace(() => getAdminSpielbericht(spielId).catch(nullAfterLoggingUnexplained)),
   ]);
-  const eingabeOffen = frontend_config.SPIELBERICHT_EINGABE === "on";
-  // Read whatever the switch: the triage files a standing report's fixture whatever it reads, and only the adoption
-  // here clears it. Closed, a fixture with no report shows no panel, and a standing one offers no correction.
-  const spielbericht: SpielberichtStand | null | undefined =
-    berichtRes === null ? null : eingabeOffen || berichtRes.bericht !== null ? { lesen: berichtRes, korrigierbar: eingabeOffen } : undefined;
+  const spielbericht: SpielberichtStand | null = berichtRes === null ? null : { lesen: berichtRes };
 
   if (!spielRes) {
     notFound();
   }
 
-  // Behind `connection()` with the fixture's, so a prefetch carries neither. Degraded rather than awaited whole: the
+  // Behind the trace's wait for a request, as the fixture's read is, so a prefetch carries neither. Degraded rather than awaited whole: the
   // editor is how a fixture is repaired, and stands when its confirmations cannot be read.
   const bestaetigungenRes = await runWithIncomingTrace(() =>
     getSpielbestaetigungen({ saison_id: spielRes.spiel.saison_id, spiel_id: spielRes.spiel.id }).catch(nullAfterLoggingUnexplained),
@@ -67,19 +60,13 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
     // matches of the season being edited, which may be a past one.
     <AdminContextWrapper saison_id={spielRes.spiel.saison_id}>
       {/* The same route pattern reconciles in place, so without a key the draft atoms carry the
-          previous fixture's values in. Keyed on STORED STATE, not the id, so an undo that moved
+          previous fixture's values in. Keyed on STORED STATE, not the id, so a write that moved
           the fixture underneath resets the subtree. */}
       <AdminSpielEditView
         key={spielStateKey(spielRes.spiel)}
         spielData={spielRes.spiel}
         today={getGermanTodayStr()}
-        // The comparison the timer is armed on, so the near-date warning never announces a request no pass sends.
-        isSpielSweepOn={frontend_config.SPIEL_SWEEP === "on"}
-        bestaetigungen={
-          bestaetigungenRes === null
-            ? null
-            : { zeilen: bestaetigungenRes.spielbestaetigungen, gelaufenAm: bestaetigungenRes.spiel_sweep_gelaufen_am }
-        }
+        bestaetigungen={bestaetigungenRes?.spielbestaetigungen ?? null}
         spielbericht={spielbericht}
       />
     </AdminContextWrapper>

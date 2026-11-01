@@ -1,9 +1,8 @@
 import { SPIELPLAN_ZURUECKNEHMEN } from "./constants";
 
+import type { FLGruppenNames, FLSaisonPhase, FLSaisonPhaseSchedule, FLSaisonStatus } from "@/core/generated/client/types";
 import type { NextPageProps } from "@/shared/types/types";
-import type { FLSpiel, FLSpielTeamField } from "../spiele/schemas";
-import type { FLGruppenNames } from "../teams/schemas";
-import type { FLSaisonPhase, FLSaisonPhaseSchedule, FLSaisonStatus } from "./schemas";
+import type { FLSpiel, FLSpielTeamField } from "../spiele/types";
 import type { SaisonGruppenOccupancy, SaisonGruppenSwapContext, SaisonSpieltagBound, SaisonSwapTeam, SpielplanBestand } from "./types";
 
 /**
@@ -26,9 +25,8 @@ export function searchWithoutSaisonId(searchParams: Awaited<NextPageProps["searc
 }
 
 /**
- * **Mirrors `fl_backend/app/api/teams/services.py :: has_taken_place`**, which answers
- * `REQ-SWAP-002`, `REQ-SWAP-004`, `REQ-RULES-012` and `REQ-REPLACE-002`. Wider closes a control the
- * endpoint accepts, narrower offers one it refuses.
+ * **Mirrors `fl_backend/app/api/teams/services.py :: has_taken_place`**, which closes a fixture's
+ * Spielbestätigung. Wider closes a control the endpoint accepts, narrower offers one it refuses.
  */
 export function hasTakenPlace(
   spiel: Pick<FLSpiel, "ergebnis" | "sonderereignis" | "elfmeterschiessen"> & {
@@ -78,7 +76,7 @@ function aSideIsOffTheDraw(spiel: FLSpiel): boolean {
 
 /**
  * **Mirrors `fl_backend/app/api/saisons/services.py :: holds_a_recorded_fact`**,
- * `REQ-SPIELPLAN-005`'s own count. Wider than `hasTakenPlace`: every `sonderereignis` closes the
+ * `spielplan_replace_outside_its_window`'s own count. Wider than `hasTakenPlace`: every `sonderereignis` closes the
  * replace, and so does anything the draw did not write. A date does not.
  */
 function holdsARecordedFact(spiel: FLSpiel): boolean {
@@ -105,7 +103,7 @@ function holdsARecordedFact(spiel: FLSpiel): boolean {
 
 /**
  * Club id → Spieltag id → fixtures. Counted rather than collected into a set: two fixtures of one club
- * on one Spieltag is exactly the state `REQ-SWAP-005` is about, and a set would erase it.
+ * on one Spieltag is exactly the state `swap_spieltag_clash` is about, and a set would erase it.
  */
 function countSpieleProSpieltag(spiele: readonly FLSpiel[]): Map<string, Record<string, number>> {
   const perTeam = new Map<string, Record<string, number>>();
@@ -124,26 +122,21 @@ function countSpieleProSpieltag(spiele: readonly FLSpiel[]): Map<string, Record<
 
 /**
  * Assembled HERE because both entry points must answer `find_gruppe_swap_refusal` identically, or one
- * offers what the other refuses. **`REQ-SWAP-005` is a fact about the PAIR**, so each club carries
+ * offers what the other refuses. **`swap_spieltag_clash` is a fact about the PAIR**, so each club carries
  * its fixtures per Spieltag rather than one number.
  */
 export function buildGruppenSwapContext({
   teams,
   gruppenSpiele,
   playoffSpiele,
+  begonnen,
 }: {
   teams: readonly { id: string; name: string; gruppe: SaisonSwapTeam["gruppe"] }[];
   gruppenSpiele: readonly FLSpiel[];
   playoffSpiele: readonly FLSpiel[];
+  /** The season's own answer on its admin read, `has_started`'s, never a date compared here. */
+  begonnen: boolean;
 }): SaisonGruppenSwapContext {
-  const gespieltePerTeam = new Map<string, number>();
-  for (const spiel of gruppenSpiele) {
-    if (!hasTakenPlace(spiel)) continue;
-    for (const seite of [spiel.team1, spiel.team2]) {
-      if (seite !== null) gespieltePerTeam.set(seite.team_id, (gespieltePerTeam.get(seite.team_id) ?? 0) + 1);
-    }
-  }
-
   const gruppenSpieltage = countSpieleProSpieltag(gruppenSpiele);
   const koSpieltage = countSpieleProSpieltag(playoffSpiele);
 
@@ -152,11 +145,10 @@ export function buildGruppenSwapContext({
       id: team.id,
       name: team.name,
       gruppe: team.gruppe,
-      gespielteGruppenSpiele: gespieltePerTeam.get(team.id) ?? 0,
       gruppenSpieleProSpieltag: gruppenSpieltage.get(team.id) ?? {},
       koSpieleProSpieltag: koSpieltage.get(team.id) ?? {},
     })),
-    playedKnockoutSpiele: playoffSpiele.filter(hasTakenPlace).length,
+    hasStarted: begonnen,
   };
 }
 
@@ -175,7 +167,7 @@ export function buildGruppenOccupancy(rows: readonly { gruppe: FLGruppenNames | 
 }
 
 /**
- * **`REQ-SWAP-005` in the form, mirroring `_spieltag_clashes`.** Only a Spieltag the exchange BREAKS
+ * **`swap_spieltag_clash` in the form, mirroring `_spieltag_clashes`.** Only a Spieltag the exchange BREAKS
  * counts, never one already broken — hence the `vorher <= 1`; a stricter client would hide a swap the
  * endpoint accepts.
  */
@@ -194,17 +186,16 @@ function wouldFieldAClubTwice(first: SaisonSwapTeam, second: SaisonSwapTeam): bo
 }
 
 /** Why `candidate` cannot be the other side of a swap with `fixed`. Each surface words these itself. */
-export type SwapPartnerRefusal = "self" | "sameGruppe" | "played" | "spieltagClash";
+export type SwapPartnerRefusal = "self" | "sameGruppe" | "spieltagClash";
 
 /**
  * **`find_gruppe_swap_refusal`'s per-candidate half, in its order**, so a control's reason is the
- * endpoint's. Silent about `REQ-SWAP-002` and `REQ-SWAP-003`: those refuse every pair alike and
+ * endpoint's. Silent about `swap_saison_started` and `saison_past`: those refuse every pair alike and
  * belong where a surface closes the control.
  */
 export function findSwapPartnerRefusal(fixed: SaisonSwapTeam, candidate: SaisonSwapTeam): SwapPartnerRefusal | null {
   if (candidate.id === fixed.id) return "self";
   if (candidate.gruppe === fixed.gruppe) return "sameGruppe";
-  if (candidate.gespielteGruppenSpiele > 0) return "played";
   if (wouldFieldAClubTwice(fixed, candidate)) return "spieltagClash";
 
   return null;
@@ -226,7 +217,7 @@ export function holdsDrawnSpiele({
 }
 
 /**
- * Whether any matchday carries no `beginn`: `REQ-ACTIVATE-004`'s condition. A boolean for
+ * Whether any matchday carries no `beginn`: `activate_spieltage_undated`'s condition. A boolean for
  * `holdsDrawnSpiele`'s reason, and a list cut at the backend's limit can read false where a matchday
  * past the cut is undated, which the endpoint refuses itself.
  */
@@ -237,7 +228,7 @@ export function holdsUndatierteSpieltage(spieltage: readonly { beginn: string | 
 }
 
 /**
- * What a confirmed replace of this season's draw destroys, plus the figure `REQ-SPIELPLAN-005`
+ * What a confirmed replace of this season's draw destroys, plus the figure `spielplan_replace_outside_its_window`
  * weighs against it. Counted off the two fixture reads the season editor already makes,
  * `gruppenphase` and `playoffs` being that season's exact partition.
  */
@@ -275,10 +266,10 @@ export function buildSpielplanVorschau(schedule: readonly FLSaisonPhaseSchedule[
   const vorschau: SpielplanVorschau = { spieltage: 0, spiele: 0, koRunden: [] };
 
   for (const entry of schedule) {
-    vorschau.spieltage += entry.matchdays;
+    vorschau.spieltage += entry.spieltage;
     // The product IS the phase's whole fixture count: the byes an odd group's extra matchday carries
     // are exactly what cancels it back to one fixture per pair.
-    vorschau.spiele += entry.matchdays * entry.matches_per_matchday;
+    vorschau.spiele += entry.spieltage * entry.matches_per_spieltag;
     if (entry.phase !== "gruppenphase") vorschau.koRunden.push(entry.phase);
   }
 
@@ -287,7 +278,7 @@ export function buildSpielplanVorschau(schedule: readonly FLSaisonPhaseSchedule[
 
 /**
  * The generator's two counts as one phrase, in the NOMINATIVE so every call site can seat it
- * unchanged. The singular is a defence: the smallest season `REQ-RULES-001` allows draws two of
+ * unchanged. The singular is a defence: the smallest season `rules_bracket_impossible` allows draws two of
  * each, and these counts arrive from the server.
  */
 export function describeSpielplanUmfang(spieltage: number, spiele: number): string {
@@ -330,7 +321,7 @@ export function describeKaderAustragungDanach(teamName: string): string {
 
 /**
  * Whether the Spielplan press about to happen can be taken back. A FIRST draw on a planned season
- * is the one that can: the undraw beside it removes exactly what it writes (`REQ-SPIELPLAN-006`),
+ * is the one that can: the undraw beside it removes exactly what it writes (`spielplan_undraw_outside_its_window`),
  * and nothing replays a removal.
  */
 export function describeSpielplanPermanenz({ holdsADraw, saisonStatus }: { holdsADraw: boolean; saisonStatus: FLSaisonStatus }): string {

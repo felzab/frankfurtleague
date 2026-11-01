@@ -5,6 +5,7 @@ from typing import Any, NamedTuple
 
 from app.api.adresswechsel.services import LIVE_KEYED_TERMS
 from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerRolle
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
@@ -53,9 +54,8 @@ def name_is_public(einwilligung: Mapping[str, Any] | None) -> bool:
     if einwilligung is None:
         return False
 
-    # Both, never the scope alone: `app/core/constraints.py :: _EINWILLIGUNG` admits a null
-    # `bestaetigt_am`, so `kader_oeffentlich` with no stamp is a scope nobody confirmed. The stamp is
-    # the shared predicate's to judge, `""` included.
+    # Both, never the scope alone: publication rests on the person's own confirmation, so a name is
+    # withheld unless the stamp reads as one.
     return einwilligung.get("umfang") == "kader_oeffentlich" and is_confirmed(einwilligung)
 
 
@@ -91,8 +91,8 @@ def public_person(*, vorname: str | None, nachname: str | None, einwilligung: Ma
 def build_ghost_spieler() -> dict[str, Any]:
     """The row an erased pupil's surviving entries are repointed to, as written.
 
-    Nameless and recordless, as the validator admits for this row alone: a name here is published on
-    every such entry, and a fabricated record is counted as consent.
+    Nameless and recordless, as `app/api/spieler/schemas.py :: FLSpielerRecord` admits for this row
+    alone: a name here is published on every such entry, and a fabricated record is counted as consent.
     """
 
     return {
@@ -118,9 +118,7 @@ def build_real_spieler_filter(terms: Mapping[str, Any] | None = None) -> Mapping
 
     composed = dict(terms or {})
 
-    # Apart under `$and` only where the caller names `_id`: kept flat otherwise, an address term stays at
-    # the top, where `fl_backend/tests/api/test_spieler_email_reads.py :: names_an_address` finds the
-    # reads whose plans it checks.
+    # Apart under `$and` only where the caller names `_id`, so the caller's own `_id` term is never replaced.
     if "_id" in composed:
         return {"$and": [composed, {"_id": dict(_NOT_THE_GHOST)}]}
 
@@ -141,7 +139,7 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams, withheld_saison_ids: 
     """`withheld_saison_ids` are the seasons whose rows this read may not serve.
 
     Empty is the honest default -- a league planning none withholds none -- so the caller that joins
-    across seasons is the one supplying them (`app/api/spieler/router.py`).
+    across seasons is the one supplying them (`app/api/spieler/public_router.py`).
     """
 
     # First, ahead of the loose join below, which keeps a person holding no squad row.
@@ -220,7 +218,7 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams, withheld_saison_ids: 
     return pipeline
 
 
-def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
+def build_spieler_saisons_pipeline() -> list[Mapping[str, Any]]:
     """Every player with every squad row they hold.
 
     UNLIKE `build_spieler_pipeline`: no caller's filters, no `$unwind`, no strict join. Sorted by FORENAME
@@ -243,9 +241,10 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
                             "nummer": 1,
                             "position": 1,
                             "stufe": 1,
-                            "ist_nachnominiert": 1,
+                            "is_nachnominiert": 1,
                             "rolle": 1,
                             "inactive_since": 1,
+                            "version": 1,
                         }
                     }
                 ],
@@ -254,7 +253,7 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
         },
         {
             "$lookup": {
-                "from": Collection.ADRESSWECHSEL,
+                "from": Collection.ADDRESS_CHANGES,
                 "localField": "email",
                 "foreignField": "adresse",
                 # The live change alone: a tombstone's null address would meet every pupil holding none.
@@ -262,21 +261,10 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
                 "as": "adresswechsel",
             }
         },
-        {"$set": {"adresswechsel_id": {"$ifNull": [{"$first": "$adresswechsel._id"}, None]}}},
+        {"$set": {"address_change_id": {"$ifNull": [{"$first": "$adresswechsel._id"}, None]}}},
         {"$unset": "adresswechsel"},
         {"$sort": {"vorname": 1, "nachname": 1}},
     ]
-
-
-# The same dangling reference `REQ-ELIGIBILITY-002` refuses on the match side.
-SQUAD_TEAM_NOT_IN_SAISON = "REQ-SQUAD-001"
-
-# What every code here refuses is `fl_backend/app/core/domain.py :: RULES`.
-SQUAD_FULL = "REQ-SQUAD-003"
-
-# One code for both roles, as `REQ-BOOKING-001` covers a venue and a referee: this is one rule read
-# against two values rather than two failure modes.
-SQUAD_ROLLE_TAKEN = "REQ-SQUAD-004"
 
 
 def build_live_squad_filter(*, saison_id: str, team_id: CustomObjectId, excluding_spieler_id: CustomObjectId) -> Mapping[str, Any]:
@@ -298,14 +286,13 @@ def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
     """Why this squad row must be refused, or `None`.
 
     A shared shirt number is refused on no write path and is declared permitted in
-    `fl_backend/app/core/domain.py :: UNENFORCED`.
+    `docs/domain.md`'s what the model permits on purpose.
     """
 
     if not team_in_saison:
         return WriteRefusal(
-            error_code=SQUAD_TEAM_NOT_IN_SAISON,
+            error_code=Code.KADER_TEAM_NOT_IN_SAISON,
             status=HTTPStatus.CONFLICT,
-            message="the named team holds no saison_teams row for this season; a squad entry needs the club to be entered first",
         )
 
     return None
@@ -314,17 +301,14 @@ def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
 def find_squad_capacity_refusal(*, squad_size: int, max_kadergroesse: int) -> WriteRefusal | None:
     """Why this squad has no room for another player, or `None`.
 
-    Its own function rather than a clause in `find_squad_refusal`, whose parameters are pinned to the
-    club question alone by `tests/core/test_unenforced.py :: TestASharedSquadNumber`.
+    Its own function rather than a clause in `find_squad_refusal`, which answers the club question
+    alone.
     """
 
     if squad_size >= max_kadergroesse:
-        noun = "player" if max_kadergroesse == 1 else "players"
-
         return WriteRefusal(
-            error_code=SQUAD_FULL,
+            error_code=Code.KADER_FULL,
             status=HTTPStatus.CONFLICT,
-            message=f"the squad is full ({squad_size}/{max_kadergroesse} {noun}); a season's rules cap how many players a team may field in it",
         )
 
     return None
@@ -351,8 +335,8 @@ def build_live_rolle_filter(
 def find_squad_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> WriteRefusal | None:
     """Why this squad role may not be given away, or `None`.
 
-    Its own function rather than a clause in `find_squad_refusal`, whose parameters are pinned to the
-    club question alone by `tests/core/test_unenforced.py :: TestASharedSquadNumber`.
+    Its own function rather than a clause in `find_squad_refusal`, which answers the club question
+    alone.
     """
 
     # A row holding no role competes with nobody, which is what makes the rule at-most-one rather
@@ -361,9 +345,8 @@ def find_squad_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> Wr
         return None
 
     return WriteRefusal(
-        error_code=SQUAD_ROLLE_TAKEN,
+        error_code=Code.KADER_ROLLE_TAKEN,
         status=HTTPStatus.CONFLICT,
-        message=f"another live squad row in this team already holds '{rolle}' for this season; a squad holds each role once",
     )
 
 
@@ -400,8 +383,9 @@ def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId) -> list[Map
                 "position": 1,
                 "stufe": 1,
                 "rolle": 1,
-                "ist_nachnominiert": 1,
+                "is_nachnominiert": 1,
                 "inactive_since": 1,
+                "version": 1,
             }
         },
         # The id last, so two pupils of one name keep one order between two reads.
@@ -412,7 +396,7 @@ def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId) -> list[Map
 def shared_nummern(rows: Sequence[Mapping[str, Any]]) -> frozenset[str]:
     """Each `nummer` two or more LIVE rows of one squad wear, an ausgetragen row wearing none.
 
-    Compared as stored, never as a number: `07` is a printed shirt and not `7` (`fl_backend/app/core/domain.py :: UNENFORCED`).
+    Compared as stored, never as a number: `07` is a printed shirt and not `7` (`docs/domain.md`'s what the model permits on purpose).
     """
 
     worn = Counter(row["nummer"] for row in rows if row.get("inactive_since") is None and row.get("nummer") is not None)
@@ -421,33 +405,27 @@ def shared_nummern(rows: Sequence[Mapping[str, Any]]) -> frozenset[str]:
 
 
 def mark_shared_nummern(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """Each row with `nummer_doppelt`, judged against the whole squad the rows are."""
+    """Each row with `nummer_double`, judged against the whole squad the rows are."""
 
     shared = shared_nummern(rows)
 
     # `shared` holds no null, so a row without a number is never marked.
-    return [{**row, "nummer_doppelt": row.get("inactive_since") is None and row.get("nummer") in shared} for row in rows]
+    return [{**row, "nummer_double": row.get("inactive_since") is None and row.get("nummer") in shared} for row in rows]
 
 
-# A representative's edit is held to the season's list, where the administrator's form is trusted to
-# offer it.
-KADER_STUFE_NICHT_ERLAUBT = "REQ-SQUAD-005"
-
-
-def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, erlaubte_stufen: Sequence[str]) -> WriteRefusal | None:
-    """`REQ-SQUAD-005`: the edit writes a Stufe the season's rules do not offer.
+def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, allowed_stufen: Sequence[str]) -> WriteRefusal | None:
+    """`kader_stufe_not_allowed`: the edit writes a Stufe the season's rules do not offer.
 
     The stored value passes: a season narrowed after the row was written leaves it valid,
     and refusing it would lock the row's other fields too.
     """
 
-    if stufe is None or stufe == stored_stufe or stufe in erlaubte_stufen:
+    if stufe is None or stufe == stored_stufe or stufe in allowed_stufen:
         return None
 
     return WriteRefusal(
-        error_code=KADER_STUFE_NICHT_ERLAUBT,
+        error_code=Code.KADER_STUFE_NOT_ALLOWED,
         status=HTTPStatus.CONFLICT,
-        message="this season's rules do not offer that Stufe; pick one of the season's erlaubte_stufen",
     )
 
 
@@ -455,30 +433,23 @@ def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, erl
 # `app/api/konto/services.py`'s.
 
 
-def build_selbst_pupil_filter(identifier: str) -> Mapping[str, Any]:
+def build_self_pupil_filter(identifier: str) -> Mapping[str, Any]:
     """The one pupil row this address holds, retired or not, a withdrawal reaching it either way.
 
     The `$type` term is the unique index's partial filter, which an equality alone does not imply.
     """
 
-    # The sentinel by id although it holds no address: a hand edit can give it one, and the id is what names it nobody.
-    return build_real_spieler_filter(build_address_holder_filter(identifier))
-
-
-def build_address_holder_filter(identifier: str) -> Mapping[str, Any]:
-    """Every row `uniq_spieler_email` holds under this address, the sentinel included: one a hand edit gave it is a holder the index refuses."""
-
     return {"email": {"$eq": identifier, "$type": "string"}}
 
 
-def build_selbst_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+def build_self_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """This address's pupil row with every squad row it holds and the name each club played that season under.
 
     An allow-list: the sign-in address is the caller's own and still not served back.
     """
 
     return [
-        {"$match": build_selbst_pupil_filter(identifier)},
+        {"$match": build_self_pupil_filter(identifier)},
         {"$project": {"vorname": 1, "nachname": 1, "geburtsdatum": 1, "inactive_since": 1, "einwilligung": 1}},
         {
             "$lookup": {
@@ -507,7 +478,7 @@ def build_selbst_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                             "position": 1,
                             "stufe": 1,
                             "rolle": 1,
-                            "ist_nachnominiert": 1,
+                            "is_nachnominiert": 1,
                             "inactive_since": 1,
                         }
                     },

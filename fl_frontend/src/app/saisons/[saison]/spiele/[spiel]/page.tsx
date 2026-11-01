@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: PageProps<"/saisons/[saison]/
   const { saison } = await readSaison(saisonId);
   const { spiel } = await readSpiel(saison, spielId);
   const { heim, gast } = sidesOf(spiel);
-  return pageMetadata(ROUTES.spiel, ROUTES.spiel.pfad(saison.id, spiel.id), ROUTES.spiel.titel(heim.name, gast.name));
+  return pageMetadata(ROUTES.spiel, ROUTES.spiel.path(saison.id, spiel.id), ROUTES.spiel.title(heim.name, gast.name));
 }
 
 /**
@@ -36,7 +36,7 @@ async function Spiel({ params }: { params: Promise<{ saison: string; spiel: stri
   const { heim, gast } = sidesOf(spiel);
   return (
     <ReadPage
-      head={{ area: "saison", title: { route: "spiel", heim: heim.name, gast: gast.name } }}
+      head={{ scope: "saison", title: { route: "spiel", heim: heim.name, gast: gast.name } }}
       groups={[{ kind: "facts", facts: factsOf(spiel, spieltag) }]}
     />
   );

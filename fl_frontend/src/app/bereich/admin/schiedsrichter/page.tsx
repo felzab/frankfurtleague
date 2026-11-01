@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { AdminCreateSchiedsrichterModal } from "@/features/schiedsrichter/components/modals/AdminCreateSchiedsrichterModal";
 import { AdminSchiedsrichterView } from "@/features/schiedsrichter/components/views/AdminSchiedsrichterView";
@@ -29,7 +28,6 @@ export default function AdminSchiedsrichterPage() {
 }
 
 async function SchiedsrichterTable() {
-  await connection();
   // Retired included: this list's row is the only link into a retired referee's editor, so without
   // the flag nothing reaches one. Every facet on the bar narrows these rows client-side, so the
   // query string reaches the endpoint through nothing.

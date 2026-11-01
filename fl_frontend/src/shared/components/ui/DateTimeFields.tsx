@@ -106,8 +106,8 @@ export function AppDatePicker({
   hint?: string;
   /**
    * Greys days out in the CALENDAR, never on the field, which judges them: a field bound reaches
-   * `aria`'s realtime validation and marks a half-typed year (`.claude/rules/frontend.md`). The schema refuses an
-   * out-of-span date, on blur and at submit.
+   * `aria`'s realtime validation and marks a half-typed year, judging a typed field between keystrokes
+   * (`docs/decisions.md`, **forms**). The schema refuses an out-of-span date, on blur and at submit.
    */
   minValue?: CalendarDate;
   maxValue?: CalendarDate;

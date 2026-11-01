@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { readAsSeatHolder, requireTeamSeats } from "@/features/funktionen/resolvers";
 import { teamHref } from "@/features/funktionen/teamSeats";
@@ -8,7 +7,7 @@ import { KaderZeileEditForm } from "@/features/spieler/components/forms/KaderZei
 import { kaderName, orderStufen } from "@/features/spieler/constants";
 import { getKader } from "@/features/spieler/queries";
 
-import type { FLSpielerRolle } from "@/features/spieler/schemas";
+import type { FLSpielerRolle } from "@/core/generated/client/types";
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
@@ -16,7 +15,6 @@ import type { NextPageProps } from "@/shared/types/types";
  * is ausgetragen. Read off the squad, whose other rows say who holds each captaincy.
  */
 export default async function KaderZeilePage({ params }: NextPageProps<{ team_id: string; saison_id: string; spieler_id: string }>) {
-  await connection();
   const seats = await requireTeamSeats(params);
   if (seats === null) return null;
 
@@ -38,7 +36,7 @@ export default async function KaderZeilePage({ params }: NextPageProps<{ team_id
     );
   }
 
-  // Live rows alone, as the write path counts them (`REQ-SQUAD-004`), and never the edited row's own.
+  // Live rows alone, as the write path counts them (`kader_rolle_taken`), and never the edited row's own.
   const heldRollen: Partial<Record<FLSpielerRolle, string>> = {};
   for (const other of kader.kader) {
     if (other.spieler_id !== spieler_id && other.inactive_since === null && other.rolle !== null) heldRollen[other.rolle] ??= kaderName(other);
@@ -51,7 +49,7 @@ export default async function KaderZeilePage({ params }: NextPageProps<{ team_id
       teamId={team_id}
       saisonId={saison_id}
       zeile={zeile}
-      erlaubteStufen={orderStufen(kader.erlaubte_stufen)}
+      erlaubteStufen={orderStufen(kader.allowed_stufen)}
       heldRollen={heldRollen}
       kaderHref={kaderHref}
     />

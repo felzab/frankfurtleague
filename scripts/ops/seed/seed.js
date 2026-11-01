@@ -22,13 +22,13 @@
 // Run by `./scripts/ops/local.sh --e2e` and `--seed-made-up`, and by the journeys' CI job, with
 // mongosh INSIDE the stack's own database container, at `mongodb://127.0.0.1:27017/<DB_BASE_NAME>`
 // with `directConnection=true`: no other server is reachable by that address, so this script cannot
-// write anywhere but the stack it is handed to. The backend has booted first, so every validator is
-// in place and judges each insert, and `python -m app.core.constraints --check` judges the whole
-// afterwards; the frontend starts only once both have passed (`docs/ops/spec.md` §1.5).
+// write anywhere but the stack it is handed to. The backend has booted first, so every index is in
+// place, and `python -m app.readback` judges every document afterwards; the frontend starts
+// only once it has passed (`docs/ops/spec.md` §1.5).
 //
 // Invariants:
 // - Every date is relative to today in Germany, so "today's matchday" is today whenever it runs.
-// - Every document is spelled as the backend writes it: each key the validator requires, written
+// - Every document is spelled as the backend writes it: each key its record model requires, written
 //   null rather than left out, and the copies a fixture embeds taken from the row they copy.
 // - It empties every collection of the application database first and never touches `auth`, the
 //   sign-in store the frontend keeps beside it.
@@ -56,7 +56,7 @@ function address(strasse, hausnummer, plz, stadtteil) {
 const CLUBS = ["Ahorn", "Birke", "Eiche", "Linde", "Ulme", "Esche", "Kastanie", "Weide"].map((name, index) => ({
   _id: ObjectId(),
   name,
-  shorthand: name.slice(0, 2).toUpperCase(),
+  shorthand: name.slice(0, 3).toUpperCase(),
   description: "",
   full_name: `${name}-Gymnasium`,
   website_url: null,
@@ -124,7 +124,7 @@ const GRANTS = [
   ["admin.telefon@example.com", "administration"],
   ["admin.editor@example.com", "administration"],
   ["admin.verwaltung@example.com", "administration"],
-].map(([adresse, verwaltung]) => ({ _id: ObjectId(), adresse, verwaltung, erteilt_von: "MADE-UP-SEED", erteilt_am: new Date() }));
+].map(([adresse, verwaltung]) => ({ _id: ObjectId(), adresse, verwaltung, granted_by: "MADE-UP-SEED", granted_at: new Date() }));
 
 // --- Seasons -------------------------------------------------------------------------------------
 
@@ -132,13 +132,13 @@ const GRANTS = [
 const RULES = {
   win_points: 3,
   draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 2,
-  teams_per_group: 4,
+  qualifiers_per_gruppe: 2,
+  number_of_gruppen: 2,
+  teams_per_gruppe: 4,
   tiebreak_order: "tordifferenz",
   max_kadergroesse: 18,
   forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1", "Q1", "Q2", "Q3", "Q4"],
+  allowed_stufen: ["E1", "Q1", "Q2", "Q3", "Q4"],
 };
 
 // `fl_backend/app/api/saisons/spielplan.py :: circle_rounds` for a group of four: each round's pairs
@@ -241,7 +241,7 @@ function season({ id, status, start, end, drawn, groups, dates, play, knockout =
     end_date: end,
     status,
     rules: RULES,
-    spielplan: { generiert_am: drawn, spieltage: spieltage.length, spiele: spiele.length },
+    spielplan: { generated_at: drawn, spieltage: spieltage.length, spiele: spiele.length },
     bewerbung: null,
     registrierung: null,
   };
@@ -342,7 +342,7 @@ const running = season({
         return { datum: day(7), uhrzeit: "17:00:00", booking };
       case 12:
         // Not match 9's ground and referee, which its index would give: 90 minutes after it, inside the four
-        // hours the write keeps between two fixtures (`REQ-CLASH-001`). No other fixture that day holds these.
+        // hours the write keeps between two fixtures (`spiel_double_booked`). No other fixture that day holds these.
         return { datum: day(7), uhrzeit: "18:30:00", booking: booked(1, 1) };
       // The knockout: drawn, undated, nobody in it.
       default:
@@ -364,18 +364,29 @@ const DOCUMENTS = {
   spiele: [...finished.spiele, ...running.spiele],
 };
 
-// Emptied rather than dropped: the backend's boot made each collection with its validator and its
-// indexes, and a dropped collection would be re-created by the first insert with neither.
+// Emptied rather than dropped: the backend's boot made each collection with its indexes, and a
+// dropped collection would be re-created by the first insert with none.
 for (const name of db.getCollectionNames()) {
   if (name.startsWith("system.")) continue;
   const removed = db.getCollection(name).deleteMany({}).deletedCount;
   if (removed > 0) print(`emptied ${name}: ${removed} document(s)`);
 }
 
-// Ordered: an insert the validator refuses throws with the server's own account of the field, and
-// mongosh exits non-zero on it.
+// Ordered: an insert a unique index refuses throws with the server's own account of the key, and
+// mongosh exits non-zero on it; the read-back after the seed judges every document's shape. Each
+// document carries the `version: 0` the backend's create stamps:
+// every collection seeded here is in `fl_backend/app/core/collections.py :: EDITED_COLLECTIONS`, whose
+// saves match on the version their editor was served, and none matches a document without one.
+// The first of each collection `fl_backend/app/core/crud.py :: anchor_in_db` writes carries the count an
+// anchor advances, as a document of the league's soon does, so the read-back judges that its record model declares it.
+const ANCHORED = new Set(["teams", "spielorte", "schiedsrichter", "berechtigungen", "saisons", "saison_teams"]);
 for (const [name, documents] of Object.entries(DOCUMENTS)) {
-  const inserted = db.getCollection(name).insertMany(documents, { ordered: true }).insertedIds;
+  const versioned = documents.map((document, index) => ({
+    ...document,
+    version: 0,
+    ...(ANCHORED.has(name) && index === 0 ? { bounded_writes: 1 } : {}),
+  }));
+  const inserted = db.getCollection(name).insertMany(versioned, { ordered: true }).insertedIds;
   print(`seeded ${name}: ${Object.keys(inserted).length} document(s)`);
 }
 

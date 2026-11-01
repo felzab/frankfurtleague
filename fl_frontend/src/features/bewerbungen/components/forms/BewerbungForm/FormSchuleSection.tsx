@@ -48,8 +48,8 @@ import { listboxRow } from "@/shared/components/ui/refusableOption";
 import { Select } from "@/shared/components/ui/Select";
 import { TextField } from "@/shared/components/ui/TextField";
 
+import type { FLSchulform } from "@/core/generated/client/types";
 import type { BewerbungSchuleDraft } from "@/features/bewerbungen/types";
-import type { FLSchulform } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react/rac";
 
 /** The clubs' own row in the picker, `PickOrCreateAutocomplete`'s so the two lists read alike. */
@@ -70,7 +70,7 @@ const LISTE_UNLESBAR = "Die Liste der Schulen ist gerade nicht erreichbar. Lade 
  * The school an application is about: one the league already holds, or one it does not.
  *
  * **One picker answers both**, so the form cannot compose the both-or-neither submission
- * `REQ-BEWERBUNG-005` refuses.
+ * `bewerbung_submission_subject_unresolved` refuses.
  */
 export function FormSchuleSection({
   schulen,
@@ -251,8 +251,8 @@ export function FormSchuleSection({
             )}
           </div>
 
-          {/* The payload's own two numbers and never a second judgement: `.claude/rules/cross-surface.md`,
-              never offer in the form what the write path refuses. */}
+          {/* The payload's own two numbers and never a second judgement: the form never offers what the
+              write path refuses (`docs/decisions.md`, **saisons**). */}
           <NumberField
             name="stufengroesse"
             minValue={1}
@@ -316,8 +316,6 @@ export function FormSchuleSection({
             </div>
 
             <div className={FIELD_PAIR_CLASSES}>
-              {/* Uppercased as it is typed, as the club editor does it: the code is unique across every
-                  club, retired ones included, so a case variant must not look like a different value. */}
               {/* The verdict's id while the check has something to say, beside the explanation the
                   description slot names: two different sentences, and naming one alone drops the
                   other for a reader who cannot see either. */}
@@ -325,7 +323,7 @@ export function FormSchuleSection({
                 name="schule.shorthand"
                 aria-describedby={kuerzelHinweis === null ? undefined : kuerzelHinweisId}
                 value={schule.shorthand}
-                onChange={(next) => setSchuleFeld({ shorthand: next.toUpperCase() })}
+                onChange={(next) => setSchuleFeld({ shorthand: next })}
                 onBlur={() => {
                   onFieldLeft(["schule.shorthand"]);
                   onKuerzelLeft(schule.shorthand);

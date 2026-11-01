@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import z from "zod";
 
 import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
       // The fact alone; the sentence a taken code gets is the form's, spelled once in
       // `fl_frontend/src/features/bewerbungen/utils.ts :: KUERZEL_VERGEBEN` so the blur and the
       // submit's own refusal cannot word it differently.
-      return { success: true as const, vergeben: antwort.vergeben };
+      return { success: true as const, vergeben: antwort.taken };
     },
   });
 }

@@ -7,16 +7,13 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.services import build_pupil_pipeline
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter, build_real_referees_filter
-from app.api.spieler.admin_router import delete_spieler, get_spieler_memberships, patch_spieler, post_saison_spieler, reactivate_spieler
-from app.api.spieler.router import get_spieler, get_spieler_by_id
+from app.api.spieler.admin_router import delete_spieler, get_spieler_saisons, patch_spieler, post_saison_spieler, reactivate_spieler
+from app.api.spieler.public_router import get_spieler, get_spieler_by_id
 from app.api.spieler.schemas import FLPatchSpielerPayload, FLPostSaisonSpielerPayload, FLSpielerFilterParams
 from app.api.spieler.services import build_ghost_spieler, build_real_spieler_filter
 from app.core.collections import Collection
-from app.core.constraints import NAMELESS_PERSON_RULE, report_nameless_persons
-from app.core.crud import aggregate_many_from_db
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from tests import documents
 from tests.config import ADMINISTRATORS
@@ -36,25 +33,20 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f608310001")
 PERSON_OID = ObjectId("6890a1b2c3d4e5f608310002")
 RETIRED_ON = "2026-02-01"
 
-SIGN_IN = "quillhilde@example.com"
-
-# Seeded by the cases needing a row the `$in` below does not name, or a person a paste emptied.
+# Seeded by the cases needing a row the `$in` below does not name.
 OTHER_PERSON_OID = ObjectId("6890a1b2c3d4e5f608310003")
 REFEREE_OIDS = (ObjectId("6890a1b2c3d4e5f608310004"), ObjectId("6890a1b2c3d4e5f608310005"))
-NAMELESS_OID = ObjectId("6890a1b2c3d4e5f608310006")
-RECORDLESS_OID = ObjectId("6890a1b2c3d4e5f608310007")
-UNDATED_OID = ObjectId("6890a1b2c3d4e5f608310008")
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body) -> Any:
-    """The SHIPPED validators, so seeding the sentinel is itself the case that its document is storable."""
+    """The SHIPPED indexes, so seeding the sentinel is itself the case that its document is storable."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", rules=documents.rules_document()))
-            await database[Collection.SAISON_TEAMS].insert_one(documents.saison_team_document(SAISON_ID, TEAM_OID, "Zorbanax", "ZO"))
+            await database[Collection.SAISON_TEAMS].insert_one(documents.saison_team_document(SAISON_ID, TEAM_OID, "Zorbanax", "ZOX"))
             await database[Collection.SPIELER].insert_many(
                 [build_ghost_spieler(), documents.spieler_document(PERSON_OID, "Quillhilde", "Brackenmoor", inactive_since=RETIRED_ON)]
             )
@@ -122,7 +114,7 @@ def test_every_route_by_id_answers_not_found_for_the_sentinel_and_writes_nothing
     """Each route composes the exclusion itself, so one missing it is the defect no other case shows."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        with pytest.raises(DocumentNotFoundException):
+        with pytest.raises(DocumentNotFoundError):
             await press(database, client, route, GHOST_SPIELER_ID)
 
         return await stored(database, GHOST_SPIELER_ID), await database[Collection.SAISON_SPIELER].count_documents({})
@@ -147,7 +139,7 @@ def test_an_id_nobody_holds_gets_no_squad_row(mongo_replica_set_url: str):
     """A squad row naming nobody resolves to no person on any read of the squad, and nothing would ever remove it."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        with pytest.raises(DocumentNotFoundException):
+        with pytest.raises(DocumentNotFoundError):
             await press(database, client, "squad entry", ObjectId())
 
         return await database[Collection.SAISON_SPIELER].count_documents({})
@@ -162,10 +154,10 @@ def test_neither_collection_read_serves_the_sentinel_and_a_person_holding_no_squ
         listed = await get_spieler(
             spieler_collection=database[Collection.SPIELER], saisons_collection=database[Collection.SAISONS], filters=FLSpielerFilterParams()
         )
-        memberships = await get_spieler_memberships(
+        memberships = await get_spieler_saisons(
             spieler_collection=database[Collection.SPIELER],
-            berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-            berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+            berechtigungen_collection=database[Collection.GRANTS],
+            berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
             operator=ADMINISTRATORS[0],
             auth_time=int(time.time()),
         )
@@ -225,45 +217,3 @@ def test_each_exclusion_keeps_the_callers_own_id_term(
         return [row["_id"] async for row in database[collection].find(exclusion({"_id": {"$in": named}})).sort("_id", 1)]
 
     assert on_a_league(mongo_replica_set_url, body) == found
-
-
-def test_the_constraints_check_names_a_nameless_person_and_never_the_sentinel(mongo_replica_set_url: str):
-    """`python -m app.core.constraints --check` reads after a paste; the sentinel holds both nulls by design and is no offender.
-
-    The clean read comes first, over a league holding the sentinel: a report counting it would fail there.
-    """
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        clean = await report_nameless_persons(database)
-        await database[Collection.SPIELER].insert_many(
-            [
-                {**documents.spieler_document(NAMELESS_OID, "Lysander", "Quell"), "vorname": None},
-                documents.spieler_document(RECORDLESS_OID, "Ottilie", "Brandt", einwilligung=None),
-                documents.spieler_document(UNDATED_OID, "Hartwig", "Kranz", geburtsdatum=None),
-            ]
-        )
-
-        return clean, await report_nameless_persons(database)
-
-    clean, found = on_a_league(mongo_replica_set_url, body)
-
-    assert (clean.rule, clean.groups, clean.examples) == (NAMELESS_PERSON_RULE, 0, [])
-    assert (found.groups, sorted(found.examples)) == (3, sorted([NAMELESS_OID, RECORDLESS_OID, UNDATED_OID]))
-
-
-def test_the_sign_in_lookup_never_resolves_the_sentinel_whatever_a_hand_edit_gives_it(mongo_replica_set_url: str):
-    """By its id rather than its missing address: an address is a value a hand edit can write, the id the one thing naming the row as nobody."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        confirmed = documents.eigene_einwilligung_document(text_version="2026-09", bestaetigt_am=TODAY)
-        await database[Collection.SPIELER].update_one({"_id": GHOST_SPIELER_ID}, {"$set": {"email": SIGN_IN, "einwilligung": confirmed}})
-        sentinel_answer = await aggregate_many_from_db(collection=database[Collection.SPIELER], pipeline=build_pupil_pipeline(SIGN_IN))
-
-        # The control: the same address and record on a person, which the lookup does resolve.
-        await database[Collection.SPIELER].update_one({"_id": GHOST_SPIELER_ID}, {"$unset": {"email": ""}})
-        await database[Collection.SPIELER].update_one({"_id": PERSON_OID}, {"$set": {"email": SIGN_IN, "einwilligung": confirmed}})
-        person_answer = await aggregate_many_from_db(collection=database[Collection.SPIELER], pipeline=build_pupil_pipeline(SIGN_IN))
-
-        return [row["_id"] for row in sentinel_answer], [row["_id"] for row in person_answer]
-
-    assert on_a_league(mongo_replica_set_url, body) == ([], [PERSON_OID])

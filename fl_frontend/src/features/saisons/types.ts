@@ -1,5 +1,5 @@
-import type { FLGruppenNames } from "../teams/schemas";
 import type {
+  FLGruppenNames,
   FLPostSaisonPayload,
   FLSaisonBewerbung,
   FLSaisonPhaseSchedule,
@@ -7,21 +7,7 @@ import type {
   FLSaisonRules,
   FLSaisonSpielplan,
   FLSaisonStatus,
-} from "./schemas";
-
-// `"_id"` sorts chronologically: the season id is the four-character year string. A property of the
-// id format rather than a coincidence.
-type FLSaisonsSortOptions = "_id" | "start_date" | "end_date";
-
-export type FLSaisonsFilterParams = {
-  // No `saison_id`: this narrows a LIST, where `GET /saisons/{saison_id}` names one. The endpoint
-  // declares no such parameter, and an undeclared one is dropped in silence rather than refused.
-  status?: FLSaisonStatus;
-
-  limit?: number;
-  sort_by?: FLSaisonsSortOptions;
-  order?: "asc" | "desc";
-};
+} from "@/core/generated/client/types";
 
 /**
  * One entry of the season switcher. Deliberately not `FLSaison`: the switcher is a Client Component,
@@ -73,27 +59,26 @@ export type SaisonRolloverContext = {
   /** Every unfinished match of the OUTGOING season. Empty when there is nothing to warn about. */
   offeneSpiele: SaisonOffeneSpiel[];
   /**
-   * `REQ-ACTIVATE-004` over THIS season: whether any of its matchdays carries no `beginn`. Here
+   * `activate_spieltage_undated` over THIS season: whether any of its matchdays carries no `beginn`. Here
    * rather than beside `hasDrawnSpiele` because only the rollover reads it.
    */
   hasUndatierteSpieltage: boolean;
   /**
-   * Whom the activation's deletion takes, counted and never named, and whether the switch lets it. `null` without a
-   * rollover or a season it closes; `"unlesbar"` where the count's read failed, the page standing.
+   * Whom the activation's deletion takes, counted and never named. `null` without a rollover or a season it closes;
+   * `"unlesbar"` where the count's read failed, the page standing.
    */
   loeschung: SaisonLoeschungVorschau | "unlesbar" | null;
 };
 
-/** The page's reading of `LOESCHUNG_SWEEP` beside the count: a client component never reads the config itself. */
+/** Whom the activation's deletion takes, by count. */
 export type SaisonLoeschungVorschau = {
   /** The season the activation closes, which the rule counts its squad rows from. */
   abgeschlosseneSaisonId: string;
   spieler: number;
-  eingeschaltet: boolean;
 };
 
 /**
- * What `REQ-DATE-004` leaves the season's own dates free to be, read off the matchdays that carry
+ * What `saison_span_below_spieltage` leaves the season's own dates free to be, read off the matchdays that carry
  * dates. `null` at an end means nothing binds it, which is the same answer for a season holding no
  * matchday and for one whose matchdays are all undated.
  */
@@ -106,7 +91,7 @@ export type SaisonSpieltagBound = {
 
 /**
  * A season's STORED draw as the generator panel weighs it: what a confirmed replace deletes, and the
- * one figure `REQ-SPIELPLAN-005` measures the offer against.
+ * one figure `spielplan_replace_outside_its_window` measures the offer against.
  */
 export type SpielplanBestand = {
   /** How many fixtures the season holds, every phase together. */
@@ -133,16 +118,16 @@ export type SpielplanBestand = {
 export type SaisonSpielplanContext = {
   /** The season's watermark, or `null` while the generator has never run on it. */
   spielplan: FLSaisonSpielplan | null;
-  /** `REQ-SPIELPLAN-002`'s condition: how many matchday rows the season holds, retired ones included. */
+  /** `spielplan_spieltage_held`'s condition: how many matchday rows the season holds, retired ones included. */
   spieltageCount: number;
   /**
    * The season's derived phase list, which the armed control counts its promise off. Served rather
    * than recomputed, so the panel and the endpoint cannot name different seasons.
    */
   schedule: readonly FLSaisonPhaseSchedule[];
-  /** What a confirmed replace would destroy, and what `REQ-SPIELPLAN-005` weighs against it. */
+  /** What a confirmed replace would destroy, and what `spielplan_replace_outside_its_window` weighs against it. */
   bestand: SpielplanBestand;
-  /** How many of the season's fixtures hold a submitted report, which `REQ-SPIELPLAN-007` keeps the Spielplan for. */
+  /** How many of the season's fixtures hold a submitted report, which `spielplan_berichte_submitted` keeps the Spielplan for. */
   eingereichteBerichte: number;
 };
 
@@ -161,30 +146,22 @@ export type SaisonSwapTeam = {
   id: string;
   name: string;
   gruppe: FLGruppenNames;
-  /**
-   * `REQ-SWAP-004` counted for one club, per
-   * `fl_frontend/src/features/saisons/utils.ts :: hasTakenPlace`. Non-zero makes the club
-   * unpickable: the group phase is a round robin, so it cannot leave its group.
-   */
-  gespielteGruppenSpiele: number;
   /** Spieltag id → this club's Gruppenphase fixtures on it. A swap MOVES every one to the other club. */
   gruppenSpieleProSpieltag: Record<string, number>;
   /**
    * Spieltag id → this club's fixtures OUTSIDE the group phase, which a swap LEAVES where they are —
    * which is what lets an exchange put a club on one Spieltag twice. `wouldFieldAClubTwice` is
-   * `REQ-SWAP-005` over the two maps.
+   * `swap_spieltag_clash` over the two maps.
    */
   koSpieleProSpieltag: Record<string, number>;
 };
 
-/**
- * `playedKnockoutSpiele` closes the swap for good once non-zero: the bracket was seeded from these
- * groups, so any played fixture outside the Gruppenphase has already used them.
- */
+/** `hasStarted` closes the swap for good, and with it the rules a started season holds fixed. */
 export type SaisonGruppenSwapContext = {
   /** Every club entered in this season, retired ones included, ordered by name. */
   teams: SaisonSwapTeam[];
-  playedKnockoutSpiele: number;
+  /** `fl_backend/app/api/saisons/crud.py :: has_started`, the one predicate every start lock reads. */
+  hasStarted: boolean;
 };
 
 /**
@@ -200,12 +177,6 @@ export type SaisonReplacementRow = {
   gruppe: FLGruppenNames | null;
   /** Every fixture of this season standing on the row, each of which changes hands with it. */
   spiele: number;
-  /**
-   * `REQ-REPLACE-002` counted for this row, over `fl_frontend/src/features/saisons/utils.ts ::
-   * hasTakenPlace` — the endpoint's own predicate. Non-zero makes the row unpickable, because the
-   * record it counts would be credited to the arriving club.
-   */
-  gespielteSpiele: number;
   /** An `austritt` stands on the row. The replacement clears it rather than moving it. */
   hasAustritt: boolean;
   /** No `teams` document resolves `teamId`, so the club has no page this row could be reached from. */
@@ -216,9 +187,9 @@ export type SaisonReplacementRow = {
 export type SaisonReplacementCandidate = {
   id: string;
   name: string;
-  /** `REQ-ENTER-005`: the club left the league and enters no season until it is reactivated. */
+  /** `team_retired`: the club left the league and enters no season until it is reactivated. */
   isStillgelegt: boolean;
-  /** `REQ-REPLACE-003`: it holds a row here already, which also closes one club on both ends (`REQ-REPLACE-004`). */
+  /** `replace_incoming_already_entered`: it holds a row here already, which also closes one club on both ends (`replace_one_team_on_both_ends`). */
   isInSaison: boolean;
 };
 
@@ -238,11 +209,11 @@ export type SaisonReplacementContext = {
  */
 export type FLSaisonRulesDraft = Omit<
   FLSaisonRules,
-  "win_points" | "draw_points" | "teams_per_group" | "max_kadergroesse" | "forfeit_ergebnis"
+  "win_points" | "draw_points" | "teams_per_gruppe" | "max_kadergroesse" | "forfeit_ergebnis"
 > & {
   win_points: number | null;
   draw_points: number | null;
-  teams_per_group: number | null;
+  teams_per_gruppe: number | null;
   max_kadergroesse: number | null;
   forfeit_ergebnis: { sieger_tore: number | null; verlierer_tore: number | null };
 };

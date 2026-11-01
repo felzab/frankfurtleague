@@ -21,9 +21,16 @@ describe("SignInPayloadSchema", () => {
     }
   });
 
-  it("carries one German sentence for a malformed address", () => {
-    expect(SignInPayloadSchema.safeParse({ email: "erika@" }).error?.issues.map((issue) => issue.message)).toStrictEqual([
-      "Bitte gib eine gültige E-Mail-Adresse ein.",
-    ]);
+  /* A message of the schema's own is past the action's map, which places none, so the box would answer the
+     unexpected line (`fl_frontend/src/core/action.ts :: parsed`). */
+  it("words no refusal itself, leaving each to the map", () => {
+    for (const email of [undefined, "", "erika@", "jürgen@schule.de", `${"a".repeat(260)}@schule.de`]) {
+      const issues = SignInPayloadSchema.safeParse({ email }, { error: () => "the map's" }).error?.issues ?? [];
+      expect(issues.length, `expected "${String(email)}" to be refused`).toBeGreaterThan(0);
+      expect(
+        issues.map((issue) => issue.message),
+        `expected "${String(email)}" to be worded by the map`,
+      ).toStrictEqual(issues.map(() => "the map's"));
+    }
   });
 });

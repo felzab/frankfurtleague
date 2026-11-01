@@ -22,5 +22,5 @@ export function kaderWithSquad(kader: BewerbungFormDraft["kader"], squad: number
   const ceiling = strongPlayerCeiling(squad);
 
   // Never raised: a count nobody entered stays `null`, and a higher ceiling gives back nothing an earlier clamp took.
-  return { voraussichtliche_groesse: squad, gute_spieler: kader.gute_spieler === null ? null : Math.min(kader.gute_spieler, ceiling) };
+  return { expected_size: squad, good_spieler: kader.good_spieler === null ? null : Math.min(kader.good_spieler, ceiling) };
 }

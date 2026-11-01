@@ -14,7 +14,7 @@ import {
   ADDRESS_STRASSE_MAX_LENGTH,
 } from "@/shared/schemas";
 
-import type { FLAddress } from "@/shared/schemas";
+import type { FLAddress } from "@/core/generated/client/types";
 import type { ReactNode } from "react";
 
 /**

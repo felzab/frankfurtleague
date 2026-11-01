@@ -44,13 +44,13 @@ const EMPTY_DRAFT: SaisonCreateDraft = {
   rules: {
     win_points: 3,
     draw_points: 1,
-    qualifiers_per_group: 2,
-    number_of_groups: 2,
-    teams_per_group: 5,
+    qualifiers_per_gruppe: 2,
+    number_of_gruppen: 2,
+    teams_per_gruppe: 5,
     tiebreak_order: "tordifferenz",
     max_kadergroesse: 50,
     forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-    erlaubte_stufen: [...STUFE_OPTIONS],
+    allowed_stufen: [...STUFE_OPTIONS],
   },
 };
 
@@ -207,40 +207,46 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
                 shapes exist. */}
             <div className={FIELD_TRIO_CLASSES}>
               <SaisonCountSelect
-                name="rules.number_of_groups"
+                name="rules.number_of_gruppen"
                 ariaLabel="Gruppen"
                 label={<Label className={FIELD_LABEL_CLASSES}>Gruppen</Label>}
-                value={draft.rules.number_of_groups}
+                value={draft.rules.number_of_gruppen}
                 options={groupCountOptions({
-                  groups: draft.rules.number_of_groups,
-                  qualifiers: draft.rules.qualifiers_per_group,
+                  groups: draft.rules.number_of_gruppen,
+                  qualifiers: draft.rules.qualifiers_per_gruppe,
                   occupancy: NO_GRUPPEN_OCCUPANCY,
                 })}
-                onChange={(number_of_groups) => setDraft((current) => ({ ...current, rules: { ...current.rules, number_of_groups } }))}
+                onChange={(number_of_gruppen) =>
+                  setDraft((current) => ({ ...current, rules: { ...current.rules, number_of_gruppen: number_of_gruppen } }))
+                }
               />
               <SaisonRuleNumberField
-                name="rules.teams_per_group"
+                name="rules.teams_per_gruppe"
                 label={<Label className={FIELD_LABEL_CLASSES}>Teams pro Gruppe</Label>}
                 minValue={teamsPerGroupFloor({
-                  qualifiers: draft.rules.qualifiers_per_group,
-                  held: draft.rules.teams_per_group,
+                  qualifiers: draft.rules.qualifiers_per_gruppe,
+                  held: draft.rules.teams_per_gruppe,
                   occupancy: NO_GRUPPEN_OCCUPANCY,
                 })}
                 maxValue={MAX_TEAMS_PER_GROUP}
-                value={draft.rules.teams_per_group}
-                onChange={(teams_per_group) => setDraft((current) => ({ ...current, rules: { ...current.rules, teams_per_group } }))}
+                value={draft.rules.teams_per_gruppe}
+                onChange={(teams_per_gruppe) =>
+                  setDraft((current) => ({ ...current, rules: { ...current.rules, teams_per_gruppe: teams_per_gruppe } }))
+                }
               />
               <SaisonCountSelect
-                name="rules.qualifiers_per_group"
+                name="rules.qualifiers_per_gruppe"
                 ariaLabel="Qualifikanten pro Gruppe"
                 label={<Label className={FIELD_LABEL_CLASSES}>Qualifikanten pro Gruppe</Label>}
-                value={draft.rules.qualifiers_per_group}
+                value={draft.rules.qualifiers_per_gruppe}
                 options={qualifierCountOptions({
-                  groups: draft.rules.number_of_groups,
-                  qualifiers: draft.rules.qualifiers_per_group,
-                  teams: draft.rules.teams_per_group,
+                  groups: draft.rules.number_of_gruppen,
+                  qualifiers: draft.rules.qualifiers_per_gruppe,
+                  teams: draft.rules.teams_per_gruppe,
                 })}
-                onChange={(qualifiers_per_group) => setDraft((current) => ({ ...current, rules: { ...current.rules, qualifiers_per_group } }))}
+                onChange={(qualifiers_per_gruppe) =>
+                  setDraft((current) => ({ ...current, rules: { ...current.rules, qualifiers_per_gruppe: qualifiers_per_gruppe } }))
+                }
               />
             </div>
           </div>
@@ -260,10 +266,12 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
               Welche Stufen diese Saison spielen
             </span>
             <StufenPicker
-              name="rules.erlaubte_stufen"
+              name="rules.allowed_stufen"
               labelledBy={STUFEN_LABEL_ID}
-              value={draft.rules.erlaubte_stufen}
-              onChange={(erlaubte_stufen) => setDraft((current) => ({ ...current, rules: { ...current.rules, erlaubte_stufen } }))}
+              value={draft.rules.allowed_stufen}
+              onChange={(allowed_stufen) =>
+                setDraft((current) => ({ ...current, rules: { ...current.rules, allowed_stufen: allowed_stufen } }))
+              }
             />
           </div>
         </>

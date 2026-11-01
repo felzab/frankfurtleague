@@ -1,5 +1,3 @@
-import { connection } from "next/server";
-
 import { readAsSeatHolder, requireTeamSeats } from "@/features/funktionen/resolvers";
 import { RegistrierungenView } from "@/features/registrierungen/components/views/RegistrierungenView";
 import { getOffeneRegistrierungen } from "@/features/registrierungen/queries";
@@ -9,7 +7,6 @@ import type { NextPageProps } from "@/shared/types/types";
 
 /** A team's pending registrations as its seat holder decides them, every seat alike. */
 export default async function RegistrierungenPage({ params, searchParams }: NextPageProps<{ team_id: string; saison_id: string }>) {
-  await connection();
   const seats = await requireTeamSeats(params);
   if (seats === null) return null;
 
@@ -25,7 +22,7 @@ export default async function RegistrierungenPage({ params, searchParams }: Next
     <RegistrierungenView
       registrierungen={offen.registrierungen}
       adresse={{ team_id: team_id, saison_id: saison_id }}
-      unvollstaendig={offen.vollstaendig ? null : { richtung: richtung, umkehrHref: leserichtungHrefFromRoute(query, umgekehrt(richtung)) }}
+      unvollstaendig={offen.complete ? null : { richtung: richtung, umkehrHref: leserichtungHrefFromRoute(query, umgekehrt(richtung)) }}
     />
   );
 }

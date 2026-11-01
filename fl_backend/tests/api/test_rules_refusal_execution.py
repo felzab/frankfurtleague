@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
 import pytest
@@ -7,9 +7,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import patch_saison
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
-from app.api.saisons.services import RULES_KADER_BELOW_USE, RULES_SHAPE_AFTER_DRAW, RULES_TIEBREAK_AFTER_KNOCKOUT
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -43,27 +43,16 @@ PRIOR_SAISONS_SQUAD = 9
 PERMITTED_KADER = 4
 REFUSED_KADER = 2
 
-# The other value of the closed set, so a case moves `tiebreak_order` to something the model accepts.
-OTHER_TIEBREAK = "direkter_vergleich"
-STORED_TIEBREAK = "tordifferenz"
-
-# 4 groups x 2 qualifiers is 8, which the ladder enters at the Viertelfinale: 4 fixtures.
-KNOCKOUT_FIXTURES = 4
-PLAYED_KNOCKOUT_FIXTURES = 1
-
 # Fixed rather than generated, so a failure names the same rows every run.
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607240001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607240002")
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072400a1")
-KNOCKOUT_SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072400a2")
 MEMBERSHIP_ID = "6890a1b2c3d4e5f60724{:04d}"
 SPIEL_ID = "6890a1b2c3d4e5f60725{:04d}"
 
 
 def rules_document(**overrides: Any) -> dict[str, Any]:
-    return documents.rules_document(
-        **{"teams_per_group": STORED_PER_GROUP, "max_kadergroesse": STORED_KADER, "tiebreak_order": STORED_TIEBREAK, **overrides}
-    )
+    return documents.rules_document(**{"teams_per_gruppe": STORED_PER_GROUP, "max_kadergroesse": STORED_KADER, **overrides})
 
 
 def saison_document() -> dict[str, Any]:
@@ -113,43 +102,15 @@ def spiel_document(*, spiel_nr: int, **overrides: Any) -> dict[str, Any]:
     return {**documents.spiel_document(spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=spiel_nr, spieltag_id=SPIELTAG_OID), **overrides}
 
 
+# The day every drawn fixture is dated, which is the season's start, and the day before it.
+FIRST_FIXTURE_DAY = "2026-03-15"
+THE_DAY_BEFORE = "2026-03-14"
+
+
 def drawn_spiele() -> list[dict[str, Any]]:
     """One matchday's fixtures. A null `quelle` on either side, so nothing here can be read as a wired placing."""
 
-    return [spiel_document(_id=ObjectId(SPIEL_ID.format(nr)), spiel_nr=nr, datum="2026-03-15") for nr in range(1, DRAWN_FIXTURES + 1)]
-
-
-def knockout_spieltag_document() -> dict[str, Any]:
-    """The season's first bracket matchday, inside its span and after the group matchday above."""
-
-    return {
-        "_id": KNOCKOUT_SPIELTAG_OID,
-        "beginn": "2026-04-15",
-        "ende": "2026-04-15",
-        "position": 1,
-        "saison_phase": "viertelfinale",
-        "saison_id": SAISON_ID,
-    }
-
-
-def knockout_spiele(*, played: int = 0) -> list[dict[str, Any]]:
-    """The bracket's first round, `played` of them carrying a result.
-
-    A RESULT and every other field null, so what closes the window is what `has_taken_place` reads
-    rather than a side or a booking another rule answers for.
-    """
-
-    return [
-        spiel_document(
-            _id=ObjectId(SPIEL_ID.format(100 + nr)),
-            spiel_nr=DRAWN_FIXTURES + nr,
-            saison_phase="viertelfinale",
-            spieltag_id=KNOCKOUT_SPIELTAG_OID,
-            datum="2026-04-15",
-            ergebnis="3:1" if nr <= played else None,
-        )
-        for nr in range(1, KNOCKOUT_FIXTURES + 1)
-    ]
+    return [spiel_document(_id=ObjectId(SPIEL_ID.format(nr)), spiel_nr=nr, datum=FIRST_FIXTURE_DAY) for nr in range(1, DRAWN_FIXTURES + 1)]
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -175,7 +136,16 @@ def on_a_database(
     return on_the_seed_loop(_run())
 
 
-async def patch_the_rules(database: AsyncDatabase, **overrides: Any) -> Any:
+async def saved_rules(database: AsyncDatabase) -> Mapping[str, Any]:
+    """The rules the season holds after a save, which answers 204 and none."""
+
+    stored = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
+    assert stored is not None
+
+    return stored["rules"]
+
+
+async def patch_the_rules(database: AsyncDatabase, *, today: str = THE_DAY_BEFORE, **overrides: Any) -> Any:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it changes."""
 
     return await patch_saison(
@@ -195,11 +165,12 @@ async def patch_the_rules(database: AsyncDatabase, **overrides: Any) -> Any:
         spieltage_collection=database[Collection.SPIELTAGE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         db=database.client,
+        today=today,
     )
 
 
 class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
-    """`REQ-RULES-009` over the aggregation that produces its figure.
+    """`rules_kader_below_use` over the aggregation that produces its figure.
 
     Every other case hands `largest_squad` in already counted, so the `inactive_since` match, the
     season match and the grouping by team reach nothing without a database behind them.
@@ -209,131 +180,72 @@ class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
         """One call for the three: each decoy is larger than this cap, so any of them reaching the figure refuses instead."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return await patch_the_rules(database, max_kadergroesse=PERMITTED_KADER)
+            await patch_the_rules(database, max_kadergroesse=PERMITTED_KADER)
+            return await saved_rules(database)
 
-        response = on_a_database(mongo_replica_set_url, body)
-
-        assert response.updated_document.rules.max_kadergroesse == PERMITTED_KADER
+        assert on_a_database(mongo_replica_set_url, body)["max_kadergroesse"] == PERMITTED_KADER
 
     def test_a_cap_below_the_live_squad_is_refused(self, mongo_replica_set_url: str):
         """The control: without it the case above would also pass on an aggregation that answered nothing at all."""
 
-        async def body(database: AsyncDatabase) -> WriteRefusalException:
-            with pytest.raises(WriteRefusalException) as refusal:
+        async def body(database: AsyncDatabase) -> APIError:
+            with pytest.raises(APIError) as refusal:
                 await patch_the_rules(database, max_kadergroesse=REFUSED_KADER)
 
             return refusal.value
 
         refusal = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == RULES_KADER_BELOW_USE
-        # The live squad and nothing larger, so a decoy counted in would show here as well as in the verdict.
-        assert str(LIVE_SQUAD) in refusal.error_detail["message"]
+        assert refusal.error_code == Code.RULES_KADER_BELOW_USE
 
 
 class TestTheDrawItselfIsWhatFreezesTheShape:
-    """`REQ-RULES-011` through the endpoint, whose count of the season's fixtures is the whole of what the rule turns on."""
+    """`rules_shape_after_spielplan` through the endpoint, whose count of the season's fixtures is the whole of what the rule turns on."""
 
     def test_widening_a_group_after_the_draw_is_refused(self, mongo_replica_set_url: str):
-        """A widening crosses no other bound: `REQ-RULES-003` reads the narrowing direction and the matchday stays under the wider count."""
+        """A widening crosses no other bound: `rules_capacity_below_use` reads the narrowing direction, and the matchday stays under it."""
 
-        async def body(database: AsyncDatabase) -> WriteRefusalException:
-            with pytest.raises(WriteRefusalException) as refusal:
-                await patch_the_rules(database, teams_per_group=WIDER_PER_GROUP)
+        async def body(database: AsyncDatabase) -> APIError:
+            with pytest.raises(APIError) as refusal:
+                await patch_the_rules(database, teams_per_gruppe=WIDER_PER_GROUP)
 
             return refusal.value
 
         refusal = on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
 
-        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
-        assert str(DRAWN_FIXTURES) in refusal.error_detail["message"]
+        assert refusal.error_code == Code.RULES_SHAPE_AFTER_SPIELPLAN
 
     def test_the_same_edit_goes_through_while_nothing_is_drawn(self, mongo_replica_set_url: str):
         """The same season and the same matchday, minus its fixtures: a season still being set up widens freely."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return await patch_the_rules(database, teams_per_group=WIDER_PER_GROUP)
+            await patch_the_rules(database, teams_per_gruppe=WIDER_PER_GROUP)
+            return await saved_rules(database)
 
-        response = on_a_database(mongo_replica_set_url, body)
-
-        assert response.updated_document.rules.teams_per_group == WIDER_PER_GROUP
+        assert on_a_database(mongo_replica_set_url, body)["teams_per_gruppe"] == WIDER_PER_GROUP
 
 
-class TestTheKnockoutIsWhatFreezesTheTiebreak:
-    """`REQ-RULES-012` through the endpoint, whose count of PLAYED bracket fixtures is what the rule turns on.
+class TestTheStartIsWhatFreezesTheScoring:
+    """`rules_saison_started` through the endpoint, whose read of the season's start is what the rule turns on."""
 
-    The phase and the predicate are both the endpoint's own: a case here reaches neither by handing
-    a number in, which is what the unit tests do.
-    """
+    def test_the_points_freeze_on_the_first_fixtures_day(self, mongo_replica_set_url: str):
+        """The table is derived, so a scoring change on a season under way would rewrite standings already played."""
 
-    def test_a_played_knockout_fixture_freezes_the_order(self, mongo_replica_set_url: str):
-        """The bracket was seeded from the group placings this order decides, and one round of it is now on the record."""
-
-        async def body(database: AsyncDatabase) -> WriteRefusalException:
-            with pytest.raises(WriteRefusalException) as refusal:
-                await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
+        async def body(database: AsyncDatabase) -> APIError:
+            with pytest.raises(APIError) as refusal:
+                await patch_the_rules(database, today=FIRST_FIXTURE_DAY, win_points=2)
 
             return refusal.value
 
-        refusal = on_a_database(
-            mongo_replica_set_url,
-            body,
-            spiele=[*drawn_spiele(), *knockout_spiele(played=PLAYED_KNOCKOUT_FIXTURES)],
-            spieltage=[knockout_spieltag_document()],
-        )
+        refusal = on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
 
-        assert refusal.error_code == RULES_TIEBREAK_AFTER_KNOCKOUT
-        # The played one alone: every other bracket fixture counted in would show here as well as in the verdict.
-        assert str(PLAYED_KNOCKOUT_FIXTURES) in refusal.error_detail["message"]
+        assert refusal.error_code == Code.RULES_SAISON_STARTED
 
-    def test_a_knockout_fixture_holding_only_a_shoot_out_freezes_it_too(self, mongo_replica_set_url: str):
-        """Through the route, so the endpoint's projection is proven to carry `elfmeterschiessen` to the predicate."""
-
-        decided = [{**knockout_spiele()[0], "elfmeterschiessen": {"team1": 5, "team2": 4}}, *knockout_spiele()[1:]]
-
-        async def body(database: AsyncDatabase) -> WriteRefusalException:
-            with pytest.raises(WriteRefusalException) as refusal:
-                await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
-
-            return refusal.value
-
-        refusal = on_a_database(
-            mongo_replica_set_url,
-            body,
-            spiele=[*drawn_spiele(), *decided],
-            spieltage=[knockout_spieltag_document()],
-        )
-
-        assert refusal.error_code == RULES_TIEBREAK_AFTER_KNOCKOUT
-
-    def test_a_drawn_but_unplayed_bracket_leaves_the_order_open(self, mongo_replica_set_url: str):
-        """The boundary: the fixtures exist and are wired, and re-seeding them costs nobody a round they already played."""
+    def test_the_same_edit_goes_through_the_day_before(self, mongo_replica_set_url: str):
+        """The boundary: an activated season waiting for its first fixture still takes a corrected rule."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
+            await patch_the_rules(database, today=THE_DAY_BEFORE, win_points=2)
+            return await saved_rules(database)
 
-        response = on_a_database(
-            mongo_replica_set_url,
-            body,
-            spiele=[*drawn_spiele(), *knockout_spiele()],
-            spieltage=[knockout_spieltag_document()],
-        )
-
-        assert response.updated_document.rules.tiebreak_order == OTHER_TIEBREAK
-
-    def test_a_played_group_fixture_leaves_the_order_open(self, mongo_replica_set_url: str):
-        """The narrowing to the bracket: a group still being played is exactly where re-ordering it is a normal correction."""
-
-        played_gruppenphase = [{**drawn_spiele()[0], "ergebnis": "2:0"}, *drawn_spiele()[1:]]
-
-        async def body(database: AsyncDatabase) -> Any:
-            return await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
-
-        response = on_a_database(
-            mongo_replica_set_url,
-            body,
-            spiele=[*played_gruppenphase, *knockout_spiele()],
-            spieltage=[knockout_spieltag_document()],
-        )
-
-        assert response.updated_document.rules.tiebreak_order == OTHER_TIEBREAK
+        assert on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())["win_points"] == 2

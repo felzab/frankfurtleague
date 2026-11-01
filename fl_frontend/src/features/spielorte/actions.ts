@@ -1,18 +1,15 @@
 "use server";
 
-import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
-import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
+import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { deleteSpielort, patchSpielort, postSpielort, reactivateSpielort } from "./mutations";
-import { mapNameRefusal, mapRetireRefusal, SPIELORT_REPLAY_REFUSALS } from "./refusals";
+import { mapNameRefusal, mapRetireRefusal } from "./refusals";
 import { FLPatchSpielortPayloadSchema, FLPostSpielortPayloadSchema, FLSpielortKeyPayloadSchema } from "./schemas";
 
 import type { FLSpielortPayloadDraft } from "@/features/spielorte/schemas";
 import type { ActionResult } from "@/shared/types/types";
-import type { UndoOutcome } from "@/shared/utils/adminUndo";
-import type { FLPatchSpielortPayload, FLPostSpielortPayload, FLSpielort, FLSpielortKeyPayload } from "./schemas";
+import type { FLPatchSpielortPayload, FLPostSpielortPayload, FLSpielortKeyPayload } from "./schemas";
 
 export async function postSpielortAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
@@ -39,10 +36,6 @@ export async function postSpielortAction(
       throw error;
     }
 
-    if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht angelegt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return { success: true, created_id: postOperation.created_id, message: "Spielort angelegt" };
   });
 }
@@ -50,7 +43,7 @@ export async function postSpielortAction(
 export async function patchSpielortAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSpielortPayloadDraft<FLPatchSpielortPayload>,
-): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
+): Promise<ActionResult> {
   return runAdminMutation("patchSpielortAction", async () => {
     const validated = FLPatchSpielortPayloadSchema.safeParse(rawPayload);
 
@@ -62,31 +55,23 @@ export async function patchSpielortAction(
       };
     }
 
-    // A rename fans into every match embedding this venue, which is the one cached read it reaches.
-    invalidatesOnWrite("spiele");
     // The refusal belongs on the box that holds the name, not on the error page.
-    let patchOperation;
     try {
-      patchOperation = await patchSpielort(validated.data);
+      await patchSpielort(validated.data);
     } catch (error) {
       const refusal = mapNameRefusal(error);
       if (refusal) return refusalResult(refusal);
       throw error;
     }
 
-    if (!patchOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Spielortdaten wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return {
       success: true,
-      updated_document: patchOperation.updated_document,
       message: "Spielort bearbeitet",
     };
   });
 }
 
-export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
+export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Promise<ActionResult> {
   return runAdminMutation("deleteSpielortAction", async () => {
     const validated = FLSpielortKeyPayloadSchema.safeParse(rawPayload);
 
@@ -99,22 +84,16 @@ export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Pr
     }
 
     // The refusal belongs in the dialog rather than on the error page.
-    let patchOperation;
     try {
-      patchOperation = await deleteSpielort(validated.data);
+      await deleteSpielort(validated.data);
     } catch (error) {
       const refusal = mapRetireRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
 
-    if (!patchOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht stillgelegt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return {
       success: true,
-      updated_document: patchOperation.updated_document,
       message: "Seine Spiele bleiben erhalten.",
     };
   });
@@ -125,7 +104,7 @@ export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Pr
  * the admin's own list, which is uncached. The endpoint refuses nothing — a venue coming back takes
  * no fixtures with it.
  */
-export async function reactivateSpielortAction(rawPayload: FLSpielortKeyPayload): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
+export async function reactivateSpielortAction(rawPayload: FLSpielortKeyPayload): Promise<ActionResult> {
   return runAdminMutation("reactivateSpielortAction", async () => {
     const validated = FLSpielortKeyPayloadSchema.safeParse(rawPayload);
 
@@ -137,33 +116,10 @@ export async function reactivateSpielortAction(rawPayload: FLSpielortKeyPayload)
       };
     }
 
-    const reactivateOperation = await reactivateSpielort(validated.data);
-    if (!reactivateOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht reaktiviert", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
+    await reactivateSpielort(validated.data);
     return {
       success: true,
-      updated_document: reactivateOperation.updated_document,
       message: "Spielort reaktiviert",
     };
-  });
-}
-
-export async function undoAdminSpielortEditAction(rawPayload: FLPatchSpielortPayload): Promise<UndoOutcome> {
-  return runAdminUndo("undoAdminSpielortEditAction", async () => {
-    const validated = FLPatchSpielortPayloadSchema.safeParse(rawPayload);
-    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
-
-    // `spiele` alone: the rename fans out into cached fixtures embedding this row.
-    invalidatesOnWrite("spiele");
-    let operation;
-    try {
-      operation = await patchSpielort(validated.data);
-    } catch (error) {
-      return refusedReplay(error, SPIELORT_REPLAY_REFUSALS);
-    }
-
-    return operation.acknowledged ? restored() : unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Spielortdaten.");
   });
 }

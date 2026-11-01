@@ -3,30 +3,24 @@
 import { refresh } from "next/cache";
 import { headers } from "next/headers";
 
-import { afterTheResponse } from "@/core/afterResponse";
 import { deleteOwnAccount, getKontoSession } from "@/core/auth";
-import { KONTAKT_EMAIL } from "@/core/brand";
-import { formatZeitpunkt } from "@/core/format";
+import { formatInstant } from "@/core/format";
 import { recordWriteSent } from "@/core/requestScope";
-import { mailAdresswechsel } from "@/features/adresswechsel/notifications";
 import { mapKontoAdresswechselRefusal, mapKontoFreigabeRefusal, mapKontoStoppRefusal } from "@/features/adresswechsel/refusals";
-import { runBerechtigungenAbgleich } from "@/features/berechtigungen/abgleich";
-import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
-import { invalidatesOnWrite, refusalResult, stepUpRequired } from "@/shared/utils/adminMutation";
+import { refusalResult, stepUpRequired } from "@/shared/utils/adminMutation";
 import { enrolmentUntil } from "@/shared/utils/kontoMutation";
 import { runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { genehmigerText } from "./genehmiger";
-import { beantrageKontoAdresswechsel, eraseEigeneDaten, gibKontoAdresswechselFrei, stoppeKontoAdresswechsel } from "./mutations";
+import { beantrageKontoAdresswechsel, gibKontoAdresswechselFrei, loeschenEigeneDaten, stoppeKontoAdresswechsel } from "./mutations";
 import { getLoeschungAnsicht } from "./queries";
 import { LETZTE_INHABERIN, mapLoeschungRefusal } from "./refusals";
 import { FLKontoAdresswechselFreigabePayloadSchema, FLKontoAdresswechselPayloadSchema } from "./schemas";
 
-import type { FLVerwaltung } from "@/features/berechtigungen/schemas";
+import type { FLVerwaltung } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
 import type { StepUpRequired } from "@/shared/utils/adminMutation";
-import type { LinkVersand } from "@/shared/utils/linkVersand";
 
 /** What the library's refusal of a link means to its holder, the token being spent before it was refused. */
 const LINK_UNGUELTIG =
@@ -47,19 +41,16 @@ export async function loescheKontoAction(token: string): Promise<ActionResult> {
     // A server action's argument is whatever a caller posted, and this one reaches the sign-in store.
     if (typeof token !== "string" || token === "") return { success: false, error: VALIDATION_FAILED };
 
-    // Unconditional: the erasure reaches a squad and a fixture whatever this person turns out to hold.
-    invalidatesOnWrite("spieler", "spiele");
-
     // Refused before the library spends the link, so the same link completes once another owner is made;
     // the backend refuses two owners at once. Read for an owner alone,
     // the one tier that can be the last.
-    if (subject.subjekt.verwaltung === "owner" && (await getLoeschungAnsicht()).letzter_inhaber) {
+    if (subject.subject.verwaltung === "owner" && (await getLoeschungAnsicht()).last_owner) {
       return { success: false, error: LETZTE_INHABERIN };
     }
 
     // A grant goes with the account, so a grant holder is held to a revoke's window, a passkey confirmation
     // of the enrolment's minutes, judged before the library spends the link.
-    if (subject.subjekt.verwaltung !== null) {
+    if (subject.subject.verwaltung !== null) {
       const verwaltend = await getKontoSession();
       if (verwaltend === null || enrolmentUntil(verwaltend) === null) {
         // The page's figures read again, so its next press asks first.
@@ -74,7 +65,7 @@ export async function loescheKontoAction(token: string): Promise<ActionResult> {
 
     let outcome;
     try {
-      outcome = await deleteOwnAccount(token, await headers(), () => eraseEigeneDaten());
+      outcome = await deleteOwnAccount(token, await headers(), () => loeschenEigeneDaten());
     } catch (error) {
       // The backend's own refusal of the last owner; every other throw is the spine's to answer.
       const refusal = mapLoeschungRefusal(error);
@@ -95,36 +86,25 @@ export async function loescheKontoAction(token: string): Promise<ActionResult> {
   return { ...answer, error: `${answer.error} ${LINK_VERBRAUCHT}` };
 }
 
-/** What the account page is told of a link it mailed: the outcome alone, never a token or an address. */
-type AdresswechselGesendet = ActionResult<{ versand: LinkVersand }>;
+/** What the account page is told of a link it owed: a sentence, never a token or an address. */
+type AdresswechselGesendet = ActionResult;
 
 /** Said where the address holds a grant: the change waits for its approver too, the old address signing in meanwhile. */
 const genehmigungSatz = (verwaltung: FLVerwaltung): string =>
   `Weil Deine Adresse Zugang zur Verwaltung hat, muss außerdem ${genehmigerText(verwaltung)} zustimmen. Bis dahin meldest Du Dich weiter mit dieser Adresse an.`;
 
 /**
- * One sentence for a link sent and one the ban list kept: naming the ban would tell a stranger typing the
- * address that it is known here. Each repair is one the page then offers.
+ * One sentence whatever becomes of the mail, which leaves behind the answer: a barred address hears nothing, and
+ * naming the ban would tell a stranger typing the address that it is known here.
  */
-function gesendetSatz(versand: LinkVersand, gueltigBis: string, art: "start" | "freigabe"): { versand: LinkVersand; message: string } {
-  if (versand === "fehlgeschlagen") {
-    return {
-      versand: versand,
-      message:
-        art === "start"
-          ? "Der Link an die neue Adresse ging nicht raus. Zieh die Änderung zurück und gib die Adresse erneut ein: Ein neuer Link ersetzt den alten."
-          : `Der Link an die neue Adresse ging nicht raus. Die Verwaltung kann ihn erneut senden, schreib uns an ${KONTAKT_EMAIL}.`,
-    };
-  }
-  if (versand === "zurueckgehalten") return { versand: versand, message: ZURUECKGEHALTEN };
-
-  const bitte = `Bestätige die neue Adresse über den Link in der E-Mail an sie, bis ${formatZeitpunkt(gueltigBis)}.`;
+function gesendetSatz(gueltigBis: string, art: "start" | "freigabe"): string {
+  const bitte = `Bestätige die neue Adresse über den Link in der E-Mail an sie, bis ${formatInstant(gueltigBis)}.`;
   // Only the start's notice goes to the address on file; the approval's request went at the administrator's start.
   const sonst =
     art === "start"
       ? " Kommt keine E-Mail an, prüfe die Adresse oben. Ist sie falsch, zieh die Änderung zurück und gib sie neu ein. Deine bisherige Adresse bekommt einen Hinweis."
       : "";
-  return { versand: "gesendet", message: `${bitte}${sonst}` };
+  return `${bitte}${sonst}`;
 }
 
 /** Whether the request's session is inside the enrolment window, which the backend judges again at `iat`. */
@@ -157,19 +137,13 @@ export async function starteAdresswechselAction(rawPayload: { email: string }): 
       throw error;
     }
 
-    const { link } = await mailAdresswechsel({ operation: "starteAdresswechselAction", mint: { ...mint, weg: "konto" }, anlass: "empfang" });
-    // The approvers are told through the grants' outbox the start queued, drained behind
-    // the answer: mailing them here too would tell each twice.
-    if (mint.genehmiger_anzahl > 0) afterTheResponse(runBerechtigungenAbgleich);
-
-    const { verwaltung } = subject.subjekt;
-    // `link` is never null here: the person's start mints both tokens.
-    const gesendet = gesendetSatz(link ?? "fehlgeschlagen", mint.gueltig_bis, "start");
+    const { verwaltung } = subject.subject;
+    const gesendet = gesendetSatz(mint.valid_until, "start");
     return {
       success: true,
-      versand: gesendet.versand,
-      // The tier off the grant the spine's subject read found, which the backend chose the approvers by.
-      message: mint.genehmiger_anzahl === 0 || verwaltung === null ? gesendet.message : `${gesendet.message} ${genehmigungSatz(verwaltung)}`,
+      // The tier off the grant the spine's subject read found: a grant's move waits on an approver, whom the start
+      // refused to go without.
+      message: verwaltung === null ? gesendet : `${gesendet} ${genehmigungSatz(verwaltung)}`,
     };
   });
 }
@@ -179,7 +153,7 @@ export async function starteAdresswechselAction(rawPayload: { email: string }): 
  * now does the new address get its link. A later start replaced the shown one, and the press then approves nothing.
  */
 export async function gibAdresswechselFreiAction(rawPayload: { id: string }): Promise<AdresswechselGesendet | StepUpRequired> {
-  return runPersonRecordMutation("gibAdresswechselFreiAction", async (subject) => {
+  return runPersonRecordMutation("gibAdresswechselFreiAction", async () => {
     const validated = FLKontoAdresswechselFreigabePayloadSchema.safeParse(rawPayload);
     if (!validated.success) return { success: false, error: VALIDATION_FAILED };
 
@@ -198,15 +172,7 @@ export async function gibAdresswechselFreiAction(rawPayload: { id: string }): Pr
       throw error;
     }
 
-    // No stop token: the notice with its stop link went out at the start. The address on file is the
-    // signed-in one, and the greeting it would carry is never built without a notice to send.
-    const { link } = await mailAdresswechsel({
-      operation: "gibAdresswechselFreiAction",
-      mint: { ...freigabe, weg: "freigabe", stopp_token: null, bisherige_email: subject.email, vorname: "" },
-      anlass: "empfang",
-    });
-
-    return { success: true, ...gesendetSatz(link ?? "fehlgeschlagen", freigabe.gueltig_bis, "freigabe") };
+    return { success: true, message: gesendetSatz(freigabe.valid_until, "freigabe") };
   });
 }
 

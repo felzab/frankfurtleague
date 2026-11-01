@@ -48,42 +48,42 @@ import { tv } from "./tv";
  */
 const GLYPHS = {
   // A record created where its list shows, before the act's label.
-  anlegen: Plus,
+  create: Plus,
   // „Anmelden“ at the collapsed rail's foot: an arrow into a door frame.
-  anmelden: LogIn,
-  aufklappen: ChevronDown,
+  signin: LogIn,
+  expand: ChevronDown,
   // The theme row's three: the moon for the dark theme, the sun for the light, the screen for the system's.
-  dunkel: Moon,
+  dark: Moon,
   // An outcome is a mark in a ring: the bare check is an item chosen, the bare cross a close or a clear.
-  erledigt: CircleCheck,
-  fehler: CircleX,
+  done: CircleCheck,
+  error: CircleX,
   filter: ListFilter,
-  haken: Check,
-  hell: Sun,
+  check: Check,
+  light: Sun,
   info: Info,
-  kalender: Calendar,
-  laedt: LoaderCircle,
-  mehr: Ellipsis,
-  menue: Menu,
+  calendar: Calendar,
+  loading: LoaderCircle,
+  more: Ellipsis,
+  menu: Menu,
   // The season button collapsed to its glyph: a calendar with the cycling arrows, switching between seasons,
   // apart from the plain range of `saisons`, the page listing them.
   saison: CalendarSync,
-  schliessen: X,
+  close: X,
   // The strip's toggle folding the rail: one glyph in both states, as shadcn/ui's sidebar trigger draws
   // it; the tooltip and `aria-expanded` say which way the next press goes.
-  seitenleiste: PanelLeft,
-  suche: Search,
+  sidebar: PanelLeft,
+  search: Search,
   system: Monitor,
-  // A time of day, the pop-up's „Uhrzeit“; the date beside it is `kalender`, and the dated fixtures `spielplan`.
+  // A time of day, the pop-up's „Uhrzeit“; the date beside it is `calendar`, and the dated fixtures `spielplan`.
   uhrzeit: Clock,
-  vor: ChevronRight,
-  warnung: TriangleAlert,
-  zurueck: ChevronLeft,
+  forward: ChevronRight,
+  warning: TriangleAlert,
+  back: ChevronLeft,
 
-  uebersicht: LayoutDashboard,
+  overview: LayoutDashboard,
   saisons: CalendarRange,
   // A season's matches, in the public frame and the administration's alike. A calendar with its days
-  // marked reads as dated fixtures, and leaves the bare calendar to `kalender`, picking a date.
+  // marked reads as dated fixtures, and leaves the bare calendar to `calendar`, picking a date.
   spielplan: CalendarDays,
   spielorte: MapPin,
   schiedsrichter: Whistle,
@@ -91,11 +91,11 @@ const GLYPHS = {
   teams: Users,
   spieler: User,
   registrierungen: UserPlus,
-  administratoren: Shield,
+  administrators: Shield,
   sperrliste: Ban,
-  loeschungen: Trash,
-  adressaenderungen: Mail,
-  protokoll: ScrollText,
+  erasures: Trash,
+  addressChanges: Mail,
+  log: ScrollText,
 };
 
 export type IconName = keyof typeof GLYPHS;

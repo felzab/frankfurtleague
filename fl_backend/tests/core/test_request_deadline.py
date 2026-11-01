@@ -1,4 +1,3 @@
-import ast
 import asyncio
 import enum
 import functools
@@ -8,13 +7,14 @@ import re
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from contextvars import ContextVar
+from pathlib import Path
 from typing import Any, NamedTuple
 
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI, Request
 from httpx2 import ASGITransport, AsyncClient, Response
-from pymongo import AsyncMongoClient, ReturnDocument
+from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import (
@@ -26,43 +26,30 @@ from pymongo.errors import (
     WaitQueueTimeoutError,
 )
 
-from app.api.bewerbungen.services import hash_token
 from app.core import middlewares
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import (
-    anchor_by_id_in_db,
-    anchor_in_db,
-    delete_many_from_db,
-    erase_many_from_db,
-    patch_many_in_db,
-    patch_one_in_db,
-    post_many_to_db,
-    post_one_to_db,
-)
-from app.core.db import get_einladungen_collection
+from app.core.crud import post_one_to_db
+from app.core.db import collection_dependency
 from app.core.exception_handlers import (
-    DATABASE_FAILED,
-    STORES_NOTHING_WHEN,
-    UNHANDLED_CRASH,
-    UNKNOWN_OUTCOME,
     db_exception_handler,
-    stores_nothing,
 )
 from app.core.logging import fl_logger
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import ABORT_GRACE_S, transaction_session
-from app.main import STORES_NOTHING_EXTENSION, create_app
-from tests.actor_tokens import SignedActor
+from app.main import create_app
+from app.shared.tokens import hash_token
 from tests.app_client import app_client
-from tests.config import ADMIN_KEY, ADMINISTRATORS, TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
-from tests.core.app_source import APP_ROOT, BACKEND_ROOT, DRIVER_WRITES, api_routes, app_calls, callee, parsed
+from tests.config import ADMIN_KEY, TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
-from tests.openapi_document import build_document
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
-FETCH_CEILING = re.compile(r"const BASE_FETCH_TIMEOUT_MS = (\d+);")
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+
+FETCH_CEILING = re.compile(r"const FETCH_TIMEOUT_MS = (\d+);")
 FRONTEND_API = BACKEND_ROOT.parent / "fl_frontend" / "src" / "core" / "api.ts"
 
 # Short, so the default tier pays half a second where the shipped deadline would cost ten; what is
@@ -73,42 +60,19 @@ SHORT_DEADLINE_S = 0.5
 # the stall's 60 s -- so an answer in time can only be the deadline's doing.
 ANSWERED_WITHIN_S = SHORT_DEADLINE_S + 10
 
-FAILED = DATABASE_FAILED
+FAILED = Code.DATABASE_FAILED
 
-CRUD_MODULE = "app/core/crud.py"
-
-ADMIN_HEADERS = SignedActor("admin@frankfurtleague.de", ADMIN_KEY)
+ADMIN_HEADERS = StampedHeaders("admin@frankfurtleague.de", ADMIN_KEY)
 
 DATABASE_NAME = worker_database("fl_request_deadline_test")
 
-# A `pymongo.timeout(None)` or `(0)` anywhere else LIFTS this deadline rather than adding one, so the
-# driver's deadline is spelled at the middleware and at the abort past it, which runs in a context
-# the request's deadline does not reach.
-DEADLINE_SPELLING = "pymongo.timeout("
-DEADLINES = [
-    ("app/core/middlewares.py", "with pymongo.timeout(REQUEST_DEADLINE_S):"),
-    ("app/core/transactions.py", "with pymongo.timeout(budget):"),
-]
-
 
 class TestTheDeadlinesTheApplicationSets:
-    def test_the_request_s_and_the_aborts_past_it_are_the_only_two(self):
-        """The whole list rather than a count, so finding nothing fails as a third spelling does."""
-
-        spelled = [
-            (path.relative_to(BACKEND_ROOT).as_posix(), line.strip())
-            for path in sorted(APP_ROOT.rglob("*.py"))
-            for line in path.read_text(encoding="utf-8").splitlines()
-            if DEADLINE_SPELLING in line
-        ]
-
-        assert spelled == DEADLINES
-
     def test_it_is_positive_and_ends_before_the_page_stops_waiting(self):
         """The aborts' grace inside the margin the deadline leaves, since a request cut at its deadline answers only after them."""
 
         ceiling = FETCH_CEILING.search(FRONTEND_API.read_text(encoding="utf-8"))
-        assert ceiling is not None, f"{FRONTEND_API} no longer declares `BASE_FETCH_TIMEOUT_MS` where `FETCH_CEILING` looks"
+        assert ceiling is not None, f"{FRONTEND_API} no longer declares `FETCH_TIMEOUT_MS` where `FETCH_CEILING` looks"
 
         # Positive, because pymongo reads a zero deadline as none at all.
         assert 0 < REQUEST_DEADLINE_S < int(ceiling[1]) / 1000
@@ -167,57 +131,28 @@ class TestAStoppedContainerOutlastsEveryRequest:
         assert COMMAND_OVERRIDES.findall(_backend_service()) == []
 
 
-def _erasure_answered() -> tuple[Response, float]:
-    """`POST /identitaet/erasure` against a server nothing answers, its first database call past the actor check inside its transaction."""
-
-    async def _answered() -> tuple[Response, float]:
-        async with app_client(UNANSWERED_URI, admitting=ADMINISTRATORS) as http:
-            started = time.monotonic()
-            response = await http.post(
-                f"/api/v{API_VERSION}/identitaet/erasure",
-                headers=ADMIN_HEADERS,
-                json={"email": "anna.mueller@schule.de", "anlass": "Mail vom 30.03.2026"},
-            )
-            return response, time.monotonic() - started
-
-    return asyncio.run(_answered())
-
-
 def _grants_list_answered(method: str) -> tuple[Response, float]:
-    """An admin-tier request against a server nothing answers, the actor check's grant read left real, and so its first."""
+    """An admin-tier request against a server nothing answers, the actor check's grant read its first database call."""
 
     async def _answered() -> tuple[Response, float]:
         async with app_client(UNANSWERED_URI) as http:
             started = time.monotonic()
-            response = await http.request(method, f"/api/v{API_VERSION}/berechtigungen", headers=ADMIN_HEADERS)
+            response = await http.request(method, f"/api/v{API_VERSION}/grants", headers=ADMIN_HEADERS)
             return response, time.monotonic() - started
 
     return asyncio.run(_answered())
 
 
 class TestAnUnreachableServerIsAnsweredWithinTheDeadline:
-    def test_the_route_answers_the_deadline_rather_than_retrying(self, monkeypatch: pytest.MonkeyPatch):
-        """Failed rather than unknown: the erasure's transaction opens on a read, so the deadline cut it before any write was sent."""
-
-        monkeypatch.setattr(middlewares, "REQUEST_DEADLINE_S", SHORT_DEADLINE_S)
-
-        response, elapsed = _erasure_answered()
-
-        assert (response.status_code, response.json()["error_code"]) == (500, FAILED)
-        assert elapsed < ANSWERED_WITHIN_S
-
-    @pytest.mark.parametrize("method", ["GET", "POST"])
-    def test_the_actor_check_s_own_read_is_held_to_the_deadline(self, monkeypatch: pytest.MonkeyPatch, method: str):
-        """The grant read runs as a dependency ahead of every handler, the case above answering it from a set.
-
-        The `POST` is the load-bearing one: a grant's route, cut before its handler sent anything, has written nothing.
-        """
+    @pytest.mark.parametrize(("method", "error_code"), [("GET", FAILED), ("POST", Code.UNKNOWN_OUTCOME)])
+    def test_the_actor_check_s_own_read_is_held_to_the_deadline(self, monkeypatch: pytest.MonkeyPatch, method: str, error_code: Code):
+        """The grant read runs as a dependency ahead of every handler, so the deadline cuts it before the handler starts."""
 
         monkeypatch.setattr(middlewares, "REQUEST_DEADLINE_S", SHORT_DEADLINE_S)
 
         response, elapsed = _grants_list_answered(method)
 
-        assert (response.status_code, response.json()["error_code"]) == (500, FAILED)
+        assert (response.status_code, response.json()["error_code"]) == (500, error_code)
         assert elapsed < ANSWERED_WITHIN_S
 
 
@@ -257,15 +192,14 @@ def _transacted(url: str, cut: _Cut) -> _Transacted:
     """One transaction run by a route of the real app, so the deadline around it is the one the middleware sets."""
 
     async def body() -> _Transacted:
-        fresh = a_clean_database(url, DATABASE_NAME, constraints=False, collections=(Collection.AKTIONEN,))
+        fresh = a_clean_database(url, DATABASE_NAME, constraints=False)
         async with fresh as (client, database):
-            written = database[Collection.AKTIONEN]
+            written = database[Collection.ACTION_LOG]
 
             sessions: list[Mapping[str, Any]] = []
 
             async def write_then_wait(session: AsyncClientSession) -> None:
                 sessions.append(session.session_id)
-                # Through the helper every route writes through, which is what marks the request as having sent one.
                 await post_one_to_db(collection=written, document={"_id": ObjectId()}, session=session)
                 if cut is not _Cut.NOWHERE:
                     await asyncio.sleep(SHORT_DEADLINE_S * 2)
@@ -300,7 +234,7 @@ class TestATransactionPastTheRequestDeadlineCommitsNothing:
 
         transacted = _transacted(mongo_replica_set_url, cut)
 
-        assert (transacted.status, transacted.error_code, transacted.standing) == (500, UNKNOWN_OUTCOME, 0)
+        assert (transacted.status, transacted.error_code, transacted.standing) == (500, Code.UNKNOWN_OUTCOME, 0)
         # Nothing standing is not nothing held: an open transaction keeps its write from every reader
         # and from every rival writer, until MongoDB's lifetime limit aborts it a minute on.
         assert transacted.transactions_held == []
@@ -326,8 +260,8 @@ STALL = "sleep(60000) || true"
 # Long enough that the team before the stall is minted inside it on a loaded machine.
 SHORT_REQUEST_DEADLINE_S = 1.5
 
-MINT_FAILED = "erzeugung_fehlgeschlagen"
-MINT_OUTCOME_UNKNOWN = "erzeugung_ungewiss"
+MINT_FAILED = "mint_failed"
+MINT_OUTCOME_UNKNOWN = "mint_uncertain"
 
 
 def _seeded_link(team_id: ObjectId) -> dict[str, Any]:
@@ -337,24 +271,23 @@ def _seeded_link(team_id: ObjectId) -> dict[str, Any]:
         "_id": ObjectId(),
         "saison_id": SAISON_ID,
         "team_id": team_id,
-        "token_hash": hash_token(f"seeded-{team_id}"),
-        "erstellt_am": "2026-03-15",
-        "erstellt_von": "admin@frankfurtleague.de",
+        "token_hashes": [hash_token(f"seeded-{team_id}")],
+        "created_at": "2026-03-15",
+        "created_by": "admin@frankfurtleague.de",
         "widerrufen_am": None,
-        "versand": {},
     }
 
 
 def _junction_row(team_id: ObjectId) -> dict[str, Any]:
-    trainer = kontaktperson_document(TEAM_NAMES[team_id], bestaetigt_am="2026-03-20", nachname="Mustermann", telefon="+49 69 1234567")
+    trainer = kontaktperson_document(TEAM_NAMES[team_id], confirmed_at="2026-03-20", nachname="Mustermann", telefon="+49 69 1234567")
 
     return saison_team_document(
         SAISON_ID,
         team_id,
         TEAM_NAMES[team_id],
-        TEAM_NAMES[team_id][:2].upper(),
+        TEAM_NAMES[team_id][:3].upper(),
         _id=ObjectId(),
-        kontakte={"trainer": trainer, "ansprechperson": None, "stellvertretung": None, "trainer_ist_zugleich": None},
+        kontakte={"trainer": trainer, "ansprechperson": None, "stellvertretung": None, "trainer_is_also": None},
     )
 
 
@@ -421,41 +354,41 @@ def _pressed(url: str, stand_in: Callable[[AsyncCollection], Any], *, seed_links
                 saison_document(
                     SAISON_ID,
                     "active",
-                    rules=rules_document(number_of_groups=2, max_kadergroesse=50, erlaubte_stufen=["E1"]),
+                    rules=rules_document(number_of_gruppen=2, max_kadergroesse=50, allowed_stufen=["E1"]),
                     registrierung={"offen": True, "von": "2026-03-01", "bis": "2026-04-30"},
                 )
             )
             await database[Collection.SAISON_TEAMS].insert_many([_junction_row(team_id) for team_id in TEAM_NAMES])
-            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             if seeded:
-                await database[Collection.EINLADUNGEN].insert_many(list(seeded.values()))
+                await database[Collection.INVITATIONS].insert_many(list(seeded.values()))
 
             served = create_app(config)
             # The tier's shared client: closing it belongs to `tests/database.py :: _release`.
             served.state.db_client = client
-            served.dependency_overrides[get_einladungen_collection] = lambda: stand_in(database[Collection.EINLADUNGEN])
+            served.dependency_overrides[collection_dependency(Collection.INVITATIONS)] = lambda: stand_in(database[Collection.INVITATIONS])
 
             transport = ASGITransport(app=served, raise_app_exceptions=False)
             async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
                 started = time.monotonic()
                 response = await http.post(
-                    f"/api/v{API_VERSION}/saisons/{SAISON_ID}/einladungen/versand", headers=ADMIN_HEADERS, json={"erneut": False}
+                    f"/api/v{API_VERSION}/saisons/{SAISON_ID}/invitations/dispatch", headers=ADMIN_HEADERS, json={"resend": False}
                 )
                 elapsed = time.monotonic() - started
 
             live = {
-                team_id: [row["_id"] async for row in database[Collection.EINLADUNGEN].find({"team_id": team_id, "widerrufen_am": None})]
+                team_id: [row["_id"] async for row in database[Collection.INVITATIONS].find({"team_id": team_id, "widerrufen_am": None})]
                 for team_id in TEAM_NAMES
             }
 
             return (
                 response.status_code,
                 elapsed,
-                {zeile["team_id"]: zeile["uebersprungen"] for zeile in response.json()["zeilen"]},
+                {row["team_id"]: row["skipped"] for row in response.json()["rows"]},
                 live,
                 {team_id: row["_id"] for team_id, row in seeded.items()},
-                {zeile["team_id"]: zeile["ersetzt_link"] for zeile in response.json()["zeilen"]},
-                {zeile["team_id"]: zeile["hatte_link"] for zeile in response.json()["zeilen"]},
+                {row["team_id"]: row["replaced_link"] for row in response.json()["rows"]},
+                {row["team_id"]: row["had_link"] for row in response.json()["rows"]},
             )
 
     return on_the_seed_loop(body())
@@ -565,7 +498,7 @@ def _handled_directly(caplog: pytest.LogCaptureFixture, error: PyMongoError) -> 
         asyncio.run(db_exception_handler(Request({"type": "http", "method": "GET", "headers": []}), error))
 
 
-class TestADeadlineCuttingARequestThatStoresNothingIsAFailure:
+class TestADeadlineCuttingASafeRequestIsAFailure:
     @pytest.mark.parametrize("error", DEADLINE_ERRORS)
     def test_a_read_answers_the_database_failure(self, error: PyMongoError):
         assert error.timeout
@@ -574,71 +507,16 @@ class TestADeadlineCuttingARequestThatStoresNothingIsAFailure:
         assert (response.status_code, response.json()["error_code"]) == (500, FAILED)
 
     def test_an_error_from_outside_the_driver_stays_the_server_failure(self):
-        """The control: without it, a handler answering every error `DB-FAIL-001` would pass the cases above."""
+        """The control: without it, a handler answering every error `database_failed` would pass the case above."""
 
         response = _raised_through_the_app(ValueError("not a database failure"))
 
-        assert (response.status_code, response.json()["error_code"]) == (500, UNHANDLED_CRASH)
-
-    @pytest.mark.parametrize("method", ["POST", "PATCH", "DELETE"])
-    @pytest.mark.parametrize("error", DEADLINE_ERRORS)
-    def test_a_write_method_that_sent_nothing_is_a_failure_too(self, error: PyMongoError, method: str):
-        """The method is not the judgement: a write route cut before its first write, in its actor check say, stored nothing."""
-
-        response = _raised_through_the_app(error, method)
-
-        assert (response.status_code, response.json()["error_code"]) == (500, FAILED)
+        assert (response.status_code, response.json()["error_code"]) == (500, Code.UNHANDLED_CRASH)
 
     def test_the_line_names_the_deadline_rather_than_a_crash(self, caplog: pytest.LogCaptureFixture):
         _handled_directly(caplog, NetworkTimeout("timed out"))
 
-        assert [record.getMessage().split(" (")[0] for record in caplog.records if getattr(record, "error_code", None)] == [
-            "Database deadline passed"
-        ]
-
-
-def _declared() -> dict[str, bool | str]:
-    """What each route declares, read off its dependencies rather than off the document it is compared to."""
-
-    declared: dict[str, bool | str] = {}
-    for route in api_routes(create_app(build_test_config())):
-        calls = {guard.call for guard in route.dependant.dependencies if guard.call is not None}
-        flags = [STORES_NOTHING_WHEN[call] for call in calls if call in STORES_NOTHING_WHEN]
-        for method in route.methods or ():
-            if stores_nothing in calls or flags:
-                declared[f"{method} {route.path_format}"] = True if stores_nothing in calls else flags[0]
-    return declared
-
-
-def _published() -> dict[str, dict[str, Any]]:
-    return {
-        f"{method.upper()} {path}": operation
-        for path, operations in build_document()["paths"].items()
-        for method, operation in operations.items()
-    }
-
-
-class TestTheDeclarationIsPublished:
-    """The frontend marks its calls against the document, never against a copy."""
-
-    def test_every_declaration_reaches_the_document_and_nothing_else_does(self):
-        published = {
-            name: operation[STORES_NOTHING_EXTENSION] for name, operation in _published().items() if STORES_NOTHING_EXTENSION in operation
-        }
-
-        assert published == _declared()
-        # Both kinds, so the equality cannot hold over two empty listings or over one kind alone.
-        assert True in published.values() and any(isinstance(value, str) for value in published.values())
-
-    def test_a_conditional_declaration_names_a_boolean_query_flag_the_operation_takes(self):
-        operations = _published()
-        conditional = {name: value for name, value in _declared().items() if isinstance(value, str)}
-
-        assert conditional
-        for name, flag in conditional.items():
-            assert [
-                (parameter["in"], parameter["schema"]["type"]) for parameter in operations[name]["parameters"] if parameter["name"] == flag
-            ] == [("query", "boolean")], name
+        assert [record.getMessage() for record in caplog.records if getattr(record, "error_code", None)] == ["http.database_timeout"]
 
 
 # The shape `with_transaction` hands on when a commit went out and no answer came back within the deadline.
@@ -649,120 +527,29 @@ class TestACommitOfUnknownOutcomeIsNotCalledFailed:
     def test_it_answers_its_own_code(self):
         response = _raised_through_the_app(UNKNOWN_COMMIT_OUTCOME)
 
-        assert (response.status_code, response.json()["error_code"]) == (500, UNKNOWN_OUTCOME)
+        assert (response.status_code, response.json()["error_code"]) == (500, Code.UNKNOWN_OUTCOME)
 
     def test_its_line_carries_the_same_code(self, caplog: pytest.LogCaptureFixture):
         _handled_directly(caplog, UNKNOWN_COMMIT_OUTCOME)
 
-        assert [getattr(record, "error_code", None) for record in caplog.records if getattr(record, "error_code", None)] == [UNKNOWN_OUTCOME]
+        assert [getattr(record, "error_code", None) for record in caplog.records if getattr(record, "error_code", None)] == [
+            Code.UNKNOWN_OUTCOME
+        ]
 
 
-class _NoDocuments:
-    async def to_list(self, length: int | None = None) -> list[Any]:
-        return []
-
-
-class _EveryWriteRaises:
-    """A collection whose every driver write raises `error` once handed to it; its one read, a removal's image, finds nothing."""
-
-    name = Collection.TEAMS
-
-    def __init__(self, error: Exception) -> None:
-        self._error = error
-
-    def find(self, *args: Any, **kwargs: Any) -> _NoDocuments:
-        return _NoDocuments()
-
-    def __getattr__(self, name: str) -> Any:
-        if name not in DRIVER_WRITES:
-            raise AttributeError(name)
-
-        async def raising(*args: Any, **kwargs: Any) -> Any:
-            raise self._error
-
-        return raising
-
-
-# Required by the removal helpers' signatures and read by nothing the collection above answers.
-NO_SESSION: Any = None
-
-# One call per `app/core/crud.py` helper reaching the driver's writes, each as a route makes it.
-WRITE_CALLS: dict[str, Callable[[Any], Awaitable[Any]]] = {
-    "anchor_in_db": lambda collection: anchor_in_db(collection=collection, db_filter={"_id": 1}, session=NO_SESSION),
-    "anchor_by_id_in_db": lambda collection: anchor_by_id_in_db(collection=collection, ids=["anker"], session=NO_SESSION),
-    "patch_one_in_db": lambda collection: patch_one_in_db(
-        collection=collection, db_filter={"_id": 1}, update={"$set": {"name": "Adler"}}, return_document=ReturnDocument.BEFORE
-    ),
-    "patch_many_in_db": lambda collection: patch_many_in_db(collection=collection, db_filter={"_id": 1}, update={"$set": {"name": "Adler"}}),
-    "post_one_to_db": lambda collection: post_one_to_db(collection=collection, document={"name": "Adler"}),
-    "post_many_to_db": lambda collection: post_many_to_db(collection=collection, documents=[{"name": "Adler"}]),
-    "delete_many_from_db": lambda collection: delete_many_from_db(collection=collection, db_filter={"_id": 1}, session=NO_SESSION),
-    "erase_many_from_db": lambda collection: erase_many_from_db(collection=collection, db_filter={"_id": 1}, session=NO_SESSION),
-}
-
-
-def _crud_functions_reaching_a_driver_write() -> set[str]:
-    """Read off `app/core/crud.py` itself, so a helper added there is driven below or fails the listing's comparison."""
-
-    return {
-        node.name
-        for node in parsed(BACKEND_ROOT / CRUD_MODULE).body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-        if any(isinstance(call, ast.Call) and callee(call) in DRIVER_WRITES for call in ast.walk(node))
-    }
-
-
-def _written_through_the_app(helper: str, error: Exception, method: str = "POST") -> Response:
-    """A route of the real app handing one helper a collection whose write raises `error`, as a write the deadline cut does."""
-
-    async def writing() -> None:
-        await WRITE_CALLS[helper](_EveryWriteRaises(error))
-
-    return _faulted_through_the_app(writing, method)
-
-
-class TestAWriteTheDeadlineCutIsNotCalledFailed:
-    @pytest.mark.parametrize("helper", sorted(WRITE_CALLS))
+class TestADeadlineCuttingAnUnsafeRequestIsNotCalledFailed:
+    @pytest.mark.parametrize("method", ["POST", "PATCH", "DELETE"])
     @pytest.mark.parametrize("error", DEADLINE_ERRORS)
-    def test_its_outcome_is_unknown(self, error: PyMongoError, helper: str):
+    def test_its_outcome_is_unknown(self, error: PyMongoError, method: str):
         """A write outside a transaction carries no label, and may have landed before its answer was lost."""
 
-        response = _written_through_the_app(helper, error)
+        response = _raised_through_the_app(error, method)
 
-        assert (response.status_code, response.json()["error_code"]) == (500, UNKNOWN_OUTCOME)
+        assert (response.status_code, response.json()["error_code"]) == (500, Code.UNKNOWN_OUTCOME)
 
-    def test_every_helper_reaching_the_driver_s_writes_is_driven(self):
-        assert _crud_functions_reaching_a_driver_write() == set(WRITE_CALLS)
+    def test_a_failure_without_the_deadline_stays_failed(self):
+        """The control: without it, a handler answering every unsafe request's database error unknown would pass the case above."""
 
-    def test_no_write_reaches_the_driver_past_those_helpers(self):
-        """A write sent past them is cut unmarked and called failed.
-
-        Excused: the log's row, which follows a helper's write, and a day count, which precedes the
-        write it counts, so a cut one leaves nothing standing.
-        """
-
-        outside = {f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) in DRIVER_WRITES}
-
-        assert {site for site in outside if not site.startswith(f"{CRUD_MODULE} :: ")} == {
-            "app/core/recording.py :: record_write",
-            "app/core/drosselung.py :: drosseln",
-            # An erasure's removal of the person's counts, inside the erasure's transaction, so a cut
-            # removal commits nothing and "failed" is the truth.
-            "app/core/drosselung.py :: erase_counts_in_session",
-            # An effect's carry of the counts onto the new pseudonym, inside the effect's transaction, for the same reason.
-            "app/core/drosselung.py :: carry_counts_in_session",
-        }
-
-    def test_the_method_does_not_decide_it(self):
-        """A `GET` that sent a write may have left it standing as surely as a `POST` does."""
-
-        response = _written_through_the_app("patch_many_in_db", NetworkTimeout("timed out"), "GET")
-
-        assert (response.status_code, response.json()["error_code"]) == (500, UNKNOWN_OUTCOME)
-
-    def test_a_write_failing_without_the_deadline_stays_failed(self):
-        """The control: without it, a handler answering every sent write's database error unknown would pass the cases above."""
-
-        response = _written_through_the_app("post_one_to_db", OperationFailure("refused", 2, {"ok": 0, "code": 2}))
+        response = _raised_through_the_app(OperationFailure("refused", 2, {"ok": 0, "code": 2}), "POST")
 
         assert (response.status_code, response.json()["error_code"]) == (500, FAILED)

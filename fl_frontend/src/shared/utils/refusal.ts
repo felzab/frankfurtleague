@@ -49,7 +49,7 @@ export const UNKNOWN_REFUSAL = `${LADE_NEU_UND_VERSUCHE_ES_ERNEUT}.`;
  * What an admin editor says where the consent registry's read failed: the one control needing a label
  * closes with it, and the rest of the page stands.
  */
-export const FASSUNG_UNLESBAR = buildRefusal({
+export const WORDING_UNREADABLE = buildRefusal({
   reason: "Die laufende Fassung der Hinweise ließ sich nicht lesen",
   repair: LADE_NEU_UND_VERSUCHE_ES_ERNEUT,
 });

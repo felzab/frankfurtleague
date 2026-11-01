@@ -1,10 +1,6 @@
 "use server";
 
-import z from "zod";
-
-import { invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
-import { partlyRestored, refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
+import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { RETIREMENT_KEEPS_SQUAD_ROWS } from "./constants";
@@ -17,7 +13,7 @@ import {
   reactivateSaisonSpieler,
   reactivateSpieler,
 } from "./mutations";
-import { mapAlreadyInSaisonRefusal, mapSquadRefusal, SQUAD_REPLAY_REFUSALS } from "./refusals";
+import { mapAlreadyInSaisonRefusal, mapSquadRefusal } from "./refusals";
 import {
   FLDeleteSpielerPayloadSchema,
   FLPatchSaisonSpielerPayloadSchema,
@@ -27,21 +23,10 @@ import {
   FLSaisonSpielerKeyPayloadSchema,
 } from "./schemas";
 
+import type { FLSaisonSpielerResponse, FLSpielerAdminSingleResponse } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
-import type { UndoOutcome } from "@/shared/utils/adminUndo";
-import type {
-  FLDeleteSpielerPayload,
-  FLReactivateSpielerPayload,
-  FLSaisonSpielerKeyPayload,
-  FLSaisonSpielerResponse,
-  FLSpielerAdminSingleResponse,
-} from "./schemas";
+import type { FLDeleteSpielerPayload, FLReactivateSpielerPayload, FLSaisonSpielerKeyPayload } from "./schemas";
 import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerPersonPayloadDraft } from "./types";
-
-/** Base tag only, for the reason `fl_frontend/src/features/spieler/queries.ts :: getSpieler` gives. */
-function invalidateSpieler(): void {
-  invalidatesOnWrite("spieler");
-}
 
 export async function patchSpielerAction(
   rawPayload: SpielerPersonPayloadDraft,
@@ -53,12 +38,7 @@ export async function patchSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSpieler();
     const patchOperation = await patchSpieler(validated.data);
-    if (!patchOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Spielerdaten wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return {
       success: true,
       spieler: patchOperation,
@@ -77,12 +57,7 @@ export async function deleteSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSpieler();
     const deleteOperation = await deleteSpieler(validated.data);
-    if (!deleteOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spieler wurde nicht stillgelegt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return {
       success: true,
       spieler: deleteOperation,
@@ -101,12 +76,7 @@ export async function reactivateSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSpieler();
     const reactivateOperation = await reactivateSpieler(validated.data);
-    if (!reactivateOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spieler wurde nicht reaktiviert", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return {
       success: true,
       spieler: reactivateOperation,
@@ -126,7 +96,6 @@ export async function postSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSpieler();
     let saisonSpieler;
     try {
       saisonSpieler = await postSaisonSpieler(validated.data);
@@ -158,7 +127,6 @@ export async function patchSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSpieler();
     let saisonSpieler;
     try {
       saisonSpieler = await patchSaisonSpieler(validated.data);
@@ -187,14 +155,13 @@ export async function deleteSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSpieler();
     const deleteOperation = await deleteSaisonSpieler(validated.data);
 
     return {
       success: true,
       saison_spieler: deleteOperation,
       // The role is on the list although another live row can take it meanwhile: this stamp empties no
-      // field, the reactivate brings all four back, and `REQ-SQUAD-004` is what refuses a role given away.
+      // field, the reactivate brings all four back, and `kader_rolle_taken` is what refuses a role given away.
       message: "Nummer, Rolle, Position und Stufe bleiben erhalten.",
     };
   });
@@ -210,9 +177,8 @@ export async function reactivateSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSpieler();
     // Reviving a row takes a squad slot like any other write, so the cap refuses it too
-    // (`REQ-SQUAD-003`) — and the shared fallback would name no reason.
+    // (`kader_full`) — and the shared fallback would name no reason.
     let reactivateOperation;
     try {
       reactivateOperation = await reactivateSaisonSpieler(validated.data);
@@ -227,53 +193,5 @@ export async function reactivateSaisonSpielerAction(
       saison_spieler: reactivateOperation,
       message: "Nummer, Rolle, Position und Stufe sind wiederhergestellt.",
     };
-  });
-}
-
-const SpielerUndoSchema = z
-  .object({
-    person: FLPatchSpielerPayloadSchema.optional(),
-    saison: FLPatchSaisonSpielerPayloadSchema.optional(),
-  })
-  .refine((body) => body.person !== undefined || body.saison !== undefined, {
-    error: "Nothing to restore",
-  });
-
-/** What closes a refusal where the person half went back first, which the change standing would deny. */
-const PERSON_HALF_RESTORED = "Nur die Personendaten wurden zurückgesetzt.";
-
-/** The squad half after the person half went back, as a refusal names it. */
-const SQUAD_HALF = { unworded: "Der Kadereintrag lässt sich so nicht mehr zurücksetzen.", restored: PERSON_HALF_RESTORED };
-
-export async function undoAdminSpielerEditAction(rawPayload: z.input<typeof SpielerUndoSchema>): Promise<UndoOutcome> {
-  return runAdminUndo("undoAdminSpielerEditAction", async () => {
-    const validated = SpielerUndoSchema.safeParse(rawPayload);
-    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
-    const { person, saison } = validated.data;
-
-    invalidateSpieler();
-    if (person !== undefined) {
-      // No replay catch: the register declares no refusal against the season-independent person row.
-      const operation = await patchSpieler(person);
-      if (!operation.acknowledged) return unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Spielerdaten.");
-    }
-
-    if (saison !== undefined) {
-      let operation;
-      try {
-        operation = await patchSaisonSpieler(saison);
-      } catch (error) {
-        return person === undefined ? refusedReplay(error, SQUAD_REPLAY_REFUSALS) : partlyRestored(error, SQUAD_REPLAY_REFUSALS, SQUAD_HALF);
-      }
-
-      if (!operation.acknowledged) {
-        // The first half may already be restored; reported rather than papered over.
-        return unclearReplay(
-          person === undefined ? "Die Rücknahme wurde abgebrochen. Prüfe den Kadereintrag." : `${PERSON_HALF_RESTORED} Prüfe den Kadereintrag.`,
-        );
-      }
-    }
-
-    return restored();
   });
 }

@@ -40,9 +40,9 @@ function Spinner() {
   return (
     <ProgressBar
       isIndeterminate
-      aria-label={COPY.shared.laedt}>
+      aria-label={COPY.shared.loading}>
       <Icon
-        glyph="laedt"
+        glyph="loading"
         size={16}
         spinning
       />

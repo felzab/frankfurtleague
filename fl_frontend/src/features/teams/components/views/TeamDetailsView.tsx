@@ -7,8 +7,8 @@ import { TeamSaisonSpieleTimeline } from "../ui/TeamSaisonSpieleTimeline";
 import { TeamSaisonStatistik } from "../ui/TeamSaisonStatistik";
 import { TeamSaisonVerlauf } from "../ui/TeamSaisonVerlauf";
 
-import type { FLSpiel } from "@/features/spiele/schemas";
-import type { FLTeam } from "../../schemas";
+import type { FLTeam } from "@/core/generated/client/types";
+import type { FLSpiel } from "@/features/spiele/types";
 
 /**
  * Composition only, and nothing here hands a function to a client leaf — the callbacks live below

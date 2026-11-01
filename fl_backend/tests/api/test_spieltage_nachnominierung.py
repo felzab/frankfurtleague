@@ -71,7 +71,7 @@ class TestThePeriodIsReadOffTheFirstPhasesMatchdayOne:
         assert [asked_in for _, _, asked_in in stub.asked] == [session]
 
     @pytest.mark.parametrize(
-        ("stored", "laeuft"),
+        ("stored", "running"),
         [
             (None, False),
             ({"beginn": None}, False),
@@ -81,5 +81,5 @@ class TestThePeriodIsReadOffTheFirstPhasesMatchdayOne:
         ],
         ids=["no matchday yet", "an undated matchday 1", "dated after today", "dated today", "dated before today"],
     )
-    def test_each_stored_state_answers_as_the_predicate_does(self, stored: dict[str, Any] | None, laeuft: bool):
-        assert _laeuft_in(_OneMatchday(stored)) is laeuft
+    def test_each_stored_state_answers_as_the_predicate_does(self, stored: dict[str, Any] | None, running: bool):
+        assert _laeuft_in(_OneMatchday(stored)) is running

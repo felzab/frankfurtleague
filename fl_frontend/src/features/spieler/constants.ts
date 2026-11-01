@@ -1,7 +1,8 @@
+import { FLSpielerPosition, FLSpielerStufe } from "@/core/generated/client/types";
 import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
 import { buildRefusal } from "@/shared/utils/refusal";
 
-import type { FLEinwilligung, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "./schemas";
+import type { FLEinwilligungUmfang, FLSpielerRolle } from "@/core/generated/client/types";
 
 type RolleOption = { value: FLSpielerRolle; label: string };
 
@@ -29,14 +30,14 @@ export const SPIELER_CRUD_COPY = {
   emptyOverall: "Es steht noch niemand in einem Kader.",
 } as const;
 
-/** Ordered from the goal outwards, as a squad sheet reads. The closed set is `FLSpielerPositionSchema`'s. */
-export const POSITION_OPTIONS: readonly FLSpielerPosition[] = ["Tor", "Abwehr", "Mittelfeld", "Angriff"];
+/** Ordered from the goal outwards, as a squad sheet reads and the backend declares `FLSpielerPosition`. */
+export const POSITION_OPTIONS: readonly FLSpielerPosition[] = Object.values(FLSpielerPosition);
 
 /**
- * **A form offers a SEASON's `rules.erlaubte_stufen`, not this.** This is the vocabulary, and the
+ * **A form offers a SEASON's `rules.allowed_stufen`, not this.** This is the vocabulary, and the
  * ordering authority a season's list is sorted against so no two seasons order alike.
  */
-export const STUFE_OPTIONS: readonly FLSpielerStufe[] = ["E1", "E2", "Q1", "Q2", "Q3", "Q4"];
+export const STUFE_OPTIONS: readonly FLSpielerStufe[] = Object.values(FLSpielerStufe);
 
 /** A season's allowed levels in the league's own order, so the picker never reads out of sequence. */
 export function orderStufen(erlaubt: readonly FLSpielerStufe[]): FLSpielerStufe[] {
@@ -47,7 +48,7 @@ export function orderStufen(erlaubt: readonly FLSpielerStufe[]): FLSpielerStufe[
  * What a pupil agreed may be PUBLISHED, never what a contact seat's identically named block records:
  * the two share every field name and no value (`docs/glossary.md :: Einwilligung`).
  */
-export const EINWILLIGUNG_UMFANG_LABELS: Record<FLEinwilligung["umfang"], string> = {
+export const EINWILLIGUNG_UMFANG_LABELS: Record<FLEinwilligungUmfang, string> = {
   kader_oeffentlich: "Name im öffentlichen Kader",
   intern: "Nur innerhalb der Liga",
 };
@@ -99,7 +100,7 @@ export const KADER_ABSCHNITT = "Kader";
 export const RETIREMENT_KEEPS_SQUAD_ROWS = "Die Kadereinträge dieser Person bleiben erhalten.";
 
 /**
- * `REQ-SQUAD-001` in German for a reader standing where it is repaired — the REPAIR rather than the
+ * `kader_team_not_in_saison` in German for a reader standing where it is repaired — the REPAIR rather than the
  * state, which the banner beside the control carries. `actions.ts` words it for a reader elsewhere,
  * and one sentence cannot point both ways.
  */
@@ -117,7 +118,7 @@ export const LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON =
 // One sentence for both readers, where the club refusal above needed one each: the repair is another
 // player's page or the season's rules, so neither the list nor the editor could point within itself.
 /**
- * `REQ-SQUAD-003` in German, word for word the sentence `actions.ts` toasts for the code, so a
+ * `kader_full` in German, word for word the sentence `actions.ts` toasts for the code, so a
  * press that got past a stale gate reads as the state this control already showed.
  */
 export const REACTIVATION_NEEDS_ROOM_IN_SQUAD =
@@ -189,7 +190,7 @@ export function kaderName({ vorname, nachname }: { vorname: string; nachname: st
 }
 
 /**
- * `REQ-SQUAD-005` in German. The form offers only the season's levels, so a seat holder meets it where
+ * `kader_stufe_not_allowed` in German. The form offers only the season's levels, so a seat holder meets it where
  * the season was narrowed under the open page, and the picker is where it is repaired.
  */
 export const STUFE_NICHT_ZUGELASSEN = "Diese Stufe ist in dieser Saison nicht zugelassen.";
@@ -208,7 +209,7 @@ export const NUMMER_NICHT_HINTERLEGT = nichtHinterlegt("Nummer");
 
 /**
  * The day a squad row was taken out, in the one sentence the admin editor's banner, a seat holder's
- * squad and the pupil's own page (`SpielerSelbstView`) all state it in.
+ * squad and the pupil's own page (`SpielerSelfView`) all state it in.
  */
 export function ausgetragenSeit(inactiveSince: string): string {
   return `Ausgetragen seit ${formatSpielDatum(inactiveSince)}`;

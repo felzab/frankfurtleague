@@ -3,7 +3,7 @@ import { buildRefusal } from "@/shared/utils/refusal";
 
 /**
  * The reason's bound, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound here too because the
- * endpoint's `REQ-VAL-001` marks an over-long box with a generic sentence rather than the bound's German.
+ * endpoint's `payload_refused` marks an over-long box with a generic sentence rather than the bound's German.
  */
 export const SPERRLISTE_GRUND_MAX_LENGTH = 500;
 
@@ -69,7 +69,7 @@ export const SPERRE_ANSICHT_COPY = {
   // A record, never „nichts“: the account and the log below stand whatever the read found, as the erasure's reveal says.
   leer: "Unter dieser Adresse ist kein Eintrag gespeichert.",
   // The account sweep's criterion in the ban mail's kinds, a grant left out: no barred address holds one
-  // (`REQ-SPERRLISTE-003`). The sweep, and never the ban, ends it.
+  // (`sperrliste_verwaltung`). The sweep, and never the ban, ends it.
   konto:
     "Ein Konto mit dieser Adresse bleibt nur bestehen, solange unter der Adresse noch etwas davon gespeichert ist: ein Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, ein Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter oder eine bestätigte Registrierung, über die das Team noch nicht entschieden hat. Bis die Sperre endet, kann sich damit niemand anmelden.",
   // What no record read lists and the ban changes nothing of, named as the erasure's reveal names it.
@@ -99,7 +99,7 @@ export const SPERRE_ANSICHT_VERWEISE = {
 
 /**
  * A referee's fixtures link, one per season holding a booking still to be played, ahead of the retirement:
- * `REQ-RETIRE-004` refuses it while any stands.
+ * `schiedsrichter_still_assigned` refuses it while any stands.
  */
 export const spieleNeuBesetzen = (saisonId: string): string => `Spiele der Saison ${saisonId} neu besetzen`;
 

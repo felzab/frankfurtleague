@@ -702,70 +702,15 @@ return before its end, U+2028, U+2029 or a NUL byte.
 NOTHING was asked of compose or of either service."
 }
 
-# The actor token's signing key: where the host holds it, and where compose mounts it for the frontend.
-# The file is read by the scripts that source this one.
-# shellcheck disable=SC2034
-SIGNING_KEY_FILE="secrets/fl_actor_signing_key"
-SIGNING_KEY_MOUNT="/run/secrets/fl_actor_signing_key"
-
-# `ACTOR_SIGNING_KEY_FILE` over the mount `$1`, as the frontend reads the key. Whether it is usable is
-# the boot's to refuse (`check_frontend_boot_config`, asked first), so a failed read is an advisory.
-# Exit 3 names the fault, never a value.
-ACTOR_KEY_CHECK='
-process.on("uncaughtException", (error) => { console.error(error.name); process.exit(4); });
-const { readFileSync } = require("node:fs");
-const { createPublicKey } = require("node:crypto");
-const { parseEnv } = require("node:util");
-const refuse = (line) => { console.error(line); process.exit(3); };
-const signing = readFileSync(process.env.ACTOR_SIGNING_KEY_FILE ?? process.argv[1]);
-const published = parseEnv(readFileSync(0, "utf8")).ACTOR_TOKEN_PUBLIC_KEY;
-if (published === undefined) refuse("ACTOR_TOKEN_PUBLIC_KEY is missing from fl_backend/.env");
-if (!/^[A-Za-z0-9_-]{43}$/.test(published) || Buffer.from(published, "base64url").length !== 32) refuse("ACTOR_TOKEN_PUBLIC_KEY is not the base64url of 32 bytes");
-if (createPublicKey(signing).export({ format: "jwk" }).x !== published) refuse("ACTOR_TOKEN_PUBLIC_KEY is not the public half of the signing key");
-'
-
-# The lines of `fl_backend/.env` the pair check is handed, as `node:util :: parseEnv` finds the name.
-PUBLIC_KEY_LINE_RE='^ACTOR_TOKEN_PUBLIC_KEY='
-
-# Before any container is replaced: a failing pair starts a build whose every admin and person call
-# the backend refuses. `$1` is what stands at the refusal; the rest runs the frontend service's
-# container as the stack starts it.
-check_actor_key() {
-  # Off, as in `check_frontend_boot_config`.
-  local -
-  set +x
-  local standing="$1" rc=0 said="" lines=""; shift
-  # The public half alone: the rest of the file is the backend's database login and keys, which a
-  # frontend container never holds. grep's 1 is "no such line", the check's own finding below.
-  lines="$(grep -E "$PUBLIC_KEY_LINE_RE" fl_backend/.env)" || (( $? == 1 )) \
-    || refuse "fl_backend/.env could not be read for its ACTOR_TOKEN_PUBLIC_KEY line. grep's own reason is above.
-${standing}"
-  # MSYS_NO_PATHCONV: Git Bash rewrites the `/run/...` argument into a Windows path the container
-  # has never heard of, and the key reads as missing.
-  said="$(MSYS_NO_PATHCONV=1 "$@" node -e "$ACTOR_KEY_CHECK" "$SIGNING_KEY_MOUNT" <<<"$lines" 2>&1)" || rc=$?
-  if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
-  if (( rc == 3 )); then
-    refuse "the actor token's key pair would not work, and the line above says why: generate the pair again
-and put each half where docs/ops/runbooks.md §16 says.
-${standing}"
-  elif (( rc )); then
-    # An advisory, as each environment reader's is: the running stack never runs this check.
-    warn "the frontend image could not be asked to judge the actor token's key pair (exit ${rc}), so
-nothing here says whether the frontend can sign with it or the backend verify it. Its own answer is above."
-  else
-    ok "the frontend can read the actor token's signing key, and fl_backend/.env's ACTOR_TOKEN_PUBLIC_KEY is its public half"
-  fi
-}
-
 # --- The secret files ---------------------------------------------------------------------------------
 
 # The files under `secrets/` each stack mounts per service, held to the compose files by
 # `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`; each image judges whether it can use
-# them. The signing key and the tunnel token are checked apart.
+# them. The tunnel token is checked apart.
 # shellcheck disable=SC2034  # read by the scripts that source this file
-FRONTEND_SECRETS=(frontend_mongodb_uri auth_secret auth_resend_key resend_webhook_secret internal_api_key_base internal_api_key_system internal_api_key_admin turnstile_secret_key)
+FRONTEND_SECRETS=(frontend_mongodb_uri auth_secret auth_resend_key resend_webhook_secret internal_api_key_base internal_api_key_system internal_api_key_admin turnstile_secret_key betterstack_heartbeat_url)
 # shellcheck disable=SC2034  # read by the scripts that source this file
-BACKEND_SECRETS=(backend_mongodb_uri sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
+BACKEND_SECRETS=(backend_mongodb_uri sperrliste_key internal_api_key_base internal_api_key_system internal_api_key_admin)
 
 # The local stack sends no mail and is sent no provider event, so its frontend is handed no key to
 # the provider, and each login is an inline config naming the stack's own database
@@ -773,16 +718,18 @@ BACKEND_SECRETS=(backend_mongodb_uri sperrliste_schluessel internal_api_key_base
 # shellcheck disable=SC2034  # read by the scripts that source this file
 LOCAL_FRONTEND_SECRETS=(auth_secret internal_api_key_base internal_api_key_system internal_api_key_admin)
 # shellcheck disable=SC2034  # read by the scripts that source this file
-LOCAL_BACKEND_SECRETS=(sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
+LOCAL_BACKEND_SECRETS=(sperrliste_key internal_api_key_base internal_api_key_system internal_api_key_admin)
 
 # The environment names those files replace, `scripts/checks/check_compose_model.py :: MOVED_ENV_NAMES`
 # spelled again, since neither the deploy nor the local stack runs a Python of the host's own to read
 # it; `scripts/tests/test_check_compose_model.py` holds the two equal.
-MOVED_ENV_NAMES=(MONGODB_URI SPERRLISTE_SCHLUESSEL AUTH_SECRET AUTH_RESEND_KEY RESEND_WEBHOOK_SECRET INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN TURNSTILE_SECRET_KEY)
+MOVED_ENV_NAMES=(MONGODB_URI SPERRLISTE_KEY AUTH_SECRET AUTH_RESEND_KEY RESEND_WEBHOOK_SECRET INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN TURNSTILE_SECRET_KEY BETTERSTACK_HEARTBEAT_URL)
 
-# The administrator list the stored grants replaced: read by no service, and its addresses are what
-# `docker inspect` would print.
-RETIRED_ENV_NAMES=(ALLOWED_ADMIN_EMAILS)
+# Names no service reads: the administrator list the stored grants replaced, whose addresses are what
+# `docker inspect` would print, the five job switches the hourly scheduler replaced, which the
+# frontend's settings never read, so a line left standing would read as a switch still set, and the
+# credential names the naming pass renamed, whose value a line under the old name would never reach.
+RETIRED_ENV_NAMES=(ALLOWED_ADMIN_EMAILS BEWERBUNG_SWEEP KONTO_SWEEP LOESCHUNG_SWEEP SPIEL_SWEEP SPIELBERICHT_EINGABE SPERRLISTE_SCHLUESSEL)
 
 # No command, so the image's own server runs its boot gates, which `BOOT_CHECK` ends there; `$2` is
 # the deployment the boot holds `APP_ENV` to (`fl_frontend/src/instrumentation-node.ts :: registerOnNode`).
@@ -798,14 +745,14 @@ check_frontend_boot_config() { # $1 what stands at the refusal, $2 production or
   if (( rc == 3 )); then
     refuse "the frontend refuses the settings its container would boot with, and the CRITICAL line above names
 what: a variable to correct in fl_frontend/.env -- APP_ENV where it names another deployment than
-${deployment} -- or a file under secrets/, the signing key among them, to write again or give the owner
-and mode docs/ops/runbooks.md §16 says. No value is printed.
+${deployment} -- or a file under secrets/ to write again or give the owner and mode
+docs/ops/runbooks.md §16 says. No value is printed.
 ${standing}"
   elif (( rc )); then
     warn "the frontend image could not be asked to run its boot gates (exit ${rc}), so nothing here says
 whether it would boot. Its own answer is above."
   else
-    ok "the frontend's boot passes every gate on its container's variables, secret files and signing key"
+    ok "the frontend's boot passes every gate on its container's variables and secret files"
   fi
 }
 
@@ -873,7 +820,8 @@ refuse_credential_lines() { # $@ the environment files
   done
   (( ${#found[@]} )) || return 0
   refuse "these lines name a value no service reads from its environment: a credential, which is its
-file's under secrets/, or the administrator list the stored grants replaced:
+file's under secrets/, the administrator list the stored grants replaced, a job switch the
+hourly scheduler replaced, or a name the naming pass renamed:
 $(printf '  %s\n' "${found[@]}")
 Delete them (docs/ops/runbooks.md §16). NOTHING was asked of compose or of either service."
 }

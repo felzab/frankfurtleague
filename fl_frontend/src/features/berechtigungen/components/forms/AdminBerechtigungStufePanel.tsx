@@ -15,7 +15,7 @@ import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
-import type { FLVerwaltung } from "@/features/berechtigungen/schemas";
+import type { FLVerwaltung } from "@/core/generated/client/types";
 
 /**
  * One grant's tier change, an owner's alone, escalated where the row stands as its revoke is: the armed
@@ -37,7 +37,7 @@ export function AdminBerechtigungStufePanel({
   eigene: boolean;
 }) {
   const ziel: FLVerwaltung = verwaltung === "owner" ? "administration" : "owner";
-  const { resting, name, armed, running, folge } = stufeWorte({ adresse, erteiltAm, ziel, eigene });
+  const { resting, name, armed, running, folge } = stufeWorte({ adresse, erteiltAm, ziel, own: eigene });
   // The enrolment's window, as the action's: the prompt asks before a press the server would refuse.
   const twoPress = useTwoPressConfirm({ stepUp: "enrolment" });
   const router = useRouter();

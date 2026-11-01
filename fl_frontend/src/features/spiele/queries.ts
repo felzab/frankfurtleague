@@ -1,29 +1,26 @@
 import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
-import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
+import { spieleGetSpiele, spieleGetSpieleVerwaltung, spieleGetSpielVerwaltung } from "@/core/generated/client/sdk";
+import { SITE_CACHE_TAG } from "@/core/siteCache";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import { FLSpieleAdminListResponseSchema, FLSpieleAdminSingleResponseSchema, FLSpieleListResponseSchema } from "./schemas";
+import type {
+  FLSpieleAdminListResponse,
+  FLSpieleAdminSingleResponse,
+  FLSpieleListResponse,
+  SpieleGetSpieleParams,
+  SpieleGetSpieleVerwaltungParams,
+} from "@/core/generated/client/types";
 
-import type { FLSpieleAdminListResponse, FLSpieleAdminSingleResponse, FLSpieleListResponse } from "./schemas";
-import type { FLSpieleFilterParams } from "./types";
-
-export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSpieleListResponse> {
+export async function getSpiele(filters: SpieleGetSpieleParams = {}): Promise<FLSpieleListResponse> {
   "use cache";
 
-  // The only granular tag, and `actions.ts` declares its matching `invalidatesOnWrite`. None by phase or status:
-  // a result edit changes a match's status, so both the old and new value would have to invalidate.
-  const tags: string[] = ["spiele"];
-  if (filters.saison_id) tags.push(`spiele:saison_id:${filters.saison_id}`);
-  cacheTag(...tags);
-  cacheLife("hours");
+  cacheTag(SITE_CACHE_TAG);
+  cacheLife("minutes");
 
-  return apiClient("/spiele", FLSpieleListResponseSchema, {
-    params: filters,
-    cacheFill: { name: "getSpiele", args: filters },
-  });
+  return spieleGetSpiele(filters);
 }
 
 /** One in-flight admin fixture read per filter set, held for the length of one render pass. */
@@ -33,14 +30,14 @@ const adminSpieleInFlight = cache((): Map<string, Promise<FLSpieleAdminListRespo
  * A season's fixtures for the admin surfaces, a planned season's included — `getSpiele` lists that
  * season as empty. **Uncached, and it stays uncached**.
  */
-export function getAdminSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSpieleAdminListResponse> {
+export function getAdminSpiele(filters: SpieleGetSpieleVerwaltungParams = {}): Promise<FLSpieleAdminListResponse> {
   // Keyed on the filters SERIALIZED, never on the object: React's `cache` compares an argument by
   // identity, so a literal written at the call site would miss every time and memoize nothing.
   const key = JSON.stringify(filters, Object.keys(filters).sort());
   const held = adminSpieleInFlight().get(key);
   if (held !== undefined) return held;
 
-  const started = runAdminRead(() => apiClient("/spiele/list/admin", FLSpieleAdminListResponseSchema, { authType: "admin", params: filters }));
+  const started = runAdminRead(() => spieleGetSpieleVerwaltung(filters));
   adminSpieleInFlight().set(key, started);
 
   return started;
@@ -57,7 +54,7 @@ export async function getAdminSpiel(spielId: string): Promise<FLSpieleAdminSingl
   return runAdminRead(() =>
     // `null` for "no such fixture", which the editor page turns into `notFound()`. Every other
     // status still throws.
-    apiClient(`/spiele/${spielId}/admin`, FLSpieleAdminSingleResponseSchema, { authType: "admin" }).catch((error: unknown) => {
+    spieleGetSpielVerwaltung(spielId).catch((error: unknown) => {
       if (isRecordMissing(error)) return null;
       throw error;
     }),

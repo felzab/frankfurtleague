@@ -1,9 +1,9 @@
+import type { FLBewerbung } from "@/core/generated/client/types";
 import type { PillTone } from "@/shared/components/ui/badges";
-import type { FLBewerbung } from "./schemas";
 
 /**
  * What two open applications collide on. Never both at once: an application names either a club or a
- * proposed school, the shape `REQ-BEWERBUNG-005` refuses, so each row carries exactly one key.
+ * proposed school, the shape `bewerbung_submission_subject_unresolved` refuses, so each row carries exactly one key.
  */
 export type BewerbungDublette = "team" | "kuerzel";
 
@@ -33,9 +33,8 @@ type Kandidat = Pick<FLBewerbung, "id" | "saison_id" | "status" | "team_id" | "s
 function dublettenSchluessel(bewerbung: Kandidat): { art: BewerbungDublette; key: string } | null {
   if (bewerbung.team_id !== null) return { art: "team", key: `${bewerbung.saison_id} team ${bewerbung.team_id}` };
 
-  // Folded, which `uniq_shorthand` is not: that index compares two-letter codes byte for byte, so
-  // `gg` beside `GG` would enter the league as two clubs, and the queue asks about it first.
-  const kuerzel = bewerbung.schule === null ? "" : bewerbung.schule.shorthand.trim().toUpperCase();
+  // As served: the backend folds a code on arrival and again as it serves one, so two spellings of one code are one value.
+  const kuerzel = bewerbung.schule === null ? "" : bewerbung.schule.shorthand;
 
   return kuerzel === "" ? null : { art: "kuerzel", key: `${bewerbung.saison_id} kuerzel ${kuerzel}` };
 }
@@ -59,7 +58,7 @@ export function markBewerbungDubletten(
   for (const bewerbung of bewerbungen) {
     // The ROW's own status and not the key's: two open applications collide on a Kürzel a third,
     // declined one also carries, and marking that one asks for a decision already taken.
-    if (bewerbung.status !== "eingereicht") continue;
+    if (bewerbung.status !== "submitted") continue;
 
     const schluessel = dublettenSchluessel(bewerbung);
 

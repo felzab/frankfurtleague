@@ -15,7 +15,7 @@ import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { AustrittKuerzel } from "./AustrittKuerzel";
 
-import type { FLAustrittType } from "@/features/teams/schemas";
+import type { FLAustrittType } from "@/core/generated/client/types";
 
 /**
  * **Every team this mounts for is a real team** — a fixture side with no occupant renders its

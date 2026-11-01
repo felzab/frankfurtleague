@@ -54,7 +54,9 @@ VALUES.         Your agent name: <name>. Session branch: <session branch>; your 
                 from it at <sha>. Coordinator's checkout: <path>. Scratch path: <path>.
 
 BAR.            Done is every item met in full, nothing traded. Challenge an item that conflicts
-                with documented practice or the evidence before you build it. Ask what you cannot
+                with documented practice or the evidence before you build it. Before you build any
+                mechanism, find the documented standard way and use it, naming its source in the
+                commit body; your own way is the last resort, asked first. Ask what you cannot
                 verify; never assume it. Lean: a test only where a behaviour could regress unnoticed
                 and it is the cheapest guard, a comment or document only for what the code cannot
                 say, the smallest change that fully solves the item, and removing an unneeded test,

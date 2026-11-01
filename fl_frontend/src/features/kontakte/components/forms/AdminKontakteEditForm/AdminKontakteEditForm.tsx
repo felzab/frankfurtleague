@@ -1,15 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 
-import { patchSaisonTeamKontakteAction, undoAdminKontakteEditAction } from "@/features/kontakte/actions";
+import { patchSaisonTeamKontakteAction } from "@/features/kontakte/actions";
 import { deriveKontakteDraftStatus } from "@/features/kontakte/kontakteDraftStatus";
 import { kontakteMayMoveLinks } from "@/features/kontakte/linkMint";
-import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
+import { KontakteSpeichernEingabeSchema } from "@/features/kontakte/schemas";
 import {
   addressOnlyConfirmedSeatLabels,
-  describeUnrestorableKontakte,
   emptiedSeatLabels,
   kontaktZeile,
   mirrorKontakte,
@@ -32,30 +30,17 @@ import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useStepUp } from "@/shared/hooks/useStepUp";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
-import { versandWarnt } from "@/shared/utils/linkVersand";
-import { buildRefusal } from "@/shared/utils/refusal";
-import { offerUndo } from "@/shared/utils/undoDispatch";
+import { appToast } from "@/shared/utils/appToast";
 
 import { buildKontakteBanners } from "./banners";
 import { FormKontakteLoeschenSection } from "./FormKontakteLoeschenSection";
 import { FormKontakteSection } from "./FormKontakteSection";
 
-import type { FLPatchSaisonTeamKontaktePayload } from "@/features/kontakte/schemas";
+import type { KontakteSpeichernEingabe } from "@/features/kontakte/schemas";
 import type { MedienFragen } from "@/features/spieler/nachweis";
 import type { SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
-
-/**
- * The save answered without the token of what it left, so the undo has no precondition. One `Stand`
- * means the pre-save block, as in
- * `fl_frontend/src/features/kontakte/utils.ts :: describeUnrestorableKontakte`: the token has no name
- * a reader would know.
- */
-const OHNE_NACHSTAND = buildRefusal({
-  reason: "Die Kontakte sind gespeichert",
-  repair: "Trage den vorherigen Stand bei Bedarf von Hand ein",
-});
 
 /**
  * **One save bar over one endpoint.** `PATCH /teams/{team_id}/saisons/{saison_id}/kontakte` writes the
@@ -77,14 +62,13 @@ export function AdminKontakteEditForm({
   saison: TeamSaisonMembership;
   pageHeader: EditPageHeaderContent;
 }) {
-  const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
   const stepUp = useStepUp();
 
   const storedMembership = saison.membership;
-  // Read ONCE, so the seed, the change list's stored half and the undo body cannot disagree about
-  // what the season holds.
+  // Read ONCE, so the seed and the change list's stored half cannot disagree about what the season
+  // holds.
   const storedKontakte = storedMembership?.kontakte ?? null;
   // The token the read served, echoed and never rebuilt here. A club outside the season has no row
   // and so no token, and the save that would carry the empty string is a 404 before it is judged.
@@ -100,11 +84,11 @@ export function AdminKontakteEditForm({
 
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
     useDraftFieldErrors({
-      schemas: { kontakte: FLPatchSaisonTeamKontaktePayloadSchema },
+      schemas: { kontakte: KontakteSpeichernEingabeSchema },
     });
 
   // Both ids ride in the request path, so neither is a field an input renders or a refusal can name.
-  const buildPayload = (): FLPatchSaisonTeamKontaktePayload => ({
+  const buildPayload = (): KontakteSpeichernEingabe => ({
     team_id: teamId,
     saison_id: saison.saisonId,
     // The claim is honoured HERE and nowhere earlier
@@ -174,10 +158,6 @@ export function AdminKontakteEditForm({
     // A save seating, removing or replacing a person mints or voids a link, a step-up write.
     stepUp.confirmThen(kontakteMayMoveLinks(storedKontakte, buildPayload().kontakte), () =>
       startSaving(async () => {
-        // Read before the write: `saison` is this render's prop and still holds the pre-save block, and
-        // the toast that replays it outlives this component.
-        const wiederherstellbar = { team_id: teamId, saison_id: saison.saisonId, kontakte: toKontaktePayload(storedKontakte) };
-
         const payload = buildPayload();
         // A rejected action may still have saved, and uncaught here it takes the editor down with it.
         const res = await patchSaisonTeamKontakteAction(payload).catch(unansweredAction);
@@ -193,38 +173,10 @@ export function AdminKontakteEditForm({
           setSubmitFieldErrors({}, {});
           setHasSaved(true);
 
-          // The write's own answer, never `kontakteStand`: this save has moved the row past the block the
-          // page read, so the replay carrying that token would be refused (`REQ-KONTAKT-001`).
-          const nachStand = res.saison_team?.kontakte_stand;
-          // The same value seen as the endpoint's own payload, so what the toast replays is held to the
-          // shape the undo action parses.
-          const undoPayload: FLPatchSaisonTeamKontaktePayload = { ...wiederherstellbar, kontakte_stand: nachStand ?? "" };
-          // Judged here and not left to the undo action: the backend admits a
-          // malformed address on read, that row is no legal write, and the shared spine can only
-          // answer such a body with a reload nothing would change.
-          const unrestorable = nachStand === undefined ? OHNE_NACHSTAND : describeUnrestorableKontakte(undoPayload);
+          // The link's own sentence in place of the save's: where the save owed somebody a mail, dropping
+          // it leaves an administrator with no record that a message is on its way at all.
+          appToast.success("Änderung gespeichert", { description: res.versandSatz ?? res.message });
 
-          offerUndo({
-            undo: () => undoAdminKontakteEditAction(undoPayload),
-            // The link's own sentence in place of the save's: where the save mailed somebody, dropping
-            // it leaves an administrator with no record that a message was sent at all.
-            message: res.versandSatz ?? res.message,
-            // One whose link did not go out is graded a warning: the seat holds no working link and
-            // nobody else is told.
-            warn: versandWarnt(res.versand),
-            fallback: "Die Kontakte wurden aktualisiert.",
-            unrestorable,
-            // Clearing the block, or putting back a person this save replaced or removed, is a step-up write the undo
-            // action refuses a session past the window, so the press asks first.
-            stepUp:
-              undoPayload.kontakte === null || kontakteMayMoveLinks(res.saison_team?.kontakte ?? null, undoPayload.kontakte)
-                ? stepUp.page
-                : undefined,
-            router,
-          });
-
-          // AFTER the undo payload is built: leaving with typed values still in state lets a
-          // save-then-undo reopen the editor on values the season does not hold.
           resetDraftToStored();
           leavePage();
         });
@@ -254,11 +206,11 @@ export function AdminKontakteEditForm({
             medienFragen={medienFragen}
             value={kontakte}
             stored={storedKontakte}
-            bestaetigungen={storedMembership?.bestaetigungen ?? null}
-            adresswechsel={storedMembership?.adresswechsel ?? null}
+            confirmations={storedMembership?.confirmations ?? null}
+            address_change={storedMembership?.address_change ?? null}
             teamId={teamId}
             saisonId={saison.saisonId}
-            nimmtLinks={kontaktZeile(saison.saisonStatus, storedMembership?.austritt ?? null) === "offen"}
+            nimmtLinks={kontaktZeile(saison.saisonStatus, storedMembership?.austritt ?? null) === "open"}
             isMember={storedMembership !== null}
             teamHref={teamPageHref(teamId, saison.saisonId)}
             banners={banners}

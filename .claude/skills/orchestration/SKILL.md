@@ -26,7 +26,10 @@ not.
 3. Proven: each behaviour that could regress held by a test shown to fail when broken, every check
    passing, every visible change seen by the owner.
 4. Independently reviewed, in proportion to what a defect could break.
-5. Best practice and lean: official documentation followed, no workaround, no suppression. A test
+5. Best practice and lean: official documentation followed, no workaround, no suppression. Before a
+   brief designs a mechanism (a check, a helper, a pattern, a data shape), the documented standard way
+   is found in the tool's, the database's or the protocol's own documentation and named in the brief;
+   building one's own is the last resort and asked first. A test
    exists only where a behaviour could regress unnoticed and it is the cheapest guard; the change is
    the smallest that fully solves the problem; removing an unneeded test, doc or helper is a gain.
 6. Safe: secrets and privacy.

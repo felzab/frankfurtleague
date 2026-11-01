@@ -1,20 +1,20 @@
 import { Facts } from "./Facts";
-import { MatchList } from "./MatchRow";
 import { formColumn, RailPage } from "./RailFrame";
 import { SectionTitle } from "./Section";
+import { SpielList } from "./SpielRow";
 import { Table } from "./Table";
 
 import type { Copy } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { Fact } from "./Facts";
-import type { MatchRowProps } from "./MatchRow";
 import type { RailPageHead } from "./RailFrame";
+import type { SpielRowProps } from "./SpielRow";
 import type { TableProps } from "./Table";
 
 type GroupContent =
   | { kind: "facts"; facts: ReadonlyArray<Fact> }
   | { kind: "table"; table: TableProps }
-  | { kind: "matches"; matches: ReadonlyArray<MatchRowProps & { id: string }> };
+  | { kind: "matches"; matches: ReadonlyArray<SpielRowProps & { id: string }> };
 
 /** One group of a read page, under its 16-px title: facts, people as table rows, or matches. */
 export type ReadGroup = { title: Copy } & GroupContent;
@@ -26,7 +26,7 @@ function GroupBody({ group }: { group: GroupContent }) {
     case "table":
       return <Table {...group.table} />;
     case "matches":
-      return <MatchList matches={group.matches} />;
+      return <SpielList matches={group.matches} />;
   }
 }
 
@@ -53,7 +53,7 @@ export function ReadPage({
   const [first, ...rest] = groups;
   return (
     <RailPage
-      area={head.area}
+      scope={head.scope}
       title={head.title}
       chip={head.chip}>
       <div className={formColumn()}>

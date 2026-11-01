@@ -4,16 +4,15 @@ from typing import Any
 from bson import ObjectId
 from pydantic import SecretStr
 
-from app.core.config import INTERNAL_API_KEY_LENGTH, SPERRLISTE_KEY_MIN_LENGTH, BackendConfig
-from tests.actor_tokens import ACTOR_TOKEN_PUBLIC_KEY, SignedActor
+from app.core.config import INTERNAL_API_KEY_LENGTH, MONGODB_URI_FILE, SPERRLISTE_KEY_MIN_LENGTH, BackendConfig
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 # The base name of the corpus the pymongo-seeded suites share. What they seed and what the app under
 # test reads are both `db_base_name` below, so the scoping applied once here reaches both.
 CORPUS_DATABASE = "frankfurtleague_test"
 
-# The host `build_test_config` trusts below, spelled as a URL because that is what an in-process
-# request needs: `TrustedHostMiddleware` refuses any other `Host` before a route sees it.
+# The base URL an in-process client sends its requests to.
 TEST_BASE_URL = "http://testserver"
 
 # The server a suite attaches to where no database may answer. Not the configured URI: a developer
@@ -35,10 +34,10 @@ _KEY_ADMIN = "test-key-admin".ljust(INTERNAL_API_KEY_LENGTH, "0")
 
 # Obviously fake and padded to the boot's floor, as the three above are. A suite asserting that one
 # address hashes differently under two keys builds its own second key rather than reading this one.
-_SPERRLISTE_SCHLUESSEL = "test-sperrliste-key".ljust(SPERRLISTE_KEY_MIN_LENGTH, "0")
+_SPERRLISTE_KEY = "test-sperrliste-key".ljust(SPERRLISTE_KEY_MIN_LENGTH, "0")
 
 # Every actor a suite names on an admin-tier route, each a grant `grants_for_the_suite` seeds, or
-# `app/core/security.py :: verify_actor_is_admin` answers the request 403 before the case reaches what
+# `app/api/berechtigungen/guard.py :: verify_actor_is_admin` answers the request 403 before the case reaches what
 # it is about. Folded, as a grant is stored.
 ADMINISTRATORS = ("admin@example.com", "admin@frankfurtleague.de", "spielorte.admin@example.com", "triage.quillhilde@example.com")
 
@@ -50,25 +49,24 @@ SYSTEM_AUTH = {"Authorization": f"Bearer {_KEY_SYSTEM}"}
 ADMIN_KEY = {"Authorization": f"Bearer {_KEY_ADMIN}"}
 # What an administrator's request carries: the admin tier refuses one naming nobody on every method
 # (`app/core/security.py :: bind_actor`), so the key alone reaches no admin-tier handler.
-ADMIN_AUTH = SignedActor("admin@example.com", ADMIN_KEY)
+ADMIN_AUTH = StampedHeaders("admin@example.com", ADMIN_KEY)
 
 
 def build_test_config() -> BackendConfig:
-    """Every field with no default supplied here, so any checkout runs the suite.
+    """Every field with no default supplied here, and no dotenv file read, so any checkout runs the suite.
 
     Not in `conftest.py`: pytest loads that under its own module name, so importing it would
     duplicate every fixture.
     """
     return BackendConfig(
-        api_trusted_hosts="testserver,localhost",
-        api_cors_allowed_origins="http://localhost:3000",
-        mongodb_uri=SecretStr("mongodb://localhost:27017/frankfurtleague_test"),
+        _env_file=None,
+        # By the file's name, the one the class reads the credential under.
+        **{MONGODB_URI_FILE: SecretStr("mongodb://localhost:27017/frankfurtleague_test")},
         db_base_name=worker_database(CORPUS_DATABASE),
         internal_api_key_base=SecretStr(_KEY_BASE),
         internal_api_key_system=SecretStr(_KEY_SYSTEM),
         internal_api_key_admin=SecretStr(_KEY_ADMIN),
-        sperrliste_schluessel=SecretStr(_SPERRLISTE_SCHLUESSEL),
-        actor_token_public_key=ACTOR_TOKEN_PUBLIC_KEY,
+        sperrliste_key=SecretStr(_SPERRLISTE_KEY),
     )
 
 
@@ -88,8 +86,8 @@ def grants_for_the_suite() -> list[dict[str, Any]]:
             "_id": ObjectId(ObjectId.from_datetime(pasted).binary[:4] + index.to_bytes(8, "big")),
             "adresse": adresse,
             "verwaltung": "owner" if index == 0 else "administration",
-            "erteilt_von": "PLAYGROUND",
-            "erteilt_am": pasted,
+            "granted_by": "PLAYGROUND",
+            "granted_at": pasted,
         }
         for index, adresse in enumerate(ADMINISTRATORS)
     ]

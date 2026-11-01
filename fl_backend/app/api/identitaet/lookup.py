@@ -11,13 +11,13 @@ from typing import Annotated
 from fastapi import Depends
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.core.db import (
-    get_bewerbungen_collection,
-    get_registrierungen_collection,
-    get_saison_teams_collection,
-    get_saisons_collection,
-    get_schiedsrichter_collection,
-    get_spieler_collection,
+from app.core.dependencies import (
+    BewerbungenCollection,
+    RegistrierungenCollection,
+    SaisonsCollection,
+    SaisonTeamsCollection,
+    SchiedsrichterCollection,
+    SpielerCollection,
 )
 
 
@@ -32,12 +32,12 @@ class RecordCollections:
 
 
 def get_record_collections(
-    saison_teams_collection: Annotated[AsyncCollection, Depends(get_saison_teams_collection)],
-    saisons_collection: Annotated[AsyncCollection, Depends(get_saisons_collection)],
-    spieler_collection: Annotated[AsyncCollection, Depends(get_spieler_collection)],
-    schiedsrichter_collection: Annotated[AsyncCollection, Depends(get_schiedsrichter_collection)],
-    bewerbungen_collection: Annotated[AsyncCollection, Depends(get_bewerbungen_collection)],
-    registrierungen_collection: Annotated[AsyncCollection, Depends(get_registrierungen_collection)],
+    saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
+    spieler_collection: SpielerCollection,
+    schiedsrichter_collection: SchiedsrichterCollection,
+    bewerbungen_collection: BewerbungenCollection,
+    registrierungen_collection: RegistrierungenCollection,
 ) -> RecordCollections:
     return RecordCollections(
         saison_teams_collection=saison_teams_collection,

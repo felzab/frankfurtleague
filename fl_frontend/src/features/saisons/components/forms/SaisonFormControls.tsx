@@ -16,7 +16,7 @@ import { overlayPanel, SELECT_POPOVER_CLASSES } from "@/shared/components/ui/ove
 import { listboxRow, pickIfOffered } from "@/shared/components/ui/refusableOption";
 import { Select } from "@/shared/components/ui/Select";
 
-import type { FLSaisonTiebreakOrder } from "@/features/saisons/schemas";
+import type { FLSaisonRulesTiebreakOrder } from "@/core/generated/client/types";
 import type { RefusableOption } from "@/shared/components/ui/refusableOption";
 import type { Key } from "@heroui/react/rac";
 import type { ReactNode } from "react";
@@ -46,7 +46,7 @@ export function SaisonRuleNumberField({
   /**
    * READ-ONLY rather than disabled: a disabled `NumberField` is skipped by keyboard navigation and
    * announced as unavailable, and it keeps the field in the form so the payload still carries the value
-   * the freeze compares (`REQ-RULES-005`).
+   * the freeze compares (`rules_saison_started`).
    */
   isReadOnly?: boolean;
 }) {
@@ -73,9 +73,9 @@ export function SaisonRuleNumberField({
 }
 
 /**
- * `number_of_groups` and `qualifiers_per_group`, whose legal values SKIP: a floor and a ceiling can
- * only describe a set that skips by admitting the values between, which is the offer
- * `.claude/rules/cross-surface.md`'s **saisons** clause bars.
+ * `number_of_gruppen` and `qualifiers_per_gruppe`, whose legal values SKIP: a floor and a ceiling can
+ * only describe a set that skips by admitting the values between, which offers a value the write
+ * path refuses, as a ratified decision bars.
  */
 export function SaisonCountSelect({
   name,
@@ -163,12 +163,12 @@ export function SaisonTiebreakSelect({
 }: {
   name: string;
   label: ReactNode;
-  value: FLSaisonTiebreakOrder;
-  onChange: (next: FLSaisonTiebreakOrder) => void;
+  value: FLSaisonRulesTiebreakOrder;
+  onChange: (next: FLSaisonRulesTiebreakOrder) => void;
   /**
    * DISABLED where `SaisonRuleNumberField` is read-only: react-aria's `Select` has no read-only
    * state, and the payload is built from the caller's draft rather than from the DOM, so the frozen
-   * value still rides along for `REQ-RULES-005` to compare.
+   * value still rides along for `rules_saison_started` to compare.
    */
   isDisabled?: boolean;
 }) {
@@ -181,7 +181,7 @@ export function SaisonTiebreakSelect({
       value={value}
       onChange={(key: Key | null) => {
         if (!key) return;
-        onChange(key.toString() as FLSaisonTiebreakOrder);
+        onChange(key.toString() as FLSaisonRulesTiebreakOrder);
       }}
       className="w-full">
       {label}

@@ -5,7 +5,7 @@ import { SPIELORT_RETIREMENT_CONSEQUENCE } from "@/features/spielorte/constants"
 import { ConfirmDeleteModal } from "@/shared/components/ui/ConfirmDeleteModal";
 import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 
-import type { FLSpielort } from "@/features/spielorte/schemas";
+import type { FLSpielort } from "@/core/generated/client/types";
 
 export function AdminDeleteSpielortModal({
   ortData,

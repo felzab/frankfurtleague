@@ -8,7 +8,7 @@ import { Icon } from "./Icon";
 const drawn = (size: 12 | 16 | 18) => {
   const { container } = render(
     <Icon
-      glyph="haken"
+      glyph="check"
       size={size}
     />,
   );

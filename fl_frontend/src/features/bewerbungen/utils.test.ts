@@ -1,5 +1,5 @@
-import { publishedLaufendeFassung } from "@/test-support/einwilligungDocument.ts";
-import { answerSettled, answerShown, publishedRefusals, refusedOn, unpublishedOn } from "@/test-support/publishedRefusals.ts";
+import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
+import { answerSettled, answerShown, refusalCodes, refused } from "@/test-support/refusals.ts";
 import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
 import { parseDate } from "@internationalized/date";
 import { assert, describe, expect, it } from "vitest";
@@ -19,7 +19,6 @@ import {
   bewerbungTeamName,
   buildBewerbungRows,
   describeAufnahme,
-  empfangsSitze,
   fensterZustand,
   geburtsdatumSpanne,
   KUERZEL_PRUEFUNG,
@@ -32,11 +31,11 @@ import {
   mirrorBewerbungTrainer,
 } from "./utils.ts";
 
-import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas.ts";
+import type { Code, FLBewerbung, FLBewerbungWindowResponse } from "@/core/generated/client/types.ts";
 import type { BewerbungKontakteDraft, BewerbungKontaktpersonDraft, EinwilligungAnsicht } from "./types.ts";
 
 /** The label the backend runs on the contact page, off the registry it generated. */
-const KONTAKT_LABEL = publishedLaufendeFassung("bestaetigung_kontakt").text_version;
+const KONTAKT_LABEL = laufendeFassung("bestaetigung_kontakt").text_version;
 
 /** The proposed school, of which only `team_name` decides the answer. */
 const SCHOOL: FLBewerbung["schule"] = {
@@ -90,7 +89,7 @@ describe("the club an application names", () => {
     expect(bewerbungTeamName({ schule: null, team_id: "6890a1b2c3d4e5f607190002" }, TEAMS)).toBe("Goethe");
   });
 
-  /* The row `REQ-BEWERBUNG-002` refuses, and the row a decline still has to address: nobody may
+  /* The row `bewerbung_subject_unresolved` refuses, and the row a decline still has to address: nobody may
      guess a name for a message that goes out over the league's own address. */
   it("names nobody where the application names neither, and where the club is gone", () => {
     expect(bewerbungTeamName({ schule: null, team_id: null }, TEAMS)).toBe(null);
@@ -113,7 +112,7 @@ describe("which of the two an application asks the league to enter", () => {
     expect(bewerbungHerkunft({ schule: SCHOOL, team_id: "6890a1b2c3d4e5f607190002" })).toBe("neue_schule");
   });
 
-  /* The row `REQ-BEWERBUNG-002` refuses. Any answer but none here is a badge, a filter option and a
+  /* The row `bewerbung_subject_unresolved` refuses. Any answer but none here is a badge, a filter option and a
      panel title each claiming a club or a school the application never named. */
   it("is neither where the application names neither", () => {
     expect(bewerbungHerkunft({ schule: null, team_id: null })).toBe(null);
@@ -125,18 +124,18 @@ function bewerbung(id: string, saisonId: string): FLBewerbung {
   return {
     id,
     saison_id: saisonId,
-    eingereicht_am: "2026-05-01",
-    status: "eingereicht",
+    submitted_at: "2026-05-01",
+    status: "submitted",
     team_id: null,
     schule: SCHOOL,
-    kontakte: { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null },
-    trikot: { vorhandener_satz: "12 rote Trikots", wunschfarbe: "rot" },
-    kader: { voraussichtliche_groesse: 14, gute_spieler: 3 },
+    kontakte: { trainer: null, ansprechperson: null, stellvertretung: null, trainer_is_also: null },
+    trikot: { existing_satz: "12 rote Trikots", wunschfarbe: "rot" },
+    kader: { expected_size: 14, good_spieler: 3 },
     stufengroesse: 96,
     wunschgegner: null,
-    entscheidung: null,
-    bestaetigungen: { trainer: null, ansprechperson: null, stellvertretung: null },
-    bestaetigungsfrist: "2026-05-15",
+    decision: null,
+    confirmations: { trainer: null, ansprechperson: null, stellvertretung: null },
+    confirmation_deadline: "2026-05-15",
   };
 }
 
@@ -165,22 +164,21 @@ describe("which season a row belongs to", () => {
 });
 
 describe("which state the window puts the page in", () => {
-  const fenster = (overrides: Partial<FLBewerbungFensterResponse> = {}): FLBewerbungFensterResponse => ({
-    acknowledged: 1,
+  const fenster = (overrides: Partial<FLBewerbungWindowResponse> = {}): FLBewerbungWindowResponse => ({
     saison_id: "2627",
     offen: true,
     von: "2026-05-01",
     bis: "2026-07-31",
-    laeuft: false,
-    saison_beendet: false,
+    running: false,
+    saison_ended: false,
     ...overrides,
   });
 
   /* `laeuft` is the server's whole judgement against a clock this page does not share. Re-derived
      here, the page would offer the form for as long as the two clocks disagree. */
   it("takes the running answer from the server and never re-derives it", () => {
-    expect(fensterZustand(fenster({ laeuft: true }), "2020-01-01")).toBe("laeuft");
-    expect(fensterZustand(fenster({ laeuft: true, offen: false }), "2099-01-01")).toBe("laeuft");
+    expect(fensterZustand(fenster({ running: true }), "2020-01-01")).toBe("running");
+    expect(fensterZustand(fenster({ running: true, offen: false }), "2099-01-01")).toBe("running");
   });
 
   /* Each closed answer is a different sentence: one says when to come back, one that the season is
@@ -193,15 +191,15 @@ describe("which state the window puts the page in", () => {
   /* Shut by the league rather than by a date, so neither date answer is true of it: nothing has run
      out, and nothing opens on a day this window names. */
   it("reads a window the league closed as closed, whatever the dates say", () => {
-    expect(fensterZustand(fenster({ offen: false }), "2026-04-30")).toBe("geschlossen");
-    expect(fensterZustand(fenster({ offen: false }), "2026-06-01")).toBe("geschlossen");
-    expect(fensterZustand(fenster({ offen: false }), "2026-08-01")).toBe("geschlossen");
+    expect(fensterZustand(fenster({ offen: false }), "2026-04-30")).toBe("closed");
+    expect(fensterZustand(fenster({ offen: false }), "2026-06-01")).toBe("closed");
+    expect(fensterZustand(fenster({ offen: false }), "2026-08-01")).toBe("closed");
   });
 
   /* `laeuft` false inside an open span is this clock disagreeing with the server's. Answered
      `vorbei`, the page would state a deadline nobody has reached. */
   it("never says a deadline passed while today is still inside the span", () => {
-    expect(fensterZustand(fenster(), "2026-06-01")).toBe("geschlossen");
+    expect(fensterZustand(fenster(), "2026-06-01")).toBe("closed");
   });
 
   /* A season taking no applications at all is its own answer. The page still renders — a school
@@ -214,9 +212,9 @@ describe("which state the window puts the page in", () => {
      for a window that never reopens: the span still running, the league's switch off, a span not
      yet begun. */
   it("reads every window of a season that has ended as over, whatever its dates and its switch say", () => {
-    expect(fensterZustand(fenster({ saison_beendet: true }), "2026-06-01")).toBe("vorbei");
-    expect(fensterZustand(fenster({ saison_beendet: true, offen: false }), "2026-06-01")).toBe("vorbei");
-    expect(fensterZustand(fenster({ saison_beendet: true }), "2026-04-30")).toBe("vorbei");
+    expect(fensterZustand(fenster({ saison_ended: true }), "2026-06-01")).toBe("vorbei");
+    expect(fensterZustand(fenster({ saison_ended: true, offen: false }), "2026-06-01")).toBe("vorbei");
+    expect(fensterZustand(fenster({ saison_ended: true }), "2026-04-30")).toBe("vorbei");
   });
 });
 
@@ -292,7 +290,7 @@ describe("the birthdate window a contact person's date has to fall in", () => {
     for (const mindestalter of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
       const { spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
       const schema = buildEinwilligungAntwortPayloadSchema(mindestalter);
-      const antwort = { token: "kein-echtes-token", antwort: "erteilt", whatsapp: false, medien: false, text_version: KONTAKT_LABEL };
+      const antwort = { token: "kein-echtes-token", antwort: "given", whatsapp: false, medien: false, text_version: KONTAKT_LABEL };
 
       expect(schema.safeParse({ ...antwort, geburtsdatum: spaeteste }).success, `${String(mindestalter)}: the offer is refused`).toBe(true);
       expect(
@@ -303,38 +301,27 @@ describe("the birthdate window a contact person's date has to fall in", () => {
   });
 });
 
-describe("which seats the submission's receipt answers for", () => {
-  /* The mirrored seat is the same person on the same mailbox, and `paired_seat` lets either press
-     answer both, so a link message for it asks one reader twice; the receipt that mailbox gets names
-     both roles (`fl_frontend/src/features/bewerbungen/notifications.test.ts`). */
-  it("withholds the Trainer seat only where it mirrors the Ansprechperson", () => {
-    expect(empfangsSitze("ansprechperson")).toStrictEqual(["ansprechperson", "trainer"]);
-    expect(empfangsSitze("stellvertretung")).toStrictEqual(["ansprechperson"]);
-    expect(empfangsSitze(null)).toStrictEqual(["ansprechperson"]);
-  });
-});
-
 describe("the public form's coach mirror", () => {
   const person = (vorname: string): BewerbungKontaktpersonDraft => ({
     vorname: vorname,
     nachname: "Mustermann",
     email: `${vorname.toLowerCase()}@beispiel.de`,
     telefon: "069 1234567",
-    einwilligung: { text_version: "2026-08", erteilt: true },
+    einwilligung: { text_version: "2026-08", given: true },
   });
 
   const kontakte = (overrides: Partial<BewerbungKontakteDraft> = {}): BewerbungKontakteDraft => ({
     trainer: person("Tim"),
     ansprechperson: person("Erika"),
     stellvertretung: person("Lena"),
-    trainer_ist_zugleich: null,
+    trainer_is_also: null,
     ...overrides,
   });
 
   /* The direction is the whole of it, and the OPPOSITE of the admin editor's. Reversed, ticking the
      box would wipe the very person who was just declared to be the coach. */
   it("fills the Trainer seat from whichever seat declared itself the coach", () => {
-    const mirroredPair = mirrorBewerbungTrainer(kontakte({ trainer_ist_zugleich: "ansprechperson" }));
+    const mirroredPair = mirrorBewerbungTrainer(kontakte({ trainer_is_also: "ansprechperson" }));
 
     expect(mirroredPair.trainer.vorname).toBe("Erika");
     expect(mirroredPair.trainer, "the two seats hold two records rather than one").toBe(mirroredPair.ansprechperson);
@@ -342,7 +329,7 @@ describe("the public form's coach mirror", () => {
   });
 
   it("fills it from the Stellvertretung where that seat is the one that declared itself", () => {
-    const mirroredPair = mirrorBewerbungTrainer(kontakte({ trainer_ist_zugleich: "stellvertretung" }));
+    const mirroredPair = mirrorBewerbungTrainer(kontakte({ trainer_is_also: "stellvertretung" }));
 
     expect(mirroredPair.trainer.vorname).toBe("Lena");
     expect(mirroredPair.ansprechperson.vorname).toBe("Erika");
@@ -377,36 +364,33 @@ describe("which paths one judgement covers in the public form", () => {
   });
 });
 
-/** The public write, spelled as the backend's own routes spell it. */
-const SUBMIT_OPERATION = "POST /bewerbungen";
-const CONFIRM_OPERATION = "POST /bewerbungen/einwilligung";
-const ANSICHT_OPERATION = "POST /bewerbungen/einwilligung/ansicht";
-
-/**
- * `code` as `operation` refuses with it, asserted published there first: an arm kept for a code the
- * backend stopped publishing fails here rather than passing on a refusal nothing sends.
- */
-function publishedOn(operation: string, code: string) {
-  assert.ok(publishedRefusals(operation).includes(code), `${code} is no longer published on ${operation}`);
-
-  return refusedOn(operation, code);
-}
-
 describe("what a submission's refusal is shown as", () => {
-  const refusal = (code: string) => mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, code));
+  const refusal = (code: Code) => mapBewerbungSubmitRefusal(refused(code));
 
   /* Asserted before the arms below: a mapper that stopped recognising a 409 at all would return
      `null` everywhere, and every "names no field" assertion would pass over nothing. */
   it("recognises the submission's own codes at all", () => {
-    for (const code of ["REQ-BEWERBUNG-004", "REQ-BEWERBUNG-005", "REQ-BEWERBUNG-006", "REQ-BEWERBUNG-007", "REQ-BEWERBUNG-008"]) {
+    for (const code of [
+      "bewerbung_window_closed",
+      "bewerbung_submission_subject_unresolved",
+      "bewerbung_picked_team_unusable",
+      "bewerbung_picked_team_already_entered",
+      "bewerbung_shorthand_taken",
+    ] as const) {
       expect(refusal(code), `${code} reaches the applicant unmapped`).not.toBe(null);
     }
   });
 
   // The mark the form titles by: the application arrived, so „nicht abgeschickt“ would be false.
   it("marks the repeated press's refusal as arrived, and no other refusal", () => {
-    expect(refusal("REQ-BEWERBUNG-015")?.schonAngekommen).toBe(true);
-    for (const code of ["REQ-BEWERBUNG-004", "REQ-BEWERBUNG-005", "REQ-BEWERBUNG-006", "REQ-BEWERBUNG-007", "REQ-BEWERBUNG-008"]) {
+    expect(refusal("bewerbung_key_differing")?.schonAngekommen).toBe(true);
+    for (const code of [
+      "bewerbung_window_closed",
+      "bewerbung_submission_subject_unresolved",
+      "bewerbung_picked_team_unusable",
+      "bewerbung_picked_team_already_entered",
+      "bewerbung_shorthand_taken",
+    ] as const) {
       expect(refusal(code)?.schonAngekommen, code).toBe(undefined);
     }
   });
@@ -414,37 +398,37 @@ describe("what a submission's refusal is shown as", () => {
   /* A refusal naming a field has to land under the control at fault: as a toast it names a box the
      applicant then has to find, and this form has dozens of them. */
   it("puts each field refusal on the path its own input renders", () => {
-    expect(Object.keys(refusal("REQ-BEWERBUNG-005")?.fieldErrors ?? {})).toStrictEqual(["team_id"]);
-    expect(Object.keys(refusal("REQ-BEWERBUNG-006")?.fieldErrors ?? {})).toStrictEqual(["team_id"]);
-    expect(Object.keys(refusal("REQ-BEWERBUNG-007")?.fieldErrors ?? {})).toStrictEqual(["team_id"]);
-    expect(Object.keys(refusal("REQ-BEWERBUNG-008")?.fieldErrors ?? {})).toStrictEqual(["schule.shorthand"]);
+    expect(Object.keys(refusal("bewerbung_submission_subject_unresolved")?.fieldErrors ?? {})).toStrictEqual(["team_id"]);
+    expect(Object.keys(refusal("bewerbung_picked_team_unusable")?.fieldErrors ?? {})).toStrictEqual(["team_id"]);
+    expect(Object.keys(refusal("bewerbung_picked_team_already_entered")?.fieldErrors ?? {})).toStrictEqual(["team_id"]);
+    expect(Object.keys(refusal("bewerbung_shorthand_taken")?.fieldErrors ?? {})).toStrictEqual(["schule.shorthand"]);
   });
 
   /* The window closing mid-form is about the season rather than about anything typed, so it has no
      field to sit on and a reload is the whole remedy. */
   it("reports a closed window as a banner with no field on it", () => {
-    expect(refusal("REQ-BEWERBUNG-004")?.fieldErrors).toBe(undefined);
-    expect(refusal("REQ-BEWERBUNG-004")?.error ?? "").toMatch(/Lade die Seite neu/);
+    expect(refusal("bewerbung_window_closed")?.fieldErrors).toBe(undefined);
+    expect(refusal("bewerbung_window_closed")?.error ?? "").toMatch(/Lade die Seite neu/);
   });
 
   /* The one answer a taken Kürzel gets, wherever it is judged: the blur-time check and this refusal
      word it from the same constant, so the two cannot come to disagree. */
   it("gives a taken Kürzel the same neutral sentence the blur check gives", () => {
-    expect(refusal("REQ-BEWERBUNG-008")?.fieldErrors?.["schule.shorthand"]).toBe(KUERZEL_VERGEBEN);
+    expect(refusal("bewerbung_shorthand_taken")?.fieldErrors?.["schule.shorthand"]).toBe(KUERZEL_VERGEBEN);
     assert.ok(!KUERZEL_VERGEBEN.includes("stillgelegt"), "the answer separates a retired club from an active one");
   });
 
   it("maps nothing it does not recognise, so an unknown code falls through to the shared handler", () => {
-    expect(mapBewerbungSubmitRefusal(unpublishedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-999", 409))).toBe(null);
+    expect(mapBewerbungSubmitRefusal(refused(undefined, 409))).toBe(null);
     expect(mapBewerbungSubmitRefusal(new Error("boom"))).toBe(null);
     // A write answered with a 5xx may have landed, which no refusal's words may deny.
-    expect(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-005", 500))).toBe(null);
+    expect(mapBewerbungSubmitRefusal(refused("bewerbung_submission_subject_unresolved", 500))).toBe(null);
   });
 
   /* Codes are unique across the API, so a rule moved to another status keeps its answer. */
   it("answers a code alike at whatever status its rule answers with", () => {
-    for (const code of ["REQ-BEWERBUNG-005", "REQ-BEWERBUNG-015"]) {
-      expect(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, code)), code).toStrictEqual(refusal(code));
+    for (const code of ["bewerbung_submission_subject_unresolved", "bewerbung_key_differing"] as const) {
+      expect(mapBewerbungSubmitRefusal(refused(code)), code).toStrictEqual(refusal(code));
     }
   });
 });
@@ -453,17 +437,35 @@ describe("the submission's refusals against the codes its endpoint publishes", (
   /* The one class a unit test here CAN hold: a published code this maps nowhere reaches the applicant
      as the generic sentence, which names no field and no way out. */
   it("maps every code the submission publishes", () => {
-    for (const code of publishedRefusals(SUBMIT_OPERATION)) {
-      expect(answerShown(SUBMIT_OPERATION, code, mapBewerbungSubmitRefusal), `${code} reaches the applicant unmapped`).not.toBe(null);
+    for (const code of refusalCodes(
+      "duplicate_key",
+      "bewerbung_window_closed",
+      "bewerbung_submission_subject_unresolved",
+      "bewerbung_picked_team_unusable",
+      "bewerbung_picked_team_already_entered",
+      "bewerbung_shorthand_taken",
+      "bewerbung_key_differing",
+      "bewerbung_adresse_barred",
+      "wording_not_allowed",
+    )) {
+      expect(answerShown(code, mapBewerbungSubmitRefusal), `${code} reaches the applicant unmapped`).not.toBe(null);
     }
   });
 
   /* One code, one answer. Sharing one sentence between two of them is the failure this catches:
      each names a different thing to change, and a reader given the wrong one changes the wrong box. */
   it("gives each code its own answer", () => {
-    const answers = publishedRefusals(SUBMIT_OPERATION).map((code) =>
-      JSON.stringify(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, code))),
-    );
+    const answers = refusalCodes(
+      "duplicate_key",
+      "bewerbung_window_closed",
+      "bewerbung_submission_subject_unresolved",
+      "bewerbung_picked_team_unusable",
+      "bewerbung_picked_team_already_entered",
+      "bewerbung_shorthand_taken",
+      "bewerbung_key_differing",
+      "bewerbung_adresse_barred",
+      "wording_not_allowed",
+    ).map((code) => JSON.stringify(mapBewerbungSubmitRefusal(refused(code))));
 
     expect(new Set(answers).size, "two codes are answered with the same sentence").toBe(answers.length);
   });
@@ -472,38 +474,37 @@ describe("the submission's refusals against the codes its endpoint publishes", (
      „spielt schon mit“ are two readings a German sentence separates and no structural check does —
      and only one is what the backend refuses. */
   it("says of each code what the backend constant it answers refuses", () => {
-    const fieldOf = (code: string) =>
-      Object.values(mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, code))?.fieldErrors ?? {}).join(" ");
-    const banner = (code: string) => mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, code))?.error ?? "";
+    const fieldOf = (code: Code) => Object.values(mapBewerbungSubmitRefusal(refused(code))?.fieldErrors ?? {}).join(" ");
+    const banner = (code: Code) => mapBewerbungSubmitRefusal(refused(code))?.error ?? "";
 
     // The season stopped taking applications; nothing about the school is at fault.
-    expect(banner("REQ-BEWERBUNG-004")).toMatch(/keine Bewerbungen/);
-    expect(banner("REQ-BEWERBUNG-004")).not.toMatch(/Schule|Kürzel/);
+    expect(banner("bewerbung_window_closed")).toMatch(/keine Bewerbungen/);
+    expect(banner("bewerbung_window_closed")).not.toMatch(/Schule|Kürzel/);
 
     // Both-or-neither: the answer is the choice itself, not a clash with anything stored.
-    expect(fieldOf("REQ-BEWERBUNG-005")).toMatch(/entweder/);
-    expect(fieldOf("REQ-BEWERBUNG-005")).toMatch(/oder/);
+    expect(fieldOf("bewerbung_submission_subject_unresolved")).toMatch(/entweder/);
+    expect(fieldOf("bewerbung_submission_subject_unresolved")).toMatch(/oder/);
 
     /* The picker never offered this club, so a reload is the primary repair; the new-school arm is an
-       alternative and has to carry the free-Kürzel qualifier, or it promises a path `-008` refuses. */
-    expect(fieldOf("REQ-BEWERBUNG-006")).toMatch(/[Ll]ade die Seite neu/);
-    expect(fieldOf("REQ-BEWERBUNG-006")).toMatch(/frei\w* Kürzel/);
+       alternative and has to carry the free-Kürzel qualifier, or it promises a path `bewerbung_shorthand_taken` refuses. */
+    expect(fieldOf("bewerbung_picked_team_unusable")).toMatch(/[Ll]ade die Seite neu/);
+    expect(fieldOf("bewerbung_picked_team_unusable")).toMatch(/frei\w* Kürzel/);
 
     /* PLAYS, present tense and scoped to THIS season. `/spielt/` alone matches inside „mitgespielt“,
        which says past seasons; the register says a club standing in the season applied for. */
-    expect(fieldOf("REQ-BEWERBUNG-007")).toMatch(/\bspielt\b/);
-    expect(fieldOf("REQ-BEWERBUNG-007")).toMatch(/dieser Saison/);
-    expect(fieldOf("REQ-BEWERBUNG-007")).not.toMatch(/beworben|Bewerbung|gespielt|früher|einmal/);
+    expect(fieldOf("bewerbung_picked_team_already_entered")).toMatch(/\bspielt\b/);
+    expect(fieldOf("bewerbung_picked_team_already_entered")).toMatch(/dieser Saison/);
+    expect(fieldOf("bewerbung_picked_team_already_entered")).not.toMatch(/beworben|Bewerbung|gespielt|früher|einmal/);
 
     // An earlier wording on a seat is a page older than the deploy, which a reload replaces: the
     // sentence the form's own parse gives such a page, and no box, none of them being at fault.
-    expect(mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, "REQ-EINWILLIGUNG-001"))).toStrictEqual({ error: BEWERBUNG_VERALTET });
+    expect(mapBewerbungSubmitRefusal(refused("wording_not_allowed"))).toStrictEqual({ error: BEWERBUNG_VERALTET });
   });
 
   /* The record missing is a season the running API does not hold, which only a page from before a
      data reset names: the older page's sentence and reload, never the admin's „nicht gefunden“. */
   it("answers a missing season as the page gone stale", () => {
-    expect(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "DB-COMMON-001"))).toStrictEqual({ error: BEWERBUNG_VERALTET });
+    expect(mapBewerbungSubmitRefusal(refused("document_not_found"))).toStrictEqual({ error: BEWERBUNG_VERALTET });
   });
 
   /* `READ-BEWERBUNG-001`: these two answer an anonymous caller, so neither may disclose that a club
@@ -515,10 +516,10 @@ describe("the submission's refusals against the codes its endpoint publishes", (
     assert.ok(statuses.length > 0, "no status vocabulary was read, so this test compares nothing");
 
     // Beyond the table: words that disclose a club's existence or its past without naming a status.
-    const telltale = [...statuses, "existiert", "gibt es", "früher", "ehemalig", "gelöscht", "entfernt", "reaktiv"];
+    const telltale = [...statuses, "existiert", "gibt es", "früher", "ehemalig", "gelöscht", "removed", "reaktiv"];
 
-    for (const code of ["REQ-BEWERBUNG-006", "REQ-BEWERBUNG-008"]) {
-      const refusalText = Object.values(mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, code))?.fieldErrors ?? {}).join(" ");
+    for (const code of ["bewerbung_picked_team_unusable", "bewerbung_shorthand_taken"] as const) {
+      const refusalText = Object.values(mapBewerbungSubmitRefusal(refused(code))?.fieldErrors ?? {}).join(" ");
 
       for (const numberWord of telltale) {
         assert.ok(!refusalText.toLowerCase().includes(numberWord.toLowerCase()), `${code} discloses roster state with „${numberWord}“`);
@@ -531,7 +532,7 @@ describe("the submission's refusals against the codes its endpoint publishes", (
      erneut“. */
   /* A body the API could not read at all is the same drifted client, and a retry sends the same bytes. */
   it("answers a body the API could not read as a body refusal naming no field", () => {
-    const unreadable = mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "REQ-VAL-002"));
+    const unreadable = mapBewerbungSubmitRefusal(refused("body_unreadable"));
 
     expect(unreadable, "the unreadable body falls through to the shared handler's retry").not.toBe(null);
     expect(unreadable).toStrictEqual(mapBewerbungSubmitRefusal(refusedPayload([], "/bewerbungen")));
@@ -565,51 +566,50 @@ describe("the submission's refusals against the codes its endpoint publishes", (
 });
 
 describe("what the blur-time Kürzel check says short of a refusal", () => {
-  const verdictOf = (shorthand: string, vergeben: boolean) => ({ shorthand: shorthand, vergeben: vergeben });
+  const verdictOf = (shorthand: string, taken: boolean) => ({ shorthand: shorthand, taken: taken });
 
   /* Nothing to say about a code nobody has finished typing: a line under a half-typed box describes
      a value the check was never asked about. */
   it("says nothing about an incomplete code", () => {
     expect(kuerzelHinweis("", null, false)).toBe(null);
-    expect(kuerzelHinweis("G", null, true)).toBe(null);
+    expect(kuerzelHinweis("GO", null, true)).toBe(null);
   });
 
   /* Its own line, not the unjudged one: both mention checking, and a reader told „beim Abschicken“
      while a request is out learns nothing about the request that is out. */
   it("says that it is checking while the request is out", () => {
-    expect(kuerzelHinweis("GG", null, true)).toBe(KUERZEL_PRUEFUNG);
+    expect(kuerzelHinweis("GOE", null, true)).toBe(KUERZEL_PRUEFUNG);
     expect(KUERZEL_PRUEFUNG).not.toBe(KUERZEL_UNGEPRUEFT);
   });
 
   /* The arm a rate limit, a dropped connection and a fresh keystroke all land in. Silent, a school
      reads „noch frei“ from the last code it typed and finds out at the submit. */
   it("says the code is unjudged where no verdict covers the value in the box", () => {
-    expect(kuerzelHinweis("GG", null, false)).toBe(KUERZEL_UNGEPRUEFT);
-    expect(kuerzelHinweis("GG", verdictOf("GY", false), false)).toBe(KUERZEL_UNGEPRUEFT);
-    expect(kuerzelHinweis("GG", verdictOf("GY", true), false)).toBe(KUERZEL_UNGEPRUEFT);
+    expect(kuerzelHinweis("GOE", null, false)).toBe(KUERZEL_UNGEPRUEFT);
+    expect(kuerzelHinweis("GOE", verdictOf("GOY", false), false)).toBe(KUERZEL_UNGEPRUEFT);
+    expect(kuerzelHinweis("GOE", verdictOf("GOY", true), false)).toBe(KUERZEL_UNGEPRUEFT);
   });
 
   it("confirms a free code, and leaves a taken one to the field error", () => {
-    expect(kuerzelHinweis("GG", verdictOf("GG", false), false) ?? "").toMatch(/noch frei/);
-    expect(kuerzelHinweis("GG", verdictOf("GG", true), false)).toBe(null);
+    expect(kuerzelHinweis("GOE", verdictOf("GOE", false), false) ?? "").toMatch(/noch frei/);
+    expect(kuerzelHinweis("GOE", verdictOf("GOE", true), false)).toBe(null);
   });
 });
 
 /** The link's own view as the handler hands it, open at `mindestalter`. */
 const offenBei = (mindestalter: number) => async (): Promise<EinwilligungAnsicht> => ({
-  zustand: "gueltig",
+  zustand: "valid",
   ansicht: {
-    acknowledged: 1,
-    zustand: "gueltig",
+    state: "valid",
     quelle: "bewerbung",
-    zeile: null,
+    row: null,
     saison_id: "2026",
     schule: "Ernst-Reuter",
     rolle: "ansprechperson",
-    zugleich_rolle: null,
-    laufende_fassung: KONTAKT_LABEL,
-    mindestalter: mindestalter,
-    medien_mindestalter: 18,
+    also_rolle: null,
+    running_wording: KONTAKT_LABEL,
+    minimum_age: mindestalter,
+    medien_minimum_age: 18,
   },
 });
 
@@ -617,8 +617,19 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
   /* A published code this maps nowhere reaches the contact person as a bare „Antwort nicht gespeichert“
      toast, which names neither the field to fix nor the panel that would explain the dead link. */
   it("maps every code the confirmation publishes", async () => {
-    for (const code of publishedRefusals(CONFIRM_OPERATION)) {
-      const answered = await answerSettled(CONFIRM_OPERATION, code, (error) => mapEinwilligungRefusal(error, offenBei(VERTRETUNG_MIN_ALTER)));
+    for (const code of refusalCodes(
+      "link_invalid",
+      "link_expired",
+      "bewerbung_seat_already_answered",
+      "confirmation_age",
+      "bewerbung_token_past_deadline",
+      "link_barred",
+      "wording_not_allowed",
+      "medien_age",
+      "link_expired",
+      "kontakt_saison_past",
+    )) {
+      const answered = await answerSettled(code, (error) => mapEinwilligungRefusal(error, offenBei(VERTRETUNG_MIN_ALTER)));
       expect(answered, `${code} reaches the contact person unmapped`).not.toBe(null);
     }
   });
@@ -626,8 +637,8 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
   /* The link's own read answers every refusal alike: a spent link answers its state in a 200, so a
      refusal is a token nothing could place. */
   it("calls the link void on every refusal its read publishes", () => {
-    for (const code of publishedRefusals(ANSICHT_OPERATION)) {
-      expect(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)), code).toBe("ungueltig");
+    for (const code of refusalCodes("link_invalid")) {
+      expect(mapEinwilligungAnsichtRefusal(refused(code)), code).toBe("invalid");
     }
   });
 
@@ -636,27 +647,38 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
      wording the view takes from the link's source. */
   it("gives each code its own answer, the spent links one panel", async () => {
     const answers = new Map<string, string>();
-    for (const code of publishedRefusals(CONFIRM_OPERATION)) {
-      answers.set(code, JSON.stringify(await mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, code), offenBei(VERTRETUNG_MIN_ALTER))));
+    for (const code of refusalCodes(
+      "link_invalid",
+      "link_expired",
+      "bewerbung_seat_already_answered",
+      "confirmation_age",
+      "bewerbung_token_past_deadline",
+      "link_barred",
+      "wording_not_allowed",
+      "medien_age",
+      "link_expired",
+      "kontakt_saison_past",
+    )) {
+      answers.set(code, JSON.stringify(await mapEinwilligungRefusal(refused(code), offenBei(VERTRETUNG_MIN_ALTER))));
     }
 
-    for (const code of ["REQ-BEWERBUNG-017", "REQ-KONTAKT-004"]) {
-      expect(answers.get(code), `${code}'s passed deadline leaves the spent-link panel`).toBe(answers.get("REQ-BEWERBUNG-010"));
+    for (const code of ["bewerbung_token_past_deadline", "link_expired"]) {
+      expect(answers.get(code), `${code}'s passed deadline leaves the spent-link panel`).toBe(answers.get("link_expired"));
       answers.delete(code);
     }
     // An answer the read cannot find claims no more than the refusal did: the panel naming nobody.
-    expect(answers.get("REQ-BEWERBUNG-011"), "an answer the view reads as open names a panel").toBe(answers.get("REQ-BEWERBUNG-009"));
-    answers.delete("REQ-BEWERBUNG-011");
+    expect(answers.get("bewerbung_seat_already_answered"), "an answer the view reads as open names a panel").toBe(answers.get("link_invalid"));
+    answers.delete("bewerbung_seat_already_answered");
     expect(new Set(answers.values()).size, "two codes are answered with the same panel or sentence").toBe(answers.size);
   });
 
   /* One code covers a confirmation and a decline alike, so a state picked here tells a seat that
      declined in another window that it confirmed. Which way it went is the ansicht read's to say. */
   it("answers the already-answered link with the state its view reads, never a state of its own", async () => {
-    const abgelehnt = async (): Promise<EinwilligungAnsicht> => ({ zustand: "abgelehnt", quelle: "bewerbung" });
+    const abgelehnt = async (): Promise<EinwilligungAnsicht> => ({ zustand: "declined", quelle: "bewerbung" });
 
-    expect(await mapEinwilligungRefusal(publishedOn(CONFIRM_OPERATION, "REQ-BEWERBUNG-011"), abgelehnt)).toStrictEqual({
-      zustand: "abgelehnt",
+    expect(await mapEinwilligungRefusal(refused("bewerbung_seat_already_answered"), abgelehnt)).toStrictEqual({
+      zustand: "declined",
     });
   });
 
@@ -664,7 +686,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
      here would replace a live form with a dead-link panel and lose the date the person typed. */
   it("answers the age refusal at the field, naming the floor it was given and never a state", async () => {
     for (const floor of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
-      const mappedRefusal = await mapEinwilligungRefusal(publishedOn(CONFIRM_OPERATION, "REQ-BEWERBUNG-012"), offenBei(floor));
+      const mappedRefusal = await mapEinwilligungRefusal(refused("confirmation_age"), offenBei(floor));
       const gesagt = mappedRefusal?.fieldErrors?.geburtsdatum ?? "";
 
       expect(mappedRefusal?.zustand, "a refusal the token survives closed the form anyway").toBe(undefined);
@@ -694,7 +716,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
 
   /* A body the API could not read at all is the same drifted client, and a retry sends the same bytes. */
   it("answers a body the API could not read with the mail's link", async () => {
-    expect(await mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "REQ-VAL-002"), offenBei(VERTRETUNG_MIN_ALTER))).toStrictEqual({
+    expect(await mapEinwilligungRefusal(refused("body_unreadable"), offenBei(VERTRETUNG_MIN_ALTER))).toStrictEqual({
       error: ANTWORT_NEU_OEFFNEN,
     });
   });
@@ -713,7 +735,7 @@ describe("which wording an answer may be stored under", () => {
   /* The backend judges the label: a page opened before a deploy moved
      it shows words other than those the backend runs, and only the mail's link reopens the page on them. */
   it("answers the backend's refusal of the label with the mail's link, saying the words moved", async () => {
-    expect(await mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "REQ-EINWILLIGUNG-001"), offenBei(VERTRETUNG_MIN_ALTER))).toStrictEqual({
+    expect(await mapEinwilligungRefusal(refused("wording_not_allowed"), offenBei(VERTRETUNG_MIN_ALTER))).toStrictEqual({
       error: FASSUNG_NEU_OEFFNEN,
     });
   });
@@ -723,22 +745,22 @@ describe("mapEinwilligungAnsichtRefusal", () => {
   /* The read refuses an unknown token alone; a spent, declined or expired link answers its own
      `zustand` in a 200. Fail-closed, so a code nobody planned still renders the panel naming nobody. */
   it("reads every refusal as the panel that names nobody", () => {
-    expect(mapEinwilligungAnsichtRefusal(publishedOn(ANSICHT_OPERATION, "REQ-BEWERBUNG-009"))).toBe("ungueltig");
+    expect(mapEinwilligungAnsichtRefusal(refused("link_invalid"))).toBe("invalid");
     for (const status of [409, 404, 410]) {
-      expect(mapEinwilligungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "REQ-SOMETHING-NEW", status)), String(status)).toBe("ungueltig");
+      expect(mapEinwilligungAnsichtRefusal(refused("activate_saison_unfinished", status)), String(status)).toBe("invalid");
     }
   });
 
   /* A token past `CustomBewerbungToken`'s length, or malformed, never reaches a record, so the read
      is answered by the dead-link panel rather than by the state inviting a reload that cannot work. */
   it("reads a token the backend will not parse as a link nothing matches", () => {
-    expect(mapEinwilligungAnsichtRefusal(refusedPayload([], "/bewerbungen"))).toBe("ungueltig");
+    expect(mapEinwilligungAnsichtRefusal(refusedPayload([], "/bewerbungen"))).toBe("invalid");
   });
 
   /* A failed read is the page's own state: answering „ungueltig“ on a 500 would call a live link
      void on a day the backend was unreachable. */
   it("leaves anything that is not a refusal to the caller", () => {
-    expect(mapEinwilligungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "", 500))).toBe(null);
+    expect(mapEinwilligungAnsichtRefusal(refused(undefined, 500))).toBe(null);
     expect(mapEinwilligungAnsichtRefusal(new Error("socket hang up"))).toBe(null);
   });
 
@@ -746,11 +768,11 @@ describe("mapEinwilligungAnsichtRefusal", () => {
      failed in the page's own encoding. The dead-link panel would send the visitor away from a live link. */
   it("leaves a routing refusal or an unreadable body to the caller, never the dead-link panel", () => {
     for (const [status, code] of [
-      [404, "REQ-ROUTE-001"],
-      [405, "REQ-ROUTE-002"],
+      [404, "no_route"],
+      [405, "method_not_served"],
     ] as const) {
-      expect(mapEinwilligungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, code, status)), code).toBe(null);
+      expect(mapEinwilligungAnsichtRefusal(refused(code, status)), code).toBe(null);
     }
-    expect(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-VAL-002"))).toBe(null);
+    expect(mapEinwilligungAnsichtRefusal(refused("body_unreadable"))).toBe(null);
   });
 });

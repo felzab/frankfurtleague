@@ -10,7 +10,7 @@ import { ERGEBNIS_INK_CLASSES, SpielScore } from "../../ui/SpielScore";
 import { SpielStatusChip } from "../../ui/SpielStatusChip";
 import { SLOT_LABEL_WRAP_CLASSES, TEAM_NAME_TRACK_CLASSES, TEAM_NAME_WRAP_CLASSES } from "../../ui/teamName";
 
-import type { FLSpielWithDraftFields } from "@/features/spiele/schemas";
+import type { FLSpielWithDraftFields } from "@/features/spiele/types";
 
 /**
  * **Not `SpielCardCompact` itself**: that card mounts a popover whose links navigate away from a

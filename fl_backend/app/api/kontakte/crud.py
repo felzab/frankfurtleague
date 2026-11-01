@@ -53,7 +53,7 @@ async def clear_seats(
         if not slots:
             continue
 
-        update = build_clearing_update(slots, bestaetigungen=isinstance(row.get("bestaetigungen"), Mapping))
+        update = build_clearing_update(slots, confirmations=isinstance(row.get("confirmations"), Mapping))
         await patch_one_in_db(
             collection=collection, db_filter={"_id": row["_id"]}, update=update, session=session, return_document=ReturnDocument.BEFORE
         )
@@ -67,7 +67,7 @@ async def remove_their_reasons(
     spielbestaetigungen_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     adressen: Iterable[str],
-    schluessel: SecretStr,
+    key: SecretStr,
     stamp: str,
     session: AsyncClientSession,
 ) -> None:
@@ -79,7 +79,7 @@ async def remove_their_reasons(
     await remove_the_holders_reasons(
         spielbestaetigungen_collection=spielbestaetigungen_collection,
         aktionen_collection=aktionen_collection,
-        halter={halter_of(adresse, schluessel=schluessel) for adresse in adressen},
+        halter={halter_of(adresse, key=key) for adresse in adressen},
         stamp=stamp,
         session=session,
     )
@@ -129,16 +129,16 @@ class SeatsCleared(NamedTuple):
     redacted_aktionen: int
 
 
-async def erase_kontaktperson_in_session(
+async def loeschen_kontaktperson_in_session(
     *,
     saison_teams_collection: AsyncCollection,
     bewerbungen_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     spielbestaetigungen_collection: AsyncCollection,
     identifier: str,
-    schluessel: SecretStr,
+    key: SecretStr,
     # The rows naming the address in a seat, of every status, each carrying its seats' addresses and its
-    # `bestaetigungen`, read unbounded in the caller's transaction BEFORE any clearing: a cleared row stops matching.
+    # `confirmations`, read unbounded in the caller's transaction BEFORE any clearing: a cleared row stops matching.
     saison_team_rows: Sequence[Mapping[str, Any]],
     bewerbung_rows: Sequence[Mapping[str, Any]],
     # The caller's, so several erasures in one transaction redact under one instant.
@@ -176,7 +176,7 @@ async def erase_kontaktperson_in_session(
         spielbestaetigungen_collection=spielbestaetigungen_collection,
         aktionen_collection=aktionen_collection,
         adressen=[identifier],
-        schluessel=schluessel,
+        key=key,
         stamp=stamp,
         session=session,
     )

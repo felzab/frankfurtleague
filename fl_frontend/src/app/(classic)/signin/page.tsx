@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { getSignedInAddress } from "@/core/auth";
 import { frontend_config } from "@/core/config";
@@ -12,7 +11,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import type { Metadata } from "next";
 
 /** No description: a sign-in page carries none. */
-export const metadata: Metadata = pageMetadata(ROUTES.anmeldung, ROUTES.anmeldung.pfad());
+export const metadata: Metadata = pageMetadata(ROUTES.signIn, ROUTES.signIn.path());
 
 /**
  * Resolves nothing itself: the view is a function of the request's session, and a top-level await would
@@ -27,10 +26,8 @@ export default function AnmeldenPage() {
 }
 
 async function Anmelden() {
-  await connection();
-
   const address = await getSignedInAddress();
-  // The key off the request's settings, past `connection()`: a prerendered shell would carry the build's, which is none.
+  // The key off the request's settings, past the session read: a prerendered shell would carry the build's, which is none.
   return address === null ? (
     <SignInFlow
       next={SIGN_IN_LANDING}

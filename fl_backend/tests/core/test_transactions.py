@@ -1,14 +1,11 @@
-import ast
 import asyncio
-import contextlib
-import dataclasses
 import logging
 import re
 import time
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
-from contextlib import asynccontextmanager
+from collections.abc import Awaitable, Callable, Mapping
+from http import HTTPStatus
 from types import SimpleNamespace
-from typing import Any, cast, get_args, get_type_hints
+from typing import Any, cast
 
 import anyio
 import pytest
@@ -18,38 +15,27 @@ from pydantic import BaseModel, Field, ValidationError
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.errors import ExecutionTimeout, OperationFailure
-from starlette.requests import Request
 from starlette.types import Message, Scope
 
-from app.core import security
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import WritesSent, writes_sent_var
-from app.core.exception_handlers import DATABASE_FAILED, STORED_DATA_INVALID, UNHANDLED_CRASH, UNKNOWN_OUTCOME
-from app.core.exceptions import ActorForbiddenException
-from app.core.logging import fl_logger
+from app.core.exceptions import APIError
+from app.core.logging import JSONFormatter, fl_logger
 from app.core.middlewares import request_deadline_var
-from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, PersonActor, actor_var
-from app.core.security import ACTOR_NOT_ADMIN, admin_judge, bind_actor, person_judge
 from app.core.transactions import (
     ABORT_GRACE_S,
-    UNJUDGED_KINDS,
     Batch,
     StalledPage,
-    actor_judge_var,
     drain,
     run_isolated,
     transaction_session,
 )
 from app.main import create_app
-from tests.actor_tokens import verified_actor
-from tests.config import TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
-from tests.core.app_source import APP_ROOT, BACKEND_ROOT, app_calls, callee, parsed
+from tests.config import TEST_BASE_URL, UNANSWERED_URI, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
 PAGE = 3
-
-TRANSACTION_SESSION = "transaction_session"
 
 
 class _Session:
@@ -115,7 +101,7 @@ class TestAFullPageIsRunAgain:
         erased, redacted, _ = asyncio.run(
             drain(
                 db=cast(AsyncMongoClient, client),
-                page_of=lambda session, batch: session.with_transaction(erase_a_page, batch),
+                page_of=erase_a_page,
                 page=PAGE,
                 what="Row",
                 clock="test",
@@ -125,32 +111,6 @@ class TestAFullPageIsRunAgain:
         assert handed == client.sessions
         assert len(handed) == len(pages)
         assert (erased, redacted) == (sum(page[1] for page in pages), sum(page[2] for page in pages))
-
-
-class _Judged:
-    """A judge recording when the hook enters and leaves it, refusing on entry where `refuses` is set.
-
-    What a production judge does on leaving is its own: `TestTheAdministratorsJudgeOverARealGrant` holds it.
-    """
-
-    def __init__(self, events: list[str], *, refuses: bool = False) -> None:
-        self.events = events
-        self.refuses = refuses
-
-    @asynccontextmanager
-    async def __call__(self, session: Any) -> AsyncIterator[None]:
-        assert session.open, "the judge ran outside the attempt's session"
-        self.events.append("entered")
-        if self.refuses:
-            raise _RefusedByTheJudge
-
-        yield
-
-        self.events.append("left")
-
-
-class _RefusedByTheJudge(Exception):
-    """The judge's refusal, raised before its callback."""
 
 
 class _FailedInTheCallback(Exception):
@@ -206,7 +166,7 @@ def _isolated(rows: _Rows, *, owes: bool = False) -> tuple[list[tuple[int, int, 
         run_isolated(
             db=cast(AsyncMongoClient, _Client()),
             batch=Batch(),
-            attempt=lambda session, batch: session.with_transaction(rows.erase, batch),
+            attempt=rows.erase,
             moved=lambda page: page[1],
             owes=owes,
             what="Row",
@@ -240,25 +200,24 @@ class TestARowFailingAloneIsPassedOver:
     """Over doubles, for the failures no row carries, which no database case reaches cheaply."""
 
     @pytest.mark.parametrize(
-        ("failure", "code", "line"),
+        ("failure", "code", "diagnosis"),
         [
             pytest.param(
                 lambda: _FailedInTheCallback(A_STORED_VALUE),
-                UNHANDLED_CRASH,
-                r"Row 1 was passed over by the test clock: _FailedInTheCallback in erase at .+test_transactions\.py:\d+",
+                Code.UNHANDLED_CRASH,
+                r"_FailedInTheCallback in erase at .+test_transactions\.py:\d+",
                 id="not the database's, located by its innermost frame",
             ),
             pytest.param(
-                lambda: OperationFailure(A_STORED_VALUE, 121, {"errInfo": {"details": {"missingProperties": ["trace_id"]}}}),
-                DATABASE_FAILED,
-                re.escape("Row 1 was passed over by the test clock: OperationFailure, code 121: ")
-                + re.escape("[{'loc': 'trace_id', 'type': 'required', 'msg': 'property is missing'}]"),
-                id="refused, with the properties the validator refused",
+                lambda: OperationFailure(A_STORED_VALUE, 2, {"ok": 0, "code": 2, "errmsg": A_STORED_VALUE}),
+                Code.DATABASE_FAILED,
+                re.escape("OperationFailure, code 2"),
+                id="the database's, named by its type and code alone",
             ),
             pytest.param(
                 lambda: _refused_by_the_answer(),
-                STORED_DATA_INVALID,
-                re.escape("Row 1 was passed over by the test clock: ValidationError: ")
+                Code.STORED_DATA_INVALID,
+                re.escape("ValidationError: ")
                 + re.escape(
                     "[{'loc': 'geburtsdatum', 'type': 'string_pattern_mismatch', 'msg': \"String should match pattern '^[0-9]{4}$'\"}]"
                 ),
@@ -267,7 +226,7 @@ class TestARowFailingAloneIsPassedOver:
         ],
     )
     def test_the_rest_of_its_page_goes_and_no_later_page_reads_it_again(
-        self, caplog: pytest.LogCaptureFixture, failure: Callable[[], Exception], code: str, line: str
+        self, caplog: pytest.LogCaptureFixture, failure: Callable[[], Exception], code: str, diagnosis: str
     ):
         rows = _Rows(2 * PAGE + 1, lambda read: failure() if 1 in read else None)
 
@@ -275,7 +234,7 @@ class TestARowFailingAloneIsPassedOver:
             erased, _, passed = asyncio.run(
                 drain(
                     db=cast(AsyncMongoClient, _Client()),
-                    page_of=lambda session, batch: session.with_transaction(rows.erase, batch),
+                    page_of=rows.erase,
                     page=PAGE,
                     what="Row",
                     clock="test",
@@ -285,9 +244,13 @@ class TestARowFailingAloneIsPassedOver:
         assert (erased, rows.standing, passed) == (2 * PAGE, [1], [1])
         # The page after the one it failed in, read without it: read with it, it fails that page whole again.
         assert rows.read[-1] == [4, 5, 6]
-        [(logged_code, logged)] = [(getattr(record, "error_code", None), record.getMessage()) for record in caplog.records]
+        [record] = caplog.records
+        line = JSONFormatter().format(record)
+        assert (record.getMessage(), getattr(record, "error_code", None)) == ("transactions.row_passed_over", code)
+        assert (getattr(record, "what", None), getattr(record, "row_id", None), getattr(record, "clock", None)) == ("Row", "1", "test")
+        assert re.fullmatch(diagnosis, getattr(record, "diagnosis", "")) is not None, line
         # The record's value reaches no line: a line about an erasure would outlive it.
-        assert (logged_code, re.fullmatch(line, logged) is not None, A_STORED_VALUE in logged) == (code, True, False), logged
+        assert A_STORED_VALUE not in line
 
     def test_a_row_failing_on_a_page_after_a_committed_one_is_passed_over_alone_too(self):
         """The first page commits whole before row 5 fails: a drain taking apart only its first page raises the whole pass here."""
@@ -297,7 +260,7 @@ class TestARowFailingAloneIsPassedOver:
         erased, _, passed = asyncio.run(
             drain(
                 db=cast(AsyncMongoClient, _Client()),
-                page_of=lambda session, batch: session.with_transaction(rows.erase, batch),
+                page_of=rows.erase,
                 page=PAGE,
                 what="Row",
                 clock="test",
@@ -338,13 +301,11 @@ class TestARowFailingAloneIsPassedOver:
             answered = _isolated(_Rows(4, raises), owes=True)
 
         assert answered == ([(1, 1, 0)], [1])
-        assert [(getattr(record, "error_code", None), record.getMessage()) for record in caplog.records if record.levelname == "WARNING"] == [
-            (
-                UNKNOWN_OUTCOME,
-                "Database deadline passed taking the test clock's rows apart, the commit of Row 2, 3 unanswered: those may have been "
-                "written with nobody told, the call answers what else committed, and the rest stay due",
-            )
-        ]
+        assert [
+            (getattr(record, "error_code", None), record.getMessage(), getattr(record, "what", None), getattr(record, "row_ids", None))
+            for record in caplog.records
+            if record.levelname == "WARNING"
+        ] == [(Code.UNKNOWN_OUTCOME, "transactions.isolation_commit_unanswered", "Row", ["2", "3"])]
 
     def test_a_failure_before_any_row_was_read_is_raised_rather_than_halved(self):
         """No row to halve, so taking it apart would answer an empty success over a read that failed."""
@@ -360,7 +321,7 @@ class TestARowFailingAloneIsPassedOver:
                 run_isolated(
                     db=cast(AsyncMongoClient, _Client()),
                     batch=Batch(),
-                    attempt=lambda session, batch: session.with_transaction(unread, batch),
+                    attempt=unread,
                     moved=lambda page: page[1],
                     owes=True,
                     what="Row",
@@ -400,7 +361,7 @@ class TestARowFailingAloneIsPassedOver:
                 run_isolated(
                     db=cast(AsyncMongoClient, _Client(attempts=2)),
                     batch=Batch(),
-                    attempt=lambda session, batch: session.with_transaction(read, batch),
+                    attempt=read,
                     moved=lambda page: page[1],
                     owes=False,
                     what="Row",
@@ -429,7 +390,7 @@ class TestARowFailingAloneIsPassedOver:
                 run_isolated(
                     db=cast(AsyncMongoClient, _Client(attempts=2)),
                     batch=Batch(share=PAGE + 1),
-                    attempt=lambda session, batch: session.with_transaction(clock.remind, batch),
+                    attempt=clock.remind,
                     moved=len,
                     owes=True,
                     what="Row",
@@ -440,12 +401,12 @@ class TestARowFailingAloneIsPassedOver:
         assert (result, len(caplog.records)) == (answered, len(answered[1]))
 
     def test_a_refusal_the_request_answers_is_raised_rather_than_halved(self):
-        """A judge's, which every half meets too: halved, the call would answer 200 for an actor it refuses."""
+        """Every half meets it too: halved, the call would answer 200 for a request it refuses."""
 
-        refusal = ActorForbiddenException(error_code=ACTOR_NOT_ADMIN, message="refused", jti="jti")
+        refusal = APIError(HTTPStatus.FORBIDDEN, Code.ACTOR_NOT_ADMIN)
         rows = _Rows(PAGE + 1, lambda read: refusal)
 
-        with pytest.raises(ActorForbiddenException):
+        with pytest.raises(APIError):
             _isolated(rows)
 
         assert rows.read == [[0, 1, 2, 3]]
@@ -455,7 +416,7 @@ class TestABatchNarrowsTheClocksOwnFilter:
     def test_a_filter_naming_its_own_ids_keeps_them_beside_the_rows_passed_over(self):
         """Merged rather than set beside, the term replaces the list's own ids and the read takes every row the rest admits."""
 
-        own = {"_id": {"$in": [1, 2]}, "status": "eingereicht"}
+        own = {"_id": {"$in": [1, 2]}, "status": "submitted"}
 
         assert Batch(passed=[3]).within(own) == {"$and": [own, {"_id": {"$nin": [3]}}]}
 
@@ -489,7 +450,7 @@ def _a_share(clock: _Share, *, share: int, owes: bool = True) -> tuple[list[list
         run_isolated(
             db=cast(AsyncMongoClient, _Client()),
             batch=Batch(share=share),
-            attempt=lambda session, batch: session.with_transaction(clock.remind, batch),
+            attempt=clock.remind,
             moved=len,
             owes=owes,
             what="Row",
@@ -512,7 +473,7 @@ class TestAShareIsTakenApartOverTheRowsItTook:
         assert answered == ([[1]], [0, 2])
         assert clock.read == [[0, 1, 2, 3], [1], [2]]
         # Each logged once, the row passed over in place by the attempt that judged it.
-        assert sorted(record.getMessage().split(" was ")[0] for record in caplog.records) == ["Row 0", "Row 2"]
+        assert sorted(str(getattr(record, "row_id", "")) for record in caplog.records) == ["0", "2"]
 
     def test_a_row_passed_over_in_place_is_answered_beside_a_committed_share(self):
         assert _a_share(_Share(3, refused=1, failing=-1), share=4) == ([[0, 2]], [1])
@@ -538,7 +499,7 @@ class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
             answered = self._owing(rows, deadline_s=-1.0)
 
         assert (answered, rows.read) == (([(2, 2, 0)], []), [[0, 1, 2, 3], [0, 1]])
-        assert [(record.levelname, getattr(record, "error_code", None)) for record in caplog.records] == [("WARNING", DATABASE_FAILED)]
+        assert [(record.levelname, getattr(record, "error_code", None)) for record in caplog.records] == [("WARNING", Code.DATABASE_FAILED)]
 
     def test_the_same_isolation_inside_its_deadline_takes_every_half(self):
         """The control: with time left, the halves after the first are run, and the failing row alone is passed over."""
@@ -550,7 +511,7 @@ class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
     def test_a_failure_no_row_carries_after_a_committed_half_is_answered_rather_than_raised(self, caplog: pytest.LogCaptureFixture):
         """Raised, the call would answer an error in place of the messages the committed half owes."""
 
-        refusal = ActorForbiddenException(error_code=ACTOR_NOT_ADMIN, message="refused", jti="jti")
+        refusal = APIError(HTTPStatus.FORBIDDEN, Code.ACTOR_NOT_ADMIN)
 
         def raises(read: list[int]) -> Exception | None:
             if read == [0, 1, 2, 3]:
@@ -561,116 +522,7 @@ class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
             answered = self._owing(_Rows(4, raises), deadline_s=None)
 
         assert answered == ([(2, 2, 0)], [])
-        assert [getattr(record, "error_code", None) for record in caplog.records] == [UNHANDLED_CRASH]
-
-
-def _run_judged(actor: Actor | PersonActor, judge: Any, *, attempts: int = 1, fails: bool = False, client: _Client | None = None) -> list[str]:
-    """One transaction run under `actor` and `judge` bound as a binder binds them, and what ran in it, in order."""
-
-    client = _Client(attempts) if client is None else client
-    events: list[str] = [] if judge is None else judge.events
-
-    async def callback(session: Any) -> None:
-        events.append("callback")
-        if fails:
-            raise _FailedInTheCallback
-
-    async def run() -> None:
-        actor_token, judge_token = actor_var.set(actor), actor_judge_var.set(judge)
-        try:
-            async with transaction_session(cast(AsyncMongoClient, client)) as session:
-                await session.with_transaction(callback)
-        finally:
-            actor_var.reset(actor_token)
-            actor_judge_var.reset(judge_token)
-
-    asyncio.run(run())
-
-    return events
-
-
-ADMINISTRATOR = Actor(kind="admin_session", email="admin@example.com")
-PERSON = PersonActor(pseudonym="0" * 64, funktion="spieler")
-
-
-class TestEveryAttemptJudgesItsActorFirst:
-    """The judge a binder bound is entered inside every attempt the driver makes, around its callback."""
-
-    def test_the_judge_is_entered_before_the_callback_and_left_after_it_on_every_attempt(self):
-        """Two attempts, as a write conflict makes: a judge entered once per session would let the retry run on the first attempt's read."""
-
-        events = _run_judged(ADMINISTRATOR, _Judged([]), attempts=2)
-
-        assert events == ["entered", "callback", "left", "entered", "callback", "left"]
-
-    def test_a_refusing_judge_runs_no_callback(self):
-        events: list[str] = []
-        with pytest.raises(_RefusedByTheJudge):
-            _run_judged(ADMINISTRATOR, _Judged(events, refuses=True))
-
-        assert events == ["entered"]
-
-    def test_a_failing_callback_reaches_the_judge_as_its_failure(self):
-        """Never as a callback that returned: a judge's last step runs only after one that did."""
-
-        events: list[str] = []
-        with pytest.raises(_FailedInTheCallback):
-            _run_judged(ADMINISTRATOR, _Judged(events), fails=True)
-
-        assert events == ["entered", "callback"]
-
-
-class TestTheSystemAndThePublicAreJudgedByNothing:
-    @pytest.mark.parametrize("actor", [SYSTEM_ACTOR, PUBLIC_ACTOR], ids=["the system", "the public"])
-    def test_their_callback_runs_with_no_judge_bound(self, actor: Actor):
-        events = _run_judged(actor, None)
-
-        assert events == ["callback"]
-
-
-def _actor_kinds() -> frozenset[str]:
-    """Every `kind` an actor can carry, read off the two actor types rather than listed, so a kind added there is found here."""
-
-    return frozenset(kind for actor_type in (Actor, PersonActor) for kind in get_args(get_type_hints(actor_type)["kind"]))
-
-
-# The kinds a binder binds a judge beside, each with the binder: the half of the partition the hook does not name.
-JUDGED_BY: Mapping[str, str] = {
-    "admin_session": "app/core/security.py :: bind_actor",
-    "person_session": "app/core/security.py :: person_actor_binder",
-}
-
-
-def _an_actor_of(kind: str) -> Actor | PersonActor:
-    """An actor carrying `kind`, built off a sample of the type declaring it.
-
-    The dataclasses check no `Literal`, so a kind no binder places yet is built all the same.
-    """
-
-    sample = next(actor for actor in (ADMINISTRATOR, PERSON) if kind in get_args(get_type_hints(type(actor))["kind"]))
-
-    return dataclasses.replace(sample, kind=kind)
-
-
-class TestAnUnjudgedActorIsRefused:
-    @pytest.mark.parametrize("kind", sorted(_actor_kinds() - UNJUDGED_KINDS))
-    def test_a_judged_kind_with_no_judge_bound_opens_no_session(self, kind: str):
-        """Every kind the hook does not name, read off the actor types: a kind added there is driven here unlisted.
-
-        Load-bearing for the administrator: a binder that bound the actor and forgot the judge would otherwise write past a revoke.
-        """
-
-        client = _Client()
-        with pytest.raises(LookupError):
-            _run_judged(_an_actor_of(kind), None, client=client)
-
-        assert client.sessions == []
-
-    def test_every_actor_kind_is_unjudged_by_name_or_judged_by_its_binder(self):
-        """A kind added to either actor type fails here until it is placed: refused by the hook meanwhile, never let through."""
-
-        assert UNJUDGED_KINDS.isdisjoint(JUDGED_BY)
-        assert UNJUDGED_KINDS | JUDGED_BY.keys() == _actor_kinds()
+        assert [getattr(record, "error_code", None) for record in caplog.records] == [Code.UNHANDLED_CRASH]
 
 
 class _TransactedSession(_Session):
@@ -733,7 +585,7 @@ class TestAFailedSessionAbortsInsideItsGrace:
             sent = _aborts_sent(fails=True, deadline=time.monotonic() - ABORT_GRACE_S - 1)
 
         assert sent == []
-        assert [getattr(record, "error_code", None) for record in caplog.records] == [DATABASE_FAILED]
+        assert [getattr(record, "error_code", None) for record in caplog.records] == [Code.DATABASE_FAILED]
 
     def test_a_session_whose_work_finished_is_sent_no_abort(self):
         """A committed transaction answers an abort harmlessly, so only this case keeps one round trip off every write."""
@@ -768,7 +620,7 @@ class TestASessionNoCommandCarriedIsSentNoAbort:
         with caplog.at_level(logging.ERROR, logger=fl_logger.name):
             asyncio.run(run())
 
-        assert [record for record in caplog.records if getattr(record, "error_code", None) == DATABASE_FAILED] == []
+        assert [record for record in caplog.records if getattr(record, "error_code", None) == Code.DATABASE_FAILED] == []
 
 
 class _AnsweringSession(_TransactedSession):
@@ -923,11 +775,11 @@ class TestARefusedTransactionalWriteRaisesNoAlarm:
         aborts = _Aborts()
 
         async def body() -> None:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False, collections=(Collection.AKTIONEN,)):
+            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False):
                 # A client of this case's own, so the listener sees this transaction's commands and none of the seeding.
                 watched = AsyncMongoClient(mongo_replica_set_url, event_listeners=[aborts])
                 try:
-                    written = watched[DATABASE_NAME][Collection.AKTIONEN]
+                    written = watched[DATABASE_NAME][Collection.ACTION_LOG]
 
                     async def write_then_refuse(session: AsyncClientSession) -> None:
                         await written.insert_one({"_id": ObjectId()}, session=session)
@@ -944,7 +796,7 @@ class TestARefusedTransactionalWriteRaisesNoAlarm:
 
         # The control: the driver's abort, then this helper's; a helper sending nothing would also log nothing.
         assert aborts.answered == [None, NO_SUCH_TRANSACTION]
-        assert [record for record in caplog.records if getattr(record, "error_code", None) == DATABASE_FAILED] == []
+        assert [record for record in caplog.records if getattr(record, "error_code", None) == Code.DATABASE_FAILED] == []
 
 
 class _FailedAfterTheCommit(Exception):
@@ -959,11 +811,11 @@ class TestAFailureAfterTheCommitRaisesNoAlarm:
         aborts = _Aborts()
 
         async def body() -> int:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False, collections=(Collection.AKTIONEN,)):
+            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False):
                 # A client of this case's own, so the listener sees this transaction's commands and none of the seeding.
                 watched = AsyncMongoClient(mongo_replica_set_url, event_listeners=[aborts])
                 try:
-                    written = watched[DATABASE_NAME][Collection.AKTIONEN]
+                    written = watched[DATABASE_NAME][Collection.ACTION_LOG]
 
                     async def write(session: AsyncClientSession) -> None:
                         await written.insert_one({"_id": ObjectId()}, session=session)
@@ -981,401 +833,4 @@ class TestAFailureAfterTheCommitRaisesNoAlarm:
 
         # The control: this helper's abort, answered; a helper sending nothing would also log nothing.
         assert (aborts.answered, stored) == ([TRANSACTION_COMMITTED], 1)
-        assert [record for record in caplog.records if getattr(record, "error_code", None) == DATABASE_FAILED] == []
-
-
-JUDGE_DATABASE_NAME = worker_database("fl_transactions_judge_test")
-
-ACTING, OTHER = grants_for_the_suite()[1], grants_for_the_suite()[2]
-
-
-class _GrantUpdates(monitoring.CommandListener):
-    """The `_id` each update the client sends to the grants filters on, in the order sent: a write aborted after it still shows here."""
-
-    def __init__(self) -> None:
-        self.filtered_on: list[Any] = []
-
-    def started(self, event: monitoring.CommandStartedEvent) -> None:
-        if event.command_name == "update" and event.command.get("update") == Collection.BERECHTIGUNGEN:
-            self.filtered_on.extend(update["q"].get("_id") for update in event.command["updates"])
-
-    def succeeded(self, event: monitoring.CommandSucceededEvent) -> None:
-        """Required by the listener interface; a write is judged by what was sent."""
-
-    def failed(self, event: monitoring.CommandFailedEvent) -> None:
-        """Required by the listener interface; a write is judged by what was sent."""
-
-
-def _judged_by_the_administrators_judge(url: str, *, fails: bool) -> tuple[list[Any], int]:
-    """One transaction under `app/core/security.py :: admin_judge`, its callback writing another grant row.
-
-    Answers the rows each grant update named, as sent, and the actor's row's `bounded_writes` once it ends.
-    """
-
-    updates = _GrantUpdates()
-
-    async def body() -> int:
-        async with a_clean_database(url, JUDGE_DATABASE_NAME) as (_, database):
-            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
-            # A client of this case's own, so the listener sees this transaction's commands and none of the seeding.
-            watched = AsyncMongoClient(url, event_listeners=[updates])
-            grants = watched[JUDGE_DATABASE_NAME][Collection.BERECHTIGUNGEN]
-
-            async def write(session: AsyncClientSession) -> None:
-                await grants.update_one({"_id": OTHER["_id"]}, {"$set": {"erteilt_von": "PROBE"}}, session=session)
-                if fails:
-                    raise _FailedInTheCallback
-
-            judge = admin_judge(verified_actor(ACTING["adresse"]), build_test_config().model_copy(update={"db_base_name": JUDGE_DATABASE_NAME}))
-            actor_token, judge_token = actor_var.set(Actor(kind="admin_session", email=ACTING["adresse"])), actor_judge_var.set(judge)
-            try:
-                async with transaction_session(watched) as session:
-                    await session.with_transaction(write)
-            except _FailedInTheCallback:
-                pass
-            finally:
-                actor_var.reset(actor_token)
-                actor_judge_var.reset(judge_token)
-                await watched.close()
-
-            stored = await database[Collection.BERECHTIGUNGEN].find_one({"_id": ACTING["_id"]})
-            assert stored is not None
-            return int(stored.get("bounded_writes", 0))
-
-    return updates.filtered_on, on_the_seed_loop(body())
-
-
-@pytest.mark.db
-class TestTheAdministratorsJudgeOverARealGrant:
-    """`app/core/security.py :: admin_judge` itself, against the grants a database holds rather than a stub."""
-
-    def test_a_transaction_that_wrote_anchors_the_actors_own_grant_after_its_write(self, mongo_replica_set_url: str):
-        """The control for the case below: the anchor is sent, last, on the actor's row and no other, and commits with the write."""
-
-        assert _judged_by_the_administrators_judge(mongo_replica_set_url, fails=False) == ([OTHER["_id"], ACTING["_id"]], 1)
-
-    def test_a_failing_callback_sends_no_anchor(self, mongo_replica_set_url: str):
-        """Sent and aborted would leave the grant as it was, so only what reached the server shows an anchor written regardless."""
-
-        assert _judged_by_the_administrators_judge(mongo_replica_set_url, fails=True) == ([OTHER["_id"]], 0)
-
-
-class _RecordedJudge:
-    """What `bind_actor` is handed in place of `app/core/security.py :: admin_judge`, and the judge it answers with."""
-
-    def __init__(self) -> None:
-        self.called_with: list[tuple[Any, Any]] = []
-        self.judge = object()
-
-    def __call__(self, actor: Any, config: Any) -> object:
-        self.called_with.append((actor, config))
-        return self.judge
-
-
-class _RecordedCursor:
-    """Every read's cursor: no row, whichever of the driver's chained calls a helper makes."""
-
-    def __init__(self, rows: list[Mapping[str, Any]]) -> None:
-        self.rows = rows
-
-    def sort(self, *_: Any, **__: Any) -> _RecordedCursor:
-        return self
-
-    def limit(self, *_: Any, **__: Any) -> _RecordedCursor:
-        return self
-
-    async def to_list(self, *_: Any, **__: Any) -> list[Mapping[str, Any]]:
-        return self.rows
-
-
-class _RecordedCollection:
-    """A collection recording, for every call a judge makes on it, the session that call carried."""
-
-    def __init__(self, database: _RecordedDatabase, name: str) -> None:
-        self.database = database
-        self.name = name
-
-    def _carried(self, method: str, kwargs: Mapping[str, Any]) -> None:
-        self.database.carried.append((self.name, method, kwargs.get("session")))
-
-    async def aggregate(self, *_: Any, **kwargs: Any) -> _RecordedCursor:
-        self._carried("aggregate", kwargs)
-        return _RecordedCursor(self.database.grants if self.name == Collection.BERECHTIGUNGEN else [])
-
-    def find(self, *_: Any, **kwargs: Any) -> _RecordedCursor:
-        self._carried("find", kwargs)
-        return _RecordedCursor([])
-
-    async def find_one(self, *_: Any, **kwargs: Any) -> None:
-        self._carried("find_one", kwargs)
-
-    async def update_many(self, *_: Any, **kwargs: Any) -> SimpleNamespace:
-        self._carried("update_many", kwargs)
-        return SimpleNamespace(modified_count=1)
-
-    async def insert_one(self, *_: Any, **kwargs: Any) -> SimpleNamespace:
-        self._carried("insert_one", kwargs)
-        return SimpleNamespace(inserted_id=ObjectId())
-
-    async def update_one(self, *_: Any, **kwargs: Any) -> None:
-        self._carried("update_one", kwargs)
-
-
-class _RecordedDatabase:
-    def __init__(self, grants: list[Mapping[str, Any]]) -> None:
-        self.grants = grants
-        self.carried: list[tuple[str, str, Any]] = []
-
-    def __getitem__(self, name: str) -> _RecordedCollection:
-        return _RecordedCollection(self, name)
-
-
-def _sessions_a_judge_carried(judge: Any, grants: list[Mapping[str, Any]]) -> tuple[Any, list[tuple[str, str, Any]]]:
-    """One attempt through `judge` on a session whose client records every call: the session, and each call with the session it carried."""
-
-    database = _RecordedDatabase(grants)
-    session = SimpleNamespace(client={build_test_config().db_base_name: database})
-
-    async def attempt() -> None:
-        async with judge(session):
-            pass
-
-    asyncio.run(attempt())
-
-    return session, database.carried
-
-
-class TestEveryJudgeReadsInTheAttemptsSession:
-    """A judge's read left off the session judges what committed last, not the attempt's snapshot.
-
-    Entered through `JudgedSession`, which no in-session sweep over a callback's source reaches.
-    """
-
-    def test_the_administrators_reads_and_anchor_carry_it(self):
-        claims = verified_actor(ACTING["adresse"])
-        grant = {**ACTING, "angekuendigt": []}
-        session, carried = _sessions_a_judge_carried(admin_judge(claims, build_test_config()), [grant])
-
-        assert {(collection, method) for collection, method, _ in carried} >= {
-            (Collection.BERECHTIGUNGEN, "aggregate"),
-            (Collection.SPERRLISTE, "find"),
-            (Collection.BERECHTIGUNGEN, "update_many"),
-        }
-        assert [call for call in carried if call[2] is not session] == []
-
-    def test_the_persons_ban_read_and_anchor_carry_it(self):
-        session, carried = _sessions_a_judge_carried(person_judge(verified_actor(ACTING["adresse"]), build_test_config()), [])
-
-        assert {(collection, method) for collection, method, _ in carried} >= {
-            (Collection.SPERRLISTE, "find"),
-            (Collection.ADRESSANKER, "update_one"),
-        }
-        assert [call for call in carried if call[2] is not session] == []
-
-
-class TestThePersonsJudgeAnchorsOnlyWhereAWriteMayStand:
-    @pytest.mark.parametrize(("sent", "anchored"), [(False, False), (True, True)], ids=("nothing sent", "a write sent"))
-    def test_the_anchor_follows_the_requests_record(self, sent: bool, anchored: bool):
-        """Anchored with nothing sent, the address's anchor stands for no write and the request reads as having sent one."""
-
-        record = WritesSent(sent=sent)
-        token = writes_sent_var.set(record)
-        try:
-            _, carried = _sessions_a_judge_carried(person_judge(verified_actor(ACTING["adresse"]), build_test_config()), [])
-        finally:
-            writes_sent_var.reset(token)
-
-        assert ((Collection.ADRESSANKER, "update_one") in {(collection, method) for collection, method, _ in carried}) is anchored
-        assert record.sent is sent
-
-
-class TestTheAdministratorsBinderBindsTheirJudge:
-    def test_the_judge_built_off_the_verified_actor_is_bound_for_the_request_alone(self, monkeypatch: pytest.MonkeyPatch):
-        """Read off the variable the hook reads: an end-to-end refusal could be any judge's, or the check before the handler."""
-
-        recorded = _RecordedJudge()
-        monkeypatch.setattr(security, "admin_judge", recorded)
-        claims, config = verified_actor(ACTING["adresse"]), build_test_config()
-        request = Request({"type": "http", "method": "PATCH", "path": "/api/v0/spielorte", "headers": [], "query_string": b""})
-
-        async def bound() -> tuple[object, object]:
-            binder = bind_actor(request, claims, config)
-            await anext(binder)
-            during = actor_judge_var.get()
-            with contextlib.suppress(StopAsyncIteration):
-                await anext(binder)
-
-            return during, actor_judge_var.get()
-
-        assert asyncio.run(bound()) == (recorded.judge, None)
-        assert recorded.called_with == [(claims, config)]
-
-
-def _is_a_snapshot(call: ast.Call) -> bool:
-    snapshot = [keyword.value for keyword in call.keywords if keyword.arg == "snapshot"]
-    return any(isinstance(value, ast.Constant) and value.value is True for value in snapshot)
-
-
-def _sessions_opened_past_the_helper() -> set[str]:
-    """Every site opening a session that can hold a transaction: a snapshot session cannot."""
-
-    return {f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) == "start_session" and not _is_a_snapshot(call)}
-
-
-def _transaction_blocks(tree: ast.AST) -> list[ast.AsyncWith]:
-    return [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.AsyncWith)
-        and any(isinstance(item.context_expr, ast.Call) and callee(item.context_expr) == TRANSACTION_SESSION for item in node.items)
-    ]
-
-
-def _session_running_it(node: ast.AST, session: str | None, forwarded: str | None = None) -> ast.Name | None:
-    """The session `node` runs a transaction on: `<session>.with_transaction(...)`, or `<forwarded>(<session>)`."""
-
-    if not isinstance(node, ast.Call):
-        return None
-    if isinstance(node.func, ast.Attribute) and node.func.attr == "with_transaction":
-        named = node.func.value
-    elif isinstance(node.func, ast.Name) and node.func.id == forwarded and len(node.args) in (1, 2) and not node.keywords:
-        named = node.args[0]
-    else:
-        return None
-
-    return named if isinstance(named, ast.Name) and named.id == session else None
-
-
-# Each helper awaiting the transaction its caller hands it under this parameter, which every caller is then held to.
-_FORWARDING = {"drain": "page_of", "isolate": "attempt", "run_isolated": "attempt"}
-
-
-def _able_to_swallow(block: ast.AsyncWith, forwarded: str | None = None) -> list[ast.expr | ast.stmt]:
-    """Every node of `block` past the one shape allowed: its session's transaction, awaited where it is called."""
-
-    # A second manager entered beside the helper wraps the body inside it.
-    if len(block.items) != 1:
-        return [block]
-    session = block.items[0].optional_vars.id if isinstance(block.items[0].optional_vars, ast.Name) else None
-    inside = [node for statement in block.body for node in ast.walk(statement) if isinstance(node, (ast.expr, ast.stmt))]
-    awaited = {id(node.value) for node in inside if isinstance(node, ast.Await)}
-    receivers = {id(named) for node in inside if (named := _session_running_it(node, session, forwarded)) is not None}
-
-    # An allow-list, and never a list of swallowing calls: what a call does with a failure is decided
-    # at run time, `asyncio.gather(return_exceptions=True)` and an unawaited task among them.
-    return [
-        node
-        for node in inside
-        if isinstance(node, (ast.Try, ast.TryStar, ast.With, ast.AsyncWith, ast.AsyncFor))
-        or (isinstance(node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)) and any(loop.is_async for loop in node.generators))
-        or (isinstance(node, ast.Await) and _session_running_it(node.value, session, forwarded) is None)
-        or (_session_running_it(node, session, forwarded) is not None and id(node) not in awaited)
-        # A helper handed the session can run a transaction this sweep never reads.
-        or (isinstance(node, ast.Name) and node.id == session and id(node) not in receivers)
-    ]
-
-
-_OPENED = "async with transaction_session(db) as session:\n"
-
-# Each block that could keep a failure from the helper, and the kinds of node the sweep must name in it:
-# a refusal another one also reaches would pass with its own arm gone.
-_SWALLOWING_BLOCKS = {
-    "a try": (_OPENED + "    try:\n        await session.with_transaction(write)\n    except Exception:\n        pass", ["Try"]),
-    "a context manager": (_OPENED + "    with contextlib.suppress(Exception):\n        await session.with_transaction(write)", ["With"]),
-    "a gather returning its exceptions": (
-        _OPENED + "    await asyncio.gather(session.with_transaction(write), return_exceptions=True)",
-        ["Await", "Call"],
-    ),
-    "a task never awaited": (_OPENED + "    asyncio.create_task(session.with_transaction(write))", ["Call"]),
-    "an awaited helper": (_OPENED + "    await run_swallowing(write)", ["Await"]),
-    "the session handed to a helper": (_OPENED + "    result = await session.with_transaction(write)\n    keep(session)", ["Name"]),
-    "an async for": (_OPENED + "    async for _ in rows():\n        result = await session.with_transaction(write)", ["AsyncFor"]),
-    "an async comprehension": (_OPENED + "    [row async for row in rows()]\n    await session.with_transaction(write)", ["ListComp"]),
-    "a second manager on the line": (
-        "async with transaction_session(db) as session, contextlib.suppress(Exception):\n    await session.with_transaction(write)",
-        ["AsyncWith"],
-    ),
-}
-
-# The shapes the tree's blocks take.
-_PLAIN_BLOCKS = {
-    "assigned": _OPENED + "    drawn = await session.with_transaction(write)",
-    "returned": _OPENED + "    return await session.with_transaction(write)",
-    "built into a response": _OPENED + "    return Response(angewendet=await session.with_transaction(write))",
-}
-
-
-def _the_block(source: str) -> ast.AsyncWith:
-    [block] = _transaction_blocks(ast.parse("async def handler(db, write):\n" + "".join(f"    {line}\n" for line in source.splitlines())))
-
-    return block
-
-
-class TestEveryTransactionRunsOnTheHelpersSession:
-    """A session opened past `transaction_session`, or a failure kept inside one, ends with no abort sent."""
-
-    def test_no_session_able_to_transact_is_opened_past_it(self):
-        assert _sessions_opened_past_the_helper() == {f"app/core/transactions.py :: {TRANSACTION_SESSION}"}
-
-    def test_nothing_inside_one_can_keep_a_failure_from_it(self):
-        blocks = [
-            (path.relative_to(BACKEND_ROOT).as_posix(), block)
-            for path in sorted(APP_ROOT.rglob("*.py"))
-            for block in _transaction_blocks(parsed(path))
-        ]
-        # Non-empty, so a helper renamed past this sweep's spelling fails rather than finding nothing to judge.
-        assert blocks
-        forwarding = {
-            id(block): (node.name, _FORWARDING[node.name])
-            for node in ast.walk(parsed(APP_ROOT / "core" / "transactions.py"))
-            if isinstance(node, ast.AsyncFunctionDef) and node.name in _FORWARDING
-            for block in _transaction_blocks(node)
-        }
-        assert {function for function, _ in forwarding.values()} == set(_FORWARDING), (
-            "a forwarding helper opens no session where this sweep looks"
-        )
-
-        assert [
-            f"{module}:{node.lineno}"
-            for module, block in blocks
-            for node in _able_to_swallow(block, forwarding[id(block)][1] if id(block) in forwarding else None)
-        ] == []
-
-    def test_every_page_drain_is_handed_runs_its_transaction_where_it_is_called(self):
-        """Each helper awaits what it is handed, so one handed anything but the transaction escapes the sweep above.
-
-        A helper handing on its own parameter is the one other shape: that parameter is held where its own caller hands it.
-        """
-
-        handed = [
-            (f"{module} :: {scope}", scope, parameter, keyword.value)
-            for module, scope, call in app_calls()
-            for function, parameter in _FORWARDING.items()
-            if callee(call) == function
-            for keyword in call.keywords
-            if keyword.arg == parameter
-        ]
-        assert any(not site.startswith("app/core/transactions.py") for site, *_ in handed), (
-            "no caller hands a helper a transaction, so the clause below is vacuous"
-        )
-
-        assert [
-            site
-            for site, scope, parameter, value in handed
-            if not (
-                isinstance(value, ast.Lambda)
-                and len(value.args.args) == 2
-                and _session_running_it(value.body, value.args.args[0].arg) is not None
-            )
-            and not (site.startswith("app/core/transactions.py") and isinstance(value, ast.Name) and value.id == _FORWARDING.get(scope))
-        ] == []
-
-    @pytest.mark.parametrize(("source", "named"), [pytest.param(*sample, id=name) for name, sample in _SWALLOWING_BLOCKS.items()])
-    def test_the_sweep_names_each_shape_that_can(self, source: str, named: list[str]):
-        """The tree's blocks are uniform, so only these samples show each of the sweep's refusals can fire."""
-
-        assert sorted(type(node).__name__ for node in _able_to_swallow(_the_block(source))) == named
-
-    @pytest.mark.parametrize("source", [pytest.param(source, id=name) for name, source in _PLAIN_BLOCKS.items()])
-    def test_the_sweep_passes_each_shape_the_tree_takes(self, source: str):
-        assert _able_to_swallow(_the_block(source)) == []
+        assert [record for record in caplog.records if getattr(record, "error_code", None) == Code.DATABASE_FAILED] == []

@@ -17,16 +17,16 @@ export type Stueck = { readonly worte: string; readonly slot?: string };
  * is written apart from this rather
  * than reading it, or a value mangled here would read the same on both sides of every comparison.
  */
-export function stueckeVon(text: string, werte: Slots): Stueck[] {
+export function stueckeVon(text: string, values: Slots): Stueck[] {
   return text.split(SLOT_TEILER).map((stueck) => {
     const name = /^\{(\w+)\}$/.exec(stueck)?.[1];
     if (name === undefined) return { worte: stueck };
 
     // Own keys alone: `{constructor}` would otherwise read `Object.prototype`'s, and render a function.
-    const wert = name === DATENSCHUTZ_SLOT ? DATENSCHUTZ_TEXT : Object.hasOwn(werte, name) ? werte[name] : undefined;
+    const value = name === DATENSCHUTZ_SLOT ? DATENSCHUTZ_TEXT : Object.hasOwn(values, name) ? values[name] : undefined;
 
     // Standing as written rather than blanked: a sentence quietly missing its subject reads as
     // finished, and one still spelling `{rolle}` says which fact never arrived.
-    return wert === undefined ? { worte: stueck } : { worte: wert, slot: name };
+    return value === undefined ? { worte: stueck } : { worte: value, slot: name };
   });
 }

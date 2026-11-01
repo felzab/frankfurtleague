@@ -60,7 +60,7 @@ beforeEach(async () => {
 let lookups = 0;
 const answering = globalThis.fetch;
 globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
-  if (String(input instanceof Request ? input.url : input).endsWith("/identitaet/subjekt")) lookups += 1;
+  if (String(input instanceof Request ? input.url : input).endsWith("/identity/subject")) lookups += 1;
   return answering(input, init);
 }) as typeof globalThis.fetch;
 afterAll(() => {

@@ -136,7 +136,7 @@ export function FormAustragenSection({
         ) : (
           <>
             {/* The condition is named rather than promised away: a club replacement takes the row's
-                team out of the season, and `REQ-SQUAD-001` then refuses the return offered here. */}
+                team out of the season, and `kader_team_not_in_saison` then refuses the return offered here. */}
             <p className="muted-hint">
               Der Spieler verschwindet aus dem Kader der Saison {saisonId}. Der Kadereintrag bleibt gespeichert und lässt sich reaktivieren,
               solange sein Team in der Saison dabei ist.

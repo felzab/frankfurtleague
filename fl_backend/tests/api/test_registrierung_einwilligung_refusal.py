@@ -4,10 +4,8 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from app.api.bewerbungen.services import hash_token
 from app.api.registrierungen.schemas import (
-    FLRegistrierungBestaetigungAnsichtPayload,
-    FLRegistrierungBestaetigungPayload,
+    FLRegistrierungConfirmationPayload,
 )
 from app.api.registrierungen.services import (
     SEITE_NEU,
@@ -15,19 +13,17 @@ from app.api.registrierungen.services import (
     compose_bestaetigung,
     compose_person,
     compose_person_update,
-    find_already_confirmed_refusal,
     find_expired_token_refusal,
     persons_named,
     seite_of,
     sole_person,
     zustand_of,
 )
-from app.core.constraints import (
-    _EINWILLIGUNG_UMFANG,
-)
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH
-from tests.documents import eigene_einwilligung_document
+from app.shared.schemas.confirmation import FLTokenPayload
+from app.shared.tokens import hash_token
+from tests.documents import own_einwilligung_document
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -43,71 +39,64 @@ A_LABEL = "2026-10-spielerseite-5"
 def einwilligung(**overrides: Any) -> dict[str, Any]:
     """One consent record as a pupil's own press leaves it."""
 
-    return {**eigene_einwilligung_document(text_version=A_LABEL, bestaetigt_am=YESTERDAY), **overrides}
+    return {**own_einwilligung_document(text_version=A_LABEL, confirmed_at=YESTERDAY), **overrides}
 
 
 def registrierung(**overrides: Any) -> dict[str, Any]:
     """One submitted registration inside its deadline, nobody having answered yet, that each case moves one thing of."""
 
     return {
-        "status": "eingereicht",
+        "status": "submitted",
         "saison_id": "2026",
         "vorname": "Quillhilde",
         "email": "Quillhilde@Example.com",
         "geburtsdatum": None,
         "einwilligung": None,
-        "bestaetigung": compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-26", frist=TOMORROW),
+        "confirmation": {**compose_bestaetigung(today="2026-03-26", frist=TOMORROW), "token_hashes": [TOKEN_HASH]},
         **overrides,
     }
 
 
 class TestWhatAReopenedLinkShows:
     @pytest.mark.parametrize(
-        ("stored", "zustand"),
+        ("stored", "state"),
         [
-            pytest.param(registrierung(), "gueltig", id="open, inside the deadline"),
-            pytest.param(registrierung(einwilligung=einwilligung()), "bestaetigt", id="confirmed"),
+            pytest.param(registrierung(), "valid", id="open, inside the deadline"),
+            pytest.param(registrierung(einwilligung=einwilligung()), "confirmed", id="confirmed"),
             pytest.param(
-                registrierung(bestaetigung=compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-26", frist=YESTERDAY)),
-                "abgelaufen",
+                registrierung(confirmation={**compose_bestaetigung(today="2026-03-26", frist=YESTERDAY), "token_hashes": [TOKEN_HASH]}),
+                "expired",
                 id="the deadline passed",
             ),
             # The deadline's own day still answers, as the press below takes it: the mail names that day.
             pytest.param(
-                registrierung(bestaetigung=compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-26", frist=TODAY)),
-                "gueltig",
+                registrierung(confirmation={**compose_bestaetigung(today="2026-03-26", frist=TODAY), "token_hashes": [TOKEN_HASH]}),
+                "valid",
                 id="on the deadline's day",
             ),
-            pytest.param(registrierung(status="abgelehnt"), "abgelaufen", id="declined while the link stood open"),
+            pytest.param(registrierung(status="declined"), "expired", id="declined while the link stood open"),
             pytest.param(
-                registrierung(status="abgelehnt", einwilligung=einwilligung()),
-                "bestaetigt",
+                registrierung(status="declined", einwilligung=einwilligung()),
+                "confirmed",
                 id="confirmed, then declined",
             ),
         ],
     )
-    def test_each_state_reads_as_the_page_expects(self, stored: Mapping[str, Any], zustand: str):
+    def test_each_state_reads_as_the_page_expects(self, stored: Mapping[str, Any], state: str):
         """The last case is the ordering: a stamp outranks the deadline, so a pupil who answered is never shown an expired link.
 
         The ban outranks both: a barred pupil's page shows nothing else.
         """
 
-        assert zustand_of(registrierung_raw=stored, today=TODAY, gesperrt=False) == zustand
-        assert zustand_of(registrierung_raw=stored, today=TODAY, gesperrt=True) == "gesperrt"
+        assert zustand_of(registrierung_raw=stored, today=TODAY, barred=False) == state
+        assert zustand_of(registrierung_raw=stored, today=TODAY, barred=True) == "barred"
 
 
 class TestALinkWhoseTimeIsOver:
     def test_the_deadlines_own_day_still_takes_the_answer(self):
         """The mail names that day, and a link dying at the midnight before it lies."""
 
-        assert find_expired_token_refusal(bestaetigung={"frist": TODAY}, status="eingereicht", today=TODAY) is None
-
-
-class TestARegistrationAlreadyConfirmed:
-    def test_a_record_stamped_with_an_empty_string_is_still_open(self):
-        """Every reader of a stamp takes an empty one for none, as the application's seats do: the pupil may still answer."""
-
-        assert find_already_confirmed_refusal(einwilligung={"bestaetigt_am": ""}) is None
+        assert find_expired_token_refusal(confirmation={"frist": TODAY}, status="submitted", today=TODAY) is None
 
 
 class TestWhichPageTheLinkOpens:
@@ -128,7 +117,7 @@ class TestWhichPageTheLinkOpens:
             pytest.param(PERSON, SEITE_WIEDERKEHREND, id="the confirmed person under the registration's name"),
             pytest.param({**PERSON, "inactive_since": "2025-07-01"}, SEITE_WIEDERKEHREND, id="that person retired"),
             pytest.param({**PERSON, "vorname": "Bramblewick"}, SEITE_NEU, id="another name at the address, a sibling"),
-            pytest.param({**PERSON, "einwilligung": einwilligung(bestaetigt_am="")}, SEITE_NEU, id="a record stamped with an empty string"),
+            pytest.param({**PERSON, "einwilligung": None}, SEITE_NEU, id="a person who never confirmed"),
         ],
     )
     def test_only_the_confirmed_person_of_the_registrations_name_makes_it_returning(self, person: Any, seite: str):
@@ -235,24 +224,24 @@ class TestWhatAReturningAdmissionWrites:
         "vorname": "Quillhilde",
         "nachname": "Brackenmoor",
         "geburtsdatum": "2009-05-09",
-        "einwilligung": {"bestaetigt_am": TODAY, "text_version": RETURNING_LABEL},
+        "einwilligung": {"confirmed_at": TODAY, "text_version": RETURNING_LABEL},
     }
 
     def test_a_new_person_is_never_born_from_it(self):
-        """The guard behind `REQ-REGISTRIERUNG-018`: a person born with no scope is one the validator refuses mid-transaction."""
+        """The guard behind `registrierung_person_missing`: a person born with no scope is one every read of their record refuses."""
 
         with pytest.raises(ValueError, match="no choice"):
             compose_person(spieler_id="a-new-id", registrierung_raw=self.RETURNING, adresse="quillhilde@example.com")
 
 
 class TestAPersonIsNeverWrittenNameless:
-    """The `spieler` validator admits a null forename and record for the erased pupils' sentinel, so these guards are a person's last ones."""
+    """The `spieler` record admits a null forename and record for the erased pupils' sentinel, so these guards are a person's last ones."""
 
     NEW = {
         "vorname": "Quillhilde",
         "nachname": "Brackenmoor",
         "geburtsdatum": "2009-05-09",
-        "einwilligung": eigene_einwilligung_document(text_version=RETURNING_LABEL, bestaetigt_am=TODAY, umfang="intern"),
+        "einwilligung": own_einwilligung_document(text_version=RETURNING_LABEL, confirmed_at=TODAY, umfang="intern"),
     }
 
     # Whitespace among them: `person_name_key` folds it to the empty key the sentinel's null name also folds to.
@@ -279,7 +268,7 @@ def antwort(**overrides: Any) -> dict[str, Any]:
 
 class TestWhatTheAnswerPayloadRefuses:
     def test_the_corpus_this_class_moves_one_field_of_is_valid(self):
-        assert FLRegistrierungBestaetigungPayload.model_validate(antwort()).umfang == "intern"
+        assert FLRegistrierungConfirmationPayload.model_validate(antwort()).umfang == "intern"
 
     @pytest.mark.parametrize("field", ["token", "geburtsdatum", "umfang", "medien", "text_version"])
     def test_every_field_is_required(self, field: str, assert_rejects):
@@ -288,42 +277,36 @@ class TestWhatTheAnswerPayloadRefuses:
         body = antwort()
         del body[field]
 
-        assert_rejects(FLRegistrierungBestaetigungPayload, body, field)
+        assert_rejects(FLRegistrierungConfirmationPayload, body, field)
 
     def test_the_returning_pupils_page_states_its_unasked_answers_as_null(self):
-        """Which page a body may carry nulls on is the press's to judge (`REQ-REGISTRIERUNG-017`), never the model's."""
+        """Which page a body may carry nulls on is the press's to judge (`registrierung_choices_unsuitable`), never the model's."""
 
-        stated = FLRegistrierungBestaetigungPayload.model_validate(
+        stated = FLRegistrierungConfirmationPayload.model_validate(
             antwort(geburtsdatum=None, umfang=None, medien=None, text_version=RETURNING_LABEL)
         )
 
         assert (stated.geburtsdatum, stated.umfang, stated.medien) == (None, None, None)
 
-    def test_the_two_scopes_are_the_pair_the_validator_declares(self):
-        """A third member offered here and refused by mongod is a 500 on a page that has already taken the consent."""
-
-        assert sorted(_EINWILLIGUNG_UMFANG) == ["intern", "kader_oeffentlich"]
-        assert FLRegistrierungBestaetigungPayload.model_validate(antwort(umfang="kader_oeffentlich")).umfang == "kader_oeffentlich"
-
     def test_a_scope_outside_the_pair_is_refused(self, assert_rejects):
-        assert_rejects(FLRegistrierungBestaetigungPayload, antwort(umfang="kontaktdaten"), "umfang")
+        assert_rejects(FLRegistrierungConfirmationPayload, antwort(umfang="kontaktdaten"), "umfang")
 
     def test_a_label_past_the_bound_is_refused_and_one_at_it_taken(self, assert_rejects):
         assert_rejects(
-            FLRegistrierungBestaetigungPayload, antwort(text_version="v" * (EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH + 1)), "text_version"
+            FLRegistrierungConfirmationPayload, antwort(text_version="v" * (EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH + 1)), "text_version"
         )
 
         at_the_bound = "v" * EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH
-        assert FLRegistrierungBestaetigungPayload.model_validate(antwort(text_version=at_the_bound)).text_version == at_the_bound
+        assert FLRegistrierungConfirmationPayload.model_validate(antwort(text_version=at_the_bound)).text_version == at_the_bound
 
     def test_a_malformed_date_is_refused(self, assert_rejects):
-        """`REQ-VAL-001` rather than the age's own code: the shape of the field is the body's business, and the age is the person's."""
+        """`payload_refused` rather than the age's own code: the shape of the field is the body's business, and the age is the person's."""
 
-        assert_rejects(FLRegistrierungBestaetigungPayload, antwort(geburtsdatum="09.05.2009"), "geburtsdatum")
+        assert_rejects(FLRegistrierungConfirmationPayload, antwort(geburtsdatum="09.05.2009"), "geburtsdatum")
 
-    @pytest.mark.parametrize("model", [FLRegistrierungBestaetigungAnsichtPayload, FLRegistrierungBestaetigungPayload])
+    @pytest.mark.parametrize("model", [FLTokenPayload, FLRegistrierungConfirmationPayload])
     def test_an_undeclared_key_is_refused(self, model: type):
-        body = antwort() if model is FLRegistrierungBestaetigungPayload else {"token": RAW}
+        body = antwort() if model is FLRegistrierungConfirmationPayload else {"token": RAW}
 
         with pytest.raises(ValidationError) as failure:
             model.model_validate({**body, "nachweis": {}})

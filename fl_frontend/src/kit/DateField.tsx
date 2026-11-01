@@ -21,15 +21,15 @@ import { calendarCell, calendarHead, fieldButton, fieldFrame, fieldRoot, menuPop
 import { Icon } from "./Icon";
 
 import type { Copy } from "@/core/copy";
-import type { Kalendertag } from "@/core/format";
+import type { CalendarDay } from "@/core/format";
 import type { CalendarDate } from "@internationalized/date";
 
-const toTag = (date: CalendarDate | null): Kalendertag | null =>
-  // `CalendarDate` writes itself as `YYYY-MM-DD`, the stored form `Kalendertag` names.
-  date === null ? null : (date.toString() as Kalendertag);
+const toDay = (date: CalendarDate | null): CalendarDay | null =>
+  // `CalendarDate` writes itself as `YYYY-MM-DD`, the stored form `CalendarDay` names.
+  date === null ? null : (date.toString() as CalendarDay);
 
-const fromTag = (tag: Kalendertag | null | undefined): CalendarDate | null | undefined =>
-  tag === null || tag === undefined ? tag : parseDate(tag);
+const fromDay = (day: CalendarDay | null | undefined): CalendarDate | null | undefined =>
+  day === null || day === undefined ? day : parseDate(day);
 
 /** The month a date's calendar button opens, under the field. */
 function MonthCalendar() {
@@ -43,7 +43,7 @@ function MonthCalendar() {
           slot="previous"
           className={fieldButton()}>
           <Icon
-            glyph="zurueck"
+            glyph="back"
             size={16}
           />
         </AriaButton>
@@ -53,7 +53,7 @@ function MonthCalendar() {
           slot="next"
           className={fieldButton()}>
           <Icon
-            glyph="vor"
+            glyph="forward"
             size={16}
           />
         </AriaButton>
@@ -97,23 +97,23 @@ export function DateField({
   isRequired?: boolean;
   isDisabled?: boolean;
   name?: string;
-  value?: Kalendertag | null;
-  defaultValue?: Kalendertag | null;
-  onChange?: (tag: Kalendertag | null) => void;
+  value?: CalendarDay | null;
+  defaultValue?: CalendarDay | null;
+  onChange?: (day: CalendarDay | null) => void;
   /** The earliest day the field takes: the calendar offers none before it, and an earlier one reads „Frühestens …“. */
-  minValue?: Kalendertag;
+  minValue?: CalendarDay;
   /** The latest day the field takes: the calendar offers none after it, and a later one reads „Spätestens …“. */
-  maxValue?: Kalendertag;
+  maxValue?: CalendarDay;
 }) {
   return (
     <DatePicker<CalendarDate>
       className={fieldRoot()}
       name={name}
-      value={fromTag(value)}
-      defaultValue={fromTag(defaultValue)}
-      onChange={onChange && ((date) => onChange(toTag(date)))}
-      minValue={fromTag(minValue)}
-      maxValue={fromTag(maxValue)}
+      value={fromDay(value)}
+      defaultValue={fromDay(defaultValue)}
+      onChange={onChange && ((date) => onChange(toDay(date)))}
+      minValue={fromDay(minValue)}
+      maxValue={fromDay(maxValue)}
       // The day and the month keep their leading zero, „03.04.2027“, as the site prints a date.
       shouldForceLeadingZeros
       isRequired={isRequired}
@@ -131,7 +131,7 @@ export function DateField({
           data-kit-focus
           className={fieldButton()}>
           <Icon
-            glyph="kalender"
+            glyph="calendar"
             size={16}
           />
         </AriaButton>

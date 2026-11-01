@@ -3,7 +3,7 @@ import unicodedata
 from typing import Any, Final
 
 from email_validator import EmailNotValidError, ValidatedEmail, validate_email
-from pydantic_core import Url, ValidationError
+from pydantic_core import PydanticCustomError, Url, ValidationError
 
 # ECMAScript's `WhiteSpace` and `LineTerminator`, never `str.strip()`'s set, which takes U+0085 and
 # leaves U+FEFF: the two ends would part on a character nobody can see. Code points rather than an
@@ -14,8 +14,7 @@ _TRIMMED: Final = "".join(
 )
 
 # ASCII's letters alone, never `str.lower`, whose tables move with the interpreter's Unicode release:
-# the frontend lowers the same 26, so this step cannot part the two folds; their domain conversions
-# are held to the answers `fl_backend/tests/shared/email_addresses.json` records.
+# the frontend lowers the same 26, so this step cannot part the two folds.
 _ASCII_LOWER: Final = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
 
 
@@ -73,7 +72,7 @@ def _league_validated(address: str) -> ValidatedEmail:
         # `from None`, for the reason `app/core/config.py :: get_config` suppresses its own cause:
         # the library's message quotes the value it rejected, and no address reaches a traceback or
         # a log line.
-        raise ValueError("this is no email address the league accepts") from None
+        raise PydanticCustomError("email_not_accepted", "this is no email address the league accepts") from None
 
 
 def league_address(address: str) -> str:
@@ -100,23 +99,6 @@ def sign_in_identifier(address: str) -> str:
     local, at, domain = bare.rpartition("@")
 
     return f"{local.translate(_ASCII_LOWER)}@{_folded_domain(domain)}" if at else bare.translate(_ASCII_LOWER)
-
-
-def is_stored_identifier(value: Any) -> bool:
-    """Whether a stored value is an identifier a request can match: a string, its own fold, and one the address rule accepts.
-
-    What a hand-typed row is judged by, the validator refusing no spelling.
-    """
-
-    if not isinstance(value, str) or value == "" or sign_in_identifier(value) != value:
-        return False
-
-    try:
-        league_address(value)
-    except ValueError:
-        return False
-
-    return True
 
 
 def canonical_address(address: str) -> str:

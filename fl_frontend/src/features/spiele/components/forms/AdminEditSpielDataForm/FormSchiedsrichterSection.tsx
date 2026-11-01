@@ -10,10 +10,10 @@ import { PickOrCreateAutocomplete } from "./PickOrCreateAutocomplete";
 import { StepFiveButton } from "./StepFiveButton";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
-import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
+import type { FLSchiedsrichter } from "@/core/generated/client/types";
 import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
 import type { SpielFieldPath } from "@/features/spiele/draftStatus";
-import type { FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/schemas";
+import type { FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/types";
 
 /** A referee a fixture cannot be booked to until their own confirmation is stamped. */
 const NOCH_NICHT_BESTAETIGT = "Noch nicht bestätigt";
@@ -52,8 +52,8 @@ export function FormSchiedsrichterSection({
     ...candidate,
     name: candidate.name ?? SCHIEDSRICHTER_OHNE_NAMEN_LABEL,
     nameIstPlatzhalter: candidate.name === null,
-    // Listed rather than left out, so an unconfirmed referee reads as waiting and never as missing (`REQ-BOOKING-002`).
-    ...((candidate.einwilligung?.bestaetigt_am ?? null) === null ? { nichtWaehlbar: NOCH_NICHT_BESTAETIGT } : {}),
+    // Listed rather than left out, so an unconfirmed referee reads as waiting and never as missing (`booking_unconfirmed_schiedsrichter`).
+    ...((candidate.einwilligung?.confirmed_at ?? null) === null ? { nichtWaehlbar: NOCH_NICHT_BESTAETIGT } : {}),
   }));
   // Created in the editor's dialog, so unconfirmed by construction until the referee answers their link.
   const angelegt: Angeboten[] = created.map((referee) => ({ ...referee, nichtWaehlbar: NOCH_NICHT_BESTAETIGT }));

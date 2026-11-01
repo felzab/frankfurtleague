@@ -9,11 +9,11 @@ import { VorschlagText } from "../ui/VorschlagText";
 import { BerichtEintraege } from "./BerichtEintraege";
 import { SCHIEDSRICHTER_HREF } from "./SpielberichtZustandView";
 
-import type { FLSpielberichtSchiedsrichterResponse } from "../../schemas";
+import type { FLSpielberichtSchiedsrichterResponse } from "@/core/generated/client/types";
 
 /**
  * A fixture's report as its booked referee reads it once the fixture's season has ended: the report alone, read-only,
- * since the backend refuses their write then (`REQ-BERICHT-007`) and serves no squad to pick from.
+ * since the backend refuses their write then (`saison_past`) and serves no squad to pick from.
  */
 export function SpielberichtLesenView({ lesen }: { lesen: FLSpielberichtSchiedsrichterResponse }) {
   const panel = formPanel();
@@ -41,7 +41,7 @@ export function SpielberichtLesenView({ lesen }: { lesen: FLSpielberichtSchiedsr
                 {/* A proposal by side about clubs that left: beside the clubs heading this page it would read as theirs, as
                     the administrator's panel withholds it
                     (`fl_frontend/src/features/spielberichte/components/views/AdminSpielberichtPanel.tsx :: BerichtInhalt`). */}
-                {lesen.seiten_geaendert.length === 0 ? (
+                {lesen.seiten_changed.length === 0 ? (
                   <p className="fluid-sm font-semibold text-foreground">
                     Ergebnis: <VorschlagText vorschlag={bericht.ergebnis_vorschlag} />
                   </p>

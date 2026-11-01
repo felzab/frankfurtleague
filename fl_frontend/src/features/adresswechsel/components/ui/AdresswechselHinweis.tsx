@@ -7,7 +7,7 @@ import { EINSEHBAR_VERWEHRT } from "@/features/adresswechsel/einsehbar";
 import { textLink } from "@/shared/components/ui/textLink";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 
-import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
+import type { FLAddressChangeViewableDenied } from "@/core/generated/client/types";
 
 const ZUR_AENDERUNG = "Zur Änderung";
 
@@ -24,7 +24,7 @@ export function AdresswechselOffen({
    */
   adresse: string | null;
   /** Why the tool refuses this reader the change, as the read serves it: a link would land on that refusal. */
-  verwehrt: EinsehbarVerwehrt | null;
+  verwehrt: FLAddressChangeViewableDenied | null;
 }) {
   const saisonHref = useSaisonHref();
 
@@ -56,7 +56,13 @@ export function AdresswechselOffen({
  * Under a sign-in address on the pupil and referee editors, the same words on each: they read the address and its
  * pending change and change neither. One tool for every editor, so a change is seen from each.
  */
-export function AdresswechselHinweis({ adresswechselId, verwehrt }: { adresswechselId: string | null; verwehrt: EinsehbarVerwehrt | null }) {
+export function AdresswechselHinweis({
+  adresswechselId,
+  verwehrt,
+}: {
+  adresswechselId: string | null;
+  verwehrt: FLAddressChangeViewableDenied | null;
+}) {
   const saisonHref = useSaisonHref();
 
   return (

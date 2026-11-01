@@ -47,7 +47,7 @@ const readPerson = (rolle: KontaktRolle) => (source: FLKontakteDraftFields) => {
     // unconfirmed seat without one is waiting on them rather than half filled in.
     person.geburtsdatum
       ? `geboren am ${formatSpielDatum(person.geburtsdatum)}`
-      : kontaktGeburtsdatumLeer(person.einwilligung.bestaetigt_am, true),
+      : kontaktGeburtsdatumLeer(person.einwilligung.confirmed_at, true),
   ].join(", ");
 };
 
@@ -59,7 +59,7 @@ const readEinwilligung = (rolle: KontaktRolle) => (source: FLKontakteDraftFields
 
   // Who seated the person, where the record says: a new seat's is the save's to stamp, so it is
   // never guessed.
-  return record.eingetragen_von === null ? `${fassung} (${datum})` : `${eingetragenVonLabel(record.eingetragen_von)}, ${fassung} (${datum})`;
+  return record.entered_by === null ? `${fassung} (${datum})` : `${eingetragenVonLabel(record.entered_by)}, ${fassung} (${datum})`;
 };
 
 /**
@@ -132,7 +132,7 @@ const FIELD_DESCRIPTORS = [
     errorPaths: einwilligungErrorPaths("kontakte.trainer.einwilligung"),
   },
   {
-    path: "kontakte.trainer_ist_zugleich",
+    path: "kontakte.trainer_is_also",
     // Its own row, because the claim can move while the three people stand: pointing it elsewhere
     // leaves the old seat holding what it copied, and nothing else on the panel would have changed.
     label: TRAINER_ZUGLEICH_FRAGE,
@@ -141,7 +141,7 @@ const FIELD_DESCRIPTORS = [
       const kontakte = source.kontakte;
       // Read as the absent block wherever nobody is on file: over nobody the claim names nobody, and
       // read off a block of empty seats it would call nobody-to-nobody a change the save could write.
-      return kontakte === null || holdsNobody(kontakte) ? null : trainerZugleichLabel(kontakte.trainer_ist_zugleich);
+      return kontakte === null || holdsNobody(kontakte) ? null : trainerZugleichLabel(kontakte.trainer_is_also);
     },
   },
 ] as const satisfies readonly FLFieldDescriptor<FLKontakteDraftFields, FLKontakteFieldGroup>[];

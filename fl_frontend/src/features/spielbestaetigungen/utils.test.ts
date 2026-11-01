@@ -1,45 +1,38 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 import { spielbestaetigungFields } from "@/test-support/fixtures.ts";
-import { publishedRefusals, refusedOn, unpublishedOn } from "@/test-support/publishedRefusals.ts";
+import { refusalCodes, refused } from "@/test-support/refusals.ts";
 import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { FLSpielbestaetigungClosedGrund } from "@/core/generated/client/types.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import { FLSonderereignisSchema } from "../spiele/schemas.ts";
-import { FLSpielbestaetigungGrundSchema, FLSpielbestaetigungSchema } from "./schemas.ts";
-import { grundZumEnde, laufUeberfaellig, mapAnsetzungAnsichtRefusal, mapAnsetzungRefusal } from "./utils.ts";
+import { grundZumEnde, mapAnsetzungAnsichtRefusal, mapAnsetzungRefusal } from "./utils.ts";
 
 import type { BestaetigungsSpiel } from "./utils.ts";
-
-/** The link's read, and the answer the page posts; a status named below is one the case moves a code to. */
-const ANSICHT_OPERATION = "POST /spielbestaetigungen/ansicht";
-const ANTWORT_OPERATION = "POST /spielbestaetigungen";
 
 describe("mapAnsetzungAnsichtRefusal", () => {
   /* The read refuses an unknown token alone; a spent link answers its own `zustand` in a 200. Fail-closed,
      so a code nobody planned still renders the panel that names nothing of a fixture. */
   it("calls the link void on every refusal the read publishes, and on a rule's code nobody planned", () => {
-    for (const code of publishedRefusals(ANSICHT_OPERATION)) {
-      expect(mapAnsetzungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)), code).toBe("ungueltig");
+    for (const code of refusalCodes("link_invalid")) {
+      expect(mapAnsetzungAnsichtRefusal(refused(code)), code).toBe("invalid");
     }
-    expect(mapAnsetzungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "REQ-SOMETHING-NEW", 409))).toBe("ungueltig");
+    expect(mapAnsetzungAnsichtRefusal(refused("activate_saison_unfinished", 409))).toBe("invalid");
   });
 
   /* A malformed or over-long token never reaches a row, and the page has already dropped it from the
      address bar: the state inviting a reload would open the dead link anyway. */
   it("calls a token the backend will not parse void rather than offering a reload", () => {
-    expect(mapAnsetzungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-VAL-001"))).toBe("ungueltig");
+    expect(mapAnsetzungAnsichtRefusal(refused("payload_refused"))).toBe("invalid");
   });
 
   /* A failed read is the page's own state: the dead-link panel on a 500 would call a live link void on
      a day the backend was unreachable. */
   it("leaves anything that is not a refusal to the page's own state", () => {
-    expect(mapAnsetzungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "", 500))).toBe(null);
+    expect(mapAnsetzungAnsichtRefusal(refused(undefined, 500))).toBe(null);
     expect(mapAnsetzungAnsichtRefusal(new Error("socket hang up"))).toBe(null);
   });
 
@@ -47,14 +40,14 @@ describe("mapAnsetzungAnsichtRefusal", () => {
      mid-deploy, and an unreadable body failed in the page's own encoding. The dead-link panel would
      call every live link void. */
   it("leaves the protocol's refusals to the page's own state, never the dead-link panel", () => {
-    for (const code of ["REQ-AUTH-001", "REQ-AUTH-002", "REQ-VAL-002"]) {
-      expect(mapAnsetzungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)), code).toBe(null);
+    for (const code of ["access_key_refused", "body_unreadable"] as const) {
+      expect(mapAnsetzungAnsichtRefusal(refused(code)), code).toBe(null);
     }
     for (const [code, status] of [
-      ["REQ-ROUTE-001", 404],
-      ["REQ-ROUTE-002", 405],
+      ["no_route", 404],
+      ["method_not_served", 405],
     ] as const) {
-      expect(mapAnsetzungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, code, status)), code).toBe(null);
+      expect(mapAnsetzungAnsichtRefusal(refused(code, status)), code).toBe(null);
     }
   });
 });
@@ -63,8 +56,8 @@ describe("mapAnsetzungRefusal on a body the API refused", () => {
   /* Only a drifted page sends one, and the page strips its token from the address bar: the shared
      reader's reload would land on the dead link, so only the mail's link reopens the form. */
   it("sends the club back to the mail's link", () => {
-    for (const code of ["REQ-VAL-001", "REQ-VAL-002"]) {
-      expect(mapAnsetzungRefusal(refusedOn(ANTWORT_OPERATION, code)), code).toStrictEqual({ error: ANTWORT_NEU_OEFFNEN });
+    for (const code of ["payload_refused", "body_unreadable"] as const) {
+      expect(mapAnsetzungRefusal(refused(code)), code).toStrictEqual({ error: ANTWORT_NEU_OEFFNEN });
     }
   });
 
@@ -78,65 +71,320 @@ describe("mapAnsetzungRefusal on a body the API refused", () => {
   });
 });
 
-describe("laufUeberfaellig", () => {
-  const TODAY = "2026-10-20";
-  /** Set in full five days out: a fixture the pass asks about. */
-  const GEFRAGT: BestaetigungsSpiel = {
-    id: "6890a1b2c3d4e5f607182930",
-    datum: "2026-10-25",
-    uhrzeit: "18:00:00",
-    ort: { spielort_id: "6890a1b2c3d4e5f607182934" },
-    team1: { team_id: "6890a1b2c3d4e5f607182932", tore: null },
-    team2: { team_id: "6890a1b2c3d4e5f607182933", tore: null },
-    ergebnis: null,
-    elfmeterschiessen: null,
-    sonderereignis: null,
-    schiedsrichter: null,
-  };
-  const FAELLIG = {
-    isSpielSweepOn: true,
-    isActiveSaison: true,
-    spiel: GEFRAGT,
-    austritte: new Map<string, string>(),
-    gelaufenAm: null,
-    today: TODAY,
-  };
-
-  it("warns where a pass was due for the fixture and none ran, or none since the day before yesterday", () => {
-    expect(laufUeberfaellig(FAELLIG)).toBe(true);
-    expect(laufUeberfaellig({ ...FAELLIG, gelaufenAm: "2026-10-18" })).toBe(true);
-  });
-
-  // Yesterday's stamp is a healthy stack's: the hourly pass's last run may fall before midnight.
-  it("reads today's stamp and yesterday's as plain", () => {
-    expect(laufUeberfaellig({ ...FAELLIG, gelaufenAm: TODAY })).toBe(false);
-    expect(laufUeberfaellig({ ...FAELLIG, gelaufenAm: "2026-10-19" })).toBe(false);
-  });
-
-  // The pass's last asking day is three weeks out; the shared table holds `wirdAngefragt` to the pass row by row.
-  it("warns for a fixture as far out as the pass asks, and for none past it", () => {
-    expect(laufUeberfaellig({ ...FAELLIG, spiel: { ...GEFRAGT, datum: "2026-11-10" } })).toBe(true);
-    expect(laufUeberfaellig({ ...FAELLIG, spiel: { ...GEFRAGT, datum: "2026-11-11" } })).toBe(false);
-  });
-
-  // What a line guarded on the stamp alone gets wrong, and most of the fixtures the site holds.
-  it("reads a fixture no pass visits as plain, whatever the stamp", () => {
-    for (const nie of [
-      { ...FAELLIG, isActiveSaison: false },
-      { ...FAELLIG, isSpielSweepOn: false },
-      { ...FAELLIG, spiel: { ...GEFRAGT, datum: TODAY } },
-      { ...FAELLIG, spiel: { ...GEFRAGT, datum: "2026-10-01" } },
-      { ...FAELLIG, spiel: { ...GEFRAGT, datum: null } },
-      { ...FAELLIG, spiel: { ...GEFRAGT, ort: null } },
-      { ...FAELLIG, spiel: { ...GEFRAGT, sonderereignis: "ausgefallen" as const } },
-      { ...FAELLIG, austritte: new Map([[GEFRAGT.team2?.team_id ?? "", "2026-10-22"]]) },
-    ]) {
-      expect(laufUeberfaellig(nie), JSON.stringify({ ...nie, austritte: [...nie.austritte] })).toBe(false);
-    }
-  });
-});
-
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
+/** Why the next pass shuts a row, one thing moved per row from a fixture it leaves standing. */
+const GRUND_TO_END_ROWS: unknown = [
+  {
+    fall: "a club's open row about the fixture as it stands",
+    zeile: {},
+    anders: {},
+    grund: null,
+  },
+  {
+    fall: "the booked referee's open row",
+    zeile: {
+      partei: "schiedsrichter",
+    },
+    anders: {},
+    grund: null,
+  },
+  {
+    fall: "the referee's row once another is booked",
+    zeile: {
+      partei: "schiedsrichter",
+    },
+    anders: {
+      schiedsrichter: "anderer",
+    },
+    grund: "schiedsrichter_switched",
+  },
+  {
+    fall: "the referee's row once the slot is emptied",
+    zeile: {
+      partei: "schiedsrichter",
+    },
+    anders: {
+      schiedsrichter: null,
+    },
+    grund: "schiedsrichter_switched",
+  },
+  {
+    fall: "a club's row once another referee is booked",
+    zeile: {},
+    anders: {
+      schiedsrichter: "anderer",
+    },
+    grund: null,
+  },
+  {
+    fall: "a lone goal count",
+    zeile: {},
+    anders: {
+      tore: 2,
+    },
+    grund: "spiel_decided",
+  },
+  {
+    fall: "a lone shoot-out",
+    zeile: {},
+    anders: {
+      elfmeterschiessen: {
+        team1: 4,
+        team2: 3,
+      },
+    },
+    grund: "spiel_decided",
+  },
+  {
+    fall: "a no-show entered before the day",
+    zeile: {},
+    anders: {
+      sonderereignis: "nichtantreten_team1",
+    },
+    grund: "abgesagt",
+  },
+  {
+    fall: "a no-show entered on the day",
+    zeile: {},
+    anders: {
+      tage: 0,
+      sonderereignis: "nichtantreten_team2",
+    },
+    grund: "spiel_decided",
+  },
+  {
+    fall: "a no-show entered before the fixture's day as it stands, the row about a day gone by",
+    zeile: {},
+    anders: {
+      tage: -1,
+      datum_tage: 3,
+      sonderereignis: "nichtantreten_team1",
+    },
+    grund: "abgesagt",
+  },
+  {
+    fall: "abandoned",
+    zeile: {},
+    anders: {
+      sonderereignis: "abgebrochen",
+    },
+    grund: "spiel_decided",
+  },
+  {
+    fall: "called off",
+    zeile: {},
+    anders: {
+      sonderereignis: "ausgefallen",
+    },
+    grund: "abgesagt",
+  },
+  {
+    fall: "annulled",
+    zeile: {},
+    anders: {
+      sonderereignis: "annulliert",
+    },
+    grund: "abgesagt",
+  },
+  {
+    fall: "the second club gone before the day",
+    zeile: {},
+    anders: {
+      austritt_tage: 1,
+    },
+    grund: "austritt",
+  },
+  {
+    fall: "the second club gone on the day",
+    zeile: {},
+    anders: {
+      austritt_tage: 3,
+    },
+    grund: "austritt",
+  },
+  {
+    fall: "the second club gone after the day",
+    zeile: {},
+    anders: {
+      austritt_tage: 4,
+    },
+    grund: null,
+  },
+  {
+    fall: "moved a day on",
+    zeile: {},
+    anders: {
+      datum_tage: 4,
+    },
+    grund: "ansetzung_changed",
+  },
+  {
+    fall: "a new kick-off",
+    zeile: {},
+    anders: {
+      uhrzeit: "19:00:00",
+    },
+    grund: "ansetzung_changed",
+  },
+  {
+    fall: "a new ground",
+    zeile: {},
+    anders: {
+      spielort: "anderer",
+    },
+    grund: "ansetzung_changed",
+  },
+  {
+    fall: "the second side replaced",
+    zeile: {},
+    anders: {
+      team2: "anderer",
+    },
+    grund: "ansetzung_changed",
+  },
+  {
+    fall: "the date taken away",
+    zeile: {},
+    anders: {
+      datum_tage: null,
+    },
+    grund: "ansetzung_changed",
+  },
+  {
+    fall: "the date taken away from a club gone before the row's day",
+    zeile: {},
+    anders: {
+      datum_tage: null,
+      austritt_tage: 2,
+    },
+    grund: "austritt",
+  },
+  {
+    fall: "the referee's row of a fixture called off and its referee swapped",
+    zeile: {
+      partei: "schiedsrichter",
+    },
+    anders: {
+      sonderereignis: "ausgefallen",
+      schiedsrichter: "anderer",
+    },
+    grund: "abgesagt",
+  },
+  {
+    fall: "the referee's row of a fixture moved and its referee swapped",
+    zeile: {
+      partei: "schiedsrichter",
+    },
+    anders: {
+      datum_tage: 4,
+      schiedsrichter: "anderer",
+    },
+    grund: "schiedsrichter_switched",
+  },
+  {
+    fall: "a fixture on today",
+    zeile: {},
+    anders: {
+      tage: 0,
+    },
+    grund: null,
+  },
+  {
+    fall: "a fixture whose day went by unplayed",
+    zeile: {},
+    anders: {
+      tage: -1,
+    },
+    grund: "spiel_past",
+  },
+  {
+    fall: "a row whose day went by, its fixture moved ahead",
+    zeile: {},
+    anders: {
+      tage: -1,
+      datum_tage: 3,
+    },
+    grund: "ansetzung_changed",
+  },
+  {
+    fall: "a discard as the fixture stands",
+    zeile: {
+      discarded: true,
+    },
+    anders: {},
+    grund: null,
+  },
+  {
+    fall: "a discard, the fixture moved",
+    zeile: {
+      discarded: true,
+    },
+    anders: {
+      datum_tage: 4,
+    },
+    grund: null,
+  },
+  {
+    fall: "a discard, the fixture's referee swapped",
+    zeile: {
+      discarded: true,
+    },
+    anders: {
+      schiedsrichter: "anderer",
+    },
+    grund: null,
+  },
+  {
+    fall: "a discard, the fixture called off",
+    zeile: {
+      discarded: true,
+    },
+    anders: {
+      sonderereignis: "ausgefallen",
+    },
+    grund: "abgesagt",
+  },
+  {
+    fall: "a discard, the fixture decided",
+    zeile: {
+      discarded: true,
+    },
+    anders: {
+      tore: 2,
+    },
+    grund: "spiel_decided",
+  },
+  {
+    fall: "a discard, the second club gone by the day",
+    zeile: {
+      discarded: true,
+    },
+    anders: {
+      austritt_tage: 1,
+    },
+    grund: "austritt",
+  },
+  {
+    fall: "a discard whose day went by",
+    zeile: {
+      discarded: true,
+    },
+    anders: {
+      tage: -1,
+    },
+    grund: "spiel_past",
+  },
+  {
+    fall: "a discard whose day went by, its fixture moved ahead",
+    zeile: {
+      discarded: true,
+    },
+    anders: {
+      tage: -1,
+      datum_tage: 3,
+    },
+    grund: "spiel_past",
+  },
+];
 
 /**
  * The rows both tiers run, each moving a row about a fixture set in full three days out. Strict, so a row moving
@@ -146,7 +394,7 @@ const GRUND_TO_END = z
   .array(
     z.strictObject({
       fall: z.string(),
-      zeile: z.strictObject({ partei: z.literal("schiedsrichter").optional(), verworfen: z.literal(true).optional() }),
+      zeile: z.strictObject({ partei: z.literal("schiedsrichter").optional(), discarded: z.literal(true).optional() }),
       anders: z.strictObject({
         tage: z.int().optional(),
         datum_tage: z.int().nullable().optional(),
@@ -159,10 +407,10 @@ const GRUND_TO_END = z
         schiedsrichter: z.literal("anderer").nullable().optional(),
         austritt_tage: z.int().optional(),
       }),
-      grund: FLSpielbestaetigungGrundSchema.nullable(),
+      grund: z.enum(FLSpielbestaetigungClosedGrund).nullable(),
     }),
   )
-  .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "grund_to_end.json"), "utf8")));
+  .parse(GRUND_TO_END_ROWS);
 
 describe("grundZumEnde", () => {
   const HEUTE = "2026-04-01";
@@ -171,8 +419,8 @@ describe("grundZumEnde", () => {
   const SCHIEDSRICHTER = ["6890a1b2c3d4e5f6077600c1", "6890a1b2c3d4e5f6077600c2"] as const;
   const SPIELORT = "6890a1b2c3d4e5f6077600b1";
 
-  /* Read rather than retyped: the backend's `grund_to_end` answers the same rows in its own suite, so a closing reason
-     one tier gains alone fails at the other. */
+  /* The closing reasons of `fl_backend/app/api/spielbestaetigungen/services.py :: grund_to_end`, which this reader
+     spells again for the page. */
   for (const { fall, zeile, anders, grund } of GRUND_TO_END) {
     it(`ends a row where the pass does: ${fall}`, () => {
       const datum = tagNach(anders.tage ?? 3);
@@ -193,15 +441,13 @@ describe("grundZumEnde", () => {
               ? null
               : { schiedsrichter_id: SCHIEDSRICHTER[1] },
       };
-      const row = FLSpielbestaetigungSchema.parse(
-        spielbestaetigungFields({
-          spiel_id: spiel.id,
-          partei:
-            zeile.partei === undefined ? { art: "team", team_id: SEITEN[0] } : { art: "schiedsrichter", schiedsrichter_id: SCHIEDSRICHTER[0] },
-          ansetzung: { datum, uhrzeit: "18:00:00", spielort_id: SPIELORT, team1_id: SEITEN[0], team2_id: SEITEN[1], stand: "0".repeat(64) },
-          geschlossen: zeile.verworfen === undefined ? null : { am: HEUTE, grund: "verworfen" },
-        }),
-      );
+      const row = spielbestaetigungFields({
+        spiel_id: spiel.id,
+        party:
+          zeile.partei === undefined ? { art: "team", team_id: SEITEN[0] } : { art: "schiedsrichter", schiedsrichter_id: SCHIEDSRICHTER[0] },
+        ansetzung: { datum, uhrzeit: "18:00:00", spielort_id: SPIELORT, team1_id: SEITEN[0], team2_id: SEITEN[1], stand: "0".repeat(64) },
+        closed: zeile.discarded === undefined ? null : { am: HEUTE, grund: "discarded" },
+      });
       const austritte = new Map(anders.austritt_tage === undefined ? [] : [[SEITEN[1], tagNach(anders.austritt_tage)]]);
 
       expect(grundZumEnde(row, spiel, { austritte, today: HEUTE })).toBe(grund);

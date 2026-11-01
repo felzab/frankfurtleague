@@ -1,5 +1,5 @@
+import type { FLSpielort } from "@/core/generated/client/types";
 import type { Facet } from "@/shared/utils/facets";
-import type { FLSpielort } from "./schemas";
 
 // Module scope is load-bearing: `AdminCrudView`'s memo and the react-aria collection behind it both
 // key on the array's identity.

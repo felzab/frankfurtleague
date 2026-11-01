@@ -5,8 +5,8 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends, Query
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.saisons.cache import dropping_the_saison_cache
-from app.api.saisons.crud import pull_current_saison_id
+from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.saisons.crud import pull_active_saison_id
 from app.api.spielberichte.crud import (
     anchor_the_pupils_named,
     anchor_the_season_reported_in,
@@ -22,7 +22,6 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtPayload,
     FLSpielberichtSpieler,
     FLSpielberichtVon,
-    FLSpielberichtVonAdmin,
 )
 from app.api.spielberichte.services import (
     BerichtLage,
@@ -38,17 +37,16 @@ from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
     SaisonSpielerCollection,
-    SaisonTeamsCollection,
     SpielberichteCollection,
     SpieleCollection,
     SpielerCollection,
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
+from app.core.security import bind_actor, verify_access_admin, verify_step_up
 from app.core.transactions import transaction_session
+from app.shared.schemas.actor import FLVonAdmin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -58,20 +56,19 @@ router = APIRouter(
 
 
 def _admin_ansicht(
-    lage: BerichtLage, *, kader_offen: bool, genannt: Sequence[FLSpielberichtSpieler], dokument: Mapping[str, Any] | None
+    lage: BerichtLage, *, kader_offen: bool, named: Sequence[FLSpielberichtSpieler], dokument: Mapping[str, Any] | None
 ) -> FLSpielberichtAdminResponse:
-    ansicht = compose_ansicht(lage, kader_offen=kader_offen, genannt=genannt, dokument=dokument)
+    ansicht = compose_ansicht(lage, kader_offen=kader_offen, named=named, dokument=dokument)
     bericht = ansicht["bericht"]
     zustand = None if bericht is None else bericht_zustand_of(FLSpielberichtBericht.model_validate(bericht), lage.spiel)
 
-    return FLSpielberichtAdminResponse.model_validate({**ansicht, "zustand": zustand})
+    return FLSpielberichtAdminResponse.model_validate({**ansicht, "state": zustand})
 
 
 @router.get(
     "",
     response_model=FLSpielberichteSaisonResponse,
     summary="Every report of a season and the state it reads in",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_spielberichte(
     spielberichte_collection: SpielberichteCollection,
@@ -82,13 +79,13 @@ async def get_spielberichte(
     Every report of one season holding a block, each with its state against its fixture and what it proposes.
 
     What the season editor counts before an undraw or a replace, which a submitted report refuses
-    (`REQ-SPIELPLAN-007`). Scoped to `saison_id`, the active season when none is named, which answers 404 while no
+    (`spielplan_berichte_submitted`). Scoped to `saison_id`, the active season when none is named, which answers 404 while no
     season is active.
     """
 
     # Resolved as every other admin read resolves an omitted season: the season selector sends none for the running one.
     if saison_id is None:
-        saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)
+        saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
 
     return FLSpielberichteSaisonResponse(
         spielberichte=await pull_zustaende(spielberichte_collection=spielberichte_collection, saison_id=saison_id)
@@ -96,17 +93,15 @@ async def get_spielberichte(
 
 
 @router.get(
-    f"{by_id('spiel_id')}/admin",
+    f"{by_id('spiel_id')}/verwaltung",
     response_model=FLSpielberichtAdminResponse,
     summary="One fixture's report, whole, for an administrator",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
-async def get_spielbericht_admin(
+async def get_spielbericht_verwaltung(
     spiel_id: CustomRouteObjectId,
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
-    saison_teams_collection: SaisonTeamsCollection,
     spieler_collection: SpielerCollection,
     spielberichte_collection: SpielberichteCollection,
     db: DBClient,
@@ -117,7 +112,7 @@ async def get_spielbericht_admin(
 
     Beside it the fixture and the pupils the report names, by name. Both clubs' live squads of the season only with
     `kader`, which the correction's form picks from: the panel reads no pupil the report does not name, so a fixture
-    holding no report serves none. The report and its state are null where no report stands; `DB-COMMON-001` only for
+    holding no report serves none. The report and its state are null where no report stands; `document_not_found` only for
     a fixture that does not exist.
     """
 
@@ -126,7 +121,6 @@ async def get_spielbericht_admin(
             spiele_collection=spiele_collection,
             saisons_collection=saisons_collection,
             saison_spieler_collection=saison_spieler_collection,
-            saison_teams_collection=saison_teams_collection,
             spiel_id=spiel_id,
             session=session,
         )
@@ -139,14 +133,13 @@ async def get_spielbericht_admin(
             session=session,
         )
 
-    return _admin_ansicht(lage, kader_offen=kader, genannt=genannt, dokument=dokument)
+    return _admin_ansicht(lage, kader_offen=kader, named=genannt, dokument=dokument)
 
 
 @router.patch(
     by_id("spiel_id"),
     response_model=FLSpielberichtAdminResponse,
     summary="Write one fixture's report as an administrator",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     # It overwrites the referee's account of the match, and nothing undoes it.
     dependencies=[Depends(verify_step_up)],
 )
@@ -156,7 +149,6 @@ async def patch_spielbericht(
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
-    saison_teams_collection: SaisonTeamsCollection,
     spieler_collection: SpielerCollection,
     spielberichte_collection: SpielberichteCollection,
     db: DBClient,
@@ -166,22 +158,21 @@ async def patch_spielbericht(
     """
     Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.
 
-    Every write changing it raises its `version`, so a report adopted before reads `abweichend` until it is adopted
+    Every write changing it raises its `version`, so a report adopted before reads `differing` until it is adopted
     again, and a write changing nothing writes nothing. Who first wrote the report stays recorded; a report an
     administrator writes first records an administrator, naming nobody.
 
     `bericht_stand` is the `version` of the report the page was served, null where none stood, as on the referee's
     write.
 
-    Refuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); a `bericht_stand`
-    other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day is
-    still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out proposed on a
-    group-phase fixture (`REQ-BERICHT-009`); a pupil newly named on a side outside that side's live squad of the season
-    (`REQ-BERICHT-003`); a yellow or second yellow card naming no reason, unless the stored report holds that card, by
-    side, pupil and colour, stripped of its reason at the end of the season after the match (`REQ-BERICHT-008`); and remarks naming a seat
-    holder of either club, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each but
-    `REQ-BERICHT-006` is asked again outside the transaction just before answering; a write of the report landing
-    mid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two pages
+    Refuses, in this order, each writing nothing: a fixture that does not exist (`document_not_found`); a `bericht_stand`
+    other than the version standing now, or than none where none stands (`bericht_meanwhile_changed`); one undated or whose day is
+    still to come (`bericht_not_played`); one called off or struck out (`bericht_abgesagt`); a shoot-out proposed on a
+    group-phase fixture (`bericht_elfmeter_in_the_gruppe`); a pupil newly named on a side outside that side's live squad of the season
+    (`bericht_not_in_kader`); and a yellow or second yellow card naming no reason, unless the stored report holds that card,
+    by side, pupil and colour, stripped of its reason at the end of the season after the match (`bericht_grund_missing`). Each
+    but `bericht_meanwhile_changed` is asked again outside the transaction just before answering; a write of the report landing
+    mid-press conflicts with this one, whose retry meets `bericht_meanwhile_changed`. Two first writes at once are two pages
     opened on no report: the later is refused.
     """
 
@@ -194,7 +185,6 @@ async def patch_spielbericht(
             spiele_collection=spiele_collection,
             saisons_collection=saisons_collection,
             saison_spieler_collection=saison_spieler_collection,
-            saison_teams_collection=saison_teams_collection,
             spiel_id=spiel_id,
             session=session,
         )
@@ -205,7 +195,7 @@ async def patch_spielbericht(
         judge_bericht(lage=lage, payload=payload, gespeichert=block, neu=neu, today=today)
 
         await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*neu.values()), session=session)
-        von: FLSpielberichtVon = FLSpielberichtVonAdmin(art="admin")
+        von: FLSpielberichtVon = FLVonAdmin(art="admin")
         dokument = await write_bericht(
             spielberichte_collection=spielberichte_collection,
             spiel_raw=lage.spiel,
@@ -213,6 +203,7 @@ async def patch_spielbericht(
             payload=payload,
             von=von,
             now=now,
+            version=bericht_data.version,
             session=session,
         )
         if gespeichert is None:
@@ -227,16 +218,13 @@ async def patch_spielbericht(
             spiele_collection=spiele_collection,
             saisons_collection=saisons_collection,
             saison_spieler_collection=saison_spieler_collection,
-            saison_teams_collection=saison_teams_collection,
             spiel_id=spiel_id,
             session=None,
         )
         judge_bericht(lage=jetzt, payload=payload, gespeichert=block, neu=neu, today=today)
 
         # The report as written, in the shape of the panel's read; no client reads it, the page reading again after the save.
-        return _admin_ansicht(lage, kader_offen=True, genannt=genannt, dokument=dokument)
+        return _admin_ansicht(lage, kader_offen=True, named=genannt, dokument=dokument)
 
-    # A first write anchors the season, a season write the cache serves.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            return await session.with_transaction(write_the_report)
+    async with transaction_session(db) as session:
+        return await session.with_transaction(write_the_report)

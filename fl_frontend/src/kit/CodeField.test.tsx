@@ -7,7 +7,7 @@ import { COPY } from "@/core/copy";
 
 import { CodeField } from "./CodeField";
 
-const { code } = COPY.anmeldung;
+const { code } = COPY.signIn;
 
 /** The six drawn boxes, which assistive technology does not reach. */
 const boxes = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>("[aria-hidden][data-kit-focus=field]")];
@@ -95,7 +95,7 @@ describe("the code field", () => {
   });
 
   it("states a refusal as the field's description, and marks the field invalid", () => {
-    const refusal = COPY.anmeldung.abgelehnt.codeFalsch;
+    const refusal = COPY.signIn.refusal.codeWrong;
     render(
       <CodeField
         label={code}

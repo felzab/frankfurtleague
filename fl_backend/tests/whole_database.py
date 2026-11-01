@@ -6,11 +6,11 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
 
-# The fields keeping an id by design, each saying what a write or a notice was about rather than whose it
-# was: a log row's document and filter, and a queued grant notice's grant, which a revoke leaves alike.
+# The fields keeping an id by design, each saying what a write or a mail was about rather than whose it
+# was: a log row's document and filter, and an owed mail's key and record, which a revoke leaves alike.
 _ABOUT: Mapping[str, tuple[str, ...]] = {
-    Collection.AKTIONEN: ("document_id", "db_filter"),
-    Collection.BERECHTIGUNGEN_POSTAUSGANG: ("berechtigung_id",),
+    Collection.ACTION_LOG: ("document_id", "db_filter"),
+    Collection.OUTBOX: ("key", "reference"),
 }
 
 

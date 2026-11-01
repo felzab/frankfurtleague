@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 
 import { parseDate } from "@internationalized/date";
 
-import { patchSaisonTeamAction, patchTeamAction, undoAdminTeamEditAction } from "@/features/teams/actions";
+import { patchSaisonTeamAction, patchTeamAction } from "@/features/teams/actions";
 import { austrittZustand, SAISON_ABSCHNITT } from "@/features/teams/constants";
 import { FLPatchSaisonTeamPayloadSchema, FLPatchTeamPayloadSchema } from "@/features/teams/schemas";
 import { deriveTeamDraftStatus } from "@/features/teams/teamDraftStatus";
@@ -23,8 +22,8 @@ import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
+import { appToast } from "@/shared/utils/appToast";
 import { fieldStatus } from "@/shared/utils/draftStatus";
-import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildTeamBanners } from "./banners";
 import { describeSaisonTeamsFanOut, describeSpieleFanOut } from "./fanOutNotes";
@@ -35,18 +34,16 @@ import { FormKontakteLinkSection } from "./FormKontakteLinkSection";
 import { FormSaisonSection } from "./FormSaisonSection";
 import { FormVereinSection } from "./FormVereinSection";
 
-import type { TeamEinladungState } from "@/features/einladungen/types";
-import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
 import type {
   FLAustrittType,
   FLGruppenNames,
-  FLPatchSaisonTeamPayload,
-  FLPatchTeamPayload,
   FLPostTeamPayload,
   FLSchulform,
-  FLTeamRecord,
+  FLTeamWithMemberships,
   FLTrikotFarbe,
-} from "@/features/teams/schemas";
+} from "@/core/generated/client/types";
+import type { TeamEinladungState } from "@/features/einladungen/types";
+import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
 import type { FLTeamDraftFields, TeamFieldPath } from "@/features/teams/teamDraftStatus";
 import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
@@ -54,12 +51,6 @@ import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate } from "@internationalized/date";
-
-/** What the undo replays: the halves the save wrote, holding their PRE-SAVE values. */
-type TeamUndoPayloads = {
-  club?: FLPatchTeamPayload;
-  saison?: FLPatchSaisonTeamPayload;
-};
 
 /** **One save bar over TWO endpoints**: a partial failure is toasted as well as shown inline. */
 export function AdminTeamEditForm({
@@ -72,7 +63,7 @@ export function AdminTeamEditForm({
   einladung,
   pageHeader,
 }: {
-  team: FLTeamRecord;
+  team: FLTeamWithMemberships;
   /** The sidemenu selector's season and its junction row, resolved by the page. */
   saison: TeamSaisonMembership;
   today: string;
@@ -86,7 +77,6 @@ export function AdminTeamEditForm({
   swap: SaisonGruppenSwapContext;
   pageHeader: EditPageHeaderContent;
 }) {
-  const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
 
@@ -311,48 +301,14 @@ export function AdminTeamEditForm({
         setSubmitFieldErrors({}, {});
         setHasSaved(true);
 
-        // `team` and `storedMembership` are this render's props, so they still carry the pre-save
-        // values. Built BEFORE leaving, because the toast outlives the page.
-        const undoPayloads: TeamUndoPayloads = {
-          ...(clubDirty
-            ? {
-                club: {
-                  id: team.id,
-                  name: team.name,
-                  shorthand: team.shorthand,
-                  full_name: team.full_name,
-                  website_url: team.website_url,
-                  description: team.description,
-                  address: team.address,
-                  schulform: team.schulform,
-                },
-              }
-            : {}),
-          ...(saisonDirty && storedMembership !== null
-            ? {
-                saison: {
-                  team_id: team.id,
-                  saison_id: saison.saisonId,
-                  gruppe: storedMembership.gruppe,
-                  austritt: storedMembership.austritt,
-                  trikot_farbe: storedMembership.trikot_farbe,
-                },
-              }
-            : {}),
-        };
         // A lifted disqualification is the one thing this save can destroy that nothing else copies,
-        // so that grade is a warning; an ordinary save is a reversible success.
+        // so that grade is a warning; an ordinary save is a success.
         const destroyedSomething = austrittTouched && draftAustritt === null && storedMembership?.austritt != null;
-        offerUndo({
-          undo: () => undoAdminTeamEditAction(undoPayloads),
-          message: consequenceNotes.join(" ") || undefined,
-          fallback: "Die Teamdaten wurden aktualisiert.",
-          warn: destroyedSomething,
-          router,
+        const raise = destroyedSomething ? appToast.warning : appToast.success;
+        raise(destroyedSomething ? "Mit Folgen gespeichert" : "Änderung gespeichert", {
+          description: consequenceNotes.join(" ") || "Die Teamdaten wurden aktualisiert.",
         });
 
-        // AFTER the undo payloads are built: leaving with typed values still in state lets a
-        // save-then-undo reopen on values the club does not hold.
         resetDraftToStored();
         leavePage();
       });

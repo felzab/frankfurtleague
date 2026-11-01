@@ -27,6 +27,7 @@ writing a line that depends on it.
 | **Vitest**              | [llms.txt](https://vitest.dev/llms.txt)                                             | [llms-full.txt](https://vitest.dev/llms-full.txt)                          |
 | **Pydantic**            | [llms.txt](https://pydantic.dev/docs/validation/latest/llms.txt)                    | [llms-full.txt](https://pydantic.dev/docs/validation/latest/llms-full.txt) |
 | **Zod**                 | [llms.txt](https://zod.dev/llms.txt)                                                | [llms-full.txt](https://zod.dev/llms-full.txt)                             |
+| **Orval**               | [llms.txt](https://orval.dev/llms.txt)                                              | [llms-full.txt](https://orval.dev/llms-full.txt)                           |
 | **React**               | [llms.txt](https://react.dev/llms.txt)                                              | — (index only)                                                             |
 | **Resend**              | [docs/llms.txt](https://resend.com/docs/llms.txt)                                   | — (index only)                                                             |
 | **Better Auth**         | [docs/llms.txt](https://better-auth.com/docs/llms.txt)                              | — (index only)                                                             |

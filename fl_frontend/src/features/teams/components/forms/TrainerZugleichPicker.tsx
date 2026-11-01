@@ -11,7 +11,7 @@ import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, TOGGLE_GROUP_ALIGN_CLASSES } 
 import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
 import { TextField } from "@/shared/components/ui/TextField";
 
-import type { FLTrainerZugleich } from "@/features/teams/schemas";
+import type { FLTrainerAlso } from "@/core/generated/client/types";
 import type { Key } from "@heroui/react/rac";
 import type { ReactNode } from "react";
 
@@ -25,8 +25,8 @@ export function TrainerZugleichPicker({
   labelSlot,
 }: {
   /** `undefined` is a question nobody has answered yet; `null` is the answer „Eine andere Person“. */
-  value: FLTrainerZugleich | null | undefined;
-  onPick: (seat: FLTrainerZugleich | null) => void;
+  value: FLTrainerAlso | null | undefined;
+  onPick: (seat: FLTrainerAlso | null) => void;
   /** The admin editor's marker-carrying `FieldLabel`; the public form takes the plain default. */
   labelSlot?: ReactNode;
 }) {
@@ -34,7 +34,7 @@ export function TrainerZugleichPicker({
     // `ToggleButtonGroup` takes no `name`, so this proxy field is what names it: it is the control a
     // refusal on the path reaches, and the hidden `Input` is what puts the name in `form.elements`.
     <TextField
-      name="kontakte.trainer_ist_zugleich"
+      name="kontakte.trainer_is_also"
       value={value ?? ""}
       onChange={() => undefined}
       className="flex w-full flex-col gap-y-1">

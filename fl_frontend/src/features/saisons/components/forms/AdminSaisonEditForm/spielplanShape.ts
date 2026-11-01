@@ -2,7 +2,7 @@ import { buildSpielplanVorschau } from "@/features/saisons/utils";
 
 import { spielplanPress, spielplanReplacesDraw } from "./blockedReasons";
 
-import type { FLSaisonRules, FLSaisonStatus, FLSpielplanShape } from "@/features/saisons/schemas";
+import type { FLSaisonRules, FLSaisonStatus, FLSpielplanShape } from "@/core/generated/client/types";
 import type { SaisonGruppenOccupancy, SaisonSpielplanContext } from "@/features/saisons/types";
 import type { SpielplanControlInput, SpielplanOperation } from "./blockedReasons";
 
@@ -18,17 +18,17 @@ export type ShapeField = { key: keyof FLSpielplanShape; label: string };
  * the confirmation both**, so no readout can label a number differently from the field above it.
  */
 export const SHAPE_FIELDS: readonly ShapeField[] = [
-  { key: "number_of_groups", label: "Gruppen" },
-  { key: "teams_per_group", label: "Teams pro Gruppe" },
-  { key: "qualifiers_per_group", label: "Qualifikanten pro Gruppe" },
+  { key: "number_of_gruppen", label: "Gruppen" },
+  { key: "teams_per_gruppe", label: "Teams pro Gruppe" },
+  { key: "qualifiers_per_gruppe", label: "Qualifikanten pro Gruppe" },
 ];
 
 /** The season's stored three: what a replace starts from, and what a first draw leaves untouched. */
 export function readShape(rules: FLSaisonRules): FLSpielplanShape {
   return {
-    number_of_groups: rules.number_of_groups,
-    teams_per_group: rules.teams_per_group,
-    qualifiers_per_group: rules.qualifiers_per_group,
+    number_of_gruppen: rules.number_of_gruppen,
+    teams_per_gruppe: rules.teams_per_gruppe,
+    qualifiers_per_gruppe: rules.qualifiers_per_gruppe,
   };
 }
 
@@ -75,7 +75,7 @@ export function buildSpielplanControlInput(season: SpielplanPanelSeason): Spielp
     startDate: season.startDate,
     endDate: season.endDate,
     vorschauSpieltage: vorschau.spieltage,
-    gruppen: { groups: season.rules.number_of_groups, teams: season.rules.teams_per_group, occupancy: season.gruppenOccupancy },
+    gruppen: { groups: season.rules.number_of_gruppen, teams: season.rules.teams_per_gruppe, occupancy: season.gruppenOccupancy },
   };
 }
 

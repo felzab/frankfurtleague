@@ -6,25 +6,23 @@ import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { CLASH_BUFFER_TEXT } from "./constants";
 
-import type { FLSaisonPhase } from "@/features/saisons/schemas";
-import type { FLAustrittType, FLGruppenNames } from "@/features/teams/schemas";
-import type { FeedbackTone } from "@/shared/components/ui/badges";
 import type {
+  FLAustrittType,
   FLBracketFault,
   FLBracketFaultBooking,
   FLBracketFaultClash,
-  FLPatchSpielDataPayload,
+  FLGruppenNames,
+  FLSaisonPhase,
   FLSonderereignis,
-  FLSpiel,
-  FLSpielAdmin,
   FLSpielAdvancement,
+  FLSpielJoinedAdmin,
   FLSpielQuelle,
   FLSpielReleasedSide,
-  FLSpielStatus,
-  FLSpielTeamField,
   FLSpielTeamFieldJoined,
   FLSpielTeamFieldPayload,
-} from "./schemas";
+} from "@/core/generated/client/types";
+import type { FeedbackTone } from "@/shared/components/ui/badges";
+import type { FLPatchSpielDataPayloadWithId, FLSpiel, FLSpielTeamField, SpielStatus } from "./types";
 
 /**
  * **The four events meaning the fixture never took place**, written once for every surface grading a
@@ -49,7 +47,7 @@ export const computeSpielStatus = ({
   datum: string | null;
   sonderereignis: FLSonderereignis | null;
   today: string;
-}): FLSpielStatus => {
+}): SpielStatus => {
   // Above the null check as well as the comparisons: an undated fixture that was called off is
   // called off rather than merely undated.
   if (isAbgesagt(sonderereignis)) return "abgesagt";
@@ -112,7 +110,7 @@ export type ErgebnisTone = Extract<FeedbackTone, "success" | "danger" | "warning
 export type FLSpielErgebnisFor = "S" | "U" | "N" | "?";
 
 /**
- * Kept in step with `FLSpielSchema.ergebnis`, which enforces the same shape at the API boundary.
+ * The shape `fl_backend/app/shared/schemas/custom.py :: CustomErgebnisString` stores.
  * `[0-9]`, not `\d`: the backend's rust-regex `\d` is Unicode-aware, and `Number("٢")` is `NaN`.
  */
 const ERGEBNIS_PATTERN = /^([0-9]+):([0-9]+)$/;
@@ -290,7 +288,7 @@ const toPayloadSide = (side: FLSpielTeamField | null): FLSpielTeamFieldPayload |
  * readings of. Every field is listed rather than spread: one missing here is one the editor keeps
  * showing from its seed.
  */
-const toPatchPayload = (spiel: FLSpielAdmin): FLPatchSpielDataPayload => ({
+const toPatchPayload = (spiel: FLSpielJoinedAdmin): FLPatchSpielDataPayloadWithId => ({
   // No `ergebnis`: the backend derives it from the goals and refuses to accept one.
   spiel_id: spiel.id,
   sonderereignis: spiel.sonderereignis,
@@ -315,7 +313,7 @@ const toPatchPayload = (spiel: FLSpielAdmin): FLPatchSpielDataPayload => ({
  * The server composes those copies, so a rename reaching this fixture still has to re-key a mounted
  * editor, or the picker keeps showing the old club.
  */
-const toEditorSeed = (spiel: FLSpielAdmin) => ({
+const toEditorSeed = (spiel: FLSpielJoinedAdmin) => ({
   ...toPatchPayload(spiel),
   team1: toStoredSide(spiel.team1),
   team2: toStoredSide(spiel.team2),
@@ -325,10 +323,10 @@ const toEditorSeed = (spiel: FLSpielAdmin) => ({
 
 /**
  * [Resets the match editor's state](https://react.dev/learn/preserving-and-resetting-state#resetting-state-with-a-key)
- * when an undo restores values — the fixture id alone would keep showing what the mounted editor
+ * when a write moves its stored values — the fixture id alone would keep showing what the mounted editor
  * was seeded with until a reload.
  */
-export const spielStateKey = (spiel: FLSpielAdmin): string => `${spiel.id}:${JSON.stringify(toEditorSeed(spiel))}`;
+export const spielStateKey = (spiel: FLSpielJoinedAdmin): string => `${spiel.id}:${JSON.stringify(toEditorSeed(spiel))}`;
 
 /**
  * The one spelling of the route. The season is REQUIRED, never optional: an optional one is what a
@@ -382,7 +380,7 @@ export const formatSpielUpdateMessage = (
 };
 
 /**
- * The same sentences under the undo's own lead, `undefined` where the replay moved nothing. **The
+ * The same sentences without the save's lead, `undefined` where the write moved nothing. **The
  * save's wording and not a second set**: one event would otherwise reach an admin in two vocabularies.
  */
 export const describeMovedSpiele = (

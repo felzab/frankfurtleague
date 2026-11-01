@@ -133,21 +133,6 @@ ELSEWHERE: Final[tuple[Elsewhere, ...]] = (
 
 
 @dataclass(frozen=True)
-class Internal:
-    """One route handler this server alone calls, which the edge refuses outright, and why."""
-
-    path: str
-    why: str
-
-
-# Recorded rather than read off a refusing location alone: a refusal is a decision about one handler, and a
-# location that went on to forward it would otherwise read as the metered route the walk takes it for.
-INTERNAL: Final[tuple[Internal, ...]] = (
-    Internal("/api/revalidate", "the reference caches' invalidation, called over loopback by the two hourly passes and an operator"),
-)
-
-
-@dataclass(frozen=True)
 class Metadata:
     """One code-generated metadata convention, and why the URL Next serves it at is owed no meter."""
 
@@ -216,8 +201,6 @@ class Location:
     # route by whether there is one at all.
     limits: frozenset[tuple[str, ...]]
     line: int
-    # Answered at the edge with a client error and forwarded nowhere, so nothing behind it is reached.
-    refuses: bool = False
 
     @property
     def zones(self) -> frozenset[str]:
@@ -364,8 +347,9 @@ def read_location(directive: Directive, source: str, redirected: frozenset[str] 
         if path in redirected:
             return None
         raise NginxSyntax(f"{source}:{directive.line}: the named location {path!r}, which no request URI and no error_page reaches")
+    # Answered at the edge rather than forwarded: no route behind it is reached, so this accounting has nothing to read.
     if any(child.name == "return" for child in block):
-        return refusing(directive, block, limits, source)
+        raise NginxSyntax(f"{source}:{directive.line}: a location answering with `return`, which forwards no route this reader can account for")
     if len(directive.args) == 1:
         return Location(False, path, limits, directive.line)
     if len(directive.args) == 2:
@@ -378,24 +362,6 @@ def read_location(directive: Directive, source: str, redirected: frozenset[str] 
             return Location(False, path, limits, directive.line)
         raise NginxSyntax(f"{source}:{directive.line}: the location modifier {modifier!r}, which selects by something other than a path prefix")
     raise NginxSyntax(f"{source}:{directive.line}: a location taking {len(directive.args)} argument(s)")
-
-
-# The client errors, which an edge answering one itself returns in place of the handler's answer.
-REFUSAL: Final = re.compile(r"^4\d\d$")
-
-
-def refusing(directive: Directive, block: tuple[Directive, ...], limits: frozenset[tuple[str, ...]], source: str) -> Location:
-    """An exact match refusing with one bare client error.
-
-    Any other answering location refuses the run: a prefix refusal covers handlers no row names, and a redirect
-    or a `proxy_pass` beside the `return` reads as a route.
-    """
-    answers = [child for child in block if child.name == "return"]
-    if len(directive.args) != 2 or directive.args[0] != "=" or any(child.name == "proxy_pass" for child in block):
-        raise NginxSyntax(f"{source}:{directive.line}: a location answering with `return` that is no exact match forwarding nothing")
-    if len(answers) != 1 or len(answers[0].args) != 1 or not REFUSAL.match(answers[0].args[0]):
-        raise NginxSyntax(f"{source}:{directive.line}: a location answering with something other than one bare client error")
-    return Location(True, directive.args[1], limits, directive.line, refuses=True)
 
 
 def map_values(tree: tuple[Directive, ...]) -> dict[str, frozenset[str]]:
@@ -706,27 +672,6 @@ def account(found: tuple[Handler, ...], where: tuple[Location, ...], root: Path,
     for handler in found:
         name = shown(handler.path, root)
         match = None if handler.dynamic else exact.get(handler.url)
-        recorded_internal = internal(handler.url) is not None
-        if recorded_internal and (match is None or not match.refuses):
-            findings.append(
-                Finding(
-                    "fail",
-                    f"{name} answers {handler.url}, recorded as this server's alone, and no exact match in {conf} refuses it\n"
-                    f"{CONTINUATION}the edge forwards it: refuse it with an exact match answering a client error, or drop the row at "
-                    f"scripts/checks/check_public_routes.py :: INTERNAL",
-                )
-            )
-            continue
-        if match is not None and match.refuses:
-            if not recorded_internal:
-                findings.append(
-                    Finding(
-                        "fail",
-                        f"{name} answers {handler.url}, which {conf} refuses at the edge, and no row records it as this server's alone\n"
-                        f"{CONTINUATION}record why at scripts/checks/check_public_routes.py :: INTERNAL, or forward it under a meter",
-                    )
-                )
-            continue
         if match is not None:
             if not match.metered:
                 findings.append(
@@ -812,28 +757,6 @@ def recorded(path: str) -> Elsewhere | None:
     return None
 
 
-def internal(path: str) -> Internal | None:
-    """The recorded reason a handler's URL is this server's alone, or None where none is."""
-    for one in INTERNAL:
-        if one.path == path:
-            return one
-    return None
-
-
-def unanswered(found: tuple[Handler, ...]) -> list[Finding]:
-    """Every row recording a URL as this server's alone that no handler answers -- `unused`'s rot, over this table."""
-    answered = {one.url for one in found if not one.dynamic}
-    return [
-        Finding(
-            "fail",
-            f"{one.path} is recorded as this server's alone ({one.why}) and no route handler in {APP_ROUTER} answers it\n"
-            f"{CONTINUATION}drop the row at scripts/checks/check_public_routes.py :: INTERNAL, and the refusal with it",
-        )
-        for one in INTERNAL
-        if one.path not in answered
-    ]
-
-
 def _canonical(path: str) -> str:
     """One exact match's path without the trailing slash a twin carries, the root keeping its own."""
     if not path.endswith(TRAILING_SLASH):
@@ -907,33 +830,29 @@ def undeclared(where: tuple[Location, ...], answering: tuple[Handler, ...], serv
 
 
 def twins(where: tuple[Location, ...]) -> list[Finding]:
-    """Every metered or refusing exact match whose trailing-slash counterpart does not do the same.
+    """Every metered exact match whose trailing-slash counterpart is not metered too.
 
     The pair costs no correctness, Next answering the slashed form with a 308; what it closes is
-    upstream work past the meter or the refusal (`docs/ops/spec.md`).
+    upstream work past the meter (`docs/ops/spec.md`).
     """
     findings: list[Finding] = []
-    for kind, paths in (
-        ("metered", {one.path for one in where if one.exact and one.metered and not one.refuses}),
-        ("refused", {one.path for one in where if one.exact and one.refuses}),
-    ):
-        for path in sorted(paths):
-            if path.endswith(TRAILING_SLASH):
-                canonical = path[: -len(TRAILING_SLASH)]
-                if canonical and canonical not in paths:
-                    findings.append(_twinless(path, canonical, "canonical", kind))
-            elif path + TRAILING_SLASH not in paths:
-                findings.append(_twinless(path, path + TRAILING_SLASH, "trailing-slash twin", kind))
+    paths = {one.path for one in where if one.exact and one.metered}
+    for path in sorted(paths):
+        if path.endswith(TRAILING_SLASH):
+            canonical = path[: -len(TRAILING_SLASH)]
+            if canonical and canonical not in paths:
+                findings.append(_twinless(path, canonical, "canonical"))
+        elif path + TRAILING_SLASH not in paths:
+            findings.append(_twinless(path, path + TRAILING_SLASH, "trailing-slash twin"))
     return findings
 
 
-def _twinless(path: str, missing: str, role: str, kind: str) -> Finding:
+def _twinless(path: str, missing: str, role: str) -> Finding:
     """The finding for one half of a trailing-slash pair standing alone."""
-    reaches = "reaches Next unmetered" if kind == "metered" else "reaches Next past the refusal"
     return Finding(
         "fail",
-        f"{path} is {kind} and its {role} {missing} is not\n"
-        f"{CONTINUATION}an exact match is exact, so the other form falls to `location /` and {reaches}",
+        f"{path} is metered and its {role} {missing} is not\n"
+        f"{CONTINUATION}an exact match is exact, so the other form falls to `location /` and reaches Next unmetered",
     )
 
 
@@ -971,7 +890,7 @@ def main() -> int:
         return EXIT_REFUSED
 
     findings, used = account(found, where, root, conf_path.name)
-    findings += unused(used, where) + unclaimed(served) + twins(where) + unanswered(found)
+    findings += unused(used, where) + unclaimed(served) + twins(where)
     findings += orphaned(where, answering, served) + undeclared(where, answering, served)
     opened, unopened = minted_pages(mints, paged, root)
     linked = tuple(sorted(set(link_pages(paged)) | set(opened), key=lambda one: one.path))
@@ -980,19 +899,18 @@ def main() -> int:
     code = report_findings(findings)
     if findings:
         print("\n      A route handler is a public URL, so the accounting is total: every one is either an")
-        print("      exact-match location carrying limit_req, a prefix location with a recorded reason, or")
-        print("      a handler check_public_routes.py :: INTERNAL records that an exact match refuses,")
+        print("      exact-match location carrying limit_req or a prefix location with a recorded reason,")
         print("      and a metadata convention is taken unmetered where check_public_routes.py :: METADATA")
         print("      says why. A page a link opens sits where :: LINK_ZONES meters it and its twin, each zone on")
         print("      one line in every block naming it.")
         print("      The rule is docs/ops/spec.md, section 1.3; the reasons are :: REASONS.")
         return code
 
-    metered = sum(1 for one in where if one.exact and one.metered and not one.refuses)
+    metered = sum(1 for one in where if one.exact and one.metered)
     print(
         f"      {len(found)} route handler(s) accounted for, {len(served)} metadata convention(s) taken unmetered, "
         f"{metered} metered exact-match location(s), {len(REASONS)} recorded reason(s), "
-        f"{len(INTERNAL)} handler(s) refused at the edge, {len(linked)} link page(s) on the link pages' pair"
+        f"{len(linked)} link page(s) on the link pages' pair"
     )
     return code
 

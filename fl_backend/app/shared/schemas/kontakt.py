@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
 
 from app.shared.folding import league_address
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH
@@ -8,18 +8,20 @@ from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomOptionalPhoneSt
 
 # Every address payload's type but the erasure's lookup.
 # Never `EmailStr`, which never turns `allow_smtputf8` off and so stores a Unicode local part and
-# domain. The ceiling and the format are stated so the published schema carries both.
-CustomEmail = Annotated[
-    str, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH), AfterValidator(league_address), Field(json_schema_extra={"format": "email"})
-]
+# domain. The published schema states the ceiling and no `format`: a generated `z.email()` would
+# refuse an umlaut domain `league_address` accepts, and this check is the one authority.
+CustomEmail = Annotated[str, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH), AfterValidator(league_address)]
 
 # A person's name, or one part of one: what the public application form takes, and every payload
 # held to refuse what that form refuses, a referee's whole name among them.
 CustomKontaktName = Annotated[
     str,
-    # Stripped first, so the padding the pattern's trailing space class admits is never stored and
-    # never shown wherever the name is read back, a pupil's squad sheet among them.
-    StringConstraints(strip_whitespace=True, min_length=1, max_length=KONTAKT_NAME_MAX_LENGTH, pattern=PERSON_NAME_PATTERN),
+    # The ceiling and the pattern count what arrives, so a name opening on a space is refused and the
+    # published schema is what the backend accepts. The strip then takes the trailing spaces the
+    # pattern's class admits, so they are never stored nor shown wherever the name is read back.
+    StringConstraints(max_length=KONTAKT_NAME_MAX_LENGTH, pattern=PERSON_NAME_PATTERN),
+    AfterValidator(str.strip),
+    StringConstraints(min_length=1),
 ]
 
 

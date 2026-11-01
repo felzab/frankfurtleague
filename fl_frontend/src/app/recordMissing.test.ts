@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 
 import { APIBadStatusError } from "@/core/errors.ts";
 
+import type { Code } from "@/core/generated/client/types.ts";
+
 /** What the doubled client throws for every read, set by each case. */
 let failure: unknown;
 // An administrator's session: every admin-tier read resolves its actor from it before it is sent
@@ -33,14 +35,14 @@ const READS: Readonly<Record<string, () => Promise<unknown>>> = {
   getBewerbungById: () => bewerbungen.getBewerbungById(freshId()),
   getOffenesBewerbungFenster: () => bewerbungen.getOffenesBewerbungFenster(),
   getBewerbungFenster: () => bewerbungen.getBewerbungFenster(freshId()),
-  getCurrentSaisonOrNull: () => saisons.getCurrentSaisonOrNull(),
+  getActiveSaisonOrNull: () => saisons.getActiveSaisonOrNull(),
   getSchiedsrichterById: () => schiedsrichter.getSchiedsrichterById(freshId()),
   getAdminSpiel: () => spiele.getAdminSpiel(freshId()),
   getAdminSpieltagById: () => spieltage.getAdminSpieltagById(freshId()),
   getTeam: () => teams.getTeam(freshId()),
 };
 
-const notFound = (serverErrorCode: string | undefined): APIBadStatusError =>
+const notFound = (serverErrorCode: Code | undefined): APIBadStatusError =>
   new APIBadStatusError({
     message: "not found",
     url: "http://backend/api/v0/x",
@@ -54,7 +56,7 @@ const notFound = (serverErrorCode: string | undefined): APIBadStatusError =>
 
 describe("a read of a record the API says is missing", () => {
   it("answers the record-missing code as the caller's none", async () => {
-    failure = notFound("DB-COMMON-001");
+    failure = notFound("document_not_found");
 
     for (const [name, read] of Object.entries(READS)) expect(await read(), name).toBe(null);
   });
@@ -62,7 +64,7 @@ describe("a read of a record the API says is missing", () => {
   /* By the code and never the status: a 404 carrying none is a route the edge or the framework did not
      find, and reading it as none would render a page's missing state while the API is unreachable. */
   it("keeps a 404 carrying no code, or another code, the failure it is", async () => {
-    for (const code of [undefined, "REQ-UNCLAIMED-000", "REQ-ROUTE-001"]) {
+    for (const code of [undefined, "no_route"] as const) {
       const thrown = notFound(code);
       failure = thrown;
 

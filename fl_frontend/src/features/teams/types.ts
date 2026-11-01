@@ -1,75 +1,33 @@
-import type { KontaktRolle } from "./constants";
 import type {
   FLAustritt,
   FLAustrittType,
-  FLCreateTeamFormPayload,
   FLGruppenNames,
+  FLKontaktEnteredBy,
   FLKontaktKenntnisnahme,
   FLKontaktperson,
   FLPatchSaisonTeamPayload,
   FLPostSaisonTeamPayload,
-  FLSaisonTeamAdresswechsel,
-  FLSaisonTeamBestaetigungenAnsicht,
+  FLPostTeamPayload,
+  FLSaisonTeamAddressChange,
+  FLSaisonTeamConfirmationsView,
   FLSaisonTeamKontakte,
   FLTrikotFarbe,
-} from "./schemas";
-
-type FLTeamsSortingOptions = "name";
-
-/**
- * Omitting it is `"gruppenphase"`: both scopes return the same fields, so a forgotten parameter must
- * not produce a standing that counts playoff results.
- */
-type FLTeamStatistikScope = "gruppenphase" | "gesamt";
+} from "@/core/generated/client/types";
+import type { KontaktRolle } from "./constants";
 
 /**
- * What narrows the LIST — one team by its id is an identity, not a filter.
- *
- * Omission is meaningful: an absent `saison_id` means the current season, and `apiClient` drops
- * undefined params rather than serialising them.
+ * The create form's draft: the club and its first season in one, with `gruppe` widened to `null` so the form starts
+ * with none chosen. The schema refuses the null, turning an untouched picker into a field error rather than a wrong
+ * group.
  */
-export type FLPublicTeamsFilterParams = {
-  saison_id?: string;
-  gruppe?: FLGruppenNames;
-  // A question about the junction, not a field on it: the row stores an `austritt` record and
-  // no boolean.
-  has_austritt?: boolean;
-  // Independent of the boolean rather than nested under it: naming a route already implies having
-  // left, so the two combine without either implying the other.
-  austritt_type?: FLAustrittType;
-  in_gruppen?: boolean;
-  statistik_scope?: FLTeamStatistikScope;
+export type TeamCreateDraft = FLPostTeamPayload &
+  Omit<FLPostSaisonTeamPayload, "gruppe"> & {
+    gruppe: FLGruppenNames | null;
+  };
 
-  limit?: number;
-  sort_by?: FLTeamsSortingOptions;
-  order?: "asc" | "desc";
-};
-
-/**
- * The admin read's filters. `include_inactive` is here and not above because the base endpoint
- * stopped declaring it: a public standings row carries no retirement date, so un-hiding a retired
- * club there would serve one nothing marks (`READ-SQUAD-002`).
- */
-export type FLTeamsFilterParams = FLPublicTeamsFilterParams & {
-  include_inactive?: boolean;
-};
-
-/** What `GET /teams/{team_id}` accepts: only the two choosing which season's figures to derive. */
-export type FLTeamSingleFilterParams = {
-  saison_id?: string;
-  statistik_scope?: FLTeamStatistikScope;
-};
-
-/**
- * The create form's draft, with `gruppe` widened to `null` so the form starts with none chosen. The
- * schema refuses the null, turning an untouched picker into a field error rather than a wrong group.
- */
-export type TeamCreateDraft = Omit<FLCreateTeamFormPayload, "gruppe"> & {
-  gruppe: FLGruppenNames | null;
-};
-
-/** The junction editor's enter-a-season draft, widened the same way. */
+/** The junction editor's enter-a-season draft, widened the same way, the club it enters beside it. */
 export type SaisonTeamEnterDraft = Omit<FLPostSaisonTeamPayload, "gruppe"> & {
+  team_id: string;
   gruppe: FLGruppenNames | null;
 };
 
@@ -84,7 +42,7 @@ export type AustrittDraft = Omit<FLAustritt, "type"> & {
 /** One contact person mid-edit. Every other field is typed, so an unanswered one is the empty string. */
 export type KontaktpersonDraft = Omit<FLKontaktperson, "einwilligung"> & {
   // Null on a seat the editor opened: the save that seats the person stamps who did.
-  einwilligung: Omit<FLKontaktKenntnisnahme, "eingetragen_von"> & { eingetragen_von: FLKontaktKenntnisnahme["eingetragen_von"] | null };
+  einwilligung: Omit<FLKontaktKenntnisnahme, "entered_by"> & { entered_by: FLKontaktEnteredBy | null };
 };
 
 /**
@@ -102,6 +60,8 @@ export type SaisonTeamKontakteDraft = Omit<FLSaisonTeamKontakte, "trainer" | "an
  * payload does not carry the block, and the three seats are the contacts editor's to move.
  */
 export type SaisonTeamMembershipDraft = Omit<FLPatchSaisonTeamPayload, "gruppe" | "austritt"> & {
+  team_id: string;
+  saison_id: string;
   gruppe: FLGruppenNames | null;
   austritt: AustrittDraft | null;
 };
@@ -119,10 +79,10 @@ export type TeamSaisonMembership = {
     trikot_farbe: FLTrikotFarbe | null;
     kontakte: FLSaisonTeamKontakte | null;
     /** Each seat's link, read beside the block for the contacts editor. */
-    bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null;
+    confirmations: FLSaisonTeamConfirmationsView | null;
     /** Each seat's pending address change, read beside the block for the contacts editor. */
-    adresswechsel: FLSaisonTeamAdresswechsel | null;
-    /** The token `PATCH .../kontakte` judges a save against, carried from the read (`REQ-KONTAKT-001`). */
+    address_change: FLSaisonTeamAddressChange | null;
+    /** The token `PATCH .../kontakte` judges a save against, carried from the read (`kontakte_moved_under_the_save`). */
     kontakte_stand: string;
   } | null;
 };
@@ -132,7 +92,7 @@ export type TeamSaisonContext = Pick<TeamSaisonMembership, "saisonId" | "saisonS
 
 /**
  * One group's fill state, from `buildGruppeOffer`. The pickers disable a full group; the junction
- * write's refusal (`REQ-ENTER-003`) stays authoritative.
+ * write's refusal (`entry_gruppe_full`) stays authoritative.
  */
 export type GruppeOffer = {
   gruppe: FLGruppenNames;
@@ -161,7 +121,7 @@ export type AdminTeamRow = {
   selected: { gruppe: FLGruppenNames; austritt: FLAustritt | null } | null;
   /**
    * No `active` or `future` season holds the club. Mirrors the write path's own refusal
-   * (`REQ-RETIRE-001`), which stays authoritative.
+   * (`retire_blocked`), which stays authoritative.
    */
   isRetireable: boolean;
   /**
@@ -173,7 +133,7 @@ export type AdminTeamRow = {
 
 /**
  * Editable only while the club holds no fixture in the season, whatever the season's status
- * (`REQ-ENTER-004`). WHY it is locked belongs to the swap control beneath the row, which grades four
+ * (`entry_gruppe_locked`). WHY it is locked belongs to the swap control beneath the row, which grades four
  * conditions where this grades one.
  */
 export type TeamGruppeLock = {

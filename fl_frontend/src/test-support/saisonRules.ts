@@ -2,13 +2,13 @@
 const UEBLICH = {
   win_points: 3,
   draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 2,
-  teams_per_group: 4,
+  qualifiers_per_gruppe: 2,
+  number_of_gruppen: 2,
+  teams_per_gruppe: 4,
   max_kadergroesse: 18,
   tiebreak_order: "tordifferenz",
   forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1", "Q1"],
+  allowed_stufen: ["E1", "Q1"],
 } as const;
 
 /** Each count as a number and each array as a mutable one, as the schema's type declares them, so a fixture assigns to it. */
@@ -21,5 +21,5 @@ type Rules<T> = Assignable<Omit<typeof UEBLICH, keyof NoInfer<T>> & NoInfer<T>>;
 // assignment to a fixture's declared type is where a rule the schema adds is missed.
 /** A season's rules, `UEBLICH` under the ones a case varies; every call hands out arrays of its own. */
 export function saisonRules<const T extends object = Record<never, never>>(varied?: T): Rules<T> {
-  return { ...UEBLICH, erlaubte_stufen: [...UEBLICH.erlaubte_stufen], ...varied } as Rules<T>;
+  return { ...UEBLICH, allowed_stufen: [...UEBLICH.allowed_stufen], ...varied } as Rules<T>;
 }

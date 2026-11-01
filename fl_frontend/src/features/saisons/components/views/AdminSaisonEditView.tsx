@@ -6,8 +6,8 @@ import { AdminSaisonEditForm } from "@/features/saisons/components/forms/AdminSa
 import { readShape, startingRedraw } from "@/features/saisons/components/forms/AdminSaisonEditForm/spielplanShape";
 import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 
+import type { FLSaisonRules, FLSaisonStatus } from "@/core/generated/client/types";
 import type { RedrawDraft } from "@/features/saisons/components/forms/AdminSaisonEditForm/spielplanShape";
-import type { FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
 import type {
   SaisonDraftFields,
   SaisonGruppenSwapContext,

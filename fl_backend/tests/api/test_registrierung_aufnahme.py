@@ -11,49 +11,43 @@ from fastapi import FastAPI
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import hash_token
-from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
 from app.api.konto.services import compose_person_move
-from app.api.registrierungen.crud import person_at_the_address
-from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht, post_bestaetigung
-from app.api.registrierungen.person_router import ablehnen, aufnehmen, get_offene_registrierungen
+from app.api.registrierungen import person_router
+from app.api.registrierungen.person_router import get_open_registrierungen
+from app.api.registrierungen.person_router import patch_einwilligung as patch_registrierung_einwilligung
+from app.api.registrierungen.public_router import get_confirmation_view, post_confirmation
 from app.api.registrierungen.schemas import (
     FLOffeneRegistrierungenParams,
-    FLRegistrierungAblehnenPayload,
-    FLRegistrierungAufnehmenPayload,
-    FLRegistrierungBestaetigungAnsichtPayload,
-    FLRegistrierungBestaetigungPayload,
-    FLRegistrierungSelbstEinwilligungPayload,
+    FLRegistrierungAdmitPayload,
+    FLRegistrierungConfirmationPayload,
+    FLRegistrierungDeclinePayload,
 )
-from app.api.registrierungen.selbst_router import patch_einwilligung as patch_registrierung_einwilligung
 from app.api.registrierungen.services import (
-    REGISTRIERUNG_ADRESSE_GESPERRT,
-    REGISTRIERUNG_PERSON_FEHLT,
-    REGISTRIERUNG_PERSON_NICHT_BENANNT,
-    REGISTRIERUNG_SCHON_IM_KADER,
-    REGISTRIERUNG_STUFE_NICHT_ERLAUBT,
-    REGISTRIERUNG_UNBESTAETIGT,
     compose_confirmation_update,
 )
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
-from app.api.spieler.services import SQUAD_FULL, build_ghost_spieler
+from app.api.spieler.services import build_ghost_spieler
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
+from app.shared.schemas.confirmation import FLTokenPayload
+from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
+from app.shared.tokens import hash_token
 from tests import documents
-from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.outbox import MAIL_NOW
 from tests.records import record_collections
+from tests.session_headers import StampedHeaders
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -92,25 +86,25 @@ GEBURTSDATUM = "2009-05-04"
 KONTO_LABEL = "2026-10-konto-spieler"
 TOKEN = "hwGqQ4kP6yJr3VnZbT8sXeM2dLuF9aCwR1oY5iN7pKg"
 
-RULES: Mapping[str, Any] = documents.rules_document(max_kadergroesse=3, erlaubte_stufen=["Q1", "Q2"])
+RULES: Mapping[str, Any] = documents.rules_document(max_kadergroesse=3, allowed_stufen=["Q1", "Q2"])
 
 STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def kontakte(*, ansprechperson: str, trainer: str | None = None, stellvertretung: str | None = None, bestaetigt: bool = True) -> dict[str, Any]:
-    """`bestaetigt` is the Stellvertretung's own stamp alone: an unconfirmed seat grants no panel."""
+def kontakte(*, ansprechperson: str, trainer: str | None = None, stellvertretung: str | None = None, confirmed: bool = True) -> dict[str, Any]:
+    """`confirmed` is the Stellvertretung's own stamp alone: an unconfirmed seat grants no panel."""
 
     stamp = "2026-03-21"
 
     return {
-        "trainer": None if trainer is None else documents.kontaktperson_document(trainer, bestaetigt_am=stamp),
-        "ansprechperson": documents.kontaktperson_document(ansprechperson, bestaetigt_am=stamp),
+        "trainer": None if trainer is None else documents.kontaktperson_document(trainer, confirmed_at=stamp),
+        "ansprechperson": documents.kontaktperson_document(ansprechperson, confirmed_at=stamp),
         "stellvertretung": None
         if stellvertretung is None
-        else documents.kontaktperson_document(stellvertretung, bestaetigt_am=stamp if bestaetigt else None),
-        "trainer_ist_zugleich": None,
+        else documents.kontaktperson_document(stellvertretung, confirmed_at=stamp if confirmed else None),
+        "trainer_is_also": None,
     }
 
 
@@ -123,7 +117,7 @@ def on_a_league(
     matchday: bool = False,
     stellvertretung_bestaetigt: bool = True,
 ) -> Any:
-    """Two clubs in one active season, each with seats; `squad` live rows already on the first club.
+    """Two clubs in one active season, each with seats; `kader` live rows already on the first club.
 
     The first club also plays the `past` season before and the `future` one after, each seated by
     somebody holding no seat this season.
@@ -131,11 +125,9 @@ def on_a_league(
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            invalidate_saison_cache()
-
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", rules=dict(RULES)))
             await database[Collection.TEAMS].insert_many(
-                [documents.team_document(TEAM_OID, "Zorbanax", "ZO"), documents.team_document(OTHER_TEAM_OID, "Quillhilde", "QU")]
+                [documents.team_document(TEAM_OID, "Zorbanax", "ZOX"), documents.team_document(OTHER_TEAM_OID, "Quillhilde", "QUX")]
             )
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
@@ -143,26 +135,26 @@ def on_a_league(
                         SAISON_ID,
                         TEAM_OID,
                         "Zorbanax",
-                        "ZO",
+                        "ZOX",
                         kontakte=kontakte(
-                            ansprechperson="Anna", trainer="Theo", stellvertretung="Stella", bestaetigt=stellvertretung_bestaetigt
+                            ansprechperson="Anna", trainer="Theo", stellvertretung="Stella", confirmed=stellvertretung_bestaetigt
                         ),
                     ),
-                    documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, "Quillhilde", "QU", kontakte=kontakte(ansprechperson="Otto")),
+                    documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, "Quillhilde", "QUX", kontakte=kontakte(ansprechperson="Otto")),
                 ]
             )
             await database[Collection.SAISONS].insert_many(
                 [
-                    documents.saison_document(NEXT_SAISON_ID, "future", rules=documents.rules_document(erlaubte_stufen=["Q1", "Q2"])),
+                    documents.saison_document(NEXT_SAISON_ID, "future", rules=documents.rules_document(allowed_stufen=["Q1", "Q2"])),
                     documents.saison_document(PAST_SAISON_ID, "past"),
                 ]
             )
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
                     documents.saison_team_document(
-                        NEXT_SAISON_ID, TEAM_OID, "Zorbanax", "ZO", kontakte=kontakte(ansprechperson="Anna", trainer="Nora")
+                        NEXT_SAISON_ID, TEAM_OID, "Zorbanax", "ZOX", kontakte=kontakte(ansprechperson="Anna", trainer="Nora")
                     ),
-                    documents.saison_team_document(PAST_SAISON_ID, TEAM_OID, "Zorbanax", "ZO", kontakte=kontakte(ansprechperson="Paula")),
+                    documents.saison_team_document(PAST_SAISON_ID, TEAM_OID, "Zorbanax", "ZOX", kontakte=kontakte(ansprechperson="Paula")),
                 ]
             )
 
@@ -213,12 +205,12 @@ def registrierung_document(
         vorname=vorname,
         nachname=nachname,
         token=token,
-        eingereicht_am="2026-03-30",
+        submitted_at="2026-03-30",
         frist="2026-04-06",
         position=position,
         nummer=nummer,
         stufe=stufe,
-        bestaetigt=None
+        confirmed=None
         if not confirmed
         else {
             "geburtsdatum": geburtsdatum,
@@ -250,9 +242,9 @@ async def admit(
 ) -> Any:
     """`saisons` and `spieler` stand in for the two collections a race case interleaves a rival at."""
 
-    return await aufnehmen(
+    return await person_router.admit(
         registrierung_id=registrierung_id,
-        aufnahme_data=FLRegistrierungAufnehmenPayload(spieler_id=spieler_id),
+        aufnahme_data=FLRegistrierungAdmitPayload(spieler_id=spieler_id),
         identifier=identifier,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
@@ -264,7 +256,7 @@ async def admit(
             spieler_collection=database[Collection.SPIELER] if spieler is None else spieler,
         ),
         spieltage_collection=database[Collection.SPIELTAGE],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
@@ -299,22 +291,28 @@ async def decline(
     identifier: str = ANNA,
     registrierungen: Any = None,
 ) -> Any:
-    return await ablehnen(
+    return await person_router.decline(
         registrierung_id=registrierung_id,
-        ablehnung_data=FLRegistrierungAblehnenPayload(grund=grund),
+        ablehnung_data=FLRegistrierungDeclinePayload(grund=grund),
         identifier=identifier,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN] if registrierungen is None else registrierungen,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
+        outbox_collection=database[Collection.OUTBOX],
         records=record_collections(database),
         db=client,
         today=TODAY,
+        germany_now=MAIL_NOW,
     )
+
+
+async def notes_owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:
+    return await database[Collection.OUTBOX].find({"art": "registrierung_absage"}).to_list(length=None)
 
 
 async def read(
     database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = ANNA, team_id: ObjectId = TEAM_OID, saison_id: str = SAISON_ID
 ) -> Any:
-    return await get_offene_registrierungen(
+    return await get_open_registrierungen(
         team_id=team_id,
         saison_id=saison_id,
         params=FLOffeneRegistrierungenParams(),
@@ -328,7 +326,7 @@ async def read(
 
 
 async def refused(call: Awaitable[Any]) -> str:
-    with pytest.raises(WriteRefusalException) as refusal:
+    with pytest.raises(APIError) as refusal:
         await call
 
     return refusal.value.error_code
@@ -362,7 +360,7 @@ STORED_GRANT = {"am": STORED_AM, "text_version": "2025-09"}
 
 
 def granted_under_an_older_label() -> dict[str, Any]:
-    return documents.eigene_einwilligung_document(text_version="2025-09", bestaetigt_am="2026-01-20", am=STORED_AM, medien=True)
+    return documents.own_einwilligung_document(text_version="2025-09", confirmed_at="2026-01-20", am=STORED_AM, medien=True)
 
 
 class TestWhatAnAdmissionWrites:
@@ -383,7 +381,7 @@ class TestWhatAnAdmissionWrites:
             "Okonkwo-Brandt",
             GEBURTSDATUM,
         )
-        assert person["einwilligung"]["bestaetigt_am"] == "2026-03-31" and person["einwilligung"]["umfang"] == "intern"
+        assert person["einwilligung"]["confirmed_at"] == "2026-03-31" and person["einwilligung"]["umfang"] == "intern"
         assert len(rows) == 1
         assert {key: rows[0][key] for key in ("team_id", "saison_id", "nummer", "position", "stufe", "rolle", "inactive_since")} == {
             "team_id": TEAM_OID,
@@ -403,8 +401,8 @@ class TestWhatAnAdmissionWrites:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             registrierung_id = await seed(database, registrierung_document(confirmed=False))
-            await post_bestaetigung(
-                antwort_data=FLRegistrierungBestaetigungPayload(
+            await post_confirmation(
+                antwort_data=FLRegistrierungConfirmationPayload(
                     token=TOKEN,
                     geburtsdatum=GEBURTSDATUM,
                     umfang="intern",
@@ -418,12 +416,14 @@ class TestWhatAnAdmissionWrites:
                 today=TODAY,
                 germany_now=NOW,
             )
-            imaged = await database[Collection.AKTIONEN].count_documents(
+            imaged = await database[Collection.ACTION_LOG].count_documents(
                 {"collection": Collection.REGISTRIERUNGEN, "document_id": registrierung_id, "before": {"$ne": None}}
             )
             await admit(database, client, registrierung_id)
             naming = (
-                await database[Collection.AKTIONEN].find({"collection": Collection.REGISTRIERUNGEN, "document_id": registrierung_id}).to_list()
+                await database[Collection.ACTION_LOG]
+                .find({"collection": Collection.REGISTRIERUNGEN, "document_id": registrierung_id})
+                .to_list()
             )
 
             remaining = await database[Collection.REGISTRIERUNGEN].count_documents({})
@@ -450,7 +450,7 @@ class TestWhatAnAdmissionWrites:
         before, after = on_a_league(mongo_replica_set_url, body)
 
         moved = {name for name in before.keys() | after.keys() if before.get(name) != after.get(name)}
-        assert moved == {Collection.SPIELER, Collection.SAISON_SPIELER, Collection.REGISTRIERUNGEN, Collection.SAISONS, Collection.AKTIONEN}
+        assert moved == {Collection.SPIELER, Collection.SAISON_SPIELER, Collection.REGISTRIERUNGEN, Collection.SAISONS, Collection.ACTION_LOG}
 
     def test_a_second_admission_answers_404_and_writes_nothing(self, mongo_replica_set_url: str):
         """The anchor and the log included: a second press that took the season's `$inc` would be a write nobody sees."""
@@ -459,7 +459,7 @@ class TestWhatAnAdmissionWrites:
             registrierung_id = await seed(database, registrierung_document())
             await admit(database, client, registrierung_id)
             before = await snapshot(database)
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await admit(database, client, registrierung_id)
 
             return before, await snapshot(database)
@@ -483,7 +483,7 @@ class TestWhatAnAdmissionWrites:
 
         listed, other, registrierung_id, wearing = on_a_league(mongo_replica_set_url, body)
 
-        marks = {row.registrierung_id: row.nummer_doppelt for row in listed.registrierungen}
+        marks = {row.registrierung_id: row.nummer_double for row in listed.registrierungen}
         assert marks == {registrierung_id: True, other: False}
         assert wearing == 2
 
@@ -506,7 +506,7 @@ class TestTheLateEntry:
             answer = await admit(database, client, await seed(database, registrierung_document()))
             rows = await squad_rows(database, spieler_id=answer.spieler_id)
 
-            return answer.ist_nachnominiert, rows[0]["ist_nachnominiert"]
+            return answer.is_nachnominiert, rows[0]["is_nachnominiert"]
 
         assert on_a_league(mongo_replica_set_url, body, matchday=matchday, matchday_beginn=beginn) == (flagged, flagged)
 
@@ -524,7 +524,7 @@ class TestTheStufe:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_STUFE_NICHT_ERLAUBT
+        assert code == Code.REGISTRIERUNG_STUFE_NOT_ALLOWED
         assert after == before
 
     def test_a_stufe_still_offered_is_admitted_before_and_after_the_boundary(self, mongo_replica_set_url: str):
@@ -545,7 +545,7 @@ class TestTheSquadCap:
 
         code, before, after = on_a_league(mongo_replica_set_url, body, squad=3)
 
-        assert code == SQUAD_FULL
+        assert code == Code.KADER_FULL
         assert after == before
 
     def test_a_rival_admission_landing_inside_takes_the_last_place(self, mongo_replica_set_url: str):
@@ -573,7 +573,7 @@ class TestTheSquadCap:
 
         outcome, live, still_pending = on_a_league(mongo_replica_set_url, body, squad=2)
 
-        assert outcome == SQUAD_FULL
+        assert outcome == Code.KADER_FULL
         assert (live, still_pending) == (3, 1)
 
 
@@ -587,7 +587,7 @@ class TestAnUnconfirmedRegistration:
 
         (row,) = on_a_league(mongo_replica_set_url, body)
 
-        assert (row.aufnehmbar, row.person) == (False, None)
+        assert (row.admissible, row.person) == (False, None)
 
     def test_the_admission_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -599,7 +599,7 @@ class TestAnUnconfirmedRegistration:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_UNBESTAETIGT
+        assert code == Code.REGISTRIERUNG_UNCONFIRMED
         assert after == before
 
 
@@ -615,7 +615,7 @@ class TestABarredAddress:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_ADRESSE_GESPERRT
+        assert code == Code.REGISTRIERUNG_ADRESSE_BARRED
         assert after == before
 
     def test_a_ban_entered_between_the_read_and_the_press_is_refused(self, mongo_replica_set_url: str):
@@ -624,12 +624,12 @@ class TestABarredAddress:
             listed = await read(database, client)
             await database[Collection.SPERRLISTE].insert_one(documents.ban_document(TYPED_EMAIL, bis=STANDING))
 
-            return listed.registrierungen[0].aufnehmbar, await refused(admit(database, client, registrierung_id)), await persons(database)
+            return listed.registrierungen[0].admissible, await refused(admit(database, client, registrierung_id)), await persons(database)
 
         aufnehmbar, code, stored = on_a_league(mongo_replica_set_url, body)
 
         assert aufnehmbar is True
-        assert code == REGISTRIERUNG_ADRESSE_GESPERRT
+        assert code == Code.REGISTRIERUNG_ADRESSE_BARRED
         assert stored == []
 
 
@@ -655,8 +655,8 @@ class TestThePersonAnAdmissionNames:
 
         person, code, untouched, answer, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert person is not None and (person.spieler_id, person.weicht_ab) == (stored_id, True)
-        assert (code, untouched) == (REGISTRIERUNG_PERSON_NICHT_BENANNT, True)
+        assert person is not None and (person.spieler_id, person.deviates_from) == (stored_id, True)
+        assert (code, untouched) == (Code.REGISTRIERUNG_PERSON_NOT_NAMED, True)
         # No second person: the yes overwrites the stored name and birthdate with the confirmed ones.
         assert answer.spieler_id == stored_id
         assert [(row["_id"], row["vorname"], row["geburtsdatum"]) for row in stored] == [(stored_id, "Thessaly", GEBURTSDATUM)]
@@ -675,7 +675,7 @@ class TestThePersonAnAdmissionNames:
 
         person, admitted, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert person is not None and person.weicht_ab is False
+        assert person is not None and person.deviates_from is False
         assert admitted == stored_id
         assert len(stored) == 1 and stored[0]["geburtsdatum"] == GEBURTSDATUM
 
@@ -706,7 +706,7 @@ class TestThePersonAnAdmissionNames:
             **fresh,
             "nachweis": {
                 **fresh["nachweis"],
-                "umfang": {**fresh["nachweis"]["umfang"], "erteilt_zuvor": STORED_GRANT},
+                "umfang": {**fresh["nachweis"]["umfang"], "given_before": STORED_GRANT},
             },
         }
 
@@ -743,7 +743,7 @@ class TestThePersonAnAdmissionNames:
             {
                 "am": "2026-04-01T09:00:00+00:00",
                 "text_version": KONTO_LABEL,
-                "erteilt_zuvor": STORED_GRANT,
+                "given_before": STORED_GRANT,
             },
         )
         # The scope set at the registration is newer than the person's stored grant, so it is renewed,
@@ -753,10 +753,10 @@ class TestThePersonAnAdmissionNames:
             {
                 "am": "2026-03-31T08:00:00+00:00",
                 "text_version": "2026-09",
-                "erteilt_zuvor": STORED_GRANT,
+                "given_before": STORED_GRANT,
             },
         )
-        assert (einwilligung["bestaetigt_am"], einwilligung["text_version"]) == ("2026-03-31", "2026-09")
+        assert (einwilligung["confirmed_at"], einwilligung["text_version"]) == ("2026-03-31", "2026-09")
 
     def test_a_withdrawal_the_pupil_made_on_the_pending_registration_is_carried(self, mongo_replica_set_url: str):
         """The account page's registration control, then the admission: the withdrawal is newer than every grant, so it stands."""
@@ -771,7 +771,7 @@ class TestThePersonAnAdmissionNames:
             registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
             await patch_registrierung_einwilligung(
                 registrierung_id=registrierung_id,
-                einwilligung_data=FLRegistrierungSelbstEinwilligungPayload.model_validate(
+                einwilligung_data=FLAccountEinwilligungPayload.model_validate(
                     {
                         "umfang": "intern",
                         "medien": False,
@@ -798,7 +798,7 @@ class TestThePersonAnAdmissionNames:
             {
                 "am": "2026-04-01T07:00:00+00:00",
                 "text_version": KONTO_LABEL,
-                "erteilt_zuvor": STORED_GRANT,
+                "given_before": STORED_GRANT,
             },
         )
 
@@ -813,7 +813,7 @@ class TestThePersonAnAdmissionNames:
 
             return await refused(admit(database, client, registrierung_id, spieler_id=other_id))
 
-        assert on_a_league(mongo_replica_set_url, body) == REGISTRIERUNG_PERSON_NICHT_BENANNT
+        assert on_a_league(mongo_replica_set_url, body) == Code.REGISTRIERUNG_PERSON_NOT_NAMED
 
     def test_a_body_naming_anyone_where_the_address_resolves_to_nobody_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         """A person holding another address is never admitted into: a yes would hand their record to whoever holds the registering mailbox."""
@@ -830,12 +830,12 @@ class TestThePersonAnAdmissionNames:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_PERSON_NICHT_BENANNT
+        assert code == Code.REGISTRIERUNG_PERSON_NOT_NAMED
         assert after == before
 
 
 class TestTheSentinelIsNobodyToAdmit:
-    """A body can name the sentinel and a hand edit can give it a registration's address, so its id alone keeps it out of the admission.
+    """A body can name the sentinel, which holds no address, so no admission resolves to it.
 
     Admitted into, it would take that registration's name onto every erased pupil's surviving entry.
     """
@@ -853,53 +853,15 @@ class TestTheSentinelIsNobodyToAdmit:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_PERSON_NICHT_BENANNT
+        assert code == Code.REGISTRIERUNG_PERSON_NOT_NAMED
         assert after == before
-
-    def test_it_holding_the_registrations_address_and_a_confirmed_record_is_still_refused(self, mongo_replica_set_url: str):
-        """Matched by the address, the admission would take the sentinel for the person and write the registration onto it."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            confirmed = documents.eigene_einwilligung_document(text_version="2026-09", bestaetigt_am="2026-03-01")
-            await database[Collection.SPIELER].insert_one({**build_ghost_spieler(), "email": FOLDED_EMAIL, "einwilligung": confirmed})
-            registrierung_id = await seed(database, registrierung_document())
-            before = await snapshot(database)
-            code = await refused(admit(database, client, registrierung_id, spieler_id=GHOST_SPIELER_ID))
-
-            return code, before, await snapshot(database)
-
-        code, before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert code == REGISTRIERUNG_PERSON_NICHT_BENANNT
-        assert after == before
-
-    def test_the_confirmation_page_resolves_the_address_to_a_person_and_never_to_it(self, mongo_replica_set_url: str):
-        """The page the pupil confirms on is chosen by the person the address holds, so the sentinel holding it would choose it."""
-
-        person_id = ObjectId()
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            collection = database[Collection.SPIELER]
-            await collection.insert_one({**build_ghost_spieler(), "email": FOLDED_EMAIL})
-            sentinel_answer = await person_at_the_address(
-                spieler_collection=collection, registrierung_raw=registrierung_document(), session=None
-            )
-
-            # The control: the same address on a person, whom the read does resolve.
-            await collection.update_one({"_id": GHOST_SPIELER_ID}, {"$unset": {"email": ""}})
-            await collection.insert_one(a_stored_person(person_id))
-            person_answer = await person_at_the_address(spieler_collection=collection, registrierung_raw=registrierung_document(), session=None)
-
-            return sentinel_answer, None if person_answer is None else person_answer["_id"]
-
-        assert on_a_league(mongo_replica_set_url, body) == (None, person_id)
 
 
 async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """The returning pupil's page pressed over a stored birthdate: its label, and no choice and no date."""
 
-    return await post_bestaetigung(
-        antwort_data=FLRegistrierungBestaetigungPayload(
+    return await post_confirmation(
+        antwort_data=FLRegistrierungConfirmationPayload(
             token=TOKEN,
             geburtsdatum=None,
             umfang=None,
@@ -939,10 +901,10 @@ class TestAReturningRegistration:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_PERSON_FEHLT
+        assert code == Code.REGISTRIERUNG_PERSON_MISSING
         assert after == before
 
-    def test_its_person_erased_before_the_admission_takes_the_registration_with_them(self, mongo_replica_set_url: str):
+    def test_its_person_geloescht_before_the_admission_takes_the_registration_with_them(self, mongo_replica_set_url: str):
         """The erasure is keyed on the address the registration holds too, so the admission finds nothing to admit."""
 
         stored_id = ObjectId()
@@ -953,7 +915,7 @@ class TestAReturningRegistration:
             await confirm_as_returning(database, client)
             gone = await erased(database, client, TYPED_EMAIL, germany_now=NOW)
             before = await snapshot(database)
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await admit(database, client, registrierung_id, spieler_id=None)
 
             return (gone.spieler, gone.registrierungen), before, await snapshot(database)
@@ -1011,8 +973,8 @@ class TestAReturningRegistration:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
             registrierung_id = await seed(database, registrierung_document(confirmed=False))
-            view = await get_bestaetigung_ansicht(
-                ansicht_data=FLRegistrierungBestaetigungAnsichtPayload(token=TOKEN),
+            view = await get_confirmation_view(
+                ansicht_data=FLTokenPayload(token=TOKEN),
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                 teams_collection=database[Collection.TEAMS],
                 spieler_collection=database[Collection.SPIELER],
@@ -1090,7 +1052,7 @@ class TestAPersonAlreadyInASquad:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_SCHON_IM_KADER
+        assert code == Code.REGISTRIERUNG_ALREADY_IN_KADER
         assert after == before
 
 
@@ -1140,7 +1102,7 @@ class TestEverySeatActsAlike:
         listed, declined = on_a_league(mongo_replica_set_url, body)
 
         assert listed == 2
-        assert declined is not None and declined["status"] == "abgelehnt"
+        assert declined is not None and declined["status"] == "declined"
 
     @pytest.mark.parametrize("operation", ["read", "admit", "decline"])
     @pytest.mark.parametrize(
@@ -1170,7 +1132,7 @@ class TestEverySeatActsAlike:
 
         code, before, after = on_a_league(mongo_replica_set_url, body, stellvertretung_bestaetigt=stellvertretung_bestaetigt)
 
-        assert code == FUNKTION_NICHT_GEHALTEN
+        assert code == Code.ROLE_NOT_HELD
         assert after == before
 
 
@@ -1192,32 +1154,33 @@ class TestTheDecline:
             registrierung_id = await seed(database, registrierung_document())
 
             async def the_rival_declines() -> None:
-                await decline(database, client, registrierung_id, grund="andere_person", identifier=THEO)
+                await decline(database, client, registrierung_id, grund="other_person", identifier=THEO)
 
             registrierungen = RegistrationsRunningARivalAfterTheirRead(database[Collection.REGISTRIERUNGEN], the_rival_declines)
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await decline(database, client, registrierung_id, registrierungen=registrierungen)
 
             return registrierungen.passes, await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id})
 
         passes, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert stored is not None and stored["entscheidung"] == {"getroffen_am": TODAY, "von": THEO, "grund": "andere_person"}
+        assert stored is not None and stored["decision"] == {"made_at": TODAY, "von": THEO, "grund": "other_person"}
         assert passes == 2, "one read is a decline that wrote over the rival's decision without a retry"
 
-    @pytest.mark.parametrize("grund", [None, "andere_person"])
+    @pytest.mark.parametrize("grund", [None, "other_person"])
     def test_it_writes_the_state_and_the_decision_and_nothing_else(self, mongo_replica_set_url: str, grund: str | None):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             registrierung_id = await seed(database, registrierung_document())
             before = await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id})
-            answer = await decline(database, client, registrierung_id, grund=grund, identifier=THEO)
+            await decline(database, client, registrierung_id, grund=grund, identifier=THEO)
 
-            return before, await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id}), answer
+            return before, await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id}), await notes_owed(database)
 
-        before, after, answer = on_a_league(mongo_replica_set_url, body)
+        before, after, owed = on_a_league(mongo_replica_set_url, body)
 
-        assert after == {**before, "status": "abgelehnt", "entscheidung": {"getroffen_am": TODAY, "von": THEO, "grund": grund}}
-        assert (answer.email, answer.bestaetigt, answer.team, answer.grund) == (FOLDED_EMAIL, True, "Zorbanax", grund)
+        assert after == {**before, "status": "declined", "decision": {"made_at": TODAY, "von": THEO, "grund": grund}}
+        # The confirmed pupil's note, owed in the decline's own transaction.
+        assert [(row["an"], row["data"]["team"], row["data"]["grund"]) for row in owed] == [(FOLDED_EMAIL, "Zorbanax", grund)]
 
     def test_a_decided_registration_answers_404_to_either_press(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1225,7 +1188,7 @@ class TestTheDecline:
             await decline(database, client, registrierung_id)
             before = await snapshot(database)
             for press in (decline, admit):
-                with pytest.raises(DocumentNotFoundException):
+                with pytest.raises(DocumentNotFoundError):
                     await press(database, client, registrierung_id)
 
             return before, await snapshot(database)
@@ -1234,11 +1197,15 @@ class TestTheDecline:
 
         assert after == before
 
-    def test_an_unconfirmed_registration_may_be_declined_and_says_so(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return (await decline(database, client, await seed(database, registrierung_document(confirmed=False)))).bestaetigt
+    def test_an_unconfirmed_registration_may_be_declined_and_owes_nobody_a_note(self, mongo_replica_set_url: str):
+        """An unconfirmed address is anybody's typing, and a note to it tells a stranger about a team's decision."""
 
-        assert on_a_league(mongo_replica_set_url, body) is False
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await decline(database, client, await seed(database, registrierung_document(confirmed=False)))
+
+            return await notes_owed(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == []
 
 
 @functools.cache
@@ -1271,7 +1238,7 @@ class TestThePendingReadServesNoAddress:
 
             async with app_client(mongo_replica_set_url, app=_served(), now=NOW) as http:
                 response = await http.get(
-                    f"/api/v{API_VERSION}/registrierungen/kader/{TEAM_OID}/{SAISON_ID}", headers=SignedActor(ANNA, ADMIN_KEY, lane="person")
+                    f"/api/v{API_VERSION}/registrierungen/kader/{TEAM_OID}/{SAISON_ID}", headers=StampedHeaders(ANNA, ADMIN_KEY, lane="person")
                 )
 
             return response.status_code, response.json()

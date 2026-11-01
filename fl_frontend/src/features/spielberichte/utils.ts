@@ -1,18 +1,20 @@
+import { TIME_ZONE } from "@/core/format";
 import { kaderName, NUMMER_NICHT_HINTERLEGT, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
 import { SPIELBERICHT_ZUSTAENDE_OFFEN, SPIELBERICHT_ZUSTAND_TONE } from "./constants";
 
-import type { PillTone } from "@/shared/components/ui/badges";
-import type { FieldErrors } from "@/shared/utils/validation";
 import type {
+  Code,
   FLSpielberichtSeiten,
   FLSpielberichtSpiel,
   FLSpielberichtSpieler,
+  FLSpielberichtStateEntry,
   FLSpielberichtVorschlag,
-  FLSpielberichtZustandEintrag,
-} from "./schemas";
+} from "@/core/generated/client/types";
+import type { PillTone } from "@/shared/components/ui/badges";
+import type { FieldErrors } from "@/shared/utils/validation";
 import type { Eingesetzt } from "./types";
 
 /**
@@ -25,10 +27,10 @@ export type BerichtChip = { readonly worte: string; readonly vorschlag: FLSpielb
  * What an administrator's fixture card says of its report, in its state's tone; `null` for a state awaiting nobody.
  * `abweichend` reads „nicht übernommen“, never „geändert“: a first report beside a hand-typed result reads it too.
  */
-export function berichtChip({ zustand, ergebnis_vorschlag }: FLSpielberichtZustandEintrag): BerichtChip | null {
+export function berichtChip({ state: zustand, ergebnis_vorschlag }: FLSpielberichtStateEntry): BerichtChip | null {
   if (!SPIELBERICHT_ZUSTAENDE_OFFEN.has(zustand)) return null;
   // No score: it was proposed for other clubs than the fixture fields now, and beside the card it would read as theirs.
-  if (zustand === "teams_geaendert") {
+  if (zustand === "teams_changed") {
     return { worte: "Bericht zu anderen Teams", vorschlag: null, tone: SPIELBERICHT_ZUSTAND_TONE[zustand] };
   }
 
@@ -96,7 +98,7 @@ export function spielerLabel(spieler: FLSpielberichtSpieler): string {
 // Europe/Berlin, as every other date in this app is rendered, and to the minute: a correction made the same day as
 // the adoption is exactly what the administrator needs to tell apart.
 const BERLIN_ZEITPUNKT = new Intl.DateTimeFormat("de-DE", {
-  timeZone: "Europe/Berlin",
+  timeZone: TIME_ZONE,
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
@@ -110,7 +112,7 @@ export function berlinZeitpunkt(stamp: string): string {
   return Number.isNaN(instant.getTime()) ? stamp : `${BERLIN_ZEITPUNKT.format(instant)} Uhr`;
 }
 
-/** Why a fixture takes no report today, `null` where it takes one, as `REQ-BERICHT-001` and `REQ-BERICHT-004` judge a write. */
+/** Why a fixture takes no report today, `null` where it takes one, as `bericht_not_played` and `bericht_abgesagt` judge a write. */
 export type BerichtSperre = "abgesagt" | "undatiert" | "kuenftig";
 
 export function berichtSperre(spiel: Pick<FLSpielberichtSpiel, "datum" | "sonderereignis">, today: string): BerichtSperre | null {
@@ -122,11 +124,7 @@ export function berichtSperre(spiel: Pick<FLSpielberichtSpiel, "datum" | "sonder
 /** Who reads the sentence: the booked referee on their panel, or an administrator correcting the report. */
 export type SpielberichtLeser = "schiedsrichter" | "admin";
 
-/** The remarks' name refusal lands on the box, the one control that can repair it. */
 export const BEMERKUNGEN_PATH = "bericht.bemerkungen";
-
-// The box's hint already asks for a shirt number, so the message names the fault alone.
-const NAME_IN_BEMERKUNGEN = "In den Bemerkungen steht ein Name.";
 
 // The form offers no shoot-out on a group fixture, so this arrives only from a request no page composed.
 const ELFMETER_IN_DER_GRUPPE = buildRefusal({ reason: "Ein Spiel der Gruppenphase hat kein Elfmeterschießen", repair: LADE_DIE_SEITE_NEU });
@@ -144,56 +142,57 @@ const NEU_EINTRAGEN = "Lade die Seite neu und trage Deine Änderung dort erneut 
 const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
   schiedsrichter: {
     // Ahead of the spine's own reading, whose sentence names a team: the referee's record is what went.
-    "REQ-FUNKTION-001": "Du bist nicht mehr als Schiedsrichterin oder Schiedsrichter eingetragen. Lade die Seite neu.",
-    "REQ-BERICHT-001": buildRefusal({ reason: "Dieses Spiel hat noch kein Datum oder noch nicht stattgefunden", repair: LADE_DIE_SEITE_NEU }),
-    "REQ-BERICHT-002": buildRefusal({ reason: "Dieses Spiel leitest Du nicht mehr", repair: LADE_DIE_SEITE_NEU }),
-    "REQ-BERICHT-003": buildRefusal({
+    role_not_held: "Du bist nicht mehr als Schiedsrichterin oder Schiedsrichter eingetragen. Lade die Seite neu.",
+    bericht_not_played: buildRefusal({
+      reason: "Dieses Spiel hat noch kein Datum oder noch nicht stattgefunden",
+      repair: LADE_DIE_SEITE_NEU,
+    }),
+    bericht_not_officiated: buildRefusal({ reason: "Dieses Spiel leitest Du nicht mehr", repair: LADE_DIE_SEITE_NEU }),
+    bericht_not_in_kader: buildRefusal({
       reason: "Eine gewählte Person steht nicht mehr im Kader ihres Teams",
       repair: "Lade die Seite neu und wähle neu",
     }),
-    "REQ-BERICHT-004": buildRefusal({
+    bericht_abgesagt: buildRefusal({
       reason: "Dieses Spiel ist inzwischen als ausgefallen oder annulliert eingetragen und nimmt keinen Spielbericht an",
       repair: LADE_DIE_SEITE_NEU,
     }),
-    "REQ-BERICHT-008": GRUND_FEHLT,
-    "REQ-BERICHT-009": ELFMETER_IN_DER_GRUPPE,
-    "REQ-BERICHT-007": buildRefusal({
+    bericht_grund_missing: GRUND_FEHLT,
+    bericht_elfmeter_in_the_gruppe: ELFMETER_IN_DER_GRUPPE,
+    saison_past: buildRefusal({
       reason: "Die Saison dieses Spiels ist vorbei, und den Spielbericht kannst Du nicht mehr ändern",
       repair: LADE_DIE_SEITE_NEU,
     }),
-    "REQ-BERICHT-006": buildRefusal({
+    bericht_meanwhile_changed: buildRefusal({
       reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Verwaltung oder von Dir in einem anderen Fenster",
       repair: NEU_EINTRAGEN,
     }),
-    "DB-COMMON-002": buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: NEU_EINTRAGEN }),
+    duplicate_key: buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: NEU_EINTRAGEN }),
   },
   admin: {
     // A reload, no date to enter: the correction page states an undated or future fixture before any press, so this
     // arrives only where the fixture moved under the page, and an entered date may be the future one.
-    "REQ-BERICHT-001": buildRefusal({ reason: "Das Spiel hat noch kein Datum oder findet erst noch statt", repair: LADE_DIE_SEITE_NEU }),
-    "REQ-BERICHT-003": buildRefusal({
+    bericht_not_played: buildRefusal({ reason: "Das Spiel hat noch kein Datum oder findet erst noch statt", repair: LADE_DIE_SEITE_NEU }),
+    bericht_not_in_kader: buildRefusal({
       reason: "Eine gewählte Person steht nicht im Kader ihres Teams",
       repair: "Lade die Seite neu und wähle neu",
     }),
-    "REQ-BERICHT-004": buildRefusal({
+    bericht_abgesagt: buildRefusal({
       reason: "Das Spiel ist als ausgefallen oder annulliert eingetragen",
       repair: "Entferne das Sonderereignis im Spiel, um den Spielbericht zu bearbeiten",
     }),
-    "REQ-BERICHT-008": GRUND_FEHLT,
-    "REQ-BERICHT-009": ELFMETER_IN_DER_GRUPPE,
-    "REQ-BERICHT-006": buildRefusal({
+    bericht_grund_missing: GRUND_FEHLT,
+    bericht_elfmeter_in_the_gruppe: ELFMETER_IN_DER_GRUPPE,
+    bericht_meanwhile_changed: buildRefusal({
       reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Schiedsrichterin oder dem Schiedsrichter",
       repair: NEU_EINTRAGEN,
     }),
-    "DB-COMMON-002": buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: NEU_EINTRAGEN }),
+    duplicate_key: buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: NEU_EINTRAGEN }),
   },
-};
+} satisfies Record<SpielberichtLeser, Partial<Record<Code, string>>>;
 
 /** A report write's refusal in its reader's words, `null` for a code neither write answers. */
 export function mapSpielberichtRefusal(error: unknown, leser: SpielberichtLeser): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error) || error.serverErrorCode === undefined) return null;
-
-  if (error.serverErrorCode === "REQ-BERICHT-005") return { fieldErrors: { [BEMERKUNGEN_PATH]: NAME_IN_BEMERKUNGEN } };
 
   const saetze = SAETZE[leser];
   // Own keys alone, so a code spelling an inherited member never reads as worded.

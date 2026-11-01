@@ -46,7 +46,6 @@ export const passkeyLastUse = () =>
               // Logged and left: the sign-in is verified and its session committed, and a card's date
               // is no reason to answer it as a failure.
               logger.warn("auth.passkey_last_use_failed", {
-                error_code: "FE-AUTH-007",
                 name: failed instanceof Error ? failed.name : "unknown",
               });
             }

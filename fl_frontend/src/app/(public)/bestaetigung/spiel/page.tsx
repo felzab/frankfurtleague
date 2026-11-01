@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { SpielbestaetigungView } from "@/features/spielbestaetigungen/components/views/SpielbestaetigungView";
 import { getSpielbestaetigungAnsicht } from "@/features/spielbestaetigungen/queries";
@@ -37,18 +36,17 @@ export default function SpielbestaetigungPage(props: NextPageProps) {
 }
 
 async function SpielbestaetigungContent(props: NextPageProps) {
-  await connection();
   const { token } = await props.searchParams;
 
   // A missing or repeated parameter is no link at all and reads as the dead link.
-  if (typeof token !== "string" || token === "") return <SpielbestaetigungView start={{ zustand: "ungueltig" }} />;
+  if (typeof token !== "string" || token === "") return <SpielbestaetigungView start={{ zustand: "invalid" }} />;
 
   // A failed read is its own state: the dead-link panel there would call a live link void. A broken
   // contract is no failed read and reaches the error boundary, which logs it.
   const gelesen = await runWithIncomingTrace(() => getSpielbestaetigungAnsicht(token).catch(nullUnlessContractBreak));
 
   if (gelesen === null) return <SpielbestaetigungView start={{ zustand: "unlesbar" }} />;
-  if (gelesen.zustand !== "gueltig" && gelesen.zustand !== "vorschlag") return <SpielbestaetigungView start={gelesen} />;
+  if (gelesen.zustand !== "valid" && gelesen.zustand !== "vorschlag") return <SpielbestaetigungView start={gelesen} />;
 
   return <SpielbestaetigungView start={{ zustand: gelesen.zustand, ansicht: gelesen.ansicht, token: token }} />;
 }

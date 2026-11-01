@@ -72,11 +72,11 @@ describe("a menu's foot", () => {
         }
         groups={[[{ kind: "link", href: "/saisons/2027", text: "2027" }]]}
         foot={{
-          label: COPY.seite.darstellung,
+          label: COPY.page.accountAppearance,
           control: (
             <Button
               variant="secondary"
-              label={COPY.vorlage.darstellung.system}
+              label={COPY.template.theme.system}
             />
           ),
         }}
@@ -85,12 +85,12 @@ describe("a menu's foot", () => {
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.saison }));
 
     const menu = screen.getByRole("menu");
-    const control = screen.getByRole("button", { name: COPY.vorlage.darstellung.system });
+    const control = screen.getByRole("button", { name: COPY.template.theme.system });
     const row = control.parentElement;
     expect(menu.contains(control)).toBe(false);
     // In the menu's popover, after the menu (React Aria's focus sentinels stand between them).
     expect(row?.parentElement).toBe(menu.parentElement);
     expect(menu.compareDocumentPosition(row ?? menu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(row?.firstElementChild?.textContent).toBe(COPY.seite.darstellung);
+    expect(row?.firstElementChild?.textContent).toBe(COPY.page.accountAppearance);
   });
 });

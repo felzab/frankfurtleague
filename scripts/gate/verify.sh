@@ -273,13 +273,6 @@ scope_docs() {
   check --checker "The route accounting is out. Each finding above names the handler, the location or the reason." \
     "$PY" scripts/checks/check_public_routes.py \
     && ok "every route handler is accounted for at the edge"
-
-  # `openapi.json` publishes every endpoint and model docstring, so a reword edits it. Needs the
-  # virtualenv and no database: `build_test_config` supplies the settings.
-  step "docs · openapi.json matches the docstrings it publishes"
-  check --checker "The published document no longer matches the models and docstrings it is built from. The output above names the repair." \
-    env "PYTHONPATH=${REPO_ROOT}/fl_backend" "$PY" -m tests.openapi_document --check \
-    && ok "openapi.json is current"
   return 0
 }
 
@@ -519,10 +512,41 @@ files under nginx/shared/ decide it." bash nginx/edge_test.sh \
 
 # --- db --------------------------------------------------------------------------------------------
 
+CONTRACT_PATHS=(fl_backend/openapi.json fl_frontend/src/core/generated)
+# Beside the tree, never in it, since the other scopes read the committed files while this check
+# runs; inside the repository, so Orval's Prettier pass finds the repository's config.
+CONTRACT_SCRATCH=.tmp-contract
+
+# The published document regenerated from the routes and models, the client regenerated from that,
+# both into the scratch folder, and each compared with the tree's: a route, a model or a docstring the
+# committed files do not hold is a finding. An untracked file in the tree's folders is one a
+# generation added and nobody committed, which the comparison alone would pass. A generator that fails
+# reaches no verdict, and neither does a comparison git could not make.
+contract_check() {
+  local rc=0 untracked
+  rm -rf "$CONTRACT_SCRATCH" && mkdir "$CONTRACT_SCRATCH" || return 3
+  in_dir fl_backend "$PY" -m app.openapi_document "../${CONTRACT_SCRATCH}/openapi.json" || return 3
+  ( cd fl_frontend && CONTRACT_SCRATCH="../${CONTRACT_SCRATCH}" pnpm exec orval --fail-on-warnings ) || return 3
+  untracked="$(git ls-files --others --exclude-standard -- "${CONTRACT_PATHS[@]}")"
+  if [[ -n "$untracked" ]]; then printf 'Not committed:\n%s\n' "$untracked"; rc=1; fi
+  # git answers 1 for a difference.
+  git diff --no-index -- fl_backend/openapi.json "${CONTRACT_SCRATCH}/openapi.json" || { (( $? == 1 )) || return 3; rc=1; }
+  git diff --no-index -- fl_frontend/src/core/generated "${CONTRACT_SCRATCH}/generated" || { (( $? == 1 )) || return 3; rc=1; }
+  return "$rc"
+}
+
 # Split from the default tier because it needs the Docker daemon the quick scope avoids.
 scope_db() {
   section db
-  # `loadfile` for isolation too: `fl_backend/tests/api/test_erasure_commit_fail_points.py` sets the
+  trap 'rm -rf "$CONTRACT_SCRATCH"' EXIT
+  # This scope because it alone has both the backend's virtualenv and the frontend's install.
+  step "db · the contract and its generated client match the code they are built from"
+  check "The committed contract no longer matches the code it is generated from; the diff above names each file.
+Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." \
+    contract_check \
+    && ok "the contract and the client are current"
+
+  # `loadfile` for isolation too: `fl_backend/tests/api/test_loeschung_commit_fail_points.py` sets the
   # server's one `failCommand`, so its cases run one after another on one worker.
   step "db · pytest -m db, distributed over the two shared mongods"
   check "fl_backend db-tier tests failed. A failing test and a mongo that never started both end here: each case's

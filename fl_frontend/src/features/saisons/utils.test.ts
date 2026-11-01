@@ -1,7 +1,6 @@
 import { side as sharedSide, spielFields } from "@/test-support/fixtures.ts";
 import { assert, describe, expect, it } from "vitest";
 
-import { FLSpielSchema } from "../spiele/schemas.ts";
 import { RECORDED_FACTS_ANY, RECORDED_FACTS_NONE } from "./constants.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
@@ -19,7 +18,7 @@ import {
   searchWithoutSaisonId,
 } from "./utils.ts";
 
-import type { FLSpiel } from "../spiele/schemas.ts";
+import type { FLSpiel } from "../spiele/types.ts";
 
 describe("searchWithoutSaisonId", () => {
   it("returns a bare ? when the season was the only parameter", () => {
@@ -67,7 +66,7 @@ describe("holdsDrawnSpiele", () => {
 });
 
 describe("holdsUndatierteSpieltage", () => {
-  /* One undated matchday among dated ones is the whole of `REQ-ACTIVATE-004`, and the case a count
+  /* One undated matchday among dated ones is the whole of `activate_spieltage_undated`, and the case a count
      over a truncated list gets wrong in the other direction: nothing here may need every row. */
   it("answers true from a single undated matchday among dated ones", () => {
     expect(
@@ -98,7 +97,7 @@ describe("buildGruppenOccupancy", () => {
   });
 
   /* A group the season runs but nobody stands in carries no key, so every reader has to take an absent
-     key as nobody — which is what `REQ-SPIELPLAN-004` reads it as. */
+     key as nobody — which is what `spielplan_gruppen_off_rules` reads it as. */
   it("gives a group holding nobody no key at all", () => {
     expect(buildGruppenOccupancy([{ gruppe: "B" }])).toStrictEqual({ B: 1 });
     expect(buildGruppenOccupancy([])).toStrictEqual({});
@@ -115,38 +114,27 @@ describe("buildSpielplanBestand", () => {
   const TEAM_1 = "2".repeat(24);
   const TEAM_2 = "3".repeat(24);
 
-  /**
-   * The shared side, narrowed to this schema's own `austritt_type` union.
-   *
-   * `fl_frontend/src/test-support/fixtures.ts` types that field as a plain string, a module shared by
-   * every slice's tests being unable to import one slice's schema.
-   */
+  /** The shared side, scoring `tore` and still in the league. */
   const side = (teamId: string, tore: number | null = null): FLSpiel["team1"] => ({ ...sharedSide(teamId), tore, austritt_type: null });
 
   const QUELLE: FLSpiel["team1_quelle"] = { type: "gruppe", gruppe: "A", platz: 1 };
 
-  // Parsed at construction: a field the shared literal has fallen behind on fails where the fixture
-  // is built rather than wherever it is read.
   /**
    * A group fixture as the draw leaves it: both sides OCCUPIED, neither wired, nothing entered. An
    * empty-sided one is an EMPTIED fixture instead, which is a state the endpoint counts.
    */
-  const GRUPPENSPIEL: FLSpiel = FLSpielSchema.parse(
-    spielFields({ id: "0".repeat(24), spieltag_id: "1".repeat(24), team1: side(TEAM_1), team2: side(TEAM_2) }),
-  );
+  const GRUPPENSPIEL: FLSpiel = spielFields({ id: "0".repeat(24), spieltag_id: "1".repeat(24), team1: side(TEAM_1), team2: side(TEAM_2) });
 
   /** A bracket fixture as the draw leaves it — WIRED and empty, the exact inverse of the group shape. */
-  const KOSPIEL: FLSpiel = FLSpielSchema.parse(
-    spielFields({
-      id: "0".repeat(24),
-      spieltag_id: "1".repeat(24),
-      saison_phase: "halbfinale",
-      team1: null,
-      team2: null,
-      team1_quelle: QUELLE,
-      team2_quelle: { type: "spiel", spiel_nr: 3, ausgang: "sieger" },
-    }),
-  );
+  const KOSPIEL: FLSpiel = spielFields({
+    id: "0".repeat(24),
+    spieltag_id: "1".repeat(24),
+    saison_phase: "halbfinale",
+    team1: null,
+    team2: null,
+    team1_quelle: QUELLE,
+    team2_quelle: { type: "spiel", spiel_nr: 3, ausgang: "sieger" },
+  });
 
   const spiel = (fields: Partial<FLSpiel> = {}): FLSpiel => ({ ...GRUPPENSPIEL, ...fields });
   const koSpiel = (fields: Partial<FLSpiel> = {}): FLSpiel => ({ ...KOSPIEL, ...fields });
@@ -184,7 +172,7 @@ describe("buildSpielplanBestand", () => {
 
   /* Mirrors `holds_a_recorded_fact`, which takes EVERY `sonderereignis`. Reach for `hasTakenPlace`'s
      narrower set instead and this fails: a called-off season would be offered a replace the endpoint
-     answers with `REQ-SPIELPLAN-005`. */
+     answers with `spielplan_replace_outside_its_window`. */
   it("counts a cancellation as recorded, alongside an abandonment and a no-show", () => {
     expect(bestandOf(spiel({ sonderereignis: "abgebrochen" })).erfasst).toBe(1);
     expect(bestandOf(spiel({ sonderereignis: "nichtantreten_team1" })).erfasst).toBe(1);
@@ -304,21 +292,21 @@ describe("buildSpielplanVorschau", () => {
     // Four groups of four with two qualifying: 8 reach the bracket, so it opens at the quarter-final.
     expect(
       buildSpielplanVorschau([
-        { phase: "gruppenphase", matchdays: 3, matches_per_matchday: 8 },
-        { phase: "viertelfinale", matchdays: 1, matches_per_matchday: 4 },
-        { phase: "halbfinale", matchdays: 1, matches_per_matchday: 2 },
-        { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
+        { phase: "gruppenphase", spieltage: 3, matches_per_spieltag: 8 },
+        { phase: "viertelfinale", spieltage: 1, matches_per_spieltag: 4 },
+        { phase: "halbfinale", spieltage: 1, matches_per_spieltag: 2 },
+        { phase: "finale", spieltage: 1, matches_per_spieltag: 1 },
       ]),
     ).toStrictEqual({ spieltage: 6, spiele: 31, koRunden: ["viertelfinale", "halbfinale", "finale"] });
   });
 
-  // One group of two with both qualifying, which is the smallest `REQ-RULES-001` allows: the one
+  // One group of two with both qualifying, which is the smallest `rules_bracket_impossible` allows: the one
   // group fixture and the final are two matchdays, never one.
   it("sums the smallest season the rules allow", () => {
     expect(
       buildSpielplanVorschau([
-        { phase: "gruppenphase", matchdays: 1, matches_per_matchday: 1 },
-        { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
+        { phase: "gruppenphase", spieltage: 1, matches_per_spieltag: 1 },
+        { phase: "finale", spieltage: 1, matches_per_spieltag: 1 },
       ]),
     ).toStrictEqual({ spieltage: 2, spiele: 2, koRunden: ["finale"] });
   });
@@ -328,9 +316,9 @@ describe("buildSpielplanVorschau", () => {
   it("counts an odd group's bye matchday without counting a fixture for it", () => {
     expect(
       buildSpielplanVorschau([
-        { phase: "gruppenphase", matchdays: 5, matches_per_matchday: 4 },
-        { phase: "halbfinale", matchdays: 1, matches_per_matchday: 2 },
-        { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
+        { phase: "gruppenphase", spieltage: 5, matches_per_spieltag: 4 },
+        { phase: "halbfinale", spieltage: 1, matches_per_spieltag: 2 },
+        { phase: "finale", spieltage: 1, matches_per_spieltag: 1 },
       ]),
     ).toStrictEqual({ spieltage: 7, spiele: 23, koRunden: ["halbfinale", "finale"] });
   });
@@ -338,7 +326,7 @@ describe("buildSpielplanVorschau", () => {
   /* `schedule_for` contributes no knockout phase where the qualifier count is not a power of two in
      range, so such a season is a group phase alone and the readout has no round to name. */
   it("names no round for a season whose qualifiers reach no bracket", () => {
-    expect(buildSpielplanVorschau([{ phase: "gruppenphase", matchdays: 3, matches_per_matchday: 4 }])).toStrictEqual({
+    expect(buildSpielplanVorschau([{ phase: "gruppenphase", spieltage: 3, matches_per_spieltag: 4 }])).toStrictEqual({
       spieltage: 3,
       spiele: 12,
       koRunden: [],
@@ -453,7 +441,7 @@ describe("the German the two windows share", () => {
 });
 
 describe("describeSpielplanPermanenz", () => {
-  /* A first draw on a PLANNED season has a repair, the undraw beside it (`REQ-SPIELPLAN-006`), so a permanence
+  /* A first draw on a PLANNED season has a repair, the undraw beside it (`spielplan_undraw_outside_its_window`), so a permanence
      claim there sends an admin away from a control the panel offers. */
   it("points a first draw on a planned season at the undraw, inside the window it runs in", () => {
     const firstDraw = describeSpielplanPermanenz({ holdsADraw: false, saisonStatus: "future" });

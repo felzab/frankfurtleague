@@ -87,7 +87,7 @@ export function ComboBox({
           data-kit-focus
           className={fieldButton()}>
           <Icon
-            glyph="aufklappen"
+            glyph="expand"
             size={16}
           />
         </Button>

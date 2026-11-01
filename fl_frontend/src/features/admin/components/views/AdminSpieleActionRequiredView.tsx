@@ -19,11 +19,9 @@ import { CARDS_CASCADE_CLASSES, PAGE_RISE_CLASSES } from "@/shared/components/ui
 
 import { ACTION_REQUIRED_LABELS, bestaetigungNotizen, buildActionRequiredSections, saisonBestaetigungen } from "../../utils";
 
-import type { FLSpielberichtZustandEintrag } from "@/features/spielberichte/schemas";
-import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
+import type { FLBracketFault, FLSpielberichtStateEntry, FLSpielbestaetigung } from "@/core/generated/client/types";
 import type { SpielCardNotes } from "@/features/spiele/components/collections/SpielCardsList";
-import type { FLBracketFault, FLSpiel } from "@/features/spiele/schemas";
-import type { ActionRequiredCategory } from "@/features/spiele/types";
+import type { ActionRequiredCategory, FLSpiel } from "@/features/spiele/types";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
 import type { Key } from "@heroui/react/rac";
 import type { FLActionUrgency } from "../../utils";
@@ -70,8 +68,8 @@ export function AdminSpieleActionRequiredView({
   /** The season's confirmation rows; `null` where their read failed, which the page says rather than showing empty tabs as clear. */
   bestaetigungen: readonly FLSpielbestaetigung[] | null;
   bestaetigungenVollstaendig: boolean;
-  /** The season's reports and their states, served with the list whatever `SPIELBERICHT_EINGABE` reads. */
-  spielberichte: readonly FLSpielberichtZustandEintrag[];
+  /** The season's reports and their states, served with the list. */
+  spielberichte: readonly FLSpielberichtStateEntry[];
   today: string;
   isFinishedSaison: boolean;
 }) {
@@ -106,7 +104,7 @@ export function AdminSpieleActionRequiredView({
       bracket_fault: { tone: "danger", bySpielId: groupBracketFaultsBySpielId(bracketFaults) },
       // The tone of the chip naming the same club's state on the card below.
       vorschlag_offen: {
-        tone: ANTWORT_LABELS.abgelehnt.tone,
+        tone: ANTWORT_LABELS.declined.tone,
         bySpielId: bestaetigungNotizen("vorschlag_offen", overviewSpiele, saison, today),
       },
       bestaetigung_ueberfaellig: {

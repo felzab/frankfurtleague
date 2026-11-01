@@ -1,5 +1,4 @@
 import {
-  ACTOR_KEY_PAIR,
   ADMIN_EMAIL,
   configDouble,
   HOLDS_NOTHING,
@@ -11,8 +10,7 @@ import {
   sessionByCode,
 } from "@/test-support/authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
-import { answerAt, SITZ } from "@/test-support/subjectFixtures.ts";
-import { jwtVerify } from "jose";
+import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
 import { afterAll, assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { SessionRow } from "@/test-support/authDoubles.ts";
@@ -29,10 +27,9 @@ const UNFOLDED_EMAIL = `Anna.Mueller@Schule${String.fromCodePoint(0xff61)}DE`;
 const FOLDED_EMAIL = "anna.mueller@schule.de";
 
 const API_ORIGIN = "http://backend.test";
-const API_VERSION = 0;
 
 const CONFIG_DOUBLE = configDouble(
-  { API_URL: API_ORIGIN, API_VERSION: API_VERSION },
+  { API_URL: API_ORIGIN },
   { internalApiKeyBase: () => "fabricated-base-not-a-credential", internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" },
 );
 
@@ -57,16 +54,16 @@ registerAuthDoubles({
 const store = memoryStore(STORE);
 
 /** One record set the league holds, and the gate's `konto` for it, as the backend answers both reads. */
-type Subjekt = Required<LookupFixture>;
+type Subject = Required<LookupFixture>;
 
-const PUPIL = { spieler_id: "b".repeat(24) };
+const SPIELER = { spieler_id: "b".repeat(24) };
 
 /* Keyed by the FOLDED identifier, as the endpoint's own join is: a guard sending the address as the
    session holds it then asks about a mailbox this holds nothing for. */
-const RECORDS = new Map<string, Subjekt>([
-  [ADMIN_EMAIL, { ...HOLDS_NOTHING, sitze: [SITZ], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z", konto: true }],
-  [PERSON_EMAIL, { ...HOLDS_NOTHING, spieler: [PUPIL], konto: true }],
-  [FOLDED_EMAIL, { ...HOLDS_NOTHING, spieler: [PUPIL], konto: true }],
+const RECORDS = new Map<string, Subject>([
+  [ADMIN_EMAIL, { ...HOLDS_NOTHING, seats: [SEAT], verwaltung: "administration", granted_since: "2026-01-01T00:00:00Z", account: true }],
+  [PERSON_EMAIL, { ...HOLDS_NOTHING, spieler: [SPIELER], account: true }],
+  [FOLDED_EMAIL, { ...HOLDS_NOTHING, spieler: [SPIELER], account: true }],
 ]);
 
 /** One call the guard put on the wire. */
@@ -88,7 +85,7 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
 
   if (nextTimesOut) {
     nextTimesOut = false;
-    throw new DOMException("The operation was aborted.", "AbortError");
+    throw new DOMException("The operation was aborted due to timeout.", "TimeoutError");
   }
 
   if (nextAnswer !== null) {
@@ -101,7 +98,7 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
   const asked = (JSON.parse(body) as { email?: string }).email ?? "";
 
   // The sign-in gate's own read too, which every session a case mints passes.
-  return new Response(JSON.stringify(answerAt(new URL(url).pathname, RECORDS.get(asked) ?? { ...HOLDS_NOTHING, konto: false })), {
+  return new Response(JSON.stringify(answerAt(new URL(url).pathname, RECORDS.get(asked) ?? { ...HOLDS_NOTHING, account: false })), {
     status: 200,
     headers: { "content-type": "application/json" },
   });
@@ -157,7 +154,7 @@ function ageRow(row: SessionRow, { created = 0, idle = 0 }: { created?: number; 
 
 /** The guard inside a request scope, which is where `setRequestActor` has a store to write into. */
 async function guardInScope(): Promise<{ answer: Awaited<ReturnType<typeof getSubjectSession>>; actor: RequestActor | undefined }> {
-  return runWithRequestScope({ traceId: "0".repeat(31) + "1", spanId: "0".repeat(15) + "1" }, async () => {
+  return runWithRequestScope({ traceId: "0".repeat(31) + "1" }, async () => {
     const answer = await getSubjectSession();
 
     return { answer: answer, actor: getRequestActor() };
@@ -194,7 +191,7 @@ describe("who the seam answers for", () => {
 
     expect(answer?.admin).toBe(false);
     expect(answer?.email).toBe(ADMIN_EMAIL);
-    expect(answer?.subjekt.sitze).toStrictEqual([SITZ]);
+    expect(answer?.subject.seats).toStrictEqual([SEAT]);
   });
 
   it("marks the same address an administrator once the passkey made the session", async () => {
@@ -225,10 +222,10 @@ describe("who the seam answers for", () => {
       () =>
         void RECORDS.set(ADMIN_EMAIL, {
           ...HOLDS_NOTHING,
-          sitze: [SITZ],
+          seats: [SEAT],
           verwaltung: "administration",
-          berechtigt_seit: "2026-01-01T00:00:00Z",
-          konto: true,
+          granted_since: "2026-01-01T00:00:00Z",
+          account: true,
         }),
     );
     const { cookie, row } = await signIn(ADMIN_EMAIL);
@@ -239,15 +236,15 @@ describe("who the seam answers for", () => {
     for (const grantedAfterMs of [60 * 1000, -60 * 1000]) {
       RECORDS.set(ADMIN_EMAIL, {
         ...HOLDS_NOTHING,
-        sitze: [SITZ],
+        seats: [SEAT],
         verwaltung: "administration",
-        berechtigt_seit: new Date(row.createdAt.getTime() + grantedAfterMs).toISOString(),
-        konto: true,
+        granted_since: new Date(row.createdAt.getTime() + grantedAfterMs).toISOString(),
+        account: true,
       });
       beginRenderPass();
       const answer = await getSubjectSession();
       assert.ok(answer, "the person's lane refused the session its grant postdates");
-      expect(answer.subjekt.sitze).toStrictEqual([SITZ]);
+      expect(answer.subject.seats).toStrictEqual([SEAT]);
       marks.push(answer.admin);
     }
 
@@ -266,26 +263,32 @@ describe("who the seam answers for", () => {
     expect(answer.admin).toBe(false);
   });
 
-  /* The envelope stops here: `acknowledged` says a write landed, which is nothing a panel reading
-     records can act on. */
-  it("answers the three lists, the two flags and the grant alone, carrying no transport envelope", async () => {
+  /* The lookup copies the records field by field: its read parses nothing, so a key the backend answers
+     beside them stays out of the session. */
+  it("answers the three lists, the two flags and the grant alone, carrying nothing else the backend answers", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
     arriveAs(cookie);
+    const { account: _account, ...records } = RECORDS.get(ADMIN_EMAIL) ?? assert.fail("the administrator holds no records here");
+    // A key no contract names, as a later backend could answer one beside the records.
+    nextAnswer = new Response(JSON.stringify({ ...records, beigefuegt: "kein Feld des Vertrags" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
 
     const answer = await getSubjectSession();
 
     assert.ok(answer);
-    expect(Object.keys(answer.subjekt).sort()).toStrictEqual([
-      "berechtigt_seit",
-      "gesperrt",
+    expect(Object.keys(answer.subject).sort()).toStrictEqual([
+      "barred",
+      "granted_since",
       "inhaber_seit",
       "schiedsrichter",
-      "sitze",
+      "seats",
       "spieler",
-      "unbestaetigt",
+      "unconfirmed",
       "verwaltung",
     ]);
-    expect(answer.subjekt.verwaltung).toBe("administration");
+    expect(answer.subject.verwaltung).toBe("administration");
   });
 
   /* Raised on a body carrying no record, which is the only shape the lookup sets it on: the landing
@@ -293,12 +296,12 @@ describe("who the seam answers for", () => {
   it("carries the lookup's pending flag as the lookup answered it", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, unbestaetigt: true }), {
+    nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, unconfirmed: true }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
 
-    expect((await getSubjectSession())?.subjekt.unbestaetigt).toBe(true);
+    expect((await getSubjectSession())?.subject.unconfirmed).toBe(true);
   });
 
   /* The person the flag tells apart: no record anywhere, whom the landing tells the league holds
@@ -311,7 +314,7 @@ describe("who the seam answers for", () => {
       headers: { "content-type": "application/json" },
     });
 
-    expect((await getSubjectSession())?.subjekt.unbestaetigt).toBe(false);
+    expect((await getSubjectSession())?.subject.unconfirmed).toBe(false);
   });
 
   /* A session the ban's own ending missed, or one minted racing it, is refused on the request itself;
@@ -319,7 +322,7 @@ describe("who the seam answers for", () => {
   it("answers a barred subject no session, and records no actor for it", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, spieler: [PUPIL], gesperrt: true }), {
+    nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, spieler: [SPIELER], barred: true }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
@@ -343,7 +346,7 @@ describe("who the seam answers for", () => {
 
     expect(answer?.admin).toBe(false);
     expect(answer?.email).toBe(PERSON_EMAIL);
-    expect(answer?.subjekt.spieler).toStrictEqual([PUPIL]);
+    expect(answer?.subject.spieler).toStrictEqual([SPIELER]);
     expect(actor?.email, "the request scope holds a spelling the join and the log do not share").toBe(PERSON_EMAIL);
   });
 
@@ -364,7 +367,7 @@ describe("who the seam answers for", () => {
     expect(answer?.email).toBe(FOLDED_EMAIL);
     expect(actor?.email).toBe(FOLDED_EMAIL);
     expect((JSON.parse(lastSent().body) as { email: string }).email).toBe(FOLDED_EMAIL);
-    expect(answer?.subjekt.spieler, "the lookup was asked about a mailbox the league holds nothing for").toStrictEqual([PUPIL]);
+    expect(answer?.subject.spieler, "the lookup was asked about a mailbox the league holds nothing for").toStrictEqual([SPIELER]);
   });
 });
 
@@ -377,7 +380,7 @@ describe("the request the seam makes", () => {
     const call = lastSent();
 
     expect(call.method).toBe("POST");
-    expect(new URL(call.url).href).toBe(`${API_ORIGIN}/api/v${API_VERSION}/identitaet/subjekt`);
+    expect(new URL(call.url).href).toBe(`${API_ORIGIN}/api/v0/identity/subject`);
     // An address on a path or a query reaches the edge's access line, which nothing downstream
     // un-logs.
     assert.ok(!call.url.toLowerCase().includes("schule"), `the address reached the url: ${call.url}`);
@@ -403,7 +406,7 @@ describe("the request the seam makes", () => {
   it("throws where the backend answers a status rather than records", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    nextAnswer = new Response(JSON.stringify({ error_code: "REQ-VAL-001" }), {
+    nextAnswer = new Response(JSON.stringify({ error_code: "payload_refused" }), {
       status: 500,
       headers: { "content-type": "application/json" },
     });
@@ -421,14 +424,6 @@ describe("the request the seam makes", () => {
     await expect((() => getSubjectSession())()).rejects.toSatisfy(
       (error: unknown) => error instanceof APINetworkError && error.isTimeout && error.readOnly,
     );
-  });
-
-  it("throws where the answer is a body the mirror refuses", async () => {
-    const { cookie } = await signIn(PERSON_EMAIL);
-    arriveAs(cookie);
-    nextAnswer = new Response(JSON.stringify({ acknowledged: 1 }), { status: 200, headers: { "content-type": "application/json" } });
-
-    await expect((() => getSubjectSession())()).rejects.toThrow();
   });
 });
 
@@ -527,35 +522,25 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
   });
 });
 
-describe("the actor a person's lane signs", () => {
-  /* Verified as the backend verifies it, with the public half of the pair the run made: a claim the
-     backend reads that this lane got wrong would refuse every write a person makes. */
-  it("signs the session's user, row, factor and age under the person lane", async () => {
+describe("the actor a person's lane states", () => {
+  /* What the backend reads beside the admin key: a value this lane got wrong would refuse every
+     write a person makes. */
+  it("states the session's folded address, age and factor under the person lane", async () => {
     const { cookie, row } = await signIn(UNFOLDED_EMAIL);
     arriveAs(cookie);
-    const held = await auth.api.getSession({ headers: new Headers({ ...ORIGIN, cookie }) });
-    assert.ok(held, "the sign-in minted no session to compare the claims with");
 
     const { actor } = await guardInScope();
-    assert.ok(actor, "the guard recorded no actor");
-    const { payload } = await jwtVerify(actor.token, ACTOR_KEY_PAIR.publicKey, {
-      algorithms: ["EdDSA"],
-      typ: "fl-actor+jwt",
-      issuer: "fl-frontend",
-      audience: "fl-backend",
-    });
 
-    expect(actor.lane).toBe("person");
-    expect(payload.lane).toBe("person");
-    expect(payload.email).toBe(FOLDED_EMAIL);
-    expect(payload.sub).toBe(held.user.id);
-    expect(payload.sid).toBe(held.session.id);
-    expect(payload.amr).toStrictEqual([row.authFactor]);
-    expect(payload.auth_time).toBe(Math.floor(row.createdAt.getTime() / 1000));
+    expect(actor).toStrictEqual({
+      email: FOLDED_EMAIL,
+      lane: "person",
+      authTime: Math.floor(row.createdAt.getTime() / 1000),
+      factor: row.authFactor,
+    });
   });
 
-  /* A row stamped by no factor this league mints cannot be stated in `amr`, and a token claiming one
-     it did not prove is the lie the token exists to prevent. */
+  /* A row stamped by no factor this league mints cannot be stated as a factor, and an actor claiming one
+     it did not prove is the lie the backend's factor check believes. */
   it("answers a session made by an unknown factor no session, and records no actor for it", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     row.authFactor = "link";
@@ -595,7 +580,7 @@ describe("the guard across one render pass", () => {
     const readsBefore = headerReads();
 
     assert.ok(await getAdminSession(), "the guard refused, so the scope below is asked about nothing");
-    const actor = await runWithRequestScope({ traceId: "0".repeat(31) + "1", spanId: "0".repeat(15) + "1" }, async () => {
+    const actor = await runWithRequestScope({ traceId: "0".repeat(31) + "1" }, async () => {
       await getAdminSession();
       return getRequestActor();
     });
@@ -612,7 +597,7 @@ describe("the guard across one render pass", () => {
     const readsBefore = headerReads();
     const sentBefore = sent.length;
 
-    const answers = await runWithRequestScope({ traceId: "0".repeat(31) + "1", spanId: "0".repeat(15) + "1" }, () =>
+    const answers = await runWithRequestScope({ traceId: "0".repeat(31) + "1" }, () =>
       Promise.all([getSubjectSession(), getSubjectSession(), getSubjectSession()]),
     );
 
@@ -631,12 +616,12 @@ describe("the guard across one render pass", () => {
   });
 
   /* The counts above pass with this guard's own memo gone, the session read's and the lookup's memos
-     holding them; what it alone saves is a second judgement and a second signed actor. */
+     holding them; what it alone saves is a second judgement and a second actor. */
   it("hands every guard of one render pass the one subject it judged", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
 
-    const [first, second] = await runWithRequestScope({ traceId: "0".repeat(31) + "1", spanId: "0".repeat(15) + "1" }, () =>
+    const [first, second] = await runWithRequestScope({ traceId: "0".repeat(31) + "1" }, () =>
       Promise.all([getSubjectSession(), getSubjectSession()]),
     );
 

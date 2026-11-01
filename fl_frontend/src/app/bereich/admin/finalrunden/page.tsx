@@ -1,12 +1,7 @@
-import { connection } from "next/server";
-
-import z from "zod";
-
 import { AdminBracketWiringView } from "@/features/admin/components/views/AdminBracketWiringView";
 import { requireAdminSaison } from "@/features/saisons/resolvers";
 import { getAdminSpiele } from "@/features/spiele/queries";
 import { getAdminSpieltage } from "@/features/spieltage/queries";
-import { FLSpieltagWithAdminSpieleSchema } from "@/features/spieltage/schemas";
 import { joinCollections } from "@/shared/utils/data";
 
 import type { NextPageProps } from "@/shared/types/types";
@@ -16,7 +11,6 @@ import type { NextPageProps } from "@/shared/types/types";
  * planned, whose contents the base reads withhold.
  */
 export default async function AdminFinalrundenPage(props: NextPageProps) {
-  await connection();
   const saison = await requireAdminSaison(props.searchParams);
 
   const [spieltageRes, spieleRes] = await Promise.all([
@@ -24,17 +18,13 @@ export default async function AdminFinalrundenPage(props: NextPageProps) {
     getAdminSpiele({ saison_phase: "playoffs", saison_id: saison.id }),
   ]);
 
-  // Parsed, not cast: the type system cannot know the joined rows still satisfy the shape after an
-  // upstream schema change, and the mismatch would surface inside the view.
-  const rounds = z.array(FLSpieltagWithAdminSpieleSchema).parse(
-    joinCollections({
-      left: spieltageRes.spieltage,
-      right: spieleRes.spiele,
-      leftIdKey: "id",
-      rightIdKey: "spieltag_id",
-      targetKey: "spiele",
-    }),
-  );
+  const rounds = joinCollections({
+    left: spieltageRes.spieltage,
+    right: spieleRes.spiele,
+    leftIdKey: "id",
+    rightIdKey: "spieltag_id",
+    targetKey: "spiele",
+  });
 
   return (
     <AdminBracketWiringView

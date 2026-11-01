@@ -263,13 +263,12 @@ Take a fresh copy with:  ./scripts/ops/local.sh --refresh-db"
   ok "restored — ${seen} collection(s), and the local stack is reading its own data"
 }
 
-# Everything the end-to-end stack holds on the host: its keys, the start's one setting, its mail
-# sink and its access log, each at the path docker-compose.e2e.yml names. `.tmp-*/` is gitignored.
+# Everything the end-to-end stack holds on the host: its keys, its mail sink and its access log, each
+# at the path docker-compose.e2e.yml names. `.tmp-*/` is gitignored.
 E2E_DIR="${REPO_ROOT}/.tmp-e2e"
 
 # The local stack's secret files, which docker-compose.e2e.yml points at this stack's own copies.
-# The actor key pair is generated apart, below.
-E2E_KEYS=(auth_secret sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
+E2E_KEYS=(auth_secret sperrliste_key internal_api_key_base internal_api_key_system internal_api_key_admin)
 
 # Generated on every start rather than copied from `secrets/`: the stack shares nothing with the
 # local one, and a key it held for longer than one run would be a key to keep. Each command is
@@ -277,20 +276,12 @@ E2E_KEYS=(auth_secret sperrliste_schluessel internal_api_key_base internal_api_k
 write_e2e_keys() {
   local -
   set +x
-  local name="" public=""
+  local name=""
   (umask 077 && mkdir -p "${E2E_DIR}/secrets") || die "${E2E_DIR}/secrets could not be made; mkdir's own account is above."
   for name in "${E2E_KEYS[@]}"; do
     (umask 077 && openssl rand -hex 32 | tr -d '\r\n' > "${E2E_DIR}/secrets/${name}") \
       || die "the end-to-end stack's ${name} could not be generated; openssl's own account is above."
   done
-  # Git Bash's openssl ends each line with a carriage return, which the frontend's key reader refuses.
-  (umask 077 && openssl genpkey -algorithm ed25519 | tr -d '\r' > "${E2E_DIR}/secrets/fl_actor_signing_key") \
-    || die "the end-to-end stack's actor signing key could not be generated; openssl's own account is above."
-  # The raw 32-byte public key is the DER form's tail, unpadded base64url being what the backend reads.
-  public="$(openssl pkey -in "${E2E_DIR}/secrets/fl_actor_signing_key" -pubout -outform DER | tail -c 32 | basenc --base64url | tr -d '=\r\n')" \
-    || die "the actor signing key's public half could not be read; openssl's own account is above."
-  printf 'ACTOR_TOKEN_PUBLIC_KEY=%s\n' "$public" > "${E2E_DIR}/backend.env" \
-    || die "${E2E_DIR}/backend.env could not be written."
 }
 
 # Both stacks publish nginx on 3000 and the database on 27017, so a container of another stack
@@ -346,7 +337,7 @@ compose's own account is above."
     || die "the seed could not be handed to the database container; compose's own account is above."
   quietly run_made_up_seed "$base" \
     || die "the made-up seed did not load; mongosh's own account is above. A refused insert names
-the validator's field: correct scripts/ops/seed/seed.js."
+the index's key: correct scripts/ops/seed/seed.js."
   ok "seeded '${base}' with the made-up league"
 }
 
@@ -356,14 +347,14 @@ run_made_up_seed() {
     mongosh --quiet "mongodb://127.0.0.1:27017/${1}?directConnection=true" --file "$SEED_TARGET"
 }
 
-# The backend's own audit over what the seed wrote: every validator, every unique index, the
-# relations no validator holds and every value a whole-list read refuses. It writes nothing.
+# The backend's read-back over what the seed wrote: every document through its record model. It
+# writes nothing.
 judge_made_up_seed() {
   local rc=0
-  quietly docker compose exec -T backend python -m app.core.constraints --check || rc=$?
+  quietly docker compose exec -T backend python -m app.readback || rc=$?
   case "$rc" in
-    0) ok "every rule the backend holds its data to passes" ;;
-    1) die "the made-up seed breaks a rule the backend holds its data to, and the report above names it:
+    0) ok "every document the seed wrote reads back through its model" ;;
+    1) die "the made-up seed holds a document its model refuses, and the lines above name it:
 correct scripts/ops/seed/seed.js. The frontend and nginx have not been started." ;;
     *) refuse "the backend could not judge the seed (exit ${rc}); its own account is above.
 The frontend and nginx have not been started." ;;
@@ -418,11 +409,10 @@ if (( ! E2E )); then
   # The only reader of these files here before the containers hold their lines: neither image's name
   # check runs on this stack.
   judge_env_files "fl_frontend/.env" "fl_backend/.env"
-  require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate this machine's pair: docs/ops/runbooks.md §16."
   for secret_file in $(printf '%s\n' "${LOCAL_FRONTEND_SECRETS[@]}" "${LOCAL_BACKEND_SECRETS[@]}" | sort -u); do
     require_file "secrets/${secret_file}" "The stack mounts it at /run/secrets/${secret_file}. Make this machine's own: docs/ops/runbooks.md §16."
   done
-  ok "both packages' .env files, the actor token's signing key and this machine's secret files are in place"
+  ok "both packages' .env files and this machine's secret files are in place"
 fi
 
 if (( E2E )); then
@@ -485,13 +475,6 @@ step "Each service's settings and secret files, as its own boot builds them"
 check_frontend_boot_config "NOTHING has been started." local docker compose run --rm --no-deps -T
 check_backend_boot_config "NOTHING has been started." docker compose run --rm --no-deps -T
 
-# Not for the end-to-end stack, whose pair this run generated from one key a step ago, and whose
-# public half lives in .tmp-e2e/backend.env where `check_actor_key` reads fl_backend/.env.
-if (( ! E2E )); then
-  step "The actor token's key pair"
-  # After the frontend's boot, which has refused a key it cannot read where its environment points it.
-  check_actor_key "NOTHING has been started." docker compose run --rm --no-deps -T frontend
-fi
 
 # Before `start`, not inside it: a page rendered against an empty database caches that read for
 # days. The copy comes before the database container as well, for the reason at `fetch_copy`.
@@ -509,9 +492,9 @@ if (( SEED )); then
   restore_copy
 fi
 
-# After the backend's boot, which gives every collection its validator and its indexes, so each
-# insert is judged as it lands; before the frontend's, so no page renders, and no cache keeps, a
-# read of a database still filling (`docs/ops/spec.md` §1.5).
+# After the backend's boot, which gives every collection its indexes, so each insert meets them as
+# it lands; before the frontend's, so no page renders, and no cache keeps, a read of a database
+# still filling (`docs/ops/spec.md` §1.5).
 if (( E2E || MADE_UP )); then
   section "database"
 
@@ -521,7 +504,7 @@ if (( E2E || MADE_UP )); then
   wait_healthy "" mongo 150 \
     || die "the database did not elect itself primary, so there is nothing to seed."
   wait_healthy "" backend 150 \
-    || die "the backend did not boot, so no validator stands to judge the seed."
+    || die "the backend did not boot, so no index stands for the seed and nothing can read it back."
   ok "database and backend up"
 
   step "The made-up league"

@@ -1,11 +1,9 @@
-import { hasTakenPlace } from "@/features/saisons/utils";
-
+import type { FLAustritt, FLGruppenNames } from "@/core/generated/client/types";
 import type { SaisonReplacementCandidate, SaisonReplacementContext, SaisonReplacementRow } from "@/features/saisons/types";
-import type { FLSpiel } from "@/features/spiele/schemas";
-import type { FLAustritt, FLGruppenNames } from "@/features/teams/schemas";
+import type { FLSpiel } from "@/features/spiele/types";
 
 /** What the fixtures alone say about one club's place in the season. */
-type SpieleOfRow = { spiele: number; gespielteSpiele: number; name: string; hasAustritt: boolean };
+type SpieleOfRow = { spiele: number; name: string; hasAustritt: boolean };
 
 /**
  * Every club standing on the season's fixtures, with what they say about it. **The only route to a
@@ -16,17 +14,14 @@ function countSpieleProTeam(spiele: readonly FLSpiel[]): Map<string, SpieleOfRow
   const perTeam = new Map<string, SpieleOfRow>();
 
   for (const spiel of spiele) {
-    const gespielt = hasTakenPlace(spiel);
-
     // Distinct sides, as `build_statistik_by_team` counts them: the endpoint reports per DOCUMENT,
     // and a fixture holding one club twice is a fault state rather than two games.
     const sides = new Map<string, NonNullable<FLSpiel["team1"]>>();
     for (const seite of [spiel.team1, spiel.team2]) if (seite !== null) sides.set(seite.team_id, seite);
 
     for (const [teamId, seite] of sides) {
-      const held = perTeam.get(teamId) ?? { spiele: 0, gespielteSpiele: 0, name: seite.name, hasAustritt: seite.austritt_type !== null };
+      const held = perTeam.get(teamId) ?? { spiele: 0, name: seite.name, hasAustritt: seite.austritt_type !== null };
       held.spiele += 1;
-      if (gespielt) held.gespielteSpiele += 1;
       perTeam.set(teamId, held);
     }
   }
@@ -36,8 +31,7 @@ function countSpieleProTeam(spiele: readonly FLSpiel[]): Map<string, SpieleOfRow
 
 /**
  * Both sides of the replacement offer. `gruppenphase` and `playoffs` together are every phase, which
- * is the set `REQ-REPLACE-002` judges and the set the rewrite moves — a narrower one would offer a
- * row the endpoint refuses.
+ * is the set the rewrite moves — a narrower one would count fewer fixtures than change hands.
  */
 export function buildReplacementContext({
   saisonId,
@@ -61,7 +55,6 @@ export function buildReplacementContext({
     name: team.name,
     gruppe: team.gruppe,
     spiele: perTeam.get(team.id)?.spiele ?? 0,
-    gespielteSpiele: perTeam.get(team.id)?.gespielteSpiele ?? 0,
     // From the club read rather than from a fixture: it holds the row itself, and a season without
     // a drawn Spielplan has no fixture to read one off.
     hasAustritt: team.austritt !== null,
@@ -78,7 +71,6 @@ export function buildReplacementContext({
       name: counted.name,
       gruppe: null,
       spiele: counted.spiele,
-      gespielteSpiele: counted.gespielteSpiele,
       hasAustritt: counted.hasAustritt,
       isVerwaist: true,
     });

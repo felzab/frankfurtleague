@@ -29,20 +29,17 @@ import { loescheKontoAction } from "../../personActions";
 import { LETZTE_INHABERIN } from "../../refusals";
 import { registrierungTitel, schiedsrichterTitel, sitzTitel, SPIELER_TITEL } from "../forms/EinwilligungForm/kontoWorte";
 
-import type { FLSelbstErasureAnsichtResponse } from "@/core/schemas";
+import type { FLAccountErasureViewResponse } from "@/core/generated/client/types";
 import type { StepUp } from "@/shared/components/ui/stepUp";
 import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
 import type { ReactNode } from "react";
-
-/** Every record the erasure would reach, as the backend answered it, the transport's own field left behind. */
-type LoeschungAnsicht = Omit<FLSelbstErasureAnsichtResponse, "acknowledged">;
 
 /**
  * What the page opens on. The token rides only where a press can spend it: a browser holding no session
  * completes nothing here, and is sent to sign in and open the link again.
  */
 export type LoeschungStart =
-  | { zustand: "bereit"; token: string; email: string; ansicht: LoeschungAnsicht }
+  | { zustand: "bereit"; token: string; email: string; ansicht: FLAccountErasureViewResponse }
   | { zustand: "anmelden" }
   | { zustand: "ohnePasskey" }
   | { zustand: "unvollstaendig" };
@@ -53,14 +50,14 @@ export type LoeschungStart =
  */
 export type GrantHolderStepUp = ConfirmedUntil & { readonly holderId: string };
 
-type Stand = LoeschungStart | { zustand: "geloescht" };
+type Stand = LoeschungStart | { zustand: "erased" };
 
 const TITEL: Readonly<Record<Stand["zustand"], string>> = {
   bereit: "Konto löschen",
   anmelden: "Konto löschen",
   ohnePasskey: "Konto löschen",
   unvollstaendig: "Konto löschen",
-  geloescht: "Konto gelöscht",
+  erased: "Konto gelöscht",
 };
 
 const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
@@ -70,7 +67,15 @@ const PROTOKOLL_ZEILE = "Deine Adresse im Änderungsprotokoll und als Urheberin 
 const BEGRUENDUNGEN_ZEILE = "Deine Begründungen zu Spielterminen, die Du über einen Bestätigungslink abgegeben hast";
 
 /** Each record in the words the account page heads it with, so the list names what its reader already knows there. */
-function zeilenOf({ spieler, schiedsrichter, sitze, bewerbungen, registrierungen, adresswechsel, verwaltung }: LoeschungAnsicht): string[] {
+function zeilenOf({
+  spieler,
+  schiedsrichter,
+  seats: sitze,
+  bewerbungen,
+  registrierungen,
+  address_change: adresswechsel,
+  verwaltung,
+}: FLAccountErasureViewResponse): string[] {
   return [
     ...spieler.map(({ vorname, nachname }) => `${SPIELER_TITEL}: ${nachname === null ? vorname : `${vorname} ${nachname}`}`),
     ...schiedsrichter.map(({ name }) => (name === null ? "Als Schiedsrichterin oder Schiedsrichter" : schiedsrichterTitel({ name: name }))),
@@ -172,7 +177,7 @@ function LoeschungInhalt({ start }: { start: LoeschungStart }) {
       }
 
       beantwortet();
-      setStand({ zustand: "geloescht" });
+      setStand({ zustand: "erased" });
     });
   };
 
@@ -204,7 +209,7 @@ function LoeschungInhalt({ start }: { start: LoeschungStart }) {
 
           {/* No press the action would refuse: the last owner reads why, in the refusal's own words, and the link
               stays unspent for when another owner is made. */}
-          {stand.ansicht.letzter_inhaber ? (
+          {stand.ansicht.last_owner ? (
             <p className={ABSATZ_CLASSES}>{LETZTE_INHABERIN}</p>
           ) : (
             <>
@@ -279,7 +284,7 @@ function LoeschungInhalt({ start }: { start: LoeschungStart }) {
         </BestaetigungErgebnis>
       )}
 
-      {stand.zustand === "geloescht" && (
+      {stand.zustand === "erased" && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">

@@ -22,7 +22,7 @@ export function HelpPopover({ subject, text }: { /** The section's title, which 
       onOpenChange={setOpen}>
       <Button
         icon="info"
-        label={COPY.shared.hilfe}
+        label={COPY.shared.help}
       />
       <Popover
         placement="bottom start"

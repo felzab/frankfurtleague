@@ -1,8 +1,8 @@
+// Redesign: goes with its last importer.
 import { postSchiedsrichterBestaetigung } from "@/features/schiedsrichter/mutations";
 import { getSchiedsrichterBestaetigungAnsicht, mapSchiedsrichterBestaetigungRefusal } from "@/features/schiedsrichter/queries";
 import { FLSchiedsrichterBestaetigungPayloadSchema } from "@/features/schiedsrichter/schemas";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
-import { invalidatesOnWrite } from "@/shared/utils/adminMutation";
 import { handlePublicRequest, readAfterAnsweredWrite } from "@/shared/utils/publicRoute";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
@@ -28,9 +28,6 @@ export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {
     routeName: ROUTE_NAME,
     run: async () => {
-      // The fixture read serves the referee's name by this record's scope: the cached fixture list is
-      // dropped wherever the answer may stand, and nowhere a write was not sent.
-      invalidatesOnWrite("spiele");
       const body: unknown = await request.json().catch(() => null);
 
       const parsed = FLSchiedsrichterBestaetigungPayloadSchema.safeParse(body);
@@ -49,7 +46,7 @@ export async function POST(request: NextRequest) {
       }
 
       // The echo alone: this person is shown what was stored for them and nothing else the write knows.
-      return { success: true as const, umfang: antwort.umfang, medien: antwort.medien, bestaetigt_am: antwort.bestaetigt_am };
+      return { success: true as const, umfang: antwort.umfang, medien: antwort.medien, bestaetigt_am: antwort.confirmed_at };
     },
   });
 }

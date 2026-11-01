@@ -7,7 +7,7 @@ import { band } from "@/features/bewerbungen/components/ui/band";
 import { BewerbungBandSkeleton } from "@/features/bewerbungen/components/ui/BewerbungBandSkeleton";
 import { BewerbungOffenBand } from "@/features/bewerbungen/components/ui/BewerbungOffenBand";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
-import { getCurrentSaisonOrNull } from "@/features/saisons/queries";
+import { getActiveSaisonOrNull } from "@/features/saisons/queries";
 import {
   RecentAndUpcomingSpieleGrid,
   RecentAndUpcomingSpieleGridSkeleton,
@@ -34,7 +34,7 @@ export default function LandingPage() {
                     <span className="invisible">Saison 0000</span>
                   </SaisonChip>
                 }>
-                <CurrentSaisonChip />
+                <ActiveSaisonChip />
               </Suspense>
 
               {/* Season-independent, so the front door states nothing false between seasons. The chip
@@ -124,12 +124,12 @@ export default function LandingPage() {
  * together. Absent between seasons, which the backend answers with a 404, so the chip goes rather
  * than the page.
  */
-async function CurrentSaisonChip() {
+async function ActiveSaisonChip() {
   await connection();
-  const current = await getCurrentSaisonOrNull();
+  const current = await getActiveSaisonOrNull();
   if (current === null) return null;
 
-  // `/saisons/current` answers the active season alone, so this chip always names a running one.
+  // `/saisons/active` answers the active season alone, so this chip always names a running one.
   return <SaisonChip isLaufend>Saison {current.saison.id}</SaisonChip>;
 }
 

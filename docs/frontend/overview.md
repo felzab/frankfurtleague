@@ -43,32 +43,54 @@ ESLint 9 it underlines an old page's counted violations as errors that `pnpm run
 
 ## Data flow
 
-**Reads are cached with `"use cache"`, and a write is a server action that invalidates tags.** A
-cached read declares its lifetime and tags beside it in its slice's `queries.ts`; the read of a
-`Fassung` (`fl_frontend/src/core/einwilligung.ts :: getEinwilligungFassung`) is cached untagged at
-the longest life, since a label's words never change. Only two tags are
-granular, `spiele:saison_id:*` and `teams:saison_id:*`, because an edit to one season's matches must
-not evict every other season's lists; the league table is computed from the matches, so a match
-write drops the team tags too. Every other tag names a whole resource. **The administration's reads
-are not cached**: each runs through `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`,
-which judges the session first.
+**Reads are cached with `"use cache"`, and a write is a server action.** Every server action is built
+by `fl_frontend/src/core/action.ts :: action`, which runs its lane's guard (the administrator's, a
+person's seat or record, or the bot check), strips and parses the input against the generated schema,
+and answers the kit's `ActionAnswer`, the backend's refusal code with it; the lint rule
+`fl/server-action` (`fl_frontend/eslint-rules/server-action.mjs`) refuses an action built any other
+way, and the forms not yet moved onto it are counted in the suppressions list until their area
+moves them. Every cached scope carries one tag, `fl_frontend/src/core/siteCache.ts ::
+SITE_CACHE_TAG`, and the save spines clear it after every write that may stand (the builder on its
+administrator's and person's lanes, a public action such as the sign-in reaching no cached read; the old
+`fl_frontend/src/shared/utils/adminMutation.ts :: runGuardedMutation`, and
+`fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest` for a route handler), so no
+write names the reads it moves. The league's reads keep Next's `minutes` lifetime; the read of a
+`Fassung` (`fl_frontend/src/core/einwilligung.ts :: getEinwilligungFassung`) keeps the longest,
+since a label's words never change. **The administration's reads are not cached**: each runs through
+`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`, which judges the session first.
 
-**An edit made straight in MongoDB, or a call to the API that bypasses an action, is served stale**
-until its cache lifetime lets a visit refresh it, since invalidation lives in the action and not in
-the endpoint. One route,
-`fl_frontend/src/app/api/revalidate/route.ts`, drops the base tags from outside a request, on the
-system key; [`../ops/runbooks.md`](../ops/runbooks.md#20-after-a-hand-edit-in-mongodb) gives the
-command.
+**A change no save makes, a background pass's or an edit made straight in MongoDB, is served stale
+for at most the `minutes` lifetime**: the clear lives in the spines, and nothing clears the tag from
+outside a request ([`../ops/runbooks.md`](../ops/runbooks.md#20-after-a-hand-edit-in-mongodb)).
 
-**Backend and frontend models are hand-mirrored**: Pydantic on one side, Zod on the other, with no
-generation step. A disagreement between them is the first thing to check when behaviour looks
-impossible.
+**The backend's contract is generated** into `fl_frontend/src/core/generated/` from
+`fl_backend/openapi.json` by `fl_frontend/orval.config.ts`: the wire types, one SDK function per
+operation sent through `fl_frontend/src/core/transport.ts` with the key tier its `security` names,
+and Zod schemas for request bodies and parameters alone. The Zod module opens with
+`import 'server-only'`, and the SDK is server-only through the transport it imports, so no client
+component can send a call; the types module holds only the document's types and value lists, which
+a client component imports like any other module. A change to the backend's routes or models
+regenerates both with `pnpm run contract` in `fl_frontend`, which exports the document and then
+runs Orval, committing what moves; the gate's db scope generates both into a scratch folder beside
+the tree and fails a tree where either is stale. Each path parameter is percent-encoded where its
+generated URL is built (Orval's `urlEncodeParameters`), so no call site encodes its own. An answer
+is typed by the generated types and parsed nowhere. A form's action judges its input on the server
+through `fl_frontend/src/core/action.ts` with the generated Zod schema, or a draft built from its
+fields. A hand-written payload schema in a slice's `schemas.ts` belongs to an old form: it is
+marked `Redesign: goes with its last importer.` and goes with the form its area's session rebuilds.
+A value list in any slice is the generated value, as in `z.enum(FLSaisonStatus)` or
+`Object.values(FLSpielerStufe)`, never a copy.
 
 ## Rendering
 
-Data-fetching pages call `await connection()` before fetching. This looks like it defeats static
-rendering and is deliberate: the Docker builder stage has **no reachable backend**, so a page that
-tried to prerender its data would fail the image build.
+**Every read waits for a real request with `await connection()` in the few functions the reads share**,
+never in a page: the session reads (`fl_frontend/src/core/auth.ts :: readRequestSession` and the
+sign-in landing's), `fl_frontend/src/shared/utils/traceScope.ts :: runWithIncomingTrace`, which every
+admin, person and uncached public read passes, and each component that reaches a `"use cache"` read
+or the clock before the URL or any of those. This looks like it defeats static rendering and is
+deliberate: the Docker builder stage has **no reachable backend or sign-in store**, so a page that
+tried to prerender its data would fail the image build, and a prefetched shell carries nothing a
+read past the wait decides. A `"use cache"` body may not call it, so the wait stands at its caller.
 
 ## Styling and copy
 
@@ -93,9 +115,9 @@ and sits on every authorization check. Application data goes through FastAPI wit
 (`Berechtigung`) makes an address an administrator; the frontend reads it through
 `fl_frontend/src/core/verwaltung.ts :: verwaltungOf`, and the backend checks it again on every
 administration request. A backend that cannot answer admits nobody, and a revoked grant admits
-nothing from the next request on. Every admin server action runs through
-`fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`, which opens on
-`fl_frontend/src/core/auth.ts :: judgeAdminRequest`.
+nothing from the next request on. Every admin server action opens on
+`fl_frontend/src/core/auth.ts :: judgeAdminRequest`, through the builder's admin lane or, for a form
+not yet moved onto it, `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`.
 
 **Route protection is layered.** `src/proxy.ts` turns away a request to `/bereich` carrying no
 session cookie before any read, and judges nothing further, as Next's and Better Auth's guidance has a

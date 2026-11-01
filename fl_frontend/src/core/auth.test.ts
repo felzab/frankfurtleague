@@ -2,7 +2,6 @@ import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 
 import {
-  ACTOR_KEY_PAIR,
   ADMIN_EMAIL,
   Barrier,
   configDouble,
@@ -16,10 +15,9 @@ import {
   sessionByCode,
   signInByCode,
 } from "@/test-support/authDoubles.ts";
-import { answerAt, NO_RECORDS, SITZ } from "@/test-support/subjectFixtures.ts";
+import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator.ts";
 import { isAPIError } from "better-auth/api";
-import { jwtVerify } from "jose";
 import { afterAll, afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
@@ -103,12 +101,16 @@ const API_ORIGIN = "http://backend.test";
 /* The code is caught on its way out rather than off the store: `storeOTP: "encrypted"` means the
    stored value is not the code, and a `sendVerificationOTP` double would replace the send gate this
    file is checking with itself. */
-const { sent, answerWith: answerMail } = registerAuthDoubles({
+const {
+  sent,
+  owed,
+  answerWith: answerMail,
+} = registerAuthDoubles({
   core: {
     db: DB_DOUBLE,
     logging: LOGGING_DOUBLE,
     // Where the send gate's backend read goes, answered by the `fetch` below rather than a server.
-    config: configDouble({ API_URL: API_ORIGIN, API_VERSION: 0 }),
+    config: configDouble({ API_URL: API_ORIGIN }),
   },
   specifiers: { "next/headers": HEADERS_DOUBLE, "@better-auth/mongo-adapter": ADAPTER_DOUBLE },
 });
@@ -116,14 +118,14 @@ const { sent, answerWith: answerMail } = registerAuthDoubles({
 /** What the backend holds for an address, answered at each read in that read's shape, or that it throws for it or refuses it as a payload. */
 type Backend = LookupFixture | "throws" | "refuses";
 
-const NOTHING_HELD = { ...NO_RECORDS, konto: false };
-const A_SEAT = SITZ;
+const NOTHING_HELD = { ...NO_RECORDS, account: false };
+const A_SEAT = SEAT;
 
 /** Before every session a case makes, so a grant dated by it admits what it held before grants were dated. */
 const GRANTED_BEFORE_ANY_SESSION = "2026-01-01T00:00:00Z";
 
 /** What the store answers the administrator of every case below: a grant and no league record. */
-const A_GRANT = { ...NOTHING_HELD, verwaltung: "administration" as const, berechtigt_seit: GRANTED_BEFORE_ANY_SESSION };
+const A_GRANT = { ...NOTHING_HELD, verwaltung: "administration" as const, granted_since: GRANTED_BEFORE_ANY_SESSION };
 
 /**
  * Keyed by the folded address the gate posts; every address named nowhere is unbarred and holds
@@ -164,11 +166,11 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
   const backend = BACKENDS.get(email) ?? (email === ADMIN_EMAIL ? A_GRANT : NOTHING_HELD);
   if (backend === "throws") throw new TypeError("fetch failed");
   if (backend === "refuses") {
-    const refusal = { error_code: "REQ-VAL-001", trace_id: "0".repeat(32), fields: [] };
+    const refusal = { error_code: "payload_refused", trace_id: "0".repeat(32), fields: [] };
     return new Response(JSON.stringify(refusal), { status: 422, headers: { "content-type": "application/json" } });
   }
 
-  return new Response(JSON.stringify({ acknowledged: 1, ...answerAt(path, backend) }), {
+  return new Response(JSON.stringify(answerAt(path, backend)), {
     status: 200,
     headers: { "content-type": "application/json" },
   });
@@ -240,6 +242,7 @@ const {
   requestAccountDeletion,
 } = await import("./auth.ts");
 const { buildCodeEmail, CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
+const { renderMail } = await import("./emailShell.ts");
 const { holdsOwnersTier } = await import("./verwaltung.ts");
 const { getSubjectSession } = await import("./subject.ts");
 const { proxy } = await import("../proxy.ts");
@@ -296,7 +299,7 @@ async function signIn(email: string): Promise<{ cookie: string; row: SessionRow 
   // Seated for the mint alone, unless the case said otherwise: the gate at session creation admits
   // nobody else, and a seat left standing would change what a later case's send mails.
   const seated = !BACKENDS.has(email);
-  if (seated) BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+  if (seated) BACKENDS.set(email, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
 
   return sessionByCode(auth, store, email).finally(() => {
     if (seated) BACKENDS.delete(email);
@@ -657,14 +660,14 @@ describe("whom `/signin` greets rather than offering a sign-in", () => {
   /* A session its ban's ending missed: every guard behind `/bereich` refuses it, so a landing there
      sends it straight back to a page that would greet it as signed in. */
   it("greets no barred person, and lands them on the sign-in rather than in the person area", async () => {
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
     try {
       const { cookie } = await signIn(PERSON_EMAIL);
       arriveAs(cookie);
       expect(await getSignInDestination(), "the seated person was not landed, so the case below proves nothing").not.toBe("/signin");
       expect(await getSignedInAddress()).toBe(PERSON_EMAIL);
 
-      BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
+      BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
 
       expect(await getSignInDestination()).toBe("/signin");
       expect(await getSignedInAddress()).toBe(null);
@@ -681,15 +684,15 @@ describe("what the landing ends", () => {
   afterEach(() => BACKENDS.delete(PERSON_EMAIL));
 
   it("ends a barred person's session, so a lift of the ban serves it no more", async () => {
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
     const { cookie, row } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
 
     expect(await getSignedInAddress()).toBe(null);
     assert.ok(!store.session.includes(row), "a barred session the ban's ending missed outlived the landing");
 
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
     expect(await getKontoSession(), "the ban's lift served the session again with no sign-in").toBe(null);
   });
 
@@ -881,7 +884,7 @@ describe("a grant the backend cannot answer for", () => {
     expect(await getSignInDestination()).toBe("/bereich");
     expect(await getPasskeyStep()).toBe(null);
     expect(logged.slice(loggedBefore).map((line) => [line.message, line.meta])).toStrictEqual(
-      Array.from({ length: 3 }, () => ["auth.verwaltung_unread", { error_code: "FE-AUTH-010", name: "APINetworkError" }]),
+      Array.from({ length: 3 }, () => ["auth.verwaltung_unread", { name: "APINetworkError" }]),
     );
   });
 
@@ -906,7 +909,7 @@ describe("why the admin guard refused", () => {
     expect(await judgeAdminRequest(), "a code-borne session was told its grant is gone").toStrictEqual({ refused: "signIn" });
 
     madeByPasskey(store, row);
-    BACKENDS.set(ADMIN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(ADMIN_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
 
     expect(await getAdminSession(), "the guard admitted a session holding no grant").toBe(null);
     expect(await judgeAdminRequest()).toStrictEqual({ refused: "grantGone" });
@@ -918,7 +921,7 @@ describe("why the admin guard refused", () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     store.passkey.length = 0;
-    BACKENDS.set(ADMIN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(ADMIN_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
     arriveAs(cookie);
 
     expect(await judgeAdminRequest()).toStrictEqual({ refused: "signIn" });
@@ -939,7 +942,7 @@ describe("a passkey session made before its grant", () => {
     ageRow(row, { created: HOUR_MS });
     if (onASecond) row.createdAt = new Date(Math.floor(row.createdAt.getTime() / 1000) * 1000);
     const berechtigtSeit = grantedAfterMs === null ? null : new Date(row.createdAt.getTime() + grantedAfterMs).toISOString();
-    BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, berechtigt_seit: berechtigtSeit });
+    BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, granted_since: berechtigtSeit });
     arriveAs(cookie);
 
     return { created: row.createdAt, granted: berechtigtSeit };
@@ -970,7 +973,7 @@ describe("a passkey session made before its grant", () => {
     assert.ok(await getAdminSession(), "a session made at the instant of its grant was refused");
   });
 
-  /* Stricter than the backend, never looser: `fl_backend/app/core/security.py :: verify_actor_is_admin`
+  /* Stricter than the backend, never looser: `fl_backend/app/api/berechtigungen/guard.py :: verify_actor_is_admin`
      compares whole seconds and admits the same row, so the page refuses what a request would be served. */
   it("is refused inside the second its grant falls in, which the backend's whole seconds admit", async () => {
     const { created, granted } = await aPasskeySessionGranted(999, { onASecond: true });
@@ -995,12 +998,12 @@ describe("the account page's guard on a barred address", () => {
   afterEach(() => BACKENDS.delete(PERSON_EMAIL));
 
   it("answers no session once the address is barred, and the same session before", async () => {
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
     assert.ok(await getKontoSession(), "the seated person's session was refused, so the case below proves nothing");
 
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
 
     expect(await getKontoSession()).toBe(null);
   });
@@ -1043,7 +1046,7 @@ describe("a grant on a barred address", () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     arriveAs(cookie);
-    BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, gesperrt: true });
+    BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, barred: true });
 
     expect(await getAdminSession()).toBe(null);
     expect(await getSignInDestination()).toBe("/signin");
@@ -1211,7 +1214,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
           if (factor === "passkey") madeByPasskey(store, row);
           else row.authFactor = factor;
           ageRow(row, { created });
-          const grant = { ...A_GRANT, berechtigt_seit: new Date(Date.now() - grantedAgo).toISOString() };
+          const grant = { ...A_GRANT, granted_since: new Date(Date.now() - grantedAgo).toISOString() };
           BACKENDS.set(ADMIN_EMAIL, grant);
           arriveAs(cookie);
 
@@ -1280,15 +1283,15 @@ describe("the session a code's second tab counts as signed in", () => {
   afterEach(() => BACKENDS.delete(PERSON_EMAIL));
 
   it("serves the session every guard serves, and none a ban or a gone passkey refuses", async () => {
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
     const { cookie, row } = await signIn(PERSON_EMAIL);
     const request = new Headers({ ...ORIGIN, cookie });
     expect((await readAdmittedSession(request))?.session.id, "the live session was refused, so the cases below prove nothing").toBe(row.id);
 
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
     expect(await readAdmittedSession(request), "a barred subject's session counted as signed in").toBe(null);
 
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
     madeByPasskey(store, row);
     store.passkey.length = 0;
     expect(await readAdmittedSession(request), "a session whose passkey is gone counted as signed in").toBe(null);
@@ -2148,9 +2151,7 @@ describe("which session a new sign-in replaces", () => {
       internalAdapter.deleteSession = deleteSession;
     }
 
-    expect(logged.map((line) => [line.message, line.meta])).toStrictEqual([
-      ["auth.session_rotation_failed", { error_code: "FE-AUTH-006", name: "Error" }],
-    ]);
+    expect(logged.map((line) => [line.message, line.meta])).toStrictEqual([["auth.session_rotation_failed", { name: "Error" }]]);
     expect(writtenSince(before).length, "the sign-in did not mint its session").toBe(1);
     assert.ok(store.session.includes(row));
   });
@@ -2266,9 +2267,7 @@ describe("what a ban ends in the sign-in store", () => {
     }
 
     assert.ok(store.session.includes(row), "the deletion was not refused, so the case proves nothing");
-    expect(logged.map(({ message, meta }) => [message, meta])).toStrictEqual([
-      ["auth.ended_sessions_not_deleted", { error_code: "FE-AUTH-006", name: "Error" }],
-    ]);
+    expect(logged.map(({ message, meta }) => [message, meta])).toStrictEqual([["auth.ended_sessions_not_deleted", { name: "Error" }]]);
   });
 
   /* The case a one-shot deletion lost: its failure told, the browser never back during the ban, and the
@@ -2284,7 +2283,7 @@ describe("what a ban ends in the sign-in store", () => {
     }
 
     // Lifted: the lookup answers the person unbarred, holding the seat they held before.
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
     try {
       arriveAs(cookie);
       expect(await readServedSession(new Headers({ ...ORIGIN, cookie })), "the lift served the stamped session again").toBe(null);
@@ -2299,7 +2298,7 @@ describe("what a ban ends in the sign-in store", () => {
   /* The enrolment arm reads its caller through the library, past every lane above: a stamped session
      still inside the enrolment window would add a passkey once the ban is lifted. */
   it("enrols no passkey from a session the ending stamped, once the ban is lifted", async () => {
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
     try {
       const { cookie, row } = await signIn(PERSON_EMAIL);
       expect((await overHttp("/passkey/generate-register-options", { cookie })).status, "the control was refused before any ending").toBe(200);
@@ -2354,10 +2353,9 @@ describe("what the library's own log stream reaches this application as", () => 
     for (const line of logged) {
       expect(line.message).toBe("auth.origin_refused");
       expect(line.error).toBe(undefined);
-      expect(line.meta.error_code).toBe("FE-AUTH-003");
       // Exactly these: the library hands its logger the rejected value among the arguments, and a
       // key added beside them is how one reaches the stream under a name nobody reads for it.
-      expect(Object.keys(line.meta).sort()).toStrictEqual(["error_code", "name"]);
+      expect(Object.keys(line.meta).sort()).toStrictEqual(["name"]);
       assert.ok(!JSON.stringify(line).includes("fremde-seite"), "the submitted origin reached the stream");
     }
   });
@@ -2378,7 +2376,7 @@ describe("what the library's own log stream reaches this application as", () => 
       // The error object itself, which the writer serialises with its message and its stack: this
       // is the arm the library really hands one, so the drop is proven here or nowhere.
       expect(line.error, "the library's own error object reached the writer").toBe(undefined);
-      expect(Object.keys(line.meta).sort()).toStrictEqual(["error_code", "name"]);
+      expect(Object.keys(line.meta).sort()).toStrictEqual(["name"]);
     }
   });
 
@@ -2396,79 +2394,32 @@ describe("what the library's own log stream reaches this application as", () => 
       adapterCalls.refusing = undefined;
     }
 
-    expect([logged.map((line) => [line.message, line.meta.error_code, line.meta.name]), warned]).toStrictEqual([
-      [["auth.library_failed", "FE-AUTH-003", "Error"]],
-      [],
-    ]);
+    expect([logged.map((line) => [line.message, line.meta.name]), warned]).toStrictEqual([[["auth.library_failed", "Error"]], []]);
   });
 });
 
-/* A filed message is the mailer's own `FE-MAIL-004` line alone: a failure line beside it reads every
-   local sign-in and enrolment as a message that never left. */
-describe("a send this deployment withheld", () => {
+/* What the send and the notice owe the stream where the backend never took the mail: a held or barred send is the
+   drain's, recorded on the row. */
+describe("a sign-in mail the Postausgang never took", () => {
   const failedLines = (event: string) => logged.filter((line) => line.message === event).map((line) => line.meta);
 
-  it("logs no failed code send, where a refused one logs its line", async () => {
-    answerMail(() => "withheld");
+  it("logs the code's send by the error's name alone", async () => {
+    answerMail(() => "lost");
     logged.length = 0;
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    expect(sent.length, "the gate mailed nothing, so no send was withheld").toBe(1);
-    expect(failedLines("auth.code_send_failed")).toStrictEqual([]);
 
-    answerMail(() => "refused");
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    expect(failedLines("auth.code_send_failed")).toStrictEqual([{ error_code: "FE-AUTH-002", name: "MailSendError" }]);
+
+    expect(failedLines("auth.code_send_failed")).toStrictEqual([{ name: "APINetworkError" }]);
   });
 
-  it("logs no failed passkey notice", async () => {
+  it("leaves the enrolment standing, and logs the notice", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
-    answerMail(() => "withheld");
-    logged.length = 0;
-    const before = sent.length;
-
-    expect((await enrolPasskey(cookie)).status).toBe(200);
-
-    expect(sent.length, "the enrolment mailed nothing, so no notice was withheld").toBe(before + 1);
-    expect(failedLines("auth.passkey_notice_failed")).toStrictEqual([]);
-  });
-
-  it("logs a passkey notice whose send was refused", async () => {
-    const { cookie } = await signIn(ADMIN_EMAIL);
-    answerMail(() => "refused");
+    answerMail(() => "lost");
     logged.length = 0;
 
     expect((await enrolPasskey(cookie)).status).toBe(200);
 
-    expect(failedLines("auth.passkey_notice_failed")).toStrictEqual([{ error_code: "FE-AUTH-004", name: "MailSendError" }]);
-  });
-});
-
-/* A barred send is the gate's own line alone: a failure line beside
-   it reads a ban working as a mailbox that failed. */
-describe("a send the ban list kept", () => {
-  const failedLines = (event: string) => logged.filter((line) => line.message === event).map((line) => line.meta);
-
-  it("logs no failed code send", async () => {
-    answerMail(() => "barred");
-    logged.length = 0;
-    const before = sent.length;
-
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-
-    expect(sent.length, "the sign-in gate mailed nothing, so the mailer barred nothing").toBe(before + 1);
-    expect(failedLines("auth.code_send_failed")).toStrictEqual([]);
-  });
-
-  it("logs no failed passkey notice, and the enrolment stands", async () => {
-    const { cookie } = await signIn(ADMIN_EMAIL);
-    answerMail(() => "barred");
-    logged.length = 0;
-    const before = sent.length;
-
-    expect((await enrolPasskey(cookie)).status).toBe(200);
-
-    expect(sent.length, "the enrolment mailed nothing, so the mailer barred nothing").toBe(before + 1);
-    expect(failedLines("auth.passkey_notice_failed")).toStrictEqual([]);
+    expect(failedLines("auth.passkey_notice_failed")).toStrictEqual([{ name: "APINetworkError" }]);
   });
 });
 
@@ -2499,14 +2450,18 @@ describe("what the code costs an address holding nothing", () => {
     expect(sent.slice(before).length, "the gate refused an address differing only in case").toBe(1);
   });
 
-  /* The one thing telling this lane's delivery events from the application flow's: untagged, the
-     bounce that locks somebody out of their own mailbox reaches no reader at all. */
-  it("tags the sign-in mail on the lane the delivery webhook reads it by", async () => {
+  /* The row lives in the league's database for as long as the code does: sealed under a key the backend never holds,
+     the code is no row's to read. The mail itself is the sealed secret opened, so the code it carries is the round trip. */
+  it("owes the code sealed, no field of the row holding it", async () => {
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    const otp = lastMailedCode(sent, ADMIN_EMAIL);
+    assert.ok(otp !== null, "the opened row carries no code");
 
-    // The pair written out: read from `fl_frontend/src/core/anmeldeTag.ts` this would compare the
-    // constants with themselves, and the webhook reader is a second tree holding the same two words.
-    expect(sent.at(-1)?.tags).toStrictEqual({ anmeldung: "code" });
+    const row = owed.at(-1);
+    assert.ok(row !== undefined, "nothing was owed");
+    expect(row.data, "the row is not the code's").toStrictEqual({ art: "sign_in_code" });
+    assert.ok(row.secret !== null, "the row carries no secret, so the mail could not have");
+    assert.ok(!JSON.stringify(row).includes(otp), "the row the backend stores holds the code readable");
   });
 
   it("keeps the mailed code out of the store, which holds it encrypted", async () => {
@@ -2589,13 +2544,13 @@ describe("what the code costs an address holding nothing", () => {
 
     const message = sent.at(-1);
     assert.ok(message);
-    const satz = `Gib ihn nur auf ${ORIGIN.host} ein. Wir fragen Dich nie auf anderem Weg nach diesem Code.`;
-    assert.ok(message.text.includes(satz), "the text branch names another place, or none");
-    assert.ok(message.html.includes(satz), "the markup branch names another place, or none");
+    assert.ok(message.text.includes(`Gib ihn nur auf ${ORIGIN.host} ein.`), "the text branch names another place, or none");
+    // The markup sets the host in bold, so the sentence runs on around its tag.
+    assert.ok(message.html.includes(`>${ORIGIN.host}</strong> ein.`), "the markup branch names another place, or none");
   });
 
   it("states that same figure in the rendered message, which is the copy a reader acts on", () => {
-    const { text, html } = buildCodeEmail("123456", "http://localhost:3000");
+    const { text, html } = renderMail(buildCodeEmail("123456", "http://localhost:3000"));
 
     assert.ok(text.includes(`${String(CODE_VALIDITY_MINUTES)} Minuten`));
     assert.ok(html.includes(`${String(CODE_VALIDITY_MINUTES)} Minuten`));
@@ -2798,7 +2753,7 @@ describe("the failures one address may spend, across every code it is sent", () 
     const address = "an-der-praegung-gescheitert@example.org";
     const refusals: unknown[] = [];
     try {
-      for (const backend of [{ ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true }, NOTHING_HELD, "throws"] as const) {
+      for (const backend of [{ ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true }, NOTHING_HELD, "throws"] as const) {
         BACKENDS.set(address, backend);
         const otp = await auth.api.createVerificationOTP({ body: { email: address, type: "sign-in" } });
         const refused = await answerOf(address, otp);
@@ -2820,7 +2775,7 @@ describe("the failures one address may spend, across every code it is sent", () 
   it("takes a refusal at the mint's own row back out, never another attempt's", async () => {
     const address = "eigene-zeile@example.org";
     try {
-      BACKENDS.set(address, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
+      BACKENDS.set(address, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
       const first = await auth.api.createVerificationOTP({ body: { email: address, type: "sign-in" } });
       await answerOf(address, wrongFor(first));
       const [counted] = failureRows();
@@ -3008,7 +2963,7 @@ describe("which addresses the send gate mails", () => {
   const ACCOUNT_ONLY_EMAIL = "bewerberin@example.org";
 
   /** A record of the address's own that no subject list names: a pending application's seat, a retired row. */
-  const ONLY_AN_ACCOUNT = { ...NOTHING_HELD, konto: true };
+  const ONLY_AN_ACCOUNT = { ...NOTHING_HELD, account: true };
 
   beforeEach(() => {
     BACKENDS.clear();
@@ -3027,10 +2982,10 @@ describe("which addresses the send gate mails", () => {
   }
 
   it("mails an address holding a seat on a live season, after the one backend read", async () => {
-    BACKENDS.set(SEATED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(SEATED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
 
     expect((await askFor(SEATED_EMAIL)).mailed).toStrictEqual([SEATED_EMAIL]);
-    expect(asked).toStrictEqual(["/api/v0/identitaet/anmeldung"]);
+    expect(asked).toStrictEqual(["/api/v0/identity/sign_in"]);
   });
 
   /* The case a gate admitting on the Funktion lists refuses: the person holds no panel, and still a
@@ -3044,7 +2999,7 @@ describe("which addresses the send gate mails", () => {
   /* The lookup drops every unconfirmed record, so the lists of a pending mailbox are as empty as an
      unknown one's: the flag is the only thing admitting it, and a gate reading the lists refuses it. */
   it("mails an address whose records all await confirmation, answering it as it answers a refused one", async () => {
-    BACKENDS.set(UNCONFIRMED_EMAIL, { ...NOTHING_HELD, unbestaetigt: true });
+    BACKENDS.set(UNCONFIRMED_EMAIL, { ...NOTHING_HELD, unconfirmed: true });
 
     const pending = await askFor(UNCONFIRMED_EMAIL);
     const refused = await askFor(PERSON_EMAIL);
@@ -3055,13 +3010,13 @@ describe("which addresses the send gate mails", () => {
   });
 
   it("mails nothing to a barred address whose records await confirmation", async () => {
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, unbestaetigt: true, gesperrt: true });
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, unconfirmed: true, barred: true });
 
     expect((await askFor(BARRED_EMAIL)).mailed).toStrictEqual([]);
   });
 
   it("mails nothing to a barred address holding a live seat", async () => {
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
 
     expect((await askFor(BARRED_EMAIL)).mailed).toStrictEqual([]);
   });
@@ -3072,7 +3027,7 @@ describe("which addresses the send gate mails", () => {
   });
 
   it("mails nothing to a barred address whose only record is one the account page serves", async () => {
-    BACKENDS.set(BARRED_EMAIL, { ...ONLY_AN_ACCOUNT, gesperrt: true });
+    BACKENDS.set(BARRED_EMAIL, { ...ONLY_AN_ACCOUNT, barred: true });
 
     expect((await askFor(BARRED_EMAIL)).mailed).toStrictEqual([]);
   });
@@ -3080,13 +3035,13 @@ describe("which addresses the send gate mails", () => {
   /* The grant is read on the same one call as the records, so an administrator's address costs the
      gate what a person's does: the answer and its timing tell the two apart nowhere. */
   it("mails an address holding a grant after the one backend read, answering it as it answers a person's", async () => {
-    BACKENDS.set(SEATED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(SEATED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
 
     const granted = await askFor(ADMIN_EMAIL);
     const seated = await askFor(SEATED_EMAIL);
 
     expect(granted.mailed).toStrictEqual([ADMIN_EMAIL]);
-    expect(asked).toStrictEqual(["/api/v0/identitaet/anmeldung", "/api/v0/identitaet/anmeldung"]);
+    expect(asked).toStrictEqual(["/api/v0/identity/sign_in", "/api/v0/identity/sign_in"]);
     expect(granted.answer).toStrictEqual(seated.answer);
   });
 
@@ -3094,7 +3049,7 @@ describe("which addresses the send gate mails", () => {
      nothing: the backend refuses a barred holder every admin-tier request, so a code would open a
      shell whose every read fails. */
   it("mails a barred address holding a grant nothing", async () => {
-    BACKENDS.set(BARRED_EMAIL, { ...A_GRANT, gesperrt: true });
+    BACKENDS.set(BARRED_EMAIL, { ...A_GRANT, barred: true });
 
     expect((await askFor(BARRED_EMAIL)).mailed).toStrictEqual([]);
   });
@@ -3114,9 +3069,7 @@ describe("which addresses the send gate mails", () => {
     expect((await askFor(PERSON_EMAIL)).mailed).toStrictEqual([]);
 
     const lines = logged.slice(loggedBefore);
-    expect(lines.map((line) => [line.message, line.meta])).toStrictEqual([
-      ["auth.sign_in_gate_failed", { error_code: "FE-AUTH-002", name: "APINetworkError" }],
-    ]);
+    expect(lines.map((line) => [line.message, line.meta])).toStrictEqual([["auth.sign_in_gate_failed", { name: "APINetworkError" }]]);
   });
 
   /* A refused payload is the backend answering, so its line says so rather than reading as an outage. */
@@ -3126,14 +3079,14 @@ describe("which addresses the send gate mails", () => {
 
     expect((await askFor(PERSON_EMAIL)).mailed).toStrictEqual([]);
     expect(logged.slice(loggedBefore).map((line) => [line.message, line.meta])).toStrictEqual([
-      ["auth.sign_in_gate_address_refused", { error_code: "FE-AUTH-002", name: "APIBadStatusError" }],
+      ["auth.sign_in_gate_address_refused", { name: "APIBadStatusError" }],
     ]);
   });
 
   /* The three refusals are three reasons to the gate and one answer to the person asking: which of
      them held is what the sign-in exists not to say. */
   it("answers a barred address, one holding nothing and one whose read failed with one body, mailing none", async () => {
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
     BACKENDS.set(UNREACHED_EMAIL, "throws");
 
     const refusals = [await askFor(BARRED_EMAIL), await askFor(PERSON_EMAIL), await askFor(UNREACHED_EMAIL)];
@@ -3150,22 +3103,22 @@ describe("which addresses the send gate mails", () => {
     [
       "an address holding an `owner` grant",
       ADMIN_EMAIL,
-      { ...NOTHING_HELD, verwaltung: "owner", berechtigt_seit: GRANTED_BEFORE_ANY_SESSION },
+      { ...NOTHING_HELD, verwaltung: "owner", granted_since: GRANTED_BEFORE_ANY_SESSION },
       "admitted",
     ],
     // The ban ahead of the grant: the order a gate judging the grant first would answer otherwise.
-    ["a barred address holding a grant", BARRED_EMAIL, { ...A_GRANT, gesperrt: true }, "barred"],
+    ["a barred address holding a grant", BARRED_EMAIL, { ...A_GRANT, barred: true }, "barred"],
     ["an administrator's address, the read throwing", ADMIN_EMAIL, "throws", "failed"],
-    ["an address holding a live seat", SEATED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true }, "admitted"],
-    ["an address whose records all await confirmation", UNCONFIRMED_EMAIL, { ...NOTHING_HELD, unbestaetigt: true }, "admitted"],
-    ["a barred address holding a live seat", BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true }, "barred"],
+    ["an address holding a live seat", SEATED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true }, "admitted"],
+    ["an address whose records all await confirmation", UNCONFIRMED_EMAIL, { ...NOTHING_HELD, unconfirmed: true }, "admitted"],
+    ["a barred address holding a live seat", BARRED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true }, "barred"],
     // The two a gate judging the records before the ban would answer otherwise.
-    ["a barred address holding nothing", BARRED_EMAIL, { ...NOTHING_HELD, gesperrt: true }, "barred"],
-    ["a barred address whose records all await confirmation", BARRED_EMAIL, { ...NOTHING_HELD, unbestaetigt: true, gesperrt: true }, "barred"],
+    ["a barred address holding nothing", BARRED_EMAIL, { ...NOTHING_HELD, barred: true }, "barred"],
+    ["a barred address whose records all await confirmation", BARRED_EMAIL, { ...NOTHING_HELD, unconfirmed: true, barred: true }, "barred"],
     ["an address holding nothing", PERSON_EMAIL, undefined, "holds-nothing"],
     ["an address whose only record no list names", ACCOUNT_ONLY_EMAIL, ONLY_AN_ACCOUNT, "admitted"],
-    // The ban ahead of the account: a gate judging `konto` first would admit it.
-    ["a barred address whose only record no list names", BARRED_EMAIL, { ...ONLY_AN_ACCOUNT, gesperrt: true }, "barred"],
+    // The ban ahead of the account: a gate judging `account` first would admit it.
+    ["a barred address whose only record no list names", BARRED_EMAIL, { ...ONLY_AN_ACCOUNT, barred: true }, "barred"],
     ["an address whose read throws", PERSON_EMAIL, "throws", "failed"],
     ["an address the backend refuses as a payload", PERSON_EMAIL, "refuses", "failed"],
   ];
@@ -3202,7 +3155,7 @@ describe("which sign-ins the gate admits as the session is minted", () => {
   /* A code mailed before the ban, or typed after a record went, reaches the mint with no send gate
      in front of it: the gate here is what refuses it. */
   it("mints no mailbox session for a barred address, one holding nothing, or one whose read failed", async () => {
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
     BACKENDS.set(EMPTY_EMAIL, NOTHING_HELD);
     BACKENDS.set(PERSON_EMAIL, "throws");
 
@@ -3216,7 +3169,7 @@ describe("which sign-ins the gate admits as the session is minted", () => {
   /* The mint asks the gate's own read, so a person holding no Funktion is minted the session the
      account page needs. */
   it("mints a mailbox session for an address whose only record is one the account page serves", async () => {
-    BACKENDS.set(EMPTY_EMAIL, { ...NOTHING_HELD, konto: true });
+    BACKENDS.set(EMPTY_EMAIL, { ...NOTHING_HELD, account: true });
 
     expect(await mailboxSignIn(EMPTY_EMAIL)).toBe(true);
   });
@@ -3225,7 +3178,7 @@ describe("which sign-ins the gate admits as the session is minted", () => {
   it("refuses a barred address's passkey with the ban's own code, minting nothing and ending nothing", async () => {
     const { cookie, row } = await signIn(BARRED_EMAIL);
     store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
     const before = [...store.session];
 
     const refused = await assertPasskey(cookie, true);
@@ -3265,7 +3218,7 @@ describe("which sign-ins the gate admits as the session is minted", () => {
      a ban's ending missed, or one a mint raced, would otherwise leave a passkey that outlives both. */
   it("refuses a barred address's enrolment that signs nobody in, at both halves, writing no passkey", async () => {
     const { cookie } = await signIn(BARRED_EMAIL);
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
 
     expect((await overHttp("/passkey/generate-register-options", { cookie })).status, "the options half served a barred address").toBe(404);
 
@@ -3273,7 +3226,7 @@ describe("which sign-ins the gate admits as the session is minted", () => {
     BACKENDS.delete(BARRED_EMAIL);
     const offered = await overHttp("/passkey/generate-register-options", { cookie });
     const { challenge } = (await offered.json()) as { challenge: string };
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
 
     const refused = await overHttp("/passkey/verify-registration", {
       method: "POST",
@@ -3287,12 +3240,12 @@ describe("which sign-ins the gate admits as the session is minted", () => {
 
   it("offers a barred subject no passkey card, and the same subject unbarred the offer", async () => {
     const { cookie } = await signIn(BARRED_EMAIL);
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
     arriveAs(cookie);
 
     expect(await getPasskeyStep()).toBe(null);
 
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
     expect(await getPasskeyStep()).toStrictEqual({ step: "offer", email: BARRED_EMAIL });
   });
 
@@ -3301,7 +3254,7 @@ describe("which sign-ins the gate admits as the session is minted", () => {
      hook's. */
   it("reads the gate's answer once for a set-up that signs in, ahead of the registration's transaction", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
     const offered = await overHttp("/passkey/generate-register-options", { cookie });
     const { challenge } = (await offered.json()) as { challenge: string };
     asked.length = 0;
@@ -3315,7 +3268,7 @@ describe("which sign-ins the gate admits as the session is minted", () => {
     expect(answer.status, await answer.clone().text()).toBe(200);
     expect(store.passkey.length, "the set-up wrote no passkey").toBe(1);
     expect(
-      asked.filter((path) => path.endsWith("/identitaet/anmeldung")).length,
+      asked.filter((path) => path.endsWith("/identity/sign_in")).length,
       "the registration read the gate's answer again inside its transaction",
     ).toBe(1);
   });
@@ -3355,7 +3308,7 @@ describe("which spelling of an administrator a write is attributed to", () => {
     held.email = ADMIN_EMAIL.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61));
     arriveAs(cookie);
 
-    const actor = await runWithRequestScope({ traceId: `${"0".repeat(31)}1`, spanId: `${"0".repeat(15)}1` }, async () => {
+    const actor = await runWithRequestScope({ traceId: `${"0".repeat(31)}1` }, async () => {
       assert.ok(await getAdminSession(), "the guard refused the session, so no actor was set at all");
 
       return getRequestActor();
@@ -3365,34 +3318,25 @@ describe("which spelling of an administrator a write is attributed to", () => {
     expect(actor?.email).toBe(ADMIN_EMAIL);
   });
 
-  /* Verified as the backend verifies it, with the public half of the pair the run made: the admin
-     tier admits only this lane, and only a passkey's session inside the administrator's window. */
-  it("signs the session's user, row, factor and age under the administrator's lane", async () => {
+  /* What the backend reads beside the admin key: the admin tier admits only a passkey's session
+     inside the administrator's window, judged off these two values. */
+  it("states the session's address, age and factor under the administrator's lane", async () => {
     const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     arriveAs(cookie);
 
-    const actor = await runWithRequestScope({ traceId: `${"0".repeat(31)}1`, spanId: `${"0".repeat(15)}1` }, async () => {
+    const actor = await runWithRequestScope({ traceId: `${"0".repeat(31)}1` }, async () => {
       assert.ok(await getAdminSession(), "the guard refused the session, so no actor was set at all");
 
       return getRequestActor();
     });
-    assert.ok(actor, "the guard recorded no actor");
-    const { payload, protectedHeader } = await jwtVerify(actor.token, ACTOR_KEY_PAIR.publicKey, {
-      algorithms: ["EdDSA"],
-      typ: "fl-actor+jwt",
-      issuer: "fl-frontend",
-      audience: "fl-backend",
+    expect(actor).toStrictEqual({
+      email: ADMIN_EMAIL,
+      lane: "admin",
+      authTime: Math.floor(new Date(row.createdAt).getTime() / 1000),
+      factor: "passkey",
     });
-
-    expect(actor.lane).toBe("admin");
-    expect(protectedHeader.alg).toBe("EdDSA");
-    expect(payload.lane).toBe("admin");
-    expect(payload.email).toBe(ADMIN_EMAIL);
-    expect(payload.sub).toBe(row.userId);
-    expect(payload.amr).toStrictEqual(["passkey"]);
-    expect(payload.auth_time).toBe(Math.floor(new Date(row.createdAt).getTime() / 1000));
   });
 });
 
@@ -3403,7 +3347,7 @@ describe("a sign-in the ban's ending overtook between its gate read and its row"
 
   it("mints by code a session no lane serves once the ending has passed its gate read", async () => {
     await signIn(OVERTAKEN_EMAIL);
-    BACKENDS.set(OVERTAKEN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(OVERTAKEN_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
 
     try {
       const read = holdNext((hold) => (heldRead = hold));
@@ -3428,7 +3372,7 @@ describe("a sign-in the ban's ending overtook between its gate read and its row"
      transaction later, so its row is dated by that earlier read. */
   it("dates a passkey set-up's session no later than the read its before hook carried", async () => {
     const { cookie, row } = await signIn(OVERTAKEN_EMAIL);
-    BACKENDS.set(OVERTAKEN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(OVERTAKEN_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
 
     try {
       const offered = await overHttp("/passkey/generate-register-options", { cookie });
@@ -3463,9 +3407,8 @@ async function asPerson<T>(email: string, run: () => Promise<T>): Promise<T> {
   return runWithRequestScope(
     {
       traceId: `${"0".repeat(31)}3`,
-      spanId: `${"0".repeat(15)}3`,
       // A token nobody verifies: the backend these cases reach is the erasure each case hands in.
-      actor: { email: email, lane: "person", token: "doubled-person-token-not-a-credential" },
+      actor: { email: email, lane: "person", authTime: 0, factor: "code" },
     },
     run,
   );
@@ -3489,7 +3432,7 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
   const { cookie, row } = await signIn(email);
   const before = new Set(store.verification.map((held) => held.id));
 
-  BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+  BACKENDS.set(email, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
   try {
     await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
     expect((await answerOf(email, await wrongCodeFor(email))).code).toBe("INVALID_OTP");
@@ -3521,14 +3464,14 @@ const heldOf = ({ userId, pending }: { userId: string; pending: readonly string[
 });
 
 /** The backend's refusal of the erasure for a ban entered since the request was judged, as the API client raises one. */
-async function erasureRefused(): Promise<Error> {
+async function loeschungRefused(): Promise<Error> {
   const { APIBadStatusError } = await import("./errors.ts");
   return new APIBadStatusError({
     message: "API returned a bad status.",
-    url: `${API_ORIGIN}/api/v0/identitaet/selbst/erasure`,
+    url: `${API_ORIGIN}/api/v0/identity/account/erasure`,
     statusCode: 403,
-    serverErrorCode: "REQ-AUTH-008",
-    endpoint: "/identitaet/selbst/erasure",
+    serverErrorCode: "person_barred",
+    endpoint: "/identity/account/erasure",
     method: "POST",
     readOnly: false,
     traceId: "0".repeat(32),
@@ -3556,22 +3499,24 @@ describe("a person's own account deletion", () => {
     expect(stored.length, "the request stored no token for the account").toBe(1);
     assert.ok(stored[0]?.identifier === `delete-account-${mailedToken(email)}`, "the mail carries a token the store does not hold");
     expect(store.user.filter((user) => user.id === row.userId).length, "the request deleted the account").toBe(1);
+    // The token completes the deletion, so the row the backend stores carries it sealed, as it does the code.
+    assert.ok(!JSON.stringify(owed.findLast((entry) => entry.an === email)).includes(mailedToken(email)), "the row holds the token readable");
   });
 
   it("deletes the account, its sessions, its passkeys and every pending row of its address once the records are erased, and nobody else's", async () => {
     const bystander = await seedAccount("unbeteiligt-loeschung@example.org");
     const person = await seedAccount("loeschende@example.org");
-    const erasures: string[] = [];
+    const loeschungen: string[] = [];
 
     const answer = await asPerson("loeschende@example.org", () =>
       deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
-        erasures.push("erased");
-        return Promise.resolve({ acknowledged: 1 });
+        loeschungen.push("erased");
+        return Promise.resolve({});
       }),
     );
 
     expect(answer).toBe("deleted");
-    expect(erasures, "the league's records were not erased exactly once").toStrictEqual(["erased"]);
+    expect(loeschungen, "the league's records were not erased exactly once").toStrictEqual(["erased"]);
     expect(heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
     expect(heldOf(bystander)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
@@ -3580,19 +3525,19 @@ describe("a person's own account deletion", () => {
      would leave the same rows standing. */
   it("leaves the account and its passkeys standing where the backend refuses the erasure, having asked it", async () => {
     const person = await seedAccount("verweigert-loeschung@example.org");
-    const refusal = await erasureRefused();
-    const erasures: string[] = [];
+    const refusal = await loeschungRefused();
+    const loeschungen: string[] = [];
 
     await expect(
       asPerson("verweigert-loeschung@example.org", () =>
         deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
-          erasures.push("asked");
+          loeschungen.push("asked");
           return Promise.reject(refusal);
         }),
       ),
     ).rejects.toSatisfy((thrown) => thrown === refusal);
 
-    expect(erasures, "the backend was never asked, so the refusal proves nothing").toStrictEqual(["asked"]);
+    expect(loeschungen, "the backend was never asked, so the refusal proves nothing").toStrictEqual(["asked"]);
     const held = heldOf(person);
     expect([held.user, held.sessions, held.passkeys]).toStrictEqual([1, 1, 1]);
   });
@@ -3601,13 +3546,13 @@ describe("a person's own account deletion", () => {
      one through was told of a deletion while a fresh link went out instead. */
   it("answers an empty token as no link, mailing, erasing and deleting nothing", async () => {
     const person = await seedAccount("leerer-link@example.org");
-    const erasures: string[] = [];
+    const loeschungen: string[] = [];
     const mailed = sent.length;
     const tokens = store.verification.filter((held) => held.identifier.startsWith("delete-account-")).length;
 
     const answer = await asPerson("leerer-link@example.org", () =>
       deleteOwnAccount("", new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
-        erasures.push("erased");
+        loeschungen.push("erased");
         return Promise.resolve({});
       }),
     );
@@ -3615,7 +3560,7 @@ describe("a person's own account deletion", () => {
     expect(answer).toBe("linkRefused");
     expect(sent.length, "an empty token mailed a new link").toBe(mailed);
     expect(store.verification.filter((held) => held.identifier.startsWith("delete-account-")).length).toBe(tokens);
-    expect(erasures).toStrictEqual([]);
+    expect(loeschungen).toStrictEqual([]);
     expect(heldOf(person).user).toBe(1);
   });
 
@@ -3624,17 +3569,17 @@ describe("a person's own account deletion", () => {
   it("refuses a link minted for another account, erasing and deleting nothing", async () => {
     const holder = await seedAccount("linkhalterin@example.org");
     const other = await signIn("andere-sitzung@example.org");
-    const erasures: string[] = [];
+    const loeschungen: string[] = [];
 
     const answer = await asPerson("andere-sitzung@example.org", () =>
       deleteOwnAccount(holder.token, new Headers({ ...ORIGIN, cookie: other.cookie }), () => {
-        erasures.push("erased");
+        loeschungen.push("erased");
         return Promise.resolve({});
       }),
     );
 
     expect(answer).toBe("linkRefused");
-    expect(erasures).toStrictEqual([]);
+    expect(loeschungen).toStrictEqual([]);
     expect(heldOf(holder).user).toStrictEqual(1);
     expect(store.user.filter((user) => user.id === other.row.userId).length).toBe(1);
   });
@@ -3644,24 +3589,24 @@ describe("a person's own account deletion", () => {
   it("deletes nothing where no erasure was handed in, or where the request acts for another person", async () => {
     const person = await seedAccount("ohne-loeschung@example.org");
     const headers = new Headers({ ...ORIGIN, cookie: person.cookie });
-    const erasures: string[] = [];
+    const loeschungen: string[] = [];
 
     await expect(
       asPerson("ohne-loeschung@example.org", () => auth.api.deleteUser({ body: { token: person.token }, headers })),
-    ).rejects.toSatisfy((thrown: Error) => thrown.name === "DeletionWithoutErasure");
+    ).rejects.toSatisfy((thrown: Error) => thrown.name === "DeletionWithoutLoeschung");
     expect(heldOf(person).user).toBe(1);
 
     await requestAccountDeletion(headers);
     await expect(
       asPerson("jemand-anderes@example.org", () =>
         deleteOwnAccount(mailedToken("ohne-loeschung@example.org"), headers, () => {
-          erasures.push("erased");
+          loeschungen.push("erased");
           return Promise.resolve({});
         }),
       ),
-    ).rejects.toSatisfy((thrown: Error) => thrown.name === "DeletionWithoutErasure");
+    ).rejects.toSatisfy((thrown: Error) => thrown.name === "DeletionWithoutLoeschung");
 
-    expect(erasures, "another person's records were erased").toStrictEqual([]);
+    expect(loeschungen, "another person's records were erased").toStrictEqual([]);
     const held = heldOf(person);
     expect([held.user, held.sessions, held.passkeys]).toStrictEqual([1, 1, 1]);
   });
@@ -3734,7 +3679,7 @@ describe("a person's own account deletion", () => {
     expect(sent.filter((entry) => entry.to === email).length, "fewer than five links were mailed, so the case proves nothing").toBe(5);
 
     // Admitted at the send, so a code past the gate would be mailed: only the shared count holds it back.
-    BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(email, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
     informed.length = 0;
     try {
       await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
@@ -3752,7 +3697,7 @@ describe("a person's own account deletion", () => {
     const headers = new Headers({ ...ORIGIN, cookie });
     for (let press = 0; press < 4; press += 1) await requestAccountDeletion(headers);
 
-    BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(email, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
     try {
       await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
     } finally {
@@ -3766,7 +3711,7 @@ describe("a person's own account deletion", () => {
     const email = "code-dann-loeschlink@example.org";
     const { cookie, row } = await signIn(email);
     const headers = new Headers({ ...ORIGIN, cookie });
-    BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(email, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
     try {
       for (let send = 0; send < 5; send += 1) {
         await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
@@ -3785,27 +3730,15 @@ describe("a person's own account deletion", () => {
   });
 
   /* The library swallows a throw from its sender and answers the press as sent whatever happened, so what
-     tells a filed send from a failed one is the stream alone. */
-  it("logs no failure for a send this deployment withheld or the ban list kept, and the library's own line for a refused one", async () => {
+     tells an owed link from a lost one is the stream alone. */
+  it("logs the library's own line for a link the Postausgang never took", async () => {
     const { cookie } = await signIn("versand-loeschung@example.org");
-    const headers = new Headers({ ...ORIGIN, cookie });
-    const failures = () =>
-      logged.filter((line) => line.message === "auth.library_failed").map((line) => [line.meta.error_code, line.meta.name]);
-
-    for (const outcome of ["withheld", "barred"] as const) {
-      answerMail(() => outcome);
-      logged.length = 0;
-      const before = sent.length;
-
-      expect((await requestAccountDeletion(headers)).success).toBe(true);
-      expect(sent.length, `the request mailed nothing, so no send was ${outcome}`).toBe(before + 1);
-      expect(failures(), `a ${outcome} send was logged as a failure`).toStrictEqual([]);
-    }
-
-    answerMail(() => "refused");
+    const failures = () => logged.filter((line) => line.message === "auth.library_failed").map((line) => line.meta.name);
+    answerMail(() => "lost");
     logged.length = 0;
-    expect((await requestAccountDeletion(headers)).success).toBe(true);
-    expect(failures()).toStrictEqual([["FE-AUTH-003", "MailSendError"]]);
+
+    expect((await requestAccountDeletion(new Headers({ ...ORIGIN, cookie }))).success).toBe(true);
+    expect(failures()).toStrictEqual(["APINetworkError"]);
   });
 });
 
@@ -3826,7 +3759,7 @@ describe("an account deleted for its address, and the list of every account", ()
      carries the address in its identifier. */
   it("deletes the pending code row of an address holding no account, answering that none was there", async () => {
     const email = "nie-angemeldet@example.org";
-    BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    BACKENDS.set(email, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
     try {
       await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
     } finally {
@@ -3851,5 +3784,27 @@ describe("an account deleted for its address, and the list of every account", ()
     const listed = new Set(await listAccounts());
 
     expect(addresses.filter((email) => !listed.has(email))).toStrictEqual([]);
+  });
+});
+
+/* Who signed in is recorded nowhere else, and the edge's line the trace joins holds where from: the two lines carry the
+   account's id and the trace, and never the address typed. */
+describe("the sign-in's own lines", () => {
+  const TRACE = "5".repeat(32);
+  const TRACED = { ...ORIGIN, traceparent: `00-${TRACE}-${"6".repeat(16)}-01` };
+
+  it("writes a sign-in by its account and factor, and a refused code by its trace, never the address", async () => {
+    informed.length = 0;
+    await signInByCode(auth, ADMIN_EMAIL, TRACED);
+    const userId = store.session.at(-1)?.userId;
+    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
+    await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: wrongFor(otp) }, headers: new Headers(TRACED) }).catch(() => undefined);
+
+    const lines = informed.filter(({ message }) => message === "auth.signed_in" || message === "auth.code_refused");
+    expect(lines.map(({ message, meta }) => [message, meta])).toStrictEqual([
+      ["auth.signed_in", { user_id: userId, factor: "code", trace_id: TRACE }],
+      ["auth.code_refused", { trace_id: TRACE }],
+    ]);
+    assert.ok(userId !== undefined && !JSON.stringify(lines).includes(ADMIN_EMAIL), "the address reached a sign-in line");
   });
 });

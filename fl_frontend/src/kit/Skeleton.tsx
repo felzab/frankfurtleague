@@ -14,7 +14,7 @@ const skeleton = tv({
     // The final box's rows: a table's rows, or a match row, one line on desktop and two on a phone.
     shape: {
       table: { row: "h-14 lg:h-13" },
-      match: { row: "h-24 lg:h-14" },
+      spiel: { row: "h-24 lg:h-14" },
     },
   },
 });
@@ -23,12 +23,12 @@ const skeleton = tv({
  * Waiting, shown only where the measured wait exceeds one second: the shape of the list that will stand
  * in its place, its rows as shimmering bars.
  */
-export function Skeleton({ shape, rows }: { shape: "table" | "match"; rows: number }) {
+export function Skeleton({ shape, rows }: { shape: "table" | "spiel"; rows: number }) {
   const { root, row, bar } = skeleton({ shape });
   return (
     <div
       role="status"
-      aria-label={COPY.shared.laedt}
+      aria-label={COPY.shared.loading}
       className={root()}>
       {Array.from({ length: rows }, (_, index) => (
         <div

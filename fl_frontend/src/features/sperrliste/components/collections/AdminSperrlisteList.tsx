@@ -14,7 +14,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 
 import { AdminSperreAufhebenPanel } from "../forms/AdminSperreAufhebenPanel";
 
-import type { FLSperrlisteZeile } from "@/features/sperrliste/schemas";
+import type { FLSperrlisteRow } from "@/core/generated/client/types";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
@@ -36,13 +36,13 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
   filteredSperren,
   emptiness,
 }: {
-  filteredSperren: FLSperrlisteZeile[];
+  filteredSperren: FLSperrlisteRow[];
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
 }) {
   /* The day leads, being the one short token that tells two rows apart: the address is a keyed hash
      and the reason is a sentence. */
-  const renderIdentity = (eintrag: FLSperrlisteZeile) => (
+  const renderIdentity = (eintrag: FLSperrlisteRow) => (
     <div className={IDENTITY_ROW_CLASSES}>
       <Ban
         aria-hidden="true"
@@ -52,12 +52,12 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
         <div className={IDENTITY_HEAD_CLASSES}>
           {/* `IDENTITY_NAME_CLASSES`'s box carries `truncate`, and a clipped year is a different date, so the
               day wears the grade `AdminBewerbungenList` gives one instead. */}
-          <span className="font-numeric fluid-sm font-semibold text-foreground">{formatSpielDatum(eintrag.erstellt_am)}</span>
+          <span className="font-numeric fluid-sm font-semibold text-foreground">{formatSpielDatum(eintrag.created_at)}</span>
         </div>
         <span className={IDENTITY_LINE_CLASSES}>
           <VonOderGesperrt
-            von={eintrag.erstellt_von}
-            gesperrt={eintrag.erstellt_von_gesperrt}
+            von={eintrag.created_by}
+            gesperrt={eintrag.created_by_barred}
           />
         </span>
       </div>
@@ -92,13 +92,13 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
               on the card an administrator compares against the running season. */}
           <div className="flex w-full flex-col gap-1 border-t border-border/50 pt-3">
             <span className={FACT_LABEL_CLASSES}>{SPERRE_BIS_LABEL}</span>
-            <p className="fluid-sm font-medium text-foreground">{sperreBisWert(eintrag.gesperrt_bis_saison_id)}</p>
+            <p className="fluid-sm font-medium text-foreground">{sperreBisWert(eintrag.barred_until_saison_id)}</p>
           </div>
 
           <div className="-mx-1 border-t border-border/50 pt-2">
             <AdminSperreAufhebenPanel
               sperreId={eintrag.id}
-              gesperrtAm={formatSpielDatum(eintrag.erstellt_am)}
+              gesperrtAm={formatSpielDatum(eintrag.created_at)}
             />
           </div>
         </li>

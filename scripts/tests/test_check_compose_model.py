@@ -567,7 +567,7 @@ def test_a_capability_spelled_as_docker_also_accepts_it_is_the_same_capability(s
     ],
 )
 def test_a_capability_or_a_privilege_left_in_place_fails(service: str, changed: dict[str, Any], said: str):
-    """NET_RAW is the one that reads the bridge the admin key and an actor token cross in plain HTTP."""
+    """NET_RAW is the one that reads the bridge the admin key and the actor's headers cross in plain HTTP."""
     rendered = model(**PRIVILEGED["services"] | {service: hardened(service) | changed})
 
     found = checker.privileges(rendered, "p")
@@ -591,7 +591,7 @@ def test_main_judges_the_privileges_of_both_models():
 # --- which service holds which secret ---------------------------------------------------------------
 
 RENDER: Final = Path("/render")
-KEY: Final = "fl_actor_signing_key"
+KEY: Final = "auth_secret"
 
 
 def stack_of(stack: str, **services: dict[str, Any]) -> dict[str, Any]:
@@ -625,7 +625,7 @@ SECOND_HOLDERS: Final = [
 
 @pytest.mark.parametrize(("stack", "secret", "holder"), SECOND_HOLDERS)
 def test_a_second_holder_of_any_secret_fails(stack: str, secret: str, holder: str):
-    """The signing key is the load-bearing row: whoever holds it mints an actor the backend takes as the frontend's."""
+    """A second holder of a key holds a credential its table never gave it, the edge's own included."""
     rendered = stack_of(stack)
     rendered["services"][holder] = {"secrets": [*(rendered["services"].get(holder) or {}).get("secrets", []), {"source": secret}]}
 
@@ -654,8 +654,7 @@ def test_a_secret_mounted_elsewhere_fails():
     """Each reader takes the default path, so a file mounted anywhere else is no file to it."""
     rendered = stack_of("production")
     rendered["services"]["backend"]["secrets"] = [
-        entry | {"target": "/etc/key"} if entry["source"] == "sperrliste_schluessel" else entry
-        for entry in rendered["services"]["backend"]["secrets"]
+        entry | {"target": "/etc/key"} if entry["source"] == "sperrliste_key" else entry for entry in rendered["services"]["backend"]["secrets"]
     ]
 
     found = checker.secret_holders(rendered, "p", RENDER, "production")
@@ -665,11 +664,11 @@ def test_a_secret_mounted_elsewhere_fails():
 
 def test_a_secret_read_from_another_file_fails():
     """The preflight judges `secrets/<name>`, so another source is a file nothing checked."""
-    rendered = stack_of("production") | declared_secrets(RENDER, "production", **{KEY: "keys/signing.pem"})
+    rendered = stack_of("production") | declared_secrets(RENDER, "production", **{KEY: "keys/auth.txt"})
 
     found = checker.secret_holders(rendered, "p", RENDER, "production")
 
-    assert len(found) == 1 and "keys/signing.pem" in found[0].detail, found
+    assert len(found) == 1 and "keys/auth.txt" in found[0].detail, found
 
 
 def test_the_local_stack_reading_a_database_login_from_secrets_fails():
@@ -829,7 +828,7 @@ def test_the_preflights_lists_are_the_tables():
         return set(lift_assignment(lib, name).split("=", 1)[1].strip("()").split())
 
     def read_by(stack: str, service: str) -> set[str]:
-        return {secret for secret, (holders, _) in checker.SECRET_HOLDERS[stack].items() if service in holders} - {KEY}
+        return {secret for secret, (holders, _) in checker.SECRET_HOLDERS[stack].items() if service in holders}
 
     assert listed("FRONTEND_SECRETS") == read_by("production", "frontend")
     assert listed("BACKEND_SECRETS") == read_by("production", "backend")
@@ -844,13 +843,12 @@ SCHEMA: Final = checker.frontend_schema_files(checker.FRONTEND_CONFIG)
 
 
 def schema_file(secret_files: str, production_only: str = '"AUTH_RESEND_KEY"') -> Path:
-    """A `config.ts` of the case's own, holding the three declarations the reader takes and nothing else."""
+    """A `config.ts` of the case's own, holding the two declarations the reader takes and nothing else."""
     path = new_root("fl-compose-schema-") / "config.ts"
     path.write_bytes(
         (
             f"const SECRET_FILES = {{\n{secret_files}}} as const;\n"
             f"const PRODUCTION_ONLY_REQUIRED = [{production_only}] as const satisfies readonly SecretKey[];\n"
-            '  ACTOR_SIGNING_KEY_FILE: z.string().min(1).default("/run/secrets/fl_actor_signing_key"),\n'
         ).encode()
     )
     return path
@@ -865,7 +863,7 @@ def test_the_schema_s_files_are_read_off_config_ts():
     """The real declaration, so a reader matching nothing in it is caught here rather than passing every stack."""
     reads, production_only = SCHEMA
 
-    assert {"fl_actor_signing_key", "frontend_mongodb_uri"} <= reads, reads
+    assert {"auth_secret", "frontend_mongodb_uri"} <= reads, reads
     assert production_only and production_only < reads, (production_only, reads)
 
 
@@ -917,11 +915,11 @@ def test_the_login_left_off_the_local_frontend_fails():
 def test_a_file_the_schema_never_reads_handed_to_the_frontend_fails():
     """One more holder of a credential nothing on that side reads."""
     frontend = handed("production")
-    frontend["secrets"] = [*frontend["secrets"], {"source": "sperrliste_schluessel"}]
+    frontend["secrets"] = [*frontend["secrets"], {"source": "sperrliste_key"}]
 
     found = checker.frontend_files(model(frontend=frontend), "p", "production", SCHEMA)
 
-    assert [finding.detail for finding in found] == ["p: compose hands the frontend ['sperrliste_schluessel'], which its schema never reads"]
+    assert [finding.detail for finding in found] == ["p: compose hands the frontend ['sperrliste_key'], which its schema never reads"]
 
 
 def test_a_file_the_schema_starts_reading_fails_until_compose_mounts_it():
@@ -990,7 +988,7 @@ def test_the_backend_s_files_are_read_off_config_py_as_the_backend_itself_names_
 def test_each_field_shape_is_read_as_pydantic_reads_it():
     """An alias as a string or a module constant, an inherited field, a default; a class variable and a private name are no field."""
     path = settings_file(
-        "class BackendSecrets(BaseSettings, _Base):\n"
+        "class _SecretFields(BaseSettings, _Base):\n"
         "    model_config = SettingsConfigDict()\n"
         '    plain: SecretStr = Field(description="x")\n'
         "    constant: SecretStr = Field(validation_alias=NAMED)\n"
@@ -1021,11 +1019,11 @@ def test_each_field_shape_is_read_as_pydantic_reads_it():
 def test_a_field_naming_its_file_another_way_refuses(field: str, said: str):
     """Read past, it would count as its own name, and a file compose mounts under the real one would read as never read."""
     with pytest.raises(ValueError, match=said):
-        checker.backend_schema_files(settings_file(f"class BackendSecrets(BaseSettings, _Base):\n    secret: SecretStr = {field}\n"))
+        checker.backend_schema_files(settings_file(f"class _SecretFields(BaseSettings, _Base):\n    secret: SecretStr = {field}\n"))
 
 
 def test_two_aliases_for_one_field_refuse():
-    body = 'class BackendSecrets(BaseSettings):\n    secret: Annotated[SecretStr, Field(validation_alias="a")] = Field(validation_alias="b")\n'
+    body = 'class _SecretFields(BaseSettings):\n    secret: Annotated[SecretStr, Field(validation_alias="a")] = Field(validation_alias="b")\n'
 
     with pytest.raises(ValueError, match="two validation_alias values"):
         checker.backend_schema_files(settings_file(body))
@@ -1034,8 +1032,8 @@ def test_two_aliases_for_one_field_refuse():
 @pytest.mark.parametrize(
     ("body", "said"),
     [
-        pytest.param("class Other(BaseSettings):\n    secret: SecretStr\n", "declares no BackendSecrets class", id="no-class"),
-        pytest.param("class BackendSecrets(BaseSettings):\n    model_config = SettingsConfigDict()\n", "declares no field", id="no-field"),
+        pytest.param("class Other(BaseSettings):\n    secret: SecretStr\n", "declares no _SecretFields class", id="no-class"),
+        pytest.param("class _SecretFields(BaseSettings):\n    model_config = SettingsConfigDict()\n", "declares no field", id="no-field"),
     ],
 )
 def test_a_declaration_the_backend_reader_cannot_find_refuses(body: str, said: str):
@@ -1049,7 +1047,7 @@ def test_a_field_behind_constants_is_read_where_pydantic_finds_it():
         'Inner = Annotated[SecretStr, Field(validation_alias="inner_file")]\n'
         "Outer = Annotated[Inner, Field(min_length=1)]\n"
         'HELD = Field(validation_alias="held_file")\n\n\n'
-        "class BackendSecrets(BaseSettings):\n"
+        "class _SecretFields(BaseSettings):\n"
         "    nested: Outer\n"
         "    held: SecretStr = HELD\n"
     )
@@ -1063,42 +1061,42 @@ def test_a_field_behind_constants_is_read_where_pydantic_finds_it():
     ("body", "said"),
     [
         pytest.param(
-            "class BackendSecrets(BaseSettings, ForeignKey):\n    secret: SecretStr\n", "inherits from ForeignKey", id="base-from-the-backend"
+            "class _SecretFields(BaseSettings, ForeignKey):\n    secret: SecretStr\n", "inherits from ForeignKey", id="base-from-the-backend"
         ),
-        pytest.param("class BackendSecrets(BaseSettings, Mixin):\n    secret: SecretStr\n", "inherits from Mixin", id="base-bound-nowhere"),
-        pytest.param("class BackendSecrets(Generic[T]):\n    secret: SecretStr\n", r"inherits from Generic\[T\]", id="base-subscripted"),
+        pytest.param("class _SecretFields(BaseSettings, Mixin):\n    secret: SecretStr\n", "inherits from Mixin", id="base-bound-nowhere"),
+        pytest.param("class _SecretFields(Generic[T]):\n    secret: SecretStr\n", r"inherits from Generic\[T\]", id="base-subscripted"),
         pytest.param(
-            "class BackendSecrets(BaseSettings):\n    if True:\n        secret: SecretStr\n", "holds a If statement", id="compound-statement"
-        ),
-        pytest.param(
-            "class BackendSecrets(BaseSettings):\n    secret: ForeignKey\n", "ForeignKey from app.core.keys", id="alias-from-the-backend"
+            "class _SecretFields(BaseSettings):\n    if True:\n        secret: SecretStr\n", "holds a If statement", id="compound-statement"
         ),
         pytest.param(
-            "class BackendSecrets(BaseSettings):\n    secret: Unbound\n", "Unbound, which config.py binds nowhere", id="alias-bound-nowhere"
+            "class _SecretFields(BaseSettings):\n    secret: ForeignKey\n", "ForeignKey from app.core.keys", id="alias-from-the-backend"
         ),
         pytest.param(
-            "type Key = Annotated[SecretStr, Field(validation_alias='k')]\n\n\nclass BackendSecrets(BaseSettings):\n    secret: Key\n",
+            "class _SecretFields(BaseSettings):\n    secret: Unbound\n", "Unbound, which config.py binds nowhere", id="alias-bound-nowhere"
+        ),
+        pytest.param(
+            "type Key = Annotated[SecretStr, Field(validation_alias='k')]\n\n\nclass _SecretFields(BaseSettings):\n    secret: Key\n",
             "Key, which config.py binds nowhere",
             id="type-statement",
         ),
         pytest.param(
             "if True:\n    NAMED = 'other_file'\n\n\n"
-            "class BackendSecrets(BaseSettings):\n    secret: SecretStr = Field(validation_alias=NAMED)\n",
+            "class _SecretFields(BaseSettings):\n    secret: SecretStr = Field(validation_alias=NAMED)\n",
             "NAMED, which config.py binds more than once",
             id="rebound-constant",
         ),
         pytest.param(
-            "class BackendSecrets(BaseSettings):\n    secret: SecretStr = KEY_FIELD\n",
+            "class _SecretFields(BaseSettings):\n    secret: SecretStr = KEY_FIELD\n",
             "KEY_FIELD, which config.py binds nowhere",
             id="value-bound-nowhere",
         ),
         pytest.param(
-            "RING_A = RING_B\nRING_B = RING_A\n\n\nclass BackendSecrets(BaseSettings):\n    secret: SecretStr = RING_A\n",
+            "RING_A = RING_B\nRING_B = RING_A\n\n\nclass _SecretFields(BaseSettings):\n    secret: SecretStr = RING_A\n",
             "a ring of constants",
             id="constant-ring",
         ),
         pytest.param(
-            "class BackendSecrets(BaseSettings, Other):\n    secret: SecretStr\n\n\nclass Other(BackendSecrets):\n    pass\n",
+            "class _SecretFields(BaseSettings, Other):\n    secret: SecretStr\n\n\nclass Other(_SecretFields):\n    pass\n",
             "inherits from itself",
             id="class-ring",
         ),
@@ -1115,7 +1113,7 @@ def test_main_refuses_at_2_where_the_backend_reader_cannot_follow_the_settings(m
     project = new_root("fl-compose-main-unread-")
     production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
     local = rendered_stack(project, "nginx/local")
-    monkeypatch.setattr(checker, "BACKEND_CONFIG", settings_file("class BackendSecrets(BaseSettings, ForeignKey):\n    secret: SecretStr\n"))
+    monkeypatch.setattr(checker, "BACKEND_CONFIG", settings_file("class _SecretFields(BaseSettings, ForeignKey):\n    secret: SecretStr\n"))
 
     code, said = run_main(production, local, project)
 
@@ -1139,7 +1137,7 @@ def test_each_stack_handing_the_backend_what_its_settings_require_is_clean(stack
     assert checker.backend_files(model(backend=backend_handed(stack)), "p", SETTINGS) == []
 
 
-@pytest.mark.parametrize(("stack", "dropped"), [("production", "backend_mongodb_uri"), ("local", "sperrliste_schluessel")])
+@pytest.mark.parametrize(("stack", "dropped"), [("production", "backend_mongodb_uri"), ("local", "sperrliste_key")])
 def test_a_file_the_backend_requires_left_unmounted_fails(stack: str, dropped: str):
     """The boot refuses it, and without this only the deploy's preflight on the host, or `local.sh`, says so."""
     backend = backend_handed(stack)
@@ -1185,19 +1183,19 @@ def test_main_judges_the_backend_files_of_both_models():
         production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
         local = rendered_stack(project, "nginx/local")
         backend = ({"production": production, "local": local}[broken])["services"]["backend"]
-        backend["secrets"] = [entry for entry in backend["secrets"] if entry["source"] != "sperrliste_schluessel"]
+        backend["secrets"] = [entry for entry in backend["secrets"] if entry["source"] != "sperrliste_key"]
 
         code, said = run_main(production, local, project)
 
         assert code == 1, said
-        assert f"{broken}: the backend's schema requires ['sperrliste_schluessel']" in said, said
+        assert f"{broken}: the backend's schema requires ['sperrliste_key']" in said, said
 
 
 # --- the names the secret files replace ----------------------------------------------------------------
 
 
 def test_the_stand_ins_alone_in_an_environment_are_clean():
-    rendered = model(frontend=env_file("fl_frontend/.env"), backend=env_file("fl_backend/.env") | {"environment": {"LOG_FORMAT": "json"}})
+    rendered = model(frontend=env_file("fl_frontend/.env"), backend=env_file("fl_backend/.env") | {"environment": {"DB_BASE_NAME": "fl_db"}})
 
     assert checker.moved_names(rendered, "p") == []
 

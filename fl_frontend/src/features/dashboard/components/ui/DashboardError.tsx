@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/StatusPage` replaces it.
 import ArrowRotateRight from "@gravity-ui/icons/ArrowRotateRight";
 
 import { Button } from "@heroui/react/button";

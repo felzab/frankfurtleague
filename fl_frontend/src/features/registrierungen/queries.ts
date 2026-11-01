@@ -1,16 +1,15 @@
 import { cache } from "react";
 
-import { apiClient } from "@/core/api";
+import { registrierungenGetOpenRegistrierungen, registrierungenGetRegistrierungen } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { postBestaetigungAnsicht, postEinladungAnsicht } from "./mutations";
-import { FLOffeneRegistrierungenResponseSchema, FLRegistrierungenListResponseSchema } from "./schemas";
 import { einladungZustand, mapRegistrierungAnsichtRefusal } from "./utils";
 
+import type { FLOpenRegistrierungenResponse, FLRegistrierungenListResponse } from "@/core/generated/client/types";
 import type { Leserichtung } from "@/shared/utils/leserichtung";
-import type { FLOffeneRegistrierungenResponse, FLRegistrierung, FLRegistrierungenListResponse } from "./schemas";
 import type { RegistrierungStart, SpielerBestaetigungAnsicht } from "./types";
 
 /**
@@ -19,18 +18,8 @@ import type { RegistrierungStart, SpielerBestaetigungAnsicht } from "./types";
  * arguments alone, `cache` comparing them by identity.
  */
 export const getOffeneRegistrierungen = cache(
-  async (teamId: string, saisonId: string, order: Leserichtung): Promise<FLOffeneRegistrierungenResponse> => {
-    // Optional as published, though the page always sends one end.
-    const filters: { order?: Leserichtung } = { order: order };
-
-    return runPersonRead(() =>
-      apiClient<FLOffeneRegistrierungenResponse>(
-        `/registrierungen/kader/${encodeURIComponent(teamId)}/${encodeURIComponent(saisonId)}`,
-        FLOffeneRegistrierungenResponseSchema,
-        { authType: "admin", params: filters },
-      ),
-    );
-  },
+  async (teamId: string, saisonId: string, order: Leserichtung): Promise<FLOpenRegistrierungenResponse> =>
+    runPersonRead(() => registrierungenGetOpenRegistrierungen(teamId, saisonId, { order: order })),
 );
 
 /**
@@ -39,14 +28,7 @@ export const getOffeneRegistrierungen = cache(
  */
 export async function getAdminRegistrierungen(order: Leserichtung): Promise<FLRegistrierungenListResponse> {
   // `eingereicht` alone: a declined row waits out its month and asks nothing of an administrator.
-  const filters: { status?: FLRegistrierung["status"]; order?: Leserichtung } = { status: "eingereicht", order: order };
-
-  return runAdminRead(() =>
-    apiClient<FLRegistrierungenListResponse>("/registrierungen", FLRegistrierungenListResponseSchema, {
-      authType: "admin",
-      params: filters,
-    }),
-  );
+  return runAdminRead(() => registrierungenGetRegistrierungen({ status: "submitted", order: order }));
 }
 
 /**
@@ -57,9 +39,7 @@ export async function getEinladungAnsicht(token: string): Promise<RegistrierungS
   return runWithIncomingTrace(() =>
     postEinladungAnsicht({ token: token }).then(
       (ansicht) =>
-        einladungZustand(ansicht) === "gueltig"
-          ? { zustand: "gueltig", ansicht: ansicht, token: token }
-          : { zustand: "geschlossen", ansicht: ansicht },
+        einladungZustand(ansicht) === "valid" ? { zustand: "valid", ansicht: ansicht, token: token } : { zustand: "closed", ansicht: ansicht },
       (error: unknown) => {
         // Anything but a refusal is a failed read, which is the page's own state rather than a panel
         // calling a live invite void.
@@ -80,7 +60,7 @@ export async function getEinladungAnsicht(token: string): Promise<RegistrierungS
 export async function getSpielerBestaetigungAnsicht(token: string): Promise<SpielerBestaetigungAnsicht> {
   return runWithIncomingTrace(() =>
     postBestaetigungAnsicht({ token: token }).then(
-      (ansicht) => (ansicht.zustand === "gueltig" ? { zustand: "gueltig" as const, ansicht: ansicht } : { zustand: ansicht.zustand }),
+      (ansicht) => (ansicht.state === "valid" ? { zustand: "valid" as const, ansicht: ansicht } : { zustand: ansicht.state }),
       (error: unknown) => {
         const zustand = mapRegistrierungAnsichtRefusal(error);
         if (zustand !== null) return { zustand: zustand };

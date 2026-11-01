@@ -4,9 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
-from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import (
-    FLGruppenNames,
     FLKontaktperson,
     FLKontaktpersonPayload,
     FLPatchSaisonTeamKontaktePayload,
@@ -21,7 +19,8 @@ from app.api.teams.schemas import (
     FLTeamStatistik,
 )
 from app.api.teams.services import build_gruppen
-from tests.documents import bestaetigte_kenntnisnahme
+from app.shared.schemas.literals import FLGruppenNames, FLSpielerStufe
+from tests.documents import confirmed_kenntnisnahme
 
 # A whole person as a row STORES one. Reused rather than re-spelled: the shape is the read model's,
 # so a field added to it fails here rather than at the first real write.
@@ -31,7 +30,7 @@ STORED_KONTAKTPERSON = {
     "email": "a.koerner@example.de",
     "telefon": "+49 170 1234567",
     "geburtsdatum": "1984-05-09",
-    "einwilligung": bestaetigte_kenntnisnahme(),
+    "einwilligung": confirmed_kenntnisnahme(),
 }
 
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
@@ -40,13 +39,13 @@ STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
-    qualifiers_per_group=2,
-    number_of_groups=4,
-    teams_per_group=4,
+    qualifiers_per_gruppe=2,
+    number_of_gruppen=4,
+    teams_per_gruppe=4,
     tiebreak_order="tordifferenz",
     max_kadergroesse=50,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
-    erlaubte_stufen=STUFEN,
+    allowed_stufen=STUFEN,
 )
 
 
@@ -86,7 +85,7 @@ def test_rejects_a_group_outside_the_closed_set(team, gruppe):
 
 
 # Read off the set rather than listed, so widening it widens this rather than leaving the new names untried.
-@pytest.mark.parametrize("gruppe", get_args(FLGruppenNames))
+@pytest.mark.parametrize("gruppe", get_args(FLGruppenNames.__value__))
 def test_accepts_every_group_the_closed_set_names(team, gruppe):
     """So the rejection test above cannot be passing for the wrong reason."""
     assert FLTeam.model_validate(team(gruppe=gruppe)).gruppe == gruppe
@@ -107,8 +106,8 @@ def test_rejects_negative_statistics(team, statistik, field):
         FLTeam.model_validate(team(statistik=statistik(**{field: -1})))
 
 
-@pytest.mark.parametrize("shorthand", ["C", "CSS", ""])
-def test_rejects_a_shorthand_that_is_not_two_characters(team, shorthand):
+@pytest.mark.parametrize("shorthand", ["CS", "CSSX", "C2S", "ÄBC", ""])
+def test_rejects_a_shorthand_that_is_not_three_letters(team, shorthand):
     """The narrow cards render this instead of the full name, so the width is fixed."""
     with pytest.raises(ValidationError):
         FLTeam.model_validate(team(shorthand=shorthand))
@@ -138,7 +137,7 @@ class TestFLGruppen:
     def test_it_answers_the_groups_the_season_offers_and_no_others(self, team):
         """The season's count decides the keys, not the set's size: a key past it is a standings column for a group nobody plays in."""
 
-        two_groups = RULES.model_copy(update={"number_of_groups": 2})
+        two_groups = RULES.model_copy(update={"number_of_gruppen": 2})
         grouped = build_gruppen([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=two_groups)
 
         assert sorted(grouped.root) == ["A", "B"]
@@ -148,28 +147,27 @@ class TestFLGruppen:
         """The wire shape, not the Python object: the frontend parses the response body."""
         response = FLTeamsGroupedResponse(
             gruppen=build_gruppen([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=RULES),
-            qualifiers_per_group=RULES.qualifiers_per_group,
+            qualifiers_per_gruppe=RULES.qualifiers_per_gruppe,
         )
 
         body = response.model_dump()
 
         assert sorted(body["gruppen"]) == ["A", "B", "C", "D"]
         assert body["gruppen"]["B"] == []
-        assert body["acknowledged"] == 1
         assert body["format"] == "grouped"
         # The cutoff rides with the table it applies to, so no page marks one season's standing with another's number.
-        assert body["qualifiers_per_group"] == 2
+        assert body["qualifiers_per_gruppe"] == 2
 
     def test_a_row_carries_the_standings_fields_and_no_club_detail(self, team):
         """A public CLIENT component renders this, so every field listed is serialised into the page -- and an address here is a school's."""
         response = FLTeamsGroupedResponse(
             gruppen=build_gruppen([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=RULES),
-            qualifiers_per_group=RULES.qualifiers_per_group,
+            qualifiers_per_gruppe=RULES.qualifiers_per_gruppe,
         )
 
         assert sorted(response.model_dump()["gruppen"]["A"][0]) == [
-            "anzahl_ausstehende_spiele",
             "austritt_type",
+            "count_pending_spiele",
             "id",
             "name",
             "shorthand",
@@ -258,8 +256,8 @@ class TestTheJunctionPatchPayload:
 
         assert [entry["loc"][-1] for entry in failure.value.errors()] == [field]
 
-    def test_it_takes_the_three_fields_and_nothing_about_the_contacts(self):
-        assert set(FLPatchSaisonTeamPayload.model_fields) == {"gruppe", "austritt", "trikot_farbe"}
+    def test_it_takes_the_three_fields_and_the_version_and_nothing_about_the_contacts(self):
+        assert set(FLPatchSaisonTeamPayload.model_fields) == {"gruppe", "austritt", "trikot_farbe", "version"}
 
     def test_a_contact_block_sent_here_is_refused(self):
         """`extra="forbid"`, so a stale client is a 422 rather than a block this endpoint never judged."""
@@ -280,7 +278,7 @@ class TestTheJunctionPatchPayload:
             "trainer": {**STORED_KONTAKTPERSON, "telefon": "nicht bekannt"},
             "ansprechperson": None,
             "stellvertretung": None,
-            "trainer_ist_zugleich": None,
+            "trainer_is_also": None,
         }
 
         assert FLSaisonTeamKontakte.model_validate(stored_but_unwritable).trainer is not None
@@ -299,7 +297,7 @@ class TestTheContactsPatchPayload:
         """The block is written whole or not at all, so a partial one is a form half filled in rather than a smaller truth."""
 
         with pytest.raises(ValidationError):
-            FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": {"trainer_ist_zugleich": None}})
+            FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": {"trainer_is_also": None}})
 
     def test_the_block_is_required_so_a_null_clears_it_deliberately(self):
         with pytest.raises(ValidationError) as failure:
@@ -311,8 +309,8 @@ class TestTheContactsPatchPayload:
 class TestAContactRecordReadsBackHoweverItWasStored:
     """On the model where breaking it locks itself in.
 
-    The validator types these as bare strings, so an import can store a value no payload would take
-    -- and `GET /teams/memberships` is the only route to repairing the row.
+    Nothing in the database types these, so an import can store a value no payload would take
+    -- and `GET /teams/saisons` is the only route to repairing the row.
     """
 
     # A title's `.`, an address the address rule refuses, and 21 characters where `PHONE_REGEX` allows 20
@@ -329,7 +327,7 @@ class TestAContactRecordReadsBackHoweverItWasStored:
     STORED = {
         **SENT,
         "geburtsdatum": "1984-05-09",
-        "einwilligung": bestaetigte_kenntnisnahme(),
+        "einwilligung": confirmed_kenntnisnahme(),
     }
 
     def test_the_read_model_takes_every_one_of_them(self):

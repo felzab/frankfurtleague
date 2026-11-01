@@ -16,10 +16,10 @@ import { COPY } from "@/core/copy";
 
 import { SpielortFelder } from "../../../../../SpielortFelder";
 
+import type { ActionAnswer } from "@/core/action";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
-import type { ActionAnswer } from "@/kit/useFormAction";
 import type { SpielortRegeln } from "../../../../../spielortRegeln";
 import type { SpielWerte } from "./spielWerte";
 
@@ -43,7 +43,7 @@ export function SpielEditor({
 }: {
   title: PageTitle;
   record: EditorRecord<SpielWerte>;
-  save: (change: EditorSave<SpielWerte>) => Promise<ActionAnswer>;
+  save: (change: EditorSave<SpielWerte>) => Promise<ActionAnswer<number>>;
   /** The venues to choose from, each with the price a match there costs unless set otherwise. */
   spielorte: ReadonlyArray<{ option: Option; mietpreis: number }>;
   /** „Keines“ first, then each event, an event this fixture cannot take disabled with its reason. */
@@ -91,7 +91,7 @@ export function SpielEditor({
                 short="second"
                 phone="stack">
                 <ComboBox
-                  label={ORT.objekt}
+                  label={ORT.object}
                   name="spielort"
                   options={spielorte.map((ort) => ort.option)}
                   value={draft.spielort}
@@ -102,7 +102,7 @@ export function SpielEditor({
                     if (gewaehlt !== undefined) set("mietpreis", String(gewaehlt.mietpreis));
                   }}
                   create={{
-                    label: ORT.anlegenEintrag,
+                    label: ORT.createEntry,
                     onCreate: (typed) => {
                       setNeuerName(typed);
                       setNeu(true);
@@ -116,7 +116,7 @@ export function SpielEditor({
                     name="mietpreis"
                     width="C5"
                     kind="digits"
-                    unit={COPY.shared.einheit.euro}
+                    unit={COPY.shared.unit.euro}
                     isRequired={mietpreisPflicht}
                     value={draft.mietpreis}
                     onChange={(mietpreis) => set("mietpreis", mietpreis)}
@@ -124,8 +124,8 @@ export function SpielEditor({
                 )}
               </FieldPair>
               <Dialog
-                title={COPY.shared.mitObjekt(ORT.objekt, "anlegen")}
-                act={{ verb: "anlegen", objekt: ORT.objekt }}
+                title={COPY.shared.withObject(ORT.object, "create")}
+                act={{ verb: "create", object: ORT.object }}
                 action={spielortAnlegen}
                 open={{ isOpen: neu, onOpenChange: setNeu }}>
                 <SpielortFelder

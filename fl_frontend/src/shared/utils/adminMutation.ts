@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import { refresh, updateTag } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import { NextResponse } from "next/server";
@@ -6,8 +7,9 @@ import { isFreshlySignedIn, judgeAdminRequest } from "@/core/auth";
 import { frontend_config } from "@/core/config";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { declareWriteTags, requestEndsOwnSession, requestWriteSent, requestWriteTags } from "@/core/requestScope";
+import { requestEndsOwnSession, requestWriteSent } from "@/core/requestScope";
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
+import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import { ANMELDUNG_ABGELAUFEN, outcomeUnknown, ZUGANG_WEG } from "./actionError";
 import { logActionFailure } from "./actionFailure";
@@ -19,11 +21,10 @@ import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
 import type { AdminRefusal, getAdminSession } from "@/core/auth";
 import type { StepUpDemand } from "@/shared/components/ui/stepUp";
 import type { ActionFailure } from "@/shared/types/types";
-import type { Wording } from "./actionError";
 import type { FieldErrors } from "./validation";
 
 /** A grant the backend did not answer: nothing ran, and a sign-in would meet the same unread grant. */
-export const BERECHTIGUNG_UNGELESEN = "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen.";
+const BERECHTIGUNG_UNGELESEN = "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen.";
 
 /** What an admin write answers where the guard could not read the grant. */
 const BERECHTIGUNG_UNGELESEN_ERNEUT = `${BERECHTIGUNG_UNGELESEN} ${VERSUCHE_ES_ERNEUT_SATZ}`;
@@ -82,11 +83,8 @@ export function refusalResult(refusal: { error?: string; fieldErrors?: FieldErro
   return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
 }
 
-/**
- * Which caller a spine admits, what its log lines are filed under, and `wording` where its press cannot
- * pass again, which the shared reader's defaults offer.
- */
-type Guard<S> = { readonly lane: string; readonly resolve: () => Promise<S | null>; readonly wording?: Wording };
+/** Which caller a spine admits, and what its log lines are filed under. */
+type Guard<S> = { readonly lane: string; readonly resolve: () => Promise<S | null> };
 
 /**
  * Seeds the request scope with the edge-minted trace id, and converts a thrown API error into the caller's result
@@ -96,9 +94,7 @@ async function runGuarded<S, T extends { success: boolean }>(
   mutationName: string,
   guard: Guard<S>,
   fn: (session: S) => Promise<T>,
-): Promise<
-  { forbidden: true } | { forbidden: false; answer: T | ActionFailure; wrote: boolean; tags: readonly string[]; endsOwnSession: boolean }
-> {
+): Promise<{ forbidden: true } | { forbidden: false; answer: T | ActionFailure; wrote: boolean; endsOwnSession: boolean }> {
   return runWithIncomingTrace(async () => {
     let answer: T | ActionFailure;
     try {
@@ -115,22 +111,21 @@ async function runGuarded<S, T extends { success: boolean }>(
       logActionFailure(`${guard.lane} mutation failed: ${mutationName}`, error);
 
       // Judged by what this request sent, a server action being a POST whatever it does.
-      answer = answerThrow(error, guard.wording);
+      answer = answerThrow(error);
     }
 
     // Read once the body has settled and inside this scope, which closes with the callback.
     const wrote = requestWriteSent();
-    const tags = requestWriteTags();
     const endsOwnSession = requestEndsOwnSession();
 
     // Whatever the action made of it: part of the write may stand.
     if (writeOutcomeUnknown()) {
-      logger.error(`${guard.lane} mutation of unknown outcome: ${mutationName}`, undefined, { error_code: "FE-NET-001" });
+      logger.error("mutation.outcome_unknown", undefined, { lane: guard.lane, mutation: mutationName });
 
-      return { forbidden: false, answer: outcomeUnknown(guard.wording), wrote: wrote, tags: tags, endsOwnSession: endsOwnSession };
+      return { forbidden: false, answer: outcomeUnknown(), wrote: wrote, endsOwnSession: endsOwnSession };
     }
 
-    return { forbidden: false, answer: answer, wrote: wrote, tags: tags, endsOwnSession: endsOwnSession };
+    return { forbidden: false, answer: answer, wrote: wrote, endsOwnSession: endsOwnSession };
   });
 }
 
@@ -146,30 +141,21 @@ export async function runGuardedMutation<S, T extends { success: boolean }>(
   const guarded = await runGuarded(mutationName, guard, fn);
   if (guarded.forbidden) return { success: false, error: typeof guard.forbidden === "string" ? guard.forbidden : await guard.forbidden() };
 
-  const { answer, wrote, tags, endsOwnSession } = guarded;
+  const { answer, wrote, endsOwnSession } = guarded;
   const outcome = "outcome" in answer ? answer.outcome : undefined;
   // A write that may have ended its caller's session renders no page again, whose own check would redirect and empty the area;
-  // the page leaves by a document load. No such write declares a tag to drop.
+  // the page leaves by a document load. Such a write removes a passkey, which no cached read holds.
   if (endsOwnSession) return answer;
 
-  // Wherever a write may stand, a lost answer and a partial one included: a cached public read the
-  // write feeds keeps serving what it replaced for days otherwise.
-  if (wrote && (answer.success || outcome !== undefined)) for (const tag of tags) updateTag(tag);
+  // Wherever a write may stand, a lost answer and a partial one included, and whatever it wrote: every cached read
+  // carries the one tag, so no write has to know which of them it moves.
+  if (wrote && (answer.success || outcome !== undefined)) updateTag(SITE_CACHE_TAG);
   // Here, where no action can forget it. Never on a refusal, left to its
   // action where a landed write stands behind it: a refresh can remount an editor keyed on its row,
   // dropping the refused entries.
   if (wrote && (answer.success || outcome === "unknown")) refresh();
 
   return answer;
-}
-
-/**
- * The cache tags a body's write feeds, declared before the write is sent: this spine, and a public
- * route's (`fl_frontend/src/shared/utils/publicRoute.ts`), drop them once the body settles, a lost
- * answer included, which a drop after the awaited write never reaches.
- */
-export function invalidatesOnWrite(...tags: readonly string[]): void {
-  declareWriteTags(tags);
 }
 
 /**
@@ -189,7 +175,7 @@ function judgingGuard(): { readonly guard: Guard<AdminSession>; readonly verdict
 }
 
 /** Each reason the guard turns an admin write away for, in the words of its remedy; a record, so a reason added to the guard is worded here. */
-export const FORBIDDEN_BY_REFUSAL: Readonly<Record<AdminRefusal, string>> = {
+const FORBIDDEN_BY_REFUSAL: Readonly<Record<AdminRefusal, string>> = {
   signIn: ANMELDUNG_ABGELAUFEN,
   // One sentence for an address holding no grant, whether it was revoked or never held: no sign-in repairs either.
   noGrant: ZUGANG_WEG,
@@ -203,10 +189,6 @@ type AdminBody<T> = (session: AdminSession) => Promise<T>;
 /** What an action declares about its write beside its body: `stepUp` for a step-up write, and which window it is held to. */
 type AdminWrite = {
   readonly stepUp: StepUpDemand;
-  /** What a caller the guard turns away is told, where the write closes on more than the remedy: an undo says the change stands. */
-  readonly turnedAway?: (reason: AdminRefusal) => string;
-  /** The shared reader's sentences, where the press cannot pass again as a save's can. */
-  readonly wording?: Wording;
 };
 
 /** A server action's spine. A write declaring `stepUp` is refused ahead of its body from a session past the step-up window. */
@@ -220,14 +202,13 @@ export async function runAdminMutation<T extends { success: boolean }>(
   mutationName: string,
   ...rest: [AdminBody<T>] | [AdminWrite, AdminBody<T>]
 ): Promise<T | ActionFailure> {
-  const [{ stepUp, turnedAway = (reason: AdminRefusal) => FORBIDDEN_BY_REFUSAL[reason], wording }, fn] =
-    rest.length === 1 ? [{ stepUp: false }, rest[0]] : rest;
+  const [{ stepUp }, fn] = rest.length === 1 ? [{ stepUp: false }, rest[0]] : rest;
   const { guard, verdict } = judgingGuard();
   // The refusal in the words naming its remedy: no grant, and a grant the backend left unread, are
   // repaired by no sign-in.
-  const forbidden = () => Promise.resolve(turnedAway(verdict.refused));
+  const forbidden = () => Promise.resolve(FORBIDDEN_BY_REFUSAL[verdict.refused]);
 
-  return runGuardedMutation(mutationName, { ...guard, forbidden, wording }, async (session) => {
+  return runGuardedMutation(mutationName, { ...guard, forbidden }, async (session) => {
     // Ahead of the body, so a stale session's step-up write reaches neither its payload nor the backend.
     const unconfirmed = stepUp === false ? null : refuseUnconfirmed(session, stepUp);
     if (unconfirmed !== null) return unconfirmed;
@@ -244,7 +225,7 @@ export async function runAdminMutation<T extends { success: boolean }>(
 
 /** The backend's refusal of a write for want of a passkey confirmation inside the window it holds that write to. */
 function isConfirmationRefused(error: unknown): error is APIBadStatusError {
-  return error instanceof APIBadStatusError && error.serverErrorCode === "REQ-AUTH-009";
+  return error instanceof APIBadStatusError && error.serverErrorCode === "confirmation_required";
 }
 
 /**

@@ -2,13 +2,15 @@ import { createElement as h } from "react";
 
 import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
-import { answerShown, assertEachAnswered, publishedRefusals, refusedOn } from "@/test-support/publishedRefusals.ts";
+import { answerShown, assertEachAnswered, refusalCodes, refused } from "@/test-support/refusals.ts";
 import { renderTree } from "@/test-support/renderMarkup.ts";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { buildSpieltagBanners } from "./components/forms/AdminSpieltagEditForm/banners.ts";
 import { mapSpieltagRefusal } from "./refusals.ts";
 import { deriveSpieltagDraftStatus } from "./spieltagDraftStatus.ts";
+
+import type { Code } from "@/core/generated/client/types.ts";
 
 /* The real action and its mutation, called: the request it runs in and the backend client are the doubles. */
 doubleActionRequest();
@@ -18,21 +20,19 @@ const { patchSpieltagAction } = await import("./actions.ts");
 const { FormZeitraumSection } = await import("./components/forms/AdminSpieltagEditForm/FormZeitraumSection.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 
-const PATCH_OPERATION = "PATCH /spieltage/{spieltag_id}";
-
 /**
  * The ordering rule, `fl_backend/app/api/spieltage/services.py :: find_spieltag_order_refusal`'s code.
  * Restated rather than looked up: the case below fails on a renumbering, and the loop over the
  * published codes then names the one the mapper leaves unanswered.
  */
-const ORDERING_CODE = "REQ-DATE-008";
+const ORDERING_CODE = "spieltag_beginn_out_of_order";
 
 /**
  * The German the mapper renders for one code, as a sentence. Thrown rather than answered as "": a
  * `doesNotMatch` below passes over an empty message while the German it is about is unwritten.
  */
-function refusalMessage(code: string): string {
-  const message = mapSpieltagRefusal(refusedOn(PATCH_OPERATION, code))?.error ?? "";
+function refusalMessage(code: Code): string {
+  const message = mapSpieltagRefusal(refused(code))?.error ?? "";
   if (message === "") throw new Error(`the mapper words no message for ${code}`);
 
   return message;
@@ -54,13 +54,7 @@ describe("the matchday's write", () => {
   it("reaches its published path and method, the id in the path and the span alone in the body", async () => {
     const span = { beginn: "2026-03-12", ende: "2026-03-13" };
     const id = "6890a1b2c3d4e5f607182931";
-    answerWith(() =>
-      Promise.resolve({
-        acknowledged: 1,
-        spieltag_id: id,
-        updated_document: { id, ...span, anzahl_spiele: 4, position: 1, saison_phase: "gruppenphase", saison_id: "2026" },
-      }),
-    );
+    answerWith(() => Promise.resolve({ spieltag_id: id }));
 
     await patchSpieltagAction({ id, ...span });
 
@@ -69,22 +63,17 @@ describe("the matchday's write", () => {
 });
 
 describe("the Spieltag refusals against the codes the matchday PATCH publishes", () => {
-  it("publishes the ordering rule on the matchday PATCH", () => {
-    assert.ok(publishedRefusals(PATCH_OPERATION).includes(ORDERING_CODE), `${ORDERING_CODE} is no longer the ordering rule's code`);
-  });
-
-  for (const code of publishedRefusals(PATCH_OPERATION)) {
+  for (const code of refusalCodes("spieltag_outside_saison", "spieltag_span_below_spiele", "spieltag_beginn_out_of_order")) {
     it(`${code} reaches the admin in German when the edit is saved`, () => {
-      expect(
-        answerShown(PATCH_OPERATION, code, mapSpieltagRefusal),
-        `${code} falls through to the generic conflict message when the edit is saved`,
-      ).not.toBe(null);
+      expect(answerShown(code, mapSpieltagRefusal), `${code} falls through to the generic conflict message when the edit is saved`).not.toBe(
+        null,
+      );
     });
   }
 
   it("answers every refusal the save publishes through the mapper", async () => {
     await assertEachAnswered({
-      operation: PATCH_OPERATION,
+      codes: refusalCodes("spieltag_outside_saison", "spieltag_span_below_spiele", "spieltag_beginn_out_of_order"),
       refuseWith: answerWith,
       act: () => patchSpieltagAction({ id: "6890a1b2c3d4e5f607182931", beginn: "2026-03-12", ende: "2026-03-12" }),
       mapped: mapSpieltagRefusal,
@@ -119,7 +108,7 @@ describe("the German the ordering refusal renders", () => {
     expect(message).toMatch(/die Spiele des Spieltags, der später gespielt werden soll/);
   });
 
-  /* `FLPatchSpieltagPayload` refines `ende >= beginn` and the follower arm fires on
+  /* `FLPatchSpieltagPayloadSchema` refines `ende >= beginn` and the follower arm fires on
      `beginn > following.beginn`, so every refusal it can produce carries an `ende` past the
      neighbour. An imperative to widen it would name a step the admin has taken. */
   it("asks for no wider Ende, which the refused payload already carries", () => {
@@ -171,8 +160,8 @@ describe("the one date a final's Spieltag is given", () => {
      `fl_frontend/src/shared/hooks/useServerFieldErrors.ts`'s unhandled-refusal toast. */
   it("keeps that picker on the one path a refusal can land on", () => {
     expect(fieldNames(SINGLE_DAY)).toStrictEqual(["beginn"]);
-    const landed = publishedRefusals(PATCH_OPERATION).flatMap((code) =>
-      Object.keys(mapSpieltagRefusal(refusedOn(PATCH_OPERATION, code))?.fieldErrors ?? {}),
+    const landed = refusalCodes("spieltag_outside_saison", "spieltag_span_below_spiele", "spieltag_beginn_out_of_order").flatMap((code) =>
+      Object.keys(mapSpieltagRefusal(refused(code))?.fieldErrors ?? {}),
     );
     expect([...new Set(landed)]).toStrictEqual(["beginn"]);
   });

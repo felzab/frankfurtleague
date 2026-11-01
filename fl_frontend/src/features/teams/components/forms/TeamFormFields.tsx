@@ -5,6 +5,7 @@ import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { TextArea } from "@heroui/react/textarea";
 
+import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
 import {
   DESCRIPTION_MAX_LENGTH,
@@ -17,7 +18,7 @@ import { AddressFields } from "@/shared/components/ui/AddressFields";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES, FIELD_TEXTAREA_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { TextField } from "@/shared/components/ui/TextField";
 
-import type { FLPostTeamPayload } from "@/features/teams/schemas";
+import type { FLPostTeamPayload } from "@/core/generated/client/types";
 
 /**
  * Field names match their path in the create payload, so react-aria's `Form` distributes
@@ -43,11 +44,9 @@ export function TeamFormFields<T extends FLPostTeamPayload>({ draft, onChange }:
 
         <TextField
           name="shorthand"
-          // Uppercased at the boundary: the shorthand is unique across every club, so stored and
-          // typed must not differ by case alone.
           value={draft.shorthand}
-          onChange={(next) => onChange({ ...draft, shorthand: next.toUpperCase() })}
-          maxLength={2}>
+          onChange={(next) => onChange({ ...draft, shorthand: next })}
+          maxLength={KUERZEL_LAENGE}>
           <Label className={FIELD_LABEL_CLASSES}>Kürzel</Label>
           <Input className={`${FIELD_INPUT_CLASSES} font-extrabold tracking-widest uppercase`} />
           <FieldError className={FIELD_ERROR_CLASSES} />

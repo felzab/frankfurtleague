@@ -83,7 +83,7 @@ export function Filters({ filters }: { filters: ReadonlyArray<Filter> }) {
               {/* „Fertig“ closes the sheet it stands in. */}
               <Button
                 variant="secondary"
-                label={COPY.shared.fertig}
+                label={COPY.shared.done}
                 slot="close"
               />
             </div>

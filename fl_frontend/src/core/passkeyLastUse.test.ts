@@ -147,7 +147,7 @@ describe("when a passkey was last used", () => {
     expect(answer.status, await answer.clone().text()).toBe(200);
     assert.ok(cookieHeader(answer) !== "", "the verified sign-in set no session cookie");
     expect(lastUse(asserted)).toBe(undefined);
-    expect(warned).toStrictEqual([["auth.passkey_last_use_failed", { error_code: "FE-AUTH-007", name: "Error" }]]);
+    expect(warned).toStrictEqual([["auth.passkey_last_use_failed", { name: "Error" }]]);
   });
 
   /* A refused assertion signed nobody in, so a date here would tell the card's reader it had. */

@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { AdminCreateSaisonModal } from "@/features/saisons/components/modals/AdminCreateSaisonModal";
 import { AdminSaisonsView } from "@/features/saisons/components/views/AdminSaisonsView";
@@ -32,8 +31,6 @@ export default function AdminSaisonsPage() {
 
 /** EVERY season, narrowed by nothing. */
 async function SaisonsTable() {
-  await connection();
-
   const saisonsRes = await getAdminSaisons();
 
   const rows: AdminSaisonRow[] = saisonsRes.saisons.map((saison) => ({

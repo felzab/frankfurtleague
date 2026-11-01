@@ -7,7 +7,7 @@ records it moves is read from the address when it takes effect (`app/api/adressw
 Invariants:
 - Every instant is stored as a BSON date and compared as one; a filter on one always carries `$type: "date"`, so a null
   never compares.
-- Every read of a live change carries `LIVE_TERMS`, the filter `uniq_adresswechsel_adresse` indexes.
+- Every read of a live change carries `LIVE_TERMS`, the filter `uniq_address_change_adresse` indexes.
 """
 
 import unicodedata
@@ -15,42 +15,33 @@ from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import Any, Final, Literal, get_args
-from zoneinfo import ZoneInfo
 
-from app.api.berechtigungen.schemas import FLAdresswechselWeg, FLGenehmigungVerwehrt
+from app.core.clock import GERMANY as _GERMANY
+from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.bounds import ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_TAGE, GENEHMIGUNG_TAGE
+from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, APPROVAL_DAYS
+from app.shared.schemas.literals import FLAddressChangeEndArt, FLAddressChangeWaitsOn, FLAddressChangeWay, FLApprovalDenied
 
-ADRESSWECHSEL_WEGE: Final[tuple[str, ...]] = get_args(FLAdresswechselWeg)
-
-# What the change waits on: the address on file's approval, the new mailbox's link, another administrator's approval of a
-# grant's move once the new mailbox confirmed, or its waiting time.
-FLAdresswechselWartetAuf = Literal["freigabe", "neue_adresse", "genehmigung", "wartezeit"]
+ADRESSWECHSEL_WEGE: Final[tuple[str, ...]] = get_args(FLAddressChangeWay.__value__)
 
 # What the stop link of the address on file shows, one state per step the change waits on.
-FLAdresswechselBisherigZustand = Literal["freigabe_offen", "offen", "genehmigung", "wartezeit"]
+FLAdresswechselBisherigZustand = Literal["release_open", "open", "approval", "waiting_period"]
 
-# What the new mailbox's link shows while the change stands. `genehmigung_abgelaufen` is a confirmed change's lapsed
+# What the new mailbox's link shows while the change stands. `approval_expired` is a confirmed change's lapsed
 # approval week, never `abgelaufen`: that is the link's own deadline, and a confirmed link takes no second answer.
-FLAdresswechselNeuZustand = Literal["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar", "bestaetigt", "genehmigung_abgelaufen"]
+FLAdresswechselNeuZustand = Literal["valid", "expired", "barred", "not_confirmable", "confirmed", "approval_expired"]
 
-# How a change ended. `verworfen` is every discard: an administrator's, the pass's refusal when due, nothing left to
-# move, and an erasure's.
-FLAdresswechselEndeArt = Literal["wirksam", "abgelehnt", "gestoppt", "abgelaufen", "ersetzt", "verworfen"]
-ADRESSWECHSEL_ENDE_ARTEN: Final[tuple[str, ...]] = get_args(FLAdresswechselEndeArt)
+ADRESSWECHSEL_ENDE_ARTEN: Final[tuple[str, ...]] = get_args(FLAddressChangeEndArt.__value__)
 
-# The tier of the grant a change moves, and so who may approve it: `owner` another owner alone.
-FLAdresswechselVerwaltung = Literal["administration", "owner"]
+# The tier of the grant a change moves ranked, and so who may approve it: `owner` another owner alone.
 _RANG: Final[Mapping[str, int]] = {"administration": 0, "owner": 1}
 
-# The one filter every read of a live change carries: `uniq_adresswechsel_adresse` indexes these rows alone.
-LIVE_TERMS: Final[Mapping[str, Any]] = {"beendet": {"$type": "null"}}
+# The one filter every read of a live change carries: `uniq_address_change_adresse` indexes these rows alone.
+LIVE_TERMS: Final[Mapping[str, Any]] = {"ended": {"$type": "null"}}
 
 # A `$lookup` joining on the address carries these beside its key, for `build_address_filter`'s reason.
 LIVE_KEYED_TERMS: Final[Mapping[str, Any]] = {"adresse": {"$type": "string"}, **LIVE_TERMS}
-
-_GERMANY: Final = ZoneInfo("Europe/Berlin")
 
 
 def als_utc(moment: Any) -> datetime | None:
@@ -65,11 +56,11 @@ def als_utc(moment: Any) -> datetime | None:
 def gueltig_bis_ab(now: datetime) -> datetime:
     """When a step asked at `now` lapses: a link to the new mailbox, or the approval asked of the address on file."""
 
-    return now.astimezone(UTC) + timedelta(hours=ADRESSWECHSEL_GUELTIG_STUNDEN)
+    return now.astimezone(UTC) + timedelta(hours=ADDRESS_CHANGE_VALID_HOURS)
 
 
-def wirksam_ab_von(bestaetigt_am: datetime) -> datetime:
-    return bestaetigt_am.astimezone(UTC) + timedelta(days=ADRESSWECHSEL_WARTEZEIT_TAGE)
+def wirksam_ab_von(confirmed_at: datetime) -> datetime:
+    return confirmed_at.astimezone(UTC) + timedelta(days=ADDRESS_CHANGE_WAITING_PERIOD_DAYS)
 
 
 def _german_day(now: datetime) -> str:
@@ -77,18 +68,18 @@ def _german_day(now: datetime) -> str:
     return now.astimezone(_GERMANY).strftime("%Y-%m-%d")
 
 
-def compose_genehmigung(*, verwaltung: str, gestartet_von: str, now: datetime) -> dict[str, Any]:
+def compose_genehmigung(*, verwaltung: str, started_by: str, now: datetime) -> dict[str, Any]:
     """The approval a change moving a grant waits on: the tier it moves, who started it, when, and the end of its week."""
 
     return {
         "verwaltung": verwaltung,
         # Its approver held their grant since then (`app/api/berechtigungen/services.py :: haelt_seit`).
-        "angefragt_am": now.astimezone(UTC),
-        "bis": now.astimezone(UTC) + timedelta(days=GENEHMIGUNG_TAGE),
-        # Folded, as `erteilt_von` stores an administrator: the one compared with the approver.
-        "gestartet_von": gestartet_von,
-        "genehmigt_am": None,
-        "genehmigt_von": None,
+        "asked_at": now.astimezone(UTC),
+        "bis": now.astimezone(UTC) + timedelta(days=APPROVAL_DAYS),
+        # Folded, as `granted_by` stores an administrator: the one compared with the approver.
+        "started_by": started_by,
+        "approved_at": None,
+        "approved_by": None,
     }
 
 
@@ -96,47 +87,42 @@ def compose_record(
     *,
     adresse: str,
     email: str,
-    weg: FLAdresswechselWeg,
-    token_hash: str | None,
-    stopp_hash: str,
+    way: FLAddressChangeWay,
     grund: str | None,
-    genehmigung: Mapping[str, Any] | None,
+    approval: Mapping[str, Any] | None,
     now: datetime,
 ) -> dict[str, Any]:
     """The WHOLE record a start inserts, never reused, so a journal line's id names one change.
 
-    `token_hash` and `versand` are null while the address on file is asked first: nothing reaches the new mailbox before
-    its approval.
+    Both links' arrays empty: each mail's hand-out mints its link into them (`app/api/outbox/system_router.py :: post_handout`).
     """
 
     return {
         "adresse": adresse,
         "email": email,
-        "weg": weg,
-        "token_hash": token_hash,
-        "stopp_hash": stopp_hash,
-        "verschickt_am": _german_day(now),
-        "gueltig_bis": gueltig_bis_ab(now),
-        "freigegeben_am": None,
+        "way": way,
+        "token_hashes": [],
+        "stop": {"token_hashes": []},
+        "sent_at": _german_day(now),
+        "valid_until": gueltig_bis_ab(now),
+        "released_at": None,
         "grund": grund,
-        "bestaetigt_am": None,
-        "wirksam_ab": None,
-        # Empty once a link to the new mailbox is minted, the carrier its delivery state is written into.
-        "versand": None if token_hash is None else {},
-        "genehmigung": None if genehmigung is None else dict(genehmigung),
-        "beendet": None,
+        "confirmed_at": None,
+        "effective_from": None,
+        "approval": None if approval is None else dict(approval),
+        "ended": None,
     }
 
 
-def compose_link_update(*, token_hash: str, now: datetime, freigabe: bool) -> dict[str, Any]:
-    """A fresh link to the new mailbox, for the approval of the address on file or a re-send; the stop hash stays.
+def compose_link_update(*, now: datetime, freigabe: bool) -> dict[str, Any]:
+    """A fresh deadline for the new mailbox's link, for the approval of the address on file or a re-send; the stop link stays.
 
-    The delivery state goes: it described the message the replaced link went out in.
+    The link itself is minted as its mail is handed out, replacing the one before (`owe_the_link_in_session`).
     """
 
-    gesetzt: dict[str, Any] = {"token_hash": token_hash, "gueltig_bis": gueltig_bis_ab(now), "verschickt_am": _german_day(now), "versand": {}}
+    gesetzt: dict[str, Any] = {"valid_until": gueltig_bis_ab(now), "sent_at": _german_day(now)}
     if freigabe:
-        gesetzt["freigegeben_am"] = now.astimezone(UTC)
+        gesetzt["released_at"] = now.astimezone(UTC)
 
     return {"$set": gesetzt}
 
@@ -147,62 +133,34 @@ def compose_confirmation_update(*, record: Mapping[str, Any], now: datetime) -> 
     The token's hash stays, so the link answers what became of the change while its record is kept.
     """
 
-    gesetzt: dict[str, Any] = {"gueltig_bis": None, "bestaetigt_am": now.astimezone(UTC)}
-    if record.get("weg") == "wartezeit":
-        gesetzt["wirksam_ab"] = wirksam_ab_von(now)
+    gesetzt: dict[str, Any] = {"valid_until": None, "confirmed_at": now.astimezone(UTC)}
+    if record.get("way") == "waiting_period":
+        gesetzt["effective_from"] = wirksam_ab_von(now)
 
     return {"$set": gesetzt}
 
 
 def compose_genehmigt_update(*, akteur: str, now: datetime) -> dict[str, Any]:
-    return {"$set": {"genehmigung.genehmigt_am": now.astimezone(UTC), "genehmigung.genehmigt_von": akteur}}
-
-
-def compose_postausgang(
-    *,
-    art: Literal["wirksam", "verworfen"],
-    email: str,
-    now: datetime,
-    bisherige_email: str | None,
-    vorname: str | None,
-    weg: str | None,
-) -> dict[str, Any]:
-    """One notice an end owes, queued in the end's own transaction: its answer alone carried it, and a lost answer lost it.
-
-    Unclaimed until a pass claims it (`app/api/berechtigungen/services.py :: BEANSPRUCHUNG_DAUER`'s lease).
-    """
-
-    return {
-        "art": art,
-        "bisherige_email": bisherige_email,
-        "email": email,
-        "vorname": vorname,
-        "weg": weg,
-        "erfasst_am": now.astimezone(UTC),
-        "beansprucht_bis": None,
-        "beanspruchung": None,
-        "versuche": 0,
-    }
+    return {"$set": {"approval.approved_at": now.astimezone(UTC), "approval.approved_by": akteur}}
 
 
 def build_owed_carry_filter(adressen: list[str]) -> dict[str, Any]:
-    """The owed effects' notices whose drain still carries a sign-in account off one of these folded addresses.
+    """The ended changes still owing to carry a sign-in account off one of these folded addresses.
 
-    The frontend's `fl_frontend/src/features/adresswechsel/notifications.ts :: adresswechselWirksam` carries on these
-    terms; no index serves them, the outbox holding only notices not yet delivered.
+    No index serves it: a carry is owed from an effect until the frontend reports it done, seconds as a rule.
     """
 
-    return {"art": "wirksam", "bisherige_email": {"$in": adressen}, "weg": {"$ne": "wartezeit"}}
+    return {"move.von": {"$in": adressen}}
 
 
 def compose_genehmigung_widerrufen_update() -> dict[str, Any]:
     """An approval that does not stand, taken off: its request's instant and deadline stay, so a new approval is judged as the first."""
 
-    return {"$set": {"genehmigung.genehmigt_am": None, "genehmigung.genehmigt_von": None}}
+    return {"$set": {"approval.approved_at": None, "approval.approved_by": None}}
 
 
-def compose_end_update(*, art: FLAdresswechselEndeArt, now: datetime) -> dict[str, Any]:
-    """An ended change's tombstone: its addresses, its reason, its delivery carrier and its approval go; its hashes stay.
+def compose_end_update(*, art: FLAddressChangeEndArt, now: datetime) -> dict[str, Any]:
+    """An ended change's tombstone: its addresses, its reason and its approval go; its hashes stay.
 
     The hashes let each link answer how the change ended until the TTL removes the record.
     """
@@ -212,21 +170,20 @@ def compose_end_update(*, art: FLAdresswechselEndeArt, now: datetime) -> dict[st
             "adresse": None,
             "email": None,
             "grund": None,
-            "versand": None,
-            "genehmigung": None,
-            "beendet": {"art": art, "am": now.astimezone(UTC)},
+            "approval": None,
+            "ended": {"art": art, "am": now.astimezone(UTC)},
         }
     }
 
 
-def build_live_filter(adresswechsel_id: Any, terms: Mapping[str, Any] | None = None) -> dict[str, Any]:
+def build_live_filter(address_change_id: Any, terms: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """One live change by its id, matching `terms`. The filter is the judgement: an ended or unknown one is the miss."""
 
-    return {"_id": adresswechsel_id, **LIVE_TERMS, **(terms or {})}
+    return {"_id": address_change_id, **LIVE_TERMS, **(terms or {})}
 
 
 def build_address_filter(adresse: str) -> dict[str, Any]:
-    """The live change of one folded address, which `uniq_adresswechsel_adresse` answers by equality.
+    """The live change of one folded address, which `uniq_address_change_adresse` answers by equality.
 
     The key's type stated beside its value: the planner reads an equality as no subset of the index's `$type` term.
     """
@@ -243,12 +200,12 @@ def build_addresses_filter(adressen: list[str]) -> dict[str, Any]:
 def build_awaiting_genehmigung_filter(adressen: list[str], *, now: datetime) -> dict[str, Any]:
     """The live changes of these folded addresses awaiting their grant's approval, no step lapsed: what the administrators page offers.
 
-    A lapsed one is refused `-003`, so the reload that refusal asks for must not offer it.
+    A lapsed one is refused `link_expired`, so the reload that refusal asks for must not offer it.
     """
 
     return {
         **build_addresses_filter(adressen),
-        "genehmigung.genehmigt_am": {"$type": "null"},
+        "approval.approved_at": {"$type": "null"},
         # `ist_abgelaufen`'s judgement, negated: one lapse rule for the press, the pass and this list.
         "$nor": build_lapsed_terms(now)["$or"],
     }
@@ -257,19 +214,19 @@ def build_awaiting_genehmigung_filter(adressen: list[str], *, now: datetime) -> 
 def build_awaiting_approval_terms() -> dict[str, Any]:
     """A change an administrator started without a reason, its address on file not yet asked to approve it in vain."""
 
-    return {"weg": "freigabe", "token_hash": None, "bestaetigt_am": None}
+    return {"way": "release", "released_at": None, "confirmed_at": None}
 
 
 def build_resendable_terms() -> dict[str, Any]:
     """A change waiting on the new mailbox: one awaiting the address on file's approval, or confirmed, has no link to re-send."""
 
-    return {"token_hash": {"$type": "string"}, "bestaetigt_am": None}
+    return {"$nor": [{"way": "release", "released_at": None}], "confirmed_at": None}
 
 
 def build_open_link_terms(token_hash: str) -> dict[str, Any]:
     """The new mailbox's link while the change waits on it: confirmed once, it takes no second answer."""
 
-    return {"token_hash": token_hash, "bestaetigt_am": None}
+    return {"token_hashes": token_hash, "confirmed_at": None}
 
 
 def build_lapsed_terms(now: datetime) -> dict[str, Any]:
@@ -278,8 +235,8 @@ def build_lapsed_terms(now: datetime) -> dict[str, Any]:
     return {
         **LIVE_TERMS,
         "$or": [
-            {"gueltig_bis": {"$type": "date", "$lte": now}},
-            {"genehmigung.bis": {"$type": "date", "$lte": now}, "genehmigung.genehmigt_am": {"$type": "null"}},
+            {"valid_until": {"$type": "date", "$lte": now}},
+            {"approval.bis": {"$type": "date", "$lte": now}, "approval.approved_at": {"$type": "null"}},
         ],
     }
 
@@ -292,12 +249,12 @@ def build_due_terms(now: datetime) -> dict[str, Any]:
 
     return {
         **LIVE_TERMS,
-        "bestaetigt_am": {"$type": "date"},
-        "$or": [{"wirksam_ab": {"$type": "null"}}, {"wirksam_ab": {"$type": "date", "$lte": now}}],
+        "confirmed_at": {"$type": "date"},
+        "$or": [{"effective_from": {"$type": "null"}}, {"effective_from": {"$type": "date", "$lte": now}}],
     }
 
 
-# Where a `$lookup` of the address's grant row lands, the unique index serving it (`uniq_berechtigung_adresse`).
+# Where a `$lookup` of the address's grant row lands, the unique index serving it (`uniq_grant_adresse`).
 GEHALTEN: Final = "_berechtigung"
 
 
@@ -308,9 +265,9 @@ def build_parked_terms(now: datetime) -> dict[str, Any]:
     """
 
     return {
-        "bestaetigt_am": {"$type": "date"},
-        "genehmigung.genehmigt_am": {"$type": "null"},
-        "genehmigung.bis": {"$type": "date", "$gt": now},
+        "confirmed_at": {"$type": "date"},
+        "approval.approved_at": {"$type": "null"},
+        "approval.bis": {"$type": "date", "$gt": now},
         f"{GEHALTEN}.0": {"$exists": True},
     }
 
@@ -318,12 +275,12 @@ def build_parked_terms(now: datetime) -> dict[str, Any]:
 def ist_abgelaufen(record: Mapping[str, Any], *, now: datetime) -> bool:
     """Whether the step a live change waits on has lapsed, judged as `build_lapsed_terms` removes it."""
 
-    gueltig_bis = als_utc(record.get("gueltig_bis"))
+    gueltig_bis = als_utc(record.get("valid_until"))
     if gueltig_bis is not None and gueltig_bis <= now:
         return True
 
-    genehmigung = record.get("genehmigung")
-    if not isinstance(genehmigung, Mapping) or genehmigung.get("genehmigt_am") is not None:
+    genehmigung = record.get("approval")
+    if not isinstance(genehmigung, Mapping) or genehmigung.get("approved_at") is not None:
         return False
     bis = als_utc(genehmigung.get("bis"))
 
@@ -333,35 +290,35 @@ def ist_abgelaufen(record: Mapping[str, Any], *, now: datetime) -> bool:
 def genehmigung_offen(record: Mapping[str, Any]) -> bool:
     """Whether the change asks another administrator's approval it has not been given."""
 
-    genehmigung = record.get("genehmigung")
+    genehmigung = record.get("approval")
 
-    return isinstance(genehmigung, Mapping) and genehmigung.get("genehmigt_am") is None
+    return isinstance(genehmigung, Mapping) and genehmigung.get("approved_at") is None
 
 
 def ist_faellig(record: Mapping[str, Any], *, now: datetime) -> bool:
     """Whether a confirmed change has no waiting time left: none was asked, or it ended at or before `now`."""
 
-    wirksam_ab = als_utc(record.get("wirksam_ab"))
+    wirksam_ab = als_utc(record.get("effective_from"))
 
-    return record.get("bestaetigt_am") is not None and (wirksam_ab is None or wirksam_ab <= now)
+    return record.get("confirmed_at") is not None and (wirksam_ab is None or wirksam_ab <= now)
 
 
-def wartet_auf(record: Mapping[str, Any]) -> FLAdresswechselWartetAuf:
-    if record.get("bestaetigt_am") is not None:
+def wartet_auf(record: Mapping[str, Any]) -> FLAddressChangeWaitsOn:
+    if record.get("confirmed_at") is not None:
         # A confirmed change with no waiting time stands only while its grant's approval is owed.
-        return "wartezeit" if record.get("wirksam_ab") is not None else "genehmigung"
+        return "waiting_period" if record.get("effective_from") is not None else "approval"
 
-    if record.get("weg") == "freigabe" and record.get("token_hash") is None:
-        return "freigabe"
+    if record.get("way") == "release" and record.get("released_at") is None:
+        return "release"
 
-    return "neue_adresse"
+    return "new_adresse"
 
 
-_BISHERIG: Final[Mapping[FLAdresswechselWartetAuf, FLAdresswechselBisherigZustand]] = {
-    "freigabe": "freigabe_offen",
-    "neue_adresse": "offen",
-    "genehmigung": "genehmigung",
-    "wartezeit": "wartezeit",
+_BISHERIG: Final[Mapping[FLAddressChangeWaitsOn, FLAdresswechselBisherigZustand]] = {
+    "release": "release_open",
+    "new_adresse": "open",
+    "approval": "approval",
+    "waiting_period": "waiting_period",
 }
 
 
@@ -371,29 +328,29 @@ def bisherig_zustand(record: Mapping[str, Any]) -> FLAdresswechselBisherigZustan
     return _BISHERIG[wartet_auf(record)]
 
 
-def neu_zustand(record: Mapping[str, Any], *, now: datetime, gesperrt: bool, nicht_bestaetigbar: bool) -> FLAdresswechselNeuZustand:
+def neu_zustand(record: Mapping[str, Any], *, now: datetime, barred: bool, nicht_bestaetigbar: bool) -> FLAdresswechselNeuZustand:
     """What the new mailbox's link shows, in the order the confirmation judges, so a refused press names what a reload shows.
 
     The unconfirmable causes read alike here; the press's own codes part them, merged only at the edge.
     """
 
-    if record.get("bestaetigt_am") is not None:
-        # Never `bestaetigt` once its approval week lapsed: the pass ends it unapproved, which the page must not deny.
-        return "genehmigung_abgelaufen" if ist_abgelaufen(record, now=now) else "bestaetigt"
+    if record.get("confirmed_at") is not None:
+        # Never `confirmed` once its approval week lapsed: the pass ends it unapproved, which the page must not deny.
+        return "approval_expired" if ist_abgelaufen(record, now=now) else "confirmed"
 
-    if gesperrt:
-        return "gesperrt"
+    if barred:
+        return "barred"
 
     if ist_abgelaufen(record, now=now):
-        return "abgelaufen"
+        return "expired"
 
-    return "nicht_bestaetigbar" if nicht_bestaetigbar else "gueltig"
+    return "not_confirmable" if nicht_bestaetigbar else "valid"
 
 
-def deckt(genehmigung: Any, verwaltung: Any) -> bool:
+def deckt(approval: Any, verwaltung: Any) -> bool:
     """Whether a change's approval covers moving a grant of `verwaltung`: asked for that tier or a higher one."""
 
-    return isinstance(genehmigung, Mapping) and _RANG.get(str(genehmigung.get("verwaltung")), -1) >= _RANG.get(str(verwaltung), 2)
+    return isinstance(approval, Mapping) and _RANG.get(str(approval.get("verwaltung")), -1) >= _RANG.get(str(verwaltung), 2)
 
 
 def _gezeigtes_label(label: str) -> str:
@@ -426,107 +383,77 @@ def maskierte_adresse(email: str) -> str:
     return f"{local[:1]}•••@{gekuerzt}"
 
 
-# What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
-ADRESSWECHSEL_UNBEKANNT = "REQ-ADRESSWECHSEL-001"
-ADRESSWECHSEL_BEENDET = "REQ-ADRESSWECHSEL-002"
-ADRESSWECHSEL_ABGELAUFEN = "REQ-ADRESSWECHSEL-003"
-# 403 where `-009` is 409: this caller is the barred person, and nothing they change lifts it.
-ADRESSWECHSEL_BESTAETIGUNG_GESPERRT = "REQ-ADRESSWECHSEL-004"
-# Its own code and never `-004`'s: the barred address here is the one on file, which the caller may not even hold.
-ADRESSWECHSEL_ERSETZTE_GESPERRT = "REQ-ADRESSWECHSEL-005"
-ADRESSWECHSEL_VERGEBEN = "REQ-ADRESSWECHSEL-006"
-ADRESSWECHSEL_UNVERAENDERT = "REQ-ADRESSWECHSEL-007"
-ADRESSWECHSEL_NAME_IM_GRUND = "REQ-ADRESSWECHSEL-008"
-ADRESSWECHSEL_GESPERRT = "REQ-ADRESSWECHSEL-009"
-ADRESSWECHSEL_NICHTS = "REQ-ADRESSWECHSEL-010"
-ADRESSWECHSEL_KEIN_GENEHMIGER = "REQ-ADRESSWECHSEL-011"
-ADRESSWECHSEL_KEINE_GENEHMIGUNG_OFFEN = "REQ-ADRESSWECHSEL-012"
-# 403: the refusal is about who asks, and another administrator's press is what lifts it.
-ADRESSWECHSEL_GENEHMIGUNG_VERWEHRT = "REQ-ADRESSWECHSEL-013"
-ADRESSWECHSEL_GENEHMIGUNG_INHABER = "REQ-ADRESSWECHSEL-014"
-ADRESSWECHSEL_NICHT_GEDECKT = "REQ-ADRESSWECHSEL-015"
-ADRESSWECHSEL_NEUE_BERECHTIGT = "REQ-ADRESSWECHSEL-016"
-# 403 as `-013`: about who asks; an administrator holding their grant since before the start lifts it.
-ADRESSWECHSEL_GENEHMIGUNG_JUENGER = "REQ-ADRESSWECHSEL-017"
-ADRESSWECHSEL_BELEGT = "REQ-ADRESSWECHSEL-018"
-
-
 def find_unbekannt_refusal(*, found: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-001`: the link matches no change, live or kept, and so answers nothing about one."""
+    """`link_invalid`: the link matches no change, live or kept, and so answers nothing about one."""
 
     if found:
         return None
 
-    return WriteRefusal(error_code=ADRESSWECHSEL_UNBEKANNT, status=HTTPStatus.NOT_FOUND, message="this link opens no address change")
+    return WriteRefusal(error_code=Code.LINK_INVALID, status=HTTPStatus.NOT_FOUND)
 
 
 def find_beendet_refusal(*, offen: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-002`: the change this link or id names has ended, or this link was answered already."""
+    """`address_change_ended`: the change this link or id names has ended, or this link was answered already."""
 
     if offen:
         return None
 
     return WriteRefusal(
-        error_code=ADRESSWECHSEL_BEENDET,
+        error_code=Code.ADDRESS_CHANGE_ENDED,
         status=HTTPStatus.CONFLICT,
-        message="this address change has ended or was answered already; reload to see what became of it",
     )
 
 
 def find_abgelaufen_refusal(*, abgelaufen: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-003`: the step the change waits on lapsed -- its link, the approval asked, or its grant's approval."""
+    """`link_expired`: the step the change waits on lapsed -- its link, the approval asked, or its grant's approval."""
 
     if not abgelaufen:
         return None
 
     return WriteRefusal(
-        error_code=ADRESSWECHSEL_ABGELAUFEN,
+        error_code=Code.LINK_EXPIRED,
         status=HTTPStatus.GONE,
-        message="this step of the address change has lapsed; the change ends within the hour and may be started afresh",
     )
 
 
-def find_bestaetigung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-004`: the ban list holds the address the link was mailed to, however long ago it was minted."""
+def find_bestaetigung_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
+    """`link_barred`: the ban list holds the address the link was mailed to, however long ago it was minted."""
 
-    if not gesperrt:
+    if not barred:
         return None
 
     return WriteRefusal(
-        error_code=ADRESSWECHSEL_BESTAETIGUNG_GESPERRT,
+        error_code=Code.LINK_BARRED,
         status=HTTPStatus.FORBIDDEN,
-        message="the email address this link was sent to is on the ban list, so it confirms nothing",
     )
 
 
-def find_ersetzte_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-005`: the ban list holds the address the change would replace, so moving would carry the ban's person off it."""
+def find_ersetzte_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
+    """`address_change_replaced_barred`: the ban list holds the address the change replaces, so moving would carry the ban's person off it."""
 
-    if not gesperrt:
+    if not barred:
         return None
 
     return WriteRefusal(
-        error_code=ADRESSWECHSEL_ERSETZTE_GESPERRT,
+        error_code=Code.ADDRESS_CHANGE_REPLACED_BARRED,
         status=HTTPStatus.CONFLICT,
-        message="this address change can no longer take effect; the address on file stays",
     )
 
 
 def find_vergeben_refusal(*, vergeben: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-006`: another pupil signs in on the new address, and one address is one pupil (`uniq_spieler_email`)."""
+    """`address_change_taken`: another pupil signs in on the new address, and one address is one pupil (`uniq_spieler_email`)."""
 
     if not vergeben:
         return None
 
     return WriteRefusal(
-        error_code=ADRESSWECHSEL_VERGEBEN,
+        error_code=Code.ADDRESS_CHANGE_TAKEN,
         status=HTTPStatus.CONFLICT,
-        message="another pupil's entry holds this email address, and an address belongs to one entry alone",
     )
 
 
 def find_unveraendert_refusal(*, adresse: str, folded: str) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-007`: the typed address signs in as the one on file, so it would ask a mailbox already proved.
+    """`address_change_unchanged`: the typed address signs in as the one on file, so it would ask a mailbox already proved.
 
     `folded` is the typed address's sign-in identifier, which the caller folds; `adresse` is one already.
     """
@@ -536,58 +463,37 @@ def find_unveraendert_refusal(*, adresse: str, folded: str) -> WriteRefusal | No
 
     # Naming neither address: the message reaches the refusal's log line.
     return WriteRefusal(
-        error_code=ADRESSWECHSEL_UNVERAENDERT,
+        error_code=Code.ADDRESS_CHANGE_UNCHANGED,
         status=HTTPStatus.CONFLICT,
-        message="the typed email address is the one on file already",
     )
 
 
-def find_name_im_grund_refusal(*, nennt_namen: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-008`: no name of the records the change moves stands in its reason, which the log keeps a year.
+def find_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
+    """`address_change_barred`: no link an administrator mints goes to an address the ban list holds. Worded for them."""
 
-    Judged by `app/api/identitaet/services.py :: holds_a_name`, which the caller asks.
-    """
-
-    if not nennt_namen:
-        return None
-
-    # Naming none of them: the message reaches the refusal's log line.
-    return WriteRefusal(
-        error_code=ADRESSWECHSEL_NAME_IM_GRUND,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        message="the reason for this address change names the person, and the log keeps every row it files for a year",
-        fields=(("grund",),),
-    )
-
-
-def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-009`: no link an administrator mints goes to an address the ban list holds. Worded for them."""
-
-    if not gesperrt:
+    if not barred:
         return None
 
     return WriteRefusal(
-        error_code=ADRESSWECHSEL_GESPERRT,
+        error_code=Code.ADDRESS_CHANGE_BARRED,
         status=HTTPStatus.CONFLICT,
-        message="this email address is on the ban list, so no address link may be sent to it; lift the entry first",
     )
 
 
 def find_nichts_refusal(*, leer: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-010`: the address holds nothing a change moves, so there is nothing to change."""
+    """`address_change_nothing`: the address holds nothing a change moves, so there is nothing to change."""
 
     if not leer:
         return None
 
     return WriteRefusal(
-        error_code=ADRESSWECHSEL_NICHTS,
+        error_code=Code.ADDRESS_CHANGE_NOTHING,
         status=HTTPStatus.CONFLICT,
-        message="this email address holds nothing an address change moves",
     )
 
 
 def find_kein_genehmiger_refusal(*, genehmiger: int) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-011`: a change moving a grant waits on an approver nobody could be.
+    """`address_change_no_approver`: a change moving a grant waits on an approver nobody could be.
 
     Neither the changed address nor the change's starter approves, and an owner's grant is approved by another owner alone:
     the last owner makes another first.
@@ -597,57 +503,54 @@ def find_kein_genehmiger_refusal(*, genehmiger: int) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=ADRESSWECHSEL_KEIN_GENEHMIGER,
+        error_code=Code.ADDRESS_CHANGE_NO_APPROVER,
         status=HTTPStatus.CONFLICT,
-        message="nobody could approve this change of an administrator's address; make another person an owner or an administrator first",
     )
 
 
 def find_keine_genehmigung_offen_refusal(*, offen: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-012`: the change asks no approval, or was given it already."""
+    """`address_change_no_approval_open`: the change asks no approval, or was given it already."""
 
     if offen:
         return None
 
     return WriteRefusal(
-        error_code=ADRESSWECHSEL_KEINE_GENEHMIGUNG_OFFEN,
+        error_code=Code.ADDRESS_CHANGE_NO_APPROVAL_OPEN,
         status=HTTPStatus.CONFLICT,
-        message="no approval waits on this address change",
     )
 
 
-def find_genehmigung_verwehrt_refusal(*, verwehrt: FLGenehmigungVerwehrt | None) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-013` for the changed address or the starter, `-014` for an owner's grant without an owner's power.
+def find_genehmigung_verwehrt_refusal(*, denied: FLApprovalDenied | None) -> WriteRefusal | None:
+    """Why this approver may not approve the change, or `None`.
 
-    `-017` for an approver whose grant, or owner's tier, took effect after the change's start.
+    `address_change_approval_denied` for the changed address or the starter, `address_change_approval_owner` for an owner's grant
+    without an owner's power, `address_change_approval_younger` for an approver whose grant, or owner's tier, took effect after the
+    change's start.
     """
 
-    if verwehrt is None:
+    if denied is None:
         return None
 
-    if verwehrt == "juenger":
+    if denied == "younger":
         return WriteRefusal(
-            error_code=ADRESSWECHSEL_GENEHMIGUNG_JUENGER,
+            error_code=Code.ADDRESS_CHANGE_APPROVAL_YOUNGER,
             status=HTTPStatus.FORBIDDEN,
-            message="a change is approved by an administrator who held their access since before it started",
         )
 
-    if verwehrt == "inhaber":
+    if denied == "owner":
         return WriteRefusal(
-            error_code=ADRESSWECHSEL_GENEHMIGUNG_INHABER,
+            error_code=Code.ADDRESS_CHANGE_APPROVAL_OWNER,
             status=HTTPStatus.FORBIDDEN,
-            message="this change moves an owner's access, which another owner, signed in since becoming one, approves",
         )
 
     return WriteRefusal(
-        error_code=ADRESSWECHSEL_GENEHMIGUNG_VERWEHRT,
+        error_code=Code.ADDRESS_CHANGE_APPROVAL_DENIED,
         status=HTTPStatus.FORBIDDEN,
-        message="a change is approved by an administrator other than its person and the one who started it",
     )
 
 
 def find_nicht_gedeckt_refusal(*, gedeckt: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-015`: the address came to hold a grant, or a higher tier, than the change's approval was asked for.
+    """`address_change_not_covered`: the address came to hold a grant, or a higher tier, than the change's approval was asked for.
 
     Moving it would hand access over unapproved, and leaving it would keep it at an address its person has left.
     """
@@ -656,14 +559,13 @@ def find_nicht_gedeckt_refusal(*, gedeckt: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=ADRESSWECHSEL_NICHT_GEDECKT,
+        error_code=Code.ADDRESS_CHANGE_NOT_COVERED,
         status=HTTPStatus.CONFLICT,
-        message="the address came to hold access to the administration this change was not approved for; start it again",
     )
 
 
 def find_belegt_refusal(*, belegt: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-018`: an entry names the new address, and moving the person onto it would join two people's.
+    """`address_change_occupied`: an entry names the new address, and moving the person onto it would join two people's.
 
     Never judged at the person's own start, which would tell its holder which addresses hold entries.
     """
@@ -672,20 +574,18 @@ def find_belegt_refusal(*, belegt: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=ADRESSWECHSEL_BELEGT,
+        error_code=Code.ADDRESS_CHANGE_OCCUPIED,
         status=HTTPStatus.CONFLICT,
-        message="the new email address holds entries of its own, so this change cannot move these onto it",
     )
 
 
 def find_neue_berechtigt_refusal(*, berechtigt: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-016`: the new address holds a grant already, and one address holds one grant."""
+    """`address_change_new_granted`: the new address holds a grant already, and one address holds one grant."""
 
     if not berechtigt:
         return None
 
     return WriteRefusal(
-        error_code=ADRESSWECHSEL_NEUE_BERECHTIGT,
+        error_code=Code.ADDRESS_CHANGE_NEW_GRANTED,
         status=HTTPStatus.CONFLICT,
-        message="the new email address already holds access to the administration",
     )

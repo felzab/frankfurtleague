@@ -103,7 +103,7 @@ describe("the sign-in store's index build", () => {
     expect(lines).toStrictEqual([
       {
         event: "auth.index_unbuilt",
-        fields: { error_code: "FE-AUTH-011", index: refused[0], name: "MongoServerError", code: 11000, codeName: "DuplicateKey" },
+        fields: { index: refused[0], name: "MongoServerError", code: 11000, codeName: "DuplicateKey" },
       },
     ]);
     assert.ok(builds.length > 1, "nothing beside the refused index was asked for");

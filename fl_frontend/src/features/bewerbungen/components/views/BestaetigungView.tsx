@@ -25,7 +25,8 @@ import {
 } from "./BestaetigungPanels";
 import { BestaetigungSaisonVorbei } from "./BestaetigungSaisonVorbei";
 
-import type { EinwilligungGeoeffnet, EinwilligungQuelle, LinkZustand } from "@/features/bewerbungen/types";
+import type { FLBewerbungEinwilligungViewResponse, FLBewerbungEinwilligungViewResponseQuelle } from "@/core/generated/client/types";
+import type { LinkZustand } from "@/features/bewerbungen/types";
 import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
 import type { KontaktFassung } from "./BestaetigungHinweise";
 
@@ -34,38 +35,39 @@ import type { KontaktFassung } from "./BestaetigungHinweise";
  * state is a panel that names nobody, and a dead link handed onward identifies nobody either.
  */
 export type BestaetigungStart =
-  | { zustand: "gueltig"; ansicht: EinwilligungGeoeffnet; token: string; fassung: KontaktFassung }
-  | { zustand: "saison_vorbei"; ansicht: EinwilligungGeoeffnet; token: string }
-  | { zustand: LinkZustand | "unlesbar"; quelle?: EinwilligungQuelle };
+  | { zustand: "valid"; ansicht: FLBewerbungEinwilligungViewResponse; token: string; wording: KontaktFassung }
+  | { zustand: "saison_past"; ansicht: FLBewerbungEinwilligungViewResponse; token: string }
+  | { zustand: LinkZustand | "unlesbar"; quelle?: FLBewerbungEinwilligungViewResponseQuelle };
 
 type Stand =
   | BestaetigungStart
-  | { zustand: "erfolg"; ansicht: EinwilligungGeoeffnet; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
-  | { zustand: "widersprochen-neu"; ansicht: EinwilligungGeoeffnet };
+  | { zustand: "erfolg"; ansicht: FLBewerbungEinwilligungViewResponse; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
+  | { zustand: "widersprochen-neu"; ansicht: FLBewerbungEinwilligungViewResponse };
 
 /** One heading per state, uppercased by the page rather than typed so, as the application page does it. A barred link's page has none. */
-const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
-  gueltig: "Eintrag bestätigen",
+const TITEL: Record<Exclude<Stand["zustand"], "barred">, string> = {
+  valid: "Eintrag bestätigen",
   erfolg: "Eintrag bestätigt",
   "widersprochen-neu": "Widerspruch gespeichert",
-  saison_vorbei: "Bestätigen nicht mehr möglich",
-  bestaetigt: "Schon erledigt",
-  abgelehnt: "Schon erledigt",
-  abgelaufen: "Link ungültig",
-  ungueltig: "Link ungültig",
+  saison_past: "Bestätigen nicht mehr möglich",
+  confirmed: "Schon erledigt",
+  declined: "Schon erledigt",
+  expired: "Link ungültig",
+  invalid: "Link ungültig",
   unlesbar: LINK_UNLESBAR_TITEL,
 };
 
 /** Every seat one answer on this link writes, so the page names the reader what the mail that brought them here named them. */
-const linkRollen = ({ rolle, zugleich_rolle }: EinwilligungGeoeffnet): string => rollenLangform([rolle, zugleich_rolle]);
+const linkRollen = ({ rolle, also_rolle: zugleich_rolle }: FLBewerbungEinwilligungViewResponse): string =>
+  rollenLangform([rolle, zugleich_rolle]);
 
 /** The press's answer folded into the page's state, carrying the read that the panel still names the person from. */
-function nachAntwort(abschluss: BestaetigungAbschluss, ansicht: EinwilligungGeoeffnet, token: string): Stand {
+function nachAntwort(abschluss: BestaetigungAbschluss, ansicht: FLBewerbungEinwilligungViewResponse, token: string): Stand {
   if (abschluss.zustand === "erfolg") return { ...abschluss, ansicht: ansicht };
   if (abschluss.zustand === "widersprochen-neu") return { zustand: "widersprochen-neu", ansicht: ansicht };
   // The season closed since the page opened, and the token still takes a Widerspruch. Named off the read after the
   // press where there is one, as a reload names it: the opening read cannot know the team left since.
-  if (abschluss.zustand === "saison_vorbei") return { zustand: "saison_vorbei", ansicht: abschluss.ansicht ?? ansicht, token: token };
+  if (abschluss.zustand === "saison_vorbei") return { zustand: "saison_past", ansicht: abschluss.ansicht ?? ansicht, token: token };
 
   // The read that opened the page knew the record, which the spent link's panel words itself by.
   return { zustand: abschluss.zustand, quelle: ansicht.quelle };
@@ -89,7 +91,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
   const [stand, setStand] = useState<Stand>(start);
   const { ergebnisRef, beantwortet } = useLinkSeite(stand.zustand);
 
-  if (stand.zustand === "gesperrt") return <AdresseGesperrt panelRef={ergebnisRef} />;
+  if (stand.zustand === "barred") return <AdresseGesperrt panelRef={ergebnisRef} />;
 
   const saison = saisonVon(stand);
   const saisonRow = istSaison(stand);
@@ -103,7 +105,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
 
         {/* The facts the mail led with, in the mail's own panel: standing in a sentence under the
             heading they were what a reader skimmed past on the way to the button. */}
-        {stand.zustand === "gueltig" && (
+        {stand.zustand === "valid" && (
           <FaktenBanner
             zeilen={[
               // A season row's seat is entered for a team, which its stamped words and its mail call it.
@@ -115,7 +117,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         )}
         {/* Said here because the stamped wording cannot say it: one press confirms both seats, and a
             Widerspruch empties both. */}
-        {stand.zustand === "gueltig" && stand.ansicht.zugleich_rolle !== null && (
+        {stand.zustand === "valid" && stand.ansicht.also_rolle !== null && (
           <p className={ABSATZ_CLASSES}>
             {saisonRow ? "Du bist für dieses Team zweimal eingetragen" : "Du bist in dieser Bewerbung zweimal eingetragen"}, und Deine Antwort
             gilt für beide Einträge.
@@ -123,16 +125,16 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         )}
       </header>
 
-      {stand.zustand === "gueltig" && (
+      {stand.zustand === "valid" && (
         <BestaetigungFormPanel
-          fassung={stand.fassung}
+          fassung={stand.wording}
           token={stand.token}
           schule={stand.ansicht.schule}
           saison={stand.ansicht.saison_id}
           rolle={linkRollen(stand.ansicht)}
           istSaison={saisonRow}
-          mindestalter={stand.ansicht.mindestalter}
-          medienMindestalter={stand.ansicht.medien_mindestalter}
+          mindestalter={stand.ansicht.minimum_age}
+          medienMindestalter={stand.ansicht.medien_minimum_age}
           onAbschluss={(abschluss) => {
             beantwortet();
             setStand(nachAntwort(abschluss, stand.ansicht, stand.token));
@@ -140,7 +142,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         />
       )}
 
-      {stand.zustand === "saison_vorbei" && (
+      {stand.zustand === "saison_past" && (
         <BestaetigungSaisonVorbei
           ansicht={stand.ansicht}
           token={stand.token}
@@ -157,7 +159,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           tone="erfolg">
           <p className={ABSATZ_CLASSES}>
             Danke.{" "}
-            {stand.ansicht.zugleich_rolle === null ? (
+            {stand.ansicht.also_rolle === null ? (
               <>
                 Dein Eintrag für {saisonRow ? "das Team" : "die Schule"} <Wert>{stand.ansicht.schule}</Wert> ist bestätigt.
               </>
@@ -207,7 +209,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
 
       {/* No name and no school from here on: a consumed or dead link may have been forwarded, and a
           dead link identifies nobody. */}
-      {stand.zustand === "bestaetigt" && (
+      {stand.zustand === "confirmed" && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
@@ -217,7 +219,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         </BestaetigungErgebnis>
       )}
 
-      {stand.zustand === "abgelehnt" && (
+      {stand.zustand === "declined" && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
@@ -231,7 +233,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
 
       {/* One wording for both: after the deletion the record is gone and the two cannot be told
           apart, and telling them apart would tell a guessed link that a record once existed. */}
-      {(stand.zustand === "abgelaufen" || stand.zustand === "ungueltig") && (
+      {(stand.zustand === "expired" || stand.zustand === "invalid") && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">

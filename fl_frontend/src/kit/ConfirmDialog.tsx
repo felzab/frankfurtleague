@@ -49,13 +49,13 @@ export function ConfirmDialog({ verb, subject, consequence, tone, trigger, onCon
             slot="title"
             level={2}
             className="text-base font-semibold">
-            {COPY.shared.frage(subject, verb)}
+            {COPY.shared.question(subject, verb)}
           </Heading>
           <p className="text-sm text-fg-muted">{consequence}</p>
           <ActRow>
             <Button
               variant="secondary"
-              label={COPY.shared.zurueck}
+              label={COPY.shared.back}
               isDisabled={isBusy}
               onPress={() => setOpen(false)}
             />

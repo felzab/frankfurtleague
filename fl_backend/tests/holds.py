@@ -76,7 +76,7 @@ class HoldsAfterItsLookup(HeldCollection):
     async def find_one(self, *args: Any, **kwargs: Any) -> Any:
         found = await self._collection.find_one(*args, **kwargs)
         query = kwargs.get("filter", args[0] if args else {})
-        if "idempotenz_schluessel" in query:
+        if "idempotency_key" in query:
             self.lookups += 1
             self.lookup_filters.append(query)
             await self.hold()

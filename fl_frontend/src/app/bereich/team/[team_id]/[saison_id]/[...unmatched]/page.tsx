@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
@@ -13,7 +12,6 @@ export const metadata: Metadata = NOT_FOUND_METADATA;
 // Reached only where every other route under a team's address has already refused it, so a mistyped
 // one answers under the team shell.
 export default async function TeamUnmatchedRoute() {
-  await connection();
   // The page's own turn-away, ahead of the 404, as every team page's.
   await requireSubjectSession();
   // Matching the address is what costs it the 404 status, wherever this call sits.

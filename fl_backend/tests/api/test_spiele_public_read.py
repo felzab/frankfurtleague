@@ -29,13 +29,12 @@ from app.api.spiele.schemas import (
 from app.api.teams.schemas import FLTeam
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.constraints import COLLECTION_VALIDATORS
 from app.main import create_app
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database_sync
 from tests.documents import (
-    eigene_einwilligung_document,
+    own_einwilligung_document,
     saison_team_document,
     schiedsrichter_document,
     spiel_document,
@@ -82,8 +81,8 @@ PUBLIC_SCHIEDSRICHTER_NAME = "Ada K."
 
 LIST_PATH = f"/api/v{API_VERSION}/spiele"
 SINGLE_PATH = f"{LIST_PATH}/{SPIEL_ID}"
-ADMIN_PATH = f"{SINGLE_PATH}/admin"
-ADMIN_LIST_PATH = f"{LIST_PATH}/list/admin?saison_id={SAISON_ID}"
+ADMIN_PATH = f"{SINGLE_PATH}/verwaltung"
+ADMIN_LIST_PATH = f"{LIST_PATH}/list/verwaltung?saison_id={SAISON_ID}"
 
 AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
 
@@ -96,8 +95,8 @@ def stored_document() -> dict[str, Any]:
         saison_id=SAISON_ID,
         spiel_nr=1,
         spieltag_id=SPIELTAG_ID,
-        team1={"team_id": HOME, "name": "Alpha", "shorthand": "AL", "tore": 2},
-        team2={"team_id": AWAY, "name": "Beta", "shorthand": "BE", "tore": 1},
+        team1={"team_id": HOME, "name": "Alpha", "shorthand": "ALX", "tore": 2},
+        team2={"team_id": AWAY, "name": "Beta", "shorthand": "BEX", "tore": 1},
         datum="2026-03-15",
         uhrzeit="14:00:00",
         ort={"spielort_id": SPIELORT_ID, "name": SPIELORT_NAME, "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": MIETPREIS},
@@ -119,9 +118,9 @@ def joined_document() -> dict[str, Any]:
         **document,
         "team1": {**document["team1"], "austritt": None, AUSTRITT_TYPE_KEY: None},
         "team2": {**document["team2"], "austritt": dict(AUSTRITT), AUSTRITT_TYPE_KEY: AUSTRITT["type"]},
-        "ansetzung_bestaetigt": None,
+        "ansetzung_confirmed": None,
         # A referee publishing their name and agreeing to this fixture: both gates pass, so the reduction is what is left.
-        "schiedsrichter": {**document["schiedsrichter"], "name_is_public": True, "einsatz_bestaetigt": True},
+        "schiedsrichter": {**document["schiedsrichter"], "name_is_public": True, "einsatz_confirmed": True},
     }
 
 
@@ -131,7 +130,7 @@ def team_document() -> dict[str, Any]:
     return {
         "_id": AWAY,
         "name": "Beta",
-        "shorthand": "BE",
+        "shorthand": "BEX",
         "full_name": "Beta-Schule Frankfurt",
         "description": "",
         "website_url": "https://beta.example.org",
@@ -145,7 +144,7 @@ def team_document() -> dict[str, Any]:
 
 
 def junction_row() -> dict[str, Any]:
-    return saison_team_document(SAISON_ID, AWAY, "Beta", "BE", austritt=dict(AUSTRITT))
+    return saison_team_document(SAISON_ID, AWAY, "Beta", "BEX", austritt=dict(AUSTRITT))
 
 
 def keys_anywhere(payload: Any) -> set[str]:
@@ -210,7 +209,7 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     client = MongoClient(mongo_replica_set_url)
     try:
         database = a_clean_database_sync(client, mongo_replica_set_url, database_name)
-        database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+        database[Collection.GRANTS].insert_many(grants_for_the_suite())
         database[Collection.SPIELE].insert_one(stored_document())
         # Publishing their name, so the reduction is what the base tier serves rather than a withheld null.
         database[Collection.SCHIEDSRICHTER].insert_one(
@@ -219,14 +218,14 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
                 email="ada.kern@example.com",
                 name=SCHIEDSRICHTER_NAME,
                 default_payment=PAYMENT,
-                einwilligung=eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-01"),
+                einwilligung=own_einwilligung_document(text_version="v1", confirmed_at="2026-03-01"),
             )
         )
         # Agreeing to the fixture as it stands, without which the base tier withholds the referee whole.
         database[Collection.SPIELBESTAETIGUNGEN].insert_one(
             spielbestaetigung_document(
                 stored_document(),
-                partei={"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER_ID},
+                party={"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER_ID},
                 kontakte=None,
                 antwort={"art": "zugesagt", "am": "2026-03-02", "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": None},
             )
@@ -271,7 +270,7 @@ BASE_TIER_FIXTURE_FIELDS = frozenset(
         # Published by decision, and past what an erasure rewrites (`READ-FREETEXT-001`).
         "notiz",
         # A verdict and never a row: no seat, no answer's reason.
-        "ansetzung_bestaetigt",
+        "ansetzung_confirmed",
     }
 )
 
@@ -384,12 +383,12 @@ class TestTheFixtureShapes:
         assert parsed.schiedsrichter is not None and parsed.schiedsrichter.name == SCHIEDSRICHTER_NAME
 
     def test_a_referee_block_the_join_never_judged_is_refused(self):
-        """Required as `ansetzung_bestaetigt` is: served without its verdict, a read that skipped the gate would publish every referee."""
+        """Required as `ansetzung_confirmed` is: served without its verdict, a read that skipped the gate would publish every referee."""
 
         document = joined_document()
         unjudged = {
             **document,
-            "schiedsrichter": {key: value for key, value in document["schiedsrichter"].items() if key != "einsatz_bestaetigt"},
+            "schiedsrichter": {key: value for key, value in document["schiedsrichter"].items() if key != "einsatz_confirmed"},
         }
 
         with pytest.raises(ValidationError):
@@ -533,17 +532,11 @@ class TestTheStoredShape:
         [("ort", MIETPREIS_KEY, MIETPREIS), ("schiedsrichter", PAYMENT_KEY, PAYMENT)],
         ids=["the venue", "the referee"],
     )
-    def test_the_dump_a_save_writes_carries_every_key_the_validator_requires(self, embedded: str, money: str, amount: int):
-        """Guards the re-declaration on `fl_backend/app/api/spiele/schemas.py :: FLSpiel`, whose docstring holds the reason.
-
-        Required keys are read off `COLLECTION_VALIDATORS` rather than listed here, so the model and
-        the database's own demand move together.
-        """
+    def test_the_dump_a_save_writes_keeps_the_figure(self, embedded: str, money: str, amount: int):
+        """Guards the re-declaration on `fl_backend/app/api/spiele/schemas.py :: FLSpiel`, whose docstring holds the reason."""
 
         dumped = FLSpiel.model_validate(stored_document()).model_dump()[embedded]
-        required = set(COLLECTION_VALIDATORS[Collection.SPIELE]["$jsonSchema"]["properties"][embedded]["required"])
 
-        assert required <= set(dumped)
         assert dumped[money] == amount
 
 

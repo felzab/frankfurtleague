@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { connection } from "next/server";
 
 import { band } from "@/features/bewerbungen/components/ui/band";
 import { getOffenesBewerbungFenster } from "@/features/bewerbungen/queries";
@@ -22,9 +21,6 @@ export async function BewerbungOffenBand({
    */
   ersatz?: ReactNode;
 }) {
-  // The image builder reaches no backend, so this read has to be kept out of the build.
-  await connection();
-
   const fenster = await getOffenesBewerbungFenster();
   if (fenster === null) return ersatz;
 

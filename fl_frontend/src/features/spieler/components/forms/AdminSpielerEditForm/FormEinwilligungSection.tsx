@@ -16,11 +16,11 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLEinwilligung } from "@/features/spieler/schemas";
+import type { FLEinwilligung } from "@/core/generated/client/types";
 
 /**
- * **No control and no draft field**: `fl_backend/app/core/domain.py` declares this field immutable,
- * so a picker here would offer a write no payload carries.
+ * **No control and no draft field**: `fl_backend/app/api/spieler/schemas.py :: FLPatchSpielerPayload` carries no
+ * consent, which only the person's own writes grant, so a picker here would offer a write no payload carries.
  */
 export function FormEinwilligungSection({
   einwilligung,
@@ -70,7 +70,7 @@ export function FormEinwilligungSection({
           </Angabe>
           <Angabe label="Erteilt am">{formatSpielDatum(einwilligung.datum)}</Angabe>
           <Angabe label="Bestätigt am">
-            {einwilligung.bestaetigt_am === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.bestaetigt_am)}
+            {einwilligung.confirmed_at === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.confirmed_at)}
           </Angabe>
           {/* The key rather than a German gloss of it, which would be a second name for one
                 wording. */}

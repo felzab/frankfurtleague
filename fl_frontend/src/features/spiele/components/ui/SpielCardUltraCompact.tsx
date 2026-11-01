@@ -10,7 +10,7 @@ import { ergebnisTone, formatSpielDisplay } from "../../utils";
 import { SpielScore } from "./SpielScore";
 import { SpielTeamSlot } from "./SpielTeamSlot";
 
-import type { FLSpiel } from "../../schemas";
+import type { FLSpiel } from "../../types";
 
 /**
  * Lifts a popover trigger clear of the full-bleed button below. An UNRESOLVED slot has no popover

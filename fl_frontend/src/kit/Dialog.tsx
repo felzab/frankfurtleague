@@ -16,12 +16,12 @@ import { StatusLine } from "./FieldParts";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
 
+import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
 import type { ModalOverlayProps } from "react-aria-components/Modal";
 import type { DialogAct } from "./dialogAct";
-import type { ActionAnswer } from "./useFormAction";
 
 /**
  * An overlay's open state, closed whenever Next hides the page it stands on: Next keeps a departed route
@@ -142,8 +142,8 @@ export function RouteDialog({
             requires the close button and forbids hiding it. */}
         <div className="absolute -end-3 -top-3 z-10">
           <Button
-            icon="schliessen"
-            label={COPY.shared.schliessen}
+            icon="close"
+            label={COPY.shared.close}
             onPress={close}
           />
         </div>
@@ -214,7 +214,7 @@ function ActForm({
           />
           <Button
             variant="secondary"
-            label={COPY.shared.zurueck}
+            label={COPY.shared.back}
             onPress={close}
           />
           <Button

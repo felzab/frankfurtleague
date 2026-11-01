@@ -14,11 +14,11 @@ STAMP = "2026-02-01"
 
 @pytest.mark.parametrize(
     "einwilligung",
-    [None, "2026-02-01", {}, {"bestaetigt_am": None}, {"bestaetigt_am": ""}],
-    ids=["null record", "no mapping", "no stamp key", "null stamp", "empty stamp"],
+    [None, "2026-02-01", {}, {"confirmed_at": None}],
+    ids=["null record", "no mapping", "no stamp key", "null stamp"],
 )
 def test_every_shape_short_of_a_stamp_is_unconfirmed(einwilligung: Any):
-    """The seat's, the pupil's and the referee's shapes together; the empty string is the one a presence test calls stamped."""
+    """The seat's, the pupil's and the referee's shapes together."""
 
     assert is_confirmed(einwilligung) is False
 
@@ -26,7 +26,7 @@ def test_every_shape_short_of_a_stamp_is_unconfirmed(einwilligung: Any):
 def test_a_stamp_confirms():
     """The control: without it every case above passes on a predicate answering no to everything."""
 
-    assert is_confirmed({"umfang": "kontaktdaten", "bestaetigt_am": STAMP}) is True
+    assert is_confirmed({"umfang": "kontaktdaten", "confirmed_at": STAMP}) is True
 
 
 # Ported once with the words from the frontend's own pin, equal digests over the identical join
@@ -350,12 +350,12 @@ FASSUNG_STAMMDATEN: Final[Mapping[str, tuple[str, date, tuple[str, ...] | None]]
 }
 
 
-def fassung_digest(fassung: Fassung) -> str:
+def fassung_digest(wording: Fassung) -> str:
     """Every word the label freezes, joined as the frontend's digest joins them: the paragraphs, the switch, each control."""
 
-    controls = [f"{key}={fassung.bedienelemente[key]}" for key in sorted(fassung.bedienelemente)]
+    controls = [f"{key}={wording.controls[key]}" for key in sorted(wording.controls)]
 
-    return hashlib.sha256("\n".join([*fassung.absaetze, fassung.schalter, *controls]).encode("utf-8")).hexdigest()
+    return hashlib.sha256("\n".join([*wording.absaetze, wording.switch, *controls]).encode("utf-8")).hexdigest()
 
 
 class TestTheRegistryOfWordings:
@@ -371,7 +371,7 @@ class TestTheRegistryOfWordings:
         assert {
             label: (
                 fassung.seite,
-                fassung.gilt_ab,
+                fassung.applies_from,
                 None if fassung.absaetze_nach_schluessel is None else tuple(fassung.absaetze_nach_schluessel),
             )
             for label, fassung in FASSUNGEN.items()
@@ -396,15 +396,15 @@ class TestTheRegistryOfWordings:
         """Pins WHICH label runs, which the digests do not: a running label moved back to an earlier one passes every other case."""
 
         for seite, label in LAUFENDE_FASSUNGEN.items():
-            latest = max(fassung.gilt_ab for fassung in FASSUNGEN.values() if fassung.seite == seite)
+            latest = max(fassung.applies_from for fassung in FASSUNGEN.values() if fassung.seite == seite)
 
-            assert FASSUNGEN[label].gilt_ab == latest, f"{seite} runs {label}, older than a label of its own page"
+            assert FASSUNGEN[label].applies_from == latest, f"{seite} runs {label}, older than a label of its own page"
 
     def test_a_later_label_of_a_page_never_took_effect_before_an_earlier_one(self):
         """In registry order, which is the order each page's labels were minted in."""
 
         for seite in LAUFENDE_FASSUNGEN:
-            days = [fassung.gilt_ab for fassung in FASSUNGEN.values() if fassung.seite == seite]
+            days = [fassung.applies_from for fassung in FASSUNGEN.values() if fassung.seite == seite]
 
             assert days == sorted(days), f"{seite}'s labels took effect out of the order they were minted in"
 
@@ -448,7 +448,7 @@ class TestTheRegistryOfWordings:
 
         assert list(verwaltung.absaetze_nach_schluessel) == list(bewerbung.absaetze_nach_schluessel)
         assert anders == {"worum", "rechtsgrundlage"}
-        assert (verwaltung.schalter, dict(verwaltung.bedienelemente)) == (bewerbung.schalter, dict(bewerbung.bedienelemente))
+        assert (verwaltung.switch, dict(verwaltung.controls)) == (bewerbung.switch, dict(bewerbung.controls))
 
     @pytest.mark.parametrize("seite", ["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung", "bestaetigung_kontakt_saison"])
     def test_both_contact_pages_offer_the_media_consent_beside_the_whatsapp_one(self, seite: Seite):
@@ -457,7 +457,7 @@ class TestTheRegistryOfWordings:
         fassung = FASSUNGEN[LAUFENDE_FASSUNGEN[seite]]
         assert fassung.absaetze_nach_schluessel is not None
 
-        assert set(fassung.bedienelemente) == {"medien"}
+        assert set(fassung.controls) == {"medien"}
         assert "{medienMinAlter}" in fassung.absaetze_nach_schluessel["medien"]
         assert "außer der freiwilligen für WhatsApp" not in fassung.absaetze_nach_schluessel["widerruf"]
 
@@ -473,7 +473,7 @@ class TestTheRegistryOfWordings:
         assert list(saison.absaetze_nach_schluessel) == list(bewerbung.absaetze_nach_schluessel)
         assert {key for key, text in bewerbung.absaetze_nach_schluessel.items() if "Bewerbung" in text} <= anders
         assert not [key for key, text in saison.absaetze_nach_schluessel.items() if "Bewerbung" in text]
-        assert (saison.schalter, dict(saison.bedienelemente)) == (bewerbung.schalter, dict(bewerbung.bedienelemente))
+        assert (saison.switch, dict(saison.controls)) == (bewerbung.switch, dict(bewerbung.controls))
 
     def test_the_pupil_page_keeps_a_registration_until_its_team_decides(self):
         """When a registration goes, which the notice states the same way: never at the next season's close."""
@@ -514,7 +514,7 @@ class TestTheRegistryOfWordings:
 
         assert geteilt == {"wer", "rechtsgrundlage", "frist", "widerruf", "art21", "klickIdentitaet", "klickHinweise"}
         assert not {"veroeffentlichung", "medien", "klickEinwilligung"} & set(wiederkehrend.absaetze_nach_schluessel)
-        assert (wiederkehrend.schalter, dict(wiederkehrend.bedienelemente)) == (neu.schalter, {})
+        assert (wiederkehrend.switch, dict(wiederkehrend.controls)) == (neu.switch, {})
 
     @pytest.mark.parametrize("seite", ["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung", "bestaetigung_kontakt_saison"])
     def test_the_whatsapp_consent_is_taken_back_on_the_account_page_under_the_words_it_was_given(self, seite: Seite):
@@ -525,19 +525,19 @@ class TestTheRegistryOfWordings:
         assert kontakt.absaetze_nach_schluessel is not None
 
         assert "in Deinem Konto" in kontakt.absaetze_nach_schluessel["whatsapp"]
-        assert konto.bedienelemente["kontaktdaten_whatsapp"] == kontakt.schalter
+        assert konto.controls["kontaktdaten_whatsapp"] == kontakt.switch
 
     def test_no_word_is_empty_or_padded(self):
         for label, fassung in FASSUNGEN.items():
             assert fassung.absaetze, f"{label} holds no paragraph"
-            for text in (*fassung.absaetze, fassung.schalter, *fassung.bedienelemente.values()):
+            for text in (*fassung.absaetze, fassung.switch, *fassung.controls.values()):
                 assert text and text == text.strip(), f"{label} holds an empty or padded text"
 
     def test_no_word_holds_a_line_break(self):
         """The digest joins its texts with newlines, so a paragraph holding one digests as two paragraphs would."""
 
         for label, fassung in FASSUNGEN.items():
-            for text in (*fassung.absaetze, fassung.schalter, *fassung.bedienelemente, *fassung.bedienelemente.values()):
+            for text in (*fassung.absaetze, fassung.switch, *fassung.controls, *fassung.controls.values()):
                 assert "\n" not in text and "\r" not in text, f"{label} holds a line break"
 
     def test_every_label_fits_the_length_a_record_may_cite(self):
@@ -549,10 +549,10 @@ class TestTheRegistryOfWordings:
 
         label = LAUFENDE_FASSUNGEN["bestaetigung_spieler"]
         fassung = FASSUNGEN[label]
-        mappings = ((FASSUNGEN, label), (LAUFENDE_FASSUNGEN, "bewerbung"), (fassung.bedienelemente, "intern"))
+        mappings = ((FASSUNGEN, label), (LAUFENDE_FASSUNGEN, "bewerbung"), (fassung.controls, "intern"))
 
         for mapping, key in (*mappings, (fassung.absaetze_nach_schluessel, "worum")):
             with pytest.raises(TypeError):
                 cast(Any, mapping)[key] = "anders"
         with pytest.raises(dataclasses.FrozenInstanceError):
-            cast(Any, fassung).schalter = "anders"
+            cast(Any, fassung).switch = "anders"

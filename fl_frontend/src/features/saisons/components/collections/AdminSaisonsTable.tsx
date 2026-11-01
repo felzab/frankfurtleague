@@ -28,7 +28,7 @@ import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminSaisonRow } from "../../types";
 
 /**
- * The Kürzel chip at a season id's width: four digits where a Kürzel is two letters, both being the
+ * The Kürzel chip at a season id's width: four digits where a Kürzel is three letters, both being the
  * short identifier a reader scans a column for. `h-7` fixes the box, so the chip's own `py-1` adds
  * nothing to it.
  */

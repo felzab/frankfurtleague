@@ -14,51 +14,35 @@ from pymongo import AsyncMongoClient, MongoClient, ReturnDocument
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen import sweep_router as sweep_router_module
-from app.api.bewerbungen.admin_router import erneut_einwilligung
-from app.api.bewerbungen.einwilligung_router import get_einwilligung_ansicht
-from app.api.bewerbungen.schemas import (
-    DELETIONS_LISTED_PER_PASS,
-    FLBewerbungEinwilligungAnsichtPayload,
-    FLBewerbungSweepAngekuendigtPayload,
-    FLBewerbungSweepLoeschenPayload,
-    FLBewerbungZustellungAngenommenPayload,
-    FLBewerbungZustellungEreignisPayload,
-)
-from app.api.bewerbungen.services import (
-    BEWERBUNG_TOKEN_UNKNOWN,
-    SWEEP_PAGE,
-    build_erinnerung_filter,
-    compose_confirmation_update,
-    hash_token,
-)
-from app.api.bewerbungen.sweep_router import (
+from app.api.bewerbungen.admin_router import resend_einwilligung
+from app.api.bewerbungen.public_router import get_einwilligung_view
+from app.api.bewerbungen.services import SWEEP_PAGE, compose_confirmation_update
+from app.api.bewerbungen.system_router import (
     BLOCKS_CLEARED_PER_PASS,
     REMINDERS_PER_PASS,
-    angekuendigt_bewerbungen,
     get_sweep_saisons,
-    loeschen_bewerbungen,
     sweep_saison,
 )
-from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
 from app.api.saisons.admin_router import activate_saison
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
-from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import delete_many_from_db, patch_one_in_db
-from app.core.exception_handlers import DATABASE_FAILED, STORED_DATA_INVALID
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
-from app.core.transactions import StalledPage
 from app.main import create_app
+from app.shared.schemas.confirmation import FLTokenPayload
+from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.api import test_bewerbung_sweep_refusal as budget
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
+from tests.delivery import a_mail_that_bounced
 from tests.documents import (
     ban_document,
     kontaktperson_document,
@@ -69,6 +53,7 @@ from tests.documents import (
     team_document,
 )
 from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
+from tests.outbox import MAIL_NOW, drained
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
@@ -88,16 +73,12 @@ MAILED_ON_THE_MARK = "2026-03-29"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 REDACTED_AT = "2026-04-01T10:30:00+00:00"
 
-# One pass an hour, as `fl_frontend/src/features/bewerbungen/sweep.ts :: SWEEP_INTERVAL_MS` sets it.
-PASSES_A_DAY = 24
-
 # Fixed rather than generated, so a failure names the same row every run.
 REMIND_OID = ObjectId("6890a1b2c3d4e5f607960001")
 DELETE_OID = ObjectId("6890a1b2c3d4e5f607960002")
 DECLINED_OID = ObjectId("6890a1b2c3d4e5f607960003")
 ACCEPTED_OID = ObjectId("6890a1b2c3d4e5f607960004")
 OTHER_SEASON_OID = ObjectId("6890a1b2c3d4e5f607960005")
-BARRED_OID = ObjectId("6890a1b2c3d4e5f607960006")
 CLUB_OID = ObjectId("6890a1b2c3d4e5f607960011")
 JUNCTION_OID = ObjectId("6890a1b2c3d4e5f607960021")
 
@@ -109,7 +90,7 @@ def first_hashes(prefix: str) -> dict[str, str]:
     return {seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}
 
 
-# Sought by the leak search over the candidates, so a surname reaching one is caught.
+# Sought by the leak search over the owed notices, so a surname reaching one is caught.
 NACHNAME = "Mustermann"
 
 
@@ -118,13 +99,13 @@ def person(vorname: str, **fields: Any) -> dict[str, Any]:
 
 
 def kontakte() -> dict[str, Any]:
-    """One person holding two seats, so the reminder's grouping has something to group."""
+    """One person holding two seats, so the reminder's one mail a person has something to fold."""
 
     return {
         "trainer": person("Wraxlington"),
         "ansprechperson": person("Wraxlington"),
         "stellvertretung": person("Bramblewick"),
-        "trainer_ist_zugleich": "ansprechperson",
+        "trainer_is_also": "ansprechperson",
     }
 
 
@@ -133,11 +114,11 @@ def application(bewerbung_id: ObjectId, *, saison_id: str = SAISON_ID, **overrid
     stored = documents.bewerbung_document(
         bewerbung_id,
         saison_id,
-        "eingereicht",
+        "submitted",
         kontakte=kontakte(),
-        eingereicht_am=MAILED_ON_THE_MARK,
-        bestaetigungsfrist="2026-04-12",
-        schule=documents.neue_schule_document(SCHOOL_NAME, "ZX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
+        submitted_at=MAILED_ON_THE_MARK,
+        confirmation_deadline="2026-04-12",
+        schule=documents.new_schule_document(SCHOOL_NAME, "ZXX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
     )
 
     return {**stored, **overrides}
@@ -148,45 +129,48 @@ def the_corpus() -> list[dict[str, Any]]:
 
     return [
         application(REMIND_OID),
-        application(DELETE_OID, bestaetigungsfrist=YESTERDAY),
-        application(DECLINED_OID, status="abgelehnt", entscheidung={"getroffen_am": "2026-02-15", "von": "admin", "grund": "kein Platz"}),
+        application(DELETE_OID, confirmation_deadline=YESTERDAY),
+        application(DECLINED_OID, status="declined", decision={"made_at": "2026-02-15", "von": "admin", "grund": "kein Platz"}),
         application(
             ACCEPTED_OID,
-            status="angenommen",
+            status="accepted",
             team_id=CLUB_OID,
             schule=None,
-            entscheidung={"getroffen_am": "2026-03-01", "von": "admin", "grund": None},
+            decision={"made_at": "2026-03-01", "von": "admin", "grund": None},
         ),
         application(
             OTHER_SEASON_OID,
             saison_id=OTHER_SAISON_ID,
-            status="abgelehnt",
-            entscheidung={"getroffen_am": "2025-01-15", "von": "admin", "grund": "kein Platz"},
+            status="declined",
+            decision={"made_at": "2025-01-15", "von": "admin", "grund": "kein Platz"},
         ),
     ]
 
 
 def season(saison_id: str, status: str) -> dict[str, Any]:
-    return saison_document(saison_id, status, rules=rules_document(number_of_groups=2, teams_per_group=2))
+    return saison_document(saison_id, status, rules=rules_document(number_of_gruppen=2, teams_per_gruppe=2))
 
 
 def junction_row() -> dict[str, Any]:
-    return saison_team_document(SAISON_ID, CLUB_OID, CLUB_NAME, "AD", _id=JUNCTION_OID, trikot_farbe="blau", kontakte=kontakte())
+    return saison_team_document(SAISON_ID, CLUB_OID, CLUB_NAME, "ADX", _id=JUNCTION_OID, trikot_farbe="blau", kontakte=kontakte())
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, next_status: str | None = "future", status: str = "active") -> Any:
-    """The SHIPPED validators, with a history on every row so the redaction has images to empty."""
+def on_a_league(url: str, body: Body, *, next_status: str | None = "future", status: str = "active", mutates_schema: bool = False) -> Any:
+    """The SHIPPED indexes, with a history on every row so the redaction has images to empty.
+
+    `mutates_schema` for a body that installs a validator through `refuse_writes_breaking`.
+    """
 
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             seasons = [season(SAISON_ID, status), season(OTHER_SAISON_ID, "past")]
             if next_status is not None:
                 seasons.append(season(NEXT_SAISON_ID, next_status))
             await database[Collection.SAISONS].insert_many(seasons)
-            await database[Collection.TEAMS].insert_one(team_document(CLUB_OID, CLUB_NAME, "AD", website_url=None, schulform="gymnasium_g9"))
+            await database[Collection.TEAMS].insert_one(team_document(CLUB_OID, CLUB_NAME, "ADX", website_url=None, schulform="gymnasium_g9"))
             await database[Collection.SAISON_TEAMS].insert_one(junction_row())
             await database[Collection.BEWERBUNGEN].insert_many(the_corpus())
             # One recorded write per row, so every one has a log image holding its people.
@@ -194,7 +178,7 @@ def on_a_league(url: str, body: Body, *, next_status: str | None = "future", sta
                 await patch_one_in_db(
                     collection=database[Collection.BEWERBUNGEN],
                     db_filter={"_id": document["_id"]},
-                    update={"$set": {"kader.gute_spieler": 4}},
+                    update={"$set": {"kader.good_spieler": 4}},
                     return_document=ReturnDocument.BEFORE,
                 )
             await patch_one_in_db(
@@ -209,52 +193,28 @@ def on_a_league(url: str, body: Body, *, next_status: str | None = "future", sta
     return on_the_seed_loop(_run())
 
 
-async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str = SAISON_ID, today: str = TODAY) -> Any:
+async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str = SAISON_ID, today: str = TODAY, now: datetime = NOW) -> Any:
+    """One season's pass. A case reading the mails it owes passes `MAIL_NOW`, which its redaction stamps then carry."""
+
     return await sweep_saison(
         saison_id=saison_id,
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
-        sperrliste=ban_list(database),
+        outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=today,
-        germany_now=NOW,
-    )
-
-
-async def announce(
-    database: AsyncDatabase, client: AsyncMongoClient, ids: list[ObjectId], saison_id: str = SAISON_ID, today: str = TODAY
-) -> Any:
-    return await angekuendigt_bewerbungen(
-        saison_id=saison_id,
-        angekuendigt_data=FLBewerbungSweepAngekuendigtPayload(bewerbung_ids=ids),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saisons_collection=database[Collection.SAISONS],
-        db=client,
-        today=today,
-    )
-
-
-async def erase(database: AsyncDatabase, client: AsyncMongoClient, ids: list[ObjectId], saison_id: str = SAISON_ID) -> Any:
-    return await loeschen_bewerbungen(
-        saison_id=saison_id,
-        loeschen_data=FLBewerbungSweepLoeschenPayload(bewerbung_ids=ids),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saisons_collection=database[Collection.SAISONS],
-        aktionen_collection=database[Collection.AKTIONEN],
-        db=client,
-        today=TODAY,
-        germany_now=NOW,
+        germany_now=now,
     )
 
 
 async def ansicht(database: AsyncDatabase, token: str) -> Any:
-    return await get_einwilligung_ansicht(
-        ansicht_data=FLBewerbungEinwilligungAnsichtPayload(token=token),
+    return await get_einwilligung_view(
+        ansicht_data=FLTokenPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -269,49 +229,33 @@ async def stored(database: AsyncDatabase, bewerbung_id: ObjectId) -> Mapping[str
 
 
 async def log_rows_naming(database: AsyncDatabase, collection: Collection, row_id: ObjectId) -> list[Mapping[str, Any]]:
-    return await database[Collection.AKTIONEN].find({"collection": str(collection), "document_id": row_id}).to_list(length=None)
+    return await database[Collection.ACTION_LOG].find({"collection": str(collection), "document_id": row_id}).to_list(length=None)
 
 
-async def erasure_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
-    return await database[Collection.AKTIONEN].find({"operation": "erase_many"}).sort("_id", 1).to_list(length=None)
+async def loeschung_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
+    return await database[Collection.ACTION_LOG].find({"operation": "erase_many"}).sort("_id", 1).to_list(length=None)
 
 
-# One message id and the two instants around it, so the delivery state below arrives the way the
-# provider's own does rather than being written into the document by hand.
-MESSAGE_ID = "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"
-ACCEPTED_AT = "2026-03-29T10:00:00Z"
-REFUSED_AT = "2026-03-29T10:05:00Z"
+async def owed(database: AsyncDatabase, art: str) -> list[Mapping[str, Any]]:
+    """Every mail of one kind the Postausgang holds, by key: its key, its recipient and its facts."""
+
+    rows = await database[Collection.OUTBOX].find({"art": art}, {"_id": 0, "key": 1, "an": 1, "data": 1}).to_list(length=None)
+
+    return sorted(rows, key=lambda row: str(row["key"]))
+
+
+async def reminded(database: AsyncDatabase) -> set[Any]:
+    """The applications the reminder clock has owed a mail about."""
+
+    rows = await database[Collection.OUTBOX].find({"art": "bewerbung_reminder"}, {"reference.id": 1}).to_list(length=None)
+
+    return {row["reference"]["id"] for row in rows}
 
 
 async def refuse_the_submitters_address(database: AsyncDatabase, client: AsyncMongoClient, bewerbung_id: ObjectId) -> None:
-    """Send to the mailbox that would read the deletion notice, and have the provider refuse it.
+    """The submitter's last mail, sent and refused by the provider: what the clocks read is what a drain and a real event leave."""
 
-    Through the endpoints rather than a hand-written state: what the clock reads has to be what a
-    real event leaves.
-    """
-
-    seats = ["trainer", "ansprechperson"]
-    await angenommen_zustellung(
-        angenommen_data=FLBewerbungZustellungAngenommenPayload.model_validate(
-            {"bewerbung_id": str(bewerbung_id), "rollen": seats, "nachricht_id": MESSAGE_ID, "am": ACCEPTED_AT}
-        ),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        db=client,
-    )
-    await post_zustellung(
-        ereignis_data=FLBewerbungZustellungEreignisPayload.model_validate(
-            {
-                "bewerbung_id": str(bewerbung_id),
-                "rollen": seats,
-                "nachricht_id": MESSAGE_ID,
-                "stand": "unzustellbar",
-                "grund": "NoEmail",
-                "am": REFUSED_AT,
-            }
-        ),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        db=client,
-    )
+    await a_mail_that_bounced(database, client, bewerbung_id=bewerbung_id, seat="ansprechperson", an="wraxlington@example.com")
 
 
 CONFIRMED_GEBURTSDATUM = "1994-07-19"
@@ -340,358 +284,265 @@ async def confirm_every_seat(database: AsyncDatabase, bewerbung_id: ObjectId) ->
     )
 
 
+async def resend(database: AsyncDatabase, seat: str) -> Any:
+    return await resend_einwilligung(
+        bewerbung_id=REMIND_OID,
+        seat=seat,
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        teams_collection=database[Collection.TEAMS],
+        outbox_collection=database[Collection.OUTBOX],
+        sperrliste=ban_list(database),
+        db=database.client,
+        today=TODAY,
+        germany_now=MAIL_NOW,
+    )
+
+
+def reminder_mail(an: str, rollen: list[str]) -> dict[str, Any]:
+    """The reminder the corpus's application owes one person, as the Postausgang holds it."""
+
+    return {
+        "key": f"{Collection.BEWERBUNGEN}/{REMIND_OID}/reminder/{rollen[0]}/{TODAY}",
+        "an": an,
+        "data": {"art": "bewerbung_reminder", "saison_id": SAISON_ID, "schule": SCHOOL_NAME, "rollen": rollen, "frist": "2026-04-12"},
+    }
+
+
 class TestTheReminderClock:
-    def test_it_stamps_mints_and_answers_one_message_per_mailbox(self, mongo_replica_set_url: str):
-        """One message for the double-seated person with two fresh links.
-
-        The first hashes are kept and the deadline untouched.
-        """
+    def test_it_stamps_every_due_seat_and_owes_one_mail_a_person(self, mongo_replica_set_url: str):
+        """One mail for the double-seated person naming both seats; the deadline and the first links stand."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await sweep(database, client)
+            response = await sweep(database, client, now=MAIL_NOW)
 
-            return response, await stored(database, REMIND_OID)
+            return response, await owed(database, "bewerbung_reminder"), await stored(database, REMIND_OID)
 
-        response, document = on_a_league(mongo_replica_set_url, body)
+        response, mails, document = on_a_league(mongo_replica_set_url, body)
 
-        assert document is not None
-        reminders = [entry for entry in response.erinnerungen if entry.bewerbung_id == REMIND_OID]
-        # ONE link for the double-seated person, naming both seats: a second one would ask one reader
-        # twice over a decision `paired_seat` settles from either press, and mint a token nobody is
-        # sent.
-        assert [(entry.email, [seat.rollen for seat in entry.seats]) for entry in reminders] == [
-            ("wraxlington@example.com", [["trainer", "ansprechperson"]]),
-            ("bramblewick@example.com", [["stellvertretung"]]),
+        assert response.reminded == 1
+        assert mails == [
+            reminder_mail("wraxlington@example.com", ["ansprechperson", "trainer"]),
+            reminder_mail("bramblewick@example.com", ["stellvertretung"]),
         ]
-        assert reminders[0].schule == SCHOOL_NAME and reminders[0].bestaetigungsfrist == "2026-04-12"
-        assert reminders[0].seats[0].vorname == "Wraxlington"
-
+        assert document is not None
         first = first_hashes(str(REMIND_OID))
-        for entry in reminders:
-            for seat in entry.seats:
-                # Every seat the link answers carries it, so the stamp and the fresh hash reach both
-                # halves of the pair and neither is reminded again.
-                for rolle in seat.rollen:
-                    bookkeeping = document["bestaetigungen"][rolle]
-                    assert bookkeeping["token_hash"] == hash_token(seat.token)
-                    assert bookkeeping["token_hash_zuvor"] == first[rolle]
-                    assert (bookkeeping["erinnert_am"], bookkeeping["verschickt_am"]) == (TODAY, MAILED_ON_THE_MARK)
-        assert document["bestaetigungsfrist"] == "2026-04-12"
+        for rolle in KONTAKT_ROLLEN:
+            bookkeeping = document["confirmations"][rolle]
+            # No link before the hand-out: the first one alone stands until the drain mints the reminder's beside it.
+            assert bookkeeping["token_hashes"] == [first[rolle]]
+            assert (bookkeeping["reminded_at"], bookkeeping["sent_at"]) == (TODAY, MAILED_ON_THE_MARK)
+        assert document["confirmation_deadline"] == "2026-04-12"
 
-        # One mint for the pair, not two: the second was a live credential with no reader.
-        minted = {seat.token for entry in reminders for seat in entry.seats}
-        assert len(minted) == 2
-
-    def test_a_resend_after_a_reminder_voids_every_link_on_both_seats_the_person_holds(self, mongo_replica_set_url: str):
-        """A re-send replaces the address, so nothing it replaces may still open the seat.
-
-        Reached only through a reminded pair: the re-send suite's fixture has no second hash, and a
-        seat nobody mirrors has no second entry at all.
-        """
+    def test_the_reminders_link_joins_the_first_and_both_open_the_seat(self, mongo_replica_set_url: str):
+        """The reader still looking at the first mail is not punished by the chase."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await sweep(database, client)
-            erinnert = next(
-                seat.token
-                for entry in response.erinnerungen
-                if entry.bewerbung_id == REMIND_OID
-                for seat in entry.seats
-                if "trainer" in seat.rollen
-            )
-            frisch = await erneut_einwilligung(
-                bewerbung_id=REMIND_OID,
-                seat="trainer",
-                bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                sperrliste=ban_list(database),
-                db=database.client,
-                today=TODAY,
-            )
-
-            # The reminder's shared link and BOTH first links, one of which is the mirrored seat's
-            # own copy -- the one a re-send writing a single entry leaves open.
-            tot = []
-            for gone in (erinnert, f"{REMIND_OID}-trainer", f"{REMIND_OID}-ansprechperson"):
-                with pytest.raises(WriteRefusalException) as conflict:
-                    await ansicht(database, gone)
-                tot.append(conflict.value.error_code)
-
-            # The Stellvertretung is nobody's pair, so its own reminder link is untouched.
-            fremd = next(
-                seat.token
-                for entry in response.erinnerungen
-                if entry.bewerbung_id == REMIND_OID
-                for seat in entry.seats
-                if "stellvertretung" in seat.rollen
-            )
+            await sweep(database, client, now=MAIL_NOW)
+            mails = await drained(database, client)
+            [paired] = [mail for mail in mails if mail.data.art == "bewerbung_reminder" and mail.an == "wraxlington@example.com"]
+            assert paired.token is not None
 
             return (
-                tot,
-                (await ansicht(database, frisch.token)).zustand,
-                (await ansicht(database, fremd)).zustand,
-                frisch.token,
+                await ansicht(database, f"{REMIND_OID}-trainer"),
+                await ansicht(database, paired.token),
+                paired.token,
                 await stored(database, REMIND_OID),
             )
 
-        tot, zustand, fremd_zustand, frisch_token, document = on_a_league(mongo_replica_set_url, body)
+        old_view, new_view, token, document = on_a_league(mongo_replica_set_url, body)
 
-        assert tot == [BEWERBUNG_TOKEN_UNKNOWN] * 3
-        assert (zustand, fremd_zustand) == ("gueltig", "gueltig")
-        assert document is not None
-        # One mint answering both, each entry written back as the first mint writes it: `token_hash`
-        # alone, no `token_hash_zuvor` beside it, and the reminder owed again.
+        assert (old_view.state, old_view.rolle) == ("valid", "trainer")
+        assert new_view.state == "valid"
+        first = first_hashes(str(REMIND_OID))
         for rolle in ("trainer", "ansprechperson"):
-            assert document["bestaetigungen"][rolle] == {
-                "token_hash": hash_token(frisch_token),
-                "verschickt_am": TODAY,
-                "erinnert_am": None,
-                "abgelehnt_am": None,
-            }
+            assert document["confirmations"][rolle]["token_hashes"] == [first[rolle], hash_token(token)]
 
-    def test_both_links_open_the_seat_afterwards(self, mongo_replica_set_url: str):
-        """The reader still looking at the first email is not punished by the chase."""
+    def test_a_resend_after_a_reminder_voids_every_link_on_both_seats_the_person_holds(self, mongo_replica_set_url: str):
+        """A re-send replaces the person's links, so nothing it replaces may still open the seat.
+
+        Reached only through a reminded pair: a seat nobody mirrors has no second entry, and a fixture without the reminder no
+        second hash.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await sweep(database, client)
-            fresh = next(
-                seat.token
-                for entry in response.erinnerungen
-                if entry.bewerbung_id == REMIND_OID
-                for seat in entry.seats
-                if "trainer" in seat.rollen
+            await sweep(database, client, now=MAIL_NOW)
+            reminders = {mail.an: mail.token for mail in await drained(database, client)}
+            await resend(database, "trainer")
+            [fresh] = await drained(database, client)
+            assert fresh.token is not None
+
+            # The reminder's shared link and BOTH first links, one of which is the mirrored seat's own copy -- the one a
+            # re-send writing a single entry leaves open.
+            tot = []
+            for gone in (reminders["wraxlington@example.com"] or "", f"{REMIND_OID}-trainer", f"{REMIND_OID}-ansprechperson"):
+                with pytest.raises(APIError) as conflict:
+                    await ansicht(database, gone)
+                tot.append(conflict.value.error_code)
+
+            return (
+                tot,
+                (await ansicht(database, fresh.token)).state,
+                # The Stellvertretung is nobody's pair, so its own reminder link is untouched.
+                (await ansicht(database, reminders["bramblewick@example.com"] or "")).state,
+                fresh.token,
+                await stored(database, REMIND_OID),
             )
 
-            return await ansicht(database, f"{REMIND_OID}-trainer"), await ansicht(database, fresh)
+        tot, zustand, fremd_zustand, fresh_token, document = on_a_league(mongo_replica_set_url, body)
 
-        old_view, new_view = on_a_league(mongo_replica_set_url, body)
-
-        assert (old_view.zustand, old_view.rolle) == ("gueltig", "trainer")
-        assert (new_view.zustand, new_view.rolle) == ("gueltig", "trainer")
+        assert tot == [Code.LINK_INVALID] * 3
+        assert (zustand, fremd_zustand) == ("valid", "valid")
+        assert document is not None
+        # One link answering both, each entry written back as the create writes it, and the reminder owed again.
+        for rolle in ("trainer", "ansprechperson"):
+            assert document["confirmations"][rolle] == {
+                "token_hashes": [hash_token(fresh_token)],
+                "sent_at": TODAY,
+                "reminded_at": None,
+                "declined_at": None,
+            }
 
     def test_a_second_run_the_same_day_reminds_nobody(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await sweep(database, client)
-            second = await sweep(database, client)
+            await sweep(database, client, now=MAIL_NOW)
+            first = await owed(database, "bewerbung_reminder")
+            second = await sweep(database, client, now=MAIL_NOW)
 
-            return second.erinnerungen
+            return second.reminded, first, await owed(database, "bewerbung_reminder")
 
-        assert on_a_league(mongo_replica_set_url, body) == []
+        erinnert, first, after = on_a_league(mongo_replica_set_url, body)
 
-    def test_no_raw_token_reaches_the_log_and_the_row_names_the_system(self, mongo_replica_set_url: str):
-        """The stamping patch files the prior document -- hashes, never the raw tokens that leave only in the response."""
+        assert (erinnert, after) == (0, first)
+
+    def test_no_raw_token_reaches_the_log_and_the_stamp_names_the_system(self, mongo_replica_set_url: str):
+        """The stamping patch files the prior document -- hashes, never the raw tokens, which exist in the mails alone."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await sweep(database, client)
-            rows = await log_rows_naming(database, Collection.BEWERBUNGEN, REMIND_OID)
+            await sweep(database, client, now=MAIL_NOW)
+            stamped = await log_rows_naming(database, Collection.BEWERBUNGEN, REMIND_OID)
+            # The reminders' links: the fourteen-day notice beside them carries none.
+            tokens = [mail.token for mail in await drained(database, client) if mail.data.art == "bewerbung_reminder"]
 
-            return [seat.token for entry in response.erinnerungen for seat in entry.seats], rows
+            return tokens, stamped, await database[Collection.ACTION_LOG].find({}).to_list(length=None)
 
-        tokens, rows = on_a_league(mongo_replica_set_url, body)
+        tokens, stamped, every_row = on_a_league(mongo_replica_set_url, body)
 
-        rendered = str(rows)
-        assert tokens and not any(token in rendered for token in tokens)
-        # The last row is the stamping patch; the seed's own patch sits before it.
-        stamping = max(rows, key=lambda row: row["_id"])
+        rendered = str(every_row)
+        assert tokens and not any(token is None or token in rendered for token in tokens)
+        # The last row before the drain is the stamping patch; the seed's own patch sits before it.
+        stamping = max(stamped, key=lambda row: row["_id"])
         assert stamping["operation"] == "patch_one"
-        assert stamping["before"]["bestaetigungen"]["trainer"]["erinnert_am"] is None
+        assert stamping["before"]["confirmations"]["trainer"]["reminded_at"] is None
         assert stamping["actor"]["email"] == SYSTEM_ACTOR_EMAIL
 
 
 class TestTheFourteenDayClock:
-    def test_the_first_call_lists_the_candidate_with_what_the_notice_needs_and_no_hash(self, mongo_replica_set_url: str):
+    def test_the_pass_loescht_the_candidate_and_owes_the_submitter_the_notice_naming_who_never_answered(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            response = await sweep(database, client, now=MAIL_NOW)
+
+            return response, await stored(database, DELETE_OID), await owed(database, "bewerbung_erasure")
+
+        response, document, notices = on_a_league(mongo_replica_set_url, body)
+
+        assert (response.erased, document) == (1, None)
+        assert notices == [
+            {
+                "key": f"{Collection.BEWERBUNGEN}/{DELETE_OID}/erasure",
+                "an": "wraxlington@example.com",
+                "data": {
+                    "art": "bewerbung_erasure",
+                    "saison_id": SAISON_ID,
+                    # Both seats this one person holds, so the notice names its reader by both.
+                    "rollen": ["trainer", "ansprechperson"],
+                    "pending": [
+                        {"vorname": "Wraxlington", "rollen": ["ansprechperson", "trainer"]},
+                        {"vorname": "Bramblewick", "rollen": ["stellvertretung"]},
+                    ],
+                },
+            }
+        ]
+        # First names alone: nothing else of the people outlives the application in the notice.
+        assert NACHNAME not in str(notices)
+
+    def test_the_loeschung_takes_exactly_the_due_application_and_redacts_its_rows(self, mongo_replica_set_url: str):
+        """An application still inside its deadline, or another season's, stands."""
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await sweep(database, client)
 
-            return response, await stored(database, DELETE_OID)
-
-        response, document = on_a_league(mongo_replica_set_url, body)
-
-        assert document is not None, "the first call erased what it may only list"
-        assert [entry.bewerbung_id for entry in response.loeschungen] == [DELETE_OID]
-        candidate = response.loeschungen[0]
-        assert (candidate.schule, candidate.bestaetigungsfrist, candidate.ansprechperson_email) == (
-            SCHOOL_NAME,
-            YESTERDAY,
-            "wraxlington@example.com",
-        )
-        # Both seats this one mailbox holds, so the notice names its reader by both rather than by
-        # the Ansprechperson alone, which the reader would read as the wrong person's message.
-        assert candidate.ansprechperson_rollen == ["trainer", "ansprechperson"]
-        assert candidate.angekuendigt is False, "a candidate nobody has been told about reads as announced"
-        assert [(seat.rolle, seat.vorname) for seat in candidate.ausstehend] == [
-            ("trainer", "Wraxlington"),
-            ("ansprechperson", "Wraxlington"),
-            ("stellvertretung", "Bramblewick"),
-        ]
-        # The candidates alone: the reminders beside them carry their raw tokens by design.
-        rendered = str([entry.model_dump(mode="json") for entry in response.loeschungen])
-        assert "token" not in rendered and NACHNAME not in rendered
-
-    def test_the_erasure_takes_exactly_the_announced_ids_and_redacts_their_rows(self, mongo_replica_set_url: str):
-        """Mail, stamp, erase: an id that does not qualify -- still inside its deadline, or another season's -- is skipped."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await announce(database, client, [DELETE_OID, REMIND_OID, OTHER_SEASON_OID])
-            response = await erase(database, client, [DELETE_OID, REMIND_OID, OTHER_SEASON_OID])
-
             return (
                 response,
-                await stored(database, DELETE_OID),
                 await stored(database, REMIND_OID),
                 await stored(database, OTHER_SEASON_OID),
                 await log_rows_naming(database, Collection.BEWERBUNGEN, DELETE_OID),
-                await erasure_rows(database),
+                await loeschung_rows(database),
             )
 
-        response, deleted, kept, other, rows, erasures = on_a_league(mongo_replica_set_url, body)
+        response, kept, other, rows, loeschungen = on_a_league(mongo_replica_set_url, body)
 
-        assert (response.geloescht, deleted) == (1, None)
+        assert response.erased == 1
         assert kept is not None and other is not None
         assert rows and all(row["before"] is None and row["redacted_at"] == REDACTED_AT for row in rows)
-        assert response.redigierte_aktionen == len(rows)
-        # The erasure's own row: no image, a filter naming the season and the ids and nothing else, the system as actor.
-        assert len(erasures) == 1
-        assert erasures[0]["before"] is None
-        assert set(erasures[0]["db_filter"]) == {"saison_id", "_id"}
-        assert erasures[0]["actor"]["kind"] == "system"
+        # The erasure's own rows: no image, a filter naming the season and the ids and nothing else, the system as actor.
+        # The filter is stored as text, so the id is found in it as text.
+        fourteen_day = [row for row in loeschungen if str(DELETE_OID) in row["db_filter"]["_id"]]
+        assert len(fourteen_day) == 1
+        assert fourteen_day[0]["before"] is None
+        assert set(fourteen_day[0]["db_filter"]) == {"saison_id", "_id"}
+        assert fourteen_day[0]["actor"]["kind"] == "system"
 
-    def test_an_empty_list_erases_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await erase(database, client, [])
-
-            return response.geloescht, await database[Collection.BEWERBUNGEN].count_documents({})
-
-        assert on_a_league(mongo_replica_set_url, body) == (0, 5)
-
-    def test_an_id_nobody_was_told_about_is_skipped_rather_than_erased(self, mongo_replica_set_url: str):
-        """A caller that erased without stamping would destroy an application whose three people never heard from the league."""
+    def test_a_widerspruchs_notice_stands_as_the_deletion_notice(self, mongo_replica_set_url: str):
+        """It named the deletion day, so the erasure owes no second notice."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await erase(database, client, [DELETE_OID])
+            await database[Collection.BEWERBUNGEN].update_one({"_id": DELETE_OID}, {"$set": {"erasure_announced_at": "2026-03-30"}})
+            response = await sweep(database, client, now=MAIL_NOW)
 
-            return response.geloescht, await stored(database, DELETE_OID)
+            return response.erased, await owed(database, "bewerbung_erasure")
 
-        geloescht, document = on_a_league(mongo_replica_set_url, body)
+        assert on_a_league(mongo_replica_set_url, body) == (1, [])
 
-        assert geloescht == 0
-        assert document is not None
-
-    def test_an_announced_candidate_whose_deadline_moved_is_skipped_rather_than_erased(self, mongo_replica_set_url: str):
-        """The stamp says a notice went out, never that the application is still due.
-
-        A re-send restarts `bestaetigungsfrist`, so erasing on the stamp alone would destroy an
-        application whose people are holding a live link.
-        """
+    def test_an_emptied_ansprechperson_slot_is_geloescht_with_nobody_told(self, mongo_replica_set_url: str):
+        """No mailbox is left to tell, which is not a refused address: the application cannot complete and goes."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await announce(database, client, [DELETE_OID])
-            # What a re-send does to this row, written directly: the deadline restarts and the
-            # application stops being a deletion candidate while its stamp stays where it is.
-            await patch_one_in_db(
-                collection=database[Collection.BEWERBUNGEN],
-                db_filter={"_id": DELETE_OID},
-                update={"$set": {"bestaetigungsfrist": TOMORROW}},
-                return_document=ReturnDocument.BEFORE,
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": DELETE_OID}, {"$set": {"kontakte.ansprechperson": None, "kontakte.trainer_is_also": None}}
             )
-            response = await erase(database, client, [DELETE_OID])
+            response = await sweep(database, client, now=MAIL_NOW)
 
-            return response.geloescht, await stored(database, DELETE_OID)
+            return response.erased, await stored(database, DELETE_OID), await owed(database, "bewerbung_erasure")
 
-        geloescht, document = on_a_league(mongo_replica_set_url, body)
-
-        assert geloescht == 0
-        assert document is not None
-        # The stamp survives: the notice really did go out, and a later pass past the new deadline
-        # erases without mailing a second one.
-        assert document["loeschung_angekuendigt_am"] == TODAY
-
-    def test_a_failed_erasure_does_not_send_the_notice_a_second_time(self, mongo_replica_set_url: str):
-        """Without the stamp the hourly pass mails „wird gelöscht“ again every hour until the erasure finally goes through."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            erster = await sweep(database, client)
-            gestempelt = await announce(database, client, [DELETE_OID])
-            # The erasure is simply never made, which is what a crashed container or a dropped
-            # connection leaves behind between the two calls.
-            zweiter = await sweep(database, client)
-            erased = await erase(database, client, [DELETE_OID])
-
-            return erster, gestempelt, zweiter, erased, await stored(database, DELETE_OID)
-
-        erster, gestempelt, zweiter, erased, document = on_a_league(mongo_replica_set_url, body)
-
-        assert [entry.angekuendigt for entry in erster.loeschungen] == [False]
-        assert gestempelt.angekuendigt == 1
-        # The candidate is still listed, so the erasure can be retried -- and now marked announced,
-        # which is what stops the caller composing a second message.
-        assert [(entry.bewerbung_id, entry.angekuendigt) for entry in zweiter.loeschungen] == [(DELETE_OID, True)]
-        assert (erased.geloescht, document) == (1, None)
-
-    def test_a_second_stamp_keeps_the_day_the_notice_actually_went_out(self, mongo_replica_set_url: str):
-        """The stamp is the day of the message, so a later pass over the same candidate must not move it to its own day."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await announce(database, client, [DELETE_OID])
-            spaeter = await announce(database, client, [DELETE_OID], today="2026-04-05")
-            document = await stored(database, DELETE_OID)
-
-            return spaeter.angekuendigt, document["loeschung_angekuendigt_am"] if document else None
-
-        assert on_a_league(mongo_replica_set_url, body) == (0, TODAY)
+        assert on_a_league(mongo_replica_set_url, body) == (1, None, [])
 
 
 class TestAnApplicationWhoseNoticeCannotArrive:
-    """Held past the deadline for an administrator, never erased on a notice the provider skipped.
+    """Held past the deadline for an administrator, never erased on a notice that cannot reach the submitter."""
 
-    Without the delivery state the stamp says a message went out, the erasure follows, and the school
-    hears nothing.
-    """
-
-    def test_the_pass_offers_it_to_nobody_and_neither_call_takes_it(self, mongo_replica_set_url: str):
+    def test_the_pass_holds_it_and_owes_no_notice(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await refuse_the_submitters_address(database, client, DELETE_OID)
-            pass_response = await sweep(database, client)
-            stamped = await announce(database, client, [DELETE_OID])
-            erased = await erase(database, client, [DELETE_OID])
+            response = await sweep(database, client, now=MAIL_NOW)
 
-            return pass_response, stamped.angekuendigt, erased.geloescht, await stored(database, DELETE_OID)
+            return response.erased, await stored(database, DELETE_OID), await owed(database, "bewerbung_erasure")
 
-        pass_response, stamped, erased, document = on_a_league(mongo_replica_set_url, body)
+        geloescht, document, notices = on_a_league(mongo_replica_set_url, body)
 
-        assert [entry.bewerbung_id for entry in pass_response.loeschungen] == []
-        assert (stamped, erased) == (0, 0)
+        assert geloescht == 0
         assert document is not None, "an application whose deletion notice cannot be delivered was erased anyway"
-        assert document.get("loeschung_angekuendigt_am") is None
-
-    def test_a_notice_that_bounced_after_it_was_stamped_stops_the_erasure(self, mongo_replica_set_url: str):
-        """The stamp lands as soon as the provider accepts, and the refusal arrives minutes later.
-
-        Re-judging on every call makes that harmless: the id is skipped rather than erased.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            stamped = await announce(database, client, [DELETE_OID])
-            await refuse_the_submitters_address(database, client, DELETE_OID)
-            erased = await erase(database, client, [DELETE_OID])
-
-            return stamped.angekuendigt, erased.geloescht, await stored(database, DELETE_OID)
-
-        stamped, erased, document = on_a_league(mongo_replica_set_url, body)
-
-        assert (stamped, erased) == (1, 0)
-        assert document is not None
-        # The stamp stands: a message really was accepted, and a later pass must not compose a second.
-        assert document["loeschung_angekuendigt_am"] == TODAY
+        assert notices == []
 
     def test_a_seat_the_provider_refuses_is_not_reminded(self, mongo_replica_set_url: str):
         """The double-seated person is one mailbox: refusing it leaves the third seat as the only one due."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await refuse_the_submitters_address(database, client, REMIND_OID)
-            response = await sweep(database, client)
+            await sweep(database, client, now=MAIL_NOW)
 
-            return [(entry.email, [seat.rollen for seat in entry.seats]) for entry in response.erinnerungen]
+            return await owed(database, "bewerbung_reminder")
 
-        assert on_a_league(mongo_replica_set_url, body) == [("bramblewick@example.com", [["stellvertretung"]])]
+        assert on_a_league(mongo_replica_set_url, body) == [reminder_mail("bramblewick@example.com", ["stellvertretung"])]
 
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
@@ -703,123 +554,42 @@ STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
 REFUSED_ADDRESS = "müller@example.com"
 
 
-class TestABarredMailboxIsNotChased:
-    """No reminder carries a fresh link to an address the ban list holds: the seat is sent nothing, stores nothing, and is counted."""
+class TestABarredMailbox:
+    """A reminder to an address the ban list holds is owed like any other, and the drain holds it: no link reaches it."""
 
-    def test_an_address_the_rule_refuses_is_barred_by_nothing_and_the_pass_goes_on(self, mongo_replica_set_url: str):
+    def test_an_address_the_rule_refuses_is_barred_by_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].update_one(
                 {"_id": REMIND_OID}, {"$set": {"kontakte.stellvertretung.email": REFUSED_ADDRESS}}
             )
-            response = await sweep(database, client)
+            await sweep(database, client, now=MAIL_NOW)
 
-            return [(entry.email, [seat.rollen for seat in entry.seats]) for entry in response.erinnerungen if entry.bewerbung_id == REMIND_OID]
+            return [mail.an for mail in await drained(database, client)]
 
-        assert (REFUSED_ADDRESS, [["stellvertretung"]]) in on_a_league(mongo_replica_set_url, body)
+        assert REFUSED_ADDRESS in on_a_league(mongo_replica_set_url, body)
 
-    def test_the_barred_seat_is_sent_nothing_and_stores_nothing_and_the_other_mailbox_is_chased(self, mongo_replica_set_url: str, caplog):
+    def test_the_barred_mailbox_is_handed_nothing_and_its_seat_keeps_its_first_link_alone(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPERRLISTE].insert_one(ban_document("bramblewick@example.com", bis=STANDING))
-            # Both passes inside: the level outside is whatever an earlier test on this worker left.
-            with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
-                response = await sweep(database, client)
-                # Still in the read: nothing of the ban is stored, so the next pass asks it again.
-                still_read = await database[Collection.BEWERBUNGEN].find_one(
-                    {"_id": REMIND_OID, **build_erinnerung_filter(saison_id=SAISON_ID, today=TODAY)}
-                )
-                second = await sweep(database, client)
+            await sweep(database, client, now=MAIL_NOW)
 
-            reminded = [
-                (entry.email, [seat.rollen for seat in entry.seats]) for entry in response.erinnerungen if entry.bewerbung_id == REMIND_OID
-            ]
-            return reminded, second.erinnerungen, await stored(database, REMIND_OID), still_read
+            reminders = [mail.an for mail in await drained(database, client) if mail.data.art == "bewerbung_reminder"]
 
-        reminded, second, document, still_read = on_a_league(mongo_replica_set_url, body)
+            return reminders, await stored(database, REMIND_OID)
 
-        assert still_read is not None
+        sent, document = on_a_league(mongo_replica_set_url, body)
 
         # The control beside the refusal: the unbarred mailbox on the same application is chased.
-        assert reminded == [("wraxlington@example.com", [["trainer", "ansprechperson"]])]
+        assert sent == ["wraxlington@example.com"]
         assert document is not None
-        stellvertretung = document["bestaetigungen"]["stellvertretung"]
-        # Nothing written: no fresh hash nobody is sent, no `erinnert_am` for a reminder that never
-        # went out, and no key recording the ban beside the person's address.
-        assert stellvertretung["erinnert_am"] is None
-        assert "erinnerung_gesperrt_am" not in stellvertretung
-        assert stellvertretung["token_hash"] == first_hashes(str(REMIND_OID))["stellvertretung"]
-        assert second == []
-
-        withheld = [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()]
-        # A count, never an id: a line naming the application would tie it to the ban. One per pass,
-        # each having asked the ban afresh.
-        assert withheld == [f"Reminders withheld from barred addresses in season {SAISON_ID}: 1 mailbox(es)"] * 2
-        assert not any("bramblewick" in record.getMessage() or str(REMIND_OID) in record.getMessage() for record in caplog.records)
-
-    def test_a_barred_application_takes_no_place_in_the_share(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch):
-        """Skipped before the share is cut: it stays due, so taken first it would fill the share on every pass."""
-
-        monkeypatch.setattr(sweep_router_module, "REMINDERS_PER_PASS", 1)
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            # Due first, its deadline the earlier, and every seat at one barred address.
-            barred = {seat: person("Quorral") for seat in ("trainer", "ansprechperson", "stellvertretung")}
-            await database[Collection.BEWERBUNGEN].insert_one(
-                application(BARRED_OID, bestaetigungsfrist="2026-04-05", kontakte={**barred, "trainer_ist_zugleich": None})
-            )
-            await database[Collection.SPERRLISTE].insert_one(ban_document("quorral@example.com", bis=STANDING))
-
-            return {entry.bewerbung_id for entry in (await sweep(database, client)).erinnerungen}
-
-        assert on_a_league(mongo_replica_set_url, body) == {REMIND_OID}
-
-    def test_a_page_and_one_more_of_barred_applications_refuses_the_pass(self, mongo_replica_set_url: str):
-        """Every barred row stays due, so a full page of them would be read again on every pass and nobody past it ever chased."""
-
-        barred = {**{seat: person("Quorral") for seat in KONTAKT_ROLLEN}, "trainer_ist_zugleich": None}
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> type[BaseException]:
-            await database[Collection.BEWERBUNGEN].delete_many({})
-            await database[Collection.BEWERBUNGEN].insert_many(
-                [application(numbered(position), kontakte=barred) for position in range(SWEEP_PAGE + 1)]
-            )
-            await database[Collection.SPERRLISTE].insert_one(ban_document("quorral@example.com", bis=STANDING))
-            with pytest.raises(StalledPage) as stalled:
-                await sweep(database, client)
-
-            return stalled.type
-
-        # Raised rather than answered: a pass answering an empty share would read as one with nobody left to chase.
-        assert on_a_league(mongo_replica_set_url, body) is StalledPage
-
-    def test_a_later_day_asks_the_ban_again_and_a_lifted_one_lets_the_reminder_go(self, mongo_replica_set_url: str):
-        """Withheld once more while the ban stands, and chased on the first pass after it is lifted."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPERRLISTE].insert_one(ban_document("bramblewick@example.com", bis=STANDING))
-            await sweep(database, client)
-            still_barred = await sweep(database, client, today=TOMORROW)
-            await database[Collection.SPERRLISTE].delete_many({})
-            lifted = await sweep(database, client, today="2026-04-03")
-
-            def seats(response: Any) -> list[list[str]]:
-                return [seat.rollen for entry in response.erinnerungen if entry.bewerbung_id == REMIND_OID for seat in entry.seats]
-
-            return seats(still_barred), seats(lifted), await stored(database, REMIND_OID)
-
-        still_barred, lifted, document = on_a_league(mongo_replica_set_url, body)
-
-        assert still_barred == []
-        assert lifted == [["stellvertretung"]]
-        assert document is not None
-        assert document["bestaetigungen"]["stellvertretung"]["erinnert_am"] == "2026-04-03"
+        assert document["confirmations"]["stellvertretung"]["token_hashes"] == [first_hashes(str(REMIND_OID))["stellvertretung"]]
 
 
 # The Stellvertretung's stamp, the one seat nobody mirrors, each state the clocks' queries must read
 # as `app/shared/einwilligung.py :: is_confirmed` reads it.
-STELLVERTRETUNG_STAMP = "kontakte.stellvertretung.einwilligung.bestaetigt_am"
+STELLVERTRETUNG_STAMP = "kontakte.stellvertretung.einwilligung.confirmed_at"
 STAMP_STATES = [
     pytest.param({"$set": {STELLVERTRETUNG_STAMP: MAILED_ON_THE_MARK}}, False, id="confirmed, the control"),
-    pytest.param({"$set": {STELLVERTRETUNG_STAMP: ""}}, True, id="stamped empty"),
     pytest.param({"$set": {STELLVERTRETUNG_STAMP: None}}, True, id="stamped null"),
     # No stamp at all, the field missing, which the query's null term has to reach as well.
     pytest.param({"$set": {"kontakte.stellvertretung": None}}, True, id="the seat erased"),
@@ -830,37 +600,37 @@ class TestTheClocksQueriesReadAStampAsThePredicateDoes:
     """In the query, where a row the predicate would take is otherwise never read to be judged."""
 
     @pytest.mark.parametrize(("update", "outstanding"), STAMP_STATES)
-    def test_the_fourteen_day_clock_lists_an_application_whose_seat_is_unconfirmed(
+    def test_the_fourteen_day_clock_takes_an_application_whose_seat_is_unconfirmed(
         self, mongo_replica_set_url: str, update: Mapping[str, Any], outstanding: bool
     ):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await confirm_every_seat(database, DELETE_OID)
             await database[Collection.BEWERBUNGEN].update_one({"_id": DELETE_OID}, update)
-            response = await sweep(database, client)
+            await sweep(database, client)
 
-            return [entry.bewerbung_id for entry in response.loeschungen]
+            return await stored(database, DELETE_OID) is None
 
-        assert on_a_league(mongo_replica_set_url, body) == ([DELETE_OID] if outstanding else [])
+        assert on_a_league(mongo_replica_set_url, body) is outstanding
 
     @pytest.mark.parametrize(
-        ("update", "owed"),
+        ("update", "due"),
         [state for state in STAMP_STATES if state.id != "the seat erased"],
     )
-    def test_the_reminder_chases_a_seat_whose_stamp_is_unconfirmed(self, mongo_replica_set_url: str, update: Mapping[str, Any], owed: bool):
+    def test_the_reminder_chases_a_seat_whose_stamp_is_unconfirmed(self, mongo_replica_set_url: str, update: Mapping[str, Any], due: bool):
         """An erased seat has no address to chase, so it is the fourteen-day clock's case alone."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await confirm_every_seat(database, REMIND_OID)
             await database[Collection.BEWERBUNGEN].update_one({"_id": REMIND_OID}, update)
-            response = await sweep(database, client)
+            await sweep(database, client, now=MAIL_NOW)
 
-            return [(entry.email, [seat.rollen for seat in entry.seats]) for entry in response.erinnerungen if entry.bewerbung_id == REMIND_OID]
+            return await owed(database, "bewerbung_reminder")
 
-        assert on_a_league(mongo_replica_set_url, body) == ([("bramblewick@example.com", [["stellvertretung"]])] if owed else [])
+        assert on_a_league(mongo_replica_set_url, body) == ([reminder_mail("bramblewick@example.com", ["stellvertretung"])] if due else [])
 
 
 class TestTheOneMonthClock:
-    def test_a_declined_application_a_month_old_is_erased_and_its_rows_redacted_in_the_first_call(self, mongo_replica_set_url: str):
+    def test_a_declined_application_a_month_old_is_geloescht_and_its_rows_redacted_in_the_first_call(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await sweep(database, client)
 
@@ -868,7 +638,7 @@ class TestTheOneMonthClock:
 
         response, document, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert (response.abgelehnte_geloescht, document) == (1, None)
+        assert (response.erased_declined, document) == (1, None)
         assert rows and all(row["before"] is None for row in rows)
 
     def test_another_seasons_application_is_not_reached(self, mongo_replica_set_url: str):
@@ -877,21 +647,21 @@ class TestTheOneMonthClock:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
 
-            return await stored(database, OTHER_SEASON_OID), await erasure_rows(database)
+            return await stored(database, OTHER_SEASON_OID), await loeschung_rows(database)
 
-        other, erasures = on_a_league(mongo_replica_set_url, body)
+        other, loeschungen = on_a_league(mongo_replica_set_url, body)
 
         assert other is not None
         # Floored as the case above floors its own rows: `all` over an empty corpus is true, so a sweep
         # that erased nothing would pass this while proving the opposite of what it claims.
-        assert erasures, "the sweep erased nothing, so this proves no season was spared"
-        assert all(row["db_filter"]["saison_id"] == SAISON_ID for row in erasures)
+        assert loeschungen, "the sweep erased nothing, so this proves no season was spared"
+        assert all(row["db_filter"]["saison_id"] == SAISON_ID for row in loeschungen)
 
 
 class TestTheSeasonsOwnEndClock:
     """The bound on an application nobody decided, which the fourteen-day clock drops as soon as every seat confirms."""
 
-    def test_an_application_every_seat_confirmed_and_nobody_decided_is_erased_and_its_rows_redacted(self, mongo_replica_set_url: str):
+    def test_an_application_every_seat_confirmed_and_nobody_decided_is_geloescht_and_its_rows_redacted(self, mongo_replica_set_url: str):
         """Both submitted rows go, the confirmed one and the one past its deadline; a decided one is this clock's business at all."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -904,18 +674,18 @@ class TestTheSeasonsOwnEndClock:
                 await stored(database, DELETE_OID),
                 await stored(database, ACCEPTED_OID),
                 await log_rows_naming(database, Collection.BEWERBUNGEN, REMIND_OID),
-                await erasure_rows(database),
+                await loeschung_rows(database),
             )
 
-        response, confirmed, past_its_deadline, accepted, rows, erasures = on_a_league(
+        response, confirmed, past_its_deadline, accepted, rows, loeschungen = on_a_league(
             mongo_replica_set_url, body, status="past", next_status="active"
         )
 
-        assert (response.ohne_entscheidung_geloescht, confirmed, past_its_deadline) == (2, None, None)
+        assert (response.erased_without_decision, confirmed, past_its_deadline) == (2, None, None)
         # The accepted one is the successor season's business, and that season still runs.
         assert accepted is not None
         assert rows and all(row["before"] is None and row["redacted_at"] == REDACTED_AT for row in rows)
-        assert all(row["db_filter"]["saison_id"] == SAISON_ID for row in erasures)
+        assert all(row["db_filter"]["saison_id"] == SAISON_ID for row in loeschungen)
 
     def test_nothing_goes_while_the_season_still_runs(self, mongo_replica_set_url: str):
         """The row every other clock leaves standing: confirmed by all three, decided by nobody, and its deadline behind it."""
@@ -928,19 +698,21 @@ class TestTheSeasonsOwnEndClock:
 
         response, confirmed = on_a_league(mongo_replica_set_url, body)
 
-        assert response.ohne_entscheidung_geloescht == 0
+        assert response.erased_without_decision == 0
         assert confirmed is not None
 
     def test_the_pass_offers_neither_a_reminder_nor_a_notice_for_a_row_this_clock_takes(self, mongo_replica_set_url: str):
         """The order is the whole of it: run after either, and the caller mails about an application this pass has erased."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await sweep(database, client)
+            response = await sweep(database, client, now=MAIL_NOW)
 
-        response = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
+            return response, await database[Collection.OUTBOX].count_documents({})
 
-        assert (response.erinnerungen, response.loeschungen) == ([], [])
-        assert response.ohne_entscheidung_geloescht == 2
+        response, mails = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
+
+        assert (response.reminded, response.erased, mails) == (0, 0, 0)
+        assert response.erased_without_decision == 2
 
     def test_an_application_whose_notice_the_provider_refuses_goes_with_the_season(self, mongo_replica_set_url: str):
         """The hold that has no other end: `deletion_is_due` drops a refused address, so nothing else ever reaches this row."""
@@ -953,13 +725,13 @@ class TestTheSeasonsOwnEndClock:
 
         response, document = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
 
-        assert (response.ohne_entscheidung_geloescht, document) == (2, None)
+        assert (response.erased_without_decision, document) == (2, None)
 
     def test_a_second_pass_the_same_day_finds_nothing_left(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await sweep(database, client)
 
-            return first.ohne_entscheidung_geloescht, (await sweep(database, client)).ohne_entscheidung_geloescht
+            return first.erased_without_decision, (await sweep(database, client)).erased_without_decision
 
         # The first count as well as the second: a clock taking nothing at all answers zero twice.
         assert on_a_league(mongo_replica_set_url, body, status="past", next_status="active") == (2, 0)
@@ -974,7 +746,7 @@ class TestTheSeasonAndOneClock:
 
         response, document, row = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
 
-        assert (response.angenommene_geloescht, response.kontaktbloecke_geleert) == (0, 0)
+        assert (response.erased_accepted, response.kontakt_blocks_emptied) == (0, 0)
         assert document is not None and row is not None and row["kontakte"] is not None
 
     def test_the_application_goes_and_the_contact_block_empties_once_the_next_season_is_past(self, mongo_replica_set_url: str):
@@ -990,7 +762,7 @@ class TestTheSeasonAndOneClock:
 
         response, document, row, junction_log = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
-        assert (response.angenommene_geloescht, response.kontaktbloecke_geleert, document) == (1, 1, None)
+        assert (response.erased_accepted, response.kontakt_blocks_emptied, document) == (1, 1, None)
         assert row is not None and row["kontakte"] is None
         # The block's own keys survive around the clearing: the row is still a junction row.
         assert (row["gruppe"], row["trikot_farbe"]) == ("B", "blau")
@@ -1009,7 +781,7 @@ class TestTheSeasonAndOneClock:
         # The seeded move into group B filed the row as it stood in A; the clearing filed it in B.
         assert sorted(image["gruppe"] for image in images) == ["A", "B"]
         # Seeded before links existed, so the redaction adds no block to its images either.
-        assert all((image["trikot_farbe"], image["kontakte"], "bestaetigungen" in image) == ("blau", None, False) for image in images)
+        assert all((image["trikot_farbe"], image["kontakte"], "confirmations" in image) == ("blau", None, False) for image in images)
 
     @pytest.mark.parametrize("people", [pytest.param(kontakte(), id="beside their people"), pytest.param(None, id="left by an older image")])
     def test_the_rows_confirmation_links_and_their_delivery_records_go_too(self, mongo_replica_set_url: str, people: Any):
@@ -1017,21 +789,21 @@ class TestTheSeasonAndOneClock:
 
         link = {
             "token_hash": "a" * 64,
-            "verschickt_am": "2026-03-02",
+            "sent_at": "2026-03-02",
             "frist": "2026-03-16",
-            "abgelehnt_am": None,
-            "zustellung": {"nachricht_id": "msg-1", "stand": "zugestellt", "grund": None, "am": "2026-03-02T10:00:00+01:00"},
+            "declined_at": None,
+            "delivery": {"message_id": "msg-1", "state": "delivered", "grund": None, "am": "2026-03-02T10:00:00+01:00"},
         }
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISON_TEAMS].update_one(
                 {"_id": JUNCTION_OID},
-                {"$set": {"kontakte": people, "bestaetigungen": {"trainer": link, "ansprechperson": None, "stellvertretung": None}}},
+                {"$set": {"kontakte": people, "confirmations": {"trainer": link, "ansprechperson": None, "stellvertretung": None}}},
             )
             response = await sweep(database, client)
 
             return (
-                response.kontaktbloecke_geleert,
+                response.kontakt_blocks_emptied,
                 await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID}),
                 await log_rows_naming(database, Collection.SAISON_TEAMS, JUNCTION_OID),
             )
@@ -1039,7 +811,7 @@ class TestTheSeasonAndOneClock:
         geleert, row, log = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
         assert geleert == 1
-        assert row is not None and (row["kontakte"], row["bestaetigungen"]) == (None, None)
+        assert row is not None and (row["kontakte"], row["confirmations"]) == (None, None)
         # The clearing's own image held the link, beside a person or not, and loses it with the block.
         assert "msg-1" not in str(log)
 
@@ -1047,7 +819,7 @@ class TestTheSeasonAndOneClock:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await sweep(database, client)
 
-            return response.angenommene_geloescht, response.kontaktbloecke_geleert
+            return response.erased_accepted, response.kontakt_blocks_emptied
 
         assert on_a_league(mongo_replica_set_url, body, status="past", next_status=None) == (0, 0)
 
@@ -1069,7 +841,7 @@ class TestTheSeasonAndOneClock:
             await database[Collection.SAISONS].insert_one(season(SKIPPED_TO_SAISON_ID, "past"))
             response = await sweep(database, client)
 
-            return response.angenommene_geloescht, response.kontaktbloecke_geleert
+            return response.erased_accepted, response.kontakt_blocks_emptied
 
         assert on_a_league(mongo_replica_set_url, body, status="past", next_status=between) == (1, 1)
 
@@ -1086,7 +858,7 @@ class TestTheSeasonAndOneClock:
 
         response, document, row = on_a_league(mongo_replica_set_url, body, status="active", next_status="past")
 
-        assert (response.angenommene_geloescht, response.kontaktbloecke_geleert) == (0, 0)
+        assert (response.erased_accepted, response.kontakt_blocks_emptied) == (0, 0)
         assert document is not None and row is not None and row["kontakte"] is not None
 
     def test_a_running_season_whose_id_is_no_year_still_fails_the_pass(self, mongo_replica_set_url: str):
@@ -1148,12 +920,12 @@ class ActivatedAfterTheClocksRead(InterleavedCollection):
 DRAIN_BOUND_S = 60.0
 
 
-class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
+class TestAnActivationInsideAnLoeschenTransactionKeepsTheSeasonsRows:
     @pytest.mark.parametrize(
         ("collection", "clocks_read", "expected"),
         [
             pytest.param(
-                Collection.BEWERBUNGEN, lambda db_filter: db_filter.get("status") == "angenommen", (0, 0, True, True), id="the accepted clock's"
+                Collection.BEWERBUNGEN, lambda db_filter: db_filter.get("status") == "accepted", (0, 0, True, True), id="the accepted clock's"
             ),
             # The accepted clock committed first, so its applications went before the season ran.
             pytest.param(Collection.SAISON_TEAMS, lambda _: True, (SWEEP_PAGE + 2, 0, False, True), id="the contact block's"),
@@ -1171,7 +943,7 @@ class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
         Planned below a season that has ended, so the call's own read finds both clocks due.
         """
 
-        accepted = {"status": "angenommen", "entscheidung": {"getroffen_am": "2026-03-01", "von": "admin", "grund": None}}
+        accepted = {"status": "accepted", "decision": {"made_at": "2026-03-01", "von": "admin", "grund": None}}
         report = a_report(SAISON_ID)
         declined = a_declined_confirmation(CLUB_OID, SAISON_ID)
 
@@ -1180,7 +952,7 @@ class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
             await database[Collection.BEWERBUNGEN].insert_many(
                 [application(numbered(position), **accepted) for position in range(SWEEP_PAGE + 1)]
             )
-            # What makes the planned season activatable (`REQ-ACTIVATE-003`).
+            # What makes the planned season activatable (`activate_target_undrawn`).
             await database[Collection.SPIELE].insert_one(
                 spiel_document(spiel_id=numbered(SWEEP_PAGE + 1), saison_id=SAISON_ID, spiel_nr=1, spieltag_id=numbered(SWEEP_PAGE + 2))
             )
@@ -1210,10 +982,10 @@ class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
                     saison_teams_collection=reaching(Collection.SAISON_TEAMS),
                     saisons_collection=database[Collection.SAISONS],
                     teams_collection=database[Collection.TEAMS],
-                    aktionen_collection=database[Collection.AKTIONEN],
+                    aktionen_collection=database[Collection.ACTION_LOG],
                     spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                     spielberichte_collection=database[Collection.SPIELBERICHTE],
-                    sperrliste=ban_list(database),
+                    outbox_collection=database[Collection.OUTBOX],
                     db=client,
                     today=TODAY,
                     germany_now=NOW,
@@ -1228,8 +1000,8 @@ class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
                 interleaved.rival_outcome,
                 await database[Collection.SAISONS].find_one({"_id": SAISON_ID}),
                 (
-                    response.angenommene_geloescht,
-                    response.kontaktbloecke_geleert,
+                    response.erased_accepted,
+                    response.kontakt_blocks_emptied,
                     await stored(database, ACCEPTED_OID) is not None,
                     junction_row is not None and junction_row["kontakte"] is not None,
                 ),
@@ -1246,14 +1018,12 @@ class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
 
 
 class TestASeasonNobodyHas:
-    def test_either_call_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
+    def test_the_pass_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await sweep(database, client, saison_id="1999")
-            with pytest.raises(DocumentNotFoundException):
-                await erase(database, client, [DELETE_OID], saison_id="1999")
 
-            return await database[Collection.BEWERBUNGEN].count_documents({}), await erasure_rows(database)
+            return await database[Collection.BEWERBUNGEN].count_documents({}), await loeschung_rows(database)
 
         assert on_a_league(mongo_replica_set_url, body) == (5, [])
 
@@ -1262,11 +1032,17 @@ SECOND_OID = ObjectId("6890a1b2c3d4e5f607960007")
 SECOND_CLUB_OID = ObjectId("6890a1b2c3d4e5f607960012")
 SECOND_JUNCTION_OID = ObjectId("6890a1b2c3d4e5f607960022")
 
-DECLINED = {"status": "abgelehnt", "entscheidung": {"getroffen_am": "2026-02-15", "von": "admin", "grund": "kein Platz"}}
+DECLINED = {"status": "declined", "decision": {"made_at": "2026-02-15", "von": "admin", "grund": "kein Platz"}}
+
+
+async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:
+    """How this suite forces one row's write to fail mid-pass: a `$jsonSchema` the planted row breaks and every other row keeps."""
+
+    await database.command("collMod", str(collection), validator={"$jsonSchema": dict(schema)}, validationLevel="strict")
 
 
 def refusing_its_redaction(collection: Collection, row: Mapping[str, Any]) -> dict[str, Any]:
-    """A log image missing the `trace_id` its validator requires, so the redaction's update is refused: any row a write is refused on."""
+    """A log image missing its `trace_id`, so the redaction's update is refused: any row a write is refused on."""
 
     return {
         "at": "2026-01-01T00:00:00+00:00",
@@ -1287,234 +1063,180 @@ def refusing_its_redaction(collection: Collection, row: Mapping[str, Any]) -> di
 async def refuse_the_redaction_of(database: AsyncDatabase, collection: Collection, row_id: ObjectId) -> None:
     row = await database[collection].find_one({"_id": row_id})
     assert row is not None
-    await database[Collection.AKTIONEN].insert_one(refusing_its_redaction(collection, row), bypass_document_validation=True)
+    await database[Collection.ACTION_LOG].insert_one(refusing_its_redaction(collection, row))
+    await refuse_writes_breaking(database, Collection.ACTION_LOG, {"required": ["trace_id"]})
 
 
-# What the planted log image's refusal reads as on a passed-over line: the property its validator requires.
-REFUSED_TRACE_ID = "WriteError, code 121: [{'loc': 'trace_id', 'type': 'required', 'msg': 'property is missing'}]"
+# What the planted log image's refusal reads as on a passed-over line: the driver's type and the server's code.
+REFUSED_TRACE_ID = "WriteError, code 121"
 
-# A hand-edited deadline as the answer's model refuses it: the field and the rule, never the value.
+# A hand-edited deadline as the reminder's facts refuse it: the field and the rule, never the value.
 REFUSED_DEADLINE = (
-    "ValidationError: [{'loc': 'bestaetigungsfrist', 'type': 'string_pattern_mismatch', "
+    "ValidationError: [{'loc': 'frist', 'type': 'string_pattern_mismatch', "
     "'msg': \"String should match pattern '^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$'\"}]"
 )
 
 
-def passed_over(caplog: pytest.LogCaptureFixture) -> list[tuple[str, str | None, str]]:
+def passed_over(caplog: pytest.LogCaptureFixture) -> list[tuple[Any, ...]]:
     return [
-        (record.levelname, getattr(record, "error_code", None), record.getMessage())
+        (
+            record.levelname,
+            getattr(record, "error_code", None),
+            getattr(record, "what", None),
+            getattr(record, "row_id", None),
+            getattr(record, "clock", None),
+            getattr(record, "diagnosis", None),
+        )
         for record in caplog.records
-        if "passed over" in record.getMessage()
+        if record.getMessage() == "transactions.row_passed_over"
     ]
-
-
-def reminded(answer: Any) -> set[ObjectId]:
-    return {erinnerung.bewerbung_id for erinnerung in answer.erinnerungen}
 
 
 class TestOneRowHoldsBackNoOther:
     """One case per write the call makes: with the site's isolation gone the whole call raises, every hour."""
 
-    def test_a_refused_erasure_at_the_seasons_end(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_a_refused_loeschung_at_the_seasons_end(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await refuse_the_redaction_of(database, Collection.BEWERBUNGEN, REMIND_OID)
             answer = await sweep(database, client)
 
             return (
-                (answer.ohne_entscheidung_geloescht, answer.abgelehnte_geloescht, answer.fehlgeschlagen),
+                (answer.erased_without_decision, answer.erased_declined, answer.failed),
                 await stored(database, REMIND_OID),
                 await stored(database, DELETE_OID),
             )
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            counts, refused, other = on_a_league(mongo_replica_set_url, body, status="past")
+            counts, refused, other = on_a_league(mongo_replica_set_url, body, status="past", mutates_schema=True)
 
         # The decline clock after it ran too.
         assert counts == (1, 1, 1)
         assert (refused is not None, other) == (True, None)
-        assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Application {REMIND_OID} was passed over by the season's end clock: {REFUSED_TRACE_ID}")
-        ]
+        assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(REMIND_OID), "season's end", f"{REFUSED_TRACE_ID}")]
 
-    def test_a_refused_erasure_by_the_decline_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_a_refused_loeschung_by_the_decline_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].insert_one(application(SECOND_OID, **DECLINED))
             await refuse_the_redaction_of(database, Collection.BEWERBUNGEN, DECLINED_OID)
-            answer = await sweep(database, client)
+            answer = await sweep(database, client, now=MAIL_NOW)
 
-            return answer, await stored(database, DECLINED_OID), await stored(database, SECOND_OID)
+            return answer, await stored(database, DECLINED_OID), await stored(database, SECOND_OID), await reminded(database)
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            answer, refused, other = on_a_league(mongo_replica_set_url, body)
+            answer, refused, other, chased = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
-        assert (answer.abgelehnte_geloescht, answer.fehlgeschlagen) == (1, 1)
+        assert (answer.erased_declined, answer.failed) == (1, 1)
         assert (refused is not None, other) == (True, None)
         # The clocks after it ran: the drive at the fork found the reminder unstamped and the call raising every pass.
-        assert (reminded(answer), [loeschung.bewerbung_id for loeschung in answer.loeschungen]) == ({REMIND_OID}, [DELETE_OID])
-        assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Application {DECLINED_OID} was passed over by the decline clock: {REFUSED_TRACE_ID}")
-        ]
+        assert (chased, answer.erased) == ({REMIND_OID}, 1)
+        assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(DECLINED_OID), "decline", f"{REFUSED_TRACE_ID}")]
 
-    def test_a_refused_erasure_by_the_acceptance_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_a_refused_loeschung_by_the_acceptance_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].insert_one(
-                application(SECOND_OID, status="angenommen", entscheidung={"getroffen_am": "2026-03-01", "von": "admin", "grund": None})
+                application(SECOND_OID, status="accepted", decision={"made_at": "2026-03-01", "von": "admin", "grund": None})
             )
             await refuse_the_redaction_of(database, Collection.BEWERBUNGEN, ACCEPTED_OID)
             answer = await sweep(database, client)
 
             return (
-                (answer.angenommene_geloescht, answer.kontaktbloecke_geleert, answer.fehlgeschlagen),
+                (answer.erased_accepted, answer.kontakt_blocks_emptied, answer.failed),
                 await stored(database, ACCEPTED_OID),
                 await stored(database, SECOND_OID),
             )
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            counts, refused, other = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+            counts, refused, other = on_a_league(mongo_replica_set_url, body, status="past", next_status="past", mutates_schema=True)
 
         assert counts == (1, 1, 1)
         assert (refused is not None, other) == (True, None)
-        assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Application {ACCEPTED_OID} was passed over by the acceptance clock: {REFUSED_TRACE_ID}")
-        ]
+        assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(ACCEPTED_OID), "acceptance", f"{REFUSED_TRACE_ID}")]
 
     def test_a_refused_contact_block(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISON_TEAMS].insert_one({**junction_row(), "_id": SECOND_JUNCTION_OID, "team_id": SECOND_CLUB_OID})
             await refuse_the_redaction_of(database, Collection.SAISON_TEAMS, JUNCTION_OID)
-            answer = await sweep(database, client)
+            answer = await sweep(database, client, now=MAIL_NOW)
             blocks = await database[Collection.SAISON_TEAMS].find({}, {"kontakte": 1}).sort("_id", 1).to_list(None)
 
-            return answer, [(block["_id"], block["kontakte"] is not None) for block in blocks]
+            return answer, [(block["_id"], block["kontakte"] is not None) for block in blocks], await reminded(database)
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            answer, blocks = on_a_league(mongo_replica_set_url, body, status="future", next_status="past")
+            answer, blocks, chased = on_a_league(mongo_replica_set_url, body, status="future", next_status="past", mutates_schema=True)
 
-        assert (answer.kontaktbloecke_geleert, answer.fehlgeschlagen, reminded(answer)) == (1, 1, {REMIND_OID})
+        assert (answer.kontakt_blocks_emptied, answer.failed, chased) == (1, 1, {REMIND_OID})
         assert blocks == [(JUNCTION_OID, True), (SECOND_JUNCTION_OID, False)]
         assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Season team {JUNCTION_OID} was passed over by the contact block clock: {REFUSED_TRACE_ID}")
+            ("ERROR", Code.DATABASE_FAILED, "Season team", str(JUNCTION_OID), "contact block", f"{REFUSED_TRACE_ID}")
         ]
 
-    def test_a_candidate_the_answer_cannot_carry(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """A deadline a hand edit left malformed: the validator stores any string, and the answer's model refuses it."""
-
+    def test_a_refused_fourteen_day_loeschung(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BEWERBUNGEN].insert_one(application(SECOND_OID, bestaetigungsfrist="2026-03-1"))
+            await database[Collection.BEWERBUNGEN].insert_one(application(SECOND_OID, confirmation_deadline=YESTERDAY))
+            await refuse_the_redaction_of(database, Collection.BEWERBUNGEN, DELETE_OID)
+            answer = await sweep(database, client, now=MAIL_NOW)
+            notices = await owed(database, "bewerbung_erasure")
 
-            return await sweep(database, client)
+            return (answer.erased, answer.failed), await stored(database, DELETE_OID), await stored(database, SECOND_OID), notices
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            answer = on_a_league(mongo_replica_set_url, body)
+            geloeschte, refused, other, notices = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
-        assert ([loeschung.bewerbung_id for loeschung in answer.loeschungen], reminded(answer), answer.fehlgeschlagen) == (
-            [DELETE_OID],
-            {REMIND_OID},
-            1,
-        )
-        assert passed_over(caplog) == [
-            ("ERROR", STORED_DATA_INVALID, f"Application {SECOND_OID} was passed over by the deletion clock: {REFUSED_DEADLINE}")
-        ]
+        assert (geloeschte, refused is not None, other) == ((1, 1), True, None)
+        # The refused row's notice went with its transaction: nobody is told of an erasure that did not happen.
+        assert [notice["key"] for notice in notices] == [f"{Collection.BEWERBUNGEN}/{SECOND_OID}/erasure"]
+        assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(DELETE_OID), "fourteen-day", f"{REFUSED_TRACE_ID}")]
 
-    def test_a_reminder_the_answer_cannot_carry(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """A deadline the answer's model refuses before any stamp is written, so the row is passed over and nothing taken apart."""
+    def test_a_reminder_the_mail_cannot_carry(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """A deadline the mail's facts refuse before any stamp is written, so the row is passed over and nothing taken apart."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BEWERBUNGEN].insert_one(application(SECOND_OID, bestaetigungsfrist="2026-04-1"))
-            answer = await sweep(database, client)
+            await database[Collection.BEWERBUNGEN].insert_one(application(SECOND_OID, confirmation_deadline="2026-04-1"))
+            answer = await sweep(database, client, now=MAIL_NOW)
             refused = await stored(database, SECOND_OID)
             assert refused is not None
 
-            return reminded(answer), answer.fehlgeschlagen, [seat["erinnert_am"] for seat in refused["bestaetigungen"].values()]
+            return await reminded(database), answer.failed, [seat["reminded_at"] for seat in refused["confirmations"].values()]
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
             answered, count, stamps = on_a_league(mongo_replica_set_url, body)
 
         assert (answered, count, stamps) == ({REMIND_OID}, 1, [None, None, None])
-        assert passed_over(caplog) == [
-            ("ERROR", STORED_DATA_INVALID, f"Application {SECOND_OID} was passed over by the reminder clock: {REFUSED_DEADLINE}")
-        ]
+        assert passed_over(caplog) == [("ERROR", Code.STORED_DATA_INVALID, "Application", str(SECOND_OID), "reminder", f"{REFUSED_DEADLINE}")]
 
     def test_a_refused_reminder_stamp(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """An application stored before a field its validator requires: the reminder's stamp is refused under strict validation.
-
-        Both carry a barred mailbox, which the share leaves out: its count stays the whole page's once the share is taken apart.
-        """
+        """An application stored before a field it now requires: the reminder's stamp is refused under strict validation."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             invalid = {key: value for key, value in application(SECOND_OID).items() if key != "trikot"}
-            await database[Collection.BEWERBUNGEN].insert_one(invalid, bypass_document_validation=True)
-            await database[Collection.SPERRLISTE].insert_one(ban_document("bramblewick@example.com", bis=STANDING))
+            await database[Collection.BEWERBUNGEN].insert_one(invalid)
+            await refuse_writes_breaking(database, Collection.BEWERBUNGEN, {"required": ["trikot"]})
             # Inside: the level outside is whatever an earlier test on this worker left.
             with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
-                answer = await sweep(database, client)
+                answer = await sweep(database, client, now=MAIL_NOW)
             refused = await stored(database, SECOND_OID)
             assert refused is not None
 
-            return reminded(answer), answer.fehlgeschlagen, [seat["erinnert_am"] for seat in refused["bestaetigungen"].values()]
+            return await reminded(database), answer.failed, [seat["reminded_at"] for seat in refused["confirmations"].values()]
 
-        answered, count, stamps = on_a_league(mongo_replica_set_url, body)
+        answered, count, stamps = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
+        # The refused row's mails went with its stamp: nobody is chased whose seat says they were not.
         assert (answered, count, stamps) == ({REMIND_OID}, 1, [None, None, None])
-        refusal = "OperationFailure, code 121: [{'loc': 'trikot', 'type': 'required', 'msg': 'property is missing'}]"
-        assert passed_over(caplog) == [("ERROR", DATABASE_FAILED, f"Application {SECOND_OID} was passed over by the reminder clock: {refusal}")]
-        assert [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()] == [
-            f"Reminders withheld from barred addresses in season {SAISON_ID}: 2 mailbox(es)"
-        ]
+        refusal = "OperationFailure, code 121"
+        assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(SECOND_OID), "reminder", f"{refusal}")]
 
-    def test_a_pass_whose_every_reminder_fails_records_its_day_and_counts_them(self, mongo_replica_set_url: str):
-        """Every stamp refused, so no half commits and the day is stamped alone: the count is all that tells this pass from a clean one."""
+    def test_a_pass_whose_every_reminder_fails_counts_them(self, mongo_replica_set_url: str):
+        """Every stamp refused, so no half commits: the count is all that tells this pass from a clean one."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BEWERBUNGEN].update_many({}, {"$unset": {"trikot": ""}}, bypass_document_validation=True)
-            answer = await sweep(database, client)
+            await database[Collection.BEWERBUNGEN].update_many({}, {"$unset": {"trikot": ""}})
+            await refuse_writes_breaking(database, Collection.BEWERBUNGEN, {"required": ["trikot"]})
+            answer = await sweep(database, client, now=MAIL_NOW)
 
-            return (
-                answer.erinnerungen,
-                answer.fehlgeschlagen,
-                (await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])).sweep_gelaufen_am,
-            )
+            return answer.reminded, answer.failed, await reminded(database)
 
-        assert on_a_league(mongo_replica_set_url, body) == ([], 1, TODAY)
-
-    def test_a_refused_announcement(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """An application stored before a field its validator requires: the stamp's update is refused under strict validation."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            invalid = {key: value for key, value in application(SECOND_OID, bestaetigungsfrist=YESTERDAY).items() if key != "trikot"}
-            await database[Collection.BEWERBUNGEN].insert_one(invalid, bypass_document_validation=True)
-            answer = await announce(database, client, [DELETE_OID, SECOND_OID])
-
-            return (answer.angekuendigt, answer.fehlgeschlagen), [
-                (await stored(database, row_id) or {}).get("loeschung_angekuendigt_am") for row_id in (DELETE_OID, SECOND_OID)
-            ]
-
-        with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            stamped, stamps = on_a_league(mongo_replica_set_url, body)
-
-        assert (stamped, stamps) == ((1, 1), [TODAY, None])
-        # `OperationFailure` rather than `WriteError`: the stamp is a `findAndModify`, which answers a refusal as a command error.
-        refusal = "OperationFailure, code 121: [{'loc': 'trikot', 'type': 'required', 'msg': 'property is missing'}]"
-        assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Application {SECOND_OID} was passed over by the announcement clock: {refusal}")
-        ]
-
-    def test_a_refused_erasure_of_the_announced(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BEWERBUNGEN].insert_one(application(SECOND_OID, bestaetigungsfrist=YESTERDAY))
-            await announce(database, client, [DELETE_OID, SECOND_OID])
-            await refuse_the_redaction_of(database, Collection.BEWERBUNGEN, DELETE_OID)
-            answer = await erase(database, client, [DELETE_OID, SECOND_OID])
-
-            return (answer.geloescht, answer.fehlgeschlagen), await stored(database, DELETE_OID), await stored(database, SECOND_OID)
-
-        with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            erased, refused, other = on_a_league(mongo_replica_set_url, body)
-
-        assert (erased, refused is not None, other) == ((1, 1), True, None)
-        assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Application {DELETE_OID} was passed over by the fourteen-day clock: {REFUSED_TRACE_ID}")
-        ]
+        assert on_a_league(mongo_replica_set_url, body, mutates_schema=True) == (0, 1, set())
 
 
 @functools.cache
@@ -1536,9 +1258,7 @@ def through_the_app(url: str, path: str, body: Mapping[str, Any] | None, *, auth
     try:
         database = a_clean_database_sync(client, url, database_name)
         database[Collection.SAISONS].insert_many([season(SAISON_ID, "active"), season(OTHER_SAISON_ID, "past")])
-        # Announced already: the erasure takes an announced candidate alone, and this case is about
-        # what the guard and the binder record rather than about the two calls before it.
-        database[Collection.BEWERBUNGEN].insert_one(application(DELETE_OID, bestaetigungsfrist=YESTERDAY, loeschung_angekuendigt_am=YESTERDAY))
+        database[Collection.BEWERBUNGEN].insert_one(application(DELETE_OID, confirmation_deadline=YESTERDAY))
 
         async def _called() -> int:
             async with app_client(url, app=_served(), now=NOW) as http:
@@ -1547,7 +1267,7 @@ def through_the_app(url: str, path: str, body: Mapping[str, Any] | None, *, auth
 
         status = asyncio.run(_called())
 
-        return status, list(database[Collection.AKTIONEN].find({"operation": "erase_many"}))
+        return status, list(database[Collection.ACTION_LOG].find({"operation": "erase_many"}))
     finally:
         client.close()
 
@@ -1555,25 +1275,21 @@ def through_the_app(url: str, path: str, body: Mapping[str, Any] | None, *, auth
 class TestTheSystemTierOverTheWire:
     """On the replica set: the erasure runs in a transaction, which a standalone mongod refuses outright."""
 
-    def test_the_erasure_records_the_system_actor_and_the_route_template(self, mongo_replica_set_url: str):
+    def test_the_loeschung_records_the_system_actor_and_the_route_template(self, mongo_replica_set_url: str):
         """What `bind_system_actor` buys: the row names the machine and the endpoint, not an invented person or a raw path."""
 
-        status, rows = through_the_app(
-            mongo_replica_set_url, f"/bewerbungen/sweep/{SAISON_ID}/loeschen", {"bewerbung_ids": [str(DELETE_OID)]}, auth=SYSTEM_AUTH
-        )
+        status, rows = through_the_app(mongo_replica_set_url, f"/bewerbungen/sweep/{SAISON_ID}", None, auth=SYSTEM_AUTH)
 
         assert status == 200
         assert len(rows) == 1
         assert rows[0]["actor"] == {"kind": "system", "email": SYSTEM_ACTOR_EMAIL}
-        assert rows[0]["request"] == {"method": "POST", "path": f"/api/v{API_VERSION}/bewerbungen/sweep/{{saison_id}}/loeschen"}
+        assert rows[0]["request"] == {"method": "POST", "path": f"/api/v{API_VERSION}/bewerbungen/sweep/{{saison_id}}"}
 
     @pytest.mark.parametrize("auth", [BASE_AUTH, ADMIN_AUTH], ids=("base", "admin"))
     def test_neither_other_key_reaches_it(self, mongo_replica_set_url: str, auth: Mapping[str, str]):
         """The other two keys are refused as the wrong credential before any body is read, so nothing is erased."""
 
-        status, rows = through_the_app(
-            mongo_replica_set_url, f"/bewerbungen/sweep/{SAISON_ID}/loeschen", {"bewerbung_ids": [str(DELETE_OID)]}, auth=auth
-        )
+        status, rows = through_the_app(mongo_replica_set_url, f"/bewerbungen/sweep/{SAISON_ID}", None, auth=auth)
 
         assert status == 401
         assert rows == []
@@ -1589,77 +1305,6 @@ class TestTheSeasonList:
         response = on_a_league(mongo_replica_set_url, body, next_status="future")
 
         assert response.saison_ids == [OTHER_SAISON_ID, SAISON_ID, NEXT_SAISON_ID]
-
-    def test_it_answers_the_day_the_last_pass_stored(self, mongo_replica_set_url: str):
-        """Null before any pass and the day after one, which is what parts an unarmed sweep from a quiet one."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            before = await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])
-            await sweep(database, client, saison_id=NEXT_SAISON_ID)
-            after = await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])
-
-            return before.sweep_gelaufen_am, after.sweep_gelaufen_am
-
-        assert on_a_league(mongo_replica_set_url, body) == (None, TODAY)
-
-    def test_the_read_stamps_nothing_of_its_own(self, mongo_replica_set_url: str):
-        """A read that stamped would answer `it ran` to the operator asking whether it had."""
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            before = await database[Collection.AKTIONEN].count_documents({})
-            response = await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])
-            after = await database[Collection.AKTIONEN].count_documents({})
-
-            return response.saison_ids, after - before
-
-        assert on_a_league(mongo_replica_set_url, body) == ([OTHER_SAISON_ID, SAISON_ID, NEXT_SAISON_ID], 0)
-
-
-class TestThePassRecordsTheDayItRan:
-    def test_a_pass_that_reminded_nobody_and_deleted_nothing_still_records_the_day(self, mongo_replica_set_url: str):
-        """Over the season holding no application at all, so the day is the whole of what the pass wrote."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            before = await database[Collection.AKTIONEN].count_documents({})
-            response = await sweep(database, client, saison_id=NEXT_SAISON_ID)
-            after = await database[Collection.AKTIONEN].count_documents({})
-            stamped = await database[Collection.SAISONS].find({}, {"sweep_gelaufen_am": 1}).sort("_id", 1).to_list(length=None)
-
-            return response, after - before, [row.get("sweep_gelaufen_am") for row in stamped]
-
-        response, appended, days = on_a_league(mongo_replica_set_url, body)
-
-        assert (response.erinnerungen, response.loeschungen) == ([], [])
-        assert (response.abgelehnte_geloescht, response.angenommene_geloescht, response.kontaktbloecke_geleert) == (0, 0, 0)
-        assert appended == 1
-        # Every season and not the one swept: one pass stamps them all, which is what makes the day
-        # the run's rather than the season's.
-        assert days == [TODAY, TODAY, TODAY]
-
-    def test_the_days_second_pass_appends_no_row_at_all(self, mongo_replica_set_url: str):
-        """The stamp reaches only a season not yet stamped today, and a fan-out that changed nothing logs nothing: one row a day."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await sweep(database, client, saison_id=NEXT_SAISON_ID)
-            after_first = await database[Collection.AKTIONEN].count_documents({})
-            await sweep(database, client, saison_id=NEXT_SAISON_ID)
-            after_second = await database[Collection.AKTIONEN].count_documents({})
-
-            return after_second - after_first
-
-        assert on_a_league(mongo_replica_set_url, body) == 0
-
-    def test_a_whole_days_passes_over_every_season_cost_one_row(self, mongo_replica_set_url: str):
-        """The arithmetic the shape stands on: a row per season per pass would bury the administrative history the page can reach."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            for _ in range(PASSES_A_DAY):
-                for saison_id in (OTHER_SAISON_ID, SAISON_ID, NEXT_SAISON_ID):
-                    await sweep(database, client, saison_id=saison_id)
-
-            return await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.SAISONS)})
-
-        assert on_a_league(mongo_replica_set_url, body) == 1
 
 
 def numbered(position: int) -> ObjectId:
@@ -1699,20 +1344,20 @@ class TestEachCappedClockMakesProgressAcrossPasses:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].delete_many({})
             await database[Collection.BEWERBUNGEN].insert_many(
-                [application(numbered(position), bestaetigungsfrist=frist) for position, frist in frist_of.items()]
+                [application(numbered(position), confirmation_deadline=frist) for position, frist in frist_of.items()]
             )
 
-            first = await sweep(database, client)
+            first = await sweep(database, client, now=MAIL_NOW)
+            first_deadlines = {mail["data"]["frist"] for mail in await owed(database, "bewerbung_reminder")}
 
             async def one_pass() -> int:
-                return len({entry.bewerbung_id for entry in (await sweep(database, client)).erinnerungen})
+                return (await sweep(database, client, now=MAIL_NOW)).reminded
 
-            already = len({entry.bewerbung_id for entry in first.erinnerungen})
-            taken = [already, *await passes_until_empty(one_pass, share=REMINDERS_PER_PASS, total=overflow - already)]
+            taken = [first.reminded, *await passes_until_empty(one_pass, share=REMINDERS_PER_PASS, total=overflow - first.reminded)]
 
-            stamped = await database[Collection.BEWERBUNGEN].count_documents({"bestaetigungen.trainer.erinnert_am": TODAY})
+            stamped = await database[Collection.BEWERBUNGEN].count_documents({"confirmations.trainer.reminded_at": TODAY})
 
-            return {entry.bestaetigungsfrist for entry in first.erinnerungen}, taken, stamped
+            return first_deadlines, taken, stamped
 
         first_deadlines, taken, stamped = on_a_league(mongo_replica_set_url, body)
 
@@ -1730,7 +1375,7 @@ class TestEachCappedClockMakesProgressAcrossPasses:
             )
 
             async def one_pass() -> int:
-                return (await sweep(database, client)).kontaktbloecke_geleert
+                return (await sweep(database, client)).kontakt_blocks_emptied
 
             taken = await passes_until_empty(one_pass, share=BLOCKS_CLEARED_PER_PASS, total=overflow)
 
@@ -1741,33 +1386,25 @@ class TestEachCappedClockMakesProgressAcrossPasses:
         per_pass(taken, BLOCKS_CLEARED_PER_PASS, overflow)
         assert standing == 0
 
-    def test_the_deletion_list_takes_its_share_and_the_passes_reach_every_candidate(self, mongo_replica_set_url: str):
-        """Driven as the caller drives it: every listed candidate announced and erased before the next pass."""
+    def test_the_fourteen_day_clock_takes_a_page_and_one_more_in_one_pass_each_owed_its_notice(self, mongo_replica_set_url: str):
+        """A drain rather than a share: the population filling a page is the one only the erasure shrinks."""
 
-        overflow = DELETIONS_LISTED_PER_PASS + 5
+        overflow = SWEEP_PAGE + 1
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].delete_many({})
             await database[Collection.BEWERBUNGEN].insert_many(
-                [application(numbered(position), bestaetigungsfrist=YESTERDAY) for position in range(overflow)]
+                [application(numbered(position), confirmation_deadline=YESTERDAY) for position in range(overflow)]
+            )
+            response = await sweep(database, client, now=MAIL_NOW)
+
+            return (
+                response.erased,
+                await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID}),
+                await database[Collection.OUTBOX].count_documents({"art": "bewerbung_erasure"}),
             )
 
-            async def one_pass() -> int:
-                ids = [entry.bewerbung_id for entry in (await sweep(database, client)).loeschungen]
-                if ids:
-                    await announce(database, client, ids)
-                    await erase(database, client, ids)
-
-                return len(ids)
-
-            taken = await passes_until_empty(one_pass, share=DELETIONS_LISTED_PER_PASS, total=overflow)
-
-            return taken, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
-
-        taken, standing = on_a_league(mongo_replica_set_url, body)
-
-        per_pass(taken, DELETIONS_LISTED_PER_PASS, overflow)
-        assert standing == 0
+        assert on_a_league(mongo_replica_set_url, body) == (overflow, 0, overflow)
 
 
 # Under the driver's first batch, so a page read is one command however many rows it holds.
@@ -1782,8 +1419,6 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
             async def counted(due: int) -> int:
                 await database[Collection.BEWERBUNGEN].delete_many({})
                 await database[Collection.BEWERBUNGEN].insert_many([application(numbered(position)) for position in range(due)])
-                # Stamped already, so the run's own stamp costs both runs the same guard read.
-                await database[Collection.SAISONS].update_many({}, {"$set": {"sweep_gelaufen_am": TODAY}})
 
                 return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
@@ -1796,11 +1431,11 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
     @pytest.mark.parametrize(
         "refused",
         [
-            pytest.param(lambda row: {**row, "bestaetigungsfrist": "2026-04-1"}, id="a deadline the answer refuses"),
+            pytest.param(lambda row: {**row, "confirmation_deadline": "2026-04-1"}, id="a deadline the answer refuses"),
             pytest.param(
                 lambda row: {
                     **row,
-                    "bestaetigungen": {seat: {**entry, "verschickt_am": "2026-03-1x"} for seat, entry in row["bestaetigungen"].items()},
+                    "confirmations": {seat: {**entry, "sent_at": "2026-03-1x"} for seat, entry in row["confirmations"].items()},
                 },
                 id="a send date no judge can read",
             ),
@@ -1813,9 +1448,10 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
             async def counted(rows: list[dict[str, Any]]) -> int:
+                # The first run's mails gone too: keys it owed would cost the second run no insert.
+                await database[Collection.OUTBOX].delete_many({})
                 await database[Collection.BEWERBUNGEN].delete_many({})
                 await database[Collection.BEWERBUNGEN].insert_many(rows)
-                await database[Collection.SAISONS].update_many({}, {"$set": {"sweep_gelaufen_am": TODAY}})
 
                 return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
@@ -1826,26 +1462,6 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
 
         assert carryable - with_one_refused == budget.ROUND_TRIPS_A_ROW
 
-    def test_a_decision_date_no_judge_can_read_costs_its_clock_no_command(self, mongo_replica_set_url: str):
-        """Every command a drain spends taking a page apart is one the reminder share after it has not got."""
-
-        unreadable = application(SECOND_OID, status="abgelehnt", entscheidung={"getroffen_am": "2026-02-1x", "von": "admin", "grund": None})
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int, Mapping[str, Any] | None, Mapping[str, Any] | None]:
-            async def counted(rows: list[dict[str, Any]]) -> int:
-                await database[Collection.BEWERBUNGEN].delete_many({})
-                await database[Collection.BEWERBUNGEN].insert_many(rows)
-                await database[Collection.SAISONS].update_many({}, {"$set": {"sweep_gelaufen_am": TODAY}})
-
-                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
-
-            without, beside = await counted(the_corpus()), await counted([*the_corpus(), unreadable])
-            return without, beside, await stored(database, SECOND_OID), await stored(database, DECLINED_OID)
-
-        without, beside, kept, erased = on_a_league(mongo_replica_set_url, body)
-
-        assert (beside, kept is not None, erased) == (without, True, None)
-
     def test_a_cleared_contact_block(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
             async def counted(due: int) -> int:
@@ -1855,7 +1471,6 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
                 await database[Collection.SAISON_TEAMS].insert_many(
                     [{**junction_row(), "_id": numbered(position), "team_id": numbered(position)} for position in range(due)]
                 )
-                await database[Collection.SAISONS].update_many({}, {"$set": {"sweep_gelaufen_am": TODAY}})
 
                 return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
@@ -1865,20 +1480,23 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
 
         assert (twice - few) / FEW == budget.ROUND_TRIPS_A_ROW
 
-    def test_a_stamped_announcement(self, mongo_replica_set_url: str):
+    def test_an_geloescht_application_costs_nothing_a_row(self, mongo_replica_set_url: str):
+        """The fourteen-day clock writes a page in its commands, never a command a row: no share bounds it."""
+
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
             async def counted(due: int) -> int:
-                ids = [numbered(position) for position in range(due)]
                 await database[Collection.BEWERBUNGEN].delete_many({})
-                await database[Collection.BEWERBUNGEN].insert_many([application(row_id, bestaetigungsfrist=YESTERDAY) for row_id in ids])
+                await database[Collection.BEWERBUNGEN].insert_many(
+                    [application(numbered(position), confirmation_deadline=YESTERDAY) for position in range(due)]
+                )
 
-                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, lambda database, client: announce(database, client, ids))
+                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
             return await counted(FEW), await counted(2 * FEW)
 
         few, twice = on_a_league(mongo_replica_set_url, body)
 
-        assert (twice - few) / FEW == budget.ROUND_TRIPS_A_ROW
+        assert twice == few
 
 
 def open_confirmation(team_id: ObjectId) -> dict[str, Any]:
@@ -1897,10 +1515,10 @@ def open_confirmation(team_id: ObjectId) -> dict[str, Any]:
 
     return documents.spielbestaetigung_document(
         fixture,
-        partei={"art": "team", "team_id": team_id},
+        party={"art": "team", "team_id": team_id},
         frist="2026-04-11",
-        angefragt_am=TODAY,
-        kontakte={seat: {"token_hashes": ["b" * 64], "zustellung": None} for seat in KONTAKT_ROLLEN},
+        asked_at=TODAY,
+        kontakte={seat: {"token_hashes": ["b" * 64], "delivery": None} for seat in KONTAKT_ROLLEN},
     )
 
 
@@ -1916,7 +1534,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         Two cleared clubs hold open confirmations, the void at its widest; the strip meets its worst images.
         """
 
-        link = {"token_hash": "a" * 64, "verschickt_am": "2026-03-02", "frist": "2026-03-16", "abgelehnt_am": None, "zustellung": None}
+        link = {"token_hash": "a" * 64, "sent_at": "2026-03-02", "frist": "2026-03-16", "declined_at": None, "delivery": None}
         links = {"trainer": link, "ansprechperson": None, "stellvertretung": None}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Counter[str]]:
@@ -1925,8 +1543,8 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
             )
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
-                    {**junction_row(), "_id": numbered(1), "team_id": numbered(1), "kontakte": None, "bestaetigungen": links},
-                    {**junction_row(), "_id": numbered(2), "team_id": numbered(2), "bestaetigungen": links},
+                    {**junction_row(), "_id": numbered(1), "team_id": numbered(1), "kontakte": None, "confirmations": links},
+                    {**junction_row(), "_id": numbered(2), "team_id": numbered(2), "confirmations": links},
                 ]
             )
             await database[Collection.SPIELBESTAETIGUNGEN].insert_many([open_confirmation(CLUB_OID), open_confirmation(numbered(2))])
@@ -1936,22 +1554,10 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
             return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
 
         answer, names = on_a_league(mongo_replica_set_url, body, status="future", next_status="past")
-        rows = len(reminded(answer)) + answer.kontaktbloecke_geleert
+        rows = answer.reminded + answer.kontakt_blocks_emptied
 
-        assert (answer.abgelehnte_geloescht, answer.angenommene_geloescht, len(answer.loeschungen), rows) == (1, 1, 1, 4)
+        assert (answer.erased_declined, answer.erased_accepted, answer.erased, rows) == (1, 1, 1, 4)
         assert sum(names.values()) - budget.ROUND_TRIPS_A_ROW * rows == budget.SWEEP_OTHER_COMMANDS, names
-
-    def test_angekuendigt(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
-            ids = [numbered(position) for position in range(FEW)]
-            await database[Collection.BEWERBUNGEN].insert_many([application(row_id, bestaetigungsfrist=YESTERDAY) for row_id in ids])
-
-            return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, lambda database, client: announce(database, client, ids))
-
-        answer, names = on_a_league(mongo_replica_set_url, body)
-
-        assert answer.angekuendigt == FEW
-        assert sum(names.values()) - budget.ROUND_TRIPS_A_ROW * FEW == budget.ANGEKUENDIGT_OTHER_COMMANDS, names
 
 
 class TestAPageAndOneMoreIsDrained:
@@ -1963,14 +1569,14 @@ class TestAPageAndOneMoreIsDrained:
 
     def test_every_declined_application_due_goes_in_one_pass(self, mongo_replica_set_url: str):
         overflow = SWEEP_PAGE + 5
-        declined = {"status": "abgelehnt", "entscheidung": {"getroffen_am": "2026-02-15", "von": "admin", "grund": None}}
+        declined = {"status": "declined", "decision": {"made_at": "2026-02-15", "von": "admin", "grund": None}}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].delete_many({})
             await database[Collection.BEWERBUNGEN].insert_many([application(numbered(position), **declined) for position in range(overflow)])
             response = await sweep(database, client)
 
-            return response.abgelehnte_geloescht, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
+            return response.erased_declined, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
 
         assert on_a_league(mongo_replica_set_url, body) == (overflow, 0)
 
@@ -1982,17 +1588,17 @@ class TestAPageAndOneMoreIsDrained:
             await database[Collection.BEWERBUNGEN].insert_many([application(numbered(position)) for position in range(overflow)])
             response = await sweep(database, client)
 
-            return response.ohne_entscheidung_geloescht, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
+            return response.erased_without_decision, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
 
         assert on_a_league(mongo_replica_set_url, body, status="past", next_status="active") == (overflow, 0)
 
     def test_every_accepted_application_goes_in_one_pass_once_the_next_season_is_past(self, mongo_replica_set_url: str):
         overflow = SWEEP_PAGE + 5
         accepted = {
-            "status": "angenommen",
+            "status": "accepted",
             "team_id": CLUB_OID,
             "schule": None,
-            "entscheidung": {"getroffen_am": "2026-03-01", "von": "admin", "grund": None},
+            "decision": {"made_at": "2026-03-01", "von": "admin", "grund": None},
         }
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -2000,22 +1606,22 @@ class TestAPageAndOneMoreIsDrained:
             await database[Collection.BEWERBUNGEN].insert_many([application(numbered(position), **accepted) for position in range(overflow)])
             response = await sweep(database, client)
 
-            return response.angenommene_geloescht, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
+            return response.erased_accepted, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
 
         assert on_a_league(mongo_replica_set_url, body, status="past", next_status="past") == (overflow, 0)
 
     def test_a_page_of_decisions_inside_their_month_does_not_hide_one_that_is_due(self, mongo_replica_set_url: str):
         """The fresh decisions are seeded first, so a read not narrowed to the due ones fills its page with them and refuses the pass."""
 
-        fresh = {"status": "abgelehnt", "entscheidung": {"getroffen_am": "2026-03-31", "von": "admin", "grund": None}}
-        due = {"status": "abgelehnt", "entscheidung": {"getroffen_am": "2026-02-15", "von": "admin", "grund": None}}
+        fresh = {"status": "declined", "decision": {"made_at": "2026-03-31", "von": "admin", "grund": None}}
+        due = {"status": "declined", "decision": {"made_at": "2026-02-15", "von": "admin", "grund": None}}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             seeded = [application(numbered(position), **fresh) for position in range(SWEEP_PAGE + 1)]
             await database[Collection.BEWERBUNGEN].delete_many({})
             await database[Collection.BEWERBUNGEN].insert_many([*seeded, application(numbered(SWEEP_PAGE + 1), **due)])
 
-            return (await sweep(database, client)).abgelehnte_geloescht
+            return (await sweep(database, client)).erased_declined
 
         assert on_a_league(mongo_replica_set_url, body) == 1
 
@@ -2037,15 +1643,15 @@ def a_declined_confirmation(team_id: ObjectId, saison_id: str) -> dict[str, Any]
         team1={"team_id": team_id},
         team2={"team_id": CLUB_OID},
     )
-    delivered = {"nachricht_id": "msg-1", "stand": "zugestellt", "grund": None, "am": f"{saison_id}-04-02T09:00:00+00:00"}
+    delivered = {"message_id": "msg-1", "state": "delivered", "grund": None, "am": f"{saison_id}-04-02T09:00:00+00:00"}
 
     return documents.spielbestaetigung_document(
         fixture,
-        partei={"art": "team", "team_id": team_id},
-        angefragt_am=f"{saison_id}-04-01",
-        kontakte={seat: {"token_hashes": ["b" * 64], "zustellung": delivered} for seat in KONTAKT_ROLLEN},
+        party={"art": "team", "team_id": team_id},
+        asked_at=f"{saison_id}-04-01",
+        kontakte={seat: {"token_hashes": ["b" * 64], "delivery": delivered} for seat in KONTAKT_ROLLEN},
         antwort=documents.kontakt_antwort_document("trainer", "trainer@example.com", begruendung="Wir sind auf Klassenfahrt"),
-        geschlossen={"am": f"{saison_id}-04-19", "grund": "spiel_vergangen"},
+        closed={"am": f"{saison_id}-04-19", "grund": "spiel_past"},
     )
 
 
@@ -2090,7 +1696,7 @@ async def images_of_every_strip_edit_set(database: AsyncDatabase, client: AsyncM
         row = a_strip_edit_set(*edit_sets[position % len(edit_sets)])
         await confirmations.insert_one(row)
         await patch_one_in_db(
-            collection=confirmations, db_filter={"_id": row["_id"]}, update={"$set": {"erinnert_am": []}}, return_document=ReturnDocument.BEFORE
+            collection=confirmations, db_filter={"_id": row["_id"]}, update={"$set": {"reminded_at": []}}, return_document=ReturnDocument.BEFORE
         )
 
     # An undraw's removal, whose one log row holds every removed row's image in a list.
@@ -2136,14 +1742,15 @@ class TestTheReportStripStandsApart:
     def test_a_strip_failing_holds_back_neither_the_confirmations_nor_a_block_and_is_passed_over_under_the_season(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
     ):
-        """A report the validator refuses once stripped: the report strip alone meets it, in its own transaction."""
+        """A report the installed validator refuses once stripped: the report strip alone meets it, in its own transaction."""
 
         refused = a_report(SAISON_ID)
         del refused["bericht"]["seiten"]
         declined = a_declined_confirmation(CLUB_OID, SAISON_ID)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELBERICHTE].insert_one(refused, bypass_document_validation=True)
+            await database[Collection.SPIELBERICHTE].insert_one(refused)
+            await refuse_writes_breaking(database, Collection.SPIELBERICHTE, {"properties": {"bericht": {"required": ["seiten"]}}})
             await database[Collection.SPIELBESTAETIGUNGEN].insert_one(declined)
             with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
                 response = await sweep(database, client)
@@ -2154,13 +1761,15 @@ class TestTheReportStripStandsApart:
                 await database[Collection.SPIELBERICHTE].find_one({"_id": refused["_id"]}),
             )
 
-        response, junction, confirmation, report = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+        response, junction, confirmation, report = on_a_league(
+            mongo_replica_set_url, body, status="past", next_status="past", mutates_schema=True
+        )
 
-        assert (response.kontaktbloecke_geleert, response.fehlgeschlagen, junction["kontakte"]) == (1, 1, None)
+        assert (response.kontakt_blocks_emptied, response.failed, junction["kontakte"]) == (1, 1, None)
         assert confirmation["antwort"]["begruendung"] is None, "the confirmations' strip fell with the reports'"
         assert report["bericht"]["bemerkungen"] == refused["bericht"]["bemerkungen"], "the failed strip left a write behind"
-        assert [(level, message.split(":")[0]) for level, _, message in passed_over(caplog)] == [
-            ("ERROR", f"Season {SAISON_ID} was passed over by the report strip clock")
+        assert [(level, what, row_id, clock) for level, _, what, row_id, clock, _ in passed_over(caplog)] == [
+            ("ERROR", "Season", SAISON_ID, "report strip")
         ]
 
 
@@ -2181,13 +1790,13 @@ class TestTheSeasonsEndStripsItsConfirmations:
                 await patch_one_in_db(
                     collection=confirmations,
                     db_filter={"_id": row["_id"]},
-                    update={"$set": {"erinnert_am": []}},
+                    update={"$set": {"reminded_at": []}},
                     return_document=ReturnDocument.BEFORE,
                 )
             response = await sweep(database, client)
             stored = {name: await confirmations.find_one({"_id": row["_id"]}) for name, row in rows.items()}
             images = {
-                name: (await database[Collection.AKTIONEN].find_one({"document_id": row["_id"], "before": {"$ne": None}}) or {})["before"]
+                name: (await database[Collection.ACTION_LOG].find_one({"document_id": row["_id"], "before": {"$ne": None}}) or {})["before"]
                 for name, row in rows.items()
             }
 
@@ -2196,7 +1805,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
         response, stored, images = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
         # The premise: the pass cleared the season's one block, which is what owes the strip.
-        assert response.kontaktbloecke_geleert == 1
+        assert response.kontakt_blocks_emptied == 1
         kept = rows["own"]["antwort"]
         stripped = {**kept, "begruendung": None, "von": {**kept["von"], "halter": None}}
         for name in ("own", "replaced"):
@@ -2211,14 +1820,14 @@ class TestTheSeasonsEndStripsItsConfirmations:
         row = a_declined_confirmation(CLUB_OID, SAISON_ID)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SAISON_TEAMS].update_one({"_id": JUNCTION_OID}, {"$set": {"kontakte": None, "bestaetigungen": None}})
+            await database[Collection.SAISON_TEAMS].update_one({"_id": JUNCTION_OID}, {"$set": {"kontakte": None, "confirmations": None}})
             await database[Collection.SPIELBESTAETIGUNGEN].insert_one(row)
             response = await sweep(database, client)
             return response, await database[Collection.SPIELBESTAETIGUNGEN].find_one({"_id": row["_id"]})
 
         response, stripped = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
-        assert (response.kontaktbloecke_geleert, response.fehlgeschlagen) == (0, 0)
+        assert (response.kontakt_blocks_emptied, response.failed) == (0, 0)
         assert (stripped["antwort"]["begruendung"], stripped["antwort"]["von"]["halter"], stripped["kontakte"]) == (
             None,
             None,
@@ -2228,27 +1837,28 @@ class TestTheSeasonsEndStripsItsConfirmations:
     def test_a_strip_failing_holds_back_no_block_and_is_passed_over_under_the_season(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
     ):
-        """A replaced club's row the validator refuses, which no block clearing writes: the strip alone meets it."""
+        """A replaced club's row the installed validator refuses, which no block clearing writes: the strip alone meets it."""
 
         refused = {key: value for key, value in a_declined_confirmation(REPLACED_CLUB_OID, SAISON_ID).items() if key != "frist"}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(refused, bypass_document_validation=True)
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(refused)
+            await refuse_writes_breaking(database, Collection.SPIELBESTAETIGUNGEN, {"required": ["frist"]})
             with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
                 response = await sweep(database, client)
             return response, await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID})
 
-        response, junction = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+        response, junction = on_a_league(mongo_replica_set_url, body, status="past", next_status="past", mutates_schema=True)
 
-        assert (response.kontaktbloecke_geleert, response.fehlgeschlagen, junction["kontakte"]) == (1, 1, None)
-        assert [(level, message.split(":")[0]) for level, _, message in passed_over(caplog)] == [
-            ("ERROR", f"Season {SAISON_ID} was passed over by the confirmation strip clock")
+        assert (response.kontakt_blocks_emptied, response.failed, junction["kontakte"]) == (1, 1, None)
+        assert [(level, what, row_id, clock) for level, _, what, row_id, clock, _ in passed_over(caplog)] == [
+            ("ERROR", "Season", SAISON_ID, "confirmation strip")
         ]
 
     def test_an_administrators_settle_reason_goes_and_their_answer_gains_no_holder(self, mongo_replica_set_url: str):
         settled = {
             **a_declined_confirmation(CLUB_OID, SAISON_ID),
-            "antwort": {"art": "abgelehnt", "am": "2026-04-03", "von": {"art": "admin"}, "vorschlag": None, "begruendung": "Platz gesperrt"},
+            "antwort": {"art": "declined", "am": "2026-04-03", "von": {"art": "admin"}, "vorschlag": None, "begruendung": "Platz gesperrt"},
         }
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -2266,7 +1876,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
         def referee_row(saison_id: str) -> dict[str, Any]:
             return {
                 **a_declined_confirmation(CLUB_OID, saison_id),
-                "partei": {"art": "schiedsrichter", "schiedsrichter_id": ObjectId()},
+                "party": {"art": "schiedsrichter", "schiedsrichter_id": ObjectId()},
                 "kontakte": None,
                 "antwort": {
                     "art": "zugesagt",
@@ -2286,13 +1896,13 @@ class TestTheSeasonsEndStripsItsConfirmations:
                 await patch_one_in_db(
                     collection=confirmations,
                     db_filter={"_id": row["_id"]},
-                    update={"$set": {"erinnert_am": []}},
+                    update={"$set": {"reminded_at": []}},
                     return_document=ReturnDocument.BEFORE,
                 )
             await sweep(database, client)
             stored = {name: await confirmations.find_one({"_id": row["_id"]}) for name, row in rows.items()}
             images = {
-                name: (await database[Collection.AKTIONEN].find_one({"document_id": row["_id"], "before": {"$ne": None}}) or {})["before"]
+                name: (await database[Collection.ACTION_LOG].find_one({"document_id": row["_id"], "before": {"$ne": None}}) or {})["before"]
                 for name, row in rows.items()
             }
 
@@ -2355,30 +1965,30 @@ class TestTheSeasonsEndStripsItsReports:
                 )
             response = await sweep(database, client)
             redacted = {
-                kind: await database[Collection.AKTIONEN].count_documents({"redacted_at": {"$ne": None}, "collection": selector})
+                kind: await database[Collection.ACTION_LOG].count_documents({"redacted_at": {"$ne": None}, "collection": selector})
                 for kind, selector in (("reports", "spielberichte"), ("others", {"$ne": "spielberichte"}))
             }
             stored = {name: (await berichte.find_one({"_id": report["_id"]}) or {})["bericht"] for name, report in reports.items()}
             images = {
-                name: (await database[Collection.AKTIONEN].find_one({"document_id": report["_id"], "before": {"$ne": None}}) or {})["before"][
+                name: (await database[Collection.ACTION_LOG].find_one({"document_id": report["_id"], "before": {"$ne": None}}) or {})["before"][
                     "bericht"
                 ]
                 for name, report in reports.items()
             }
-            removal = await database[Collection.AKTIONEN].find_one({"collection": "spielberichte", "operation": "delete_many"})
+            removal = await database[Collection.ACTION_LOG].find_one({"collection": "spielberichte", "operation": "delete_many"})
 
             return response, stored, images, (removal or {})["before"], redacted
 
         response, stored, images, removed, redacted = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
-        assert response.fehlgeschlagen == 0
+        assert response.failed == 0
         # The three log rows this season's strip redacted, the undraw's among them, join the pass's count beside every
         # other clock's.
         assert redacted["reports"] == 3
         assert [(image["bericht"]["bemerkungen"], [karte["grund"] for karte in image["bericht"]["karten"]]) for image in removed] == [
             (None, [None, None])
         ] * len(undrawn)
-        assert response.redigierte_aktionen == redacted["reports"] + redacted["others"]
+        assert response.redacted_action_log == redacted["reports"] + redacted["others"]
         for name in ("this season", "this season, no remarks"):
             kept = reports[name]["bericht"]
             for left in (stored[name], images[name]):

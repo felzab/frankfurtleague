@@ -13,9 +13,8 @@ import { userEvent } from "@testing-library/user-event";
 import { assert, describe, expect, it } from "vitest";
 
 import { bestaetigungsStand, zusageHindernis } from "@/features/bewerbungen/bestaetigungStand.ts";
-import { FLBewerbungSchema } from "@/features/bewerbungen/schemas.ts";
 
-import type { FLBewerbung } from "@/features/bewerbungen/schemas.ts";
+import type { FLBewerbung } from "@/core/generated/client/types.ts";
 import type { UserEvent } from "@testing-library/user-event";
 
 // The one server action module the page reaches.
@@ -37,37 +36,37 @@ const person = (vorname: string, bestaetigtAm: string | null): NonNullable<FLBew
   einwilligung: kenntnisnahme({
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
-    bestaetigt_am: bestaetigtAm,
+    confirmed_at: bestaetigtAm,
   }),
 });
 
-const SITZ = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
+const SITZ = { sent_at: "2026-09-01", reminded_at: null, declined_at: null, delivery: null };
 
 /**
  * An open application for an existing club whose three seats have all confirmed, so nothing closes
- * either decision. Parsed at construction: a drifted field fails here rather than in the page.
+ * either decision. Typed as the read model: a drifted field fails here rather than in the page.
  */
-const OFFEN: FLBewerbung = FLBewerbungSchema.parse({
+const OFFEN: FLBewerbung = {
   id: "68d0f2a4c1e2b3a4d5e6f708",
   saison_id: "2027",
-  eingereicht_am: "2026-09-01",
-  status: "eingereicht",
+  submitted_at: "2026-09-01",
+  status: "submitted",
   team_id: "68d0f2a4c1e2b3a4d5e6f709",
   schule: null,
   kontakte: {
     ansprechperson: person("Anna", "2026-09-02"),
     stellvertretung: person("Bernd", "2026-09-02"),
     trainer: person("Clara", "2026-09-03"),
-    trainer_ist_zugleich: null,
+    trainer_is_also: null,
   },
-  trikot: { vorhandener_satz: "Ein Satz", wunschfarbe: "rot" },
-  kader: { voraussichtliche_groesse: 14, gute_spieler: 2 },
+  trikot: { existing_satz: "Ein Satz", wunschfarbe: "rot" },
+  kader: { expected_size: 14, good_spieler: 2 },
   stufengroesse: 96,
   wunschgegner: null,
-  entscheidung: null,
-  bestaetigungen: { ansprechperson: SITZ, stellvertretung: SITZ, trainer: SITZ },
-  bestaetigungsfrist: "2099-12-31",
-} satisfies FLBewerbung);
+  decision: null,
+  confirmations: { ansprechperson: SITZ, stellvertretung: SITZ, trainer: SITZ },
+  confirmation_deadline: "2099-12-31",
+};
 
 function renderPage(bewerbung: FLBewerbung, teamName: string | null = TEAM_NAME) {
   return render(
@@ -110,8 +109,8 @@ describe("the Zusage where the write would be refused", () => {
   it("offers neither decision once the application is decided", () => {
     renderPage({
       ...OFFEN,
-      status: "abgelehnt",
-      entscheidung: { getroffen_am: "2026-09-10", von: "Admin", von_gesperrt: false, grund: "Kein Platz." },
+      status: "declined",
+      decision: { made_at: "2026-09-10", von: "Admin", by_barred: false, grund: "Kein Platz." },
     });
 
     // First: a page that rendered nothing holds neither panel either.
@@ -180,11 +179,11 @@ describe("the Zusage beside a typed Absage", () => {
  * An open application whose Stellvertretung still waits on her link and whose Trainer declined, so the strip
  * offers its re-send, its correction and its reseat beside the decline.
  */
-const MIT_OFFENEN_SITZEN: FLBewerbung = FLBewerbungSchema.parse({
+const MIT_OFFENEN_SITZEN: FLBewerbung = {
   ...OFFEN,
   kontakte: { ...OFFEN.kontakte, stellvertretung: person("Bernd", null), trainer: person("Clara", null) },
-  bestaetigungen: { ansprechperson: SITZ, stellvertretung: SITZ, trainer: { ...SITZ, abgelehnt_am: "2026-09-03" } },
-} satisfies FLBewerbung);
+  confirmations: { ansprechperson: SITZ, stellvertretung: SITZ, trainer: { ...SITZ, declined_at: "2026-09-03" } },
+};
 
 const typeReason = (user: UserEvent) => user.type(screen.getByRole("textbox", { name: "Grund für die Absage" }), "Kein Platz.");
 

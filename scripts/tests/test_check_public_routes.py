@@ -309,98 +309,14 @@ def test_an_unmetered_exact_match_owes_no_twin():
     assert routes.twins(served(probe, CATCH_ALL)) == []
 
 
-def refused(path: str) -> str:
-    """One exact-match location the edge answers itself with a client error, forwarding nothing."""
-    return block("location = " + path, "        return 404;\n")
-
-
-INTERNAL_ROW = routes.Internal("/api/revalidate", "a planted handler this server alone calls")
-REFUSED_PAIR = refused("/api/revalidate") + refused("/api/revalidate/")
-
-
-def test_a_recorded_internal_handler_its_exact_match_refuses_is_accounted_for(monkeypatch):
-    """The resting state every red case on the internal rows below is measured against."""
-    monkeypatch.setattr(routes, "INTERNAL", (INTERNAL_ROW,))
-    app = tree("/api/revalidate")
-    where = served(REFUSED_PAIR, CATCH_ALL)
-
-    findings, used = judged(app, where)
-
-    assert findings == []
-    assert used == set()
-    assert routes.twins(where) == []
-    assert routes.unanswered(routes.handlers(app)) == []
-
-
-def test_a_recorded_internal_handler_its_exact_match_forwards_is_a_finding(monkeypatch):
-    """Metered, it reads as covered to every other rule, so this one alone sees the edge publishing it."""
-    monkeypatch.setattr(routes, "INTERNAL", (INTERNAL_ROW,))
-    findings, _ = judged(tree("/api/revalidate"), served(exact("/api/revalidate") + exact("/api/revalidate/"), CATCH_ALL))
-
-    assert severities(findings) == ["fail"]
-    assert "no exact match" in details(findings)
-
-
-def test_a_recorded_internal_handler_no_location_names_is_a_finding(monkeypatch):
-    """The catch-all carries it to Next, its key the only guard left in front of it."""
-    monkeypatch.setattr(routes, "INTERNAL", (INTERNAL_ROW,))
-    findings, _ = judged(tree("/api/revalidate"), served(METERED, CATCH_ALL))
-
-    assert severities(findings) == ["fail"]
-    assert "recorded as this server's alone" in details(findings)
-
-
-def test_a_handler_the_edge_refuses_and_no_row_records_is_a_finding(monkeypatch):
-    """A public route refused by mistake answers every visitor 404, and nothing else in the gate reads it."""
-    monkeypatch.setattr(routes, "INTERNAL", ())
-    findings, _ = judged(tree("/api/revalidate"), served(REFUSED_PAIR, CATCH_ALL))
-
-    assert severities(findings) == ["fail"]
-    assert "no row records it" in details(findings)
-
-
-def test_a_refusal_missing_its_twin_is_a_finding():
-    """The slashed form falls to `location /`, which forwards it to Next."""
-    findings = routes.twins(served(refused("/api/revalidate"), CATCH_ALL))
-
-    assert severities(findings) == ["fail"]
-    assert "/api/revalidate/ is not" in details(findings)
-
-
-def test_a_refusal_twinned_by_a_metered_location_is_a_finding():
-    """A metered twin forwards the slashed form, so it pairs with nothing: each half reports the other missing."""
-    findings = routes.twins(served(refused("/api/revalidate") + exact("/api/revalidate/"), CATCH_ALL))
-
-    assert severities(findings) == ["fail", "fail"]
-    assert "is refused" in details(findings)
-    assert "is metered" in details(findings)
-
-
-def test_a_recorded_internal_row_no_handler_answers_is_a_finding(monkeypatch):
-    """The row outliving its handler would excuse whatever later takes that URL."""
-    monkeypatch.setattr(routes, "INTERNAL", (INTERNAL_ROW,))
-
-    assert "no route handler" in details(routes.unanswered(routes.handlers(tree("/api/bewerbung"))))
-
-
-@pytest.mark.parametrize(
-    ("shape", "text"),
-    [
-        ("a prefix refusal", block("location /api/intern", "        return 404;\n")),
-        ("a redirect", block("location = /api/revalidate", "        return 308 /api/revalidate;\n")),
-        ("a success", block("location = /api/revalidate", "        return 200;\n")),
-        ("a refusal beside a forward", block("location = /api/revalidate", "        return 404;\n", PASS)),
-        ("a refusal with a body", block("location = /api/revalidate", '        return 404 "gone";\n')),
-    ],
-)
-def test_a_location_answering_in_any_other_shape_refuses(shape, text):
-    """Each sends the request somewhere this reader cannot account for, so none is read as a refusal or a route."""
+def test_a_location_answering_itself_refuses():
+    """It forwards no route, so read as an exact match it would stand for a handler the edge never reaches."""
     try:
-        served(text, CATCH_ALL)
+        served(block("location = /api/intern", "        return 404;\n"), CATCH_ALL)
     except routes.NginxSyntax as refusal:
-        assert re.search("return|client error", str(refusal)), (shape, refusal)
+        assert re.search("return", str(refusal)), refusal
     else:
-        raise AssertionError(f"{shape} was read")
+        raise AssertionError("a location answering with `return` was read")
 
 
 GONE = exact("/api/gone") + exact("/api/gone/")
@@ -867,7 +783,6 @@ def test_the_repository_own_routes_are_accounted_for():
     assert findings == []
     assert routes.unused(used, where) == []
     assert routes.twins(where) == []
-    assert routes.unanswered(found) == []
 
 
 def test_every_recorded_reason_is_charged_by_the_repository_own_tree():
@@ -896,7 +811,6 @@ def run_main(app: Path, text: str, monkeypatch) -> int:
     monkeypatch.setattr(routes, "REASONS", ())
     monkeypatch.setattr(routes, "METADATA", ())
     monkeypatch.setattr(routes, "ELSEWHERE", ())
-    monkeypatch.setattr(routes, "INTERNAL", ())
     conf = app.parent / SOURCE
     conf.write_bytes(text.encode("utf-8"))
     # The http level beside it, holding no map: no planted case sends an error_page through one.

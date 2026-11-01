@@ -8,56 +8,56 @@ import { SignInPage } from "./SignInPage";
 
 import type { Copy } from "@/core/copy";
 
-const WORTE = COPY.anmeldung;
+const WORDS = COPY.signIn;
 
-const ADRESSE = "lena@example.com";
+const ADDRESS = "lena@example.com";
 
 describe("the sign-in template", () => {
   it("reserves no line under the address field", () => {
     render(
       <SignInPage
-        view="adresse"
-        titel={WORTE.titel}
-        zeile={null}
-        adresse={{ label: WORTE.adresse, value: "", onChange: () => undefined }}
-        pruefung={null}
-        senden={{ label: WORTE.codeSenden, onPress: () => undefined }}
-        oder={WORTE.oder}
-        passkey={{ label: WORTE.mitPasskey, onPress: () => undefined }}
+        view="address"
+        title={WORDS.title}
+        row={null}
+        address={{ label: WORDS.address, value: "", onChange: () => undefined }}
+        check={null}
+        send={{ label: WORDS.sendCode, onPress: () => undefined }}
+        or={WORDS.or}
+        passkey={{ label: WORDS.withPasskey, onPress: () => undefined }}
       />,
     );
 
     // Label and field alone: no empty line holds a place under the field.
-    const field = screen.getByRole("textbox", { name: WORTE.adresse });
+    const field = screen.getByRole("textbox", { name: WORDS.address });
     expect(field.parentElement?.children).toHaveLength(2);
     expect(field.parentElement?.lastElementChild).toBe(field);
   });
 
   it("moves the focus to the address field on each of the server's refusals, so a screen reader reads it", () => {
-    const adresseView = (fehler: Readonly<Record<string, Copy>> | undefined) => (
+    const addressView = (error: Readonly<Record<string, Copy>> | undefined) => (
       <SignInPage
-        view="adresse"
-        titel={WORTE.titel}
-        zeile={null}
-        adresse={{ label: WORTE.adresse, value: "", onChange: () => undefined, fehler }}
-        pruefung={null}
-        senden={{ label: WORTE.codeSenden, onPress: () => undefined }}
-        oder={WORTE.oder}
-        passkey={{ label: WORTE.mitPasskey, onPress: () => undefined }}
+        view="address"
+        title={WORDS.title}
+        row={null}
+        address={{ label: WORDS.address, value: "", onChange: () => undefined, error }}
+        check={null}
+        send={{ label: WORDS.sendCode, onPress: () => undefined }}
+        or={WORDS.or}
+        passkey={{ label: WORDS.withPasskey, onPress: () => undefined }}
       />
     );
-    const refusal = COPY.shared.feld.format(COPY.shared.feld.beispielAdresse);
-    const { rerender } = render(adresseView(undefined));
-    const field = screen.getByRole("textbox", { name: WORTE.adresse });
-    const send = screen.getByRole("button", { name: WORTE.codeSenden });
+    const refusal = COPY.shared.field.format(COPY.shared.field.exampleAddress);
+    const { rerender } = render(addressView(undefined));
+    const field = screen.getByRole("textbox", { name: WORDS.address });
+    const send = screen.getByRole("button", { name: WORDS.sendCode });
     expect(document.activeElement).not.toBe(field);
 
-    rerender(adresseView({ email: refusal }));
+    rerender(addressView({ email: refusal }));
     expect(document.activeElement).toBe(field);
 
     // The same words again, pressed from the button: a new refusal all the same.
     send.focus();
-    rerender(adresseView({ email: refusal }));
+    rerender(addressView({ email: refusal }));
     expect(document.activeElement).toBe(field);
   });
 
@@ -65,47 +65,47 @@ describe("the sign-in template", () => {
     render(
       <SignInPage
         view="code"
-        titel={WORTE.postfach}
-        zeile={null}
-        satz={WORTE.codeUnterwegs}
-        adresse={ADRESSE}
-        code={{ label: WORTE.code, versuch: 0, isDisabled: false, onComplete: () => undefined }}
-        zurueck={{ label: WORTE.andereAdresse, onPress: () => undefined }}
+        title={WORDS.inbox}
+        row={null}
+        sentence={WORDS.codeOnItsWay}
+        address={ADDRESS}
+        code={{ label: WORDS.code, attempt: 0, isDisabled: false, onComplete: () => undefined }}
+        back={{ label: WORDS.otherAddress, onPress: () => undefined }}
       />,
     );
 
-    const marked = screen.getByText(ADRESSE);
+    const marked = screen.getByText(ADDRESS);
     expect(marked.tagName).toBe("STRONG");
-    expect(marked.parentElement?.textContent).toBe(`${WORTE.codeUnterwegs.vor} ${ADRESSE} ${WORTE.codeUnterwegs.nach}`);
+    expect(marked.parentElement?.textContent).toBe(`${WORDS.codeOnItsWay.before} ${ADDRESS} ${WORDS.codeOnItsWay.after}`);
   });
 
   it("marks the address wherever a view names it, inside the signed-in sentence and on a passkey view's own line", () => {
     const { unmount } = render(
       <SignInPage
-        view="angemeldet"
-        titel={WORTE.titel}
-        zeile={null}
-        satz={WORTE.angemeldetAls}
-        adresse={ADRESSE}
-        weiter={{ label: COPY.shared.uebersicht, href: "/" }}
-        abmelden={{ label: COPY.shared.verb.abmelden, onPress: () => undefined }}
+        view="signedIn"
+        title={WORDS.title}
+        row={null}
+        sentence={WORDS.signedInAs}
+        address={ADDRESS}
+        continue={{ label: COPY.shared.overview, href: "/" }}
+        signOut={{ label: COPY.shared.verb.signOut, onPress: () => undefined }}
       />,
     );
-    const marked = screen.getByText(ADRESSE);
+    const marked = screen.getByText(ADDRESS);
     expect(marked.tagName).toBe("STRONG");
-    expect(marked.parentElement?.textContent).toBe(`${WORTE.angemeldetAls.vor} ${ADRESSE} ${WORTE.angemeldetAls.nach}`);
+    expect(marked.parentElement?.textContent).toBe(`${WORDS.signedInAs.before} ${ADDRESS} ${WORDS.signedInAs.after}`);
     unmount();
 
     render(
       <SignInPage
         view="passkey"
-        titel={WORTE.passkey.anmelden.titel}
-        zeile={null}
-        satz={WORTE.passkey.anmelden.satz}
-        adresse={ADRESSE}
-        los={{ label: WORTE.passkey.anmelden.knopf, onPress: () => undefined }}
+        title={WORDS.passkey.signIn.title}
+        row={null}
+        sentence={WORDS.passkey.signIn.sentence}
+        address={ADDRESS}
+        go={{ label: WORDS.passkey.signIn.button, onPress: () => undefined }}
       />,
     );
-    expect(screen.getByText(ADRESSE).tagName).toBe("STRONG");
+    expect(screen.getByText(ADDRESS).tagName).toBe("STRONG");
   });
 });

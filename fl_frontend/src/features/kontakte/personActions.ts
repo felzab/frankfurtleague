@@ -16,9 +16,8 @@ import { runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { patchBewerbungEinwilligung, patchSitzEinwilligung } from "./mutations";
-import { FLSaisonTeamPersonEinwilligungPayloadSchema } from "./schemas";
 
-import type { FLEinwilligungStand } from "@/features/spieler/schemas";
+import type { FLEinwilligungStand } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
 
 /** The team season the page binds, never a value the reader typed. */
@@ -32,12 +31,12 @@ export async function patchSitzEinwilligungAction(
   teamId: string,
   saisonId: string,
   medienMindestalter: number,
-  rawPayload: z.input<typeof FLSaisonTeamPersonEinwilligungPayloadSchema>,
+  rawPayload: z.input<typeof FLBewerbungPersonEinwilligungPayloadSchema>,
 ): Promise<ActionResult<{ nachweis_stand: FLEinwilligungStand }>> {
   return runPersonRecordMutation("patchSitzEinwilligungAction", async () => {
     const adresse = SitzAdresseSchema.safeParse({ team_id: teamId, saison_id: saisonId });
     const boden = MedienMindestalterSchema.safeParse(medienMindestalter);
-    const validated = FLSaisonTeamPersonEinwilligungPayloadSchema.safeParse(rawPayload);
+    const validated = FLBewerbungPersonEinwilligungPayloadSchema.safeParse(rawPayload);
 
     if (!adresse.success || !boden.success || !validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: validated.success ? undefined : toFieldErrors(validated.error) };

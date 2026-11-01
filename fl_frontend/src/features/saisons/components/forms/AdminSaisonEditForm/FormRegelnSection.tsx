@@ -19,9 +19,9 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
+import type { FLSpielerStufe } from "@/core/generated/client/types";
 import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus";
 import type { FLSaisonRulesDraft, SaisonGruppenOccupancy } from "@/features/saisons/types";
-import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SaisonBanner } from "./banners";
 
 /** Names the forfeit pair for a screen reader: the heading over it is a `Label` bound to no control of its own. */
@@ -54,7 +54,7 @@ const SHAPE_NOTE: Record<SpielplanWindowState, string> = {
 };
 
 /**
- * **`erlaubte_stufen` narrows what a squad form OFFERS and never what a stored row holds.** No
+ * **`allowed_stufen` narrows what a squad form OFFERS and never what a stored row holds.** No
  * validator holds `saison_spieler.stufe` against a season's list, deliberately: narrowing a season
  * must not retroactively invalidate a season already played.
  *
@@ -68,7 +68,7 @@ export function FormRegelnSection({
   onFieldLeft,
   onStufenChange,
   isFinishedSaison,
-  isKnockoutStarted,
+  hasStarted,
   isDrawnSaison,
   gruppenOccupancy,
   spielplanWindow,
@@ -79,25 +79,22 @@ export function FormRegelnSection({
   onFieldLeft: (paths: readonly string[]) => void;
   /** Separate from `onRulesChange`, because a picked control is judged on change. */
   onStufenChange: (next: FLSpielerStufe[]) => void;
-  /**
-   * Whether this season is over, which freezes the four fields the league table is scored from
-   * (`REQ-RULES-005`). The endpoint refuses a change to any of them; this stops the page offering one.
-   */
+  /** Whether this season is over, which freezes the four fields the league table is scored from. */
   isFinishedSaison: boolean;
   /**
-   * Whether a knockout fixture has been played, which freezes the tiebreak (`REQ-RULES-012`).
-   * **Handed in, never derived here**: the group swap grades the same fact (`REQ-SWAP-002`), and a
-   * second reading would offer what the endpoint refuses.
+   * Whether this season has started, which freezes the same four (`rules_saison_started`, refused on a
+   * start or a finish). **Handed in, never derived here**: the group swap grades the same fact
+   * (`swap_saison_started`), and a second reading would offer what the endpoint refuses.
    */
-  isKnockoutStarted: boolean;
+  hasStarted: boolean;
   /**
    * Whether the season's fixtures exist, which freezes the three they were drawn from
-   * (`REQ-RULES-011`). Not a later stage of the freeze above: a season is drawn long before it is
-   * over, and `qualifiers_per_group` is in both.
+   * (`rules_shape_after_spielplan`). Not a later stage of the freeze above: a season is drawn long before it is
+   * over, and `qualifiers_per_gruppe` is in both.
    */
   isDrawnSaison: boolean;
   /**
-   * `REQ-RULES-002` and `REQ-RULES-003`'s own figure. **Handed in, never derived here**: the endpoint
+   * `rules_gruppen_in_use` and `rules_capacity_below_use`'s own figure. **Handed in, never derived here**: the endpoint
    * counts it once per write, and a second reading could close a row the save would take.
    */
   gruppenOccupancy: SaisonGruppenOccupancy;
@@ -109,6 +106,8 @@ export function FormRegelnSection({
   banners: readonly SaisonBanner[];
 }) {
   const panel = formPanel();
+  // The endpoint's one freeze over the four scoring fields: started, or finished.
+  const isScoringFrozen = isFinishedSaison || hasStarted;
 
   return (
     <section className={panel.root()}>
@@ -134,7 +133,7 @@ export function FormRegelnSection({
             <div className={FIELD_PAIR_CLASSES}>
               <SaisonRuleNumberField
                 name="rules.win_points"
-                isReadOnly={isFinishedSaison}
+                isReadOnly={isScoringFrozen}
                 label={<FieldLabel<SaisonFieldPath> path="rules.win_points">Punkte für einen Sieg</FieldLabel>}
                 minValue={1}
                 value={rules.win_points}
@@ -143,7 +142,7 @@ export function FormRegelnSection({
               />
               <SaisonRuleNumberField
                 name="rules.draw_points"
-                isReadOnly={isFinishedSaison}
+                isReadOnly={isScoringFrozen}
                 label={<FieldLabel<SaisonFieldPath> path="rules.draw_points">Punkte für ein Unentschieden</FieldLabel>}
                 minValue={0}
                 value={rules.draw_points}
@@ -198,7 +197,7 @@ export function FormRegelnSection({
           <h3 className={FORM_SECTION_HEADING_CLASSES}>Tiebreak</h3>
           <SaisonTiebreakSelect
             name="rules.tiebreak_order"
-            isDisabled={isFinishedSaison || isKnockoutStarted}
+            isDisabled={isScoringFrozen}
             label={<FieldLabel<SaisonFieldPath> path="rules.tiebreak_order">Was zuerst entscheidet</FieldLabel>}
             value={rules.tiebreak_order}
             onChange={(tiebreak_order) => onRulesChange({ ...rules, tiebreak_order })}
@@ -207,9 +206,9 @@ export function FormRegelnSection({
           {/* Panel-local for the reason the redraw note at the foot of this panel is: on the rail it
               would name a control the reader cannot see. Only while the season still runs -- a
               finished one is answered by the standing banner this panel already carries. */}
-          {isKnockoutStarted && !isFinishedSaison && (
+          {hasStarted && !isFinishedSaison && (
             <p className="w-full fluid-xxs font-medium text-foreground-muted">
-              Nach dem Beginn der KO-Runde lässt sich der Tiebreak nicht mehr ändern.
+              Nach dem Beginn der Saison lassen sich Punkte, Tiebreak und Qualifikanten pro Gruppe nicht mehr ändern.
             </p>
           )}
         </div>
@@ -218,55 +217,55 @@ export function FormRegelnSection({
 
         <div className="flex w-full flex-col gap-y-3">
           <h3 className={FORM_SECTION_HEADING_CLASSES}>Aufbau der Saison</h3>
-          {/* The offer is `fl_frontend/src/features/saisons/shapeOffer.ts`'s throughout: `REQ-RULES-001`
+          {/* The offer is `fl_frontend/src/features/saisons/shapeOffer.ts`'s throughout: `rules_bracket_impossible`
               leaves the two counts a set that SKIPS, which no floor-and-ceiling can state, and the
               stepper between them takes its floor from whichever count stands beside it. */}
           <div className={FIELD_TRIO_CLASSES}>
             <SaisonCountSelect
-              name="rules.number_of_groups"
+              name="rules.number_of_gruppen"
               isDisabled={isDrawnSaison}
               ariaLabel="Gruppen"
-              label={<FieldLabel<SaisonFieldPath> path="rules.number_of_groups">Gruppen</FieldLabel>}
-              value={rules.number_of_groups}
+              label={<FieldLabel<SaisonFieldPath> path="rules.number_of_gruppen">Gruppen</FieldLabel>}
+              value={rules.number_of_gruppen}
               options={groupCountOptions({
-                groups: rules.number_of_groups,
-                qualifiers: rules.qualifiers_per_group,
+                groups: rules.number_of_gruppen,
+                qualifiers: rules.qualifiers_per_gruppe,
                 occupancy: gruppenOccupancy,
               })}
-              onChange={(number_of_groups) => onRulesChange({ ...rules, number_of_groups })}
+              onChange={(number_of_gruppen) => onRulesChange({ ...rules, number_of_gruppen: number_of_gruppen })}
             />
             <SaisonRuleNumberField
-              name="rules.teams_per_group"
+              name="rules.teams_per_gruppe"
               isReadOnly={isDrawnSaison}
-              label={<FieldLabel<SaisonFieldPath> path="rules.teams_per_group">Teams pro Gruppe</FieldLabel>}
+              label={<FieldLabel<SaisonFieldPath> path="rules.teams_per_gruppe">Teams pro Gruppe</FieldLabel>}
               minValue={teamsPerGroupFloor({
-                qualifiers: rules.qualifiers_per_group,
-                held: rules.teams_per_group,
+                qualifiers: rules.qualifiers_per_gruppe,
+                held: rules.teams_per_gruppe,
                 occupancy: gruppenOccupancy,
               })}
               maxValue={MAX_TEAMS_PER_GROUP}
-              value={rules.teams_per_group}
-              onChange={(teams_per_group) => onRulesChange({ ...rules, teams_per_group })}
-              onBlur={() => onFieldLeft(["rules.teams_per_group"])}
+              value={rules.teams_per_gruppe}
+              onChange={(teams_per_gruppe) => onRulesChange({ ...rules, teams_per_gruppe: teams_per_gruppe })}
+              onBlur={() => onFieldLeft(["rules.teams_per_gruppe"])}
             />
             {/* The one field both freezes reach: the table is scored from it and the fixtures were
                 drawn from it, so either condition alone closes it. */}
             <SaisonCountSelect
-              name="rules.qualifiers_per_group"
-              isDisabled={isFinishedSaison || isDrawnSaison}
+              name="rules.qualifiers_per_gruppe"
+              isDisabled={isScoringFrozen || isDrawnSaison}
               ariaLabel="Qualifikanten pro Gruppe"
-              label={<FieldLabel<SaisonFieldPath> path="rules.qualifiers_per_group">Qualifikanten pro Gruppe</FieldLabel>}
-              value={rules.qualifiers_per_group}
+              label={<FieldLabel<SaisonFieldPath> path="rules.qualifiers_per_gruppe">Qualifikanten pro Gruppe</FieldLabel>}
+              value={rules.qualifiers_per_gruppe}
               options={qualifierCountOptions({
-                groups: rules.number_of_groups,
-                qualifiers: rules.qualifiers_per_group,
-                teams: rules.teams_per_group,
+                groups: rules.number_of_gruppen,
+                qualifiers: rules.qualifiers_per_gruppe,
+                teams: rules.teams_per_gruppe,
               })}
-              onChange={(qualifiers_per_group) => onRulesChange({ ...rules, qualifiers_per_group })}
+              onChange={(qualifiers_per_gruppe) => onRulesChange({ ...rules, qualifiers_per_gruppe: qualifiers_per_gruppe })}
             />
           </div>
 
-          {/* Refused by `REQ-RULES-007`, and said here because the two fields that cause it are
+          {/* Refused by `rules_qualifiers_above_gruppe`, and said here because the two fields that cause it are
               directly above: the seeding walk asks each group for this many placings, and a group
               that cannot produce them leaves the bracket short. */}
           <InlineBanners
@@ -289,13 +288,13 @@ export function FormRegelnSection({
             onChange={(max_kadergroesse) => onRulesChange({ ...rules, max_kadergroesse })}
             onBlur={() => onFieldLeft(["rules.max_kadergroesse"])}
           />
-          <FieldLabel<SaisonFieldPath> path="rules.erlaubte_stufen">
+          <FieldLabel<SaisonFieldPath> path="rules.allowed_stufen">
             <span id={STUFEN_LABEL_ID}>Welche Stufen diese Saison spielen</span>
           </FieldLabel>
           <StufenPicker
-            name="rules.erlaubte_stufen"
+            name="rules.allowed_stufen"
             labelledBy={STUFEN_LABEL_ID}
-            value={rules.erlaubte_stufen}
+            value={rules.allowed_stufen}
             onChange={onStufenChange}
           />
         </div>

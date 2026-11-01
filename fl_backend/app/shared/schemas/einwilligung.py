@@ -1,4 +1,11 @@
-from pydantic import BaseModel, ConfigDict
+from typing import Annotated
+
+from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
+
+from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH
+from app.shared.schemas.custom import SINGLE_LINE_PATTERN
+from app.shared.schemas.literals import FLEinwilligungUmfang, FLKontaktKenntnisnahmeUmfang
+from app.shared.schemas.responses import BaseReadModel
 
 
 class FLEinwilligungBeleg(BaseModel):
@@ -11,13 +18,13 @@ class FLEinwilligungBeleg(BaseModel):
     text_version: str
 
 
-class FLEinwilligungNachweis(FLEinwilligungBeleg):
+class FLEinwilligungNachweis(FLEinwilligungBeleg, BaseReadModel):
     """The evidence one consent choice keeps: the act that set its value, and on a withdrawal the grant it ended."""
 
-    erteilt_zuvor: FLEinwilligungBeleg | None = None
+    given_before: FLEinwilligungBeleg | None = None
 
 
-class FLEinwilligungNachweise(BaseModel):
+class FLEinwilligungNachweise(BaseReadModel):
     """Each choice's evidence, null until its person sets it: a record no person has answered carries none."""
 
     umfang: FLEinwilligungNachweis | None = None
@@ -39,3 +46,44 @@ class FLEinwilligungStand(BaseModel):
 # read as judged.
 class FLEinwilligungStandPayload(FLEinwilligungStand):
     model_config = ConfigDict(extra="forbid")
+
+
+# The label of the control the press was given under, recorded on its evidence. The ceiling counts what
+# arrives and the strip runs after it, so the published `maxLength` is what the backend accepts.
+CustomEinwilligungTextVersion = Annotated[
+    str,
+    StringConstraints(max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+    AfterValidator(str.strip),
+    StringConstraints(min_length=1),
+]
+
+
+class FLAccountEinwilligungPayload(BaseModel):
+    """A pupil's, a referee's or a registration's own two choices on their record.
+
+    Both choices on every press, and no member defaulted: a default would let a page that forgot one
+    reset the person's other choice.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    umfang: FLEinwilligungUmfang
+    medien: bool
+    text_version: CustomEinwilligungTextVersion
+    # The record's `nachweis_stand` as the page was served it.
+    nachweis_stand: FLEinwilligungStandPayload
+
+
+class FLSeatEinwilligungPayload(BaseModel):
+    """A seat holder's own two choices for every seat they hold on one row.
+
+    Both choices on every press: a page that sent one alone would leave the other judged by nothing.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    umfang: FLKontaktKenntnisnahmeUmfang
+    medien: bool
+    text_version: CustomEinwilligungTextVersion
+    # The row's `nachweis_stand` as the page was served it.
+    nachweis_stand: FLEinwilligungStandPayload

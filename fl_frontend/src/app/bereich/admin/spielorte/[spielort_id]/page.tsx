@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { AdminSpielortEditView } from "@/features/spielorte/components/views/AdminSpielortEditView";
 import { getSpielorte } from "@/features/spielorte/queries";
@@ -22,7 +21,6 @@ export default function AdminSpielortEditPage(props: NextPageProps<{ spielort_id
 }
 
 async function AdminSpielortEditContent({ params }: { params: NextPageProps<{ spielort_id: string }>["params"] }) {
-  await connection();
   const spielortId = await resolveSpielortId(params);
 
   // `include_inactive`, or a retired venue's own editor answers not-found.

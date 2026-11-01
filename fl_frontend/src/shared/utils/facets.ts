@@ -175,6 +175,17 @@ export function readFacetSelectionFromRoute<TItem>(
   return readFacetSelection(facets, search);
 }
 
+/**
+ * The values of a contract's closed set a facet picked, in the set's order, and `undefined` where the facet is off.
+ * Read off the generated value object, so a read narrows on no value its endpoint refuses.
+ */
+export function pickedOf<TValue extends string>(
+  values: Readonly<Record<string, TValue>>,
+  picked: readonly string[] | undefined,
+): TValue[] | undefined {
+  return picked === undefined ? undefined : Object.values(values).filter((value) => picked.includes(value));
+}
+
 /** How many facets have something picked — what the trigger's badge counts. */
 export function countActiveFacets(selection: FacetSelection): number {
   return Object.values(selection).filter((picked) => picked.length > 0).length;

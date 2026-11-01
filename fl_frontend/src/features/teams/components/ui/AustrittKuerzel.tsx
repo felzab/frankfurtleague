@@ -1,6 +1,6 @@
 import { austrittKuerzel, austrittZustand } from "../../constants";
 
-import type { FLAustrittType } from "../../schemas";
+import type { FLAustrittType } from "@/core/generated/client/types";
 
 /**
  * The two letters on screen and the whole state for a screen reader: an `aria-label` on a span with no role is one a

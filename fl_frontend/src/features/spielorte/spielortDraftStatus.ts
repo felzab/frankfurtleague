@@ -1,7 +1,7 @@
 import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 import { formatEuro } from "@/shared/utils/format";
 
-import type { FLAddress } from "@/shared/schemas";
+import type { FLAddress } from "@/core/generated/client/types";
 import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
 

@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { EinladungLinkHolder } from "@/features/einladungen/components/EinladungLinkHolder";
 import { getEinladung } from "@/features/einladungen/queries";
@@ -9,7 +8,7 @@ import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { buildGruppenSwapContext } from "@/features/saisons/utils";
 import { getAdminSpiele } from "@/features/spiele/queries";
 import { AdminTeamEditView } from "@/features/teams/components/views/AdminTeamEditView";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
 import { buildGruppeOffer, isRetireable } from "@/features/teams/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
@@ -42,12 +41,11 @@ async function AdminTeamEditContent({
   params: NextPageProps<{ team_id: string }>["params"];
   searchParams: NextPageProps["searchParams"];
 }) {
-  await connection();
   const teamId = await resolveTeamId(params);
 
   // Every season's status for the retirement's refusal: the request-cached list the season's resolution reads anyway.
   const [membershipsRes, selectedSaison, saisonsRes] = await Promise.all([
-    getTeamMemberships(),
+    getTeamSaisons(),
     resolveAdminSaison(searchParams),
     getAdminSaisons(),
   ]);
@@ -63,7 +61,7 @@ async function AdminTeamEditContent({
   const membership = team.memberships.find((candidate) => candidate.saison_id === selectedSaison.id) ?? null;
 
   // The first read is the group lock's, counted over the club's own fixtures as `patch_saison_team`
-  // counts them; the other two are the swap control's: `REQ-SWAP-002`, `REQ-SWAP-004`, `REQ-SWAP-005`.
+  // counts them; the other two are the swap control's: `swap_saison_started` and `swap_spieltag_clash`.
   /* The invite's state joins the group rather than waiting behind it: nothing here depends on
      another's answer, and read after them it would add its own round trip to the page's wait. */
   const [teamSpieleRes, playoffSpieleRes, gruppenSpieleRes, einladungRes] = await Promise.all([
@@ -71,15 +69,15 @@ async function AdminTeamEditContent({
     getAdminSpiele({ saison_id: selectedSaison.id, saison_phase: "playoffs" }),
     getAdminSpiele({ saison_id: selectedSaison.id, saison_phase: "gruppenphase" }),
     // Asked only for a club that holds the season's junction row: the endpoint answers
-    // `REQ-EINLADUNG-001` for one that does not, and a page cannot render a refusal it asked for.
+    // `invitation_team_not_entered` for one that does not, and a page cannot render a refusal it asked for.
     membership === null ? Promise.resolve(null) : getEinladung(teamId, selectedSaison.id),
   ]);
   // Whatever the season's status, because a `future` season is drawn before it is activated, so a
-  // drawn one is the ordinary pre-activation state rather than an unreachable one (`REQ-ENTER-004`).
+  // drawn one is the ordinary pre-activation state rather than an unreachable one (`entry_gruppe_locked`).
   const gruppeLocked = (teamSpieleRes?.spiele.length ?? 0) > 0;
 
   const einladung: TeamEinladungState | null =
-    einladungRes === null ? null : { einladung: einladungRes.einladung, laeuft: einladungRes.laeuft };
+    einladungRes === null ? null : { einladung: einladungRes.invitation, laeuft: einladungRes.running };
 
   const saison: TeamSaisonMembership = {
     saisonId: selectedSaison.id,
@@ -92,8 +90,8 @@ async function AdminTeamEditContent({
             austritt: membership.austritt,
             trikot_farbe: membership.trikot_farbe,
             kontakte: membership.kontakte,
-            bestaetigungen: membership.bestaetigungen,
-            adresswechsel: membership.adresswechsel,
+            confirmations: membership.confirmations,
+            address_change: membership.address_change,
             kontakte_stand: membership.kontakte_stand,
           },
   };
@@ -117,6 +115,7 @@ async function AdminTeamEditContent({
     }),
     gruppenSpiele: gruppenSpieleRes.spiele,
     playoffSpiele: playoffSpieleRes.spiele,
+    begonnen: selectedSaison.begun,
   });
 
   return (

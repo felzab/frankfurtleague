@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer; a rebuilt page's view is joined by its one backend read.
 /**
  * The return is `Omit<L, TKey> & …`, never `L & …`: the spread replaces a same-named key at runtime, so an intersection
  * claims both types and `.toUpperCase()` compiles and throws.

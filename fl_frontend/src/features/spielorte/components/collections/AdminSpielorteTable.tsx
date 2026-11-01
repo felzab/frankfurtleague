@@ -44,8 +44,8 @@ import { formatAddressFull, formatEuro } from "@/shared/utils/format";
 
 import { formatMapsLink } from "../../utils";
 
+import type { FLSpielort } from "@/core/generated/client/types";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
-import type { FLSpielort } from "../../schemas";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
   searched: SPIELORTE_CRUD_COPY.emptyForQuery,
