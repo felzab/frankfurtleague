@@ -189,7 +189,8 @@ finished season, correcting a mistyped one changing nothing anybody competed for
 - **The bracket has to have a shape.** Groups times qualifiers-per-group must be a power of two the round set
   can hold (`rules_bracket_impossible`), because a knockout ladder halves each round down to one final; the rounds are
   `fl_backend/app/api/spiele/schemas.py :: KNOCKOUT_PHASES`, declared in playing order, and each of them is
-  one matchday.
+  one matchday. Wherever semi-finals precede the final, their two losers play for third place on the Finale's
+  matchday, ahead of the final and under its phase (`fl_backend/app/api/saisons/schedule.py :: plays_for_third_place`).
 - **A bracket fixture is drawn naming its sources rather than its teams.** A side is fed by a group placing,
   or by which side came out of an earlier fixture — so the whole season is drawn end to end before anybody has
   qualified for anything, and entering a result is what fills the slots downstream.
