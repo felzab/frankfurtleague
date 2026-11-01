@@ -216,6 +216,7 @@ export function RailPage({
   scope,
   title,
   chip,
+  action,
   bar,
   children,
 }: {
@@ -224,6 +225,11 @@ export function RailPage({
   title: PageTitle | null;
   /** The record's status, directly after its name. */
   chip?: ChipProps;
+  /**
+   * The page's one icon-only way on beside its title, after its chip, such as the Spielplan's magnifier to
+   * the Spielsuche: the kit's link, which its tooltip names.
+   */
+  action?: ReactNode;
   /** The editor's bar, at the foot of the content from the rail's separator to the edge. */
   bar?: ReactNode;
   children: ReactNode;
@@ -240,6 +246,7 @@ export function RailPage({
             label={chip.label}
           />
         )}
+        {action}
         {scope === "saison" && (
           <nav
             aria-label={COPY.template.navigation}
@@ -268,6 +275,6 @@ export function RailPage({
 
 /**
  * What a page hands a template for the strip, drawn before the page's content is read: the area and the
- * title, and the status chip where the record has one.
+ * title, the status chip where the record has one, and the way on beside the title where the page has one.
  */
-export type RailPageHead = { scope: "saison" | "area"; title: PageTitle; chip?: ChipProps };
+export type RailPageHead = { scope: "saison" | "area"; title: PageTitle; chip?: ChipProps; action?: ReactNode };
