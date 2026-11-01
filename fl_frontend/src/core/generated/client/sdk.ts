@@ -1,4 +1,14 @@
-import { adminKeyTransport, baseKeyTransport, serializeQuery, systemKeyTransport, unkeyedTransport } from "@/core/transport";
+import {
+  adminKeyDryRunTransport,
+  adminKeyReadTransport,
+  adminKeyTransport,
+  baseKeyReadTransport,
+  baseKeyTransport,
+  serializeQuery,
+  systemKeyReadTransport,
+  systemKeyTransport,
+  unkeyedTransport,
+} from "@/core/transport";
 
 import type {
   ActionLogGetActionLogParams,
@@ -480,7 +490,7 @@ export const getAddressChangeGetAddressChangeAdresseUrl = () => {
  */
 export const addressChangeGetAddressChangeAdresse = async (
   fLAddressChangeAdressePayload: FLAddressChangeAdressePayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
+  options?: Parameters<typeof systemKeyReadTransport>[1],
 ): Promise<FLAddressChangeAdresseResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -494,7 +504,7 @@ export const addressChangeGetAddressChangeAdresse = async (
     }
     return headers;
   };
-  return systemKeyTransport<FLAddressChangeAdresseResponse>(getAddressChangeGetAddressChangeAdresseUrl(), {
+  return systemKeyReadTransport<FLAddressChangeAdresseResponse>(getAddressChangeGetAddressChangeAdresseUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -612,7 +622,7 @@ export const getAddressChangeGetAddressChangeViewUrl = () => {
  */
 export const addressChangeGetAddressChangeView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLAddressChangeViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -626,7 +636,7 @@ export const addressChangeGetAddressChangeView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLAddressChangeViewResponse>(getAddressChangeGetAddressChangeViewUrl(), {
+  return baseKeyReadTransport<FLAddressChangeViewResponse>(getAddressChangeGetAddressChangeViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -743,7 +753,7 @@ export const getAddressChangeGetAddressChangeVerwaltungViewUrl = () => {
  */
 export const addressChangeGetAddressChangeVerwaltungView = async (
   fLAddressChangeVerwaltungViewPayload: FLAddressChangeVerwaltungViewPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
+  options?: Parameters<typeof adminKeyReadTransport>[1],
 ): Promise<FLAddressChangeVerwaltungViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -757,7 +767,7 @@ export const addressChangeGetAddressChangeVerwaltungView = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLAddressChangeVerwaltungViewResponse>(getAddressChangeGetAddressChangeVerwaltungViewUrl(), {
+  return adminKeyReadTransport<FLAddressChangeVerwaltungViewResponse>(getAddressChangeGetAddressChangeVerwaltungViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -976,7 +986,7 @@ export const getBewerbungenGetEinwilligungViewUrl = () => {
  */
 export const bewerbungenGetEinwilligungView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLBewerbungEinwilligungViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -990,7 +1000,7 @@ export const bewerbungenGetEinwilligungView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLBewerbungEinwilligungViewResponse>(getBewerbungenGetEinwilligungViewUrl(), {
+  return baseKeyReadTransport<FLBewerbungEinwilligungViewResponse>(getBewerbungenGetEinwilligungViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1860,7 +1870,7 @@ export const getIdentityGetErasureViewUrl = () => {
  */
 export const identityGetErasureView = async (
   fLErasureAdressePayload: FLErasureAdressePayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
+  options?: Parameters<typeof adminKeyReadTransport>[1],
 ): Promise<FLErasureViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -1874,7 +1884,7 @@ export const identityGetErasureView = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLErasureViewResponse>(getIdentityGetErasureViewUrl(), {
+  return adminKeyReadTransport<FLErasureViewResponse>(getIdentityGetErasureViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1894,7 +1904,7 @@ export const getIdentityGetReferencesUrl = () => {
  */
 export const identityGetReferences = async (
   fLReferencesPayload: FLReferencesPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
+  options?: Parameters<typeof systemKeyReadTransport>[1],
 ): Promise<FLReferencesResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -1908,7 +1918,7 @@ export const identityGetReferences = async (
     }
     return headers;
   };
-  return systemKeyTransport<FLReferencesResponse>(getIdentityGetReferencesUrl(), {
+  return systemKeyReadTransport<FLReferencesResponse>(getIdentityGetReferencesUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1928,7 +1938,7 @@ export const getIdentityGetSignInUrl = () => {
  */
 export const identityGetSignIn = async (
   fLSubjectPayload: FLSubjectPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
+  options?: Parameters<typeof systemKeyReadTransport>[1],
 ): Promise<FLSignInResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -1942,7 +1952,7 @@ export const identityGetSignIn = async (
     }
     return headers;
   };
-  return systemKeyTransport<FLSignInResponse>(getIdentityGetSignInUrl(), {
+  return systemKeyReadTransport<FLSignInResponse>(getIdentityGetSignInUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -2004,7 +2014,7 @@ export const getIdentityGetSubjectUrl = () => {
  */
 export const identityGetSubject = async (
   fLSubjectPayload: FLSubjectPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
+  options?: Parameters<typeof systemKeyReadTransport>[1],
 ): Promise<FLSubjectResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -2018,7 +2028,7 @@ export const identityGetSubject = async (
     }
     return headers;
   };
-  return systemKeyTransport<FLSubjectResponse>(getIdentityGetSubjectUrl(), {
+  return systemKeyReadTransport<FLSubjectResponse>(getIdentityGetSubjectUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -2317,7 +2327,7 @@ export const getRegistrierungenGetConfirmationViewUrl = () => {
  */
 export const registrierungenGetConfirmationView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLRegistrierungConfirmationViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -2331,7 +2341,7 @@ export const registrierungenGetConfirmationView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLRegistrierungConfirmationViewResponse>(getRegistrierungenGetConfirmationViewUrl(), {
+  return baseKeyReadTransport<FLRegistrierungConfirmationViewResponse>(getRegistrierungenGetConfirmationViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -2353,7 +2363,7 @@ export const getRegistrierungenPostInvitationViewUrl = () => {
  */
 export const registrierungenPostInvitationView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLInvitationViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -2367,7 +2377,7 @@ export const registrierungenPostInvitationView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLInvitationViewResponse>(getRegistrierungenPostInvitationViewUrl(), {
+  return baseKeyReadTransport<FLInvitationViewResponse>(getRegistrierungenPostInvitationViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -3248,7 +3258,7 @@ export const getSchiedsrichterGetConfirmationViewUrl = () => {
  */
 export const schiedsrichterGetConfirmationView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLSchiedsrichterConfirmationViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -3262,7 +3272,7 @@ export const schiedsrichterGetConfirmationView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLSchiedsrichterConfirmationViewResponse>(getSchiedsrichterGetConfirmationViewUrl(), {
+  return baseKeyReadTransport<FLSchiedsrichterConfirmationViewResponse>(getSchiedsrichterGetConfirmationViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -3946,7 +3956,7 @@ export const getSpielbestaetigungenGetSpielbestaetigungViewUrl = () => {
  */
 export const spielbestaetigungenGetSpielbestaetigungView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLSpielbestaetigungViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -3960,7 +3970,7 @@ export const spielbestaetigungenGetSpielbestaetigungView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLSpielbestaetigungViewResponse>(getSpielbestaetigungenGetSpielbestaetigungViewUrl(), {
+  return baseKeyReadTransport<FLSpielbestaetigungViewResponse>(getSpielbestaetigungenGetSpielbestaetigungViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -4194,7 +4204,7 @@ export const spielePatchSpiel = async (
   spielId: string,
   fLPatchSpielDataPayload: FLPatchSpielDataPayload,
   params?: SpielePatchSpielParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
+  options?: Parameters<typeof adminKeyDryRunTransport>[1],
 ): Promise<FLPatchSpielDataResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -4208,7 +4218,7 @@ export const spielePatchSpiel = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLPatchSpielDataResponse>(getSpielePatchSpielUrl(spielId, params), {
+  return adminKeyDryRunTransport<FLPatchSpielDataResponse>(getSpielePatchSpielUrl(spielId, params), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },

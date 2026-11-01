@@ -64,7 +64,7 @@ export async function postBewerbung(payload: FLPostBewerbungPayload, idempotency
  * backend's own route template does not redact.
  */
 export async function postEinwilligungAnsicht(payload: FLTokenPayload): Promise<FLBewerbungEinwilligungViewResponse> {
-  return bewerbungenGetEinwilligungView(payload, { readOnly: true });
+  return bewerbungenGetEinwilligungView(payload);
 }
 
 /** Records one contact person's answer and spends their token. */
