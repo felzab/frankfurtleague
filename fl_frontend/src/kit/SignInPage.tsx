@@ -206,6 +206,7 @@ function Body(props: SignInView) {
             <Link
               href={props.continue.href}
               placement="button"
+              look="primary"
               label={props.continue.label}
             />
             {/* The step out beside the way on, quiet as „Später“ is. */}

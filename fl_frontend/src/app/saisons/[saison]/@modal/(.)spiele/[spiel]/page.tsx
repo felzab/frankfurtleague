@@ -41,6 +41,7 @@ async function Popup({ params }: { params: Promise<{ saison: string; spiel: stri
         <Link
           href={ROUTES.spiel.path(saison.id, spiel.id)}
           placement="button"
+          look="primary"
           fullPage
           label={COPY.shared.toSpiel}
         />

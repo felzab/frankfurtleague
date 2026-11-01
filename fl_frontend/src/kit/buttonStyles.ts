@@ -1,9 +1,9 @@
 import { tv } from "./tv";
 
 /**
- * The look of everything that acts or leads on as a button: the kit's `Button`, and the kit's `Link` where
- * a page's one next step is drawn as the primary button. Kept apart from both so a server-rendered link
- * and a client button read the same recipe.
+ * The look of everything that acts or leads on as a button: the kit's `Button`, and the kit's `Link` drawn
+ * as a primary or a secondary button. Kept apart from both so a server-rendered link and a client button
+ * read the same recipe.
  */
 export const buttonLook = tv({
   // The border colour is named on every variant: HeroUI's base sheet colours every element's border.
@@ -23,6 +23,10 @@ export const buttonLook = tv({
       aria: "",
       link: "",
     },
+    // A glyph alone in the look's own edge and fill, as wide as the button is tall.
+    square: {
+      true: "w-9 px-0 pointer-coarse:w-11",
+    },
   },
   // A press takes the hover's colour, so under a mouse the two are one state and a touch, which never
   // hovers, still answers the press: React Aria's `data-pressed` on its button, `:active` on an anchor.
@@ -31,6 +35,7 @@ export const buttonLook = tv({
     { look: "primary", host: "link", class: "hover:bg-brand-solid-hover active:bg-brand-solid-hover" },
     // The lighter surface keeps the edge at 3:1 against the fill under the pointer.
     { look: "secondary", host: "aria", class: "data-hovered:bg-bg-surface data-pressed:bg-bg-surface" },
+    { look: "secondary", host: "link", class: "hover:bg-bg-surface active:bg-bg-surface" },
     { look: "icon", host: "aria", class: "data-hovered:bg-bg-muted data-pressed:bg-bg-muted" },
     { look: "quiet", host: "aria", class: "data-hovered:bg-bg-muted data-hovered:text-fg data-pressed:bg-bg-muted data-pressed:text-fg" },
     { look: "danger", host: "aria", class: "data-hovered:bg-danger-solid-hover data-pressed:bg-danger-solid-hover" },

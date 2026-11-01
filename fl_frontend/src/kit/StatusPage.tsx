@@ -51,6 +51,7 @@ export function StatusCard({ mark, sentence, next, title }: StatusCardProps & { 
       <Link
         href={next.href}
         placement="button"
+        look="primary"
         label={next.label}
       />
     </div>

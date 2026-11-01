@@ -36,6 +36,22 @@ describe("the kit's link", () => {
     expect(link.hasAttribute("data-client-navigation")).toBe(true);
   });
 
+  it("drawn as a glyph alone, is named by its label, which it does not print", () => {
+    render(
+      <Link
+        href={SPIEL}
+        placement="button"
+        look="secondary"
+        icon="calendar"
+        label={COPY.shared.toSpiel}
+      />,
+    );
+
+    const link = screen.getByRole("link", { name: COPY.shared.toSpiel });
+    expect(link.textContent).toBe("");
+    expect(link.querySelector("svg")).not.toBe(null);
+  });
+
   it("with `fullPage`, is a plain anchor loading the target as a whole document", () => {
     render(
       <Link
