@@ -9,7 +9,7 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielbestaetigungen.services import SeatVoid, build_team_rows_filter, group_seat_voids
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.schemas import FLPublicTeamsFilterParams, FLTabelle, FLTeamListAdapter
-from app.api.teams.services import build_gruppen, build_tabelle, build_team_pipeline, find_entry_refusal
+from app.api.teams.services import build_tabelle, build_team_pipeline, find_entry_refusal
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, anchor_in_db, patch_many_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
@@ -101,11 +101,7 @@ async def pull_tabelle(
         pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id, "saison_phase": "gruppenphase"}),
     )
 
-    gruppen = build_gruppen(
-        teams=FLTeamListAdapter.validate_python(teams_raw), spiele=FLSpielListAdapter.validate_python(spiele_raw), rules=rules
-    )
-
-    return build_tabelle(gruppen)
+    return build_tabelle(teams=FLTeamListAdapter.validate_python(teams_raw), spiele=FLSpielListAdapter.validate_python(spiele_raw), rules=rules)
 
 
 async def pull_team_names(
