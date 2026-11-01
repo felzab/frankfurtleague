@@ -181,6 +181,10 @@ async def patch_many_in_db(
     collection: AsyncCollection,
     db_filter: Mapping[str, Any],
     update: Mapping[str, Any],
+    # The conditions `$[<identifier>]` paths in `update` select array elements by (the manual's
+    # "$[<identifier>]" page). Such an update keeps the caller's filter unnarrowed, so that filter
+    # has to match only the documents holding an element to change.
+    array_filters: Sequence[Mapping[str, Any]] | None = None,
     session: AsyncClientSession | None = None,
 ) -> UpdateResult:
     """The driver's result, unwrapped: `modified_count` is reported on the wire, so nothing here may swallow it.
@@ -194,7 +198,7 @@ async def patch_many_in_db(
     matched = _changed_by(db_filter, update) if collection.name in EDITED_COLLECTIONS else db_filter
     update = _versioned(collection, update)
 
-    result = await collection.update_many(filter=matched, update=update, session=session)
+    result = await collection.update_many(filter=matched, update=update, array_filters=array_filters, session=session)
 
     # A fan-out that changed nothing records nothing, as a removal that took nothing: so a
     # caller sends its write unguarded, and an hourly pass matching nothing files no row saying so.

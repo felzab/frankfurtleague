@@ -4,6 +4,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.spielberichte.crud import repoint_pupil_entries_in_session
 from app.api.spieler.schemas import FLSpielerRolle
 from app.api.spieler.services import (
     build_ghost_spieler,
@@ -175,6 +176,7 @@ async def loeschen_person_in_session(
     *,
     spieler_collection: AsyncCollection,
     saison_spieler_collection: AsyncCollection,
+    spielberichte_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     spieler_id: CustomObjectId,
     # The caller's, so several erasures in one transaction redact under one instant.
@@ -182,11 +184,19 @@ async def loeschen_person_in_session(
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> PersonGeloescht:
-    """Remove the person and their squad rows, then redact the log. Whether they may be erased is the caller's to judge."""
+    """Repoint the person's report entries at the sentinel, remove the person and their squad rows, then redact the log.
+
+    Whether they may be erased is the caller's to judge; the sentinel must stand already
+    (`ensure_ghost_spieler`).
+    """
 
     # Through the by-id filter, before any write: the removals below key on the bare id, so the
     # sentinel handed in by any caller would go, and every reference repointed at it would dangle.
     await pull_one_from_db(collection=spieler_collection, db_filter=build_spieler_filter(spieler_id), projection={"_id": 1}, session=session)
+
+    # Before the removal, as the erasure reaches every reference to a person before the person: an
+    # entry left naming the id names a row nothing holds.
+    await repoint_pupil_entries_in_session(spielberichte_collection=spielberichte_collection, spieler_id=spieler_id, session=session)
 
     # Read BEFORE the removal and unbounded: a log row names a squad row by its own `_id`, which
     # nothing can recover once the row is gone, so a capped read would leave the rows it dropped

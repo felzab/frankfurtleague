@@ -625,7 +625,7 @@ LOESCHUNG_STEPS: Final[tuple[LoeschungStep, ...]] = (
         run=loeschen_registrierungen_in_session,
     ),
     LoeschungStep(
-        reaches=frozenset({Collection.SPIELER, Collection.SAISON_SPIELER, Collection.ACTION_LOG}),
+        reaches=frozenset({Collection.SPIELER, Collection.SAISON_SPIELER, Collection.SPIELBERICHTE, Collection.ACTION_LOG}),
         personengruppe="spieler",
         run=loeschen_person_in_session,
     ),
@@ -728,7 +728,7 @@ async def loeschen_everything(
     )
 
     # Each sentinel ahead of the step erasing its kind. The referee's takes the fixtures that booked the
-    # person; nothing is repointed at the pupils'.
+    # person and the reports they sent; the pupils' takes the scorer and card entries naming them.
     if _runs(loeschen_referee_in_session, scope) and subject.schiedsrichter:
         await ensure_ghost_schiedsrichter(schiedsrichter_collection=schiedsrichter_collection, session=session)
     if _runs(loeschen_person_in_session, scope) and subject.spieler:
@@ -811,6 +811,7 @@ async def loeschen_everything(
             geloescht = await loeschen_person_in_session(
                 spieler_collection=spieler_collection,
                 saison_spieler_collection=saison_spieler_collection,
+                spielberichte_collection=spielberichte_collection,
                 aktionen_collection=aktionen_collection,
                 spieler_id=row["_id"],
                 stamp=stamp,
