@@ -185,6 +185,7 @@ import type {
   FLSpieleSingleResponse,
   FLSpielorteListResponse,
   FLSpielorteSingleResponse,
+  FLSpielPageResponse,
   FLSpielplanResponse,
   FLSpieltageListResponse,
   FLSpieltageSingleResponse,
@@ -2888,6 +2889,29 @@ export const getSaisonsGetKoRundeUrl = (saisonId: string) => {
  */
 export const saisonsGetKoRunde = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLKoRundeResponse> => {
   return baseKeyTransport<FLKoRundeResponse>(getSaisonsGetKoRundeUrl(saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSaisonsGetSpielUrl = (saisonId: string, spielId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spiele/${encodeURIComponent(String(spielId))}`;
+};
+
+/**
+ * One match of one season as its page and its pop-up show it.
+ *
+ * Each side of a group match comes with its group and `platz` in the Tabelle. The report's line-ups whenever a club
+ * entered one, its scorers and cards only while the report is adopted and unchanged since, every pupil through the
+ * public mask. 404 for a season this tier may not read and for a match the season does not hold.
+ * @summary One Spiel's page
+ */
+export const saisonsGetSpiel = async (
+  saisonId: string,
+  spielId: string,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLSpielPageResponse> => {
+  return baseKeyTransport<FLSpielPageResponse>(getSaisonsGetSpielUrl(saisonId, spielId), {
     ...options,
     method: "GET",
   });

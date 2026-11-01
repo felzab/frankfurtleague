@@ -1985,6 +1985,21 @@ export const SaisonsGetKoRundeParams = zod.object({
 });
 
 /**
+ * One match of one season as its page and its pop-up show it.
+ *
+ * Each side of a group match comes with its group and `platz` in the Tabelle. The report's line-ups whenever a club
+ * entered one, its scorers and cards only while the report is adopted and unchanged since, every pupil through the
+ * public mask. 404 for a season this tier may not read and for a match the season does not hold.
+ * @summary One Spiel's page
+ */
+export const saisonsGetSpielPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const SaisonsGetSpielParams = zod.object({
+  saison_id: zod.string(),
+  spiel_id: zod.string().regex(saisonsGetSpielPathSpielIdRegExp),
+});
+
+/**
  * Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.
  *
  * Every fixture's confirmations go with it.

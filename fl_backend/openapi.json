@@ -2837,6 +2837,123 @@
         ],
         "type": "string"
       },
+      "FLAufstellungEntryPublic": {
+        "properties": {
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielerPosition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "startet": {
+            "title": "Startet",
+            "type": "boolean"
+          },
+          "type": {
+            "$ref": "#/components/schemas/FLSpielberichtSpielerType"
+          },
+          "vorname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vorname"
+          }
+        },
+        "required": [
+          "type",
+          "vorname",
+          "nachname",
+          "nummer",
+          "position",
+          "startet"
+        ],
+        "title": "FLAufstellungEntryPublic",
+        "type": "object"
+      },
+      "FLAufstellungPublic": {
+        "description": "One club's line-up for the match, starters and substitutes in the order the club entered them.",
+        "properties": {
+          "spieler": {
+            "items": {
+              "$ref": "#/components/schemas/FLAufstellungEntryPublic"
+            },
+            "title": "Spieler",
+            "type": "array"
+          },
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "team_id",
+          "spieler"
+        ],
+        "title": "FLAufstellungPublic",
+        "type": "object"
+      },
+      "FLAufstellungenPublic": {
+        "properties": {
+          "team1": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAufstellungPublic"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team2": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAufstellungPublic"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "team1",
+          "team2"
+        ],
+        "title": "FLAufstellungenPublic",
+        "type": "object"
+      },
       "FLAustritt": {
         "description": "How a team came to be out of one season, why, and from when.\n\n`grund` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no\ndisciplinary code an enum could cite.",
         "properties": {
@@ -13113,6 +13230,40 @@
         "title": "FLSpielOrtFieldPublic",
         "type": "object"
       },
+      "FLSpielPageResponse": {
+        "description": "One match as its page and its pop-up show it.\n\nThe match, its matchday's `position`, where each side stands, and what the public may read of its report, null\nwhere none is stored.",
+        "properties": {
+          "bericht": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielberichtPublic"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "spiel": {
+            "$ref": "#/components/schemas/FLSpielJoined"
+          },
+          "spieltag_position": {
+            "minimum": 1.0,
+            "title": "Spieltag Position",
+            "type": "integer"
+          },
+          "standings": {
+            "$ref": "#/components/schemas/FLSpielSideStandings"
+          }
+        },
+        "required": [
+          "spiel",
+          "spieltag_position",
+          "standings",
+          "bericht"
+        ],
+        "title": "FLSpielPageResponse",
+        "type": "object"
+      },
       "FLSpielQuelle": {
         "discriminator": {
           "mapping": {
@@ -13374,6 +13525,63 @@
           "team2"
         ],
         "type": "string"
+      },
+      "FLSpielSideStanding": {
+        "description": "Where one side of a group match stands in the Tabelle: its group, and its `platz`, null while it holds none.",
+        "properties": {
+          "gruppe": {
+            "$ref": "#/components/schemas/FLGruppenNames"
+          },
+          "platz": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platz"
+          }
+        },
+        "required": [
+          "gruppe",
+          "platz"
+        ],
+        "title": "FLSpielSideStanding",
+        "type": "object"
+      },
+      "FLSpielSideStandings": {
+        "description": "Each side's place in the Tabelle on a group match.\n\nNull on a knockout match, whose round is the match's own phase, and for a side the groups do not list.",
+        "properties": {
+          "team1": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielSideStanding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team2": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielSideStanding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "team1",
+          "team2"
+        ],
+        "title": "FLSpielSideStandings",
+        "type": "object"
       },
       "FLSpielStatus": {
         "enum": [
@@ -13819,6 +14027,32 @@
         "title": "FLSpielberichtKartePayload",
         "type": "object"
       },
+      "FLSpielberichtKartePublic": {
+        "description": "One card, its `grund` never served: a characterisation of a named pupil's conduct.",
+        "properties": {
+          "farbe": {
+            "$ref": "#/components/schemas/FLKartenFarbe"
+          },
+          "minute": {
+            "title": "Minute",
+            "type": "string"
+          },
+          "seite": {
+            "$ref": "#/components/schemas/FLSpielSeite"
+          },
+          "spieler": {
+            "$ref": "#/components/schemas/FLSpielberichtSpielerPublic"
+          }
+        },
+        "required": [
+          "seite",
+          "minute",
+          "farbe",
+          "spieler"
+        ],
+        "title": "FLSpielberichtKartePublic",
+        "type": "object"
+      },
       "FLSpielberichtPayload": {
         "additionalProperties": false,
         "description": "The whole `bericht` block, written wholesale by the referee's PUT and the administrator's PATCH alike.",
@@ -14003,6 +14237,49 @@
           "submitted_at"
         ],
         "title": "FLSpielberichtPersonEntry",
+        "type": "object"
+      },
+      "FLSpielberichtPublic": {
+        "description": "What the public may read of one match's report.\n\nThe line-ups whenever a club entered one: they are the clubs' own submissions. The scorers and the cards only\nwhile the referee's report reads `adopted` -- adopted, unchanged since, and matching the result -- each by minute;\nnull otherwise, which is \"not official yet\" where an empty list is \"nobody scored\".",
+        "properties": {
+          "aufstellungen": {
+            "$ref": "#/components/schemas/FLAufstellungenPublic"
+          },
+          "karten": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FLSpielberichtKartePublic"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Karten"
+          },
+          "torschuetzen": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FLSpielberichtTorPublic"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Torschuetzen"
+          }
+        },
+        "required": [
+          "aufstellungen",
+          "torschuetzen",
+          "karten"
+        ],
+        "title": "FLSpielberichtPublic",
         "type": "object"
       },
       "FLSpielberichtSchiedsrichterResponse": {
@@ -14235,6 +14512,74 @@
         "title": "FLSpielberichtSpieler",
         "type": "object"
       },
+      "FLSpielberichtSpielerPublic": {
+        "description": "One pupil an entry names, as the base tier serves them; no record id (`READ-PUPIL-005`).\n\nThe names only where `type` is `named`, the surname as an initial (`READ-PUPIL-001`); the number and position off\nthe pupil's squad row for that side's club in the match's season, kept where the name is withheld.",
+        "properties": {
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielerPosition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "$ref": "#/components/schemas/FLSpielberichtSpielerType"
+          },
+          "vorname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vorname"
+          }
+        },
+        "required": [
+          "type",
+          "vorname",
+          "nachname",
+          "nummer",
+          "position"
+        ],
+        "title": "FLSpielberichtSpielerPublic",
+        "type": "object"
+      },
+      "FLSpielberichtSpielerType": {
+        "enum": [
+          "named",
+          "anonymous",
+          "unknown"
+        ],
+        "type": "string"
+      },
       "FLSpielberichtState": {
         "enum": [
           "vorgeschlagen",
@@ -14285,6 +14630,32 @@
           "name"
         ],
         "title": "FLSpielberichtTeam",
+        "type": "object"
+      },
+      "FLSpielberichtTorPublic": {
+        "properties": {
+          "eigentor": {
+            "title": "Eigentor",
+            "type": "boolean"
+          },
+          "minute": {
+            "title": "Minute",
+            "type": "string"
+          },
+          "seite": {
+            "$ref": "#/components/schemas/FLSpielSeite"
+          },
+          "spieler": {
+            "$ref": "#/components/schemas/FLSpielberichtSpielerPublic"
+          }
+        },
+        "required": [
+          "seite",
+          "minute",
+          "eigentor",
+          "spieler"
+        ],
+        "title": "FLSpielberichtTorPublic",
         "type": "object"
       },
       "FLSpielberichtTorschuetze": {
@@ -23888,6 +24259,90 @@
           }
         ],
         "summary": "One Saison's K.-o.-Runde",
+        "tags": [
+          "saisons"
+        ]
+      }
+    },
+    "/api/v0/saisons/{saison_id}/spiele/{spiel_id}": {
+      "get": {
+        "description": "One match of one season as its page and its pop-up show it.\n\nEach side of a group match comes with its group and `platz` in the Tabelle. The report's line-ups whenever a club\nentered one, its scorers and cards only while the report is adopted and unchanged since, every pupil through the\npublic mask. 404 for a season this tier may not read and for a match the season does not hold.",
+        "operationId": "saisons_get_spiel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "spiel_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spiel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "BaseKey": []
+          }
+        ],
+        "summary": "One Spiel's page",
         "tags": [
           "saisons"
         ]

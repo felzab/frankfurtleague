@@ -14,8 +14,8 @@ from app.shared.schemas.custom import (
     CustomTimeString,
     parse_empty_string_to_none,
 )
-from app.shared.schemas.literals import FLSaisonPhase, FLSonderereignis, FLSpielSeite
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.literals import FLSaisonPhase, FLSonderereignis, FLSpielerPosition, FLSpielSeite
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # The minute as the DFB's report writes it: the played minute, and stoppage time after a plus, `45+2`.
 MINUTE_PATTERN = r"^[0-9]{1,3}(\+[0-9]{1,2})?$"
@@ -314,6 +314,73 @@ class FLSpielberichteSaisonResponse(BaseAPIResponse):
     """Every report of one season that holds a block, each with its state."""
 
     spielberichte: list[FLSpielberichtStateEntry]
+
+
+# --- The PUBLIC read: what the match page shows of a report, every pupil through the base tier's mask.
+
+# Which of three things an entry names: a pupil whose consent publishes their name; one whose name is withheld or
+# who was erased, their entry repointed at the placeholder; and nobody, a goal no scorer was named for. The words
+# for the two absences are the frontend's.
+type FLSpielberichtSpielerType = Literal["named", "anonymous", "unknown"]
+
+
+class FLSpielberichtSpielerPublic(BaseReadModel):
+    """One pupil an entry names, as the base tier serves them; no record id (`READ-PUPIL-005`).
+
+    The names only where `type` is `named`, the surname as an initial (`READ-PUPIL-001`); the number and position off
+    the pupil's squad row for that side's club in the match's season, kept where the name is withheld.
+    """
+
+    type: FLSpielberichtSpielerType
+    vorname: str | None
+    nachname: str | None
+    nummer: str | None
+    position: FLSpielerPosition | None
+
+
+class FLSpielberichtTorPublic(BaseReadModel):
+    seite: FLSpielSeite
+    minute: str
+    eigentor: bool
+    spieler: FLSpielberichtSpielerPublic
+
+
+class FLSpielberichtKartePublic(BaseReadModel):
+    """One card, its `grund` never served: a characterisation of a named pupil's conduct."""
+
+    seite: FLSpielSeite
+    minute: str
+    farbe: FLKartenFarbe
+    spieler: FLSpielberichtSpielerPublic
+
+
+class FLAufstellungEntryPublic(FLSpielberichtSpielerPublic):
+    startet: bool
+
+
+class FLAufstellungPublic(BaseReadModel):
+    """One club's line-up for the match, starters and substitutes in the order the club entered them."""
+
+    team_id: CustomObjectId
+    spieler: list[FLAufstellungEntryPublic]
+
+
+class FLAufstellungenPublic(BaseReadModel):
+    team1: FLAufstellungPublic | None
+    team2: FLAufstellungPublic | None
+
+
+class FLSpielberichtPublic(BaseReadModel):
+    """What the public may read of one match's report.
+
+    The line-ups whenever a club entered one: they are the clubs' own submissions. The scorers and the cards only
+    while the referee's report reads `adopted` -- adopted, unchanged since, and matching the result -- each by minute;
+    null otherwise, which is "not official yet" where an empty list is "nobody scored".
+    """
+
+    aufstellungen: FLAufstellungenPublic
+    torschuetzen: list[FLSpielberichtTorPublic] | None
+    karten: list[FLSpielberichtKartePublic] | None
 
 
 # Here rather than beside the fixtures' models: it composes the fixtures' read and the reports', and this module imports those.

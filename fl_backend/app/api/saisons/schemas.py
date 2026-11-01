@@ -3,6 +3,7 @@ from typing import Annotated, Final, Literal, Self
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 from pydantic_core import PydanticCustomError
 
+from app.api.spielberichte.schemas import FLSpielberichtPublic
 from app.api.spiele.schemas import FLSpielJoined
 from app.api.spieler.schemas import FLSpielerPublic
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLTabelleRow, FLTeamPageClub
@@ -402,3 +403,33 @@ class FLTeamPageResponse(BaseAPIResponse):
     standing: FLTabelleRow | None
     spiele: list[FLSpielJoined]
     kader: list[FLSpielerPublic]
+
+
+class FLSpielSideStanding(BaseReadModel):
+    """Where one side of a group match stands in the Tabelle: its group, and its `platz`, null while it holds none."""
+
+    gruppe: FLGruppenNames
+    platz: int | None = Field(gt=0)
+
+
+class FLSpielSideStandings(BaseReadModel):
+    """Each side's place in the Tabelle on a group match.
+
+    Null on a knockout match, whose round is the match's own phase, and for a side the groups do not list.
+    """
+
+    team1: FLSpielSideStanding | None
+    team2: FLSpielSideStanding | None
+
+
+class FLSpielPageResponse(BaseAPIResponse):
+    """One match as its page and its pop-up show it.
+
+    The match, its matchday's `position`, where each side stands, and what the public may read of its report, null
+    where none is stored.
+    """
+
+    spiel: FLSpielJoined
+    spieltag_position: int = Field(ge=1)
+    standings: FLSpielSideStandings
+    bericht: FLSpielberichtPublic | None

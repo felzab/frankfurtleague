@@ -14,11 +14,15 @@ from app.api.saisons.schemas import (
     FLSaisonsFilterParams,
     FLSaisonsListResponse,
     FLSaisonsSingleResponse,
+    FLSpielPageResponse,
+    FLSpielSideStanding,
+    FLSpielSideStandings,
     FLTeamPageResponse,
 )
 from app.api.saisons.services import base_tier_status_term, with_schedule
 from app.api.saisons.visibility import PublicSaison, resolve_public_saison
-from app.api.spiele.schemas import FLSpielJoinedListAdapter
+from app.api.spielberichte.services import SEITEN, build_public_bericht_pipeline, compose_public_bericht, team_id_of
+from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedListAdapter
 from app.api.spiele.services import build_spiele_pipeline
 from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerListAdapter
 from app.api.spieler.services import build_spieler_pipeline
@@ -34,9 +38,17 @@ from app.api.teams.schemas import (
     FLTeamsFilterParams,
 )
 from app.api.teams.services import build_team_pipeline
+from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, build_query, build_sort, pull_many_from_db, pull_one_from_db
-from app.core.dependencies import SaisonsCollection, SpieleCollection, SpielerCollection, SpieltageCollection, TeamsCollection
+from app.core.dependencies import (
+    SaisonsCollection,
+    SpielberichteCollection,
+    SpieleCollection,
+    SpielerCollection,
+    SpieltageCollection,
+    TeamsCollection,
+)
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import verify_access_base
@@ -292,4 +304,66 @@ async def get_team(
         standing=standing,
         spiele=FLSpielJoinedListAdapter.validate_python(spiele_raw),
         kader=FLSpielerListAdapter.validate_python(kader_raw),
+    )
+
+
+_SPIELTAG_ROWS_AS = "spieltag_rows"
+
+# The matchday's `position` beside the match, which the page's eyebrow names it by, in the same aggregation.
+_SPIELTAG_POSITION_LOOKUP: Mapping[str, Any] = {
+    "$lookup": {
+        "from": Collection.SPIELTAGE,
+        "localField": "spieltag_id",
+        "foreignField": "_id",
+        "pipeline": [{"$project": {"_id": 0, "position": 1}}],
+        "as": _SPIELTAG_ROWS_AS,
+    }
+}
+
+
+@router.get(f"/{{saison_id}}/spiele{by_id('spiel_id')}", response_model=FLSpielPageResponse, summary="One Spiel's page")
+async def get_spiel(
+    saison_id: str,
+    spiel_id: CustomRouteObjectId,
+    saisons_collection: SaisonsCollection,
+    spiele_collection: SpieleCollection,
+    teams_collection: TeamsCollection,
+    spielberichte_collection: SpielberichteCollection,
+) -> FLSpielPageResponse:
+    """One match of one season as its page and its pop-up show it.
+
+    Each side of a group match comes with its group and `platz` in the Tabelle. The report's line-ups whenever a club
+    entered one, its scorers and cards only while the report is adopted and unchanged since, every pupil through the
+    public mask. 404 for a season this tier may not read and for a match the season does not hold.
+    """
+
+    saison, spiele_raw, berichte_raw = await asyncio.gather(
+        resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
+        aggregate_many_from_db(
+            collection=spiele_collection,
+            pipeline=[*build_spiele_pipeline(db_filter={"_id": spiel_id, "saison_id": saison_id}), _SPIELTAG_POSITION_LOOKUP],
+            limit=1,
+        ),
+        aggregate_many_from_db(collection=spielberichte_collection, pipeline=build_public_bericht_pipeline(spiel_id), limit=1),
+    )
+    if not spiele_raw:
+        raise DocumentNotFoundError()
+
+    spiel_raw = spiele_raw[0]
+    standings = FLSpielSideStandings(team1=None, team2=None)
+
+    if spiel_raw["saison_phase"] == "gruppenphase":
+        tabelle = await pull_tabelle(
+            teams_collection=teams_collection, spiele_collection=spiele_collection, saison_id=saison.id, rules=saison.rules
+        )
+        placed: dict[Any, FLSpielSideStanding] = {
+            row.id: FLSpielSideStanding(gruppe=gruppe, platz=row.platz) for gruppe, rows in tabelle.root.items() for row in rows
+        }
+        standings = FLSpielSideStandings(**{seite: placed.get(team_id_of(spiel_raw, seite)) for seite in SEITEN})
+
+    return FLSpielPageResponse(
+        spiel=FLSpielJoined.model_validate(spiel_raw),
+        spieltag_position=spiel_raw[_SPIELTAG_ROWS_AS][0]["position"],
+        standings=standings,
+        bericht=compose_public_bericht(berichte_raw[0], spiel_raw) if berichte_raw else None,
     )

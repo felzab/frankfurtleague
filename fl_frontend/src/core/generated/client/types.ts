@@ -1219,6 +1219,37 @@ export const FLApprovalDenied = {
   younger: "younger",
 } as const;
 
+export type FLSpielberichtSpielerType = (typeof FLSpielberichtSpielerType)[keyof typeof FLSpielberichtSpielerType];
+
+export const FLSpielberichtSpielerType = {
+  named: "named",
+  anonymous: "anonymous",
+  unknown: "unknown",
+} as const;
+
+export interface FLAufstellungEntryPublic {
+  nachname: string | null;
+  nummer: string | null;
+  position: FLSpielerPosition | null;
+  startet: boolean;
+  type: FLSpielberichtSpielerType;
+  vorname: string | null;
+}
+
+/**
+ * One club's line-up for the match, starters and substitutes in the order the club entered them.
+ */
+export interface FLAufstellungPublic {
+  spieler: FLAufstellungEntryPublic[];
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+}
+
+export interface FLAufstellungenPublic {
+  team1: FLAufstellungPublic | null;
+  team2: FLAufstellungPublic | null;
+}
+
 export type FLAustrittType = (typeof FLAustrittType)[keyof typeof FLAustrittType];
 
 export const FLAustrittType = {
@@ -4734,6 +4765,82 @@ export interface FLSpielJoinedAdmin {
   team2_quelle: FLSpielQuelle | null;
   uhrzeit: string | null;
   version: number;
+}
+
+/**
+ * One pupil an entry names, as the base tier serves them; no record id (`READ-PUPIL-005`).
+ *
+ * The names only where `type` is `named`, the surname as an initial (`READ-PUPIL-001`); the number and position off
+ * the pupil's squad row for that side's club in the match's season, kept where the name is withheld.
+ */
+export interface FLSpielberichtSpielerPublic {
+  nachname: string | null;
+  nummer: string | null;
+  position: FLSpielerPosition | null;
+  type: FLSpielberichtSpielerType;
+  vorname: string | null;
+}
+
+/**
+ * One card, its `grund` never served: a characterisation of a named pupil's conduct.
+ */
+export interface FLSpielberichtKartePublic {
+  farbe: FLKartenFarbe;
+  minute: string;
+  seite: FLSpielSeite;
+  spieler: FLSpielberichtSpielerPublic;
+}
+
+export interface FLSpielberichtTorPublic {
+  eigentor: boolean;
+  minute: string;
+  seite: FLSpielSeite;
+  spieler: FLSpielberichtSpielerPublic;
+}
+
+/**
+ * What the public may read of one match's report.
+ *
+ * The line-ups whenever a club entered one: they are the clubs' own submissions. The scorers and the cards only
+ * while the referee's report reads `adopted` -- adopted, unchanged since, and matching the result -- each by minute;
+ * null otherwise, which is "not official yet" where an empty list is "nobody scored".
+ */
+export interface FLSpielberichtPublic {
+  aufstellungen: FLAufstellungenPublic;
+  karten: FLSpielberichtKartePublic[] | null;
+  torschuetzen: FLSpielberichtTorPublic[] | null;
+}
+
+/**
+ * Where one side of a group match stands in the Tabelle: its group, and its `platz`, null while it holds none.
+ */
+export interface FLSpielSideStanding {
+  gruppe: FLGruppenNames;
+  platz: number | null;
+}
+
+/**
+ * Each side's place in the Tabelle on a group match.
+ *
+ * Null on a knockout match, whose round is the match's own phase, and for a side the groups do not list.
+ */
+export interface FLSpielSideStandings {
+  team1: FLSpielSideStanding | null;
+  team2: FLSpielSideStanding | null;
+}
+
+/**
+ * One match as its page and its pop-up show it.
+ *
+ * The match, its matchday's `position`, where each side stands, and what the public may read of its report, null
+ * where none is stored.
+ */
+export interface FLSpielPageResponse {
+  bericht: FLSpielberichtPublic | null;
+  spiel: FLSpielJoined;
+  /** @minimum 1 */
+  spieltag_position: number;
+  standings: FLSpielSideStandings;
 }
 
 export type FLSpielStatus = (typeof FLSpielStatus)[keyof typeof FLSpielStatus];
