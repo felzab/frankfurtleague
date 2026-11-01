@@ -481,6 +481,8 @@ CUTS = [
     pytest.param("POST", "/cut-read", Code.DATABASE_FAILED, id="a read over POST, marked safe"),
     pytest.param("PATCH", "/cut-save?dry_run=true", Code.DATABASE_FAILED, id="a save's dry run, marked safe when asked for"),
     pytest.param("PATCH", "/cut-save", Code.UNKNOWN_OUTCOME, id="the same save, which may have written"),
+    # Present and false is a save: a mark read by presence would judge it safe and send the person to repeat it.
+    pytest.param("PATCH", "/cut-save?dry_run=false", Code.UNKNOWN_OUTCOME, id="the same save, its dry run declined"),
 ]
 
 
