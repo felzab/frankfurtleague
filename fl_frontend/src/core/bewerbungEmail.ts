@@ -3,6 +3,7 @@ import "server-only";
 import { BRAND_NAME, mailOrigin } from "./emailShell";
 import { formatDatum, formatList } from "./format";
 import { kontaktBestaetigungsLink } from "./kontaktLink";
+import { ROUTES } from "./routes";
 import { KONTAKT_ROLLE_LONG_FORM, rollenText, TRIKOT_FARBEN } from "./teamVocabulary";
 
 import type { Mail, Paragraph } from "./emailShell";
@@ -57,7 +58,7 @@ const einteilungAbsatz = (gruppe: string, farbe: string | null): Paragraph =>
  * The one page every reader who is waiting on the league can use, named as
  * `BewerbungView.tsx :: KOPF_LINKS` names it.
  */
-const ligaAktion = (origin: string) => ({ label: "Laufende Saison", href: `${origin}/dashboard` });
+const ligaAktion = (origin: string) => ({ label: "Laufende Saison", href: `${origin}${ROUTES.saisons.path()}` });
 
 /**
  * Where a school starts again. The id is percent-encoded rather than interpolated raw: it lands in

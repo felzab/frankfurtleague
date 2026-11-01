@@ -13,7 +13,7 @@ import { SLOT_LABEL_WRAP_CLASSES, TEAM_NAME_TRACK_CLASSES, TEAM_NAME_WRAP_CLASSE
 import type { FLSpielWithDraftFields } from "@/features/spiele/types";
 
 /**
- * **Not `SpielCardCompact` itself**: that card mounts a popover whose links navigate away from a
+ * **Not `SpielCard` itself**: that card mounts a popover whose links navigate away from a
  * page holding unsaved changes. Rendered through the site's own derivations, never copies of them.
  */
 export function SpielDraftPreview({

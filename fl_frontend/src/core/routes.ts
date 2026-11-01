@@ -19,6 +19,9 @@ export type RouteEntry = {
  * Signed-in pages, sign-in pages and pages a mail opens are never indexed.
  */
 export const ROUTES = {
+  /** The season the site is on, for a link that cannot know which: its page sends the reader on to that season's Spielplan. */
+  // Session 3: its page is built.
+  saisons: { path: () => "/saisons" as const, title: COPY.page.spielplan, indexed: false },
   spielplan: {
     path: (saison: string) => `/saisons/${saison}` as const,
     title: COPY.page.spielplan,
@@ -34,6 +37,13 @@ export const ROUTES = {
   teams: {
     path: (saison: string) => `/saisons/${saison}/teams` as const,
     title: COPY.page.teams,
+    indexed: true,
+  },
+  /** A club's page in one season, its squad among it, named by the club. */
+  // Session 3: its page is built.
+  team: {
+    path: (saison: string, team: string) => `/saisons/${saison}/teams/${team}` as const,
+    title: COPY.verwaltung.record,
     indexed: true,
   },
   spiel: {

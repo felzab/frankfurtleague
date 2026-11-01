@@ -12,6 +12,7 @@ import { Dropdown } from "@heroui/react/dropdown";
 import { Label } from "@heroui/react/label";
 import { Separator } from "@heroui/react/separator";
 
+import { ROUTES } from "@/core/routes";
 import { ABOUT_TITEL, DEIN_BEREICH_TITEL, KONTAKT_TITEL, ORGANISATION_TITEL, SAISONUEBERSICHT_TITEL } from "@/core/seitenNamen";
 
 import { BrandLink } from "../../ui/BrandLink";
@@ -28,7 +29,7 @@ export function TopNav() {
       <div className="flex items-center gap-2 sm:gap-3">
         <div className="hidden items-center gap-1 lg:flex">
           <Link
-            href="/dashboard"
+            href={ROUTES.saisons.path()}
             className="rounded-full px-4 py-1.5 fluid-sm font-semibold text-foreground transition-colors hover:bg-hover">
             {SAISONUEBERSICHT_TITEL}
           </Link>
@@ -56,7 +57,7 @@ export function TopNav() {
             <Dropdown.Item
               id="dashboard"
               textValue={SAISONUEBERSICHT_TITEL}
-              href="/dashboard"
+              href={ROUTES.saisons.path()}
               className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
               <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">{SAISONUEBERSICHT_TITEL}</Label>
               <Eye

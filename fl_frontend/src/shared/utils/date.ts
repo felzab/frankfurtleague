@@ -1,20 +1,5 @@
 import { TIME_ZONE } from "@/core/format";
 
-/**
- * Compared as strings, which works because `YYYY-MM-DD` sorts lexicographically. Never parse one into a `Date` to
- * compare — that reintroduces the timezone ambiguity the string form does not have. Nulls sort last either direction.
- */
-export function sortByDate<T>({ arr, key }: { arr: T[]; key: keyof T }): T[] {
-  return [...arr].sort((a, b) => {
-    const vA = a[key] ?? null;
-    const vB = b[key] ?? null;
-    if (vA === null && vB === null) return 0;
-    if (vA === null) return 1;
-    if (vB === null) return -1;
-    return String(vA).localeCompare(String(vB));
-  });
-}
-
 // Europe/Berlin, matching how the backend computes "today": the server's own clock would put the two out
 // of step for an hour a day.
 const formatter = new Intl.DateTimeFormat("en-US", {

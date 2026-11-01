@@ -24,7 +24,6 @@ const saisons = await import("@/features/saisons/queries.ts");
 const schiedsrichter = await import("@/features/schiedsrichter/queries.ts");
 const spiele = await import("@/features/spiele/queries.ts");
 const spieltage = await import("@/features/spieltage/queries.ts");
-const teams = await import("@/features/teams/queries.ts");
 
 // A fresh id per call: React's `cache` would answer a repeated one from the first case's result.
 let calls = 0;
@@ -39,7 +38,6 @@ const READS: Readonly<Record<string, () => Promise<unknown>>> = {
   getSchiedsrichterById: () => schiedsrichter.getSchiedsrichterById(freshId()),
   getAdminSpiel: () => spiele.getAdminSpiel(freshId()),
   getAdminSpieltagById: () => spieltage.getAdminSpieltagById(freshId()),
-  getTeam: () => teams.getTeam(freshId()),
 };
 
 const notFound = (serverErrorCode: Code | undefined): APIBadStatusError =>

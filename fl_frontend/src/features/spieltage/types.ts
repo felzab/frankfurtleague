@@ -4,9 +4,6 @@ import type { FLSpiel } from "../spiele/types";
 /** A matchday with its own fixtures, of either tier, joined on the frontend from the two list reads. */
 export type FLSpieltagWithSpiele = FLSpieltag & { spiele: FLSpiel[] };
 
-/** Every matchday of a season, each with its own fixtures, in the backend's played order. */
-export type FLSpielplan = { spieltage: FLSpieltagWithSpiele[] };
-
 export type AdminSpieltagRow = {
   id: string;
   /** Composed from the phase and `position`, never stored. See `spieltagLabels`. */

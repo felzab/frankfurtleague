@@ -13,22 +13,9 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        source: "/dashboard",
-        destination: "/dashboard/spielplan#top",
-        permanent: true, // HTTP 308 (permanent, method-preserving) -- not 301
-      },
-      {
         source: "/bereich/admin",
         destination: "/bereich/admin/action_required#top",
         permanent: true, // HTTP 308 (permanent, method-preserving) -- not 301
-      },
-      {
-        // `?status=vergangen` is the Status facet's own parameter and value, and it is what makes
-        // this a fold rather than a redirect to a blank search: `SpielsucheView` renders results as
-        // soon as a filter is active, without anything typed.
-        source: "/dashboard/spielhistorie",
-        destination: "/dashboard/spielsuche?status=vergangen",
-        permanent: true,
       },
     ];
   },

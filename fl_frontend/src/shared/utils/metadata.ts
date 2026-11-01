@@ -1,5 +1,3 @@
-import { withSaisonId } from "./saisonHref";
-
 import type { Copy } from "@/core/copy";
 import type { RouteEntry } from "@/core/routes";
 import type { Metadata } from "next";
@@ -19,28 +17,6 @@ export function pageMetadata(row: RouteEntry, path: string, title?: string): Met
     openGraph: openGraphFor(path),
     ...(row.indexed ? {} : { robots: { index: false, follow: false } }),
   };
-}
-
-// Session 3: goes with the old dashboard pages, its last importers; `pageMetadata` stays.
-/**
- * `saisonId` is `resolveSaisonId`'s answer, never the raw parameter.
- *
- * **A URL naming the RUNNING season canonicalises to the bare address**, which serves that same
- * page: two self-canonicalising addresses split one page's indexing.
- */
-export function saisonScopedMetadata(
-  path: string,
-  saisonId: string | undefined,
-  runningSaisonId: string | undefined,
-): Pick<Metadata, "alternates" | "openGraph"> {
-  const url = withSaisonId(path, saisonId === runningSaisonId ? undefined : saisonId);
-
-  return { openGraph: openGraphFor(url), alternates: { canonical: url } };
-}
-
-/** The season a description names, from the same answer: a past season's page never calls itself the running one. */
-export function saisonPhrase(saisonId: string | undefined): string {
-  return saisonId === undefined ? "der laufenden Saison" : `der Saison ${saisonId}`;
 }
 
 /**
