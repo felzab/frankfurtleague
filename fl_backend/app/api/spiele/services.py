@@ -755,23 +755,24 @@ def winner_and_loser[Side: FLSpielTeamField](
 def podium_of(finale: Sequence[FLSpielJoined]) -> list[tuple[int, FLSpielTeamFieldJoined]]:
     """Places one to four as the Finale's matchday decides them, each pair only once its match has.
 
-    The final gives places one and two; the match for third place, a side of which a semi-final's loser feeds, gives
-    three and four, and exists only where the bracket has semi-finals.
+    The final gives places one and two; the match for third place, which exists only where the bracket has
+    semi-finals, gives three and four.
     """
 
+    # Told apart by number rather than by a `verlierer` source, which an admin may clear by hand: the draw numbers the
+    # match for third place just ahead of the final, and no save renumbers a match. A matchday holding more than the
+    # draw writes was wired by hand, and it names nobody.
+    ordered = sorted(finale, key=lambda spiel: spiel.spiel_nr)
+    if not 1 <= len(ordered) <= 2:
+        return []
+
     places: list[tuple[int, FLSpielTeamFieldJoined]] = []
-    for first, for_third in ((1, False), (3, True)):
-        matches = [spiel for spiel in finale if _plays_for_third(spiel) is for_third]
-        # One match per pair, or the matchday was wired by hand past what the draw writes, and it names nobody.
-        decided = winner_and_loser(matches[0].team1, matches[0].team2, matches[0].elfmeterschiessen) if len(matches) == 1 else None
+    for first, spiel in ((1, ordered[-1]), *((3, for_third) for for_third in ordered[:-1])):
+        decided = winner_and_loser(spiel.team1, spiel.team2, spiel.elfmeterschiessen)
         if decided is not None:
             places.extend(((first, decided[0]), (first + 1, decided[1])))
 
     return places
-
-
-def _plays_for_third(spiel: FLSpielCommon) -> bool:
-    return any(isinstance(quelle, FLSpielQuelleSpiel) and quelle.ausgang == "verlierer" for quelle in (spiel.team1_quelle, spiel.team2_quelle))
 
 
 def _fault_order(fault: FLBracketFault) -> tuple[int, str, str, int]:

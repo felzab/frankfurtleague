@@ -121,14 +121,26 @@ def test_a_league_with_no_season_on_shows_none(mongo_url: str):
     assert (response.saison, response.application_window) == (None, None)
 
 
+# The numbers the draw gives a bracket with semi-finals: theirs, then the match for third place, then the final.
+THIRD_NR, FINAL_NR = 23, 24
+
+
 def finale_match(
-    team1: tuple[str, int | None], team2: tuple[str, int | None], *, third: bool, shootout: tuple[int, int] | None = None
+    team1: tuple[str, int | None],
+    team2: tuple[str, int | None],
+    *,
+    third: bool,
+    shootout: tuple[int, int] | None = None,
+    cleared: bool = False,
 ) -> FLSpielJoined:
+    """`cleared` is a slot an admin took over by clearing its source, which leaves the match its number alone."""
+
     def joined(name: str, tore: int | None) -> FLSpielTeamFieldJoined:
         return FLSpielTeamFieldJoined(team_id=ObjectId(), name=name, shorthand=name[:3].upper(), tore=tore, austritt_type=None)
 
-    quelle = FLSpielQuelleSpiel(type="spiel", spiel_nr=1, ausgang="verlierer" if third else "sieger")
+    quelle = None if cleared else FLSpielQuelleSpiel(type="spiel", spiel_nr=21, ausgang="verlierer" if third else "sieger")
     return FLSpielJoined.model_construct(
+        spiel_nr=THIRD_NR if third else FINAL_NR,
         team1=joined(*team1),
         team2=joined(*team2),
         team1_quelle=quelle,
@@ -151,6 +163,11 @@ def finale_match(
             id="third place still to play",
         ),
         pytest.param([finale_match(("Alpha", 1), ("Beta", 1), third=False)], [], id="a level final with no shoot-out names nobody"),
+        pytest.param(
+            [finale_match(("Alpha", 1), ("Beta", 0), third=False), finale_match(("Cara", 0), ("Dora", 1), third=True, cleared=True)],
+            [(1, "Alpha"), (2, "Beta"), (3, "Dora"), (4, "Cara")],
+            id="a match for third place whose sources were cleared by hand, read in any order",
+        ),
     ],
 )
 def test_the_podium_places_each_pair_its_match_has_decided(finale: list[FLSpielJoined], places: list[tuple[int, str]]):
