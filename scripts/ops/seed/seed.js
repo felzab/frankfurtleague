@@ -4,7 +4,8 @@
 // invented, so no machine needs production's personal data to show a page in each of its states.
 // The states are the ones the Spielplan, the sign-in, the match editor and the Spielorte table draw:
 //
-// - a finished season: every fixture played, the final decided on penalties;
+// - a finished season: every fixture played, the match for third place among them, the final decided on
+//   penalties;
 // - the running season: a played matchday holding a forfeit, today's matchday holding a played, an
 //   open and a cancelled fixture, next week's matchday holding an undated fixture, and a knockout
 //   round drawn but not yet decided;
@@ -222,18 +223,21 @@ function season({ id, status, start, end, drawn, groups, dates, play, knockout =
   });
 
   // `fl_backend/app/api/saisons/spielplan.py :: bracket_seeding` for two groups of two qualifiers:
-  // A1 meets B2 and B1 meets A2, and the final takes both winners.
+  // A1 meets B2 and B1 meets A2. The Finale's matchday plays both semi-finals' losers for third place,
+  // then the final takes both winners, as `draw_spielplan` numbers them.
   const halbfinale = spieltag("halbfinale", 1, dates[3]);
   const [a, b] = Object.keys(groups);
   const seeded = (gruppe, platz) => ({ type: "gruppe", gruppe, platz });
   const [hf1Team1 = null, hf1Team2 = null] = knockout.halbfinale1 ?? [];
   const [hf2Team1 = null, hf2Team2 = null] = knockout.halbfinale2 ?? [];
+  const [thirdTeam1 = null, thirdTeam2 = null] = knockout.thirdPlace ?? [];
   const [finalTeam1 = null, finalTeam2 = null] = knockout.finale ?? [];
   const first = spiel("halbfinale", halbfinale._id, hf1Team1, hf1Team2, [seeded(a, 1), seeded(b, 2)]);
   const second = spiel("halbfinale", halbfinale._id, hf2Team1, hf2Team2, [seeded(b, 1), seeded(a, 2)]);
   const finale = spieltag("finale", 1, dates[4]);
-  const winner = (nr) => ({ type: "spiel", spiel_nr: nr, ausgang: "sieger" });
-  spiel("finale", finale._id, finalTeam1, finalTeam2, [winner(first), winner(second)]);
+  const outcome = (nr, ausgang) => ({ type: "spiel", spiel_nr: nr, ausgang });
+  spiel("finale", finale._id, thirdTeam1, thirdTeam2, [outcome(first, "verlierer"), outcome(second, "verlierer")]);
+  spiel("finale", finale._id, finalTeam1, finalTeam2, [outcome(first, "sieger"), outcome(second, "sieger")]);
 
   const saison = {
     _id: id,
@@ -265,7 +269,8 @@ function season({ id, status, start, end, drawn, groups, dates, play, knockout =
 
 // The finished season. Both groups play one pattern of scores, each fixture's taken by its place in
 // its group's round: group A ends Ahorn 7, Birke 6, Eiche 4, Linde 0 points and group B Ulme, Esche,
-// Kastanie, Weide alike, which is who the knockout holds. The final went to penalties.
+// Kastanie, Weide alike, which is who the knockout holds. The match for third place was won outright
+// and the final went to penalties.
 const FINISHED_MATCHDAYS = [-280, -266, -252, -210, -196];
 const GROUP_SCORES = [
   [3, 0],
@@ -275,7 +280,12 @@ const GROUP_SCORES = [
   [2, 1],
   [1, 0],
 ];
-const KNOCKOUT_SCORES = { 13: { tore: [2, 0] }, 14: { tore: [1, 2] }, 15: { tore: [1, 1], elfmeterschiessen: { team1: 4, team2: 3 } } };
+const KNOCKOUT_SCORES = {
+  13: { tore: [2, 0] },
+  14: { tore: [1, 2] },
+  15: { tore: [3, 1] },
+  16: { tore: [1, 1], elfmeterschiessen: { team1: 4, team2: 3 } },
+};
 const finished = season({
   id: "2026",
   status: "past",
@@ -285,15 +295,20 @@ const finished = season({
   groups: { A: ["Ahorn", "Birke", "Eiche", "Linde"], B: ["Ulme", "Esche", "Kastanie", "Weide"] },
   dates: FINISHED_MATCHDAYS.map((offset, index) => [day(offset), day(index < 3 ? offset + 4 : offset)]),
   play: (nr) => {
-    // Four fixtures a group matchday, two a semi-final day, the final alone.
+    // Four fixtures a group matchday, two a semi-final day, two the Finale's.
     const matchday = nr <= 12 ? Math.ceil(nr / 4) : nr <= 14 ? 4 : 5;
     // Every venue and referee, the two retired since among them: a retired row still stands on the
     // fixtures it served.
-    const played = { datum: day(FINISHED_MATCHDAYS[matchday - 1]), uhrzeit: "15:00:00", booking: booked(nr % 4, nr % 4) };
+    // The match for third place, 15, kicks off ahead of the final.
+    const played = {
+      datum: day(FINISHED_MATCHDAYS[matchday - 1]),
+      uhrzeit: nr === 15 ? "13:00:00" : "15:00:00",
+      booking: booked(nr % 4, nr % 4),
+    };
     // Within a group matchday group A's two pairs come first, then group B's in the same order.
     return nr <= 12 ? { ...played, tore: GROUP_SCORES[(matchday - 1) * 2 + ((nr - 1) % 2)] } : { ...played, ...KNOCKOUT_SCORES[nr] };
   },
-  knockout: { halbfinale1: ["Ahorn", "Esche"], halbfinale2: ["Ulme", "Birke"], finale: ["Ahorn", "Birke"] },
+  knockout: { halbfinale1: ["Ahorn", "Esche"], halbfinale2: ["Ulme", "Birke"], thirdPlace: ["Esche", "Ulme"], finale: ["Ahorn", "Birke"] },
 });
 
 // The running season, new groups. Matchday 1 is played and holds a forfeit, matchday 2 is today,

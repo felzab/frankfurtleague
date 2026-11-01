@@ -13,7 +13,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import BulkWriteError, DuplicateKeyError
 from pymongo.helpers_shared import _index_document
-from pymongo.results import DeleteResult
+from pymongo.results import DeleteResult, UpdateResult
 
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -22,6 +22,7 @@ from app.core.crud import (
     build_query,
     build_sort,
     delete_many_from_db,
+    ensure_one_in_db,
     erase_many_from_db,
     literal_pattern,
     patch_one_in_db,
@@ -329,6 +330,35 @@ class TestDeleteManyFromDb:
         asyncio.run(delete_many_from_db(collection=as_collection(stub), db_filter=FILTER, session=TRANSACTION))
 
         assert len(stub.recorded) == rows
+
+
+class _UpsertCollection(_OneDocumentCollection):
+    """Answers an upsert as the driver does: `upserted_id` set where it inserted, `None` where a document matched."""
+
+    def __init__(self, *, present: bool) -> None:
+        super().__init__(None)
+        self.present = present
+        self.upserts: list[dict[str, Any]] = []
+
+    async def update_one(self, *, filter: Any, update: Any, upsert: bool, session: Any) -> UpdateResult:
+        self.upserts.append({"filter": filter, "update": update, "upsert": upsert})
+        raw = {"n": 1, "nModified": 0} if self.present else {"n": 1, "nModified": 0, "upserted": filter["_id"]}
+
+        return UpdateResult(raw, acknowledged=True)
+
+
+class TestEnsureOneInDb:
+    @pytest.mark.parametrize(("present", "rows"), [pytest.param(False, 1, id="absent, inserted"), pytest.param(True, 0, id="present, kept")])
+    def test_one_upsert_records_a_row_exactly_where_it_inserted(self, present: bool, rows: int):
+        """A row on every call would log an insert each erasure that found its sentinel standing."""
+
+        stub = _UpsertCollection(present=present)
+
+        inserted = asyncio.run(ensure_one_in_db(collection=as_collection(stub), document=STORED, session=TRANSACTION))
+
+        assert (inserted, len(stub.recorded)) == (not present, rows)
+        # The `_id` is the filter's alone, and the edited collection's version is stamped as a create stamps it.
+        assert stub.upserts == [{"filter": FILTER, "update": {"$setOnInsert": {"name": "Lessing", "version": 0}}, "upsert": True}]
 
 
 class TestEraseManyFromDb:

@@ -293,7 +293,8 @@ def bracket_rounds(rules: FLSaisonRules) -> tuple[int, ...]:
     """How many matches each knockout round holds, halving the qualifier product down to one final.
 
     Derived here rather than through `knockout_phases_for`, which the draw walks: an oracle reading
-    that function would agree with a draw one round short.
+    that function would agree with a draw one round short. The Finale's matchday adds the match for
+    third place wherever semi-finals precede it.
     """
 
     # `rules_bracket_impossible` refuses a product that is no power of two, so the halving always lands on 1.
@@ -304,7 +305,7 @@ def bracket_rounds(rules: FLSaisonRules) -> tuple[int, ...]:
         sizes.append(remaining // 2)
         remaining //= 2
 
-    return tuple(sizes)
+    return (*sizes[:-1], sizes[-1] + 1) if len(sizes) > 1 else tuple(sizes)
 
 
 def expected_counts(rules: FLSaisonRules) -> tuple[int, int]:
@@ -588,7 +589,10 @@ class TestTheBracketIsWiredToWhatFeedsIt:
         ] == [("gruppe", gruppe, platz) for gruppe, platz in BRACKET_SEEDING[(GROUPS, QUALIFIERS)]]
 
     def test_each_later_round_is_fed_by_the_winners_of_the_round_before_it(self, mongo_replica_set_url: str):
-        """The chain the bracket resolver walks: a source naming a fixture from anywhere else leaves a slot no result can ever fill."""
+        """The chain the bracket resolver walks: a source naming a fixture from anywhere else leaves a slot no result can ever fill.
+
+        The Finale's matchday opens with the semi-finals' losers, who play for third place.
+        """
 
         drawn = a_drawn_season(mongo_replica_set_url)
         first, *later = knockout_rounds(drawn)
@@ -602,7 +606,8 @@ class TestTheBracketIsWiredToWhatFeedsIt:
                 for row in fixtures
                 for quelle in (row["team1_quelle"], row["team2_quelle"])
             ]
-            assert sources == [("spiel", spiel_nr, "sieger") for spiel_nr in feeding]
+            third_place = [("spiel", spiel_nr, "verlierer") for spiel_nr in feeding] if fixtures[0]["saison_phase"] == "finale" else []
+            assert sources == [*third_place, *(("spiel", spiel_nr, "sieger") for spiel_nr in feeding)]
             feeding = [row["spiel_nr"] for row in fixtures]
 
 
