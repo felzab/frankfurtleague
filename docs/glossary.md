@@ -142,7 +142,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 ### `Spielplan` — a season's whole draw
 
 **Is:** every matchday and every fixture of one season, composed in one operation from that season's `rules` and the clubs entered into it: round _k_ of every group is matchday _k_, so the groups play in step, and each knockout round that follows is one further matchday whose sides are `Quelle` references rather than teams. Nothing it writes carries a date.\
-**In code:** `fl_backend/app/api/saisons/spielplan.py :: draw_spielplan` composes the documents, `fl_backend/app/api/saisons/services.py :: find_spielplan_refusal` decides whether a season may be drawn at all, and `fl_backend/app/api/saisons/schemas.py :: FLSaisonSpielplan` is the watermark the season keeps afterwards.\
+**In code:** `fl_backend/app/api/saisons/spielplan.py :: draw_spielplan` composes the documents, `fl_backend/app/api/saisons/services.py :: find_spielplan_refusal` decides whether a season may be drawn at all, and `fl_backend/app/api/saisons/schemas.py :: FLSaisonSpielplan` is the watermark the season keeps afterwards; `fl_backend/app/api/saisons/public_router.py :: get_spielplan` serves it to the public, with the matchday the page opens on, which the Spielsuche reads too.\
 **Trap:** the watermark is a record rather than the guard, so a repeat draw is measured against the FIXTURES and one made by any other route is caught too — which is what lets a season drawn by hand be replaced at all. A second draw is refused unless the request CONFIRMS a replace, which `spielplan_replace_outside_its_window` holds to a `future` season with nothing recorded: it removes the season's fixtures and matchdays and draws fresh ones in one transaction. An UNDRAW removes the same two lists in that same window (`spielplan_undraw_outside_its_window`) and clears this field rather than restamping it, which is what returns a season to undrawn. The season's creation writes no key, so the field is defaulted on the record model, a missing key reading as undrawn just as a stored null does.\
 **See:** `fl_backend/app/api/saisons/services.py :: find_spielplan_refusal` and `:: find_undraw_refusal` for the refusals they raise, and [`domain.md`](domain.md) for what an undraw reopens.
 
@@ -367,7 +367,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 ### `Tabelle` — the league table, and the page showing it
 
 **Is:** the screen word for one season's standings, and for the public page showing them, whose address segment is `tabelle`.\
-**In code:** `fl_frontend/src/core/routes.ts :: ROUTES.tabelle`, which gives the page its address and its name; the figures are the `Statistik` entry's.
+**In code:** `fl_frontend/src/core/routes.ts :: ROUTES.tabelle`, which gives the page its address and its name; the figures are the `Statistik` entry's, and `fl_backend/app/api/saisons/public_router.py :: get_tabelle` serves them, each row's `Platz` numbered by `fl_backend/app/api/teams/services.py :: build_tabelle`.
 
 ### `Kontakt` — the page saying how to reach the league
 
@@ -377,7 +377,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 ### `K.-o.-Runde` · `K.-o.-Baum` — the knockout stage, and its tree
 
 **Is:** „K.-o.-Runde“ is the screen word for a season's knockout stage, every round after the `gruppenphase`, and for its public page, whose address segment is `ko-runde`; „K.-o.-Baum“ is the tree its fixtures are drawn as.\
-**In code:** `fl_frontend/src/core/copy.ts :: COPY.shared.kORunde` and `:: COPY.shared.kOBaum`; `fl_frontend/src/core/routes.ts :: ROUTES.kORunde` gives the page its address.
+**In code:** `fl_frontend/src/core/copy.ts :: COPY.shared.kORunde` and `:: COPY.shared.kOBaum`; `fl_frontend/src/core/routes.ts :: ROUTES.kORunde` gives the page its address, and `fl_backend/app/api/saisons/public_router.py :: get_ko_runde` serves its matchdays and matches.
 
 ---
 
