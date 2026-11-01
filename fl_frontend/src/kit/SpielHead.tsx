@@ -86,10 +86,9 @@ function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part
       </span>
       {side.standing !== undefined && (
         <span className={style.standing()}>
-          {/* Session 3: the muted placement once the kit's link has one. */}
           <Link
             href={side.standing.href}
-            placement="standalone"
+            placement="detail"
             fullPage
             text={side.standing.text}
           />
