@@ -22,6 +22,7 @@
   "ignoreFiles": [
     // Session 3.
     "src/kit/BracketCard.tsx",
+    "src/kit/BracketTree.tsx",
     "src/kit/StatusPage.tsx",
     // Session 4.
     "src/kit/Checkbox.tsx",

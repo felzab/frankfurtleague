@@ -157,7 +157,6 @@ export const COPY = catalogue({
     more: "Mehr …",
     loadMore: "Weitere 50 laden",
     kORunde: "K.-o.-Runde",
-    // Session 3: its page reads it.
     kOBaum: "K.-o.-Baum",
     afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
     // Session 3: its page reads it.
@@ -166,8 +165,10 @@ export const COPY = catalogue({
     startelf: "Startelf",
     bank: "Bank",
 
-    /** The kit's season blocks: the Tabelle's marks and groups. */
+    /** The kit's season blocks: the Tabelle's marks and groups, and the K.-o.-Baum's rows. */
     season: {
+      /** The match between the two semi-finals' losers, on its own row above the Finale. */
+      thirdPlace: "Spiel um Platz 3",
       /** The name of the mark beside a club's figure: how many of its fixtures were called off. */
       cancelled: (count: number) => (count === 1 ? "1 Spiel abgesagt" : `${formatNumber(count)} Spiele abgesagt`),
       /** One group's table on the Tabelle. */

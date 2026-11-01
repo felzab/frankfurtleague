@@ -219,6 +219,8 @@
   --container-signin: 22rem; /* the sign-in's column */
   --container-question: 25rem; /* a dialog asking one question */
   --container-card: 28rem; /* a status card, and the classic column holding one */
+  --container-bracket-phone: 5rem; /* a bracket card on a phone: the plaque and its figure */
+  --container-bracket: 12rem; /* a bracket card on desktop, the most a round's column gives it */
   --container-dialog: 35rem; /* a dialog holding a form */
   --container-form: 47.5rem; /* the form column: a classic form page's, an editor's and a read page's */
   --container-classic: 61rem; /* the classic frame's header and footer */

@@ -14,7 +14,6 @@
   // and stands in `knip.production.json` alone.
   "ignoreFiles": [
     // Session 3.
-    "src/kit/BracketCard.tsx",
     "src/kit/StatusPage.tsx",
     // Session 4.
     "src/kit/Prose.tsx",
