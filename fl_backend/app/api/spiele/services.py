@@ -132,13 +132,13 @@ def _joined_side(side: FLSpielSeite) -> Mapping[str, Any]:
 SPIELBESTAETIGUNGEN_AS_NAME = "spielbestaetigungen_rows"
 
 # The served verdict's key, which `FLSpielJoined` declares and no stored shape does.
-ANSETZUNG_BESTAETIGT = "ansetzung_confirmed"
+ANSETZUNG_CONFIRMED = "ansetzung_confirmed"
 
 
 # Each joined row's marks: whether it is about the Ansetzung the fixture stands at now, and whether the team
 # verdict counts it as its club's agreement.
-_AKTUELL = "aktuell"
-_TEAM_ZUGESTIMMT = "team_zugestimmt"
+_CURRENT = "current"
+_TEAM_AGREED = "team_agreed"
 
 
 def _confirmations_lookup() -> Mapping[str, Any]:
@@ -147,7 +147,7 @@ def _confirmations_lookup() -> Mapping[str, Any]:
     No aggregation recomputes the stand, so an answer stops counting at a move, not at the hourly close.
     """
 
-    aktuell = {"$and": [{"$eq": [f"$ansetzung.{key}", f"$${key}"]} for key in ANSETZUNG_QUELLEN]}
+    current = {"$and": [{"$eq": [f"$ansetzung.{key}", f"$${key}"]} for key in ANSETZUNG_QUELLEN]}
 
     return {
         "$lookup": {
@@ -178,7 +178,7 @@ def _confirmations_lookup() -> Mapping[str, Any]:
                                 {"$eq": ["$spiel_id", "$$spiel_id"]},
                                 # A discard about an Ansetzung the fixture has left settles nothing, as the close
                                 # would have shut an unclosed row about it; a referee's decline stands whatever moved since.
-                                {"$or": [{"$eq": ["$closed", None]}, {"$ne": ["$party.art", "team"]}, aktuell]},
+                                {"$or": [{"$eq": ["$closed", None]}, {"$ne": ["$party.art", "team"]}, current]},
                             ]
                         },
                     }
@@ -190,8 +190,8 @@ def _confirmations_lookup() -> Mapping[str, Any]:
                         "party.art": 1,
                         "party.team_id": 1,
                         # A club's only closed rows the match admits are its discards.
-                        _TEAM_ZUGESTIMMT: {"$or": [{"$eq": ["$antwort.art", "zugesagt"]}, {"$ne": ["$closed", None]}]},
-                        _AKTUELL: aktuell,
+                        _TEAM_AGREED: {"$or": [{"$eq": ["$antwort.art", "zugesagt"]}, {"$ne": ["$closed", None]}]},
+                        _CURRENT: current,
                         # The referee gate's own inputs: their id tells the booked referee's rows from a replaced
                         # one's; the close tells their open rows from their closed answers, which the pass-minted id orders.
                         "_id": 1,
@@ -206,7 +206,7 @@ def _confirmations_lookup() -> Mapping[str, Any]:
     }
 
 
-def _ansetzung_bestaetigt() -> Mapping[str, Any]:
+def _ansetzung_confirmed() -> Mapping[str, Any]:
     """Three-valued, `None` never folding into `False`, which marks the card provisional.
 
     A row about an Ansetzung the fixture has left counts towards asked; a referee's row towards neither; a discarded
@@ -214,8 +214,8 @@ def _ansetzung_bestaetigt() -> Mapping[str, Any]:
     """
 
     team_rows = {"$filter": {"input": f"${SPIELBESTAETIGUNGEN_AS_NAME}", "cond": {"$eq": ["$$this.party.art", "team"]}}}
-    current_rows = {"$filter": {"input": "$$team_rows", "cond": f"$$this.{_AKTUELL}"}}
-    all_agreed = {"$allElementsTrue": [{"$map": {"input": "$$current_rows", "in": f"$$this.{_TEAM_ZUGESTIMMT}"}}]}
+    current_rows = {"$filter": {"input": "$$team_rows", "cond": f"$$this.{_CURRENT}"}}
+    all_agreed = {"$allElementsTrue": [{"$map": {"input": "$$current_rows", "in": f"$$this.{_TEAM_AGREED}"}}]}
     # `$ifNull` for the side lookup's reason; a null side matches no row's snapshot, so it never confirms.
     sides = [{"$ifNull": [f"${ANSETZUNG_QUELLEN[key]}", None]} for key in ("team1_id", "team2_id")]
     # The agreeing CLUBS are the two sides, never merely two rows: two answers of one club leave the
@@ -241,7 +241,7 @@ SCHIEDSRICHTER_AS_NAME = "schiedsrichter_rows"
 # The served verdicts' keys on the referee block, which `FLSpielSchiedsrichterFieldPublic` and
 # `FLSpielJoined` read and no stored shape declares.
 NAME_IS_PUBLIC_KEY = "name_is_public"
-EINSATZ_BESTAETIGT = "einsatz_confirmed"
+EINSATZ_CONFIRMED = "einsatz_confirmed"
 
 
 def _referee_lookup() -> Mapping[str, Any]:
@@ -262,7 +262,7 @@ def _referee_lookup() -> Mapping[str, Any]:
     }
 
 
-def _einsatz_bestaetigt() -> Mapping[str, Any]:
+def _einsatz_confirmed() -> Mapping[str, Any]:
     """`True` only where the booked referee's open rows, else their latest answer, agree to the Ansetzung as it stands.
 
     Never three-valued: a booking the pass has not reached would publish its referee.
@@ -284,7 +284,7 @@ def _einsatz_bestaetigt() -> Mapping[str, Any]:
 
     def agreed(row: str) -> Mapping[str, Any]:
         # `$ifNull` on both: no latest answer leaves `$$latest` missing, which must read as not agreed, never as null.
-        return {"$and": [{"$ifNull": [f"{row}.{_AKTUELL}", False]}, {"$eq": [{"$ifNull": [f"{row}.antwort.art", None]}, "zugesagt"]}]}
+        return {"$and": [{"$ifNull": [f"{row}.{_CURRENT}", False]}, {"$eq": [{"$ifNull": [f"{row}.antwort.art", None]}, "zugesagt"]}]}
 
     # Open rows first: the decline closes its own row, and a fresh one is minted only after, so an open row is newer.
     judged = {
@@ -321,7 +321,7 @@ def _joined_referee() -> Mapping[str, Any]:
                     {
                         # A join answering nothing withholds: it costs a page a name, never a person theirs.
                         NAME_IS_PUBLIC_KEY: {"$ifNull": [{"$first": f"${SCHIEDSRICHTER_AS_NAME}.{NAME_IS_PUBLIC_KEY}"}, False]},
-                        EINSATZ_BESTAETIGT: _einsatz_bestaetigt(),
+                        EINSATZ_CONFIRMED: _einsatz_confirmed(),
                     },
                 ]
             },
@@ -389,7 +389,7 @@ def build_spiele_pipeline(
             "$set": {
                 "team1": _joined_side("team1"),
                 "team2": _joined_side("team2"),
-                ANSETZUNG_BESTAETIGT: _ansetzung_bestaetigt(),
+                ANSETZUNG_CONFIRMED: _ansetzung_confirmed(),
                 "schiedsrichter": _joined_referee(),
             }
         }
