@@ -7,9 +7,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import saison_nimmt_bewerbungen_an
 from app.api.saisons.crud import has_started, pull_active_saison, pull_open_window_saison
-from app.api.saisons.schedule import knockout_phases_for, qualifier_count
 from app.api.saisons.schemas import (
-    PODIUM_PLACES,
     FLApplicationWindow,
     FLLandingCounts,
     FLLandingKickoff,
@@ -44,9 +42,7 @@ from app.api.teams.schemas import (
     FLSaisonTeamEntry,
     FLSaisonTeamEntryListAdapter,
     FLSaisonTeamsResponse,
-    FLTabelle,
     FLTabelleResponse,
-    FLTabelleRow,
     FLTeamPageClub,
     FLTeamsFilterParams,
 )
@@ -141,16 +137,6 @@ async def _active_or_none(saisons_collection: AsyncCollection) -> PublicSaison |
         return None
 
 
-def _podium_of_one_group(tabelle: FLTabelle) -> list[tuple[int, FLTabelleRow]]:
-    """A season with no bracket and one group is decided by its table once every match there is played or called off."""
-
-    rows = [row for rows in tabelle.root.values() for row in rows]
-    if not rows or any(row.count_pending_spiele for row in rows):
-        return []
-
-    return [(row.platz, row) for row in rows if row.platz is not None and row.platz <= PODIUM_PLACES]
-
-
 @router.get("/landing", response_model=FLLandingResponse, summary="The landing")
 async def get_landing(
     saisons_collection: SaisonsCollection,
@@ -219,20 +205,11 @@ async def get_landing(
         ),
     )
 
-    if knockout_phases_for(qualifier_count(saison.rules)):
-        podium = [
-            FLPodiumPlace(platz=platz, team_id=side.team_id, name=side.name, shorthand=side.shorthand)
-            for platz, side in podium_of(FLSpielJoinedListAdapter.validate_python(finale_raw))
-        ]
-    elif saison.rules.number_of_gruppen == 1:
-        tabelle = await pull_tabelle(
-            teams_collection=teams_collection, spiele_collection=spiele_collection, saison_id=saison.id, rules=saison.rules
-        )
-        podium = [
-            FLPodiumPlace(platz=platz, team_id=row.id, name=row.name, shorthand=row.shorthand) for platz, row in _podium_of_one_group(tabelle)
-        ]
-    else:
-        podium = []
+    # Every season ends in a knockout (`find_rules_refusal` refuses rules drawing none), so the Finale decides it.
+    podium = [
+        FLPodiumPlace(platz=platz, team_id=side.team_id, name=side.name, shorthand=side.shorthand)
+        for platz, side in podium_of(FLSpielJoinedListAdapter.validate_python(finale_raw))
+    ]
 
     state: FLLandingState = "decided" if any(place.platz == 1 for place in podium) else "running" if started else "before_start"
 
