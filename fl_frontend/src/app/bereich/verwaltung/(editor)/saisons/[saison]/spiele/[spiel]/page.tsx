@@ -1,5 +1,7 @@
-import { cache, Suspense } from "react";
+import { cache } from "react";
 import { notFound } from "next/navigation";
+
+import { EditorShell } from "@/kit/EditorShell";
 
 import { COPY } from "@/core/copy";
 import { FLSonderereignis } from "@/core/generated/client/types";
@@ -53,14 +55,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 /** The match editor, on today's match read and write. */
 export default function SpielEditorPage({ params }: Props) {
-  return (
-    <Suspense>
-      <Editor params={params} />
-    </Suspense>
-  );
+  return <EditorShell editor={readEditor(params)} />;
 }
 
-async function Editor({ params }: Pick<Props, "params">) {
+async function readEditor(params: Props["params"]) {
   const { saison, spiel } = await params;
   // Retired venues included, so a match booked at one still names it.
   const [gelesen, { spielorte }] = await Promise.all([lesen(spiel), getSpielorte({ include_inactive: true })]);

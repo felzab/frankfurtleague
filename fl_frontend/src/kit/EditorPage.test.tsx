@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderToString } from "react-dom/server";
+import { renderToReadableStream, renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
 import { EditorPage } from "./EditorPage";
+import { EditorShell } from "./EditorShell";
 import { RailColumn, RailFrame } from "./RailFrame";
 import { TextField } from "./TextField";
 import { useEditor } from "./useEditor";
@@ -92,6 +93,23 @@ function Framed({ editor, children }: { editor: boolean; children: ReactNode }) 
 }
 
 const saved = async (): Promise<ActionAnswer<number>> => ({ ok: true, value: 2 });
+
+describe("the editor template's wait", () => {
+  it("draws the strip and the sections' skeleton while the record is read, and the editor once it is", async () => {
+    const waiting = document.createElement("div");
+    waiting.innerHTML = renderToString(<EditorShell editor={new Promise(() => undefined)} />);
+    expect(within(waiting).getByRole("status").textContent).toBe(COPY.shared.loading);
+    // The record names the page, so no heading stands until it is read.
+    expect(within(waiting).queryByRole("heading", { level: 1 })).toBeNull();
+
+    const stream = await renderToReadableStream(<EditorShell editor={Promise.resolve(<SpielortEditor save={saved} />)} />);
+    await stream.allReady;
+    const read = document.createElement("div");
+    read.innerHTML = await new Response(stream).text();
+    expect(within(read).getByRole("heading", { level: 1 }).textContent).toBe("Riedberg");
+    expect(within(read).queryByText(COPY.shared.loading)).toBeNull();
+  });
+});
 
 describe("the editor template's way back", () => {
   // The server draws the band and the bar as hydration finds them: a page declaring itself an editor only on

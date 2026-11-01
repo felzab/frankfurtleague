@@ -83,7 +83,7 @@ type Button = { placement: "button"; look: "primary" | "secondary"; leadingIcon?
  * A glyph alone, in the icon-only button's look: `label`, at most five words, is its name, which the kit's
  * tooltip shows above it.
  */
-type IconOnly = { placement: "icon"; icon: IconName; label: Copy; text?: never; children?: never; fullPage?: never; newTab?: never };
+type IconOnly = { placement: "icon"; icon: IconName; label: Copy; text?: never; children?: never; fullPage?: never };
 
 type Card = {
   placement: "card";
@@ -123,6 +123,7 @@ export function Link<T extends string>(
   ),
 ) {
   const { href, newTab = false, fullPage = false } = props;
+  const tab = { target: newTab ? "_blank" : undefined, rel: newTab ? "noopener noreferrer" : undefined };
   if (props.placement === "icon") {
     return (
       <IconLink
@@ -130,6 +131,7 @@ export function Link<T extends string>(
         icon={props.icon}
         label={props.label}
         className={buttonLook({ look: "icon", host: "link" })}
+        {...tab}
       />
     );
   }
@@ -138,8 +140,7 @@ export function Link<T extends string>(
     href,
     "data-kit-focus": FOCUS[props.placement],
     className: button === undefined ? link({ placement: props.placement }) : buttonLook({ look: button.look, host: "link" }),
-    target: newTab ? "_blank" : undefined,
-    rel: newTab ? "noopener noreferrer" : undefined,
+    ...tab,
   };
   const words = (
     <>

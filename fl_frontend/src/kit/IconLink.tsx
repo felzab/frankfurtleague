@@ -15,14 +15,31 @@ import type { IconName } from "./Icon";
  * `Link`'s icon-only placement: a glyph alone, named by its label, which the kit's tooltip shows above it as
  * an icon-only button's; Next's link becomes the tooltip's trigger through React Aria's `Focusable`, as the
  * collapsed rail's links do. Client code, since the tooltip holds state: `Link` hands it plain props, so a
- * page of other links stays server-rendered with no React Aria.
+ * page of other links stays server-rendered with no React Aria; `target` and `rel` among them, which `Link`
+ * computes for a new tab as it does for every placement.
  */
-export function IconLink({ href, icon, label, className }: { href: Route; icon: IconName; label: Copy; className: string }) {
+export function IconLink({
+  href,
+  icon,
+  label,
+  className,
+  target,
+  rel,
+}: {
+  href: Route;
+  icon: IconName;
+  label: Copy;
+  className: string;
+  target: string | undefined;
+  rel: string | undefined;
+}) {
   return (
     <Tooltip label={label}>
       <Focusable>
         <NextLink
           href={href}
+          target={target}
+          rel={rel}
           aria-label={label}
           data-kit-focus="ring"
           className={className}>

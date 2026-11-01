@@ -1,7 +1,11 @@
+import { COPY } from "@/core/copy";
+
 import { Chip } from "./Chip";
 import { EmptyState } from "./EmptyState";
+import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
+import { TargetMark } from "./TargetMark";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -22,6 +26,13 @@ type TableColumn = {
   hideOnPhone?: boolean;
 };
 
+/**
+ * A cell's value: its text, or a figure some of the club's fixtures left short, such as its count of matches
+ * while some were called off, carrying the mark that says how many, which its name tells a screen reader and
+ * no line explains.
+ */
+type TableCell = string | { value: string; cancelled: number };
+
 export type TableRow = {
   id: string;
   /** The record's name; with `href` the whole row opens the record. */
@@ -31,11 +42,13 @@ export type TableRow = {
   plaque?: { kuerzel: string } | { quelle: string };
   chip?: ChipProps;
   /** The row's values, by column key; a missing value leaves its cell empty. */
-  cells: Readonly<Record<string, string>>;
+  cells: Readonly<Record<string, TableCell>>;
   /** Places 1 and 2: the 2-px brand bar at the row's left edge. */
   qualifies?: boolean;
   /** A row that no longer counts, such as a disqualified team's: its text muted. */
   muted?: boolean;
+  /** The row's fragment, so a link elsewhere, such as a club's line in a match head, opens the page at it. */
+  anchor?: string;
 };
 
 export type TableProps = {
@@ -54,7 +67,8 @@ export type TableProps = {
 const table = tv({
   slots: {
     head: "h-10 bg-bg-surface px-3 text-xs font-medium tracking-caps whitespace-nowrap text-fg-muted uppercase",
-    row: "relative h-14 border-t border-border first:border-t-0 lg:h-13",
+    // A row a link may point to by its fragment, marked while the address names it.
+    row: "kit-target relative h-14 border-t border-border first:border-t-0 lg:h-13",
     cell: "px-3 whitespace-nowrap",
     // The name takes the room the facts leave and wraps where it is long, never narrower than 192 px, so a
     // long fact beside it cannot squeeze it to a letter a line.
@@ -90,6 +104,26 @@ const table = tv({
     },
   },
 });
+
+/**
+ * A cell's value, its mark for fixtures called off before it, so a column of figures keeps its digits under
+ * each other whether a row carries the mark or not.
+ */
+function Cell({ cell }: { cell: TableCell | undefined }) {
+  if (cell === undefined || typeof cell === "string") return cell;
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="text-fg-muted">
+        <Icon
+          glyph="cancelled"
+          size={16}
+        />
+      </span>
+      <span className="sr-only">{COPY.shared.season.cancelled(cell.cancelled)}</span>
+      {cell.value}
+    </span>
+  );
+}
 
 function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
   return (
@@ -133,6 +167,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty }: Tab
   const isLinked = rows.some((row) => row.href !== undefined);
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-bg">
+      {rows.some((row) => row.anchor !== undefined) && <TargetMark />}
       {rows.length === 0 ? (
         <EmptyState {...empty} />
       ) : (
@@ -174,6 +209,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty }: Tab
               return (
                 <tr
                   key={row.id}
+                  id={row.anchor}
                   className={table(marks).row()}>
                   {rankLabel !== undefined && (
                     <td className={table({ align: "centre", figures: true, qualifies: row.qualifies === true }).cell()}>{index + 1}</td>
@@ -191,7 +227,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty }: Tab
                         strong: column.strong === true,
                         phone: column.hideOnPhone === true ? "hidden" : "shown",
                       }).cell()}>
-                      {row.cells[column.key]}
+                      <Cell cell={row.cells[column.key]} />
                     </td>
                   ))}
                   {isLinked && <td className={table().end()}>{row.href !== undefined && <RowEnd />}</td>}

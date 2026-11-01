@@ -157,7 +157,6 @@ export const COPY = catalogue({
     more: "Mehr …",
     loadMore: "Weitere 50 laden",
     kORunde: "K.-o.-Runde",
-    // Session 3: its page reads it.
     kOBaum: "K.-o.-Baum",
     afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
     // Session 3: its page reads it.
@@ -165,6 +164,15 @@ export const COPY = catalogue({
     // Redesign: a line-up's chips read these.
     startelf: "Startelf",
     bank: "Bank",
+
+    /**
+     * The kit's season blocks that a client component draws: a table's rows reach the list's client table. The
+     * rest, which only the server draws, stand in `SERVER_COPY.season`.
+     */
+    season: {
+      /** The name of the mark beside a club's figure: how many of its fixtures were called off. */
+      cancelled: (count: number) => (count === 1 ? "1 Spiel abgesagt" : `${formatNumber(count)} Spiele abgesagt`),
+    },
 
     /** The ⓘ's name, which its tooltip shows. */
     help: "Hilfe",

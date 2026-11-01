@@ -8,7 +8,8 @@ import type { IconName } from "./Icon";
 
 /**
  * The league's three ways to write to it, on one line, all three the control's height: the e-mail button,
- * then Instagram and Threads as glyphs alone, each named by its tooltip.
+ * then Instagram and Threads as glyphs alone, each named by its tooltip and opening in a new tab, as the
+ * kit's other links to another site do.
  */
 export function SocialButtons({
   email,
@@ -35,12 +36,14 @@ export function SocialButtons({
       <Link
         href={instagram}
         placement="icon"
+        newTab
         icon="instagram"
         label={COPY.template.instagram}
       />
       <Link
         href={threads}
         placement="icon"
+        newTab
         icon="threads"
         label={COPY.template.threads}
       />
