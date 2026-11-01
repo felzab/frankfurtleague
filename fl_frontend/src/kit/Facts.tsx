@@ -74,7 +74,11 @@ export function Facts({
     <div className="@container grid gap-2 text-sm">
       {subject !== undefined && (
         <p className="flex min-w-0 items-center gap-2 text-base font-semibold">
-          <span className="min-w-0 truncate">{subject.name}</span>
+          <span
+            className="min-w-0 truncate"
+            title={subject.name}>
+            {subject.name}
+          </span>
           {subject.chip !== undefined && (
             <Chip
               tone={subject.chip.tone}

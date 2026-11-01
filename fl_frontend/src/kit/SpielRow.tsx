@@ -95,7 +95,12 @@ function Side({ side, score, part, mirrored }: { side: SpielSide; score: Figures
   return (
     <span className={style.side()}>
       {mirrored !== true && <TeamPlaque {...side.plaque} />}
-      <span className={style.name()}>{side.name}</span>
+      {/* Cut with „…“ where the side's column is too narrow, the whole name in its `title`. */}
+      <span
+        className={style.name()}
+        title={side.name}>
+        {side.name}
+      </span>
       {mirrored === true && <TeamPlaque {...side.plaque} />}
     </span>
   );

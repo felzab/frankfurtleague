@@ -69,9 +69,9 @@ const table = tv({
     // A row a link may point to by its fragment, marked while the address names it.
     row: "kit-target relative h-14 border-t border-border first:border-t-0 lg:h-13",
     cell: "px-3 whitespace-nowrap",
-    // The name takes the room the facts leave and wraps where it is long, never narrower than 192 px, so a
-    // long fact beside it cannot squeeze it to a letter a line.
-    name: "w-full max-w-0 min-w-48 px-3 py-2 break-words",
+    // The name takes the room the facts leave and is cut with „…“ where it is longer (`max-w-0` lets a cell
+    // of an automatic table layout shrink below its content, so the cut can happen at all).
+    name: "w-full max-w-0 px-3 py-2",
     // A linked row's last cell, as narrow as the chevron that says the row leads on.
     end: "w-0 pe-3",
   },
@@ -131,14 +131,18 @@ function Cell({ cell, slot }: { cell: TableCell | undefined; slot: boolean }) {
   );
 }
 
+/**
+ * The name, cut with „…“ where its column is too narrow and whole in its `title`, then the chip, which keeps
+ * its size and its line; the plaque before the name keeps its size too.
+ */
 function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
   return (
     <td className={table({ qualifies: barred }).name()}>
-      {/* A long name wraps beside the plaque, which keeps its column and stands centred in the row, as the
-          rank and the figures do; the plaque and the chip keep their size. */}
       <span className="flex min-w-0 items-center gap-2">
         {row.plaque !== undefined && <TeamPlaque {...row.plaque} />}
-        <span className="min-w-0">
+        <span
+          className="min-w-0 truncate"
+          title={row.name}>
           {row.href === undefined ? (
             row.name
           ) : (
@@ -148,16 +152,13 @@ function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
               text={row.name}
             />
           )}
-          {row.chip !== undefined && (
-            // Inline after the name's last word, so a name that wraps carries its chip on its last line.
-            <span className="ms-2 inline-flex align-middle">
-              <Chip
-                tone={row.chip.tone}
-                label={row.chip.label}
-              />
-            </span>
-          )}
         </span>
+        {row.chip !== undefined && (
+          <Chip
+            tone={row.chip.tone}
+            label={row.chip.label}
+          />
+        )}
       </span>
     </td>
   );

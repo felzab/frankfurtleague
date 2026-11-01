@@ -21,7 +21,9 @@ const props = (rows: TableProps["rows"]): TableProps => ({
 });
 
 describe("a table's name cell", () => {
-  it("sets the chip inline after the name's last word, so a wrapping name carries it on its last line", () => {
+  // jsdom lays nothing out, so the cut is held by its classes: Tailwind's `truncate` on the name, `min-w-0` on
+  // its flex row, and the chip a sibling of the name, `shrink-0`, so the name gives way and the chip never does.
+  it("cuts a long name with „…“, whole in its title, and keeps the chip on the name's line", () => {
     render(
       <Table
         {...props([
@@ -29,9 +31,14 @@ describe("a table's name cell", () => {
         ])}
       />,
     );
-    const holder = screen.getByText(COPY.verwaltung.spielort.retired).parentElement;
-    // The chip stands in the name's own line box, not as a block of the cell's row beside or under it.
-    expect(holder?.parentElement?.textContent).toBe(`${LONG}${COPY.verwaltung.spielort.retired}`);
+    const name = screen.getByTitle(LONG);
+    expect(name.textContent).toBe(LONG);
+    expect(name.classList).toContain("truncate");
+    expect(name.parentElement?.classList).toContain("min-w-0");
+
+    const chip = screen.getByText(COPY.verwaltung.spielort.retired);
+    expect(chip.parentElement).toBe(name.parentElement);
+    expect([...chip.classList]).toEqual(expect.arrayContaining(["shrink-0", "whitespace-nowrap"]));
   });
 
   it("ends a linked row with the chevron, in a column of its own", () => {

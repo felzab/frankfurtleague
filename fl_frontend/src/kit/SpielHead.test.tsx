@@ -58,3 +58,22 @@ describe("the match head", () => {
     expect(screen.getByText("1. Spieltag")).toBeTruthy();
   });
 });
+
+describe("the match head's club names", () => {
+  // jsdom lays nothing out, so the cut is held by Tailwind's `truncate`, and `max-w-full`, which keeps a
+  // centred grid item from growing past its third of the head.
+  it("are cut with „…“ where too long, each whole in its title", () => {
+    render(
+      <SpielHead
+        {...PAIRING}
+        home={{ ...PAIRING.home, href: "/saisons/2027/teams/goe" }}
+      />,
+    );
+
+    for (const club of ["Goethe", "Helmholtz"]) {
+      const name = screen.getByTitle(club);
+      expect(name.textContent).toBe(club);
+      expect([...name.classList]).toEqual(expect.arrayContaining(["truncate", "max-w-full"]));
+    }
+  });
+});

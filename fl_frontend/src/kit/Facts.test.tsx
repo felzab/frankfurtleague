@@ -42,3 +42,22 @@ describe("a fact's glyph", () => {
     expect(term.textContent).toBe(COPY.spielplan.fact.datum);
   });
 });
+
+describe("a record's subject line", () => {
+  // jsdom lays nothing out: the name takes Tailwind's `truncate`, and the chip, its sibling, keeps its size.
+  it("cuts a long name with „…“, whole in its title, and keeps the chip on its line", () => {
+    const name = "Sportanlage an der Bertha-von-Suttner-Schule Mitte";
+    render(
+      <Facts
+        subject={{ name, chip: { tone: "neutral", label: COPY.verwaltung.spielort.retired } }}
+        facts={[]}
+      />,
+    );
+
+    const subject = screen.getByTitle(name);
+    expect(subject.classList).toContain("truncate");
+    const chip = screen.getByText(COPY.verwaltung.spielort.retired);
+    expect(chip.parentElement).toBe(subject.parentElement);
+    expect(chip.classList).toContain("shrink-0");
+  });
+});
