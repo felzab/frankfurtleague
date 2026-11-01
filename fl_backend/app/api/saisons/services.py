@@ -59,7 +59,7 @@ REDRAWABLE_SHAPE_FIELD = "qualifiers_per_gruppe"
 
 
 def total_season_fixtures(rules: FLSaisonRules) -> int:
-    """Every match these rules imply, the bracket's rounds included.
+    """Every match these rules imply, the bracket's rounds and its match for third place included.
 
     One fold, so every reader weighs one number against the one read's page: a second reading of
     `schedule_for` would drift the moment a phase moved.

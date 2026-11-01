@@ -21,7 +21,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 ### `Saison` — the competition year
 
 **Is:** the year everything else hangs off, carrying the `rules` that configure how it is played — and, outside `rules`, two windows: `bewerbung`, when a school may apply to play it, and `registrierung`, when a pupil may register for it.\
-**In code:** `fl_backend/app/api/saisons/schemas.py :: FLSaison` over the writable half both payloads share, `:: _SaisonWritable`; the two windows are `:: FLSaisonBewerbung` and `:: FLSaisonRegistrierung`, and the schedule the rules imply is `fl_backend/app/api/saisons/schedule.py :: knockout_phases_for`.\
+**In code:** `fl_backend/app/api/saisons/schemas.py :: FLSaison` over the writable half both payloads share, `:: _SaisonWritable`; the two windows are `:: FLSaisonBewerbung` and `:: FLSaisonRegistrierung`, and the schedule the rules imply is `fl_backend/app/api/saisons/schedule.py :: schedule_for`, the match for third place counted on the Finale's matchday.\
 **Trap:** the id is a short fixed-length string rather than an ObjectId (`fl_backend/app/shared/schemas/bounds.py :: SAISON_ID_LENGTH`), and every model that ACCEPTS one AS DATA TO STORE holds it to that length. Two kinds deliberately do not: a model echoing a stored id, because one refusing a stored row would answer 500 for the whole list it appears in, and a LIST FILTER, which matches rather than stores. So an id of the wrong length that reaches the database by a route holding it to nothing is echoed back without complaint, while every match and matchday carrying it fails to read. The one payload that MINTS an id is tighter than that length — four ASCII digits naming a year the league can play — so a create refuses an id the read models go on serving. `_SaisonWritable` declares `bewerbung` and `registrierung` with NO default, which `FLSaison` inherits as declared, so a PATCH omitting either key is refused rather than silently closing a window somebody opened; and neither span is judged against the season's own: a window may legitimately open before the season does and close long before its first fixture.
 
 ### `Spiel` — one match
@@ -243,7 +243,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 **Is:** `ausgang` inside a `spiel` reference: `sieger` or `verlierer`.\
 **In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielQuelle`.\
-**Trap:** `verlierer` exists because a third-place play-off is fed by two losing semi-finals, and nothing writes it in this season's bracket; a level match with no shoot-out has neither outcome, so a reference to either resolves to nobody and the slot stays empty.
+**Trap:** `verlierer` feeds the match for third place, the one fixture the draw wires from it (`fl_backend/app/api/saisons/spielplan.py :: draw_spielplan`): every bracket with semi-finals plays one, fed by the two semi-finals' losers on the Finale's matchday ahead of the final, under the phase `finale` rather than one of its own, so the Finale's `count_spiele` is 2; a bracket of two qualifiers has no semi-final and plays none. A level match with no shoot-out has neither outcome, so a reference to either resolves to nobody and the slot stays empty.
 
 ### `Herkunft` — one German word over four unrelated origins
 

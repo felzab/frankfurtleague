@@ -561,6 +561,8 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_the_bracket_halves_down_to_one_final(self, shape: tuple[int, int, int]):
+        """And the Finale's matchday adds the match for third place wherever semi-finals precede it."""
+
         groups, teams, qualifiers = shape
         season = rules(groups=groups, teams=teams, qualifiers=qualifiers)
         remaining = qualifier_count(season)
@@ -573,6 +575,8 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
         for phase in knockout_phases_for(remaining):
             expected[phase] = remaining // 2
             remaining //= 2
+        if "halbfinale" in expected:
+            expected["finale"] += 1
 
         assert drawn == expected
 
@@ -768,7 +772,7 @@ class TestAFixtureIsEitherDrawnOrWired:
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_a_later_bracket_round_names_the_two_fixtures_feeding_it(self, shape: tuple[int, int, int]):
-        """Left to right, winners only: a `verlierer` source is what a third-place play-off would need, and this competition plays none."""
+        """Left to right, winners only: the one `verlierer` pair is the match for third place, judged on its own below."""
 
         groups, teams, qualifiers = shape
         season = rules(groups=groups, teams=teams, qualifiers=qualifiers)
@@ -781,7 +785,11 @@ class TestAFixtureIsEitherDrawnOrWired:
 
         for earlier, later in zip(rounds, rounds[1:], strict=False):
             feeding = by_phase[earlier]
-            wired = [(spiel["team1_quelle"], spiel["team2_quelle"]) for spiel in plan.spiele if spiel["saison_phase"] == later]
+            wired = [
+                (spiel["team1_quelle"], spiel["team2_quelle"])
+                for spiel in plan.spiele
+                if spiel["saison_phase"] == later and spiel["team1_quelle"]["ausgang"] == "sieger"
+            ]
             assert wired == [
                 (
                     {"type": "spiel", "spiel_nr": feeding[slot], "ausgang": "sieger"},
@@ -801,6 +809,33 @@ class TestAFixtureIsEitherDrawnOrWired:
                 if quelle is not None and quelle["type"] == "gruppe":
                     assert quelle["gruppe"] in GRUPPEN[:groups]
                     assert 1 <= quelle["platz"] <= teams
+
+
+class TestTheSemiFinalLosersPlayForThirdPlace:
+    @pytest.mark.parametrize("shape", SHAPES)
+    def test_the_finale_matchday_opens_with_the_two_semi_finals_losers(self, shape: tuple[int, int, int]):
+        """Before the final, so the matchday is played in the order its numbers read; none where the bracket is a final alone."""
+
+        groups, _, qualifiers = shape
+        plan = draw(*shape)
+        semi_finals = [spiel["spiel_nr"] for spiel in plan.spiele if spiel["saison_phase"] == "halbfinale"]
+        finale = [
+            (spiel["team1_quelle"], spiel["team2_quelle"])
+            for spiel in sorted(plan.spiele, key=lambda spiel: spiel["spiel_nr"])
+            if spiel["saison_phase"] == "finale"
+        ]
+
+        # By hand rather than through `plays_for_third_place`: two qualifiers draw no semi-final, and
+        # their final, the one round, is seeded from the groups.
+        if groups * qualifiers == 2:
+            assert semi_finals == []
+            assert [quelle["type"] for pair in finale for quelle in pair] == ["gruppe", "gruppe"]
+            return
+
+        assert finale == [
+            tuple({"type": "spiel", "spiel_nr": nr, "ausgang": "verlierer"} for nr in semi_finals),
+            tuple({"type": "spiel", "spiel_nr": nr, "ausgang": "sieger"} for nr in semi_finals),
+        ]
 
 
 class TestTheSeasonIsPlayedUnderTheJunctionRowsNames:
