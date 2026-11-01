@@ -290,11 +290,11 @@ CASES=(
   "LEAK-REF|http://localhost/x/token=${TOK}"
   "LEAK-REF|http://localhost/signin?token=a%20b${TOK}"
 
-  # A typed search query, which no page writes: an address in the
-  # first parameter, a name past another, and the page a visitor came from, plain and encoded.
+  # A typed search query, which no page writes: an address in the first parameter, a name past
+  # another on the Spielsuche's own address, and the page a visitor came from, plain and encoded.
   "LEAK|${BASE}/bereich/admin/sperrliste?q=${EM}"
-  "LEAK|${BASE}/dashboard/spielsuche?saison_id=abc&q=${TOK}"
-  "LEAK-REF|http://localhost/dashboard/spielsuche?q=${TOK}"
+  "LEAK|${BASE}/saisons/2026/search?a=1&q=${TOK}"
+  "LEAK-REF|http://localhost/saisons/2026/search?q=${TOK}"
   "LEAK-REF|http://localhost/x%3Fq%3D${TOK}"
 
   # Controls. Each is a query an operator reads off this line, and a redaction wide enough to eat
