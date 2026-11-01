@@ -47,7 +47,8 @@ const head = tv({
     root: "grid justify-items-center gap-4 bg-bg-surface p-6",
     eyebrow: "text-xs font-medium text-fg-muted",
     side: "grid min-w-0 justify-items-center gap-2 text-center",
-    name: "min-w-0 text-sm [overflow-wrap:anywhere]",
+    // Cut with „…“ where the side's third of the head is too narrow, as a phone's is for a long name.
+    name: "max-w-full min-w-0 truncate text-sm",
     standing: "min-w-0 text-xs [overflow-wrap:anywhere]",
   },
   variants: {
@@ -73,7 +74,9 @@ function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part
   return (
     <span className={style.side()}>
       <TeamPlaque {...side.plaque} />
-      <span className={style.name()}>
+      <span
+        className={style.name()}
+        title={side.name}>
         {side.href === undefined ? (
           side.name
         ) : (

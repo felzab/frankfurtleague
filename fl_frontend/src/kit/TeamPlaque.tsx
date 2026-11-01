@@ -1,7 +1,9 @@
 import { tv } from "./tv";
 
 const plaque = tv({
-  base: "inline-flex h-6 w-10 shrink-0 items-center justify-center rounded-md font-numeric text-xs tracking-display uppercase",
+  // `align-middle` centres it on the line where it stands in a line of text, as inside a table row's link;
+  // a flex or grid parent, which centres it everywhere else, ignores it.
+  base: "inline-flex h-6 w-10 shrink-0 items-center justify-center rounded-md align-middle font-numeric text-xs tracking-display uppercase",
   variants: {
     known: {
       true: "bg-bg-muted font-semibold text-fg",

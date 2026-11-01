@@ -20,8 +20,16 @@ const props = (rows: TableProps["rows"]): TableProps => ({
   empty: { kind: "none", plural: COPY.shared.startelf },
 });
 
+/**
+ * Classes that make an element the containing block of a descendant's `::after`, or clip its painting, at any
+ * width: bare, or behind a variant such as `max-lg:`.
+ */
+const POSITIONS = /(^|\s|:)(sr-only|relative|absolute|fixed|sticky)(\s|$)/;
+
 describe("a table's name cell", () => {
-  it("sets the chip inline after the name's last word, so a wrapping name carries it on its last line", () => {
+  // jsdom lays nothing out, so the cut is held by its classes: Tailwind's `truncate` on the name, `min-w-0` on
+  // its flex row, and the chip a sibling of the name, `shrink-0`, so the name gives way and the chip never does.
+  it("cuts a long name with „…“, whole in its title, and keeps the chip on the name's line", () => {
     render(
       <Table
         {...props([
@@ -29,9 +37,34 @@ describe("a table's name cell", () => {
         ])}
       />,
     );
-    const holder = screen.getByText(COPY.verwaltung.spielort.retired).parentElement;
-    // The chip stands in the name's own line box, not as a block of the cell's row beside or under it.
-    expect(holder?.parentElement?.textContent).toBe(`${LONG}${COPY.verwaltung.spielort.retired}`);
+    const name = screen.getByTitle(LONG);
+    expect(name.textContent).toBe(LONG);
+    expect(name.classList).toContain("truncate");
+    expect(name.parentElement?.classList).toContain("min-w-0");
+
+    const chip = screen.getByText(COPY.verwaltung.spielort.retired);
+    expect(chip.parentElement).toBe(name.parentElement);
+    expect([...chip.classList]).toEqual(expect.arrayContaining(["shrink-0", "whitespace-nowrap"]));
+  });
+
+  // A club's row on a phone draws its plaque alone. The name is hidden visually inside the row's link, never
+  // around it: a hidden wrapper is positioned and clipped, which would shrink the link's stretched `::after`
+  // to it and leave the row unable to open.
+  it("on a phone draws a club's plaque alone, the row still opening the club under its full name", () => {
+    render(<Table {...props([{ id: "1", name: LONG, plaque: { kuerzel: "GOE" }, href: "/saisons/2027", cells: { stadtteil: "Nordend" } }])} />);
+    const link = screen.getByRole("link", { name: (accessible) => accessible.includes(LONG) });
+    expect(link.getAttribute("data-kit-focus")).toBe("row");
+    expect(link.textContent).toBe(`GOE${LONG}`);
+
+    const words = screen.getByText(LONG);
+    expect(words.closest("a")).toBe(link);
+    expect(words.classList).toContain("max-lg:sr-only");
+    expect(screen.getByText("GOE").closest("a")).toBe(link);
+
+    // Nothing between the link and its row is positioned or clipped, so the stretched link covers the row.
+    const row = link.closest("tr");
+    expect(row?.classList).toContain("relative");
+    for (let node = link.parentElement; node !== null && node !== row; node = node.parentElement) expect(node.className).not.toMatch(POSITIONS);
   });
 
   it("ends a linked row with the chevron, in a column of its own", () => {
@@ -41,16 +74,37 @@ describe("a table's name cell", () => {
     expect(row?.children.length).toBe(screen.getAllByRole("columnheader").length + 1);
   });
 
-  it("names the mark of fixtures called off beside a figure, with no line explaining it", () => {
-    render(<Table {...props([{ id: "1", name: "Goethe", cells: { stadtteil: { value: "5", cancelled: 2 } } }])} />);
-    const cell = screen.getByText("5").closest("td");
-    expect(cell?.textContent).toBe(`${COPY.shared.season.cancelled(2)}5`);
-    expect(cell?.querySelector("svg")).not.toBe(null);
-  });
-
   it("draws no chevron where no row leads anywhere", () => {
     render(<Table {...props([{ id: "1", name: "Goethe", cells: { stadtteil: "Nordend" } }])} />);
     expect(screen.getByRole("table").querySelector("svg")).toBe(null);
+  });
+});
+
+describe("a figure short of fixtures called off", () => {
+  it("carries a red „+N“ centred on its corner, which a screen reader hears by name", () => {
+    render(<Table {...props([{ id: "1", name: "Goethe", cells: { stadtteil: { value: "5", cancelled: 2 } } }])} />);
+    const mark = screen.getByText(COPY.shared.season.cancelledMark(2));
+    expect(mark.getAttribute("aria-hidden")).toBe("true");
+    expect(mark.classList).toContain("text-danger");
+    // Placed on the figure's own box, centred on its top-right corner.
+    expect(mark.parentElement?.firstChild?.textContent).toBe("5");
+    expect(mark.parentElement?.classList).toContain("relative");
+    expect([...mark.classList]).toEqual(expect.arrayContaining(["absolute", "end-0", "top-0", "translate-x-1/2", "-translate-y-1/2"]));
+    expect(screen.getByText(COPY.shared.season.cancelled(2)).classList).toContain("sr-only");
+  });
+
+  it("keeps the mark's slot in every row of a column some row marks, so no figure moves", () => {
+    render(
+      <Table
+        {...props([
+          { id: "1", name: "Goethe", cells: { stadtteil: { value: "5", cancelled: 1 } } },
+          { id: "2", name: "Helmholtz", cells: { stadtteil: "6" } },
+        ])}
+      />,
+    );
+    const [marked, plain] = ["5", "6"].map((figure) => screen.getByText(figure).closest("td")?.firstElementChild);
+    expect(plain?.className).toBe(marked?.className);
+    expect(plain?.classList).toContain("pe-2");
   });
 });
 

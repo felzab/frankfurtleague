@@ -26,7 +26,9 @@ export function LinkRows({ rows }: { rows: readonly LinkRow[] }) {
               size={16}
             />
           )}
-          <span className="min-w-0 flex-1 font-medium">
+          {/* The way's own short name keeps its line and its width; the address beside it takes the rest of
+              the row and is cut with „…“ where it is longer, whole in its `title`. */}
+          <span className="shrink-0 font-medium whitespace-nowrap">
             <Link
               href={row.href}
               placement="row"
@@ -36,7 +38,11 @@ export function LinkRows({ rows }: { rows: readonly LinkRow[] }) {
               label={row.label}
             />
           </span>
-          <span className="min-w-0 truncate text-fg-muted">{row.value}</span>
+          <span
+            className="min-w-0 flex-1 truncate text-end text-fg-muted"
+            title={row.value}>
+            {row.value}
+          </span>
           <RowEnd />
         </div>
       ))}

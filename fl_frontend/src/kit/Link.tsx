@@ -85,6 +85,13 @@ type Button = { placement: "button"; look: "primary" | "secondary"; leadingIcon?
  */
 type IconOnly = { placement: "icon"; icon: IconName; label: Copy; text?: never; children?: never; fullPage?: never };
 
+/**
+ * A row's link, its record's name stretched over the row it stands in, which `Table` and `LinkRows` write. Its
+ * content may be markup, the link's accessible name as a card's is: a table row's club, its plaque with the
+ * name a phone hides visually, so the stretched link keeps the full name where only the plaque shows.
+ */
+type Row = { placement: "row" } & (Words | { children: ReactNode; label?: never; text?: never });
+
 type Card = {
   placement: "card";
   /**
@@ -112,15 +119,7 @@ export function Link<T extends string>(
      * to the page it stands for: Next shows that page, not the pop-up, on a full page load.
      */
     fullPage?: boolean;
-  } & (
-    | ({
-        /** `row` only inside a table row, which `Table` writes. */
-        placement: "text" | "standalone" | "detail" | "row";
-      } & Words)
-    | Button
-    | IconOnly
-    | Card
-  ),
+  } & (({ placement: "text" | "standalone" | "detail" } & Words) | Row | Button | IconOnly | Card),
 ) {
   const { href, newTab = false, fullPage = false } = props;
   const tab = { target: newTab ? "_blank" : undefined, rel: newTab ? "noopener noreferrer" : undefined };

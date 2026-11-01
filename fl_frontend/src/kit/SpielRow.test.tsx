@@ -32,3 +32,16 @@ describe("a match row's chevron", () => {
     expect(phone?.querySelector("svg")).toBe(null);
   });
 });
+
+describe("a match row's club names", () => {
+  // jsdom lays nothing out, so the cut is held by Tailwind's `truncate` on each name in both forms.
+  it("are cut with „…“ in both forms where too long, each whole in its title", () => {
+    render(<SpielList matches={[SPIEL]} />);
+    const names = screen.getAllByTitle("Goethe");
+    expect(names).toHaveLength(2);
+    for (const name of names) {
+      expect(name.textContent).toBe("Goethe");
+      expect(name.classList).toContain("truncate");
+    }
+  });
+});

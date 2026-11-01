@@ -2,7 +2,6 @@ import { COPY } from "@/core/copy";
 
 import { Chip } from "./Chip";
 import { EmptyState } from "./EmptyState";
-import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
 import { TargetMark } from "./TargetMark";
@@ -70,9 +69,11 @@ const table = tv({
     // A row a link may point to by its fragment, marked while the address names it.
     row: "kit-target relative h-14 border-t border-border first:border-t-0 lg:h-13",
     cell: "px-3 whitespace-nowrap",
-    // The name takes the room the facts leave and wraps where it is long, never narrower than 192 px, so a
-    // long fact beside it cannot squeeze it to a letter a line.
-    name: "w-full max-w-0 min-w-48 px-3 py-2 break-words",
+    // The name takes the room the facts leave and is cut with „…“ where it is longer (`max-w-0` lets a cell
+    // of an automatic table layout shrink below its content, so the cut can happen at all).
+    name: "w-full max-w-0 px-3 py-2",
+    // A club's name beside its plaque, read but not drawn on a phone, where the plaque stands for it alone.
+    clubName: "ms-2 max-lg:sr-only",
     // A linked row's last cell, as narrow as the chevron that says the row leads on.
     end: "w-0 pe-3",
   },
@@ -106,52 +107,70 @@ const table = tv({
 });
 
 /**
- * A cell's value, its mark for fixtures called off before it, so a column of figures keeps its digits under
- * each other whether a row carries the mark or not.
+ * A cell's value. In a column where some row's figure is short of fixtures called off, every row keeps the
+ * mark's slot at the figure's end, so the digits stand under each other whether a row carries the mark or
+ * not; the mark, a red „+N“, is centred on the figure's top-right corner, over the slot and clear of the
+ * digits, and its name tells a screen reader what no line explains.
  */
-function Cell({ cell }: { cell: TableCell | undefined }) {
-  if (cell === undefined || typeof cell === "string") return cell;
+function Cell({ cell, slot }: { cell: TableCell | undefined; slot: boolean }) {
+  if (cell === undefined) return null;
+  const { value, cancelled } = typeof cell === "string" ? { value: cell, cancelled: 0 } : cell;
+  if (!slot) return value;
   return (
-    <span className="inline-flex items-center gap-1">
-      <span className="text-fg-muted">
-        <Icon
-          glyph="cancelled"
-          size={16}
-        />
+    <span className="inline-block pe-2">
+      <span className="relative inline-block">
+        {value}
+        {cancelled > 0 && (
+          <span
+            aria-hidden
+            className="absolute end-0 top-0 translate-x-1/2 -translate-y-1/2 text-xs leading-none font-semibold text-danger">
+            {COPY.shared.season.cancelledMark(cancelled)}
+          </span>
+        )}
       </span>
-      <span className="sr-only">{COPY.shared.season.cancelled(cell.cancelled)}</span>
-      {cell.value}
+      {cancelled > 0 && <span className="sr-only">{COPY.shared.season.cancelled(cancelled)}</span>}
     </span>
   );
 }
 
+/**
+ * The name, cut with „…“ where its column is too narrow and whole in its `title`, then the chip, which keeps
+ * its size and its line. A club's plaque stands before its name inside the row's link, so on a phone, where
+ * the plaque alone is drawn, the link still opens the club and is named by the club's full name.
+ */
 function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
+  const s = table({ qualifies: barred });
+  const words =
+    row.plaque === undefined ? (
+      row.name
+    ) : (
+      <>
+        <TeamPlaque {...row.plaque} />
+        <span className={s.clubName()}>{row.name}</span>
+      </>
+    );
   return (
-    <td className={table({ qualifies: barred }).name()}>
-      {/* A long name wraps beside the plaque, which keeps its column and stands centred in the row, as the
-          rank and the figures do; the plaque and the chip keep their size. */}
+    <td className={s.name()}>
       <span className="flex min-w-0 items-center gap-2">
-        {row.plaque !== undefined && <TeamPlaque {...row.plaque} />}
-        <span className="min-w-0">
+        <span
+          className="min-w-0 truncate"
+          title={row.name}>
           {row.href === undefined ? (
-            row.name
+            words
           ) : (
             <Link
               href={row.href}
-              placement="row"
-              text={row.name}
-            />
-          )}
-          {row.chip !== undefined && (
-            // Inline after the name's last word, so a name that wraps carries its chip on its last line.
-            <span className="ms-2 inline-flex align-middle">
-              <Chip
-                tone={row.chip.tone}
-                label={row.chip.label}
-              />
-            </span>
+              placement="row">
+              {words}
+            </Link>
           )}
         </span>
+        {row.chip !== undefined && (
+          <Chip
+            tone={row.chip.tone}
+            label={row.chip.label}
+          />
+        )}
       </span>
     </td>
   );
@@ -165,6 +184,8 @@ function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
 export function Table({ label, nameLabel, rankLabel, columns, rows, empty }: TableProps) {
   const nameHead = table({ align: "start" }).head();
   const isLinked = rows.some((row) => row.href !== undefined);
+  // The columns where some row carries the mark of fixtures called off, whose every row keeps its slot.
+  const marked = new Set(columns.filter((column) => rows.some((row) => typeof row.cells[column.key] === "object")).map((column) => column.key));
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-bg">
       {rows.some((row) => row.anchor !== undefined) && <TargetMark />}
@@ -227,7 +248,10 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty }: Tab
                         strong: column.strong === true,
                         phone: column.hideOnPhone === true ? "hidden" : "shown",
                       }).cell()}>
-                      <Cell cell={row.cells[column.key]} />
+                      <Cell
+                        cell={row.cells[column.key]}
+                        slot={marked.has(column.key)}
+                      />
                     </td>
                   ))}
                   {isLinked && <td className={table().end()}>{row.href !== undefined && <RowEnd />}</td>}

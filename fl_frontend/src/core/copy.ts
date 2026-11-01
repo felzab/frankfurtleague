@@ -172,6 +172,8 @@ export const COPY = catalogue({
     season: {
       /** The name of the mark beside a club's figure: how many of its fixtures were called off. */
       cancelled: (count: number) => (count === 1 ? "1 Spiel abgesagt" : `${formatNumber(count)} Spiele abgesagt`),
+      /** The mark itself, drawn red on the corner of a club's figure and hidden from a screen reader, which hears `cancelled`. */
+      cancelledMark: (count: number) => `+${formatNumber(count)}`,
     },
 
     /** The ⓘ's name, which its tooltip shows. */
