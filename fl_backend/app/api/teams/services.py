@@ -760,8 +760,7 @@ def _placings(
 
     for band in _tiers(teams, punkte, settled, spiele, rules):
         # Only a club that can hold a placing advances the number, so a departed one takes no place
-        # and hides none -- the walk `fl_frontend/src/features/teams/utils.ts :: computePlatzByTeamId`
-        # runs over the same order.
+        # and hides none.
         holders = [team for team in band if team.id in placeable]
         if len(holders) == 1:
             placings[platz] = holders[0]
