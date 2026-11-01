@@ -240,7 +240,7 @@ const SITE_ORIGIN = {
   regex: moduleNamed("brand"),
   importNames: ["SITE_URL"],
   message:
-    "SITE_URL is the published origin, for the metadata base, robots.txt and the sitemap alone: a link a message carries stands on frontend_config.AUTH_URL.",
+    "SITE_URL is the published origin, for the metadata base, robots.txt, the sitemap and the JSON-LD block alone: a link a message carries stands on frontend_config.AUTH_URL.",
 };
 
 /**
@@ -370,7 +370,7 @@ const IMPORT_BANS = [
   importBan(LAYER_BOUNDARY.core, LAYER("core")),
   importBan(LAYER_BOUNDARY.shared, LAYER("shared")),
   // What a crawler reads, which stands on the published origin.
-  importBan(SITE_ORIGIN, PRODUCTION, { allow: ["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts"] }),
+  importBan(SITE_ORIGIN, PRODUCTION, { allow: ["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts", "src/kit/JsonLd.tsx"] }),
   importBan(LOCALE_PROVIDER, PRODUCTION, { allow: ["src/core/providers/RootProviders.tsx"] }),
   importBan(NEXT_AFTER, PRODUCTION, { allow: ["src/core/afterResponse.ts"] }),
   ...Object.values(SECRET_READERS).map(({ owners, ...entry }) => importBan(entry, PRODUCTION, { allow: owners })),
