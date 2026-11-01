@@ -44,15 +44,22 @@ export type SpielHeadProps = {
 const head = tv({
   extend: sideMarks,
   slots: {
-    // The band: the lighter surface run edge to edge across the dialog's top, the padding the box declares
-    // taken back around it, so the pairing is framed as the old pop-up framed the teams, on a surface of its
-    // own. Its top corners are the box's: a box whose overflow is not visible clips its content to its
-    // rounded padding edge (CSS Backgrounds 3, corner clipping).
-    root: "-mx-(--dialog-padding) -mt-(--dialog-padding) grid justify-items-center gap-4 bg-bg-surface p-6",
+    root: "grid justify-items-center gap-4 bg-bg-surface p-6",
     eyebrow: "text-xs font-medium text-fg-muted",
     side: "grid min-w-0 justify-items-center gap-2 text-center",
     name: "min-w-0 text-sm [overflow-wrap:anywhere]",
     standing: "min-w-0 text-xs [overflow-wrap:anywhere]",
+  },
+  variants: {
+    placement: {
+      // The band: the lighter surface run edge to edge across the dialog's top, the padding the box declares
+      // taken back around it, so the pairing is framed as the old pop-up framed the teams, on a surface of
+      // its own. Its top corners are the box's: a box whose overflow is not visible clips its content to its
+      // rounded padding edge (CSS Backgrounds 3, corner clipping).
+      dialog: { root: "-mx-(--dialog-padding) -mt-(--dialog-padding)" },
+      // A match's own page: the same surface as a box of the column, with the card corners and the hairline.
+      page: { root: "rounded-lg border border-border" },
+    },
   },
 });
 
@@ -93,14 +100,15 @@ function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part
 }
 
 /**
- * The match head over the pop-up's facts: the matchday, and under it the two sides as a pairing with their
- * plaques over their names and the score large between them, „n. E.“ under a shoot-out's score, the whole
- * on the band across the dialog's top. The one block that names a match by its two sides.
+ * The match head over the pop-up's facts and over a match page's: the matchday, and under it the two sides as
+ * a pairing with their plaques over their names and the score large between them, „n. E.“ under a
+ * shoot-out's score, on a surface of its own, the band across the dialog's top or a box of the page. The one
+ * block that names a match by its two sides.
  */
-export function SpielHead({ eyebrow, home, away, result }: SpielHeadProps) {
+export function SpielHead({ eyebrow, home, away, result, placement = "dialog" }: SpielHeadProps & { placement?: "dialog" | "page" }) {
   const score = figures(result);
   const shootOut = score?.shootOut === true ? COPY.shared.afterElfmeterschiessen : null;
-  const style = head();
+  const style = head({ placement });
   return (
     <div className={style.root()}>
       <span className={style.eyebrow()}>{eyebrow}</span>

@@ -30,6 +30,33 @@ async function streamed(page: ReactElement): Promise<HTMLElement> {
   return root;
 }
 
+describe("a match's own page", () => {
+  it("heads its facts with the match's head and what befell the match", async () => {
+    const page = await streamed(
+      <ReadPage
+        scope="saison"
+        record={Promise.resolve({
+          ...RECORD,
+          spiel: {
+            head: {
+              eyebrow: "1. Spieltag",
+              home: { name: "Goethe", plaque: { kuerzel: "GOE" } },
+              away: { name: "Helmholtz", plaque: { kuerzel: "HEL" } },
+            },
+            sonderereignis: { title: COPY.spielplan.sonderereignis.ausgefallen, text: COPY.spielplan.sonderereignis.consequence.ausgefallen },
+          },
+        })}
+      />,
+    );
+
+    const head = within(page).getByText("Goethe");
+    const callout = within(page).getByText(COPY.spielplan.sonderereignis.consequence.ausgefallen);
+    const facts = within(page).getByText(fact.spieltag);
+    expect(head.compareDocumentPosition(callout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(callout.compareDocumentPosition(facts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
 describe("the read page's wait", () => {
   it("draws the facts' skeleton while the record is read, and the record once it is", async () => {
     const waiting = document.createElement("div");

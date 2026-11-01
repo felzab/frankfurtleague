@@ -1,9 +1,11 @@
 import { Suspense } from "react";
 
+import { Callout } from "./Callout";
 import { Facts } from "./Facts";
 import { formColumn, RailPage } from "./RailFrame";
 import { SectionTitle } from "./Section";
 import { Skeleton } from "./Skeleton";
+import { SpielHead } from "./SpielHead";
 import { SpielList } from "./SpielRow";
 import { Table } from "./Table";
 
@@ -12,6 +14,7 @@ import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
 import type { Fact } from "./Facts";
 import type { PageTitle } from "./RailFrame";
+import type { SpielHeadProps } from "./SpielHead";
 import type { SpielRowProps } from "./SpielRow";
 import type { TableProps } from "./Table";
 
@@ -28,6 +31,11 @@ export type ReadRecord = {
   /** The record names the page, so its title waits with the rest. */
   title: PageTitle;
   chip?: ChipProps;
+  /**
+   * A match's own head over the groups, the one its pop-up shows: the matchday over the pairing and its
+   * score, and what befell the match where something did, which says how it counts.
+   */
+  spiel?: { head: SpielHeadProps; sonderereignis: { title: Copy; text: Copy } | null };
   /** The first group goes without a title where it is the page's only one: the page's own title names it. */
   groups: readonly [{ title?: Copy } & GroupContent, ...ReadGroup[]];
   /** The decision's acts, the kit's buttons and the dialogs they open, under the first group. */
@@ -49,7 +57,7 @@ function GroupBody({ group }: { group: GroupContent }) {
 
 /** The page once its record is read, in the boundary's place. */
 async function ReadBody({ scope, record }: { scope: "saison" | "area"; record: Promise<ReadRecord> }) {
-  const { title, chip, groups, acts, actsNote } = await record;
+  const { title, chip, spiel, groups, acts, actsNote } = await record;
   const [first, ...rest] = groups;
   return (
     <RailPage
@@ -57,6 +65,21 @@ async function ReadBody({ scope, record }: { scope: "saison" | "area"; record: P
       title={title}
       chip={chip}>
       <div className={formColumn()}>
+        {spiel !== undefined && (
+          <div className="grid gap-3">
+            <SpielHead
+              {...spiel.head}
+              placement="page"
+            />
+            {spiel.sonderereignis !== null && (
+              <Callout
+                tone="danger"
+                title={spiel.sonderereignis.title}
+                text={spiel.sonderereignis.text}
+              />
+            )}
+          </div>
+        )}
         <section className="grid gap-3">
           {first.title !== undefined && <SectionTitle text={first.title} />}
           <GroupBody group={first} />
@@ -82,7 +105,8 @@ async function ReadBody({ scope, record }: { scope: "saison" | "area"; record: P
 
 /**
  * The read page: a record shown without editing, its groups one under another in the editor's column,
- * at most 760 px centred in the content (`formColumn`), no save bar. The first group holds the facts its decision reads, and the decision's acts stand
+ * at most 760 px centred in the content (`formColumn`), no save bar; a match's page heads them with the head
+ * its pop-up shows. The first group holds the facts its decision reads, and the decision's acts stand
  * directly under it, together, with the line saying why an act is closed where one is; the next groups
  * follow the reader's next question.
  *
