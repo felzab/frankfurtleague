@@ -11,7 +11,7 @@ its invalidation live here rather than in the backend.
 
 | Folder                   | Holds                                                                                                                                                       |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/app/`               | The routes: the public pages, `dashboard/` for the season pages, `bereich/` for every signed-in area                                                        |
+| `src/app/`               | The routes: the public pages, `saisons/` for the season pages, `bereich/` for every signed-in area                                                          |
 | `src/kit/`               | The design system's components, built on React Aria Components                                                                                              |
 | `src/core/`              | What the server process is and what every surface needs: configuration, the API client, auth, mail, logging, the string catalogue and the formatting module |
 | `src/shared/`            | What a rendered page is built from beside the kit: components, hooks and the utilities those call                                                           |
