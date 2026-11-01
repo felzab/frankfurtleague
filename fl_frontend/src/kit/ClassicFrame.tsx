@@ -16,9 +16,7 @@ import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 import type { HeaderLink } from "./FrameNav";
-
-/** A sponsor in the footer: its logo, small and grey, as a link to its site, its name the logo's name. */
-export type FooterSponsor = { name: string; logo: string; href: string };
+import type { Sponsor } from "./TileGrid";
 
 /** The year the © line names, read once a day rather than on every request. */
 async function Year() {
@@ -58,7 +56,8 @@ export function ClassicFrame({
   liga: ReadonlyArray<HeaderLink>;
   /** The league's Instagram and Threads addresses. */
   social: { instagram: string; threads: string };
-  sponsors: ReadonlyArray<FooterSponsor>;
+  /** Each sponsor's logo, small and grey, as a link to its site, its full name the logo's name, its short name beside it where it has one; no line while there are none. */
+  sponsors: ReadonlyArray<Sponsor>;
   children: ReactNode;
 }) {
   const ligaLinks = [...liga, { label: COPY.page.sponsors, href: ROUTES.sponsors.path() }];
@@ -128,17 +127,20 @@ export function ClassicFrame({
                     rel="sponsored noopener"
                     title={sponsor.name}
                     data-kit-focus="ring"
-                    className="relative block h-6 w-24 rounded-md">
+                    className="flex items-center gap-2 rounded-md text-xs text-fg-muted">
                     {/* An SVG served as it is, which the image optimiser has nothing to do for; small and grey,
                         each logo fitted into the same box whatever its own proportions. */}
-                    <Image
-                      src={sponsor.logo}
-                      alt={sponsor.name}
-                      fill
-                      unoptimized
-                      sizes="6rem"
-                      className="object-contain object-left grayscale"
-                    />
+                    <span className="relative block h-6 w-24">
+                      <Image
+                        src={sponsor.logo}
+                        alt={sponsor.name}
+                        fill
+                        unoptimized
+                        sizes="6rem"
+                        className="object-contain object-left grayscale"
+                      />
+                    </span>
+                    {sponsor.short !== undefined && <span aria-hidden>{sponsor.short}</span>}
                   </NextLink>
                 ))}
               </div>
