@@ -2,7 +2,7 @@ import asyncio
 import logging
 import re
 import time
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from http import HTTPStatus
 from types import SimpleNamespace
 from typing import Any, cast
@@ -17,11 +17,12 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.errors import ExecutionTimeout, OperationFailure
 from starlette.types import Message, Scope
 
+from app.core import transactions
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.core.logging import JSONFormatter, fl_logger
-from app.core.middlewares import request_deadline_var
+from app.core.middlewares import RequestDeadline, request_deadline_var
 from app.core.transactions import (
     ABORT_GRACE_S,
     Batch,
@@ -484,7 +485,7 @@ class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
 
     @staticmethod
     def _owing(rows: _Rows, *, deadline_s: float | None) -> tuple[list[tuple[int, int, int]], list[Any]]:
-        token = request_deadline_var.set(None if deadline_s is None else time.monotonic() + deadline_s)
+        token = request_deadline_var.set(None if deadline_s is None else RequestDeadline(time.monotonic() + deadline_s))
         try:
             return _isolated(rows, owes=True)
         finally:
@@ -541,40 +542,77 @@ class _TransactedSession(_Session):
         self.sent.append(command)
 
 
+# Far above the event loop's timer resolution, about 16 ms on Windows, and far under the grace.
+ANSWERED_AFTER_S = 0.1
+
+
+class _SlowlyAnsweredSession(_TransactedSession):
+    """A session whose client answers a command `after_s` after it is sent, noting when it was sent."""
+
+    def __init__(self, after_s: float = ANSWERED_AFTER_S) -> None:
+        super().__init__()
+        self.after_s = after_s
+        self.sent_at: float | None = None
+
+    async def _command(self, command: dict[str, Any], **_: Any) -> None:
+        self.sent_at = time.monotonic()
+        await asyncio.sleep(self.after_s)
+        self.sent.append(command)
+
+
 class _TransactingClient:
-    def __init__(self) -> None:
-        self.session = _TransactedSession()
+    def __init__(self, session: _TransactedSession) -> None:
+        self.session = session
 
     def start_session(self) -> _TransactedSession:
         return self.session
 
 
-def _aborts_sent(*, fails: bool, deadline: float | None) -> list[dict[str, Any]]:
-    """What one session's client is sent once the work inside it fails or finishes, under a request deadline at `deadline`."""
+def _aborts_sent_in_turn(
+    *, deadline: RequestDeadline | None, sessions: Sequence[_TransactedSession], fails: bool = True, between_s: float = 0.0
+) -> list[list[dict[str, Any]]]:
+    """What each session's client is sent once the work inside it fails or finishes, the sessions one after another in one request.
 
-    client = _TransactingClient()
+    `between_s` stands for the request's work without the database between two sessions.
+    """
 
     async def run() -> None:
         token = request_deadline_var.set(deadline)
         try:
-            async with transaction_session(cast(AsyncMongoClient, client)):
-                if fails:
-                    raise RuntimeError("the work inside the session failed")
-        except RuntimeError:
-            pass
+            for index, session in enumerate(sessions):
+                if index:
+                    await asyncio.sleep(between_s)
+                try:
+                    async with transaction_session(cast(AsyncMongoClient, _TransactingClient(session))):
+                        if fails:
+                            raise RuntimeError("the work inside the session failed")
+                except RuntimeError:
+                    pass
         finally:
             request_deadline_var.reset(token)
 
     asyncio.run(run())
 
-    return client.session.sent
+    return [session.sent for session in sessions]
+
+
+def _aborts_sent(*, fails: bool, deadline: RequestDeadline | None, session: _TransactedSession | None = None) -> list[dict[str, Any]]:
+    """What one session's client is sent once the work inside it fails or finishes, under the request deadline `deadline`."""
+
+    [sent] = _aborts_sent_in_turn(deadline=deadline, sessions=[session or _TransactedSession()], fails=fails)
+
+    return sent
 
 
 class TestAFailedSessionAbortsInsideItsGrace:
-    def test_a_failure_inside_the_grace_sends_the_abort(self):
-        """The control: without it, a helper sending nothing at all would pass the case below."""
+    def test_a_failure_reached_long_after_the_deadline_still_sends_the_abort(self):
+        """The request meets its deadline only at its next database operation, however long after the deadline that falls.
 
-        assert _aborts_sent(fails=True, deadline=time.monotonic() - ABORT_GRACE_S / 2) == [
+        A grace counted from the deadline would leave this abort nothing, and the transaction's documents
+        locked until the server's lifetime limit.
+        """
+
+        assert _aborts_sent(fails=True, deadline=RequestDeadline(time.monotonic() - ABORT_GRACE_S - 1)) == [
             {"abortTransaction": 1, "txnNumber": 3, "autocommit": False}
         ]
 
@@ -582,15 +620,70 @@ class TestAFailedSessionAbortsInsideItsGrace:
         """Load-bearing: pymongo reads a deadline of zero as none, so a spent grace handed on would wait without bound."""
 
         with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            sent = _aborts_sent(fails=True, deadline=time.monotonic() - ABORT_GRACE_S - 1)
+            sent = _aborts_sent(fails=True, deadline=RequestDeadline(time.monotonic() - 1, aborting_s=ABORT_GRACE_S))
 
         assert sent == []
         assert [getattr(record, "error_code", None) for record in caplog.records] == [Code.DATABASE_FAILED]
 
+    @pytest.mark.parametrize(
+        ("deadline_in_s", "charged"),
+        [pytest.param(-1.0, True, id="an abort past the deadline"), pytest.param(10.0, False, id="an abort inside the deadline")],
+    )
+    def test_an_abort_charges_the_grace_with_its_time_past_the_deadline(self, deadline_in_s: float, charged: bool):
+        """Uncharged, a loop of cut transactions against a server that never answers waits out a whole grace apiece."""
+
+        deadline = RequestDeadline(time.monotonic() + deadline_in_s)
+
+        _aborts_sent(fails=True, deadline=deadline, session=_SlowlyAnsweredSession())
+
+        if charged:
+            # Above zero rather than above the answer's wait: asyncio may end a sleep up to one clock tick early.
+            assert 0 < deadline.aborting_s < ABORT_GRACE_S
+        else:
+            assert deadline.aborting_s == 0
+
     def test_a_session_whose_work_finished_is_sent_no_abort(self):
         """A committed transaction answers an abort harmlessly, so only this case keeps one round trip off every write."""
 
-        assert _aborts_sent(fails=False, deadline=time.monotonic()) == []
+        assert _aborts_sent(fails=False, deadline=RequestDeadline(time.monotonic())) == []
+
+
+# Short, so the two cases below wait a fraction of the shipped grace; what they assert is how it is shared.
+SHORT_GRACE_S = 0.2
+
+# Over the event loop's timer resolution, about 16 ms on Windows, by which a sleep may end early.
+PAST_BY_S = 0.1
+
+
+class TestARequestsAbortsShareOneGrace:
+    def test_an_abort_begun_inside_the_deadline_charges_what_it_ran_past_it(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ):
+        """Uncharged, the next abort would open a second whole grace, against a server that answers neither."""
+
+        monkeypatch.setattr(transactions, "ABORT_GRACE_S", SHORT_GRACE_S)
+        deadline = RequestDeadline(time.monotonic() + PAST_BY_S)
+        # Answered only once the whole grace has passed the deadline, as an abort nothing answers runs to its timeout.
+        unanswered = _SlowlyAnsweredSession(after_s=PAST_BY_S + SHORT_GRACE_S + PAST_BY_S)
+
+        with caplog.at_level(logging.ERROR, logger=fl_logger.name):
+            first, second = _aborts_sent_in_turn(deadline=deadline, sessions=[unanswered, _TransactedSession()])
+
+        assert unanswered.sent_at is not None and unanswered.sent_at < deadline.at, "the first abort began past the deadline"
+        assert (len(first), second) == (1, [])
+        assert [getattr(record, "error_code", None) for record in caplog.records] == [Code.DATABASE_FAILED]
+
+    def test_work_between_two_cut_transactions_leaves_the_second_abort_its_share(self, monkeypatch: pytest.MonkeyPatch):
+        """Charged to the grace, the request's work without the database between two cut transactions would leave the second abort nothing."""
+
+        monkeypatch.setattr(transactions, "ABORT_GRACE_S", SHORT_GRACE_S)
+        deadline = RequestDeadline(time.monotonic() - PAST_BY_S)
+
+        sent = _aborts_sent_in_turn(
+            deadline=deadline, sessions=[_TransactedSession(), _TransactedSession()], between_s=SHORT_GRACE_S + PAST_BY_S
+        )
+
+        assert sent == [[{"abortTransaction": 1, "txnNumber": 3, "autocommit": False}]] * 2
 
 
 class _RefusedFirst(Exception):

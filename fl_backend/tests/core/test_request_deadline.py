@@ -69,7 +69,10 @@ DATABASE_NAME = worker_database("fl_request_deadline_test")
 
 class TestTheDeadlinesTheApplicationSets:
     def test_it_is_positive_and_ends_before_the_page_stops_waiting(self):
-        """The aborts' grace inside the margin the deadline leaves, since a request cut at its deadline answers only after them."""
+        """The aborts' grace inside the margin the deadline leaves, since a request cut at its deadline answers only after its aborts.
+
+        Those run one grace between them, as `app/core/middlewares.py :: RequestDeadline` counts it.
+        """
 
         ceiling = FETCH_CEILING.search(FRONTEND_API.read_text(encoding="utf-8"))
         assert ceiling is not None, f"{FRONTEND_API} no longer declares `FETCH_TIMEOUT_MS` where `FETCH_CEILING` looks"
@@ -120,6 +123,8 @@ class TestAStoppedContainerOutlastsEveryRequest:
     """Three budgets nested, each inside the next, or the outer one cuts what the inner one allows."""
 
     def test_uvicorn_waits_out_a_request_s_whole_bound(self):
+        """A request cut at its deadline: the deadline, then the one grace its aborts share."""
+
         assert _uvicorn_s_graceful_wait() >= REQUEST_DEADLINE_S + ABORT_GRACE_S
 
     def test_the_engine_kills_only_after_uvicorn_s_wait(self):
@@ -164,6 +169,22 @@ class _Cut(enum.Enum):
     AT_THE_COMMIT = "at the commit"
     # The callback's own second write is refused, so the driver aborts rather than commits.
     INSIDE_THE_CALLBACK = "inside the callback"
+    # The same, the second write reached only once the deadline and a whole grace after it have passed:
+    # where a slow start before the route puts the case above.
+    PAST_THE_GRACE = "past the grace"
+
+
+# Over the event loop's timer resolution, about 16 ms on Windows, by which a sleep may end early.
+PAST_THE_GRACE_BY_S = 0.1
+
+
+def _until_past_the_grace() -> float:
+    """The wait, read off the request's own deadline, after which a whole grace has passed it."""
+
+    deadline = middlewares.request_deadline_var.get()
+    assert deadline is not None, "the callback runs outside a request, so no deadline cuts it"
+
+    return deadline.at + ABORT_GRACE_S + PAST_THE_GRACE_BY_S - time.monotonic()
 
 
 class _Transacted(NamedTuple):
@@ -201,9 +222,11 @@ def _transacted(url: str, cut: _Cut) -> _Transacted:
             async def write_then_wait(session: AsyncClientSession) -> None:
                 sessions.append(session.session_id)
                 await post_one_to_db(collection=written, document={"_id": ObjectId()}, session=session)
-                if cut is not _Cut.NOWHERE:
+                if cut is _Cut.PAST_THE_GRACE:
+                    await asyncio.sleep(_until_past_the_grace())
+                elif cut is not _Cut.NOWHERE:
                     await asyncio.sleep(SHORT_DEADLINE_S * 2)
-                if cut is _Cut.INSIDE_THE_CALLBACK:
+                if cut in {_Cut.INSIDE_THE_CALLBACK, _Cut.PAST_THE_GRACE}:
                     await post_one_to_db(collection=written, document={"_id": ObjectId()}, session=session)
 
             async def transacting() -> None:
@@ -226,7 +249,7 @@ def _transacted(url: str, cut: _Cut) -> _Transacted:
 
 @pytest.mark.db
 class TestATransactionPastTheRequestDeadlineCommitsNothing:
-    @pytest.mark.parametrize("cut", [_Cut.AT_THE_COMMIT, _Cut.INSIDE_THE_CALLBACK], ids=lambda cut: cut.value)
+    @pytest.mark.parametrize("cut", [_Cut.AT_THE_COMMIT, _Cut.INSIDE_THE_CALLBACK, _Cut.PAST_THE_GRACE], ids=lambda cut: cut.value)
     def test_a_callback_outliving_the_deadline_leaves_no_write(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch, cut: _Cut):
         """Unknown though nothing stands: the answer errs toward unknown on a write the deadline cut, its commit sent or not."""
 
