@@ -18,7 +18,7 @@ describe("a button pressed", () => {
     expect(under(classes, "data-pressed:")).toStrictEqual(hovered);
   });
 
-  it.each(["primary", "secondary"] as const)("takes its hover's colour as a %s link", (look) => {
+  it.each(["primary", "secondary", "icon"] as const)("takes its hover's colour as a %s link", (look) => {
     const classes = buttonLook({ look, host: "link" });
     const hovered = under(classes, "hover:");
     expect(hovered.length, "the link has no hover, so the case proves nothing").toBeGreaterThan(0);

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -36,12 +37,11 @@ describe("the kit's link", () => {
     expect(link.hasAttribute("data-client-navigation")).toBe(true);
   });
 
-  it("drawn as a glyph alone, is named by its label, which it does not print", () => {
+  it("drawn as a glyph alone, is named by its label, which its tooltip shows rather than the link", async () => {
     render(
       <Link
         href={SPIEL}
-        placement="button"
-        look="secondary"
+        placement="icon"
         icon="calendar"
         label={COPY.shared.toSpiel}
       />,
@@ -50,6 +50,9 @@ describe("the kit's link", () => {
     const link = screen.getByRole("link", { name: COPY.shared.toSpiel });
     expect(link.textContent).toBe("");
     expect(link.querySelector("svg")).not.toBe(null);
+    // The tooltip opens on focus from the keyboard, as an icon-only button's does.
+    await userEvent.tab();
+    expect((await screen.findByRole("tooltip")).textContent).toBe(COPY.shared.toSpiel);
   });
 
   it("with `fullPage`, is a plain anchor loading the target as a whole document", () => {

@@ -2,6 +2,7 @@ import NextLink from "next/link";
 
 import { buttonLook } from "./buttonStyles";
 import { Icon } from "./Icon";
+import { IconLink } from "./IconLink";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -74,11 +75,15 @@ type Words =
 /**
  * A link drawn as a button: `primary` for a page's one next step, such as a status card's way on;
  * `secondary` for a way on beside it, or one standing where the page has no single next step. Its words may
- * lead with a glyph, or a glyph may stand alone, named by `label`, in a square of the button's height.
+ * lead with a glyph.
  */
-type Button = { placement: "button"; look: "primary" | "secondary" } & (
-  (Words & { leadingIcon?: IconName; icon?: never }) | { icon: IconName; label: Copy; text?: never; children?: never; leadingIcon?: never }
-);
+type Button = { placement: "button"; look: "primary" | "secondary"; leadingIcon?: IconName } & Words;
+
+/**
+ * A glyph alone, in the icon-only button's look: `label`, at most five words, is its name, which the kit's
+ * tooltip shows above it.
+ */
+type IconOnly = { placement: "icon"; icon: IconName; label: Copy; text?: never; children?: never; fullPage?: never; newTab?: never };
 
 type Card = {
   placement: "card";
@@ -113,30 +118,38 @@ export function Link<T extends string>(
         placement: "text" | "standalone" | "detail" | "row";
       } & Words)
     | Button
+    | IconOnly
     | Card
   ),
 ) {
-  const { href, placement, newTab = false, fullPage = false } = props;
+  const { href, newTab = false, fullPage = false } = props;
+  if (props.placement === "icon") {
+    return (
+      <IconLink
+        href={href}
+        icon={props.icon}
+        label={props.label}
+        className={buttonLook({ look: "icon", host: "link" })}
+      />
+    );
+  }
   const button = props.placement === "button" ? props : undefined;
-  const glyph = button?.icon ?? button?.leadingIcon;
   const anchor = {
     href,
-    "data-kit-focus": FOCUS[placement],
-    className: button === undefined ? link({ placement }) : buttonLook({ look: button.look, host: "link", square: button.icon !== undefined }),
+    "data-kit-focus": FOCUS[props.placement],
+    className: button === undefined ? link({ placement: props.placement }) : buttonLook({ look: button.look, host: "link" }),
     target: newTab ? "_blank" : undefined,
     rel: newTab ? "noopener noreferrer" : undefined,
-    // A glyph alone is named by its label, as an icon-only button is.
-    "aria-label": button?.icon !== undefined ? button.label : undefined,
   };
   const words = (
     <>
-      {glyph !== undefined && (
+      {button?.leadingIcon !== undefined && (
         <Icon
-          glyph={glyph}
+          glyph={button.leadingIcon}
           size={16}
         />
       )}
-      {button?.icon === undefined && (props.children ?? props.label ?? props.text)}
+      {props.children ?? props.label ?? props.text}
     </>
   );
   return fullPage ? <a {...anchor}>{words}</a> : <NextLink {...anchor}>{words}</NextLink>;
