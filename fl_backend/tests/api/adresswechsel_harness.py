@@ -47,6 +47,7 @@ from tests import documents
 from tests.bans import ban_list
 from tests.config import ADMINISTRATORS, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.outbox import claimable
 from tests.records import record_collections
 from tests.session_headers import verified_actor
 
@@ -317,7 +318,7 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
     mails = []
     while (
         claim := await post_handout(
-            outbox_collection=database[Collection.OUTBOX], sperrliste=ban_list(database), db=database, db_client=client, now=now
+            outbox_collection=database[Collection.OUTBOX], sperrliste=ban_list(database), db=database, db_client=client, now=claimable(now)
         )
     ).mails:
         mails += claim.mails

@@ -89,21 +89,23 @@ KONTAKT = {
     OTHER_SCHIEDSRICHTER_OID: {"telefon": "+49 69 2223334", "email": "kraus.bernd@example.com"},
 }
 
-# Injected through `get_germany_now`, and in summer, so the conversion below moves the clock.
-NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+# Injected through `get_germany_now`, and in summer, so the conversion below moves the clock. A century ahead of the
+# real one, as `tests/outbox.py :: MAIL_NOW` is: a mail owed under a clock long past is erased by the TTL monitor's next
+# pass, which can fall before the hand-out claims it. Every day below moves with it.
+NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 # Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`, including none.
-REDACTED_AT = "2026-04-01T10:30:00+00:00"
+REDACTED_AT = "2126-04-01T10:30:00+00:00"
 
 # `get_german_date_str`'s answer for `NOW`, spelled out for `REDACTED_AT`'s reason.
-TODAY = "2026-04-01"
+TODAY = "2126-04-01"
 
 # A day the endpoints here are never handed, so a stamp found unmoved cannot be one they wrote.
-AN_EARLIER_RETIREMENT = "2025-11-20"
+AN_EARLIER_RETIREMENT = "2125-11-20"
 
 # Handed to the retire endpoint alone, and later than every other day here: a stamp that moved is
 # then unmistakable rather than equal to what another write would have left.
-A_LATER_PRESS = "2026-05-04"
+A_LATER_PRESS = "2126-05-04"
 
 # What the seeded fixture edit moves. The field is arbitrary; the edit is not -- it is what files a log
 # row carrying the whole fixture, the referee's embedded name included.
@@ -111,7 +113,7 @@ A_RESCHEDULED_TIME = "15:00:00"
 
 # The day the seeded links were minted, earlier than every press here, so a block found carrying it
 # is the seed's rather than one a case wrote.
-MINTED_ON = "2026-03-02"
+MINTED_ON = "2126-03-02"
 GEBURTSDATUM = "1984-05-09"
 
 TOKEN_HASHES = {oid: hash_token(f"raw-token-for-{oid}") for oid in REFEREE_NAMES}
@@ -177,7 +179,7 @@ def fixture_document(schiedsrichter_id: ObjectId, spiel_id: ObjectId, spiel_nr: 
         saison_id=SAISON_ID,
         spiel_nr=spiel_nr,
         spieltag_id=SPIELTAG_OID,
-        datum="2026-03-15",
+        datum="2126-03-15",
         uhrzeit="14:00:00",
         schiedsrichter={"schiedsrichter_id": schiedsrichter_id, "name": REFEREE_NAMES[schiedsrichter_id], "payment": DEFAULT_PAYMENT},
         ergebnis="2:1",
