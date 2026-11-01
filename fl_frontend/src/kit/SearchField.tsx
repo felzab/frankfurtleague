@@ -24,7 +24,7 @@ export function SearchField({ label, value, onChange }: { label: Copy; value?: s
         className={fieldFrame({ width: "W3", inset: "none", layout: "group" })}>
         <span className={searchGlyph()}>
           <Icon
-            glyph="suche"
+            glyph="search"
             size={16}
           />
         </span>

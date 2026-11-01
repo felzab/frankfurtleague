@@ -24,10 +24,10 @@ vi.mock("@/shared/utils/signOut", () => ({ signOut: leave.signOut }));
 vi.mock("@/shared/utils/documentNavigation", () => ({ leaveDocumentFor: leave.leaveDocumentFor }));
 vi.mock("./Toast", async (original) => ({ ...(await original<Record<string, unknown>>()), appToast: leave.appToast }));
 
-const ADRESSE = "verwaltung@example.com";
+const ADDRESS = "verwaltung@example.com";
 
 // An administrator: the grant stores no name.
-const ACCOUNT: Account = { role: COPY.verwaltung.role, address: ADRESSE };
+const ACCOUNT: Account = { role: COPY.verwaltung.role, address: ADDRESS };
 
 /** The frame of a one-page area around a page, its account read as given. */
 async function renderFrame(account: Promise<Account | null>) {
@@ -35,7 +35,7 @@ async function renderFrame(account: Promise<Account | null>) {
     render(
       <RailFrame
         groups={[
-          { entries: [{ id: "spielorte", label: COPY.page.verwaltungSpielorte, href: "/bereich/verwaltung/spielorte", icon: "suche" }] },
+          { entries: [{ id: "spielorte", label: COPY.page.verwaltungSpielorte, href: "/bereich/verwaltung/spielorte", icon: "search" }] },
         ]}
         bar={["spielorte"]}
         foot={{ kind: "account", account }}>
@@ -75,7 +75,7 @@ describe("the rail frame's account", () => {
     await renderFrame(Promise.resolve(null));
 
     expect(screen.getByText("Seite")).toBeTruthy();
-    expect(screen.queryByText(ADRESSE)).toBeNull();
+    expect(screen.queryByText(ADDRESS)).toBeNull();
   });
 });
 
@@ -96,7 +96,7 @@ async function renderPage() {
     render(
       <RailFrame
         groups={[
-          { entries: [{ id: "spielorte", label: COPY.page.verwaltungSpielorte, href: "/bereich/verwaltung/spielorte", icon: "suche" }] },
+          { entries: [{ id: "spielorte", label: COPY.page.verwaltungSpielorte, href: "/bereich/verwaltung/spielorte", icon: "search" }] },
         ]}
         bar={["spielorte"]}
         foot={{ kind: "signIn", href: ROUTES.signIn.path() }}>
@@ -172,7 +172,7 @@ describe("the account menu", () => {
     await renderFrame(Promise.resolve(ACCOUNT));
     await openMenu();
 
-    expect(screen.getAllByText(ADRESSE)).toHaveLength(1);
+    expect(screen.getAllByText(ADDRESS)).toHaveLength(1);
     expect(screen.getByRole("menuitem", { name: COPY.template.account })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: COPY.page.legalNotice })).toBeTruthy();
   });
@@ -182,7 +182,7 @@ describe("the account menu", () => {
     await openMenu();
 
     expect(screen.getAllByText("Mia Berg")).toHaveLength(2);
-    expect(screen.getAllByText(ADRESSE)).toHaveLength(1);
+    expect(screen.getAllByText(ADDRESS)).toHaveLength(1);
   });
 
   it("signs out with one press and leaves the document for the start page", async () => {

@@ -44,7 +44,7 @@ function CreateDialog({ create }: { create: (formData: FormData) => Promise<Acti
       }>
       <TextField
         label={INPUT}
-        name="neu"
+        name="created"
         width="W3"
         kind="text"
       />
@@ -168,7 +168,7 @@ describe("the kit's dialog", () => {
     await createThroughTheDialog();
 
     await waitFor(() => expect(create).toHaveBeenCalledOnce());
-    expect(create.mock.calls[0]?.[0].get("neu")).toBe("Sportpark Nord");
+    expect(create.mock.calls[0]?.[0].get("created")).toBe("Sportpark Nord");
   });
 
   it("opened inside an editor's section, runs its own act and never the editor's save", async () => {
@@ -199,7 +199,7 @@ describe("the kit's dialog", () => {
   });
 
   it("stays open on a refused act, the input kept, the field's message under it and the line beside the acts", async () => {
-    render(<CreateDialog create={async () => ({ ok: false, fieldErrors: { neu: COPY.shared.field.taken } })} />);
+    render(<CreateDialog create={async () => ({ ok: false, fieldErrors: { created: COPY.shared.field.taken } })} />);
 
     await createThroughTheDialog();
 
@@ -309,7 +309,7 @@ function SpielortFieldWithDialog() {
         open={{ isOpen, onOpenChange: setOpen }}>
         <TextField
           label={INPUT}
-          name="neu"
+          name="created"
           width="W3"
           kind="text"
           defaultValue={name}

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { COPY, katalog } from "./copy";
+import { catalogue, COPY } from "./copy";
 
 import type { Code } from "./generated/client/types";
 
@@ -12,7 +12,7 @@ import type { Code } from "./generated/client/types";
 // One rule over two codes: a match whose result no play decides carries no goals, on the fixture and in its report.
 const NO_TORE = "Nur ohne eingetragene Tore";
 
-export const SERVER_COPY = katalog({
+export const SERVER_COPY = catalogue({
   /**
    * A refusal's own phrase, by the backend's code, for a code a person causes knowingly from a screen; every other
    * code answers one of the shared failure lines `COPY.shared.failure` holds. A refusal about one field shows on it,

@@ -6,13 +6,13 @@ import { SERVER_COPY } from "./serverCopy.ts";
 import { fieldMessage, ruleMessage } from "./zodGerman.ts";
 
 import type { FLRefusedField } from "./generated/client/types.ts";
-import type { Beispiele } from "./zodGerman.ts";
+import type { Examples } from "./zodGerman.ts";
 
 const { field, failure } = COPY.shared;
 
 /** The message the first issue of a parse carries, worded by the map as a builder hands it the field examples. */
-function message(schema: z.ZodType, value: unknown, beispiele?: Beispiele): string | undefined {
-  const parsed = schema.safeParse(value, { error: (issue) => fieldMessage(issue, beispiele) });
+function message(schema: z.ZodType, value: unknown, examples?: Examples): string | undefined {
+  const parsed = schema.safeParse(value, { error: (issue) => fieldMessage(issue, examples) });
   return parsed.error?.issues[0]?.message;
 }
 

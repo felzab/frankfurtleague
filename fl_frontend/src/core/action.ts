@@ -259,9 +259,9 @@ function logFailure(name: string, error: unknown): void {
 }
 
 /** A person turned away, logged as a page's turn-away is. */
-function turnedAwayPerson(operation: string, grund: "keine_sitzung" | "kein_sitz"): ActionAnswer<never> {
-  logRefused(operation, grund);
-  return { ok: false, reason: grund === "keine_sitzung" ? COPY.shared.failure.signInExpired : COPY.shared.failure.stale };
+function turnedAwayPerson(operation: string, refusal: "keine_sitzung" | "kein_sitz"): ActionAnswer<never> {
+  logRefused(operation, refusal);
+  return { ok: false, reason: refusal === "keine_sitzung" ? COPY.shared.failure.signInExpired : COPY.shared.failure.stale };
 }
 
 /** The lane's guard, the parse and the body, in that order: no part of the input is read before the guard admits. */

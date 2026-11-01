@@ -3,4 +3,4 @@
  * (`fl_backend/app/core/recording.py :: ERASED_ACTOR_MARKER`). In `core`, so the grant notice and the admin
  * cards compare one spelling: another prints the marker as an address.
  */
-export const GELOESCHT_ACTOR_MARKER = "ERASED";
+export const ERASED_ACTOR_MARKER = "ERASED";

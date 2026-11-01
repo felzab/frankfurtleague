@@ -14,7 +14,7 @@ import type { Code } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
 /** What each double answers, and what reached it. */
-const stand = vi.hoisted(() => ({
+const state = vi.hoisted(() => ({
   admin: { session: {} } as { session: object } | { refused: string },
   subject: null as SubjectSession | null,
   botCheck: null as string | null,
@@ -24,33 +24,33 @@ const stand = vi.hoisted(() => ({
 }));
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-vi.mock("next/cache", () => ({ updateTag: (tag: string) => stand.steps.push(`updateTag ${tag}`) }));
+vi.mock("next/cache", () => ({ updateTag: (tag: string) => state.steps.push(`updateTag ${tag}`) }));
 vi.mock("./auth", () => ({
   judgeAdminRequest: async () => {
-    stand.steps.push("admin guard");
-    return stand.admin;
+    state.steps.push("admin guard");
+    return state.admin;
   },
 }));
 vi.mock("./subject", () => ({
   getSubjectSession: async () => {
-    stand.steps.push("person guard");
-    return stand.subject;
+    state.steps.push("person guard");
+    return state.subject;
   },
 }));
 vi.mock("./turnstile", () => ({
   turnstileRefusal: async (token: string | null) => {
-    stand.steps.push(`bot check ${String(token)}`);
-    return stand.botCheck;
+    state.steps.push(`bot check ${String(token)}`);
+    return state.botCheck;
   },
 }));
 vi.mock("./logging", () => ({
   logger: {
-    info: (message: string, meta: unknown) => stand.lines.push({ level: "info", message, meta }),
-    error: (message: string, _error: unknown, meta: unknown) => stand.lines.push({ level: "error", message, meta }),
+    info: (message: string, meta: unknown) => state.lines.push({ level: "info", message, meta }),
+    error: (message: string, _error: unknown, meta: unknown) => state.lines.push({ level: "error", message, meta }),
   },
 }));
 
-const Ort = z.object({ name: z.string().min(1).max(10), plz: z.string().regex(/^\d{5}$/) });
+const Venue = z.object({ name: z.string().min(1).max(10), plz: z.string().regex(/^\d{5}$/) });
 
 const refusal = (code: Code) =>
   new APIBadStatusError({
@@ -65,27 +65,27 @@ const refusal = (code: Code) =>
   });
 
 /** An admin create whose body records what it was handed, or throws `wirft`. */
-function create(wirft?: unknown) {
+function create(thrown?: unknown) {
   return action({
     lane: "admin",
     name: "anlegen",
-    input: Ort,
+    input: Venue,
     ownWords: { duplicate_key: "name", spiel_double_booked: true },
     examples: { plz: COPY.verwaltung.spielort.plzExample },
     run: async (input) => {
-      stand.steps.push(`body ${JSON.stringify(input)}`);
-      if (wirft !== undefined) throw wirft;
+      state.steps.push(`body ${JSON.stringify(input)}`);
+      if (thrown !== undefined) throw thrown;
       return { ok: true, value: undefined };
     },
   });
 }
 
 beforeEach(() => {
-  stand.admin = { session: {} };
-  stand.subject = null;
-  stand.botCheck = null;
-  stand.steps = [];
-  stand.lines = [];
+  state.admin = { session: {} };
+  state.subject = null;
+  state.botCheck = null;
+  state.steps = [];
+  state.lines = [];
 });
 
 describe("the admin lane", () => {
@@ -95,10 +95,10 @@ describe("the admin lane", () => {
     ["grantGone", COPY.shared.failure.accessGone],
     ["unread", COPY.shared.failure.accessUnchecked],
   ])("turns a caller the guard refuses as %s away in the words of its repair, before anything else", async (refused, reason) => {
-    stand.admin = { refused };
+    state.admin = { refused };
 
     expect(await create()({ name: "Nord", plz: "60438" })).toStrictEqual({ ok: false, reason });
-    expect(stand.steps).toStrictEqual(["admin guard"]);
+    expect(state.steps).toStrictEqual(["admin guard"]);
   });
 
   it("strips every text as the backend does, parses it, runs the body and clears the site's tag", async () => {
@@ -108,13 +108,13 @@ describe("the admin lane", () => {
     posted.set("plz", " 60438\u001f");
 
     expect(await create()(posted)).toStrictEqual({ ok: true, value: undefined });
-    expect(stand.steps).toStrictEqual(["admin guard", 'body {"name":"Nord","plz":"60438"}', "updateTag site"]);
+    expect(state.steps).toStrictEqual(["admin guard", 'body {"name":"Nord","plz":"60438"}', "updateTag site"]);
   });
 
   it("keeps a character the backend's strip keeps", async () => {
     // U+FEFF is no White_Space, which JavaScript's `trim` would drop and Python's `str.strip` keeps.
     await create()({ name: "\ufeffNord", plz: "60438" });
-    expect(stand.steps[1]).toBe(`body {"name":"\ufeffNord","plz":"60438"}`);
+    expect(state.steps[1]).toBe(`body {"name":"\ufeffNord","plz":"60438"}`);
   });
 
   it("places a value its schema refuses on its box in the German map's words, sending nothing", async () => {
@@ -122,19 +122,19 @@ describe("the admin lane", () => {
       ok: false,
       fieldErrors: { name: COPY.shared.field.maxChars(10), plz: COPY.shared.field.format(COPY.verwaltung.spielort.plzExample) },
     });
-    expect(stand.steps).toStrictEqual(["admin guard"]);
+    expect(state.steps).toStrictEqual(["admin guard"]);
   });
 
   it("keeps two boxes apart whose paths end in one name, keying each by its whole path", async () => {
-    const Seite = z.object({ tore: z.number().min(0).max(99) });
-    const ergebnis = (wirft?: unknown) =>
+    const Side = z.object({ tore: z.number().min(0).max(99) });
+    const ergebnis = (thrown?: unknown) =>
       action({
         lane: "admin",
         name: "ergebnis",
-        input: z.object({ team1: Seite, team2: Seite }),
+        input: z.object({ team1: Side, team2: Side }),
         ownWords: { state_ergebnis_on_a_non_event: "team2.tore" },
         run: async () => {
-          if (wirft !== undefined) throw wirft;
+          if (thrown !== undefined) throw thrown;
           return { ok: true, value: undefined };
         },
       });
@@ -164,14 +164,14 @@ describe("the admin lane", () => {
   });
 
   it("places each rule a refused payload broke where its screen words it, and answers the stale line where it does not", async () => {
-    const kontakte = (wirft: unknown) =>
+    const kontakte = (thrown: unknown) =>
       action({
         lane: "admin",
         name: "kontakte",
         input: z.object({ kontakte: z.array(z.object({ email: z.string() })), datum: z.string() }),
         ownWords: { kontakt_email_twice: "kontakte", date_not_in_calendar: "datum", good_spieler_exceed_kader: true },
         run: async () => {
-          throw wirft;
+          throw thrown;
         },
       });
     const input = { kontakte: [{ email: "lena@example.com" }], datum: "2027-02-30" };
@@ -211,17 +211,17 @@ describe("the admin lane", () => {
       errorCode: "spiel_outside_spieltag",
       reason: COPY.shared.failure.unexpected,
     });
-    expect(stand.steps.filter((step) => step === "updateTag site")).toHaveLength(3);
+    expect(state.steps.filter((step) => step === "updateTag site")).toHaveLength(3);
     // The backend logs its own refusals.
-    expect(stand.lines).toStrictEqual([]);
+    expect(state.lines).toStrictEqual([]);
   });
 
   it("answers any other throw as the unexpected failure, logging its name alone, and clears the tag", async () => {
     const answer = await create(new Error("lena@example.com was refused"))({ name: "Nord", plz: "60438" });
 
     expect(answer).toStrictEqual({ ok: false, reason: COPY.shared.failure.unexpected });
-    expect(stand.lines).toStrictEqual([{ level: "error", message: "action.failed", meta: { action: "anlegen", name: "Error" } }]);
-    expect(stand.steps.at(-1)).toBe("updateTag site");
+    expect(state.lines).toStrictEqual([{ level: "error", message: "action.failed", meta: { action: "anlegen", name: "Error" } }]);
+    expect(state.steps.at(-1)).toBe("updateTag site");
   });
 
   it("hands Next's redirect on", async () => {
@@ -243,43 +243,43 @@ function catchRedirect(): unknown {
 const Seat = z.object({ team_id: z.string().min(1), saison_id: z.string().min(1) });
 
 /** A signed-in person holding a contact seat at each team and season named, in seasons that grant a panel. */
-const sitzend = (...seats: { team_id: string; saison_id: string }[]) => person({ seats: seats.map((at) => seat(at)) });
+const seated = (...seats: { team_id: string; saison_id: string }[]) => person({ seats: seats.map((at) => seat(at)) });
 
 describe("the person lane", () => {
-  const melden = action({
+  const register = action({
     lane: "person",
     claim: "seat",
     name: "melden",
     input: Seat,
     run: async (_input, { seats }) => {
-      stand.steps.push(`body ${String(seats.length)}`);
+      state.steps.push(`body ${String(seats.length)}`);
       return { ok: true, value: undefined };
     },
   });
 
   it("turns away a caller with no session, logging why, before the input is read", async () => {
     // An input the schema refuses: read first, it would answer with the box's message.
-    expect(await melden({ team_id: "", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
-    expect(stand.steps).toStrictEqual(["person guard"]);
-    expect(stand.lines).toStrictEqual([{ level: "info", message: "roles.refused", meta: { operation: "melden", grund: "keine_sitzung" } }]);
+    expect(await register({ team_id: "", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+    expect(state.steps).toStrictEqual(["person guard"]);
+    expect(state.lines).toStrictEqual([{ level: "info", message: "roles.refused", meta: { operation: "melden", grund: "keine_sitzung" } }]);
   });
 
   it.each([
     ["in another season", { team_id: "t1", saison_id: "2026" }],
     ["at another team in the same season", { team_id: "t2", saison_id: "2027" }],
   ])("refuses a seat the person holds %s, naming nothing of the address", async (_where, held) => {
-    stand.subject = sitzend(held);
+    state.subject = seated(held);
 
-    expect(await melden({ team_id: "t1", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
-    expect(stand.steps).toStrictEqual(["person guard"]);
-    expect(JSON.stringify(stand.lines)).not.toContain("@");
+    expect(await register({ team_id: "t1", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
+    expect(state.steps).toStrictEqual(["person guard"]);
+    expect(JSON.stringify(state.lines)).not.toContain("@");
   });
 
   it("runs the body for a seat held at both halves of the address, handing it the seat", async () => {
-    stand.subject = sitzend({ team_id: "t2", saison_id: "2027" }, { team_id: "t1", saison_id: "2027" });
+    state.subject = seated({ team_id: "t2", saison_id: "2027" }, { team_id: "t1", saison_id: "2027" });
 
-    expect(await melden({ team_id: "t1", saison_id: "2027" })).toStrictEqual({ ok: true, value: undefined });
-    expect(stand.steps).toStrictEqual(["person guard", "body 1", "updateTag site"]);
+    expect(await register({ team_id: "t1", saison_id: "2027" })).toStrictEqual({ ok: true, value: undefined });
+    expect(state.steps).toStrictEqual(["person guard", "body 1", "updateTag site"]);
   });
 });
 
@@ -290,19 +290,19 @@ describe("the public lane", () => {
     name: "senden",
     input: z.object({ email: z.email() }),
     run: async ({ email }) => {
-      stand.steps.push("body");
+      state.steps.push("body");
       return { ok: true, value: email };
     },
   });
 
   it("answers the bot check's refusal before anything of the input is read", async () => {
-    stand.botCheck = COPY.shared.botCheck.confirm;
+    state.botCheck = COPY.shared.botCheck.confirm;
     const posted = new FormData();
     posted.set("email", "keine-adresse");
     posted.set("cf-turnstile-response", "token");
 
     expect(await send(posted)).toStrictEqual({ ok: false, reason: COPY.shared.botCheck.confirm });
-    expect(stand.steps).toStrictEqual(["bot check token"]);
+    expect(state.steps).toStrictEqual(["bot check token"]);
   });
 
   it("parses the input once the check passed, the token no part of it", async () => {
@@ -311,6 +311,6 @@ describe("the public lane", () => {
       value: "lena@example.com",
     });
     // A public write reaches no cached read, so the site's tag stands.
-    expect(stand.steps).toStrictEqual(["bot check token", "body"]);
+    expect(state.steps).toStrictEqual(["bot check token", "body"]);
   });
 });

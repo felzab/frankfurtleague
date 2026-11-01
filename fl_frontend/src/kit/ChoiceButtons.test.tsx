@@ -43,8 +43,8 @@ describe("a segmented control", () => {
 });
 
 const GLYPHS = [
-  { id: "dark", glyph: "dunkel", label: COPY.template.theme.dark },
-  { id: "light", glyph: "hell", label: COPY.template.theme.light },
+  { id: "dark", glyph: "dark", label: COPY.template.theme.dark },
+  { id: "light", glyph: "light", label: COPY.template.theme.light },
 ] as const;
 
 describe("a segmented control of glyphs", () => {

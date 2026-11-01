@@ -52,7 +52,7 @@ export function OptionList({ options, fit = "field", act }: { options: readonly 
                   </span>
                   {isSelected && (
                     <Icon
-                      glyph="haken"
+                      glyph="check"
                       size={16}
                     />
                   )}

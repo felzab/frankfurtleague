@@ -86,14 +86,14 @@ export function PasskeyStep(props: Props) {
   return (
     <SignInPage
       view="passkey"
-      titel={worte.title}
-      satz={worte.sentence}
-      adresse={address}
+      title={worte.title}
+      sentence={worte.sentence}
+      address={address}
       // `isBusy` is the whole of the double-press guard: a second prompt aborts the first, which this view would
       // then report as a refusal of a press made while it ran.
-      los={{ label: worte.button, isBusy: isPending, onPress: () => void run() }}
+      go={{ label: worte.button, isBusy: isPending, onPress: () => void run() }}
       // The session is unchanged, so a soft navigation is the right tool here.
-      spaeter={
+      later={
         props.step === "offer"
           ? { label: COPY.signIn.passkey.later, isDisabled: isPending, onPress: () => router.push(props.later) }
           : undefined

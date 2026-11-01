@@ -14,7 +14,7 @@ import { spieltagLabels } from "@/features/spieltage/utils";
 import { buildMapsSearchUrl } from "@/shared/utils/format";
 
 import type { Copy } from "@/core/copy";
-import type { CalendarDay, Paar, Uhrzeit } from "@/core/format";
+import type { CalendarDay, Pair, Uhrzeit } from "@/core/format";
 import type { FLSaison, FLSonderereignis, FLSpielQuelle, FLSpielTeamFieldJoined } from "@/core/generated/client/types";
 import type { FLSpiel } from "@/features/spiele/types";
 import type { Fact } from "@/kit/Facts";
@@ -101,7 +101,7 @@ const zeitOf = (uhrzeit: string | null): Uhrzeit | null => (uhrzeit === null ? n
  * `ergebnis` from these and reads it only as the mark that the match was played. A hand edit holding
  * `ergebnis` without both sides' goals shows no result, as the bracket counts none.
  */
-function toreOf(spiel: FLSpiel): Paar | null {
+function toreOf(spiel: FLSpiel): Pair | null {
   const team1 = spiel.team1?.tore ?? null;
   const team2 = spiel.team2?.tore ?? null;
   return spiel.ergebnis === null || team1 === null || team2 === null ? null : { team1, team2 };
@@ -165,11 +165,11 @@ export function popupFactsOf(spiel: FLSpiel): Fact[] {
   const tag = tagOf(spiel.datum);
   const zeit = zeitOf(spiel.uhrzeit);
   const facts: (Fact | null)[] = [
-    tag === null ? null : { label: fact.datum, glyph: "kalender", value: formatDatum(tag), figures: true },
+    tag === null ? null : { label: fact.datum, glyph: "calendar", value: formatDatum(tag), figures: true },
     zeit === null ? null : { label: fact.uhrzeit, glyph: "uhrzeit", value: formatUhrzeit(zeit), figures: true },
     spiel.ort === null
       ? null
-      : { label: fact.ort, glyph: "spielorte", elsewhere: { href: buildMapsSearchUrl(spiel.ort.maps_link), text: spiel.ort.name } },
+      : { label: fact.spielort, glyph: "spielorte", elsewhere: { href: buildMapsSearchUrl(spiel.ort.maps_link), text: spiel.ort.name } },
     spiel.schiedsrichter?.name == null ? null : { label: fact.schiedsrichter, glyph: "schiedsrichter", value: spiel.schiedsrichter.name },
   ];
   return facts.filter((fact) => fact !== null);
@@ -224,7 +224,7 @@ export function factsOf(spiel: FLSpiel, spieltag: string): Fact[] {
     { label: fact.spieltag, value: spieltag },
     tag === null ? null : { label: fact.datum, value: formatDatum(tag), figures: true },
     zeit === null ? null : { label: fact.uhrzeit, value: formatUhrzeit(zeit), figures: true },
-    spiel.ort === null ? null : { label: fact.ort, elsewhere: { href: buildMapsSearchUrl(spiel.ort.maps_link), text: spiel.ort.name } },
+    spiel.ort === null ? null : { label: fact.spielort, elsewhere: { href: buildMapsSearchUrl(spiel.ort.maps_link), text: spiel.ort.name } },
     spiel.schiedsrichter?.name == null ? null : { label: fact.schiedsrichter, value: spiel.schiedsrichter.name },
     spiel.notiz === null || spiel.notiz.trim() === "" ? null : { label: fact.notiz, value: spiel.notiz },
   ];

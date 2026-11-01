@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatDatum,
-  formatDatumLang,
+  formatDatumLong,
   formatDatumWithWeekday,
   formatErgebnis,
   formatEuro,
@@ -17,12 +17,12 @@ import type { TestContext } from "vitest";
 // Every case annotates what the runtime's ICU produced beside what it should be, so a run inside the
 // built image under a reporter that prints a passing case's annotations (verbose, junit, tap) shows
 // which output its ICU data changed. Spaces other than U+0020 are spelled out.
-const sichtbar = (text: string): string =>
+const visible = (text: string): string =>
   text.replace(/[\u00a0\u2009\u202f]/g, (characters) => `\\u${characters.codePointAt(0)!.toString(16).padStart(4, "0")}`);
 
-async function same(t: TestContext, is: string, soll: string): Promise<void> {
-  await t.annotate(`ist ${sichtbar(is)} | soll ${sichtbar(soll)}`);
-  expect(is).toBe(soll);
+async function same(t: TestContext, is: string, expected: string): Promise<void> {
+  await t.annotate(`ist ${visible(is)} | soll ${visible(expected)}`);
+  expect(is).toBe(expected);
 }
 
 describe("formatDatum", () => {
@@ -36,9 +36,9 @@ describe("formatDatum", () => {
   });
 });
 
-describe("formatDatumLang", () => {
+describe("formatDatumLong", () => {
   it("names the month, umlaut included", async (t) => {
-    await same(t, formatDatumLang("2027-03-14"), "14. März 2027");
+    await same(t, formatDatumLong("2027-03-14"), "14. März 2027");
   });
 });
 

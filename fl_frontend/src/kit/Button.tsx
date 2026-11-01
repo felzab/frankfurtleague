@@ -42,7 +42,7 @@ function Spinner() {
       isIndeterminate
       aria-label={COPY.shared.loading}>
       <Icon
-        glyph="laedt"
+        glyph="loading"
         size={16}
         spinning
       />

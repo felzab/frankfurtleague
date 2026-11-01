@@ -14,7 +14,7 @@ import type {
   FLAddressChangeNoticeData,
   FLAddressChangeWay,
 } from "./generated/client/types";
-import type { MailLink, MailOrt } from "./mailKinds";
+import type { MailLink, MailOrigin } from "./mailKinds";
 
 /** The one address page, both links' and every record's, under the segment `robots.ts` already turns crawlers back from. */
 export const ADRESSWECHSEL_PFAD = "/bestaetigung/adresse";
@@ -35,7 +35,7 @@ export function buildAdresswechselEmail({ way: weg, valid_until: gueltigBis }: F
   const site = mailOrigin(origin);
 
   return {
-    art: "security",
+    kind: "security",
     subjectLine: "Neue E-Mail-Adresse bestätigen",
     origin: site,
     vorname: "",
@@ -93,7 +93,7 @@ export function buildAdresswechselHinweisEmail(
   const site = mailOrigin(origin);
 
   return {
-    art: "security",
+    kind: "security",
     // One subject for every way: the approval's request exists so a real holder can refuse a pretext, and a
     // subject telling them to approve would be its first instruction.
     subjectLine: "Deine E-Mail-Adresse soll sich ändern",
@@ -102,7 +102,7 @@ export function buildAdresswechselHinweisEmail(
     paragraphs: [
       anlassAbsatz(weg, gueltigBis),
       ["Hast Du das nicht veranlasst? Dann stoppe die Änderung über diesen Link.", "Er gilt, bis die Änderung wirksam wird."],
-      [["Fragen jederzeit an ", { adresse: KONTAKT_EMAIL }, "."]],
+      [["Fragen jederzeit an ", { address: KONTAKT_EMAIL }, "."]],
     ],
     // The stop on every way: no link approves anything, the account page asking a fresh sign-in first.
     button: { label: ADRESSWECHSEL_STOPPEN, href: adresswechselLink(site, stoppToken) },
@@ -113,9 +113,9 @@ export function buildAdresswechselHinweisEmail(
  * The completion notice: no control and no new address. The way to repudiate the change (NIST SP 800-63B-4,
  * read 2026-10-20: "clear instructions, including contact information") is the security kind's own last line.
  */
-export function buildAdresswechselWirksamEmail({ vorname, instant: zeitpunkt }: FLAddressChangeEffectiveData, { origin }: MailOrt): Mail {
+export function buildAdresswechselWirksamEmail({ vorname, instant: zeitpunkt }: FLAddressChangeEffectiveData, { origin }: MailOrigin): Mail {
   return {
-    art: "security",
+    kind: "security",
     subjectLine: "Deine E-Mail-Adresse wurde geändert",
     origin: mailOrigin(origin),
     vorname: vorname ?? "",
@@ -133,14 +133,14 @@ export function buildAdresswechselWirksamEmail({ vorname, instant: zeitpunkt }: 
  * The new mailbox's notice that a confirmed change did not take effect at its time. No name, no reason:
  * a ban on this very address is among the reasons, and the holder of the address may be a stranger.
  */
-export function buildAdresswechselNichtWirksamEmail(_daten: FLAddressChangeDiscardedData, { origin }: MailOrt): Mail {
+export function buildAdresswechselNichtWirksamEmail(_daten: FLAddressChangeDiscardedData, { origin }: MailOrigin): Mail {
   return {
-    art: "security",
+    kind: "security",
     subjectLine: "Deine E-Mail-Adresse wurde nicht geändert",
     origin: mailOrigin(origin),
     vorname: "",
     paragraphs: [
-      ["Die Änderung Deiner E-Mail-Adresse ist nicht wirksam geworden.", ["Wir helfen Dir gern weiter: ", { adresse: KONTAKT_EMAIL }]],
+      ["Die Änderung Deiner E-Mail-Adresse ist nicht wirksam geworden.", ["Wir helfen Dir gern weiter: ", { address: KONTAKT_EMAIL }]],
     ],
   };
 }

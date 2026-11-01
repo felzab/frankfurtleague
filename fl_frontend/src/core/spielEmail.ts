@@ -16,7 +16,7 @@ import type {
   FLSpielRequestData,
   FLSpielVorschlagDiscardedData,
 } from "./generated/client/types";
-import type { MailLink, MailOrt } from "./mailKinds";
+import type { MailLink, MailOrigin } from "./mailKinds";
 
 /** Under the segment `fl_frontend/src/app/robots.ts` already turns crawlers back from, so a live token is never indexed. */
 export const SPIEL_BESTAETIGUNG_PATH = "/bestaetigung/spiel";
@@ -85,7 +85,7 @@ export function buildSpielAnfrageEmail({ art, team, ansetzung: facts, frist }: F
   const spiel = `${ansetzung.team1} gegen ${ansetzung.team2} am ${ansetzung.datumText}`;
 
   return {
-    art: "notice",
+    kind: "notice",
     subjectLine: art === "spiel_request" ? `Bitte bestätigen: ${spiel}` : `Erinnerung: ${spiel} bestätigen`,
     // Through `mailOrigin` once, for the footer: the link is spelled by its own function, so a second derivation here
     // could send the two versions to different hosts.
@@ -121,12 +121,12 @@ export function buildSpielAnfrageEmail({ art, team, ansetzung: facts, frist }: F
  * The referee's word that they are booked. No token: the referee answers on their own panel, signed
  * in, so the control leads there rather than to a link page.
  */
-export function buildSpielEinteilungEmail({ ansetzung: facts }: FLSpielEinteilungData, { origin }: MailOrt): Mail {
+export function buildSpielEinteilungEmail({ ansetzung: facts }: FLSpielEinteilungData, { origin }: MailOrigin): Mail {
   const site = mailOrigin(origin);
   const ansetzung = ansetzungText(facts);
 
   return {
-    art: "notice",
+    kind: "notice",
     subjectLine: `Eingeteilt: ${ansetzung.team1} gegen ${ansetzung.team2} am ${ansetzung.datumText}`,
     origin: site,
     vorname: "",
@@ -180,12 +180,12 @@ const ABGESAGT_SAETZE: Record<FLSpielNoticeDataRecipient, readonly [string, stri
  * it knows. A move names no new slot, the next request stating it; a call-off has no button and no name, nothing being
  * left to answer and the address perhaps having changed hands since the request.
  */
-export function buildSpielHinweisEmail({ art, recipient: empfaenger, appointment: alt }: FLSpielNoticeData, { origin }: MailOrt): Mail {
+export function buildSpielHinweisEmail({ art, recipient: empfaenger, appointment: alt }: FLSpielNoticeData, { origin }: MailOrigin): Mail {
   const { team1, team2 } = alt;
 
   if (art === "spiel_new_angesetzt") {
     return {
-      art: "notice",
+      kind: "notice",
       subjectLine: `Neu angesetzt: ${team1} gegen ${team2}`,
       origin: mailOrigin(origin),
       vorname: "",
@@ -197,7 +197,7 @@ export function buildSpielHinweisEmail({ art, recipient: empfaenger, appointment
   }
 
   return {
-    art: "notice",
+    kind: "notice",
     subjectLine: `Abgesagt: ${team1} gegen ${team2} am ${datumText(alt.datum)}`,
     origin: mailOrigin(origin),
     vorname: "",
@@ -212,9 +212,9 @@ export function buildSpielHinweisEmail({ art, recipient: empfaenger, appointment
  * The word to a referee that their Einteilung is lifted, whoever took them off the fixture: no button, since nothing is
  * left for them to answer, and no name, since the address may have changed hands since the Einteilung.
  */
-export function buildSpielEinteilungAufgehobenEmail({ appointment: alt }: FLSpielEinteilungLiftedData, { origin }: MailOrt): Mail {
+export function buildSpielEinteilungAufgehobenEmail({ appointment: alt }: FLSpielEinteilungLiftedData, { origin }: MailOrigin): Mail {
   return {
-    art: "notice",
+    kind: "notice",
     subjectLine: `Nicht mehr eingeteilt: ${alt.team1} gegen ${alt.team2}`,
     origin: mailOrigin(origin),
     vorname: "",
@@ -237,9 +237,9 @@ export function buildSpielEinteilungAufgehobenEmail({ appointment: alt }: FLSpie
  * The word to a club that the league kept the date it declined and proposed another for: its answer said the league
  * decides, and nothing else tells it the league has. No button, nothing being left to answer.
  */
-export function buildSpielVorschlagVerworfenEmail({ appointment: alt }: FLSpielVorschlagDiscardedData, { origin }: MailOrt): Mail {
+export function buildSpielVorschlagVerworfenEmail({ appointment: alt }: FLSpielVorschlagDiscardedData, { origin }: MailOrigin): Mail {
   return {
-    art: "notice",
+    kind: "notice",
     subjectLine: `Termin bleibt: ${alt.team1} gegen ${alt.team2} am ${datumText(alt.datum)}`,
     origin: mailOrigin(origin),
     vorname: "",

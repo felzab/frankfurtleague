@@ -77,7 +77,7 @@ export function Select({
           <SelectValue className="truncate data-placeholder:text-fg-muted" />
         )}
         <Icon
-          glyph="aufklappen"
+          glyph="expand"
           size={16}
         />
       </Button>

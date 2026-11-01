@@ -1,7 +1,7 @@
 import { refusalCodes, refused } from "@/test-support/refusals.ts";
 import { assert, describe, expect, it } from "vitest";
 
-import { GELOESCHT_ACTOR_MARKER } from "@/core/geloeschtActor.ts";
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
 import { mapVerwaltungAnsichtRefusal, mapVerwaltungLinkRefusal, mapVerwaltungStartRefusal } from "@/features/adresswechsel/refusals.ts";
 import {
   GELOESCHTE_PERSON,
@@ -38,7 +38,7 @@ describe("the actor an admin card names", () => {
   // The marker names nobody, so printed as it is served it would read as an address; and the person is
   // erased rather than barred.
   it("names an erased administrator by that state, never the marker and never as barred", () => {
-    expect(vonOderGesperrt(GELOESCHT_ACTOR_MARKER, false)).toBe(GELOESCHTE_PERSON);
+    expect(vonOderGesperrt(ERASED_ACTOR_MARKER, false)).toBe(GELOESCHTE_PERSON);
   });
 });
 

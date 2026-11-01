@@ -82,7 +82,7 @@ describe("the editor template's save", () => {
 function Framed({ editor, children }: { editor: boolean; children: ReactNode }) {
   return (
     <RailFrame
-      groups={[{ entries: [{ id: "spielorte", label: NAME, href: BACK, icon: "suche" }] }]}
+      groups={[{ entries: [{ id: "spielorte", label: NAME, href: BACK, icon: "search" }] }]}
       bar={["spielorte"]}
       foot={{ kind: "signIn", href: "/signin" }}
       columnInLayouts>

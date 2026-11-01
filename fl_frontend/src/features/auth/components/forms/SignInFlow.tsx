@@ -85,9 +85,9 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
     return (
       <SignInPage
         view="code"
-        titel={COPY.signIn.inbox}
-        satz={COPY.signIn.codeOnItsWay}
-        adresse={address}
+        title={COPY.signIn.inbox}
+        sentence={COPY.signIn.codeOnItsWay}
+        address={address}
         code={{ label: COPY.signIn.code, attempt: versuch, isDisabled: pruefe, onComplete: (code) => void check(code) }}
         back={{
           label: COPY.signIn.otherAddress,
@@ -124,9 +124,9 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
 
   return (
     <SignInPage
-      view="adresse"
-      titel={COPY.signIn.title}
-      adresse={{ label: COPY.signIn.address, value: email, onChange: setEmail, error: refused?.fieldErrors }}
+      view="address"
+      title={COPY.signIn.title}
+      address={{ label: COPY.signIn.address, value: email, onChange: setEmail, error: refused?.fieldErrors }}
       check={humanCheck.widget}
       send={{
         label: COPY.signIn.sendCode,

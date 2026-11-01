@@ -4,14 +4,14 @@ import { COPY } from "./copy.ts";
 
 import type { Copy } from "./copy.ts";
 
-const zeige = (text: Copy): Copy => text;
+const show = (text: Copy): Copy => text;
 
 describe("Copy", () => {
   it("takes a catalogue entry and refuses a string typed in place", () => {
-    zeige(COPY.shared.saved);
-    zeige(COPY.shared.field.maxChars(80));
+    show(COPY.shared.saved);
+    show(COPY.shared.field.maxChars(80));
     // @ts-expect-error -- the refusal under test: a raw string is no `Copy`.
-    zeige("Gespeichert");
+    show("Gespeichert");
   });
 });
 

@@ -1,5 +1,5 @@
 import { FLGruppenNames } from "@/core/generated/client/types";
-import { KONTAKT_ROLLE_LANGFORM, TRIKOT_FARBEN } from "@/core/teamVocabulary";
+import { KONTAKT_ROLLE_LONG_FORM, TRIKOT_FARBEN } from "@/core/teamVocabulary";
 import { NICHT_HINTERLEGT, nichtHinterlegt } from "@/shared/utils/format";
 
 import type {
@@ -215,15 +215,15 @@ export const KONTAKT_WHATSAPP_LABELS: Readonly<Record<FLKontaktKenntnisnahmeUmfa
  * The three seats a season holds per club, in both surfaces' order.
  *
  * TWO wordings, as `AUSTRITT_OPTIONS` carries three: the admin takes the short form, the public one
- * the long form, which `fl_frontend/src/core/teamVocabulary.ts :: KONTAKT_ROLLE_LANGFORM` holds for the mails too. Both
+ * the long form, which `fl_frontend/src/core/teamVocabulary.ts :: KONTAKT_ROLLE_LONG_FORM` holds for the mails too. Both
  * are read from here, so no two surfaces name a seat differently.
  */
 export const KONTAKT_ROLLEN = [
   // The Ansprechperson leads and the Trainer closes: the coach claim is answered on the Trainer's
   // own panel, and it names a seat the reader has already typed.
-  { value: "ansprechperson", label: "Ansprechperson", langform: KONTAKT_ROLLE_LANGFORM.ansprechperson },
-  { value: "stellvertretung", label: "Stellvertretung", langform: KONTAKT_ROLLE_LANGFORM.stellvertretung },
-  { value: "trainer", label: "Trainer", langform: KONTAKT_ROLLE_LANGFORM.trainer },
+  { value: "ansprechperson", label: "Ansprechperson", langform: KONTAKT_ROLLE_LONG_FORM.ansprechperson },
+  { value: "stellvertretung", label: "Stellvertretung", langform: KONTAKT_ROLLE_LONG_FORM.stellvertretung },
+  { value: "trainer", label: "Trainer", langform: KONTAKT_ROLLE_LONG_FORM.trainer },
 ] as const;
 
 export type KontaktRolle = (typeof KONTAKT_ROLLEN)[number]["value"];

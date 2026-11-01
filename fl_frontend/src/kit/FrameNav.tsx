@@ -170,8 +170,8 @@ async function signOutAndLeave() {
 
 /** The themes as next-themes names them, each by its glyph, in the order the owner set: dark, light, system. */
 const THEMES: readonly GlyphChoice[] = [
-  { id: "dark", glyph: "dunkel", label: COPY.template.theme.dark },
-  { id: "light", glyph: "hell", label: COPY.template.theme.light },
+  { id: "dark", glyph: "dark", label: COPY.template.theme.dark },
+  { id: "light", glyph: "light", label: COPY.template.theme.light },
   { id: "system", glyph: "system", label: COPY.template.theme.system },
 ];
 
@@ -632,7 +632,7 @@ export function HeaderLinks({ links, signIn }: { links: ReadonlyArray<HeaderLink
                 data-kit-focus="ring"
                 className="flex size-11 items-center justify-center rounded-lg text-on-brand">
                 <Icon
-                  glyph="menue"
+                  glyph="menu"
                   size={18}
                 />
               </AriaButton>

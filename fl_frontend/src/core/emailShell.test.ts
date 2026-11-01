@@ -7,7 +7,7 @@ import type { Mail } from "./emailShell.ts";
 const ORIGIN = "https://example.com";
 
 const MAIL: Mail = {
-  art: "notice",
+  kind: "notice",
   subjectLine: "Spiel abgesagt",
   origin: ORIGIN,
   vorname: "",

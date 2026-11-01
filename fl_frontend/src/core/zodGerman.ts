@@ -7,8 +7,8 @@ import type { Copy } from "./copy";
 import type { CalendarDay } from "./format";
 import type { FLRefusedField } from "./generated/client/types";
 
-/** A field's example for „Format: {Beispiel}“, keyed by the field's path, its segments joined by dots. */
-export type Beispiele = Readonly<Record<string, Copy>>;
+/** A field's example for „Format: …“, keyed by the field's path, its segments joined by dots. */
+export type Examples = Readonly<Record<string, Copy>>;
 
 const { field, failure } = COPY.shared;
 
@@ -41,7 +41,7 @@ function numberMessage(schema: z.core.$ZodType): Copy | undefined {
  * line rather than to Zod's English. It reads the raw issue an error map is handed, whose input and schema a parse's
  * finished issues no longer carry.
  */
-export function fieldMessage(issue: z.core.$ZodRawIssue, beispiele: Beispiele = {}): Copy {
+export function fieldMessage(issue: z.core.$ZodRawIssue, examples: Examples = {}): Copy {
   // Every check meeting an empty box asks for a value, whichever check it was; a list with nothing picked is one.
   const { input } = issue;
   if (input === undefined || input === null || input === "" || (Array.isArray(input) && input.length === 0)) return field.required;
@@ -57,7 +57,7 @@ export function fieldMessage(issue: z.core.$ZodRawIssue, beispiele: Beispiele = 
   }
 
   // A value of the wrong shape is shown the shape: the field's own example, or the address example for an address.
-  const example = beispiele[(issue.path ?? []).map(String).join(".")];
+  const example = examples[(issue.path ?? []).map(String).join(".")];
   if (example !== undefined) return field.format(example);
   if (issue.code === "invalid_format" && issue.format === "email") return field.format(field.exampleAddress);
 

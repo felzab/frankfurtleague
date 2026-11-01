@@ -34,10 +34,10 @@ export function SignedIn({ address }: { address: string }) {
 
   return (
     <SignInPage
-      view="angemeldet"
-      titel={COPY.signIn.title}
-      satz={COPY.signIn.signedInAs}
-      adresse={address}
+      view="signedIn"
+      title={COPY.signIn.title}
+      sentence={COPY.signIn.signedInAs}
+      address={address}
       // A link and never a press: the landing decides where a signed-in visitor goes, as after every sign-in.
       continue={{ label: COPY.shared.overview, href: SIGN_IN_LANDING }}
       // One press, as every sign-out is.

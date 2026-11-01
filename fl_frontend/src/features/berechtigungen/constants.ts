@@ -1,4 +1,4 @@
-import { GELOESCHT_ACTOR_MARKER } from "@/core/geloeschtActor";
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
 import { OFFENE_ANTRAEGE } from "@/core/seitenNamen";
 import { benannt } from "@/shared/utils/benannt";
 
@@ -35,7 +35,7 @@ export const GELOESCHTE_PERSON = "Gelöschte Person";
 export function vonOderGesperrt(von: string | null, gesperrt: boolean): string {
   if (gesperrt || von === null) return GESPERRTE_ADRESSE;
 
-  return von === GELOESCHT_ACTOR_MARKER ? GELOESCHTE_PERSON : von;
+  return von === ERASED_ACTOR_MARKER ? GELOESCHTE_PERSON : von;
 }
 
 /**
@@ -45,7 +45,7 @@ export function vonOderGesperrt(von: string | null, gesperrt: boolean): string {
 export function nachVonOderGesperrt(von: string | null, gesperrt: boolean): string {
   if (gesperrt || von === null) return "einer gesperrten Adresse";
 
-  return von === GELOESCHT_ACTOR_MARKER ? "einer nicht genannten Adresse" : von;
+  return von === ERASED_ACTOR_MARKER ? "einer nicht genannten Adresse" : von;
 }
 
 /** What the runbook's Playground paste writes as `erteilt_von` (`docs/ops/runbooks.md` §3), which names nobody. */

@@ -1,11 +1,11 @@
 import "server-only";
 
 import { KONTAKT_EMAIL } from "./brand";
-import { BRAND_NAME, mailOrigin, WIDERSPRUCH } from "./emailShell";
+import { BRAND_NAME, mailOrigin, OBJECTION } from "./emailShell";
 
 import type { Mail } from "./emailShell";
 import type { FLSperreData } from "./generated/client/types";
-import type { MailOrt } from "./mailKinds";
+import type { MailOrigin } from "./mailKinds";
 
 /**
  * What is kept, named because the reader cannot be shown it, the account only while a record holds the
@@ -25,9 +25,9 @@ const EINLEITUNG = [
   "Mit ihr kannst Du Dich vorerst weder anmelden noch für eine Saison registrieren, und Du kannst weder als Kontaktperson in einer Bewerbung genannt noch als Schiedsrichterin oder Schiedsrichter eingetragen werden.",
 ] as const;
 
-export function buildSperreEmail({ grund, barred_until_saison_id: gesperrtBisSaisonId }: FLSperreData, { origin }: MailOrt): Mail {
+export function buildSperreEmail({ grund, barred_until_saison_id: gesperrtBisSaisonId }: FLSperreData, { origin }: MailOrigin): Mail {
   return {
-    art: "notice",
+    kind: "notice",
     subjectLine: "Deine E-Mail-Adresse ist gesperrt",
     origin: mailOrigin(origin),
     vorname: "",
@@ -46,12 +46,12 @@ export function buildSperreEmail({ grund, barred_until_saison_id: gesperrtBisSai
       // The one way to a copy or a deletion while the address cannot sign in, and how the league knows the
       // request is the address holder's.
       [
-        ["Möchtest Du eine Kopie Deiner Daten oder ihre Löschung, schreib uns an ", { adresse: KONTAKT_EMAIL }, "."],
+        ["Möchtest Du eine Kopie Deiner Daten oder ihre Löschung, schreib uns an ", { address: KONTAKT_EMAIL }, "."],
         "Wir bestätigen Deine Anfrage mit einer E-Mail an diese gesperrte Adresse.",
       ],
       // A barred address's confirmation link shows the ban's sentence and nothing else, so a contact person
       // withdrawing a consent that link took has only this mail to learn where it now goes.
-      [["Einen Widerspruch gegen Deine Einwilligung nimmst Du weiterhin per E-Mail an ", { adresse: KONTAKT_EMAIL }, " vor."]],
+      [["Einen Widerspruch gegen Deine Einwilligung nimmst Du weiterhin per E-Mail an ", { address: KONTAKT_EMAIL }, " vor."]],
       // Art. 6 (1) (f), named because the mail is the ONLY record this reader ever gets.
       [
         "Wir speichern diesen Eintrag auf Grundlage unseres berechtigten Interesses daran, eine gesperrte Adresse nicht erneut zuzulassen (Art. 6 Abs. 1 lit. f DSGVO).",
@@ -59,7 +59,7 @@ export function buildSperreEmail({ grund, barred_until_saison_id: gesperrtBisSai
       // Art. 21 (4) asks that the right to object be brought to the reader's attention EXPLICITLY and
       // SEPARATELY at the first communication, which this message is: its own paragraph, the last, in the shell's
       // wording for every first contact.
-      [WIDERSPRUCH, "Dort beantworten wir auch Fragen zur Sperre."],
+      [OBJECTION, "Dort beantworten wir auch Fragen zur Sperre."],
     ],
   };
 }

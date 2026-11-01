@@ -107,7 +107,7 @@ function Entry({ label, icon, hasMore }: { label: string; icon?: IconName; hasMo
       {hasMore === true && (
         <span className="ml-auto text-fg-muted">
           <Icon
-            glyph="vor"
+            glyph="forward"
             size={16}
           />
         </span>

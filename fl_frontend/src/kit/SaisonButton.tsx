@@ -107,7 +107,7 @@ export function SaisonButton({ placement }: { placement: "rail" | "band" }) {
             )}
             <span className={arrow()}>
               <Icon
-                glyph="aufklappen"
+                glyph="expand"
                 size={16}
               />
             </span>

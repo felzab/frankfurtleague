@@ -1,5 +1,5 @@
 import { COPY } from "@/core/copy";
-import { ERGEBNIS_TRENNER } from "@/core/format";
+import { ERGEBNIS_SEPARATOR } from "@/core/format";
 
 import { figures, look, NONE, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
@@ -69,7 +69,7 @@ export function SpielHead({ eyebrow, home, away, result }: SpielHeadProps) {
               score={score}
               part="home"
             />
-            <span className={score === null ? "text-fg-muted" : undefined}>{ERGEBNIS_TRENNER}</span>
+            <span className={score === null ? "text-fg-muted" : undefined}>{ERGEBNIS_SEPARATOR}</span>
             <Goals
               score={score}
               part="away"
