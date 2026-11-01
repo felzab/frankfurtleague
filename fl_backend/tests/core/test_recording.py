@@ -90,7 +90,7 @@ class _FakeCollection:
         """Answers the image it was asked for, as the driver does -- which is what makes the pre-image atomic."""
         return self.before if return_document is ReturnDocument.BEFORE else self.after
 
-    async def update_many(self, *, filter: Any, update: Any, session: Any = None) -> UpdateResult:
+    async def update_many(self, *, filter: Any, update: Any, array_filters: Any = None, session: Any = None) -> UpdateResult:
         return UpdateResult({"n": self.modified_count, "nModified": self.modified_count, "ok": 1.0}, True)
 
     async def insert_one(self, document: Mapping[str, Any], session: Any = None) -> InsertOneResult:

@@ -19,8 +19,9 @@ from app.api.spieler.admin_router import (
 )
 from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload
 from app.core.collections import Collection
+from app.core.sentinels import GHOST_SPIELER_ID
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import saison_document, saison_team_document, spieler_document
+from tests.documents import saison_document, saison_team_document, spielbericht_document, spieler_document
 from tests.erasure import erased
 from tests.whole_database import where_held
 from tests.worker import worker_database
@@ -417,6 +418,66 @@ class TestAPupilWhoNeverJoinedASquad:
 
         assert remaining == 0
         assert held == {LONE_VORNAME: []}
+
+
+def a_report_naming(*, scorers: list[ObjectId | None], carded: list[ObjectId]) -> dict[str, Any]:
+    """A report on a fixture of its own, adopted, so a repoint that touched the adoption shows as one."""
+
+    report = spielbericht_document({"_id": ObjectId(), "saison_id": SAISON_ID})
+    bericht = report["bericht"]
+    bericht["torschuetzen"] = [
+        {"seite": "team1", "spieler_id": scorer, "minute": str(10 + index), "eigentor": False} for index, scorer in enumerate(scorers)
+    ]
+    bericht["karten"] = [
+        {"seite": "team2", "spieler_id": pupil, "minute": str(60 + index), "farbe": "gelb", "grund": "foulspiel"}
+        for index, pupil in enumerate(carded)
+    ]
+    bericht["ergebnis_vorschlag"] = {"team1_tore": len(scorers), "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None}
+    bericht |= {"adopted_at": bericht["submitted_at"], "adopted_by": {"art": "admin"}, "adopted_version": bericht["version"]}
+
+    return report
+
+
+class TestTheirReportEntriesNameTheSentinel:
+    """A report is the league's record of the match, so it stays; the entries naming them name nobody instead."""
+
+    def test_no_entry_names_them_and_every_other_entry_and_report_stands(self, mongo_replica_set_url: str):
+        """Catches a repoint reaching one array alone, every element of one, or a report naming somebody else."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            document = person_row(GELOESCHT_VORNAME)
+            other = person_row(OTHER_VORNAME)
+            await database[Collection.SPIELER].insert_many([document, other])
+            spieler_id, other_id = document["_id"], other["_id"]
+
+            theirs = a_report_naming(scorers=[spieler_id, other_id, None, spieler_id], carded=[other_id, spieler_id])
+            elsewhere = a_report_naming(scorers=[other_id], carded=[other_id])
+            nobody = a_report_naming(scorers=[], carded=[])
+            await database[Collection.SPIELBERICHTE].insert_many([theirs, elsewhere, nobody])
+
+            async def reports() -> dict[ObjectId, dict[str, Any]]:
+                return {row["_id"]: row for row in await database[Collection.SPIELBERICHTE].find().to_list(length=None)}
+
+            # Read back rather than taken from the seed, which the driver stores and answers in its own datetime form.
+            seeded = await reports()
+            await loeschen_the_pupil(database, client, spieler_id)
+
+            return spieler_id, other_id, [theirs["_id"], elsewhere["_id"], nobody["_id"]], seeded, await reports()
+
+        spieler_id, other_id, (theirs, elsewhere, nobody), seeded, stored = on_a_league(mongo_replica_set_url, body)
+        repointed, before = stored[theirs]["bericht"], seeded[theirs]["bericht"]
+
+        assert [entry["spieler_id"] for entry in repointed["torschuetzen"]] == [GHOST_SPIELER_ID, other_id, None, GHOST_SPIELER_ID]
+        assert [entry["spieler_id"] for entry in repointed["karten"]] == [other_id, GHOST_SPIELER_ID]
+        # Each entry's other fields, and the adoption, are the report's own.
+        assert [{**entry, "spieler_id": None} for entry in [*repointed["torschuetzen"], *repointed["karten"]]] == [
+            {**entry, "spieler_id": None} for entry in [*before["torschuetzen"], *before["karten"]]
+        ]
+        assert {**repointed, "torschuetzen": None, "karten": None} == {**before, "torschuetzen": None, "karten": None}
+        assert (stored[elsewhere], stored[nobody]) == (seeded[elsewhere], seeded[nobody])
+        assert spieler_id not in {
+            entry["spieler_id"] for row in stored.values() for entry in [*row["bericht"]["torschuetzen"], *row["bericht"]["karten"]]
+        }
 
 
 class TestAHalfDoneLoeschungCommitsNothing:

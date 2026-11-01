@@ -63,7 +63,7 @@ RULES = documents.rules_document(number_of_gruppen=4, teams_per_gruppe=4, qualif
 
 # Spelled out rather than computed, so a `schedule_for` change that stops matching is visible here.
 GRUPPENPHASE_MATCHES = 8
-FINALE_MATCHES = 1
+FINALE_MATCHES = 2
 
 
 def saison_document() -> dict[str, Any]:

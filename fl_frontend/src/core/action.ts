@@ -1,6 +1,6 @@
 import "server-only";
 
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
 
@@ -9,7 +9,7 @@ import { COPY } from "./copy";
 import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
 import { logger } from "./logging";
 import { logRefused } from "./refused";
-import { runWithRequestScope } from "./requestScope";
+import { requestWriteSent, runWithRequestScope } from "./requestScope";
 import { isSeatAt, rolesOf } from "./roles";
 import { isWordedRule, ruleMessage } from "./ruleMessage";
 import { SERVER_COPY } from "./serverCopy";
@@ -328,10 +328,10 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
 
 /**
  * The body and its call to the backend, answering the backend's refusal by its code and anything else as the
- * unexpected failure. An administrator's or a person's write clears the site's one cache tag whatever the body came
- * to: a write may stand behind a refusal, a throw or a lost answer, and every cached read carries the tag, so no
- * write has to know which it moves. The tag's clearing also renders the page again in the action's response. A
- * public write, the sign-in's code, reaches no cached read, so it leaves every other visitor's pages cached.
+ * unexpected failure. A body that sent a backend write clears the site's one cache tag whatever it came to: a write
+ * may stand behind a refusal, a throw or a lost answer, and every cached read carries the tag, so no write has to know
+ * which it moves. A body that sent none leaves the cache standing and renders the page again all the same, as the
+ * clearing does, since what it changed lies outside the cache.
  */
 async function body<Schema extends z.ZodType, Value>(
   lane: Lane<Schema, Value>,
@@ -348,7 +348,8 @@ async function body<Schema extends z.ZodType, Value>(
     logFailure(lane.name, error);
     return UNEXPECTED;
   } finally {
-    if (lane.lane !== "public") updateTag(SITE_CACHE_TAG);
+    if (requestWriteSent()) updateTag(SITE_CACHE_TAG);
+    else refresh();
   }
 }
 

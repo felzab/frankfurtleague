@@ -276,7 +276,7 @@ def saison() -> PayloadFactory:
                 {"phase": "gruppenphase", "spieltage": 3, "matches_per_spieltag": 8},
                 {"phase": "viertelfinale", "spieltage": 1, "matches_per_spieltag": 4},
                 {"phase": "halbfinale", "spieltage": 1, "matches_per_spieltag": 2},
-                {"phase": "finale", "spieltage": 1, "matches_per_spieltag": 1},
+                {"phase": "finale", "spieltage": 1, "matches_per_spieltag": 2},
             ],
         }
     )

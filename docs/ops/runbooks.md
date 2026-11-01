@@ -1527,8 +1527,9 @@ guard reads something the restore took away:
 - **A referee.** The whole row is back, with its name, school and contact members, and every fixture
   the erasure had repointed names them again in place of the ghost, so nothing reads as erased and
   they are editable and bookable. The erasure does all of it again.
-- **A pupil.** The person and their squad rows are back and standing, and the erasure takes them
-  again, asking no retirement first.
+- **A pupil.** The person and their squad rows are back and standing, and every report entry the
+  erasure had repointed names them again in place of the sentinel. The erasure takes them and repoints
+  the entries again, asking no retirement first.
 - **A contact seat.** Every seat that address held is back and filled. The erasure is keyed on the
   address, so the matched address is the whole input — and the armed panel's list now names records
   written since the snapshot as well, which is why section 5 says to read it before pressing.

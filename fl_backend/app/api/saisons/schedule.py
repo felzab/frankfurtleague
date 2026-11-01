@@ -68,6 +68,16 @@ def knockout_phases_for(qualifiers: int) -> tuple[FLSaisonPhase, ...]:
     return KNOCKOUT_PHASES[-rounds:]
 
 
+def plays_for_third_place(qualifiers: int) -> bool:
+    """Whether a bracket of `qualifiers` teams plays a match for third place, which is wherever it has semi-finals.
+
+    That match is the two semi-final losers', played on the Finale's matchday and before the final,
+    so no phase of its own: one appended past `finale` would double `MAX_QUALIFIERS`.
+    """
+
+    return "halbfinale" in knockout_phases_for(qualifiers)
+
+
 def schedule_for(rules: FLSaisonRules) -> tuple[PhaseSchedule, ...]:
     """The whole season, phase by phase, in playing order.
 
@@ -83,8 +93,11 @@ def schedule_for(rules: FLSaisonRules) -> tuple[PhaseSchedule, ...]:
     ]
 
     remaining = qualifier_count(rules)
+    third_place = plays_for_third_place(remaining)
     for phase in knockout_phases_for(remaining):
-        schedule.append(PhaseSchedule(phase=phase, spieltage=1, matches_per_spieltag=remaining // 2))
+        # The Finale's matchday also holds the match for third place.
+        matches = remaining // 2 + (1 if phase == "finale" and third_place else 0)
+        schedule.append(PhaseSchedule(phase=phase, spieltage=1, matches_per_spieltag=matches))
         remaining //= 2
 
     return tuple(schedule)
@@ -93,7 +106,8 @@ def schedule_for(rules: FLSaisonRules) -> tuple[PhaseSchedule, ...]:
 def expected_matches(rules: FLSaisonRules, phase: FLSaisonPhase) -> int:
     """How many matches one matchday of this phase should hold -- `spieltage.count_spiele`.
 
-    Zero for a knockout round this season's bracket does not reach.
+    The Finale's counts the match for third place beside the final. Zero for a knockout round this
+    season's bracket does not reach.
     """
 
     for entry in schedule_for(rules):

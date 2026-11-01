@@ -7,6 +7,7 @@ from app.api.saisons.schedule import (
     group_matchdays,
     group_matches_per_matchday,
     knockout_phases_for,
+    plays_for_third_place,
     qualifier_count,
     schedule_for,
     total_group_matches,
@@ -151,6 +152,32 @@ class TestTheBracket:
         assert qualifier_count(rules(groups=4, qualifiers=2)) == 8
 
 
+class TestTheMatchForThirdPlace:
+    @pytest.mark.parametrize(("qualifiers", "expected"), [(2, False), (4, True), (8, True), (16, True)])
+    def test_every_bracket_with_semi_finals_plays_one(self, qualifiers: int, expected: bool):
+        """Two qualifiers play the final alone: there is no semi-final to lose."""
+
+        assert plays_for_third_place(qualifiers) is expected
+
+    @pytest.mark.parametrize("qualifiers", [0, 1, 3, 6, 32])
+    def test_a_field_with_no_bracket_plays_none(self, qualifiers: int):
+        assert plays_for_third_place(qualifiers) is False
+
+    @pytest.mark.parametrize(("groups", "qualifiers", "finale"), [(1, 2, 1), (2, 1, 1), (2, 2, 2), (4, 2, 2), (4, 4, 2)])
+    def test_the_finale_matchday_counts_it_beside_the_final(self, groups: int, qualifiers: int, finale: int):
+        """Every other round keeps half the field that entered it."""
+
+        assert expected_matches(rules(groups=groups, per_group=4, qualifiers=qualifiers), "finale") == finale
+
+    @pytest.mark.parametrize(("groups", "qualifiers", "bracket"), [(1, 2, 1), (2, 2, 4), (4, 2, 8), (4, 4, 16)])
+    def test_the_season_total_counts_it(self, groups: int, qualifiers: int, bracket: int):
+        """`bracket` is the knockout's matches by hand: `qualifiers - 1` played out, plus one for third place past two qualifiers."""
+
+        shape = rules(groups=groups, per_group=4, qualifiers=qualifiers)
+
+        assert total_season_fixtures(shape) == total_group_matches(groups, 4) + bracket
+
+
 class TestTheWholeSeason:
     def test_it_reproduces_the_season_the_league_is_playing(self):
         """The one case with an independent answer: every number below is one the league's own matchdays carry by hand."""
@@ -161,10 +188,12 @@ class TestTheWholeSeason:
             ("gruppenphase", 3, 8),
             ("viertelfinale", 1, 4),
             ("halbfinale", 1, 2),
-            ("finale", 1, 1),
+            ("finale", 1, 2),
         ]
 
     def test_a_knockout_round_holds_half_the_field_that_entered_it(self):
+        """The Finale's matchday holds the final and the match for third place."""
+
         schedule = schedule_for(rules(groups=4, per_group=6, qualifiers=4))
 
         assert [(entry.phase, entry.matches_per_spieltag) for entry in schedule] == [
@@ -172,7 +201,7 @@ class TestTheWholeSeason:
             ("achtelfinale", 8),
             ("viertelfinale", 4),
             ("halbfinale", 2),
-            ("finale", 1),
+            ("finale", 2),
         ]
 
     def test_a_season_with_no_bracket_still_describes_its_group_phase(self):
@@ -189,7 +218,7 @@ class TestTheWholeSeason:
 
         assert expected_matches(rounds, "gruppenphase") == 8
         assert expected_matches(rounds, "viertelfinale") == 4
-        assert expected_matches(rounds, "finale") == 1
+        assert expected_matches(rounds, "finale") == 2
 
     def test_a_phase_this_season_does_not_reach_expects_nothing(self):
         """Zero is the honest answer, not an error."""

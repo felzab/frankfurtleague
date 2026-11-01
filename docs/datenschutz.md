@@ -372,9 +372,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   can be written back onto the person: an edit racing the erasure
   meets the deleted row and is refused as not found. Every erased referee's fixtures share that one
   row, so no set of fixtures singles a person out. Every match report the referee sent names the ghost
-  as its sender too, and stands with its remarks and entries as the league's record of the match. A pupil's erasure reaches no match report: each goal or card
-  naming them keeps the erased record's id, which no page shows but as „anonym“, and which ties their
-  entries together across reports. No erasure reaches the ghost: each selects the
+  as its sender too, and stands with its remarks and entries as the league's record of the match. A pupil's erasure
+  repoints each goal and card naming them at the pupils' sentinel,
+  `fl_backend/app/core/sentinels.py :: GHOST_SPIELER_ID`, in the same transaction
+  (`fl_backend/app/api/spielberichte/crud.py :: repoint_pupil_entries_in_session`), so no entry keeps the erased
+  record's id or ties their entries together across reports, and the report stands as the league's record of the
+  match. The action log's older images of a report still hold the id, until the log's twelve months take them.
+  No erasure reaches the ghost: each selects the
   records an address holds, and the ghost holds none.
 - **The address route answers every request, because every pupil and referee row holds an
   address, the two ghosts apart, which hold no person.** A pupil row is created only by an

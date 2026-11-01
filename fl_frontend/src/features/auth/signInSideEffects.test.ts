@@ -86,8 +86,9 @@ const { sent } = registerAuthDoubles({
   },
 });
 
-// The action builder clears the site's cache tag, which Next takes from an action's own request alone.
-vi.mock("next/cache", async (original) => ({ ...(await original<object>()), updateTag: () => undefined }));
+// The action builder clears the site's cache tag or renders the page again, which Next takes from an action's own
+// request alone.
+vi.mock("next/cache", async (original) => ({ ...(await original<object>()), updateTag: () => undefined, refresh: () => undefined }));
 
 const deferred: (() => Promise<void>)[] = [];
 const store = memoryStore(STORE);
