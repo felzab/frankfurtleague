@@ -410,31 +410,6 @@
       "count": 1
     }
   },
-  "src/app/dashboard/(shared-views)/layout.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/app/dashboard/(shared-views)/spieler/[team_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/dashboard/(shared-views)/teams/[team_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/dashboard/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/dashboard/not-found.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/app/error.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -1167,16 +1142,6 @@
     },
     "react/forbid-component-props": {
       "count": 2
-    }
-  },
-  "src/features/dashboard/components/ui/DashboardShell.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/dashboard/constants.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
     }
   },
   "src/features/einladungen/actions.ts": {
@@ -2846,23 +2811,6 @@
       "count": 1
     }
   },
-  "src/features/spiele/components/ui/SpielCardCompact.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 6
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 9
-    },
-    "react/forbid-component-props": {
-      "count": 7
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
   "src/features/spiele/components/ui/SpielCardGrid.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -2886,20 +2834,6 @@
     },
     "react/jsx-no-literals": {
       "count": 1
-    }
-  },
-  "src/features/spiele/components/ui/SpielCardUltraCompact.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 5
     }
   },
   "src/features/spiele/components/ui/SpielScore.tsx": {
@@ -3241,20 +3175,6 @@
       "count": 3
     }
   },
-  "src/features/spieler/components/views/TeamSpielerView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "no-restricted-syntax": {
-      "count": 15
-    },
-    "react/forbid-component-props": {
-      "count": 13
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
   "src/features/spieler/nachweis.ts": {
     "no-restricted-syntax": {
       "count": 1
@@ -3437,31 +3357,6 @@
       "count": 1
     }
   },
-  "src/features/spieltage/components/views/PlayoffsView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 3
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 14
-    },
-    "no-restricted-syntax": {
-      "count": 13
-    }
-  },
-  "src/features/spieltage/components/views/SpielplanView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 6
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    },
-    "react/forbid-component-props": {
-      "count": 7
-    }
-  },
   "src/features/system/components/ui/ServerIsLive.tsx": {
     "no-restricted-syntax": {
       "count": 1
@@ -3501,20 +3396,6 @@
     },
     "react/jsx-no-literals": {
       "count": 6
-    }
-  },
-  "src/features/teams/components/collections/TeamsGrid.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 2
     }
   },
   "src/features/teams/components/forms/AdminCreateTeamForm.tsx": {
@@ -3736,47 +3617,6 @@
       "count": 3
     }
   },
-  "src/features/teams/components/ui/TeamAustrittNote.tsx": {
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/teams/components/ui/TeamCard.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    },
-    "react/forbid-component-props": {
-      "count": 6
-    }
-  },
-  "src/features/teams/components/ui/TeamDetailsBackButton.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/teams/components/ui/TeamIdentityCard.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 6
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    },
-    "react/forbid-component-props": {
-      "count": 4
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
   "src/features/teams/components/ui/TeamPopoverMenu.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 7
@@ -3789,59 +3629,6 @@
     },
     "react/forbid-component-props": {
       "count": 11
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/teams/components/ui/TeamSaisonSpieleTimeline.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 11
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/teams/components/ui/TeamSaisonStatistik.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/teams/components/ui/TeamSaisonVerlauf.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 6
-    }
-  },
-  "src/features/teams/components/ui/Tordifferenz.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
     },
     "react/jsx-no-literals": {
       "count": 2
@@ -3862,39 +3649,6 @@
   },
   "src/features/teams/components/views/AdminTeamsView.tsx": {
     "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/teams/components/views/SaisontabelleView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 10
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 27
-    },
-    "react/forbid-component-props": {
-      "count": 18
-    },
-    "react/jsx-no-literals": {
-      "count": 16
-    }
-  },
-  "src/features/teams/components/views/TeamDetailsView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/teams/components/views/TeamSelectionView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
       "count": 1
     }
   },
@@ -4496,14 +4250,6 @@
     },
     "react/jsx-no-literals": {
       "count": 4
-    }
-  },
-  "src/shared/components/ui/ExpandableDescription.tsx": {
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 6
     }
   },
   "src/shared/components/ui/FLLogo.tsx": {
