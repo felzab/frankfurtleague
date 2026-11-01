@@ -89,7 +89,7 @@ def public_person(*, vorname: str | None, nachname: str | None, einwilligung: Ma
 
 
 def build_ghost_spieler() -> dict[str, Any]:
-    """The row an erased pupil's surviving entries are repointed to, as written.
+    """The row an erased pupil's scorer and card entries are repointed to, as written.
 
     Nameless and recordless, as `app/api/spieler/schemas.py :: FLSpielerRecord` admits for this row
     alone: a name here is published on every such entry, and a fabricated record is counted as consent.
