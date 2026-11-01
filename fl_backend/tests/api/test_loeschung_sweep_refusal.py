@@ -109,9 +109,9 @@ class TestTheStatusesAnActivationLeaves:
         assert behaltene_saison_ids(statuses_after_activating(statuses, "2026")) == {"2025", "2026"}
 
 
-# One pupil's commands on the wire, pinned by
+# One pupil's commands on the wire at their costliest, a report naming them, whose repoint writes a log row; pinned by
 # `fl_backend/tests/api/test_loeschung_sweep.py :: TestOnePupilCostsTheCommandsItsShareIsSizedAt`.
-COMMANDS_A_PERSON = 21
+COMMANDS_A_PERSON = 22
 
 # The call's other commands, pinned on the wire by
 # `fl_backend/tests/api/test_loeschung_sweep.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`: three aggregates,

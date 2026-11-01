@@ -305,6 +305,16 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("bericht.submitted_by.schiedsrichter_id", ASCENDING),),
         "the reports a leaving referee sent, read inside their erasure's transaction",
     ),
+    # For the referee's reason, one per clause of the pupil repoint's `$or`, for the registration's pair's reason; each multikey.
+    *(
+        SupportIndex(
+            Collection.SPIELBERICHTE,
+            f"spielberichte_bericht_{entries}_spieler_id",
+            ((f"bericht.{entries}.spieler_id", ASCENDING),),
+            "the reports naming a leaving pupil, read inside their erasure's transaction",
+        )
+        for entries in ("torschuetzen", "karten")
+    ),
     # Under the collation the two squad reads sort names by: the report reads it on every form and panel read and twice
     # on every write, the squad page on every read.
     SupportIndex(

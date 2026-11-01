@@ -17,14 +17,15 @@ ENVELOPE = frozenset({"$db", "$clusterTime", "$readPreference", "lsid", "txnNumb
 
 
 class SentReads(monitoring.CommandListener):
-    """Every `PLANNED` command this client sends that `wanted` picks, with its collection, stripped to what plans it."""
+    """Every one of `commands` this client sends that `wanted` picks, with its collection, stripped to what plans it."""
 
-    def __init__(self, wanted: Wanted) -> None:
+    def __init__(self, wanted: Wanted, commands: tuple[str, ...] = PLANNED) -> None:
         self._wanted = wanted
+        self._commands = commands
         self.sent: list[tuple[str, dict[str, Any]]] = []
 
     def started(self, event: monitoring.CommandStartedEvent) -> None:
-        if event.command_name not in PLANNED:
+        if event.command_name not in self._commands:
             return
         command = event.command
         collection = str(command[event.command_name])
@@ -58,10 +59,13 @@ async def plans_of_sent_reads[T](
     database: AsyncDatabase,
     read: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[T]],
     wanted: Wanted,
+    *,
+    # A write whose filter is what a case asks the plan of names its command here, `update` for an update's.
+    commands: tuple[str, ...] = PLANNED,
 ) -> tuple[T, list[tuple[str, str]]]:
     """`read`'s answer over `database`, and each read it sent that `wanted` picks: its collection, and the server's plan for it."""
 
-    reads = SentReads(wanted)
+    reads = SentReads(wanted, commands)
     # A client of the read's own, so the listener sees its commands and none of the seeding.
     watched = AsyncMongoClient(url, event_listeners=[reads])
     try:
