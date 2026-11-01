@@ -1,3 +1,4 @@
+from dataclasses import replace
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -50,7 +51,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exceptions import DocumentNotFoundError
+from app.core.exceptions import DocumentNotFoundError, WriteRefusal
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.confirmation import FLTokenPayload
@@ -62,6 +63,12 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen",
     dependencies=[Depends(verify_access_base), Depends(bind_public_actor)],
 )
+
+
+def judged_as_a_proposal(refusal: WriteRefusal | None) -> WriteRefusal | None:
+    """The fixture save's refusal, naming no field: the paths it names are the save's, which this body does not carry."""
+
+    return None if refusal is None else replace(refusal, fields=())
 
 
 @router.post(
@@ -228,7 +235,7 @@ async def post_spielbestaetigung(
                     saison_teams_collection=saison_teams_collection, saison_id=stored.saison_id, session=reads
                 )
                 # The composer spelled at the call: its kept sides are what disarm this check's no-membership code here.
-                refuse(find_eligibility_refusal(stored.id, proposal_payload(stored, vorschlag), [stored], membership))
+                refuse(judged_as_a_proposal(find_eligibility_refusal(stored.id, proposal_payload(stored, vorschlag), [stored], membership)))
 
                 span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=reads)
                 if span is not None:
@@ -239,7 +246,7 @@ async def post_spielbestaetigung(
                 booked = await pull_booked_slots(
                     spiele_collection=spiele_collection, spiel_id=stored.id, claims=find_claims_made(stored, proposed), session=reads
                 )
-                refuse(find_clash_refusal(datum=proposed.datum, uhrzeit=proposed.uhrzeit, booked=booked))
+                refuse(judged_as_a_proposal(find_clash_refusal(datum=proposed.datum, uhrzeit=proposed.uhrzeit, booked=booked)))
 
         await judge(lage, session)
 

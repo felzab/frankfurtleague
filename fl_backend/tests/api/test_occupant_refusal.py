@@ -503,6 +503,21 @@ class TestTheBookingRefusal:
 
         assert booking_refusal_for(saison, 1, resolved, schiedsrichter=A_DIFFERENT_SCHIEDSRICHTER) == Code.BOOKING_UNKNOWN_RESOURCE
 
+    def test_each_refusal_names_the_field_holding_the_row_it_is_about(self, saison):
+        """The editor marks that field, the venue's or the referee's, rather than answering for the whole form."""
+
+        venue = booking_refusal(saison, 1, references(), ort=A_DIFFERENT_SPIELORT)
+        referee = booking_refusal(saison, 1, references(), schiedsrichter=A_DIFFERENT_SCHIEDSRICHTER)
+        unconfirmed = booking_refusal(
+            saison, 1, references(schiedsrichter=UNCONFIRMED_SCHIEDSRICHTER), schiedsrichter=A_DIFFERENT_SCHIEDSRICHTER
+        )
+
+        assert [None if refusal is None else refusal.fields for refusal in (venue, referee, unconfirmed)] == [
+            (("ort", "spielort_id"),),
+            (("schiedsrichter", "schiedsrichter_id"),),
+            (("schiedsrichter", "schiedsrichter_id"),),
+        ]
+
 
 # Both rows retired, so a save passing one of them by is refused for the other.
 BOTH_RETIRED = {"ort": RETIRED_SPIELORT, "schiedsrichter": RETIRED_SCHIEDSRICHTER}
@@ -764,6 +779,12 @@ class TestEligibility:
             eligibility_for(saison, 30, {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE}, team1=team(CRONBERG, "Cronberg"))
             == Code.ELIGIBILITY_DISQUALIFIED
         )
+
+    @pytest.mark.parametrize("side", ["team1", "team2"])
+    def test_the_refusal_names_the_side_it_is_about(self, saison, side):
+        refusal = eligibility_refusal_for(saison, 30, {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE}, **{side: team(CRONBERG, "Cronberg")})
+
+        assert refusal is not None and refusal.fields == ((side, "team_id"),)
 
     def test_the_day_itself_is_refused(self, saison):
         """An off-by-one is a banned team playing, or an entitled one refused."""

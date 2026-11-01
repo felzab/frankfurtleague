@@ -4,7 +4,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 from http import HTTPStatus
-from typing import Any, Literal
+from typing import Any, Final, Literal
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielbestaetigungen.services import ANSETZUNG_QUELLEN, build_closable_filter
@@ -48,7 +48,7 @@ from app.api.teams.services import DecidedStanding, offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import build_query, build_sort
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import FieldPath, WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import NAME_IS_PUBLIC
 from app.shared.schemas.custom import CustomObjectId
@@ -1079,6 +1079,7 @@ def find_eligibility_refusal(
         return WriteRefusal(
             error_code=Code.ELIGIBILITY_DISQUALIFIED,
             status=HTTPStatus.CONFLICT,
+            fields=((label, "team_id"),),
         )
 
     return None
@@ -1185,6 +1186,13 @@ def find_referee_stand_refusal(stored: FLSpiel, payload: FLPatchSpielDataPayload
     )
 
 
+# Where the save's payload holds each resource: a refusal about one names it, so the editor marks that field.
+RESOURCE_PATHS: Final[Mapping[Literal["Spielort", "Schiedsrichter"], FieldPath]] = {
+    "Spielort": ("ort", "spielort_id"),
+    "Schiedsrichter": ("schiedsrichter", "schiedsrichter_id"),
+}
+
+
 def find_booking_refusal(
     spiel_id: CustomObjectId,
     payload: FLPatchSpielDataPayload,
@@ -1197,9 +1205,12 @@ def find_booking_refusal(
     stored = stored_in_slice(spiel_id, season)
     new = find_new_bookings(stored, payload, rules)
 
-    references = ((new.spielort_id, resolved.ort), (new.schiedsrichter_id, resolved.schiedsrichter))
+    references = (
+        (RESOURCE_PATHS["Spielort"], new.spielort_id, resolved.ort),
+        (RESOURCE_PATHS["Schiedsrichter"], new.schiedsrichter_id, resolved.schiedsrichter),
+    )
 
-    for chosen, row in references:
+    for path, chosen, row in references:
         if chosen is None:
             continue
 
@@ -1207,12 +1218,14 @@ def find_booking_refusal(
             return WriteRefusal(
                 error_code=Code.BOOKING_UNKNOWN_RESOURCE,
                 status=HTTPStatus.CONFLICT,
+                fields=(path,),
             )
 
         if row.inactive_since is not None:
             return WriteRefusal(
                 error_code=Code.BOOKING_UNKNOWN_RESOURCE,
                 status=HTTPStatus.CONFLICT,
+                fields=(path,),
             )
 
     # After both arms above, so the ghost, retired and never confirmed, meets the retirement.
@@ -1220,6 +1233,7 @@ def find_booking_refusal(
         return WriteRefusal(
             error_code=Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER,
             status=HTTPStatus.CONFLICT,
+            fields=(RESOURCE_PATHS["Schiedsrichter"],),
         )
 
     return None
@@ -1354,6 +1368,7 @@ def find_clash_refusal(*, datum: str | None, uhrzeit: str | None, booked: Sequen
     return WriteRefusal(
         error_code=Code.SPIEL_DOUBLE_BOOKED,
         status=HTTPStatus.CONFLICT,
+        fields=(RESOURCE_PATHS[slot.resource],),
     )
 
 

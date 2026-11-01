@@ -121,10 +121,9 @@ JUDGED_PATH = ("kontakt", "email")
 
 @VALIDATION_APP.post("/refused/{status}")
 async def refuse_at(status: int) -> None:
-    """Refuses at the status its path names, a 422 naming the body path it judged."""
+    """Refuses at the status its path names, naming the body path it judged."""
 
-    judged = (JUDGED_PATH,) if status == HTTPStatus.UNPROCESSABLE_CONTENT else ()
-    raise APIError(HTTPStatus(status), PLANTED_REFUSAL, fields=judged)
+    raise APIError(HTTPStatus(status), PLANTED_REFUSAL, fields=(JUDGED_PATH,))
 
 
 @VALIDATION_APP.get("/starlette/{status}")
@@ -175,7 +174,7 @@ class TestFailureBodies:
 
         response = client().get("/api/v0/spiele")
 
-        assert set(response.json()) == {"error_code", "trace_id"}
+        assert (set(response.json()), response.json()["fields"]) == ({"error_code", "trace_id", "fields"}, [])
         # The exact set, so a message copied into any header, under any name, moves this.
         assert set(response.headers) == {"www-authenticate", "content-length", "content-type"}
 
@@ -234,26 +233,18 @@ class TestTheRefusedFieldsReachTheCaller:
         )
 
         assert response.status_code == 400
-        assert set(response.json()) == {"error_code", "trace_id"} and response.json()["error_code"] == Code.BODY_UNREADABLE
+        assert response.json()["error_code"] == Code.BODY_UNREADABLE and response.json()["fields"] == []
 
 
 class TestARefusalIsAnsweredAtTheStatusItsCheckChose:
-    def test_a_422_names_the_body_path_its_rule_judged_under_the_rule_s_own_code(self):
-        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(f"/refused/{int(HTTPStatus.UNPROCESSABLE_CONTENT)}")
+    @pytest.mark.parametrize("status", [HTTPStatus.UNPROCESSABLE_CONTENT, HTTPStatus.CONFLICT])
+    def test_a_refusal_names_the_body_path_its_rule_judged_under_the_rule_s_own_code_at_any_status(self, status: HTTPStatus):
+        """One body for every status: a 409 about one field names it as a 422 does, so a form marks that field."""
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_CONTENT
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(f"/refused/{int(status)}")
+
+        assert response.status_code == status
         assert response.json()["fields"] == [{"in": "body", "path": list(JUDGED_PATH), "kind": PLANTED_REFUSAL, "ctx": {}}]
-
-    def test_a_refusal_off_422_carries_no_fields(self):
-        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(f"/refused/{int(HTTPStatus.CONFLICT)}")
-
-        assert (response.status_code, set(response.json())) == (409, {"error_code", "trace_id"})
-
-    def test_fields_off_a_422_are_refused_where_the_refusal_is_built(self):
-        """They would reach no body: only a 422's publishes `fields`."""
-
-        with pytest.raises(ValueError, match=PLANTED_REFUSAL):
-            APIError(HTTPStatus.CONFLICT, PLANTED_REFUSAL, fields=(JUDGED_PATH,))
 
     @pytest.mark.parametrize("status", sorted(ROUTING_CODES))
     def test_each_status_the_routing_layer_raises_answers_its_own_code(self, status: int):
@@ -455,7 +446,7 @@ class TestACrashIsAnsweredInsideItsRequest:
     def test_the_failure_body_quotes_the_request_s_trace_id(self, caplog):
         response, _ = _crashed(caplog, "/crash")
 
-        assert (response.status_code, response.json()) == (500, {"error_code": Code.UNHANDLED_CRASH, "trace_id": "c0ffee00" * 4})
+        assert (response.status_code, response.json()) == (500, {"error_code": Code.UNHANDLED_CRASH, "trace_id": "c0ffee00" * 4, "fields": []})
 
     @pytest.mark.parametrize(("path", "status"), CRASHES)
     def test_the_crash_line_carries_the_access_line_s_ids(self, caplog, path: str, status: int):

@@ -65,7 +65,7 @@
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/FLRefusedPayloadBody"
+              "$ref": "#/components/schemas/FLFailureBody"
             }
           }
         },
@@ -5838,9 +5838,17 @@
         "type": "object"
       },
       "FLFailureBody": {
+        "description": "Every refusal's one body, whatever its status, in the shape of RFC 9457's problem details.\n\nIts members are this API's own extensions alone: a client words a refusal from its code, so no\n`type`, `title` or `detail` carries English a visitor would read.",
         "properties": {
           "error_code": {
             "$ref": "#/components/schemas/Code"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/FLRefusedField"
+            },
+            "title": "Fields",
+            "type": "array"
           },
           "trace_id": {
             "title": "Trace Id",
@@ -5849,7 +5857,8 @@
         },
         "required": [
           "error_code",
-          "trace_id"
+          "trace_id",
+          "fields"
         ],
         "title": "FLFailureBody",
         "type": "object"
@@ -9676,31 +9685,6 @@
           "ctx"
         ],
         "title": "FLRefusedField",
-        "type": "object"
-      },
-      "FLRefusedPayloadBody": {
-        "properties": {
-          "error_code": {
-            "$ref": "#/components/schemas/Code"
-          },
-          "fields": {
-            "items": {
-              "$ref": "#/components/schemas/FLRefusedField"
-            },
-            "title": "Fields",
-            "type": "array"
-          },
-          "trace_id": {
-            "title": "Trace Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "error_code",
-          "trace_id",
-          "fields"
-        ],
-        "title": "FLRefusedPayloadBody",
         "type": "object"
       },
       "FLRegistrierung": {

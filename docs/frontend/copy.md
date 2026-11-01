@@ -93,12 +93,16 @@ there.
 
 Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it applies.
 
-- **A field message** is one of `field`'s patterns. A real rule takes the same form („Höchstens 11 in
-  der Startelf“) in its area. The address example is `field.exampleAddress`, a reserved domain, never
-  a school's address.
-- **A refusal a person can cause knowingly from the screen** gets its own sentence: the reason, then
-  the one repair. Every other refusal takes a `failure` line: `stale` for a stale page or a
-  concurrent change, `signInExpired` for an ended sign-in, `unexpected` for anything else.
+- **A field message** is one of `field`'s patterns, whether the form's own check or the backend's
+  rule refused the value. A real rule takes the same form („Höchstens 11 in der Startelf“) in its
+  area. The address example is `field.exampleAddress`, a reserved domain, never a school's address.
+- **A refusal a person can cause knowingly from the screen** that is about one field shows on that
+  field as a short phrase in the field patterns' form, and the status line says `checkFields`; where
+  the screen shows no box for the field, the status line reads `template.namedField`, „{Feld}:
+  {Phrase}“, the field's catalogue name before the same phrase. Only a refusal about the whole form
+  takes the status line on its own, in one short sentence that fits its two lines on a phone. Every
+  other refusal takes a `failure` line: `stale` for a stale page or a concurrent change,
+  `signInExpired` for an ended sign-in, `unexpected` for anything else.
 - **A saved record** shows `saved` beside its save button, never as a toast.
 - **A toast** is one of `toast`'s four titles, and only for an action that leaves nothing on the page
   to change.

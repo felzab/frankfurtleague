@@ -27,7 +27,7 @@ trace id and discards whatever header a visitor sent, so no id an attacker chose
 Every later hop keeps the trace id: the frontend validates the header and forwards it to the
 backend, which validates it again, and each line the backend writes carries the trace id alone. A
 header that is not version `00` with lowercase hex is replaced by a fresh trace rather than passed
-on. Nothing echoes the trace on a response except a failure body, `{error_code, trace_id}`, which
+on. Nothing echoes the trace on a response except a failure body, `{error_code, trace_id, fields}`, which
 is how a reader goes from a code a page showed to the lines behind it.
 
 **A cached read runs under a trace of its own.** A `"use cache"` result is shared by later

@@ -181,7 +181,10 @@ describe("the admin lane", () => {
     expect(await kontakte(twoRules)(input)).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
-      fieldErrors: { kontakte: SERVER_COPY.rule.kontakt_email_twice, datum: COPY.shared.field.format(COPY.shared.field.exampleDate) },
+      fieldErrors: {
+        kontakte: COPY.template.namedField(COPY.anmeldung.address, COPY.shared.field.taken),
+        datum: COPY.shared.field.format(COPY.shared.field.exampleDate),
+      },
     });
     // A rule a pattern words takes its line from the bound the rule's context names.
     expect(await kontakte(refusedPayload([bodyField([], "good_spieler_exceed_kader", { max: 8 })]))(input)).toStrictEqual({

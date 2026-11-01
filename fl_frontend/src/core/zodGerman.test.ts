@@ -88,6 +88,9 @@ describe("the same map over the backend's rules", () => {
     expect(rule("date_not_in_calendar")).toBe(field.format(field.exampleDate));
     expect(rule("url_not_accepted")).toBe(field.format(field.exampleUrl));
     expect(rule("address_in_free_text")).toBe(field.without(COPY.anmeldung.address));
+    // A repeat across the list of contact persons, which no box names: the line names the repeated value.
+    expect(rule("kontakt_email_twice")).toBe(COPY.template.namedField(COPY.anmeldung.address, field.taken));
+    expect(rule("kontakt_telefon_twice")).toBe(COPY.template.namedField(COPY.shared.phoneNumber, field.taken));
   });
 
   it("prints a season's year bounds with no thousands separator", () => {
@@ -95,7 +98,7 @@ describe("the same map over the backend's rules", () => {
   });
 
   it("words a rule no pattern holds in its own phrase, and anything else, a missing bound among it, as unexpected", () => {
-    expect(rule("kontakt_email_twice")).toBe(SERVER_COPY.rule.kontakt_email_twice);
+    expect(rule("elfmeterschiessen_without_draw")).toBe(SERVER_COPY.rule.elfmeterschiessen_without_draw);
     expect(rule("good_spieler_exceed_kader")).toBe(failure.unexpected);
     expect(rule("string_too_long", { max_length: 80 })).toBe(failure.unexpected);
   });

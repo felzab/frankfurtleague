@@ -66,11 +66,18 @@ type Declared<Schema extends z.ZodType> = {
   readonly input: Schema;
   /**
    * The codes and the rules this screen words in their own words, a person causing each knowingly from it: on the
-   * box it names, or, with `true`, as the status line's reason. A rule is placed by the screen, not by the refused
-   * field's path, which for a rule over several fields names their whole block. Every other code, and a refused
-   * payload breaking any rule the screen does not word, answers a shared failure line.
+   * box it names, or, with `true`, where the refusal's field shows by `paths`, else as the status line's reason. A
+   * rule is placed by the screen, not by the refused field's path, which for a rule over several fields names their
+   * whole block. Every other code, and a refused payload breaking any rule the screen does not word, answers a
+   * shared failure line.
    */
   readonly ownWords?: { readonly [C in WordedCode | WordedRule]?: Field<z.output<Schema>> | true };
+  /**
+   * Where this screen shows a refusal about one field, by the field's path in the backend's payload, its segments
+   * joined by dots: the box showing it, or, for a field the screen shows no box for, the field's name, which the
+   * status line sets before the refusal's phrase.
+   */
+  readonly paths?: { readonly [path: string]: Field<z.output<Schema>> | { readonly name: Copy } };
   /** The example a box's „Format: …“ message names, by the box. */
   readonly examples?: { readonly [F in Field<z.output<Schema>>]?: Copy };
 };
@@ -229,9 +236,12 @@ function refused<Schema extends z.ZodType>(declared: Declared<Schema>, code: Cod
   const placed = isWorded(code) ? declared.ownWords?.[code] : undefined;
   if (placed !== undefined && isWorded(code)) {
     const text = SERVER_COPY.refusal[code];
-    return typeof placed === "string"
-      ? { ok: false, errorCode: code, fieldErrors: { [placed]: text } }
-      : { ok: false, errorCode: code, reason: text };
+    // A refusal about one field names it; one about the whole form names none.
+    const [about] = fields;
+    const shown: string | { readonly name: Copy } | undefined =
+      typeof placed === "string" ? placed : fields.length === 1 && about !== undefined ? declared.paths?.[about.path.join(".")] : undefined;
+    if (typeof shown === "string") return { ok: false, errorCode: code, fieldErrors: { [shown]: text } };
+    return { ok: false, errorCode: code, reason: shown === undefined ? text : COPY.template.namedField(shown.name, text) };
   }
   if (STALE.has(code)) return { ok: false, errorCode: code, reason: COPY.shared.failure.stale };
   // The grant went between the guard's read and the backend's.

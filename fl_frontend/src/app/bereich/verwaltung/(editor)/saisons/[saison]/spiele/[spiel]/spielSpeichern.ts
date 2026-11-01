@@ -114,6 +114,13 @@ export const spielSpeichern = action({
     spiel_double_booked: true,
     eligibility_disqualified: true,
   },
+  // The write's own paths: the venue has its box here, the referee and the two sides are kept as stored.
+  paths: {
+    "ort.spielort_id": "changes.spielort",
+    "schiedsrichter.schiedsrichter_id": { name: COPY.spielplan.fact.schiedsrichter },
+    "team1.team_id": { name: COPY.verwaltung.spiel.team1 },
+    "team2.team_id": { name: COPY.verwaltung.spiel.team2 },
+  },
   examples: { "changes.mietpreis": COPY.verwaltung.spielort.mietpreisExample },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
     // Read for the fields the editor does not show, which the wholesale write sends as stored.

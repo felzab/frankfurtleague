@@ -113,6 +113,9 @@ export const COPY = katalog({
     /** Beside the save button once the record is stored. */
     saved: "Gespeichert",
 
+    /** A contact person's phone, as the address's noun is `anmeldung.address`. */
+    phoneNumber: "Telefonnummer",
+
     /** The four toast titles; a toast carries no body. */
     toast: {
       // Redesign: these three are read once copying, sending a link and signing out each toast through the kit.
@@ -302,6 +305,8 @@ export const COPY = katalog({
     changesLost: (count: number) => (count === 1 ? "1 Änderung geht verloren." : `${formatNumber(count)} Änderungen gehen verloren.`),
     /** A save refused for its fields: the fields say what, the status line says where to look. */
     checkFields: "Prüfe die markierten Felder.",
+    /** A refusal about a field the screen shows no box for: the field's name, then the line its box would show. */
+    namedField: (name: Copy, line: Copy) => `${name}: ${line}`,
 
     /** A page a mail opened whose link no longer holds, above the catalogue's sentence for it. */
     linkInvalid: "Link nicht mehr gültig",
@@ -414,6 +419,9 @@ export const COPY = katalog({
       ausgefallen: "Ausgefallen",
       nichtantretenTeam1: "Nichtantreten Team 1",
       nichtantretenTeam2: "Nichtantreten Team 2",
+      /** The fixture's two sides, by the names the Sonderereignis' entries give them. */
+      team1: "Team 1",
+      team2: "Team 2",
       abgebrochen: "Abgebrochen",
       annulliert: "Annulliert",
       /** Why a no-show cannot be picked while a side is open. */
