@@ -19,7 +19,7 @@ from .conftest import unwritten
 
 DATABASE_NAME = worker_database("fl_saisons_spiel_view_test")
 
-SAISON = "2026"
+EARLIER, SAISON, LATER = "2025", "2026", "2027"
 HOME, AWAY = ObjectId("6890a1b2c3d4e5f607430001"), ObjectId("6890a1b2c3d4e5f607430002")
 NAMED, INTERN = ObjectId("6890a1b2c3d4e5f607430011"), ObjectId("6890a1b2c3d4e5f607430012")
 
@@ -105,6 +105,10 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
                 [
                     documents.saison_spieler_document(NAMED, SAISON, HOME, nummer="7", position="Angriff"),
                     documents.saison_spieler_document(INTERN, SAISON, AWAY, nummer="4", position="Abwehr"),
+                    # The same pupil for the same club the seasons either side, under other numbers, so whichever row a join
+                    # without the season term kept last, it would not be this season's.
+                    documents.saison_spieler_document(NAMED, EARLIER, HOME, nummer="98", position="Abwehr"),
+                    documents.saison_spieler_document(NAMED, LATER, HOME, nummer="99", position="Abwehr"),
                 ]
             )
 
@@ -141,7 +145,10 @@ def test_each_side_stands_at_its_place_and_the_page_names_its_matchday(seeded_ur
 
 @pytest.mark.db
 def test_each_entry_reads_as_a_name_as_anonym_or_as_unbekannt(seeded_url: str):
-    """By minute; the intern pupil keeps their number and position, the erased one keeps nothing, and no card says why."""
+    """By minute; the intern pupil keeps their number and position, the erased one keeps nothing, and no card says why.
+
+    The named pupil's number is this season's, never one their club gave them in another.
+    """
 
     bericht = the_page(seeded_url).bericht
     entries = [*bericht.torschuetzen, *bericht.karten]
