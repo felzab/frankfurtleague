@@ -113,9 +113,6 @@ export const COPY = catalogue({
     /** Beside the save button once the record is stored. */
     saved: "Gespeichert",
 
-    /** A contact person's phone, as the address's noun is `signIn.address`. */
-    phoneNumber: "Telefonnummer",
-
     /** The four toast titles; a toast carries no body. */
     toast: {
       // Redesign: these three are read once copying, sending a link and signing out each toast through the kit.
