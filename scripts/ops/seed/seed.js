@@ -366,6 +366,103 @@ const running = season({
   },
 });
 
+// --- A club out of the running season, and a report on its first match ---------------------------
+
+// Weide stayed away from match 3 and is disqualified since: it keeps its group place and its drawn fixtures, as a
+// departed club does (`docs/domain.md`, "A departed club holding drawn fixtures").
+running.saisonTeams.find((row) => row.name === "Weide").austritt = {
+  type: "disqualifikation",
+  grund: "Nicht zum Spiel angetreten",
+  datum: day(-12),
+};
+
+// The erased pupils' sentinel, as `fl_backend/app/api/spieler/services.py :: build_ghost_spieler` writes it.
+const GHOST_SPIELER = {
+  _id: ObjectId("000000000000000000000001"),
+  vorname: null,
+  nachname: null,
+  einwilligung: null,
+  geburtsdatum: null,
+  inactive_since: "2000-01-01",
+};
+
+// Each pupil's consent as their own confirmation wrote it, publishing the name and no media: the wording a
+// confirmation records today (`fl_backend/app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`).
+const CONSENTED = day(-60);
+const WORDING = "2026-10-spielerseite-5";
+
+function pupil(vorname, nachname) {
+  const evidence = { am: `${CONSENTED}T10:00:00+00:00`, text_version: WORDING };
+  return {
+    _id: ObjectId(),
+    vorname,
+    nachname,
+    email: `${vorname}.${nachname}@schule.example`.toLowerCase(),
+    geburtsdatum: day(-16 * 365),
+    einwilligung: {
+      umfang: "kader_oeffentlich",
+      datum: CONSENTED,
+      confirmed_at: CONSENTED,
+      text_version: WORDING,
+      medien: false,
+      nachweis: { umfang: evidence, medien: evidence },
+    },
+    inactive_since: null,
+  };
+}
+
+const PUPILS = { mia: pupil("Mia", "Ahornberg"), jonas: pupil("Jonas", "Ahornberg"), lena: pupil("Lena", "Kastner") };
+
+function squadRow(person, clubName, nummer) {
+  return {
+    _id: ObjectId(),
+    spieler_id: person._id,
+    saison_id: "2027",
+    team_id: club[clubName]._id,
+    is_nachnominiert: false,
+    rolle: null,
+    stufe: "Q2",
+    position: "Angriff",
+    nummer,
+    inactive_since: null,
+  };
+}
+
+const SQUADS = [squadRow(PUPILS.mia, "Ahorn", "9"), squadRow(PUPILS.jonas, "Ahorn", "4"), squadRow(PUPILS.lena, "Kastanie", "7")];
+
+// Match 1, Ahorn 2:1 Kastanie two weeks ago, reported by its referee and adopted the next morning: a named scorer, a
+// scorer nobody named, an erased pupil's goal under the sentinel, a caution with its reason and a red card without.
+const REPORTED = running.spiele.find((row) => row.spiel_nr === 1);
+const SENT = new Date(`${day(-14)}T17:00:00Z`);
+const REPORTS = [
+  {
+    _id: ObjectId(),
+    saison_id: "2027",
+    spiel_id: REPORTED._id,
+    bericht: {
+      ergebnis_vorschlag: { team1_tore: 2, team2_tore: 1, elfmeterschiessen: null, sonderereignis: null },
+      torschuetzen: [
+        { seite: "team1", spieler_id: PUPILS.mia._id, minute: "12", eigentor: false },
+        { seite: "team2", spieler_id: GHOST_SPIELER._id, minute: "40", eigentor: false },
+        { seite: "team1", spieler_id: null, minute: "45+2", eigentor: false },
+      ],
+      karten: [
+        { seite: "team2", spieler_id: PUPILS.lena._id, minute: "33", farbe: "gelb", grund: "foulspiel" },
+        { seite: "team1", spieler_id: PUPILS.jonas._id, minute: "78", farbe: "rot", grund: null },
+      ],
+      bemerkungen: null,
+      seiten: { team1: REPORTED.team1.team_id, team2: REPORTED.team2.team_id },
+      submitted_at: SENT,
+      submitted_by: { art: "schiedsrichter", schiedsrichter_id: REPORTED.schiedsrichter.schiedsrichter_id },
+      changed_at: SENT,
+      version: 1,
+      adopted_at: new Date(`${day(-13)}T09:00:00Z`),
+      adopted_by: { art: "admin" },
+      adopted_version: 1,
+    },
+  },
+];
+
 // --- Writing it ----------------------------------------------------------------------------------
 
 const DOCUMENTS = {
@@ -377,6 +474,9 @@ const DOCUMENTS = {
   saison_teams: [...finished.saisonTeams, ...running.saisonTeams],
   spieltage: [...finished.spieltage, ...running.spieltage],
   spiele: [...finished.spiele, ...running.spiele],
+  spieler: [GHOST_SPIELER, ...Object.values(PUPILS)],
+  saison_spieler: SQUADS,
+  spielberichte: REPORTS,
 };
 
 // Emptied rather than dropped: the backend's boot made each collection with its indexes, and a
