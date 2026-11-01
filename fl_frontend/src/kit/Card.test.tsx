@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { Card, CardLink, CardRow } from "./Card";
+import { Table } from "./Table";
 
 import type { Folded } from "./CardFold";
 
@@ -115,6 +116,33 @@ describe("a card", () => {
     expect(cut?.classList.contains("truncate")).toBe(true);
     expect(cut?.getAttribute("title")).toBe(name);
     expect(cut?.parentElement?.classList.contains("flex-wrap")).toBe(false);
+  });
+
+  it("lets a table in its body shrink to the card, folded or not, rather than be cut at its edge", () => {
+    onScreen(true);
+    const table = (
+      <Table
+        label={COPY.page.teamKader}
+        nameLabel={COPY.page.teamKader}
+        columns={[{ key: "stufe", label: COPY.shared.startelf }]}
+        rows={[{ id: "1", name: "Mika Brandt", cells: { stufe: "Q2" } }]}
+        empty={{ kind: "none", plural: COPY.page.teamKader }}
+      />
+    );
+    render(
+      <>
+        <Card title={COPY.page.teamKader}>{table}</Card>
+        <Card
+          title={COPY.page.teamKader}
+          folded="phone">
+          {table}
+        </Card>
+      </>,
+    );
+    // jsdom draws no layout, so the shrink is read from the class of the card's own child holding the table.
+    const cards = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.closest("section") ?? heading.parentElement);
+    const bodies = cards.map((root) => [...(root?.children ?? [])].find((child) => child.querySelector("table") !== null));
+    expect(bodies.map((body) => body?.classList.contains("min-w-0"))).toEqual([true, true]);
   });
 
   it("makes a chooser's card one link, its title and line read as its name", () => {

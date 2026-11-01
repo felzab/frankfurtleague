@@ -15,7 +15,10 @@ export const card = tv({
     title: "text-base font-semibold break-words",
     count: "col-start-2 row-start-1 font-numeric text-sm text-fg-muted",
     line: "col-span-2 text-sm text-fg-muted",
-    body: "",
+    // A grid item is never narrower than its content by default, so a wide table would be cut at the card's
+    // edge; the body shrinks to the card instead, where the table truncates its names or scrolls as its page
+    // allows.
+    body: "min-w-0",
     foot: "flex justify-end p-4",
     chevron: "",
     row: "relative flex min-h-14 items-stretch gap-3 border-t border-border px-4 py-2 text-sm transition-colors duration-(--motion-state) first:border-t-0 hover:bg-bg-surface lg:min-h-13",
