@@ -28,8 +28,9 @@ class FLRefusedField(BaseModel):
     # Pydantic's error `type`, never its English `msg`; on a domain rule's
     # refusal, the rule's own code.
     kind: str
-    # The error's `ctx` as Pydantic reports it, its JSON scalars alone: the bounds a rule holds the
-    # value to, by the names the rule gives them. Empty where the rule names none.
+    # A domain rule's `ctx`, its JSON scalars alone: the bounds the rule holds the refused value to,
+    # by the names the rule gives them, one of which can be another field of the same payload. Empty
+    # for Pydantic's own kinds and where the rule names none.
     ctx: dict[str, str | int | float | bool]
 
 

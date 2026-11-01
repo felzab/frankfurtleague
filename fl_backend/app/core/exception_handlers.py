@@ -1,12 +1,13 @@
 from collections.abc import Mapping, Sequence
 from http import HTTPStatus
-from typing import Any, Final
+from typing import Any, Final, get_args
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import iter_route_contexts
 from pydantic import ValidationError
+from pydantic_core.core_schema import ErrorType
 from pymongo.errors import DuplicateKeyError, PyMongoError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.routing import Match
@@ -21,6 +22,10 @@ SAFE_METHODS: Final = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 
 # FastAPI's error type for a body that is not JSON at all, reported before any field is read.
 UNDECODABLE_BODY = "json_invalid"
+
+# Pydantic's own error types. A caller words each from its kind alone, so only a domain rule's
+# `PydanticCustomError` forwards its context: the bounds that rule's line names.
+PYDANTIC_KINDS: Final = frozenset(get_args(ErrorType))
 
 # Every status the router and FastAPI's request parsing raise. FastAPI's one 400 is a body it could
 # not parse, and a status outside these is a server fault the catch-all answers.
@@ -105,7 +110,7 @@ async def request_validation_exception_handler(request: Request, exc: RequestVal
 def refused_fields_of(errors: Sequence[Any]) -> list[dict[str, Any]]:
     """Where each refusal sits and pydantic's machine-readable `type` for it, so a form can mark the field.
 
-    Never `msg`, English no visitor reads, and never `input`: the wire carries no value the log
+    Never `msg`, English no visitor reads, and never `input`, the refused value, which the log
     itself withholds.
     """
 
@@ -116,10 +121,11 @@ def _refused_field(error: Any) -> dict[str, Any]:
     # FastAPI prefixes every `loc` with where the value arrived; the rest is the path inside it.
     location, *path = error["loc"]
 
-    # A rule's bounds, which its caller words the field's line from: a context carries what the rule
-    # holds the refused value to, never that value. A member that is no JSON scalar, an exception
-    # among them, names nothing a caller could word.
-    context = {key: value for key, value in error.get("ctx", {}).items() if isinstance(value, str | int | float | bool)}
+    # A domain rule's bounds, which its caller words the field's line from: what the rule holds the
+    # refused value to, which can be another field of the same payload, as a span's start is. A member
+    # that is no JSON scalar names nothing a caller could word.
+    scalars = {key: value for key, value in error.get("ctx", {}).items() if isinstance(value, str | int | float | bool)}
+    context = {} if error["type"] in PYDANTIC_KINDS else scalars
 
     return {"in": str(location), "path": path, "kind": error["type"], "ctx": context}
 
