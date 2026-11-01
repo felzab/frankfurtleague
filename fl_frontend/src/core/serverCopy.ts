@@ -38,7 +38,7 @@ export const SERVER_COPY = katalog({
   regel: {
     saison_year_out_of_range: "Ein Jahr von 2026 bis zum nächsten Jahr",
     address_in_free_text: "Ohne E-Mail-Adresse",
-    email_not_accepted: "Eine Adresse ohne Umlaute oder Akzente vor dem @",
+    email_not_accepted: "Eine Adresse mit einer öffentlichen Domain hinter dem @",
     date_not_in_calendar: "Ein Datum, das es im Kalender gibt",
     url_not_accepted: "Eine Webadresse, die mit http:// oder https:// beginnt",
     saison_ends_before_start: "Die Saison endet vor ihrem Beginn. Wähle ein Ende nach dem Beginn.",
