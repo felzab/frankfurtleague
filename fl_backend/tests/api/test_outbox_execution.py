@@ -45,6 +45,7 @@ from app.shared.tokens import hash_token
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document
+from tests.outbox import claimable
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -114,7 +115,7 @@ async def stored_by_key(database: AsyncDatabase, key: str) -> dict[str, Any]:
 
 async def claimed(database: AsyncDatabase, client: AsyncMongoClient, *, now: datetime = NOW) -> FLOutboxHandoutResponse:
     return await post_handout(
-        outbox_collection=database[Collection.OUTBOX], sperrliste=ban_list(database), db=database, db_client=client, now=now
+        outbox_collection=database[Collection.OUTBOX], sperrliste=ban_list(database), db=database, db_client=client, now=claimable(now)
     )
 
 
