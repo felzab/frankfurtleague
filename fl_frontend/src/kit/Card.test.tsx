@@ -1,10 +1,72 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { renderTree } from "@/test-support/renderMarkup";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
 import { Card, CardLink, CardRow } from "./Card";
+
+import type { Folded } from "./CardFold";
+
+/** The screen the browser answers: a desktop from `lg`, a phone below it. */
+function onScreen(desktop: boolean) {
+  vi.spyOn(window, "matchMedia").mockImplementation((media) => Object.assign(new EventTarget(), { media, matches: desktop }) as MediaQueryList);
+}
+
+const BODY = "Mika Brandt";
+
+const folded = (when: Folded) => (
+  <Card
+    title={COPY.page.teamKader}
+    count={12}
+    folded={when}>
+    <p>{BODY}</p>
+  </Card>
+);
+
+/** The head's button, found inside the card's heading, and whether the body under it shows. */
+function fold() {
+  const button = within(screen.getByRole("heading", { level: 2 })).getByRole("button");
+  return { button, open: button.getAttribute("aria-expanded") === "true" && screen.getByText(BODY).closest("[hidden]") === null };
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe("a folded card", () => {
+  it("keeps its title a heading whose button opens and closes the body", async () => {
+    onScreen(true);
+    render(folded("always"));
+    const { button } = fold();
+    expect(button.textContent).toContain(COPY.page.teamKader);
+    expect(document.getElementById(button.getAttribute("aria-controls") ?? "")?.textContent).toBe(BODY);
+    expect(fold().open).toBe(false);
+    await userEvent.click(button);
+    expect(fold().open).toBe(true);
+    await userEvent.click(button);
+    expect(fold().open).toBe(false);
+  });
+
+  it("folded on a phone alone, starts folded on a phone and open on a desktop", () => {
+    onScreen(false);
+    const phone = render(folded("phone"));
+    expect(fold().open).toBe(false);
+    phone.unmount();
+    onScreen(true);
+    render(folded("phone"));
+    expect(fold().open).toBe(true);
+  });
+
+  it("folded on a phone alone, reaches the browser folded, so a phone never folds what it showed", () => {
+    // The server cannot see the screen; a desktop opens the card at hydration instead.
+    const markup = renderTree(folded("phone"));
+    expect(markup).toContain('aria-expanded="false"');
+    expect(markup).toMatch(/<div[^>]*hidden=""[^>]*><p>Mika Brandt<\/p>/);
+  });
+});
 
 describe("a card", () => {
   it("makes its title a heading, with its count beside it", () => {
