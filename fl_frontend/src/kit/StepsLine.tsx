@@ -1,5 +1,6 @@
 import { formatNumber } from "@/core/format";
 
+import { checkpoint } from "./Timeline";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -8,15 +9,14 @@ import type { Copy } from "@/core/copy";
 type LineStep = { when?: Copy | string; title: Copy; text: Copy };
 
 const line = tv({
+  extend: checkpoint,
   slots: {
     // Laid along the line across four columns from `lg`; one under another below it, where four do not fit.
     list: "grid lg:grid-cols-4 lg:gap-4",
-    // The dotted line runs from each point to the next, so the last stage draws none: down the left on a
-    // phone, along the top from `lg`. Board: the line in the control edge's grey, 2 px, dotted.
-    step: "relative grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-4 pb-6 before:absolute before:top-6 before:bottom-0 before:left-2.5 before:border-l-2 before:border-dotted before:border-border-control last:pb-0 last:before:hidden lg:grid-cols-1 lg:pt-8 lg:pb-0 lg:before:top-2.5 lg:before:right-[-1rem] lg:before:bottom-auto lg:before:left-8 lg:before:border-t-2 lg:before:border-l-0",
-    // Board: the point, 24 px, outlined in the brand green with its number inside.
-    point:
-      "relative flex size-6 items-center justify-center rounded-full border-2 border-brand bg-bg font-numeric text-xs font-semibold text-fg lg:absolute lg:top-0 lg:left-0",
+    // Each stage is the line's stretch from its point to the next, so the last stage draws none: down the left
+    // on a phone, along the top from `lg`, through the point's middle either way.
+    line: "relative grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-4 pb-6 before:top-6 before:bottom-0 before:left-[calc(0.75rem-1px)] last:pb-0 last:before:hidden lg:grid-cols-1 lg:pt-8 lg:pb-0 lg:before:top-[calc(0.75rem-1px)] lg:before:right-[-1rem] lg:before:bottom-auto lg:before:left-8 lg:before:border-t-2 lg:before:border-l-0",
+    point: "lg:absolute lg:top-0 lg:left-0",
     body: "grid gap-1",
     when: "text-xs font-medium tracking-caps text-fg-muted uppercase",
     title: "text-base font-semibold",
@@ -32,7 +32,7 @@ export function StepsLine({ items }: { items: readonly LineStep[] }) {
       {items.map((item, index) => (
         <li
           key={item.title}
-          className={slots.step()}>
+          className={slots.line()}>
           <span
             aria-hidden
             className={slots.point()}>

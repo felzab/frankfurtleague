@@ -1,34 +1,14 @@
+import { CardFold } from "./CardFold";
+import { card } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
-import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
+import type { Folded } from "./CardFold";
 import type { ChipProps } from "./Chip";
-
-/**
- * A box with the hairline and the card corners, its head on the surface colour. Its body is rows, or fields
- * with the card's padding around them.
- */
-const card = tv({
-  slots: {
-    root: "grid overflow-hidden rounded-lg border border-border bg-bg text-fg",
-    head: "grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 border-b border-border bg-bg-surface px-4 py-3",
-    title: "text-base font-semibold break-words",
-    count: "col-start-2 row-start-1 font-numeric text-sm text-fg-muted",
-    line: "col-span-2 text-sm text-fg-muted",
-    body: "",
-    foot: "flex justify-end p-4",
-  },
-  variants: {
-    body: {
-      rows: {},
-      fields: { body: "p-4" },
-    },
-  },
-});
 
 /** A card's one line under its title: catalogue text such as a figure's meaning, or a record's own detail. */
 type Line = { line: Copy; lineText?: never } | { lineText: string; line?: never };
@@ -39,6 +19,7 @@ export function Card({
   count,
   action,
   body = "rows",
+  folded,
   children,
   ...props
 }: {
@@ -49,10 +30,25 @@ export function Card({
   /** The card's one button. */
   action?: ReactElement;
   body?: "rows" | "fields";
+  /** The body folded behind the head, which opens it: on every screen, or on a phone alone. */
+  folded?: Folded;
   children?: ReactNode;
 } & (Line | { line?: never; lineText?: never })) {
-  const s = card({ body });
   const line = props.line ?? props.lineText;
+  if (folded !== undefined) {
+    return (
+      <CardFold
+        folded={folded}
+        title={title}
+        count={count}
+        line={line}
+        body={body}
+        action={action}>
+        {children}
+      </CardFold>
+    );
+  }
+  const s = card({ body });
   return (
     <section className={s.root()}>
       <div className={s.head()}>
@@ -69,7 +65,7 @@ export function Card({
 /** One choice of the chooser: the whole card one link, its title and its line, the chevron at its right. */
 export function CardLink({ href, title, ...props }: { href: Route; title: Copy } & Line) {
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-bg text-fg">
+    <section className={card().root()}>
       <Link
         href={href}
         placement="card">
@@ -86,14 +82,17 @@ export function CardLink({ href, title, ...props }: { href: Route; title: Copy }
 }
 
 /**
- * One record in a card's rows: its name, which wraps where it is long, with its chip, a fact at the right, the
- * whole row a link through its name, the chevron at its end saying so.
+ * One record in a card's rows: its name with its chip on one line, a fact at the right, the whole row a link
+ * through its name, the chevron at its end saying so. A name too long for the line is cut with „…“ so the
+ * chip keeps its place beside it; the full name stays the link's accessible name and shows as its title.
  */
 export function CardRow({ href, name, chip, detail }: { href: Route; name: string; chip?: ChipProps; detail?: string }) {
   return (
-    <div className="relative flex min-h-14 items-stretch gap-3 border-t border-border px-4 py-2 text-sm transition-colors duration-(--motion-state) first:border-t-0 hover:bg-bg-surface lg:min-h-13">
-      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-        <span className="min-w-0 break-words">
+    <div className={card().row()}>
+      <span className="flex min-w-0 flex-1 items-center gap-2">
+        <span
+          title={name}
+          className="min-w-0 truncate">
           <Link
             href={href}
             placement="row"

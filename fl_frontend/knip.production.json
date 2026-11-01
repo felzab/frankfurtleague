@@ -38,6 +38,11 @@
     "src/kit/Podium.tsx",
     "src/kit/LinkRows.tsx",
     "src/kit/JsonLd.tsx",
+    "src/kit/Card.tsx",
+    "src/kit/CardFold.tsx",
+    "src/kit/cardStyles.ts",
+    "src/kit/StatTiles.tsx",
+    "src/kit/Timeline.tsx",
     // Session 4.
     "src/kit/Checkbox.tsx",
     "src/kit/RadioGroup.tsx",
@@ -46,7 +51,6 @@
     "src/kit/MailedPage.tsx",
     "src/kit/OneShot.tsx",
     // Session 5.
-    "src/kit/Card.tsx",
     "src/kit/Switch.tsx"
   ],
   // An export no production module reads yet but its own says so on itself, `@awaitsProduction` and the
