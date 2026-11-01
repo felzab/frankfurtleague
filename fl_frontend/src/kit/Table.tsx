@@ -72,6 +72,8 @@ const table = tv({
     // The name takes the room the facts leave and is cut with „…“ where it is longer (`max-w-0` lets a cell
     // of an automatic table layout shrink below its content, so the cut can happen at all).
     name: "w-full max-w-0 px-3 py-2",
+    // A club's name beside its plaque, read but not drawn on a phone, where the plaque stands for it alone.
+    clubName: "ms-2 max-lg:sr-only",
     // A linked row's last cell, as narrow as the chevron that says the row leads on.
     end: "w-0 pe-3",
   },
@@ -133,24 +135,34 @@ function Cell({ cell, slot }: { cell: TableCell | undefined; slot: boolean }) {
 
 /**
  * The name, cut with „…“ where its column is too narrow and whole in its `title`, then the chip, which keeps
- * its size and its line; the plaque before the name keeps its size too.
+ * its size and its line. A club's plaque stands before its name inside the row's link, so on a phone, where
+ * the plaque alone is drawn, the link still opens the club and is named by the club's full name.
  */
 function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
+  const s = table({ qualifies: barred });
+  const words =
+    row.plaque === undefined ? (
+      row.name
+    ) : (
+      <>
+        <TeamPlaque {...row.plaque} />
+        <span className={s.clubName()}>{row.name}</span>
+      </>
+    );
   return (
-    <td className={table({ qualifies: barred }).name()}>
+    <td className={s.name()}>
       <span className="flex min-w-0 items-center gap-2">
-        {row.plaque !== undefined && <TeamPlaque {...row.plaque} />}
         <span
           className="min-w-0 truncate"
           title={row.name}>
           {row.href === undefined ? (
-            row.name
+            words
           ) : (
             <Link
               href={row.href}
-              placement="row"
-              text={row.name}
-            />
+              placement="row">
+              {words}
+            </Link>
           )}
         </span>
         {row.chip !== undefined && (

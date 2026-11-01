@@ -20,6 +20,12 @@ const props = (rows: TableProps["rows"]): TableProps => ({
   empty: { kind: "none", plural: COPY.shared.startelf },
 });
 
+/**
+ * Classes that make an element the containing block of a descendant's `::after`, or clip its painting, at any
+ * width: bare, or behind a variant such as `max-lg:`.
+ */
+const POSITIONS = /(^|\s|:)(sr-only|relative|absolute|fixed|sticky)(\s|$)/;
+
 describe("a table's name cell", () => {
   // jsdom lays nothing out, so the cut is held by its classes: Tailwind's `truncate` on the name, `min-w-0` on
   // its flex row, and the chip a sibling of the name, `shrink-0`, so the name gives way and the chip never does.
@@ -39,6 +45,26 @@ describe("a table's name cell", () => {
     const chip = screen.getByText(COPY.verwaltung.spielort.retired);
     expect(chip.parentElement).toBe(name.parentElement);
     expect([...chip.classList]).toEqual(expect.arrayContaining(["shrink-0", "whitespace-nowrap"]));
+  });
+
+  // A club's row on a phone draws its plaque alone. The name is hidden visually inside the row's link, never
+  // around it: a hidden wrapper is positioned and clipped, which would shrink the link's stretched `::after`
+  // to it and leave the row unable to open.
+  it("on a phone draws a club's plaque alone, the row still opening the club under its full name", () => {
+    render(<Table {...props([{ id: "1", name: LONG, plaque: { kuerzel: "GOE" }, href: "/saisons/2027", cells: { stadtteil: "Nordend" } }])} />);
+    const link = screen.getByRole("link", { name: (accessible) => accessible.includes(LONG) });
+    expect(link.getAttribute("data-kit-focus")).toBe("row");
+    expect(link.textContent).toBe(`GOE${LONG}`);
+
+    const words = screen.getByText(LONG);
+    expect(words.closest("a")).toBe(link);
+    expect(words.classList).toContain("max-lg:sr-only");
+    expect(screen.getByText("GOE").closest("a")).toBe(link);
+
+    // Nothing between the link and its row is positioned or clipped, so the stretched link covers the row.
+    const row = link.closest("tr");
+    expect(row?.classList).toContain("relative");
+    for (let node = link.parentElement; node !== null && node !== row; node = node.parentElement) expect(node.className).not.toMatch(POSITIONS);
   });
 
   it("ends a linked row with the chevron, in a column of its own", () => {
