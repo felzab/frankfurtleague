@@ -1,5 +1,8 @@
+import { COPY } from "@/core/copy";
+
 import { Chip } from "./Chip";
 import { EmptyState } from "./EmptyState";
+import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
 import { TeamPlaque } from "./TeamPlaque";
@@ -22,6 +25,13 @@ type TableColumn = {
   hideOnPhone?: boolean;
 };
 
+/**
+ * A cell's value: its text, or a figure some of the club's fixtures left short, such as its count of matches
+ * while some were called off, carrying the mark that says how many, which its name tells a screen reader and
+ * no line explains.
+ */
+type TableCell = string | { value: string; cancelled: number };
+
 export type TableRow = {
   id: string;
   /** The record's name; with `href` the whole row opens the record. */
@@ -31,7 +41,7 @@ export type TableRow = {
   plaque?: { kuerzel: string } | { quelle: string };
   chip?: ChipProps;
   /** The row's values, by column key; a missing value leaves its cell empty. */
-  cells: Readonly<Record<string, string>>;
+  cells: Readonly<Record<string, TableCell>>;
   /** Places 1 and 2: the 2-px brand bar at the row's left edge. */
   qualifies?: boolean;
   /** A row that no longer counts, such as a disqualified team's: its text muted. */
@@ -90,6 +100,26 @@ const table = tv({
     },
   },
 });
+
+/**
+ * A cell's value, its mark for fixtures called off before it, so a column of figures keeps its digits under
+ * each other whether a row carries the mark or not.
+ */
+function Cell({ cell }: { cell: TableCell | undefined }) {
+  if (cell === undefined || typeof cell === "string") return cell;
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="text-fg-muted">
+        <Icon
+          glyph="cancelled"
+          size={16}
+        />
+      </span>
+      <span className="sr-only">{COPY.shared.season.cancelled(cell.cancelled)}</span>
+      {cell.value}
+    </span>
+  );
+}
 
 function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
   return (
@@ -191,7 +221,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty }: Tab
                         strong: column.strong === true,
                         phone: column.hideOnPhone === true ? "hidden" : "shown",
                       }).cell()}>
-                      {row.cells[column.key]}
+                      <Cell cell={row.cells[column.key]} />
                     </td>
                   ))}
                   {isLinked && <td className={table().end()}>{row.href !== undefined && <RowEnd />}</td>}

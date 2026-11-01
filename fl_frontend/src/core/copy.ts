@@ -166,6 +166,14 @@ export const COPY = catalogue({
     startelf: "Startelf",
     bank: "Bank",
 
+    /** The kit's season blocks: the Tabelle's marks and groups. */
+    season: {
+      /** The name of the mark beside a club's figure: how many of its fixtures were called off. */
+      cancelled: (count: number) => (count === 1 ? "1 Spiel abgesagt" : `${formatNumber(count)} Spiele abgesagt`),
+      /** One group's table on the Tabelle. */
+      gruppe: (gruppe: string) => `Gruppe ${gruppe}`,
+    },
+
     /** The ⓘ's name, which its tooltip shows. */
     help: "Hilfe",
     /** A phone's filter button, and the sheet it opens, closed by „Fertig“. */

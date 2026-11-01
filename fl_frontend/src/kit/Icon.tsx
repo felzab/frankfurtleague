@@ -3,6 +3,7 @@ import Calendar from "lucide-react/icons/calendar";
 import CalendarDays from "lucide-react/icons/calendar-days";
 import CalendarRange from "lucide-react/icons/calendar-range";
 import CalendarSync from "lucide-react/icons/calendar-sync";
+import CalendarX from "lucide-react/icons/calendar-x";
 import Check from "lucide-react/icons/check";
 import ChevronDown from "lucide-react/icons/chevron-down";
 import ChevronLeft from "lucide-react/icons/chevron-left";
@@ -62,6 +63,8 @@ const GLYPHS = {
   light: Sun,
   info: Info,
   calendar: Calendar,
+  // A fixture called off, beside the figure it leaves short, as the Tabelle marks a club's count of matches.
+  cancelled: CalendarX,
   loading: LoaderCircle,
   more: Ellipsis,
   menu: Menu,

@@ -39,6 +39,13 @@ describe("a table's name cell", () => {
     expect(row?.children.length).toBe(screen.getAllByRole("columnheader").length + 1);
   });
 
+  it("names the mark of fixtures called off beside a figure, with no line explaining it", () => {
+    render(<Table {...props([{ id: "1", name: "Goethe", cells: { stadtteil: { value: "5", cancelled: 2 } } }])} />);
+    const cell = screen.getByText("5").closest("td");
+    expect(cell?.textContent).toBe(`${COPY.shared.season.cancelled(2)}5`);
+    expect(cell?.querySelector("svg")).not.toBe(null);
+  });
+
   it("draws no chevron where no row leads anywhere", () => {
     render(<Table {...props([{ id: "1", name: "Goethe", cells: { stadtteil: "Nordend" } }])} />);
     expect(screen.getByRole("table").querySelector("svg")).toBe(null);

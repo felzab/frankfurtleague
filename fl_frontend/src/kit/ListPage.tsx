@@ -7,7 +7,9 @@ import { EmptyState } from "./EmptyState";
 import { Filters } from "./Filters";
 import { ListQueryScope, ListSearchField, ListTable } from "./ListTable";
 import { RailPage } from "./RailFrame";
+import { SectionTitle } from "./Section";
 import { Skeleton } from "./Skeleton";
+import { Table } from "./Table";
 import { Tabs } from "./Tabs";
 
 import type { Copy } from "@/core/copy";
@@ -37,6 +39,13 @@ export type SpieltageContent = {
   empty: EmptyStateProps;
 };
 
+/** One table per group under the page's one title, such as the Tabelle's: each group's name over its table. */
+type GroupsContent = {
+  groups: ReadonlyArray<{ id: string; title: Copy; table: TableProps }>;
+  /** Why there is no group to show, standing in the tables' place. */
+  empty: EmptyStateProps;
+};
+
 /**
  * What the list shows, by its kind, which is known before its content is read: the kind decides the shape
  * the wait is drawn in.
@@ -47,7 +56,17 @@ type ListContent =
       /** The search field's name, where the list holds about 20 rows or more. */ search?: ListSearch;
       content: Promise<TableContent>;
     }
-  | { kind: "spieltage"; content: Promise<SpieltageContent> };
+  | { kind: "spieltage"; content: Promise<SpieltageContent> }
+  | { kind: "groups"; content: Promise<GroupsContent> };
+
+/** A list's empty state inside the list's box, as `Table` places its own. */
+function EmptyBox({ empty }: { empty: EmptyStateProps }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-bg">
+      <EmptyState {...empty} />
+    </div>
+  );
+}
 
 /** The tab row, and under it the chosen matchday's matches alone: the other matchdays' matches never reach the page. */
 function Spieltage({ label, selectedKey, tabs }: SpieltagTabs) {
@@ -63,24 +82,36 @@ function Spieltage({ label, selectedKey, tabs }: SpieltagTabs) {
 
 /** The list once its content is read, in the boundary's place. */
 async function ListBody({ list }: { list: ListContent }) {
-  if (list.kind === "table") {
-    const { table, more } = await list.content;
-    return (
-      <ListTable
-        table={table}
-        more={more}
-      />
-    );
+  switch (list.kind) {
+    case "table": {
+      const { table, more } = await list.content;
+      return (
+        <ListTable
+          table={table}
+          more={more}
+        />
+      );
+    }
+    case "spieltage": {
+      const { tabs, empty } = await list.content;
+      return tabs === null ? <EmptyBox empty={empty} /> : <Spieltage {...tabs} />;
+    }
+    case "groups": {
+      const { groups, empty } = await list.content;
+      return groups.length === 0 ? (
+        <EmptyBox empty={empty} />
+      ) : (
+        groups.map((group) => (
+          <section
+            key={group.id}
+            className="grid gap-3">
+            <SectionTitle text={group.title} />
+            <Table {...group.table} />
+          </section>
+        ))
+      );
+    }
   }
-  const { tabs, empty } = await list.content;
-  return tabs === null ? (
-    // Inside the list's box, as `Table` places its own.
-    <div className="overflow-hidden rounded-lg border border-border bg-bg">
-      <EmptyState {...empty} />
-    </div>
-  ) : (
-    <Spieltage {...tabs} />
-  );
 }
 
 /**
@@ -88,7 +119,8 @@ async function ListBody({ list }: { list: ListContent }) {
  * is long enough to need one, the filter block, its values in the address, and at the row's end the act
  * creating a record over the list; then the list. The list is a table whose rows open their records,
  * „Weitere 50 laden“ under it only while the server reports more rows; or, for the season's matches, the
- * matchday tabs, one matchday at a time, opening on the one the server names. A list with nothing in it
+ * matchday tabs, one matchday at a time, opening on the one the server names; or one table per group, each
+ * under its group's name, as the Tabelle stands its groups one under another. A list with nothing in it
  * shows its empty state in its place.
  *
  * The title and the toolbar are drawn at once; the list alone waits for its content, in the template's one
@@ -135,7 +167,7 @@ export function ListPage({
             )}
           </div>
         )}
-        <Suspense fallback={<Skeleton shape={list.kind === "table" ? "table" : "spiel"} />}>
+        <Suspense fallback={<Skeleton shape={list.kind === "spieltage" ? "spiel" : "table"} />}>
           <ListBody list={list} />
         </Suspense>
       </ListQueryScope>
