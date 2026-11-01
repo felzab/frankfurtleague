@@ -52,25 +52,28 @@ vi.mock("./logging", () => ({
 
 const Venue = z.object({ name: z.string().min(1).max(10), plz: z.string().regex(/^\d{5}$/) });
 
-const refusal = (code: Code) =>
+/** A refusal by its code, naming each body path given, as the backend names a code's fields. */
+const refusal = (code: Code, ...paths: (string | number)[][]) =>
   new APIBadStatusError({
     message: "refused",
     url: "http://backend/api/v0/spielorte",
     statusCode: 409,
     serverErrorCode: code,
+    refusedFields: paths.map((path) => bodyField(path, code)),
     endpoint: "/spielorte",
     method: "POST",
     readOnly: false,
     traceId: "0",
   });
 
-/** An admin create whose body records what it was handed, or throws `wirft`. */
+/** An admin create whose body records what it was handed, or throws `thrown`. */
 function create(thrown?: unknown) {
   return action({
     lane: "admin",
     name: "anlegen",
     input: Venue,
-    ownWords: { duplicate_key: "name", spiel_double_booked: true },
+    ownWords: ["duplicate_key", "spiel_double_booked"],
+    paths: { name: "name", "schiedsrichter.schiedsrichter_id": { name: COPY.spielplan.fact.schiedsrichter } },
     examples: { plz: COPY.verwaltung.spielort.plzExample },
     run: async (input) => {
       state.steps.push(`body ${JSON.stringify(input)}`);
@@ -132,7 +135,8 @@ describe("the admin lane", () => {
         lane: "admin",
         name: "ergebnis",
         input: z.object({ team1: Side, team2: Side }),
-        ownWords: { state_ergebnis_on_a_non_event: "team2.tore" },
+        ownWords: ["state_ergebnis_on_a_non_event"],
+        paths: { "team2.tore": "team2.tore" },
         run: async () => {
           if (thrown !== undefined) throw thrown;
           return { ok: true, value: undefined };
@@ -143,41 +147,56 @@ describe("the admin lane", () => {
       ok: false,
       fieldErrors: { "team1.tore": COPY.shared.field.between(0, 99), "team2.tore": COPY.shared.field.between(0, 99) },
     });
-    expect(await ergebnis(refusal("state_ergebnis_on_a_non_event"))({ team1: { tore: 1 }, team2: { tore: 2 } })).toStrictEqual({
+    expect(
+      await ergebnis(refusal("state_ergebnis_on_a_non_event", ["team2", "tore"]))({ team1: { tore: 1 }, team2: { tore: 2 } }),
+    ).toStrictEqual({
       ok: false,
       errorCode: "state_ergebnis_on_a_non_event",
       fieldErrors: { "team2.tore": SERVER_COPY.refusal["state_ergebnis_on_a_non_event"] },
     });
   });
 
-  it("answers a code its screen words on the box it names, or as the status line's reason", async () => {
-    expect(await create(refusal("duplicate_key"))({ name: "Nord", plz: "60438" })).toStrictEqual({
+  it("places a code its screen words by the path the backend names: on the box, or after the field's name", async () => {
+    expect(await create(refusal("duplicate_key", ["name"]))({ name: "Nord", plz: "60438" })).toStrictEqual({
       ok: false,
       errorCode: "duplicate_key",
       fieldErrors: { name: SERVER_COPY.refusal["duplicate_key"] },
     });
-    expect(await create(refusal("spiel_double_booked"))({ name: "Nord", plz: "60438" })).toStrictEqual({
-      ok: false,
-      errorCode: "spiel_double_booked",
-      reason: SERVER_COPY.refusal["spiel_double_booked"],
-    });
+    expect(await create(refusal("spiel_double_booked", ["schiedsrichter", "schiedsrichter_id"]))({ name: "Nord", plz: "60438" })).toStrictEqual(
+      {
+        ok: false,
+        errorCode: "spiel_double_booked",
+        reason: COPY.template.namedField(COPY.spielplan.fact.schiedsrichter, SERVER_COPY.refusal["spiel_double_booked"]),
+      },
+    );
   });
 
-  it("places each rule a refused payload broke where its screen words it, and answers the stale line where it does not", async () => {
+  it("never sets a field's phrase on the status line without its field", async () => {
+    // No field named, or one the screen does not declare: the phrase would have no subject, so the shared line answers.
+    for (const thrown of [refusal("spiel_double_booked"), refusal("duplicate_key", ["plz"])]) {
+      expect(await create(thrown)({ name: "Nord", plz: "60438" })).toStrictEqual({
+        ok: false,
+        errorCode: thrown.serverErrorCode,
+        reason: COPY.shared.failure.unexpected,
+      });
+    }
+  });
+
+  it("places each rule a refused payload broke by its path, and answers the stale line where the screen cannot", async () => {
     const kontakte = (thrown: unknown) =>
       action({
         lane: "admin",
         name: "kontakte",
         input: z.object({ kontakte: z.array(z.object({ email: z.string() })), datum: z.string() }),
-        ownWords: { kontakt_email_twice: "kontakte", date_not_in_calendar: "datum", good_spieler_exceed_kader: true },
+        ownWords: ["kontakt_email_twice", "date_not_in_calendar", "good_spieler_exceed_kader"],
+        paths: { kontakte: "kontakte", datum: "datum", kader: { name: COPY.page.teamKader } },
         run: async () => {
           throw thrown;
         },
       });
     const input = { kontakte: [{ email: "lena@example.com" }], datum: "2027-02-30" };
 
-    // A rule over several fields reports the block holding them, here the whole payload: the screen names its box.
-    const twoRules = refusedPayload([bodyField([], "kontakt_email_twice"), bodyField(["datum"], "date_not_in_calendar")]);
+    const twoRules = refusedPayload([bodyField(["kontakte"], "kontakt_email_twice"), bodyField(["datum"], "date_not_in_calendar")]);
     expect(await kontakte(twoRules)(input)).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
@@ -186,15 +205,23 @@ describe("the admin lane", () => {
         datum: COPY.shared.field.format(COPY.shared.field.exampleDate),
       },
     });
-    // A rule a pattern words takes its line from the bound the rule's context names.
-    expect(await kontakte(refusedPayload([bodyField([], "good_spieler_exceed_kader", { max: 8 })]))(input)).toStrictEqual({
+    // A rule a pattern words takes its line from the bound the rule's context names; with no box, after the field's name.
+    expect(await kontakte(refusedPayload([bodyField(["kader"], "good_spieler_exceed_kader", { max: 8 })]))(input)).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
-      reason: COPY.shared.field.max(8),
+      reason: COPY.template.namedField(COPY.page.teamKader, COPY.shared.field.max(8)),
     });
-    // One rule the screen does not word, a published bound among them: the page is older than the API.
-    for (const kind of ["kontakt_telefon_twice", "string_too_long"]) {
-      expect(await kontakte(refusedPayload([bodyField([], "kontakt_email_twice"), bodyField(["datum"], kind)]))(input), kind).toStrictEqual({
+    // One rule the screen does not word, a published bound among them, or one naming no field it shows: the page is
+    // older than the API, and no rule's phrase reaches the status line bare.
+    for (const [path, kind] of [
+      [["datum"], "kontakt_telefon_twice"],
+      [["datum"], "string_too_long"],
+      [[], "good_spieler_exceed_kader"],
+    ] as const) {
+      expect(
+        await kontakte(refusedPayload([bodyField(["kontakte"], "kontakt_email_twice"), bodyField(path, kind, { max: 8 })]))(input),
+        kind,
+      ).toStrictEqual({
         ok: false,
         errorCode: "payload_refused",
         reason: COPY.shared.failure.stale,

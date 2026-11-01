@@ -127,8 +127,8 @@ export function refusedFailure(error: APIBadStatusError, sentence: string): Acti
 
 /**
  * The Spiel refusals `fl_frontend/src/features/spiele/refusals.ts :: mapSpielRefusal` does not map.
- * Three name an OCCUPANT, which the form places at fault; the two `state_*` codes name none, so
- * their code rides back unused and the message lands as a toast.
+ * Three name an OCCUPANT, which the form places at fault; the two `state_*` codes name the event, a
+ * field this form does not mark, so their code rides back unused and the message lands as a toast.
  */
 const OCCUPANT_REFUSALS: Readonly<Partial<Record<Code, string>>> = {
   // Three triggers: a re-dating or a changed Sonderereignis fires the rule as a new club does. Its

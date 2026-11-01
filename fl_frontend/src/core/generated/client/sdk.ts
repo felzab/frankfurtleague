@@ -4553,6 +4553,8 @@ export const getSpielortePostSpielortUrl = () => {
 
 /**
  * Create a venue. `maps_link` is built server-side from the name and address and must not be submitted.
+ *
+ * Refused where another venue holds the name (`duplicate_key`, naming `name`).
  * @summary Create a Spielort
  */
 export const spielortePostSpielort = async (

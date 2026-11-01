@@ -31,3 +31,20 @@ def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefu
         error_code=Code.SPIELORT_STILL_BOOKED,
         status=HTTPStatus.CONFLICT,
     )
+
+
+def find_venue_name_refusal(*, taken: bool) -> WriteRefusal | None:
+    """`duplicate_key` on the name: another venue, a retired one included, holds it.
+
+    Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
+    The unique index still answers a race between two creates, as `duplicate_key` with no field.
+    """
+
+    if not taken:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.DUPLICATE_KEY,
+        status=HTTPStatus.CONFLICT,
+        fields=(("name",),),
+    )

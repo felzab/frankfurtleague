@@ -27846,7 +27846,7 @@
         ]
       },
       "post": {
-        "description": "Create a venue. `maps_link` is built server-side from the name and address and must not be submitted.",
+        "description": "Create a venue. `maps_link` is built server-side from the name and address and must not be submitted.\n\nRefused where another venue holds the name (`duplicate_key`, naming `name`).",
         "operationId": "spielorte_post_spielort",
         "requestBody": {
           "content": {

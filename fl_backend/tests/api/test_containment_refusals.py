@@ -62,7 +62,7 @@ class TestAFixtureSitsInsideItsMatchday:
         refusal = find_fixture_date_refusal(datum=datum, spieltag_beginn="2026-03-07", spieltag_ende="2026-03-08")
 
         assert refusal is not None
-        assert refusal.error_code == Code.SPIEL_OUTSIDE_SPIELTAG
+        assert (refusal.error_code, refusal.fields) == (Code.SPIEL_OUTSIDE_SPIELTAG, (("datum",),))
 
     def test_an_undated_fixture_passes(self):
         """An undated fixture contradicts no span — the opposite reading from the disqualification rule, which refuses by default."""

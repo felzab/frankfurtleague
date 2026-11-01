@@ -1024,6 +1024,7 @@ def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
         return WriteRefusal(
             error_code=Code.STATE_ERGEBNIS_ON_A_NON_EVENT,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("sonderereignis",),),
         )
 
     # An unresolved slot has nobody who could have failed to appear, and the award below would have
@@ -1032,6 +1033,7 @@ def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
         return WriteRefusal(
             error_code=Code.STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("sonderereignis",),),
         )
 
     return None
@@ -1132,6 +1134,7 @@ def find_fixture_date_refusal(*, datum: str | None, spieltag_beginn: str | None,
     return WriteRefusal(
         error_code=Code.SPIEL_OUTSIDE_SPIELTAG,
         status=HTTPStatus.CONFLICT,
+        fields=(("datum",),),
     )
 
 

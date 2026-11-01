@@ -207,12 +207,16 @@ describe("the match editor's save", () => {
   it("places the write's refusal on the field that caused it, in the status line, or on the stale-page line", async () => {
     const save = { id: SPIEL_ID, version: VERSION, changes: { datum: "2027-05-01" } } as const;
 
-    stand.ablehnung = refusal("spiel_outside_spieltag");
-    expect(await spielSpeichern(save)).toEqual({
-      ok: false,
-      errorCode: "spiel_outside_spieltag",
-      fieldErrors: { "changes.datum": SERVER_COPY.refusal["spiel_outside_spieltag"] },
-    });
+    // Each by the path the write names, onto the editor's box for it.
+    const onBox = [
+      ["spiel_outside_spieltag", ["datum"], "changes.datum"],
+      ["state_ergebnis_on_a_non_event", ["sonderereignis"], "changes.sonderereignis"],
+      ["state_nichtantreten_without_two_sides", ["sonderereignis"], "changes.sonderereignis"],
+    ] as const;
+    for (const [code, about, box] of onBox) {
+      stand.ablehnung = refusal(code, about);
+      expect(await spielSpeichern(save), code).toEqual({ ok: false, errorCode: code, fieldErrors: { [box]: SERVER_COPY.refusal[code] } });
+    }
 
     // A refusal about the venue shows on its box, the bar pointing at it.
     for (const code of ["booking_unknown_resource", "spiel_double_booked"] as const) {
