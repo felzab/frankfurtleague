@@ -30,3 +30,18 @@ describe("the ways to reach the league", () => {
     expect(screen.getByRole("link", { name: SERVER_COPY.landing.contact.email }).hasAttribute("target")).toBe(false);
   });
 });
+
+describe("an address too long for its row", () => {
+  // jsdom lays nothing out, so the cut is held by its classes: the way's name never shrinks or breaks, and the
+  // address takes the rest of the row with Tailwind's `truncate`.
+  it("is cut with „…“ and whole in its title, the way's name keeping its line", () => {
+    const address = "ansprechpartner.schulsport@frankfurt-league.example.org";
+    render(<LinkRows rows={[{ label: SERVER_COPY.landing.contact.email, value: address, href: `mailto:${address}` }]} />);
+
+    const value = screen.getByTitle(address);
+    expect(value.textContent).toBe(address);
+    expect([...value.classList]).toEqual(expect.arrayContaining(["truncate", "min-w-0", "flex-1"]));
+    const name = screen.getByRole("link", { name: SERVER_COPY.landing.contact.email }).parentElement;
+    expect([...(name?.classList ?? [])]).toEqual(expect.arrayContaining(["shrink-0", "whitespace-nowrap"]));
+  });
+});
