@@ -98,7 +98,7 @@ def page_of(club: str) -> Callable[[AsyncDatabase], Awaitable[Any]]:
             saisons_collection=database[Collection.SAISONS],
             teams_collection=database[Collection.TEAMS],
             spiele_collection=database[Collection.SPIELE],
-            spieler_collection=database[Collection.SPIELER],
+            saison_spieler_collection=database[Collection.SAISON_SPIELER],
         )
 
     return body

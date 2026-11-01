@@ -159,7 +159,7 @@ async def read_team(database: AsyncDatabase, saison_id: str | None) -> Any:
 
 async def read_spieler(database: AsyncDatabase, saison_id: str | None) -> Any:
     return await get_spieler(
-        spieler_collection=database[Collection.SPIELER],
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
         saisons_collection=database[Collection.SAISONS],
         filters=FLSpielerFilterParams(saison_id=saison_id, team_id=TEAM_OID),
     )

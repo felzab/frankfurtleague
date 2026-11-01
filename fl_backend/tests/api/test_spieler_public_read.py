@@ -25,11 +25,12 @@ from app.api.spieler.schemas import (
     FLSpielerSingleResponse,
     FLSpielerSortOptions,
 )
-from app.api.spieler.services import build_real_spieler_filter, build_spieler_pipeline, build_spieler_saisons_pipeline, public_initial
+from app.api.spieler.services import build_spieler_pipeline, build_spieler_saisons_pipeline, public_initial
 from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.core.exceptions import DocumentNotFoundError
+from app.core.sentinels import GHOST_SPIELER_ID
 from app.openapi_document import build_document
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import own_einwilligung_document, rules_document, saison_document, saison_spieler_document, spieler_document
@@ -127,6 +128,12 @@ def _lookup_pipeline(filters: FLSpielerFilterParams | None = None) -> list[Any]:
     pipeline = build_spieler_pipeline(filters or _filters())
 
     return next(stage["$lookup"] for stage in pipeline if "$lookup" in stage)["pipeline"]
+
+
+def _squad_match(filters: FLSpielerFilterParams | None = None) -> dict[str, Any]:
+    """The first stage, which narrows the squad rows before anything joins them."""
+
+    return build_spieler_pipeline(filters or _filters())[0]["$match"]
 
 
 class TestTheBaseTierShape:
@@ -240,7 +247,7 @@ class TestTheProjection:
     def test_the_consent_record_is_read_and_projected_nowhere(self):
         """`READ-PUPIL-003` reads it inside the `$cond`, so the projection carrying no key of that name is the whole of the withholding."""
         assert "einwilligung" not in _project()
-        assert "$einwilligung.umfang" in json.dumps(_project())
+        assert "$einwilligung.umfang" in json.dumps(_lookup_pipeline())
 
     def test_the_level_is_gone_from_the_shape_and_from_every_way_of_asking_for_it(self):
         """Serving no `stufe` while `?stufe=` still narrowed would leave the fact readable one level at a time."""
@@ -286,15 +293,19 @@ class TestTheProjection:
             FLSpielerFilterParams.model_validate({"sort_by": key})
 
     def test_the_person_s_own_retirement_narrows_nothing(self):
-        """`READ-SQUAD-001`: the only retirement match is the lookup's. One here would take a retired person's squad rows down with them."""
+        """`READ-SQUAD-001`: the only retirement match is the squad row's. One on the person would take their squad rows down with them."""
         matches = [stage["$match"] for stage in build_spieler_pipeline(_filters()) if "$match" in stage]
 
-        # The sentinel's exclusion alone, which narrows by id and never by a retirement.
-        assert matches == [build_real_spieler_filter()]
+        assert matches == [_squad_match()]
+        assert not any("$match" in stage for stage in _lookup_pipeline())
+
+    def test_the_sentinel_is_kept_off_the_squad_by_id_and_never_by_a_retirement(self):
+        """The squad row naming the sentinel is left out by its id, so the read never joins it whatever the rows hold."""
+        assert _squad_match()["spieler_id"] == {"$ne": GHOST_SPIELER_ID}
 
     def test_the_squad_row_s_retirement_narrows_unconditionally(self):
         """The other half, with no switch: this tier serves no field marking a row it would un-hide (`READ-SQUAD-002`)."""
-        assert {"$match": {"inactive_since": None}} in _lookup_pipeline()
+        assert _squad_match()["inactive_since"] is None
         assert "include_inactive" not in BASE_QUERY_PARAMETERS
 
 
@@ -324,8 +335,8 @@ class _Seasons:
         return _Cursor()
 
 
-class _Players:
-    """A players collection keeping the pipeline each read runs, which is where the season it resolved shows."""
+class _SquadRows:
+    """A squad rows collection keeping the pipeline each read runs, which is where the season it resolved shows."""
 
     def __init__(self) -> None:
         self.pipelines: list[Sequence[Mapping[str, Any]]] = []
@@ -335,16 +346,17 @@ class _Players:
         return _Cursor()
 
 
-def _junction_terms(filters: FLSpielerFilterParams, seasons: _Seasons) -> list[Mapping[str, Any]]:
-    """The `$match` terms the read narrowed the squad rows on, as the handler itself built them."""
+def _squad_terms(filters: FLSpielerFilterParams, seasons: _Seasons) -> Mapping[str, Any]:
+    """The `$match` the read narrowed the squad rows on, as the handler itself built it."""
 
-    players = _Players()
+    squad_rows = _SquadRows()
     asyncio.run(
-        get_spieler(spieler_collection=cast(AsyncCollection, players), saisons_collection=cast(AsyncCollection, seasons), filters=filters)
+        get_spieler(
+            saison_spieler_collection=cast(AsyncCollection, squad_rows), saisons_collection=cast(AsyncCollection, seasons), filters=filters
+        )
     )
-    lookup = next(stage["$lookup"] for stage in players.pipelines[0] if "$lookup" in stage)
 
-    return [stage["$match"] for stage in lookup["pipeline"] if "$match" in stage]
+    return squad_rows.pipelines[0][0]["$match"]
 
 
 class TestTheSeasonASquadIsReadFor:
@@ -360,17 +372,17 @@ class TestTheSeasonASquadIsReadFor:
         ],
     )
     def test_naming_a_team_reads_its_squad_in_one_season(self, named: str | None, read: str):
-        terms = _junction_terms(FLSpielerFilterParams(team_id=TEAM_OID, saison_id=named), _Seasons(SAISON))
+        terms = _squad_terms(FLSpielerFilterParams(team_id=TEAM_OID, saison_id=named), _Seasons(SAISON))
 
-        assert {"team_id": TEAM_OID, "saison_id": read} in terms
+        assert (terms["team_id"], terms["saison_id"]) == (TEAM_OID, read)
 
     def test_naming_a_team_with_no_season_active_is_refused_before_any_player_is_read(self):
-        """No read method on the players collection: a handler reading squads with no season to scope them to fails on the attribute."""
+        """No read method on the squad rows collection: a handler reading squads with no season to scope them to fails on the attribute."""
 
         with pytest.raises(DocumentNotFoundError) as refused:
             asyncio.run(
                 get_spieler(
-                    spieler_collection=cast(AsyncCollection, object()),
+                    saison_spieler_collection=cast(AsyncCollection, object()),
                     saisons_collection=cast(AsyncCollection, _Seasons(None)),
                     filters=FLSpielerFilterParams(team_id=TEAM_OID),
                 )
@@ -398,7 +410,7 @@ class TestTheBaseTierReadExecuted:
 
         async def body(database: AsyncDatabase) -> Any:
             response = await get_spieler(
-                spieler_collection=database.spieler,
+                saison_spieler_collection=database.saison_spieler,
                 saisons_collection=database.saisons,
                 filters=filters or _filters(),
             )
@@ -414,7 +426,7 @@ class TestTheBaseTierReadExecuted:
         """What mongod yields for the pipeline, one step BEFORE `FLSpielerPublic`, which declares five fields and drops the rest either way."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return await aggregate_many_from_db(collection=database.spieler, pipeline=build_spieler_pipeline(filters or _filters()))
+            return await aggregate_many_from_db(collection=database.saison_spieler, pipeline=build_spieler_pipeline(filters or _filters()))
 
         return on_a_database(url, body)
 
@@ -534,7 +546,7 @@ class TestTheBaseTierReadExecuted:
         async def body(database: AsyncDatabase) -> Any:
             before = await database.spieler.find_one({"_id": subject})
 
-            await get_spieler(spieler_collection=database.spieler, saisons_collection=database.saisons, filters=_filters())
+            await get_spieler(saison_spieler_collection=database.saison_spieler, saisons_collection=database.saisons, filters=_filters())
             await get_spieler_by_id(spieler_id=subject, spieler_collection=database.spieler)
 
             return before, await database.spieler.find_one({"_id": subject})
@@ -599,7 +611,9 @@ class TestTheSquadReadNamingNoSeasonExecuted:
 
     def _vornamen(self, url: str, filters: FLSpielerFilterParams) -> list[str]:
         async def body(database: AsyncDatabase) -> Any:
-            response = await get_spieler(spieler_collection=database.spieler, saisons_collection=database.saisons, filters=filters)
+            response = await get_spieler(
+                saison_spieler_collection=database.saison_spieler, saisons_collection=database.saisons, filters=filters
+            )
 
             return [row.vorname for row in response.spieler]
 
@@ -684,7 +698,7 @@ class TestThePublicationGate:
     def _read(self, url: str) -> dict[str, Any]:
         async def body(database: AsyncDatabase) -> Any:
             response = await get_spieler(
-                spieler_collection=database.spieler,
+                saison_spieler_collection=database.saison_spieler,
                 saisons_collection=database.saisons,
                 filters=_filters(),
             )
@@ -854,7 +868,7 @@ class TestTheOrderIsNoOracleForAWithheldName:
 
         async def body(database: AsyncDatabase) -> Any:
             response = await get_spieler(
-                spieler_collection=database.spieler,
+                saison_spieler_collection=database.saison_spieler,
                 saisons_collection=database.saisons,
                 filters=FLSpielerFilterParams(team_id=TEAM_OID, saison_id=SAISON, sort_by=cast(Any, sort_by)),
             )

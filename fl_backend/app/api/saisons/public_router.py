@@ -59,7 +59,6 @@ from app.core.dependencies import (
     SaisonSpielerCollection,
     SpielberichteCollection,
     SpieleCollection,
-    SpielerCollection,
     SpieltageCollection,
     TeamsCollection,
     get_german_date_str,
@@ -401,7 +400,7 @@ async def get_team(
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
     spiele_collection: SpieleCollection,
-    spieler_collection: SpielerCollection,
+    saison_spieler_collection: SaisonSpielerCollection,
 ) -> FLTeamPageResponse:
     """One club in one season: the club, its row of the Tabelle, its matches and its squad.
 
@@ -424,7 +423,7 @@ async def get_team(
             ),
         ),
         aggregate_many_from_db(
-            collection=spieler_collection,
+            collection=saison_spieler_collection,
             pipeline=build_spieler_pipeline(FLSpielerFilterParams(team_id=team_id, saison_id=saison.id)),
             collation=GERMAN_COLLATION,
         ),
