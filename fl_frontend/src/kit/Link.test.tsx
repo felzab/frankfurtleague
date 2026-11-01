@@ -55,6 +55,22 @@ describe("the kit's link", () => {
     expect((await screen.findByRole("tooltip")).textContent).toBe(COPY.shared.toSpiel);
   });
 
+  it("drawn as a glyph alone with `newTab`, opens a new tab with no way back to the opener", () => {
+    render(
+      <Link
+        href="https://www.instagram.com/frankfurtleague"
+        placement="icon"
+        newTab
+        icon="instagram"
+        label={COPY.template.instagram}
+      />,
+    );
+
+    const link = screen.getByRole("link", { name: COPY.template.instagram });
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+  });
+
   it("with `fullPage`, is a plain anchor loading the target as a whole document", () => {
     render(
       <Link
