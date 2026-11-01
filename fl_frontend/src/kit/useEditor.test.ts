@@ -35,7 +35,7 @@ describe("an editor's draft", () => {
     act(() => result.current.set("plz", "60439"));
     expect(result.current.draft.plz).toBe("60439");
     expect(result.current.count).toBe(1);
-    expect(result.current.status).toStrictEqual({ tone: "changes", text: COPY.vorlage.aenderungenOffen(1) });
+    expect(result.current.status).toStrictEqual({ tone: "changes", text: COPY.template.changesPending(1) });
 
     // Typed back to what is stored, the field is no change.
     act(() => result.current.set("plz", "60438"));
@@ -83,7 +83,7 @@ describe("an editor's draft", () => {
 
     act(() => result.current.set("plz", "60439"));
     await press(result.current.submit);
-    expect(result.current.status).toStrictEqual({ tone: "changes", text: COPY.vorlage.aenderungenOffen(1) });
+    expect(result.current.status).toStrictEqual({ tone: "changes", text: COPY.template.changesPending(1) });
 
     act(() => result.current.set("name", "SC Riedberg"));
     // The saved record comes back with the saved postcode and a new version.
@@ -102,7 +102,7 @@ describe("an editor's draft", () => {
     rerender({ shown: { id: "ort-1", version: 2, values: { ...STORED.values, plz: "60439" } } });
 
     expect(result.current.count).toBe(0);
-    expect(result.current.status).toStrictEqual({ tone: "saved", text: COPY.shared.gespeichert });
+    expect(result.current.status).toStrictEqual({ tone: "saved", text: COPY.shared.saved });
   });
 
   it("takes nobody else's read as its own after a save the write stored as already stored", async () => {
@@ -114,7 +114,7 @@ describe("an editor's draft", () => {
     await press(result.current.submit);
     // The page serves the record anew, under the version the save was sent from.
     rerender({ shown: { ...STORED, values: { ...STORED.values } } });
-    expect(result.current.status).toStrictEqual({ tone: "saved", text: COPY.shared.gespeichert });
+    expect(result.current.status).toStrictEqual({ tone: "saved", text: COPY.shared.saved });
     expect(result.current.draft.miete).toBeNull();
 
     act(() => result.current.set("plz", "60439"));
@@ -126,7 +126,7 @@ describe("an editor's draft", () => {
   });
 
   it("says what else the save moved in place of „Gespeichert“", async () => {
-    const note = COPY.verwaltung.spiel.gespeichertMitFolgen("Die Paarung in Spiel 31 wurde ebenfalls aktualisiert.");
+    const note = COPY.verwaltung.spiel.savedWithConsequences("Die Paarung in Spiel 31 wurde ebenfalls aktualisiert.");
     const { result, rerender } = editorOn(STORED, async () => ({ ok: true, value: 2, note }));
 
     act(() => result.current.set("plz", "60439"));
@@ -200,19 +200,19 @@ describe("an editor's refused save", () => {
     router.refresh.mockClear();
     await press(result.current.submit);
 
-    expect(result.current.status).toStrictEqual({ tone: "error", text: COPY.shared.fehler.veraltet });
+    expect(result.current.status).toStrictEqual({ tone: "error", text: COPY.shared.failure.stale });
     expect(router.refresh).toHaveBeenCalledOnce();
     expect(result.current.draft.plz).toBe("60439");
   });
 
   it("points at the fields when they alone were refused, until the next edit", async () => {
-    const plz = COPY.shared.feld.pflichtfeld;
+    const plz = COPY.shared.field.required;
     // The action keys a message by its field's whole path in the save, and the box is named by its key in `changes`.
     const { result, rerender } = editorOn(STORED, async () => ({ ok: false, fieldErrors: { "changes.plz": plz } }));
 
     act(() => result.current.set("plz", ""));
     await press(result.current.submit);
-    expect(result.current.status).toStrictEqual({ tone: "error", text: COPY.vorlage.felderPruefen });
+    expect(result.current.status).toStrictEqual({ tone: "error", text: COPY.template.checkFields });
     expect(result.current.fieldErrors).toStrictEqual({ plz });
 
     // The same object across renders, which React Aria would take for a new refusal to show again.
@@ -221,15 +221,15 @@ describe("an editor's refused save", () => {
     expect(result.current.fieldErrors).toBe(shown);
 
     act(() => result.current.set("plz", "60439"));
-    expect(result.current.status).toStrictEqual({ tone: "changes", text: COPY.vorlage.aenderungenOffen(1) });
+    expect(result.current.status).toStrictEqual({ tone: "changes", text: COPY.template.changesPending(1) });
   });
 
   it("shows a refusal's own reason", async () => {
-    const { result } = editorOn(STORED, async () => ({ ok: false, reason: COPY.shared.fehler.veraltet }));
+    const { result } = editorOn(STORED, async () => ({ ok: false, reason: COPY.shared.failure.stale }));
 
     act(() => result.current.set("plz", "60439"));
     await press(result.current.submit);
 
-    expect(result.current.status).toStrictEqual({ tone: "error", text: COPY.shared.fehler.veraltet });
+    expect(result.current.status).toStrictEqual({ tone: "error", text: COPY.shared.failure.stale });
   });
 });

@@ -22,7 +22,7 @@ describe("the sign-in's send", () => {
     // A fresh answer each press, as each action's answer arrives deserialised afresh.
     vi.mocked(handleSignIn).mockImplementation(async () => ({
       ok: false,
-      fieldErrors: { email: COPY.shared.feld.format(COPY.shared.feld.beispielAdresse) },
+      fieldErrors: { email: COPY.shared.field.format(COPY.shared.field.exampleAddress) },
     }));
     render(
       <SignInFlow
@@ -30,8 +30,8 @@ describe("the sign-in's send", () => {
         siteKey=""
       />,
     );
-    const field = screen.getByRole("textbox", { name: COPY.anmeldung.adresse });
-    const send = screen.getByRole("button", { name: COPY.anmeldung.codeSenden });
+    const field = screen.getByRole("textbox", { name: COPY.anmeldung.address });
+    const send = screen.getByRole("button", { name: COPY.anmeldung.sendCode });
 
     // A new address each time: the refusal stands as the field's custom validity until it is edited, and the
     // browser keeps the send back meanwhile.
@@ -48,7 +48,7 @@ describe("the sign-in's send", () => {
   });
 
   it("empties its status line while a send is on its way, so the same refusal twice is announced twice", async () => {
-    const refusal = { ok: false, reason: COPY.shared.pruefung.bestaetigen } as const;
+    const refusal = { ok: false, reason: COPY.shared.botCheck.confirm } as const;
     const second = Promise.withResolvers<typeof refusal>();
     vi.mocked(handleSignIn).mockResolvedValueOnce(refusal).mockReturnValueOnce(second.promise);
     render(
@@ -58,8 +58,8 @@ describe("the sign-in's send", () => {
       />,
     );
     const line = screen.getByRole("status");
-    const send = screen.getByRole("button", { name: COPY.anmeldung.codeSenden });
-    await userEvent.type(screen.getByRole("textbox", { name: COPY.anmeldung.adresse }), "lena@example.com");
+    const send = screen.getByRole("button", { name: COPY.anmeldung.sendCode });
+    await userEvent.type(screen.getByRole("textbox", { name: COPY.anmeldung.address }), "lena@example.com");
 
     await userEvent.click(send);
     await waitFor(() => expect(line.textContent).toBe(refusal.reason));

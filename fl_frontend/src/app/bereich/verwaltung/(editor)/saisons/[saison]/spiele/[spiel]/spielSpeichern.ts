@@ -60,7 +60,7 @@ function payloadOf(gespeichert: FLSpielJoinedAdmin, changes: Aenderungen): FLPat
   const spielort = changes.spielort === undefined ? werte.spielort : changes.spielort;
   const mietpreis = changes.mietpreis === undefined ? gespeicherterPreis(gespeichert) : changes.mietpreis;
   // The price is required while a venue is chosen.
-  if (spielort !== null && mietpreis === null) return { ok: false, fieldErrors: { "changes.mietpreis": COPY.shared.feld.pflichtfeld } };
+  if (spielort !== null && mietpreis === null) return { ok: false, fieldErrors: { "changes.mietpreis": COPY.shared.field.required } };
 
   const sonderereignis = changes.sonderereignis === undefined ? gespeichert.sonderereignis : changes.sonderereignis;
   // A no-show's goals are the award the write composed, never a score anyone played: taken back, the award
@@ -114,11 +114,18 @@ export const spielSpeichern = action({
     spiel_double_booked: true,
     eligibility_disqualified: true,
   },
-  examples: { "changes.mietpreis": COPY.verwaltung.spielort.mietpreisBeispiel },
+  // The write's own paths: the venue has its box here, the referee and the two sides are kept as stored.
+  paths: {
+    "ort.spielort_id": "changes.spielort",
+    "schiedsrichter.schiedsrichter_id": { name: COPY.spielplan.fact.schiedsrichter },
+    "team1.team_id": { name: COPY.verwaltung.spiel.team1 },
+    "team2.team_id": { name: COPY.verwaltung.spiel.team2 },
+  },
+  examples: { "changes.mietpreis": COPY.verwaltung.spielort.mietpreisExample },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
     // Read for the fields the editor does not show, which the wholesale write sends as stored.
     const gelesen = await getAdminSpiel(id);
-    if (gelesen === null) return { ok: false, reason: COPY.shared.fehler.veraltet };
+    if (gelesen === null) return { ok: false, reason: COPY.shared.failure.stale };
 
     const payload = payloadOf(gelesen.spiel, changes);
     if ("ok" in payload) return payload;
@@ -128,6 +135,6 @@ export const spielSpeichern = action({
     // What the write did to other fixtures, a later round's occupant or result among them, in today's editor's words.
     const folgen = describeMovedSpiele(geschrieben.advanced_to, geschrieben.bracket_faults, geschrieben.released_sides);
     const value = geschrieben.version;
-    return folgen === undefined ? { ok: true, value } : { ok: true, value, note: COPY.verwaltung.spiel.gespeichertMitFolgen(folgen) };
+    return folgen === undefined ? { ok: true, value } : { ok: true, value, note: COPY.verwaltung.spiel.savedWithConsequences(folgen) };
   },
 });

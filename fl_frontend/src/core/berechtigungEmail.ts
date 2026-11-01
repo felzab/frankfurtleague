@@ -147,7 +147,7 @@ export function buildBerechtigungEmail(daten: FLGrantData, { origin: rawOrigin }
   const antrag = aenderung.art === "requested" ? ANTRAG[aenderung.owner ? "ernennung" : "zugang"] : null;
 
   return {
-    art: "mitteilung",
+    art: "notice",
     subjectLine: antrag?.betreff ?? BETREFF,
     origin: origin,
     vorname: "",

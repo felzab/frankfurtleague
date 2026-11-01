@@ -13,4 +13,4 @@ export const TURNSTILE_HEADER = "X-Turnstile-Response";
  * The refusal a judged token answers, whatever Cloudflare judged, so it says nothing about an address;
  * and the widget's answer to a press while it shows its own click.
  */
-export const MENSCH_BESTAETIGEN = COPY.shared.pruefung.bestaetigen;
+export const MENSCH_BESTAETIGEN = COPY.shared.botCheck.confirm;

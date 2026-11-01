@@ -32,7 +32,7 @@ export function EditorBar({
   const save = (onPress?: () => void) => (
     <Button
       variant="primary"
-      label={COPY.shared.verb.speichern}
+      label={COPY.shared.verb.save}
       isBusy={isPending}
       onPress={onPress}
     />
@@ -49,7 +49,7 @@ export function EditorBar({
         save(onSave)
       ) : (
         <ConfirmDialog
-          verb="speichern"
+          verb="save"
           subject={warning.subject}
           consequence={warning.consequence}
           tone="primary"

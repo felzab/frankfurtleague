@@ -28,7 +28,7 @@ export function Skeleton({ shape, rows }: { shape: "table" | "spiel"; rows: numb
   return (
     <div
       role="status"
-      aria-label={COPY.shared.laedt}
+      aria-label={COPY.shared.loading}
       className={root()}>
       {Array.from({ length: rows }, (_, index) => (
         <div

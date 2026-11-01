@@ -17,7 +17,7 @@ function SpielortField({ onCreate, onChange }: { onCreate: (typed: string) => vo
   const [value, setValue] = useState<string | null>("ost");
   return (
     <ComboBox
-      label={ORT.objekt}
+      label={ORT.object}
       options={[
         { id: "ost", label: "Sportplatz Ost" },
         { id: "west", label: "Sportplatz West" },
@@ -28,7 +28,7 @@ function SpielortField({ onCreate, onChange }: { onCreate: (typed: string) => vo
         setValue(id);
         onChange?.(id);
       }}
-      create={{ label: ORT.anlegenEintrag, onCreate }}
+      create={{ label: ORT.createEntry, onCreate }}
     />
   );
 }
@@ -45,19 +45,19 @@ describe("a combo box's create entry", () => {
     await typeInto("Sportplatz");
     const listbox = screen.getByRole("listbox");
     const names = screen.getAllByRole("option").map((option) => option.textContent);
-    expect(names).toEqual(["Sportplatz Ost", "Sportplatz West", ORT.anlegenEintrag]);
+    expect(names).toEqual(["Sportplatz Ost", "Sportplatz West", ORT.createEntry]);
     expect(listbox.lastElementChild?.previousElementSibling?.getAttribute("role")).toBe("separator");
 
     await typeInto("Sportpark Süd");
-    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([ORT.anlegenEintrag]);
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([ORT.createEntry]);
   });
 
   it("filters a record named as the entry like any other record", async () => {
     render(
       <ComboBox
-        label={ORT.objekt}
-        options={[{ id: "gleich", label: ORT.anlegenEintrag }]}
-        create={{ label: ORT.anlegenEintrag, onCreate: () => undefined }}
+        label={ORT.object}
+        options={[{ id: "gleich", label: ORT.createEntry }]}
+        create={{ label: ORT.createEntry, onCreate: () => undefined }}
       />,
     );
     await typeInto("Sportpark Süd");
@@ -74,7 +74,7 @@ describe("a combo box's create entry", () => {
       />,
     );
     await typeInto("Sportpark Süd");
-    await userEvent.click(screen.getByRole("option", { name: ORT.anlegenEintrag }));
+    await userEvent.click(screen.getByRole("option", { name: ORT.createEntry }));
     expect(onCreate).toHaveBeenCalledWith("Sportpark Süd");
     expect(onChange).not.toHaveBeenCalledWith(expect.anything());
   });
@@ -90,8 +90,8 @@ describe("a combo box's create entry", () => {
   it("hands on no name where the field shows the chosen venue untouched", async () => {
     const onCreate = vi.fn();
     render(<SpielortField onCreate={onCreate} />);
-    await userEvent.click(screen.getByRole("button", { name: new RegExp(ORT.objekt) }));
-    await userEvent.click(screen.getByRole("option", { name: ORT.anlegenEintrag }));
+    await userEvent.click(screen.getByRole("button", { name: new RegExp(ORT.object) }));
+    await userEvent.click(screen.getByRole("option", { name: ORT.createEntry }));
     expect(onCreate).toHaveBeenCalledWith("");
   });
 

@@ -17,7 +17,7 @@ import type { EditorSave } from "./useEditor";
 
 type Spielort = { name: string };
 
-const NAME = COPY.seite.spielorte;
+const NAME = COPY.page.spielorte;
 const BACK = "/bereich/verwaltung/spielorte";
 
 vi.mock("next/navigation", () => ({
@@ -59,10 +59,10 @@ describe("the editor template's save", () => {
     render(<SpielortEditor save={save} />);
 
     await userEvent.clear(screen.getByRole("textbox"));
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.speichern }));
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
 
-    expect(screen.getByText(COPY.vorlage.felderPruefen)).toBeTruthy();
-    expect(screen.getByText(COPY.shared.feld.pflichtfeld)).toBeTruthy();
+    expect(screen.getByText(COPY.template.checkFields)).toBeTruthy();
+    expect(screen.getByText(COPY.shared.field.required)).toBeTruthy();
     expect(save).not.toHaveBeenCalled();
   });
 
@@ -71,8 +71,8 @@ describe("the editor template's save", () => {
     render(<SpielortEditor save={save} />);
 
     await userEvent.type(screen.getByRole("textbox"), " Nord");
-    expect(screen.getByText(COPY.vorlage.aenderungenOffen(1))).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.speichern }));
+    expect(screen.getByText(COPY.template.changesPending(1))).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
 
     await waitFor(() => expect(save).toHaveBeenCalledWith({ id: "ort-1", version: 1, changes: { name: "Riedberg Nord" } }));
   });
@@ -105,8 +105,8 @@ describe("the editor template's way back", () => {
     const page = document.createElement("div");
     page.innerHTML = html;
 
-    expect(within(page).getByRole("link", { name: COPY.shared.zurueck }).getAttribute("href")).toBe(BACK);
-    expect(within(page).queryByRole("button", { name: COPY.vorlage.mehr })).toBeNull();
+    expect(within(page).getByRole("link", { name: COPY.shared.back }).getAttribute("href")).toBe(BACK);
+    expect(within(page).queryByRole("button", { name: COPY.template.more })).toBeNull();
   });
 
   it("gives a list's band its logo and the bar its place", async () => {
@@ -117,7 +117,7 @@ describe("the editor template's way back", () => {
         </Framed>,
       ),
     );
-    expect(screen.queryByRole("link", { name: COPY.shared.zurueck })).toBeNull();
-    expect(screen.getByRole("button", { name: COPY.vorlage.mehr })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: COPY.shared.back })).toBeNull();
+    expect(screen.getByRole("button", { name: COPY.template.more })).toBeTruthy();
   });
 });

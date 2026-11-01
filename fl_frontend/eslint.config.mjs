@@ -1013,6 +1013,19 @@ const DESIGN_BANS = [
   // The required mark is a glyph, not a word.
   ban("react/jsx-no-literals", { noStrings: true, ignoreProps: true, allowedStrings: ["*"] }, RENDERED),
   syntaxBan(syntax(PICKED_STRING, "Text a reader sees comes from the catalogue: a string a condition picks is no `Copy`."), RENDERED),
+  // The attributes a reader hears or sees, which `ignoreProps` passes over and an HTML element types `string`: the kit
+  // writes them from its `Copy` props. An empty `alt` marks a decorative image and says nothing.
+  syntaxBan(
+    syntax(
+      [
+        "JSXAttribute[name.name=/^(?:aria-label|aria-description|title|alt)$/] > Literal[value=/\\S/]",
+        "JSXAttribute[name.name=/^(?:aria-label|aria-description|title|alt)$/] > JSXExpressionContainer > Literal[value=/\\S/]",
+        "JSXAttribute[name.name=/^(?:aria-label|aria-description|title|alt)$/] > JSXExpressionContainer > TemplateLiteral > TemplateElement[value.raw=/\\S/]",
+      ].join(", "),
+      "Text a reader hears or sees comes from the catalogue: outside the kit, an `aria-label`, `aria-description`, `title` or `alt` takes a `Copy`.",
+    ),
+    OUTSIDE_KIT,
+  ),
   syntaxBan(
     syntax(
       'TSAsExpression > TSTypeReference.typeAnnotation[typeName.name="Copy"], TSTypeAssertion > TSTypeReference.typeAnnotation[typeName.name="Copy"]',

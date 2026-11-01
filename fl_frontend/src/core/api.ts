@@ -83,7 +83,7 @@ const refusalOf = async ({ res, traceId, endpoint, sent }: { res: Response; trac
     statusCode: res.status,
     // A code the contract does not name is none: the backend's own line still records it under the trace.
     serverErrorCode: isCode(failure.error_code) ? failure.error_code : undefined,
-    // The backend's `FLRefusedPayloadBody` lists them; any other body marks no field.
+    // The backend's `FLFailureBody` lists them on every status; a body from anywhere else marks no field.
     refusedFields: Array.isArray(failure.fields) ? (failure.fields as FLRefusedField[]) : [],
     endpoint,
     ...sent,

@@ -2420,8 +2420,34 @@ export interface FLErasureViewResponse {
   verwaltung: FLVerwaltung | null;
 }
 
+export type FLRefusedFieldIn = (typeof FLRefusedFieldIn)[keyof typeof FLRefusedFieldIn];
+
+export const FLRefusedFieldIn = {
+  body: "body",
+  query: "query",
+  path: "path",
+  header: "header",
+  cookie: "cookie",
+} as const;
+
+export type FLRefusedFieldCtx = { [key: string]: string | number | boolean };
+
+export interface FLRefusedField {
+  ctx: FLRefusedFieldCtx;
+  in: FLRefusedFieldIn;
+  kind: string;
+  path: (string | number)[];
+}
+
+/**
+ * Every refusal's one body, whatever its status, in the shape of RFC 9457's problem details.
+ *
+ * Its members are this API's own extensions alone: a client words a refusal from its code, so no
+ * `type`, `title` or `detail` carries English a visitor would read.
+ */
 export interface FLFailureBody {
   error_code: Code;
+  fields: FLRefusedField[];
   trace_id: string;
 }
 
@@ -3892,28 +3918,6 @@ export interface FLReferencesPayload {
  */
 export interface FLReferencesResponse {
   unreferenced: string[];
-}
-
-export type FLRefusedFieldIn = (typeof FLRefusedFieldIn)[keyof typeof FLRefusedFieldIn];
-
-export const FLRefusedFieldIn = {
-  body: "body",
-  query: "query",
-  path: "path",
-  header: "header",
-  cookie: "cookie",
-} as const;
-
-export interface FLRefusedField {
-  in: FLRefusedFieldIn;
-  kind: string;
-  path: (string | number)[];
-}
-
-export interface FLRefusedPayloadBody {
-  error_code: Code;
-  fields: FLRefusedField[];
-  trace_id: string;
 }
 
 /**
@@ -5730,7 +5734,7 @@ export type N410Response = FLFailureBody;
 /**
  * Unprocessable Content
  */
-export type N422Response = FLRefusedPayloadBody;
+export type N422Response = FLFailureBody;
 
 /**
  * Internal Server Error

@@ -78,8 +78,10 @@ read of `GET /teams` and stored nowhere.
 
 ## Errors
 
-**Every failure answers `{error_code, trace_id}`**, a refused payload adding which field each
-refusal sits on, and never the submitted value or a stack trace. A code names one failure rather
+**Every failure answers one body, `{error_code, trace_id, fields}`, whatever its status**, in the
+shape of RFC 9457's problem details with this API's own members alone. `fields` names each body
+field the refusal judged, with its rule's bounds, and is empty where it judged none; the body
+never carries the submitted value or a stack trace. A code names one failure rather
 than a status class, and `fl_backend/app/core/codes.py :: Code` is every code's one spelling:
 `fl_backend/openapi.json` lists them once, as the failure body's `error_code` on the one shared
 response each status refers to, and never per operation. The status

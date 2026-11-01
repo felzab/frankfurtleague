@@ -127,7 +127,7 @@ class TestTheReadsOverHttp:
 
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert response.json()["error_code"] == Code.DOCUMENT_NOT_FOUND
-        assert set(response.json()) == {"error_code", "trace_id"}
+        assert response.json()["fields"] == []
 
     def test_the_pages_are_answered_with_their_running_labels(self):
         response = CLIENT.get(f"{PREFIX}/seiten", headers=BASE_AUTH)

@@ -95,7 +95,7 @@ describe("the code field", () => {
   });
 
   it("states a refusal as the field's description, and marks the field invalid", () => {
-    const refusal = COPY.anmeldung.abgelehnt.codeFalsch;
+    const refusal = COPY.anmeldung.refusal.codeWrong;
     render(
       <CodeField
         label={code}

@@ -15,19 +15,19 @@ const props = (rows: TableProps["rows"]): TableProps => ({
   nameLabel: COPY.shared.saison,
   columns: [{ key: "ort", label: COPY.shared.startelf }],
   rows,
-  empty: { kind: "noch", plural: COPY.shared.startelf },
+  empty: { kind: "none", plural: COPY.shared.startelf },
 });
 
 describe("a table's name cell", () => {
   it("sets the chip inline after the name's last word, so a wrapping name carries it on its last line", () => {
     render(
       <Table
-        {...props([{ id: "1", name: LANG, chip: { tone: "neutral", label: COPY.verwaltung.spielort.stillgelegt }, cells: { ort: "Nordend" } }])}
+        {...props([{ id: "1", name: LANG, chip: { tone: "neutral", label: COPY.verwaltung.spielort.retired }, cells: { ort: "Nordend" } }])}
       />,
     );
-    const holder = screen.getByText(COPY.verwaltung.spielort.stillgelegt).parentElement;
+    const holder = screen.getByText(COPY.verwaltung.spielort.retired).parentElement;
     // The chip stands in the name's own line box, not as a block of the cell's row beside or under it.
-    expect(holder?.parentElement?.textContent).toBe(`${LANG}${COPY.verwaltung.spielort.stillgelegt}`);
+    expect(holder?.parentElement?.textContent).toBe(`${LANG}${COPY.verwaltung.spielort.retired}`);
   });
 
   it("ends a linked row with the chevron, in a column of its own", () => {

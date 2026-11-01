@@ -265,6 +265,16 @@ class TestOneVenueAndOneRefereeAtATime:
         assert refusal is not None
         assert refusal.error_code == Code.SPIEL_DOUBLE_BOOKED
 
+    @pytest.mark.parametrize(
+        ("resource", "path"), [("Spielort", ("ort", "spielort_id")), ("Schiedsrichter", ("schiedsrichter", "schiedsrichter_id"))]
+    )
+    def test_the_refusal_names_the_field_holding_the_booked_row(self, resource, path):
+        """The editor marks the venue's or the referee's field, whichever the other fixture holds."""
+
+        refusal = find_clash_refusal(datum="2026-03-07", uhrzeit="18:00:00", booked=[self.slot("18:00:00", resource=resource)])
+
+        assert refusal is not None and refusal.fields == (path,)
+
     def test_it_works_in_both_directions(self):
         """A booking earlier and a booking later are the same clash — the comparison is absolute."""
 

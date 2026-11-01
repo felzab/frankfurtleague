@@ -15,7 +15,7 @@ import type { ReactNode } from "react";
 export default function SaisonsLayout({ children }: { children: ReactNode }) {
   return (
     <RailFrame
-      groups={[{ entries: [{ id: "spielplan", label: COPY.seite.spielplan, saison: "spielplan", icon: "spielplan" }] }]}
+      groups={[{ entries: [{ id: "spielplan", label: COPY.page.spielplan, saison: "spielplan", icon: "spielplan" }] }]}
       bar={["spielplan"]}
       saison={{ saisons: readSeasons(), home: "spielplan" }}
       foot={{ kind: "signIn", href: ROUTES.signIn.path() }}>

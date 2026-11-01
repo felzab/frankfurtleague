@@ -26,9 +26,9 @@ const zeile = (ort: FLSpielort): TableRow => ({
   name: ort.name,
   // No `href` while no venue page answers at `ROUTES.verwaltungSpielort`: a row linking there would open the
   // not-found page. The record page brings the link back.
-  ...(ort.inactive_since === null ? {} : { chip: { tone: "neutral" as const, label: WORTE.stillgelegt }, muted: true }),
+  ...(ort.inactive_since === null ? {} : { chip: { tone: "neutral" as const, label: WORTE.retired }, muted: true }),
   cells: {
-    adresse: WORTE.strasseMitNummer(ort.address.strasse, ort.address.hausnummer),
+    adresse: WORTE.strasseWithHausnummer(ort.address.strasse, ort.address.hausnummer),
     mietpreis: formatEuro(ort.default_mietpreis),
   },
 });
@@ -49,10 +49,10 @@ async function Spielorte() {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "verwaltungSpielorte" } }}
-      search={{ label: WORTE.suchen }}
+      search={{ label: WORTE.search }}
       create={{
-        title: COPY.shared.mitObjekt(WORTE.objekt, "anlegen"),
-        act: { verb: "anlegen", object: WORTE.objekt },
+        title: COPY.shared.withObject(WORTE.object, "create"),
+        act: { verb: "create", object: WORTE.object },
         action: spielortAnlegen,
         children: <SpielortFelder regeln={SPIELORT_REGELN} />,
       }}
@@ -62,11 +62,11 @@ async function Spielorte() {
           label: ROUTES.verwaltungSpielorte.title,
           nameLabel: WORTE.name,
           columns: [
-            { key: "adresse", label: WORTE.adresse, hideOnPhone: true },
+            { key: "adresse", label: WORTE.address, hideOnPhone: true },
             { key: "mietpreis", label: WORTE.mietpreis, figures: true },
           ],
           rows: spielorte.map(zeile),
-          empty: { kind: "noch", plural: ROUTES.verwaltungSpielorte.title, glyph: "spielorte" },
+          empty: { kind: "none", plural: ROUTES.verwaltungSpielorte.title, glyph: "spielorte" },
         },
       }}
     />

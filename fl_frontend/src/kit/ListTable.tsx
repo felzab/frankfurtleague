@@ -125,13 +125,13 @@ export function ListTable({
         {...table}
         rows={rows}
         // A search that emptied the list says so, in the list's own plural.
-        empty={isSearching ? { ...table.empty, kind: "suche" } : table.empty}
+        empty={isSearching ? { ...table.empty, kind: "search" } : table.empty}
       />
       {more !== undefined && current.cursor !== null && (
         <div>
           <Button
             variant="secondary"
-            label={COPY.shared.weitereLaden}
+            label={COPY.shared.loadMore}
             isBusy={isLoading}
             onPress={() => request(current.query, current.cursor, true)}
           />

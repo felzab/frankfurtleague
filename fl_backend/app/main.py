@@ -58,7 +58,7 @@ from app.core.db import lifespan
 from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, register_exception_handlers
 from app.core.logging import fl_logger, setup_logging
 from app.core.middlewares import TracedApp
-from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
+from app.shared.schemas.responses import FLFailureBody
 
 # Every router under its slice's tag, the first segment of each path it serves, so an operation's id
 # is `<tag>_<handler>`: a handler's name is unique within its slice. Which key a router takes its
@@ -104,9 +104,6 @@ def operation_id(route: APIRoute) -> str:
     return f"{route.tags[0]}_{route.name}"
 
 
-# A 422 alone carries `fields` (`app/core/exception_handlers.py :: error_response`'s callers), so it
-# alone answers with the refused payload's body.
-FAILURE_BODIES = {status: FLRefusedPayloadBody if status is HTTPStatus.UNPROCESSABLE_CONTENT else FLFailureBody for status in FAILURE_STATUSES}
 # The unavailable database's 503 is the one failure naming when to come back.
 RETRY_AFTER_HEADER = {"Retry-After": {"description": "Seconds to wait before asking again", "schema": {"type": "integer"}}}
 SCHEMA_REF = "#/components/schemas/{model}"
@@ -115,7 +112,7 @@ SCHEMA_REF = "#/components/schemas/{model}"
 def failure_response(status: HTTPStatus) -> dict[str, Any]:
     response: dict[str, Any] = {
         "description": status.phrase,
-        "content": {"application/json": {"schema": {"$ref": SCHEMA_REF.format(model=FAILURE_BODIES[status].__name__)}}},
+        "content": {"application/json": {"schema": {"$ref": SCHEMA_REF.format(model=FLFailureBody.__name__)}}},
     }
     if status is HTTPStatus.SERVICE_UNAVAILABLE:
         response["headers"] = RETRY_AFTER_HEADER
@@ -130,7 +127,7 @@ def with_failure_responses(document: Mapping[str, Any]) -> dict[str, Any]:
     """
 
     components = document.get("components", {})
-    bodies = models_json_schema([(body, "serialization") for body in set(FAILURE_BODIES.values())], ref_template=SCHEMA_REF)[1]["$defs"]
+    bodies = models_json_schema([(FLFailureBody, "serialization")], ref_template=SCHEMA_REF)[1]["$defs"]
     # Sorted as FastAPI sorts what it generates, so a rewrite of `fl_backend/openapi.json` moves no schema.
     schemas = dict(sorted({**components.get("schemas", {}), **bodies}.items()))
     responses = {str(int(status)): failure_response(status) for status in FAILURE_STATUSES}

@@ -1,4 +1,4 @@
-// Redesign: goes with its last importer; `core/routes.ts` and `COPY.seite` replace it.
+// Redesign: goes with its last importer; `core/routes.ts` and `COPY.page` replace it.
 
 /**
  * The public area, whose layout titles every page under it. Each name here is spelled once in `core`,

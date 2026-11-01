@@ -17,7 +17,7 @@ const TABLE: TableProps = {
     { id: "1", name: "Sportpark Ost", cells: { adresse: "Nordend" } },
     { id: "2", name: "Goethe-Halle", cells: { adresse: "Bockenheim" } },
   ],
-  empty: { kind: "noch", plural: COPY.shared.saison },
+  empty: { kind: "none", plural: COPY.shared.saison },
 };
 
 describe("a list's search", () => {
@@ -41,7 +41,7 @@ describe("a list's search", () => {
       />,
     );
     await userEvent.type(screen.getByRole("searchbox"), "Riedberg");
-    expect(screen.getByText(COPY.shared.leer.suche(COPY.shared.saison))).toBeTruthy();
-    expect(screen.queryByText(COPY.shared.leer.noch(COPY.shared.saison))).toBe(null);
+    expect(screen.getByText(COPY.shared.empty.search(COPY.shared.saison))).toBeTruthy();
+    expect(screen.queryByText(COPY.shared.empty.none(COPY.shared.saison))).toBe(null);
   });
 });

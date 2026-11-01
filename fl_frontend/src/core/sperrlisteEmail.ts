@@ -27,7 +27,7 @@ const EINLEITUNG = [
 
 export function buildSperreEmail({ grund, barred_until_saison_id: gesperrtBisSaisonId }: FLSperreData, { origin }: MailOrt): Mail {
   return {
-    art: "mitteilung",
+    art: "notice",
     subjectLine: "Deine E-Mail-Adresse ist gesperrt",
     origin: mailOrigin(origin),
     vorname: "",

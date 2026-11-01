@@ -33,14 +33,14 @@ export function Brand({ ground }: { ground: "band" | "page" }) {
   return (
     <NextLink
       href="/"
-      aria-label={COPY.marke.name}
+      aria-label={COPY.brand.name}
       data-kit-focus="ring"
       className={root()}>
       <FLLogo className={mark()} />
       <span
         aria-hidden
         className={wordmark()}>
-        {COPY.marke.name}
+        {COPY.brand.name}
       </span>
     </NextLink>
   );

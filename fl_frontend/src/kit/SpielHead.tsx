@@ -52,7 +52,7 @@ function Side({ side, score, part }: { side: SpielSide; score: Figures; part: "h
  */
 export function SpielHead({ eyebrow, home, away, result }: SpielHeadProps) {
   const score = figures(result);
-  const shootOut = score?.shootOut === true ? COPY.shared.nachElfmeterschiessen : null;
+  const shootOut = score?.shootOut === true ? COPY.shared.afterElfmeterschiessen : null;
   const style = head();
   return (
     <div className={style.root()}>

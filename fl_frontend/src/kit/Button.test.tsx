@@ -37,7 +37,7 @@ describe("a labelled button with a leading glyph", () => {
     );
     const button = screen.getByRole("button", { name: COPY.shared.filter });
     expect(button.querySelectorAll("svg")).toHaveLength(1);
-    expect(screen.getByRole("progressbar", { name: COPY.shared.laedt })).toBeTruthy();
+    expect(screen.getByRole("progressbar", { name: COPY.shared.loading })).toBeTruthy();
   });
 });
 

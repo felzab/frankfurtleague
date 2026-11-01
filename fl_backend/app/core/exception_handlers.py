@@ -36,28 +36,21 @@ def error_response(
     error_code: Code,
     headers: Mapping[str, str] | None = None,
     *,
-    fields: list[dict[str, Any]] | None = None,
+    fields: Sequence[dict[str, Any]] = (),
 ) -> JSONResponse:
-    """The one failure body shape every handler returns: the code, the id to quote, and a refused payload's `fields`.
+    """The one failure body every handler returns, whatever its status: the code, the id to quote, and the fields it names.
 
     The code reaches the request's access line from here, which is the one log line a refusal writes.
     """
     record_error_code(error_code)
-    content: dict[str, Any] = {"error_code": error_code, "trace_id": trace_id_var.get()}
-    if fields is not None:
-        content["fields"] = fields
+    content: dict[str, Any] = {"error_code": error_code, "trace_id": trace_id_var.get(), "fields": list(fields)}
 
     return JSONResponse(status_code=status_code, content=content, headers=headers)
 
 
 async def api_error_handler(request: Request, exc: APIError):
-    # A 422 alone publishes `fields`, the refusal's own code as each one's `kind` where a `payload_refused`
-    # carries pydantic's error type.
-    fields = (
-        [{"in": "body", "path": list(path), "kind": exc.error_code} for path in exc.fields]
-        if exc.status_code == HTTPStatus.UNPROCESSABLE_CONTENT
-        else None
-    )
+    # The refusal's own code is each field's `kind`, where a `payload_refused` carries pydantic's error type.
+    fields = [{"in": "body", "path": list(path), "kind": exc.error_code, "ctx": {}} for path in exc.fields]
 
     return error_response(exc.status_code, exc.error_code, headers=exc.headers, fields=fields)
 
@@ -123,7 +116,12 @@ def _refused_field(error: Any) -> dict[str, Any]:
     # FastAPI prefixes every `loc` with where the value arrived; the rest is the path inside it.
     location, *path = error["loc"]
 
-    return {"in": str(location), "path": path, "kind": error["type"]}
+    # A rule's bounds, which its caller words the field's line from: a context carries what the rule
+    # holds the refused value to, never that value. A member that is no JSON scalar, an exception
+    # among them, names nothing a caller could word.
+    context = {key: value for key, value in error.get("ctx", {}).items() if isinstance(value, str | int | float | bool)}
+
+    return {"in": str(location), "path": path, "kind": error["type"], "ctx": context}
 
 
 def rejected_fields_of(errors: Sequence[Any]) -> list[dict[str, str]]:

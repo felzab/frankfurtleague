@@ -104,7 +104,7 @@ export function buildBewerbungZusageEmail(
   const hex = farbe !== undefined && FARBE_HEX.test(farbe.hex) ? farbe.hex : null;
 
   return {
-    art: "mitteilung",
+    art: "notice",
     subjectLine: `Willkommen in der Saison ${saison_id}`,
     origin: site,
     vorname: "",
@@ -137,7 +137,7 @@ export function buildBewerbungZusageEmail(
 /** The mail states the decision and the reason it was given, and says that it covers this application rather than the school. */
 export function buildBewerbungAbsageEmail({ team, saison_id, rollen, grund }: FLBewerbungAbsageData, { origin }: MailOrt): Mail {
   return {
-    art: "mitteilung",
+    art: "notice",
     subjectLine: `Absage für die Saison ${saison_id}`,
     origin: mailOrigin(origin),
     vorname: "",
@@ -168,7 +168,7 @@ export function buildBewerbungBestaetigungEmail({ saison_id, schule, rollen, fri
   const bis = fristText(frist);
 
   return {
-    art: "erstkontakt",
+    art: "firstContact",
     subjectLine: `Dein Eintrag für die Saison ${saison_id}`,
     origin: site,
     vorname: "",
@@ -211,7 +211,7 @@ export function buildBewerbungErinnerungEmail({ saison_id, schule, rollen, frist
   const bis = fristText(frist);
 
   return {
-    art: "erstkontakt",
+    art: "firstContact",
     subjectLine: `Erinnerung: Dein Eintrag für die Saison ${saison_id}`,
     origin: site,
     vorname: "",
@@ -256,7 +256,7 @@ export function buildBewerbungEingangEmail(
   const bis = fristText(frist);
 
   return {
-    art: "mitteilung",
+    art: "notice",
     subjectLine: `Bewerbung eingegangen: Saison ${saison_id}`,
     origin: site,
     vorname: "",
@@ -299,7 +299,7 @@ export function buildBewerbungGeloeschtEmail({ saison_id, rollen, pending: ausst
   const site = mailOrigin(origin);
 
   return {
-    art: "mitteilung",
+    art: "notice",
     subjectLine: `Bewerbung wird gelöscht: Saison ${saison_id}`,
     origin: site,
     vorname: "",
@@ -337,7 +337,7 @@ export function buildBewerbungWiderspruchEmail(
   const wer = personName(abgelehnt);
 
   return {
-    art: "mitteilung",
+    art: "notice",
     subjectLine: `Widerspruch zum Eintrag: Saison ${saison_id}`,
     origin: site,
     vorname: "",

@@ -214,7 +214,7 @@ def refuse_reversed_span(*, start: str, end: str, kind: LiteralString) -> None:
     """
 
     if end < start:
-        raise PydanticCustomError(kind, "the span ends before it starts")
+        raise PydanticCustomError(kind, "the span ends before it starts", {"start": start})
 
 
 CustomOptionalDateString = Annotated[CustomDateString | None, BeforeValidator(parse_empty_string_to_none), BLANK_ADMITTED]

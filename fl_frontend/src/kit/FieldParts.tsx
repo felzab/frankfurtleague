@@ -34,17 +34,17 @@ export type Constraints = {
  * the client. A message the server or the form sent stands as it came.
  */
 function fieldMessage({ validationDetails, validationErrors }: ValidationResult, constraints: Constraints) {
-  const { feld } = COPY.shared;
-  if (validationDetails.valueMissing) return feld.pflichtfeld;
-  if (validationDetails.tooLong && constraints.maxLength !== undefined) return feld.hoechstensZeichen(constraints.maxLength);
-  if (validationDetails.tooShort && constraints.minLength !== undefined) return feld.mindestensZeichen(constraints.minLength);
-  if (validationDetails.rangeUnderflow && constraints.earliest !== undefined) return feld.fruehestens(constraints.earliest);
-  if (validationDetails.rangeOverflow && constraints.latest !== undefined) return feld.spaetestens(constraints.latest);
+  const { field } = COPY.shared;
+  if (validationDetails.valueMissing) return field.required;
+  if (validationDetails.tooLong && constraints.maxLength !== undefined) return field.maxChars(constraints.maxLength);
+  if (validationDetails.tooShort && constraints.minLength !== undefined) return field.minChars(constraints.minLength);
+  if (validationDetails.rangeUnderflow && constraints.earliest !== undefined) return field.earliest(constraints.earliest);
+  if (validationDetails.rangeOverflow && constraints.latest !== undefined) return field.latest(constraints.latest);
   if (
     (validationDetails.typeMismatch || validationDetails.patternMismatch || validationDetails.badInput) &&
     constraints.example !== undefined
   ) {
-    return feld.format(constraints.example);
+    return field.format(constraints.example);
   }
   return validationErrors[0];
 }

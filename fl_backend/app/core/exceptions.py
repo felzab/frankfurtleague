@@ -6,21 +6,17 @@ from http import HTTPStatus
 
 from app.core.codes import Code
 
-# The path inside the body a 422 judged, as a `payload_refused` names its own, so a form can mark the field.
+# The path inside the body a refusal judged, as a `payload_refused` names its own, so a form can mark the field.
 FieldPath = tuple[str | int, ...]
 
 
 class APIError(Exception):
-    """A refusal: the status it answers and the code naming its reason, which is all a failure body carries.
+    """A refusal: the status it answers, the code naming its reason and the body paths it judged, which is all a failure body carries.
 
     `headers` carry what the status asks for beside the body, a 401's challenge or a `Retry-After`.
     """
 
     def __init__(self, status: HTTPStatus, code: Code, *, headers: Mapping[str, str] | None = None, fields: tuple[FieldPath, ...] = ()):
-        # A 422's body is the one carrying `fields`, so on any other status they would vanish.
-        if fields and status is not HTTPStatus.UNPROCESSABLE_CONTENT:
-            raise ValueError(f"{code} names fields on a {status}, whose body carries none")
-
         super().__init__(code)
         self.status_code = int(status)
         self.error_code = code
@@ -41,7 +37,7 @@ class DocumentNotFoundError(APIError):
 
 @dataclass(frozen=True, kw_only=True)
 class WriteRefusal:
-    """Why an endpoint refuses: the code, the status its check chose, and the body paths a 422 judged.
+    """Why an endpoint refuses: the code, the status its check chose, and the body paths it judged.
 
     Named fields, not a tuple, so a check spells its `status` beside the code.
     """

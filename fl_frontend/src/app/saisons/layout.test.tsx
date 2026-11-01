@@ -33,7 +33,7 @@ describe("the public season pages' frame", () => {
       );
     });
 
-    expect(screen.getAllByRole("link", { name: COPY.seite.spielplan }).map((link) => link.getAttribute("href"))).toContain("/saisons/2027");
+    expect(screen.getAllByRole("link", { name: COPY.page.spielplan }).map((link) => link.getAttribute("href"))).toContain("/saisons/2027");
     expect(screen.getAllByRole("button", { name: new RegExp(COPY.shared.saisonName("2027")) }).length).toBeGreaterThan(0);
   });
 });

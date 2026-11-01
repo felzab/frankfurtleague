@@ -35,9 +35,9 @@ export const spielortAnlegen = action({
   input: SpielortFormular,
   ownWords: { duplicate_key: "name" },
   examples: {
-    plz: COPY.verwaltung.spielort.plzBeispiel,
-    hausnummer: COPY.verwaltung.spielort.hausnummerBeispiel,
-    mietpreis: COPY.verwaltung.spielort.mietpreisBeispiel,
+    plz: COPY.verwaltung.spielort.plzExample,
+    hausnummer: COPY.verwaltung.spielort.hausnummerExample,
+    mietpreis: COPY.verwaltung.spielort.mietpreisExample,
   },
   run: async ({ mietpreis, name, ...address }) => {
     await spielortePostSpielort({ name, default_mietpreis: mietpreis, address });

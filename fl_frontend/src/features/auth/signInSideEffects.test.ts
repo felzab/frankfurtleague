@@ -332,17 +332,17 @@ describe("what the action answers an address it cannot parse", () => {
      site failed. "" is what the form posts for an empty box, the view marking no field required, and a box of
      spaces is stripped to it. The browser's `type=email` lets a host with no dot through, and a post made without
      the page sends anything, so the server's answer is the one those meet. */
-  const { feld } = COPY.shared;
+  const { field } = COPY.shared;
   it.each([
-    { label: "an empty box", typed: "", line: feld.pflichtfeld },
-    { label: "a box of spaces", typed: "   ", line: feld.pflichtfeld },
-    { label: "no at sign", typed: "abc", line: feld.format(feld.beispielAdresse) },
-    { label: "a host with no dot", typed: "erika@schule", line: feld.format(feld.beispielAdresse) },
-    { label: "an umlaut before the at sign", typed: "jürgen@schule.de", line: feld.format(feld.beispielAdresse) },
+    { label: "an empty box", typed: "", line: field.required },
+    { label: "a box of spaces", typed: "   ", line: field.required },
+    { label: "no at sign", typed: "abc", line: field.format(field.exampleAddress) },
+    { label: "a host with no dot", typed: "erika@schule", line: field.format(field.exampleAddress) },
+    { label: "an umlaut before the at sign", typed: "jürgen@schule.de", line: field.format(field.exampleAddress) },
     {
       label: "an address past the ceiling",
       typed: `${"a".repeat(KONTAKT_EMAIL_MAX_LENGTH)}@schule.de`,
-      line: feld.hoechstensZeichen(KONTAKT_EMAIL_MAX_LENGTH),
+      line: field.maxChars(KONTAKT_EMAIL_MAX_LENGTH),
     },
   ])("answers $label with its line on the address box", async ({ typed, line }) => {
     const attempt = await signInWith(typed);

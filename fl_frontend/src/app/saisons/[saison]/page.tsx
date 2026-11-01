@@ -65,7 +65,7 @@ async function Spielplan({
                   panel: <SpielList matches={matchday.spiele.map(matchRowOf)} />,
                 })),
               },
-        empty: { kind: "noch", plural: COPY.spielplan.spieltage, glyph: "spielplan" },
+        empty: { kind: "none", plural: COPY.spielplan.spieltage, glyph: "spielplan" },
       }}
     />
   );

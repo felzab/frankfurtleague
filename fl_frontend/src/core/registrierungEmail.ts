@@ -37,7 +37,7 @@ export function buildRegistrierungBestaetigungEmail(
   const site = mailOrigin(origin);
 
   return {
-    art: "erstkontakt",
+    art: "firstContact",
     // The team is in the subject because a pupil registering for two of them gets two of these, and
     // the season alone does not tell one from the other in an inbox.
     subjectLine: `Registrierung für ${teamName} bestätigen`,
@@ -71,7 +71,7 @@ export function buildRegistrierungErinnerungEmail(
   const site = mailOrigin(origin);
 
   return {
-    art: "erstkontakt",
+    art: "firstContact",
     subjectLine: `Erinnerung: Registrierung für ${teamName} bestätigen`,
     origin: site,
     vorname: "",
@@ -114,7 +114,7 @@ export function buildRegistrierungAbsageEmail(
   const site = mailOrigin(origin);
 
   return {
-    art: "mitteilung",
+    art: "notice",
     subjectLine: `Deine Registrierung für ${teamName}`,
     origin: site,
     vorname: vorname,

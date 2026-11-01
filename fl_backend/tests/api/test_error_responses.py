@@ -4,7 +4,7 @@ import logging
 import re
 from collections.abc import AsyncIterator
 from http import HTTPStatus
-from typing import Any
+from typing import Annotated, Any, Self
 
 import pytest
 from bson import ObjectId
@@ -12,7 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 from httpx2 import Response
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import AfterValidator, BaseModel, Field, ValidationError, model_validator
 from pymongo.errors import BulkWriteError, PyMongoError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -27,7 +27,7 @@ from app.core.exceptions import APIError
 from app.core.logging import JSONFormatter, TraceContextFilter
 from app.core.middlewares import TracedApp
 from app.main import create_app
-from app.shared.schemas.custom import PERSON_NAME_PATTERN
+from app.shared.schemas.custom import PERSON_NAME_PATTERN, refuse_reversed_span
 from tests.config import BASE_AUTH, build_test_config
 from tests.core.app_source import application
 
@@ -88,6 +88,32 @@ async def refuse_a_nested_field(payload: NestedPayload) -> dict[str, bool]:
     return {"ok": True}
 
 
+def refuse_plainly(value: str) -> str:
+    """A validator raising a bare `ValueError`, whose context Pydantic reports as the exception itself."""
+
+    raise ValueError("refused")
+
+
+class RuledPayload(BaseModel):
+    """A span the shared helper judges, beside a field a bare `ValueError` refuses."""
+
+    beginn: str
+    ende: str
+    note: Annotated[str, AfterValidator(refuse_plainly)] | None = None
+
+    @model_validator(mode="after")
+    def the_span_runs_forwards(self) -> Self:
+        refuse_reversed_span(start=self.beginn, end=self.ende, kind="spieltag_ends_before_start")
+        return self
+
+
+@VALIDATION_APP.post("/ruled")
+async def refuse_a_rule(payload: RuledPayload) -> dict[str, bool]:
+    """Never reached: every case posts a body the route refuses."""
+
+    return {"ok": True}
+
+
 # A code of a rule no route here enforces, so only this case's own route answers it.
 PLANTED_REFUSAL = Code.RULES_GRUPPEN_IN_USE
 JUDGED_PATH = ("kontakt", "email")
@@ -95,10 +121,9 @@ JUDGED_PATH = ("kontakt", "email")
 
 @VALIDATION_APP.post("/refused/{status}")
 async def refuse_at(status: int) -> None:
-    """Refuses at the status its path names, a 422 naming the body path it judged."""
+    """Refuses at the status its path names, naming the body path it judged."""
 
-    judged = (JUDGED_PATH,) if status == HTTPStatus.UNPROCESSABLE_CONTENT else ()
-    raise APIError(HTTPStatus(status), PLANTED_REFUSAL, fields=judged)
+    raise APIError(HTTPStatus(status), PLANTED_REFUSAL, fields=(JUDGED_PATH,))
 
 
 @VALIDATION_APP.get("/starlette/{status}")
@@ -149,7 +174,7 @@ class TestFailureBodies:
 
         response = client().get("/api/v0/spiele")
 
-        assert set(response.json()) == {"error_code", "trace_id"}
+        assert (set(response.json()), response.json()["fields"]) == ({"error_code", "trace_id", "fields"}, [])
         # The exact set, so a message copied into any header, under any name, moves this.
         assert set(response.headers) == {"www-authenticate", "content-length", "content-type"}
 
@@ -171,16 +196,32 @@ class TestTheRefusedFieldsReachTheCaller:
 
         # An integer rather than `"1"`: a caller joining the path gets the dotted name its input carries.
         assert body["fields"] == [
-            {"in": "body", "path": ["kontakt", "email"], "kind": "string_too_long"},
-            {"in": "body", "path": ["namen", 1, "vorname"], "kind": "string_pattern_mismatch"},
+            {"in": "body", "path": ["kontakt", "email"], "kind": "string_too_long", "ctx": {"max_length": 5}},
+            {"in": "body", "path": ["namen", 1, "vorname"], "kind": "string_pattern_mismatch", "ctx": {"pattern": PERSON_NAME_PATTERN}},
         ]
+
+    def test_a_rule_s_bound_reaches_the_caller_as_its_context(self):
+        """The caller words the line from the bound, so the start a span may not end before has to cross the wire."""
+
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post("/ruled", json={"beginn": "2026-09-05", "ende": "2026-09-01"})
+
+        assert response.json()["fields"] == [{"in": "body", "path": [], "kind": "spieltag_ends_before_start", "ctx": {"start": "2026-09-05"}}]
+
+    def test_a_context_member_no_json_scalar_holds_stays_off_the_wire(self):
+        """A bare `ValueError`'s context is the exception, which no JSON body could carry: the refusal answers 422, not 500."""
+
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(
+            "/ruled", json={"beginn": "2026-09-01", "ende": "2026-09-05", "note": "x"}
+        )
+
+        assert (response.status_code, response.json()["fields"]) == (422, [{"in": "body", "path": ["note"], "kind": "value_error", "ctx": {}}])
 
     def test_the_value_and_pydantics_english_stay_off_the_wire(self):
         body = refused({"kontakt": {"email": "a@b"}, "namen": [{"vorname": REJECTED_NAME}]})
 
         # The exact key sets, so a value or a message under any name moves this.
         assert set(body) == {"error_code", "trace_id", "fields"}
-        assert [set(field) for field in body["fields"]] == [{"in", "path", "kind"}]
+        assert [set(field) for field in body["fields"]] == [{"in", "path", "kind", "ctx"}]
         assert REJECTED_NAME not in str(body)
         assert "String should match pattern" not in str(body)
 
@@ -192,26 +233,18 @@ class TestTheRefusedFieldsReachTheCaller:
         )
 
         assert response.status_code == 400
-        assert set(response.json()) == {"error_code", "trace_id"} and response.json()["error_code"] == Code.BODY_UNREADABLE
+        assert response.json()["error_code"] == Code.BODY_UNREADABLE and response.json()["fields"] == []
 
 
 class TestARefusalIsAnsweredAtTheStatusItsCheckChose:
-    def test_a_422_names_the_body_path_its_rule_judged_under_the_rule_s_own_code(self):
-        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(f"/refused/{int(HTTPStatus.UNPROCESSABLE_CONTENT)}")
+    @pytest.mark.parametrize("status", [HTTPStatus.UNPROCESSABLE_CONTENT, HTTPStatus.CONFLICT])
+    def test_a_refusal_names_the_body_path_its_rule_judged_under_the_rule_s_own_code_at_any_status(self, status: HTTPStatus):
+        """One body for every status: a 409 about one field names it as a 422 does, so a form marks that field."""
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_CONTENT
-        assert response.json()["fields"] == [{"in": "body", "path": list(JUDGED_PATH), "kind": PLANTED_REFUSAL}]
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(f"/refused/{int(status)}")
 
-    def test_a_refusal_off_422_carries_no_fields(self):
-        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(f"/refused/{int(HTTPStatus.CONFLICT)}")
-
-        assert (response.status_code, set(response.json())) == (409, {"error_code", "trace_id"})
-
-    def test_fields_off_a_422_are_refused_where_the_refusal_is_built(self):
-        """They would reach no body: only a 422's publishes `fields`."""
-
-        with pytest.raises(ValueError, match=PLANTED_REFUSAL):
-            APIError(HTTPStatus.CONFLICT, PLANTED_REFUSAL, fields=(JUDGED_PATH,))
+        assert response.status_code == status
+        assert response.json()["fields"] == [{"in": "body", "path": list(JUDGED_PATH), "kind": PLANTED_REFUSAL, "ctx": {}}]
 
     @pytest.mark.parametrize("status", sorted(ROUTING_CODES))
     def test_each_status_the_routing_layer_raises_answers_its_own_code(self, status: int):
@@ -413,7 +446,7 @@ class TestACrashIsAnsweredInsideItsRequest:
     def test_the_failure_body_quotes_the_request_s_trace_id(self, caplog):
         response, _ = _crashed(caplog, "/crash")
 
-        assert (response.status_code, response.json()) == (500, {"error_code": Code.UNHANDLED_CRASH, "trace_id": "c0ffee00" * 4})
+        assert (response.status_code, response.json()) == (500, {"error_code": Code.UNHANDLED_CRASH, "trace_id": "c0ffee00" * 4, "fields": []})
 
     @pytest.mark.parametrize(("path", "status"), CRASHES)
     def test_the_crash_line_carries_the_access_line_s_ids(self, caplog, path: str, status: int):

@@ -12,7 +12,7 @@ import type { IconName } from "./Icon";
  * any list and still be said.
  */
 export type EmptyStateProps = {
-  kind: "suche" | "filter" | "noch";
+  kind: "search" | "filter" | "none";
   /** The list's own plural, „Spielorte“, from its title's key. */
   plural: Copy;
   /** The one act that fills the list, a kit `Button`. */
@@ -28,8 +28,8 @@ export type EmptyStateProps = {
  * phone.
  */
 export function EmptyState(props: EmptyStateProps) {
-  const sentence = COPY.shared.leer[props.kind](props.plural);
-  if (props.kind === "noch") {
+  const sentence = COPY.shared.empty[props.kind](props.plural);
+  if (props.kind === "none") {
     return (
       <div className="grid justify-items-center gap-3 px-4 py-8 text-center">
         <span className="text-fg-muted">

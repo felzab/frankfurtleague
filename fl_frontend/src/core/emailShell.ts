@@ -5,23 +5,23 @@ import { COPY } from "./copy";
 import { SERVER_COPY } from "./serverCopy";
 
 /** The league's name as every message spells it. */
-export const BRAND_NAME: string = COPY.marke.name;
+export const BRAND_NAME: string = COPY.brand.name;
 
 /**
  * What a mail is, which decides its sender, its „Nicht du?“ line and its Art. 21 line, so no caller can
  * pair them apart: a sign-in code, a change to what signs in, the first word to an address somebody
  * else typed, or anything else.
  */
-type MailArt = "anmeldung" | "sicherheit" | "erstkontakt" | "mitteilung";
+type MailArt = "signIn" | "security" | "firstContact" | "notice";
 
 /** The two sending addresses (`fl_frontend/src/core/mail.ts :: SENDER_ADDRESSES`). */
 export type MailSender = "anmeldung" | "liga";
 
 const SENDER: Readonly<Record<MailArt, MailSender>> = {
-  anmeldung: "anmeldung",
-  sicherheit: "anmeldung",
-  erstkontakt: "liga",
-  mitteilung: "liga",
+  signIn: "anmeldung",
+  security: "anmeldung",
+  firstContact: "liga",
+  notice: "liga",
 };
 
 /**
@@ -200,13 +200,13 @@ function previewBy(mail: Mail): string {
 
 /** The Art. 21 line, the address in it a link: a first contact's footer, and the ban-list mail's own last paragraph. */
 export const WIDERSPRUCH: Sentence = [
-  `${SERVER_COPY.mail.widerspruch.vor} `,
+  `${SERVER_COPY.mail.objection.before} `,
   { adresse: KONTAKT_EMAIL },
-  ` ${SERVER_COPY.mail.widerspruch.nach}`,
+  ` ${SERVER_COPY.mail.objection.after}`,
 ];
 
-function nichtDu(art: MailArt): string | undefined {
-  return art === "mitteilung" ? undefined : SERVER_COPY.mail.nichtDu[art];
+function notYou(art: MailArt): string | undefined {
+  return art === "notice" ? undefined : SERVER_COPY.mail.notYou[art];
 }
 
 /** One block of the card and the gap under it; the last block of the card takes none. */
@@ -262,7 +262,7 @@ function buttonBlocks(button: Button): Block[] {
       gap: GAP.paragraph,
     },
     {
-      html: p(`${escapeHtml(SERVER_COPY.mail.knopfLink)}<br />${linkHtml(button.href, button.href, "word-break:break-all;")}`, SMALL_TEXT),
+      html: p(`${escapeHtml(SERVER_COPY.mail.buttonLink)}<br />${linkHtml(button.href, button.href, "word-break:break-all;")}`, SMALL_TEXT),
       gap: GAP.block,
     },
   ];
@@ -270,8 +270,8 @@ function buttonBlocks(button: Button): Block[] {
 
 function legalLinks(origin: string): readonly { readonly label: string; readonly href: string }[] {
   return [
-    { label: COPY.seite.datenschutz, href: `${origin}/datenschutz` },
-    { label: COPY.seite.impressum, href: `${origin}/impressum` },
+    { label: COPY.page.datenschutz, href: `${origin}/datenschutz` },
+    { label: COPY.page.impressum, href: `${origin}/impressum` },
   ];
 }
 
@@ -283,7 +283,7 @@ function renderHtml(mail: Mail, subjectLine: string): string {
       html: `<h1 style="margin:0;font-size:24px;line-height:32px;font-weight:700;color:${HEADING_COLOR};">${escapeHtml(subjectLine)}</h1>`,
       gap: GAP.headText,
     },
-    { html: p(escapeHtml(singleLine(SERVER_COPY.mail.gruss(mail.vorname)))), gap: GAP.paragraph },
+    { html: p(escapeHtml(singleLine(SERVER_COPY.mail.greeting(mail.vorname)))), gap: GAP.paragraph },
     ...paragraphBlocks(mail.paragraphs),
     ...(mail.block === undefined ? [] : [blockHtml(mail.block)]),
     ...paragraphBlocks(mail.afterBlock ?? []),
@@ -293,7 +293,7 @@ function renderHtml(mail: Mail, subjectLine: string): string {
   const last = content.length - 1;
   const body = content.map((block, index) => (index === last ? { ...block, gap: GAP.beforeLine } : block));
 
-  const row = nichtDu(mail.art);
+  const row = notYou(mail.art);
   const footer: Block[] = [
     { html: `<hr style="border:none;border-top:1px solid ${RULE_COLOR};margin:0;" />`, gap: GAP.afterLine },
     { html: p(escapeHtml(VEREIN_ROW), FOOTER_TEXT), gap: GAP.footer },
@@ -306,7 +306,7 @@ function renderHtml(mail: Mail, subjectLine: string): string {
       ),
       gap: GAP.footer,
     },
-    ...(mail.art === "erstkontakt" ? [{ html: p(paragraphHtml([WIDERSPRUCH]), MUTED_TEXT), gap: GAP.footer }] : []),
+    ...(mail.art === "firstContact" ? [{ html: p(paragraphHtml([WIDERSPRUCH]), MUTED_TEXT), gap: GAP.footer }] : []),
     // Last, after the footer: it is not part of the message's content.
     ...(row === undefined ? [] : [{ html: p(escapeHtml(row), MUTED_TEXT), gap: 0 }]),
   ];
@@ -355,7 +355,7 @@ function buttonText(button: Button): string[] {
 function renderText(mail: Mail, subjectLine: string): string {
   const groups: string[][] = [
     [subjectLine],
-    [singleLine(SERVER_COPY.mail.gruss(mail.vorname))],
+    [singleLine(SERVER_COPY.mail.greeting(mail.vorname))],
     ...mail.paragraphs.map((paragraph) => [paragraphText(paragraph)]),
     ...(mail.block === undefined
       ? []
@@ -369,9 +369,9 @@ function renderText(mail: Mail, subjectLine: string): string {
     ...(mail.afterBlock ?? []).map((paragraph) => [paragraphText(paragraph)]),
     ...(mail.button === undefined ? [] : [buttonText(mail.button)]),
     [VEREIN_ROW, ...legalLinks(mail.origin).map(({ label, href }) => `${label}: ${href}`)],
-    ...(mail.art === "erstkontakt" ? [[sentenceText(WIDERSPRUCH)]] : []),
+    ...(mail.art === "firstContact" ? [[sentenceText(WIDERSPRUCH)]] : []),
   ];
-  const row = nichtDu(mail.art);
+  const row = notYou(mail.art);
 
   return [...groups, ...(row === undefined ? [] : [[row]])].map((group) => group.join("\n")).join("\n\n");
 }

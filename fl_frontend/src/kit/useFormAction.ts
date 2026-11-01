@@ -26,9 +26,9 @@ export function answering<Payload, Value>(
     } catch (thrown) {
       // A redirect or a not-found is how the action leads on; React hands it to Next's boundary.
       unstable_rethrow(thrown);
-      if (isEdgeRefusal(thrown)) return { ok: false, reason: COPY.shared.fehler.zuVieleVersuche };
+      if (isEdgeRefusal(thrown)) return { ok: false, reason: COPY.shared.failure.tooManyAttempts };
       refresh();
-      return { ok: false, reason: COPY.shared.fehler.veraltet };
+      return { ok: false, reason: COPY.shared.failure.stale };
     }
   };
 }
@@ -45,12 +45,12 @@ export type FormStatus = { tone: "changes" | "saved" | "error"; text: Copy } | n
  * goes in afresh after the empty line or a screen reader stays silent on the second.
  */
 export function statusOf(answer: ActionAnswer<unknown> | null, isBlocked: boolean, isPending: boolean): FormStatus {
-  if (isBlocked) return { tone: "error", text: COPY.vorlage.felderPruefen };
+  if (isBlocked) return { tone: "error", text: COPY.template.checkFields };
   if (answer === null || isPending) return null;
-  if (answer.ok) return { tone: "saved", text: answer.note ?? COPY.shared.gespeichert };
+  if (answer.ok) return { tone: "saved", text: answer.note ?? COPY.shared.saved };
   return {
     tone: "error",
-    text: answer.fieldErrors === undefined ? (answer.reason ?? COPY.shared.fehler.unerwartet) : COPY.vorlage.felderPruefen,
+    text: answer.fieldErrors === undefined ? (answer.reason ?? COPY.shared.failure.unexpected) : COPY.template.checkFields,
   };
 }
 

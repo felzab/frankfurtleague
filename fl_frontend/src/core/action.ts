@@ -17,7 +17,7 @@ import { getSubjectSession } from "./subject";
 import { mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "./trace";
 import { turnstileRefusal } from "./turnstile";
 import { TURNSTILE_FIELD } from "./turnstileToken";
-import { fieldMessage } from "./zodGerman";
+import { fieldMessage, isWordedRule, ruleMessage } from "./zodGerman";
 
 import type { z } from "zod";
 import type { AdminRefusal } from "./auth";
@@ -25,6 +25,7 @@ import type { Copy } from "./copy";
 import type { Code, FLRefusedField } from "./generated/client/types";
 import type { Role } from "./roles";
 import type { SubjectSession } from "./subject";
+import type { WordedRule } from "./zodGerman";
 
 /**
  * What a server action answers a form, as `action` builds it and the kit's `useFormAction` reads it: done, with
@@ -37,11 +38,8 @@ import type { SubjectSession } from "./subject";
 export type ActionAnswer<Value = undefined> =
   { ok: true; value: Value; note?: Copy } | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy; errorCode?: Code };
 
-/** A code the catalogue words in a person's own terms, `SERVER_COPY.ablehnung`'s keys. */
-type WordedCode = keyof typeof SERVER_COPY.ablehnung;
-
-/** A rule the catalogue words, by the kind a refused payload's field names it with, `SERVER_COPY.regel`'s keys. */
-type WordedRule = keyof typeof SERVER_COPY.regel;
+/** A code the catalogue words in a person's own terms, `SERVER_COPY.refusal`'s keys. */
+type WordedCode = keyof typeof SERVER_COPY.refusal;
 
 /** The dotted path of every leaf of an input, a list counting as one leaf: the key its box's message is answered by. */
 type Field<T, Above extends string = ""> = T extends readonly unknown[]
@@ -68,11 +66,18 @@ type Declared<Schema extends z.ZodType> = {
   readonly input: Schema;
   /**
    * The codes and the rules this screen words in their own words, a person causing each knowingly from it: on the
-   * box it names, or, with `true`, as the status line's reason. A rule is placed by the screen, not by the refused
-   * field's path, which for a rule over several fields names their whole block. Every other code, and a refused
-   * payload breaking any rule the screen does not word, answers a shared failure line.
+   * box it names, or, with `true`, where the refusal's field shows by `paths`, else as the status line's reason. A
+   * rule is placed by the screen, not by the refused field's path, which for a rule over several fields names their
+   * whole block. Every other code, and a refused payload breaking any rule the screen does not word, answers a
+   * shared failure line.
    */
   readonly ownWords?: { readonly [C in WordedCode | WordedRule]?: Field<z.output<Schema>> | true };
+  /**
+   * Where this screen shows a refusal about one field, by the field's path in the backend's payload, its segments
+   * joined by dots: the box showing it, or, for a field the screen shows no box for, the field's name, which the
+   * status line sets before the refusal's phrase.
+   */
+  readonly paths?: { readonly [path: string]: Field<z.output<Schema>> | { readonly name: Copy } };
   /** The example a box's „Format: …“ message names, by the box. */
   readonly examples?: { readonly [F in Field<z.output<Schema>>]?: Copy };
 };
@@ -129,15 +134,15 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
 
 /** The admin guard's refusals, each in the words of what repairs it. */
 const TURNED_AWAY: Readonly<Record<AdminRefusal, Copy>> = {
-  signIn: COPY.shared.fehler.abgelaufen,
-  noGrant: COPY.shared.fehler.zugangWeg,
-  grantGone: COPY.shared.fehler.zugangWeg,
-  unread: COPY.shared.fehler.zugangUngeprueft,
+  signIn: COPY.shared.failure.signInExpired,
+  noGrant: COPY.shared.failure.accessGone,
+  grantGone: COPY.shared.failure.accessGone,
+  unread: COPY.shared.failure.accessUnchecked,
 };
 
-const UNEXPECTED = { ok: false, reason: COPY.shared.fehler.unerwartet } as const;
+const UNEXPECTED = { ok: false, reason: COPY.shared.failure.unexpected } as const;
 
-const isWorded = (code: Code): code is Code & WordedCode => Object.hasOwn(SERVER_COPY.ablehnung, code);
+const isWorded = (code: Code): code is Code & WordedCode => Object.hasOwn(SERVER_COPY.refusal, code);
 
 // The backend's own strip, Python's `str.strip`: Unicode's White_Space and U+001C to U+001F, from both ends. A field
 // stripped by Pydantic's `strip_whitespace` keeps those four, which is safe, since the stripped text is what is sent.
@@ -201,8 +206,6 @@ function parsed<Schema extends z.ZodType>(
   return { answer: unplaced ? UNEXPECTED : { ok: false, fieldErrors } };
 }
 
-const isWordedRule = (kind: string): kind is WordedRule => Object.hasOwn(SERVER_COPY.regel, kind);
-
 /**
  * A refused payload in this screen's words, each broken rule on the box the screen names for it, or `undefined` where
  * the screen does not word every rule the payload broke.
@@ -211,12 +214,12 @@ function brokenRules<Schema extends z.ZodType>(declared: Declared<Schema>, field
   if (fields.length === 0) return undefined;
   const fieldErrors: Record<string, Copy> = {};
   let reason: Copy | undefined;
-  for (const { kind } of fields) {
-    const placed = isWordedRule(kind) ? declared.ownWords?.[kind] : undefined;
-    if (placed === undefined || !isWordedRule(kind)) return undefined;
+  for (const refused of fields) {
+    const placed = isWordedRule(refused.kind) ? declared.ownWords?.[refused.kind] : undefined;
+    if (placed === undefined) return undefined;
     // The first rule a box broke is the one it shows.
-    if (typeof placed === "string") fieldErrors[placed] ??= SERVER_COPY.regel[kind];
-    else reason ??= SERVER_COPY.regel[kind];
+    if (typeof placed === "string") fieldErrors[placed] ??= ruleMessage(refused);
+    else reason ??= ruleMessage(refused);
   }
   return {
     ok: false,
@@ -232,15 +235,18 @@ function refused<Schema extends z.ZodType>(declared: Declared<Schema>, code: Cod
   if (rules !== undefined) return rules;
   const placed = isWorded(code) ? declared.ownWords?.[code] : undefined;
   if (placed !== undefined && isWorded(code)) {
-    const text = SERVER_COPY.ablehnung[code];
-    return typeof placed === "string"
-      ? { ok: false, errorCode: code, fieldErrors: { [placed]: text } }
-      : { ok: false, errorCode: code, reason: text };
+    const text = SERVER_COPY.refusal[code];
+    // A refusal about one field names it; one about the whole form names none.
+    const [about] = fields;
+    const shown: string | { readonly name: Copy } | undefined =
+      typeof placed === "string" ? placed : fields.length === 1 && about !== undefined ? declared.paths?.[about.path.join(".")] : undefined;
+    if (typeof shown === "string") return { ok: false, errorCode: code, fieldErrors: { [shown]: text } };
+    return { ok: false, errorCode: code, reason: shown === undefined ? text : COPY.template.namedField(shown.name, text) };
   }
-  if (STALE.has(code)) return { ok: false, errorCode: code, reason: COPY.shared.fehler.veraltet };
+  if (STALE.has(code)) return { ok: false, errorCode: code, reason: COPY.shared.failure.stale };
   // The grant went between the guard's read and the backend's.
-  if (code === "actor_not_admin") return { ok: false, errorCode: code, reason: COPY.shared.fehler.zugangWeg };
-  return { ok: false, errorCode: code, reason: COPY.shared.fehler.unerwartet };
+  if (code === "actor_not_admin") return { ok: false, errorCode: code, reason: COPY.shared.failure.accessGone };
+  return { ok: false, errorCode: code, reason: COPY.shared.failure.unexpected };
 }
 
 /**
@@ -255,7 +261,7 @@ function logFailure(name: string, error: unknown): void {
 /** A person turned away, logged as a page's turn-away is. */
 function turnedAwayPerson(operation: string, grund: "keine_sitzung" | "kein_sitz"): ActionAnswer<never> {
   logRefused(operation, grund);
-  return { ok: false, reason: grund === "keine_sitzung" ? COPY.shared.fehler.abgelaufen : COPY.shared.fehler.veraltet };
+  return { ok: false, reason: grund === "keine_sitzung" ? COPY.shared.failure.signInExpired : COPY.shared.failure.stale };
 }
 
 /** The lane's guard, the parse and the body, in that order: no part of the input is read before the guard admits. */

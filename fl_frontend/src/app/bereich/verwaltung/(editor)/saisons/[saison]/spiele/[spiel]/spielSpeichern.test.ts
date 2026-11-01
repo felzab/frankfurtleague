@@ -1,3 +1,4 @@
+import { bodyField } from "@/test-support/refusedPayload";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -67,12 +68,14 @@ vi.mock("@/core/generated/client/sdk", () => ({
   },
 }));
 
-const refusal = (serverErrorCode: Code) =>
+/** The write's 409, naming the body field it judged where it is about one. */
+const refusal = (serverErrorCode: Code, about?: readonly string[]) =>
   new APIBadStatusError({
     message: "refused",
     url: `http://backend/api/v0/spiele/${SPIEL_ID}`,
     statusCode: 409,
     serverErrorCode,
+    refusedFields: about === undefined ? [] : [bodyField(about, serverErrorCode)],
     endpoint: `/spiele/${SPIEL_ID}`,
     method: "PATCH",
     readOnly: false,
@@ -132,7 +135,7 @@ describe("the match editor's save", () => {
     expect(answer).toEqual({
       ok: true,
       value: 4,
-      note: COPY.verwaltung.spiel.gespeichertMitFolgen(
+      note: COPY.verwaltung.spiel.savedWithConsequences(
         "Die Paarung in Spiel 31 wurde ebenfalls aktualisiert. Das eingetragene Ergebnis in Spiel 31 wurde dabei gelöscht.",
       ),
     });
@@ -143,7 +146,7 @@ describe("the match editor's save", () => {
 
     const answer = await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { uhrzeit: "18:00:00" } });
 
-    expect(answer).toEqual({ ok: false, reason: COPY.shared.fehler.veraltet });
+    expect(answer).toEqual({ ok: false, reason: COPY.shared.failure.stale });
     expect(stand.gesendet).toEqual([]);
   });
 
@@ -189,7 +192,7 @@ describe("the match editor's save", () => {
 
     expect(answer).toEqual({
       ok: false,
-      fieldErrors: { "changes.mietpreis": COPY.shared.feld.format(COPY.verwaltung.spielort.mietpreisBeispiel) },
+      fieldErrors: { "changes.mietpreis": COPY.shared.field.format(COPY.verwaltung.spielort.mietpreisExample) },
     });
     expect(stand.gesendet).toEqual([]);
   });
@@ -197,7 +200,7 @@ describe("the match editor's save", () => {
   it("asks for a price while a venue is chosen, writing nothing", async () => {
     const answer = await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { mietpreis: "" } });
 
-    expect(answer).toEqual({ ok: false, fieldErrors: { "changes.mietpreis": COPY.shared.feld.pflichtfeld } });
+    expect(answer).toEqual({ ok: false, fieldErrors: { "changes.mietpreis": COPY.shared.field.required } });
     expect(stand.gesendet).toEqual([]);
   });
 
@@ -208,15 +211,36 @@ describe("the match editor's save", () => {
     expect(await spielSpeichern(save)).toEqual({
       ok: false,
       errorCode: "spiel_outside_spieltag",
-      fieldErrors: { "changes.datum": SERVER_COPY.ablehnung["spiel_outside_spieltag"] },
+      fieldErrors: { "changes.datum": SERVER_COPY.refusal["spiel_outside_spieltag"] },
     });
 
-    stand.ablehnung = refusal("spiel_double_booked");
-    expect(await spielSpeichern(save)).toEqual({
-      ok: false,
-      errorCode: "spiel_double_booked",
-      reason: SERVER_COPY.ablehnung["spiel_double_booked"],
-    });
+    // A refusal about the venue shows on its box, the bar pointing at it.
+    for (const code of ["booking_unknown_resource", "spiel_double_booked"] as const) {
+      stand.ablehnung = refusal(code, ["ort", "spielort_id"]);
+      expect(await spielSpeichern(save), code).toEqual({
+        ok: false,
+        errorCode: code,
+        fieldErrors: { "changes.spielort": SERVER_COPY.refusal[code] },
+      });
+    }
+
+    // One about a field the editor shows no box for reads on the bar after that field's name.
+    const { namedField } = COPY.template;
+    const withoutBox = [
+      ["booking_unknown_resource", ["schiedsrichter", "schiedsrichter_id"], COPY.spielplan.fact.schiedsrichter],
+      ["booking_unconfirmed_schiedsrichter", ["schiedsrichter", "schiedsrichter_id"], COPY.spielplan.fact.schiedsrichter],
+      ["spiel_double_booked", ["schiedsrichter", "schiedsrichter_id"], COPY.spielplan.fact.schiedsrichter],
+      ["eligibility_disqualified", ["team1", "team_id"], COPY.verwaltung.spiel.team1],
+      ["eligibility_disqualified", ["team2", "team_id"], COPY.verwaltung.spiel.team2],
+    ] as const;
+    for (const [code, about, name] of withoutBox) {
+      stand.ablehnung = refusal(code, about);
+      expect(await spielSpeichern(save), `${code} ${about.join(".")}`).toEqual({
+        ok: false,
+        errorCode: code,
+        reason: namedField(name, SERVER_COPY.refusal[code]),
+      });
+    }
 
     // The editor sets no team, so a team's refusal means the fixture changed under it.
     for (const code of [
@@ -227,11 +251,11 @@ describe("the match editor's save", () => {
       "eligibility_team_not_in_saison",
     ] as const) {
       stand.ablehnung = refusal(code);
-      expect(await spielSpeichern(save), code).toEqual({ ok: false, errorCode: code, reason: COPY.shared.fehler.veraltet });
+      expect(await spielSpeichern(save), code).toEqual({ ok: false, errorCode: code, reason: COPY.shared.failure.stale });
     }
 
     // The fixture changed since the editor read it: the write refused the version it was sent.
     stand.ablehnung = refusal("version_stale");
-    expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "version_stale", reason: COPY.shared.fehler.veraltet });
+    expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "version_stale", reason: COPY.shared.failure.stale });
   });
 });

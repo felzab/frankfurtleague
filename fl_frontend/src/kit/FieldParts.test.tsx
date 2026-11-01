@@ -10,19 +10,19 @@ describe("a form's status line", () => {
   it("announces an outcome, but not the editor's running count of unsaved fields", () => {
     const { rerender } = render(
       <StatusLine
-        status={{ tone: "error", text: COPY.vorlage.felderPruefen }}
+        status={{ tone: "error", text: COPY.template.checkFields }}
         placement="row"
       />,
     );
-    expect(screen.getByRole("status").textContent).toBe(COPY.vorlage.felderPruefen);
+    expect(screen.getByRole("status").textContent).toBe(COPY.template.checkFields);
 
     rerender(
       <StatusLine
-        status={{ tone: "changes", text: COPY.vorlage.aenderungenOffen(2) }}
+        status={{ tone: "changes", text: COPY.template.changesPending(2) }}
         placement="row"
       />,
     );
     expect(screen.getByRole("status").textContent).toBe("");
-    expect(screen.getByText(COPY.vorlage.aenderungenOffen(2))).toBeTruthy();
+    expect(screen.getByText(COPY.template.changesPending(2))).toBeTruthy();
   });
 });

@@ -22,7 +22,7 @@ describe("the match head", () => {
       />,
     );
 
-    expect(screen.getByText(COPY.shared.nachElfmeterschiessen)).toBeTruthy();
+    expect(screen.getByText(COPY.shared.afterElfmeterschiessen)).toBeTruthy();
   });
 
   it("reads a dash for each side until a result is entered, under the matchday", () => {

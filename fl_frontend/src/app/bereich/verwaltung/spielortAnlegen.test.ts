@@ -69,14 +69,14 @@ describe("the venue dialog's create", () => {
     expect(await spielortAnlegen(formular())).toStrictEqual({
       ok: false,
       errorCode: "duplicate_key",
-      fieldErrors: { name: COPY.shared.feld.schonVergeben },
+      fieldErrors: { name: COPY.shared.field.taken },
     });
   });
 
   it("keeps a price that is no figure back on its box, sending nothing", async () => {
     expect(await spielortAnlegen(formular({ mietpreis: "60 Euro" }))).toStrictEqual({
       ok: false,
-      fieldErrors: { mietpreis: COPY.shared.feld.format(COPY.verwaltung.spielort.mietpreisBeispiel) },
+      fieldErrors: { mietpreis: COPY.shared.field.format(COPY.verwaltung.spielort.mietpreisExample) },
     });
     expect(stand.gesendet).toStrictEqual([]);
   });

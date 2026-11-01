@@ -50,7 +50,7 @@ type AdressView = Head & {
 type CodeView = Head & {
   view: "code";
   /** The sentence's two parts around the address. */
-  satz: { vor: Copy; nach: Copy };
+  satz: { before: Copy; after: Copy };
   /** The address the code went to: data, not catalogue text. */
   adresse: string;
   code: {
@@ -77,7 +77,7 @@ type PasskeyView = Head & {
 type SignedInView = Head & {
   view: "angemeldet";
   /** The sentence's two parts around the address. */
-  satz: { vor: Copy; nach: Copy };
+  satz: { before: Copy; after: Copy };
   /** The account signed in: data, not catalogue text. */
   adresse: string;
   continue: { label: Copy; href: Route };
@@ -141,7 +141,7 @@ function Body(props: SignInView) {
             className={slots.head()}>
             <ClassicTitle text={props.titel} />
             <p className={slots.sentence()}>
-              {props.satz.vor} <strong className={slots.marked()}>{props.adresse}</strong> {props.satz.nach}
+              {props.satz.before} <strong className={slots.marked()}>{props.adresse}</strong> {props.satz.after}
             </p>
           </div>
           <CodeField
@@ -199,7 +199,7 @@ function Body(props: SignInView) {
           <div className={slots.head()}>
             <ClassicTitle text={props.titel} />
             <p className={slots.sentence()}>
-              {props.satz.vor} <strong className={slots.marked()}>{props.adresse}</strong> {props.satz.nach}
+              {props.satz.before} <strong className={slots.marked()}>{props.adresse}</strong> {props.satz.after}
             </p>
           </div>
           <div className={slots.acts()}>

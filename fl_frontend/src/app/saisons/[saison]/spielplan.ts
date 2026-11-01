@@ -110,17 +110,18 @@ function toreOf(spiel: FLSpiel): Paar | null {
 function quelleWords(quelle: FLSpielQuelle | null): { kurz: Copy; lang: Copy } | null {
   if (quelle === null) return null;
   const { quelle: words } = COPY.spielplan;
-  if (quelle.type === "gruppe") return { kurz: words.gruppeKurz(quelle.gruppe, quelle.platz), lang: words.gruppe(quelle.gruppe, quelle.platz) };
+  if (quelle.type === "gruppe")
+    return { kurz: words.gruppeShort(quelle.gruppe, quelle.platz), lang: words.gruppe(quelle.gruppe, quelle.platz) };
   return quelle.ausgang === "sieger"
-    ? { kurz: words.siegerKurz(quelle.spiel_nr), lang: words.sieger(quelle.spiel_nr) }
-    : { kurz: words.verliererKurz(quelle.spiel_nr), lang: words.verlierer(quelle.spiel_nr) };
+    ? { kurz: words.siegerShort(quelle.spiel_nr), lang: words.sieger(quelle.spiel_nr) }
+    : { kurz: words.verliererShort(quelle.spiel_nr), lang: words.verlierer(quelle.spiel_nr) };
 }
 
 /** One side: the club and its plaque, or, while the draw has not settled it, where it comes from. */
 function sideOf(team: FLSpielTeamFieldJoined | null, quelle: FLSpielQuelle | null): SpielSide {
   if (team !== null) return { name: team.name, plaque: { kuerzel: team.shorthand } };
   const words = quelleWords(quelle);
-  return words === null ? { name: COPY.spielplan.quelle.offen, plaque: { quelle: "" } } : { name: words.lang, plaque: { quelle: words.kurz } };
+  return words === null ? { name: COPY.spielplan.quelle.open, plaque: { quelle: "" } } : { name: words.lang, plaque: { quelle: words.kurz } };
 }
 
 /** The match's two sides, the first-listed side first. */
@@ -141,7 +142,7 @@ export function matchRowOf(spiel: FLSpiel): SpielRowProps & { id: string } {
   return {
     id: spiel.id,
     href: ROUTES.spiel.path(spiel.saison_id, spiel.id),
-    when: COPY.spielplan.wann(tagOf(spiel.datum), zeitOf(spiel.uhrzeit)),
+    when: COPY.spielplan.when(tagOf(spiel.datum), zeitOf(spiel.uhrzeit)),
     home: heim,
     away: gast,
     ...resultOf(spiel),
@@ -160,16 +161,16 @@ export function headOf(spiel: FLSpiel, spieltag: string): SpielHeadProps {
  * score, so neither is repeated here.
  */
 export function popupFactsOf(spiel: FLSpiel): Fact[] {
-  const { fakt } = COPY.spielplan;
+  const { fact } = COPY.spielplan;
   const tag = tagOf(spiel.datum);
   const zeit = zeitOf(spiel.uhrzeit);
   const facts: (Fact | null)[] = [
-    tag === null ? null : { label: fakt.datum, glyph: "kalender", value: formatDatum(tag), figures: true },
-    zeit === null ? null : { label: fakt.uhrzeit, glyph: "uhrzeit", value: formatUhrzeit(zeit), figures: true },
+    tag === null ? null : { label: fact.datum, glyph: "kalender", value: formatDatum(tag), figures: true },
+    zeit === null ? null : { label: fact.uhrzeit, glyph: "uhrzeit", value: formatUhrzeit(zeit), figures: true },
     spiel.ort === null
       ? null
-      : { label: fakt.ort, glyph: "spielorte", elsewhere: { href: buildMapsSearchUrl(spiel.ort.maps_link), text: spiel.ort.name } },
-    spiel.schiedsrichter?.name == null ? null : { label: fakt.schiedsrichter, glyph: "schiedsrichter", value: spiel.schiedsrichter.name },
+      : { label: fact.ort, glyph: "spielorte", elsewhere: { href: buildMapsSearchUrl(spiel.ort.maps_link), text: spiel.ort.name } },
+    spiel.schiedsrichter?.name == null ? null : { label: fact.schiedsrichter, glyph: "schiedsrichter", value: spiel.schiedsrichter.name },
   ];
   return facts.filter((fact) => fact !== null);
 }
@@ -195,16 +196,16 @@ export function ereignisOf(spiel: FLSpiel): { title: Copy; text: Copy } | null {
   const ereignis = spiel.sonderereignis;
   if (ereignis === null) return null;
   const title = sonderereignisOf(ereignis, spiel);
-  const { folge } = COPY.spielplan.sonderereignis;
+  const { consequence } = COPY.spielplan.sonderereignis;
   switch (ereignis) {
     case "nichtantreten_team1":
-      return { title, text: folge.nichtAngetreten(sidesOf(spiel).gast.name) };
+      return { title, text: consequence.nichtAngetreten(sidesOf(spiel).gast.name) };
     case "nichtantreten_team2":
-      return { title, text: folge.nichtAngetreten(sidesOf(spiel).heim.name) };
+      return { title, text: consequence.nichtAngetreten(sidesOf(spiel).heim.name) };
     case "abgebrochen":
-      return { title, text: spiel.ergebnis === null ? folge.abgebrochenOffen : folge.abgebrochenGewertet };
+      return { title, text: spiel.ergebnis === null ? consequence.abgebrochenOpen : consequence.abgebrochenScored };
     default:
-      return { title, text: folge[ereignis] };
+      return { title, text: consequence[ereignis] };
   }
 }
 
@@ -213,19 +214,19 @@ export function ereignisOf(spiel: FLSpiel): { title: Copy; text: Copy } | null {
  * befell the match first, then when and where it is played.
  */
 export function factsOf(spiel: FLSpiel, spieltag: string): Fact[] {
-  const { fakt } = COPY.spielplan;
+  const { fact } = COPY.spielplan;
   const tag = tagOf(spiel.datum);
   const zeit = zeitOf(spiel.uhrzeit);
   const tore = toreOf(spiel);
   const facts: (Fact | null)[] = [
-    tore === null ? null : { label: fakt.ergebnis, value: COPY.spielplan.ergebnis(tore, spiel.elfmeterschiessen), figures: true },
-    spiel.sonderereignis === null ? null : { label: fakt.sonderereignis, value: sonderereignisOf(spiel.sonderereignis, spiel) },
-    { label: fakt.spieltag, value: spieltag },
-    tag === null ? null : { label: fakt.datum, value: formatDatum(tag), figures: true },
-    zeit === null ? null : { label: fakt.uhrzeit, value: formatUhrzeit(zeit), figures: true },
-    spiel.ort === null ? null : { label: fakt.ort, elsewhere: { href: buildMapsSearchUrl(spiel.ort.maps_link), text: spiel.ort.name } },
-    spiel.schiedsrichter?.name == null ? null : { label: fakt.schiedsrichter, value: spiel.schiedsrichter.name },
-    spiel.notiz === null || spiel.notiz.trim() === "" ? null : { label: fakt.notiz, value: spiel.notiz },
+    tore === null ? null : { label: fact.ergebnis, value: COPY.spielplan.ergebnis(tore, spiel.elfmeterschiessen), figures: true },
+    spiel.sonderereignis === null ? null : { label: fact.sonderereignis, value: sonderereignisOf(spiel.sonderereignis, spiel) },
+    { label: fact.spieltag, value: spieltag },
+    tag === null ? null : { label: fact.datum, value: formatDatum(tag), figures: true },
+    zeit === null ? null : { label: fact.uhrzeit, value: formatUhrzeit(zeit), figures: true },
+    spiel.ort === null ? null : { label: fact.ort, elsewhere: { href: buildMapsSearchUrl(spiel.ort.maps_link), text: spiel.ort.name } },
+    spiel.schiedsrichter?.name == null ? null : { label: fact.schiedsrichter, value: spiel.schiedsrichter.name },
+    spiel.notiz === null || spiel.notiz.trim() === "" ? null : { label: fact.notiz, value: spiel.notiz },
   ];
   return facts.filter((fact) => fact !== null);
 }

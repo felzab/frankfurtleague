@@ -88,7 +88,7 @@ const KINDS = {
 } as const;
 
 /** The example a malformed value is shown, by kind; a URL names its own. */
-const EXAMPLE = { email: COPY.shared.feld.beispielAdresse, digits: COPY.shared.feld.beispielZiffern } as const;
+const EXAMPLE = { email: COPY.shared.field.exampleAddress, digits: COPY.shared.field.exampleDigits } as const;
 
 /** The line only once the field is invalid: it reads the field's validation, which the field provides to its children. */
 function LineWithError({ constraints }: { constraints: Constraints }) {

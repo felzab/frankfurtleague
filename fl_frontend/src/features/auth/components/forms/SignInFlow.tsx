@@ -30,7 +30,7 @@ const CODE_ENDPOINT = "/api/signin/code";
  */
 export function SignInFlow({ next, siteKey }: { next: string; siteKey: string }) {
   const [email, setEmail] = useState("");
-  const humanCheck = useTurnstile(siteKey, COPY.anmeldung.pruefungNichtGeladen);
+  const humanCheck = useTurnstile(siteKey, COPY.anmeldung.botCheckNotLoaded);
 
   // The send answers every address alike: the code view and its sentence are written here from the address
   // the action folded, never from what the action says, so a member's answer and a stranger's cannot differ.
@@ -79,18 +79,18 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
       setVersuch((count) => count + 1);
       if (checked.answered) setCodeFehler(signInAnswer(checked.body.error));
       // The edge's own rate refusal checked nothing; any other answer not this application's may have.
-      else setCodeFehler(checked.wroteNothing ? COPY.shared.fehler.zuVieleVersuche : COPY.shared.fehler.unerwartet);
+      else setCodeFehler(checked.wroteNothing ? COPY.shared.failure.tooManyAttempts : COPY.shared.failure.unexpected);
     };
 
     return (
       <SignInPage
         view="code"
-        titel={COPY.anmeldung.postfach}
-        satz={COPY.anmeldung.codeUnterwegs}
+        titel={COPY.anmeldung.inbox}
+        satz={COPY.anmeldung.codeOnItsWay}
         adresse={address}
         code={{ label: COPY.anmeldung.code, attempt: versuch, isDisabled: pruefe, onComplete: (code) => void check(code) }}
         back={{
-          label: COPY.anmeldung.andereAdresse,
+          label: COPY.anmeldung.otherAddress,
           isDisabled: pruefe,
           onPress: () => {
             setCodeFehler(null);
@@ -125,11 +125,11 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
   return (
     <SignInPage
       view="adresse"
-      titel={COPY.anmeldung.titel}
-      adresse={{ label: COPY.anmeldung.adresse, value: email, onChange: setEmail, error: refused?.fieldErrors }}
+      titel={COPY.anmeldung.title}
+      adresse={{ label: COPY.anmeldung.address, value: email, onChange: setEmail, error: refused?.fieldErrors }}
       check={humanCheck.widget}
       send={{
-        label: COPY.anmeldung.codeSenden,
+        label: COPY.anmeldung.sendCode,
         isBusy: send.isPending,
         onPress: () => {
           // The busy button is not the whole guard: `Enter` in the field submits too, and a second send mid-flight
@@ -139,10 +139,10 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
           send.submit(email);
         },
       }}
-      or={COPY.anmeldung.oder}
+      or={COPY.anmeldung.or}
       // `isBusy` is the whole of the double-press guard: a second prompt aborts the first, which would then read
       // as a refusal of a press made while it ran.
-      passkey={{ label: COPY.anmeldung.mitPasskey, isBusy: passkeyLaeuft, onPress: () => void mitPasskey() }}
+      passkey={{ label: COPY.anmeldung.withPasskey, isBusy: passkeyLaeuft, onPress: () => void mitPasskey() }}
       row={passkeyFehler ?? sendFehler}
     />
   );

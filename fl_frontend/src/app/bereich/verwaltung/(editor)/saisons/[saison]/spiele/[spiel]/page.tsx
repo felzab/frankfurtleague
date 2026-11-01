@@ -42,7 +42,7 @@ const lesen = cache(async (spiel: string) => {
 /** A match is named by its two teams, as its own page is, and by its number while a side is still open. */
 const nameOf = (spiel: FLSpielJoinedAdmin) =>
   spiel.team1 === null || spiel.team2 === null
-    ? WORTE.nummer(spiel.spiel_nr)
+    ? WORTE.number(spiel.spiel_nr)
     : ROUTES.verwaltungSpiel.title(spiel.team1.name, spiel.team2.name);
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -73,11 +73,11 @@ async function Editor({ params }: Pick<Props, "params">) {
   // A no-show needs both sides: while one is open, the write refuses it, so it is offered disabled.
   const beideSeiten = gespeichert.team1 !== null && gespeichert.team2 !== null;
   const sonderereignisse: Option[] = [
-    { id: KEIN_SONDEREREIGNIS, label: WORTE.keines },
+    { id: KEIN_SONDEREREIGNIS, label: WORTE.none },
     ...Object.values(FLSonderereignis).map((ereignis): Option => {
       const label = SONDEREREIGNISSE[ereignis];
       const offen = !beideSeiten && (ereignis === "nichtantreten_team1" || ereignis === "nichtantreten_team2");
-      return offen ? { id: ereignis, label, isDisabled: true, note: WORTE.beideSeitenNoetig } : { id: ereignis, label };
+      return offen ? { id: ereignis, label, isDisabled: true, note: WORTE.needsBothSides } : { id: ereignis, label };
     }),
   ];
 
@@ -91,7 +91,7 @@ async function Editor({ params }: Pick<Props, "params">) {
         option:
           ort.inactive_since === null
             ? { id: ort.id, label: ort.name }
-            : { id: ort.id, label: ort.name, isDisabled: true, note: COPY.verwaltung.spielort.stillgelegt },
+            : { id: ort.id, label: ort.name, isDisabled: true, note: COPY.verwaltung.spielort.retired },
         mietpreis: ort.default_mietpreis,
       }))}
       sonderereignisse={sonderereignisse}
