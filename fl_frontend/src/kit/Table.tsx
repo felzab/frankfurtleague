@@ -5,6 +5,7 @@ import { EmptyState } from "./EmptyState";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
+import { TargetMark } from "./TargetMark";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -166,6 +167,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty }: Tab
   const isLinked = rows.some((row) => row.href !== undefined);
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-bg">
+      {rows.some((row) => row.anchor !== undefined) && <TargetMark />}
       {rows.length === 0 ? (
         <EmptyState {...empty} />
       ) : (

@@ -57,6 +57,7 @@ describe("a table's name cell", () => {
 describe("a table row a link points to", () => {
   afterEach(() => {
     window.location.hash = "";
+    window.history.replaceState(null, "", "/");
   });
 
   // A club's line in a match head opens the Tabelle at its row by the row's fragment: the browser makes the row
@@ -82,6 +83,32 @@ describe("a table row a link points to", () => {
       const classes = [...(target?.classList ?? [])];
       if (selectors.some((selector) => selector.includes(":target") && classes.some((name) => selector.includes(`.${name}`))))
         marked.push(decl.value);
+    });
+    expect(marked).toStrictEqual(["kit-target"]);
+  });
+
+  // Next's link pushes the history entry, which in a browser never sets `:target` (jsdom matches `:target` to
+  // the address whatever set it, so it cannot show that), and the table marks the row itself.
+  it("is marked after a client navigation to its fragment, which the browser never makes the target", async () => {
+    window.history.pushState(null, "", "/saisons/2027/tabelle#helmholtz");
+    render(
+      <Table
+        {...props([
+          { id: "1", name: "Goethe", anchor: "goethe", cells: { stadtteil: "Nordend" } },
+          { id: "2", name: "Helmholtz", anchor: "helmholtz", cells: { stadtteil: "Bockenheim" } },
+        ])}
+      />,
+    );
+
+    const row = screen.getByText("Helmholtz").closest("tr");
+    // The named row alone, and no other.
+    expect([...document.querySelectorAll("[data-kit-target]")]).toStrictEqual([row]);
+
+    const marked: string[] = [];
+    (await compiledGlobals()).walkDecls("animation-name", (decl) => {
+      if (decl.parent?.type !== "rule") return;
+      const selectors = selectorsOf(decl.parent as Rule).map((selector) => selector.replace(/\\(.)/g, "$1"));
+      if (selectors.some((selector) => selector.includes(".kit-target[data-kit-target]"))) marked.push(decl.value);
     });
     expect(marked).toStrictEqual(["kit-target"]);
   });

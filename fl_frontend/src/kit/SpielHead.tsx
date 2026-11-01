@@ -25,9 +25,9 @@ type SpielHeadSide = SpielSide & {
   href?: Route;
   /**
    * Its words, such as „3. Platz · Gruppe A“ or a knockout round's name, and its target, a fragment such as
-   * `…/tabelle#<anchor>`, which the browser scrolls into view and marks as the document's target, the row then
-   * drawing its highlight (`kit-target`, `:target`). The browser sets that target only on a document
-   * navigation, never on the history entry a client navigation pushes, so the line loads its page whole.
+   * `…/tabelle#<anchor>`. Next's link navigates on the client and scrolls the place into view, and the block
+   * holding it, `Table` or `BracketTree`, marks it through `TargetMark`, since a client navigation never sets
+   * the browser's `:target`.
    */
   standing?: { text: string; href: Route };
 };
@@ -89,7 +89,6 @@ function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part
           <Link
             href={side.standing.href}
             placement="detail"
-            fullPage
             text={side.standing.text}
           />
         </span>

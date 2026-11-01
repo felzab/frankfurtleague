@@ -2,6 +2,7 @@ import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import { BracketCard } from "./BracketCard";
+import { TargetMark } from "./TargetMark";
 import { tv } from "./tv";
 
 import type { ComponentProps } from "react";
@@ -153,10 +154,14 @@ export function BracketTree({ rounds, third }: { rounds: readonly [BracketRound,
   if (!isWidth(width)) return null;
   // The Finale's index: the third place stands between the round before it, the semi-finals, and it.
   const finale = rounds.length - 1;
+  const anchored = [...rounds.flatMap((round) => round.matches), ...(third === undefined ? [] : [third])].some(
+    (match) => match.anchor !== undefined,
+  );
   return (
     <section
       aria-label={COPY.shared.kOBaum}
       className={tree().root()}>
+      {anchored && <TargetMark />}
       {rounds.map((round, index) => (
         <div key={round.id}>
           {index > 0 &&

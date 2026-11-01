@@ -151,7 +151,8 @@
 }
 
 /* A place a link may point to by its fragment: the browser scrolls it into view clear of the frame's sticky
-   band or strip, and marks it while the address names it, CSS's `:target`. */
+   band or strip, and marks it while the address names it, CSS's `:target`, or, after a client navigation,
+   which never sets `:target`, the kit's `TargetMark`. */
 @layer components {
   .kit-target {
     scroll-margin-top: var(--rail-band);
@@ -160,7 +161,8 @@
       scroll-margin-top: var(--rail-strip);
     }
 
-    &:target {
+    &:target,
+    &[data-kit-target] {
       animation-name: kit-target;
       animation-duration: var(--target-highlight);
     }
