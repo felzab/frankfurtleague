@@ -73,13 +73,9 @@
 @import "@heroui/styles/components/date-picker.css" layer(components);
 
 /* Layout */
-@import "@heroui/styles/components/card.css" layer(components);
 @import "@heroui/styles/components/header.css" layer(components);
 @import "@heroui/styles/components/separator.css" layer(components);
 @import "@heroui/styles/components/surface.css" layer(components);
-
-/* Media */
-@import "@heroui/styles/components/avatar.css" layer(components);
 
 /* Overlays */
 @import "@heroui/styles/components/modal.css" layer(components);
