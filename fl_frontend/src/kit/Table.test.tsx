@@ -41,16 +41,37 @@ describe("a table's name cell", () => {
     expect(row?.children.length).toBe(screen.getAllByRole("columnheader").length + 1);
   });
 
-  it("names the mark of fixtures called off beside a figure, with no line explaining it", () => {
-    render(<Table {...props([{ id: "1", name: "Goethe", cells: { stadtteil: { value: "5", cancelled: 2 } } }])} />);
-    const cell = screen.getByText("5").closest("td");
-    expect(cell?.textContent).toBe(`${COPY.shared.season.cancelled(2)}5`);
-    expect(cell?.querySelector("svg")).not.toBe(null);
-  });
-
   it("draws no chevron where no row leads anywhere", () => {
     render(<Table {...props([{ id: "1", name: "Goethe", cells: { stadtteil: "Nordend" } }])} />);
     expect(screen.getByRole("table").querySelector("svg")).toBe(null);
+  });
+});
+
+describe("a figure short of fixtures called off", () => {
+  it("carries a red „+N“ centred on its corner, which a screen reader hears by name", () => {
+    render(<Table {...props([{ id: "1", name: "Goethe", cells: { stadtteil: { value: "5", cancelled: 2 } } }])} />);
+    const mark = screen.getByText(COPY.shared.season.cancelledMark(2));
+    expect(mark.getAttribute("aria-hidden")).toBe("true");
+    expect(mark.classList).toContain("text-danger");
+    // Placed on the figure's own box, centred on its top-right corner.
+    expect(mark.parentElement?.firstChild?.textContent).toBe("5");
+    expect(mark.parentElement?.classList).toContain("relative");
+    expect([...mark.classList]).toEqual(expect.arrayContaining(["absolute", "end-0", "top-0", "translate-x-1/2", "-translate-y-1/2"]));
+    expect(screen.getByText(COPY.shared.season.cancelled(2)).classList).toContain("sr-only");
+  });
+
+  it("keeps the mark's slot in every row of a column some row marks, so no figure moves", () => {
+    render(
+      <Table
+        {...props([
+          { id: "1", name: "Goethe", cells: { stadtteil: { value: "5", cancelled: 1 } } },
+          { id: "2", name: "Helmholtz", cells: { stadtteil: "6" } },
+        ])}
+      />,
+    );
+    const [marked, plain] = ["5", "6"].map((figure) => screen.getByText(figure).closest("td")?.firstElementChild);
+    expect(plain?.className).toBe(marked?.className);
+    expect(plain?.classList).toContain("pe-2");
   });
 });
 

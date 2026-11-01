@@ -2,7 +2,6 @@ import { COPY } from "@/core/copy";
 
 import { Chip } from "./Chip";
 import { EmptyState } from "./EmptyState";
-import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
 import { TargetMark } from "./TargetMark";
@@ -106,21 +105,28 @@ const table = tv({
 });
 
 /**
- * A cell's value, its mark for fixtures called off before it, so a column of figures keeps its digits under
- * each other whether a row carries the mark or not.
+ * A cell's value. In a column where some row's figure is short of fixtures called off, every row keeps the
+ * mark's slot at the figure's end, so the digits stand under each other whether a row carries the mark or
+ * not; the mark, a red „+N“, is centred on the figure's top-right corner, over the slot and clear of the
+ * digits, and its name tells a screen reader what no line explains.
  */
-function Cell({ cell }: { cell: TableCell | undefined }) {
-  if (cell === undefined || typeof cell === "string") return cell;
+function Cell({ cell, slot }: { cell: TableCell | undefined; slot: boolean }) {
+  if (cell === undefined) return null;
+  const { value, cancelled } = typeof cell === "string" ? { value: cell, cancelled: 0 } : cell;
+  if (!slot) return value;
   return (
-    <span className="inline-flex items-center gap-1">
-      <span className="text-fg-muted">
-        <Icon
-          glyph="cancelled"
-          size={16}
-        />
+    <span className="inline-block pe-2">
+      <span className="relative inline-block">
+        {value}
+        {cancelled > 0 && (
+          <span
+            aria-hidden
+            className="absolute end-0 top-0 translate-x-1/2 -translate-y-1/2 text-xs leading-none font-semibold text-danger">
+            {COPY.shared.season.cancelledMark(cancelled)}
+          </span>
+        )}
       </span>
-      <span className="sr-only">{COPY.shared.season.cancelled(cell.cancelled)}</span>
-      {cell.value}
+      {cancelled > 0 && <span className="sr-only">{COPY.shared.season.cancelled(cancelled)}</span>}
     </span>
   );
 }
@@ -165,6 +171,8 @@ function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
 export function Table({ label, nameLabel, rankLabel, columns, rows, empty }: TableProps) {
   const nameHead = table({ align: "start" }).head();
   const isLinked = rows.some((row) => row.href !== undefined);
+  // The columns where some row carries the mark of fixtures called off, whose every row keeps its slot.
+  const marked = new Set(columns.filter((column) => rows.some((row) => typeof row.cells[column.key] === "object")).map((column) => column.key));
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-bg">
       {rows.some((row) => row.anchor !== undefined) && <TargetMark />}
@@ -227,7 +235,10 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty }: Tab
                         strong: column.strong === true,
                         phone: column.hideOnPhone === true ? "hidden" : "shown",
                       }).cell()}>
-                      <Cell cell={row.cells[column.key]} />
+                      <Cell
+                        cell={row.cells[column.key]}
+                        slot={marked.has(column.key)}
+                      />
                     </td>
                   ))}
                   {isLinked && <td className={table().end()}>{row.href !== undefined && <RowEnd />}</td>}
