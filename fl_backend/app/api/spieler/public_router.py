@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.saisons.crud import pull_active_saison_id
-from app.api.saisons.visibility import saison_is_withheld, withheld_saison_ids
+from app.api.saisons.visibility import resolve_public_saison, withheld_saison_ids
 from app.api.spieler.schemas import (
     FLSpielerFilterParams,
     FLSpielerListAdapter,
@@ -40,17 +39,10 @@ async def get_spieler(
     (`READ-PUPIL-005`).
     """
 
-    # Resolved here, never as a field default, and only beside a team: a squad is one season's
-    # (`saison_spieler`), and a season-less one lists a player once per season they stood in it.
-    if filters.saison_id is None and filters.team_id is not None:
-        filters.saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
-
-    # Only where the caller NAMED one: the resolve above answers with the `active` season or 404s.
-    elif filters.saison_id is not None:
-        # Empty rather than 404, as `GET /spiele` answers it: an id naming no season already lists
-        # nothing here, so a refusal would be the one answer confirming a withheld one exists.
-        if await saison_is_withheld(saisons_collection=saisons_collection, saison_id=filters.saison_id):
-            return FLSpielerListResponse(spieler=[])
+    # Resolved here, never as a field default, and only beside a team or a named season: a squad is
+    # one season's (`saison_spieler`), and a season-less one lists a player once per season they stood in it.
+    if filters.saison_id is not None or filters.team_id is not None:
+        filters.saison_id = (await resolve_public_saison(saisons_collection=saisons_collection, saison_id=filters.saison_id)).id
 
     # The other half, and the reason it is a second read: the caller named no season, so the rows
     # have to be narrowed on the whole withheld set. Skipped where one id already answered above.

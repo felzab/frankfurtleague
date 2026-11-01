@@ -274,7 +274,7 @@ async def get_trikotfarben(
     The SET alone, naming no club (`READ-BEWERBUNG-001`).
     """
 
-    # Not `refuse_withheld_saison`, which would 404 every season this read exists for: one taking
+    # Not `resolve_public_saison`, which would 404 every season this read exists for: one taking
     # applications is `future`. Whether it takes applications gates it instead, so
     # the carve-out stays the window reads' own.
     bewerbung, saison_status = await _pull_window(saisons_collection=saisons_collection, saison_id=saison_id)

@@ -32,7 +32,7 @@ from app.core.crud import aggregate_many_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.openapi_document import build_document
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
-from tests.documents import own_einwilligung_document, saison_spieler_document, spieler_document
+from tests.documents import own_einwilligung_document, rules_document, saison_document, saison_spieler_document, spieler_document
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -334,13 +334,16 @@ class _Cursor:
 
 
 class _Seasons:
-    """A seasons collection holding at most one `active` season and withholding none."""
+    """A seasons collection holding at most one `active` season, and every other id it is asked for as a `past` one."""
 
     def __init__(self, active: str | None) -> None:
         self.active = active
 
     async def find_one(self, filter: Any = None, projection: Any = None, session: Any = None) -> dict[str, Any] | None:
-        return {"_id": self.active, "status": "active"} if self.active is not None and filter == {"status": "active"} else None
+        if filter == {"status": "active"}:
+            return None if self.active is None else {"_id": self.active, "status": "active", "rules": rules_document()}
+
+        return {"_id": filter["_id"], "status": "past", "rules": rules_document()}
 
     def find(self, **query: Any) -> _Cursor:
         return _Cursor()
@@ -590,6 +593,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
 
     async def _seed() -> None:
         async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
+            await database.saisons.insert_one(saison_document(SAISON, "active"))
             await database.spieler.insert_many(
                 [
                     # Distinct forenames, none of them holding a surname as a substring: the rows
@@ -650,7 +654,7 @@ def squad_url(mongo_url: str) -> Iterator[str]:
 
     async def _seed() -> None:
         async with a_clean_database(mongo_url, SQUAD_DATABASE_NAME, constraints=False) as (_, database):
-            await database.saisons.insert_many([{"_id": SAISON, "status": "active"}, {"_id": PAST_SAISON, "status": "past"}])
+            await database.saisons.insert_many([saison_document(SAISON, "active"), saison_document(PAST_SAISON, "past")])
             await database.spieler.insert_many(
                 [
                     {**_spieler("Mueller", "Paula", "Beispiel"), "_id": SQUAD_OIDS["Beide"]},
@@ -829,7 +833,7 @@ def masked_url(mongo_url: str) -> Iterator[str]:
 
     async def _seed() -> None:
         async with a_clean_database(mongo_url, MASK_DATABASE_NAME) as (_, database):
-            await database.saisons.insert_one({"_id": SAISON, "status": "active"})
+            await database.saisons.insert_one(saison_document(SAISON, "active"))
             await database.spieler.insert_many(
                 [
                     {
@@ -926,7 +930,7 @@ def sort_oracle_url(mongo_url: str) -> Iterator[str]:
     async def _seed() -> None:
         for corpus, withheld_forename in WITHHELD_FORENAMES.items():
             async with a_clean_database(mongo_url, SORT_ORACLE_DATABASE_NAMES[corpus], constraints=False) as (_, database):
-                await database.saisons.insert_one({"_id": SAISON, "status": "active"})
+                await database.saisons.insert_one(saison_document(SAISON, "active"))
                 await database.spieler.insert_many(
                     [
                         {

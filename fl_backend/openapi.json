@@ -25696,7 +25696,7 @@
     },
     "/api/v0/spiele": {
       "get": {
-        "description": "List the Spiele matching the filters, of the current season unless `saison_id` names another.\n\nA season this tier may not read lists nothing; `playoffs` means every phase but `gruppenphase`, and\n`from_today` includes today.",
+        "description": "List the Spiele matching the filters, of the current season unless `saison_id` names another.\n\nA season this tier may not read 404s; `playoffs` means every phase but `gruppenphase`, and `from_today`\nincludes today.",
         "operationId": "spiele_get_spiele",
         "parameters": [
           {

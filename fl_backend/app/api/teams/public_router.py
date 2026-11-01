@@ -2,8 +2,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 
-from app.api.saisons.crud import pull_saison_id_and_rules
-from app.api.saisons.visibility import refuse_withheld_saison
+from app.api.saisons.visibility import resolve_public_saison
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.schemas import (
     FLPublicTeamsFilterParams,
@@ -48,11 +47,8 @@ async def get_teams(
 
     # Resolved here, never as a field default, which cannot query the database. It also flips
     # `strict_join` on: without a season the `$lookup` returns one row per season a team played.
-    filters.saison_id, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
-
-    # After the resolve, so an omitted `saison_id` is judged on the season it landed on -- which is
-    # the `active` one, and never withheld.
-    await refuse_withheld_saison(saisons_collection=saisons_collection, saison_id=filters.saison_id)
+    saison = await resolve_public_saison(saisons_collection=saisons_collection, saison_id=filters.saison_id)
+    filters.saison_id, saison_rules = saison.id, saison.rules
 
     pipeline = build_team_pipeline(filters=filters, rules=saison_rules)
 
@@ -96,22 +92,20 @@ async def get_team(
     season-scoped. 404 where the team, its row or the season is one this tier cannot read.
     """
 
-    saison_id, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
-
     # Before the pipeline: the season is what scopes `gruppe` and `statistik`, so a withheld one has
     # to be refused whatever the club.
-    await refuse_withheld_saison(saisons_collection=saisons_collection, saison_id=saison_id)
+    saison = await resolve_public_saison(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 
     # A retired club stays addressable by id: a caller holding one was given it by something.
     pipeline_filters = FLTeamsFilterParams(
-        saison_id=saison_id,
+        saison_id=saison.id,
         statistik_scope=filters.statistik_scope,
         include_inactive=True,
     )
 
     teams_raw = await aggregate_many_from_db(
         collection=teams_collection,
-        pipeline=build_team_pipeline(filters=pipeline_filters, rules=saison_rules, team_id=team_id),
+        pipeline=build_team_pipeline(filters=pipeline_filters, rules=saison.rules, team_id=team_id),
         collation=GERMAN_COLLATION,
     )
     if not teams_raw:

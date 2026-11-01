@@ -9,6 +9,7 @@ from app.api.saisons.admin_router import get_saisons_verwaltung
 from app.api.saisons.public_router import get_saison, get_saisons
 from app.api.saisons.schemas import FLSaisonsFilterParams
 from app.api.saisons.services import base_tier_status_term
+from app.api.saisons.visibility import resolve_public_saison
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
@@ -22,6 +23,8 @@ DATABASE_NAME = worker_database("fl_saison_visibility_test")
 ARCHIVED = "2024"
 RUNNING = "2025"
 PLANNED = "2026"
+# An id naming no season at all: what the withheld one has to be indistinguishable from.
+UNKNOWN = "2099"
 
 
 SEEDED = [saison_document(ARCHIVED, "past"), saison_document(RUNNING, "active"), saison_document(PLANNED, "future")]
@@ -113,6 +116,27 @@ class TestAPlannedSeasonIsWithheldFromTheBaseTier:
             return refusal.value
 
         assert on_a_league(seeded_league, body).status_code == 404
+
+
+@pytest.mark.db
+class TestThePublicSeasonResolver:
+    """The one resolve every base-tier read scoped by a season makes, and the two refusals it answers alike."""
+
+    @pytest.mark.parametrize("saison_id", [pytest.param(PLANNED, id="withheld"), pytest.param(UNKNOWN, id="unknown")])
+    def test_it_misses_a_season_this_tier_may_not_read_as_one_nobody_created(self, saison_id: str, seeded_league: str):
+        async def body(database: AsyncDatabase) -> Any:
+            with pytest.raises(DocumentNotFoundError) as refusal:
+                await resolve_public_saison(saisons_collection=database[Collection.SAISONS], saison_id=saison_id)
+
+            return refusal.value
+
+        assert on_a_league(seeded_league, body).status_code == 404
+
+    def test_naming_none_resolves_the_active_season(self, seeded_league: str):
+        async def body(database: AsyncDatabase) -> Any:
+            return await resolve_public_saison(saisons_collection=database[Collection.SAISONS], saison_id=None)
+
+        assert on_a_league(seeded_league, body).id == RUNNING
 
 
 @pytest.mark.db

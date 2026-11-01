@@ -2932,8 +2932,8 @@ export const SpielbestaetigungenEnterSpielbestaetigungBody = zod
 /**
  * List the Spiele matching the filters, of the current season unless `saison_id` names another.
  *
- * A season this tier may not read lists nothing; `playoffs` means every phase but `gruppenphase`, and
- * `from_today` includes today.
+ * A season this tier may not read 404s; `playoffs` means every phase but `gruppenphase`, and `from_today`
+ * includes today.
  * @summary List Spiele
  */
 export const spieleGetSpieleQueryTeamIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");

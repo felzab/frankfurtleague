@@ -16,7 +16,6 @@ from app.api.teams.admin_router import get_teams_verwaltung
 from app.api.teams.public_router import get_teams
 from app.api.teams.schemas import FLTeamsFilterParams
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundError
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
 from tests import documents
 from tests.core.app_source import api_routes, application
@@ -117,18 +116,6 @@ def on_a_league(url: str, body: Body) -> Any:
         return await body(shared_client(url)[DATABASE_NAME])
 
     return on_the_seed_loop(_run())
-
-
-def raised_by(url: str, body: Body) -> DocumentNotFoundError:
-    """The refusal a read answered with, so a test asserts on its status rather than only that it refused."""
-
-    async def _catching(database: AsyncDatabase) -> DocumentNotFoundError:
-        with pytest.raises(DocumentNotFoundError) as refusal:
-            await body(database)
-
-        return refusal.value
-
-    return on_a_league(url, _catching)
 
 
 async def admin_teams(database: AsyncDatabase, saison_id: str) -> Any:
@@ -249,22 +236,6 @@ def test_the_admin_read_answers_exactly_what_the_base_read_answers(
     admin_answer, base_answer = on_a_league(seeded_league, body)
 
     assert admin_answer == base_answer
-
-
-@pytest.mark.db
-class TestTheBaseTierStillSeesNoneOfThePlannedSeason:
-    """The contrast these admin reads exist to make possible: adding them must not have reopened the gate."""
-
-    def test_its_squads_are_still_refused(self, seeded_league: str):
-        assert raised_by(seeded_league, lambda database: base_teams(database, PLANNED)).status_code == 404
-
-    def test_its_matchdays_are_still_refused(self, seeded_league: str):
-        assert raised_by(seeded_league, lambda database: base_spieltage(database, PLANNED)).status_code == 404
-
-    def test_its_fixtures_still_list_as_nothing(self, seeded_league: str):
-        """Empty rather than a refusal: an id naming no season already lists nothing there."""
-
-        assert on_a_league(seeded_league, lambda database: base_spiele(database, PLANNED)).spiele == []
 
 
 SLICE_GUARDS: set[Callable[..., Any]] = {verify_access_base, verify_access_admin, verify_access_system}

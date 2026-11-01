@@ -35,6 +35,7 @@ from tests.config import ADMIN_AUTH, BASE_AUTH, build_test_config, grants_for_th
 from tests.database import a_clean_database_sync
 from tests.documents import (
     own_einwilligung_document,
+    saison_document,
     saison_team_document,
     schiedsrichter_document,
     spiel_document,
@@ -210,6 +211,7 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     try:
         database = a_clean_database_sync(client, mongo_replica_set_url, database_name)
         database[Collection.GRANTS].insert_many(grants_for_the_suite())
+        database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
         database[Collection.SPIELE].insert_one(stored_document())
         # Publishing their name, so the reduction is what the base tier serves rather than a withheld null.
         database[Collection.SCHIEDSRICHTER].insert_one(
