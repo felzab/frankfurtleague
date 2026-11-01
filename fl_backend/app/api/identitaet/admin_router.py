@@ -53,6 +53,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.recording import act_row, anlass_var, log_stamp
+from app.core.routing import SAFE
 from app.core.security import (
     SessionActor,
     bind_actor,
@@ -77,6 +78,7 @@ router = APIRouter(
     "/erasure/view",
     response_model=FLErasureViewResponse,
     summary="Show what an erasure of an address would remove",
+    openapi_extra=SAFE,
 )
 async def get_erasure_view(
     ansicht_data: Annotated[FLErasureAdressePayload, Body()],

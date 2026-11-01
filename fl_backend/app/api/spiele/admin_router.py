@@ -76,7 +76,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
-from app.core.routing import by_id
+from app.core.routing import SAFE_WHEN, by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -262,6 +262,7 @@ async def previewing(
     by_id("spiel_id"),
     response_model=FLPatchSpielDataResponse,
     summary="Update a Spiel",
+    openapi_extra=SAFE_WHEN,
 )
 async def patch_spiel(
     spiel_id: CustomRouteObjectId,

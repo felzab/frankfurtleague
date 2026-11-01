@@ -11,6 +11,7 @@ from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS
 from app.api.spieler import schemas as spieler_schemas
 from app.core.codes import Code
+from app.core.routing import SAFE
 from app.core.security import bind_actor, verify_access_admin, verify_access_base, verify_access_system
 from tests.core.app_source import api_routes, application
 
@@ -20,6 +21,8 @@ from .conftest import MINIMUM_EXPECTED_MUTATIONS
 APP = application()
 
 MISSING_BEARER_TOKEN = Code.ACCESS_KEY_REFUSED
+
+(SAFE_KEY,) = SAFE
 
 HTTP_METHODS = frozenset({"get", "post", "patch", "delete", "put", "head", "options", "trace"})
 
@@ -287,8 +290,11 @@ def test_every_admin_tier_operation_judges_its_actor_after_the_key(path: str, me
 
 
 # The admin-tier reads served over POST, the address they ask about travelling in a body rather than an access
-# line. Named, because nothing a route declares tells such a read from a write.
-ADMIN_TIER_READS_OVER_POST = frozenset({("/api/v0/address_change/view", "post"), ("/api/v0/identity/erasure/view", "post")})
+# line: the operations the document marks safe (`app/core/routing.py :: SAFE`), a mark
+# `tests/core/test_safe_operations.py` holds to each handler's writes.
+ADMIN_TIER_READS_OVER_POST = frozenset(
+    (path, method) for path, method in ADMIN_TIER_OPERATIONS if method == "post" and APP.openapi()["paths"][path][method].get(SAFE_KEY) is True
+)
 
 
 def test_the_person_exemption_names_only_published_operations():

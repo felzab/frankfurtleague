@@ -18719,7 +18719,8 @@
         "summary": "Say which address a live change would move to",
         "tags": [
           "address_change"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/address_change/confirmation": {
@@ -18938,7 +18939,8 @@
         "summary": "What one address link opens",
         "tags": [
           "address_change"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/address_change/sweep": {
@@ -19229,7 +19231,8 @@
         "summary": "Show what an address holds that a change moves, and its live change",
         "tags": [
           "address_change"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/address_change/{address_change_id}": {
@@ -19871,7 +19874,8 @@
         "summary": "What one confirmation link opens",
         "tags": [
           "bewerbungen"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/bewerbungen/kuerzel/{shorthand}": {
@@ -21962,7 +21966,8 @@
         "summary": "Show what an erasure of an address would remove",
         "tags": [
           "identity"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/identity/references": {
@@ -22035,7 +22040,8 @@
         "summary": "Say which of these sign-in addresses no record references",
         "tags": [
           "identity"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/identity/sign_in": {
@@ -22108,7 +22114,8 @@
         "summary": "Say whether one mailbox may be offered a sign-in",
         "tags": [
           "identity"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/identity/sign_out": {
@@ -22254,7 +22261,8 @@
         "summary": "Say which league records one mailbox holds",
         "tags": [
           "identity"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/outbox/event": {
@@ -22998,7 +23006,8 @@
         "summary": "What one registration confirmation link opens",
         "tags": [
           "registrierungen"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/registrierungen/invitation/view": {
@@ -23071,7 +23080,8 @@
         "summary": "What a registration link opens",
         "tags": [
           "registrierungen"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/registrierungen/kader/{team_id}/{saison_id}": {
@@ -25523,7 +25533,8 @@
         "summary": "What one Schiedsrichter confirmation link opens",
         "tags": [
           "schiedsrichter"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/schiedsrichter/self": {
@@ -27100,7 +27111,8 @@
         "summary": "What one fixture confirmation link opens",
         "tags": [
           "spielbestaetigungen"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/antwort": {
@@ -27953,7 +27965,8 @@
         "summary": "Update a Spiel",
         "tags": [
           "spiele"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/v0/spiele/{spiel_id}/verwaltung": {

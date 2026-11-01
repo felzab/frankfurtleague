@@ -101,6 +101,7 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal, JournalLine
 from app.core.recording import log_stamp
+from app.core.routing import SAFE
 from app.core.security import bind_public_actor, erasure_journal_hash, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -523,6 +524,7 @@ async def _saison_ansicht(
     "/einwilligung/view",
     response_model=FLBewerbungEinwilligungViewResponse,
     summary="What one confirmation link opens",
+    openapi_extra=SAFE,
 )
 async def get_einwilligung_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],

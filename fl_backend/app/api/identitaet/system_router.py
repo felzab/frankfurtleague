@@ -50,6 +50,7 @@ from app.core.dependencies import (
 )
 from app.core.logging import fl_logger
 from app.core.recording import log_stamp
+from app.core.routing import SAFE
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
 from app.shared.folding import sign_in_identifier
@@ -66,6 +67,7 @@ router = APIRouter(
     "/subject",
     response_model=FLSubjectResponse,
     summary="Say which league records one mailbox holds",
+    openapi_extra=SAFE,
 )
 async def get_subject(
     subjekt_data: Annotated[FLSubjectPayload, Body()],
@@ -103,6 +105,7 @@ async def get_subject(
     "/sign_in",
     response_model=FLSignInResponse,
     summary="Say whether one mailbox may be offered a sign-in",
+    openapi_extra=SAFE,
 )
 async def get_sign_in(
     anmeldung_data: Annotated[FLSubjectPayload, Body()],
@@ -133,6 +136,7 @@ async def get_sign_in(
     "/references",
     response_model=FLReferencesResponse,
     summary="Say which of these sign-in addresses no record references",
+    openapi_extra=SAFE,
 )
 async def get_references(
     referenzen_data: Annotated[FLReferencesPayload, Body()],
