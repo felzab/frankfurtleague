@@ -87,7 +87,7 @@ export function RailToggle() {
   return (
     <span className="-mr-2.5 -ml-6 max-lg:hidden">
       <Button
-        icon="seitenleiste"
+        icon="sidebar"
         label={rail.collapsed ? COPY.template.sidebar.expand : COPY.template.sidebar.collapse}
         aria-expanded={!rail.collapsed}
         aria-controls={RAIL_ID}

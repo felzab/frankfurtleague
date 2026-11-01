@@ -2,7 +2,7 @@
 
 import { isFreshlySignedIn } from "@/core/auth";
 import { getLaufendesLabel } from "@/core/einwilligung";
-import { formatAufzaehlung } from "@/core/format";
+import { formatList } from "@/core/format";
 import { getTeamSaisons } from "@/features/teams/queries";
 import { refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -23,7 +23,7 @@ import type { KontakteSpeichernEingabe } from "./schemas";
  * behind the response; the editor then shows what became of each.
  */
 function linkSatz(owed: readonly FLKontaktMint[]): string {
-  const adressen = formatAufzaehlung(owed.map(({ email }) => email));
+  const adressen = formatList(owed.map(({ email }) => email));
 
   return owed.length === 1 ? `Der Bestätigungslink geht an ${adressen}.` : `Die Bestätigungslinks gehen an ${adressen}.`;
 }

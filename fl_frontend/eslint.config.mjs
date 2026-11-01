@@ -228,12 +228,12 @@ const NEXT_PRIVATE_CONTEXTS = {
  * The published origin, for what a crawler reads: a message built on it sends a reader of any other
  * stack to production.
  */
-/** `katalog` brands a whole tree as `Copy`; only the server's own catalogue calls it besides `copy.ts` itself. */
+/** `catalogue` brands a whole tree as `Copy`; only the server's own catalogue calls it besides `copy.ts` itself. */
 const CATALOGUE_BRAND = {
   regex: moduleNamed("copy"),
-  importNames: ["katalog"],
+  importNames: ["catalogue"],
   message:
-    "katalog brands a whole tree as Copy: fl_frontend/src/core/serverCopy.ts, the server's own catalogue, calls it, and nothing else may. Take the entry from COPY or SERVER_COPY, or add one there.",
+    "catalogue brands a whole tree as Copy: fl_frontend/src/core/serverCopy.ts, the server's own catalogue, calls it, and nothing else may. Take the entry from COPY or SERVER_COPY, or add one there.",
 };
 
 const SITE_ORIGIN = {

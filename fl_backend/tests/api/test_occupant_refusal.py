@@ -1729,7 +1729,7 @@ class TestAnEventThatAwardsNothingCarriesNoResult:
         refusal = state_refusal_for(saison, 1, sonderereignis=sonderereignis, team1=team(ADLER, "Adler", tore=2))
 
         assert refusal is not None
-        assert refusal.error_code == Code.STATE_ERGEBNIS_ON_A_NON_EVENT
+        assert (refusal.error_code, refusal.fields) == (Code.STATE_ERGEBNIS_ON_A_NON_EVENT, (("sonderereignis",),))
 
     @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_WITHOUT_A_RESULT)
     def test_the_same_fixture_with_no_goals_passes(self, saison, sonderereignis):
@@ -1768,7 +1768,7 @@ class TestANoShowNeedsBothSides:
         refusal = state_refusal_for(saison, 1, sonderereignis="nichtantreten_team1", **{emptied: None})
 
         assert refusal is not None
-        assert refusal.error_code == Code.STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES
+        assert (refusal.error_code, refusal.fields) == (Code.STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES, (("sonderereignis",),))
 
     def test_an_unresolved_slot_is_no_bar_to_any_other_event(self, saison):
         """Fixture 30 holds neither club, and calling off a match nobody was drawn into is a legitimate entry."""

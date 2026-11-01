@@ -3504,6 +3504,8 @@ export const SpielorteGetSpielorteQueryParams = zod.object({
 
 /**
  * Create a venue. `maps_link` is built server-side from the name and address and must not be submitted.
+ *
+ * Refused where another venue holds the name (`duplicate_key`, naming `name`).
  * @summary Create a Spielort
  */
 export const spielortePostSpielortBodyAddressHausnummerMax = 16;

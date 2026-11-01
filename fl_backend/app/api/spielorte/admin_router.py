@@ -17,7 +17,7 @@ from app.api.spielorte.schemas import (
     FLSpielorteSingleResponse,
     FLSpielortListAdapter,
 )
-from app.api.spielorte.services import build_unplayed_booking_filter, find_venue_retire_refusal
+from app.api.spielorte.services import build_unplayed_booking_filter, find_venue_name_refusal, find_venue_retire_refusal
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -98,9 +98,14 @@ async def post_spielort(
     spielorte_collection: SpielorteCollection,
     db: DBClient,
 ) -> FLCreatedResponse:
-    """Create a venue. `maps_link` is built server-side from the name and address and must not be submitted."""
+    """Create a venue. `maps_link` is built server-side from the name and address and must not be submitted.
+
+    Refused where another venue holds the name (`duplicate_key`, naming `name`).
+    """
 
     async def enter_the_venue(session: AsyncClientSession) -> InsertOneResult:
+        holder = await spielorte_collection.find_one({"name": spielort_data.name}, projection={"_id": 1}, session=session)
+        refuse(find_venue_name_refusal(taken=holder is not None))
         return await insert_live(
             collection=spielorte_collection,
             document={

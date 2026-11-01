@@ -27,8 +27,8 @@ const MAIL_ENDPOINT = "https://api.resend.com/emails";
 // other, the mail's kind choosing (`fl_frontend/src/core/emailShell.ts :: MailSender`). Each address
 // needs its own routing rule and its sender alignment at the provider.
 const SENDER_ADDRESSES: Readonly<Record<MailSender, string>> = {
-  anmeldung: "anmeldung@frankfurtleague.de",
-  liga: "liga@frankfurtleague.de",
+  signIn: "anmeldung@frankfurtleague.de",
+  league: "liga@frankfurtleague.de",
 };
 
 /** Every sender under the league's name, which needs no quoting: it holds no comma, quote or angle bracket. */

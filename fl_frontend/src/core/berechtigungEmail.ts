@@ -1,13 +1,13 @@
 import "server-only";
 
 import { mailOrigin } from "./emailShell";
+import { ERASED_ACTOR_MARKER } from "./erasedActor";
 import { formatInstant } from "./format";
-import { GELOESCHT_ACTOR_MARKER } from "./geloeschtActor";
 import { OFFENE_ANTRAEGE } from "./seitenNamen";
 
 import type { Mail, Run } from "./emailShell";
 import type { FLGrantData, FLGrantDataChange, FLGrantDataWithheld, FLGrantSnapshot } from "./generated/client/types";
-import type { MailOrt } from "./mailKinds";
+import type { MailOrigin } from "./mailKinds";
 
 const BETREFF = "Änderung beim Zugang zur Verwaltung";
 const ZIEL_LABEL = "Zur Verwaltung";
@@ -55,7 +55,7 @@ type Zugangsaenderung = {
 
 /**
  * Who made the change and when, or `null` where it was made in the database directly. `von` is null for an
- * administrator since barred, and `GELOESCHT_ACTOR_MARKER` for one erased since, neither of whom the notice names.
+ * administrator since barred, and `ERASED_ACTOR_MARKER` for one erased since, neither of whom the notice names.
  */
 type Urheber = { readonly von: string | null; readonly am: string | null } | null;
 
@@ -106,7 +106,7 @@ function aenderungsSatz({ art, adresse, owner: inhaber }: Zugangsaenderung): rea
 function urheberName(von: string | null): Run {
   if (von === null) return GESPERRTER_URHEBER;
 
-  return von === GELOESCHT_ACTOR_MARKER ? UNGENANNTER_URHEBER : { strong: von };
+  return von === ERASED_ACTOR_MARKER ? UNGENANNTER_URHEBER : { strong: von };
 }
 
 /** The second sentence: who made it and when, or where a change nobody in the application made came from. */
@@ -139,7 +139,7 @@ function urheberOf(daten: FLGrantData): Urheber {
 }
 
 /** **The body depends on the change alone**, never on when it is sent or to whom: every holder is owed the same notice. */
-export function buildBerechtigungEmail(daten: FLGrantData, { origin: rawOrigin }: MailOrt): Mail {
+export function buildBerechtigungEmail(daten: FLGrantData, { origin: rawOrigin }: MailOrigin): Mail {
   const aenderung = zugangsaenderungOf(daten);
   const urheber = urheberOf(daten);
   const origin = mailOrigin(rawOrigin);
@@ -147,7 +147,7 @@ export function buildBerechtigungEmail(daten: FLGrantData, { origin: rawOrigin }
   const antrag = aenderung.art === "requested" ? ANTRAG[aenderung.owner ? "ernennung" : "zugang"] : null;
 
   return {
-    art: "notice",
+    kind: "notice",
     subjectLine: antrag?.betreff ?? BETREFF,
     origin: origin,
     vorname: "",

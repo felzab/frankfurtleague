@@ -1,9 +1,9 @@
 import "server-only";
 
 import { BRAND_NAME, mailOrigin } from "./emailShell";
-import { formatAufzaehlung, formatDatum } from "./format";
+import { formatDatum, formatList } from "./format";
 import { kontaktBestaetigungsLink } from "./kontaktLink";
-import { KONTAKT_ROLLE_LANGFORM, rollenText, TRIKOT_FARBEN } from "./teamVocabulary";
+import { KONTAKT_ROLLE_LONG_FORM, rollenText, TRIKOT_FARBEN } from "./teamVocabulary";
 
 import type { Mail, Paragraph } from "./emailShell";
 import type { CalendarDay } from "./format";
@@ -16,7 +16,7 @@ import type {
   FLBewerbungWiderspruchData,
   FLBewerbungZusageData,
 } from "./generated/client/types";
-import type { MailLink, MailOrt } from "./mailKinds";
+import type { MailLink, MailOrigin } from "./mailKinds";
 
 /**
  * Future tense because it has to be: a club is entered only while its season is `future`
@@ -85,8 +85,8 @@ function personName({ vorname, rollen }: FLBewerbungPerson): string {
  */
 function altersSatz(rollen: readonly FLBewerbungLinkData["rollen"][number][]): string {
   return rollen.every((rolle) => rolle === "trainer")
-    ? `${KONTAKT_ROLLE_LANGFORM.trainer} kann sein, wer mindestens 16 Jahre alt ist.`
-    : `${KONTAKT_ROLLE_LANGFORM.ansprechperson} oder ${KONTAKT_ROLLE_LANGFORM.stellvertretung} kann sein, wer mindestens 18 Jahre alt ist.`;
+    ? `${KONTAKT_ROLLE_LONG_FORM.trainer} kann sein, wer mindestens 16 Jahre alt ist.`
+    : `${KONTAKT_ROLLE_LONG_FORM.ansprechperson} oder ${KONTAKT_ROLLE_LONG_FORM.stellvertretung} kann sein, wer mindestens 18 Jahre alt ist.`;
 }
 
 /** A fill named by its hex, in this shape alone: no supplier could match any other. */
@@ -95,7 +95,7 @@ const FARBE_HEX = /^#[0-9a-f]{6}$/i;
 /** What an accepted application is told, each person naming the seats they were entered for. */
 export function buildBewerbungZusageEmail(
   { team, saison_id, rollen, gruppe, trikot_farbe, wunschgegner }: FLBewerbungZusageData,
-  { origin }: MailOrt,
+  { origin }: MailOrigin,
 ): Mail {
   const site = mailOrigin(origin);
   // Blank counts as unnamed, so the silence rests on no payload's trim.
@@ -104,7 +104,7 @@ export function buildBewerbungZusageEmail(
   const hex = farbe !== undefined && FARBE_HEX.test(farbe.hex) ? farbe.hex : null;
 
   return {
-    art: "notice",
+    kind: "notice",
     subjectLine: `Willkommen in der Saison ${saison_id}`,
     origin: site,
     vorname: "",
@@ -135,9 +135,9 @@ export function buildBewerbungZusageEmail(
 }
 
 /** The mail states the decision and the reason it was given, and says that it covers this application rather than the school. */
-export function buildBewerbungAbsageEmail({ team, saison_id, rollen, grund }: FLBewerbungAbsageData, { origin }: MailOrt): Mail {
+export function buildBewerbungAbsageEmail({ team, saison_id, rollen, grund }: FLBewerbungAbsageData, { origin }: MailOrigin): Mail {
   return {
-    art: "notice",
+    kind: "notice",
     subjectLine: `Absage für die Saison ${saison_id}`,
     origin: mailOrigin(origin),
     vorname: "",
@@ -168,7 +168,7 @@ export function buildBewerbungBestaetigungEmail({ saison_id, schule, rollen, fri
   const bis = fristText(frist);
 
   return {
-    art: "firstContact",
+    kind: "firstContact",
     subjectLine: `Dein Eintrag für die Saison ${saison_id}`,
     origin: site,
     vorname: "",
@@ -211,7 +211,7 @@ export function buildBewerbungErinnerungEmail({ saison_id, schule, rollen, frist
   const bis = fristText(frist);
 
   return {
-    art: "firstContact",
+    kind: "firstContact",
     subjectLine: `Erinnerung: Dein Eintrag für die Saison ${saison_id}`,
     origin: site,
     vorname: "",
@@ -256,7 +256,7 @@ export function buildBewerbungEingangEmail(
   const bis = fristText(frist);
 
   return {
-    art: "notice",
+    kind: "notice",
     subjectLine: `Bewerbung eingegangen: Saison ${saison_id}`,
     origin: site,
     vorname: "",
@@ -283,7 +283,7 @@ export function buildBewerbungEingangEmail(
         { label: "Status", value: "Eingegangen, Bestätigungen offen" },
         { label: "Saison", value: saison_id },
         { label: "Eingetragen als", value: rollenText(rollen) },
-        { label: "Noch offen", value: formatAufzaehlung(ausstehend.map(personName)) },
+        { label: "Noch offen", value: formatList(ausstehend.map(personName)) },
         { label: "Frist", value: bis },
       ],
     },
@@ -295,11 +295,11 @@ export function buildBewerbungEingangEmail(
  * What the submitter is told as the application is deleted. Owed in the erasure's own write and worded in the present,
  * `ausstehend` naming the people the deleted application still held.
  */
-export function buildBewerbungGeloeschtEmail({ saison_id, rollen, pending: ausstehend }: FLBewerbungErasureData, { origin }: MailOrt): Mail {
+export function buildBewerbungGeloeschtEmail({ saison_id, rollen, pending: ausstehend }: FLBewerbungErasureData, { origin }: MailOrigin): Mail {
   const site = mailOrigin(origin);
 
   return {
-    art: "notice",
+    kind: "notice",
     subjectLine: `Bewerbung wird gelöscht: Saison ${saison_id}`,
     origin: site,
     vorname: "",
@@ -321,7 +321,7 @@ export function buildBewerbungGeloeschtEmail({ saison_id, rollen, pending: ausst
         { label: "Eingetragen als", value: rollenText(rollen) },
         // The one thing a school needs before applying again: told only that the application lapsed,
         // they collect the same people and land here a second time.
-        { label: "Nicht bestätigt", value: formatAufzaehlung(ausstehend.map(personName)) },
+        { label: "Nicht bestätigt", value: formatList(ausstehend.map(personName)) },
       ],
     },
     button: neuBewerbenAktion(site, saison_id),
@@ -331,13 +331,13 @@ export function buildBewerbungGeloeschtEmail({ saison_id, rollen, pending: ausst
 /** What the submitter is told when a person refuses their entry; `abgelehnt` was read before the decline emptied it. */
 export function buildBewerbungWiderspruchEmail(
   { saison_id, rollen, declined: abgelehnt, frist }: FLBewerbungWiderspruchData,
-  { origin }: MailOrt,
+  { origin }: MailOrigin,
 ): Mail {
   const site = mailOrigin(origin);
   const wer = personName(abgelehnt);
 
   return {
-    art: "notice",
+    kind: "notice",
     subjectLine: `Widerspruch zum Eintrag: Saison ${saison_id}`,
     origin: site,
     vorname: "",

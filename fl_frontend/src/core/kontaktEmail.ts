@@ -54,7 +54,7 @@ export function buildKontaktBestaetigungEmail(
   const sitze = rollenText(rollen);
 
   return {
-    art: "firstContact",
+    kind: "firstContact",
     subjectLine: `Du bist als ${sitze} für ${schule} eingetragen`,
     origin: site,
     vorname: "",

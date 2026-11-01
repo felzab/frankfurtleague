@@ -50,7 +50,7 @@ export function Checkbox({
               className={toggleBox({ shape: "square", selected, invalid })}>
               {selected && (
                 <Icon
-                  glyph="haken"
+                  glyph="check"
                   size={12}
                 />
               )}

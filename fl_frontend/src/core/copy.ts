@@ -1,27 +1,27 @@
 import { KONTAKT_EMAIL } from "./brand";
-import { formatDatum, formatDatumLang, formatDatumWithWeekday, formatErgebnis, formatNumber, formatUhrzeit } from "./format";
+import { formatDatum, formatDatumLong, formatDatumWithWeekday, formatErgebnis, formatNumber, formatUhrzeit } from "./format";
 
-import type { CalendarDay, Paar, Uhrzeit } from "./format";
+import type { CalendarDay, Pair, Uhrzeit } from "./format";
 
-declare const copyMarke: unique symbol;
+declare const copyBrand: unique symbol;
 
 /**
  * A string the catalogue wrote. Every kit text prop takes this type, so a string typed into a page
  * does not compile; `as Copy` outside this file is the one way round it.
  */
-export type Copy = string & { readonly [copyMarke]: true };
+export type Copy = string & { readonly [copyBrand]: true };
 
-type Katalog<T> = T extends string
+type Catalogue<T> = T extends string
   ? Copy
   : T extends (...args: infer A) => string
     ? (...args: A) => Copy
-    : { readonly [K in keyof T]: Katalog<T[K]> };
+    : { readonly [K in keyof T]: Catalogue<T[K]> };
 
 /**
  * The only assertion to `Copy`: the whole tree is branded at once, so no entry can be left plain. Exported for the
  * server's own catalogue, `serverCopy.ts`, alone.
  */
-export const katalog = <const T>(baum: T): Katalog<T> => baum as Katalog<T>;
+export const catalogue = <const T>(tree: T): Catalogue<T> => tree as Catalogue<T>;
 
 // Each label is the verb's infinitive capitalised, so `withObject` lower-cases its first letter alone.
 const VERB = {
@@ -46,7 +46,7 @@ const VERB = {
 /** The closed set of button verbs: a button names its act with one of these. */
 export type Verb = keyof typeof VERB;
 
-const infinitiv = (verb: Verb): string => `${VERB[verb].charAt(0).toLowerCase()}${VERB[verb].slice(1)}`;
+const infinitive = (verb: Verb): string => `${VERB[verb].charAt(0).toLowerCase()}${VERB[verb].slice(1)}`;
 
 // One line for every failure no reason names, the same in a toast and in a status line.
 const UNEXPECTED = "Etwas ist schiefgelaufen";
@@ -57,14 +57,14 @@ type Bound = number | string;
 const bound = (value: Bound): string => (typeof value === "string" ? value : formatNumber(value));
 
 // The mark a result decided in a shoot-out carries: under the score in a match row, after it in a fact.
-const NACH_ELFMETERSCHIESSEN = "n. E.";
+const AFTER_ELFMETERSCHIESSEN = "n. E.";
 
-export const COPY = katalog({
+export const COPY = catalogue({
   /** What every area draws from; an area adds a key of its own only for a string this lacks. */
   shared: {
     verb: VERB,
     /** „Team anlegen“: a button whose verb needs its object. */
-    withObject: (object: Copy, verb: Verb) => `${object} ${infinitiv(verb)}`,
+    withObject: (object: Copy, verb: Verb) => `${object} ${infinitive(verb)}`,
 
     /** The units a field's figure is counted in, set after the field. */
     unit: {
@@ -91,8 +91,8 @@ export const COPY = katalog({
       min: (count: number) => `Mindestens ${formatNumber(count)}`,
       /** „Ohne E-Mail-Adresse“: what a text must not hold, by the catalogue's own name for it. */
       without: (thing: Copy) => `Ohne ${thing}`,
-      earliest: (tag: CalendarDay) => `Frühestens ${formatDatum(tag)}`,
-      latest: (tag: CalendarDay) => `Spätestens ${formatDatum(tag)}`,
+      earliest: (day: CalendarDay) => `Frühestens ${formatDatum(day)}`,
+      latest: (day: CalendarDay) => `Spätestens ${formatDatum(day)}`,
       // A unique index's refusal: a field's message, and the words `serverCopy.ts` answers its code in.
       taken: "Schon vergeben",
     },
@@ -112,9 +112,6 @@ export const COPY = katalog({
 
     /** Beside the save button once the record is stored. */
     saved: "Gespeichert",
-
-    /** A contact person's phone, as the address's noun is `anmeldung.address`. */
-    phoneNumber: "Telefonnummer",
 
     /** The four toast titles; a toast carries no body. */
     toast: {
@@ -136,7 +133,7 @@ export const COPY = katalog({
     },
 
     /** „Passkey löschen?“: a confirmation asks with the verb its button carries. */
-    question: (object: Copy, verb: Verb) => `${object} ${infinitiv(verb)}?`,
+    question: (object: Copy, verb: Verb) => `${object} ${infinitive(verb)}?`,
     back: "Zurück",
     /** The name of the icon button closing a pop-up that asks nothing, such as the match pop-up. */
     close: "Schließen",
@@ -144,7 +141,7 @@ export const COPY = katalog({
     /** The end states of a page a mail opens; each page names its own sentence for the done state. */
     // Session 4: the mailed pages read these.
     end: {
-      doneOn: (done: Copy, tag: CalendarDay) => `${done} am ${formatDatumLang(tag)}.`,
+      doneOn: (done: Copy, day: CalendarDay) => `${done} am ${formatDatumLong(day)}.`,
       linkInvalid: "Dieser Link gilt nicht mehr.",
       toHome: "Zur Startseite",
       toAccount: "Zum Konto",
@@ -154,16 +151,15 @@ export const COPY = katalog({
     toSpiel: "Zum Spiel",
     // Redesign: the first fact its reader could supply, shown empty, reads it.
     notProvided: "Nicht hinterlegt",
-    uebersicht: "Übersicht",
+    overview: "Übersicht",
     // Redesign: the account menu reads it once it offers a second role.
     switchRole: "Funktion wechseln",
     more: "Mehr …",
     loadMore: "Weitere 50 laden",
-    protokoll: "Protokoll",
     kORunde: "K.-o.-Runde",
     // Session 3: its page reads it.
     kOBaum: "K.-o.-Baum",
-    afterElfmeterschiessen: NACH_ELFMETERSCHIESSEN,
+    afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
     // Session 3: its page reads it.
     disqualified: "DQ",
     // Redesign: a line-up's chips read these.
@@ -189,35 +185,39 @@ export const COPY = katalog({
     },
   },
 
-  /** Each page's own name, which its tab title and its strip show; the route table names the key. */
+  /**
+   * Each page's own name, which its tab title and its strip show, keyed by its `ROUTES` key; a name several pages
+   * share is one entry, keyed by its noun.
+   */
   page: {
     spielplan: "Spielplan",
     tabelle: "Tabelle",
     teams: "Teams",
-    spielsuche: "Spielsuche",
+    spielSearch: "Spielsuche",
     /** A match's page, named by its two teams in the order the fixture lists them. */
     spiel: (heim: string, gast: string) => `${heim} gegen ${gast}`,
     about: "About",
-    kontakt: "Kontakt",
-    sponsoren: "Sponsoren",
-    impressum: "Impressum",
-    datenschutz: "Datenschutz",
-    anmeldung: "Anmeldung",
-    sicherheit: "Sicherheit",
-    darstellung: "Darstellung",
-    deineEintraege: "Deine Einträge",
-    saisons: "Saisons",
+    contact: "Kontakt",
+    sponsors: "Sponsoren",
+    legalNotice: "Impressum",
+    privacyNotice: "Datenschutz",
+    accountSignIn: "Anmeldung",
+    accountSecurity: "Sicherheit",
+    accountAppearance: "Darstellung",
+    accountEntries: "Deine Einträge",
+    verwaltungSaisons: "Saisons",
     spiele: "Spiele",
-    spielorte: "Spielorte",
-    schiedsrichter: "Schiedsrichter",
-    bewerbungen: "Bewerbungen",
-    spieler: "Spieler",
+    verwaltungSpielorte: "Spielorte",
+    verwaltungSchiedsrichter: "Schiedsrichter",
+    verwaltungBewerbungen: "Bewerbungen",
+    verwaltungSpieler: "Spieler",
     registrierungen: "Registrierungen",
-    kader: "Kader",
-    administratoren: "Administratoren",
-    sperrliste: "Sperrliste",
-    loeschungen: "Löschungen",
-    adressaenderungen: "Adressänderungen",
+    teamKader: "Kader",
+    verwaltungAdministrators: "Administratoren",
+    verwaltungSperrliste: "Sperrliste",
+    verwaltungErasures: "Löschungen",
+    verwaltungAddressChanges: "Adressänderungen",
+    verwaltungActionLog: "Protokoll",
   },
 
   /** The Spielplan, and a match's page, which opens as the pop-up over it. */
@@ -225,11 +225,11 @@ export const COPY = katalog({
     /** The matchday tabs' name, and the plural an empty Spielplan names. */
     spieltage: "Spieltage",
     /** When a match is played, as its row shows it; until it is dated, what is still to settle. */
-    when: (tag: CalendarDay | null, time: Uhrzeit | null) =>
-      tag === null ? "Termin offen" : time === null ? formatDatumWithWeekday(tag) : `${formatDatumWithWeekday(tag)} · ${formatUhrzeit(time)}`,
+    when: (day: CalendarDay | null, time: Uhrzeit | null) =>
+      day === null ? "Termin offen" : time === null ? formatDatumWithWeekday(day) : `${formatDatumWithWeekday(day)} · ${formatUhrzeit(time)}`,
     /** The score, a shoot-out's goals added to each side's, with the shoot-out's mark after it. */
-    ergebnis: (tore: Paar, elfmeterschiessen: Paar | null) =>
-      elfmeterschiessen === null ? formatErgebnis(tore) : `${formatErgebnis(tore, elfmeterschiessen)} ${NACH_ELFMETERSCHIESSEN}`,
+    ergebnis: (tore: Pair, elfmeterschiessen: Pair | null) =>
+      elfmeterschiessen === null ? formatErgebnis(tore) : `${formatErgebnis(tore, elfmeterschiessen)} ${AFTER_ELFMETERSCHIESSEN}`,
 
     /** A side the draw has not settled: its source short in the dashed plaque, and in full as its name. */
     quelle: {
@@ -270,7 +270,7 @@ export const COPY = katalog({
       spieltag: "Spieltag",
       datum: "Datum",
       uhrzeit: "Uhrzeit",
-      ort: "Ort",
+      spielort: "Ort",
       schiedsrichter: "Schiedsrichter",
       notiz: "Notiz",
     },
@@ -297,7 +297,7 @@ export const COPY = katalog({
     supportedBy: "Mit Unterstützung von",
     instagram: "Instagram",
     threads: "Threads",
-    copyright: (year: number, marke: Copy) => `© ${String(year)} ${marke}`,
+    copyright: (year: number, brand: Copy) => `© ${String(year)} ${brand}`,
 
     /** An editor's changes not yet saved: the status line names their count, the discard dialog asks before they go. */
     changes: "Änderungen",
@@ -313,7 +313,7 @@ export const COPY = katalog({
   },
 
   /** Signing in: the address and its code, the passkey, and the answers either can meet. */
-  anmeldung: {
+  signIn: {
     /** The tab titles of `/signin` and `/signin/passkey`. */
     title: "Anmelden",
     passkeyTitle: "Passkey",
@@ -407,7 +407,7 @@ export const COPY = katalog({
 
     spiel: {
       /** The editor of a match whose two teams are not both known yet, named by its number. */
-      number: (nummer: number) => `Spiel ${formatNumber(nummer)}`,
+      number: (nr: number) => `Spiel ${formatNumber(nr)}`,
       ansetzung: "Ansetzung",
       ergebnis: "Ergebnis",
       notiz: "Notiz",

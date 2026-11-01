@@ -105,17 +105,20 @@ export const spielSpeichern = action({
   lane: "admin",
   name: "spielSpeichern",
   input: SpielSpeichern,
-  ownWords: {
-    spiel_outside_spieltag: "changes.datum",
-    state_ergebnis_on_a_non_event: "changes.sonderereignis",
-    state_nichtantreten_without_two_sides: "changes.sonderereignis",
-    booking_unknown_resource: true,
-    booking_unconfirmed_schiedsrichter: true,
-    spiel_double_booked: true,
-    eligibility_disqualified: true,
-  },
-  // The write's own paths: the venue has its box here, the referee and the two sides are kept as stored.
+  ownWords: [
+    "spiel_outside_spieltag",
+    "state_ergebnis_on_a_non_event",
+    "state_nichtantreten_without_two_sides",
+    "booking_unknown_resource",
+    "booking_unconfirmed_schiedsrichter",
+    "spiel_double_booked",
+    "eligibility_disqualified",
+  ],
+  // The write's own paths: the date, the event and the venue have their boxes here, the referee and the two sides
+  // are kept as stored.
   paths: {
+    datum: "changes.datum",
+    sonderereignis: "changes.sonderereignis",
     "ort.spielort_id": "changes.spielort",
     "schiedsrichter.schiedsrichter_id": { name: COPY.spielplan.fact.schiedsrichter },
     "team1.team_id": { name: COPY.verwaltung.spiel.team1 },

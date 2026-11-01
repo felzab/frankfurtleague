@@ -1,3 +1,4 @@
+import { bodyField } from "@/test-support/refusedPayload";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -54,12 +55,13 @@ describe("the venue dialog's create", () => {
     ]);
   });
 
-  it("places a name another venue holds on the name's box", async () => {
+  it("places a name another venue holds on the name's box, by the path the create names", async () => {
     stand.ablehnung = new APIBadStatusError({
       message: "refused",
       url: "http://backend/api/v0/spielorte",
       statusCode: 409,
       serverErrorCode: "duplicate_key",
+      refusedFields: [bodyField(["name"], "duplicate_key")],
       endpoint: "/spielorte",
       method: "POST",
       readOnly: false,

@@ -692,7 +692,8 @@ class TestTheStrongPlayersFitInsideTheSquad:
         with pytest.raises(ValidationError) as failure:
             FLPostBewerbungPayload.model_validate(submission(kader=kader))
 
-        assert [error["type"] for error in failure.value.errors()] == ["good_spieler_exceed_kader"]
+        # The ceiling rides as the context the frontend words „Höchstens {max}“ from.
+        assert [(error["type"], error.get("ctx")) for error in failure.value.errors()] == [("good_spieler_exceed_kader", {"max": groesse})]
 
 
 def stored_application(**overrides: Any) -> dict[str, Any]:

@@ -6,7 +6,7 @@ import pytest
 from bson import ObjectId
 from pydantic import BaseModel, ValidationError
 
-from app.api.saisons.schemas import FLPatchSaisonPayload, FLPostSaisonPayload, FLSaison
+from app.api.saisons.schemas import FIRST_SAISON_YEAR, FLPatchSaisonPayload, FLPostSaisonPayload, FLSaison
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLPostSchiedsrichterPayload, FLSchiedsrichter
 from app.api.spiele.schemas import MAX_QUALIFIERS, FLSpielBooking
 from app.api.spieler.schemas import (
@@ -31,6 +31,7 @@ from app.api.teams.schemas import (
     FLPostSaisonTeamPayload,
     FLPostTeamPayload,
 )
+from app.core import clock
 from app.shared.schemas.bounds import KONTAKT_NAME_MAX_LENGTH, SAISON_ID_LENGTH
 from app.shared.schemas.literals import FLGruppenNames
 from tests.database import a_clean_database, on_the_seed_loop
@@ -574,6 +575,22 @@ class TestSaison:
         """Both boundaries get the calendar check: the value passes the regex and is not a real day."""
         with pytest.raises(ValidationError):
             FLSaison.model_validate(saison(**{field: "2026-04-31"}))
+
+    @pytest.mark.parametrize("side", ["before the first season", "past next year"])
+    def test_a_year_outside_the_league_names_both_bounds(self, saison, side):
+        """The frontend words the line from `min` and `max`, so a key renamed or dropped here reads as the unexpected line there."""
+        newest = clock.now().year + 1
+        year = FIRST_SAISON_YEAR - 1 if side == "before the first season" else newest + 1
+        body = {"id": str(year), "rules": saison()["rules"], "start_date": "2026-01-01", "end_date": "2026-06-30"}
+        body["bewerbung"] = {"offen": True, "von": "2025-11-01", "bis": "2025-12-15"}
+        body["registrierung"] = {"offen": False, "von": "2026-01-05", "bis": "2026-02-05"}
+
+        with pytest.raises(ValidationError) as failure:
+            FLPostSaisonPayload.model_validate(body)
+
+        assert [(error["type"], error.get("ctx")) for error in failure.value.errors()] == [
+            ("saison_year_out_of_range", {"min": FIRST_SAISON_YEAR, "max": newest})
+        ]
 
 
 class TestTheSeasonsSpans:

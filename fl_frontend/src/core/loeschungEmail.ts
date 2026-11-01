@@ -27,7 +27,7 @@ export function buildLoeschungEmail({ origin, token }: { origin: string; token: 
   const site = mailOrigin(origin);
 
   return {
-    art: "security",
+    kind: "security",
     subjectLine: "Konto löschen",
     origin: site,
     vorname: "",

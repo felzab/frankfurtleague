@@ -4,7 +4,7 @@ import { BRAND_NAME, mailOrigin } from "./emailShell";
 
 import type { Mail } from "./emailShell";
 import type { FLRegistrierungAbsageData, FLRegistrierungLinkData } from "./generated/client/types";
-import type { MailLink, MailOrt } from "./mailKinds";
+import type { MailLink, MailOrigin } from "./mailKinds";
 
 const SPIELER_BESTAETIGUNG_PATH = "/bestaetigung/spieler";
 
@@ -37,7 +37,7 @@ export function buildRegistrierungBestaetigungEmail(
   const site = mailOrigin(origin);
 
   return {
-    art: "firstContact",
+    kind: "firstContact",
     // The team is in the subject because a pupil registering for two of them gets two of these, and
     // the season alone does not tell one from the other in an inbox.
     subjectLine: `Registrierung für ${teamName} bestätigen`,
@@ -71,7 +71,7 @@ export function buildRegistrierungErinnerungEmail(
   const site = mailOrigin(origin);
 
   return {
-    art: "firstContact",
+    kind: "firstContact",
     subjectLine: `Erinnerung: Registrierung für ${teamName} bestätigen`,
     origin: site,
     vorname: "",
@@ -109,12 +109,12 @@ const ABSAGE_WEITER: Readonly<Record<NonNullable<FLRegistrierungAbsageData["grun
  */
 export function buildRegistrierungAbsageEmail(
   { vorname, team: teamName, saison_id: saisonId, grund }: FLRegistrierungAbsageData,
-  { origin }: MailOrt,
+  { origin }: MailOrigin,
 ): Mail {
   const site = mailOrigin(origin);
 
   return {
-    art: "notice",
+    kind: "notice",
     subjectLine: `Deine Registrierung für ${teamName}`,
     origin: site,
     vorname: vorname,

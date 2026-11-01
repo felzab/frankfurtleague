@@ -7,13 +7,13 @@ import type { Copy } from "@/core/copy";
  * The one refusal a reader can act on: the assertion ASKS for verification rather than demanding
  * it, so a passkey with no PIN and no biometric is offered by the browser and refused here.
  */
-const OHNE_BESTAETIGUNG = COPY.anmeldung.refusal.unverified;
+const OHNE_BESTAETIGUNG = COPY.signIn.refusal.unverified;
 
 /**
  * An address holding no record of its own in the league, or a barred one, which a retry would not change.
  * One sentence for both, so no answer here tells who stands on the ban list.
  */
-export const OHNE_EINTRAG = COPY.anmeldung.refusal.noRecord;
+export const OHNE_EINTRAG = COPY.signIn.refusal.noRecord;
 
 /** Read off the answer rather than off its type: the client declares no `code`, and the body has one. */
 export const refusalCode = (error: unknown): string | undefined =>

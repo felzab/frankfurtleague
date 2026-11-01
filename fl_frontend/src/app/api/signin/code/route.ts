@@ -26,13 +26,13 @@ const CodeSignInPayloadSchema = SignInPayloadSchema.extend({
 
 /** One answer for every code the store does not hold: mistyped, expired and swept, already spent, or replaced
  * by a newer mail. A sentence naming one cause alone is false for the others, and each retype is counted. */
-const FALSCH = COPY.anmeldung.refusal.codeWrong;
+const FALSCH = COPY.signIn.refusal.codeWrong;
 
 /**
  * The mint's backend did not answer, after the code was already spent: retyping it would meet a wrong
  * code, so the reader is sent for a new one.
  */
-const CODE_VERBRAUCHT = COPY.anmeldung.refusal.codeUsedUp;
+const CODE_VERBRAUCHT = COPY.signIn.refusal.codeUsedUp;
 
 /**
  * The library's refusals by code. Each reaches an address holding an account and one holding none
@@ -41,9 +41,9 @@ const CODE_VERBRAUCHT = COPY.anmeldung.refusal.codeUsedUp;
 const REFUSAL_BY_CODE: Readonly<Record<string, string>> = {
   // A code never mailed and a code already spent are this one too: the row is gone either way.
   INVALID_OTP: FALSCH,
-  OTP_EXPIRED: COPY.anmeldung.refusal.codeExpired,
-  TOO_MANY_ATTEMPTS: COPY.anmeldung.refusal.codeTooOften,
-  [ADDRESS_ATTEMPTS_EXHAUSTED]: COPY.anmeldung.refusal.addressTooOften(CODE_FAILURE_WINDOW_HOURS),
+  OTP_EXPIRED: COPY.signIn.refusal.codeExpired,
+  TOO_MANY_ATTEMPTS: COPY.signIn.refusal.codeTooOften,
+  [ADDRESS_ATTEMPTS_EXHAUSTED]: COPY.signIn.refusal.addressTooOften(CODE_FAILURE_WINDOW_HOURS),
   // The mint's own refusals, met only past a right code, worded as one so that no answer tells a barred
   // address from one holding no record; the passkey's answers word the same two alike.
   [SIGN_IN_BARRED]: OHNE_EINTRAG,

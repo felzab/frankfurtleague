@@ -8,7 +8,7 @@ export function RowEnd() {
   return (
     <span className="flex shrink-0 items-center self-stretch text-fg-muted">
       <Icon
-        glyph="vor"
+        glyph="forward"
         size={16}
       />
     </span>

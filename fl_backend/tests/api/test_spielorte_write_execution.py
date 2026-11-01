@@ -133,10 +133,14 @@ def seeded_url(mongo_replica_set_url: str) -> str:
 class TestACreateUnderATakenVenueNameIsRefused:
     """`uniq_spielort_name` refuses the insert; what the administrator is answered is the code the venue slice maps onto the name box."""
 
-    def test_the_name_a_standing_venue_holds_is_answered_409(self, seeded_url: str):
+    def test_the_name_a_standing_venue_holds_is_answered_409_on_the_name(self, seeded_url: str):
+        """The refusal names its field, so the create dialog shows it on the name's box."""
+
         response = served(seeded_url, SPIELORTE, payload(STANDING_NAME))
 
-        assert (response.status_code, response.json()["error_code"]) == (409, Code.DUPLICATE_KEY)
+        body = response.json()
+        assert (response.status_code, body["error_code"]) == (409, Code.DUPLICATE_KEY)
+        assert body["fields"] == [{"in": "body", "path": ["name"], "kind": Code.DUPLICATE_KEY, "ctx": {}}]
 
     def test_the_name_a_retired_venue_holds_is_refused_the_same_way(self, seeded_url: str):
         """Nothing merges two venues, so a retired row keeps its name, and the index reaches every row as the referee's now does."""

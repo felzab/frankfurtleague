@@ -239,7 +239,11 @@ async def post_spielbestaetigung(
 
                 span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=reads)
                 if span is not None:
-                    refuse(find_fixture_date_refusal(datum=proposed.datum, spieltag_beginn=span.beginn, spieltag_ende=span.ende))
+                    refuse(
+                        judged_as_a_proposal(
+                            find_fixture_date_refusal(datum=proposed.datum, spieltag_beginn=span.beginn, spieltag_ende=span.ende)
+                        )
+                    )
 
                 # Last, as in the save: it validates every season's fixtures, and a hand-edited one raises, answering 500 for a
                 # proposal an earlier rule refuses. Only claims the stored fixture did not make.

@@ -33,7 +33,7 @@ function build(ereignis: Ereignis, { zeitpunkt, origin, konto }: Anlass): Mail {
   const site = mailOrigin(origin);
 
   return {
-    art: "security",
+    kind: "security",
     subjectLine: ereignis.betreff,
     origin: site,
     vorname: "",

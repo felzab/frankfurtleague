@@ -8,7 +8,7 @@ import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal.ts";
 
 import { signInAnswer } from "./signInAnswers.ts";
 
-const { refusal, botCheckNotLoaded } = COPY.anmeldung;
+const { refusal, botCheckNotLoaded } = COPY.signIn;
 
 describe("a sign-in answer read back as the catalogue's words", () => {
   // Each sentence the code route, the send's bot check or the widget can answer with a reason.

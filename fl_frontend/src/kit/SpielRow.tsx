@@ -1,5 +1,5 @@
 import { COPY } from "@/core/copy";
-import { ERGEBNIS_TRENNER } from "@/core/format";
+import { ERGEBNIS_SEPARATOR } from "@/core/format";
 
 import { Chip } from "./Chip";
 import { Link } from "./Link";
@@ -7,7 +7,7 @@ import { RowEnd } from "./RowEnd";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
-import type { Paar } from "@/core/format";
+import type { Pair } from "@/core/format";
 import type { Route } from "next";
 import type { ChipProps } from "./Chip";
 
@@ -22,7 +22,7 @@ export type SpielRowProps = {
   home: SpielSide;
   away: SpielSide;
   /** Absent until a result is entered, so an unplayed match never reads 0:0. */
-  result?: { tore: Paar; elfmeterschiessen?: Paar };
+  result?: { tore: Pair; elfmeterschiessen?: Pair };
   /** The phase, as text. */
   phase?: string;
   /** The row's one chip, after the pairing, such as „Startelf“ on a pupil's list. */
@@ -146,7 +146,7 @@ function SpielRow({ href, when, home, away, result, phase, chip }: SpielRowProps
               score={score}
               part="home"
             />
-            <span className={score === null ? "text-fg-muted" : undefined}>{ERGEBNIS_TRENNER}</span>
+            <span className={score === null ? "text-fg-muted" : undefined}>{ERGEBNIS_SEPARATOR}</span>
             <Goals
               score={score}
               part="away"

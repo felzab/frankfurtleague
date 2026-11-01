@@ -33,7 +33,8 @@ export const spielortAnlegen = action({
   lane: "admin",
   name: "spielortAnlegen",
   input: SpielortFormular,
-  ownWords: { duplicate_key: "name" },
+  ownWords: ["duplicate_key"],
+  paths: { name: "name" },
   examples: {
     plz: COPY.verwaltung.spielort.plzExample,
     hausnummer: COPY.verwaltung.spielort.hausnummerExample,

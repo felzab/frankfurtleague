@@ -33,7 +33,7 @@ export function buildSchiedsrichterBestaetigungEmail({ frist }: FLSchiedsrichter
   const fristText = formatDatum(frist as CalendarDay);
 
   return {
-    art: "firstContact",
+    kind: "firstContact",
     subjectLine: "Dein Eintrag als Schiedsrichterin oder Schiedsrichter",
     origin: site,
     vorname: "",

@@ -24,8 +24,8 @@ describe("the kit's tabs", () => {
       </Tabs>,
     );
 
-    const zweiter = within(screen.getByRole("navigation", { name: SPIELTAGE })).getByRole("link", { name: "2. Spieltag" });
-    expect(zweiter.getAttribute("href")).toBe("?tab=st-2");
+    const second = within(screen.getByRole("navigation", { name: SPIELTAGE })).getByRole("link", { name: "2. Spieltag" });
+    expect(second.getAttribute("href")).toBe("?tab=st-2");
   });
 
   it("marks the tab the address names as the current page", () => {

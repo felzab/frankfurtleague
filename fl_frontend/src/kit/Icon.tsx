@@ -51,39 +51,39 @@ const GLYPHS = {
   create: Plus,
   // „Anmelden“ at the collapsed rail's foot: an arrow into a door frame.
   signin: LogIn,
-  aufklappen: ChevronDown,
+  expand: ChevronDown,
   // The theme row's three: the moon for the dark theme, the sun for the light, the screen for the system's.
-  dunkel: Moon,
+  dark: Moon,
   // An outcome is a mark in a ring: the bare check is an item chosen, the bare cross a close or a clear.
   done: CircleCheck,
   error: CircleX,
   filter: ListFilter,
-  haken: Check,
-  hell: Sun,
+  check: Check,
+  light: Sun,
   info: Info,
-  kalender: Calendar,
-  laedt: LoaderCircle,
+  calendar: Calendar,
+  loading: LoaderCircle,
   more: Ellipsis,
-  menue: Menu,
+  menu: Menu,
   // The season button collapsed to its glyph: a calendar with the cycling arrows, switching between seasons,
   // apart from the plain range of `saisons`, the page listing them.
   saison: CalendarSync,
   close: X,
   // The strip's toggle folding the rail: one glyph in both states, as shadcn/ui's sidebar trigger draws
   // it; the tooltip and `aria-expanded` say which way the next press goes.
-  seitenleiste: PanelLeft,
-  suche: Search,
+  sidebar: PanelLeft,
+  search: Search,
   system: Monitor,
-  // A time of day, the pop-up's „Uhrzeit“; the date beside it is `kalender`, and the dated fixtures `spielplan`.
+  // A time of day, the pop-up's „Uhrzeit“; the date beside it is `calendar`, and the dated fixtures `spielplan`.
   uhrzeit: Clock,
-  vor: ChevronRight,
-  warnung: TriangleAlert,
+  forward: ChevronRight,
+  warning: TriangleAlert,
   back: ChevronLeft,
 
   overview: LayoutDashboard,
   saisons: CalendarRange,
   // A season's matches, in the public frame and the administration's alike. A calendar with its days
-  // marked reads as dated fixtures, and leaves the bare calendar to `kalender`, picking a date.
+  // marked reads as dated fixtures, and leaves the bare calendar to `calendar`, picking a date.
   spielplan: CalendarDays,
   spielorte: MapPin,
   schiedsrichter: Whistle,
@@ -91,10 +91,10 @@ const GLYPHS = {
   teams: Users,
   spieler: User,
   registrierungen: UserPlus,
-  administratoren: Shield,
+  administrators: Shield,
   sperrliste: Ban,
   erasures: Trash,
-  adressaenderungen: Mail,
+  addressChanges: Mail,
   log: ScrollText,
 };
 

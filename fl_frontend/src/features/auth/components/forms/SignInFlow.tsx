@@ -30,7 +30,7 @@ const CODE_ENDPOINT = "/api/signin/code";
  */
 export function SignInFlow({ next, siteKey }: { next: string; siteKey: string }) {
   const [email, setEmail] = useState("");
-  const humanCheck = useTurnstile(siteKey, COPY.anmeldung.botCheckNotLoaded);
+  const humanCheck = useTurnstile(siteKey, COPY.signIn.botCheckNotLoaded);
 
   // The send answers every address alike: the code view and its sentence are written here from the address
   // the action folded, never from what the action says, so a member's answer and a stranger's cannot differ.
@@ -85,12 +85,12 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
     return (
       <SignInPage
         view="code"
-        titel={COPY.anmeldung.inbox}
-        satz={COPY.anmeldung.codeOnItsWay}
-        adresse={address}
-        code={{ label: COPY.anmeldung.code, attempt: versuch, isDisabled: pruefe, onComplete: (code) => void check(code) }}
+        title={COPY.signIn.inbox}
+        sentence={COPY.signIn.codeOnItsWay}
+        address={address}
+        code={{ label: COPY.signIn.code, attempt: versuch, isDisabled: pruefe, onComplete: (code) => void check(code) }}
         back={{
-          label: COPY.anmeldung.otherAddress,
+          label: COPY.signIn.otherAddress,
           isDisabled: pruefe,
           onPress: () => {
             setCodeFehler(null);
@@ -124,12 +124,12 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
 
   return (
     <SignInPage
-      view="adresse"
-      titel={COPY.anmeldung.title}
-      adresse={{ label: COPY.anmeldung.address, value: email, onChange: setEmail, error: refused?.fieldErrors }}
+      view="address"
+      title={COPY.signIn.title}
+      address={{ label: COPY.signIn.address, value: email, onChange: setEmail, error: refused?.fieldErrors }}
       check={humanCheck.widget}
       send={{
-        label: COPY.anmeldung.sendCode,
+        label: COPY.signIn.sendCode,
         isBusy: send.isPending,
         onPress: () => {
           // The busy button is not the whole guard: `Enter` in the field submits too, and a second send mid-flight
@@ -139,10 +139,10 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
           send.submit(email);
         },
       }}
-      or={COPY.anmeldung.or}
+      or={COPY.signIn.or}
       // `isBusy` is the whole of the double-press guard: a second prompt aborts the first, which would then read
       // as a refusal of a press made while it ran.
-      passkey={{ label: COPY.anmeldung.withPasskey, isBusy: passkeyLaeuft, onPress: () => void mitPasskey() }}
+      passkey={{ label: COPY.signIn.withPasskey, isBusy: passkeyLaeuft, onPress: () => void mitPasskey() }}
       row={passkeyFehler ?? sendFehler}
     />
   );

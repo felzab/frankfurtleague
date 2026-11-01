@@ -45,13 +45,13 @@ export const OUTBOX_TAG = "outbox_id";
 /** One owed mail's facts: a member of the backend's discriminated union, its `art` naming the kind. */
 type OutboxData = FLOutboxHandout["data"];
 
-type OutboxArt = OutboxData["art"];
+type OutboxKind = OutboxData["art"];
 
 /** The member whose `art` admits `A`, read per member: one member may carry two kinds, as the passkey notices do. */
 type Member<D, A> = D extends { art: infer K } ? (A extends K ? D : never) : never;
 
 /** Each kind's own member, so a builder is handed its kind's typed facts and no other's. */
-type DataPerArt = { [A in OutboxArt]: Member<OutboxData, A> };
+type DataPerKind = { [A in OutboxKind]: Member<OutboxData, A> };
 
 /** What the hand-out answers beside the facts, and where the mail's links stand. */
 interface Handout {
@@ -63,15 +63,15 @@ interface Handout {
   readonly origin: string;
 }
 
-type MailBuilder<A extends OutboxArt> = (data: DataPerArt[A], handout: Handout) => Mail;
+type MailBuilder<A extends OutboxKind> = (data: DataPerKind[A], handout: Handout) => Mail;
 
 /** What a league mail carrying no link is built with beside its facts. */
-export interface MailOrt {
+export interface MailOrigin {
   readonly origin: string;
 }
 
 /** What a league mail carrying a link is built with: the hand-out's raw token, a bearer credential never taken apart. */
-export interface MailLink extends MailOrt {
+export interface MailLink extends MailOrigin {
   readonly token: string;
 }
 
@@ -87,13 +87,13 @@ function minted({ token, origin }: Handout): MailLink {
  * the backend's kinds: the annotation refuses a kind left out and, the value being an object literal, one the union
  * does not name.
  */
-const MAIL_KINDS: { [A in OutboxArt]: MailBuilder<A> } = {
-  sign_in_code: (_data, { secret, origin }) => buildCodeEmail(secretTheArt(secret), origin),
+const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
+  sign_in_code: (_data, { secret, origin }) => buildCodeEmail(secretOf(secret), origin),
   passkey_hinzugefuegt: ({ instant, account }, { origin }) =>
     buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date(instant), origin: origin, konto: account }),
   passkey_erased: ({ instant, account }, { origin }) =>
     buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(instant), origin: origin, konto: account }),
-  account_erasure: (_data, { secret, origin }) => buildLoeschungEmail({ origin: origin, token: secretTheArt(secret) }),
+  account_erasure: (_data, { secret, origin }) => buildLoeschungEmail({ origin: origin, token: secretOf(secret) }),
   schiedsrichter_confirmation: (data, handout) => buildSchiedsrichterBestaetigungEmail(data, minted(handout)),
   spiel_request: (data, handout) => buildSpielAnfrageEmail(data, minted(handout)),
   spiel_reminder: (data, handout) => buildSpielAnfrageEmail(data, minted(handout)),
@@ -124,7 +124,7 @@ const MAIL_KINDS: { [A in OutboxArt]: MailBuilder<A> } = {
 };
 
 /** A secret kind's secret, which its every row carries (`fl_frontend/src/core/auth.ts :: oweSignInMail`). */
-function secretTheArt(secret: string | null): string {
+function secretOf(secret: string | null): string {
   if (secret === null) throw new Error("The mail's kind carries a secret, and its row holds none.");
 
   return secret;
@@ -135,6 +135,6 @@ function secretTheArt(secret: string | null): string {
  * backend deployed ahead of this build can hand out a kind this map does not hold. Indexed by the kind itself, so the
  * builder found takes exactly that kind's facts (TypeScript's correlated-union pattern, microsoft/TypeScript#47109).
  */
-export function mailFor<A extends OutboxArt>(art: A, data: DataPerArt[A], handout: Handout): Mail | undefined {
-  return Object.hasOwn(MAIL_KINDS, art) ? MAIL_KINDS[art](data, handout) : undefined;
+export function mailFor<A extends OutboxKind>(kind: A, data: DataPerKind[A], handout: Handout): Mail | undefined {
+  return Object.hasOwn(MAIL_KINDS, kind) ? MAIL_KINDS[kind](data, handout) : undefined;
 }

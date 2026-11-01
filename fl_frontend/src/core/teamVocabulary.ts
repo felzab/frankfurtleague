@@ -1,4 +1,4 @@
-import { formatAufzaehlung } from "./format";
+import { formatList } from "./format";
 import { FLTrikotFarbe } from "./generated/client/types";
 
 import type { FLKontaktRolle } from "./generated/client/types";
@@ -8,7 +8,7 @@ import type { FLKontaktRolle } from "./generated/client/types";
  * reader's seats and may reach no feature; `fl_frontend/src/features/teams/constants.ts :: KONTAKT_ROLLEN` builds its
  * long form from this table.
  */
-export const KONTAKT_ROLLE_LANGFORM = {
+export const KONTAKT_ROLLE_LONG_FORM = {
   ansprechperson: "Ansprechperson",
   stellvertretung: "Stellvertretung",
   trainer: "Trainerin oder Trainer",
@@ -19,9 +19,9 @@ export const KONTAKT_ROLLE_LANGFORM = {
  * person holding two seats reads one phrase whichever record the seats were collected from.
  */
 export function rollenText(rollen: readonly FLKontaktRolle[]): string {
-  const reihenfolge = Object.keys(KONTAKT_ROLLE_LANGFORM) as FLKontaktRolle[];
+  const order = Object.keys(KONTAKT_ROLLE_LONG_FORM) as FLKontaktRolle[];
 
-  return formatAufzaehlung(reihenfolge.filter((rolle) => rollen.includes(rolle)).map((rolle) => KONTAKT_ROLLE_LANGFORM[rolle]));
+  return formatList(order.filter((rolle) => rollen.includes(rolle)).map((rolle) => KONTAKT_ROLLE_LONG_FORM[rolle]));
 }
 
 /**

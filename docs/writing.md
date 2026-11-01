@@ -29,9 +29,9 @@ check is on this page.
   anyway. A name the production host or a deploy holds (a secret file, an environment variable, a
   compose service or secret, a CI secret reference, a header) follows the rule like any other, and
   its rename is an owner step; a Docker volume keeps its name, since a renamed volume is a new empty
-  one. A key of the copy catalogue is a name like any other, never the copy it keys, and a page or
-  an area a visitor navigates to keeps its German name there (`COPY.page.spielplan`,
-  `COPY.anmeldung`, but `COPY.shared.field.required`). An English twin of a glossary noun in
+  one. A key of the copy catalogue is a name like any other, never the copy it keys: a page title's
+  key is its route key, and a title several routes share is one entry keyed by its noun
+  (`COPY.page.accountSecurity`, `COPY.page.spiele`, `COPY.shared.field.required`). An English twin of a glossary noun in
   code takes the German noun, so one search finds every site.
 - **State a decision neutrally, with the date it was taken.** A decision no tool or comment can
   hold is one line in [the decisions record](decisions.md), written in the commit that takes it;

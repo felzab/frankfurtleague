@@ -3,6 +3,7 @@ import functools
 import logging
 import re
 from collections.abc import AsyncIterator
+from datetime import date
 from http import HTTPStatus
 from typing import Annotated, Any, Self
 
@@ -13,6 +14,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 from httpx2 import Response
 from pydantic import AfterValidator, BaseModel, Field, ValidationError, model_validator
+from pydantic_core import PydanticCustomError
 from pymongo.errors import BulkWriteError, PyMongoError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -88,18 +90,18 @@ async def refuse_a_nested_field(payload: NestedPayload) -> dict[str, bool]:
     return {"ok": True}
 
 
-def refuse_plainly(value: str) -> str:
-    """A validator raising a bare `ValueError`, whose context Pydantic reports as the exception itself."""
+def refuse_with_a_day(value: str) -> str:
+    """A domain rule whose context holds a day as a `date`, which no JSON body could carry, beside a figure."""
 
-    raise ValueError("refused")
+    raise PydanticCustomError("note_refused", "refused", {"day": date(2026, 9, 1), "max": 3})
 
 
 class RuledPayload(BaseModel):
-    """A span the shared helper judges, beside a field a bare `ValueError` refuses."""
+    """A span the shared helper judges, beside a field a rule with a non-scalar bound refuses."""
 
     beginn: str
     ende: str
-    note: Annotated[str, AfterValidator(refuse_plainly)] | None = None
+    note: Annotated[str, AfterValidator(refuse_with_a_day)] | None = None
 
     @model_validator(mode="after")
     def the_span_runs_forwards(self) -> Self:
@@ -194,10 +196,11 @@ class TestTheRefusedFieldsReachTheCaller:
     def test_each_field_is_named_by_its_path_inside_the_body(self):
         body = refused({"kontakt": {"email": "far-too-long"}, "namen": [{"vorname": "Anna"}, {"vorname": REJECTED_NAME}]})
 
-        # An integer rather than `"1"`: a caller joining the path gets the dotted name its input carries.
+        # An integer rather than `"1"`: a caller joining the path gets the dotted name its input carries. Pydantic's
+        # own kinds carry no context: a caller words each from its kind, so the pattern stays on the server.
         assert body["fields"] == [
-            {"in": "body", "path": ["kontakt", "email"], "kind": "string_too_long", "ctx": {"max_length": 5}},
-            {"in": "body", "path": ["namen", 1, "vorname"], "kind": "string_pattern_mismatch", "ctx": {"pattern": PERSON_NAME_PATTERN}},
+            {"in": "body", "path": ["kontakt", "email"], "kind": "string_too_long", "ctx": {}},
+            {"in": "body", "path": ["namen", 1, "vorname"], "kind": "string_pattern_mismatch", "ctx": {}},
         ]
 
     def test_a_rule_s_bound_reaches_the_caller_as_its_context(self):
@@ -208,13 +211,16 @@ class TestTheRefusedFieldsReachTheCaller:
         assert response.json()["fields"] == [{"in": "body", "path": [], "kind": "spieltag_ends_before_start", "ctx": {"start": "2026-09-05"}}]
 
     def test_a_context_member_no_json_scalar_holds_stays_off_the_wire(self):
-        """A bare `ValueError`'s context is the exception, which no JSON body could carry: the refusal answers 422, not 500."""
+        """A day held as a `date` no JSON body could carry: the refusal answers 422, not 500, with the figure beside it."""
 
         response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(
             "/ruled", json={"beginn": "2026-09-01", "ende": "2026-09-05", "note": "x"}
         )
 
-        assert (response.status_code, response.json()["fields"]) == (422, [{"in": "body", "path": ["note"], "kind": "value_error", "ctx": {}}])
+        assert (response.status_code, response.json()["fields"]) == (
+            422,
+            [{"in": "body", "path": ["note"], "kind": "note_refused", "ctx": {"max": 3}}],
+        )
 
     def test_the_value_and_pydantics_english_stay_off_the_wire(self):
         body = refused({"kontakt": {"email": "a@b"}, "namen": [{"vorname": REJECTED_NAME}]})
