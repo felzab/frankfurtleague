@@ -42,6 +42,7 @@
     "src/kit/CardFold.tsx",
     "src/kit/cardStyles.ts",
     "src/kit/StatTiles.tsx",
+    "src/kit/Timeline.tsx",
     // Session 4.
     "src/kit/Checkbox.tsx",
     "src/kit/RadioGroup.tsx",
