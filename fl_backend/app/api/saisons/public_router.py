@@ -78,11 +78,9 @@ router = APIRouter(
 
 @router.get("", response_model=FLSaisonsListResponse, summary="List Saisons")
 async def get_saisons(saisons_collection: SaisonsCollection, filters: FLSaisonsFilterParams = Depends()) -> FLSaisonsListResponse:
-    """
-    List the seasons the public may read, optionally narrowed to `past` or `active`.
+    """Every season the public may read, a `future` one never among them, narrowed by `status` to `past` or `active`.
 
-    Unlike the other resources, this does NOT default to the current season. A `future` season is
-    withheld here and served by `GET /saisons/list/verwaltung`.
+    Without `status` it lists them all, never the season the site is on alone.
     """
 
     # `compiled` last, so the narrowing replaces the raw `status` the dump wrote for the caller.
@@ -260,12 +258,13 @@ async def get_landing(
 # `objectid` convertor cannot help here, a season id being a four-character string.
 @router.get("/{saison_id}", response_model=FLSaisonsSingleResponse, summary="One Saison")
 async def get_saison(saison_id: str, saisons_collection: SaisonsCollection) -> FLSaisonsSingleResponse:
-    """Return one season by its id; 404 when none carries it, rather than an empty list.
+    """One season the public may read, by its id.
 
-    A `future` season is one of those: it is withheld from this tier by the FILTER, so the miss is a
-    genuine one and nothing here has to know it was withheld.
+    404 where no season carries it or it is a `future` one.
     """
 
+    # The status term withholds a `future` season in the filter itself, so its miss is the miss of an id no season
+    # carries and nothing here needs to know it was withheld.
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id, **base_tier_status_term()})
 
     return FLSaisonsSingleResponse(saison=FLSaison.model_validate(with_schedule(saison_raw)))

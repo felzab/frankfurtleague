@@ -2555,10 +2555,9 @@ export const getSaisonsGetSaisonsUrl = (params?: SaisonsGetSaisonsParams) => {
 };
 
 /**
- * List the seasons the public may read, optionally narrowed to `past` or `active`.
+ * Every season the public may read, a `future` one never among them, narrowed by `status` to `past` or `active`.
  *
- * Unlike the other resources, this does NOT default to the current season. A `future` season is
- * withheld here and served by `GET /saisons/list/verwaltung`.
+ * Without `status` it lists them all, never the season the site is on alone.
  * @summary List Saisons
  */
 export const saisonsGetSaisons = async (
@@ -2682,10 +2681,9 @@ export const getSaisonsGetSaisonUrl = (saisonId: string) => {
 };
 
 /**
- * Return one season by its id; 404 when none carries it, rather than an empty list.
+ * One season the public may read, by its id.
  *
- * A `future` season is one of those: it is withheld from this tier by the FILTER, so the miss is a
- * genuine one and nothing here has to know it was withheld.
+ * 404 where no season carries it or it is a `future` one.
  * @summary One Saison
  */
 export const saisonsGetSaison = async (
@@ -4828,10 +4826,9 @@ export const getSpieltageGetSpieltageUrl = (params?: SpieltageGetSpieltageParams
 };
 
 /**
- * List matchdays for a season, in the order they are played.
+ * One season's matchdays, by default in the order they are played: the phases in bracket order, each by `position`.
  *
- * That order is the phase in bracket order, then the stored `position` -- `sort_by=natural`.
- * Omitting `saison_id` returns the CURRENT season; one this tier may not read 404s.
+ * An omitted `saison_id` reads the season the site is on; 404 for a season this tier may not read.
  * @summary List Spieltage
  */
 export const spieltageGetSpieltage = async (
@@ -4872,10 +4869,9 @@ export const getSpieltageGetSpieltagUrl = (spieltagId: string) => {
 };
 
 /**
- * Return one matchday by its id.
+ * One matchday by its id, its match count derived from its own season's rules.
  *
- * Its OWN `saison_id` is resolved rather than the current season's, the derived match count needing
- * that season's rules. A matchday of a season this tier may not read 404s.
+ * 404 for a matchday of a season this tier may not read.
  * @summary One Spieltag
  */
 export const spieltageGetSpieltag = async (
@@ -4970,11 +4966,10 @@ export const getTeamsGetTeamsUrl = (params?: TeamsGetTeamsParams) => {
 };
 
 /**
- * List teams for a season.
+ * One season's teams as a list, or with `in_gruppen=true` keyed by every group it offers in standing order, as `format` names.
  *
- * `in_gruppen=true` returns the groups the season offers, keyed by group name, otherwise a plain list; check `format`.
- * Omitting `saison_id` returns the CURRENT season; one this tier may not read 404s, and a club that left the league
- * is listed in a `past` season alone.
+ * An omitted `saison_id` reads the season the site is on, and a club that left the league is listed in a `past` season
+ * alone; 404 for a season this tier may not read.
  * @summary List teams, flat or grouped
  */
 export const teamsGetTeams = async (
@@ -5089,10 +5084,9 @@ export const getTeamsGetTeamUrl = (teamId: string, params?: TeamsGetTeamParams) 
 };
 
 /**
- * Return one team, with its group and its statistics for a season.
+ * One team with its group and its figures in the season the query names, the season the site is on where it names none.
  *
- * The path names WHICH TEAM; the query names WHICH SEASON'S figures: `gruppe` and `statistik` are
- * season-scoped. 404 where the team, its row or the season is one this tier cannot read.
+ * 404 where the team, its row in that season or the season is one this tier may not read.
  * @summary One team
  */
 export const teamsGetTeam = async (

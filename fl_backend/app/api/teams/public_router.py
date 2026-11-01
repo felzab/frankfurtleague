@@ -37,12 +37,10 @@ async def get_teams(
     spiele_collection: SpieleCollection,
     filters: FLPublicTeamsFilterParams = Depends(),
 ) -> FLTeamsResponse:
-    """
-    List teams for a season.
+    """One season's teams as a list, or with `in_gruppen=true` keyed by every group it offers in standing order, as `format` names.
 
-    `in_gruppen=true` returns the groups the season offers, keyed by group name, otherwise a plain list; check `format`.
-    Omitting `saison_id` returns the CURRENT season; one this tier may not read 404s, and a club that left the league
-    is listed in a `past` season alone.
+    An omitted `saison_id` reads the season the site is on, and a club that left the league is listed in a `past` season
+    alone; 404 for a season this tier may not read.
     """
 
     # Resolved here, never as a field default, which cannot query the database. It also flips
@@ -85,11 +83,9 @@ async def get_team(
     saisons_collection: SaisonsCollection,
     filters: FLTeamSingleFilterParams = Depends(),
 ) -> FLTeamsSingleResponse:
-    """
-    Return one team, with its group and its statistics for a season.
+    """One team with its group and its figures in the season the query names, the season the site is on where it names none.
 
-    The path names WHICH TEAM; the query names WHICH SEASON'S figures: `gruppe` and `statistik` are
-    season-scoped. 404 where the team, its row or the season is one this tier cannot read.
+    404 where the team, its row in that season or the season is one this tier may not read.
     """
 
     # Before the pipeline: the season is what scopes `gruppe` and `statistik`, so a withheld one has
