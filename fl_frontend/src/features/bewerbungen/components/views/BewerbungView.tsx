@@ -20,7 +20,7 @@ import type { FLBewerbungWindowResponse, FLTrikotFarbe } from "@/core/generated/
 import type { BewerbungFassung } from "@/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection";
 
 /** Where a school goes when this page cannot take its application, whatever closed it. */
-const ZUM_KONTAKT = { href: ROUTES.contact.path(), label: KONTAKT_TITEL };
+const ZUM_KONTAKT = { href: "/kontakt", label: KONTAKT_TITEL };
 
 /**
  * The rest of the site, from a page reached cold. `ROUTES.saisons` opens the season the site is on,
