@@ -66,8 +66,8 @@ importers:
         specifier: ^2.8.0
         version: 2.8.0
       tailwind-variants:
-        specifier: ^3.3.1
-        version: 3.3.1(tailwindcss@4.3.3)
+        specifier: ^4.0.1
+        version: 4.0.1
       zod:
         specifier: ~4.6.7
         version: 4.6.7
@@ -3772,6 +3772,10 @@ packages:
         optional: true
       tailwindcss:
         optional: true
+
+  tailwind-variants@4.0.1:
+    resolution: {integrity: sha512-VumzgPklIwpneDWtskGuhEqPlfZZ2DeN1nIb2um9DRhk9XBX580s4N84A533j+oHN+dLz274HkKvSjr+64fggA==}
+    engines: {node: '>=16.9.x', pnpm: '>=7.x'}
 
   tailwindcss@4.3.3:
     resolution: {integrity: sha512-gOhV3P7ufE62QDGg1zVaTgCR+EtPv92k2nIhVcVKcLmxT1sUBsQGhnZj175j+MqRt4zLF7ic+sCYjfhxMxj7YQ==}
@@ -7609,6 +7613,8 @@ snapshots:
   tailwind-variants@3.3.1(tailwindcss@4.3.3):
     optionalDependencies:
       tailwindcss: 4.3.3
+
+  tailwind-variants@4.0.1: {}
 
   tailwindcss@4.3.3: {}
 
