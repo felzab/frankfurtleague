@@ -1,7 +1,12 @@
 """Every refusal code a failure body carries, each the one spelling of its reason.
 
 A code's value is its member's own name in lower snake case, which `StrEnum`'s `auto()` derives. The
-published document lists them once, as the failure body's `error_code`.
+published document lists them once, as the failure body's `error_code`. A 4xx answer promises that
+the request wrote nothing unless its code is `unknown_outcome`, and the frontend clears the site's
+cache by that promise (`fl_frontend/src/core/apiDispatch.ts :: dispatchRequest`). Two answers break
+it, each a 409 after the commit that ended an address change, whose records no cached read serves:
+`app/api/adresswechsel/admin_router.py :: post_address_change_approval` (`address_change_nothing`)
+and `app/api/adresswechsel/public_router.py :: post_address_change_antwort` (`address_change_ended`).
 """
 
 from enum import StrEnum, auto
