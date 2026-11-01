@@ -127,7 +127,7 @@ class TestTheSquadPipelineAnswersTheSameTable:
     def _served(self, url: str) -> dict[str, Mapping[str, Any]]:
         async def body(database: AsyncDatabase) -> Any:
             rows = await aggregate_many_from_db(
-                collection=database.spieler,
+                collection=database.saison_spieler,
                 pipeline=build_spieler_pipeline(FLSpielerFilterParams(team_id=TEAM_OID, saison_id=SAISON)),
             )
 

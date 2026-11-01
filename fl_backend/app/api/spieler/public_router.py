@@ -10,7 +10,7 @@ from app.api.spieler.schemas import (
 from app.api.spieler.services import build_spieler_filter, build_spieler_pipeline, public_person
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_one_from_db
-from app.core.dependencies import SaisonsCollection, SpielerCollection
+from app.core.dependencies import SaisonsCollection, SaisonSpielerCollection, SpielerCollection
 from app.core.routing import by_id
 from app.core.security import verify_access_base
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -23,7 +23,7 @@ router = APIRouter(
 
 @router.get("", response_model=FLSpielerListResponse, summary="List Spieler")
 async def get_spieler(
-    spieler_collection: SpielerCollection,
+    saison_spieler_collection: SaisonSpielerCollection,
     saisons_collection: SaisonsCollection,
     filters: FLSpielerFilterParams = Depends(),
 ) -> FLSpielerListResponse:
@@ -38,7 +38,7 @@ async def get_spieler(
     filters.saison_id = (await resolve_public_saison(saisons_collection=saisons_collection, saison_id=filters.saison_id)).id
 
     pipeline = build_spieler_pipeline(filters=filters)
-    spieler_raw = await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline, collation=GERMAN_COLLATION)
+    spieler_raw = await aggregate_many_from_db(collection=saison_spieler_collection, pipeline=pipeline, collation=GERMAN_COLLATION)
 
     spieler = FLSpielerListAdapter.validate_python(spieler_raw)
     return FLSpielerListResponse(spieler=spieler)
