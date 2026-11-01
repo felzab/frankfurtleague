@@ -1,7 +1,10 @@
 import "server-only";
 
+import { KONTAKT_EMAIL } from "./brand";
 import { catalogue, COPY } from "./copy";
+import { formatDatum, formatNumber } from "./format";
 
+import type { CalendarDay } from "./format";
 import type { Code } from "./generated/client/types";
 
 // One rule over two codes: a match whose result no play decides carries no goals, on the fixture and in its report.
@@ -63,5 +66,123 @@ export const SERVER_COPY = catalogue({
       security: "Warst du das nicht? Dann antworte sofort auf diese E-Mail.",
       firstContact: "Du weißt nichts davon? Dann antworte auf diese E-Mail, und wir löschen deine Angaben.",
     },
+  },
+
+  /**
+   * The landing's sections, the blocks About and Kontakt share with it, and the classic frame's not-found page,
+   * each read by a Server Component. Every entry is a draft for the landing board.
+   */
+  landing: {
+    // Board: the owner's to word, proposed there with options (K260); today's landing words stand until then.
+    tagline: "Frankfurts Oberstufenliga. Wer holt sich den Titel?",
+    // Board: the owner corrects it there (D291); today's About words stand until then.
+    aboutParagraph:
+      "Die Finanzierung unserer Abschlussfeiern und Abibälle. Wir organisieren dafür einen stadtweiten Ligabetrieb im Großfeldfußball. Jedes Spiel bringt durch Ticket- und Cateringverkäufe direkte Einnahmen für beide Jahrgänge.",
+    lead: "Frankfurter Schulen, eine Saison, ein Titel. Abi-Jahrgänge spielen 11 gegen 11 auf dem Großfeld, und jedes Spiel bringt Einnahmen für die Abibälle beider Jahrgänge.",
+    /** The hero's second act and the band's: applying while a window is open, the league's own page while none is. */
+    apply: "Schule bewerben",
+    applyNow: "Jetzt bewerben",
+    aboutLeague: "Über die Liga",
+
+    pillars: {
+      eyebrow: "Unser Ziel",
+      title: "Fußball, der den Abiball bezahlt",
+      whoPlays: {
+        title: "Wer spielt",
+        text: "Nur Schülerinnen und Schüler des Abi-Jahrgangs, für den das Team antritt. Mädchen- und gemischte Teams sind willkommen, Lehrer nur als Fans an der Seitenlinie.",
+      },
+      howPlayed: {
+        title: "Wie gespielt wird",
+        text: "11 gegen 11, zwei Hälften zu 45 Minuten, bei jedem Wetter. Die Schiedsrichter kommen, wo es geht, von außerhalb.",
+      },
+      whatFor: {
+        title: "Wofür",
+        text: "Beide Teams verdienen an Tickets und an ihren Verkäufen vor Ort. Der Erlös wird nach dem Spiel geteilt, in der Regel je zur Hälfte. Der Gewinner bekommt das meiste Geld, dazu Ruhm und Ehre.",
+      },
+    },
+
+    /** How a school joins: four numbered steps, and the band under them. */
+    join: {
+      eyebrow: "Bewerbung",
+      title: "So kommt deine Schule in die Liga",
+      apply: {
+        title: "Bewerbung abschicken",
+        text: "Solange das Fenster offen ist: Schule und Stufengröße, drei Kontaktpersonen, Wunschfarbe und voraussichtliche Kadergröße.",
+      },
+      confirm: {
+        title: "Kontaktpersonen bestätigen",
+        text: "Jede der drei Personen bekommt einen Link und bestätigt ihren Eintrag selbst, innerhalb von 14 Tagen.",
+      },
+      accept: {
+        title: "Zusage der Liga",
+        text: "Wir prüfen die Bewerbung und sagen zu oder ab. Mit der Zusage ist deine Schule Teil der Saison.",
+      },
+      register: {
+        title: "Spieler registrieren",
+        text: "Dein Team bekommt einen Link, über den sich die Spielerinnen und Spieler registrieren. Die Kontaktpersonen nehmen sie in den Kader auf.",
+      },
+      /** The band: the open window's deadline, or the word that none is open. */
+      open: (saison: string, until: CalendarDay) => `Bewerbungen für die Saison ${saison} bis ${formatDatum(until)}`,
+      closed: "Die Bewerbungen sind gerade geschlossen.",
+    },
+
+    /** How a season runs: the numbered dotted line. */
+    season: {
+      eyebrow: "Spielbetrieb",
+      title: "So läuft eine Saison",
+      gruppenphase: {
+        title: "Gruppenphase",
+        text: "Die Teams spielen in Gruppen jeder gegen jeden. Nur diese Spiele zählen für die Tabelle, und die Besten jeder Gruppe kommen weiter.",
+      },
+      viertelfinale: { title: "Viertelfinale", text: "Acht Teams. Bei Gleichstand entscheidet das Elfmeterschießen." },
+      halbfinale: { title: "Halbfinale", text: "Vier Teams, zwei Spiele. Die Verlierer spielen um Platz 3." },
+      finale: { title: "Finale und Spiel um Platz 3", text: "Größer aufgezogen als jedes Gruppenspiel." },
+    },
+
+    figures: {
+      title: "Die Liga in Zahlen",
+      schools: "Schulen",
+      players: "Spielerinnen und Spieler",
+      spiele: "Spiele",
+      spieltage: "Spieltage",
+    },
+
+    organisers: { eyebrow: "Organisation", title: "Wer dahintersteht" },
+
+    /** The ways in: the school's while a window is open, and the question's; the heading counts them. */
+    doors: {
+      eyebrow: "Mitmachen",
+      title: (withSchool: boolean) => (withSchool ? "Zwei Wege zu uns" : "Wege zu uns"),
+      school: {
+        title: "Deine Schule will antreten",
+        text: (saison: string, until: CalendarDay) =>
+          `Die Bewerbungen für die Saison ${saison} sind offen bis ${formatDatum(until)}. Deine Schule braucht eine Stufe, drei Kontaktpersonen und ein Team.`,
+      },
+      question: {
+        title: "Du hast eine Frage",
+        text: "Zum Spielbetrieb, zu einer Bewerbung oder zur Liga: Schreib uns. Wir melden uns schnellstmöglich.",
+      },
+    },
+
+    schools: { eyebrow: "Wer dabei ist", title: (saison: string) => `Die Schulen der Saison ${saison}`, all: "Alle Teams" },
+
+    /** The season card beside the hero, in its three states. */
+    saison: {
+      kickoff: (when: string) => `Anpfiff ${when}`,
+      windowUntil: (until: CalendarDay) => `Bewerbungen bis ${formatDatum(until)}`,
+      last: "Zuletzt",
+      next: "Als Nächstes",
+      place: (platz: number) => `${formatNumber(platz)}. Platz`,
+      toSpielplan: "Zum Spielplan",
+    },
+
+    /** Kontakt's rows, and the question door's links. */
+    contact: {
+      email: "E-Mail",
+      address: KONTAKT_EMAIL,
+    },
+
+    /** The classic frame's not-found page. */
+    notFound: { title: "Seite nicht gefunden", sentence: "Die Seite wurde verschoben oder gelöscht, oder die Adresse stimmt nicht." },
   },
 });

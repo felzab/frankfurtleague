@@ -1,5 +1,5 @@
-import { COPY } from "@/core/copy";
 import { formatNumber } from "@/core/format";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
@@ -58,7 +58,7 @@ export function Podium({ places }: { places: readonly [Placed, Placed, Placed, P
         })}
       </ol>
       <p className={slots.fourth()}>
-        <span className={slots.fourthPlace()}>{COPY.landing.saison.place(4)}</span>
+        <span className={slots.fourthPlace()}>{SERVER_COPY.landing.saison.place(4)}</span>
         <TeamPlaque kuerzel={fourth.kuerzel} />
         <span className="min-w-0 font-medium">{fourth.name}</span>
       </p>

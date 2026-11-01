@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { SERVER_COPY } from "@/core/serverCopy";
 import { DAY_MS } from "@/core/timeUnits";
 
 import { SaisonBlock } from "./SaisonBlock";
@@ -34,7 +35,7 @@ describe("the season's card before the start", () => {
     );
     const timer = screen.getByRole("timer");
     expect(timer.textContent).toBe(`12${COPY.landing.saison.days}0${COPY.landing.saison.hours}0${COPY.landing.saison.minutes}`);
-    expect(screen.getByText(COPY.landing.saison.kickoff(SPIEL.when))).toBeTruthy();
+    expect(screen.getByText(SERVER_COPY.landing.saison.kickoff(SPIEL.when))).toBeTruthy();
   });
 
   it("shows the application window while no match is dated, with the way to apply", () => {
@@ -44,8 +45,8 @@ describe("the season's card before the start", () => {
         state={{ kind: "window", until: "2026-12-31", apply: "/bewerbung/2027" }}
       />,
     );
-    expect(screen.getByText(COPY.landing.saison.windowUntil("2026-12-31"))).toBeTruthy();
-    expect(screen.getByRole("link", { name: COPY.landing.applyNow }).getAttribute("href")).toBe("/bewerbung/2027");
+    expect(screen.getByText(SERVER_COPY.landing.saison.windowUntil("2026-12-31"))).toBeTruthy();
+    expect(screen.getByRole("link", { name: SERVER_COPY.landing.applyNow }).getAttribute("href")).toBe("/bewerbung/2027");
     expect(screen.queryByRole("timer")).toBe(null);
   });
 });
@@ -63,7 +64,7 @@ describe("the season's card while it runs", () => {
       />,
     );
     const heads = screen.getAllByRole("heading", { level: 3 }).map((head) => head.textContent);
-    expect(heads).toStrictEqual([COPY.landing.saison.last, COPY.landing.saison.next]);
+    expect(heads).toStrictEqual([SERVER_COPY.landing.saison.last, SERVER_COPY.landing.saison.next]);
     const links = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
     expect(links).toStrictEqual(["/saisons/2027/spiele/1", "/saisons/2027/spiele/2"]);
   });
@@ -75,8 +76,8 @@ describe("the season's card while it runs", () => {
         state={{ kind: "running", next: { ...SPIEL, id: "2" } }}
       />,
     );
-    expect(screen.queryByText(COPY.landing.saison.last)).toBe(null);
-    expect(screen.getByText(COPY.landing.saison.next)).toBeTruthy();
+    expect(screen.queryByText(SERVER_COPY.landing.saison.last)).toBe(null);
+    expect(screen.getByText(SERVER_COPY.landing.saison.next)).toBeTruthy();
   });
 });
 
@@ -102,8 +103,8 @@ describe("the season's card once decided", () => {
         .getAllByRole("listitem")
         .map((place) => place.textContent),
     ).toStrictEqual(["LIELiebig1", "ELIElisabethen2", "ERSErnst-Reuter3"]);
-    expect(screen.getByText(COPY.landing.saison.place(4)).parentElement?.textContent).toBe(
-      `${COPY.landing.saison.place(4)}CMSCarlo-Mierendorff`,
+    expect(screen.getByText(SERVER_COPY.landing.saison.place(4)).parentElement?.textContent).toBe(
+      `${SERVER_COPY.landing.saison.place(4)}CMSCarlo-Mierendorff`,
     );
   });
 });

@@ -4,10 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import { StatusCard, StatusPage } from "./StatusPage";
 
-const { notFound, error } = COPY.landing.status;
+const { notFound } = SERVER_COPY.landing;
+const { error } = COPY.landing.status;
 
 describe("a status card", () => {
   it("writes no landmark of its own, so a page inside an old shell's main places it without a second one", () => {

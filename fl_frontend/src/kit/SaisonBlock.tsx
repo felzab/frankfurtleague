@@ -1,7 +1,7 @@
 import { useId } from "react";
 
 import { now } from "@/core/clock";
-import { COPY } from "@/core/copy";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import { Countdown } from "./Countdown";
 import { Link } from "./Link";
@@ -62,18 +62,18 @@ function Body({ state }: { state: SaisonState }) {
             kickoff={state.kickoff}
             seed={now().getTime()}
           />
-          <p className={slots.line()}>{COPY.landing.saison.kickoff(state.when)}</p>
+          <p className={slots.line()}>{SERVER_COPY.landing.saison.kickoff(state.when)}</p>
         </div>
       );
     case "window":
       return (
         <div className={slots.box()}>
-          <p>{COPY.landing.saison.windowUntil(state.until)}</p>
+          <p>{SERVER_COPY.landing.saison.windowUntil(state.until)}</p>
           <Link
             href={state.apply}
             placement="button"
             look="primary"
-            label={COPY.landing.applyNow}
+            label={SERVER_COPY.landing.applyNow}
           />
         </div>
       );
@@ -82,13 +82,13 @@ function Body({ state }: { state: SaisonState }) {
         <>
           {state.last !== undefined && (
             <Group
-              title={COPY.landing.saison.last}
+              title={SERVER_COPY.landing.saison.last}
               spiel={state.last}
             />
           )}
           {state.next !== undefined && (
             <Group
-              title={COPY.landing.saison.next}
+              title={SERVER_COPY.landing.saison.next}
               spiel={state.next}
             />
           )}

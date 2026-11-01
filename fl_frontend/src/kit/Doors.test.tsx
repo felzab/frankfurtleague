@@ -4,20 +4,21 @@ import { describe, expect, it } from "vitest";
 
 import { INSTAGRAM_URL, KONTAKT_EMAIL, THREADS_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import { Doors } from "./Doors";
 
 const QUESTION = {
-  ...COPY.landing.doors.question,
-  email: { label: COPY.landing.contact.address, href: `mailto:${KONTAKT_EMAIL}` },
+  ...SERVER_COPY.landing.doors.question,
+  email: { label: SERVER_COPY.landing.contact.address, href: `mailto:${KONTAKT_EMAIL}` },
   instagram: INSTAGRAM_URL,
   threads: THREADS_URL,
 } as const;
 
 const SCHOOL = {
-  title: COPY.landing.doors.school.title,
-  text: COPY.landing.doors.school.text("2027", "2026-12-31"),
-  act: { label: COPY.landing.applyNow, href: "/bewerbung/2027" },
+  title: SERVER_COPY.landing.doors.school.title,
+  text: SERVER_COPY.landing.doors.school.text("2027", "2026-12-31"),
+  act: { label: SERVER_COPY.landing.applyNow, href: "/bewerbung/2027" },
 } as const;
 
 describe("the doors while an application window is open", () => {
@@ -28,18 +29,18 @@ describe("the doors while an application window is open", () => {
         question={QUESTION}
       />,
     );
-    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe(COPY.landing.doors.title(true));
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe(SERVER_COPY.landing.doors.title(true));
     expect(screen.getByRole("heading", { name: SCHOOL.title })).toBeTruthy();
-    expect(screen.getByRole("link", { name: COPY.landing.applyNow }).getAttribute("href")).toBe("/bewerbung/2027");
+    expect(screen.getByRole("link", { name: SERVER_COPY.landing.applyNow }).getAttribute("href")).toBe("/bewerbung/2027");
   });
 });
 
 describe("the doors while no window is open", () => {
   it("drops the school's door, and the heading its count", () => {
     render(<Doors question={QUESTION} />);
-    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe(COPY.landing.doors.title(false));
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe(SERVER_COPY.landing.doors.title(false));
     expect(screen.queryByRole("heading", { name: SCHOOL.title })).toBe(null);
-    expect(screen.queryByRole("link", { name: COPY.landing.applyNow })).toBe(null);
+    expect(screen.queryByRole("link", { name: SERVER_COPY.landing.applyNow })).toBe(null);
   });
 
   it("keeps the question's door: the address, and the two networks named by their glyphs' labels", () => {

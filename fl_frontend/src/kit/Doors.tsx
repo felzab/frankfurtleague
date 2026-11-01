@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import { LandingSection } from "./LandingSection";
 import { Link } from "./Link";
@@ -56,7 +56,7 @@ export function Doors({
   return (
     <LandingSection
       eyebrow={eyebrow}
-      title={COPY.landing.doors.title(school !== undefined)}>
+      title={SERVER_COPY.landing.doors.title(school !== undefined)}>
       <div className={doors({ pair: school !== undefined }).root()}>
         {school !== undefined && (
           <Door
