@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.saisons.visibility import resolve_public_saison, withheld_saison_ids
+from app.api.saisons.visibility import resolve_public_saison
 from app.api.spieler.schemas import (
     FLSpielerFilterParams,
     FLSpielerListAdapter,
@@ -28,27 +28,21 @@ async def get_spieler(
     filters: FLSpielerFilterParams = Depends(),
 ) -> FLSpielerListResponse:
     """
-    List players, normally one team's squad in one season.
+    List one team's squad in one season, the CURRENT season unless `saison_id` names another.
 
-    Naming a `team_id` without a `saison_id` returns that team's squad in the CURRENT season, and 404s
-    while no season is active. Naming neither lists every season's players, a season this tier may not
-    read adding no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).
+    404 while no season is active, and for a season this tier may not read. BASE TIER: a pupil reads
+    back redacted (`READ-PUPIL-001`).
 
     Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`);
     the row keeps its `nummer` and `position`, and no row carries the person's record id
     (`READ-PUPIL-005`).
     """
 
-    # Resolved here, never as a field default, and only beside a team or a named season: a squad is
-    # one season's (`saison_spieler`), and a season-less one lists a player once per season they stood in it.
-    if filters.saison_id is not None or filters.team_id is not None:
-        filters.saison_id = (await resolve_public_saison(saisons_collection=saisons_collection, saison_id=filters.saison_id)).id
+    # Resolved here, never as a field default: a squad is one season's (`saison_spieler`), and a
+    # season-less one lists a player once per season they stood in it.
+    filters.saison_id = (await resolve_public_saison(saisons_collection=saisons_collection, saison_id=filters.saison_id)).id
 
-    # The other half, and the reason it is a second read: the caller named no season, so the rows
-    # have to be narrowed on the whole withheld set. Skipped where one id already answered above.
-    withheld = [] if filters.saison_id is not None else await withheld_saison_ids(saisons_collection=saisons_collection)
-
-    pipeline = build_spieler_pipeline(filters=filters, withheld_saison_ids=withheld)
+    pipeline = build_spieler_pipeline(filters=filters)
     spieler_raw = await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline, collation=GERMAN_COLLATION)
 
     spieler = FLSpielerListAdapter.validate_python(spieler_raw)

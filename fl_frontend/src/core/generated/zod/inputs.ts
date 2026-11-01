@@ -3178,18 +3178,17 @@ export const SpieleGetSpielVerwaltungParams = zod.object({
 });
 
 /**
- * List players, normally one team's squad in one season.
+ * List one team's squad in one season, the CURRENT season unless `saison_id` names another.
  *
- * Naming a `team_id` without a `saison_id` returns that team's squad in the CURRENT season, and 404s
- * while no season is active. Naming neither lists every season's players, a season this tier may not
- * read adding no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).
+ * 404 while no season is active, and for a season this tier may not read. BASE TIER: a pupil reads
+ * back redacted (`READ-PUPIL-001`).
  *
  * Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`);
  * the row keeps its `nummer` and `position`, and no row carries the person's record id
  * (`READ-PUPIL-005`).
  * @summary List Spieler
  */
-export const spielerGetSpielerQueryTeamIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const spielerGetSpielerQueryTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const spielerGetSpielerQueryLimitDefault = 1024;
 export const spielerGetSpielerQueryLimitMax = 1024;
 
@@ -3197,7 +3196,7 @@ export const spielerGetSpielerQuerySortByDefault = `position`;
 export const spielerGetSpielerQueryOrderDefault = `asc`;
 
 export const SpielerGetSpielerQueryParams = zod.object({
-  team_id: zod.union([zod.string().regex(spielerGetSpielerQueryTeamIdOneRegExp), zod.null()]).optional(),
+  team_id: zod.string().regex(spielerGetSpielerQueryTeamIdRegExp),
   saison_id: zod.union([zod.string(), zod.null()]).optional(),
   limit: zod.int().min(1).max(spielerGetSpielerQueryLimitMax).default(spielerGetSpielerQueryLimitDefault),
   sort_by: zod.enum(["vorname", "nummer", "position"]).default(spielerGetSpielerQuerySortByDefault),

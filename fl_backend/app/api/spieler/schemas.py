@@ -192,8 +192,9 @@ class FLSpielerFilterParams(BaseModel):
     `include_inactive` would un-hide rows this tier serves no marker for (`READ-SQUAD-002`).
     """
 
-    # NOT paths: these narrow which players come back rather than naming one.
-    team_id: CustomObjectId | None = None
+    # NOT paths: these narrow which players come back rather than naming one. The club is REQUIRED: a
+    # squad is one club's in one season, and the season defaults to the `active` one.
+    team_id: CustomObjectId
     saison_id: str | None = None
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)

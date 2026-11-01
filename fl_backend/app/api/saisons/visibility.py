@@ -4,9 +4,8 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.crud import CURRENT_SAISON_FILTER
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.saisons.services import WITHHELD_FROM_BASE_TIER, base_tier_status_term
-from app.core.crud import pull_many_from_db, pull_one_from_db
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from app.api.saisons.services import base_tier_status_term
+from app.core.crud import pull_one_from_db
 from app.shared.schemas.literals import FLSaisonStatus
 
 
@@ -29,26 +28,3 @@ async def resolve_public_saison(*, saisons_collection: AsyncCollection, saison_i
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter=db_filter, projection=["_id", "rules", "status"])
 
     return PublicSaison(id=str(saison_raw["_id"]), rules=FLSaisonRules.model_validate(saison_raw["rules"]), status=saison_raw["status"])
-
-
-async def withheld_saison_ids(*, saisons_collection: AsyncCollection) -> list[str]:
-    """Every season id closed to this tier.
-
-    The SET form, for a read that resolves no season and joins rows from every one: it holds no id
-    to ask about, so it narrows on the whole set instead.
-    """
-
-    withheld = await pull_many_from_db(
-        collection=saisons_collection,
-        db_filter={"status": WITHHELD_FROM_BASE_TIER},
-        projection={"_id": 1},
-        limit=LIST_LIMIT_DEFAULT + 1,
-    )
-
-    # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks:
-    # a truncated set narrows on fewer seasons than exist, which is a
-    # LEAK rather than a short answer.
-    if len(withheld) > LIST_LIMIT_DEFAULT:
-        raise ValueError(f"more than {LIST_LIMIT_DEFAULT} seasons are withheld, which is more than one read can narrow on")
-
-    return [str(saison_raw["_id"]) for saison_raw in withheld]

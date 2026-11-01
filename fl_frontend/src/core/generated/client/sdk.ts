@@ -4083,18 +4083,17 @@ export const spieleGetSpielVerwaltung = async (
   });
 };
 
-export const getSpielerGetSpielerUrl = (params?: SpielerGetSpielerParams) => {
+export const getSpielerGetSpielerUrl = (params: SpielerGetSpielerParams) => {
   const stringifiedParams = serializeQuery(params);
 
   return stringifiedParams.length > 0 ? `/api/v0/spieler?${stringifiedParams}` : `/api/v0/spieler`;
 };
 
 /**
- * List players, normally one team's squad in one season.
+ * List one team's squad in one season, the CURRENT season unless `saison_id` names another.
  *
- * Naming a `team_id` without a `saison_id` returns that team's squad in the CURRENT season, and 404s
- * while no season is active. Naming neither lists every season's players, a season this tier may not
- * read adding no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).
+ * 404 while no season is active, and for a season this tier may not read. BASE TIER: a pupil reads
+ * back redacted (`READ-PUPIL-001`).
  *
  * Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`);
  * the row keeps its `nummer` and `position`, and no row carries the person's record id
@@ -4102,7 +4101,7 @@ export const getSpielerGetSpielerUrl = (params?: SpielerGetSpielerParams) => {
  * @summary List Spieler
  */
 export const spielerGetSpieler = async (
-  params?: SpielerGetSpielerParams,
+  params: SpielerGetSpielerParams,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLSpielerListResponse> => {
   return baseKeyTransport<FLSpielerListResponse>(getSpielerGetSpielerUrl(params), {

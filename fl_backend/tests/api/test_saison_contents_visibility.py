@@ -29,20 +29,12 @@ PLANNED = "2026"
 
 STATUS_OF = {ARCHIVED: "past", RUNNING: "active", PLANNED: "future"}
 
-# One shirt number per season, so a squad row served without its `saison_id` still says where it came from.
-NUMMER_OF = {saison_id: saison_id[-2:] for saison_id in STATUS_OF}
-
 # `get_spiele` takes the day as an argument; only `spiel_status` reads it, and no test here sets one.
 TODAY = "2026-03-20"
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607250001")
 SPIELER_OID = ObjectId("6890a1b2c3d4e5f607250002")
 SPIELER_VORNAME = "Maxim"
-
-# A second person, whose ONLY squad row is the planned season's: the narrowing drops the row, and a
-# person is not a season's content.
-PLANNED_ONLY_OID = ObjectId("6890a1b2c3d4e5f607250003")
-PLANNED_ONLY_VORNAME = "Nadja"
 
 
 def an_id(kind: str, saison_id: str) -> ObjectId:
@@ -66,7 +58,7 @@ def junction_row(saison_id: str) -> dict[str, Any]:
 
 
 def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:
-    """A player of that club. `SPIELER_OID` holds a row in all three seasons, so the same person has to read differently per season.
+    """A player of that club, holding a row in all three seasons.
 
     Consent passed, not defaulted: only a published, confirmed one serves the forename.
     """
@@ -76,17 +68,8 @@ def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:
     return documents.spieler_document(spieler_id, vorname, "Müller", einwilligung=published)
 
 
-def squad_row(saison_id: str, spieler_id: ObjectId = SPIELER_OID, kind: str = "4") -> dict[str, Any]:
-    return documents.saison_spieler_document(
-        spieler_id,
-        saison_id,
-        TEAM_OID,
-        _id=an_id(kind, saison_id),
-        # The season, worn as a shirt: a base-tier squad row names no season, so an unnarrowed read
-        # serving three identical rows could otherwise only be counted, never read.
-        nummer=NUMMER_OF[saison_id],
-        stufe="Q3",
-    )
+def squad_row(saison_id: str) -> dict[str, Any]:
+    return documents.saison_spieler_document(SPIELER_OID, saison_id, TEAM_OID, _id=an_id("4", saison_id), nummer="7", stufe="Q3")
 
 
 def spiel_document(saison_id: str) -> dict[str, Any]:
@@ -128,12 +111,8 @@ def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
             await database[Collection.SAISON_TEAMS].insert_many([junction_row(saison_id) for saison_id in STATUS_OF])
             await database[Collection.SPIELE].insert_many([spiel_document(saison_id) for saison_id in STATUS_OF])
             await database[Collection.SPIELTAGE].insert_many([spieltag_document(saison_id) for saison_id in STATUS_OF])
-            await database[Collection.SPIELER].insert_many(
-                [spieler_document(SPIELER_OID, SPIELER_VORNAME), spieler_document(PLANNED_ONLY_OID, PLANNED_ONLY_VORNAME)]
-            )
-            await database[Collection.SAISON_SPIELER].insert_many(
-                [*(squad_row(saison_id) for saison_id in STATUS_OF), squad_row(PLANNED, PLANNED_ONLY_OID, kind="5")]
-            )
+            await database[Collection.SPIELER].insert_one(spieler_document(SPIELER_OID, SPIELER_VORNAME))
+            await database[Collection.SAISON_SPIELER].insert_many([squad_row(saison_id) for saison_id in STATUS_OF])
 
     on_the_seed_loop(_seed())
 
@@ -178,11 +157,11 @@ async def read_team(database: AsyncDatabase, saison_id: str | None) -> Any:
     )
 
 
-async def read_spieler(database: AsyncDatabase, saison_id: str | None, team_id: ObjectId | None = None) -> Any:
+async def read_spieler(database: AsyncDatabase, saison_id: str | None) -> Any:
     return await get_spieler(
         spieler_collection=database[Collection.SPIELER],
         saisons_collection=database[Collection.SAISONS],
-        filters=FLSpielerFilterParams(saison_id=saison_id, team_id=team_id),
+        filters=FLSpielerFilterParams(saison_id=saison_id, team_id=TEAM_OID),
     )
 
 
@@ -228,7 +207,7 @@ SEASON_SCOPED_READS: dict[str, Callable[[AsyncDatabase, str], Awaitable[Any]]] =
     "one fixture": read_spiel,
     "the matchdays": read_spieltage,
     "one matchday": read_spieltag,
-    "one club's squad": lambda database, saison_id: read_spieler(database, saison_id, team_id=TEAM_OID),
+    "one club's squad": read_spieler,
 }
 
 

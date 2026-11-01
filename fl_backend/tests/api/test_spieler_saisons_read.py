@@ -85,15 +85,9 @@ class TestWhyTheSeasonScopedReadCannotAnswerIt:
 
     def test_a_named_season_makes_the_junction_join_strict(self):
         """A player with no row for that season is dropped, so the list cannot offer to give them one."""
-        pipeline = build_spieler_pipeline(FLSpielerFilterParams(saison_id=SAISON))
+        pipeline = build_spieler_pipeline(FLSpielerFilterParams(team_id=ObjectId(), saison_id=SAISON))
         unwind = next(stage["$unwind"] for stage in pipeline if "$unwind" in stage)
         assert unwind["preserveNullAndEmptyArrays"] is False
-
-    def test_an_unscoped_read_keeps_a_player_who_has_no_squad_row(self):
-        """Kept by the pipeline — and then unusable, which is the next case."""
-        pipeline = build_spieler_pipeline(FLSpielerFilterParams())
-        unwind = next(stage["$unwind"] for stage in pipeline if "$unwind" in stage)
-        assert unwind["preserveNullAndEmptyArrays"] is True
 
     def test_a_player_with_no_squad_row_does_not_validate_as_flspieler(self):
         """`FLSpieler` is the flattened shape, so `team_id` is required: one player with no squad row 500s the whole response."""

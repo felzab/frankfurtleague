@@ -5984,7 +5984,10 @@ export type SpielePatchSpielParams = {
 };
 
 export type SpielerGetSpielerParams = {
-  team_id?: string | null;
+  /**
+   * @pattern ^[0-9a-fA-F]{24}$
+   */
+  team_id: string;
   saison_id?: string | null;
   /**
    * @minimum 1
