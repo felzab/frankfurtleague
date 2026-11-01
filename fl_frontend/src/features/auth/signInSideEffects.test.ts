@@ -9,7 +9,7 @@ import {
   registerAuthDoubles,
 } from "@/test-support/authDoubles.ts";
 import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
-import { assert, describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy.ts";
 import { KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress.ts";
@@ -85,10 +85,6 @@ const { sent } = registerAuthDoubles({
     "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),
   },
 });
-
-// The action builder clears the site's cache tag or renders the page again, which Next takes from an action's own
-// request alone.
-vi.mock("next/cache", async (original) => ({ ...(await original<object>()), updateTag: () => undefined, refresh: () => undefined }));
 
 const deferred: (() => Promise<void>)[] = [];
 const store = memoryStore(STORE);

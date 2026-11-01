@@ -1,6 +1,6 @@
 import "server-only";
 
-import { refresh, updateTag } from "next/cache";
+import { updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
 
@@ -331,7 +331,8 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
  * unexpected failure. A body that sent a backend write which may have landed clears the site's one cache tag, which
  * also renders the page again, whatever the body came to: the write may stand behind a throw or a lost answer, and
  * every cached read carries the tag, so no write has to know which it moves. A body whose writes were each refused, or
- * that sent none, leaves the cache standing and renders the page again all the same.
+ * that sent none, carries only its answer and renders nothing again: a refused editor keeps what was typed into it. A
+ * body changing state outside the cache, the sign-in store's, calls Next's `refresh()` itself.
  */
 async function body<Schema extends z.ZodType, Value>(
   lane: Lane<Schema, Value>,
@@ -349,7 +350,6 @@ async function body<Schema extends z.ZodType, Value>(
     return UNEXPECTED;
   } finally {
     if (requestWriteMayStand()) updateTag(SITE_CACHE_TAG);
-    else refresh();
   }
 }
 

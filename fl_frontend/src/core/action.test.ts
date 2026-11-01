@@ -329,7 +329,7 @@ describe("the person lane", () => {
     state.subject = seated({ team_id: "t2", saison_id: "2027" }, { team_id: "t1", saison_id: "2027" });
 
     expect(await register({ team_id: "t1", saison_id: "2027" })).toStrictEqual({ ok: true, value: undefined });
-    expect(state.steps).toStrictEqual(["person guard", "body 1", "refresh"]);
+    expect(state.steps).toStrictEqual(["person guard", "body 1"]);
   });
 });
 
@@ -360,7 +360,7 @@ describe("the public lane", () => {
       ok: true,
       value: "lena@example.com",
     });
-    expect(state.steps).toStrictEqual(["bot check token", "body", "refresh"]);
+    expect(state.steps).toStrictEqual(["bot check token", "body"]);
   });
 });
 
@@ -413,7 +413,7 @@ describe("the site's cache", () => {
   it("is not cleared for a write the backend refused", async () => {
     await onLane("public", () => sends("POST", undefined, refusal("link_invalid")))({ name: "Nord" });
 
-    expect(cacheSteps()).not.toContain("updateTag site");
+    expect(cacheSteps()).toStrictEqual([]);
   });
 
   it("is cleared where one write landed before another was refused", async () => {
@@ -426,14 +426,14 @@ describe("the site's cache", () => {
   });
 
   it.each(["admin", "person", "public"] as const)(
-    "stands on the %s lane when the body sent only reads, the page rendered again",
+    "stands on the %s lane when the body sent only reads, the page not rendered again",
     async (lane) => {
       await onLane(lane, async () => {
         await sends("GET");
         await sends("POST", true);
       })({ name: "Nord" });
 
-      expect(cacheSteps()).toStrictEqual(["refresh"]);
+      expect(cacheSteps()).toStrictEqual([]);
     },
   );
 
@@ -443,7 +443,7 @@ describe("the site's cache", () => {
     })({ name: "Nord" });
     for (const task of state.behind.splice(0)) await task();
 
-    expect(state.steps).toStrictEqual(["admin guard", "refresh", "sent POST"]);
+    expect(state.steps).toStrictEqual(["admin guard", "sent POST"]);
   });
 
   it.each(["admin", "person", "public"] as const)(
