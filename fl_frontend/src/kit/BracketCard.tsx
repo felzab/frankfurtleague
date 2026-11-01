@@ -16,7 +16,10 @@ const card = tv({
 });
 
 function Line({ side, score, part }: { side: SpielSide; score: Figures; part: "home" | "away" }) {
-  const style = card(look(score, part));
+  const marks = look(score, part);
+  // A card sets both figures bold whatever the outcome, a shoot-out loser's included, where a match row sets
+  // that loser's goals regular: with the shoot-out's goals added, the higher figure is the winner's.
+  const style = card({ ...marks, goals: marks.goals === "lost" ? "counted" : marks.goals });
   return (
     <span className={style.line()}>
       <span className={style.name()}>
@@ -31,7 +34,8 @@ function Line({ side, score, part }: { side: SpielSide; score: Figures; part: "h
 
 /**
  * A knockout match in the bracket, the whole card a link to it. Every card is the same size: one figure
- * per side, a shoot-out's goals added, with no mark for it; on desktop the date under a hairline.
+ * per side, a shoot-out's goals added, with no mark for it, both figures bold; on desktop the date under a
+ * hairline.
  */
 export function BracketCard({
   href,
