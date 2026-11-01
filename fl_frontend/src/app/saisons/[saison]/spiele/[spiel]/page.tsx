@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-
 import { ReadPage } from "@/kit/ReadPage";
 
 import { ROUTES } from "@/core/routes";
@@ -7,6 +5,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 
 import { factsOf, readSaison, readSpiel, sidesOf } from "../../spielplan";
 
+import type { ReadRecord } from "@/kit/ReadPage";
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: PageProps<"/saisons/[saison]/spiele/[spiel]">): Promise<Metadata> {
@@ -23,21 +22,20 @@ export async function generateMetadata({ params }: PageProps<"/saisons/[saison]/
  */
 export default function SpielPage({ params }: PageProps<"/saisons/[saison]/spiele/[spiel]">) {
   return (
-    <Suspense fallback={null}>
-      <Spiel params={params} />
-    </Suspense>
+    <ReadPage
+      scope="saison"
+      record={readRecord(params)}
+    />
   );
 }
 
-async function Spiel({ params }: { params: Promise<{ saison: string; spiel: string }> }) {
+async function readRecord(params: Promise<{ saison: string; spiel: string }>): Promise<ReadRecord> {
   const { saison: saisonId, spiel: spielId } = await params;
   const { saison } = await readSaison(saisonId);
   const { spiel, spieltag } = await readSpiel(saison, spielId);
   const { heim, gast } = sidesOf(spiel);
-  return (
-    <ReadPage
-      head={{ scope: "saison", title: { route: "spiel", heim: heim.name, gast: gast.name } }}
-      groups={[{ kind: "facts", facts: factsOf(spiel, spieltag) }]}
-    />
-  );
+  return {
+    title: { route: "spiel", heim: heim.name, gast: gast.name },
+    groups: [{ kind: "facts", facts: factsOf(spiel, spieltag) }],
+  };
 }

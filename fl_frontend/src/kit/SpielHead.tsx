@@ -1,10 +1,19 @@
+import { Suspense } from "react";
+
 import { COPY } from "@/core/copy";
 import { ERGEBNIS_SEPARATOR } from "@/core/format";
 
+import { Callout } from "./Callout";
+import { RouteDialog } from "./Dialog";
+import { Facts } from "./Facts";
 import { figures, look, NONE, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
+import type { Copy } from "@/core/copy";
+import type { Route } from "next";
+import type { ReactElement } from "react";
+import type { Fact } from "./Facts";
 import type { Figures, SpielRowProps, SpielSide } from "./SpielRow";
 
 export type SpielHeadProps = {
@@ -85,5 +94,56 @@ export function SpielHead({ eyebrow, home, away, result }: SpielHeadProps) {
         />
       </div>
     </div>
+  );
+}
+
+/** The match pop-up's body, once the match is read. */
+export type SpielPopupContent = {
+  /** The dialog's name, read rather than drawn: the head names the match by its two sides. */
+  title: Copy;
+  /** The page the pop-up opens over, reached instead of Back where the tab's history holds nothing before it. */
+  beneath: Route;
+  /** The way to the match's own page, the kit's `Link` drawn as the primary button. */
+  act: ReactElement;
+  head: SpielHeadProps;
+  facts: ReadonlyArray<Fact>;
+  sonderereignis: { title: Copy; text: Copy } | null;
+};
+
+async function PopupBody({ popup }: { popup: Promise<SpielPopupContent> }) {
+  const { title, beneath, act, head: pairing, facts, sonderereignis } = await popup;
+  return (
+    <RouteDialog
+      title={title}
+      beneath={beneath}
+      act={act}>
+      <SpielHead {...pairing} />
+      {facts.length > 0 && (
+        <Facts
+          look="free"
+          facts={facts}
+        />
+      )}
+      {sonderereignis !== null && (
+        <Callout
+          tone="danger"
+          title={sonderereignis.title}
+          text={sonderereignis.text}
+        />
+      )}
+    </RouteDialog>
+  );
+}
+
+/**
+ * The match pop-up: the matchday and the pairing on the band across its top, the facts under them, what befell
+ * the match where something did, and the way to the match's page as the dialog's act. It waits for its match
+ * in its one boundary and opens once the match is read, drawing nothing before.
+ */
+export function SpielPopup({ popup }: { popup: Promise<SpielPopupContent> }) {
+  return (
+    <Suspense fallback={null}>
+      <PopupBody popup={popup} />
+    </Suspense>
   );
 }

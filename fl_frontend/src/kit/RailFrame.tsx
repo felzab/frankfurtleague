@@ -13,6 +13,7 @@ import { frameLink } from "./Link";
 import { RailRoot, RailToggle, RailTooltip } from "./RailState";
 import { RAIL_ID, railFade, railGlyph } from "./railStyles";
 import { SaisonButton } from "./SaisonButton";
+import { SkeletonTitle } from "./Skeleton";
 import { ToastRegion } from "./Toast";
 import { tv } from "./tv";
 
@@ -219,7 +220,8 @@ export function RailPage({
   children,
 }: {
   scope: "saison" | "area";
-  title: PageTitle;
+  /** `null` while the record naming the page is read: a bar stands in the title's place. */
+  title: PageTitle | null;
   /** The record's status, directly after its name. */
   chip?: ChipProps;
   /** The editor's bar, at the foot of the content from the rail's separator to the edge. */
@@ -231,7 +233,7 @@ export function RailPage({
     <>
       <header className={head()}>
         <RailToggle />
-        <h1 className={heading()}>{titleOf(title)}</h1>
+        {title === null ? <SkeletonTitle /> : <h1 className={heading()}>{titleOf(title)}</h1>}
         {chip !== undefined && (
           <Chip
             tone={chip.tone}
@@ -264,5 +266,8 @@ export function RailPage({
   );
 }
 
-/** What a template hands `RailPage`: the area and the title, and the status chip where the record has one. */
+/**
+ * What a page hands a template for the strip, drawn before the page's content is read: the area and the
+ * title, and the status chip where the record has one.
+ */
 export type RailPageHead = { scope: "saison" | "area"; title: PageTitle; chip?: ChipProps };

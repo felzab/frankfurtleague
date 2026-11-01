@@ -39,6 +39,10 @@ function kindOf(path) {
   return path.endsWith(".tsx") ? "page" : "module";
 }
 
+/** A route's page, which Next renders for an address: page code a template alone may stand in. */
+const ROUTE_PAGES = ["src/app/**/page.tsx"];
+const isRoutePage = (path) => /^src\/app\/(?:.*\/)?page\.tsx$/.test(path);
+
 /** `pattern` under one layer's folder; the other layer is every folder but `core` and `shared`. */
 const inLayer = (layer, pattern, ignores = []) =>
   layer === "other"
@@ -47,7 +51,10 @@ const inLayer = (layer, pattern, ignores = []) =>
 
 const LAYERS = ["core", "shared", "other"];
 
-/** The zones as globs, which `kindOf` and `layerOf` read the same way for one path. */
+/**
+ * The zones as globs, which `kindOf`, `layerOf` and `isRoutePage` read the same way for one path. Page code
+ * splits once more: a route's page, which the app's folder alone holds, and every other component.
+ */
 const ZONES = [
   ...LAYERS.map((layer) => ({ kind: "test", layer, ...inLayer(layer, "**/*.test.{ts,tsx}") })),
   { kind: "support", layer: "other", files: ["src/test-support/**/*.{ts,tsx}"], ignores: TEST_FILES },
@@ -56,8 +63,13 @@ const ZONES = [
   ...LAYERS.map((layer) => ({
     kind: "page",
     layer,
-    ...inLayer(layer, "**/*.tsx", layer === "other" ? [...TEST_FILES, "src/test-support/**", "src/kit/**", ...ROOT_DOCUMENT] : TEST_FILES),
+    ...inLayer(
+      layer,
+      "**/*.tsx",
+      layer === "other" ? [...TEST_FILES, "src/test-support/**", "src/kit/**", ...ROOT_DOCUMENT, ...ROUTE_PAGES] : TEST_FILES,
+    ),
   })),
+  { kind: "page", layer: "other", route: true, files: ROUTE_PAGES, ignores: [] },
   ...LAYERS.map((layer) => ({
     kind: "module",
     layer,
@@ -72,6 +84,7 @@ const PRODUCTION = (zone) => zone.kind !== "test" && zone.kind !== "support";
 const OUTSIDE_KIT = (zone) => PRODUCTION(zone) && zone.kind !== "kit";
 const KIT = (zone) => zone.kind === "kit";
 const PAGE_CODE = (zone) => zone.kind === "page";
+const ROUTE_PAGE = (zone) => zone.route === true;
 /** What renders markup: the kit, page code and the root document. */
 const RENDERED = (zone) => ["kit", "page", "document"].includes(zone.kind);
 const LAYER = (layer) => (zone) => zone.layer === layer;
@@ -811,6 +824,18 @@ const DESIGN_BANS = [
       allow: ["src/kit/RailFrame.tsx", "src/kit/ClassicPage.tsx"],
     }),
   ),
+  // A wait is the template's: each holds one boundary around the content it draws, its fallback the skeleton
+  // of that content's box, so a page has no boundary of its own to leave without a loading state or to shape
+  // wrongly.
+  kitImport(
+    {
+      regex: packageUnder("react"),
+      importNames: ["Suspense"],
+      message:
+        "A page waits in its template's one boundary: hand the template its content as a promise, and the template draws the skeleton while it waits.",
+    },
+    ROUTE_PAGE,
+  ),
   // Each save belongs to its owner: the record's one save to the editor template, the one-shot submit to
   // the mailed-page template, a Konto box to Konto's pages. The editor template stands in an editors'
   // route group, whose layout draws the phone's band with the way back rather than the logo and the bar.
@@ -1146,7 +1171,7 @@ if (GONE.length > 0) {
 const fileBlocks = () => {
   const groups = new Map();
   for (const path of NAMED_FILES) {
-    const rules = rulesFor({ kind: kindOf(path), layer: layerOf(path) }, path);
+    const rules = rulesFor({ kind: kindOf(path), layer: layerOf(path), route: isRoutePage(path) }, path);
     const key = JSON.stringify(rules);
     groups.set(key, { files: [...(groups.get(key)?.files ?? []), literally(path)], rules });
   }
@@ -1154,14 +1179,19 @@ const fileBlocks = () => {
 };
 
 const BAN_BLOCKS = [
-  ...ZONES.map(({ kind, layer, files, ignores }) => ({ name: `bans/${kind}/${layer}`, files, ignores, rules: rulesFor({ kind, layer }) })),
+  ...ZONES.map(({ kind, layer, route, files, ignores }) => ({
+    name: `bans/${kind}/${layer}${route === true ? "/route" : ""}`,
+    files,
+    ignores,
+    rules: rulesFor({ kind, layer, route }),
+  })),
   // A directory's files, zone by zone: a nested `files` array asks a file to match every pattern in it.
   ...NAMED_DIRECTORIES.flatMap((glob) =>
-    ZONES.map(({ kind, layer, files, ignores }) => ({
-      name: `bans/under/${glob}/${kind}/${layer}`,
+    ZONES.map(({ kind, layer, route, files, ignores }) => ({
+      name: `bans/under/${glob}/${kind}/${layer}${route === true ? "/route" : ""}`,
       files: files.map((pattern) => [pattern, literally(glob).replaceAll("[*][*]", "**")]),
       ignores,
-      rules: rulesFor({ kind, layer }, undefined, glob),
+      rules: rulesFor({ kind, layer, route }, undefined, glob),
     })),
   ),
   // Last, so a named file's own block is the one eslint reads its options from.

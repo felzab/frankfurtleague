@@ -65,6 +65,12 @@
     }
   }
 
+  /* How long a wait runs before its placeholder shows: a wait shorter than this draws nothing. Defined
+     under reduced motion too, since it times a placeholder's appearance rather than any movement. */
+  :root {
+    --loading-delay: 1000ms;
+  }
+
   /* Defined only where motion is welcome: under `reduce` each name is unset, so a duration reading it
      is invalid at computed-value time and falls back to its initial `0s`. No easing is set; CSS's
      default `ease` applies. */
@@ -119,6 +125,14 @@
   }
   to {
     transform: translateX(100%);
+  }
+}
+
+/* A placeholder's arrival: it is drawn invisible and becomes visible once `--loading-delay` has passed.
+   Outside the gate above, so under reduced motion it still appears, at once rather than fading. */
+@keyframes kit-appear {
+  to {
+    opacity: 1;
   }
 }
 

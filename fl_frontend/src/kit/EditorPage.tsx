@@ -26,7 +26,7 @@ export type EditorSection = { id: string; title: Copy; help?: Copy; fields: Reac
  * way out is the frame's „‹ Zurück“ to the record's list, which an editor's route group places
  * (`RailColumn`) and which asks before it drops unsaved changes. The last box ends in the danger rows, the
  * one place an editor's irreversible and retiring acts stand. The fields are the kit's, bound to `editor`'s
- * draft by the page's own client code.
+ * draft by the page's own client code, which the template's server half, `EditorShell`, waits for.
  */
 export function EditorPage<Values extends Record<string, EditorValue>>({
   title,
