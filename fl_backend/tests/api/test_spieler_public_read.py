@@ -30,7 +30,6 @@ from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.core.exceptions import DocumentNotFoundError
-from app.core.sentinels import GHOST_SPIELER_ID
 from app.openapi_document import build_document
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import own_einwilligung_document, rules_document, saison_document, saison_spieler_document, spieler_document
@@ -291,17 +290,6 @@ class TestTheProjection:
 
         with pytest.raises(ValidationError):
             FLSpielerFilterParams.model_validate({"sort_by": key})
-
-    def test_the_person_s_own_retirement_narrows_nothing(self):
-        """`READ-SQUAD-001`: the only retirement match is the squad row's. One on the person would take their squad rows down with them."""
-        matches = [stage["$match"] for stage in build_spieler_pipeline(_filters()) if "$match" in stage]
-
-        assert matches == [_squad_match()]
-        assert not any("$match" in stage for stage in _lookup_pipeline())
-
-    def test_the_sentinel_is_kept_off_the_squad_by_id_and_never_by_a_retirement(self):
-        """The squad row naming the sentinel is left out by its id, so the read never joins it whatever the rows hold."""
-        assert _squad_match()["spieler_id"] == {"$ne": GHOST_SPIELER_ID}
 
     def test_the_squad_row_s_retirement_narrows_unconditionally(self):
         """The other half, with no switch: this tier serves no field marking a row it would un-hide (`READ-SQUAD-002`)."""

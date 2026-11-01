@@ -9,8 +9,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter, build_real_referees_filter
 from app.api.spieler.admin_router import delete_spieler, get_spieler_saisons, patch_spieler, post_saison_spieler, reactivate_spieler
-from app.api.spieler.public_router import get_spieler_by_id
-from app.api.spieler.schemas import FLPatchSpielerPayload, FLPostSaisonSpielerPayload
+from app.api.spieler.public_router import get_spieler, get_spieler_by_id
+from app.api.spieler.schemas import FLPatchSpielerPayload, FLPostSaisonSpielerPayload, FLSpielerFilterParams
 from app.api.spieler.services import build_ghost_spieler, build_real_spieler_filter
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError
@@ -162,6 +162,26 @@ def test_the_memberships_read_never_serves_the_sentinel_and_a_person_holding_no_
         return [row.id for row in memberships.spieler]
 
     assert on_a_league(mongo_replica_set_url, body) == [PERSON_OID]
+
+
+def test_the_squad_read_never_serves_a_row_naming_the_sentinel_and_still_serves_a_retired_person_s(mongo_replica_set_url: str):
+    """Written past every route, which refuse it: the read's own exclusion is all that keeps such a row off a public squad."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await database[Collection.SAISON_SPIELER].insert_many(
+            [documents.saison_spieler_document(spieler_id, SAISON_ID, TEAM_OID) for spieler_id in (GHOST_SPIELER_ID, PERSON_OID)]
+        )
+        listed = await get_spieler(
+            saison_spieler_collection=database[Collection.SAISON_SPIELER],
+            saisons_collection=database[Collection.SAISONS],
+            filters=FLSpielerFilterParams(team_id=TEAM_OID, saison_id=SAISON_ID),
+        )
+
+        # By forename, the public list serving no record id (`READ-PUPIL-005`): the person's record publishes theirs,
+        # and the sentinel stores none.
+        return [row.vorname for row in listed.spieler]
+
+    assert on_a_league(mongo_replica_set_url, body) == ["Quillhilde"]
 
 
 def _referees() -> list[dict[str, Any]]:
