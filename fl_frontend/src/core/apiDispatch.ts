@@ -12,11 +12,10 @@ export const sentRequestOf = (method: string | undefined, readOnly: boolean | un
   readOnly: readOnly === true,
 });
 
-// Redesign: goes with `requestScope.ts`'s write-outcome functions, whose `recordWriteSent` it calls.
 /**
- * The write is recorded before `send`: one whose answer never comes may still have landed. Outside
- * `api.ts` because the client's test double replaces that module and sends through here, so neither
- * can record a write the other does not.
+ * Sends one call, a write recorded as sent before `send` runs: one whose answer never comes may still have landed.
+ * Outside `api.ts` because the client's test double replaces that module and sends through here, so neither can
+ * record a write the other does not.
  */
 export async function dispatchRequest<T>(sent: SentRequest, send: () => Promise<T>): Promise<T> {
   if (mayHaveWritten(sent)) recordWriteSent();

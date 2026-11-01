@@ -31,13 +31,13 @@ interface RequestScope {
   actor?: RequestActor;
   // On `performance.now()`'s clock rather than `Date.now()`'s, which a wall-clock step moves.
   deadlineAt: number;
-  // Redesign: the three flags below go with the write-outcome functions further down, and so do the lines that
-  // seed them in each scope and set one in `boundCall`.
+  // Set when the transport sends a write that may have landed, answered or not: the action builder clears the site's
+  // cache tag by it, where an action declaring its writes would repeat what each call already says.
+  writeSent: boolean;
+  // Redesign: the two flags below go with the write-outcome functions further down, and so do the lines that seed
+  // them in each scope and set `outcomeUnknown` in `boundCall`.
   // Set where a call may have landed unanswered, which the spines read once the request's work is done.
   outcomeUnknown: boolean;
-  // Set when a call that may write is dispatched, answered or not: the admin spine judges by it what its
-  // answer leaves standing, where an action declaring it would repeat what each call already says.
-  writeSent: boolean;
   // Set before a write that may end the session the request carries: the spine then renders no page again.
   endsOwnSession: boolean;
   // `oncePerRequest`'s reads, by the function each wraps. Held by reference, so the scope
@@ -179,9 +179,24 @@ export function boundCall(ownBoundMs: number): AbortSignal {
   return signal;
 }
 
+/**
+ * Called by `fl_frontend/src/core/apiDispatch.ts :: dispatchRequest` as the transport sends a write: one never
+ * answered may still have landed. A write through another client, the sign-in store's, is never recorded from an
+ * action the builder makes, which would clear the site's cache tag for a write no cached read serves. A no-op outside
+ * a scope.
+ */
+export function recordWriteSent(): void {
+  const store = storage.getStore();
+  if (store !== undefined) store.writeSent = true;
+}
+
+/** Whether the transport has sent a write of this request that may have landed. `false` outside a scope. */
+export function requestWriteSent(): boolean {
+  return storage.getStore()?.writeSent === true;
+}
+
 // Redesign: the write-outcome functions below go with their last importers, the old write path's spines and the
-// slices' old actions and mails. The builder in `fl_frontend/src/core/action.ts` clears the site's tag whatever a
-// body came to and reads none of them.
+// slices' old actions and mails. The builder in `fl_frontend/src/core/action.ts` reads none of them.
 
 /**
  * Runs a call whose doubt its caller words in its own answer, so a deadline cut inside it never marks the request.
@@ -204,20 +219,6 @@ export async function runAnsweringOwnCut<T>(fn: () => Promise<T>): Promise<T> {
 /** Whether the deadline cut a call of this request. `false` outside a scope. */
 export function requestOutcomeUnknown(): boolean {
   return storage.getStore()?.outcomeUnknown === true;
-}
-
-/**
- * Called as a call that may write is sent: one never answered may still have landed. The API client calls it
- * itself, and a write through another client at the write. A no-op outside a scope.
- */
-export function recordWriteSent(): void {
-  const store = storage.getStore();
-  if (store !== undefined) store.writeSent = true;
-}
-
-/** Whether this request has dispatched a call that may write. `false` outside a scope. */
-export function requestWriteSent(): boolean {
-  return storage.getStore()?.writeSent === true;
 }
 
 /**
