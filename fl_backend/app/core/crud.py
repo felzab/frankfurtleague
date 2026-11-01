@@ -277,6 +277,33 @@ async def post_one_to_db(
     return result
 
 
+async def ensure_one_in_db(
+    *,
+    collection: AsyncCollection,
+    # Keyed by its own `_id`, the one term the upsert's filter holds.
+    document: Mapping[str, Any],
+    session: AsyncClientSession | None = None,
+) -> bool:
+    """Insert `document` where no document holds its `_id`, in one round trip, and answer whether it did.
+
+    MongoDB's insert-if-absent, an upsert whose update is `$setOnInsert` alone (the manual's
+    `$setOnInsert` page): no read precedes the write, so nothing lands between a lookup and an
+    insert. Logged as the insert `post_one_to_db` logs, and only where one happened.
+    """
+
+    created = _created(collection, document)
+    # `_id` comes from the filter's equality; the rest is what the insert writes.
+    fields = {key: value for key, value in created.items() if key != "_id"}
+
+    result = await collection.update_one(filter={"_id": created["_id"]}, update={"$setOnInsert": fields}, upsert=True, session=session)
+    if result.upserted_id is None:
+        return False
+
+    await record_write(collection=collection, operation="insert", document_id=result.upserted_id, session=session)
+
+    return True
+
+
 async def post_many_to_db(
     *,
     collection: AsyncCollection,

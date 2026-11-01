@@ -18,13 +18,12 @@ from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
+    ensure_one_in_db,
     erase_many_from_db,
-    post_one_to_db,
     pull_one_from_db,
     redact_log_rows_in_db,
     refuse,
 )
-from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -157,10 +156,13 @@ async def ensure_ghost_spieler(
     # it was written for rolled back.
     session: AsyncClientSession,
 ) -> None:
-    """Write the sentinel where none stands, so no reference to an erased pupil is ever repointed at a row nothing holds."""
+    """Write the sentinel where none stands, so no reference to an erased pupil is ever repointed at a row nothing holds.
 
-    if await spieler_collection.find_one({"_id": GHOST_SPIELER_ID}, projection={"_id": 1}, session=session) is None:
-        await post_one_to_db(collection=spieler_collection, document=build_ghost_spieler(), session=session)
+    One upsert inside the erasure's transaction, on a collection the boot's index build has already made
+    (`app/core/db.py`); an upsert creating one there is a write a sharded transaction would refuse.
+    """
+
+    await ensure_one_in_db(collection=spieler_collection, document=build_ghost_spieler(), session=session)
 
 
 class PersonGeloescht(NamedTuple):

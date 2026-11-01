@@ -1,4 +1,3 @@
-from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
@@ -19,8 +18,7 @@ from app.api.schiedsrichter.services import (
     build_referee_filter,
 )
 from app.core.collections import Collection
-from app.core.crud import erase_many_from_db, patch_many_in_db, post_one_to_db, pull_one_from_db, redact_log_rows_in_db
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.core.crud import ensure_one_in_db, erase_many_from_db, patch_many_in_db, pull_one_from_db, redact_log_rows_in_db
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -64,18 +62,17 @@ async def ensure_ghost_schiedsrichter(
     # REQUIRED: written outside the erasure's transaction, the ghost would stand where the repoint it
     # exists for rolled back.
     session: AsyncClientSession,
-) -> Mapping[str, Any]:
-    """The ghost's document, written where none stands; called once before the first referee of a transaction goes."""
+) -> None:
+    """Write the ghost where none stands; called once before the first referee of a transaction goes.
+
+    One upsert inside the erasure's transaction, on a collection the boot's index build has already made
+    (`app/core/db.py`); an upsert creating one there is a write a sharded transaction would refuse.
+    """
 
     # Written here rather than at a deploy step, so an erasure can never repoint a fixture at a
     # row nothing holds -- which `booking_unknown_resource` would then read as an unknown referee and
     # `GET /spiele/action_required` would report as nothing at all.
-    ghost = await schiedsrichter_collection.find_one({"_id": GHOST_SCHIEDSRICHTER_ID}, session=session)
-    if ghost is None:
-        ghost = build_ghost_schiedsrichter()
-        await post_one_to_db(collection=schiedsrichter_collection, document=ghost, session=session)
-
-    return ghost
+    await ensure_one_in_db(collection=schiedsrichter_collection, document=build_ghost_schiedsrichter(), session=session)
 
 
 async def loeschen_referee_in_session(
