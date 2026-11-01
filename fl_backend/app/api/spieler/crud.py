@@ -25,6 +25,7 @@ from app.core.crud import (
     redact_log_rows_in_db,
     refuse,
 )
+from app.core.readonly import ReadCollection
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -134,7 +135,7 @@ async def refuse_a_taken_rolle(
 
 async def another_pupil_holds(
     *,
-    spieler_collection: AsyncCollection,
+    spieler_collection: ReadCollection,
     # Folded (`app/shared/folding.py :: sign_in_identifier`), the form `spieler.email` stores.
     identifier: str,
     spieler_id: CustomObjectId,

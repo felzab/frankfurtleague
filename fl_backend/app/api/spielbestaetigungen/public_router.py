@@ -44,11 +44,14 @@ from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     DBClient,
     SaisonTeamsCollection,
+    SaisonTeamsReadCollection,
     SpielbestaetigungenCollection,
+    SpielbestaetigungenReadCollection,
     SpieleCollection,
-    SpielorteCollection,
+    SpieleReadCollection,
+    SpielorteReadCollection,
     SpieltageCollection,
-    TeamsCollection,
+    TeamsReadCollection,
     get_german_date_str,
 )
 from app.core.exceptions import DocumentNotFoundError, WriteRefusal
@@ -80,11 +83,11 @@ def judged_as_a_proposal(refusal: WriteRefusal | None) -> WriteRefusal | None:
 )
 async def get_spielbestaetigung_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],
-    spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    spiele_collection: SpieleCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    spielorte_collection: SpielorteCollection,
-    teams_collection: TeamsCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
+    spiele_collection: SpieleReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    spielorte_collection: SpielorteReadCollection,
+    teams_collection: TeamsReadCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielbestaetigungViewResponse:

@@ -29,7 +29,13 @@ from app.api.schiedsrichter.services import (
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
-from app.core.dependencies import DBClient, SchiedsrichterCollection, get_german_date_str, get_germany_now
+from app.core.dependencies import (
+    DBClient,
+    SchiedsrichterCollection,
+    SchiedsrichterReadCollection,
+    get_german_date_str,
+    get_germany_now,
+)
 from app.core.recording import log_stamp
 from app.core.routing import SAFE
 from app.core.security import bind_public_actor, verify_access_base
@@ -55,7 +61,7 @@ router = APIRouter(
 )
 async def get_confirmation_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],
-    schiedsrichter_collection: SchiedsrichterCollection,
+    schiedsrichter_collection: SchiedsrichterReadCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterConfirmationViewResponse:

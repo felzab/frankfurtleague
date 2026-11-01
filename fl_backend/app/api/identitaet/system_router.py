@@ -29,11 +29,13 @@ from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
+    AddressChangeReadCollection,
     BewerbungenCollection,
     DBClient,
     GrantApprovalRequestsCollection,
     GrantsAnnouncedCollection,
     GrantsCollection,
+    GrantsReadCollection,
     InvitationsCollection,
     OutboxCollection,
     RegistrierungenCollection,
@@ -41,6 +43,7 @@ from app.core.dependencies import (
     SaisonSpielerCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
+    SnapshotSession,
     SperrlisteCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
@@ -73,7 +76,8 @@ async def get_subject(
     subjekt_data: Annotated[FLSubjectPayload, Body()],
     records: SubjektLookup,
     sperrliste: SperrlisteLookup,
-    berechtigungen_collection: GrantsCollection,
+    berechtigungen_collection: GrantsReadCollection,
+    session: SnapshotSession,
 ) -> FLSubjectResponse:
     """Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its ban and its grant.
 
@@ -92,7 +96,7 @@ async def get_subject(
     subjekt, gesperrt, grant = await asyncio.gather(
         find_subjekt(identifier, records),
         hash_gesperrt(sperrliste, ban_key),
-        verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier),
+        verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier, session=session),
     )
     verwaltung, berechtigt_seit, inhaber_seit = (None, None, None) if grant is None else grant
 
@@ -111,7 +115,8 @@ async def get_sign_in(
     anmeldung_data: Annotated[FLSubjectPayload, Body()],
     records: SubjektLookup,
     sperrliste: SperrlisteLookup,
-    berechtigungen_collection: GrantsCollection,
+    berechtigungen_collection: GrantsReadCollection,
+    session: SnapshotSession,
 ) -> FLSignInResponse:
     """Answer what the sign-in gate decides on for one mailbox: two flags, its ban and its grant's tier, and never a record.
 
@@ -126,7 +131,7 @@ async def get_sign_in(
     anmeldung, gesperrt, grant = await asyncio.gather(
         find_anmeldung(identifier, records),
         hash_gesperrt(sperrliste, ban_key),
-        verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier),
+        verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier, session=session),
     )
 
     return FLSignInResponse(**anmeldung.model_dump(), barred=gesperrt, verwaltung=None if grant is None else grant[0])
@@ -141,8 +146,8 @@ async def get_sign_in(
 async def get_references(
     referenzen_data: Annotated[FLReferencesPayload, Body()],
     records: SubjektLookup,
-    berechtigungen_collection: GrantsCollection,
-    adresswechsel_collection: AddressChangeCollection,
+    berechtigungen_collection: GrantsReadCollection,
+    adresswechsel_collection: AddressChangeReadCollection,
 ) -> FLReferencesResponse:
     """Answer which of these sign-in addresses no league record references, each once and in the spelling it was asked in.
 

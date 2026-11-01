@@ -218,6 +218,7 @@ async def the_loeschung_preview(database: AsyncDatabase, client: AsyncMongoClien
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spieler_collection=database[Collection.SPIELER],
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+        adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
         berechtigungen_collection=database[Collection.GRANTS],
         sperrliste=ban_list(database),
         db=client,

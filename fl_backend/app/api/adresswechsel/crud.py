@@ -75,6 +75,7 @@ from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
 from app.core.exceptions import WriteRefusal
 from app.core.journal import Journal, JournalLine
+from app.core.readonly import ReadCollection
 from app.core.recording import ERASED_ACTOR_MARKER, build_redaction_filter, log_stamp
 from app.core.security import actor_pseudonym, erasure_journal_hash
 from app.shared.folding import sign_in_identifier
@@ -122,7 +123,7 @@ class Bestand:
 
 
 async def live_grant_of(
-    identifier: str, *, berechtigungen_collection: AsyncCollection, session: AsyncClientSession | None
+    identifier: str, *, berechtigungen_collection: ReadCollection, session: AsyncClientSession | None
 ) -> Mapping[str, Any] | None:
     """The grant this folded address holds, by `uniq_grant_adresse`'s equality."""
 
@@ -133,7 +134,7 @@ async def read_the_bestand(
     identifier: str,
     *,
     records: RecordCollections,
-    berechtigungen_collection: AsyncCollection,
+    berechtigungen_collection: ReadCollection,
     session: AsyncClientSession | None,
 ) -> Bestand:
     """Everything `identifier` holds as its person's own, read unbounded: a capped read would leave a record at the replaced address.
@@ -188,9 +189,9 @@ async def read_the_bestand(
 class Belegung:
     """What `adresse_belegt` reads beyond the records: the grants, their open requests and the changes owing a carry."""
 
-    berechtigungen_collection: AsyncCollection
-    berechtigungen_antraege_collection: AsyncCollection
-    adresswechsel_collection: AsyncCollection
+    berechtigungen_collection: ReadCollection
+    berechtigungen_antraege_collection: ReadCollection
+    adresswechsel_collection: ReadCollection
     now: datetime
 
 
@@ -201,7 +202,7 @@ async def adresse_belegt(email: str, *, records: RecordCollections, belegung: Be
     """
 
     folded = sign_in_identifier(email)
-    reads: list[tuple[AsyncCollection, Mapping[str, Any]]] = [
+    reads: list[tuple[ReadCollection, Mapping[str, Any]]] = [
         (records.spieler_collection, build_self_pupil_filter(folded)),
         (records.schiedsrichter_collection, build_self_referee_filter(folded)),
         (records.saison_teams_collection, rows_seating(folded)),
@@ -358,7 +359,7 @@ def _bezug(address_change_id: ObjectId) -> FLOutboxReference:
 
 
 async def lage_of_the_link(
-    *, outbox_collection: AsyncCollection, address_change_id: ObjectId, session: AsyncClientSession | None = None
+    *, outbox_collection: ReadCollection, address_change_id: ObjectId, session: AsyncClientSession | None = None
 ) -> FLOutboxStatus | None:
     """What became of the new mailbox's last link mail, never the address on file's notice owed about the same change."""
 
@@ -465,9 +466,9 @@ async def judge_the_effect_in_session(
     record: Mapping[str, Any],
     holdings: Bestand,
     records: RecordCollections,
-    spieler_collection: AsyncCollection,
-    berechtigungen_collection: AsyncCollection,
-    berechtigungen_angekuendigt_collection: AsyncCollection,
+    spieler_collection: ReadCollection,
+    berechtigungen_collection: ReadCollection,
+    berechtigungen_angekuendigt_collection: ReadCollection,
     sperrliste: BanList,
     massgebliche_saison_id: Saison,
     belegung: Belegung,

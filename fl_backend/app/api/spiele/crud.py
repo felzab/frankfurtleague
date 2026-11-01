@@ -53,6 +53,7 @@ from app.api.teams.services import (
     offered_gruppen,
 )
 from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_one_in_db, pull_many_from_db, refuse
+from app.core.readonly import ReadCollection
 from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
@@ -293,7 +294,7 @@ async def pull_spieltag_span(
 
 
 async def pull_booked_venue(
-    spielorte_collection: AsyncCollection,
+    spielorte_collection: ReadCollection,
     spielort_id: CustomObjectId | None,
     session: AsyncClientSession | None = None,
 ) -> BookedVenue | None:

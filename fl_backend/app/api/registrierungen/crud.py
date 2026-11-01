@@ -20,6 +20,7 @@ from app.api.registrierungen.services import (
 )
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, pull_one_from_db, redact_log_rows_in_db
+from app.core.readonly import ReadCollection
 from app.shared.folding import sign_in_identifier
 
 # What the admission reads of a person: who they are, for the question, and what it overwrites.
@@ -35,7 +36,7 @@ PERSON_ANSICHT_FIELDS: tuple[str, ...] = (
 
 
 async def person_at_the_address(
-    *, spieler_collection: AsyncCollection, registrierung_raw: Mapping[str, Any], session: AsyncClientSession | None
+    *, spieler_collection: ReadCollection, registrierung_raw: Mapping[str, Any], session: AsyncClientSession | None
 ) -> Mapping[str, Any] | None:
     """The one person `uniq_spieler_email` holds to this registration's address, matched on the folded form `spieler.email` stores."""
 

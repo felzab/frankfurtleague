@@ -24,6 +24,7 @@ from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, erase_many_from_db, patch_many_in_db, refuse
 from app.core.exceptions import DocumentNotFoundError, WriteRefusal
 from app.core.journal import JournalLine
+from app.core.readonly import ReadCollection
 from app.core.security import erasure_journal_hash
 from app.shared.schemas.bounds import APPROVAL_DAYS
 from app.shared.schemas.literals import FLApprovalDenied, FLVerwaltung
@@ -85,7 +86,7 @@ async def read_the_antraege(
 
 
 async def read_the_antraege_of(
-    *, berechtigungen_antraege_collection: AsyncCollection, identifier: str, now: datetime, session: AsyncClientSession | None
+    *, berechtigungen_antraege_collection: ReadCollection, identifier: str, now: datetime, session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:
     """Every request not yet lapsed about this folded address or made by it, oldest first: what an erasure of it removes."""
 

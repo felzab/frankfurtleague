@@ -1,11 +1,12 @@
 import functools
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from http import HTTPStatus
 from typing import NamedTuple
 
 from fastapi import Depends, FastAPI, Request
 from pymongo import AsyncMongoClient
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import ConfigurationError, OperationFailure
@@ -160,6 +161,16 @@ async def get_database(
     if not hasattr(request.app.state, "db_client"):
         raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers={"Retry-After": "30"})
     return request.app.state.db_client[config.db_base_name]
+
+
+async def get_snapshot_session(client: AsyncMongoClient = Depends(get_db_client)) -> AsyncIterator[AsyncClientSession]:
+    """A session whose reads all see one moment, for an operation writing nothing that reads several times.
+
+    The session alone rather than the client it came from, so such an operation holds no handle to write through.
+    """
+
+    async with client.start_session(snapshot=True) as session:
+        yield session
 
 
 @functools.cache

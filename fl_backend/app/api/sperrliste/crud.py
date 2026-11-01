@@ -15,6 +15,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.sperrliste.services import stored_adresse_hash
 from app.core.crud import aggregate_many_from_db, pull_many_from_db
+from app.core.readonly import ReadCollection
 
 # What a served row may hold BEYOND `_id`, which the projection keeps unless something drops it. An
 # inclusion rather than an exclusion: a field added to the collection is withheld until somebody
@@ -64,7 +65,7 @@ async def read_sperrliste_page(
 
 async def address_is_gesperrt(
     *,
-    sperrliste_collection: AsyncCollection,
+    sperrliste_collection: ReadCollection,
     adresse_hash: str,
     # May be read before the caller's transaction, every rollover erasing what it lapses in the one
     # moving the season: an older reference matches as a sequential
@@ -93,7 +94,7 @@ async def address_is_gesperrt(
 
 async def gesperrte_hashes(
     *,
-    sperrliste_collection: AsyncCollection,
+    sperrliste_collection: ReadCollection,
     adresse_hashes: Iterable[str],
     massgebliche_saison_id: str | None,
     session: AsyncClientSession | None = None,
@@ -122,7 +123,7 @@ async def gesperrte_hashes(
 async def gesperrte_adressen(
     adressen: Iterable[str],
     *,
-    sperrliste_collection: AsyncCollection,
+    sperrliste_collection: ReadCollection,
     key: SecretStr,
     massgebliche_saison_id: str | None,
     session: AsyncClientSession | None = None,

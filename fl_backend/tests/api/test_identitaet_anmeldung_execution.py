@@ -241,12 +241,14 @@ def on_a_league(url: str, body: Body) -> Any:
 
 
 async def call_anmeldung(database: AsyncDatabase, email: str) -> FLSignInResponse:
-    return await get_sign_in(
-        anmeldung_data=FLSubjectPayload(email=email),
-        records=record_collections(database),
-        sperrliste=ban_list(database),
-        berechtigungen_collection=database[Collection.GRANTS],
-    )
+    async with database.client.start_session(snapshot=True) as session:
+        return await get_sign_in(
+            anmeldung_data=FLSubjectPayload(email=email),
+            records=record_collections(database),
+            sperrliste=ban_list(database),
+            berechtigungen_collection=database[Collection.GRANTS],
+            session=session,
+        )
 
 
 def answered(url: str, email: str) -> FLSignInResponse:

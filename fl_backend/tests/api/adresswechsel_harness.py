@@ -285,6 +285,14 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
         elif name == "actor":
             supplied[name] = person_actor(factor=PASSKEY_FACTOR)
 
+    if "session" in inspect.signature(handler).parameters and "session" not in given:
+        # The request's snapshot session (`app/core/dependencies.py :: SnapshotSession`), open for the handler's run.
+        async def in_a_snapshot() -> Any:
+            async with client.start_session(snapshot=True) as session:
+                return await handler(**supplied, session=session)
+
+        return in_a_snapshot()
+
     return handler(**supplied)
 
 

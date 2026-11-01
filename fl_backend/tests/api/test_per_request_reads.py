@@ -174,6 +174,7 @@ class TestTheSignInGatesReads:
                 records=stand_in,
                 sperrliste=ban_list({Collection.SPERRLISTE: stand_in, Collection.SAISONS: stand_in}),
                 berechtigungen_collection=stand_in,
+                session=stand_in,
             )
         )
 
@@ -199,9 +200,10 @@ class TestTheActorChecksTwoReads:
         monkeypatch.setattr(grants_crud, "aggregate_many_from_db", aggregate_many_from_db)
         monkeypatch.setattr(grants_crud, "adressen_gesperrt", adressen_barred)
 
-        # The grant read opens its snapshot session on the collection's own client.
-        grants = SimpleNamespace(database=SimpleNamespace(client=SimpleNamespace(start_session=lambda **_: nullcontext())))
-        asyncio.run(grants_crud.live_unbarred_grant_since(IDENTIFIER, berechtigungen_collection=cast(Any, grants), sperrliste=cast(Any, None)))
+        stand_in = cast(Any, None)
+        asyncio.run(
+            grants_crud.live_unbarred_grant_since(IDENTIFIER, berechtigungen_collection=stand_in, sperrliste=stand_in, session=stand_in)
+        )
 
         assert sorted(reads.issued) == ["ban", GRANTS]
         assert reads.peak == 2, "the check awaited the grant before asking the ban list"
