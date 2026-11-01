@@ -4,14 +4,14 @@ import { catalogue, COPY } from "./copy";
 
 import type { Code } from "./generated/client/types";
 
+// One rule over two codes: a match whose result no play decides carries no goals, on the fixture and in its report.
+const NO_TORE = "Nur ohne eingetragene Tore";
+
 /**
  * The catalogue's entries only the server reads, so no client bundle carries them: `COPY` is one object, and a
  * bundler keeps all of an object a client module imports. Branded as `COPY` is, so an entry passes wherever a `Copy`
  * is asked for.
  */
-// One rule over two codes: a match whose result no play decides carries no goals, on the fixture and in its report.
-const NO_TORE = "Nur ohne eingetragene Tore";
-
 export const SERVER_COPY = catalogue({
   /**
    * A refusal's own phrase, by the backend's code, for a code a person causes knowingly from a screen; every other
@@ -32,7 +32,7 @@ export const SERVER_COPY = catalogue({
   /**
    * A rule's own phrase, in the field patterns' form, by the kind the backend refuses a payload with
    * (`fields[].kind`), for a rule a person can break that no field pattern words: placed as `refusal` places a code.
-   * Every other rule is worded from the patterns by `fl_frontend/src/core/zodGerman.ts :: ruleMessage`.
+   * Every other rule is worded from the patterns by `fl_frontend/src/core/ruleMessage.ts :: ruleMessage`.
    */
   rule: {
     elfmeterschiessen_without_winner: "Nur mit Sieger",

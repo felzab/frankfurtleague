@@ -11,21 +11,22 @@ import { logger } from "./logging";
 import { logRefused } from "./refused";
 import { runWithRequestScope } from "./requestScope";
 import { isSeatAt, rolesOf } from "./roles";
+import { isWordedRule, ruleMessage } from "./ruleMessage";
 import { SERVER_COPY } from "./serverCopy";
 import { SITE_CACHE_TAG } from "./siteCache";
 import { getSubjectSession } from "./subject";
 import { mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "./trace";
 import { turnstileRefusal } from "./turnstile";
 import { TURNSTILE_FIELD } from "./turnstileToken";
-import { fieldMessage, isWordedRule, ruleMessage } from "./zodGerman";
+import { fieldMessage } from "./zodGerman";
 
 import type { z } from "zod";
 import type { AdminRefusal } from "./auth";
 import type { Copy } from "./copy";
 import type { Code, FLRefusedField } from "./generated/client/types";
 import type { Role } from "./roles";
+import type { WordedRule } from "./ruleMessage";
 import type { SubjectSession } from "./subject";
-import type { WordedRule } from "./zodGerman";
 
 /**
  * What a server action answers a form, as `action` builds it and the kit's `useFormAction` reads it: done, with
