@@ -10772,6 +10772,65 @@
         "title": "FLSaisonForfeitErgebnis",
         "type": "object"
       },
+      "FLSaisonFrameEntry": {
+        "description": "One season as the season pages' frame lists it: its id, its span and its status.",
+        "properties": {
+          "end_date": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "End Date",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "start_date": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Start Date",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FLSaisonStatus"
+          }
+        },
+        "required": [
+          "id",
+          "start_date",
+          "end_date",
+          "status"
+        ],
+        "title": "FLSaisonFrameEntry",
+        "type": "object"
+      },
+      "FLSaisonFrameResponse": {
+        "description": "Every season the public may read, the newest first, and the one the site is on.\n\n`active_saison_id` is null for a league no season has been activated in; a season stays active, finished or not,\nuntil the next is activated.",
+        "properties": {
+          "active_saison_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Saison Id"
+          },
+          "saisons": {
+            "items": {
+              "$ref": "#/components/schemas/FLSaisonFrameEntry"
+            },
+            "title": "Saisons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "saisons",
+          "active_saison_id"
+        ],
+        "title": "FLSaisonFrameResponse",
+        "type": "object"
+      },
       "FLSaisonPhase": {
         "enum": [
           "gruppenphase",
@@ -22622,6 +22681,69 @@
           }
         ],
         "summary": "The active Saison",
+        "tags": [
+          "saisons"
+        ]
+      }
+    },
+    "/api/v0/saisons/frame": {
+      "get": {
+        "description": "Every season the public may read, the newest first, and the one the site is on; that one is null for a league that has none.",
+        "operationId": "saisons_get_frame",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonFrameResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "BaseKey": []
+          }
+        ],
+        "summary": "The season pages' frame",
         "tags": [
           "saisons"
         ]

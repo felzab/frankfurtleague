@@ -133,6 +133,7 @@ import type {
   FLRegistrierungSweepResponse,
   FLReplaceSaisonTeamPayload,
   FLReplaceSaisonTeamResponse,
+  FLSaisonFrameResponse,
   FLSaisonsAdminListResponse,
   FLSaisonsListResponse,
   FLSaisonSpielerResponse,
@@ -2598,6 +2599,21 @@ export const getSaisonsGetActiveSaisonUrl = () => {
  */
 export const saisonsGetActiveSaison = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSaisonsSingleResponse> => {
   return baseKeyTransport<FLSaisonsSingleResponse>(getSaisonsGetActiveSaisonUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSaisonsGetFrameUrl = () => {
+  return `/api/v0/saisons/frame`;
+};
+
+/**
+ * Every season the public may read, the newest first, and the one the site is on; that one is null for a league that has none.
+ * @summary The season pages' frame
+ */
+export const saisonsGetFrame = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSaisonFrameResponse> => {
+  return baseKeyTransport<FLSaisonFrameResponse>(getSaisonsGetFrameUrl(), {
     ...options,
     method: "GET",
   });

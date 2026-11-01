@@ -284,6 +284,29 @@ class FLSaisonsAdminListResponse(BaseAPIResponse):
     saisons: list[FLSaisonAdmin]
 
 
+class FLSaisonFrameEntry(BaseReadModel):
+    """One season as the season pages' frame lists it: its id, its span and its status."""
+
+    id: str = Field(validation_alias="_id", serialization_alias="id")
+    start_date: CustomDateString
+    end_date: CustomDateString
+    status: FLSaisonStatus
+
+
+FLSaisonFrameEntryListAdapter = TypeAdapter(list[FLSaisonFrameEntry])
+
+
+class FLSaisonFrameResponse(BaseAPIResponse):
+    """Every season the public may read, the newest first, and the one the site is on.
+
+    `active_saison_id` is null for a league no season has been activated in; a season stays active, finished or not,
+    until the next is activated.
+    """
+
+    saisons: list[FLSaisonFrameEntry]
+    active_saison_id: str | None
+
+
 class FLSaisonsSingleResponse(BaseAPIResponse):
     format: Literal["single"] = "single"
     saison: FLSaison

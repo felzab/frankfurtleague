@@ -4221,6 +4221,29 @@ export interface FLSaisonAdmin {
 }
 
 /**
+ * One season as the season pages' frame lists it: its id, its span and its status.
+ */
+export interface FLSaisonFrameEntry {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  end_date: string;
+  id: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  start_date: string;
+  status: FLSaisonStatus;
+}
+
+/**
+ * Every season the public may read, the newest first, and the one the site is on.
+ *
+ * `active_saison_id` is null for a league no season has been activated in; a season stays active, finished or not,
+ * until the next is activated.
+ */
+export interface FLSaisonFrameResponse {
+  active_saison_id: string | null;
+  saisons: FLSaisonFrameEntry[];
+}
+
+/**
  * A junction row, which has no read model of its own -- so it is echoed as it was written.
  */
 export interface FLSaisonSpielerResponse {

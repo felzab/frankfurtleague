@@ -3,6 +3,8 @@ from fastapi import APIRouter, Depends
 from app.api.saisons.crud import pull_active_saison
 from app.api.saisons.schemas import (
     FLSaison,
+    FLSaisonFrameEntryListAdapter,
+    FLSaisonFrameResponse,
     FLSaisonListAdapter,
     FLSaisonsFilterParams,
     FLSaisonsListResponse,
@@ -13,6 +15,7 @@ from app.core.config import API_VERSION
 from app.core.crud import build_query, build_sort, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SaisonsCollection
 from app.core.security import verify_access_base
+from app.shared.schemas.bounds import LIST_LIMIT_MAX
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/saisons",
@@ -57,8 +60,28 @@ async def get_active_saison(
     return FLSaisonsSingleResponse(saison=saison)
 
 
-# Declared after `/current`: routes match in declaration order, and the `objectid` convertor cannot
-# help here, a season id being a four-character string.
+@router.get("/frame", response_model=FLSaisonFrameResponse, summary="The season pages' frame")
+async def get_frame(saisons_collection: SaisonsCollection) -> FLSaisonFrameResponse:
+    """Every season the public may read, the newest first, and the one the site is on; that one is null for a league that has none."""
+
+    saisons_raw = await pull_many_from_db(
+        collection=saisons_collection,
+        db_filter=base_tier_status_term(),
+        sort_by=[("_id", -1)],
+        projection=["_id", "start_date", "end_date", "status"],
+        limit=LIST_LIMIT_MAX,
+    )
+    saisons = FLSaisonFrameEntryListAdapter.validate_python(saisons_raw)
+
+    # The stored status alone: `uniq_saison_active` holds at most one, and activating the next
+    # season is the one write that moves it, so a finished season stays the site's until then.
+    active_saison_id = next((saison.id for saison in saisons if saison.status == "active"), None)
+
+    return FLSaisonFrameResponse(saisons=saisons, active_saison_id=active_saison_id)
+
+
+# Declared after `/active` and `/frame`: routes match in declaration order, and the `objectid`
+# convertor cannot help here, a season id being a four-character string.
 @router.get("/{saison_id}", response_model=FLSaisonsSingleResponse, summary="One Saison")
 async def get_saison(saison_id: str, saisons_collection: SaisonsCollection) -> FLSaisonsSingleResponse:
     """Return one season by its id; 404 when none carries it, rather than an empty list.
