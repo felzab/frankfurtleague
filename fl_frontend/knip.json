@@ -20,7 +20,6 @@
     "src/kit/StepsLine.tsx",
     "src/kit/Figures.tsx",
     "src/kit/Organisers.tsx",
-    "src/kit/LinkRows.tsx",
     // Session 4.
     "src/kit/Prose.tsx",
     "src/kit/AccountBox.tsx",
