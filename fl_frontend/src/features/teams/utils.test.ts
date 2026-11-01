@@ -703,16 +703,16 @@ describe("the club filter a link into the contacts list preselects", () => {
 
   /* Who seated a person is the one origin a seat keeps. */
   it("reads who seated each person, across the club's seats", () => {
-    const geseated = (eingetragen_von: FLKontaktperson["einwilligung"]["entered_by"]) => ({
+    const seated = (enteredBy: FLKontaktperson["einwilligung"]["entered_by"]) => ({
       ...kontaktperson("Tim"),
-      einwilligung: { ...kontaktperson("Tim").einwilligung, entered_by: eingetragen_von },
+      einwilligung: { ...kontaktperson("Tim").einwilligung, entered_by: enteredBy },
     });
     const [row] = buildKontaktRows(
       [
         club({
-          trainer: geseated("bewerbung"),
-          ansprechperson: geseated("liga"),
-          stellvertretung: geseated("liga"),
+          trainer: seated("bewerbung"),
+          ansprechperson: seated("liga"),
+          stellvertretung: seated("liga"),
           trainer_is_also: null,
         }),
       ],
