@@ -2828,32 +2828,6 @@
         "title": "FLAddressPayload",
         "type": "object"
       },
-      "FLApplicationWindow": {
-        "description": "The application window open today, by the one rule the submission refuses on, and the season it is for.",
-        "properties": {
-          "bis": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Bis",
-            "type": "string"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "von": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Von",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "von",
-          "bis"
-        ],
-        "title": "FLApplicationWindow",
-        "type": "object"
-      },
       "FLApprovalDenied": {
         "enum": [
           "own",
@@ -2897,8 +2871,8 @@
               }
             ]
           },
-          "startet": {
-            "title": "Startet",
+          "starts": {
+            "title": "Starts",
             "type": "boolean"
           },
           "type": {
@@ -2922,7 +2896,7 @@
           "nachname",
           "nummer",
           "position",
-          "startet"
+          "starts"
         ],
         "title": "FLAufstellungEntryPublic",
         "type": "object"
@@ -4383,6 +4357,32 @@
           "frist"
         ],
         "title": "FLBewerbungWiderspruchData",
+        "type": "object"
+      },
+      "FLBewerbungWindow": {
+        "description": "The application window open today, by the one rule the submission refuses on, and the season it is for.",
+        "properties": {
+          "bis": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bis",
+            "type": "string"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "von": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Von",
+            "type": "string"
+          }
+        },
+        "required": [
+          "saison_id",
+          "von",
+          "bis"
+        ],
+        "title": "FLBewerbungWindow",
         "type": "object"
       },
       "FLBewerbungWindowResponse": {
@@ -7742,10 +7742,10 @@
       "FLLandingResponse": {
         "description": "The landing's facts: the season the site is on, null for a league that has none, and an open window.",
         "properties": {
-          "application_window": {
+          "bewerbung_window": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLApplicationWindow"
+                "$ref": "#/components/schemas/FLBewerbungWindow"
               },
               {
                 "type": "null"
@@ -7765,7 +7765,7 @@
         },
         "required": [
           "saison",
-          "application_window"
+          "bewerbung_window"
         ],
         "title": "FLLandingResponse",
         "type": "object"

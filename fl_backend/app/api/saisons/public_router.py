@@ -8,7 +8,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.bewerbungen.services import saison_nimmt_bewerbungen_an
 from app.api.saisons.crud import has_started, pull_active_saison, pull_open_window_saison
 from app.api.saisons.schemas import (
-    FLApplicationWindow,
+    FLBewerbungWindow,
     FLLandingCounts,
     FLLandingKickoff,
     FLLandingResponse,
@@ -170,14 +170,14 @@ async def get_landing(
 
     # The submission's own rule over what the query found, so the landing never offers a window it refuses.
     window = (
-        FLApplicationWindow(saison_id=str(open_window["_id"]), von=open_window["bewerbung"]["von"], bis=open_window["bewerbung"]["bis"])
+        FLBewerbungWindow(saison_id=str(open_window["_id"]), von=open_window["bewerbung"]["von"], bis=open_window["bewerbung"]["bis"])
         if open_window is not None
         and saison_nimmt_bewerbungen_an(saison_status=open_window["status"], bewerbung=open_window["bewerbung"], today=today)
         else None
     )
 
     if saison is None:
-        return FLLandingResponse(saison=None, application_window=window)
+        return FLLandingResponse(saison=None, bewerbung_window=window)
 
     in_saison = {"saison_id": saison.id}
     # Two groups of reads sent at once, because one gather of nine types none of its results.
@@ -244,7 +244,7 @@ async def get_landing(
             ),
             teams=teams,
         ),
-        application_window=window,
+        bewerbung_window=window,
     )
 
 

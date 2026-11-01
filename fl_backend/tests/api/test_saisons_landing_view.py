@@ -154,7 +154,7 @@ def test_a_running_season_shows_its_latest_results_its_next_matches_and_its_figu
     assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == ([3, 2], [4, 5])
     assert saison.counts.model_dump() == {"count_teams": 2, "count_spieler": 1, "count_spiele": 6, "count_spieltage": 2}
     assert [team.name for team in saison.teams] == ["Alpha", "Beta"]
-    assert response.application_window.model_dump() == {"saison_id": NEXT, "von": "2026-03-01", "bis": "2026-03-31"}
+    assert response.bewerbung_window.model_dump() == {"saison_id": NEXT, "von": "2026-03-01", "bis": "2026-03-31"}
 
 
 @pytest.mark.db
@@ -232,7 +232,7 @@ def test_a_league_with_no_season_on_shows_none(mongo_url: str):
 
     response = landing(mongo_url, EMPTY_DATABASE_NAME)
 
-    assert (response.saison, response.application_window) == (None, None)
+    assert (response.saison, response.bewerbung_window) == (None, None)
 
 
 # The numbers the draw gives a bracket with semi-finals: theirs, then the match for third place, then the final.

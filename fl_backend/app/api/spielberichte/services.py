@@ -611,15 +611,15 @@ def _minute_order(minute: str) -> tuple[int, int]:
     return int(played), int(stoppage or 0)
 
 
-def compose_public_bericht(dokument: Mapping[str, Any], spiel_raw: Mapping[str, Any]) -> FLSpielberichtPublic:
+def compose_public_bericht(document: Mapping[str, Any], spiel_raw: Mapping[str, Any]) -> FLSpielberichtPublic:
     """What the public reads of one report, from `build_public_bericht_pipeline`'s document and the fixture.
 
     The scorers and the cards only while the report reads `adopted` (`bericht_zustand_of`): before the
     administrator adopts it, and after a correction made since, it is content nobody approved.
     """
 
-    persons = {person["_id"]: person for person in dokument.get(PUBLIC_PERSONS_AS, [])}
-    squad_rows = {(row["spieler_id"], row["team_id"]): row for row in dokument.get(PUBLIC_SQUAD_ROWS_AS, [])}
+    persons = {person["_id"]: person for person in document.get(PUBLIC_PERSONS_AS, [])}
+    squad_rows = {(row["spieler_id"], row["team_id"]): row for row in document.get(PUBLIC_SQUAD_ROWS_AS, [])}
 
     def spieler(spieler_id: ObjectId | None, seite: FLSpielSeite) -> dict[str, Any]:
         if spieler_id is None:
@@ -639,16 +639,16 @@ def compose_public_bericht(dokument: Mapping[str, Any], spiel_raw: Mapping[str, 
         }
 
     def aufstellung(seite: FLSpielSeite) -> dict[str, Any] | None:
-        block = (dokument.get(AUFSTELLUNGEN_FIELD) or {}).get(seite)
+        block = (document.get(AUFSTELLUNGEN_FIELD) or {}).get(seite)
         if block is None:
             return None
 
         return {
             "team_id": block["team_id"],
-            "spieler": [{**spieler(entry["spieler_id"], seite), "startet": entry["startet"]} for entry in block["spieler"]],
+            "spieler": [{**spieler(entry["spieler_id"], seite), "starts": entry["starts"]} for entry in block["spieler"]],
         }
 
-    bericht_raw = dokument.get("bericht")
+    bericht_raw = document.get("bericht")
     adopted = bericht_raw is not None and bericht_zustand_of(FLSpielberichtBericht.model_validate(bericht_raw), spiel_raw) == "adopted"
     gated = bericht_raw if adopted else None
 
