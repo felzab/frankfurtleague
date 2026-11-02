@@ -3668,8 +3668,8 @@ export const SpielorteReactivateSpielortParams = zod.object({
 /**
  * List a season's matchdays for the admin surfaces, a `future` season's included.
  *
- * Same filters, order and shape as `GET /spieltage`, without its season gate: a season's matchdays
- * are drawn while it is planned, and dating them is what this list is for.
+ * No season gate: a season's matchdays are drawn while it is planned, and dating them is what this
+ * list is for.
  * @summary Spieltage for the admin surfaces
  */
 export const spieltageGetSpieltageVerwaltungQueryLimitDefault = 1024;

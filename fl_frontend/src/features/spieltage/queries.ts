@@ -4,11 +4,7 @@ import { isRecordMissing } from "@/core/errors";
 import { spieltageGetSpieltageVerwaltung, spieltageGetSpieltagVerwaltung } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import type {
-  FLSpieltageListResponse,
-  FLSpieltageSingleResponse,
-  SpieltageGetSpieltageVerwaltungParams,
-} from "@/core/generated/client/types";
+import type { FLSpieltageListResponse, FLSpieltageSingleResponse, SpieltageGetSpieltageVerwaltungParams } from "@/core/generated/client/types";
 
 /** One in-flight admin matchday read per filter set, held for the length of one render pass. */
 const adminSpieltageInFlight = cache((): Map<string, Promise<FLSpieltageListResponse>> => new Map());

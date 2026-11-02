@@ -30108,7 +30108,7 @@
     },
     "/api/v0/spieltage/list/verwaltung": {
       "get": {
-        "description": "List a season's matchdays for the admin surfaces, a `future` season's included.\n\nSame filters, order and shape as `GET /spieltage`, without its season gate: a season's matchdays\nare drawn while it is planned, and dating them is what this list is for.",
+        "description": "List a season's matchdays for the admin surfaces, a `future` season's included.\n\nNo season gate: a season's matchdays are drawn while it is planned, and dating them is what this\nlist is for.",
         "operationId": "spieltage_get_spieltage_verwaltung",
         "parameters": [
           {
