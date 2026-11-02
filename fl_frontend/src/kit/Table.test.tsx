@@ -97,6 +97,29 @@ describe("a table's box", () => {
   });
 });
 
+describe("a table's rank column", () => {
+  // The Tabelle's places are the backend's: level clubs share one, and a club that has played no match holds
+  // none and stands last. A table counting its rows would number them 1, 2, 3, 4 whatever the standing says.
+  it("shows each row's own place, a shared one twice, and a dash for a row holding none", () => {
+    render(
+      <Table
+        {...props([
+          { id: "1", name: "Goethe", place: 1, cells: { stadtteil: "Nordend" } },
+          { id: "2", name: "Bettina", place: 1, cells: { stadtteil: "Westend" } },
+          { id: "3", name: "Schiller", place: 3, cells: { stadtteil: "Bornheim" } },
+          { id: "4", name: "Lessing", place: null, cells: { stadtteil: "Ostend" } },
+        ])}
+        rankLabel={COPY.shared.saison}
+      />,
+    );
+    const ranks = screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => row.firstElementChild?.textContent);
+    expect(ranks).toStrictEqual(["1", "1", "3", "–"]);
+  });
+});
+
 describe("a table's head", () => {
   // A card's head is the one band a card carries; a filled column head under it reads as a second band.
   it("sets its column heads over a hairline on the card's own fill, with no fill of their own", () => {
