@@ -1,6 +1,7 @@
+from datetime import date, datetime, time
 from typing import Annotated, Final, Literal, Self
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, computed_field, model_validator
 from pydantic_core import PydanticCustomError
 
 from app.api.spielberichte.schemas import FLSpielberichtPublic
@@ -443,11 +444,39 @@ PODIUM_PLACES: Final = 4
 type FLLandingState = Literal["before_start", "running", "decided"]
 
 
+class FLLandingSide(BaseReadModel):
+    """One side of the opening match, under the name and shorthand the club plays the season under."""
+
+    team_id: CustomObjectId
+    name: str
+    shorthand: str
+
+
 class FLLandingKickoff(BaseReadModel):
-    """When the season's first match is set to start."""
+    """The season's opening match: when it is set to start, its two sides and its Spieltag's `position`.
+
+    `datum` and `uhrzeit` are Berlin wall time, `anpfiff` the same moment as an instant. A side is null while its slot
+    is empty, as a match's own sides are.
+    """
 
     datum: CustomDateString
     uhrzeit: CustomTimeString | None
+    spieltag_position: int = Field(ge=1)
+    team1: FLLandingSide | None
+    team2: FLLandingSide | None
+
+    @computed_field
+    @property
+    def anpfiff(self) -> datetime | None:
+        """The kick-off as an instant, `datum` at `uhrzeit` in Berlin with that day's offset; null while `uhrzeit` is.
+
+        Null rather than the day's start, which no match kicks off at: a countdown to it would run out hours early.
+        """
+
+        if self.uhrzeit is None:
+            return None
+
+        return datetime.combine(date.fromisoformat(self.datum), time.fromisoformat(self.uhrzeit), tzinfo=clock.GERMANY)
 
 
 class FLPodiumPlace(BaseReadModel):
@@ -460,10 +489,14 @@ class FLPodiumPlace(BaseReadModel):
 
 
 class FLLandingCounts(BaseReadModel):
-    """The season's four figures, counted on every read: its clubs, those clubs' live squad rows, its matches and matchdays."""
+    """The season's four figures, counted on every read: its clubs, its goals, its matches and its matchdays.
+
+    `count_tore` is both sides' goals summed over every match of any phase the Tabelle would count, one carrying an
+    `ergebnis`: a forfeit's awarded goals among them, a shoot-out's never.
+    """
 
     count_teams: int = Field(ge=0)
-    count_spieler: int = Field(ge=0)
+    count_tore: int = Field(ge=0)
     count_spiele: int = Field(ge=0)
     count_spieltage: int = Field(ge=0)
 
@@ -471,7 +504,7 @@ class FLLandingCounts(BaseReadModel):
 class FLLandingSaison(BaseReadModel):
     """The season the site is on as the landing shows it.
 
-    `first_kickoff` before the start, null while no group match is dated; `recent` and `upcoming` while it runs,
+    `first_kickoff` before the start, the earliest dated group match, null while none is; `recent` and `upcoming` while it runs,
     the latest results and the next matches; `podium` once decided, each place its match has decided.
     """
 

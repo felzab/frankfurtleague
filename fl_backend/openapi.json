@@ -7673,16 +7673,11 @@
         "type": "object"
       },
       "FLLandingCounts": {
-        "description": "The season's four figures, counted on every read: its clubs, those clubs' live squad rows, its matches and matchdays.",
+        "description": "The season's four figures, counted on every read: its clubs, its goals, its matches and its matchdays.\n\n`count_tore` is both sides' goals summed over every match of any phase the Tabelle would count, one carrying an\n`ergebnis`: a forfeit's awarded goals among them, a shoot-out's never.",
         "properties": {
           "count_spiele": {
             "minimum": 0.0,
             "title": "Count Spiele",
-            "type": "integer"
-          },
-          "count_spieler": {
-            "minimum": 0.0,
-            "title": "Count Spieler",
             "type": "integer"
           },
           "count_spieltage": {
@@ -7694,11 +7689,16 @@
             "minimum": 0.0,
             "title": "Count Teams",
             "type": "integer"
+          },
+          "count_tore": {
+            "minimum": 0.0,
+            "title": "Count Tore",
+            "type": "integer"
           }
         },
         "required": [
           "count_teams",
-          "count_spieler",
+          "count_tore",
           "count_spiele",
           "count_spieltage"
         ],
@@ -7706,12 +7706,51 @@
         "type": "object"
       },
       "FLLandingKickoff": {
-        "description": "When the season's first match is set to start.",
+        "description": "The season's opening match: when it is set to start, its two sides and its Spieltag's `position`.\n\n`datum` and `uhrzeit` are Berlin wall time, `anpfiff` the same moment as an instant. A side is null while its slot\nis empty, as a match's own sides are.",
         "properties": {
+          "anpfiff": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The kick-off as an instant, `datum` at `uhrzeit` in Berlin with that day's offset; null while `uhrzeit` is.\n\nNull rather than the day's start, which no match kicks off at: a countdown to it would run out hours early.",
+            "readOnly": true,
+            "title": "Anpfiff"
+          },
           "datum": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Datum",
             "type": "string"
+          },
+          "spieltag_position": {
+            "minimum": 1.0,
+            "title": "Spieltag Position",
+            "type": "integer"
+          },
+          "team1": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLLandingSide"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team2": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLLandingSide"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "uhrzeit": {
             "anyOf": [
@@ -7728,7 +7767,11 @@
         },
         "required": [
           "datum",
-          "uhrzeit"
+          "uhrzeit",
+          "spieltag_position",
+          "team1",
+          "team2",
+          "anpfiff"
         ],
         "title": "FLLandingKickoff",
         "type": "object"
@@ -7765,7 +7808,7 @@
         "type": "object"
       },
       "FLLandingSaison": {
-        "description": "The season the site is on as the landing shows it.\n\n`first_kickoff` before the start, null while no group match is dated; `recent` and `upcoming` while it runs,\nthe latest results and the next matches; `podium` once decided, each place its match has decided.",
+        "description": "The season the site is on as the landing shows it.\n\n`first_kickoff` before the start, the earliest dated group match, null while none is; `recent` and `upcoming` while it runs,\nthe latest results and the next matches; `podium` once decided, each place its match has decided.",
         "properties": {
           "counts": {
             "$ref": "#/components/schemas/FLLandingCounts"
@@ -7827,6 +7870,31 @@
           "teams"
         ],
         "title": "FLLandingSaison",
+        "type": "object"
+      },
+      "FLLandingSide": {
+        "description": "One side of the opening match, under the name and shorthand the club plays the season under.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "shorthand": {
+            "title": "Shorthand",
+            "type": "string"
+          },
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "team_id",
+          "name",
+          "shorthand"
+        ],
+        "title": "FLLandingSide",
         "type": "object"
       },
       "FLLandingState": {

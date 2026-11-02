@@ -46,7 +46,7 @@ from app.api.teams.schemas import (
     FLTeamPageClub,
     FLTeamsFilterParams,
 )
-from app.api.teams.services import build_team_pipeline
+from app.api.teams.services import build_team_pipeline, counting_fixtures_match
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, build_query, build_sort, pull_many_from_db, pull_one_from_db
@@ -130,15 +130,41 @@ async def get_frame(saisons_collection: SaisonsCollection) -> FLSaisonFrameRespo
 LANDING_SPIELE: Final = 2
 
 
+_SPIELTAG_ROWS_AS = "spieltag_rows"
+
+# The matchday's `position` beside the match, which a match's page and the landing's opening match name it by, in the same aggregation.
+_SPIELTAG_POSITION_LOOKUP: Mapping[str, Any] = {
+    "$lookup": {
+        "from": Collection.SPIELTAGE,
+        "localField": "spieltag_id",
+        "foreignField": "_id",
+        "pipeline": [{"$project": {"_id": 0, "position": 1}}],
+        "as": _SPIELTAG_ROWS_AS,
+    }
+}
+
+
 def _first_kickoff_pipeline(saison_id: str) -> list[Mapping[str, Any]]:
-    """The season's earliest dated group match, a timed one ahead of an untimed one on the same day."""
+    """The season's earliest dated group match, a timed one ahead of an untimed one on the same day, with its matchday's `position`."""
 
     return [
         {"$match": {"saison_id": saison_id, "saison_phase": "gruppenphase", "datum": {"$type": "string"}}},
         # A null sorts ahead of every time, so an untimed fixture would otherwise hide the opening day's kick-off.
         {"$set": {"untimed": {"$ne": [{"$type": "$uhrzeit"}, "string"]}}},
         {"$sort": {"datum": 1, "untimed": 1, "uhrzeit": 1}},
-        {"$project": {"_id": 0, "datum": 1, "uhrzeit": 1}},
+        # Ahead of the lookup, so it joins the one match served rather than every dated one.
+        {"$limit": 1},
+        _SPIELTAG_POSITION_LOOKUP,
+        {
+            "$project": {
+                "_id": 0,
+                "datum": 1,
+                "uhrzeit": 1,
+                "spieltag_position": {"$first": f"${_SPIELTAG_ROWS_AS}.position"},
+                "team1": 1,
+                "team2": 1,
+            }
+        },
     ]
 
 
@@ -155,7 +181,6 @@ async def get_landing(
     spiele_collection: SpieleCollection,
     spieltage_collection: SpieltageCollection,
     teams_collection: TeamsCollection,
-    saison_spieler_collection: SaisonSpielerCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLLandingResponse:
     """The season the site is on, `before_start`, `running` or `decided`, null for a league that has none; its figures counted on every read.
@@ -181,7 +206,7 @@ async def get_landing(
 
     in_saison = {"saison_id": saison.id}
     # Two groups of reads sent at once, because one gather of nine types none of its results.
-    (started, first_raw, recent_raw, upcoming_raw, finale_raw), (teams, squads_raw, count_spiele, count_spieltage) = await asyncio.gather(
+    (started, first_raw, recent_raw, upcoming_raw, finale_raw), (teams, tore_raw, count_spiele, count_spieltage) = await asyncio.gather(
         asyncio.gather(
             has_started(spiele_collection=spiele_collection, saison_id=saison.id, today=today),
             aggregate_many_from_db(collection=spiele_collection, pipeline=_first_kickoff_pipeline(saison.id), limit=1),
@@ -207,11 +232,13 @@ async def get_landing(
         ),
         asyncio.gather(
             _clubs_of(teams_collection=teams_collection, saison_id=saison.id),
-            # Under the collation `saison_spieler_saison_id_team_id_de` is built with, which an index serves a match by alone.
+            # The matches the Tabelle counts, every phase's, as `count_spiele` counts them.
             aggregate_many_from_db(
-                collection=saison_spieler_collection,
-                pipeline=[{"$match": {**in_saison, "inactive_since": None}}, {"$group": {"_id": "$team_id", "count": {"$sum": 1}}}],
-                collation=GERMAN_COLLATION,
+                collection=spiele_collection,
+                pipeline=[
+                    {"$match": {**in_saison, **counting_fixtures_match()}},
+                    {"$group": {"_id": None, "tore": {"$sum": {"$add": ["$team1.tore", "$team2.tore"]}}}},
+                ],
             ),
             spiele_collection.count_documents(in_saison),
             spieltage_collection.count_documents(in_saison),
@@ -224,9 +251,6 @@ async def get_landing(
         for platz, side in podium_of(FLSpielJoinedListAdapter.validate_python(finale_raw))
     ]
 
-    # The live rows of the clubs `count_teams` counts, so a club that left takes its squad out of the figure with it.
-    counted_teams = {team.id for team in teams}
-    count_spieler = sum(row["count"] for row in squads_raw if row["_id"] in counted_teams)
     first = first_raw[0] if first_raw else None
 
     state: FLLandingState = "decided" if any(place.platz == 1 for place in podium) else "running" if started else "before_start"
@@ -235,12 +259,16 @@ async def get_landing(
         saison=FLLandingSaison(
             id=saison.id,
             state=state,
-            first_kickoff=FLLandingKickoff(datum=first["datum"], uhrzeit=first.get("uhrzeit")) if state == "before_start" and first else None,
+            first_kickoff=FLLandingKickoff.model_validate(first) if state == "before_start" and first else None,
             recent=FLSpielJoinedListAdapter.validate_python(recent_raw) if state == "running" else [],
             upcoming=FLSpielJoinedListAdapter.validate_python(upcoming_raw) if state == "running" else [],
             podium=podium if state == "decided" else [],
             counts=FLLandingCounts(
-                count_teams=len(teams), count_spieler=count_spieler, count_spiele=count_spiele, count_spieltage=count_spieltage
+                count_teams=len(teams),
+                # No group row where no match counts yet.
+                count_tore=tore_raw[0]["tore"] if tore_raw else 0,
+                count_spiele=count_spiele,
+                count_spieltage=count_spieltage,
             ),
             teams=teams,
         ),
@@ -435,20 +463,6 @@ async def get_team(
         spiele=FLSpielJoinedListAdapter.validate_python(spiele_raw),
         kader=FLSpielerListAdapter.validate_python(kader_raw),
     )
-
-
-_SPIELTAG_ROWS_AS = "spieltag_rows"
-
-# The matchday's `position` beside the match, which the page's eyebrow names it by, in the same aggregation.
-_SPIELTAG_POSITION_LOOKUP: Mapping[str, Any] = {
-    "$lookup": {
-        "from": Collection.SPIELTAGE,
-        "localField": "spieltag_id",
-        "foreignField": "_id",
-        "pipeline": [{"$project": {"_id": 0, "position": 1}}],
-        "as": _SPIELTAG_ROWS_AS,
-    }
-}
 
 
 @router.get(f"/{{saison_id}}/spiele{by_id('spiel_id')}", response_model=FLSpielPageResponse, summary="One Spiel's page")

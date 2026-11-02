@@ -3171,25 +3171,51 @@ export interface FLKontaktpersonPayload {
 }
 
 /**
- * The season's four figures, counted on every read: its clubs, those clubs' live squad rows, its matches and matchdays.
+ * The season's four figures, counted on every read: its clubs, its goals, its matches and its matchdays.
+ *
+ * `count_tore` is both sides' goals summed over every match of any phase the Tabelle would count, one carrying an
+ * `ergebnis`: a forfeit's awarded goals among them, a shoot-out's never.
  */
 export interface FLLandingCounts {
   /** @minimum 0 */
   count_spiele: number;
   /** @minimum 0 */
-  count_spieler: number;
-  /** @minimum 0 */
   count_spieltage: number;
   /** @minimum 0 */
   count_teams: number;
+  /** @minimum 0 */
+  count_tore: number;
 }
 
 /**
- * When the season's first match is set to start.
+ * One side of the opening match, under the name and shorthand the club plays the season under.
+ */
+export interface FLLandingSide {
+  name: string;
+  shorthand: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+}
+
+/**
+ * The season's opening match: when it is set to start, its two sides and its Spieltag's `position`.
+ *
+ * `datum` and `uhrzeit` are Berlin wall time, `anpfiff` the same moment as an instant. A side is null while its slot
+ * is empty, as a match's own sides are.
  */
 export interface FLLandingKickoff {
+  /**
+   * The kick-off as an instant, `datum` at `uhrzeit` in Berlin with that day's offset; null while `uhrzeit` is.
+   *
+   * Null rather than the day's start, which no match kicks off at: a countdown to it would run out hours early.
+   */
+  readonly anpfiff: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   datum: string;
+  /** @minimum 1 */
+  spieltag_position: number;
+  team1: FLLandingSide | null;
+  team2: FLLandingSide | null;
   uhrzeit: string | null;
 }
 
@@ -3233,7 +3259,7 @@ export interface FLSaisonTeamEntry {
 /**
  * The season the site is on as the landing shows it.
  *
- * `first_kickoff` before the start, null while no group match is dated; `recent` and `upcoming` while it runs,
+ * `first_kickoff` before the start, the earliest dated group match, null while none is; `recent` and `upcoming` while it runs,
  * the latest results and the next matches; `podium` once decided, each place its match has decided.
  */
 export interface FLLandingSaison {

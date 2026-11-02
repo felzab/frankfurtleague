@@ -1,18 +1,18 @@
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 from bson import ObjectId
-from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_landing
+from app.api.saisons.schemas import FLLandingKickoff
 from app.api.spiele.schemas import FLSpielElfmeterschiessen, FLSpielJoined, FLSpielQuelleSpiel, FLSpielTeamFieldJoined
 from app.api.spiele.services import podium_of
 from app.core.collections import Collection
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
-from tests.plans import plans_of_sent_reads
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -89,7 +89,7 @@ def seeded(url: str, database_name: str, collections: dict[str, list[dict[str, A
 def running_url(mongo_url: str) -> Iterator[str]:
     """A season under way: three matches played and three to come, so both lists hold more than they show.
 
-    Three clubs, one of which left the league, and three squad rows: one live, one ausgetragen, and the retired club's.
+    Three clubs, one of which left the league; seven goals, four of them away, in the three played.
     """
 
     seeded(
@@ -116,11 +116,6 @@ def running_url(mongo_url: str) -> Iterator[str]:
                 match(3, DAY_1, "2026-03-01", (1, 3)),
                 match(4, DAY_2, "2026-03-08", None),
             ],
-            Collection.SAISON_SPIELER: [
-                documents.saison_spieler_document(ObjectId(), SAISON, ALPHA),
-                documents.saison_spieler_document(ObjectId(), SAISON, BETA, inactive_since="2026-02-01"),
-                documents.saison_spieler_document(ObjectId(), SAISON, RETIRED),
-            ],
         },
     )
 
@@ -128,13 +123,12 @@ def running_url(mongo_url: str) -> Iterator[str]:
         yield mongo_url
 
 
-async def landing_of(database: AsyncDatabase, _client: AsyncMongoClient | None = None) -> Any:
+async def landing_of(database: AsyncDatabase) -> Any:
     return await get_landing(
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
         teams_collection=database[Collection.TEAMS],
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
         today=TODAY,
     )
 
@@ -145,46 +139,35 @@ def landing(url: str, database_name: str) -> Any:
 
 @pytest.mark.db
 def test_a_running_season_shows_its_latest_results_its_next_matches_and_its_figures(running_url: str):
-    """The latest two results newest first and the next two soonest first; the retired club and its squad in neither figure."""
+    """The latest two results newest first and the next two soonest first; the retired club in no figure."""
 
     response = landing(running_url, RUNNING_DATABASE_NAME)
     saison = response.saison
 
     assert (saison.id, saison.state, saison.first_kickoff, saison.podium) == (SAISON, "running", None, [])
     assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == ([3, 2], [4, 5])
-    assert saison.counts.model_dump() == {"count_teams": 2, "count_spieler": 1, "count_spiele": 6, "count_spieltage": 2}
+    assert saison.counts.model_dump() == {"count_teams": 2, "count_tore": 7, "count_spiele": 6, "count_spieltage": 2}
     assert [team.name for team in saison.teams] == ["Alpha", "Beta"]
     assert response.bewerbung_window.model_dump() == {"saison_id": NEXT, "von": "2026-03-01", "bis": "2026-03-31"}
 
 
 @pytest.mark.db
-def test_the_squad_count_walks_the_season_index(running_url: str):
-    """Read on every uncached landing, so a count the collated index cannot serve scans every season's squad rows."""
-
-    async def body() -> list[tuple[str, str]]:
-        database: AsyncDatabase = shared_client(running_url)[RUNNING_DATABASE_NAME]
-        _, sent = await plans_of_sent_reads(running_url, database, landing_of, lambda collection, _: collection == Collection.SAISON_SPIELER)
-
-        return sent
-
-    [(_, plan)] = on_the_seed_loop(body())
-
-    assert plan == "IXSCAN { saison_id: 1, team_id: 1 }"
-
-
-@pytest.mark.db
 def test_a_season_before_its_first_match_shows_when_it_kicks_off(mongo_url: str):
-    """The opening day holds an untimed fixture beside two timed ones, which a null sorting ahead of every time would hide."""
+    """The opening day holds an untimed fixture beside two timed ones, which a null sorting ahead of every time would hide.
+
+    Its Spieltag is the second, the first dated later, so the position served is the opening match's own; and the
+    opening match fields Beta first, so neither side is read off another match.
+    """
 
     seeded(
         mongo_url,
         BEFORE_START_DATABASE_NAME,
         {
-            Collection.SPIELTAGE: [spieltag(DAY_1, 1), spieltag(DAY_2, 2)],
+            Collection.SPIELTAGE: [spieltag(DAY_1, 2), spieltag(DAY_2, 1)],
             Collection.SPIELE: [
                 match(1, DAY_1, "2026-03-10", None, uhrzeit=None),
                 match(2, DAY_1, "2026-03-10", None, uhrzeit="17:30:00"),
-                match(3, DAY_1, "2026-03-10", None, uhrzeit="15:00:00"),
+                match(3, DAY_1, "2026-03-10", None, uhrzeit="15:00:00", names=("Beta", "Alpha")),
                 match(4, DAY_2, "2026-03-17", None, uhrzeit="10:00:00"),
                 match(5, DAY_2, None, None, uhrzeit=None),
             ],
@@ -194,12 +177,37 @@ def test_a_season_before_its_first_match_shows_when_it_kicks_off(mongo_url: str)
     saison = landing(mongo_url, BEFORE_START_DATABASE_NAME).saison
 
     assert (saison.state, saison.recent, saison.upcoming, saison.podium) == ("before_start", [], [], [])
-    assert saison.first_kickoff.model_dump() == {"datum": "2026-03-10", "uhrzeit": "15:00:00"}
+    assert saison.first_kickoff.model_dump() == {
+        "datum": "2026-03-10",
+        "uhrzeit": "15:00:00",
+        # Winter time in Berlin, an hour ahead of UTC.
+        "anpfiff": datetime(2026, 3, 10, 14, 0, tzinfo=UTC),
+        "spieltag_position": 2,
+        "team1": {"team_id": str(BETA), "name": "Beta", "shorthand": "BET"},
+        "team2": {"team_id": str(ALPHA), "name": "Alpha", "shorthand": "ALP"},
+    }
+
+
+@pytest.mark.parametrize(
+    ("datum", "uhrzeit", "anpfiff"),
+    [
+        pytest.param("2026-07-04", "15:00:00", datetime(2026, 7, 4, 13, 0, tzinfo=UTC), id="summer time, two hours ahead of UTC"),
+        pytest.param("2026-11-07", "15:00:00", datetime(2026, 11, 7, 14, 0, tzinfo=UTC), id="winter time, one hour ahead of UTC"),
+        pytest.param("2026-07-04", None, None, id="no time set, so no instant to count down to"),
+    ],
+)
+def test_the_kick_off_is_served_as_the_instant_berlin_wall_time_names(datum: str, uhrzeit: str | None, anpfiff: datetime | None):
+    kickoff = FLLandingKickoff(datum=datum, uhrzeit=uhrzeit, spieltag_position=1, team1=None, team2=None)
+
+    assert kickoff.anpfiff == anpfiff
 
 
 @pytest.mark.db
 def test_a_season_whose_final_is_played_shows_its_podium(mongo_url: str):
-    """The match for third place and the final, read off the Finale's matchday through the joined shape the landing serves."""
+    """The match for third place and the final, read off the Finale's matchday through the joined shape the landing serves.
+
+    Its goals count the Finale's beside the group phase's, as the season's own figure.
+    """
 
     seeded(
         mongo_url,
@@ -218,6 +226,7 @@ def test_a_season_whose_final_is_played_shows_its_podium(mongo_url: str):
 
     assert (saison.state, saison.recent, saison.upcoming) == ("decided", [], [])
     assert [(place.platz, place.name) for place in saison.podium] == [(1, "Alpha"), (2, "Beta"), (3, "Dora"), (4, "Cara")]
+    assert saison.counts.count_tore == 7
 
 
 @pytest.mark.db
