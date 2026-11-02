@@ -8,11 +8,14 @@ handler or in any helper it hands them to. This holds the mark to those types, r
 way FastAPI resolves it: each database handle the handler or a dependency of it declares, judged by the type it is
 declared as.
 
-The fixture save's dry run (`x-safe-when` on `PATCH /spiele/{spiel_id}`) writes on the arm that is not dry, so it is
-handed writable collections and judged by no type; `tests/api/test_spiele_dry_run_execution.py` holds the dry arm,
-every collection of the database compared before and after a preview.
+The fixture save's dry run (`x-safe-when` on `PATCH /spiele/{spiel_id}`) writes on the arm that is not dry, so its
+handler is handed writable collections and judged here by no type. The read helpers its dry arm calls take read-only
+collections, so pyright refuses a write in any of them, on every path; the handler's own closures hold the writable
+ones, and `tests/api/test_spiele_dry_run_execution.py` holds them on the one scenario it runs, every collection of the
+database compared before and after a preview.
 """
 
+import inspect
 from collections.abc import AsyncGenerator, AsyncIterator, Callable, Generator, Iterator
 from typing import Any, Union, get_args, get_origin, get_type_hints
 
@@ -86,8 +89,12 @@ def handles(dependant: Dependant) -> Iterator[tuple[str, type]]:
     included, which names no parameter.
     """
 
-    # `Annotated` taken off, which leaves the type FastAPI hands the parameter.
-    declared = get_type_hints(dependant.call) if dependant.call is not None else {}
+    # The signature FastAPI injects by: a class's `__init__` rather than the annotations the class declares, which may
+    # name a narrower type than it takes, and a callable instance's `__call__`. `Annotated` taken off, which leaves the
+    # type FastAPI hands the parameter.
+    call = dependant.call
+    target = call.__init__ if inspect.isclass(call) else call if inspect.isroutine(call) else type(call).__call__
+    declared = get_type_hints(target) if call is not None else {}
     for sub in dependant.dependencies:
         kind = _handle_kind(declared.get(sub.name)) if sub.name is not None else None
         if kind is None and sub.call is not None:

@@ -91,7 +91,7 @@ def _started(saison_id: str | Mapping[str, Any], today: str) -> Mapping[str, Any
 
 
 async def pull_saison_id_and_rules(
-    saisons_collection: AsyncCollection,
+    saisons_collection: ReadCollection,
     saison_id: str | None,
 ) -> tuple[str, FLSaisonRules]:
     """A season's id and its scoring rules.

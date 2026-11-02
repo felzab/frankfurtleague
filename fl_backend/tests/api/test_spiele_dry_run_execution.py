@@ -3,9 +3,9 @@ API · the fixture save's dry run writes nothing anywhere
 
 `PATCH /spiele/{spiel_id}?dry_run=true` is the one operation the contract marks safe on a condition (`x-safe-when`),
 so the frontend sends it as a read: it clears no cached read and drains no mail. Its handler holds writable
-collections for the arm that saves, so no type keeps the preview from writing (`tests/core/test_safe_operations.py`);
-this holds it by the database itself, every collection compared before and after the request, rather than the fields
-another test happens to read back.
+collections for the arm that saves: the read helpers the preview calls take read-only ones, but the handler's own
+closures are judged by no type (`tests/core/test_safe_operations.py`). This holds the preview by the database itself,
+every collection compared before and after the request, rather than the fields another test happens to read back.
 """
 
 import asyncio
@@ -162,7 +162,11 @@ def seeded_url(mongo_replica_set_url: str) -> str:
 
 
 def previewed(url: str, body: dict[str, Any]) -> Response:
-    """The dry run as a real request, guards and middleware included, which a write could hide in as well."""
+    """The dry run as a real request, guards and middleware included, which a write could hide in as well.
+
+    A write the preview defers past its response, in a task it starts and leaves running, escapes this: `asyncio.run`
+    cancels the task once the response is in, where the server's loop would let it land.
+    """
 
     async def _answered() -> Response:
         async with app_client(url, app=_served(), now=NOW) as http:
