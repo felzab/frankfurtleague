@@ -15,6 +15,7 @@ const SPIEL = {
   home: { name: "Goethe", plaque: { kuerzel: "GOE" } },
   away: { name: "Helmholtz", plaque: { kuerzel: "HEL" } },
 } as const;
+const OPENING = { spieltag: SERVER_COPY.landing.saison.spieltag(1), home: "GOE", away: "HEL" } as const;
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -30,12 +31,37 @@ describe("the season's card before the start", () => {
     render(
       <SaisonBlock
         title={TITLE}
-        state={{ kind: "countdown", kickoff: new Date(Date.now() + 12 * DAY_MS).toISOString(), when: SPIEL.when }}
+        state={{ kind: "countdown", kickoff: new Date(Date.now() + 12 * DAY_MS).toISOString(), when: SPIEL.when, opening: OPENING }}
       />,
     );
     const timer = screen.getByRole("timer");
     expect(timer.textContent).toBe(`12${COPY.landing.saison.days}0${COPY.landing.saison.hours}0${COPY.landing.saison.minutes}`);
     expect(screen.getByText(SERVER_COPY.landing.saison.kickoff(SPIEL.when))).toBeTruthy();
+  });
+
+  // The opening match by its plaques alone, so the line a phone shows never wraps (D481, D489).
+  it("names the opening match by its matchday and its two plaques, without the clubs' names", () => {
+    render(
+      <SaisonBlock
+        title={TITLE}
+        state={{ kind: "countdown", kickoff: new Date(Date.now() + DAY_MS).toISOString(), when: SPIEL.when, opening: OPENING }}
+      />,
+    );
+    const line = screen.getByText(OPENING.spieltag).parentElement;
+    expect(line?.textContent).toBe(`${OPENING.spieltag}GOE–HEL`);
+    expect(screen.queryByText(SPIEL.home.name)).toBe(null);
+  });
+
+  it("says that nothing is dated yet while no window is open either", () => {
+    render(
+      <SaisonBlock
+        title={TITLE}
+        state={{ kind: "undated" }}
+      />,
+    );
+    expect(screen.getByText(SERVER_COPY.landing.saison.undated)).toBeTruthy();
+    expect(screen.queryByRole("timer")).toBe(null);
+    expect(screen.queryByRole("link")).toBe(null);
   });
 
   it("shows the application window while no match is dated, with the way to apply", () => {
@@ -46,7 +72,7 @@ describe("the season's card before the start", () => {
       />,
     );
     expect(screen.getByText(SERVER_COPY.landing.saison.windowUntil("2026-12-31"))).toBeTruthy();
-    expect(screen.getByRole("link", { name: SERVER_COPY.landing.applyNow }).getAttribute("href")).toBe("/bewerbung/2027");
+    expect(screen.getByRole("link", { name: SERVER_COPY.landing.toBewerbung }).getAttribute("href")).toBe("/bewerbung/2027");
     expect(screen.queryByRole("timer")).toBe(null);
   });
 });
