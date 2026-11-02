@@ -44,7 +44,7 @@ export type SpielHeadProps = {
 const head = tv({
   extend: sideMarks,
   slots: {
-    root: "grid justify-items-center gap-4 bg-bg-surface p-6",
+    root: "grid justify-items-center gap-4 bg-bg-card-head p-6",
     eyebrow: "text-xs font-medium text-fg-muted",
     side: "grid min-w-0 justify-items-center gap-2 text-center",
     // Cut with „…“ where the side's third of the head is too narrow, as a phone's is for a long name.
@@ -53,7 +53,7 @@ const head = tv({
   },
   variants: {
     placement: {
-      // The band: the lighter surface run edge to edge across the dialog's top, the padding the box declares
+      /// The band: the card head's fill run edge to edge across the dialog's top, the padding the box declares
       // taken back around it, so the pairing is framed as the old pop-up framed the teams, on a surface of
       // its own. Its top corners are the box's: a box whose overflow is not visible clips its content to its
       // rounded padding edge (CSS Backgrounds 3, corner clipping).

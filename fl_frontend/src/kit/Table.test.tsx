@@ -80,6 +80,16 @@ describe("a table's name cell", () => {
   });
 });
 
+describe("a table's head", () => {
+  // A card's head is the one band a card carries; a filled column head under it reads as a second band.
+  it("sets its column heads over a hairline on the card's own fill, with no fill of their own", () => {
+    render(<Table {...props([{ id: "1", name: "Goethe", href: "/saisons/2027", cells: { stadtteil: "Nordend" } }])} />);
+    const head = screen.getByRole("table").querySelector("thead tr");
+    expect(head?.classList).toContain("border-b");
+    for (const cell of head?.children ?? []) expect(cell.className).not.toMatch(/(^|\s|:)bg-/);
+  });
+});
+
 describe("a figure short of fixtures called off", () => {
   it("carries a red „+N“ centred on its corner, which a screen reader hears by name", () => {
     render(<Table {...props([{ id: "1", name: "Goethe", cells: { stadtteil: { value: "5", cancelled: 2 } } }])} />);

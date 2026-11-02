@@ -60,7 +60,7 @@ export function AccountBox({
           </div>
           <div className="grid justify-items-start gap-4">{children}</div>
         </div>
-        <div className="flex items-center gap-3 border-t border-border bg-bg-surface px-4 py-3">
+        <div className="flex items-center gap-3 border-t border-border bg-bg-card-head px-4 py-3">
           <StatusLine
             status={status}
             placement="row"

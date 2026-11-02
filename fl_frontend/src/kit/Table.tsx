@@ -66,7 +66,9 @@ export type TableProps = {
 
 const table = tv({
   slots: {
-    head: "h-10 bg-bg-surface px-3 text-xs font-medium tracking-caps whitespace-nowrap text-fg-muted uppercase",
+    // Small muted capitals over the head row's hairline on the card's own fill: a card's head is the one band
+    // it carries, so the column heads never compete with it.
+    head: "h-10 px-3 text-xs font-medium tracking-caps whitespace-nowrap text-fg-muted uppercase",
     // A row a link may point to by its fragment, marked while the address names it.
     row: "kit-target relative h-14 border-t border-border first:border-t-0 lg:h-13",
     cell: "px-3 whitespace-nowrap",
@@ -178,8 +180,8 @@ function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
 }
 
 /**
- * A list of records: rows 52 px high on desktop and 56 on a phone, lines between them, under a grey
- * capital head. A row opens its record, a chevron at its end saying so. Few columns: the name with its plaque
+ * A list of records: rows 52 px high on desktop and 56 on a phone, lines between them, under a head of
+ * muted capitals. A row opens its record, a chevron at its end saying so. Few columns: the name with its plaque
  * and chip, then a few facts.
  */
 export function Table({ label, nameLabel, rankLabel, columns, rows, empty }: TableProps) {
