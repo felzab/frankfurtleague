@@ -11,10 +11,11 @@ import type { ChipProps } from "./Chip";
 /** A card's one line under its title: catalogue text such as a figure's meaning, or a record's own detail. */
 type Line = { line: Copy; lineText?: never } | { lineText: string; line?: never };
 
+/** A card's title: catalogue text such as the kind of open work, or a record's own name, such as a club's. */
+type Title = { title: Copy; titleText?: never } | { titleText: string; title?: never };
+
 /** A card's props, which its folded form, `CardFold`, takes as they are. */
-export type CardProps = {
-  /** The kind of open work. */
-  title: Copy;
+export type CardProps = Title & {
   /** How many items the card holds open. */
   count?: number;
   /** The card's one button. */
@@ -28,13 +29,13 @@ export type CardProps = {
  * body folds behind its head is `CardFold`, a module of its own, so a page placing only plain cards ships none
  * of the fold's client code.
  */
-export function Card({ title, count, action, body = "rows", children, ...props }: CardProps) {
+export function Card({ title, titleText, count, action, body = "rows", children, ...props }: CardProps) {
   const line = props.line ?? props.lineText;
   const s = card({ body });
   return (
     <section className={s.root()}>
       <div className={s.head()}>
-        <h2 className={s.title()}>{title}</h2>
+        <h2 className={s.title()}>{title ?? titleText}</h2>
         {count !== undefined && <span className={s.count()}>{count}</span>}
         {line !== undefined && <span className={s.line()}>{line}</span>}
       </div>
@@ -44,7 +45,10 @@ export function Card({ title, count, action, body = "rows", children, ...props }
   );
 }
 
-/** One choice of the chooser: the whole card one link, its title and its line, the chevron at its right. */
+/**
+ * One choice of the chooser: the whole card one link, its title and its line, the chevron at its right.
+ * @awaitsProduction the role chooser's page
+ */
 export function CardLink({ href, title, ...props }: { href: Route; title: Copy } & Line) {
   return (
     <section className={card().root()}>
@@ -67,6 +71,7 @@ export function CardLink({ href, title, ...props }: { href: Route; title: Copy }
  * One record in a card's rows: its name with its chip on one line, a fact at the right, the whole row a link
  * through its name, the chevron at its end saying so. A name too long for the line is cut with „…“ so the
  * chip keeps its place beside it; the full name stays the link's accessible name and shows as its title.
+ * @awaitsProduction the Übersicht's cards
  */
 export function CardRow({ href, name, chip, detail }: { href: Route; name: string; chip?: ChipProps; detail?: string }) {
   return (

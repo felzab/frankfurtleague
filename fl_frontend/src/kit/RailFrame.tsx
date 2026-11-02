@@ -227,7 +227,8 @@ export function RailPage({
   chip?: ChipProps;
   /**
    * The page's one icon-only way on beside its title, after its chip, such as the Spielplan's magnifier to
-   * the Spielsuche: the kit's link, which its tooltip names.
+   * the Spielsuche: the kit's link, which its tooltip names. It may wait for the page's address, as the
+   * magnifier names its season, so it streams in a boundary of its own, its 36-px place held meanwhile.
    */
   action?: ReactNode;
   /** The editor's bar, at the foot of the content from the rail's separator to the edge. */
@@ -246,7 +247,7 @@ export function RailPage({
             label={chip.label}
           />
         )}
-        {action}
+        {action !== undefined && <Suspense fallback={<span className="size-9 shrink-0" />}>{action}</Suspense>}
         {scope === "saison" && (
           <nav
             aria-label={COPY.template.navigation}

@@ -104,3 +104,20 @@ describe("a match's five facts", () => {
     expect(fifth).not.toContain("aspect-square");
   });
 });
+
+describe("a tile whose value stands on another site", () => {
+  // The match page's venue opens its map, as the pop-up's venue does; the tile's value is the one way to it.
+  it("draws its value as a link to it, opening a new tab", () => {
+    const map = "https://www.google.com/maps/search/?api=1&query=Sportplatz";
+    render(
+      <StatTiles
+        layout="four"
+        items={[FOUR[0], FOUR[1], FOUR[2], { ...FOUR[3], href: map }]}
+      />,
+    );
+    const link = screen.getByRole("link", { name: "Sportplatz Ahornweg" });
+    expect(link.getAttribute("href")).toBe(map);
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.closest("dd")).not.toBeNull();
+  });
+});

@@ -18,6 +18,7 @@ import HandCoins from "lucide-react/icons/hand-coins";
 import Info from "lucide-react/icons/info";
 import LayoutDashboard from "lucide-react/icons/layout-dashboard";
 import ListFilter from "lucide-react/icons/list-filter";
+import ListOrdered from "lucide-react/icons/list-ordered";
 import LoaderCircle from "lucide-react/icons/loader-circle";
 import LogIn from "lucide-react/icons/log-in";
 import Mail from "lucide-react/icons/mail";
@@ -33,6 +34,7 @@ import Shield from "lucide-react/icons/shield";
 import Sun from "lucide-react/icons/sun";
 import Trash from "lucide-react/icons/trash-2";
 import TriangleAlert from "lucide-react/icons/triangle-alert";
+import Trophy from "lucide-react/icons/trophy";
 import User from "lucide-react/icons/user";
 import UserPlus from "lucide-react/icons/user-plus";
 import Users from "lucide-react/icons/users";
@@ -119,6 +121,9 @@ const GLYPHS = {
   // A season's matches, in the public frame and the administration's alike. A calendar with its days
   // marked reads as dated fixtures, and leaves the bare calendar to `calendar`, picking a date.
   spielplan: CalendarDays,
+  // The standing as a numbered list, and the knockout round as the cup it is played for.
+  tabelle: ListOrdered,
+  kORunde: Trophy,
   spielorte: MapPin,
   schiedsrichter: Whistle,
   bewerbungen: FileText,

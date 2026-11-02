@@ -1,25 +1,28 @@
 import { Suspense } from "react";
 
+import { BracketTree } from "./BracketTree";
 import { Button } from "./Button";
+import { Card } from "./Card";
 import { cardSurface } from "./cardStyles";
 import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
 import { EmptyState } from "./EmptyState";
 import { Filters } from "./Filters";
-import { ListQueryScope, ListSearchField, ListTable } from "./ListTable";
+import { ListMatches, ListQueryScope, ListSearchField, ListTable } from "./ListTable";
 import { RailPage } from "./RailFrame";
-import { SectionTitle } from "./Section";
 import { Skeleton } from "./Skeleton";
 import { Table } from "./Table";
 import { Tabs } from "./Tabs";
 
 import type { Copy } from "@/core/copy";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import type { DialogAct } from "./dialogAct";
 import type { EmptyStateProps } from "./EmptyState";
 import type { Filter } from "./Filters";
 import type { ListMore, ListSearch } from "./ListTable";
 import type { RailPageHead } from "./RailFrame";
+import type { SkeletonShape } from "./Skeleton";
+import type { SpielRowProps } from "./SpielRow";
 import type { TableProps } from "./Table";
 
 /** The matchday tabs, each with its matches, and the tab the server chose by `chosenTab`. */
@@ -40,12 +43,22 @@ export type SpieltageContent = {
   empty: EmptyStateProps;
 };
 
-/** One table per group under the page's one title, such as the Tabelle's: each group's name over its table. */
+/** One card per group under the page's one title, such as the Tabelle's: each group's name and count heading its table. */
 type GroupsContent = {
   groups: ReadonlyArray<{ id: string; title: Copy; table: TableProps }>;
   /** Why there is no group to show, standing in the tables' place. */
   empty: EmptyStateProps;
 };
+
+/** The K.-o.-Baum, or why there is none yet. */
+type TreeContent = {
+  /** The tree's rounds and the third place; `null` before the draw. */
+  tree: ComponentProps<typeof BracketTree> | null;
+  empty: EmptyStateProps;
+};
+
+/** Matches the filters left, each with the words the search narrows them by, and why there are none. */
+type SpieleContent = { matches: ReadonlyArray<{ row: SpielRowProps & { id: string }; words: string }>; empty: EmptyStateProps };
 
 /**
  * What the list shows, by its kind, which is known before its content is read: the kind decides the shape
@@ -58,7 +71,18 @@ type ListContent =
       content: Promise<TableContent>;
     }
   | { kind: "spieltage"; content: Promise<SpieltageContent> }
-  | { kind: "groups"; content: Promise<GroupsContent> };
+  | { kind: "groups"; content: Promise<GroupsContent> }
+  | { kind: "tree"; content: Promise<TreeContent> }
+  | { kind: "spiele"; /** The search field's name. */ search: ListSearch; content: Promise<SpieleContent> };
+
+/** The skeleton each kind waits in: rows, a matchday's match cards, the tree's cards, a list of matches. */
+const WAIT: Readonly<Record<ListContent["kind"], SkeletonShape>> = {
+  table: "table",
+  groups: "table",
+  spieltage: "cards",
+  tree: "cards",
+  spiele: "cards",
+};
 
 /** A list's empty state inside the list's box, as `Table` places its own. */
 function EmptyBox({ empty }: { empty: EmptyStateProps }) {
@@ -79,6 +103,11 @@ function Spieltage({ label, selectedKey, tabs }: SpieltagTabs) {
       {tabs.find((tab) => tab.id === selectedKey)?.panel}
     </Tabs>
   );
+}
+
+/** The filter block once its choices are read. */
+async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Filter>> }) {
+  return <Filters filters={await filters} />;
 }
 
 /** The list once its content is read, in the boundary's place. */
@@ -103,13 +132,29 @@ async function ListBody({ list }: { list: ListContent }) {
         <EmptyBox empty={empty} />
       ) : (
         groups.map((group) => (
-          <section
+          <Card
             key={group.id}
-            className="grid gap-3">
-            <SectionTitle text={group.title} />
-            <Table {...group.table} />
-          </section>
+            title={group.title}
+            count={group.table.rows.length}>
+            <Table
+              {...group.table}
+              bare
+            />
+          </Card>
         ))
+      );
+    }
+    case "tree": {
+      const { tree, empty } = await list.content;
+      return tree === null ? <EmptyBox empty={empty} /> : <BracketTree {...tree} />;
+    }
+    case "spiele": {
+      const { matches, empty } = await list.content;
+      return (
+        <ListMatches
+          matches={matches}
+          empty={empty}
+        />
       );
     }
   }
@@ -120,9 +165,10 @@ async function ListBody({ list }: { list: ListContent }) {
  * is long enough to need one, the filter block, its values in the address, and at the row's end the act
  * creating a record over the list; then the list. The list is a table whose rows open their records,
  * „Weitere 50 laden“ under it only while the server reports more rows; or, for the season's matches, the
- * matchday tabs, one matchday at a time, opening on the one the server names; or one table per group, each
- * under its group's name, as the Tabelle stands its groups one under another. A list with nothing in it
- * shows its empty state in its place.
+ * matchday tabs, one matchday at a time, opening on the one the server names; or one card per group, its
+ * head naming the group over its table, as the Tabelle stands its groups one under another; or the
+ * K.-o.-Baum; or matches the filters left, which the search narrows, as the Spielsuche lists them. A list
+ * with nothing in it shows its empty state in its place.
  *
  * The title and the toolbar are drawn at once; the list alone waits for its content, in the template's one
  * boundary, drawn meanwhile as the skeleton of its box. Typing into the search field before the rows arrive
@@ -135,12 +181,16 @@ export function ListPage({
   list,
 }: {
   head: RailPageHead;
-  filters?: ReadonlyArray<Filter>;
+  /**
+   * The filter block, its choices and their values read with the list, as the Spielsuche's clubs and matchdays
+   * are, so it waits in a boundary of its own and stands in the toolbar once read.
+   */
+  filters?: Promise<ReadonlyArray<Filter>>;
   /** A record created where its list shows: the dialog's title, its act, its fields and the action. */
   create?: DialogAct;
   list: ListContent;
 }) {
-  const search = list.kind === "table" ? list.search : undefined;
+  const search = list.kind === "table" || list.kind === "spiele" ? list.search : undefined;
   const hasToolbar = search !== undefined || filters !== undefined || create !== undefined;
 
   return (
@@ -151,7 +201,11 @@ export function ListPage({
         {hasToolbar && (
           <div className="flex flex-wrap items-center gap-3">
             {search !== undefined && <ListSearchField label={search.label} />}
-            {filters !== undefined && <Filters filters={filters} />}
+            {filters !== undefined && (
+              <Suspense fallback={null}>
+                <FiltersOnceRead filters={filters} />
+              </Suspense>
+            )}
             {create !== undefined && (
               <div className="ms-auto">
                 <Dialog
@@ -168,7 +222,7 @@ export function ListPage({
             )}
           </div>
         )}
-        <Suspense fallback={<Skeleton shape={list.kind === "spieltage" ? "spiel" : "table"} />}>
+        <Suspense fallback={<Skeleton shape={WAIT[list.kind]} />}>
           <ListBody list={list} />
         </Suspense>
       </ListQueryScope>

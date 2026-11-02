@@ -21,9 +21,6 @@
   // its line here and in `knip.json`.
   "ignoreFiles": [
     // Session 3.
-    "src/kit/BracketCard.tsx",
-    "src/kit/BracketTree.tsx",
-    "src/kit/StatusPage.tsx",
     "src/kit/LandingPage.tsx",
     "src/kit/LandingSection.tsx",
     "src/kit/Pillars.tsx",
@@ -38,11 +35,6 @@
     "src/kit/Podium.tsx",
     "src/kit/LinkRows.tsx",
     "src/kit/JsonLd.tsx",
-    "src/kit/Card.tsx",
-    "src/kit/CardFold.tsx",
-    "src/kit/cardStyles.ts",
-    "src/kit/StatTiles.tsx",
-    "src/kit/Timeline.tsx",
     // Session 4.
     "src/kit/Checkbox.tsx",
     "src/kit/RadioGroup.tsx",

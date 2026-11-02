@@ -1,13 +1,23 @@
 import { cardSurface } from "./cardStyles";
+import { Link } from "./Link";
+import { RecordFigures } from "./Table";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 
 /**
  * One tile: what it counts over its value and a line under it where one is due. The value is a figure, such
- * as a place, a score or a date, or `words`, a short text such as a venue, set smaller.
+ * as a place, a score or a date, or `words`, a short text such as a venue, set smaller; a value standing on
+ * another site, such as a venue on a map, is a link to it.
  */
-export type StatTile = { label: Copy; value: string; line?: string; words?: true };
+export type StatTile = {
+  label: Copy;
+  value: string;
+  /** The line under the value: its own words, or a club's won, drawn and lost counts as the Tabelle draws them. */
+  line?: string | { record: readonly [won: string, drawn: string, lost: string] };
+  words?: true;
+  href?: `https://${string}`;
+};
 
 /**
  * The grids a page may lay its tiles in, each fixing how many it holds, so a page cannot hand a layout the
@@ -76,8 +86,20 @@ export function StatTiles({ layout, items }: Layout) {
             // On the card's own surface, read from its recipe, so a ruling on the card's fill moves the tiles with it.
             className={slots.tile({ class: cardSurface() })}>
             <dt className={slots.label()}>{item.label}</dt>
-            <dd className={slots.value()}>{item.value}</dd>
-            {item.line !== undefined && <dd className={slots.line()}>{item.line}</dd>}
+            <dd className={slots.value()}>
+              {item.href === undefined ? (
+                item.value
+              ) : (
+                <Link
+                  href={item.href}
+                  placement="standalone"
+                  text={item.value}
+                />
+              )}
+            </dd>
+            {item.line !== undefined && (
+              <dd className={slots.line()}>{typeof item.line === "string" ? item.line : <RecordFigures record={item.line.record} />}</dd>
+            )}
           </div>
         );
       })}

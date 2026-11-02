@@ -1,10 +1,12 @@
 import { COPY } from "@/core/copy";
+import { formatNumber } from "@/core/format";
 
 import { cardHover, cardSurface } from "./cardStyles";
 import { Chip } from "./Chip";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
+import { NONE } from "./SpielRow";
 import { TargetMark } from "./TargetMark";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
@@ -51,6 +53,11 @@ export type TableRow = {
   muted?: boolean;
   /** The row's fragment, so a link elsewhere, such as a club's line in a match head, opens the page at it. */
   anchor?: string;
+  /**
+   * Its place in the rank column, as the record holds it: level rows share one, and a row holding none, such as a
+   * club that has played no match, shows a dash.
+   */
+  place?: number | null;
 };
 
 export type TableProps = {
@@ -58,7 +65,7 @@ export type TableProps = {
   label: Copy;
   /** The name column's head. */
   nameLabel: Copy;
-  /** A leading rank column, its head; each row's place is its position. */
+  /** A leading rank column, its head; each row's place is its `place`. */
   rankLabel?: Copy;
   columns: ReadonlyArray<TableColumn>;
   rows: ReadonlyArray<TableRow>;
@@ -120,6 +127,23 @@ const table = tv({
 /** The hyphen between a record's counts, „3-1-0“, as its head „S-U-N“ joins their letters. */
 const RECORD_JOIN = "-";
 
+/**
+ * A club's won, drawn and lost counts, „3-1-0“, each in its own colour, success, warning and danger, the hyphens
+ * between them in the text's: a Tabelle row's phone column and a club's tile alike.
+ */
+export function RecordFigures({ record }: { record: readonly [won: string, drawn: string, lost: string] }) {
+  const [won, drawn, lost] = record;
+  return (
+    <>
+      <span className="font-semibold text-success">{won}</span>
+      {RECORD_JOIN}
+      <span className="font-semibold text-warn">{drawn}</span>
+      {RECORD_JOIN}
+      <span className="font-semibold text-danger">{lost}</span>
+    </>
+  );
+}
+
 /** Whether a column stands on a phone: left out, drawn there alone, or drawn at every width. */
 const phoneOf = (column: TableColumn) => (column.hideOnPhone === true ? "hidden" : column.phoneOnly === true ? "only" : "shown");
 
@@ -128,22 +152,11 @@ const phoneOf = (column: TableColumn) => (column.hideOnPhone === true ? "hidden"
  * mark's slot at the figure's end, so the digits stand under each other whether a row carries the mark or
  * not; the mark, a small red „+N“, stands over the figure's top-right corner, three quarters of it right of
  * the corner, over the slot and clear of the digits, and its name tells a screen reader what no line explains.
- * A record is its three counts in success, warning and danger colours, the hyphens between them in the row's.
+ * A record is its three counts, `RecordFigures`.
  */
 function Cell({ cell, slot }: { cell: TableCell | undefined; slot: boolean }) {
   if (cell === undefined) return null;
-  if (typeof cell === "object" && "record" in cell) {
-    const [won, drawn, lost] = cell.record;
-    return (
-      <>
-        <span className="font-semibold text-success">{won}</span>
-        {RECORD_JOIN}
-        <span className="font-semibold text-warn">{drawn}</span>
-        {RECORD_JOIN}
-        <span className="font-semibold text-danger">{lost}</span>
-      </>
-    );
-  }
+  if (typeof cell === "object" && "record" in cell) return <RecordFigures record={cell.record} />;
   const { value, cancelled } = typeof cell === "string" ? { value: cell, cancelled: 0 } : cell;
   if (!slot) return value;
   return (
@@ -264,7 +277,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, index) => {
+            {rows.map((row) => {
               const marks = { linked: row.href !== undefined, muted: row.muted === true };
               return (
                 <tr
@@ -272,7 +285,9 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                   id={row.anchor}
                   className={table(marks).row()}>
                   {rankLabel !== undefined && (
-                    <td className={table({ align: "centre", figures: true, qualifies: row.qualifies === true }).cell()}>{index + 1}</td>
+                    <td className={table({ align: "centre", figures: true, qualifies: row.qualifies === true }).cell()}>
+                      {row.place == null ? NONE : formatNumber(row.place)}
+                    </td>
                   )}
                   <NameCell
                     row={row}
