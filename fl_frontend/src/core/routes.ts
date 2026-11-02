@@ -71,7 +71,6 @@ export const ROUTES = {
   },
   about: { path: () => "/about" as const, title: COPY.page.about, crawl: "index" },
   contact: { path: () => "/kontakt" as const, title: COPY.page.contact, crawl: "index" },
-  // Session 3: its page is built.
   sponsors: { path: () => "/sponsors" as const, title: COPY.page.sponsors, crawl: "index" },
   legalNotice: { path: () => "/impressum" as const, title: COPY.page.legalNotice, crawl: "index" },
   privacyNotice: { path: () => "/datenschutz" as const, title: COPY.page.privacyNotice, crawl: "index" },
