@@ -1,59 +1,82 @@
+import { notFound } from "next/navigation";
+
+import { Link } from "@/kit/Link";
 import { ListPage } from "@/kit/ListPage";
 import { SpielList } from "@/kit/SpielRow";
 import { chosenTab } from "@/kit/tabChoice";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
+import { SERVER_COPY } from "@/core/serverCopy";
+import { getSpielplan } from "@/features/saisons/queries";
+import { matchRowOf } from "@/features/spiele/blocks";
+import { spieltagLabels } from "@/features/spieltage/utils";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { matchRowOf, readSaison, readSpielplan } from "./spielplan";
-
+import type { SpieltageContent } from "@/kit/ListPage";
 import type { Metadata, ResolvingMetadata } from "next";
 
-export async function generateMetadata({ params }: PageProps<"/saisons/[saison]">, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.spielplan, ROUTES.spielplan.path((await params).saison));
+type Props = PageProps<"/saisons/[saison]">;
+
+export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+  const { saison } = await params;
+  return pageMetadata(parent, ROUTES.spielplan, ROUTES.spielplan.path(saison), { description: SERVER_COPY.description.spielplan(saison) });
 }
 
-/**
- * The Spielplan: the season's matchdays as tabs, one at a time, opening on the one the address names
- * (`?tab=<phase>-<position>`, such as `gruppenphase-3`), else on the current one.
- */
-export default function SpielplanPage({ params, searchParams }: PageProps<"/saisons/[saison]">) {
+/** The way to the Spielsuche beside the Spielplan's title: the magnifier, which its tooltip names. */
+async function SearchLink({ params }: Pick<Props, "params">) {
+  const { saison } = await params;
   return (
-    <ListPage
-      head={{ scope: "saison", title: { route: "spielplan" } }}
-      list={{
-        kind: "spieltage",
-        content: readSpieltage(params, searchParams),
-      }}
+    <Link
+      href={ROUTES.spielSearch.path(saison)}
+      placement="icon"
+      icon="search"
+      label={COPY.page.spielSearch}
     />
   );
 }
 
-async function readSpieltage(params: Promise<{ saison: string }>, searchParams: Promise<Record<string, string | string[] | undefined>>) {
-  const { saison } = await readSaison((await params).saison);
-  const { matchdays, current } = await readSpielplan(saison);
-  const address = await searchParams;
-  // The address names a matchday by its key, so the matchday the tabs open on is named by its key too.
-  const opening = matchdays.find((matchday) => matchday.id === current);
+/**
+ * The Spielplan: the season's matchdays as tabs, one at a time, each match a card, two a row on desktop,
+ * opening on the matchday the address names (`?tab=<phase>-<position>`, such as `gruppenphase-3`), else on the
+ * one the backend names current.
+ */
+export default function SpielplanPage({ params, searchParams }: Props) {
+  return (
+    <ListPage
+      head={{ scope: "saison", title: { route: "spielplan" }, action: <SearchLink params={params} /> }}
+      list={{ kind: "spieltage", content: readSpieltage(params, searchParams) }}
+    />
+  );
+}
 
+async function readSpieltage(params: Props["params"], searchParams: Props["searchParams"]): Promise<SpieltageContent> {
+  const spielplan = await getSpielplan((await params).saison);
+  if (spielplan === null) notFound();
+  const { spieltage, current_spieltag_id: current } = spielplan;
+  const labels = spieltagLabels(spieltage);
+  // The address names a matchday by its stored phase and position, unique together in a season, so it reads
+  // without a database id.
+  const keyOf = (spieltag: (typeof spieltage)[number]) => `${spieltag.saison_phase}-${String(spieltag.position)}`;
+  const opening = spieltage.find((spieltag) => spieltag.id === current);
   return {
     tabs:
       opening === undefined
         ? null
         : {
             label: COPY.spielplan.spieltage,
-            selectedKey: chosenTab(
-              address,
-              matchdays.map((matchday) => matchday.key),
-              opening.key,
-            ),
-            tabs: matchdays.map((matchday) => ({
-              id: matchday.key,
-              label: matchday.label,
-              panel: <SpielList matches={matchday.spiele.map(matchRowOf)} />,
+            selectedKey: chosenTab(await searchParams, spieltage.map(keyOf), keyOf(opening)),
+            tabs: spieltage.map((spieltag) => ({
+              id: keyOf(spieltag),
+              label: labels.get(spieltag.id)?.label ?? "",
+              panel: (
+                <SpielList
+                  matches={spieltag.spiele.map(matchRowOf)}
+                  layout="cards"
+                />
+              ),
             })),
           },
-    empty: { kind: "none", plural: COPY.spielplan.spieltage, glyph: "spielplan" } as const,
+    empty: { kind: "none", plural: COPY.spielplan.spieltage, glyph: "spielplan" },
   };
 }

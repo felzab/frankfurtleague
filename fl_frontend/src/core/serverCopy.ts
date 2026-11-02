@@ -190,14 +190,74 @@ export const SERVER_COPY = catalogue({
     notFound: { title: "Seite nicht gefunden", sentence: "Die Seite wurde verschoben oder gelöscht, oder die Adresse stimmt nicht." },
   },
 
-  /** The kit's season blocks, drawn on the server alone: the Tabelle's groups and the K.-o.-Baum's rows. */
+  /**
+   * The public season pages and the kit's season blocks, drawn on the server alone. Every entry is a draft for
+   * the season board.
+   */
   season: {
-    /** One group's table on the Tabelle. */
+    /** One group's card on the Tabelle, and a club's group on Teams and its page. */
     gruppe: (gruppe: string) => `Gruppe ${gruppe}`,
-    /** The match between the two semi-finals' losers, on its own row above the Finale. */
+    /** The match between the two semi-finals' losers: its label, its card's row above the Finale, the pop-up's head. */
     thirdPlace: "Spiel um Platz 3",
-    /** Where a club stands, under its name in a match head, linking to its row on the Tabelle. */
-    standing: (platz: number, gruppe: string) => `${formatNumber(platz)}. Platz · Gruppe ${gruppe}`,
+    /** A group matchday, as a match's head names it. */
+    spieltag: (position: number) => `${formatNumber(position)}. Spieltag`,
+    /** A match's own label before its date, on the one line every form of its row shows. */
+    labelled: (label: string, when: string) => `${label} · ${when}`,
+    /**
+     * Where a club stands, under its name in a match head, linking to its row on the Tabelle; a club that has
+     * played no match holds no place yet, and the line names its group alone.
+     */
+    standing: (platz: number | null, gruppe: string) =>
+      platz === null ? `Gruppe ${gruppe}` : `${formatNumber(platz)}. Platz · Gruppe ${gruppe}`,
+    /** `/saisons` while the league has no season yet, under the strip's title. */
+    noSaison: "Die erste Saison ist noch nicht angelegt.",
+
+    /** The Tabelle's and the club page's column heads: the short forms on every width. */
+    column: {
+      platz: "Platz",
+      team: "Team",
+      spiele: "Sp.",
+      siege: "S",
+      unentschieden: "U",
+      niederlagen: "N",
+      /** A phone's one column for the three counts, its figures in green, yellow and red. */
+      record: "S-U-N",
+      tore: "Tore",
+      differenz: "Diff.",
+      punkte: "Pkt.",
+      gruppe: "Gruppe",
+      name: "Name",
+      nummer: "Nr.",
+      position: "Position",
+    },
+
+    /** The Spielsuche's three filters, each opening on every match. */
+    filter: { phase: "Phase", team: "Team", spieltag: "Spieltag", all: "Alle" },
+
+    /** A club's page: its tiles, its matches and its squad. */
+    club: {
+      platz: "Platz",
+      punkte: "Punkte",
+      spiele: "Spiele",
+      tore: "Tore",
+      /** Under the goals: their difference, signed. */
+      differenz: (difference: string) => `Diff. ${difference}`,
+    },
+
+    /** A match's page: its line-ups, and its goals and cards by minute. */
+    spiel: {
+      aufstellung: "Aufstellung",
+      toreUndKarten: "Tore und Karten",
+      /** A pupil whose consent publishes no name, or one erased since. */
+      anonym: "anonym",
+      /** A goal nobody was named for. */
+      unbekannt: "unbekannt",
+      tor: "Tor",
+      eigentor: "Eigentor",
+      karte: { gelb: "Gelbe Karte", gelb_rot: "Gelb-Rote Karte", rot: "Rote Karte" },
+      /** A checkpoint's title: what happened, and to whom. */
+      event: (what: string, who: string) => `${what} · ${who}`,
+    },
   },
 
   /**
@@ -213,7 +273,6 @@ export const SERVER_COPY = catalogue({
     teams: (saison: string) => `Alle Teams der Saison ${saison} der Frankfurt League, mit Gruppe und Kader.`,
     team: (team: string, saison: string) => `${team} in der Saison ${saison} der Frankfurt League: Stand, Spiele und Kader.`,
     kORunde: (saison: string) => `Die K.-o.-Runde der Saison ${saison} der Frankfurt League: der K.-o.-Baum bis zum Finale.`,
-    spielSearch: (saison: string) => `Alle Spiele der Saison ${saison} der Frankfurt League zum Suchen und Filtern.`,
     spiel: (heim: string, gast: string, saison: string) =>
       `${heim} gegen ${gast} in der Saison ${saison} der Frankfurt League: Termin, Ort, Ergebnis und Aufstellungen.`,
     contact: "Die Frankfurt League erreichst du per E-Mail, auf Instagram und auf Threads.",
