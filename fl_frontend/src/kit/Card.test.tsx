@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { Card, CardLink, CardRow } from "./Card";
+import { CardFold } from "./CardFold";
 import { Table } from "./Table";
 
 /** The screen the browser answers: a desktop from `lg`, a phone below it. */
@@ -17,12 +18,11 @@ function onScreen(desktop: boolean) {
 const BODY = "Mika Brandt";
 
 const folded = (
-  <Card
+  <CardFold
     title={COPY.page.teamKader}
-    count={12}
-    folded>
+    count={12}>
     <p>{BODY}</p>
-  </Card>
+  </CardFold>
 );
 
 /** The head's button, found inside the card's heading, and whether the body under it shows. */
@@ -123,11 +123,7 @@ describe("a card", () => {
     render(
       <>
         <Card title={COPY.page.teamKader}>{table}</Card>
-        <Card
-          title={COPY.page.teamKader}
-          folded>
-          {table}
-        </Card>
+        <CardFold title={COPY.page.teamKader}>{table}</CardFold>
       </>,
     );
     // jsdom draws no layout, so the shrink is read from the class of the card's own child holding the table.

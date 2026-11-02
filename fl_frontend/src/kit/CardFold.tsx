@@ -5,31 +5,18 @@ import { Button, Disclosure, DisclosurePanel, Heading } from "react-aria-compone
 import { card } from "./cardStyles";
 import { Icon } from "./Icon";
 
-import type { ReactElement, ReactNode } from "react";
+import type { CardProps } from "./Card";
 
 /**
- * `Card`'s folded form: its head is the one button that opens and closes its body, the kit's one disclosure.
+ * `Card`'s folded form, taking its props: its head is the one button that opens and closes its body, the kit's one disclosure.
  * React Aria's disclosure, a heading holding the button that names the panel it controls (the WAI-ARIA
  * accordion pattern), so the card's title stays a heading a reader can jump to. It is not `<details>`,
  * because a heading inside `<summary>` is not exposed as a heading in every browser and reader. A folded
  * body stays in the document as `hidden="until-found"`, which a browser's find on the page opens. It starts
  * folded on every screen, so the server's markup is its first frame everywhere.
  */
-export function CardFold({
-  title,
-  count,
-  line,
-  body,
-  action,
-  children,
-}: {
-  title: string;
-  count?: number;
-  line?: string;
-  body: "rows" | "fields";
-  action?: ReactElement;
-  children?: ReactNode;
-}) {
+export function CardFold({ title, count, action, body = "rows", children, ...props }: CardProps) {
+  const line = props.line ?? props.lineText;
   const s = card({ body, fold: true });
   return (
     <Disclosure className={s.root()}>

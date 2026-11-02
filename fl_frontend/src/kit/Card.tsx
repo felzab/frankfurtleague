@@ -1,4 +1,3 @@
-import { CardFold } from "./CardFold";
 import { card } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Link } from "./Link";
@@ -12,16 +11,8 @@ import type { ChipProps } from "./Chip";
 /** A card's one line under its title: catalogue text such as a figure's meaning, or a record's own detail. */
 type Line = { line: Copy; lineText?: never } | { lineText: string; line?: never };
 
-/** One kind of open work, its count beside its title, its records as rows or its inputs as fields. */
-export function Card({
-  title,
-  count,
-  action,
-  body = "rows",
-  folded,
-  children,
-  ...props
-}: {
+/** A card's props, which its folded form, `CardFold`, takes as they are. */
+export type CardProps = {
   /** The kind of open work. */
   title: Copy;
   /** How many items the card holds open. */
@@ -29,23 +20,16 @@ export function Card({
   /** The card's one button. */
   action?: ReactElement;
   body?: "rows" | "fields";
-  /** The body folded behind the head, which opens it. */
-  folded?: boolean;
   children?: ReactNode;
-} & (Line | { line?: never; lineText?: never })) {
+} & (Line | { line?: never; lineText?: never });
+
+/**
+ * One kind of open work, its count beside its title, its records as rows or its inputs as fields. A card whose
+ * body folds behind its head is `CardFold`, a module of its own, so a page placing only plain cards ships none
+ * of the fold's client code.
+ */
+export function Card({ title, count, action, body = "rows", children, ...props }: CardProps) {
   const line = props.line ?? props.lineText;
-  if (folded === true) {
-    return (
-      <CardFold
-        title={title}
-        count={count}
-        line={line}
-        body={body}
-        action={action}>
-        {children}
-      </CardFold>
-    );
-  }
   const s = card({ body });
   return (
     <section className={s.root()}>
