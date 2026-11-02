@@ -77,7 +77,6 @@ from app.api.einwilligung.services import find_fassung_refusal, find_self_medien
 from app.api.kontakte.crud import redact_the_decliner, remove_their_reasons
 from app.api.outbox.schemas import FLBewerbungPerson, FLBewerbungWiderspruchData
 from app.api.outbox.services import OwedMail, enqueue_mails
-from app.api.saisons.crud import pull_open_window_saison
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hashes_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import kontakte_ohne, seat_void_of
@@ -153,43 +152,6 @@ async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -
     return window, saison_raw["status"]
 
 
-def _window(*, saison_id: str, saison_status: Any, bewerbung: Any, today: str) -> FLBewerbungWindowResponse:
-    """One window as this tier is served it, with the running judgement already taken."""
-
-    return FLBewerbungWindowResponse(
-        saison_id=saison_id,
-        offen=bool(bewerbung["offen"]),
-        von=str(bewerbung["von"]),
-        bis=str(bewerbung["bis"]),
-        running=saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today),
-        saison_ended=season_has_ended(saison_status=saison_status),
-    )
-
-
-# NOT an ordering constraint: this and `/window/{saison_id}` are different segment counts, so
-# neither matches the other's path in any order. What keeps these literals out of the admin id route
-# is its `objectid` convertor (`app/core/routing.py`).
-@router.get(
-    "/window",
-    response_model=FLBewerbungWindowResponse,
-    summary="The Saison currently accepting applications",
-)
-async def get_open_window(saisons_collection: SaisonsCollection, today: str = Depends(get_german_date_str)) -> FLBewerbungWindowResponse:
-    """
-    Return the season taking applications today -- its window open and the season not ended; 404 when none is.
-
-    What is served is the window and whether its season has ended, never the season: the rule
-    withholds a `future` one from this tier (`READ-BEWERBUNG-001`).
-    """
-
-    open_saison = await pull_open_window_saison(saisons_collection=saisons_collection, today=today)
-
-    if open_saison is None:
-        raise DocumentNotFoundError()
-
-    return _window(saison_id=str(open_saison["_id"]), saison_status=open_saison["status"], bewerbung=open_saison["bewerbung"], today=today)
-
-
 @router.get(
     "/window/{saison_id}",
     response_model=FLBewerbungWindowResponse | FLBewerbungNoWindowResponse,
@@ -210,7 +172,14 @@ async def get_window(
     if bewerbung is None:
         return FLBewerbungNoWindowResponse(saison_id=saison_id, window=None)
 
-    return _window(saison_id=saison_id, saison_status=saison_status, bewerbung=bewerbung, today=today)
+    return FLBewerbungWindowResponse(
+        saison_id=saison_id,
+        offen=bool(bewerbung["offen"]),
+        von=str(bewerbung["von"]),
+        bis=str(bewerbung["bis"]),
+        running=saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today),
+        saison_ended=season_has_ended(saison_status=saison_status),
+    )
 
 
 @router.get("/schulen", response_model=FLBewerbungSchulenResponse, summary="The clubs a public application may name")

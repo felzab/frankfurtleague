@@ -203,7 +203,7 @@ async def get_team_saisons(
     """
     Every team, retired ones included, each with every season membership it holds. Sorted by name.
 
-    `GET /teams` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
+    `GET /teams/list/verwaltung` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
     change of each seat's address, which the address tool shows, and per seat why the tool refuses that change this
     administrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was
     ever owed.
@@ -256,12 +256,10 @@ async def get_teams_verwaltung(
     """
     List a season's teams for the admin surfaces, a `future` season's included.
 
-    Same filters and shapes as `GET /teams`, without its season gate: a club is entered while its
-    season is still planned, so an admin who cannot see one cannot enter it.
+    No base-tier season gate: a club is entered while its season is still planned, so an admin who
+    cannot see one cannot enter it.
     """
 
-    # The whole body below mirrors `app/api/teams/public_router.py :: get_teams`, which cannot be called
-    # here: the gate is inside it, and refusing the planned season is the one thing this must not do.
     filters.saison_id, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 
     teams = FLTeamListAdapter.validate_python(

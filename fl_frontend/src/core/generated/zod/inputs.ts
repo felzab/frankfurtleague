@@ -3736,32 +3736,6 @@ export const SpieltageGetSpieltagVerwaltungParams = zod.object({
 });
 
 /**
- * One season's teams as a list, or with `in_gruppen=true` keyed by every group it offers in standing order, as `format` names.
- *
- * An omitted `saison_id` reads the season the site is on, and a club that left the league is listed in a `past` season
- * alone; 404 for a season this tier may not read.
- * @summary List teams, flat or grouped
- */
-export const teamsGetTeamsQueryStatistikScopeDefault = `gruppenphase`;
-export const teamsGetTeamsQueryLimitDefault = 1024;
-export const teamsGetTeamsQueryLimitMax = 1024;
-
-export const teamsGetTeamsQuerySortByDefault = `name`;
-export const teamsGetTeamsQueryOrderDefault = `asc`;
-
-export const TeamsGetTeamsQueryParams = zod.object({
-  saison_id: zod.union([zod.string(), zod.null()]).optional(),
-  gruppe: zod.union([zod.enum(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]), zod.null()]).optional(),
-  has_austritt: zod.union([zod.boolean(), zod.null()]).optional(),
-  austritt_type: zod.union([zod.enum(["disqualifikation", "rueckzug"]), zod.null()]).optional(),
-  in_gruppen: zod.union([zod.boolean(), zod.null()]).optional(),
-  statistik_scope: zod.enum(["gruppenphase", "total"]).default(teamsGetTeamsQueryStatistikScopeDefault),
-  limit: zod.int().min(1).max(teamsGetTeamsQueryLimitMax).default(teamsGetTeamsQueryLimitDefault),
-  sort_by: zod.literal("name").default(teamsGetTeamsQuerySortByDefault).meta({ title: "Sort By" }),
-  order: zod.enum(["asc", "desc"]).default(teamsGetTeamsQueryOrderDefault),
-});
-
-/**
  * Create a club. `shorthand` is unique across every club, retired ones included, so a duplicate is a 409.
  * @summary Create a team
  */
@@ -3808,8 +3782,8 @@ export const TeamsPostTeamBody = zod.object({
 /**
  * List a season's teams for the admin surfaces, a `future` season's included.
  *
- * Same filters and shapes as `GET /teams`, without its season gate: a club is entered while its
- * season is still planned, so an admin who cannot see one cannot enter it.
+ * No base-tier season gate: a club is entered while its season is still planned, so an admin who
+ * cannot see one cannot enter it.
  * @summary Teams for a Saison, for the admin surfaces
  */
 export const teamsGetTeamsVerwaltungQueryStatistikScopeDefault = `gruppenphase`;

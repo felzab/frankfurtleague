@@ -6456,36 +6456,6 @@ export const SpieltageGetSpieltageVerwaltungOrder = {
   desc: "desc",
 } as const;
 
-export type TeamsGetTeamsParams = {
-  saison_id?: string | null;
-  gruppe?: FLGruppenNames | null;
-  has_austritt?: boolean | null;
-  austritt_type?: FLAustrittType | null;
-  in_gruppen?: boolean | null;
-  statistik_scope?: TeamsGetTeamsStatistikScope;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: "name";
-  order?: TeamsGetTeamsOrder;
-};
-
-export type TeamsGetTeamsStatistikScope = (typeof TeamsGetTeamsStatistikScope)[keyof typeof TeamsGetTeamsStatistikScope];
-
-export const TeamsGetTeamsStatistikScope = {
-  gruppenphase: "gruppenphase",
-  total: "total",
-} as const;
-
-export type TeamsGetTeamsOrder = (typeof TeamsGetTeamsOrder)[keyof typeof TeamsGetTeamsOrder];
-
-export const TeamsGetTeamsOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
-
 export type TeamsGetTeamsVerwaltungParams = {
   saison_id?: string | null;
   gruppe?: FLGruppenNames | null;

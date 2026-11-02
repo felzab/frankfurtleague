@@ -12,7 +12,6 @@ from app.api.spiele.schemas import FLSpieleFilterParams
 from app.api.spieltage.admin_router import get_spieltag_verwaltung, get_spieltage_verwaltung
 from app.api.spieltage.schemas import FLSpieltageFilterParams
 from app.api.teams.admin_router import get_teams_verwaltung
-from app.api.teams.public_router import get_teams
 from app.api.teams.schemas import FLTeamsFilterParams
 from app.core.collections import Collection
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
@@ -151,15 +150,6 @@ async def admin_spieltag(database: AsyncDatabase, saison_id: str) -> Any:
     )
 
 
-async def base_teams(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_teams(
-        teams_collection=database[Collection.TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spiele_collection=database[Collection.SPIELE],
-        filters=FLTeamsFilterParams(saison_id=saison_id),
-    )
-
-
 async def base_spiele(database: AsyncDatabase, saison_id: str) -> Any:
     return await get_spiele(
         spiele_collection=database[Collection.SPIELE],
@@ -186,7 +176,6 @@ ADMIN_READ_IDS = [label for label, _, _ in ADMIN_READS_OF_A_SEASON]
 # Each pair with what only the admin shape serves, as `model_dump`'s `exclude` spells it: the fixture's
 # `version`, which its editor's save sends back (`spiele/schemas.py :: FLSpielJoinedAdmin`).
 PAIRED_TIERS: list[tuple[str, Read, Read, dict[str, Any] | None]] = [
-    ("squad list", admin_teams, base_teams, None),
     ("fixture list", admin_spiele, base_spiele, {"spiele": {"__all__": {"version"}}}),
 ]
 

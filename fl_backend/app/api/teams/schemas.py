@@ -704,7 +704,7 @@ class FLReplaceSaisonTeamPayload(BaseModel):
 
 
 class FLPublicTeamsFilterParams(BaseModel):
-    """What `GET /teams` may narrow on. `include_inactive` is on the admin model below alone.
+    """What a base-tier view's club read narrows on. `include_inactive` is on the admin model below alone.
 
     A standings row names no leaving date, so a base-tier read that un-hid a retired club would say
     nothing about which one had left (`READ-SQUAD-002`).

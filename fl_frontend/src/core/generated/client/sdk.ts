@@ -233,7 +233,6 @@ import type {
   SpielorteGetSpielorteParams,
   SpieltageGetSpieltageVerwaltungParams,
   TeamsGetTeamParams,
-  TeamsGetTeamsParams,
   TeamsGetTeamsVerwaltungParams,
 } from "./types.ts";
 
@@ -1098,24 +1097,6 @@ export const bewerbungenGetTrikotfarben = async (
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLBewerbungTrikotFarbenResponse> => {
   return baseKeyTransport<FLBewerbungTrikotFarbenResponse>(getBewerbungenGetTrikotfarbenUrl(saisonId), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getBewerbungenGetOpenWindowUrl = () => {
-  return `/api/v0/bewerbungen/window`;
-};
-
-/**
- * Return the season taking applications today -- its window open and the season not ended; 404 when none is.
- *
- * What is served is the window and whether its season has ended, never the season: the rule
- * withholds a `future` one from this tier (`READ-BEWERBUNG-001`).
- * @summary The Saison currently accepting applications
- */
-export const bewerbungenGetOpenWindow = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLBewerbungWindowResponse> => {
-  return baseKeyTransport<FLBewerbungWindowResponse>(getBewerbungenGetOpenWindowUrl(), {
     ...options,
     method: "GET",
   });
@@ -4937,29 +4918,6 @@ export const systemCheckIsLive = async (options?: Parameters<typeof unkeyedTrans
   });
 };
 
-export const getTeamsGetTeamsUrl = (params?: TeamsGetTeamsParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/teams?${stringifiedParams}` : `/api/v0/teams`;
-};
-
-/**
- * One season's teams as a list, or with `in_gruppen=true` keyed by every group it offers in standing order, as `format` names.
- *
- * An omitted `saison_id` reads the season the site is on, and a club that left the league is listed in a `past` season
- * alone; 404 for a season this tier may not read.
- * @summary List teams, flat or grouped
- */
-export const teamsGetTeams = async (
-  params?: TeamsGetTeamsParams,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLTeamsListResponse | FLTeamsGroupedResponse> => {
-  return baseKeyTransport<FLTeamsListResponse | FLTeamsGroupedResponse>(getTeamsGetTeamsUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getTeamsPostTeamUrl = () => {
   return `/api/v0/teams`;
 };
@@ -5001,8 +4959,8 @@ export const getTeamsGetTeamsVerwaltungUrl = (params?: TeamsGetTeamsVerwaltungPa
 /**
  * List a season's teams for the admin surfaces, a `future` season's included.
  *
- * Same filters and shapes as `GET /teams`, without its season gate: a club is entered while its
- * season is still planned, so an admin who cannot see one cannot enter it.
+ * No base-tier season gate: a club is entered while its season is still planned, so an admin who
+ * cannot see one cannot enter it.
  * @summary Teams for a Saison, for the admin surfaces
  */
 export const teamsGetTeamsVerwaltung = async (
@@ -5022,7 +4980,7 @@ export const getTeamsGetTeamSaisonsUrl = () => {
 /**
  * Every team, retired ones included, each with every season membership it holds. Sorted by name.
  *
- * `GET /teams` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
+ * `GET /teams/list/verwaltung` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
  * change of each seat's address, which the address tool shows, and per seat why the tool refuses that change this
  * administrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was
  * ever owed.
