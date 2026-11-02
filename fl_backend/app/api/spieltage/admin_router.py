@@ -56,12 +56,11 @@ async def get_spieltage_verwaltung(
     """
     List a season's matchdays for the admin surfaces, a `future` season's included.
 
-    Same filters, order and shape as `GET /spieltage`, without its season gate: a season's matchdays
-    are drawn while it is planned, and dating them is what this list is for.
+    No season gate: a season's matchdays are drawn while it is planned, and dating them is what this
+    list is for.
     """
 
-    # Mirrors `app/api/spieltage/public_router.py :: get_spieltage`, which cannot be called here: the gate
-    # is inside it, and refusing the planned season is the one thing this must not do.
+    # Resolved without the public gate: refusing the planned season is the one thing this must not do.
     filters.saison_id, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 
     spieltage_raw = await pull_many_from_db(
