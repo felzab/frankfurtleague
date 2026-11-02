@@ -21,6 +21,7 @@ export const cardHover = tv({ base: "transition-colors duration-(--motion-state)
  *
  * A box of the card's surface, its head one step above it. Its body is rows, or fields with the card's
  * padding around them.
+ * @awaitsProduction session 3's pages placing a `Card`
  */
 export const card = tv({
   slots: {
