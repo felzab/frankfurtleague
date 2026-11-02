@@ -23,7 +23,8 @@ export type CalloutProps = {
   tone: "success" | "info" | "warn" | "danger";
   /** A short head in the hue, where the sentence needs one. */
   title?: Copy;
-  text: Copy;
+  /** A sentence of the catalogue's, or a record's own text, shown as it was stored, as `PageTitle` takes a record's name. */
+  text: Copy | { record: string };
 };
 
 /** A consequence or a state, said in one visible box tinted in its status hue. */
@@ -32,7 +33,7 @@ export function Callout({ tone, title, text }: CalloutProps) {
   return (
     <div className={root()}>
       {title !== undefined && <p className={heading()}>{title}</p>}
-      <p>{text}</p>
+      <p>{typeof text === "string" ? text : text.record}</p>
     </div>
   );
 }

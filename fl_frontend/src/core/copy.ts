@@ -176,6 +176,8 @@ export const COPY = catalogue({
       disqualifikation: { label: "Disqualifikation", zustand: "Disqualifiziert", kuerzel: "DQ" },
       rueckzug: { label: "Rückzug", zustand: "Zurückgezogen", kuerzel: "RZ" },
     },
+    /** The head of a club's exit note, „Disqualifiziert seit 14.03.2026“: its route's `zustand` and the day it took effect. */
+    austrittSeit: (zustand: Copy, day: CalendarDay) => `${zustand} seit ${formatDatum(day)}`,
     // Redesign: a line-up's chips read these.
     startelf: "Startelf",
     bank: "Bank",

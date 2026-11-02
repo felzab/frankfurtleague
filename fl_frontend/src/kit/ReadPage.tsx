@@ -54,8 +54,11 @@ export type ReadRecord = {
    * score, and what befell the match where something did, which says how it counts.
    */
   spiel?: { head: SpielHeadProps; sonderereignis: { title: Copy; text: Copy } | null };
-  /** A club's head over the groups: `ClubHead`, which the club's page places, as `folds` holds `ReadFolds`. */
-  club?: ReactElement;
+  /**
+   * A club's head over the groups, `ClubHead`, which the club's page places as `folds` holds `ReadFolds`; and, where
+   * the club has left the season, its route and day over the reason as it was stored.
+   */
+  club?: { head: ReactElement; austritt: { title: Copy; text: { record: string } } | null };
   /** The first group goes without a title where it is the page's only one: the page's own title names it. */
   groups: readonly [ReadGroup, ...ReadGroup[]];
   /** The decision's acts, the kit's buttons and the dialogs they open, under the first group. */
@@ -115,7 +118,18 @@ async function ReadBody({ scope, record }: { scope: "saison" | "area"; record: P
             )}
           </div>
         )}
-        {club}
+        {club !== undefined && (
+          <div className="grid gap-3">
+            {club.head}
+            {club.austritt !== null && (
+              <Callout
+                tone="danger"
+                title={club.austritt.title}
+                text={club.austritt.text}
+              />
+            )}
+          </div>
+        )}
         <section className="grid gap-3">
           {first.title !== undefined && <SectionTitle text={first.title} />}
           <GroupBody group={first} />
@@ -142,7 +156,8 @@ async function ReadBody({ scope, record }: { scope: "saison" | "area"; record: P
 /**
  * The read page: a record shown without editing, its groups one under another in the editor's column,
  * at most 760 px centred in the content (`formColumn`), no save bar; a match's page heads them with the head
- * its pop-up shows, a club's page with the club's head. The first group holds the facts its decision reads, and
+ * its pop-up shows and what befell the match, a club's page with the club's head and its exit from the season
+ * where it left one. The first group holds the facts its decision reads, and
  * the decision's acts stand directly under it, together, with the line saying why an act is closed where one
  * is; the next groups follow the reader's next question. The two parts holding client code, the folded cards
  * and the club's head, are modules of their own the page places, so the template imports neither.

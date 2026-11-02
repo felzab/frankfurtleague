@@ -11,10 +11,11 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
 import { matchdayOf, matchRowOf } from "@/features/spiele/blocks";
-import { austrittKuerzel } from "@/features/teams/constants";
+import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
 import { buildMapsSearchUrl } from "@/shared/utils/format";
 import { pageMetadata } from "@/shared/utils/metadata";
 
+import type { CalendarDay } from "@/core/format";
 import type { FLSpielerPublic, FLTeamPageResponse } from "@/core/generated/client/types";
 import type { ReadRecord } from "@/kit/ReadPage";
 import type { StatTile } from "@/kit/StatTiles";
@@ -39,8 +40,8 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 
 /**
- * A club's page in one season: its head, its standing as four tiles, its matches along the dotted line by
- * matchday, and its squad folded behind its card's head.
+ * A club's page in one season: its head, with its exit from the season under it where it left, its standing as four
+ * tiles, its matches along the dotted line by matchday, and its squad folded behind its card's head.
  */
 export default function TeamPage({ params }: Props) {
   return (
@@ -94,17 +95,26 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   return {
     title: { record: team.name },
     ...(team.austritt?.type === "disqualifikation" ? { chip: { tone: "danger", label: austrittKuerzel(team.austritt.type) } } : {}),
-    club: (
-      <ClubHead
-        kuerzel={team.shorthand}
-        name={team.name}
-        website={team.website_url?.startsWith("https://") === true ? (team.website_url as `https://${string}`) : null}
-        school={team.full_name}
-        address={address}
-        map={buildMapsSearchUrl(address)}
-        description={team.description}
-      />
-    ),
+    club: {
+      head: (
+        <ClubHead
+          kuerzel={team.shorthand}
+          name={team.name}
+          website={team.website_url?.startsWith("https://") === true ? (team.website_url as `https://${string}`) : null}
+          school={team.full_name}
+          address={address}
+          map={buildMapsSearchUrl(address)}
+          description={team.description}
+        />
+      ),
+      austritt:
+        team.austritt === null
+          ? null
+          : {
+              title: COPY.shared.austrittSeit(austrittZustand(team.austritt.type), team.austritt.datum as CalendarDay),
+              text: { record: team.austritt.grund },
+            },
+    },
     groups: [
       { kind: "tiles", tiles: { layout: "four", items: tilesOf(page) } },
       {
