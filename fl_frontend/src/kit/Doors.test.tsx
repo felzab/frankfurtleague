@@ -6,7 +6,7 @@ import { INSTAGRAM_URL, KONTAKT_EMAIL, THREADS_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import { Doors } from "./Doors";
+import { Door, Doors } from "./Doors";
 
 const QUESTION = {
   ...SERVER_COPY.landing.doors.question,
@@ -48,5 +48,20 @@ describe("the doors while no window is open", () => {
     expect(screen.getByRole("link", { name: KONTAKT_EMAIL }).getAttribute("href")).toBe(`mailto:${KONTAKT_EMAIL}`);
     expect(screen.getByRole("link", { name: COPY.template.instagram }).getAttribute("href")).toBe(INSTAGRAM_URL);
     expect(screen.getByRole("link", { name: COPY.template.threads }).getAttribute("href")).toBe(THREADS_URL);
+  });
+});
+
+describe("a door standing alone under a page's title", () => {
+  it("heads itself one step under the page, with its act and no paragraph", () => {
+    const { container } = render(
+      <Door
+        title={SERVER_COPY.landing.doors.support}
+        level={2}
+        act={COPY.template.instagram}
+      />,
+    );
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe(SERVER_COPY.landing.doors.support);
+    expect(container.querySelector("p")).toBeNull();
+    expect(screen.getByText(COPY.template.instagram)).toBeTruthy();
   });
 });
