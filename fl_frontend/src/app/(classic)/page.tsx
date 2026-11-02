@@ -46,7 +46,7 @@ const ABOUT = { label: COPY.page.about, href: ROUTES.about.path() };
 /** The question's door: the league's address and its two networks (D247, D481). */
 const QUESTION: ComponentProps<typeof Doors>["question"] = {
   ...words.doors.question,
-  email: { label: words.contact.email, href: `mailto:${KONTAKT_EMAIL}` as Route, glyph: "addressChanges" },
+  email: { label: words.contact.email, href: `mailto:${KONTAKT_EMAIL}` as Route, glyph: "email" },
   instagram: INSTAGRAM_URL as Route,
   threads: THREADS_URL as Route,
 };

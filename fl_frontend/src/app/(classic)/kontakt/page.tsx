@@ -24,7 +24,7 @@ export default function KontaktPage() {
       <LinkRows
         rows={[
           {
-            glyph: "addressChanges",
+            glyph: "email",
             label: SERVER_COPY.landing.contact.email,
             value: KONTAKT_EMAIL,
             href: `mailto:${KONTAKT_EMAIL}` as Route,

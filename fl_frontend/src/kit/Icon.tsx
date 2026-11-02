@@ -128,7 +128,8 @@ const GLYPHS = {
   administrators: Shield,
   sperrliste: Ban,
   erasures: Trash,
-  addressChanges: Mail,
+  // An e-mail address: the administration's address changes, and the league's own on the question door and Kontakt.
+  email: Mail,
   log: ScrollText,
 
   // The landing's: its three pillars, who plays (the Abi year), how it is played and what the takings pay
