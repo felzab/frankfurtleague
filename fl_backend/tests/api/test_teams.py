@@ -167,7 +167,6 @@ class TestFLGruppen:
 
         assert sorted(response.model_dump()["gruppen"]["A"][0]) == [
             "austritt_type",
-            "count_pending_spiele",
             "id",
             "name",
             "shorthand",

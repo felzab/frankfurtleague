@@ -486,10 +486,6 @@ class FLGruppenTeam(BaseModel):
     # The TYPE alone: a row marks that a club is out, and the club's own page publishes the reason
     # and the date.
     austritt_type: FLAustrittType | None
-    # Fixtures neither counted nor called off in the `statistik_scope` asked for, so points are still
-    # to be awarded here. REQUIRED with no default: a caller that forgot it would silently strip a
-    # placing.
-    count_pending_spiele: int = Field(ge=0)
 
 
 class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLGruppenTeam]]]):
@@ -501,13 +497,17 @@ class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLGruppenTeam]]]):
 
 
 class FLTabelleRow(FLGruppenTeam):
-    """One row of the Tabelle: the standing row and its placing, null for a club that can hold none."""
+    """One row of the Tabelle: the standing row and its placing, null for a club that has played no match or has left."""
 
     platz: int | None = Field(gt=0)
 
 
 class FLTabelle(RootModel[Mapping[FLGruppenNames, list[FLTabelleRow]]]):
-    """Every group the season offers, in standing order, each row numbered as a `Platz` is: clubs the chain leaves level share one."""
+    """Every group the season offers in standing order, the clubs that have played no match last.
+
+    Each club that has played and is still in the season is numbered as a `Platz` is, and clubs the chain leaves level
+    share one.
+    """
 
 
 class FLTabelleResponse(BaseAPIResponse):
