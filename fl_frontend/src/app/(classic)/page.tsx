@@ -22,10 +22,9 @@ import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/bewerbungen/consta
 import { ORGANISERS, SPONSORS } from "@/features/meta/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { matchRowOf } from "../saisons/[saison]/spielplan";
-import { kickoffInstant, readLanding } from "./landing";
+import { formOf, readLanding, stateOf } from "./landing";
 
-import type { CalendarDay, Uhrzeit } from "@/core/format";
+import type { CalendarDay } from "@/core/format";
 import type { FLBewerbungWindow, FLLandingSaison } from "@/core/generated/client/types";
 import type { LandingContent } from "@/kit/LandingPage";
 import type { Metadata, ResolvingMetadata, Route } from "next";
@@ -37,9 +36,6 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return pageMetadata(parent, ROUTES.home, ROUTES.home.path(), { description: SERVER_COPY.description.home });
 }
 
-/** The application form for the season whose window is open. */
-const formOf = (window: FLBewerbungWindow) => `/bewerbung/${window.saison_id}` as Route;
-
 /** The way to the league's own page, which stands where applying would while no window is open. */
 const ABOUT = { label: COPY.page.about, href: ROUTES.about.path() };
 
@@ -50,51 +46,6 @@ const QUESTION: ComponentProps<typeof Doors>["question"] = {
   instagram: INSTAGRAM_URL as Route,
   threads: THREADS_URL as Route,
 };
-
-/** A season still being played: its last result and its next match, each where it has one. */
-function runningOf(saison: FLLandingSaison): ComponentProps<typeof SaisonBlock>["state"] {
-  const [last] = saison.recent;
-  const [next] = saison.upcoming;
-  return {
-    kind: "running",
-    ...(last === undefined ? {} : { last: matchRowOf(last) }),
-    ...(next === undefined ? {} : { next: matchRowOf(next) }),
-  };
-}
-
-/** Where the season stands, as its card beside the hero shows it. */
-function stateOf(saison: FLLandingSaison, window: FLBewerbungWindow | null): ComponentProps<typeof SaisonBlock>["state"] {
-  switch (saison.state) {
-    case "before_start": {
-      const kickoff = saison.first_kickoff;
-      if (kickoff !== null) {
-        const datum = kickoff.datum as CalendarDay;
-        const uhrzeit = kickoff.uhrzeit as Uhrzeit | null;
-        return {
-          kind: "countdown",
-          kickoff: kickoffInstant(datum, uhrzeit),
-          when: COPY.spielplan.when(datum, uhrzeit),
-          opening: {
-            spieltag: words.saison.spieltag(kickoff.spieltag_position),
-            home: kickoff.team1.shorthand,
-            away: kickoff.team2.shorthand,
-          },
-        };
-      }
-      return window === null ? { kind: "undated" } : { kind: "window", until: window.bis as CalendarDay, apply: formOf(window) };
-    }
-    case "running":
-      return runningOf(saison);
-    case "decided": {
-      const placed = (platz: number) => saison.podium.find((place) => place.platz === platz);
-      const [first, second, third, fourth] = [1, 2, 3, 4].map(placed);
-      // Every season with a K.-o.-Runde has places 1 to 4 (D497); one still missing a place reads as undecided.
-      if (first === undefined || second === undefined || third === undefined || fourth === undefined) return runningOf(saison);
-      const club = (place: typeof first) => ({ name: place.name, kuerzel: place.shorthand });
-      return { kind: "decided", places: [club(first), club(second), club(third), club(fourth)] };
-    }
-  }
-}
 
 /** The season's card, or the one sentence that the league has none yet. */
 function asideOf(saison: FLLandingSaison | null, window: FLBewerbungWindow | null): ReactNode {
