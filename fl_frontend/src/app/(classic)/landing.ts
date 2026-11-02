@@ -5,8 +5,7 @@ import { TIME_ZONE } from "@/core/format";
 import { saisonsGetLanding } from "@/core/generated/client/sdk";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
-
-import { matchRowOf } from "../saisons/[saison]/spielplan";
+import { matchRowOf } from "@/features/spiele/blocks";
 
 import type { CalendarDay, Uhrzeit } from "@/core/format";
 import type { FLBewerbungWindow, FLLandingResponse, FLLandingSaison } from "@/core/generated/client/types";
