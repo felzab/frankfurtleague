@@ -998,7 +998,7 @@ const DESIGN_BANS = [
   ),
   classBan(
     CLASS(String.raw`text-(?:lg|[4-9]xl)`),
-    "Type is six sizes: text-xs, text-sm, text-base, text-xl, text-2xl and text-3xl.",
+    "Type is seven sizes: text-2xs for a phone's compact table alone, then text-xs, text-sm, text-base, text-xl, text-2xl and text-3xl.",
     PRODUCTION,
   ),
   classBan(

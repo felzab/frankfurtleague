@@ -17,7 +17,7 @@ import type {
 import type { MailLink, MailOrigin } from "./mailKinds";
 
 /** The one address page, both links' and every record's, under the segment `robots.ts` already turns crawlers back from. */
-export const ADRESSWECHSEL_PFAD = "/bestaetigung/adresse";
+const ADRESSWECHSEL_PFAD = "/bestaetigung/adresse";
 
 /**
  * The one spelling of the address page's link, the stop link's too, the page telling them apart by hash.
