@@ -34,6 +34,7 @@ export default function SponsorsPage() {
             href={`mailto:${KONTAKT_EMAIL}` as Route}
             placement="button"
             look="secondary"
+            leadingIcon="email"
             label={words.contact.email}
           />
         }
