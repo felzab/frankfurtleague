@@ -3,15 +3,15 @@ from typing import Any
 
 from pymongo import ASCENDING, DESCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.outbox.schemas import FLOutboxReference, FLOutboxStatus
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db
+from app.core.readonly import ReadCollection
 
 
 async def state_of(
-    *, outbox_collection: AsyncCollection, reference: FLOutboxReference, session: AsyncClientSession | None = None
+    *, outbox_collection: ReadCollection, reference: FLOutboxReference, session: AsyncClientSession | None = None
 ) -> FLOutboxStatus | None:
     """What became of the last mail about one record and seat, as an editor serves it; `None` where none was ever owed.
 
@@ -30,7 +30,7 @@ async def state_of(
 
 
 async def states_of(
-    *, outbox_collection: AsyncCollection, collection: Collection, ids: Sequence[Any], session: AsyncClientSession | None = None
+    *, outbox_collection: ReadCollection, collection: Collection, ids: Sequence[Any], session: AsyncClientSession | None = None
 ) -> dict[tuple[Any, str | None], FLOutboxStatus]:
     """`state_of` for every seat of many records of one collection in one read, keyed by record id and seat.
 
