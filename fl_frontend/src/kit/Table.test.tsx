@@ -80,16 +80,79 @@ describe("a table's name cell", () => {
   });
 });
 
+describe("a table's box", () => {
+  it("is the card's surface standing alone, and inside a card's body no box at all", () => {
+    const { container } = render(
+      <>
+        <Table {...props([{ id: "1", name: "Goethe", cells: { stadtteil: "Nordend" } }])} />
+        <Table
+          {...props([{ id: "2", name: "Bettina", cells: { stadtteil: "Westend" } }])}
+          bare
+        />
+      </>,
+    );
+    const [alone, bare] = [...container.children].map((box) => box.className.split(" "));
+    expect(alone).toEqual(expect.arrayContaining(["rounded-lg", "border", "border-border", "bg-bg-card", "overflow-x-auto"]));
+    expect(bare).toStrictEqual(["overflow-x-auto"]);
+  });
+});
+
+describe("a table's head", () => {
+  // A card's head is the one band a card carries; a filled column head under it reads as a second band.
+  it("sets its column heads over a hairline on the card's own fill, with no fill of their own", () => {
+    render(<Table {...props([{ id: "1", name: "Goethe", href: "/saisons/2027", cells: { stadtteil: "Nordend" } }])} />);
+    const head = screen.getByRole("table").querySelector("thead tr");
+    expect(head?.classList).toContain("border-b");
+    for (const cell of head?.children ?? []) expect(cell.className).not.toMatch(/(^|\s|:)bg-/);
+  });
+});
+
+describe("a table on a phone", () => {
+  // jsdom applies no stylesheet, so which width draws a column is read from its classes.
+  it("draws one record column in place of the three it stands for, each count in its colour", () => {
+    render(
+      <Table
+        {...props([{ id: "1", name: "Goethe", href: "/saisons/2027", cells: { s: "3", u: "1", n: "0", sun: { record: ["3", "1", "0"] } } }])}
+        columns={[
+          ...(["s", "u", "n"] as const).map((key) => ({ key, label: COPY.shared.startelf, figures: true, hideOnPhone: true })),
+          { key: "sun", label: COPY.shared.saison, figures: true, phoneOnly: true },
+        ]}
+      />,
+    );
+    const [s, u, n, sun] = [...(screen.getByRole("link").closest("tr")?.children ?? [])].slice(1);
+    for (const separate of [s, u, n]) expect(separate?.classList).toContain("max-lg:hidden");
+    expect(sun?.classList).toContain("lg:hidden");
+    expect(sun?.textContent).toBe("3-1-0");
+    expect(
+      [...(sun?.querySelectorAll("span") ?? [])].map(
+        (count) => count.classList.contains("font-semibold") && count.className.match(/text-(\w+)/)?.[1],
+      ),
+    ).toStrictEqual(["success", "warn", "danger"]);
+    // The heads follow their cells.
+    const heads = screen.getAllByRole("columnheader").slice(1);
+    expect(heads.map((head) => head.classList.contains("lg:hidden"))).toStrictEqual([false, false, false, true]);
+  });
+
+  it("leaves the chevron out, the whole row still the link", () => {
+    render(<Table {...props([{ id: "1", name: "Goethe", href: "/saisons/2027", cells: { stadtteil: "Nordend" } }])} />);
+    const row = screen.getByRole("link", { name: "Goethe" }).closest("tr");
+    expect(row?.lastElementChild?.classList).toContain("max-lg:hidden");
+    expect(screen.getByRole("table").querySelector("thead tr")?.lastElementChild?.classList).toContain("max-lg:hidden");
+  });
+});
+
 describe("a figure short of fixtures called off", () => {
-  it("carries a red „+N“ centred on its corner, which a screen reader hears by name", () => {
+  it("carries a small red „+N“ over its corner, three quarters right of it, which a screen reader hears by name", () => {
     render(<Table {...props([{ id: "1", name: "Goethe", cells: { stadtteil: { value: "5", cancelled: 2 } } }])} />);
     const mark = screen.getByText(COPY.shared.season.cancelledMark(2));
     expect(mark.getAttribute("aria-hidden")).toBe("true");
     expect(mark.classList).toContain("text-danger");
-    // Placed on the figure's own box, centred on its top-right corner.
+    // Placed on the figure's own box, over its top-right corner, a step below the figure's size.
     expect(mark.parentElement?.firstChild?.textContent).toBe("5");
     expect(mark.parentElement?.classList).toContain("relative");
-    expect([...mark.classList]).toEqual(expect.arrayContaining(["absolute", "end-0", "top-0", "translate-x-1/2", "-translate-y-1/2"]));
+    expect([...mark.classList]).toEqual(
+      expect.arrayContaining(["absolute", "end-0", "top-0", "translate-x-3/4", "-translate-y-1/2", "text-2xs"]),
+    );
     expect(screen.getByText(COPY.shared.season.cancelled(2)).classList).toContain("sr-only");
   });
 

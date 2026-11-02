@@ -1,6 +1,5 @@
 import { cacheLife, cacheTag } from "next/cache";
 import Image from "next/image";
-import NextLink from "next/link";
 
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
@@ -9,8 +8,8 @@ import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import { Brand } from "./Brand";
 import { HeaderLinks } from "./FrameNav";
+import { Link } from "./Link";
 import { ToastRegion } from "./Toast";
-import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -25,8 +24,6 @@ async function Year() {
   cacheLife("days");
   return COPY.template.copyright(now().getFullYear(), COPY.brand.name);
 }
-
-const footerLink = tv({ base: "rounded-md text-sm leading-6 text-fg-muted hover:text-fg" });
 
 /**
  * The classic public frame, which a layout places around the landing, About, Kontakt, the sponsors page,
@@ -84,18 +81,16 @@ export function ClassicFrame({
               <Brand ground="page" />
               <p className="text-sm text-fg-muted">{COPY.template.oberstufenliga}</p>
               <div className="flex gap-4">
-                <NextLink
+                <Link
                   href={social.instagram}
-                  data-kit-focus="text"
-                  className={footerLink()}>
-                  {COPY.template.instagram}
-                </NextLink>
-                <NextLink
+                  placement="footer"
+                  label={COPY.template.instagram}
+                />
+                <Link
                   href={social.threads}
-                  data-kit-focus="text"
-                  className={footerLink()}>
-                  {COPY.template.threads}
-                </NextLink>
+                  placement="footer"
+                  label={COPY.template.threads}
+                />
               </div>
             </div>
             {[{ heading: COPY.template.liga, links: ligaLinks }, ...groups].map((group) => (
@@ -105,13 +100,12 @@ export function ClassicFrame({
                 className="grid content-start gap-1">
                 <h2 className="mb-1 text-xs font-semibold tracking-caps text-fg-muted uppercase">{group.heading}</h2>
                 {group.links.map((link) => (
-                  <NextLink
+                  <Link
                     key={link.href}
                     href={link.href}
-                    data-kit-focus="text"
-                    className={footerLink()}>
-                    {link.label}
-                  </NextLink>
+                    placement="footer"
+                    label={link.label}
+                  />
                 ))}
               </nav>
             ))}
@@ -121,27 +115,29 @@ export function ClassicFrame({
               <p className="text-xs text-fg-muted">{COPY.template.supportedBy}</p>
               <div className="flex flex-wrap items-center gap-6">
                 {sponsors.map((sponsor) => (
-                  <NextLink
+                  <Link
                     key={sponsor.href}
                     href={sponsor.href}
-                    rel="sponsored noopener"
-                    title={sponsor.name}
-                    data-kit-focus="ring"
-                    className="flex items-center gap-2 rounded-md text-xs text-fg-muted">
-                    {/* An SVG served as it is, which the image optimiser has nothing to do for; small and grey,
+                    placement="footer"
+                    sponsored>
+                    <span
+                      title={sponsor.name}
+                      className="flex items-center gap-2 text-xs">
+                      {/* An SVG served as it is, which the image optimiser has nothing to do for; small and grey,
                         each logo fitted into the same box whatever its own proportions. */}
-                    <span className="relative block h-6 w-24">
-                      <Image
-                        src={sponsor.logo}
-                        alt={sponsor.name}
-                        fill
-                        unoptimized
-                        sizes="6rem"
-                        className="object-contain object-left grayscale"
-                      />
+                      <span className="relative block h-6 w-24">
+                        <Image
+                          src={sponsor.logo}
+                          alt={sponsor.name}
+                          fill
+                          unoptimized
+                          sizes="6rem"
+                          className="object-contain object-left grayscale"
+                        />
+                      </span>
+                      {sponsor.short !== undefined && <span aria-hidden>{sponsor.short}</span>}
                     </span>
-                    {sponsor.short !== undefined && <span aria-hidden>{sponsor.short}</span>}
-                  </NextLink>
+                  </Link>
                 ))}
               </div>
             </div>

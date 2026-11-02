@@ -305,7 +305,7 @@ export const switchThumb = tv({
 
 /** The menu a select, a combo box or a date's calendar opens, fading in and out. */
 export const menuPopover = tv({
-  base: "overflow-auto rounded-lg bg-bg p-1 shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
+  base: "overflow-auto rounded-lg bg-bg-overlay p-1 shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
   variants: {
     // A list is as wide as the field that opened it, or as its longest entry, never narrower than its field or
     // wider than the screen; a menu keeps a floor of 224 px, so a short list of words does not open as a

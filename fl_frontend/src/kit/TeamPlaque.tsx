@@ -6,7 +6,9 @@ const plaque = tv({
   base: "inline-flex h-6 w-10 shrink-0 items-center justify-center rounded-md align-middle font-numeric text-xs tracking-display uppercase",
   variants: {
     known: {
-      true: "bg-bg-muted font-semibold text-fg",
+      // The text colour at the chip's tint over whatever it stands on, so it rises one step off the page, a
+      // card and a card's head alike, in both themes.
+      true: "bg-fg/12 font-semibold text-fg",
       // A side the draw has not settled: dashed and muted, its source in place of a club.
       false: "border border-dashed border-border-control bg-transparent font-medium text-fg-muted",
     },

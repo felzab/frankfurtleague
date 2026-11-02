@@ -1,5 +1,6 @@
 import { formatNumber } from "@/core/format";
 
+import { cardSurface } from "./cardStyles";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -11,7 +12,7 @@ const figures = tv({
   slots: {
     // Four in a row from `lg`, two by two below it.
     root: "grid grid-cols-2 gap-4 lg:grid-cols-4",
-    card: "grid gap-0.5 rounded-lg border border-border bg-bg p-6",
+    card: `grid gap-0.5 ${cardSurface()} p-6`,
     // What it counts comes first, as a list of terms is read, and stands under its figure on screen.
     value: "row-start-1 font-heading text-3xl tracking-display",
     label: "row-start-2 text-sm text-fg-muted",

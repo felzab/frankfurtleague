@@ -1,6 +1,7 @@
 import { formatNumber } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
 
+import { cardSurface } from "./cardStyles";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -9,7 +10,7 @@ export type Placed = { name: string; kuerzel: string };
 
 const podium = tv({
   slots: {
-    root: "grid gap-0 overflow-hidden rounded-lg border border-border bg-bg",
+    root: `grid gap-0 overflow-hidden ${cardSurface()}`,
     steps: "grid grid-cols-3 items-end gap-2 px-4 pt-4",
     // Read in its place's order, drawn 2 · 1 · 3: the winner in the middle, second at the left, third at the right.
     place: "grid min-w-0 justify-items-center gap-2 text-center",

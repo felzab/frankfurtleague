@@ -1,3 +1,4 @@
+import { cardSurface } from "./cardStyles";
 import { tv } from "./tv";
 
 /** One of the people running the league: their first name and what they do. */
@@ -5,7 +6,7 @@ type Organiser = { name: string; role: string };
 
 const row = tv({
   slots: {
-    root: "flex flex-wrap items-center gap-x-6 gap-y-4 rounded-lg border border-border bg-bg p-6",
+    root: `flex flex-wrap items-center gap-x-6 gap-y-4 ${cardSurface()} p-6`,
     person: "flex items-center gap-2.5",
     // Board: the avatar, the first letter of the name in a 40-px circle, as the account row draws one.
     avatar: "flex size-10 shrink-0 items-center justify-center rounded-full bg-bg-muted font-numeric text-sm font-semibold",

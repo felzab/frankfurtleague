@@ -1,3 +1,4 @@
+import { cardSurface } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
@@ -19,7 +20,7 @@ export type Fact = {
 } & (
   | { value: string; /** Figures, set in Inter with columns that line up. */ figures?: boolean; link?: never; elsewhere?: never }
   | { link: { href: Route; text: string }; value?: never; figures?: never; elsewhere?: never }
-  /** Opens in a new tab, leaving the site's page in place. */
+  /** Another site's address, which `Link` opens in a new tab, leaving the site's page in place. */
   | { elsewhere: { href: `https://${string}`; text: string }; value?: never; figures?: never; link?: never }
 );
 
@@ -38,7 +39,7 @@ const facts = tv({
       // row was drawn in, so a read page's or a mailed page's column splits its pairs and a phone's, or a box
       // narrower than a dialog on any screen, stacks them.
       boxed: {
-        list: "overflow-hidden rounded-lg border border-border @lg:grid @lg:grid-cols-2",
+        list: `overflow-hidden ${cardSurface()} @lg:grid @lg:grid-cols-2`,
         // In the wide box the second pair shares the first one's row, so it draws no hairline above it either.
         row: "border-t border-border px-3 py-2 first:border-t-0 @lg:nth-2:border-t-0",
       },
@@ -90,6 +91,7 @@ export function Facts({
       <dl className={list()}>
         {rows.map((fact) => {
           const { row, term, detail } = facts({ look, figures: fact.figures === true });
+          const to = fact.link ?? fact.elsewhere;
           return (
             <div
               key={fact.label}
@@ -104,18 +106,11 @@ export function Facts({
                 {fact.label}
               </dt>
               <dd className={detail()}>
-                {fact.link !== undefined ? (
+                {to !== undefined ? (
                   <Link
-                    href={fact.link.href}
+                    href={to.href}
                     placement="standalone"
-                    text={fact.link.text}
-                  />
-                ) : fact.elsewhere !== undefined ? (
-                  <Link
-                    href={fact.elsewhere.href}
-                    placement="standalone"
-                    newTab
-                    text={fact.elsewhere.text}
+                    text={to.text}
                   />
                 ) : (
                   fact.value

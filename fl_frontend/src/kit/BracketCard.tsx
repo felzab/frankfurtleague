@@ -1,3 +1,4 @@
+import { cardSurface } from "./cardStyles";
 import { Link } from "./Link";
 import { figures, look, NONE, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
@@ -24,8 +25,13 @@ function Line({ side, score, part }: { side: SpielSide; score: Figures; part: "h
     <span className={style.line()}>
       <span className={style.name()}>
         <TeamPlaque {...side.plaque} />
-        {/* A phone's card shows the plaque alone; desktop sets the name, or a side's source, beside it. */}
-        <span className="min-w-0 truncate max-lg:hidden">{side.name}</span>
+        {/* A phone's card draws the plaque alone, the name still the link's words for a screen reader; desktop
+            sets the name, or a side's source, beside it, cut with „…“ and whole in its title. */}
+        <span
+          title={side.name}
+          className="min-w-0 truncate max-lg:sr-only">
+          {side.name}
+        </span>
       </span>
       <span className={style.goals()}>{score === null ? NONE : score[part]}</span>
     </span>
@@ -57,7 +63,7 @@ export function BracketCard({
   return (
     <div
       id={anchor}
-      className="kit-target overflow-hidden rounded-lg border border-border bg-bg text-sm">
+      className={cardSurface({ class: "kit-target overflow-hidden text-sm" })}>
       <Link
         href={href}
         placement="card">

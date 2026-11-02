@@ -1,5 +1,6 @@
 import { COPY } from "@/core/copy";
 
+import { cardSurface } from "./cardStyles";
 import { tv } from "./tv";
 
 /** The final boxes a template waits for: a table's rows, a match list's, a read page's facts, an editor's sections. */
@@ -16,7 +17,7 @@ const skeleton = tv({
     // invalidates the duration alone, which falls back to 0s, so the box appears at once.
     root: "opacity-0 [animation-delay:var(--loading-delay)] [animation-duration:var(--motion-in)] [animation-fill-mode:forwards] [animation-name:kit-appear]",
     // A box of rows, as the list, the table or the facts that will stand in its place.
-    box: "overflow-hidden rounded-lg border border-border bg-bg",
+    box: `overflow-hidden ${cardSurface()}`,
     row: "flex flex-col justify-center gap-2 border-t border-border px-4 first:border-t-0",
     // The base fill, with a lighter band sweeping across it every two seconds, under reduced motion too: a
     // loading indicator that stops reads as stuck.
@@ -29,7 +30,7 @@ const skeleton = tv({
       table: { row: "h-14 lg:h-13" },
       spiel: { row: "h-24 lg:h-14" },
       facts: { row: "h-14" },
-      sections: { row: "h-40 rounded-lg border bg-bg first:border-t" },
+      sections: { row: `h-40 ${cardSurface()} first:border-t` },
     },
     // A label's bar, shorter and lower than its value's.
     label: {

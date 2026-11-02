@@ -2,11 +2,13 @@
    `filter` or `contain` here would make the document root a containing block. */
 
 /* Session 8: `--bg-surface`, `--bg-muted`, `--fg-muted` and `--border-control` stand in `tokens.css` too,
-   with the same values in both themes; one of the two copies goes. */
+   whose values every page paints, since it is imported after this file into the same layer and its
+   selectors weigh the same; one of the two copies goes. */
 
 @layer base {
   :root,
   [data-theme="light"] {
+    /* The body's ground, which is `tokens.css`'s `--bg` in each theme: a change to either writes both. */
     --bg-base: #ffffff;
     --bg-surface: #f5f5f5;
     --bg-muted: #e5e5e5;

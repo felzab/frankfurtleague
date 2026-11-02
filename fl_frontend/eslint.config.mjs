@@ -564,7 +564,7 @@ const SOURCE_BANS = [
     // The target in any spelling, an attribute's, a spread object's or a `window.open` argument's.
     syntax(
       inLiteral("^_blank$"),
-      "A link opening a new tab is the kit's `Link` with `newTab`: a target spelled here tells a screen reader nothing.",
+      "A link opening a new tab is the kit's `Link`, which opens every other site's address in one: a target spelled here tells a screen reader nothing.",
     ),
     SOURCE,
     // Redesign: goes with its last importer. `NewTabLink` is the old pages' new-tab link.

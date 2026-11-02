@@ -1,5 +1,6 @@
 import { formatNumber } from "@/core/format";
 
+import { cardSurface } from "./cardStyles";
 import { Link } from "./Link";
 import { tv } from "./tv";
 
@@ -25,7 +26,7 @@ const steps = tv({
       "row-span-2 flex size-10 items-center justify-center rounded-lg bg-brand-solid font-numeric text-base font-semibold text-on-brand lg:row-span-1",
     title: "self-center text-base font-semibold",
     text: "col-start-2 text-sm text-fg-muted lg:col-start-1",
-    band: "flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-bg px-6 py-4",
+    band: `flex flex-wrap items-center justify-between gap-4 ${cardSurface()} px-6 py-4`,
     sentence: "text-base",
   },
 });

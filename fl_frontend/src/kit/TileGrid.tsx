@@ -1,6 +1,6 @@
 import Image from "next/image";
-import NextLink from "next/link";
 
+import { cardSurface } from "./cardStyles";
 import { Link } from "./Link";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
@@ -23,7 +23,7 @@ const grid = tv({
   slots: {
     root: "grid grid-cols-2 gap-2 lg:grid-cols-4",
     // The tile's edge and corners hold the link, which fills under the pointer and rings inside them.
-    tile: "overflow-hidden rounded-lg border border-border bg-bg",
+    tile: `overflow-hidden ${cardSurface()}`,
     content: "text-sm font-medium",
   },
   variants: {
@@ -33,9 +33,7 @@ const grid = tv({
       school: { content: "flex min-h-12 items-center gap-2 px-2.5 py-1 lg:min-h-11" },
       // The logo over the short name; the logo on a white plate in both themes, so it keeps its own colours
       // on the dark one. Board: the plate's height, 64 px.
-      sponsor: {
-        content: "grid content-start gap-2 p-2 text-center text-fg transition-colors duration-(--motion-state) hover:bg-bg-surface",
-      },
+      sponsor: { content: "grid content-start gap-2 p-2 text-center" },
     },
   },
 });
@@ -81,29 +79,31 @@ export function SponsorTiles({ sponsors }: { sponsors: readonly Sponsor[] }) {
         <li
           key={sponsor.href}
           className={slots.tile()}>
-          <NextLink
+          <Link
             href={sponsor.href}
-            rel="sponsored noopener"
-            title={sponsor.name}
-            data-kit-focus="inset"
-            className={slots.content()}>
-            <span className="relative block h-16 rounded-md bg-white">
-              {/* An SVG served as it is, which the image optimiser has nothing to do for, fitted into the plate. */}
-              <Image
-                src={sponsor.logo}
-                alt={sponsor.name}
-                fill
-                unoptimized
-                sizes="12rem"
-                className="object-contain p-2"
-              />
-            </span>
+            placement="card"
+            sponsored>
             <span
-              aria-hidden
-              className="block truncate">
-              {sponsor.short ?? sponsor.name}
+              title={sponsor.name}
+              className={slots.content()}>
+              <span className="relative block h-16 rounded-md bg-white">
+                {/* An SVG served as it is, which the image optimiser has nothing to do for, fitted into the plate. */}
+                <Image
+                  src={sponsor.logo}
+                  alt={sponsor.name}
+                  fill
+                  unoptimized
+                  sizes="12rem"
+                  className="object-contain p-2"
+                />
+              </span>
+              <span
+                aria-hidden
+                className="block truncate">
+                {sponsor.short ?? sponsor.name}
+              </span>
             </span>
-          </NextLink>
+          </Link>
         </li>
       ))}
     </ul>

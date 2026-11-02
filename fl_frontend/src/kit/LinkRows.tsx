@@ -1,3 +1,4 @@
+import { cardHover, cardSurface } from "./cardStyles";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
@@ -15,11 +16,14 @@ type LinkRow = { glyph?: IconName; label: Copy; value: string; href: Route };
  */
 export function LinkRows({ rows }: { rows: readonly LinkRow[] }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-bg">
+    <div className={cardSurface({ class: "overflow-hidden" })}>
       {rows.map((row) => (
         <div
           key={row.href}
-          className="relative flex min-h-14 items-center gap-3 border-t border-border px-4 py-2 text-base transition-colors duration-(--motion-state) first:border-t-0 hover:bg-bg-surface lg:min-h-13 lg:text-sm">
+          className={cardHover({
+            class:
+              "relative flex min-h-14 items-center gap-3 border-t border-border px-4 py-2 text-base first:border-t-0 lg:min-h-13 lg:text-sm",
+          })}>
           {row.glyph !== undefined && (
             <Icon
               glyph={row.glyph}
@@ -32,9 +36,6 @@ export function LinkRows({ rows }: { rows: readonly LinkRow[] }) {
             <Link
               href={row.href}
               placement="row"
-              // A profile on another site opens in a new tab, as the kit's other links there do; the mail
-              // address and the site's own pages open in place.
-              newTab={row.href.startsWith("https://")}
               label={row.label}
             />
           </span>

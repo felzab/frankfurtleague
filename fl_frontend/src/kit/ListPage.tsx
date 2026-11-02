@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 
 import { Button } from "./Button";
+import { cardSurface } from "./cardStyles";
 import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
 import { EmptyState } from "./EmptyState";
@@ -62,7 +63,7 @@ type ListContent =
 /** A list's empty state inside the list's box, as `Table` places its own. */
 function EmptyBox({ empty }: { empty: EmptyStateProps }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-bg">
+    <div className={cardSurface({ class: "overflow-hidden" })}>
       <EmptyState {...empty} />
     </div>
   );

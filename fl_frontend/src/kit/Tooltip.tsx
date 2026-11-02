@@ -31,7 +31,7 @@ export function Tooltip({
         placement={placement}
         // 4 px over a control; past a rail entry's end, 4 px beyond the rail's 12-px inset and its edge.
         offset={placement === "end" ? 16 : 4}
-        className="rounded-md border border-border bg-bg px-2 py-1 text-xs font-medium whitespace-nowrap text-fg shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)">
+        className="rounded-md border border-border bg-bg-overlay px-2 py-1 text-xs font-medium whitespace-nowrap text-fg shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)">
         {label}
       </AriaTooltip>
     </TooltipTrigger>

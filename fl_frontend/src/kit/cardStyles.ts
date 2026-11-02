@@ -1,17 +1,34 @@
 import { tv } from "./tv";
 
 /**
+ * The card's surface alone: its hairline, its corners and its fill, which every kit box standing as a card
+ * wears, so a ruling on the card's surface reaches each of them from here. A box keeps its own layout and
+ * padding beside it, passed as `class`.
+ */
+export const cardSurface = tv({ base: "rounded-lg border border-border bg-bg-card" });
+
+/**
+ * The fill under the pointer of a row or a link covering a box of the card's surface: one step above the
+ * card, so it shows on the raised card as on the page. A card's rows, a table's linked rows, `LinkRows` and
+ * a card link (`Link`'s card placement, which `SpielRow`, `BracketCard` and the tiles place) read it.
+ */
+export const cardHover = tv({ base: "transition-colors duration-(--motion-state) hover:bg-bg-muted" });
+
+/**
  * A card's look, shared by the server-rendered `Card`, `CardLink` and `CardRow` and the client `CardFold`, so a
  * ruling on the card's surface, its head's fill or a row's hover changes one recipe. Kept apart from the
  * client module, whose every export a Server Component would receive as a reference it cannot call.
  *
- * A box with the hairline and the card corners, its head on the surface colour. Its body is rows, or fields
- * with the card's padding around them.
+ * A box of the card's surface, its head one step above it. Its body is rows, or fields with the card's
+ * padding around them.
+ * @awaitsProduction session 3's pages placing a `Card`
  */
 export const card = tv({
   slots: {
-    root: "grid overflow-hidden rounded-lg border border-border bg-bg text-fg",
-    head: "grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 border-b border-border bg-bg-surface px-4 py-3",
+    // `content-start` packs the rows at the top: a card stretched to a grid neighbour's height gives the spare
+    // height to nothing, where auto rows would split it between the head and the body and grow the head.
+    root: `grid content-start overflow-hidden ${cardSurface()} text-fg`,
+    head: "grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 border-b border-border bg-bg-card-head px-4 py-3",
     title: "text-base font-semibold break-words",
     count: "col-start-2 row-start-1 font-numeric text-sm text-fg-muted",
     line: "col-span-2 text-sm text-fg-muted",
@@ -21,7 +38,7 @@ export const card = tv({
     body: "min-w-0",
     foot: "flex justify-end p-4",
     chevron: "",
-    row: "relative flex min-h-14 items-stretch gap-3 border-t border-border px-4 py-2 text-sm transition-colors duration-(--motion-state) first:border-t-0 hover:bg-bg-surface lg:min-h-13",
+    row: `relative flex min-h-14 items-stretch gap-3 border-t border-border px-4 py-2 text-sm first:border-t-0 lg:min-h-13 ${cardHover()}`,
   },
   variants: {
     body: {
