@@ -184,6 +184,12 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 **Trap:** the ground is part of it, so moving only the venue reopens every confirmation of the fixture. The five values are stored beside the digest because no aggregation can recompute a SHA-256: a read joining rows compares the values while the answer compares the digest, and `ANSETZUNG_QUELLEN` is the one list both read, since a key added to one alone gives two answers to whether a row is about the fixture's current Ansetzung. `ansetzung_confirmed` has three values, and `null`, no club's row about the fixture standing unclosed nor one discarded about its current Ansetzung, is never `false`: only `false` puts „Vorläufig“ on a public card. A fixture moved since its clubs were asked reads `false` at once, from its rows about the Ansetzung it left, until the next pass closes them; it reads `false` again only once a pass asks about the new Ansetzung, which happens only inside the answer window (`fl_backend/app/api/spielbestaetigungen/services.py :: letzter_anfrage_tag`) and on a fixture holding a date, a time, a ground and both sides, so a fixture moved further out, or left without one of those, reads `null` in between. A fixture whose day passed with no result reads `null` from the pass that closes its rows `spiel_past`. It is neither the `Paarung`, the two sides and what they produced, nor the `Spieltag` a fixture belongs to.\
 **See:** the `Spielbestätigung` entry, and the `Paarung` entry for the sides alone.
 
+### `Anpfiff` — kick-off
+
+**Is:** the word the site labels a match's kick-off time with: its `uhrzeit`, the Berlin wall time on its `datum`, null while no time is set.\
+**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielCommon`'s `uhrzeit`; the landing's line naming its opening match is `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY.landing.saison.kickoff`.\
+**Trap:** no field is named `anpfiff`, and the landing's countdown counts to the season's start, 00:00 in Berlin on its `start_date` (`fl_backend/app/api/saisons/schemas.py :: saison_start`), never to a kick-off.
+
 ### `Einteilung` — the message telling a referee they are booked onto one fixture
 
 **Is:** what a referee booked onto a fixture is told of it: once the confirmation sweep mints the referee's own `Spielbestätigung` row for the fixture's current `Ansetzung`, it mails them the Einteilung, naming the fixture, its slot and its ground and leading to their panel.\
