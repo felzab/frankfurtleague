@@ -21,9 +21,6 @@ export async function AdminContextWrapper({ children, saison_id }: { children: R
     getAdminSpiele({ saison_id: saison_id }),
     getAdminSaisons(),
   ]);
-  if (teamsRes.format !== "list") {
-    throw new Error("Expected a list, got something else");
-  }
 
   const saison = saison_id === undefined ? undefined : saisonsRes.saisons.find((row) => row.id === saison_id);
 

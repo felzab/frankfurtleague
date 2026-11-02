@@ -119,7 +119,6 @@ async def admin_teams(database: AsyncDatabase, saison_id: str) -> Any:
     return await get_teams_verwaltung(
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        spiele_collection=database[Collection.SPIELE],
         filters=FLTeamsFilterParams(saison_id=saison_id),
     )
 

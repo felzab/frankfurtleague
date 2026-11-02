@@ -3751,7 +3751,6 @@ export const TeamsGetTeamsVerwaltungQueryParams = zod.object({
   gruppe: zod.union([zod.enum(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]), zod.null()]).optional(),
   has_austritt: zod.union([zod.boolean(), zod.null()]).optional(),
   austritt_type: zod.union([zod.enum(["disqualifikation", "rueckzug"]), zod.null()]).optional(),
-  in_gruppen: zod.union([zod.boolean(), zod.null()]).optional(),
   statistik_scope: zod.enum(["gruppenphase", "total"]).default(teamsGetTeamsVerwaltungQueryStatistikScopeDefault),
   limit: zod.int().min(1).max(teamsGetTeamsVerwaltungQueryLimitMax).default(teamsGetTeamsVerwaltungQueryLimitDefault),
   sort_by: zod.literal("name").default(teamsGetTeamsVerwaltungQuerySortByDefault).meta({ title: "Sort By" }),

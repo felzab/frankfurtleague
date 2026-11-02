@@ -44,7 +44,6 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.sperrliste.services import withheld_actor
 from app.api.spielbestaetigungen.services import seat_void_of
-from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe, void_moved_seats
 from app.api.teams.schemas import (
     FLKontaktInviteResponse,
@@ -61,14 +60,11 @@ from app.api.teams.schemas import (
     FLSaisonTeamResponse,
     FLTeamListAdapter,
     FLTeamsFilterParams,
-    FLTeamsGroupedResponse,
     FLTeamsListResponse,
-    FLTeamsResponse,
     FLTeamsSaisonsResponse,
     FLTeamWithMembershipsListAdapter,
 )
 from app.api.teams.services import (
-    build_gruppen,
     build_team_pipeline,
     build_team_saisons_pipeline,
     compose_bestaetigungen_mit,
@@ -244,15 +240,14 @@ async def get_team_saisons(
 # resource under one shape. No id route at this prefix ends in `/admin`, so none can shadow this one.
 @router.get(
     "/list/verwaltung",
-    response_model=FLTeamsResponse,
+    response_model=FLTeamsListResponse,
     summary="Teams for a Saison, for the admin surfaces",
 )
 async def get_teams_verwaltung(
     teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
-    spiele_collection: SpieleCollection,
     filters: FLTeamsFilterParams = Depends(),
-) -> FLTeamsResponse:
+) -> FLTeamsListResponse:
     """
     List a season's teams for the admin surfaces, a `future` season's included.
 
@@ -269,20 +264,8 @@ async def get_teams_verwaltung(
             collation=GERMAN_COLLATION,
         )
     )
-    if not filters.in_gruppen:
-        return FLTeamsListResponse(teams=teams)
 
-    # Narrowed to the set the statistics counted, so a head-to-head tiebreak weighs the same matches.
-    spiele_filter: dict[str, Any] = {"saison_id": filters.saison_id}
-    if filters.statistik_scope == "gruppenphase":
-        spiele_filter["saison_phase"] = "gruppenphase"
-
-    spiele = FLSpielListAdapter.validate_python(await pull_many_from_db(collection=spiele_collection, db_filter=spiele_filter))
-
-    return FLTeamsGroupedResponse(
-        gruppen=build_gruppen(teams=teams, spiele=spiele, rules=saison_rules),
-        qualifiers_per_gruppe=saison_rules.qualifiers_per_gruppe,
-    )
+    return FLTeamsListResponse(teams=teams)
 
 
 @router.post("", response_model=FLCreatedResponse, status_code=201, summary="Create a team")

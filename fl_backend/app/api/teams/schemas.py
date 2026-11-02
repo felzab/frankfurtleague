@@ -488,14 +488,6 @@ class FLGruppenTeam(BaseModel):
     austritt_type: FLAustrittType | None
 
 
-class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLGruppenTeam]]]):
-    """Every group the SEASON offers, all of them and no other, in standing order.
-
-    Built by `fl_backend/app/api/teams/services.py :: build_gruppen` alone: the order is the tiebreak
-    chain, whose head-to-head criterion reads the season's matches.
-    """
-
-
 class FLTabelleRow(FLGruppenTeam):
     """One row of the Tabelle: the standing row and its placing, null for a club that has played no match or has left."""
 
@@ -719,7 +711,6 @@ class FLPublicTeamsFilterParams(BaseModel):
     # Independent of the boolean rather than nested under it: naming a type already implies having
     # left, so the two combine without either having to imply the other.
     austritt_type: FLAustrittType | None = None
-    in_gruppen: bool | None = None
 
     # Defaults to the GROUP TABLE, so an omitted parameter is the correct standing rather than the
     # playoff-polluted one.
@@ -756,23 +747,8 @@ class FLTeamsListResponse(BaseAPIResponse):
     teams: list[FLTeam]
 
 
-class FLTeamsGroupedResponse(BaseAPIResponse):
-    """The season's groups in standing order, and how many of each advance.
-
-    `qualifiers_per_gruppe` rides along rather than being fetched separately, so a page cannot mark a
-    cutoff drawn from a different season than the table it marks.
-    """
-
-    format: Literal["grouped"] = "grouped"
-    gruppen: FLGruppen
-    qualifiers_per_gruppe: int = Field(gt=0)
-
-
 class FLTeamsSingleResponse(BaseAPIResponse):
-    """One team, from `GET /teams/{team_id}`.
-
-    Not part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can return.
-    """
+    """One team, from `GET /teams/{team_id}`."""
 
     format: Literal["single"] = "single"
     team: FLTeam
@@ -897,9 +873,3 @@ class FLSaisonTeamAccountEinwilligungResponse(BaseAPIResponse):
     medien: bool
     # The precondition a next press on this row echoes.
     nachweis_stand: FLEinwilligungStand
-
-
-FLTeamsResponse = Annotated[
-    FLTeamsListResponse | FLTeamsGroupedResponse,
-    Field(discriminator="format"),
-]

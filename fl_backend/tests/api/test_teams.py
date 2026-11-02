@@ -13,12 +13,12 @@ from app.api.teams.schemas import (
     FLPostTeamPayload,
     FLSaisonTeamKontakte,
     FLSaisonTeamKontaktePayload,
+    FLTabelleResponse,
     FLTeam,
     FLTeamRecord,
-    FLTeamsGroupedResponse,
     FLTeamStatistik,
 )
-from app.api.teams.services import build_gruppen
+from app.api.teams.services import build_tabelle
 from app.shared.schemas.literals import FLGruppenNames, FLSpielerStufe
 from tests.documents import confirmed_kenntnisnahme
 
@@ -113,23 +113,23 @@ def test_rejects_a_shorthand_that_is_not_three_letters(team, shorthand):
         FLTeam.model_validate(team(shorthand=shorthand))
 
 
-class TestFLGruppen:
-    """The frontend's `FLGruppenSchema` is a subset of the closed set, so a map built from the teams present drops a group the season offers."""
+class TestTheTabellesGroups:
+    """Every group the season offers, a map built from the clubs present dropping a group nobody has entered yet."""
 
     def test_emits_every_group_the_season_offers(self, team):
-        grouped = build_gruppen([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=RULES)
+        grouped = build_tabelle([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=RULES)
 
         assert sorted(grouped.root) == ["A", "B", "C", "D"]
 
     def test_leaves_unpopulated_groups_as_empty_lists(self, team):
         """The empty groups are `[]`, not absent and not null."""
-        grouped = build_gruppen([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=RULES)
+        grouped = build_tabelle([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=RULES)
 
         assert len(grouped.root["A"]) == 1
         assert grouped.root["B"] == grouped.root["C"] == grouped.root["D"] == []
 
     def test_returns_them_for_no_teams_at_all(self):
-        grouped = build_gruppen([], spiele=[], rules=RULES)
+        grouped = build_tabelle([], spiele=[], rules=RULES)
 
         assert sorted(grouped.root) == ["A", "B", "C", "D"]
         assert all(members == [] for members in grouped.root.values())
@@ -138,15 +138,15 @@ class TestFLGruppen:
         """The season's count decides the keys, not the set's size: a key past it is a standings column for a group nobody plays in."""
 
         two_groups = RULES.model_copy(update={"number_of_gruppen": 2})
-        grouped = build_gruppen([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=two_groups)
+        grouped = build_tabelle([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=two_groups)
 
         assert sorted(grouped.root) == ["A", "B"]
         assert grouped.root["B"] == []
 
     def test_the_serialised_response_body_carries_them_too(self, team):
         """The wire shape, not the Python object: the frontend parses the response body."""
-        response = FLTeamsGroupedResponse(
-            gruppen=build_gruppen([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=RULES),
+        response = FLTabelleResponse(
+            gruppen=build_tabelle([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=RULES),
             qualifiers_per_gruppe=RULES.qualifiers_per_gruppe,
         )
 
@@ -154,14 +154,13 @@ class TestFLGruppen:
 
         assert sorted(body["gruppen"]) == ["A", "B", "C", "D"]
         assert body["gruppen"]["B"] == []
-        assert body["format"] == "grouped"
         # The cutoff rides with the table it applies to, so no page marks one season's standing with another's number.
         assert body["qualifiers_per_gruppe"] == 2
 
     def test_a_row_carries_the_standings_fields_and_no_club_detail(self, team):
         """A public CLIENT component renders this, so every field listed is serialised into the page -- and an address here is a school's."""
-        response = FLTeamsGroupedResponse(
-            gruppen=build_gruppen([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=RULES),
+        response = FLTabelleResponse(
+            gruppen=build_tabelle([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=RULES),
             qualifiers_per_gruppe=RULES.qualifiers_per_gruppe,
         )
 
@@ -169,6 +168,7 @@ class TestFLGruppen:
             "austritt_type",
             "id",
             "name",
+            "platz",
             "shorthand",
             "statistik",
         ]
@@ -176,7 +176,7 @@ class TestFLGruppen:
     def test_a_row_names_only_the_type_of_an_austritt(self, team):
         """`grund` is free text written for publication, and the club's own page is where it is published."""
         austritt = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-03-14"}
-        rows = build_gruppen([FLTeam.model_validate(team(gruppe="A", austritt=austritt))], spiele=[], rules=RULES).root["A"]
+        rows = build_tabelle([FLTeam.model_validate(team(gruppe="A", austritt=austritt))], spiele=[], rules=RULES).root["A"]
 
         assert rows[0].austritt_type == "rueckzug"
 
@@ -188,7 +188,7 @@ class TestFLGruppen:
         unplaceable = FLTeam.model_construct(**{**team(), "gruppe": gruppe})
 
         with pytest.raises(ValueError, match="does not offer"):
-            build_gruppen([unplaceable], spiele=[], rules=RULES)
+            build_tabelle([unplaceable], spiele=[], rules=RULES)
 
 
 class TestFLTeamRecord:

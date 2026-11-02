@@ -207,7 +207,6 @@ import type {
   FLTabelleResponse,
   FLTeamPageResponse,
   FLTeamSeatsResponse,
-  FLTeamsGroupedResponse,
   FLTeamsListResponse,
   FLTeamsSaisonsResponse,
   FLTeamsSingleResponse,
@@ -4916,8 +4915,8 @@ export const getTeamsGetTeamsVerwaltungUrl = (params?: TeamsGetTeamsVerwaltungPa
 export const teamsGetTeamsVerwaltung = async (
   params?: TeamsGetTeamsVerwaltungParams,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLTeamsListResponse | FLTeamsGroupedResponse> => {
-  return adminKeyTransport<FLTeamsListResponse | FLTeamsGroupedResponse>(getTeamsGetTeamsVerwaltungUrl(params), {
+): Promise<FLTeamsListResponse> => {
+  return adminKeyTransport<FLTeamsListResponse>(getTeamsGetTeamsVerwaltungUrl(params), {
     ...options,
     method: "GET",
   });

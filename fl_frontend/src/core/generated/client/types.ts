@@ -2684,50 +2684,6 @@ export interface FLGrantsListResponse {
   grants: FLGrantRow[];
 }
 
-export interface FLTeamStatistik {
-  /** @minimum 0 */
-  count_abgesagte_spiele: number;
-  /** @minimum 0 */
-  count_gespielte_spiele: number;
-  /** @minimum 0 */
-  niederlagen: number;
-  /** @minimum 0 */
-  punkte: number;
-  /** @minimum 0 */
-  siege: number;
-  /** @minimum 0 */
-  tore_geschossen: number;
-  /** @minimum 0 */
-  tore_kassiert: number;
-  /** @minimum 0 */
-  unentschieden: number;
-}
-
-/**
- * One row of a league table: what a standing shows and nothing more.
- *
- * Narrower than `FLTeam` on purpose: a public CLIENT component renders this, so every field is
- * serialised into the page, and a club's address is a school's street.
- */
-export interface FLGruppenTeam {
-  austritt_type: FLAustrittType | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  /** @minLength 1 */
-  name: string;
-  /** @pattern ^[A-Z]{3}$ */
-  shorthand: string;
-  statistik: FLTeamStatistik;
-}
-
-/**
- * Every group the SEASON offers, all of them and no other, in standing order.
- *
- * Built by `fl_backend/app/api/teams/services.py :: build_gruppen` alone: the order is the tiebreak
- * chain, whose head-to-head criterion reads the season's matches.
- */
-export type FLGruppen = Partial<Record<FLGruppenNames, FLGruppenTeam[]>>;
-
 /**
  * A team's registration link, to one confirmed contact seat, for the pupils to register through.
  */
@@ -5838,6 +5794,25 @@ export interface FLSweepSaisonsResponse {
   saison_ids: string[];
 }
 
+export interface FLTeamStatistik {
+  /** @minimum 0 */
+  count_abgesagte_spiele: number;
+  /** @minimum 0 */
+  count_gespielte_spiele: number;
+  /** @minimum 0 */
+  niederlagen: number;
+  /** @minimum 0 */
+  punkte: number;
+  /** @minimum 0 */
+  siege: number;
+  /** @minimum 0 */
+  tore_geschossen: number;
+  /** @minimum 0 */
+  tore_kassiert: number;
+  /** @minimum 0 */
+  unentschieden: number;
+}
+
 /**
  * One row of the Tabelle: the standing row and its placing, null for a club that has played no match or has left.
  */
@@ -6023,19 +5998,6 @@ export interface FLTeamWithMemberships {
   website_url: string | null;
 }
 
-/**
- * The season's groups in standing order, and how many of each advance.
- *
- * `qualifiers_per_gruppe` rides along rather than being fetched separately, so a page cannot mark a
- * cutoff drawn from a different season than the table it marks.
- */
-export interface FLTeamsGroupedResponse {
-  format: "grouped";
-  gruppen: FLGruppen;
-  /** @exclusiveMinimum 0 */
-  qualifiers_per_gruppe: number;
-}
-
 export interface FLTeamsListResponse {
   format: "list";
   teams: FLTeam[];
@@ -6050,8 +6012,6 @@ export interface FLTeamsSaisonsResponse {
 
 /**
  * One team, from `GET /teams/{team_id}`.
- *
- * Not part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can return.
  */
 export interface FLTeamsSingleResponse {
   format: "single";
@@ -6393,7 +6353,6 @@ export type TeamsGetTeamsVerwaltungParams = {
   gruppe?: FLGruppenNames | null;
   has_austritt?: boolean | null;
   austritt_type?: FLAustrittType | null;
-  in_gruppen?: boolean | null;
   statistik_scope?: TeamsGetTeamsVerwaltungStatistikScope;
   /**
    * @minimum 1

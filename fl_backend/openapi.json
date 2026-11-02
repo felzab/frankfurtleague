@@ -6556,20 +6556,6 @@
         "title": "FLGrantsListResponse",
         "type": "object"
       },
-      "FLGruppen": {
-        "additionalProperties": {
-          "items": {
-            "$ref": "#/components/schemas/FLGruppenTeam"
-          },
-          "type": "array"
-        },
-        "description": "Every group the SEASON offers, all of them and no other, in standing order.\n\nBuilt by `fl_backend/app/api/teams/services.py :: build_gruppen` alone: the order is the tiebreak\nchain, whose head-to-head criterion reads the season's matches.",
-        "propertyNames": {
-          "$ref": "#/components/schemas/FLGruppenNames"
-        },
-        "title": "FLGruppen",
-        "type": "object"
-      },
       "FLGruppenNames": {
         "enum": [
           "A",
@@ -6590,48 +6576,6 @@
           "P"
         ],
         "type": "string"
-      },
-      "FLGruppenTeam": {
-        "description": "One row of a league table: what a standing shows and nothing more.\n\nNarrower than `FLTeam` on purpose: a public CLIENT component renders this, so every field is\nserialised into the page, and a club's address is a school's street.",
-        "properties": {
-          "austritt_type": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLAustrittType"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "name": {
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "shorthand": {
-            "pattern": "^[A-Z]{3}$",
-            "title": "Shorthand",
-            "type": "string"
-          },
-          "statistik": {
-            "$ref": "#/components/schemas/FLTeamStatistik"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "shorthand",
-          "statistik",
-          "austritt_type"
-        ],
-        "title": "FLGruppenTeam",
-        "type": "object"
       },
       "FLInvitationData": {
         "description": "A team's registration link, to one confirmed contact seat, for the pupils to register through.",
@@ -18008,32 +17952,6 @@
         "title": "FLTeamWithMemberships",
         "type": "object"
       },
-      "FLTeamsGroupedResponse": {
-        "description": "The season's groups in standing order, and how many of each advance.\n\n`qualifiers_per_gruppe` rides along rather than being fetched separately, so a page cannot mark a\ncutoff drawn from a different season than the table it marks.",
-        "properties": {
-          "format": {
-            "const": "grouped",
-            "default": "grouped",
-            "title": "Format",
-            "type": "string"
-          },
-          "gruppen": {
-            "$ref": "#/components/schemas/FLGruppen"
-          },
-          "qualifiers_per_gruppe": {
-            "exclusiveMinimum": 0.0,
-            "title": "Qualifiers Per Gruppe",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "format",
-          "gruppen",
-          "qualifiers_per_gruppe"
-        ],
-        "title": "FLTeamsGroupedResponse",
-        "type": "object"
-      },
       "FLTeamsListResponse": {
         "properties": {
           "format": {
@@ -18075,7 +17993,7 @@
         "type": "object"
       },
       "FLTeamsSingleResponse": {
-        "description": "One team, from `GET /teams/{team_id}`.\n\nNot part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can return.",
+        "description": "One team, from `GET /teams/{team_id}`.",
         "properties": {
           "format": {
             "const": "single",
@@ -30291,22 +30209,6 @@
           },
           {
             "in": "query",
-            "name": "in_gruppen",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "In Gruppen"
-            }
-          },
-          {
-            "in": "query",
             "name": "statistik_scope",
             "required": false,
             "schema": {
@@ -30372,22 +30274,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "discriminator": {
-                    "mapping": {
-                      "grouped": "#/components/schemas/FLTeamsGroupedResponse",
-                      "list": "#/components/schemas/FLTeamsListResponse"
-                    },
-                    "propertyName": "format"
-                  },
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/FLTeamsListResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/FLTeamsGroupedResponse"
-                    }
-                  ],
-                  "title": "Response Teams Get Teams Verwaltung"
+                  "$ref": "#/components/schemas/FLTeamsListResponse"
                 }
               }
             },

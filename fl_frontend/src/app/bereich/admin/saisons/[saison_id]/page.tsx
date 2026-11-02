@@ -141,7 +141,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
    * swap pair identically.
    */
   const swap: SaisonGruppenSwapContext = buildGruppenSwapContext({
-    teams: teamsRes.format === "list" ? teamsRes.teams : [],
+    teams: teamsRes.teams,
     gruppenSpiele: gruppenSpieleRes.spiele,
     playoffSpiele: playoffSpieleRes.spiele,
     begonnen: saison.begun,
@@ -153,7 +153,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
    */
   const ersatz = buildReplacementContext({
     saisonId: saison.id,
-    teams: teamsRes.format === "list" ? teamsRes.teams : [],
+    teams: teamsRes.teams,
     ligaTeams: ligaTeamsRes?.teams ?? [],
     gruppenSpiele: gruppenSpieleRes.spiele,
     playoffSpiele: playoffSpieleRes.spiele,
