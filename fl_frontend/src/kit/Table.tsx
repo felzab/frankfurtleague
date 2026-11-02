@@ -22,16 +22,18 @@ type TableColumn = {
   figures?: boolean;
   /** The column that decides, such as points: its figures in the strong weight. */
   strong?: boolean;
-  /** Left out on a phone, where the row keeps its name and two facts. */
-  hideOnPhone?: boolean;
-};
+} & (
+  | { /** Left out on a phone, where the row keeps its name and two facts. */ hideOnPhone?: boolean; phoneOnly?: never }
+  /** Drawn on a phone alone, such as one column standing for several the phone leaves out. */
+  | { phoneOnly: true; hideOnPhone?: never }
+);
 
 /**
- * A cell's value: its text, or a figure some of the club's fixtures left short, such as its count of matches
+ * A cell's value: its text; a figure some of the club's fixtures left short, such as its count of matches
  * while some were called off, carrying the mark that says how many, which its name tells a screen reader and
- * no line explains.
+ * no line explains; or a club's won, drawn and lost counts in one cell, „3-1-0“, each in its own colour.
  */
-type TableCell = string | { value: string; cancelled: number };
+type TableCell = string | { value: string; cancelled: number } | { record: readonly [won: string, drawn: string, lost: string] };
 
 export type TableRow = {
   id: string;
@@ -70,23 +72,26 @@ const table = tv({
   slots: {
     // Small muted capitals over the head row's hairline on the card's own fill: a card's head is the one band
     // it carries, so the column heads never compete with it.
-    head: "h-10 px-3 text-xs font-medium tracking-caps whitespace-nowrap text-fg-muted uppercase",
+    // On a phone every column keeps its place by compact cells: 6-px padding, 12-px figures, and heads at 10 px
+    // without their tracking.
+    head: "h-10 px-3 text-xs font-medium tracking-caps whitespace-nowrap text-fg-muted uppercase max-lg:px-1.5 max-lg:text-2xs max-lg:tracking-normal",
     // A row a link may point to by its fragment, marked while the address names it.
     row: "kit-target relative h-14 border-t border-border first:border-t-0 lg:h-13",
-    cell: "px-3 whitespace-nowrap",
+    cell: "px-3 whitespace-nowrap max-lg:px-1.5 max-lg:text-xs",
     // The name takes the room the facts leave and is cut with „…“ where it is longer (`max-w-0` lets a cell
     // of an automatic table layout shrink below its content, so the cut can happen at all).
-    name: "w-full max-w-0 px-3 py-2",
+    name: "w-full max-w-0 px-3 py-2 max-lg:px-1.5",
     // A club's name beside its plaque, read but not drawn on a phone, where the plaque stands for it alone.
     clubName: "ms-2 max-lg:sr-only",
-    // A linked row's last cell, as narrow as the chevron that says the row leads on.
-    end: "w-0 pe-3",
+    // A linked row's last cell, as narrow as the chevron that says the row leads on; a phone, short of room,
+    // leaves the chevron out, the whole row still the link.
+    end: "w-0 pe-3 max-lg:hidden",
   },
   variants: {
     align: {
       start: { head: "text-start", cell: "text-start" },
       end: { head: "text-end", cell: "text-end" },
-      centre: { head: "w-11 text-center", cell: "w-11 text-center text-fg-muted" },
+      centre: { head: "w-11 text-center max-lg:w-7", cell: "w-11 text-center text-fg-muted max-lg:w-7" },
     },
     figures: {
       true: { cell: "font-numeric" },
@@ -96,6 +101,7 @@ const table = tv({
     },
     phone: {
       hidden: { head: "max-lg:hidden", cell: "max-lg:hidden" },
+      only: { head: "lg:hidden", cell: "lg:hidden" },
       shown: {},
     },
     linked: {
@@ -111,14 +117,33 @@ const table = tv({
   },
 });
 
+/** The hyphen between a record's counts, „3-1-0“, as its head „S-U-N“ joins their letters. */
+const RECORD_JOIN = "-";
+
+/** Whether a column stands on a phone: left out, drawn there alone, or drawn at every width. */
+const phoneOf = (column: TableColumn) => (column.hideOnPhone === true ? "hidden" : column.phoneOnly === true ? "only" : "shown");
+
 /**
  * A cell's value. In a column where some row's figure is short of fixtures called off, every row keeps the
  * mark's slot at the figure's end, so the digits stand under each other whether a row carries the mark or
- * not; the mark, a red „+N“, is centred on the figure's top-right corner, over the slot and clear of the
- * digits, and its name tells a screen reader what no line explains.
+ * not; the mark, a small red „+N“, stands over the figure's top-right corner, three quarters of it right of
+ * the corner, over the slot and clear of the digits, and its name tells a screen reader what no line explains.
+ * A record is its three counts in success, warning and danger colours, the hyphens between them in the row's.
  */
 function Cell({ cell, slot }: { cell: TableCell | undefined; slot: boolean }) {
   if (cell === undefined) return null;
+  if (typeof cell === "object" && "record" in cell) {
+    const [won, drawn, lost] = cell.record;
+    return (
+      <>
+        <span className="font-semibold text-success">{won}</span>
+        {RECORD_JOIN}
+        <span className="font-semibold text-warn">{drawn}</span>
+        {RECORD_JOIN}
+        <span className="font-semibold text-danger">{lost}</span>
+      </>
+    );
+  }
   const { value, cancelled } = typeof cell === "string" ? { value: cell, cancelled: 0 } : cell;
   if (!slot) return value;
   return (
@@ -128,7 +153,7 @@ function Cell({ cell, slot }: { cell: TableCell | undefined; slot: boolean }) {
         {cancelled > 0 && (
           <span
             aria-hidden
-            className="absolute end-0 top-0 translate-x-1/2 -translate-y-1/2 text-xs leading-none font-semibold text-danger">
+            className="absolute end-0 top-0 translate-x-3/4 -translate-y-1/2 text-2xs leading-none font-semibold text-danger">
             {COPY.shared.season.cancelledMark(cancelled)}
           </span>
         )}
@@ -190,7 +215,16 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
   const nameHead = table({ align: "start" }).head();
   const isLinked = rows.some((row) => row.href !== undefined);
   // The columns where some row carries the mark of fixtures called off, whose every row keeps its slot.
-  const marked = new Set(columns.filter((column) => rows.some((row) => typeof row.cells[column.key] === "object")).map((column) => column.key));
+  const marked = new Set(
+    columns
+      .filter((column) =>
+        rows.some((row) => {
+          const cell = row.cells[column.key];
+          return typeof cell === "object" && "cancelled" in cell;
+        }),
+      )
+      .map((column) => column.key),
+  );
   return (
     <div className={bare ? "overflow-x-auto" : cardSurface({ class: "overflow-x-auto" })}>
       {rows.some((row) => row.anchor !== undefined) && <TargetMark />}
@@ -220,13 +254,13 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                   scope="col"
                   className={table({
                     align: column.figures === true ? "end" : "start",
-                    phone: column.hideOnPhone === true ? "hidden" : "shown",
+                    phone: phoneOf(column),
                   }).head()}>
                   {column.label}
                 </th>
               ))}
               {/* The chevrons' column names nothing, so its head is no header cell. */}
-              {isLinked && <td className={table().head()} />}
+              {isLinked && <td className={table({ phone: "hidden" }).head()} />}
             </tr>
           </thead>
           <tbody>
@@ -251,7 +285,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                         align: column.figures === true ? "end" : "start",
                         figures: column.figures === true,
                         strong: column.strong === true,
-                        phone: column.hideOnPhone === true ? "hidden" : "shown",
+                        phone: phoneOf(column),
                       }).cell()}>
                       <Cell
                         cell={row.cells[column.key]}

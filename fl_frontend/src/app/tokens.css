@@ -229,6 +229,8 @@
    the steps below are the only ones the kit may use, and the defaults stay for those stylesheets.
    Session 8: once those stylesheets go, each namespace below is reset to `initial`. */
 @theme {
+  /* Below the reading sizes, for a phone's compact table alone: its column heads and the „+N“ over a figure. */
+  --text-2xs: 0.625rem;
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-base: 1rem;
