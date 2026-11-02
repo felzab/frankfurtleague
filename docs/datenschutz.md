@@ -1168,8 +1168,9 @@ Each row cites where the decision now lives.
   `fl_backend/app/api/spielberichte/services.py :: compose_public_bericht`) serves each card's colour
   and minute on an adopted report beside the public name of a pupil whose consent publishes it, and
   never the card's reason. The question is whether a booking may stand there beside the name of a
-  player of sixteen or seventeen. Unlike the entries above, this one I put to the Datenschutzexperte:
-  the answer is owed before the deploy that ships the read, and the deploy waits on it.
+  player of sixteen or seventeen. Unlike the section's other entries, which the waiver above covers,
+  this one I put to the Datenschutzexperte: the answer is owed before the deploy that ships the read,
+  and the deploy waits on it.
 - **The edge's clearance after a challenge, and the bot check on three forms, for the
   Datenschutzexperte.** A Managed Challenge meets a navigation to the sign-in page and to the
   application form, and passing it leaves a clearance in the browser that spares the visitor a
