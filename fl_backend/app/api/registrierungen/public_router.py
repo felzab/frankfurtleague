@@ -73,6 +73,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
+from app.core.readonly import ReadCollection
 from app.core.recording import log_stamp
 from app.core.routing import SAFE
 from app.core.security import bind_public_actor, verify_access_base
@@ -112,7 +113,7 @@ def _live_squad_filter(*, saison_id: str, team_id: Any) -> dict[str, Any]:
     return {"saison_id": saison_id, "team_id": team_id, "inactive_since": None}
 
 
-async def _open_einladung(*, einladungen_collection: Any, token: str, session: AsyncClientSession | None = None) -> Any:
+async def _open_einladung(*, einladungen_collection: ReadCollection, token: str, session: AsyncClientSession | None = None) -> Any:
     """The live invite a presented link opens, or a refusal.
 
     ONE code for unknown and for revoked, the reason `link_invalid` records: nothing tells a
