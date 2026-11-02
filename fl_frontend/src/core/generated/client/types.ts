@@ -5917,14 +5917,48 @@ export interface FLTeamPageClub {
 }
 
 /**
+ * One of a club's matches with its matchday's `position`, which the page names the matchday by.
+ */
+export interface FLTeamPageSpiel {
+  ansetzung_confirmed: boolean | null;
+  datum: string | null;
+  elfmeterschiessen: FLSpielElfmeterschiessen | null;
+  ergebnis: string | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  notiz: string | null;
+  ort: FLSpielOrtFieldPublic | null;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  saison_id: string;
+  saison_phase: FLSaisonPhase;
+  schiedsrichter: FLSpielSchiedsrichterFieldPublic | null;
+  sonderereignis: FLSonderereignis | null;
+  /** @exclusiveMinimum 0 */
+  spiel_nr: number;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spieltag_id: string;
+  /** @minimum 1 */
+  spieltag_position: number;
+  team1: FLSpielTeamFieldJoined | null;
+  team1_quelle: FLSpielQuelle | null;
+  team2: FLSpielTeamFieldJoined | null;
+  team2_quelle: FLSpielQuelle | null;
+  uhrzeit: string | null;
+}
+
+/**
  * One club's page in one season: the club, its row of the Tabelle, its matches and its squad.
  *
  * `standing` is null for a club no group of the Tabelle lists, one that left the league; `spiele` are in the order the
- * draw numbered them; the squad is the base tier's, names withheld where the pupil's consent does not publish them.
+ * draw numbered them, each with its matchday's `position`; the squad is the base tier's, names withheld where the
+ * pupil's consent does not publish them.
  */
 export interface FLTeamPageResponse {
   kader: FLSpielerPublic[];
-  spiele: FLSpielJoined[];
+  spiele: FLTeamPageSpiel[];
   standing: FLTabelleRow | null;
   team: FLTeamPageClub;
 }

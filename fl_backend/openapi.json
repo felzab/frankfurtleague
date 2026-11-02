@@ -17512,7 +17512,7 @@
         "type": "object"
       },
       "FLTeamPageResponse": {
-        "description": "One club's page in one season: the club, its row of the Tabelle, its matches and its squad.\n\n`standing` is null for a club no group of the Tabelle lists, one that left the league; `spiele` are in the order the\ndraw numbered them; the squad is the base tier's, names withheld where the pupil's consent does not publish them.",
+        "description": "One club's page in one season: the club, its row of the Tabelle, its matches and its squad.\n\n`standing` is null for a club no group of the Tabelle lists, one that left the league; `spiele` are in the order the\ndraw numbered them, each with its matchday's `position`; the squad is the base tier's, names withheld where the\npupil's consent does not publish them.",
         "properties": {
           "kader": {
             "items": {
@@ -17523,7 +17523,7 @@
           },
           "spiele": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielJoined"
+              "$ref": "#/components/schemas/FLTeamPageSpiel"
             },
             "title": "Spiele",
             "type": "array"
@@ -17549,6 +17549,201 @@
           "kader"
         ],
         "title": "FLTeamPageResponse",
+        "type": "object"
+      },
+      "FLTeamPageSpiel": {
+        "description": "One of a club's matches with its matchday's `position`, which the page names the matchday by.",
+        "properties": {
+          "ansetzung_confirmed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ansetzung Confirmed"
+          },
+          "datum": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datum"
+          },
+          "elfmeterschiessen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielElfmeterschiessen"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ergebnis": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+:[0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ergebnis"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "notiz": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notiz"
+          },
+          "ort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielOrtFieldPublic"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "saison_id": {
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "saison_phase": {
+            "$ref": "#/components/schemas/FLSaisonPhase"
+          },
+          "schiedsrichter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielSchiedsrichterFieldPublic"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSonderereignis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "spiel_nr": {
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr",
+            "type": "integer"
+          },
+          "spieltag_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spieltag Id",
+            "type": "string"
+          },
+          "spieltag_position": {
+            "minimum": 1.0,
+            "title": "Spieltag Position",
+            "type": "integer"
+          },
+          "team1": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielTeamFieldJoined"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team1_quelle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielQuelle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team2": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielTeamFieldJoined"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team2_quelle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielQuelle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "uhrzeit": {
+            "anyOf": [
+              {
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uhrzeit"
+          }
+        },
+        "required": [
+          "id",
+          "team1",
+          "team2",
+          "team1_quelle",
+          "team2_quelle",
+          "datum",
+          "uhrzeit",
+          "ort",
+          "schiedsrichter",
+          "ergebnis",
+          "elfmeterschiessen",
+          "spieltag_id",
+          "spiel_nr",
+          "sonderereignis",
+          "saison_phase",
+          "saison_id",
+          "notiz",
+          "ansetzung_confirmed",
+          "spieltag_position"
+        ],
+        "title": "FLTeamPageSpiel",
         "type": "object"
       },
       "FLTeamSeat": {
