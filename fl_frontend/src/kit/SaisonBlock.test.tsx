@@ -15,6 +15,12 @@ const SPIEL = {
   home: { name: "Goethe", plaque: { kuerzel: "GOE" } },
   away: { name: "Helmholtz", plaque: { kuerzel: "HEL" } },
 } as const;
+const OPENING = {
+  when: SPIEL.when,
+  spieltag: SERVER_COPY.landing.saison.spieltag(1),
+  home: { kuerzel: "GOE" },
+  away: { kuerzel: "HEL" },
+} as const;
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -26,16 +32,44 @@ afterEach(() => {
 });
 
 describe("the season's card before the start", () => {
-  it("counts down to the first kick-off once one is dated, from the server's clock", () => {
+  it("counts down to the season's start from the server's clock, and names when its opening match kicks off", () => {
     render(
       <SaisonBlock
         title={TITLE}
-        state={{ kind: "countdown", kickoff: new Date(Date.now() + 12 * DAY_MS).toISOString(), when: SPIEL.when }}
+        state={{ kind: "countdown", start: new Date(Date.now() + 12 * DAY_MS).toISOString(), opening: OPENING }}
       />,
     );
     const timer = screen.getByRole("timer");
     expect(timer.textContent).toBe(`12${COPY.landing.saison.days}0${COPY.landing.saison.hours}0${COPY.landing.saison.minutes}`);
     expect(screen.getByText(SERVER_COPY.landing.saison.kickoff(SPIEL.when))).toBeTruthy();
+  });
+
+  // The opening match by its plaques alone, so the line a phone shows never wraps (D481, D489).
+  it("names the opening match by its matchday and its two plaques, without the clubs' names", () => {
+    render(
+      <SaisonBlock
+        title={TITLE}
+        state={{ kind: "countdown", start: new Date(Date.now() + DAY_MS).toISOString(), opening: OPENING }}
+      />,
+    );
+    const line = screen.getByText(OPENING.spieltag).parentElement;
+    expect(line?.textContent).toBe(`${OPENING.spieltag}GOE–HEL`);
+    expect(screen.queryByText(SPIEL.home.name)).toBe(null);
+  });
+
+  // The countdown always shows (D499); only the opening match waits on a dated fixture.
+  it("counts down alone while no match is dated", () => {
+    render(
+      <SaisonBlock
+        title={TITLE}
+        state={{ kind: "countdown", start: new Date(Date.now() + DAY_MS).toISOString() }}
+      />,
+    );
+    expect(screen.getByRole("timer").textContent).toBe(
+      `1${COPY.landing.saison.days}0${COPY.landing.saison.hours}0${COPY.landing.saison.minutes}`,
+    );
+    expect(screen.queryByText(SERVER_COPY.landing.saison.spieltag(1))).toBe(null);
+    expect(screen.queryByText(SERVER_COPY.landing.saison.kickoff(SPIEL.when))).toBe(null);
   });
 
   it("shows the application window while no match is dated, with the way to apply", () => {
@@ -46,7 +80,7 @@ describe("the season's card before the start", () => {
       />,
     );
     expect(screen.getByText(SERVER_COPY.landing.saison.windowUntil("2026-12-31"))).toBeTruthy();
-    expect(screen.getByRole("link", { name: SERVER_COPY.landing.applyNow }).getAttribute("href")).toBe("/bewerbung/2027");
+    expect(screen.getByRole("link", { name: SERVER_COPY.landing.toBewerbung }).getAttribute("href")).toBe("/bewerbung/2027");
     expect(screen.queryByRole("timer")).toBe(null);
   });
 });

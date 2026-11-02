@@ -7706,22 +7706,8 @@
         "type": "object"
       },
       "FLLandingKickoff": {
-        "description": "The season's opening match: when it is set to start, its two sides and its Spieltag's `position`.\n\n`datum` and `uhrzeit` are Berlin wall time, `anpfiff` the same moment as an instant. A side is null while its slot\nis empty, as a match's own sides are.",
+        "description": "The season's opening match: when it is set to start, in Berlin wall time, its two sides and its Spieltag's `position`.\n\nA side is null while its slot is empty, as a match's own sides are.",
         "properties": {
-          "anpfiff": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "The kick-off as an instant, `datum` at `uhrzeit` in Berlin with that day's offset; null while `uhrzeit` is.\n\nNull rather than the day's start, which no match kicks off at: a countdown to it would run out hours early.",
-            "readOnly": true,
-            "title": "Anpfiff"
-          },
           "datum": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Datum",
@@ -7770,8 +7756,7 @@
           "uhrzeit",
           "spieltag_position",
           "team1",
-          "team2",
-          "anpfiff"
+          "team2"
         ],
         "title": "FLLandingKickoff",
         "type": "object"
@@ -7808,7 +7793,7 @@
         "type": "object"
       },
       "FLLandingSaison": {
-        "description": "The season the site is on as the landing shows it.\n\n`first_kickoff` before the start, the earliest dated group match, null while none is; `recent` and `upcoming` while it runs,\nthe latest results and the next matches; `podium` once decided, each place its match has decided.",
+        "description": "The season the site is on as the landing shows it.\n\n`start` the instant `saison_start` reads off its `start_date`. `first_kickoff` before the start, the earliest dated\ngroup match, null while none is; `recent` and `upcoming` while it runs, the latest results and the next matches;\n`podium` once decided, places one to four in their order, null before.",
         "properties": {
           "counts": {
             "$ref": "#/components/schemas/FLLandingCounts"
@@ -7828,11 +7813,31 @@
             "type": "string"
           },
           "podium": {
-            "items": {
-              "$ref": "#/components/schemas/FLPodiumPlace"
-            },
-            "title": "Podium",
-            "type": "array"
+            "anyOf": [
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/FLPodiumPlace"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FLPodiumPlace"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FLPodiumPlace"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FLPodiumPlace"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Podium"
           },
           "recent": {
             "items": {
@@ -7840,6 +7845,11 @@
             },
             "title": "Recent",
             "type": "array"
+          },
+          "start": {
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
           },
           "state": {
             "$ref": "#/components/schemas/FLLandingState"
@@ -7862,6 +7872,7 @@
         "required": [
           "id",
           "state",
+          "start",
           "first_kickoff",
           "recent",
           "upcoming",

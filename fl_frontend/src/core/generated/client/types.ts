@@ -3198,18 +3198,11 @@ export interface FLLandingSide {
 }
 
 /**
- * The season's opening match: when it is set to start, its two sides and its Spieltag's `position`.
+ * The season's opening match: when it is set to start, in Berlin wall time, its two sides and its Spieltag's `position`.
  *
- * `datum` and `uhrzeit` are Berlin wall time, `anpfiff` the same moment as an instant. A side is null while its slot
- * is empty, as a match's own sides are.
+ * A side is null while its slot is empty, as a match's own sides are.
  */
 export interface FLLandingKickoff {
-  /**
-   * The kick-off as an instant, `datum` at `uhrzeit` in Berlin with that day's offset; null while `uhrzeit` is.
-   *
-   * Null rather than the day's start, which no match kicks off at: a countdown to it would run out hours early.
-   */
-  readonly anpfiff: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   datum: string;
   /** @minimum 1 */
@@ -3259,15 +3252,17 @@ export interface FLSaisonTeamEntry {
 /**
  * The season the site is on as the landing shows it.
  *
- * `first_kickoff` before the start, the earliest dated group match, null while none is; `recent` and `upcoming` while it runs,
- * the latest results and the next matches; `podium` once decided, each place its match has decided.
+ * `start` the instant `saison_start` reads off its `start_date`. `first_kickoff` before the start, the earliest dated
+ * group match, null while none is; `recent` and `upcoming` while it runs, the latest results and the next matches;
+ * `podium` once decided, places one to four in their order, null before.
  */
 export interface FLLandingSaison {
   counts: FLLandingCounts;
   first_kickoff: FLLandingKickoff | null;
   id: string;
-  podium: FLPodiumPlace[];
+  podium: [FLPodiumPlace, FLPodiumPlace, FLPodiumPlace, FLPodiumPlace] | null;
   recent: FLSpielJoined[];
+  start: string;
   state: FLLandingState;
   teams: FLSaisonTeamEntry[];
   upcoming: FLSpielJoined[];

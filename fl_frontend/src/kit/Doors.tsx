@@ -27,12 +27,18 @@ const doors = tv({
   },
 });
 
-function Door({ words, act }: { words: DoorWords; act: ReactNode }) {
+/**
+ * One way in: its title, its paragraph where it has one, and its act. Inside the doors' section its title is
+ * that section's third heading step; standing alone under a page's title, as the sponsors page's door, its
+ * second.
+ */
+export function Door({ title, text, level = 3, act }: { title: Copy; text?: Copy; level?: 2 | 3; act: ReactNode }) {
   const slots = doors();
+  const Title = level === 2 ? "h2" : "h3";
   return (
     <div className={slots.door()}>
-      <h3 className={slots.title()}>{words.title}</h3>
-      <p className={slots.text()}>{words.text}</p>
+      <Title className={slots.title()}>{title}</Title>
+      {text !== undefined && <p className={slots.text()}>{text}</p>}
       <div className={slots.act()}>{act}</div>
     </div>
   );
@@ -61,7 +67,8 @@ export function Doors({
       <div className={doors({ pair: school !== undefined }).root()}>
         {school !== undefined && (
           <Door
-            words={school}
+            title={school.title}
+            text={school.text}
             act={
               <Link
                 href={school.act.href}
@@ -73,7 +80,8 @@ export function Doors({
           />
         )}
         <Door
-          words={question}
+          title={question.title}
+          text={question.text}
           act={
             <SocialButtons
               email={email}

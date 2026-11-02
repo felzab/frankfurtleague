@@ -158,6 +158,14 @@ export const COPY = catalogue({
     loadMore: "Weitere 50 laden",
     kORunde: "K.-o.-Runde",
     kOBaum: "K.-o.-Baum",
+    /** The one German spelling of each phase, which `PHASE_LABELS` serves to every surface. */
+    phase: {
+      gruppenphase: "Gruppenphase",
+      achtelfinale: "Achtelfinale",
+      viertelfinale: "Viertelfinale",
+      halbfinale: "Halbfinale",
+      finale: "Finale",
+    },
     afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
     disqualified: "DQ",
     // Redesign: a line-up's chips read these.
@@ -207,7 +215,7 @@ export const COPY = catalogue({
     spiel: (heim: string, gast: string) => `${heim} gegen ${gast}`,
     /** A club's page in one season, named by the club. */
     team: (team: string) => team,
-    about: "About",
+    about: "Über die Liga",
     contact: "Kontakt",
     sponsors: "Sponsoren",
     legalNotice: "Impressum",
@@ -455,7 +463,7 @@ export const COPY = catalogue({
     saison: { days: "Tage", hours: "Stunden", minutes: "Minuten" },
     /** The classic frame's error page, a client component's. */
     status: {
-      error: { title: UNEXPECTED, sentence: "Lade die Seite neu oder versuche es später erneut.", retry: "Erneut versuchen" },
+      error: { title: UNEXPECTED, sentence: "Lade die Seite neu oder versuch es später." },
     },
   },
 
@@ -463,6 +471,7 @@ export const COPY = catalogue({
   brand: {
     name: "Frankfurt League",
     shortName: "FL",
-    description: "Die Frankfurt League ist die Oberstufenliga der Frankfurter Schulen. Finde heraus, welche Schule gewinnt!",
+    description:
+      "Die Frankfurt League ist die Fußballliga der Frankfurter Oberstufen. Abi-Jahrgänge spielen 11 gegen 11 um den Titel. Jedes Spiel bringt Geld für den Abiball.",
   },
 });

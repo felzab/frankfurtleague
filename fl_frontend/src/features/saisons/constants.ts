@@ -1,3 +1,4 @@
+import { COPY } from "@/core/copy";
 import { FLSaisonPhase } from "@/core/generated/client/types";
 import { TEAMS_EINTRAG } from "@/features/admin/constants";
 
@@ -24,17 +25,11 @@ export const SAISON_PHASE_OPTIONS: readonly FLSaisonPhase[] = Object.values(FLSa
 export const MAX_QUALIFIERS = 2 ** (SAISON_PHASE_OPTIONS.length - 1);
 
 /**
- * The one German spelling of each phase, for every surface. Not an export from
+ * Each phase's German name, spelled once in the catalogue, for every surface. Not an export from
  * `fl_frontend/src/features/spiele/components/ui/SaisonPhaseChip.tsx`: the filter facets and a
  * Spieltag's composed name need the label and render nothing.
  */
-export const PHASE_LABELS: Record<FLSaisonPhase, string> = {
-  gruppenphase: "Gruppenphase",
-  achtelfinale: "Achtelfinale",
-  viertelfinale: "Viertelfinale",
-  halbfinale: "Halbfinale",
-  finale: "Finale",
-};
+export const PHASE_LABELS: Record<FLSaisonPhase, string> = COPY.shared.phase;
 
 /**
  * A phase added to `FLSaisonPhase` with no member in

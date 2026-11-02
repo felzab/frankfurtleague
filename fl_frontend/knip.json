@@ -13,15 +13,7 @@
   // its line here and in `knip.production.json`. A kit file a test already reads is used in this run
   // and stands in `knip.production.json` alone.
   "ignoreFiles": [
-    // Session 3.
-    "src/kit/LandingPage.tsx",
-    "src/kit/Pillars.tsx",
-    "src/kit/Steps.tsx",
-    "src/kit/StepsLine.tsx",
-    "src/kit/Figures.tsx",
-    "src/kit/Organisers.tsx",
     // Session 4.
-    "src/kit/Prose.tsx",
     "src/kit/AccountBox.tsx",
     "src/kit/MailedPage.tsx",
     "src/kit/OneShot.tsx"

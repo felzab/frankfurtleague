@@ -8,24 +8,39 @@ import { Countdown } from "./Countdown";
 import { Link } from "./Link";
 import { Podium } from "./Podium";
 import { SpielList } from "./SpielRow";
+import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { Route } from "next";
 import type { Placed } from "./Podium";
-import type { SpielRowProps } from "./SpielRow";
+import type { SpielRowProps, SpielSide } from "./SpielRow";
 
 /** A match as the season card lists it. */
 type Shown = SpielRowProps & { id: string };
 
 /**
- * Where the season stands: before its start, a countdown to its first kick-off once one is dated, and the
- * application window while none is; while it runs, its last result and its next match; once decided, its
- * places 1 to 4.
+ * The season's first match as the countdown names it: its day and time as its row shows them, its matchday's
+ * label and its two sides' plaques, a side whose slot is empty in the dashed open one.
+ */
+type Opening = { when: string; spieltag: Copy; home: SpielSide["plaque"]; away: SpielSide["plaque"] };
+
+/** Between the opening match's two plaques, as a fixture's pairing reads. */
+const VERSUS = "–";
+
+/**
+ * Where the season stands: before its start, a countdown to it and its opening match once one is dated; while
+ * the league has no season on, the next one's application window; while it runs, its last result once there is
+ * one and its next match; once decided, its places 1 to 4.
  */
 type SaisonState =
-  | { kind: "countdown"; /** The first match's instant. */ kickoff: string; /** Its day and time, as its row shows them. */ when: string }
+  | {
+      kind: "countdown";
+      /** The season's start, as an instant. */
+      start: string;
+      opening?: Opening;
+    }
   | { kind: "window"; until: CalendarDay; apply: Route }
   | { kind: "running"; last?: Shown; next?: Shown }
   | { kind: "decided"; places: readonly [Placed, Placed, Placed, Placed] };
@@ -37,6 +52,9 @@ const block = tv({
     title: "text-base font-semibold",
     box: `grid gap-4 ${cardSurface()} p-4`,
     line: "text-sm text-fg-muted",
+    // The plaques alone, one short line a phone never wraps.
+    opening: "flex items-center gap-2 text-sm",
+    openingLabel: "text-fg-muted",
     group: "grid gap-2",
     groupTitle: "text-xs font-medium tracking-caps text-fg-muted uppercase",
   },
@@ -60,10 +78,20 @@ function Body({ state }: { state: SaisonState }) {
         <div className={slots.box()}>
           {/* The server's instant seeds the count, so the markup it sends is the markup the page hydrates. */}
           <Countdown
-            kickoff={state.kickoff}
+            kickoff={state.start}
             seed={now().getTime()}
           />
-          <p className={slots.line()}>{SERVER_COPY.landing.saison.kickoff(state.when)}</p>
+          {state.opening !== undefined && (
+            <>
+              <p className={slots.line()}>{SERVER_COPY.landing.saison.kickoff(state.opening.when)}</p>
+              <p className={slots.opening()}>
+                <span className={slots.openingLabel()}>{state.opening.spieltag}</span>
+                <TeamPlaque {...state.opening.home} />
+                <span aria-hidden>{VERSUS}</span>
+                <TeamPlaque {...state.opening.away} />
+              </p>
+            </>
+          )}
         </div>
       );
     case "window":
@@ -74,7 +102,7 @@ function Body({ state }: { state: SaisonState }) {
             href={state.apply}
             placement="button"
             look="primary"
-            label={SERVER_COPY.landing.applyNow}
+            label={SERVER_COPY.landing.toBewerbung}
           />
         </div>
       );

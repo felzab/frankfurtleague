@@ -11,7 +11,7 @@ League, _die Oberstufenliga der Frankfurter Schulen_.
 [![License: Elastic-2.0](https://img.shields.io/badge/license-Elastic--2.0-blue)](LICENSE)
 
 [Website](https://frankfurtleague.de) · [About](https://frankfurtleague.de/about) ·
-[Organisation](https://frankfurtleague.de/organisation) · [Contact](https://frankfurtleague.de/kontakt)
+[Contact](https://frankfurtleague.de/kontakt)
 
 </div>
 

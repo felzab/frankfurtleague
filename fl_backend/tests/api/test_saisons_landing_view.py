@@ -7,7 +7,7 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_landing
-from app.api.saisons.schemas import FLLandingKickoff
+from app.api.saisons.schemas import saison_start
 from app.api.spiele.schemas import FLSpielElfmeterschiessen, FLSpielJoined, FLSpielQuelleSpiel, FLSpielTeamFieldJoined
 from app.api.spiele.services import podium_of
 from app.core.collections import Collection
@@ -20,6 +20,7 @@ from .conftest import unwritten
 RUNNING_DATABASE_NAME = worker_database("fl_saisons_landing_view_test")
 BEFORE_START_DATABASE_NAME = worker_database("fl_saisons_landing_view_before_start_test")
 DECIDED_DATABASE_NAME = worker_database("fl_saisons_landing_view_decided_test")
+THIRD_UNPLAYED_DATABASE_NAME = worker_database("fl_saisons_landing_view_third_unplayed_test")
 EMPTY_DATABASE_NAME = worker_database("fl_saisons_landing_view_empty_test")
 
 SAISON, NEXT = "2026", "2027"
@@ -144,7 +145,7 @@ def test_a_running_season_shows_its_latest_results_its_next_matches_and_its_figu
     response = landing(running_url, RUNNING_DATABASE_NAME)
     saison = response.saison
 
-    assert (saison.id, saison.state, saison.first_kickoff, saison.podium) == (SAISON, "running", None, [])
+    assert (saison.id, saison.state, saison.first_kickoff, saison.podium) == (SAISON, "running", None, None)
     assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == ([3, 2], [4, 5])
     assert saison.counts.model_dump() == {"count_teams": 2, "count_tore": 7, "count_spiele": 6, "count_spieltage": 2}
     assert [team.name for team in saison.teams] == ["Alpha", "Beta"]
@@ -152,8 +153,10 @@ def test_a_running_season_shows_its_latest_results_its_next_matches_and_its_figu
 
 
 @pytest.mark.db
-def test_a_season_before_its_first_match_shows_when_it_kicks_off(mongo_url: str):
-    """The opening day holds an untimed fixture beside two timed ones, which a null sorting ahead of every time would hide.
+def test_a_season_before_its_first_match_counts_to_its_start_and_names_its_opening_match(mongo_url: str):
+    """The countdown's instant is the season's `start_date`, whatever its first match's day and time.
+
+    The opening day holds an untimed fixture beside two timed ones, which a null sorting ahead of every time would hide.
 
     Its Spieltag is the second, the first dated later, so the position served is the opening match's own; and the
     opening match fields Beta first, so neither side is read off another match.
@@ -176,12 +179,12 @@ def test_a_season_before_its_first_match_shows_when_it_kicks_off(mongo_url: str)
 
     saison = landing(mongo_url, BEFORE_START_DATABASE_NAME).saison
 
-    assert (saison.state, saison.recent, saison.upcoming, saison.podium) == ("before_start", [], [], [])
+    assert (saison.state, saison.recent, saison.upcoming, saison.podium) == ("before_start", [], [], None)
+    # The season's `start_date` is the first of January, winter time in Berlin, an hour ahead of UTC.
+    assert saison.start == datetime(2025, 12, 31, 23, 0, tzinfo=UTC)
     assert saison.first_kickoff.model_dump() == {
         "datum": "2026-03-10",
         "uhrzeit": "15:00:00",
-        # Winter time in Berlin, an hour ahead of UTC.
-        "anpfiff": datetime(2026, 3, 10, 14, 0, tzinfo=UTC),
         "spieltag_position": 2,
         "team1": {"team_id": str(BETA), "name": "Beta", "shorthand": "BET"},
         "team2": {"team_id": str(ALPHA), "name": "Alpha", "shorthand": "ALP"},
@@ -189,17 +192,15 @@ def test_a_season_before_its_first_match_shows_when_it_kicks_off(mongo_url: str)
 
 
 @pytest.mark.parametrize(
-    ("datum", "uhrzeit", "anpfiff"),
+    ("start_date", "start"),
     [
-        pytest.param("2026-07-04", "15:00:00", datetime(2026, 7, 4, 13, 0, tzinfo=UTC), id="summer time, two hours ahead of UTC"),
-        pytest.param("2026-11-07", "15:00:00", datetime(2026, 11, 7, 14, 0, tzinfo=UTC), id="winter time, one hour ahead of UTC"),
-        pytest.param("2026-07-04", None, None, id="no time set, so no instant to count down to"),
+        pytest.param("2026-07-04", datetime(2026, 7, 3, 22, 0, tzinfo=UTC), id="summer time, two hours ahead of UTC"),
+        pytest.param("2026-11-07", datetime(2026, 11, 6, 23, 0, tzinfo=UTC), id="winter time, one hour ahead of UTC"),
+        pytest.param("2026-03-29", datetime(2026, 3, 28, 23, 0, tzinfo=UTC), id="the day the clocks go forward, still winter time at midnight"),
     ],
 )
-def test_the_kick_off_is_served_as_the_instant_berlin_wall_time_names(datum: str, uhrzeit: str | None, anpfiff: datetime | None):
-    kickoff = FLLandingKickoff(datum=datum, uhrzeit=uhrzeit, spieltag_position=1, team1=None, team2=None)
-
-    assert kickoff.anpfiff == anpfiff
+def test_a_season_starts_at_midnight_in_berlin_on_its_start_date(start_date: str, start: datetime):
+    assert saison_start(start_date) == start
 
 
 @pytest.mark.db
@@ -227,6 +228,29 @@ def test_a_season_whose_final_is_played_shows_its_podium(mongo_url: str):
     assert (saison.state, saison.recent, saison.upcoming) == ("decided", [], [])
     assert [(place.platz, place.name) for place in saison.podium] == [(1, "Alpha"), (2, "Beta"), (3, "Dora"), (4, "Cara")]
     assert saison.counts.count_tore == 7
+
+
+@pytest.mark.db
+def test_a_season_whose_third_place_match_is_not_played_reads_running_its_last_result_served(mongo_url: str):
+    """The final is played and the match for third place is still to come, so two places are in and two are not."""
+
+    seeded(
+        mongo_url,
+        THIRD_UNPLAYED_DATABASE_NAME,
+        {
+            Collection.SPIELTAGE: [spieltag(DAY_1, 1), spieltag(FINALE_DAY, 1, "finale")],
+            Collection.SPIELE: [
+                match(1, DAY_1, "2026-02-20", (2, 1)),
+                match(2, FINALE_DAY, "2026-03-08", None, names=("Cara", "Dora"), saison_phase="finale"),
+                match(3, FINALE_DAY, "2026-03-01", (2, 1), saison_phase="finale"),
+            ],
+        },
+    )
+
+    saison = landing(mongo_url, THIRD_UNPLAYED_DATABASE_NAME).saison
+
+    assert (saison.state, saison.podium) == ("running", None)
+    assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == ([3, 1], [2])
 
 
 @pytest.mark.db

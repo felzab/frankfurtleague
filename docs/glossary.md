@@ -41,7 +41,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 **Is:** a club. The `teams` document is **season-independent** and carries the club as it stands today; its group, its `austritt`, the name and shorthand one season was played under, and its table are assembled at read time from a junction row and from the matches.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLTeam`, flattened by `fl_backend/app/api/teams/services.py :: build_team_pipeline`.\
-**Trap:** the junction join is strict and there is no other kind — `build_team_pipeline` refuses a call carrying no `saison_id` rather than joining leniently, a season-less join returning one row per season played and a table of zeros beside it — so a team with no `saison_teams` row for the season disappears from the results entirely rather than appearing with an empty table; and the `name` that read serves is the junction's, so a club renamed after a season finished still reads there under the name it played under. `GET /teams/saisons` is the club-centric read and serves the club's own name instead. The people who run the league are never a `Team` on screen: their page is „Organisation“, at `/organisation`.\
+**Trap:** the junction join is strict and there is no other kind — `build_team_pipeline` refuses a call carrying no `saison_id` rather than joining leniently, a season-less join returning one row per season played and a table of zeros beside it — so a team with no `saison_teams` row for the season disappears from the results entirely rather than appearing with an empty table; and the `name` that read serves is the junction's, so a club renamed after a season finished still reads there under the name it played under. `GET /teams/saisons` is the club-centric read and serves the club's own name instead. The people who run the league are never a `Team` on screen: they are „Organisation“, a row on the landing and on „Über die Liga“ at `/about`.\
 **See:** [`domain.md`](domain.md) for the aggregate.
 
 ### `Spieler` — player
@@ -183,6 +183,12 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 **In code:** `fl_backend/app/api/spielbestaetigungen/services.py :: ANSETZUNG_QUELLEN`, `:: ansetzung_stand_of` and `:: compose_ansetzung`; stored on a row as `fl_backend/app/api/spielbestaetigungen/schemas.py :: FLSpielbestaetigungAnsetzung`; whether both clubs confirmed a fixture's current one is `ansetzung_confirmed`, declared on `fl_backend/app/api/spiele/schemas.py :: FLSpielJoined` and joined by `fl_backend/app/api/spiele/services.py :: build_spiele_pipeline`.\
 **Trap:** the ground is part of it, so moving only the venue reopens every confirmation of the fixture. The five values are stored beside the digest because no aggregation can recompute a SHA-256: a read joining rows compares the values while the answer compares the digest, and `ANSETZUNG_QUELLEN` is the one list both read, since a key added to one alone gives two answers to whether a row is about the fixture's current Ansetzung. `ansetzung_confirmed` has three values, and `null`, no club's row about the fixture standing unclosed nor one discarded about its current Ansetzung, is never `false`: only `false` puts „Vorläufig“ on a public card. A fixture moved since its clubs were asked reads `false` at once, from its rows about the Ansetzung it left, until the next pass closes them; it reads `false` again only once a pass asks about the new Ansetzung, which happens only inside the answer window (`fl_backend/app/api/spielbestaetigungen/services.py :: letzter_anfrage_tag`) and on a fixture holding a date, a time, a ground and both sides, so a fixture moved further out, or left without one of those, reads `null` in between. A fixture whose day passed with no result reads `null` from the pass that closes its rows `spiel_past`. It is neither the `Paarung`, the two sides and what they produced, nor the `Spieltag` a fixture belongs to.\
 **See:** the `Spielbestätigung` entry, and the `Paarung` entry for the sides alone.
+
+### `Anpfiff` — kick-off
+
+**Is:** the word the site labels a match's kick-off time with: its `uhrzeit`, the Berlin wall time on its `datum`, null while no time is set.\
+**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielCommon`'s `uhrzeit`; the landing's line naming its opening match is `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY.landing.saison.kickoff`.\
+**Trap:** no field is named `anpfiff`, and the landing's countdown counts to the season's start, 00:00 in Berlin on its `start_date` (`fl_backend/app/api/saisons/schemas.py :: saison_start`), never to a kick-off.
 
 ### `Einteilung` — the message telling a referee they are booked onto one fixture
 
@@ -372,7 +378,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 ### `Kontakt` — the page saying how to reach the league
 
 **Is:** the screen word for the public page listing the league's contact channels, at `/kontakt`.\
-**In code:** `fl_frontend/src/app/(public)/(meta)/kontakt/page.tsx` over `fl_frontend/src/features/meta/components/views/KontaktView.tsx`; `fl_frontend/src/core/routes.ts :: ROUTES.contact` gives its address.
+**In code:** `fl_frontend/src/app/(classic)/kontakt/page.tsx`, three rows of `fl_frontend/src/kit/LinkRows.tsx`; `fl_frontend/src/core/routes.ts :: ROUTES.contact` gives its address.
 
 ### `K.-o.-Runde` · `K.-o.-Baum` — the knockout stage, and its tree
 

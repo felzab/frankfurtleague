@@ -7,7 +7,10 @@ import type { Route } from "next";
 import type { CalloutProps } from "./Callout";
 import type { TableProps } from "./Table";
 
-/** A run of text: catalogue words, with links set inside it. */
+/**
+ * A run of text: catalogue words, with links set inside it.
+ * @awaitsPage session 4's legal pages
+ */
 export type ProseText = ReadonlyArray<Copy | { href: Route; label: Copy }>;
 
 export type ProseBlock =

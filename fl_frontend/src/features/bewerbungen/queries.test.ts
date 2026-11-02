@@ -28,8 +28,7 @@ serveServerReact();
 // Each case its own request, as each page load is: a memoised read would otherwise answer one case from the case before it.
 beforeEach(beginRenderPass);
 
-const { getBewerbungById, getBewerbungen, getBewerbungFenster, getBewerbungKuerzel, getBewerbungSchulen, getOffenesBewerbungFenster } =
-  await import("./queries.ts");
+const { getBewerbungById, getBewerbungen, getBewerbungFenster, getBewerbungKuerzel, getBewerbungSchulen } = await import("./queries.ts");
 const { refused } = await import("@/test-support/refusals.ts");
 
 /**
@@ -61,16 +60,15 @@ describe("the two admin-tier triage reads", () => {
   });
 });
 
-describe("the four base-tier public reads", () => {
+describe("the three base-tier public reads", () => {
   /* First, for the reason the triage's own harness assertion gives: a double that never ran would
      leave `calls` empty and every assertion below would fail for the harness rather than the source. */
   it("reaches the backend through the doubled client at all", async () => {
-    await getOffenesBewerbungFenster();
     await getBewerbungFenster("2627");
     await getBewerbungSchulen();
     await getBewerbungKuerzel("GG");
 
-    for (const endpoint of ["/bewerbungen/window", "/bewerbungen/window/2627", "/bewerbungen/schulen", "/bewerbungen/kuerzel/GG"]) {
+    for (const endpoint of ["/bewerbungen/window/2627", "/bewerbungen/schulen", "/bewerbungen/kuerzel/GG"]) {
       assert.ok(
         calls.some((call) => call.endpoint === endpoint),
         `nothing asked for ${endpoint}`,
@@ -94,8 +92,7 @@ describe("the four base-tier public reads", () => {
 
   /* A season the visitor may not read is a state rather than a failure: the page renders „noch nicht
      offen“ or „abgelaufen“ off it, and a throw here would answer the error page instead. */
-  it("reads a 404 on either window as no window rather than as a failure", async () => {
-    expect(await failing(refused("document_not_found"), () => getOffenesBewerbungFenster())).toBe(null);
+  it("reads a 404 on a season's window as no window rather than as a failure", async () => {
     expect(await failing(refused("document_not_found"), () => getBewerbungFenster("2627"))).toBe(null);
   });
 });

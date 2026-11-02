@@ -5,7 +5,6 @@ import {
   bewerbungenGetBewerbung,
   bewerbungenGetBewerbungen,
   bewerbungenGetKuerzel,
-  bewerbungenGetOpenWindow,
   bewerbungenGetSchulen,
   bewerbungenGetTrikotfarben,
   bewerbungenGetWindow,
@@ -64,22 +63,6 @@ export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBew
     }),
   ),
 );
-
-/**
- * The season whose application window is running right now, or `null` where none is.
- *
- * Uncached for its own reason: `laeuft` is a judgement against today, so a cached answer would go
- * on inviting applications after the window shut.
- */
-export async function getOffenesBewerbungFenster(): Promise<FLBewerbungWindowResponse | null> {
-  return runWithIncomingTrace(() =>
-    bewerbungenGetOpenWindow().catch((error: unknown) => {
-      // 404 is "no season is taking applications", which is a state and not a failure.
-      if (isRecordMissing(error)) return null;
-      throw error;
-    }),
-  );
-}
 
 /**
  * One season's window, `null` where that season records none — and `null` for the whole answer where
