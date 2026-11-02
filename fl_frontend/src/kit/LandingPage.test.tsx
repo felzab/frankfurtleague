@@ -57,16 +57,18 @@ async function streamed(page: ReactElement): Promise<HTMLElement> {
 }
 
 describe("the landing while its read is on its way", () => {
-  it("stands its tagline and the Spielplan's way at once, and the season card's skeleton", () => {
+  // The tagline is the page's title, which stands outside the wait (D470); the rest is the first screen's skeleton (D496).
+  it("stands its tagline at once, and the skeleton of the rest of the first screen under one status", () => {
     const waiting = document.createElement("div");
     waiting.innerHTML = renderToString(landingWith(new Promise(() => undefined)));
     expect(within(waiting).getByRole("heading", { level: 1 }).textContent).toBe(landing.tagline);
+    expect(within(waiting).queryByRole("link")).toBeNull();
+    expect(within(waiting).queryByText(landing.paragraph)).toBeNull();
     expect(
       within(waiting)
-        .getAllByRole("link")
-        .map((link) => link.textContent),
-    ).toStrictEqual([COPY.page.spielplan]);
-    expect(within(waiting).getByRole("status").textContent).toBe(COPY.shared.loading);
+        .getAllByRole("status")
+        .map((status) => status.textContent),
+    ).toStrictEqual([COPY.shared.loading]);
     expect(within(waiting).queryByRole("heading", { level: 2 })).toBeNull();
   });
 });
