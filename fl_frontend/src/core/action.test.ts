@@ -94,7 +94,7 @@ function create(thrown?: unknown) {
     lane: "admin",
     name: "anlegen",
     input: Venue,
-    ownWords: ["duplicate_key", "spiel_double_booked"],
+    ownWords: ["duplicate_key", "spiel_double_booked", "saison_past"],
     paths: { name: "name", "schiedsrichter.schiedsrichter_id": { name: COPY.spielplan.fact.schiedsrichter } },
     examples: { plz: COPY.verwaltung.spielort.plzExample },
     run: async (input) => {
@@ -203,6 +203,21 @@ describe("the admin lane", () => {
         reason: COPY.shared.failure.unexpected,
       });
     }
+  });
+
+  // A refusal of the write as a whole: the shared line would send the admin to a retry the same rule refuses again.
+  it("answers a code naming no field with its own line where the screen words it, and the shared line where it does not", async () => {
+    expect(await create(refusal("saison_past"))({ name: "Nord", plz: "60438" })).toStrictEqual({
+      ok: false,
+      errorCode: "saison_past",
+      reason: SERVER_COPY.refusalLine["saison_past"],
+    });
+    const unworded = action({ lane: "admin", name: "anlegen", input: Venue, run: () => Promise.reject(refusal("saison_past")) });
+    expect(await unworded({ name: "Nord", plz: "60438" })).toStrictEqual({
+      ok: false,
+      errorCode: "saison_past",
+      reason: COPY.shared.failure.unexpected,
+    });
   });
 
   it("places each rule a refused payload broke by its path, and answers the stale line where the screen cannot", async () => {

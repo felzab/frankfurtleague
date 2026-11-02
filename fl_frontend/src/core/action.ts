@@ -39,8 +39,8 @@ import type { SubjectSession } from "./subject";
 export type ActionAnswer<Value = undefined> =
   { ok: true; value: Value; note?: Copy } | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy; errorCode?: Code };
 
-/** A code the catalogue words in a person's own terms, `SERVER_COPY.refusal`'s keys. */
-type WordedCode = keyof typeof SERVER_COPY.refusal;
+/** A code the catalogue words in a person's own terms: `SERVER_COPY.refusal`'s keys, and `SERVER_COPY.refusalLine`'s. */
+type WordedCode = keyof typeof SERVER_COPY.refusal | keyof typeof SERVER_COPY.refusalLine;
 
 /** The dotted path of every leaf of an input, a list counting as one leaf: the key its box's message is answered by. */
 type Field<T, Above extends string = ""> = T extends readonly unknown[]
@@ -67,9 +67,9 @@ type Declared<Schema extends z.ZodType> = {
   readonly input: Schema;
   /**
    * The codes and the rules this screen words, a person causing each knowingly from it. Each is placed by the paths
-   * its refusal names, every phrase wording one field; one naming no field, or a path `paths` does not declare, answers
-   * as every other code does, and so does a refused payload breaking any rule the screen does not word: with a shared
-   * failure line.
+   * its refusal names, every phrase wording one field; a code naming no field is answered with its own line where the
+   * catalogue has one. One naming a path `paths` does not declare, or no field without a line, answers as every other
+   * code does, and so does a refused payload breaking any rule the screen does not word: with a shared failure line.
    */
   readonly ownWords?: readonly (WordedCode | WordedRule)[];
   /**
@@ -142,7 +142,9 @@ const TURNED_AWAY: Readonly<Record<AdminRefusal, Copy>> = {
 
 const UNEXPECTED = { ok: false, reason: COPY.shared.failure.unexpected } as const;
 
-const isWorded = (code: Code): code is Code & WordedCode => Object.hasOwn(SERVER_COPY.refusal, code);
+const isWorded = (code: Code): code is Code & keyof typeof SERVER_COPY.refusal => Object.hasOwn(SERVER_COPY.refusal, code);
+
+const isLined = (code: Code): code is Code & keyof typeof SERVER_COPY.refusalLine => Object.hasOwn(SERVER_COPY.refusalLine, code);
 
 // The backend's own strip, Python's `str.strip`: Unicode's White_Space and U+001C to U+001F, from both ends. A field
 // stripped by Pydantic's `strip_whitespace` keeps those four, which is safe, since the stripped text is what is sent.
@@ -240,7 +242,8 @@ function placed<Schema extends z.ZodType>(
 
 /**
  * A refusal this screen words, placed by its fields: a refused payload's broken rules where the screen words every
- * one, or a code's phrase. `undefined` where the screen does not word it or cannot place it.
+ * one, a code's phrase, or, for a code naming no field, its line on the status line. `undefined` where the screen does
+ * not word it or cannot place it.
  */
 function worded<Schema extends z.ZodType>(
   declared: Declared<Schema>,
@@ -255,6 +258,9 @@ function worded<Schema extends z.ZodType>(
       fields.map((refused) => ({ path: refused.path, line: ruleMessage(refused) })),
     );
   }
+  // A refusal of the write as a whole, never a field's phrase without its field: a phrase needs its field as a subject.
+  if (fields.length === 0)
+    return isLined(code) && wordsOwn(declared, code) ? { ok: false, errorCode: code, reason: SERVER_COPY.refusalLine[code] } : undefined;
   if (!isWorded(code) || !wordsOwn(declared, code)) return undefined;
   const line = SERVER_COPY.refusal[code];
   return placed(

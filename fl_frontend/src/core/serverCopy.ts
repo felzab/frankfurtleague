@@ -23,7 +23,8 @@ export const SERVER_COPY = catalogue({
   /**
    * A refusal's own phrase, by the backend's code, for a code a person causes knowingly from a screen; every other
    * code answers one of the shared failure lines `COPY.shared.failure` holds. A refusal about one field shows on it,
-   * in the field patterns' form, or, where the screen shows no box for it, on the status line after the field's name.
+   * in the field patterns' form, or, where the screen shows no box for it, on the status line after the field's name;
+   * one naming no field is `refusalLine`'s.
    */
   refusal: {
     duplicate_key: COPY.shared.field.taken,
@@ -34,6 +35,15 @@ export const SERVER_COPY = catalogue({
     booking_unconfirmed_schiedsrichter: "Noch nicht bestätigt",
     spiel_double_booked: "Zu dieser Zeit schon eingeteilt",
     eligibility_disqualified: "Aus der Saison ausgeschieden",
+  } satisfies Partial<Record<Code, string>>,
+
+  /**
+   * A refusal's own line, by the backend's code, for a code a person causes knowingly from a screen that names no
+   * field: the write as a whole is refused, so the status line shows the sentence alone. Apart from `refusal`, whose
+   * phrases need their field as a subject.
+   */
+  refusalLine: {
+    saison_past: "Diese Saison ist abgeschlossen. Ihre Spiele lassen sich nicht mehr ändern.",
   } satisfies Partial<Record<Code, string>>,
 
   /**

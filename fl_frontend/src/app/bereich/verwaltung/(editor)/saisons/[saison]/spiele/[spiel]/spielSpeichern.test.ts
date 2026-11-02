@@ -245,6 +245,10 @@ describe("the match editor's save", () => {
       });
     }
 
+    // A finished season refuses the write whole, so its line stands alone on the bar.
+    stand.ablehnung = refusal("saison_past");
+    expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "saison_past", reason: SERVER_COPY.refusalLine.saison_past });
+
     // The editor sets no team, so a team's refusal means the fixture changed under it.
     for (const code of [
       "booking_schiedsrichter_moved",
