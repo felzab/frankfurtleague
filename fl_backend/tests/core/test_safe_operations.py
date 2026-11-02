@@ -9,7 +9,8 @@ way FastAPI resolves it: each database handle the handler or a dependency of it 
 declared as.
 
 The fixture save's dry run (`x-safe-when` on `PATCH /spiele/{spiel_id}`) writes on the arm that is not dry, so it is
-handed writable collections and judged by no type; its execution tests hold the dry arm.
+handed writable collections and judged by no type; `tests/api/test_spiele_dry_run_execution.py` holds the dry arm,
+every collection of the database compared before and after a preview.
 """
 
 from collections.abc import AsyncGenerator, AsyncIterator, Callable, Generator, Iterator
