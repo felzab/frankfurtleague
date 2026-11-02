@@ -2996,32 +2996,6 @@ export const SpielbestaetigungenEnterSpielbestaetigungBody = zod
   );
 
 /**
- * List the Spiele matching the filters, of the current season unless `saison_id` names another.
- *
- * A season this tier may not read 404s; `playoffs` means every phase but `gruppenphase`, and `from_today`
- * includes today.
- * @summary List Spiele
- */
-export const spieleGetSpieleQueryTeamIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const spieleGetSpieleQueryLimitDefault = 1024;
-export const spieleGetSpieleQueryLimitMax = 1024;
-
-export const spieleGetSpieleQuerySortByDefault = `datum`;
-export const spieleGetSpieleQueryOrderDefault = `asc`;
-
-export const SpieleGetSpieleQueryParams = zod.object({
-  saison_id: zod.union([zod.string(), zod.null()]).optional(),
-  saison_phase: zod
-    .union([zod.literal("playoffs"), zod.enum(["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]), zod.null()])
-    .optional(),
-  spiel_status: zod.union([zod.enum(["from_today", "past", "today", "abgesagt", "unknown"]), zod.null()]).optional(),
-  team_id: zod.union([zod.string().regex(spieleGetSpieleQueryTeamIdOneRegExp), zod.null()]).optional(),
-  limit: zod.int().min(1).max(spieleGetSpieleQueryLimitMax).default(spieleGetSpieleQueryLimitDefault),
-  sort_by: zod.enum(["datum", "uhrzeit", "spiel_nr", "saison_phase"]).default(spieleGetSpieleQuerySortByDefault),
-  order: zod.enum(["asc", "desc"]).default(spieleGetSpieleQueryOrderDefault),
-});
-
-/**
  * List one season's Spiele needing the administrator, with the bracket's faults and every report's state.
  *
  * The season is `saison_id`'s, else the active one, answering 404 while none is. A fixture qualifies when it is
@@ -3036,7 +3010,7 @@ export const SpieleGetSpieleActionRequiredQueryParams = zod.object({
 });
 
 /**
- * List Spiele as `GET /spiele` does, a planned season's included, in the admin shape.
+ * List one season's Spiele, the active one's unless `saison_id` names another, a planned season's included, in the admin shape.
  *
  * Each referee carries their whole name, and each booking its money.
  * @summary Spiele for the admin surfaces
@@ -3241,28 +3215,6 @@ export const spieleGetSpielVerwaltungPathSpielIdRegExp = new RegExp("^[0-9a-fA-F
 
 export const SpieleGetSpielVerwaltungParams = zod.object({
   spiel_id: zod.string().regex(spieleGetSpielVerwaltungPathSpielIdRegExp),
-});
-
-/**
- * One team's squad in the current season unless `saison_id` names another; 404 while none is active and for one this tier may not read.
- *
- * A surname reads as its initial, both names `null` where the pupil's consent does not publish them, the row keeping
- * its `nummer` and `position`; no row carries the pupil's record id.
- * @summary List Spieler
- */
-export const spielerGetSpielerQueryTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const spielerGetSpielerQueryLimitDefault = 1024;
-export const spielerGetSpielerQueryLimitMax = 1024;
-
-export const spielerGetSpielerQuerySortByDefault = `position`;
-export const spielerGetSpielerQueryOrderDefault = `asc`;
-
-export const SpielerGetSpielerQueryParams = zod.object({
-  team_id: zod.string().regex(spielerGetSpielerQueryTeamIdRegExp),
-  saison_id: zod.union([zod.string(), zod.null()]).optional(),
-  limit: zod.int().min(1).max(spielerGetSpielerQueryLimitMax).default(spielerGetSpielerQueryLimitDefault),
-  sort_by: zod.enum(["vorname", "nummer", "position"]).default(spielerGetSpielerQuerySortByDefault),
-  order: zod.enum(["asc", "desc"]).default(spielerGetSpielerQueryOrderDefault),
 });
 
 /**
@@ -3736,32 +3688,6 @@ export const SpieltageGetSpieltagVerwaltungParams = zod.object({
 });
 
 /**
- * One season's teams as a list, or with `in_gruppen=true` keyed by every group it offers in standing order, as `format` names.
- *
- * An omitted `saison_id` reads the season the site is on, and a club that left the league is listed in a `past` season
- * alone; 404 for a season this tier may not read.
- * @summary List teams, flat or grouped
- */
-export const teamsGetTeamsQueryStatistikScopeDefault = `gruppenphase`;
-export const teamsGetTeamsQueryLimitDefault = 1024;
-export const teamsGetTeamsQueryLimitMax = 1024;
-
-export const teamsGetTeamsQuerySortByDefault = `name`;
-export const teamsGetTeamsQueryOrderDefault = `asc`;
-
-export const TeamsGetTeamsQueryParams = zod.object({
-  saison_id: zod.union([zod.string(), zod.null()]).optional(),
-  gruppe: zod.union([zod.enum(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]), zod.null()]).optional(),
-  has_austritt: zod.union([zod.boolean(), zod.null()]).optional(),
-  austritt_type: zod.union([zod.enum(["disqualifikation", "rueckzug"]), zod.null()]).optional(),
-  in_gruppen: zod.union([zod.boolean(), zod.null()]).optional(),
-  statistik_scope: zod.enum(["gruppenphase", "total"]).default(teamsGetTeamsQueryStatistikScopeDefault),
-  limit: zod.int().min(1).max(teamsGetTeamsQueryLimitMax).default(teamsGetTeamsQueryLimitDefault),
-  sort_by: zod.literal("name").default(teamsGetTeamsQuerySortByDefault).meta({ title: "Sort By" }),
-  order: zod.enum(["asc", "desc"]).default(teamsGetTeamsQueryOrderDefault),
-});
-
-/**
  * Create a club. `shorthand` is unique across every club, retired ones included, so a duplicate is a 409.
  * @summary Create a team
  */
@@ -3808,8 +3734,8 @@ export const TeamsPostTeamBody = zod.object({
 /**
  * List a season's teams for the admin surfaces, a `future` season's included.
  *
- * Same filters and shapes as `GET /teams`, without its season gate: a club is entered while its
- * season is still planned, so an admin who cannot see one cannot enter it.
+ * No base-tier season gate: a club is entered while its season is still planned, so an admin who
+ * cannot see one cannot enter it.
  * @summary Teams for a Saison, for the admin surfaces
  */
 export const teamsGetTeamsVerwaltungQueryStatistikScopeDefault = `gruppenphase`;
@@ -3825,7 +3751,6 @@ export const TeamsGetTeamsVerwaltungQueryParams = zod.object({
   gruppe: zod.union([zod.enum(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]), zod.null()]).optional(),
   has_austritt: zod.union([zod.boolean(), zod.null()]).optional(),
   austritt_type: zod.union([zod.enum(["disqualifikation", "rueckzug"]), zod.null()]).optional(),
-  in_gruppen: zod.union([zod.boolean(), zod.null()]).optional(),
   statistik_scope: zod.enum(["gruppenphase", "total"]).default(teamsGetTeamsVerwaltungQueryStatistikScopeDefault),
   limit: zod.int().min(1).max(teamsGetTeamsVerwaltungQueryLimitMax).default(teamsGetTeamsVerwaltungQueryLimitDefault),
   sort_by: zod.literal("name").default(teamsGetTeamsVerwaltungQuerySortByDefault).meta({ title: "Sort By" }),

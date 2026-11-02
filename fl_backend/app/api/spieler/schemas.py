@@ -150,7 +150,7 @@ class FLSpielerRecord(_SpielerPerson, Anchored):
 class FLSpieler(FLSpielerRecord, _SaisonSpielerWritable):
     """The person as STORED, flattened against one season. A declared shape: NO endpoint returns it.
 
-    `GET /spieler` answers with `FLSpielerPublic` instead.
+    A club page's squad serves `FLSpielerPublic` instead.
     """
 
     is_nachnominiert: bool
@@ -186,7 +186,7 @@ class FLSaisonSpielerRecord(FLSaisonSpielerRow):
 
 
 class FLSpielerFilterParams(BaseModel):
-    """What `GET /spieler` may narrow on -- never a field the response withholds.
+    """What a club page's squad read narrows on -- never a field the response withholds.
 
     A filter on a withheld one rebuilds it from squads of one (`READ-PUPIL-002`), and
     `include_inactive` would un-hide rows this tier serves no marker for (`READ-SQUAD-002`).
@@ -252,10 +252,6 @@ class FLPatchSaisonSpielerPayload(_SaisonSpielerPayload):
 
     # The `version` the editor was served; absent, the save is checked against nothing.
     version: int | None = None
-
-
-class FLSpielerListResponse(BaseAPIResponse):
-    spieler: list[FLSpielerPublic]
 
 
 class FLSpielerSingleResponse(BaseAPIResponse):

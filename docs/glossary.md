@@ -156,7 +156,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 **Is:** the stored set `gruppenphase` · `achtelfinale` · `viertelfinale` · `halbfinale` · `finale`, declared in bracket order so each knockout round feeds the next.\
 **In code:** `fl_backend/app/api/spiele/schemas.py :: PHASE_ORDER`; which rounds a season plays is `fl_backend/app/api/saisons/schedule.py :: knockout_phases_for`.\
-**Trap:** `"playoffs"` is **not** one of them — a query-only alias compiled to `saison_phase != "gruppenphase"`, on no stored document; and `GET /teams` takes `statistik_scope` rather than this filter.
+**Trap:** `"playoffs"` is **not** one of them — a query-only alias compiled to `saison_phase != "gruppenphase"`, on no stored document; and the club reads, `GET /teams/{team_id}` and the admin list, take `statistik_scope` rather than this filter.
 
 ### `spiel_status` — match status
 

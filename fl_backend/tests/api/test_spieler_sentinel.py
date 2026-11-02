@@ -7,10 +7,11 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.saisons.public_router import get_team
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter, build_real_referees_filter
 from app.api.spieler.admin_router import delete_spieler, get_spieler_saisons, patch_spieler, post_saison_spieler, reactivate_spieler
-from app.api.spieler.public_router import get_spieler, get_spieler_by_id
-from app.api.spieler.schemas import FLPatchSpielerPayload, FLPostSaisonSpielerPayload, FLSpielerFilterParams
+from app.api.spieler.public_router import get_spieler_by_id
+from app.api.spieler.schemas import FLPatchSpielerPayload, FLPostSaisonSpielerPayload
 from app.api.spieler.services import build_ghost_spieler, build_real_spieler_filter
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError
@@ -171,15 +172,20 @@ def test_the_squad_read_never_serves_a_row_naming_the_sentinel_and_still_serves_
         await database[Collection.SAISON_SPIELER].insert_many(
             [documents.saison_spieler_document(spieler_id, SAISON_ID, TEAM_OID) for spieler_id in (GHOST_SPIELER_ID, PERSON_OID)]
         )
-        listed = await get_spieler(
-            saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        # The club page, the one base-tier read of a squad, answers only for a club with a document.
+        await database[Collection.TEAMS].insert_one(documents.team_document(TEAM_OID, "Zorbanax", "ZOX"))
+        page = await get_team(
+            saison_id=SAISON_ID,
+            team_id=TEAM_OID,
             saisons_collection=database[Collection.SAISONS],
-            filters=FLSpielerFilterParams(team_id=TEAM_OID, saison_id=SAISON_ID),
+            teams_collection=database[Collection.TEAMS],
+            spiele_collection=database[Collection.SPIELE],
+            saison_spieler_collection=database[Collection.SAISON_SPIELER],
         )
 
-        # By forename, the public list serving no record id (`READ-PUPIL-005`): the person's record publishes theirs,
+        # By forename, the public squad serving no record id (`READ-PUPIL-005`): the person's record publishes theirs,
         # and the sentinel stores none.
-        return [row.vorname for row in listed.spieler]
+        return [row.vorname for row in page.kader]
 
     assert on_a_league(mongo_replica_set_url, body) == ["Quillhilde"]
 

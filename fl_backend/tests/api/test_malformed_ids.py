@@ -43,6 +43,8 @@ def answered(path: str, *, params: Mapping[str, Any] | None = None) -> Response:
 MALFORMED_IDS = ["not-an-id", NON_HEX_ID, HEX_ID[:-1], f"{HEX_ID}0"]
 
 
+# No `db` marker: every refusal is decided before a query, and each control is answered by an
+# unreachable database rather than by what it holds.
 @pytest.mark.parametrize("spiel_id", MALFORMED_IDS)
 def test_a_malformed_path_id_is_a_404(spiel_id: str):
     """A path identifies, so an id naming nothing is a 404 — decided by the `objectid` convertor before a handler runs."""
@@ -54,25 +56,6 @@ def test_a_malformed_path_id_is_a_404(spiel_id: str):
 def test_a_well_formed_path_id_reaches_the_database():
     """The control: a well-formed id matches the route, so the failure moves off routing and onto the database."""
     response = answered(f"/api/v0/spiele/{HEX_ID}")
-
-    assert response.status_code == 500
-    assert response.json()["error_code"] == UNREACHED_DATABASE
-
-
-# No `db` marker: every refusal is decided before a query, and each control is answered by an
-# unreachable database rather than by what it holds.
-@pytest.mark.parametrize("team_id", MALFORMED_IDS)
-def test_a_malformed_query_id_is_a_422(team_id: str):
-    """A query validates, so a malformed id is a 422 — decided while FastAPI is still assembling the call."""
-    response = answered("/api/v0/spieler", params={"team_id": team_id})
-
-    assert response.status_code == 422
-    assert response.json()["error_code"] == Code.PAYLOAD_REFUSED
-
-
-def test_a_well_formed_query_id_reaches_the_database():
-    """The control: the same parameter carrying a real id is validated, and fails at the database instead."""
-    response = answered("/api/v0/spieler", params={"team_id": HEX_ID})
 
     assert response.status_code == 500
     assert response.json()["error_code"] == UNREACHED_DATABASE

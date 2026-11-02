@@ -668,7 +668,7 @@ class TestSpielNrRunsOnceThroughTheSeason:
 class TestTheEmittedDocumentsReadBack:
     @pytest.mark.parametrize("shape", SHAPES)
     def test_every_fixture_reads_back_through_the_model_an_endpoint_serves(self, shape: tuple[int, int, int]):
-        """A document only the writer can read is one the first `GET /spiele` answers 500 on; one key no model declares, one nothing reads."""
+        """A document only the writer can read is one the first read of it answers 500 on; one key no model declares, one nothing reads."""
 
         for spiel in draw(*shape).spiele:
             FLSpiel.model_validate(spiel, extra="forbid")

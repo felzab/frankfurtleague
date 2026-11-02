@@ -102,13 +102,12 @@ async def get_spiele_verwaltung(
     today: str = Depends(get_german_date_str),
 ) -> FLSpieleAdminListResponse:
     """
-    List Spiele as `GET /spiele` does, a planned season's included, in the admin shape.
+    List one season's Spiele, the active one's unless `saison_id` names another, a planned season's included, in the admin shape.
 
     Each referee carries their whole name, and each booking its money.
     """
 
-    # Mirrors `app/api/spiele/public_router.py :: get_spiele`, which cannot be called here: the gate is
-    # inside it, and emptying the planned season is the one thing this must not do.
+    # No base-tier season gate: emptying the planned season is the one thing this must not do.
     if filters.saison_id is None:
         filters.saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
 
