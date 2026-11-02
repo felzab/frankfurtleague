@@ -11,7 +11,8 @@ export const buttonLook = tv({
   variants: {
     look: {
       primary: "border-transparent bg-brand-solid px-3.5 text-on-brand",
-      secondary: "border-border-control bg-bg px-3.5 text-fg",
+      // No fill of its own, the control edge alone, so it reads as one control on the page, a card and an overlay.
+      secondary: "border-border-control bg-transparent px-3.5 text-fg",
       danger: "border-transparent bg-danger-solid px-3.5 text-on-brand",
       // The quiet act beside or beneath a primary one, such as the passkey offer's „Später“: words alone.
       quiet: "border-transparent bg-transparent px-3.5 text-fg-muted",
