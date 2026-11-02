@@ -41,7 +41,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 **Is:** a club. The `teams` document is **season-independent** and carries the club as it stands today; its group, its `austritt`, the name and shorthand one season was played under, and its table are assembled at read time from a junction row and from the matches.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLTeam`, flattened by `fl_backend/app/api/teams/services.py :: build_team_pipeline`.\
-**Trap:** the junction join is strict and there is no other kind — `build_team_pipeline` refuses a call carrying no `saison_id` rather than joining leniently, a season-less join returning one row per season played and a table of zeros beside it — so a team with no `saison_teams` row for the season disappears from the results entirely rather than appearing with an empty table; and the `name` that read serves is the junction's, so a club renamed after a season finished still reads there under the name it played under. `GET /teams/saisons` is the club-centric read and serves the club's own name instead. The people who run the league are never a `Team` on screen: their page is „Organisation“, at `/organisation`.\
+**Trap:** the junction join is strict and there is no other kind — `build_team_pipeline` refuses a call carrying no `saison_id` rather than joining leniently, a season-less join returning one row per season played and a table of zeros beside it — so a team with no `saison_teams` row for the season disappears from the results entirely rather than appearing with an empty table; and the `name` that read serves is the junction's, so a club renamed after a season finished still reads there under the name it played under. `GET /teams/saisons` is the club-centric read and serves the club's own name instead. The people who run the league are never a `Team` on screen: they are „Organisation“, a row on the landing and on „Über die Liga“ at `/about`.\
 **See:** [`domain.md`](domain.md) for the aggregate.
 
 ### `Spieler` — player
@@ -372,7 +372,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 ### `Kontakt` — the page saying how to reach the league
 
 **Is:** the screen word for the public page listing the league's contact channels, at `/kontakt`.\
-**In code:** `fl_frontend/src/app/(public)/(meta)/kontakt/page.tsx` over `fl_frontend/src/features/meta/components/views/KontaktView.tsx`; `fl_frontend/src/core/routes.ts :: ROUTES.contact` gives its address.
+**In code:** `fl_frontend/src/app/(classic)/kontakt/page.tsx`, three rows of `fl_frontend/src/kit/LinkRows.tsx`; `fl_frontend/src/core/routes.ts :: ROUTES.contact` gives its address.
 
 ### `K.-o.-Runde` · `K.-o.-Baum` — the knockout stage, and its tree
 
