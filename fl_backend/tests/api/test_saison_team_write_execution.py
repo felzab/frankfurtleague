@@ -189,6 +189,21 @@ class TestRecordingAnExitFromTheSeason:
 
         assert on_a_season(mongo_replica_set_url, body)["austritt"] is None
 
+    def test_a_finished_season_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
+        """`saison_past`: an exit recorded on a finished season would move its table and podium after the fact."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            before = await stored_row(database)
+            with pytest.raises(APIError) as refused:
+                await call_patch(database, austritt=dict(EXIT))
+
+            return refused.value.error_code, before, await stored_row(database)
+
+        code, before, after = on_a_season(mongo_replica_set_url, body, saison_status="past")
+
+        assert code == Code.SAISON_PAST
+        assert after == before, "a refused write changed the row"
+
 
 class TestMovingAClubBetweenGroups:
     def test_the_move_lands_on_the_row(self, mongo_replica_set_url: str):

@@ -3079,7 +3079,8 @@ export const SpieleGetSpielParams = zod.object({
  *
  * Every name is composed by the server. With `adopts_bericht` the save also stamps the fixture's Spielbericht
  * adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
- * `dry_run` answers the same report and writes nothing.
+ * `dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the
+ * `dry_run` included.
  * @summary Update a Spiel
  */
 export const spielePatchSpielPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3963,7 +3964,8 @@ export const TeamsPostSaisonTeamBody = zod
  * Rewrite a team's row for one season: group, exit record and kit colour.
  *
  * All three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.
- * The contact block is `PATCH .../kontakte`'s.
+ * The contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which
+ * refuses this write (`saison_past`).
  * @summary Rewrite a team's season row: group, exit record and kit colour
  */
 export const teamsPatchSaisonTeamPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

@@ -28118,7 +28118,7 @@
         ]
       },
       "patch": {
-        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nEvery name is composed by the server. With `adopts_bericht` the save also stamps the fixture's Spielbericht\nadopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A\n`dry_run` answers the same report and writes nothing.",
+        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nEvery name is composed by the server. With `adopts_bericht` the save also stamps the fixture's Spielbericht\nadopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A\n`dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the\n`dry_run` included.",
         "operationId": "spiele_patch_spiel",
         "parameters": [
           {
@@ -31527,7 +31527,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}": {
       "patch": {
-        "description": "Rewrite a team's row for one season: group, exit record and kit colour.\n\nAll three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.\nThe contact block is `PATCH .../kontakte`'s.",
+        "description": "Rewrite a team's row for one season: group, exit record and kit colour.\n\nAll three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.\nThe contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which\nrefuses this write (`saison_past`).",
         "operationId": "teams_patch_saison_team",
         "parameters": [
           {

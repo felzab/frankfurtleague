@@ -41,7 +41,7 @@ from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.saisons.services import has_started
+from app.api.saisons.services import find_saison_past_refusal, has_started
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.sperrliste.services import withheld_actor
 from app.api.spielbestaetigungen.services import seat_void_of
@@ -548,7 +548,8 @@ async def patch_saison_team(
     Rewrite a team's row for one season: group, exit record and kit colour.
 
     All three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.
-    The contact block is `PATCH .../kontakte`'s.
+    The contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which
+    refuses this write (`saison_past`).
     """
 
     async def move_the_club(session: AsyncClientSession) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
@@ -562,11 +563,17 @@ async def patch_saison_team(
             projection=["gruppe", "name", "shorthand"],
             session=session,
         )
+
+        # One read of the season for both judgements below, in-session, `activate_saison` moving its status.
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+
+        # Every write, an exit record included: a finished season's table and podium are read off these rows,
+        # and an exit recorded now would move places its fixtures can no longer be saved to answer.
+        refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
+
         # Only a CHANGE is judged: recording an austritt writes the same row without moving anyone,
         # and takes no season write either, so two austritte contend on nothing and need not.
         if saison_team_data.gruppe != existing_raw["gruppe"]:
-            saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
-
             # Both sides, because a fixture fields a team on either.
             fixtures_drawn = await spiele_collection.count_documents(
                 {"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]}, session=session

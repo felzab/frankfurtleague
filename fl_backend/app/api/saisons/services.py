@@ -70,6 +70,21 @@ def find_saison_start_refusal(*, stored_start_date: str, proposed_start_date: st
     )
 
 
+def find_saison_past_refusal(*, saison_status: str) -> WriteRefusal | None:
+    """`saison_past` for a write that a finished season's record no longer takes: a fixture's save, a club's season row.
+
+    Pure, and judged on a `status` its caller reads in-session, `activate_saison` moving it in a transaction of its own.
+    """
+
+    if saison_status != "past":
+        return None
+
+    return WriteRefusal(
+        error_code=Code.SAISON_PAST,
+        status=HTTPStatus.CONFLICT,
+    )
+
+
 # What a started season holds fixed: a league does not change its scoring or its seeding mid-season.
 # `allowed_stufen` stays editable because it bounds what a form offers, never what a stored squad
 # row holds.

@@ -27,9 +27,12 @@ class Code(StrEnum):
     UNKNOWN_OUTCOME = auto()
     # Activating demotes the incumbent to `past`, whose rules then stay frozen (`rules_saison_started`).
     ACTIVATE_SAISON_UNFINISHED = auto()
-    # Every write a `past` season refuses, its activation included, the rules' freeze aside. No escape, and no demotion endpoint
-    # beside it: both keep the state reachable, and activating is the one operation that can reopen a
-    # finished season's points, groups and table. A season closed by mistake is repaired at the database.
+    # A write a `past` season refuses: its activation, the draw, the group swap, the replacement, a fixture's save, a
+    # club's season row, a link's mint and a referee's report. Not every write: a club's contacts, an invitation's
+    # revocation and the administrator's correction of a report stay open on purpose, and the season's own edit refuses
+    # by the rules' freeze and the fixed start. No escape, and no demotion endpoint beside it: both keep the state
+    # reachable, and activating is the one operation that can reopen a finished season's points, groups and table. A
+    # season closed by mistake is repaired at the database.
     SAISON_PAST = auto()
     # The pair to `saison_past` on the draw: that one lets a running season still be drawn, and this one
     # keeps a season from going live undrawn in the first place.
