@@ -12,8 +12,8 @@ The fixture save's dry run (`x-safe-when` on `PATCH /spiele/{spiel_id}`) writes 
 handed writable collections and judged by no type; its execution tests hold the dry arm.
 """
 
-from collections.abc import Iterator
-from typing import Any, get_origin, get_type_hints
+from collections.abc import AsyncGenerator, AsyncIterator, Callable, Generator, Iterator
+from typing import Any, Union, get_args, get_origin, get_type_hints
 
 import pytest
 from fastapi.dependencies.models import Dependant
@@ -23,6 +23,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.core.collections import Collection
+from app.core.db import collection_dependency, get_snapshot_session
 from app.core.readonly import ReadCollection
 from app.core.routing import SAFE, SAFE_WHEN
 from tests.core.app_source import api_routes, application
@@ -31,6 +33,12 @@ from tests.core.app_source import api_routes, application
 WRITABLE = (AsyncCollection, AsyncDatabase, AsyncMongoClient)
 # The handles writing nothing: a read-only collection, and the request's snapshot session.
 READ_ONLY = (ReadCollection, AsyncClientSession)
+# The providers handing out the driver's own handle, which their consumer's annotation alone narrows to read-only: the
+# one dependency per collection, and the snapshot session. Any other provider of a read-only handle is opened, since
+# it could take a writable one, write, and hand it back typed read-only.
+FACTORIES = frozenset({*map(collection_dependency, Collection), get_snapshot_session})
+# What a generator dependency is declared to return, of which FastAPI hands its consumer the yielded value.
+GENERATORS = (AsyncGenerator, AsyncIterator, Generator, Iterator)
 
 (SAFE_KEY,) = SAFE
 (SAFE_WHEN_KEY,) = SAFE_WHEN
@@ -46,9 +54,13 @@ POST_ROUTES = sorted(
 def _handle_kind(declared: Any) -> type | None:
     """The handle class a parameter is declared as, or `None` for anything else.
 
-    By identity for the protocol, which `issubclass` refuses as a protocol no runtime check is declared for.
+    By identity for the protocol, which `issubclass` refuses as a protocol no runtime check is declared for. A union
+    is the writable handle among its members, else the read-only one.
     """
 
+    if get_origin(declared) is Union:
+        kinds = [kind for kind in map(_handle_kind, get_args(declared)) if kind is not None]
+        return next((kind for kind in kinds if kind not in READ_ONLY), next(iter(kinds), None))
     kind = get_origin(declared) or declared
     if kind in READ_ONLY:
         return kind
@@ -57,18 +69,29 @@ def _handle_kind(declared: Any) -> type | None:
     return None
 
 
+def _provided(call: Callable[..., Any]) -> Any:
+    """The type a provider declares it hands its consumer: its return, or what it yields."""
+
+    returned = get_type_hints(call).get("return")
+    return get_args(returned)[0] if get_origin(returned) in GENERATORS else returned
+
+
 def handles(dependant: Dependant) -> Iterator[tuple[str, type]]:
     """Every database handle the tree declares, named by its consumer and parameter, with the class it is declared as.
 
-    A handle's own provider is not opened: its consumer's annotation is what the handler is handed, and below it the
-    provider holds the client a handle comes from. A router's dependency, which names no parameter, is opened as any.
+    A handle is what its consumer declares, or, where that names none (a parameter taken as `Any`), what its provider
+    declares to hand out, so the database taken through its bare provider is writable. A factory's handle is not
+    opened, since below it the provider holds the client every handle comes from; any other dependency is, a router's
+    included, which names no parameter.
     """
 
     # `Annotated` taken off, which leaves the type FastAPI hands the parameter.
     declared = get_type_hints(dependant.call) if dependant.call is not None else {}
     for sub in dependant.dependencies:
         kind = _handle_kind(declared.get(sub.name)) if sub.name is not None else None
-        if kind is None:
+        if kind is None and sub.call is not None:
+            kind = _handle_kind(_provided(sub.call))
+        if kind is None or (kind in READ_ONLY and sub.call not in FACTORIES):
             yield from handles(sub)
         else:
             yield f"{getattr(dependant.call, '__qualname__', dependant.call)}({sub.name})", kind
