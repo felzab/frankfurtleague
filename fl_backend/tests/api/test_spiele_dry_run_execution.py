@@ -162,7 +162,11 @@ def seeded_url(mongo_replica_set_url: str) -> str:
 
 
 def previewed(url: str, body: dict[str, Any]) -> Response:
-    """The dry run as a real request, guards and middleware included, which a write could hide in as well."""
+    """The dry run as a real request, guards and middleware included, which a write could hide in as well.
+
+    A write the preview defers past its response, in a task it starts and leaves running, escapes this: `asyncio.run`
+    cancels the task once the response is in, where the server's loop would let it land.
+    """
 
     async def _answered() -> Response:
         async with app_client(url, app=_served(), now=NOW) as http:

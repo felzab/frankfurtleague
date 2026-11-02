@@ -12,9 +12,12 @@ What the types cannot hold, each a step outside them rather than a slip inside:
   times at one moment needs a session;
 - an aggregation stage writing its output (`$out`, `$merge`), which a pipeline's type does not show;
 - a handle handed on through anything written `Any`, on which pyright checks nothing: a parameter left without a
-  type is refused in `app` (`pyproject.toml`'s `reportMissingParameterType`), one typed `Any` is not;
+  type is refused in `app` (`pyproject.toml`'s `reportMissingParameterType`) unless it is named `_`, which that rule
+  exempts, and one typed `Any` is not;
+- a runtime narrowing to the driver's class (`isinstance`, a `match` class pattern, a `TypeIs` or `TypeGuard`), which
+  holds, since the object handed is the driver's collection;
 - the client on `request.app.state`, for a handler or dependency taking the request;
-- a `cast`, a `getattr`, or a comment silencing pyright.
+- a `cast`, a dynamic call (`getattr`, `operator.methodcaller`), or a comment silencing pyright.
 """
 
 from collections.abc import AsyncIterator, Mapping
