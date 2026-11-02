@@ -17,8 +17,8 @@ const QUESTION = {
 
 const SCHOOL = {
   title: SERVER_COPY.landing.doors.school.title,
-  text: SERVER_COPY.landing.doors.school.text("2027", "2026-12-31"),
-  act: { label: SERVER_COPY.landing.applyNow, href: "/bewerbung/2027" },
+  text: SERVER_COPY.landing.join.open("2027", "2026-12-31"),
+  act: { label: SERVER_COPY.landing.toBewerbung, href: "/bewerbung/2027" },
 } as const;
 
 describe("the doors while an application window is open", () => {
@@ -31,7 +31,7 @@ describe("the doors while an application window is open", () => {
     );
     expect(screen.getByRole("heading", { level: 2 }).textContent).toBe(SERVER_COPY.landing.doors.title(true));
     expect(screen.getByRole("heading", { name: SCHOOL.title })).toBeTruthy();
-    expect(screen.getByRole("link", { name: SERVER_COPY.landing.applyNow }).getAttribute("href")).toBe("/bewerbung/2027");
+    expect(screen.getByRole("link", { name: SERVER_COPY.landing.toBewerbung }).getAttribute("href")).toBe("/bewerbung/2027");
   });
 });
 
@@ -40,7 +40,7 @@ describe("the doors while no window is open", () => {
     render(<Doors question={QUESTION} />);
     expect(screen.getByRole("heading", { level: 2 }).textContent).toBe(SERVER_COPY.landing.doors.title(false));
     expect(screen.queryByRole("heading", { name: SCHOOL.title })).toBe(null);
-    expect(screen.queryByRole("link", { name: SERVER_COPY.landing.applyNow })).toBe(null);
+    expect(screen.queryByRole("link", { name: SERVER_COPY.landing.toBewerbung })).toBe(null);
   });
 
   it("keeps the question's door: the address, and the two networks named by their glyphs' labels", () => {

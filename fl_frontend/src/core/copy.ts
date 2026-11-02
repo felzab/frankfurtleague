@@ -206,7 +206,7 @@ export const COPY = catalogue({
     spielSearch: "Spielsuche",
     /** A match's page, named by its two teams in the order the fixture lists them. */
     spiel: (heim: string, gast: string) => `${heim} gegen ${gast}`,
-    about: "About",
+    about: "Über die Liga",
     contact: "Kontakt",
     sponsors: "Sponsoren",
     legalNotice: "Impressum",
@@ -454,7 +454,7 @@ export const COPY = catalogue({
     saison: { days: "Tage", hours: "Stunden", minutes: "Minuten" },
     /** The classic frame's error page, a client component's. */
     status: {
-      error: { title: UNEXPECTED, sentence: "Lade die Seite neu oder versuche es später erneut.", retry: "Erneut versuchen" },
+      error: { title: UNEXPECTED, sentence: "Lade die Seite neu oder versuch es später.", retry: "Erneut versuchen" },
     },
   },
 
@@ -462,6 +462,7 @@ export const COPY = catalogue({
   brand: {
     name: "Frankfurt League",
     shortName: "FL",
-    description: "Die Frankfurt League ist die Oberstufenliga der Frankfurter Schulen. Finde heraus, welche Schule gewinnt!",
+    description:
+      "Die Frankfurt League ist die Fußballliga der Frankfurter Oberstufen. Abi-Jahrgänge spielen 11 gegen 11 um den Titel. Jedes Spiel bringt Geld für den Abiball.",
   },
 });
