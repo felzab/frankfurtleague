@@ -377,7 +377,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   `fl_backend/app/core/sentinels.py :: GHOST_SPIELER_ID`, in the same transaction
   (`fl_backend/app/api/spielberichte/crud.py :: repoint_pupil_entries_in_session`), so no entry keeps the erased
   record's id or ties their entries together across reports, and the report stands as the league's record of the
-  match. The action log's older images of a report still hold the id, until the log's twelve months take them.
+  match. The action log still holds the id in two places until its twelve months take them: the older images of
+  each report, and the repoint's own row, whose recorded filter names the erased record.
   No erasure reaches the ghost: each selects the
   records an address holds, and the ghost holds none.
 - **The address route answers every request, because every pupil and referee row holds an
@@ -1162,9 +1163,14 @@ Each row cites where the decision now lives.
   proof enough, given those three ends of the log; and whether evidence copied by hand from a
   confirmation's log row proves that confirmation.
 - **Whether a card's colour and minute may be published against a named minor, for the
-  Datenschutzexperte.** No page publishes a card today, and the question is put before one does:
-  whether a booking may stand on a public match report beside the name of a player of sixteen or
-  seventeen.
+  Datenschutzexperte.** The public match read
+  (`fl_backend/app/api/saisons/public_router.py :: get_spiel`, through
+  `fl_backend/app/api/spielberichte/services.py :: compose_public_bericht`) serves each card's colour
+  and minute on an adopted report beside the public name of a pupil whose consent publishes it, and
+  never the card's reason. The question is whether a booking may stand there beside the name of a
+  player of sixteen or seventeen. Unlike the section's other entries, which the waiver above covers,
+  this one I put to the Datenschutzexperte: the answer is owed before the deploy that ships the read,
+  and the deploy waits on it.
 - **The edge's clearance after a challenge, and the bot check on three forms, for the
   Datenschutzexperte.** A Managed Challenge meets a navigation to the sign-in page and to the
   application form, and passing it leaves a clearance in the browser that spares the visitor a

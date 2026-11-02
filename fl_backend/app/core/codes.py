@@ -2,9 +2,11 @@
 
 A code's value is its member's own name in lower snake case, which `StrEnum`'s `auto()` derives. The
 published document lists them once, as the failure body's `error_code`. A 4xx answer promises that
-the request wrote nothing unless its code is `unknown_outcome`, and the frontend clears the site's
-cache by that promise (`fl_frontend/src/core/apiDispatch.ts :: dispatchRequest`). Two answers break
-it, each a 409 after the commit that ended an address change, whose records no cached read serves:
+the request wrote nothing, and the frontend clears the site's cache by that promise
+(`fl_frontend/src/core/apiDispatch.ts :: dispatchRequest`); a write that may stand answers
+`unknown_outcome` with a 500, which promises nothing (`app/core/exception_handlers.py ::
+db_exception_handler`). Two answers break the promise, each a 409 after the commit that ended an
+address change, whose records no cached read serves:
 `app/api/adresswechsel/admin_router.py :: post_address_change_approval` (`address_change_nothing`)
 and `app/api/adresswechsel/public_router.py :: post_address_change_antwort` (`address_change_ended`).
 """

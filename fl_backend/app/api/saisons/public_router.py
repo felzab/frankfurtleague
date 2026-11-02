@@ -7,10 +7,8 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import saison_nimmt_bewerbungen_an
 from app.api.saisons.crud import has_started, pull_active_saison, pull_open_window_saison
-from app.api.saisons.schedule import knockout_phases_for, qualifier_count
 from app.api.saisons.schemas import (
-    PODIUM_PLACES,
-    FLApplicationWindow,
+    FLBewerbungWindow,
     FLLandingCounts,
     FLLandingKickoff,
     FLLandingResponse,
@@ -44,9 +42,7 @@ from app.api.teams.schemas import (
     FLSaisonTeamEntry,
     FLSaisonTeamEntryListAdapter,
     FLSaisonTeamsResponse,
-    FLTabelle,
     FLTabelleResponse,
-    FLTabelleRow,
     FLTeamPageClub,
     FLTeamsFilterParams,
 )
@@ -134,21 +130,23 @@ async def get_frame(saisons_collection: SaisonsCollection) -> FLSaisonFrameRespo
 LANDING_SPIELE: Final = 2
 
 
+def _first_kickoff_pipeline(saison_id: str) -> list[Mapping[str, Any]]:
+    """The season's earliest dated group match, a timed one ahead of an untimed one on the same day."""
+
+    return [
+        {"$match": {"saison_id": saison_id, "saison_phase": "gruppenphase", "datum": {"$type": "string"}}},
+        # A null sorts ahead of every time, so an untimed fixture would otherwise hide the opening day's kick-off.
+        {"$set": {"untimed": {"$ne": [{"$type": "$uhrzeit"}, "string"]}}},
+        {"$sort": {"datum": 1, "untimed": 1, "uhrzeit": 1}},
+        {"$project": {"_id": 0, "datum": 1, "uhrzeit": 1}},
+    ]
+
+
 async def _active_or_none(saisons_collection: AsyncCollection) -> PublicSaison | None:
     try:
         return await resolve_public_saison(saisons_collection=saisons_collection, saison_id=None)
     except DocumentNotFoundError:
         return None
-
-
-def _podium_of_one_group(tabelle: FLTabelle) -> list[tuple[int, FLTabelleRow]]:
-    """A season with no bracket and one group is decided by its table once every match there is played or called off."""
-
-    rows = [row for rows in tabelle.root.values() for row in rows]
-    if not rows or any(row.count_pending_spiele for row in rows):
-        return []
-
-    return [(row.platz, row) for row in rows if row.platz is not None and row.platz <= PODIUM_PLACES]
 
 
 @router.get("/landing", response_model=FLLandingResponse, summary="The landing")
@@ -172,25 +170,21 @@ async def get_landing(
 
     # The submission's own rule over what the query found, so the landing never offers a window it refuses.
     window = (
-        FLApplicationWindow(saison_id=str(open_window["_id"]), von=open_window["bewerbung"]["von"], bis=open_window["bewerbung"]["bis"])
+        FLBewerbungWindow(saison_id=str(open_window["_id"]), von=open_window["bewerbung"]["von"], bis=open_window["bewerbung"]["bis"])
         if open_window is not None
         and saison_nimmt_bewerbungen_an(saison_status=open_window["status"], bewerbung=open_window["bewerbung"], today=today)
         else None
     )
 
     if saison is None:
-        return FLLandingResponse(saison=None, application_window=window)
+        return FLLandingResponse(saison=None, bewerbung_window=window)
 
     in_saison = {"saison_id": saison.id}
     # Two groups of reads sent at once, because one gather of nine types none of its results.
-    (started, first, recent_raw, upcoming_raw, finale_raw), (teams, count_spieler, count_spiele, count_spieltage) = await asyncio.gather(
+    (started, first_raw, recent_raw, upcoming_raw, finale_raw), (teams, squads_raw, count_spiele, count_spieltage) = await asyncio.gather(
         asyncio.gather(
             has_started(spiele_collection=spiele_collection, saison_id=saison.id, today=today),
-            spiele_collection.find_one(
-                {**in_saison, "saison_phase": "gruppenphase", "datum": {"$type": "string"}},
-                {"datum": 1, "uhrzeit": 1},
-                sort=[("datum", 1), ("uhrzeit", 1)],
-            ),
+            aggregate_many_from_db(collection=spiele_collection, pipeline=_first_kickoff_pipeline(saison.id), limit=1),
             aggregate_many_from_db(
                 collection=spiele_collection,
                 pipeline=build_spiele_pipeline(
@@ -213,26 +207,27 @@ async def get_landing(
         ),
         asyncio.gather(
             _clubs_of(teams_collection=teams_collection, saison_id=saison.id),
-            saison_spieler_collection.count_documents({**in_saison, "inactive_since": None}),
+            # Under the collation `saison_spieler_saison_id_team_id_de` is built with, which an index serves a match by alone.
+            aggregate_many_from_db(
+                collection=saison_spieler_collection,
+                pipeline=[{"$match": {**in_saison, "inactive_since": None}}, {"$group": {"_id": "$team_id", "count": {"$sum": 1}}}],
+                collation=GERMAN_COLLATION,
+            ),
             spiele_collection.count_documents(in_saison),
             spieltage_collection.count_documents(in_saison),
         ),
     )
 
-    if knockout_phases_for(qualifier_count(saison.rules)):
-        podium = [
-            FLPodiumPlace(platz=platz, team_id=side.team_id, name=side.name, shorthand=side.shorthand)
-            for platz, side in podium_of(FLSpielJoinedListAdapter.validate_python(finale_raw))
-        ]
-    elif saison.rules.number_of_gruppen == 1:
-        tabelle = await pull_tabelle(
-            teams_collection=teams_collection, spiele_collection=spiele_collection, saison_id=saison.id, rules=saison.rules
-        )
-        podium = [
-            FLPodiumPlace(platz=platz, team_id=row.id, name=row.name, shorthand=row.shorthand) for platz, row in _podium_of_one_group(tabelle)
-        ]
-    else:
-        podium = []
+    # Every season ends in a knockout (`find_rules_refusal` refuses rules drawing none), so the Finale decides it.
+    podium = [
+        FLPodiumPlace(platz=platz, team_id=side.team_id, name=side.name, shorthand=side.shorthand)
+        for platz, side in podium_of(FLSpielJoinedListAdapter.validate_python(finale_raw))
+    ]
+
+    # The live rows of the clubs `count_teams` counts, so a club that left takes its squad out of the figure with it.
+    counted_teams = {team.id for team in teams}
+    count_spieler = sum(row["count"] for row in squads_raw if row["_id"] in counted_teams)
+    first = first_raw[0] if first_raw else None
 
     state: FLLandingState = "decided" if any(place.platz == 1 for place in podium) else "running" if started else "before_start"
 
@@ -249,7 +244,7 @@ async def get_landing(
             ),
             teams=teams,
         ),
-        application_window=window,
+        bewerbung_window=window,
     )
 
 

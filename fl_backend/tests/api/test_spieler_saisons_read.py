@@ -11,14 +11,13 @@ from app.api.spieler.schemas import (
     FLPatchSpielerPayload,
     FLPostSaisonSpielerPayload,
     FLSpieler,
-    FLSpielerFilterParams,
     FLSpielerMembership,
     FLSpielerPublic,
     FLSpielerSaisonsResponse,
     FLSpielerSingleResponse,
     FLSpielerWithMemberships,
 )
-from app.api.spieler.services import build_real_spieler_filter, build_spieler_pipeline, build_spieler_saisons_pipeline
+from app.api.spieler.services import build_real_spieler_filter, build_spieler_saisons_pipeline
 from app.shared.folding import sign_in_identifier
 from tests.documents import own_einwilligung_document, saison_spieler_document, spieler_document
 
@@ -81,16 +80,10 @@ class TestTheSaisonsPipeline:
 
 
 class TestWhyTheSeasonScopedReadCannotAnswerIt:
-    """Three ways `GET /spieler` fails the admin list, as assertions — and the last two fail silently."""
-
-    def test_a_named_season_makes_the_junction_join_strict(self):
-        """A player with no row for that season is dropped, so the list cannot offer to give them one."""
-        pipeline = build_spieler_pipeline(FLSpielerFilterParams(team_id=ObjectId(), saison_id=SAISON))
-        unwind = next(stage["$unwind"] for stage in pipeline if "$unwind" in stage)
-        assert unwind["preserveNullAndEmptyArrays"] is False
+    """`GET /spieler` reads one club's squad rows in one season, and its shape is one squad row's: two reasons it is not the admin list."""
 
     def test_a_player_with_no_squad_row_does_not_validate_as_flspieler(self):
-        """`FLSpieler` is the flattened shape, so `team_id` is required: one player with no squad row 500s the whole response."""
+        """`team_id` is required, so the shape holds no player before their first squad row, whom the admin list offers one."""
         with pytest.raises(ValidationError) as failure:
             FLSpieler.model_validate(
                 {

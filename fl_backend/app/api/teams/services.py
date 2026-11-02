@@ -520,26 +520,34 @@ def _may_hold_a_platz(team: FLTeam, still_to_play: int) -> bool:
     return _can_hold_a_platz(has_left=team.austritt is not None, counted=team.statistik.count_gespielte_spiele, still_to_play=still_to_play)
 
 
-def build_tabelle(gruppen: FLGruppen) -> FLTabelle:
+def build_tabelle(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rules: FLSaisonRules) -> FLTabelle:
     """Each group's standing as the Tabelle shows it, every row numbered as a `Platz` is.
 
-    The number walks past a row that can hold none, which reads null, so a club that left takes no place and hides
-    none, as the bracket seeds them (`_placings`).
+    Numbered as the bracket counts its placings (`_placings`): only a row that can hold a place advances the number,
+    so a club that left reads null and hides none, and clubs the chain leaves level share the number their band
+    starts at, where the bracket seeds none of them. Before a group's first match nothing is level on what was
+    played, so each club takes a number of its own in the order the clubs arrived in.
     """
 
     tabelle: dict[FLGruppenNames, list[FLTabelleRow]] = {}
-    for name, rows in gruppen.root.items():
+    for name, ranked in _ranked_bands(teams, spiele, rules).items():
         placed: list[FLTabelleRow] = []
-        platz = 0
-        for row in rows:
-            holds = _can_hold_a_platz(
-                has_left=row.austritt_type is not None, counted=row.statistik.count_gespielte_spiele, still_to_play=row.count_pending_spiele
-            )
-            platz += holds
-            placed.append(FLTabelleRow.model_validate({**row.model_dump(), "platz": platz if holds else None}))
+        platz = 1
+        rows = [row for band in ranked for row in band]
+        started = any(row.statistik.count_gespielte_spiele for row in rows)
+        for band in ranked if started else [[row] for row in rows]:
+            holders = {row.id for row in band if _row_holds_a_platz(row)}
+            placed.extend(FLTabelleRow.model_validate({**row.model_dump(), "platz": platz if row.id in holders else None}) for row in band)
+            platz += len(holders)
         tabelle[name] = placed
 
     return FLTabelle(tabelle)
+
+
+def _row_holds_a_platz(row: FLGruppenTeam) -> bool:
+    return _can_hold_a_platz(
+        has_left=row.austritt_type is not None, counted=row.statistik.count_gespielte_spiele, still_to_play=row.count_pending_spiele
+    )
 
 
 def _spiele_by_gruppe(
@@ -770,7 +778,15 @@ def _placings(
 
 
 def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rules: FLSaisonRules) -> FLGruppen:
-    """Every group the season offers.
+    """Every group the season offers, its rows in standing order."""
+
+    return FLGruppen({name: [row for band in bands for row in band] for name, bands in _ranked_bands(teams, spiele, rules).items()})
+
+
+def _ranked_bands(
+    teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rules: FLSaisonRules
+) -> dict[FLGruppenNames, list[list[FLGruppenTeam]]]:
+    """Every group the season offers as its standing's bands, a band of several being clubs the chain leaves level.
 
     Seeded from that count rather than the teams present: a group nobody stands in keeps its key, and
     the closed set here would answer a smaller season groups it never ran.
@@ -801,16 +817,13 @@ def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rule
     # no group would otherwise count on one surface and not the other.
     still_to_play = _still_to_play(spiele)
 
-    return FLGruppen(
-        {
-            name: [
-                _standing_row(team, still_to_play.get(team.id, 0))
-                for band in _tiers(members, {team.id: team.statistik.punkte for team in members}, everyone, by_gruppe[name], rules)
-                for team in band
-            ]
-            for name, members in grouped.items()
-        }
-    )
+    return {
+        name: [
+            [_standing_row(team, still_to_play.get(team.id, 0)) for team in band]
+            for band in _tiers(members, {team.id: team.statistik.punkte for team in members}, everyone, by_gruppe[name], rules)
+        ]
+        for name, members in grouped.items()
+    }
 
 
 def _standing_row(team: FLTeam, still_to_play: int) -> FLGruppenTeam:

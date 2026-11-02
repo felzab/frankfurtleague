@@ -507,7 +507,7 @@ class FLTabelleRow(FLGruppenTeam):
 
 
 class FLTabelle(RootModel[Mapping[FLGruppenNames, list[FLTabelleRow]]]):
-    """Every group the season offers, in standing order, each row numbered as a `Platz` is."""
+    """Every group the season offers, in standing order, each row numbered as a `Platz` is: clubs the chain leaves level share one."""
 
 
 class FLTabelleResponse(BaseAPIResponse):

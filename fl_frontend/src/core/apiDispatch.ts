@@ -13,16 +13,12 @@ export const sentRequestOf = (method: string | undefined, readOnly: boolean | un
 });
 
 /**
- * Whether a write's answer says it did not stand. The backend's promise: a 4xx refuses the request, and a write that
- * may stand all the same answers `unknown_outcome`. A 5xx promises nothing, since the server may fail after a commit,
- * and neither does an answer naming no code, an edge's own page or an unreadable body.
+ * Whether a write's answer says it did not stand. The backend's promise: a 4xx refuses the request. A 5xx promises
+ * nothing, since the server may fail after a commit, and a write that may stand answers `unknown_outcome` with a 500;
+ * neither does an answer naming no code, an edge's own page or an unreadable body.
  */
 const refusedUnwritten = (error: unknown): boolean =>
-  error instanceof APIBadStatusError &&
-  error.statusCode >= 400 &&
-  error.statusCode < 500 &&
-  error.serverErrorCode !== undefined &&
-  error.serverErrorCode !== "unknown_outcome";
+  error instanceof APIBadStatusError && error.statusCode >= 400 && error.statusCode < 500 && error.serverErrorCode !== undefined;
 
 /**
  * Sends one call, a write recorded as standing before `send` runs, since one whose answer never comes may still have

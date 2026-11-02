@@ -153,7 +153,7 @@ async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -
     return window, saison_raw["status"]
 
 
-def _fenster(*, saison_id: str, saison_status: Any, bewerbung: Any, today: str) -> FLBewerbungWindowResponse:
+def _window(*, saison_id: str, saison_status: Any, bewerbung: Any, today: str) -> FLBewerbungWindowResponse:
     """One window as this tier is served it, with the running judgement already taken."""
 
     return FLBewerbungWindowResponse(
@@ -187,7 +187,7 @@ async def get_open_window(saisons_collection: SaisonsCollection, today: str = De
     if open_saison is None:
         raise DocumentNotFoundError()
 
-    return _fenster(saison_id=str(open_saison["_id"]), saison_status=open_saison["status"], bewerbung=open_saison["bewerbung"], today=today)
+    return _window(saison_id=str(open_saison["_id"]), saison_status=open_saison["status"], bewerbung=open_saison["bewerbung"], today=today)
 
 
 @router.get(
@@ -210,7 +210,7 @@ async def get_window(
     if bewerbung is None:
         return FLBewerbungNoWindowResponse(saison_id=saison_id, window=None)
 
-    return _fenster(saison_id=saison_id, saison_status=saison_status, bewerbung=bewerbung, today=today)
+    return _window(saison_id=saison_id, saison_status=saison_status, bewerbung=bewerbung, today=today)
 
 
 @router.get("/schulen", response_model=FLBewerbungSchulenResponse, summary="The clubs a public application may name")

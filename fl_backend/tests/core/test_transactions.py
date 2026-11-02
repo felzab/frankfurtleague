@@ -569,14 +569,23 @@ class _TransactingClient:
 
 
 def _aborts_sent_in_turn(
-    *, deadline: RequestDeadline | None, sessions: Sequence[_TransactedSession], fails: bool = True, between_s: float = 0.0
+    *,
+    deadline: RequestDeadline | None,
+    sessions: Sequence[_TransactedSession],
+    fails: bool = True,
+    between_s: float = 0.0,
+    deadline_after_s: float | None = None,
 ) -> list[list[dict[str, Any]]]:
     """What each session's client is sent once the work inside it fails or finishes, the sessions one after another in one request.
 
-    `between_s` stands for the request's work without the database between two sessions.
+    `between_s` stands for the request's work without the database between two sessions. `deadline_after_s` moves
+    `deadline` to that long after the loop has started, so however slowly a loaded worker starts one, the first
+    session meets the deadline as far ahead as the case says.
     """
 
     async def run() -> None:
+        if deadline is not None and deadline_after_s is not None:
+            deadline.at = time.monotonic() + deadline_after_s
         token = request_deadline_var.set(deadline)
         try:
             for index, session in enumerate(sessions):
@@ -662,12 +671,13 @@ class TestARequestsAbortsShareOneGrace:
         """Uncharged, the next abort would open a second whole grace, against a server that answers neither."""
 
         monkeypatch.setattr(transactions, "ABORT_GRACE_S", SHORT_GRACE_S)
-        deadline = RequestDeadline(time.monotonic() + PAST_BY_S)
+        # Placed once the loop runs, `PAST_BY_S` ahead of the first abort.
+        deadline = RequestDeadline(at=0.0)
         # Answered only once the whole grace has passed the deadline, as an abort nothing answers runs to its timeout.
         unanswered = _SlowlyAnsweredSession(after_s=PAST_BY_S + SHORT_GRACE_S + PAST_BY_S)
 
         with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            first, second = _aborts_sent_in_turn(deadline=deadline, sessions=[unanswered, _TransactedSession()])
+            first, second = _aborts_sent_in_turn(deadline=deadline, sessions=[unanswered, _TransactedSession()], deadline_after_s=PAST_BY_S)
 
         assert unanswered.sent_at is not None and unanswered.sent_at < deadline.at, "the first abort began past the deadline"
         assert (len(first), second) == (1, [])

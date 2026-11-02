@@ -460,7 +460,7 @@ class FLPodiumPlace(BaseReadModel):
 
 
 class FLLandingCounts(BaseReadModel):
-    """The season's four figures, counted on every read: its clubs, its squads' live rows, its matches and matchdays."""
+    """The season's four figures, counted on every read: its clubs, those clubs' live squad rows, its matches and matchdays."""
 
     count_teams: int = Field(ge=0)
     count_spieler: int = Field(ge=0)
@@ -485,7 +485,7 @@ class FLLandingSaison(BaseReadModel):
     teams: list[FLSaisonTeamEntry]
 
 
-class FLApplicationWindow(BaseReadModel):
+class FLBewerbungWindow(BaseReadModel):
     """The application window open today, by the one rule the submission refuses on, and the season it is for."""
 
     saison_id: str
@@ -497,4 +497,4 @@ class FLLandingResponse(BaseAPIResponse):
     """The landing's facts: the season the site is on, null for a league that has none, and an open window."""
 
     saison: FLLandingSaison | None
-    application_window: FLApplicationWindow | None
+    bewerbung_window: FLBewerbungWindow | None

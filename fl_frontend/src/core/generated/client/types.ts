@@ -1210,17 +1210,6 @@ export interface FLAddressPayload {
   strasse: string;
 }
 
-/**
- * The application window open today, by the one rule the submission refuses on, and the season it is for.
- */
-export interface FLApplicationWindow {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  bis: string;
-  saison_id: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  von: string;
-}
-
 export type FLApprovalDenied = (typeof FLApprovalDenied)[keyof typeof FLApprovalDenied];
 
 export const FLApprovalDenied = {
@@ -1242,7 +1231,7 @@ export interface FLAufstellungEntryPublic {
   nachname: string | null;
   nummer: string | null;
   position: FLSpielerPosition | null;
-  startet: boolean;
+  starts: boolean;
   type: FLSpielberichtSpielerType;
   vorname: string | null;
 }
@@ -1893,6 +1882,17 @@ export interface FLBewerbungWiderspruchData {
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
   saison_id: string;
+}
+
+/**
+ * The application window open today, by the one rule the submission refuses on, and the season it is for.
+ */
+export interface FLBewerbungWindow {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  bis: string;
+  saison_id: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  von: string;
 }
 
 /**
@@ -3173,7 +3173,7 @@ export interface FLKontaktpersonPayload {
 }
 
 /**
- * The season's four figures, counted on every read: its clubs, its squads' live rows, its matches and matchdays.
+ * The season's four figures, counted on every read: its clubs, those clubs' live squad rows, its matches and matchdays.
  */
 export interface FLLandingCounts {
   /** @minimum 0 */
@@ -3253,7 +3253,7 @@ export interface FLLandingSaison {
  * The landing's facts: the season the site is on, null for a league that has none, and an open window.
  */
 export interface FLLandingResponse {
-  application_window: FLApplicationWindow | null;
+  bewerbung_window: FLBewerbungWindow | null;
   saison: FLLandingSaison | null;
 }
 
@@ -5845,7 +5845,7 @@ export interface FLTabelleRow {
 }
 
 /**
- * Every group the season offers, in standing order, each row numbered as a `Platz` is.
+ * Every group the season offers, in standing order, each row numbered as a `Platz` is: clubs the chain leaves level share one.
  */
 export type FLTabelle = Partial<Record<FLGruppenNames, FLTabelleRow[]>>;
 

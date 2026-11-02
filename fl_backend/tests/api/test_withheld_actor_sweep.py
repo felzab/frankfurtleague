@@ -59,7 +59,7 @@ REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f607510003")
 BEWERBUNG_OID = ObjectId(bewerbung_document(1)["_id"])
 
 
-# The fixture save, whose `dry_run` reads: named with the POST reads, nothing a route declares telling a read from a write.
+# The fixture save, whose `dry_run` reads as its route's `x-safe-when` mark says: named by hand beside the POST reads, the one such write.
 READS_OVER_ANOTHER_METHOD = ADMIN_TIER_READS_OVER_POST | {("/api/v0/spiele/{spiel_id}", "patch")}
 
 

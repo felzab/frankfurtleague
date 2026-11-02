@@ -7,7 +7,7 @@ import pytest
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLBracketFaultGruppe, FLSpiel, FLSpielListAdapter
 from app.api.spiele.services import BracketResolution, resolve_bracket
-from app.api.teams.schemas import FLGruppen, FLGruppenTeam, FLTeam, FLTeamStatistik
+from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamStatistik
 from app.api.teams.services import (
     CERTAINTY_FIXTURE_LIMIT,
     _decide_one_gruppe,
@@ -108,13 +108,15 @@ def table(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonR
     return build_gruppen(teams, FLSpielListAdapter.validate_python(documents), rules).root["A"]
 
 
-def platz_by_team_id(rows: Sequence[FLGruppenTeam]) -> dict[str, int]:
-    """The `platz` the Tabelle serves each club of these rows (`build_tabelle`), a club holding none left out.
+def platz_by_team_id(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonRules = RULES) -> dict[str, int]:
+    """The `platz` the Tabelle serves each club of group A (`build_tabelle`), a club holding none left out.
 
     The Tabelle and the seeding must number the same clubs, and nothing else can fail when they part company.
     """
 
-    return {str(row.id): row.platz for row in build_tabelle(FLGruppen({"A": list(rows)})).root["A"] if row.platz is not None}
+    tabelle = build_tabelle(teams, FLSpielListAdapter.validate_python(documents), rules)
+
+    return {str(row.id): row.platz for row in tabelle.root["A"] if row.platz is not None}
 
 
 def standing(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonRules = RULES):
@@ -496,7 +498,7 @@ class TestTheTableAndTheSeedingNumberTheSameClubs:
         teams = [a_team(seed, punkte=0, gespielt=0) for seed in (1, 2, 3)]
         fixtures = [played(1, 1, 2), played(2, 1, 3), played(3, 2, 3)]
 
-        assert sorted(platz_by_team_id(table(teams, fixtures)).values()) == [1, 2, 3]
+        assert sorted(platz_by_team_id(teams, fixtures).values()) == [1, 2, 3]
         assert standing(teams, fixtures).eligible == 3
 
     def test_every_placing_the_seeding_decides_is_the_number_the_table_prints(self, a_team: TeamFactory, played: MatchFactory):
@@ -506,7 +508,7 @@ class TestTheTableAndTheSeedingNumberTheSameClubs:
         fixtures = [played(1, 2, 3)]
 
         decided = standing(teams, fixtures)
-        numbered = platz_by_team_id(table(teams, fixtures))
+        numbered = platz_by_team_id(teams, fixtures)
         seeded = {str(team.id): platz for platz, team in decided.by_platz.items()}
 
         assert decided.eligible == len(numbered) == 3
@@ -522,14 +524,24 @@ class TestTheTableAndTheSeedingNumberTheSameClubs:
         teams = [a_team(1, punkte=9), a_team(2, punkte=6, austritt=AUSGETRETEN), a_team(3, punkte=3)]
         decided = standing(teams, [])
 
-        assert platz_by_team_id(table(teams, [])) == {str(team.id): platz for platz, team in decided.by_platz.items()}
+        assert platz_by_team_id(teams, []) == {str(team.id): platz for platz, team in decided.by_platz.items()}
+
+    def test_clubs_the_chain_leaves_level_share_the_place_their_band_starts_at(self, a_team: TeamFactory, played: MatchFactory):
+        """Level on points and goals and drawn against each other: the bracket seeds neither, and the Tabelle prints both second."""
+
+        level = {"punkte": 4, "geschossen": 5, "kassiert": 5}
+        teams = [a_team(1, punkte=9), a_team(2, **level), a_team(3, **level), a_team(4, punkte=0)]
+        drawn = [played(1, 2, 3, 1, 1)]
+
+        assert platz_by_team_id(teams, drawn) == {TEAM_ID.format(1): 1, TEAM_ID.format(2): 2, TEAM_ID.format(3): 2, TEAM_ID.format(4): 4}
+        assert {str(team.id): platz for platz, team in standing(teams, drawn).by_platz.items()} == {TEAM_ID.format(1): 1, TEAM_ID.format(4): 4}
 
     def test_a_club_with_nothing_played_and_nothing_left_is_numbered_by_neither(self, a_team: TeamFactory):
         """The case `N/A` still exists for: zeroes rank above a negative difference, so the row sits high and holds no place."""
 
         teams = [a_team(1, punkte=0, gespielt=0), a_team(2, punkte=3, geschossen=1, kassiert=4)]
 
-        assert platz_by_team_id(table(teams, [])) == {TEAM_ID.format(2): 1}
+        assert platz_by_team_id(teams, []) == {TEAM_ID.format(2): 1}
         assert standing(teams, []).eligible == 1
 
     def test_a_fixture_belonging_to_no_group_is_counted_by_the_table_too(self, a_team: TeamFactory, played: MatchFactory):
@@ -543,7 +555,7 @@ class TestTheTableAndTheSeedingNumberTheSameClubs:
         across_the_groups = [played(9, 1, 3)]
 
         rows = table(teams, across_the_groups)
-        numbered = platz_by_team_id(rows)
+        numbered = platz_by_team_id(teams, across_the_groups)
 
         assert [(row.name, row.count_pending_spiele) for row in rows] == [("Team 2", 0), ("Team 1", 1)]
         assert standing(teams, across_the_groups).eligible == len(numbered) == 2

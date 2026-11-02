@@ -400,7 +400,7 @@ describe("the site's cache", () => {
 
   it.each([
     ["whose answer never came", new TypeError("fetch failed")],
-    ["the backend answered as one that may stand", failure(409, "unknown_outcome")],
+    ["the backend answered as one that may stand", failure(500, "unknown_outcome")],
     // The server may fail after its commit.
     ["the server failed on", failure(500, "database_failed")],
     ["an edge's own page refused, naming no code", failure(429, undefined)],

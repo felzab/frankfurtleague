@@ -355,7 +355,7 @@ class FLSpielberichtKartePublic(BaseReadModel):
 
 
 class FLAufstellungEntryPublic(FLSpielberichtSpielerPublic):
-    startet: bool
+    starts: bool
 
 
 class FLAufstellungPublic(BaseReadModel):
