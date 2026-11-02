@@ -474,10 +474,14 @@ class FLPodiumPlace(BaseReadModel):
 
 
 class FLLandingCounts(BaseReadModel):
-    """The season's four figures, counted on every read: its clubs, those clubs' live squad rows, its matches and matchdays."""
+    """The season's four figures, counted on every read: its clubs, its goals, its matches and its matchdays.
+
+    `count_tore` is both sides' goals summed over every match of any phase the Tabelle would count, one carrying an
+    `ergebnis`: a forfeit's awarded goals among them, a shoot-out's never.
+    """
 
     count_teams: int = Field(ge=0)
-    count_spieler: int = Field(ge=0)
+    count_tore: int = Field(ge=0)
     count_spiele: int = Field(ge=0)
     count_spieltage: int = Field(ge=0)
 

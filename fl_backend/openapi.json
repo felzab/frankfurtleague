@@ -7673,16 +7673,11 @@
         "type": "object"
       },
       "FLLandingCounts": {
-        "description": "The season's four figures, counted on every read: its clubs, those clubs' live squad rows, its matches and matchdays.",
+        "description": "The season's four figures, counted on every read: its clubs, its goals, its matches and its matchdays.\n\n`count_tore` is both sides' goals summed over every match of any phase the Tabelle would count, one carrying an\n`ergebnis`: a forfeit's awarded goals among them, a shoot-out's never.",
         "properties": {
           "count_spiele": {
             "minimum": 0.0,
             "title": "Count Spiele",
-            "type": "integer"
-          },
-          "count_spieler": {
-            "minimum": 0.0,
-            "title": "Count Spieler",
             "type": "integer"
           },
           "count_spieltage": {
@@ -7694,11 +7689,16 @@
             "minimum": 0.0,
             "title": "Count Teams",
             "type": "integer"
+          },
+          "count_tore": {
+            "minimum": 0.0,
+            "title": "Count Tore",
+            "type": "integer"
           }
         },
         "required": [
           "count_teams",
-          "count_spieler",
+          "count_tore",
           "count_spiele",
           "count_spieltage"
         ],

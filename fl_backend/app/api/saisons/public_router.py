@@ -46,7 +46,7 @@ from app.api.teams.schemas import (
     FLTeamPageClub,
     FLTeamsFilterParams,
 )
-from app.api.teams.services import build_team_pipeline
+from app.api.teams.services import _counting_fixtures_match, build_team_pipeline
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, build_query, build_sort, pull_many_from_db, pull_one_from_db
@@ -181,7 +181,6 @@ async def get_landing(
     spiele_collection: SpieleCollection,
     spieltage_collection: SpieltageCollection,
     teams_collection: TeamsCollection,
-    saison_spieler_collection: SaisonSpielerCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLLandingResponse:
     """The season the site is on, `before_start`, `running` or `decided`, null for a league that has none; its figures counted on every read.
@@ -207,7 +206,7 @@ async def get_landing(
 
     in_saison = {"saison_id": saison.id}
     # Two groups of reads sent at once, because one gather of nine types none of its results.
-    (started, first_raw, recent_raw, upcoming_raw, finale_raw), (teams, squads_raw, count_spiele, count_spieltage) = await asyncio.gather(
+    (started, first_raw, recent_raw, upcoming_raw, finale_raw), (teams, tore_raw, count_spiele, count_spieltage) = await asyncio.gather(
         asyncio.gather(
             has_started(spiele_collection=spiele_collection, saison_id=saison.id, today=today),
             aggregate_many_from_db(collection=spiele_collection, pipeline=_first_kickoff_pipeline(saison.id), limit=1),
@@ -233,11 +232,13 @@ async def get_landing(
         ),
         asyncio.gather(
             _clubs_of(teams_collection=teams_collection, saison_id=saison.id),
-            # Under the collation `saison_spieler_saison_id_team_id_de` is built with, which an index serves a match by alone.
+            # The matches the Tabelle counts, every phase's, as `count_spiele` counts them.
             aggregate_many_from_db(
-                collection=saison_spieler_collection,
-                pipeline=[{"$match": {**in_saison, "inactive_since": None}}, {"$group": {"_id": "$team_id", "count": {"$sum": 1}}}],
-                collation=GERMAN_COLLATION,
+                collection=spiele_collection,
+                pipeline=[
+                    {"$match": {**in_saison, **_counting_fixtures_match()}},
+                    {"$group": {"_id": None, "tore": {"$sum": {"$add": ["$team1.tore", "$team2.tore"]}}}},
+                ],
             ),
             spiele_collection.count_documents(in_saison),
             spieltage_collection.count_documents(in_saison),
@@ -250,9 +251,6 @@ async def get_landing(
         for platz, side in podium_of(FLSpielJoinedListAdapter.validate_python(finale_raw))
     ]
 
-    # The live rows of the clubs `count_teams` counts, so a club that left takes its squad out of the figure with it.
-    counted_teams = {team.id for team in teams}
-    count_spieler = sum(row["count"] for row in squads_raw if row["_id"] in counted_teams)
     first = first_raw[0] if first_raw else None
 
     state: FLLandingState = "decided" if any(place.platz == 1 for place in podium) else "running" if started else "before_start"
@@ -266,7 +264,11 @@ async def get_landing(
             upcoming=FLSpielJoinedListAdapter.validate_python(upcoming_raw) if state == "running" else [],
             podium=podium if state == "decided" else [],
             counts=FLLandingCounts(
-                count_teams=len(teams), count_spieler=count_spieler, count_spiele=count_spiele, count_spieltage=count_spieltage
+                count_teams=len(teams),
+                # No group row where no match counts yet.
+                count_tore=tore_raw[0]["tore"] if tore_raw else 0,
+                count_spiele=count_spiele,
+                count_spieltage=count_spieltage,
             ),
             teams=teams,
         ),

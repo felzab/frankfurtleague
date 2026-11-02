@@ -3171,17 +3171,20 @@ export interface FLKontaktpersonPayload {
 }
 
 /**
- * The season's four figures, counted on every read: its clubs, those clubs' live squad rows, its matches and matchdays.
+ * The season's four figures, counted on every read: its clubs, its goals, its matches and its matchdays.
+ *
+ * `count_tore` is both sides' goals summed over every match of any phase the Tabelle would count, one carrying an
+ * `ergebnis`: a forfeit's awarded goals among them, a shoot-out's never.
  */
 export interface FLLandingCounts {
   /** @minimum 0 */
   count_spiele: number;
   /** @minimum 0 */
-  count_spieler: number;
-  /** @minimum 0 */
   count_spieltage: number;
   /** @minimum 0 */
   count_teams: number;
+  /** @minimum 0 */
+  count_tore: number;
 }
 
 /**

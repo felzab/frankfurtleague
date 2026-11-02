@@ -3,7 +3,6 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_landing
@@ -12,7 +11,6 @@ from app.api.spiele.services import podium_of
 from app.core.collections import Collection
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
-from tests.plans import plans_of_sent_reads
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -89,7 +87,7 @@ def seeded(url: str, database_name: str, collections: dict[str, list[dict[str, A
 def running_url(mongo_url: str) -> Iterator[str]:
     """A season under way: three matches played and three to come, so both lists hold more than they show.
 
-    Three clubs, one of which left the league, and three squad rows: one live, one ausgetragen, and the retired club's.
+    Three clubs, one of which left the league; seven goals, four of them away, in the three played.
     """
 
     seeded(
@@ -116,11 +114,6 @@ def running_url(mongo_url: str) -> Iterator[str]:
                 match(3, DAY_1, "2026-03-01", (1, 3)),
                 match(4, DAY_2, "2026-03-08", None),
             ],
-            Collection.SAISON_SPIELER: [
-                documents.saison_spieler_document(ObjectId(), SAISON, ALPHA),
-                documents.saison_spieler_document(ObjectId(), SAISON, BETA, inactive_since="2026-02-01"),
-                documents.saison_spieler_document(ObjectId(), SAISON, RETIRED),
-            ],
         },
     )
 
@@ -128,13 +121,12 @@ def running_url(mongo_url: str) -> Iterator[str]:
         yield mongo_url
 
 
-async def landing_of(database: AsyncDatabase, _client: AsyncMongoClient | None = None) -> Any:
+async def landing_of(database: AsyncDatabase) -> Any:
     return await get_landing(
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
         teams_collection=database[Collection.TEAMS],
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
         today=TODAY,
     )
 
@@ -145,31 +137,16 @@ def landing(url: str, database_name: str) -> Any:
 
 @pytest.mark.db
 def test_a_running_season_shows_its_latest_results_its_next_matches_and_its_figures(running_url: str):
-    """The latest two results newest first and the next two soonest first; the retired club and its squad in neither figure."""
+    """The latest two results newest first and the next two soonest first; the retired club in no figure."""
 
     response = landing(running_url, RUNNING_DATABASE_NAME)
     saison = response.saison
 
     assert (saison.id, saison.state, saison.first_kickoff, saison.podium) == (SAISON, "running", None, [])
     assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == ([3, 2], [4, 5])
-    assert saison.counts.model_dump() == {"count_teams": 2, "count_spieler": 1, "count_spiele": 6, "count_spieltage": 2}
+    assert saison.counts.model_dump() == {"count_teams": 2, "count_tore": 7, "count_spiele": 6, "count_spieltage": 2}
     assert [team.name for team in saison.teams] == ["Alpha", "Beta"]
     assert response.bewerbung_window.model_dump() == {"saison_id": NEXT, "von": "2026-03-01", "bis": "2026-03-31"}
-
-
-@pytest.mark.db
-def test_the_squad_count_walks_the_season_index(running_url: str):
-    """Read on every uncached landing, so a count the collated index cannot serve scans every season's squad rows."""
-
-    async def body() -> list[tuple[str, str]]:
-        database: AsyncDatabase = shared_client(running_url)[RUNNING_DATABASE_NAME]
-        _, sent = await plans_of_sent_reads(running_url, database, landing_of, lambda collection, _: collection == Collection.SAISON_SPIELER)
-
-        return sent
-
-    [(_, plan)] = on_the_seed_loop(body())
-
-    assert plan == "IXSCAN { saison_id: 1, team_id: 1 }"
 
 
 @pytest.mark.db
@@ -209,7 +186,10 @@ def test_a_season_before_its_first_match_shows_when_it_kicks_off(mongo_url: str)
 
 @pytest.mark.db
 def test_a_season_whose_final_is_played_shows_its_podium(mongo_url: str):
-    """The match for third place and the final, read off the Finale's matchday through the joined shape the landing serves."""
+    """The match for third place and the final, read off the Finale's matchday through the joined shape the landing serves.
+
+    Its goals count the Finale's beside the group phase's, as the season's own figure.
+    """
 
     seeded(
         mongo_url,
@@ -228,6 +208,7 @@ def test_a_season_whose_final_is_played_shows_its_podium(mongo_url: str):
 
     assert (saison.state, saison.recent, saison.upcoming) == ("decided", [], [])
     assert [(place.platz, place.name) for place in saison.podium] == [(1, "Alpha"), (2, "Beta"), (3, "Dora"), (4, "Cara")]
+    assert saison.counts.count_tore == 7
 
 
 @pytest.mark.db
