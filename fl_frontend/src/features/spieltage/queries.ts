@@ -1,33 +1,21 @@
 import { cache } from "react";
-import { cacheLife, cacheTag } from "next/cache";
 
 import { isRecordMissing } from "@/core/errors";
-import { spieltageGetSpieltage, spieltageGetSpieltageVerwaltung, spieltageGetSpieltagVerwaltung } from "@/core/generated/client/sdk";
-import { SITE_CACHE_TAG } from "@/core/siteCache";
+import { spieltageGetSpieltageVerwaltung, spieltageGetSpieltagVerwaltung } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
 import type {
   FLSpieltageListResponse,
   FLSpieltageSingleResponse,
-  SpieltageGetSpieltageParams,
   SpieltageGetSpieltageVerwaltungParams,
 } from "@/core/generated/client/types";
-
-export async function getSpieltage(filters: SpieltageGetSpieltageParams = {}): Promise<FLSpieltageListResponse> {
-  "use cache";
-
-  cacheTag(SITE_CACHE_TAG);
-  cacheLife("minutes");
-
-  return spieltageGetSpieltage(filters);
-}
 
 /** One in-flight admin matchday read per filter set, held for the length of one render pass. */
 const adminSpieltageInFlight = cache((): Map<string, Promise<FLSpieltageListResponse>> => new Map());
 
 /**
- * A season's matchdays for the admin surfaces, a planned season's included — `getSpieltage` refuses
- * that season, though a matchday is dated before it. **Uncached**.
+ * A season's matchdays for the admin surfaces, a planned season's included, though the public reads refuse
+ * that season: a matchday is dated before it. **Uncached**.
  */
 export function getAdminSpieltage(filters: SpieltageGetSpieltageVerwaltungParams = {}): Promise<FLSpieltageListResponse> {
   // Keyed on the filters SERIALIZED, for the reason `fl_frontend/src/features/spiele/queries.ts :: getAdminSpiele` gives.

@@ -1,7 +1,8 @@
 /**
  * E2E · the Spielplan at its season's address, under each project: the matchday tabs, a match opened
- * as the pop-up over them, Back closing it onto the matchday it was opened from, and the match's own
- * page on a direct load. The made-up seed's running season is 2027: its first matchday is played, its
+ * as the pop-up over them, Back closing it onto the matchday it was opened from, the match's own page on
+ * a direct load, and a club's name in the pop-up leading to its page with the pop-up closed. The made-up
+ * seed's running season is 2027: its first matchday is played, its
  * second is today, and its first match is Ahorn against Kastanie, 2:1.
  */
 import { expect } from "@playwright/test";
@@ -55,5 +56,26 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   // Loaded directly, the same address is the match's own page, with no pop-up.
   await page.goto(matchPage);
   await expect(page.getByRole("heading", { level: 1, name: "Ahorn gegen Kastanie" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("a club's name in the pop-up opens the club's page and closes the pop-up", async ({ page }) => {
+  // Hydrated before the presses, as the journey above waits, so they are client navigations.
+  const prefetched = page.waitForRequest((request) => {
+    const url = new URL(request.url());
+    return /^\/saisons\/2027\/spiele\/[0-9a-f]{24}$/.test(url.pathname) && url.searchParams.has("_rsc");
+  });
+  await page.goto("/saisons/2027?tab=gruppenphase-1");
+  await prefetched;
+
+  await page.getByRole("link", { name: /Ahorn.*Kastanie/ }).click();
+  const popup = page.getByRole("dialog", { name: "Ahorn gegen Kastanie" });
+  await expect(popup).toBeVisible();
+
+  // A client navigation leaves a parallel slot showing its last page unless the new address matches one of
+  // its routes; the slot's catch-all matches the club's page and draws no pop-up.
+  await popup.getByRole("link", { name: "Ahorn", exact: true }).click();
+  await expect(page).toHaveURL(/\/saisons\/2027\/teams\/[0-9a-f]{24}$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Ahorn" })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });

@@ -5,11 +5,16 @@ import { createContext, use, useEffect, useRef, useState, useTransition } from "
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { cardSurface } from "./cardStyles";
+import { EmptyState } from "./EmptyState";
 import { SearchField } from "./SearchField";
+import { SpielList } from "./SpielRow";
 import { Table } from "./Table";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
+import type { EmptyStateProps } from "./EmptyState";
+import type { SpielRowProps } from "./SpielRow";
 import type { TableProps, TableRow } from "./Table";
 
 /**
@@ -39,6 +44,35 @@ const matches = (query: string) => {
   const wanted = query.trim().toLowerCase();
   return (row: TableRow) => row.name.toLowerCase().includes(wanted);
 };
+
+/**
+ * The list template's matches, each with the words a visitor may search it by, searched by the text its scope
+ * holds, as the Spielsuche narrows the season's matches the filters left: the cards, two a row, and a search
+ * that empties the list says so.
+ */
+export function ListMatches({
+  matches,
+  empty,
+}: {
+  matches: ReadonlyArray<{ row: SpielRowProps & { id: string }; words: string }>;
+  empty: EmptyStateProps;
+}) {
+  const { query } = use(ListQuery);
+  const wanted = query.trim().toLowerCase();
+  const shown = wanted === "" ? matches : matches.filter((match) => match.words.toLowerCase().includes(wanted));
+  if (shown.length === 0)
+    return (
+      <div className={cardSurface({ class: "overflow-hidden" })}>
+        <EmptyState {...(wanted === "" ? empty : { ...empty, kind: "search" })} />
+      </div>
+    );
+  return (
+    <SpielList
+      matches={shown.map((match) => match.row)}
+      layout="cards"
+    />
+  );
+}
 
 /**
  * What is typed into a list's search field, shared by the field, which the toolbar draws at once, and the

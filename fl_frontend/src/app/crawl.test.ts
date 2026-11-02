@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { SITE_URL } from "@/core/brand.ts";
 import { ROUTES } from "@/core/routes.ts";
@@ -7,6 +7,11 @@ import robots from "./robots.ts";
 import sitemap from "./sitemap.ts";
 
 import type { RouteEntry } from "@/core/routes.ts";
+
+/** The season pages' frame as the sitemap reads it; each case sets the season the site is on. */
+const frame = vi.hoisted((): { saisons: never[]; active_saison_id: string | null } => ({ saisons: [], active_saison_id: null }));
+vi.mock("next/server", () => ({ connection: async () => undefined }));
+vi.mock("@/features/saisons/queries", () => ({ getSaisonFrame: async () => frame }));
 
 /** Each row with its address, every segment filled, so a prefix test reads it as a crawler would. */
 const ROWS = (Object.entries(ROUTES) as [string, RouteEntry][]).map(([key, row]) => {
@@ -35,8 +40,21 @@ describe("robots.txt", () => {
 });
 
 describe("the sitemap", () => {
-  it("lists every listed page that no season names, and no other page", () => {
-    const listed = ROWS.filter((row) => row.crawl === "index" && row.segments === 0).map((row) => `${SITE_URL}${row.address}`);
-    expect(sitemap().map((entry) => entry.url)).toEqual(listed);
+  const fixed = ROWS.filter((row) => row.crawl === "index" && row.segments === 0).map((row) => `${SITE_URL}${row.address}`);
+
+  it("lists every listed page that no season names, and the season pages of the season the site is on", async () => {
+    frame.active_saison_id = "2027";
+    const urls = (await sitemap()).map((entry) => entry.url);
+    expect(urls.filter((url) => !url.includes("/saisons/"))).toEqual(fixed);
+    expect(urls.filter((url) => url.includes("/saisons/")).sort()).toEqual(
+      [ROUTES.spielplan.path("2027"), ROUTES.kORunde.path("2027"), ROUTES.tabelle.path("2027"), ROUTES.teams.path("2027")]
+        .map((address) => `${SITE_URL}${address}`)
+        .sort(),
+    );
+  });
+
+  it("lists no season page while the league has no season", async () => {
+    frame.active_saison_id = null;
+    expect((await sitemap()).map((entry) => entry.url)).toEqual(fixed);
   });
 });

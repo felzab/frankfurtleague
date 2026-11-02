@@ -31,30 +31,26 @@ export const ROUTES = {
   /** The landing, named by the line the footer carries; the title template adds the league's name. */
   home: { path: () => "/" as const, title: COPY.template.oberstufenliga, crawl: "index" },
   /** The season the site is on, for a link that cannot know which: its page sends the reader on to that season's Spielplan. */
-  // Session 3: its page is built.
   saisons: { path: () => "/saisons" as const, title: COPY.page.spielplan, crawl: "noindex" },
   spielplan: {
     path: (saison: string) => `/saisons/${saison}` as const,
     title: COPY.page.spielplan,
     crawl: "index",
   },
-  // Session 3: its page is built.
   tabelle: {
     path: (saison: string) => `/saisons/${saison}/tabelle` as const,
     title: COPY.page.tabelle,
     crawl: "index",
   },
-  // Session 3: its page is built.
   teams: {
     path: (saison: string) => `/saisons/${saison}/teams` as const,
     title: COPY.page.teams,
     crawl: "index",
   },
   /** A club's page in one season, its squad among it, named by the club. */
-  // Session 3: its page is built.
   team: {
     path: (saison: string, team: string) => `/saisons/${saison}/teams/${team}` as const,
-    title: COPY.verwaltung.record,
+    title: COPY.page.team,
     crawl: "index",
   },
   spiel: {
@@ -62,17 +58,16 @@ export const ROUTES = {
     title: COPY.page.spiel,
     crawl: "index",
   },
-  // Session 3: its page is built.
   kORunde: {
     path: (saison: string) => `/saisons/${saison}/ko-runde` as const,
     title: COPY.shared.kORunde,
     crawl: "index",
   },
-  // Session 3: its page is built.
+  /** The season's matches narrowed by what a visitor asks: a page of results, which a search engine reads but never lists. */
   spielSearch: {
     path: (saison: string) => `/saisons/${saison}/search` as const,
     title: COPY.page.spielSearch,
-    crawl: "index",
+    crawl: "noindex",
   },
   about: { path: () => "/about" as const, title: COPY.page.about, crawl: "index" },
   contact: { path: () => "/kontakt" as const, title: COPY.page.contact, crawl: "index" },

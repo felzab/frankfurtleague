@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { ListQueryScope, ListSearchField, ListTable } from "./ListTable";
+import { ListMatches, ListQueryScope, ListSearchField, ListTable } from "./ListTable";
 
 import type { ReactNode } from "react";
 import type { TableProps } from "./Table";
@@ -80,5 +80,45 @@ describe("a list's search", () => {
 
     expect(screen.getByText("Sportpark Ost")).toBeTruthy();
     expect(screen.queryByText("Goethe-Halle")).toBe(null);
+  });
+});
+
+/** A match card of the Spielsuche: its row, and the words beyond its two clubs a visitor finds it by. */
+const match = (id: string, home: string, away: string, words: string) => ({
+  row: {
+    id,
+    href: `/saisons/2027/spiele/${id}` as const,
+    when: "Termin offen",
+    home: { name: home, plaque: { kuerzel: "AAA" } },
+    away: { name: away, plaque: { kuerzel: "BBB" } },
+  },
+  words: `${home} ${away} ${words}`,
+});
+
+describe("the Spielsuche's matches", () => {
+  // The visitor types what they saw anywhere on a match, its venue or its referee as well as its clubs.
+  it("finds a match by any of its words, and says so in the list's words where none holds them", async () => {
+    render(
+      <Searched>
+        <ListMatches
+          matches={[
+            match("s1", "Ahorn", "Kastanie", "Sportplatz Ahornweg Anna Ahrens"),
+            match("s2", "Birke", "Linde", "Kunstrasen Eichenhain"),
+          ]}
+          empty={{ kind: "none", plural: COPY.page.spiele }}
+        />
+      </Searched>,
+    );
+
+    await userEvent.type(screen.getByRole("searchbox"), "eichenhain");
+    expect(screen.getByRole("link", { name: /Birke.*Linde/ })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Ahorn.*Kastanie/ })).toBe(null);
+
+    await userEvent.clear(screen.getByRole("searchbox"));
+    await userEvent.type(screen.getByRole("searchbox"), "Ahrens");
+    expect(screen.getByRole("link", { name: /Ahorn.*Kastanie/ })).toBeTruthy();
+
+    await userEvent.type(screen.getByRole("searchbox"), "x");
+    expect(screen.getByText(COPY.shared.empty.search(COPY.page.spiele))).toBeTruthy();
   });
 });

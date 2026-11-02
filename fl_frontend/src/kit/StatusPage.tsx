@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import { Button } from "./Button";
 import { cardSurface } from "./cardStyles";
 import { ClassicPage, ClassicTitle } from "./ClassicPage";
@@ -80,31 +82,50 @@ export function StatusCard({ mark, sentence, next, title }: Omit<StatusCardProps
   );
 }
 
+/** The card once the page's read has said which end it is, in the rail form's boundary. */
+async function CardOnceRead({ card }: { card: Promise<StatusCardProps> }) {
+  const { mark, sentence, next } = await card;
+  return (
+    <StatusCard
+      mark={mark}
+      sentence={sentence}
+      next={next}
+    />
+  );
+}
+
 /**
  * The status template: not found, an error, no access, and the end of every process a link or a form
  * finishes, plainly said, in the frame the address belongs to. In the classic frame the card carries the
- * page's title; in the rail frames the strip does, and the card none.
+ * page's title; in the rail frames the strip does, and the card none. The rail form's card is read with the
+ * page, as `/saisons` learns that the league has no season yet where it does not send the reader on, so it
+ * waits in a boundary of its own under the strip, drawn meanwhile as nothing.
  */
 export function StatusPage(
-  props: Omit<StatusCardProps, "next"> & { next: Act } & ({ frame: "classic"; title: Copy } | ({ frame: "rail" } & RailPageHead)),
+  props:
+    | (Omit<StatusCardProps, "next"> & { next: Act; frame: "classic"; title: Copy })
+    | ({ frame: "rail"; card: Promise<StatusCardProps> } & RailPageHead),
 ) {
-  const card = (
-    <StatusCard
-      mark={props.mark}
-      sentence={props.sentence}
-      next={props.next}
-      title={props.frame === "classic" ? props.title : undefined}
-    />
-  );
   if (props.frame === "classic") {
-    return <ClassicPage width="card">{card}</ClassicPage>;
+    return (
+      <ClassicPage width="card">
+        <StatusCard
+          mark={props.mark}
+          sentence={props.sentence}
+          next={props.next}
+          title={props.title}
+        />
+      </ClassicPage>
+    );
   }
   return (
     <RailPage
       scope={props.scope}
       title={props.title}
       chip={props.chip}>
-      {card}
+      <Suspense fallback={null}>
+        <CardOnceRead card={props.card} />
+      </Suspense>
     </RailPage>
   );
 }

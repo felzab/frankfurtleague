@@ -231,7 +231,6 @@ import type {
   SpielePatchSpielParams,
   SpielerGetSpielerParams,
   SpielorteGetSpielorteParams,
-  SpieltageGetSpieltageParams,
   SpieltageGetSpieltageVerwaltungParams,
   TeamsGetTeamParams,
   TeamsGetTeamsParams,
@@ -4817,28 +4816,6 @@ export const spielorteReactivateSpielort = async (spielortId: string, options?: 
   return adminKeyTransport<void>(getSpielorteReactivateSpielortUrl(spielortId), {
     ...options,
     method: "POST",
-  });
-};
-
-export const getSpieltageGetSpieltageUrl = (params?: SpieltageGetSpieltageParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/spieltage?${stringifiedParams}` : `/api/v0/spieltage`;
-};
-
-/**
- * One season's matchdays, by default in the order they are played: the phases in bracket order, each by `position`.
- *
- * An omitted `saison_id` reads the season the site is on; 404 for a season this tier may not read.
- * @summary List Spieltage
- */
-export const spieltageGetSpieltage = async (
-  params?: SpieltageGetSpieltageParams,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLSpieltageListResponse> => {
-  return baseKeyTransport<FLSpieltageListResponse>(getSpieltageGetSpieltageUrl(params), {
-    ...options,
-    method: "GET",
   });
 };
 

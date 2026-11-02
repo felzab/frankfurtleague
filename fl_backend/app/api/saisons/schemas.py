@@ -393,16 +393,26 @@ class FLUndrawSpielplanResponse(BaseAPIResponse):
     watermark_cleared: bool
 
 
+class FLTeamPageSpiel(FLSpielJoined):
+    """One of a club's matches with its matchday's `position`, which the page names the matchday by."""
+
+    spieltag_position: int = Field(ge=1)
+
+
+FLTeamPageSpielListAdapter: Final = TypeAdapter(list[FLTeamPageSpiel])
+
+
 class FLTeamPageResponse(BaseAPIResponse):
     """One club's page in one season: the club, its row of the Tabelle, its matches and its squad.
 
     `standing` is null for a club no group of the Tabelle lists, one that left the league; `spiele` are in the order the
-    draw numbered them; the squad is the base tier's, names withheld where the pupil's consent does not publish them.
+    draw numbered them, each with its matchday's `position`; the squad is the base tier's, names withheld where the
+    pupil's consent does not publish them.
     """
 
     team: FLTeamPageClub
     standing: FLTabelleRow | None
-    spiele: list[FLSpielJoined]
+    spiele: list[FLTeamPageSpiel]
     kader: list[FLSpielerPublic]
 
 

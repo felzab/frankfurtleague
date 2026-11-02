@@ -216,8 +216,25 @@ function SpielRow({ href, when, home, away, result, phase, chip }: SpielRowProps
  * The box's own width picks the rows' form, not the screen's: from 42 rem (`@container` on the box, Tailwind's
  * `@2xl`) the one-line row, which a rail page's content holds at the rail's 1024-px breakpoint, 704 px wide,
  * and below it the two-line card a phone shows and the landing's narrower card holds on any screen.
+ *
+ * `cards` sets each match in a box of its own instead, one under another on a phone and two a row from `lg`, as
+ * the Spielplan shows a matchday: each box its own container, so a phone's box and every box of a pair takes
+ * the two-line card, and only a lone box wider than 42 rem below `lg`, a tablet's, the one-line row.
  */
-export function SpielList({ matches }: { matches: ReadonlyArray<SpielRowProps & { id: string }> }) {
+export function SpielList({ matches, layout = "rows" }: { matches: ReadonlyArray<SpielRowProps & { id: string }>; layout?: "rows" | "cards" }) {
+  if (layout === "cards") {
+    return (
+      <div className="grid gap-3 lg:grid-cols-2">
+        {matches.map(({ id, ...spiel }) => (
+          <div
+            key={id}
+            className={cardSurface({ class: "@container overflow-hidden" })}>
+            <SpielRow {...spiel} />
+          </div>
+        ))}
+      </div>
+    );
+  }
   return (
     <div className={cardSurface({ class: "@container overflow-hidden" })}>
       {matches.map(({ id, ...spiel }) => (

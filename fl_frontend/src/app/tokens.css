@@ -83,7 +83,7 @@
   /* How long a wait runs before its placeholder shows: a wait shorter than this draws nothing. Defined
      under reduced motion too, since it times a placeholder's appearance rather than any movement. */
   :root {
-    --loading-delay: 1000ms;
+    --loading-delay: 100ms;
   }
 
   /* How long a place a link pointed to stays marked after the link brought the reader there (`kit-target`).

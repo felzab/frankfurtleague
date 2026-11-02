@@ -159,7 +159,6 @@ export const COPY = catalogue({
     kORunde: "K.-o.-Runde",
     kOBaum: "K.-o.-Baum",
     afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
-    // Session 3: its page reads it.
     disqualified: "DQ",
     // Redesign: a line-up's chips read these.
     startelf: "Startelf",
@@ -206,6 +205,8 @@ export const COPY = catalogue({
     spielSearch: "Spielsuche",
     /** A match's page, named by its two teams in the order the fixture lists them. */
     spiel: (heim: string, gast: string) => `${heim} gegen ${gast}`,
+    /** A club's page in one season, named by the club. */
+    team: (team: string) => team,
     about: "About",
     contact: "Kontakt",
     sponsors: "Sponsoren",

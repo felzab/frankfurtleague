@@ -3666,28 +3666,6 @@ export const SpielorteReactivateSpielortParams = zod.object({
 });
 
 /**
- * One season's matchdays, by default in the order they are played: the phases in bracket order, each by `position`.
- *
- * An omitted `saison_id` reads the season the site is on; 404 for a season this tier may not read.
- * @summary List Spieltage
- */
-export const spieltageGetSpieltageQueryLimitDefault = 1024;
-export const spieltageGetSpieltageQueryLimitMax = 1024;
-
-export const spieltageGetSpieltageQuerySortByDefault = `natural`;
-export const spieltageGetSpieltageQueryOrderDefault = `asc`;
-
-export const SpieltageGetSpieltageQueryParams = zod.object({
-  saison_id: zod.union([zod.string(), zod.null()]).optional(),
-  saison_phase: zod
-    .union([zod.literal("playoffs"), zod.enum(["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]), zod.null()])
-    .optional(),
-  limit: zod.int().min(1).max(spieltageGetSpieltageQueryLimitMax).default(spieltageGetSpieltageQueryLimitDefault),
-  sort_by: zod.enum(["natural", "beginn", "ende"]).default(spieltageGetSpieltageQuerySortByDefault),
-  order: zod.enum(["asc", "desc"]).default(spieltageGetSpieltageQueryOrderDefault),
-});
-
-/**
  * List a season's matchdays for the admin surfaces, a `future` season's included.
  *
  * Same filters, order and shape as `GET /spieltage`, without its season gate: a season's matchdays

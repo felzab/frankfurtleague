@@ -26,6 +26,7 @@ from app.api.saisons.schemas import (
     FLSpielSideStanding,
     FLSpielSideStandings,
     FLTeamPageResponse,
+    FLTeamPageSpielListAdapter,
 )
 from app.api.saisons.services import base_tier_status_term, with_schedule
 from app.api.saisons.visibility import PublicSaison, resolve_public_saison
@@ -416,6 +417,20 @@ async def get_teams(saison_id: str, saisons_collection: SaisonsCollection, teams
     return FLSaisonTeamsResponse(teams=teams)
 
 
+_SPIELTAG_ROWS_AS = "spieltag_rows"
+
+# The matchday's `position` beside the match, which the page's eyebrow names it by, in the same aggregation.
+_SPIELTAG_POSITION_LOOKUP: Mapping[str, Any] = {
+    "$lookup": {
+        "from": Collection.SPIELTAGE,
+        "localField": "spieltag_id",
+        "foreignField": "_id",
+        "pipeline": [{"$project": {"_id": 0, "position": 1}}],
+        "as": _SPIELTAG_ROWS_AS,
+    }
+}
+
+
 @router.get(f"/{{saison_id}}/teams{by_id('team_id')}", response_model=FLTeamPageResponse, summary="One team's page in one Saison")
 async def get_team(
     saison_id: str,
@@ -440,10 +455,13 @@ async def get_team(
         pull_tabelle(teams_collection=teams_collection, spiele_collection=spiele_collection, saison_id=saison.id, rules=saison.rules),
         aggregate_many_from_db(
             collection=spiele_collection,
-            pipeline=build_spiele_pipeline(
-                db_filter={"saison_id": saison.id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
-                sort_by=[("spiel_nr", 1)],
-            ),
+            pipeline=[
+                *build_spiele_pipeline(
+                    db_filter={"saison_id": saison.id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
+                    sort_by=[("spiel_nr", 1)],
+                ),
+                _SPIELTAG_POSITION_LOOKUP,
+            ],
         ),
         aggregate_many_from_db(
             collection=saison_spieler_collection,
@@ -460,7 +478,9 @@ async def get_team(
     return FLTeamPageResponse(
         team=FLTeamPageClub.model_validate(club_raw[0]),
         standing=standing,
-        spiele=FLSpielJoinedListAdapter.validate_python(spiele_raw),
+        spiele=FLTeamPageSpielListAdapter.validate_python(
+            [{**spiel_raw, "spieltag_position": spiel_raw[_SPIELTAG_ROWS_AS][0]["position"]} for spiel_raw in spiele_raw]
+        ),
         kader=FLSpielerListAdapter.validate_python(kader_raw),
     )
 
