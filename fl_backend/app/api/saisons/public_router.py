@@ -46,7 +46,7 @@ from app.api.teams.schemas import (
     FLTeamPageClub,
     FLTeamsFilterParams,
 )
-from app.api.teams.services import _counting_fixtures_match, build_team_pipeline
+from app.api.teams.services import build_team_pipeline, counting_fixtures_match
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, build_query, build_sort, pull_many_from_db, pull_one_from_db
@@ -236,7 +236,7 @@ async def get_landing(
             aggregate_many_from_db(
                 collection=spiele_collection,
                 pipeline=[
-                    {"$match": {**in_saison, **_counting_fixtures_match()}},
+                    {"$match": {**in_saison, **counting_fixtures_match()}},
                     {"$group": {"_id": None, "tore": {"$sum": {"$add": ["$team1.tore", "$team2.tore"]}}}},
                 ],
             ),

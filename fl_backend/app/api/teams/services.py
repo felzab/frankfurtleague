@@ -62,7 +62,7 @@ def _fixtures_of_this_team(saison_id: str, scope: FLTeamStatistikScope) -> dict[
     }
 
 
-def _counting_fixtures_match() -> dict[str, Any]:
+def counting_fixtures_match() -> dict[str, Any]:
     """Whether a fixture counts. A forfeit does, and a shoot-out is a draw."""
 
     return {
@@ -84,7 +84,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
                 {
                     "$match": {
                         **_fixtures_of_this_team(saison_id, scope),
-                        **_counting_fixtures_match(),
+                        **counting_fixtures_match(),
                     }
                 },
                 {
@@ -295,7 +295,7 @@ CERTAINTY_FIXTURE_LIMIT = 8
 
 
 def _counted_goals(spiel: FLSpielCommon) -> tuple[CustomObjectId, int, CustomObjectId, int] | None:
-    """`_counting_fixtures_match` restated in Python, for a standing asking it of a match the pipeline already summed."""
+    """`counting_fixtures_match` restated in Python, for a standing asking it of a match the pipeline already summed."""
 
     if spiel.ergebnis is None or spiel.team1 is None or spiel.team2 is None:
         return None
