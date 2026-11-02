@@ -32,9 +32,6 @@ export function LinkRows({ rows }: { rows: readonly LinkRow[] }) {
             <Link
               href={row.href}
               placement="row"
-              // A profile on another site opens in a new tab, as the kit's other links there do; the mail
-              // address and the site's own pages open in place.
-              newTab={row.href.startsWith("https://")}
               label={row.label}
             />
           </span>

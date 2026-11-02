@@ -23,6 +23,8 @@ const link = tv({
       // A row's name takes its row's colour, muted in a row that no longer counts.
       row: "text-inherit after:absolute after:inset-0 after:content-['']",
       card: "block text-fg transition-colors duration-(--motion-state) hover:bg-bg-surface",
+      // The classic footer's links, its words and its sponsors' logos: muted until the pointer is over them.
+      footer: "rounded-md text-sm leading-6 text-fg-muted hover:text-fg",
       // Drawn by `buttonLook` in the look the link names.
       button: "",
     },
@@ -65,8 +67,8 @@ export const menuEntry = tv({
 
 // The focus file's mark for each placement: a ring hugging the words, a ring with its gap, a ring drawn
 // inside the row the link covers, or one inside the card, which a list's card would otherwise clip; a link
-// drawn as a button rings as a button does.
-const FOCUS = { text: "text", standalone: "ring", detail: "ring", row: "row", card: "inset", button: "ring" } as const;
+// drawn as a button rings as a button does. The footer's words hug their ring as text does.
+const FOCUS = { text: "text", standalone: "ring", detail: "ring", row: "row", card: "inset", footer: "text", button: "ring" } as const;
 
 type Words =
   | { /** Catalogue words. */ label: Copy; text?: never; children?: never }
@@ -92,17 +94,26 @@ type IconOnly = { placement: "icon"; icon: IconName; label: Copy; text?: never; 
  */
 type Row = { placement: "row" } & (Words | { children: ReactNode; label?: never; text?: never });
 
+/** A link of the classic footer: its words, or a sponsor's logo with its short name. */
+type Footer = { placement: "footer" } & (Words | { children: ReactNode; label?: never; text?: never });
+
 type Card = {
   placement: "card";
   /**
    * The card's content, which is the link's accessible name, so it is read as one line. Only `SpielRow`,
-   * `BracketCard` and `Card` place a card link, and nothing interactive stands inside one: no button, link
-   * or menu, which a link may not contain.
+   * `BracketCard`, `Card` and `TileGrid`'s tiles place a card link, and nothing interactive stands inside one:
+   * no button, link or menu, which a link may not contain.
    */
   children: ReactNode;
   label?: never;
   text?: never;
 };
+
+/**
+ * Another site's address: it opens in a new tab, leaving the site's page in place, and a site path or a mail
+ * address never does. Decided from the address, so no caller has a flag to forget.
+ */
+const ELSEWHERE = /^https?:\/\//;
 
 /**
  * The one way to go somewhere: Next's link, prefetching on hover and in view, so a page of links loads
@@ -111,18 +122,20 @@ type Card = {
 export function Link<T extends string>(
   props: {
     href: Route<T>;
-    /** Opens the target in a new tab; nothing else does. */
-    newTab?: boolean;
+    /** A sponsor's site: the link is marked paid, `rel="sponsored"`, for the search engines that follow it. */
+    sponsored?: boolean;
     /**
      * Loads the target as a whole document, the plain anchor's navigation, rather than Next's client one. An
      * intercepting route catches every client navigation to its address, so this is the one way from a pop-up
      * to the page it stands for: Next shows that page, not the pop-up, on a full page load.
      */
     fullPage?: boolean;
-  } & (({ placement: "text" | "standalone" | "detail" } & Words) | Row | Button | IconOnly | Card),
+  } & (({ placement: "text" | "standalone" | "detail" } & Words) | Row | Footer | Button | IconOnly | Card),
 ) {
-  const { href, newTab = false, fullPage = false } = props;
-  const tab = { target: newTab ? "_blank" : undefined, rel: newTab ? "noopener noreferrer" : undefined };
+  const { href, sponsored = false, fullPage = false } = props;
+  const elsewhere = ELSEWHERE.test(href);
+  const rel = [sponsored ? "sponsored" : "", elsewhere ? "noopener noreferrer" : ""].filter((word) => word !== "").join(" ");
+  const tab = { target: elsewhere ? "_blank" : undefined, rel: rel === "" ? undefined : rel };
   if (props.placement === "icon") {
     return (
       <IconLink
