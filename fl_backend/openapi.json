@@ -206,6 +206,7 @@
           "saison_span_below_spielplan",
           "spieltag_beginn_out_of_order",
           "saison_span_below_spielplan_as_stored",
+          "saison_start_taken_place",
           "invitation_team_not_entered",
           "wording_not_allowed",
           "medien_age",
@@ -243,6 +244,7 @@
           "replace_saison_started",
           "replace_incoming_already_entered",
           "replace_one_team_on_both_ends",
+          "sides_taken_place",
           "ergebnis_side_emptied",
           "retire_blocked",
           "spielort_still_booked",
@@ -11068,7 +11070,7 @@
         "type": "object"
       },
       "FLSaisonAdmin": {
-        "description": "The same season for the admin surfaces, with whether it has started.",
+        "description": "The same season for the admin surfaces, with whether it has started and whether a fixture of it has taken place.",
         "properties": {
           "begun": {
             "title": "Begun",
@@ -11133,6 +11135,10 @@
           "status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
           },
+          "taken_place": {
+            "title": "Taken Place",
+            "type": "boolean"
+          },
           "version": {
             "default": 0,
             "title": "Version",
@@ -11150,7 +11156,8 @@
           "spielplan",
           "version",
           "schedule",
-          "begun"
+          "begun",
+          "taken_place"
         ],
         "title": "FLSaisonAdmin",
         "type": "object"
@@ -24079,7 +24086,7 @@
     },
     "/api/v0/saisons/list/verwaltung": {
       "get": {
-        "description": "List every season, the `future` ones `GET /saisons` withholds included, each with whether it has started.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league. `begun` is the start every\nstart lock refuses on, the swap's, the replacement's and the rules freeze's.",
+        "description": "List every season, the `future` ones `GET /saisons` withholds included, each with whether it has started and has been played.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league. `begun` is the start every\nstart lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what\nfixes the start date (`saison_start_taken_place`).",
         "operationId": "saisons_get_saisons_verwaltung",
         "parameters": [
           {
@@ -24273,7 +24280,7 @@
         ]
       },
       "patch": {
-        "description": "Update a season's dates and rules. `status` is on no payload.\n\nEditing the points moves every league table on the NEXT READ, standings being derived. What a\nstarted or drawn season has fixed is refused, as is a rule narrowed below what it holds.",
+        "description": "Update a season's dates and rules. `status` is on no payload.\n\nEditing the points moves every league table on the NEXT READ, standings being derived. What a\nstarted or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start\ndate moves until a fixture of the season has taken place (`saison_start_taken_place`); the rules\nfreeze reads the STORED start, so a season started too early is unlocked by one save moving its\nstart and a second changing its rules.",
         "operationId": "saisons_patch_saison",
         "parameters": [
           {
@@ -28793,7 +28800,7 @@
     },
     "/api/v0/spieler/nachnominierung/{saison_id}": {
       "get": {
-        "description": "Whether a player entered into this season's squads today would be marked a Nachnominierung.\n\n`POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the first\nday of matchday 1 of the season's first phase. A season whose matchday 1 is undated, or which\nholds none yet, answers `false`. 404 where no season has this id.",
+        "description": "Whether a player entered into this season's squads today would be marked a Nachnominierung.\n\n`POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the season's\n`start_date` on. 404 where no season has this id.",
         "operationId": "spieler_get_spieler_nachnominierung",
         "parameters": [
           {
@@ -29299,7 +29306,7 @@
     },
     "/api/v0/spieler/{spieler_id}/saisons": {
       "post": {
-        "description": "Put a player in a team's squad for a season.\n\n404 where no player has this id. One row per player per season: moving a player is a PATCH of\n`team_id`, and a repeat is a 409 even where the row is retired. A\nsquad holds each `rolle` once (`kader_rolle_taken`). `is_nachnominiert` is derived here and never\ntaken from the body: it is true from the first day of the season's matchday 1, and false while\nthat matchday is undated.",
+        "description": "Put a player in a team's squad for a season.\n\n404 where no player has this id. One row per player per season: moving a player is a PATCH of\n`team_id`, and a repeat is a 409 even where the row is retired. A\nsquad holds each `rolle` once (`kader_rolle_taken`). `is_nachnominiert` is derived here and never\ntaken from the body: it is true from the season's `start_date` on.",
         "operationId": "spieler_post_saison_spieler",
         "parameters": [
           {

@@ -144,6 +144,9 @@ class Code(StrEnum):
     # postponement takes.
     SPIELTAG_BEGINN_OUT_OF_ORDER = auto()
     SAISON_SPAN_BELOW_SPIELPLAN_AS_STORED = auto()
+    # The start every start lock reads, fixed once a fixture of the season has taken place: moved after play, it would
+    # reopen the rules, the swap and the replacement on a season somebody already played.
+    SAISON_START_TAKEN_PLACE = auto()
     INVITATION_TEAM_NOT_ENTERED = auto()
     # One code for every write that stamps a label, so a page's form maps one refusal however many
     # writes share its page.
@@ -205,6 +208,11 @@ class Code(StrEnum):
     # Apart from `replace_incoming_already_entered`, being the payload's own fault: no season makes a club its own
     # replacement.
     REPLACE_ONE_TEAM_ON_BOTH_ENDS = auto()
+    # One code for the swap and the replacement, as `booking_unknown_resource` covers two resources: one rule read
+    # against two writes. Neither moves `tore`, so a fixture that has taken place would hand its record to another club.
+    # Its own code beside the two `..._saison_started`: before the start this is a result entered early, which a
+    # cleared result repairs.
+    SIDES_TAKEN_PLACE = auto()
     ERGEBNIS_SIDE_EMPTIED = auto()
     RETIRE_BLOCKED = auto()
     # A played fixture never blocks: its `ort` is an embedded record.

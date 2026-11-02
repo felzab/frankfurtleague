@@ -119,7 +119,6 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, vorname: str, team_
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
             saison_teams_collection=database[Collection.SAISON_TEAMS],
             saisons_collection=database[Collection.SAISONS],
-            spieltage_collection=database[Collection.SPIELTAGE],
             db=database.client,
             today=TODAY,
         )

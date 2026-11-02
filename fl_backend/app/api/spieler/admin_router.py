@@ -7,6 +7,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.adresswechsel.crud import verwehrte_adressen
 from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.saisons.crud import nachnominierung_laeuft_in
 from app.api.spieler.crud import (
     pull_a_person_to_enter,
     refuse_a_full_squad,
@@ -27,7 +28,6 @@ from app.api.spieler.services import (
     build_spieler_saisons_pipeline,
     find_squad_refusal,
 )
-from app.api.spieltage.crud import nachnominierung_laeuft_in
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -47,7 +47,6 @@ from app.core.dependencies import (
     SaisonSpielerCollection,
     SaisonTeamsCollection,
     SpielerCollection,
-    SpieltageCollection,
     get_german_date_str,
 )
 from app.core.routing import by_id
@@ -137,24 +136,18 @@ async def get_spieler_saisons(
 async def get_spieler_nachnominierung(
     saison_id: str,
     saisons_collection: SaisonsCollection,
-    spieltage_collection: SpieltageCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielerNachnominierungResponse:
     """
     Whether a player entered into this season's squads today would be marked a Nachnominierung.
 
-    `POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the first
-    day of matchday 1 of the season's first phase. A season whose matchday 1 is undated, or which
-    holds none yet, answers `false`. 404 where no season has this id.
+    `POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the season's
+    `start_date` on. 404 where no season has this id.
     """
-
-    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
     return FLSpielerNachnominierungResponse(
         saison_id=saison_id,
-        nachnominierung=await nachnominierung_laeuft_in(
-            spieltage_collection=spieltage_collection, saison_id=saison_id, today=today, session=None
-        ),
+        nachnominierung=await nachnominierung_laeuft_in(saisons_collection=saisons_collection, saison_id=saison_id, today=today, session=None),
     )
 
 
@@ -243,7 +236,6 @@ async def post_saison_spieler(
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
-    spieltage_collection: SpieltageCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonSpielerResponse:
@@ -253,8 +245,7 @@ async def post_saison_spieler(
     404 where no player has this id. One row per player per season: moving a player is a PATCH of
     `team_id`, and a repeat is a 409 even where the row is retired. A
     squad holds each `rolle` once (`kader_rolle_taken`). `is_nachnominiert` is derived here and never
-    taken from the body: it is true from the first day of the season's matchday 1, and false while
-    that matchday is undated.
+    taken from the body: it is true from the season's `start_date` on.
     """
 
     async def add_the_player(session: AsyncClientSession) -> dict[str, Any]:
@@ -299,7 +290,7 @@ async def post_saison_spieler(
             **saison_spieler_data.model_dump(mode="json", exclude={"team_id"}),
             "team_id": saison_spieler_data.team_id,
             "is_nachnominiert": await nachnominierung_laeuft_in(
-                spieltage_collection=spieltage_collection, saison_id=saison_spieler_data.saison_id, today=today, session=session
+                saisons_collection=saisons_collection, saison_id=saison_spieler_data.saison_id, today=today, session=session
             ),
             "inactive_since": None,
         }
@@ -308,8 +299,8 @@ async def post_saison_spieler(
         return document
 
     # One transaction over the row and the season write inside `refuse_a_full_squad`, which is what
-    # makes two writers into one squad contend, and a re-date of matchday 1 contend with the marker
-    # (`app/api/spieltage/admin_router.py :: _refuse_an_out_of_order_beginn` writes the same season).
+    # makes two writers into one squad contend, and a moved start contend with the marker: the squad
+    # write anchors the season document `PATCH /saisons/{saison_id}` writes the start to.
     async with transaction_session(db) as session:
         entered = await session.with_transaction(add_the_player)
 

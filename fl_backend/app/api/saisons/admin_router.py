@@ -32,7 +32,6 @@ from app.api.identitaet.crud import faellige_anzahl, saison_statuses
 from app.api.identitaet.schemas import FLErasurePreviewResponse
 from app.api.identitaet.services import geschlossen_durch, statuses_after_activating
 from app.api.outbox.services import enqueue_mails
-from app.api.saisons.crud import has_started, started_saison_ids
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
@@ -57,8 +56,10 @@ from app.api.saisons.services import (
     find_rules_freeze_refusal,
     find_rules_refusal,
     find_saison_span_refusal,
+    find_saison_start_refusal,
     find_spielplan_refusal,
     find_undraw_refusal,
+    has_started,
     holds_a_recorded_fact,
     unplayed_spiel_nrs,
     with_schedule,
@@ -68,9 +69,11 @@ from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesper
 from app.api.spielberichte.crud import anchor_the_season_reported_in, count_eingereichte_berichte
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
 from app.api.teams.services import (
+    TAKEN_PLACE_FIELDS,
     find_gruppe_swap_refusal,
     find_swap_pair_refusal,
     fixtures_newly_fielding_a_departed_club,
+    has_taken_place,
 )
 from app.core.codes import Code
 from app.core.config import API_VERSION
@@ -118,7 +121,7 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
-# No `tore`: goals belong to whoever scored them, and a swap runs only before the season has started.
+# No `tore`: goals belong to whoever scored them, and a swap runs only on fixtures none of which has taken place.
 SWAPPED_SIDE_KEYS: tuple[str, ...] = ("team_id", "name", "shorthand")
 
 
@@ -229,11 +232,12 @@ async def get_saisons_verwaltung(
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonsAdminListResponse:
     """
-    List every season, the `future` ones `GET /saisons` withholds included, each with whether it has started.
+    List every season, the `future` ones `GET /saisons` withholds included, each with whether it has started and has been played.
 
     The admin surfaces read here because a season is created `future` and clubs are entered while it
     still is, so an admin who cannot see one cannot run the league. `begun` is the start every
-    start lock refuses on, the swap's, the replacement's and the rules freeze's.
+    start lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what
+    fixes the start date (`saison_start_taken_place`).
     """
 
     db_filter = build_query(filters, terms={"status"})
@@ -246,8 +250,18 @@ async def get_saisons_verwaltung(
         sort_by=db_sort,
     )
 
-    begonnen = await started_saison_ids(spiele_collection=spiele_collection, saison_ids=[str(raw["_id"]) for raw in saisons_raw], today=today)
-    saisons = [{**with_schedule(raw), "begun": str(raw["_id"]) in begonnen} for raw in saisons_raw]
+    # Every fixture of the listed seasons through the one predicate, never a filter restating it in the query.
+    gespielt = {
+        spiel["saison_id"]
+        async for spiel in spiele_collection.find(
+            {"saison_id": {"$in": [raw["_id"] for raw in saisons_raw]}}, ["saison_id", *TAKEN_PLACE_FIELDS]
+        )
+        if has_taken_place(spiel)
+    }
+    saisons = [
+        {**with_schedule(raw), "begun": has_started(start_date=str(raw["start_date"]), today=today), "taken_place": raw["_id"] in gespielt}
+        for raw in saisons_raw
+    ]
 
     return FLSaisonsAdminListResponse(saisons=FLSaisonAdminListAdapter.validate_python(saisons))
 
@@ -311,7 +325,7 @@ class MovableFigures(NamedTuple):
 
     largest_squad: int
     spieltag_spans: Sequence[tuple[str, str]]
-    started: bool
+    taken_place: bool
 
 
 @router.patch(
@@ -334,7 +348,10 @@ async def patch_saison(
     Update a season's dates and rules. `status` is on no payload.
 
     Editing the points moves every league table on the NEXT READ, standings being derived. What a
-    started or drawn season has fixed is refused, as is a rule narrowed below what it holds.
+    started or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start
+    date moves until a fixture of the season has taken place (`saison_start_taken_place`); the rules
+    freeze reads the STORED start, so a season started too early is unlocked by one save moving its
+    start and a second changing its rules.
     """
 
     async def judge_and_write_the_rules(session: AsyncClientSession) -> None:
@@ -418,20 +435,39 @@ async def patch_saison(
                 )
             ]
 
+            # Movable too: a result is a write to `spiele` alone.
+            taken_place = [
+                spiel
+                async for spiel in spiele_collection.find({"saison_id": saison_id}, list(TAKEN_PLACE_FIELDS), session=figures_session)
+                if has_taken_place(spiel)
+            ]
+
             return MovableFigures(
                 largest_squad=int(largest_squad_rows[0]["held"]) if largest_squad_rows else 0,
                 spieltag_spans=spieltag_spans,
-                # Movable too: re-dating a fixture writes `spiele` alone.
-                started=await has_started(spiele_collection=spiele_collection, saison_id=saison_id, today=today, session=figures_session),
+                taken_place=bool(taken_place),
             )
 
         def judge(figures: MovableFigures) -> None:
             # Validated, not read raw: a season missing a rules key fails here rather than comparing
             # against a default nobody chose.
             stored_rules = FLSaisonRules.model_validate(stored_raw["rules"])
+            # First: a start that cannot move is a fact about the payload's own date, whatever its rules ask.
+            refuse(
+                find_saison_start_refusal(
+                    stored_start_date=str(stored_raw["start_date"]),
+                    proposed_start_date=saison_data.start_date,
+                    taken_place=figures.taken_place,
+                )
+            )
+            # The STORED start, in this transaction's snapshot: the date on the payload is what the edit
+            # proposes, and a freeze lifted by the same save that changes the rules would be no freeze.
             refuse(
                 find_rules_freeze_refusal(
-                    saison_status=str(stored_raw["status"]), started=figures.started, stored=stored_rules, proposed=saison_data.rules
+                    saison_status=str(stored_raw["status"]),
+                    started=has_started(start_date=str(stored_raw["start_date"]), today=today),
+                    stored=stored_rules,
+                    proposed=saison_data.rules,
                 )
             )
             refuse(
@@ -634,9 +670,10 @@ async def swap_gruppen(
         # The same rows as the groups, so `swap_fields_disqualified` cannot judge against a stale record.
         departed_since = {row["team_id"]: (row.get("austritt") or {}).get("datum") for row in rows}
 
-        # Again in-session, because `activate_saison` moves `status` in a transaction of its own.
+        # Again in-session, because `activate_saison` moves `status` in a transaction of its own, and the
+        # start beside it, which `PATCH /saisons/{saison_id}` moves.
         saison_raw = await pull_one_from_db(
-            collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=session
+            collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1, "start_date": 1}, session=session
         )
 
         # The fixtures the rewrite moves, read once for the refusals below too, so the two cannot disagree.
@@ -647,7 +684,7 @@ async def swap_gruppen(
                 "saison_phase": "gruppenphase",
                 "$or": [{"team1.team_id": {"$in": both_ids}}, {"team2.team_id": {"$in": both_ids}}],
             },
-            projection=["spieltag_id", "datum", "team1.team_id", "team2.team_id", "sonderereignis"],
+            projection=["spieltag_id", "datum", "team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
             session=session,
         )
 
@@ -664,7 +701,8 @@ async def swap_gruppen(
                 team1_gruppe=gruppe_of.get(swap_data.team1_id),
                 team2_gruppe=gruppe_of.get(swap_data.team2_id),
                 saison_status=str(saison_raw["status"]),
-                started=await has_started(spiele_collection=spiele_collection, saison_id=saison_id, today=today, session=session),
+                started=has_started(start_date=str(saison_raw["start_date"]), today=today),
+                taken_place=any(has_taken_place(spiel) for spiel in gruppenphase_spiele),
                 clashing_spieltage=_spieltag_clashes(
                     team_ids=both_ids,
                     gruppenphase_spiele=gruppenphase_spiele,

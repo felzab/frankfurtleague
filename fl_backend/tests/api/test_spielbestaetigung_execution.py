@@ -866,6 +866,8 @@ class TestALinkToAReplacedClubsFixture:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.TEAMS].insert_one(documents.team_document(incoming, "Dachs", "DAX"))
+            # A replacement runs only before the season's start, so it starts the day after `TODAY`.
+            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"start_date": "2027-05-02"}})
             await replace_saison_team(
                 team_id=TEAM2,
                 saison_id=SAISON_ID,

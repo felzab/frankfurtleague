@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import Any
 
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -6,6 +6,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import build_open_window_filter
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.services import has_started
 from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
@@ -65,29 +66,24 @@ async def pull_open_window_saison(*, saisons_collection: AsyncCollection, today:
     return open_saisons[0] if open_saisons else None
 
 
-async def has_started(*, spiele_collection: AsyncCollection, saison_id: str, today: str, session: AsyncClientSession | None = None) -> bool:
-    """Whether this season has started: from the German day of its earliest group-phase fixture, never while none is dated.
+async def nachnominierung_laeuft_in(
+    *,
+    saisons_collection: ReadCollection,
+    saison_id: str,
+    today: str,
+    # REQUIRED, `None` included: a transactional caller that forgot it would read outside its
+    # snapshot in silence, so the omission has to be a TypeError at the call.
+    session: AsyncClientSession | None,
+) -> bool:
+    """Whether an entry into this season's squads on `today` is a Nachnominierung: one made once the season has started.
 
-    The one predicate every start lock reads. Some fixture is dated today or earlier exactly when the
-    earliest one is, so no sort is needed.
+    The start every start lock reads (`app/api/saisons/services.py :: has_started`), so the marker and the locks
+    cannot disagree about when the season began. 404 where no season has this id.
     """
 
-    started = await spiele_collection.find_one(_started(saison_id, today), {"_id": 1}, session=session)
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["start_date"], session=session)
 
-    return started is not None
-
-
-async def started_saison_ids(*, spiele_collection: AsyncCollection, saison_ids: Sequence[str], today: str) -> set[str]:
-    """The seasons among `saison_ids` that `has_started` answers true for, in one round trip rather than one per season."""
-
-    return set(await spiele_collection.distinct("saison_id", _started({"$in": list(saison_ids)}, today)))
-
-
-def _started(saison_id: str | Mapping[str, Any], today: str) -> Mapping[str, Any]:
-    """The fixtures that start a season, of the season or seasons `saison_id` matches."""
-
-    # `$type` beside `$lte`, so an undated fixture's null is never compared.
-    return {"saison_id": saison_id, "saison_phase": "gruppenphase", "datum": {"$type": "string", "$lte": today}}
+    return has_started(start_date=saison_raw["start_date"], today=today)
 
 
 async def pull_saison_id_and_rules(

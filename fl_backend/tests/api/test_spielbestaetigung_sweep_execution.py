@@ -927,6 +927,8 @@ class TestAReplacedClubsRowsClose:
     def test_the_opponent_and_the_referee_are_told_and_every_row_closes(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
+            # A replacement runs only before the season's start, so it starts the day after `TODAY`.
+            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"start_date": "2026-04-02"}})
             await replace_saison_team(
                 team_id=ALPHA,
                 saison_id=SAISON_ID,

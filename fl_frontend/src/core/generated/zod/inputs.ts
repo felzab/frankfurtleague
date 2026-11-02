@@ -1747,11 +1747,12 @@ export const SaisonsPostSaisonBody = zod.object({
 });
 
 /**
- * List every season, the `future` ones `GET /saisons` withholds included, each with whether it has started.
+ * List every season, the `future` ones `GET /saisons` withholds included, each with whether it has started and has been played.
  *
  * The admin surfaces read here because a season is created `future` and clubs are entered while it
  * still is, so an admin who cannot see one cannot run the league. `begun` is the start every
- * start lock refuses on, the swap's, the replacement's and the rules freeze's.
+ * start lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what
+ * fixes the start date (`saison_start_taken_place`).
  * @summary Every Saison for the admin surfaces
  */
 export const saisonsGetSaisonsVerwaltungQueryLimitDefault = 1024;
@@ -1781,7 +1782,10 @@ export const SaisonsGetSaisonParams = zod.object({
  * Update a season's dates and rules. `status` is on no payload.
  *
  * Editing the points moves every league table on the NEXT READ, standings being derived. What a
- * started or drawn season has fixed is refused, as is a rule narrowed below what it holds.
+ * started or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start
+ * date moves until a fixture of the season has taken place (`saison_start_taken_place`); the rules
+ * freeze reads the STORED start, so a season started too early is unlocked by one save moving its
+ * start and a second changing its rules.
  * @summary Update a Saison's dates and rules
  */
 export const SaisonsPatchSaisonParams = zod.object({
@@ -3372,9 +3376,8 @@ export const SpielerPatchKaderRowBody = zod
 /**
  * Whether a player entered into this season's squads today would be marked a Nachnominierung.
  *
- * `POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the first
- * day of matchday 1 of the season's first phase. A season whose matchday 1 is undated, or which
- * holds none yet, answers `false`. 404 where no season has this id.
+ * `POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the season's
+ * `start_date` on. 404 where no season has this id.
  * @summary Whether a squad entry into a season today is a Nachnominierung
  */
 export const SpielerGetSpielerNachnominierungParams = zod.object({
@@ -3449,8 +3452,7 @@ export const SpielerReactivateSpielerParams = zod.object({
  * 404 where no player has this id. One row per player per season: moving a player is a PATCH of
  * `team_id`, and a repeat is a 409 even where the row is retired. A
  * squad holds each `rolle` once (`kader_rolle_taken`). `is_nachnominiert` is derived here and never
- * taken from the body: it is true from the first day of the season's matchday 1, and false while
- * that matchday is undated.
+ * taken from the body: it is true from the season's `start_date` on.
  * @summary Add a Spieler to a squad
  */
 export const spielerPostSaisonSpielerPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

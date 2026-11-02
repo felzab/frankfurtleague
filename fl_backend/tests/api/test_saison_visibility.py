@@ -30,10 +30,12 @@ UNKNOWN = "2099"
 
 SEEDED = [saison_document(ARCHIVED, "past"), saison_document(RUNNING, "active"), saison_document(PLANNED, "future")]
 
-# The day the admin read is asked on: the running season's group fixture is dated before it, the
-# planned season's after it, so one has started and the other has not.
+# The day the admin read is asked on: the finished and the running season start before it, the planned
+# one after it. Only the finished season holds a fixture that has taken place; the running one's is
+# dated and unplayed, which fixes nothing.
 TODAY = "2025-12-01"
 FIXTURES = [
+    spiel_document(spiel_id=ObjectId(), saison_id=ARCHIVED, spiel_nr=1, spieltag_id=ObjectId(), datum="2024-09-07", ergebnis="2:1"),
     spiel_document(spiel_id=ObjectId(), saison_id=RUNNING, spiel_nr=1, spieltag_id=ObjectId(), datum="2025-09-06"),
     spiel_document(spiel_id=ObjectId(), saison_id=PLANNED, spiel_nr=1, spieltag_id=ObjectId(), datum="2026-09-05"),
 ]
@@ -175,11 +177,18 @@ class TestTheAdminTierReadsEverySeason:
         assert [saison.id for saison in response.saisons] == [ARCHIVED, RUNNING, PLANNED]
 
     def test_each_season_says_whether_it_has_started(self, seeded_league: str):
-        """`has_started`'s answer, which every start lock refuses on: a page closing a control on it closes exactly that."""
+        """`has_started` off each season's own `start_date`, which every start lock refuses on: a control closed on it closes exactly that."""
 
         response = on_a_league(seeded_league, admin_read(FLSaisonsFilterParams()))
 
-        assert {saison.id: saison.begun for saison in response.saisons} == {ARCHIVED: False, RUNNING: True, PLANNED: False}
+        assert {saison.id: saison.begun for saison in response.saisons} == {ARCHIVED: True, RUNNING: True, PLANNED: False}
+
+    def test_each_season_says_whether_a_fixture_has_taken_place(self, seeded_league: str):
+        """What fixes the start date (`saison_start_taken_place`), per season, so the field closes exactly where the edit refuses."""
+
+        response = on_a_league(seeded_league, admin_read(FLSaisonsFilterParams()))
+
+        assert {saison.id: saison.taken_place for saison in response.saisons} == {ARCHIVED: True, RUNNING: False, PLANNED: False}
 
     def test_it_still_honours_a_status_filter(self, seeded_league: str):
         assert [saison.id for saison in on_a_league(seeded_league, admin_read(FLSaisonsFilterParams(status="future"))).saisons] == [PLANNED]

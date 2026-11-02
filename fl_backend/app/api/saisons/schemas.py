@@ -133,7 +133,10 @@ class _SaisonPayload(_SaisonWritable):
 
     @model_validator(mode="after")
     def the_season_ends_after_it_starts(self) -> Self:
-        """The rule a `past` season's edit can still fail: its dates stay editable so a mistyped one can be repaired."""
+        """Judged on every edit, a `past` season's included: its end date stays editable so a mistyped one can be repaired.
+
+        Its start date is fixed once a fixture has taken place, which `saison_start_taken_place` refuses on the stored season.
+        """
 
         refuse_reversed_span(start=self.start_date, end=self.end_date, kind="saison_ends_before_start")
 
@@ -186,11 +189,14 @@ FLSaisonListAdapter = TypeAdapter(list[FLSaison])
 
 
 class FLSaisonAdmin(FLSaison):
-    """The same season for the admin surfaces, with whether it has started."""
+    """The same season for the admin surfaces, with whether it has started and whether a fixture of it has taken place."""
 
-    # DERIVED per read by `app/api/saisons/crud.py :: has_started`, the predicate every start lock
-    # reads, so a control closed on it closes exactly what the endpoint refuses.
+    # DERIVED per read by `app/api/saisons/services.py :: has_started` off the stored `start_date`, the predicate
+    # every start lock reads, so a control closed on it closes exactly what the endpoint refuses.
     begun: bool
+    # DERIVED per read by `app/api/teams/services.py :: has_taken_place` over every fixture of the season: true,
+    # the start date is fixed (`saison_start_taken_place`), so the field closes exactly where the edit refuses.
+    taken_place: bool
 
 
 FLSaisonAdminListAdapter = TypeAdapter(list[FLSaisonAdmin])

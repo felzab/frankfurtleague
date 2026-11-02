@@ -39,8 +39,9 @@ from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pi
 from app.api.outbox.crud import state_of, states_of
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
-from app.api.saisons.crud import has_started, pull_saison_id_and_rules
+from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.services import has_started
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.sperrliste.services import withheld_actor
 from app.api.spielbestaetigungen.services import seat_void_of
@@ -68,6 +69,7 @@ from app.api.teams.schemas import (
     FLTeamWithMembershipsListAdapter,
 )
 from app.api.teams.services import (
+    TAKEN_PLACE_FIELDS,
     build_gruppen,
     build_team_pipeline,
     build_team_saisons_pipeline,
@@ -84,6 +86,7 @@ from app.api.teams.services import (
     find_replacement_pair_refusal,
     find_replacement_refusal,
     find_retire_refusal,
+    has_taken_place,
     kontakt_zeile_of,
     kontakte_fassungen_gehalten,
     kontakte_fassungen_genannt,
@@ -840,8 +843,11 @@ async def replace_saison_team(
             session=session,
         )
 
-        # In-session, because `activate_saison` moves `status` in a transaction of its own.
-        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
+        # In-session, because `activate_saison` moves `status` in a transaction of its own, and the start
+        # beside it, which `PATCH /saisons/{saison_id}` moves.
+        saison_raw = await pull_one_from_db(
+            collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status", "start_date"], session=session
+        )
 
         # The ONE read of the incoming club, and it earns its place three times over: an id naming
         # nothing 404s here, the row's name is reseeded from it as `post_saison_team` seeds one at
@@ -859,21 +865,22 @@ async def replace_saison_team(
         spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
-            projection=["team1.team_id", "team2.team_id"],
+            projection=["team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
             session=session,
         )
 
         refuse(
             find_replacement_refusal(
                 saison_status=str(saison_raw["status"]),
-                started=await has_started(spiele_collection=spiele_collection, saison_id=saison_id, today=today, session=session),
+                started=has_started(start_date=str(saison_raw["start_date"]), today=today),
+                taken_place=any(has_taken_place(spiel) for spiel in spiele),
                 incoming_inactive_since=incoming_raw.get("inactive_since"),
                 incoming_already_entered=bool(incoming_rows),
             )
         )
 
         # One dict for both layers, so the season's row and its fixtures cannot come to disagree
-        # about what this club is called. No `tore`: a replacement runs only before the season has started.
+        # about what this club is called. No `tore`: a replacement runs only on fixtures none of which has taken place.
         incoming_side = {
             "team_id": replacement_data.incoming_team_id,
             "name": incoming_raw["name"],

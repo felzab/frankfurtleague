@@ -71,7 +71,7 @@ INCOMING_SIDE = {"team_id": INCOMING, "name": "Incoming", "shorthand": "INX", "t
 
 # The day the replacement runs, and a departure from the same squad that predates it.
 REPLACED_ON = "2026-04-15"
-# After the replacement day, so the season it runs on has not started.
+# After the replacement day, and the season's start unless a case says so, so the season it runs on has not started.
 FIRST_GROUP_FIXTURE_DAY = "2026-05-01"
 NOW = datetime(2026, 4, 15, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`.
@@ -244,6 +244,7 @@ def on_a_seeded_season(
     *,
     spiele: Sequence[dict[str, Any]] | None = None,
     saison_status: str = "active",
+    start_date: str = FIRST_GROUP_FIXTURE_DAY,
     junctions: Sequence[dict[str, Any]] | None = None,
 ) -> Any:
     """`active` by default: a mid-season withdrawal is what this endpoint is for."""
@@ -252,7 +253,7 @@ def on_a_seeded_season(
         async with a_clean_database(url, DATABASE_NAME) as (client, database):
             # No case here turns on a season's rules; each season spans its own calendar year.
             await database[Collection.SAISONS].insert_many(
-                [saison_document(SAISON_ID, saison_status), saison_document(PRIOR_SAISON_ID, "past")]
+                [saison_document(SAISON_ID, saison_status, start_date=start_date), saison_document(PRIOR_SAISON_ID, "past")]
             )
             await database[Collection.SAISON_TEAMS].insert_many(list(default_junctions() if junctions is None else junctions))
             # No document for PHANTOM, which is the whole point of that junction row.
@@ -646,16 +647,30 @@ class TestAPhantomRowIsRepaired:
 
 
 class TestAStartedSeasonIsNotReplaced:
-    def test_a_group_fixture_dated_on_the_replacement_day_refuses_it(self, mongo_replica_set_url: str):
-        """From the season's first fixture day a club leaves by its Austritt and is not replaced, with the whole write rolled back."""
+    def test_a_season_starting_on_the_replacement_day_refuses_it(self, mongo_replica_set_url: str):
+        """From the season's `start_date` a club leaves by its Austritt and is not replaced, with the whole write rolled back."""
 
         code, row, spiele = on_a_seeded_season(
             mongo_replica_set_url,
             _refused,
-            spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, datum=REPLACED_ON), gruppen_fixture(2, RIVAL, WITHDRAWN)],
+            spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL), gruppen_fixture(2, RIVAL, WITHDRAWN)],
+            start_date=REPLACED_ON,
         )
 
         assert code == Code.REPLACE_SAISON_STARTED
+        assert row is not None, "the junction row was handed over anyway"
+        assert spiele[2]["team2"] == side(WITHDRAWN), "the fan-out ran before the refusal, or outside the transaction"
+
+    def test_a_fixture_of_the_club_that_has_taken_place_refuses_it(self, mongo_replica_set_url: str):
+        """Before the start, a result entered early: the rewrite moves no `tore`, so the incoming club would inherit it."""
+
+        code, row, spiele = on_a_seeded_season(
+            mongo_replica_set_url,
+            _refused,
+            spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, ergebnis="1:0", tore=(1, 0)), gruppen_fixture(2, RIVAL, WITHDRAWN)],
+        )
+
+        assert code == Code.SIDES_TAKEN_PLACE
         assert row is not None, "the junction row was handed over anyway"
         assert spiele[2]["team2"] == side(WITHDRAWN), "the fan-out ran before the refusal, or outside the transaction"
 

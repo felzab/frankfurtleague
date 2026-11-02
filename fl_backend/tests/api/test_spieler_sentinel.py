@@ -100,7 +100,6 @@ async def press(database: AsyncDatabase, client: AsyncMongoClient, route: str, s
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        spieltage_collection=database[Collection.SPIELTAGE],
         db=client,
         today=TODAY,
     )

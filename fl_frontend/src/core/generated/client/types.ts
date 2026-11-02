@@ -94,6 +94,7 @@ export const Code = {
   saison_span_below_spielplan: "saison_span_below_spielplan",
   spieltag_beginn_out_of_order: "spieltag_beginn_out_of_order",
   saison_span_below_spielplan_as_stored: "saison_span_below_spielplan_as_stored",
+  saison_start_taken_place: "saison_start_taken_place",
   invitation_team_not_entered: "invitation_team_not_entered",
   wording_not_allowed: "wording_not_allowed",
   medien_age: "medien_age",
@@ -131,6 +132,7 @@ export const Code = {
   replace_saison_started: "replace_saison_started",
   replace_incoming_already_entered: "replace_incoming_already_entered",
   replace_one_team_on_both_ends: "replace_one_team_on_both_ends",
+  sides_taken_place: "sides_taken_place",
   ergebnis_side_emptied: "ergebnis_side_emptied",
   retire_blocked: "retire_blocked",
   spielort_still_booked: "spielort_still_booked",
@@ -4444,7 +4446,7 @@ export interface FLSaison {
 }
 
 /**
- * The same season for the admin surfaces, with whether it has started.
+ * The same season for the admin surfaces, with whether it has started and whether a fixture of it has taken place.
  */
 export interface FLSaisonAdmin {
   begun: boolean;
@@ -4463,6 +4465,7 @@ export interface FLSaisonAdmin {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
   status: FLSaisonStatus;
+  taken_place: boolean;
   version: number;
 }
 

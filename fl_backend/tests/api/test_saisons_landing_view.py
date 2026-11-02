@@ -19,6 +19,7 @@ from .conftest import unwritten
 
 RUNNING_DATABASE_NAME = worker_database("fl_saisons_landing_view_test")
 BEFORE_START_DATABASE_NAME = worker_database("fl_saisons_landing_view_before_start_test")
+STARTED_DATABASE_NAME = worker_database("fl_saisons_landing_view_started_test")
 DECIDED_DATABASE_NAME = worker_database("fl_saisons_landing_view_decided_test")
 THIRD_UNPLAYED_DATABASE_NAME = worker_database("fl_saisons_landing_view_third_unplayed_test")
 EMPTY_DATABASE_NAME = worker_database("fl_saisons_landing_view_empty_test")
@@ -72,13 +73,16 @@ def spieltag(spieltag_id: ObjectId, position: int, saison_phase: str = "gruppenp
     return {"_id": spieltag_id, "beginn": None, "ende": None, "position": position, "saison_phase": saison_phase, "saison_id": SAISON}
 
 
-def seeded(url: str, database_name: str, collections: dict[str, list[dict[str, Any]]]) -> None:
-    """The season the site is on beside the next one, which takes applications today, and these documents."""
+def seeded(url: str, database_name: str, collections: dict[str, list[dict[str, Any]]], *, start_date: str = "2026-01-01") -> None:
+    """The season the site is on, from `start_date`, beside the next one, which takes applications today, and these documents."""
 
     async def _seed() -> None:
         async with a_clean_database(url, database_name) as (_, database):
             await database[Collection.SAISONS].insert_many(
-                [documents.saison_document(SAISON, "active"), documents.saison_document(NEXT, "future", bewerbung=dict(OPEN_WINDOW))]
+                [
+                    documents.saison_document(SAISON, "active", start_date=start_date),
+                    documents.saison_document(NEXT, "future", bewerbung=dict(OPEN_WINDOW)),
+                ]
             )
             for name, rows in collections.items():
                 await database[name].insert_many(rows)
@@ -154,7 +158,7 @@ def test_a_running_season_shows_its_latest_results_its_next_matches_and_its_figu
 
 @pytest.mark.db
 def test_a_season_before_its_first_match_counts_to_its_start_and_names_its_opening_match(mongo_url: str):
-    """The countdown's instant is the season's `start_date`, whatever its first match's day and time.
+    """The countdown's instant is the season's `start_date`, here its opening day, whatever its first match's time.
 
     The opening day holds an untimed fixture beside two timed ones, which a null sorting ahead of every time would hide.
 
@@ -175,13 +179,14 @@ def test_a_season_before_its_first_match_counts_to_its_start_and_names_its_openi
                 match(5, DAY_2, None, None, uhrzeit=None),
             ],
         },
+        start_date="2026-03-10",
     )
 
     saison = landing(mongo_url, BEFORE_START_DATABASE_NAME).saison
 
     assert (saison.state, saison.recent, saison.upcoming, saison.podium) == ("before_start", [], [], None)
-    # The season's `start_date` is the first of January, winter time in Berlin, an hour ahead of UTC.
-    assert saison.start == datetime(2025, 12, 31, 23, 0, tzinfo=UTC)
+    # The tenth of March, winter time in Berlin, an hour ahead of UTC.
+    assert saison.start == datetime(2026, 3, 9, 23, 0, tzinfo=UTC)
     assert saison.first_kickoff.model_dump() == {
         "datum": "2026-03-10",
         "uhrzeit": "15:00:00",
@@ -189,6 +194,19 @@ def test_a_season_before_its_first_match_counts_to_its_start_and_names_its_openi
         "team1": {"team_id": str(BETA), "name": "Beta", "shorthand": "BET"},
         "team2": {"team_id": str(ALPHA), "name": "Alpha", "shorthand": "ALP"},
     }
+
+
+@pytest.mark.db
+def test_a_season_past_its_start_date_runs_before_its_first_match(mongo_url: str):
+    """The start is the season's date and never a match's: from it the season runs, its results still empty."""
+
+    seeded(
+        mongo_url, STARTED_DATABASE_NAME, {Collection.SPIELTAGE: [spieltag(DAY_1, 1)], Collection.SPIELE: [match(1, DAY_1, "2026-03-10", None)]}
+    )
+
+    saison = landing(mongo_url, STARTED_DATABASE_NAME).saison
+
+    assert (saison.state, saison.first_kickoff, saison.recent, [spiel.spiel_nr for spiel in saison.upcoming]) == ("running", None, [], [1])
 
 
 @pytest.mark.parametrize(

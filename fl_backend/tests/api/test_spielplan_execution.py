@@ -1,7 +1,7 @@
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from itertools import combinations, product
 from typing import Any
 
@@ -248,7 +248,8 @@ async def stored_rules(database: AsyncDatabase) -> dict[str, Any]:
 async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> None:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it changes.
 
-    The seed's own dates, so `saison_span_below_spieltage` and `saison_span_below_spielplan` cannot be what a refusal is about.
+    The seed's own dates, so `saison_span_below_spieltage` and `saison_span_below_spielplan` cannot be what a refusal is about,
+    judged the day before its start, so `rules_saison_started` cannot either.
     """
 
     seeded = saison_document()
@@ -270,7 +271,7 @@ async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> None:
         spieltage_collection=database[Collection.SPIELTAGE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         db=database.client,
-        today=TODAY,
+        today=str(date.fromisoformat(seeded["start_date"]) - timedelta(days=1)),
     )
 
 

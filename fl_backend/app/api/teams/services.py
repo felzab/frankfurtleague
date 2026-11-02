@@ -1535,9 +1535,12 @@ def find_gruppe_swap_refusal(
     team1_gruppe: str | None,
     team2_gruppe: str | None,
     saison_status: str,
-    # `app/api/saisons/crud.py :: has_started`: a swap rewrites fixtures, and once the season is under
+    # `app/api/saisons/services.py :: has_started`: a swap rewrites fixtures, and once the season is under
     # way a fixture is a record of who played it.
     started: bool,
+    # Whether a fixture the swap rewrites `has_taken_place`: a result entered before the start is a record
+    # too, and the rewrite would hand it to the other club, `tore` staying where they are.
+    taken_place: bool,
     clashing_spieltage: int,
     departed_fixtures: int,
 ) -> WriteRefusal | None:
@@ -1574,6 +1577,12 @@ def find_gruppe_swap_refusal(
             status=HTTPStatus.CONFLICT,
         )
 
+    if taken_place:
+        return WriteRefusal(
+            error_code=Code.SIDES_TAKEN_PLACE,
+            status=HTTPStatus.CONFLICT,
+        )
+
     if clashing_spieltage > 0:
         return WriteRefusal(
             error_code=Code.SWAP_SPIELTAG_CLASH,
@@ -1587,6 +1596,11 @@ def find_gruppe_swap_refusal(
         )
 
     return None
+
+
+# The projection `has_taken_place` reads, beside the predicate: a field in one and not the other reads a played
+# fixture as untouched.
+TAKEN_PLACE_FIELDS: tuple[str, ...] = ("ergebnis", "sonderereignis", "team1.tore", "team2.tore")
 
 
 def has_taken_place(spiel: Mapping[str, Any]) -> bool:
@@ -1617,9 +1631,12 @@ def find_replacement_pair_refusal(*, team_id: Any, incoming_team_id: Any) -> Wri
 def find_replacement_refusal(
     *,
     saison_status: str,
-    # `app/api/saisons/crud.py :: has_started`: once the season is under way, a club leaves it by its
+    # `app/api/saisons/services.py :: has_started`: once the season is under way, a club leaves it by its
     # Austritt and is never replaced.
     started: bool,
+    # Whether a fixture the replacement rewrites `has_taken_place`, the swap's rule: the incoming club would
+    # inherit a record it never made.
+    taken_place: bool,
     incoming_inactive_since: str | None,
     incoming_already_entered: bool,
 ) -> WriteRefusal | None:
@@ -1638,6 +1655,12 @@ def find_replacement_refusal(
     if started:
         return WriteRefusal(
             error_code=Code.REPLACE_SAISON_STARTED,
+            status=HTTPStatus.CONFLICT,
+        )
+
+    if taken_place:
+        return WriteRefusal(
+            error_code=Code.SIDES_TAKEN_PLACE,
             status=HTTPStatus.CONFLICT,
         )
 
