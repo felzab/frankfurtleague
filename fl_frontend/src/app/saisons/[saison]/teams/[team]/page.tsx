@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 
+import { ClubHead } from "@/kit/ClubHead";
+import { ReadFolds } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
 import { NONE, SpielList } from "@/kit/SpielRow";
 
@@ -91,15 +93,17 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   return {
     title: { record: team.name },
     ...(team.austritt?.type === "disqualifikation" ? { chip: { tone: "danger", label: COPY.shared.disqualified } } : {}),
-    club: {
-      kuerzel: team.shorthand,
-      name: team.name,
-      website: team.website_url?.startsWith("https://") === true ? (team.website_url as `https://${string}`) : null,
-      school: team.full_name,
-      address,
-      map: buildMapsSearchUrl(address),
-      description: team.description,
-    },
+    club: (
+      <ClubHead
+        kuerzel={team.shorthand}
+        name={team.name}
+        website={team.website_url?.startsWith("https://") === true ? (team.website_url as `https://${string}`) : null}
+        school={team.full_name}
+        address={address}
+        map={buildMapsSearchUrl(address)}
+        description={team.description}
+      />
+    ),
     groups: [
       { kind: "tiles", tiles: { layout: "four", items: tilesOf(page) } },
       {
@@ -116,28 +120,32 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
       },
       {
         kind: "folds",
-        cards: [
-          {
-            title: COPY.page.teamKader,
-            count: kader.length,
-            tables: [
+        folds: (
+          <ReadFolds
+            cards={[
               {
-                label: COPY.page.teamKader,
-                nameLabel: column.name,
-                columns: [
-                  { key: "nummer", label: column.nummer, figures: true },
-                  { key: "position", label: column.position },
+                title: COPY.page.teamKader,
+                count: kader.length,
+                tables: [
+                  {
+                    label: COPY.page.teamKader,
+                    nameLabel: column.name,
+                    columns: [
+                      { key: "nummer", label: column.nummer, figures: true },
+                      { key: "position", label: column.position },
+                    ],
+                    rows: kader.map((spieler, index) => ({
+                      id: String(index),
+                      name: personOf(spieler),
+                      cells: { nummer: spieler.nummer ?? "", position: spieler.position ?? "" },
+                    })),
+                    empty: { kind: "none", plural: COPY.page.teamKader },
+                  },
                 ],
-                rows: kader.map((spieler, index) => ({
-                  id: String(index),
-                  name: personOf(spieler),
-                  cells: { nummer: spieler.nummer ?? "", position: spieler.position ?? "" },
-                })),
-                empty: { kind: "none", plural: COPY.page.teamKader },
               },
-            ],
-          },
-        ],
+            ]}
+          />
+        ),
       },
     ],
   };

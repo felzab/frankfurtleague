@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { ReadFolds } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
 import { NONE } from "@/kit/SpielRow";
 
@@ -24,7 +25,8 @@ import type {
   FLSpielJoined,
   FLSpielPageResponse,
 } from "@/core/generated/client/types";
-import type { FoldedCard, ReadRecord } from "@/kit/ReadPage";
+import type { FoldedCard } from "@/kit/ReadFolds";
+import type { ReadRecord } from "@/kit/ReadPage";
 import type { StatTile } from "@/kit/StatTiles";
 import type { TableProps } from "@/kit/Table";
 import type { Checkpoint } from "@/kit/Timeline";
@@ -74,10 +76,14 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
       {
         title: words.aufstellung,
         kind: "folds",
-        cards: [
-          { titleText: heim.name, ...lineupOf(bericht?.aufstellungen.team1 ?? null) },
-          { titleText: gast.name, ...lineupOf(bericht?.aufstellungen.team2 ?? null) },
-        ],
+        folds: (
+          <ReadFolds
+            cards={[
+              { titleText: heim.name, ...lineupOf(bericht?.aufstellungen.team1 ?? null) },
+              { titleText: gast.name, ...lineupOf(bericht?.aufstellungen.team2 ?? null) },
+            ]}
+          />
+        ),
       },
       {
         title: words.toreUndKarten,
