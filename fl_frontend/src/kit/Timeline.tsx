@@ -15,7 +15,6 @@ export type Checkpoint = { id: string; mark: string; title: string; detail?: str
  * point outlined in the brand green with its mark inside, and from it a dotted line in the control edge's
  * grey to the next. A mark longer than two figures, a minute of stoppage time, widens the point into a pill.
  * Each block places the line, a `before:` box, by its own geometry.
- * @awaitsPage session 3's landing, whose `StepsLine` reads it
  */
 export const checkpoint = tv({
   slots: {
@@ -43,6 +42,7 @@ const timeline = tv({
 /**
  * Things in their order along one dotted line, a checkpoint for each: a club's matches by matchday, a match's
  * goals and cards by minute. Each checkpoint names itself beside its point and holds its content under that.
+ * @awaitsProduction session 3's club and match pages
  */
 export function Timeline({ label, items }: { label: Copy; items: readonly Checkpoint[] }) {
   const slots = timeline();

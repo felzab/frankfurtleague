@@ -40,8 +40,6 @@ const grid = tv({
 
 /**
  * The season's schools, each an equal tile leading to its club's page.
- * @awaitsPage session 3's landing
- * @awaitsProduction session 3's landing
  */
 export function SchoolTiles({ schools }: { schools: readonly SchoolTile[] }) {
   const slots = grid({ kind: "school" });
@@ -69,7 +67,6 @@ export function SchoolTiles({ schools }: { schools: readonly SchoolTile[] }) {
  * The sponsors, each an equal tile: its logo over its short name, the whole tile a link to its site, marked
  * `sponsored`, with no glyph saying it leaves the site. On the landing under the organisers and on the
  * sponsors' page.
- * @awaitsProduction session 3's landing and sponsors' page
  */
 export function SponsorTiles({ sponsors }: { sponsors: readonly Sponsor[] }) {
   const slots = grid({ kind: "sponsor" });
