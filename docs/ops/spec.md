@@ -288,11 +288,12 @@ head is the root, which would cover every exact match there is.
 
 **Next's code-generated metadata conventions are accounted for beside the handlers and taken
 unmetered**: `/sitemap.xml`, `/robots.txt` and `/manifest.webmanifest` reach Next through the
-catch-all, and each exports a function reading no request and no live value, so Next prerenders it
-and a flood costs a static response rather than a render or a backend call. That decision is
-recorded at `scripts/checks/check_public_routes.py :: METADATA`; a reserved metadata name the
-checker cannot place refuses, the image conventions among them, whose generated URL carries a hash
-Next mints at build.
+catch-all. `robots.txt` and the manifest each export a function reading no request and no live
+value, so Next prerenders them and a flood costs a static response; the sitemap renders at request
+time from the season pages' cached season list, so a flood costs a render and one backend read per
+cache lifetime. That decision is recorded at `scripts/checks/check_public_routes.py :: METADATA`; a
+reserved metadata name the checker cannot place refuses, the image conventions among them, whose
+generated URL carries a hash Next mints at build.
 
 **Exact-match binds the path nginx matched, not the URI FastAPI is handed**: nginx merges slashes
 and resolves dot segments before choosing a location, then `proxy_pass` with no URI part forwards

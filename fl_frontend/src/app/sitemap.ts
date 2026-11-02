@@ -1,14 +1,19 @@
+import { connection } from "next/server";
+
 import { SITE_URL } from "@/core/brand";
 import { ROUTES } from "@/core/routes";
 import { DATENSCHUTZ_STAND } from "@/features/meta/constants";
+import { getSaisonFrame } from "@/features/saisons/queries";
 
 import type { RouteEntry } from "@/core/routes";
 import type { MetadataRoute } from "next";
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  // No season is passed, so this list reads no request and no live value, and Next prerenders it: a flood of
-  // requests costs a static response (`docs/ops/spec.md`, the metadata conventions taken unmetered).
-  return listed([]);
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // The season the site is on, read at request time from the season pages' own cached frame, so the image's build
+  // reaches no backend and a flood of requests costs one backend read per cache lifetime.
+  await connection();
+  const { active_saison_id: active } = await getSaisonFrame();
+  return listed(active === null ? [] : [active]);
 }
 
 /**
