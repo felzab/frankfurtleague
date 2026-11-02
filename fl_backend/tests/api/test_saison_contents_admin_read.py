@@ -10,7 +10,6 @@ from app.api.spiele.admin_router import get_spiel_verwaltung, get_spiele_verwalt
 from app.api.spiele.public_router import get_spiele
 from app.api.spiele.schemas import FLSpieleFilterParams
 from app.api.spieltage.admin_router import get_spieltag_verwaltung, get_spieltage_verwaltung
-from app.api.spieltage.public_router import get_spieltage
 from app.api.spieltage.schemas import FLSpieltageFilterParams
 from app.api.teams.admin_router import get_teams_verwaltung
 from app.api.teams.public_router import get_teams
@@ -170,14 +169,6 @@ async def base_spiele(database: AsyncDatabase, saison_id: str) -> Any:
     )
 
 
-async def base_spieltage(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_spieltage(
-        spieltage_collection=database[Collection.SPIELTAGE],
-        saisons_collection=database[Collection.SAISONS],
-        filters=FLSpieltageFilterParams(saison_id=saison_id),
-    )
-
-
 Read = Callable[[AsyncDatabase, str], Awaitable[Any]]
 Served = Callable[[Any], list[str]]
 
@@ -197,7 +188,6 @@ ADMIN_READ_IDS = [label for label, _, _ in ADMIN_READS_OF_A_SEASON]
 PAIRED_TIERS: list[tuple[str, Read, Read, dict[str, Any] | None]] = [
     ("squad list", admin_teams, base_teams, None),
     ("fixture list", admin_spiele, base_spiele, {"spiele": {"__all__": {"version"}}}),
-    ("matchday list", admin_spieltage, base_spieltage, None),
 ]
 
 PAIRED_IDS = [label for label, _, _, _ in PAIRED_TIERS]

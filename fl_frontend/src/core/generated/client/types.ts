@@ -6406,33 +6406,6 @@ export const SpielorteGetSpielorteOrder = {
   desc: "desc",
 } as const;
 
-export type SpieltageGetSpieltageParams = {
-  saison_id?: string | null;
-  saison_phase?: "playoffs" | FLSaisonPhase | null;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: SpieltageGetSpieltageSortBy;
-  order?: SpieltageGetSpieltageOrder;
-};
-
-export type SpieltageGetSpieltageSortBy = (typeof SpieltageGetSpieltageSortBy)[keyof typeof SpieltageGetSpieltageSortBy];
-
-export const SpieltageGetSpieltageSortBy = {
-  natural: "natural",
-  beginn: "beginn",
-  ende: "ende",
-} as const;
-
-export type SpieltageGetSpieltageOrder = (typeof SpieltageGetSpieltageOrder)[keyof typeof SpieltageGetSpieltageOrder];
-
-export const SpieltageGetSpieltageOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
-
 export type SpieltageGetSpieltageVerwaltungParams = {
   saison_id?: string | null;
   saison_phase?: "playoffs" | FLSaisonPhase | null;
