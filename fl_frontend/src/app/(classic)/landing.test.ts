@@ -33,9 +33,7 @@ const KICKOFF: FLLandingKickoff = {
 
 const place = (platz: number, shorthand: string): FLPodiumPlace => ({
   platz,
-  shorthand,
-  name: shorthand,
-  team_id: platz.toString(16).padStart(24, "0"),
+  team: { team_id: platz.toString(16).padStart(24, "0"), name: shorthand, shorthand },
 });
 
 /** An unplayed group match of the season. */
@@ -82,7 +80,7 @@ describe("the season card before the start", () => {
   // D498: an opening side whose slot is empty shows the Spielplan's dashed open plaque.
   it("shows an empty opening side as the open plaque", () => {
     const state = stateOf(saison({ first_kickoff: { ...KICKOFF, team2: null } }));
-    expect(state).toMatchObject({ opening: { home: { kuerzel: "GOE" }, away: { quelle: "" } } });
+    expect(state).toMatchObject({ opening: { home: { kuerzel: "GOE" }, away: null } });
   });
 });
 
@@ -106,6 +104,15 @@ describe("the season card once decided", () => {
         { name: "ERS", kuerzel: "ERS" },
         { name: "CMS", kuerzel: "CMS" },
       ],
+    });
+  });
+
+  // D499: a place whose club left the season before it was decided is served without a club, and stays a place.
+  it("keeps a vacant place in its order, without a club", () => {
+    const podium = [place(1, "LIE"), place(2, "ELI"), place(3, "CMS"), { platz: 4, team: null }] as const;
+    expect(stateOf(saison({ state: "decided", podium: [...podium] }))).toStrictEqual({
+      kind: "decided",
+      places: [{ name: "LIE", kuerzel: "LIE" }, { name: "ELI", kuerzel: "ELI" }, { name: "CMS", kuerzel: "CMS" }, null],
     });
   });
 });

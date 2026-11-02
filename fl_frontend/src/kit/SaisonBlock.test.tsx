@@ -57,6 +57,19 @@ describe("the season's card before the start", () => {
     expect(screen.queryByText(SPIEL.home.name)).toBe(null);
   });
 
+  // The dashed open plaque holds no text, so the Spielplan's words for an open side name it to a screen reader.
+  it("names an empty opening side to a screen reader, as the Spielplan does", () => {
+    render(
+      <SaisonBlock
+        title={TITLE}
+        state={{ kind: "countdown", start: new Date(Date.now() + DAY_MS).toISOString(), opening: { ...OPENING, away: null } }}
+      />,
+    );
+    const line = screen.getByText(OPENING.spieltag).parentElement;
+    expect(line?.textContent).toBe(`${OPENING.spieltag}GOE–${COPY.spielplan.quelle.open}`);
+    expect(within(line as HTMLElement).getByText(COPY.spielplan.quelle.open).classList).toContain("sr-only");
+  });
+
   // The countdown always shows (D499); only the opening match waits on a dated fixture.
   it("counts down alone while no match is dated", () => {
     render(
@@ -139,6 +152,28 @@ describe("the season's card once decided", () => {
     ).toStrictEqual(["LIELiebig1", "ELIElisabethen2", "ERSErnst-Reuter3"]);
     expect(screen.getByText(SERVER_COPY.landing.saison.place(4)).parentElement?.textContent).toBe(
       `${SERVER_COPY.landing.saison.place(4)}CMSCarlo-Mierendorff`,
+    );
+  });
+
+  // D499: a place left vacant keeps its step or row, labelled in the name's stead, so it reads as a place without a club.
+  it("labels a vacant step and a vacant fourth place in the club's stead", () => {
+    render(
+      <SaisonBlock
+        title={TITLE}
+        state={{
+          kind: "decided",
+          places: [{ name: "Liebig", kuerzel: "LIE" }, null, { name: "Carlo-Mierendorff", kuerzel: "CMS" }, null],
+        }}
+      />,
+    );
+    const vacant = SERVER_COPY.landing.saison.vacant;
+    expect(
+      within(screen.getByRole("list"))
+        .getAllByRole("listitem")
+        .map((place) => place.textContent),
+    ).toStrictEqual(["LIELiebig1", `${vacant}2`, "CMSCarlo-Mierendorff3"]);
+    expect(screen.getByText(SERVER_COPY.landing.saison.place(4)).parentElement?.textContent).toBe(
+      `${SERVER_COPY.landing.saison.place(4)}${vacant}`,
     );
   });
 });

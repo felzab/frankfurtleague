@@ -8,9 +8,8 @@ import { matchRowOf } from "@/features/spiele/blocks";
 
 import type { CalendarDay, Uhrzeit } from "@/core/format";
 import type { FLBewerbungWindow, FLLandingResponse, FLLandingSaison, FLLandingSide, FLPodiumPlace } from "@/core/generated/client/types";
-import type { Placed } from "@/kit/Podium";
+import type { Place } from "@/kit/Podium";
 import type { SaisonBlock } from "@/kit/SaisonBlock";
-import type { SpielSide } from "@/kit/SpielRow";
 import type { Route } from "next";
 import type { ComponentProps } from "react";
 
@@ -34,11 +33,11 @@ export async function readLanding(): Promise<FLLandingResponse> {
 /** The application form for the season whose window is open. */
 export const formOf = (window: FLBewerbungWindow) => `/bewerbung/${window.saison_id}` as Route;
 
-/** An opening side's plaque: its club's Kürzel, or the dashed open plaque the Spielplan draws while its slot is empty (D498). */
-const plaqueOf = (side: FLLandingSide | null): SpielSide["plaque"] => (side === null ? { quelle: "" } : { kuerzel: side.shorthand });
+/** An opening side by its club's Kürzel, `null` while its slot is empty, which the card draws as the open plaque (D498). */
+const plaqueOf = (side: FLLandingSide | null) => (side === null ? null : { kuerzel: side.shorthand });
 
-/** A placed club as the podium names it. */
-const clubOf = (place: FLPodiumPlace): Placed => ({ name: place.name, kuerzel: place.shorthand });
+/** A place as the podium names it: its club, or `null` where it is vacant, its club having left the season by then (D499). */
+const clubOf = ({ team }: FLPodiumPlace): Place => (team === null ? null : { name: team.name, kuerzel: team.shorthand });
 
 /**
  * Where the season stands, as its card beside the hero shows it: before the start, the countdown to the season's

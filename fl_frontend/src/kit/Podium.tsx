@@ -8,6 +8,9 @@ import { tv } from "./tv";
 /** A placed club: its name and its Kürzel. */
 export type Placed = { name: string; kuerzel: string };
 
+/** A decided place: its club, or `null` where the place is vacant, its club having left the season by then (D499). */
+export type Place = Placed | null;
+
 const podium = tv({
   slots: {
     root: `grid gap-0 overflow-hidden ${cardSurface()}`,
@@ -30,8 +33,26 @@ const podium = tv({
   },
 });
 
-/** The decided season's places 1 to 3 on a three-step podium, and place 4 as a row under it. */
-export function Podium({ places }: { places: readonly [Placed, Placed, Placed, Placed] }) {
+/**
+ * A place's plaque and name. A vacant place draws the dashed open plaque, which names nothing, and its label in the
+ * name's stead, so the label is what a screen reader reads for it.
+ */
+function Who({ club, nameClass }: { club: Place; nameClass: string }) {
+  return club === null ? (
+    <>
+      <TeamPlaque quelle="" />
+      <span className={nameClass}>{SERVER_COPY.landing.saison.vacant}</span>
+    </>
+  ) : (
+    <>
+      <TeamPlaque kuerzel={club.kuerzel} />
+      <span className={nameClass}>{club.name}</span>
+    </>
+  );
+}
+
+/** The decided season's places 1 to 3 on a three-step podium, and place 4 as a row under it; any place may be vacant. */
+export function Podium({ places }: { places: readonly [Place, Place, Place, Place] }) {
   const [first, second, third, fourth] = places;
   const slots = podium();
   return (
@@ -43,11 +64,13 @@ export function Podium({ places }: { places: readonly [Placed, Placed, Placed, P
           return (
             // The list's own order tells a screen reader the place, so the step's figure is hidden from it.
             <li
-              key={club.kuerzel}
+              key={platz}
               className={look.place()}>
               <span className={look.who()}>
-                <TeamPlaque kuerzel={club.kuerzel} />
-                <span className={look.name()}>{club.name}</span>
+                <Who
+                  club={club}
+                  nameClass={look.name()}
+                />
               </span>
               <span
                 aria-hidden
@@ -60,8 +83,10 @@ export function Podium({ places }: { places: readonly [Placed, Placed, Placed, P
       </ol>
       <p className={slots.fourth()}>
         <span className={slots.fourthPlace()}>{SERVER_COPY.landing.saison.place(4)}</span>
-        <TeamPlaque kuerzel={fourth.kuerzel} />
-        <span className="min-w-0 font-medium">{fourth.name}</span>
+        <Who
+          club={fourth}
+          nameClass="min-w-0 font-medium"
+        />
       </p>
     </div>
   );

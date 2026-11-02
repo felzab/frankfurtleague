@@ -181,6 +181,8 @@ export const SERVER_COPY = catalogue({
       last: "Zuletzt",
       next: "Als Nächstes",
       place: (platz: number) => `${formatNumber(platz)}. Platz`,
+      /** A place left vacant, its club having left the season before it was decided, beside the dashed open plaque (D499). */
+      vacant: "Nicht vergeben",
       toSpielplan: "Zum Spielplan",
     },
 

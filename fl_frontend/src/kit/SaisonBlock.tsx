@@ -1,6 +1,7 @@
 import { useId } from "react";
 
 import { now } from "@/core/clock";
+import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import { cardSurface } from "./cardStyles";
@@ -14,17 +15,35 @@ import { tv } from "./tv";
 import type { Copy } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { Route } from "next";
-import type { Placed } from "./Podium";
-import type { SpielRowProps, SpielSide } from "./SpielRow";
+import type { Place } from "./Podium";
+import type { SpielRowProps } from "./SpielRow";
 
 /** A match as the season card lists it. */
 type Shown = SpielRowProps & { id: string };
+
+/** One side of the opening match: its club's Kürzel, or `null` while its slot is empty. */
+type OpeningSide = { kuerzel: string } | null;
 
 /**
  * The season's first match as the countdown names it: its day and time as its row shows them, its matchday's
  * label and its two sides' plaques, a side whose slot is empty in the dashed open one.
  */
-type Opening = { when: string; spieltag: Copy; home: SpielSide["plaque"]; away: SpielSide["plaque"] };
+type Opening = { when: string; spieltag: Copy; home: OpeningSide; away: OpeningSide };
+
+/**
+ * An opening side's plaque. An empty slot's dashed open plaque names nothing, so the Spielplan's words for an open
+ * side go with it, for a screen reader alone: the line shows plaques only.
+ */
+function OpeningPlaque({ side }: { side: OpeningSide }) {
+  return side === null ? (
+    <>
+      <TeamPlaque quelle="" />
+      <span className="sr-only">{COPY.spielplan.quelle.open}</span>
+    </>
+  ) : (
+    <TeamPlaque kuerzel={side.kuerzel} />
+  );
+}
 
 /** Between the opening match's two plaques, as a fixture's pairing reads. */
 const VERSUS = "–";
@@ -43,7 +62,7 @@ type SaisonState =
     }
   | { kind: "window"; until: CalendarDay; apply: Route }
   | { kind: "running"; last?: Shown; next?: Shown }
-  | { kind: "decided"; places: readonly [Placed, Placed, Placed, Placed] };
+  | { kind: "decided"; places: readonly [Place, Place, Place, Place] };
 
 const block = tv({
   slots: {
@@ -86,9 +105,9 @@ function Body({ state }: { state: SaisonState }) {
               <p className={slots.line()}>{SERVER_COPY.landing.saison.kickoff(state.opening.when)}</p>
               <p className={slots.opening()}>
                 <span className={slots.openingLabel()}>{state.opening.spieltag}</span>
-                <TeamPlaque {...state.opening.home} />
+                <OpeningPlaque side={state.opening.home} />
                 <span aria-hidden>{VERSUS}</span>
-                <TeamPlaque {...state.opening.away} />
+                <OpeningPlaque side={state.opening.away} />
               </p>
             </>
           )}
