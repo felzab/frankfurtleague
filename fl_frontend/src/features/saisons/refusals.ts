@@ -85,6 +85,13 @@ export function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?:
       return {
         error: "Diese Saison hat begonnen, deshalb sind Punkte, Tiebreak und Qualifikanten pro Gruppe festgeschrieben. Lade die Seite neu.",
       };
+    // Bare like `rules_saison_started`, and for its reason: the Zeitraum panel holds the start read-only once a
+    // fixture has taken place, so only a result entered under an open page reaches this.
+    case "saison_start_taken_place":
+      return {
+        error:
+          "Zu einem Spiel dieser Saison ist inzwischen ein Ergebnis eingetragen, deshalb ist der Beginn festgeschrieben. Lade die Seite neu.",
+      };
     // A bare message, the shape `rules_saison_started` uses: the two freezes refuse the same class of edit
     // in one panel, and one answering through field paths would split that into two mechanisms.
     case "rules_shape_after_spielplan":
@@ -208,8 +215,8 @@ export function mapActivateRefusal(error: unknown): string | null {
 
 /**
  * The group swap's refusals, or `null`. The first four mean the picture moved under a stale page, so
- * each says to reload; `swap_fields_disqualified` has no client counterpart and arrives on a current page, so it
- * names a repair.
+ * each says to reload; `sides_taken_place` and `swap_fields_disqualified` have no client counterpart and arrive on a
+ * current page, so each names a repair.
  */
 export function mapSwapRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
@@ -223,6 +230,9 @@ export function mapSwapRefusal(error: unknown): string | null {
       return "Diese Saison ist inzwischen abgeschlossen. Lade die Seite neu.";
     case "swap_saison_started":
       return "Diese Saison hat inzwischen begonnen. Lade die Seite neu.";
+    // Before the start, so a result entered early: the swap moves no goals and would hand it to the other club.
+    case "sides_taken_place":
+      return "Zu einem Spiel der beiden Teams ist schon ein Ergebnis eingetragen, und der Tausch würde es einem anderen Team zuschreiben. Lösche das zu früh eingetragene Ergebnis und tausche danach.";
     case "swap_spieltag_clash":
       return "Durch den Tausch stünde ein Team zweimal an einem Spieltag. Verschiebe eines der beiden Spiele und lade die Seite neu.";
     // Lifting the record is an open path, so the sentence names all three steps.

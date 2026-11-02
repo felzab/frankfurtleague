@@ -142,6 +142,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
       "rules_capacity_below_use",
       "rules_qualifiers_below_wiring",
       "rules_saison_started",
+      "saison_start_taken_place",
       "rules_spieltag_over_its_phase",
       "rules_qualifiers_above_gruppe",
       "rules_unentschieden_outvalues_win",
@@ -161,6 +162,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
         "rules_capacity_below_use",
         "rules_qualifiers_below_wiring",
         "rules_saison_started",
+        "saison_start_taken_place",
         "rules_spieltag_over_its_phase",
         "rules_qualifiers_above_gruppe",
         "rules_unentschieden_outvalues_win",
@@ -205,12 +207,20 @@ describe("the saison actions against the codes their endpoints publish", () => {
       "swap_saison_started",
       "saison_past",
       "swap_spieltag_clash",
+      "sides_taken_place",
       "swap_fields_disqualified",
     )) {
       expect(answerShown(code, mapSwapRefusal), `${code} reaches the admin as a generic failure`).not.toBe(null);
     }
     await assertEachAnswered({
-      codes: refusalCodes("swap_not_a_swap", "swap_saison_started", "saison_past", "swap_spieltag_clash", "swap_fields_disqualified"),
+      codes: refusalCodes(
+        "swap_not_a_swap",
+        "swap_saison_started",
+        "saison_past",
+        "swap_spieltag_clash",
+        "sides_taken_place",
+        "swap_fields_disqualified",
+      ),
       refuseWith: answerWith,
       act: () => swapGruppenAction({ saison_id: SAISON_ID, team1_id: "68c1f0a2b3c4d5e6f7a8b9c0", team2_id: "68c1f0a2b3c4d5e6f7a8b9c1" }),
       mapped: mapSwapRefusal,
