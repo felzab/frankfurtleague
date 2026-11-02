@@ -35,6 +35,7 @@ async function Year() {
  * Each page's template writes its title and its content through `ClassicPage` and `ClassicTitle`.
  */
 export function ClassicFrame({
+  season,
   links,
   signIn,
   groups,
@@ -43,6 +44,8 @@ export function ClassicFrame({
   sponsors,
   children,
 }: {
+  /** The season the site is on, the header's first entry once its read lands; null where the league has none. */
+  season?: Promise<HeaderLink | null>;
   /** The header's links, between the logo and „Anmelden“. */
   links: ReadonlyArray<HeaderLink>;
   /** Where „Anmelden“ leads. */
@@ -66,6 +69,7 @@ export function ClassicFrame({
         <div className="@container mx-auto flex h-(--classic-header) w-full max-w-classic items-center gap-2 lg:gap-8">
           <Brand ground="band" />
           <HeaderLinks
+            season={season}
             links={links}
             signIn={signIn}
           />

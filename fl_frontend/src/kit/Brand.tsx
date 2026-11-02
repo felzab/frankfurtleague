@@ -1,6 +1,7 @@
 import NextLink from "next/link";
 
 import { COPY } from "@/core/copy";
+import { ROUTES } from "@/core/routes";
 import { FLLogo } from "@/shared/components/ui/FLLogo";
 
 import { tv } from "./tv";
@@ -32,7 +33,7 @@ export function Brand({ ground }: { ground: "band" | "page" }) {
   const { root, mark, wordmark } = brand({ ground });
   return (
     <NextLink
-      href="/"
+      href={ROUTES.home.path()}
       aria-label={COPY.brand.name}
       data-kit-focus="ring"
       className={root()}>

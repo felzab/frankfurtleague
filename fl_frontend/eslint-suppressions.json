@@ -9,11 +9,6 @@
       "count": 1
     }
   },
-  "src/app/(public)/(meta)/kontakt/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/app/(public)/(meta)/layout.tsx": {
     "better-tailwindcss/no-restricted-classes": {
       "count": 1
@@ -57,11 +52,6 @@
       "count": 2
     }
   },
-  "src/app/(public)/error.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/app/(public)/layout.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -70,28 +60,6 @@
   "src/app/(public)/loeschung/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
-    }
-  },
-  "src/app/(public)/not-found.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/(public)/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 29
-    },
-    "react/forbid-component-props": {
-      "count": 7
-    },
-    "react/jsx-no-literals": {
-      "count": 19
     }
   },
   "src/app/(public)/registrierung/page.tsx": {
@@ -425,24 +393,9 @@
       "count": 1
     }
   },
-  "src/app/error.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/not-found.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
   "src/core/auth.ts": {
     "no-restricted-syntax": {
       "count": 13
-    }
-  },
-  "src/core/copy.ts": {
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "src/core/dismissControl.ts": {
@@ -910,20 +863,6 @@
       "count": 5
     }
   },
-  "src/features/bewerbungen/components/ui/BewerbungBandSkeleton.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 10
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
   "src/features/bewerbungen/components/ui/BewerbungInstagramBand.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
@@ -939,20 +878,6 @@
     },
     "react/jsx-no-literals": {
       "count": 2
-    }
-  },
-  "src/features/bewerbungen/components/ui/BewerbungOffenBand.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 4
     }
   },
   "src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.tsx": {
@@ -1519,31 +1444,6 @@
       "count": 2
     }
   },
-  "src/features/meta/components/ui/MetaSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 6
-    }
-  },
-  "src/features/meta/components/views/AboutView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 11
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 10
-    },
-    "no-restricted-syntax": {
-      "count": 14
-    },
-    "react/forbid-component-props": {
-      "count": 9
-    },
-    "react/jsx-no-literals": {
-      "count": 4
-    }
-  },
   "src/features/meta/components/views/DatenschutzView.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 7
@@ -1573,34 +1473,6 @@
     },
     "react/jsx-no-literals": {
       "count": 17
-    }
-  },
-  "src/features/meta/components/views/KontaktView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 10
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 11
-    },
-    "react/forbid-component-props": {
-      "count": 4
-    }
-  },
-  "src/features/meta/components/views/MetaOrganisationView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    },
-    "react/forbid-component-props": {
-      "count": 1
     }
   },
   "src/features/passkeys/actions.ts": {
@@ -2521,23 +2393,6 @@
       "count": 2
     }
   },
-  "src/features/spiele/components/collections/RecentAndUpcomingSpieleGrid.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 13
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
   "src/features/spiele/components/collections/SpielCardsList.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -2831,23 +2686,9 @@
       "count": 1
     },
     "better-tailwindcss/no-restricted-classes": {
-      "count": 4
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/spiele/components/ui/SpielCardSkeleton.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
       "count": 2
     },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 16
-    },
-    "react/jsx-no-literals": {
+    "react/forbid-component-props": {
       "count": 1
     }
   },
@@ -3973,20 +3814,6 @@
       "count": 1
     }
   },
-  "src/shared/components/ui/BrandHero.tsx": {
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 13
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
   "src/shared/components/ui/BrandLink.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -4250,23 +4077,6 @@
       "count": 1
     }
   },
-  "src/shared/components/ui/Error.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 4
-    }
-  },
   "src/shared/components/ui/FLLogo.tsx": {
     "no-restricted-syntax": {
       "count": 3
@@ -4425,23 +4235,6 @@
     },
     "react/forbid-component-props": {
       "count": 1
-    }
-  },
-  "src/shared/components/ui/NotFound.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 5
     }
   },
   "src/shared/components/ui/NumberField.tsx": {

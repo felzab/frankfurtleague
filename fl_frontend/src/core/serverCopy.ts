@@ -73,64 +73,61 @@ export const SERVER_COPY = catalogue({
   },
 
   /**
-   * The landing's sections, the blocks About and Kontakt share with it, and the classic frame's not-found page,
-   * each read by a Server Component. Every entry is a draft for the landing board.
+   * The landing's sections, the blocks About, Kontakt and the sponsors page share with it, and the classic frame's
+   * not-found page, each read by a Server Component.
    */
   landing: {
-    // Board: the owner's to word, proposed there with options (K260); today's landing words stand until then.
-    tagline: "Frankfurts Oberstufenliga. Wer holt sich den Titel?",
-    // Board: the owner corrects it there (D291); today's About words stand until then.
-    aboutParagraph:
-      "Die Finanzierung unserer Abschlussfeiern und Abibälle. Wir organisieren dafür einen stadtweiten Ligabetrieb im Großfeldfußball. Jedes Spiel bringt durch Ticket- und Cateringverkäufe direkte Einnahmen für beide Jahrgänge.",
-    lead: "Frankfurter Schulen, eine Saison, ein Titel. Abi-Jahrgänge spielen 11 gegen 11 auf dem Großfeld, und jedes Spiel bringt Einnahmen für die Abibälle beider Jahrgänge.",
-    /** The hero's second act and the band's: applying while a window is open, the league's own page while none is. */
-    apply: "Schule bewerben",
-    applyNow: "Jetzt bewerben",
-    aboutLeague: "Über die Liga",
+    /** The hero's one heading (K260, D481). */
+    tagline: "Frankfurts Abi-Jahrgänge spielen um den Titel",
+    /** The one paragraph the league describes itself with, under the tagline and at the head of About (K260, D291). */
+    paragraph: `${COPY.brand.description} Ehrenamtliche aus den Jahrgängen organisieren die Liga.`,
+    /** The way to apply while a window is open: the hero's second act, the steps' band and the school's door (D481). */
+    toBewerbung: "Zur Bewerbung",
 
-    pillars: {
-      eyebrow: "Unser Ziel",
-      title: "Fußball, der den Abiball bezahlt",
-      whoPlays: {
+    /** What About tells in short sections, each written once: the landing's pillars and its small cards read them too. */
+    about: {
+      who: {
         title: "Wer spielt",
-        text: "Nur Schülerinnen und Schüler des Abi-Jahrgangs, für den das Team antritt. Mädchen- und gemischte Teams sind willkommen, Lehrer nur als Fans an der Seitenlinie.",
+        text: "Nur der Abi-Jahrgang, für den das Team antritt, in jeder Zusammensetzung. Lehrkräfte sind als Fans willkommen.",
       },
-      howPlayed: {
-        title: "Wie gespielt wird",
-        text: "11 gegen 11, zwei Hälften zu 45 Minuten, bei jedem Wetter. Die Schiedsrichter kommen, wo es geht, von außerhalb.",
+      rules: {
+        title: "Die Regeln",
+        text: "11 gegen 11 über 90 Minuten, bei jedem Wetter. Die Schiedsrichter kommen, soweit möglich, von außerhalb.",
       },
-      whatFor: {
-        title: "Wofür",
-        text: "Beide Teams verdienen an Tickets und an ihren Verkäufen vor Ort. Der Erlös wird nach dem Spiel geteilt, in der Regel je zur Hälfte. Der Gewinner bekommt das meiste Geld, dazu Ruhm und Ehre.",
-      },
+      purpose: { title: "Wofür", text: "Beide Teams verdienen an Tickets und am Verkauf vor Ort und teilen den Erlös." },
+      spielorte: { title: "Spielorte", text: "Kein zentraler Platz. Wo und wann ein Spiel stattfindet, steht im Spielplan." },
+      admission: { title: "Eintritt", text: "2 bis 5 €, je nach Spiel. Im Vorverkauf meist günstiger." },
+      safety: { title: "Sicherheit", text: "Bei den meisten Spielen sind Sanitäter vor Ort." },
     },
+
+    pillars: { eyebrow: "Unser Ziel", title: "Fußball, der den Abiball bezahlt" },
 
     /** How a school joins: four numbered steps, and the band under them. */
     join: {
       eyebrow: "Bewerbung",
-      title: "So kommt deine Schule in die Liga",
+      title: "Der Weg in die Liga",
       apply: {
         title: "Bewerbung abschicken",
-        text: "Solange das Fenster offen ist: Schule und Stufengröße, drei Kontaktpersonen, Wunschfarbe und voraussichtliche Kadergröße.",
+        text: "Schule, Stufe, 3 Kontaktpersonen und die geplante Kadergröße, solange das Fenster offen ist.",
       },
       confirm: {
         title: "Kontaktpersonen bestätigen",
-        text: "Jede der drei Personen bekommt einen Link und bestätigt ihren Eintrag selbst, innerhalb von 14 Tagen.",
+        text: (days: number) => `Jede der 3 Personen bekommt einen Link und bestätigt ihren Eintrag innerhalb von ${formatNumber(days)} Tagen.`,
       },
-      accept: {
+      decision: {
         title: "Zusage der Liga",
         text: "Wir prüfen die Bewerbung und sagen zu oder ab. Mit der Zusage ist deine Schule Teil der Saison.",
       },
       register: {
         title: "Spieler registrieren",
-        text: "Dein Team bekommt einen Link, über den sich die Spielerinnen und Spieler registrieren. Die Kontaktpersonen nehmen sie in den Kader auf.",
+        text: "Dein Team bekommt einen Link, über den sich dein Jahrgang registriert. Die Kontaktpersonen nehmen die Spieler in den Kader auf.",
       },
       /** The band: the open window's deadline, or the word that none is open. */
       open: (saison: string, until: CalendarDay) => `Bewerbungen für die Saison ${saison} bis ${formatDatum(until)}`,
-      closed: "Die Bewerbungen sind gerade geschlossen.",
+      closed: "Das Bewerbungsfenster ist geschlossen.",
     },
 
-    /** How a season runs: the numbered dotted line. */
+    /** How a season runs: the numbered dotted line, worded so it holds for any number of groups and rounds. */
     season: {
       eyebrow: "Spielbetrieb",
       title: "So läuft eine Saison",
@@ -138,56 +135,63 @@ export const SERVER_COPY = catalogue({
         title: "Gruppenphase",
         text: "Die Teams spielen in Gruppen jeder gegen jeden. Nur diese Spiele zählen für die Tabelle, und die Besten jeder Gruppe kommen weiter.",
       },
-      viertelfinale: { title: "Viertelfinale", text: "Acht Teams. Bei Gleichstand entscheidet das Elfmeterschießen." },
-      halbfinale: { title: "Halbfinale", text: "Vier Teams, zwei Spiele. Die Verlierer spielen um Platz 3." },
-      finale: { title: "Finale und Spiel um Platz 3", text: "Größer aufgezogen als jedes Gruppenspiel." },
+      kORunde: { title: COPY.shared.kORunde, text: "Wer verliert, scheidet aus. Bei Gleichstand entscheidet das Elfmeterschießen." },
+      platz3: { title: "Spiel um Platz 3", text: "Die beiden Verlierer der Halbfinale spielen um Platz 3." },
+      finale: { title: "Finale", text: "Das Spiel um den Titel." },
     },
 
+    /** The season in four counts. */
     figures: {
-      title: "Die Liga in Zahlen",
-      schools: "Schulen",
-      players: "Spielerinnen und Spieler",
-      spiele: "Spiele",
+      title: (saison: string) => `Saison ${saison} in Zahlen`,
+      schulen: "Schulen",
+      tore: "Tore",
+      spiele: COPY.page.spiele,
       spieltage: "Spieltage",
     },
 
-    organisers: { eyebrow: "Organisation", title: "Wer dahintersteht" },
+    organisers: {
+      eyebrow: "Organisation",
+      title: "Wer dahintersteht",
+      /** What each organiser does, under their first name. */
+      role: { vorstand: "Vorstand", spielbetrieb: "Spielbetrieb", website: "Website", kommunikation: "Kommunikation" },
+    },
 
     /** The ways in: the school's while a window is open, and the question's; the heading counts them. */
     doors: {
       eyebrow: "Mitmachen",
       title: (withSchool: boolean) => (withSchool ? "Zwei Wege zu uns" : "Wege zu uns"),
-      school: {
-        title: "Deine Schule will antreten",
-        text: (saison: string, until: CalendarDay) =>
-          `Die Bewerbungen für die Saison ${saison} sind offen bis ${formatDatum(until)}. Deine Schule braucht eine Stufe, drei Kontaktpersonen und ein Team.`,
-      },
+      school: { title: "Deine Schule will antreten" },
       question: {
         title: "Du hast eine Frage",
         text: "Zum Spielbetrieb, zu einer Bewerbung oder zur Liga: Schreib uns. Wir melden uns schnellstmöglich.",
       },
+      /** The sponsors page's door, under its tiles. */
+      support: "Du willst die Liga unterstützen",
     },
 
-    schools: { eyebrow: "Wer dabei ist", title: (saison: string) => `Die Schulen der Saison ${saison}`, all: "Alle Teams" },
+    schools: { eyebrow: "Wer dabei ist", title: (saison: string) => `Schulen der Saison ${saison}` },
 
-    /** The season card beside the hero, in its three states. */
+    /** The season card beside the hero, in its states. */
     saison: {
       kickoff: (when: string) => `Anpfiff ${when}`,
+      /** The opening match's matchday, before its two plaques. */
+      spieltag: (position: number) => `${formatNumber(position)}. Spieltag`,
       windowUntil: (until: CalendarDay) => `Bewerbungen bis ${formatDatum(until)}`,
+      undated: "Der erste Spieltag ist noch nicht angesetzt.",
       last: "Zuletzt",
       next: "Als Nächstes",
       place: (platz: number) => `${formatNumber(platz)}. Platz`,
       toSpielplan: "Zum Spielplan",
     },
 
-    /** Kontakt's rows, and the question door's links. */
+    /** Kontakt's rows, and the doors' links. */
     contact: {
       email: "E-Mail",
       address: KONTAKT_EMAIL,
     },
 
     /** The classic frame's not-found page. */
-    notFound: { title: "Seite nicht gefunden", sentence: "Die Seite wurde verschoben oder gelöscht, oder die Adresse stimmt nicht." },
+    notFound: { title: "Seite nicht gefunden", sentence: "Die Adresse stimmt nicht, oder die Seite gibt es nicht mehr." },
   },
 
   /**

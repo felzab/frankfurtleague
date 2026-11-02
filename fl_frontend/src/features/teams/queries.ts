@@ -1,36 +1,23 @@
 import { cache } from "react";
-import { cacheLife, cacheTag } from "next/cache";
 
-import { teamsGetTeams, teamsGetTeamSaisons, teamsGetTeamsVerwaltung } from "@/core/generated/client/sdk";
-import { SITE_CACHE_TAG } from "@/core/siteCache";
+import { teamsGetTeamSaisons, teamsGetTeamsVerwaltung } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
 import type {
   FLTeamsGroupedResponse,
   FLTeamsListResponse,
   FLTeamsSaisonsResponse,
-  TeamsGetTeamsParams,
   TeamsGetTeamsVerwaltungParams,
 } from "@/core/generated/client/types";
 
 /** The list read's two shapes, told apart by `format`: `in_gruppen` asks for the grouped one. */
 type FLTeamsResponse = FLTeamsListResponse | FLTeamsGroupedResponse;
 
-/** Omitted, `saison_id` is the current season. */
-export async function getTeams(filters: TeamsGetTeamsParams = {}): Promise<FLTeamsResponse> {
-  "use cache";
-
-  cacheTag(SITE_CACHE_TAG);
-  cacheLife("minutes");
-
-  return teamsGetTeams(filters);
-}
-
 /** One in-flight admin club read per filter set, held for the length of one render pass. */
 const adminTeamsInFlight = cache((): Map<string, Promise<FLTeamsResponse>> => new Map());
 
 /**
- * A season's clubs for the admin surfaces, a planned season's included — `getTeams` refuses that
+ * A season's clubs for the admin surfaces, a planned season's included — the public read refuses that
  * season, though a club is entered into one while planned. **Uncached**.
  */
 export function getAdminTeams(filters: TeamsGetTeamsVerwaltungParams = {}): Promise<FLTeamsResponse> {

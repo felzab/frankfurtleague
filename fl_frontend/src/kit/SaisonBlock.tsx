@@ -8,6 +8,7 @@ import { Countdown } from "./Countdown";
 import { Link } from "./Link";
 import { Podium } from "./Podium";
 import { SpielList } from "./SpielRow";
+import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -19,14 +20,28 @@ import type { SpielRowProps } from "./SpielRow";
 /** A match as the season card lists it. */
 type Shown = SpielRowProps & { id: string };
 
+/** The season's first match as the countdown names it: its matchday's label and its two clubs' Kürzel. */
+type Opening = { spieltag: Copy; home: string; away: string };
+
+/** Between the opening match's two plaques, as a fixture's pairing reads. */
+const VERSUS = "–";
+
 /**
- * Where the season stands: before its start, a countdown to its first kick-off once one is dated, and the
- * application window while none is; while it runs, its last result and its next match; once decided, its
- * places 1 to 4.
+ * Where the season stands: before its start, a countdown to its first kick-off and that match's pairing once
+ * one is dated, the application window while none is, and the one sentence saying so while no window is open
+ * either; while it runs, its last result and its next match; once decided, its places 1 to 4.
  */
 type SaisonState =
-  | { kind: "countdown"; /** The first match's instant. */ kickoff: string; /** Its day and time, as its row shows them. */ when: string }
+  | {
+      kind: "countdown";
+      /** The first match's instant. */
+      kickoff: string;
+      /** Its day and time, as its row shows them. */
+      when: string;
+      opening: Opening;
+    }
   | { kind: "window"; until: CalendarDay; apply: Route }
+  | { kind: "undated" }
   | { kind: "running"; last?: Shown; next?: Shown }
   | { kind: "decided"; places: readonly [Placed, Placed, Placed, Placed] };
 
@@ -37,6 +52,9 @@ const block = tv({
     title: "text-base font-semibold",
     box: `grid gap-4 ${cardSurface()} p-4`,
     line: "text-sm text-fg-muted",
+    // The plaques alone, one short line a phone never wraps.
+    opening: "flex items-center gap-2 text-sm",
+    openingLabel: "text-fg-muted",
     group: "grid gap-2",
     groupTitle: "text-xs font-medium tracking-caps text-fg-muted uppercase",
   },
@@ -64,6 +82,12 @@ function Body({ state }: { state: SaisonState }) {
             seed={now().getTime()}
           />
           <p className={slots.line()}>{SERVER_COPY.landing.saison.kickoff(state.when)}</p>
+          <p className={slots.opening()}>
+            <span className={slots.openingLabel()}>{state.opening.spieltag}</span>
+            <TeamPlaque kuerzel={state.opening.home} />
+            <span aria-hidden>{VERSUS}</span>
+            <TeamPlaque kuerzel={state.opening.away} />
+          </p>
         </div>
       );
     case "window":
@@ -74,8 +98,14 @@ function Body({ state }: { state: SaisonState }) {
             href={state.apply}
             placement="button"
             look="primary"
-            label={SERVER_COPY.landing.applyNow}
+            label={SERVER_COPY.landing.toBewerbung}
           />
+        </div>
+      );
+    case "undated":
+      return (
+        <div className={slots.box()}>
+          <p className={slots.line()}>{SERVER_COPY.landing.saison.undated}</p>
         </div>
       );
     case "running":

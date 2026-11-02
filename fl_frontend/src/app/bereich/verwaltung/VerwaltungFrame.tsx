@@ -61,7 +61,7 @@ export const RAIL_GROUPS: RailGroup[] = [
         id: "adressaenderungen",
         label: ROUTES.verwaltungAddressChanges.title,
         href: ROUTES.verwaltungAddressChanges.path(),
-        icon: "addressChanges",
+        icon: "email",
       },
       { id: "action_log", label: ROUTES.verwaltungActionLog.title, href: ROUTES.verwaltungActionLog.path(), icon: "log" },
     ],
