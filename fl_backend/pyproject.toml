@@ -196,3 +196,11 @@ include = ["app", "tests"]
 # model's field reports `reportIncompatibleVariableOverride` for the shape it exists for.
 # `strict` demands an annotation on every symbol, test locals too.
 typeCheckingMode = "basic"
+
+# The application's code names a type for every parameter: one left bare is `Any` to pyright, so a write through a
+# collection it is handed passes with nothing reported (`app/core/readonly.py`). Not the tests, which take fixtures and
+# parametrised values bare, as pytest's own examples do. Rooted lower than the project, so told where `app.…` resolves from.
+[[tool.pyright.executionEnvironments]]
+root = "app"
+extraPaths = ["."]
+reportMissingParameterType = "error"

@@ -62,7 +62,7 @@ router = APIRouter(
 )
 
 
-def _as_single(document) -> FLSpielerAdminSingleResponse:
+def _as_single(document: Mapping[str, Any]) -> FLSpielerAdminSingleResponse:
     """The admin tier's echo: the surname whole, and the retirement date `DELETE` and `reactivate` exist to set."""
 
     return FLSpielerAdminSingleResponse(
@@ -74,7 +74,7 @@ def _as_single(document) -> FLSpielerAdminSingleResponse:
     )
 
 
-def _as_junction(document) -> FLSaisonSpielerResponse:
+def _as_junction(document: Mapping[str, Any]) -> FLSaisonSpielerResponse:
     return FLSaisonSpielerResponse(
         spieler_id=document["spieler_id"],
         saison_id=document["saison_id"],
