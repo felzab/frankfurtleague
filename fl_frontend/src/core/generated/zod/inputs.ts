@@ -2996,32 +2996,6 @@ export const SpielbestaetigungenEnterSpielbestaetigungBody = zod
   );
 
 /**
- * List the Spiele matching the filters, of the current season unless `saison_id` names another.
- *
- * A season this tier may not read 404s; `playoffs` means every phase but `gruppenphase`, and `from_today`
- * includes today.
- * @summary List Spiele
- */
-export const spieleGetSpieleQueryTeamIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const spieleGetSpieleQueryLimitDefault = 1024;
-export const spieleGetSpieleQueryLimitMax = 1024;
-
-export const spieleGetSpieleQuerySortByDefault = `datum`;
-export const spieleGetSpieleQueryOrderDefault = `asc`;
-
-export const SpieleGetSpieleQueryParams = zod.object({
-  saison_id: zod.union([zod.string(), zod.null()]).optional(),
-  saison_phase: zod
-    .union([zod.literal("playoffs"), zod.enum(["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]), zod.null()])
-    .optional(),
-  spiel_status: zod.union([zod.enum(["from_today", "past", "today", "abgesagt", "unknown"]), zod.null()]).optional(),
-  team_id: zod.union([zod.string().regex(spieleGetSpieleQueryTeamIdOneRegExp), zod.null()]).optional(),
-  limit: zod.int().min(1).max(spieleGetSpieleQueryLimitMax).default(spieleGetSpieleQueryLimitDefault),
-  sort_by: zod.enum(["datum", "uhrzeit", "spiel_nr", "saison_phase"]).default(spieleGetSpieleQuerySortByDefault),
-  order: zod.enum(["asc", "desc"]).default(spieleGetSpieleQueryOrderDefault),
-});
-
-/**
  * List one season's Spiele needing the administrator, with the bracket's faults and every report's state.
  *
  * The season is `saison_id`'s, else the active one, answering 404 while none is. A fixture qualifies when it is
@@ -3036,7 +3010,7 @@ export const SpieleGetSpieleActionRequiredQueryParams = zod.object({
 });
 
 /**
- * List Spiele as `GET /spiele` does, a planned season's included, in the admin shape.
+ * List one season's Spiele, the active one's unless `saison_id` names another, a planned season's included, in the admin shape.
  *
  * Each referee carries their whole name, and each booking its money.
  * @summary Spiele for the admin surfaces

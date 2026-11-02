@@ -185,7 +185,6 @@ import type {
   FLSpieleActionRequiredResponse,
   FLSpieleAdminListResponse,
   FLSpieleAdminSingleResponse,
-  FLSpieleListResponse,
   FLSpielerAccountEinwilligungResponse,
   FLSpielerAdminSingleResponse,
   FLSpielerListResponse,
@@ -226,7 +225,6 @@ import type {
   SpielberichteGetSpielberichtVerwaltungParams,
   SpielbestaetigungenGetSpielbestaetigungenParams,
   SpieleGetSpieleActionRequiredParams,
-  SpieleGetSpieleParams,
   SpieleGetSpieleVerwaltungParams,
   SpielePatchSpielParams,
   SpielerGetSpielerParams,
@@ -4077,29 +4075,6 @@ export const spielbestaetigungenEnterSpielbestaetigung = async (
   });
 };
 
-export const getSpieleGetSpieleUrl = (params?: SpieleGetSpieleParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/spiele?${stringifiedParams}` : `/api/v0/spiele`;
-};
-
-/**
- * List the Spiele matching the filters, of the current season unless `saison_id` names another.
- *
- * A season this tier may not read 404s; `playoffs` means every phase but `gruppenphase`, and `from_today`
- * includes today.
- * @summary List Spiele
- */
-export const spieleGetSpiele = async (
-  params?: SpieleGetSpieleParams,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLSpieleListResponse> => {
-  return baseKeyTransport<FLSpieleListResponse>(getSpieleGetSpieleUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSpieleGetSpieleActionRequiredUrl = (params?: SpieleGetSpieleActionRequiredParams) => {
   const stringifiedParams = serializeQuery(params);
 
@@ -4133,7 +4108,7 @@ export const getSpieleGetSpieleVerwaltungUrl = (params?: SpieleGetSpieleVerwaltu
 };
 
 /**
- * List Spiele as `GET /spiele` does, a planned season's included, in the admin shape.
+ * List one season's Spiele, the active one's unless `saison_id` names another, a planned season's included, in the admin shape.
  *
  * Each referee carries their whole name, and each booking its money.
  * @summary Spiele for the admin surfaces

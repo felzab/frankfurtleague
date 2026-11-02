@@ -14,7 +14,6 @@ from app.api.spielberichte.schemas import FLSpieleActionRequiredResponse
 from app.api.spiele.schemas import (
     FLSpiel,
     FLSpieleAdminListResponse,
-    FLSpieleListResponse,
     FLSpielJoined,
     FLSpielJoinedAdmin,
     FLSpielJoinedInternal,
@@ -26,6 +25,7 @@ from app.api.spiele.schemas import (
     FLSpielTeamFieldJoinedInternal,
     public_referee_name,
 )
+from app.api.spieltage.schemas import FLSpielplanSpieltag
 from app.api.teams.schemas import FLTeam
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -80,10 +80,12 @@ SCHIEDSRICHTER_SURNAME = "Kern"
 SCHIEDSRICHTER_NAME = f"Ada {SCHIEDSRICHTER_SURNAME}"
 PUBLIC_SCHIEDSRICHTER_NAME = "Ada K."
 
-LIST_PATH = f"/api/v{API_VERSION}/spiele"
-SINGLE_PATH = f"{LIST_PATH}/{SPIEL_ID}"
+SPIELE_PREFIX = f"/api/v{API_VERSION}/spiele"
+SINGLE_PATH = f"{SPIELE_PREFIX}/{SPIEL_ID}"
 ADMIN_PATH = f"{SINGLE_PATH}/verwaltung"
-ADMIN_LIST_PATH = f"{LIST_PATH}/list/verwaltung?saison_id={SAISON_ID}"
+ADMIN_LIST_PATH = f"{SPIELE_PREFIX}/list/verwaltung?saison_id={SAISON_ID}"
+# The base tier's list of fixtures: the season's matchdays, each holding its matches.
+SPIELPLAN_PATH = f"/api/v{API_VERSION}/saisons/{SAISON_ID}/spielplan"
 
 AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
 
@@ -104,6 +106,12 @@ def stored_document() -> dict[str, Any]:
         schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": SCHIEDSRICHTER_NAME, "payment": PAYMENT},
         ergebnis="2:1",
     )
+
+
+def spieltag_document() -> dict[str, Any]:
+    """The fixture's matchday, which the Spielplan lists it under."""
+
+    return {"_id": SPIELTAG_ID, "beginn": None, "ende": None, "position": 1, "saison_phase": "gruppenphase", "saison_id": SAISON_ID}
 
 
 def joined_document() -> dict[str, Any]:
@@ -212,6 +220,7 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
         database = a_clean_database_sync(client, mongo_replica_set_url, database_name)
         database[Collection.GRANTS].insert_many(grants_for_the_suite())
         database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
+        database[Collection.SPIELTAGE].insert_one(spieltag_document())
         database[Collection.SPIELE].insert_one(stored_document())
         # Publishing their name, so the reduction is what the base tier serves rather than a withheld null.
         database[Collection.SCHIEDSRICHTER].insert_one(
@@ -458,10 +467,11 @@ class TestTheTwoListShapes:
     """
 
     def test_the_base_tier_list_reduces_the_referees_surname(self):
-        response = FLSpieleListResponse.model_validate({"spiele": [joined_document()]})
+        """The Spielplan's matchday, the one base-tier read listing a season's fixtures."""
+        spieltag = FLSpielplanSpieltag.model_validate({**spieltag_document(), "count_spiele": 1, "spiele": [joined_document()]})
 
-        assert response.spiele[0].schiedsrichter is not None
-        assert response.spiele[0].schiedsrichter.name == PUBLIC_SCHIEDSRICHTER_NAME
+        assert spieltag.spiele[0].schiedsrichter is not None
+        assert spieltag.spiele[0].schiedsrichter.name == PUBLIC_SCHIEDSRICHTER_NAME
 
     def test_the_admin_list_keeps_it_whole(self):
         """Without this the admin fixture search matches a surname against an initial and finds nothing."""
@@ -543,7 +553,7 @@ class TestTheStoredShape:
 
 
 BASE_TIER_CASES = [
-    pytest.param(f"{LIST_PATH}?saison_id={SAISON_ID}", id="the list"),
+    pytest.param(SPIELPLAN_PATH, id="the Spielplan"),
     pytest.param(SINGLE_PATH, id="one fixture"),
 ]
 
@@ -551,10 +561,7 @@ BASE_TIER_CASES = [
 @pytest.mark.db
 @pytest.mark.parametrize("path", BASE_TIER_CASES)
 def test_no_base_tier_body_carries_either_figure_at_any_depth(seeded_url: str, path: str):
-    """The serialised answer to a real request, which is the only thing the wire is actually bound by.
-
-    `saison_id` is passed rather than resolved, so the list does not depend on a seeded season.
-    """
+    """The serialised answer to a real request, which is the only thing the wire is actually bound by."""
 
     response = answered(seeded_url, path, BASE_AUTH)
 

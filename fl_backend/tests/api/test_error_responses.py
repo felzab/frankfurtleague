@@ -45,6 +45,10 @@ def client() -> TestClient:
     return TestClient(APP, raise_server_exceptions=False)
 
 
+# A base-tier read that reaches the database, so a request passing the key meets the missing client.
+GUARDED_READ = "/api/v0/saisons/frame"
+
+
 def error_records(caplog) -> list[logging.LogRecord]:
     return [record for record in caplog.records if getattr(record, "error_code", None) is not None]
 
@@ -154,7 +158,7 @@ def logged_document(caplog) -> str:
 
 class TestFailureBodies:
     def test_missing_credentials_answer_names_its_code_and_id(self):
-        response = client().get("/api/v0/spiele")
+        response = client().get(GUARDED_READ)
 
         assert response.status_code == 401
         body = response.json()
@@ -163,19 +167,19 @@ class TestFailureBodies:
         assert response.headers["WWW-Authenticate"] == "Bearer"
 
     def test_a_wrong_key_is_distinguishable_by_code(self):
-        response = client().get("/api/v0/spiele", headers={"Authorization": "Bearer wrong"})
+        response = client().get(GUARDED_READ, headers={"Authorization": "Bearer wrong"})
 
         assert (response.status_code, response.json()["error_code"]) == (401, Code.ACCESS_KEY_REFUSED)
 
     def test_an_unavailable_database_is_503_with_its_code(self):
-        response = client().get("/api/v0/spiele", headers=BASE_AUTH)
+        response = client().get(GUARDED_READ, headers=BASE_AUTH)
 
         assert (response.status_code, response.json()["error_code"]) == (503, Code.NO_DATABASE_CLIENT)
 
     def test_the_body_and_the_headers_carry_nothing_but_the_code_the_id_and_the_challenge(self):
         """`error_response` forwards `exc.headers` as well as the body, so either is a channel a message could leak through."""
 
-        response = client().get("/api/v0/spiele")
+        response = client().get(GUARDED_READ)
 
         assert (set(response.json()), response.json()["fields"]) == ({"error_code", "trace_id", "fields"}, [])
         # The exact set, so a message copied into any header, under any name, moves this.
@@ -273,7 +277,7 @@ class TestTheAccessLineCarriesTheRefusal:
     """A refusal writes no line of its own, so the access line is the one record of which code a request answered."""
 
     def test_a_refusal_s_code_rides_its_access_line(self, caplog):
-        assert access_codes(caplog, lambda: client().get("/api/v0/spiele")) == [Code.ACCESS_KEY_REFUSED]
+        assert access_codes(caplog, lambda: client().get(GUARDED_READ)) == [Code.ACCESS_KEY_REFUSED]
 
     def test_a_success_s_access_line_carries_no_code(self, caplog):
         assert access_codes(caplog, lambda: TestClient(VALIDATION_APP).get(ANSWERED_PATH)) == [None]
@@ -350,18 +354,18 @@ TRACEPARENT = f"00-{'c0ffee00' * 4}-{'ab' * 8}-01"
 
 class TestTraceContext:
     def test_a_well_formed_traceparent_s_trace_id_reaches_the_failure_body(self):
-        response = client().get("/api/v0/spiele", headers={"traceparent": TRACEPARENT, **BASE_AUTH})
+        response = client().get(GUARDED_READ, headers={"traceparent": TRACEPARENT, **BASE_AUTH})
 
         assert response.json()["trace_id"] == "c0ffee00" * 4
 
     def test_nothing_is_echoed_on_the_response(self):
         """The failure body is the one channel handing the id back: a response header would put it where nothing reads it."""
-        response = client().get("/api/v0/spiele", headers={"traceparent": TRACEPARENT, **BASE_AUTH})
+        response = client().get(GUARDED_READ, headers={"traceparent": TRACEPARENT, **BASE_AUTH})
 
         assert not {"traceparent", "x-correlation-id"} & {name.lower() for name in response.headers}
 
     def test_a_malformed_traceparent_is_replaced_not_honoured(self):
-        response = client().get("/api/v0/spiele", headers={"traceparent": "NOT/AN/ID", **BASE_AUTH})
+        response = client().get(GUARDED_READ, headers={"traceparent": "NOT/AN/ID", **BASE_AUTH})
 
         minted = response.json()["trace_id"]
         assert minted != "NOT/AN/ID"
@@ -369,7 +373,7 @@ class TestTraceContext:
 
     def test_the_retired_header_is_read_by_nothing(self):
         """A hop still sending the old header must find it ignored rather than honoured: it carries no span and no version."""
-        response = client().get("/api/v0/spiele", headers={"X-Correlation-ID": "c0ffee00" * 4, **BASE_AUTH})
+        response = client().get(GUARDED_READ, headers={"X-Correlation-ID": "c0ffee00" * 4, **BASE_AUTH})
 
         assert response.json()["trace_id"] != "c0ffee00" * 4
 
@@ -390,10 +394,10 @@ class TestAccessLine:
 
     def test_the_query_string_is_part_of_the_logged_path(self, caplog):
         with caplog.at_level(logging.INFO, logger="frankfurtleague"):
-            client().get("/api/v0/spiele", params={"limit": 5}, headers=BASE_AUTH)
+            client().get(GUARDED_READ, params={"limit": 5}, headers=BASE_AUTH)
 
         paths = [record.path for record in caplog.records if getattr(record, "path", None)]
-        assert "/api/v0/spiele?limit=5" in paths
+        assert f"{GUARDED_READ}?limit=5" in paths
 
 
 async def crash() -> None:

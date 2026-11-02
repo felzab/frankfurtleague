@@ -16009,22 +16009,6 @@
         "title": "FLSpieleAdminSingleResponse",
         "type": "object"
       },
-      "FLSpieleListResponse": {
-        "properties": {
-          "spiele": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielJoined"
-            },
-            "title": "Spiele",
-            "type": "array"
-          }
-        },
-        "required": [
-          "spiele"
-        ],
-        "title": "FLSpieleListResponse",
-        "type": "object"
-      },
       "FLSpieleSingleResponse": {
         "properties": {
           "spiel": {
@@ -27545,182 +27529,6 @@
         ]
       }
     },
-    "/api/v0/spiele": {
-      "get": {
-        "description": "List the Spiele matching the filters, of the current season unless `saison_id` names another.\n\nA season this tier may not read 404s; `playoffs` means every phase but `gruppenphase`, and `from_today`\nincludes today.",
-        "operationId": "spiele_get_spiele",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "saison_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Saison Id"
-            }
-          },
-          {
-            "in": "query",
-            "name": "saison_phase",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "const": "playoffs",
-                  "type": "string"
-                },
-                {
-                  "$ref": "#/components/schemas/FLSaisonPhase"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Saison Phase"
-            }
-          },
-          {
-            "in": "query",
-            "name": "spiel_status",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/FLSpielStatus"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Spiel Status"
-            }
-          },
-          {
-            "in": "query",
-            "name": "team_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "pattern": "^[0-9a-fA-F]{24}$",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Team Id"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "sort_by",
-            "required": false,
-            "schema": {
-              "default": "datum",
-              "enum": [
-                "datum",
-                "uhrzeit",
-                "spiel_nr",
-                "saison_phase"
-              ],
-              "title": "Sort By",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "order",
-            "required": false,
-            "schema": {
-              "default": "asc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpieleListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "List Spiele",
-        "tags": [
-          "spiele"
-        ]
-      }
-    },
     "/api/v0/spiele/action_required": {
       "get": {
         "description": "List one season's Spiele needing the administrator, with the bracket's faults and every report's state.\n\nThe season is `saison_id`'s, else the active one, answering 404 while none is. A fixture qualifies when it is\ncalled off; lacks a date, time, venue or referee; is past without a result; has a knockout side with neither\nteam nor source; holds a report not adopted as it stands; is put before the administrator by a club's\nunclosed confirmation; or carries a bracket fault, a booking onto a retired venue or referee and a claim within\nfour hours of another fixture's among them.",
@@ -27804,7 +27612,7 @@
     },
     "/api/v0/spiele/list/verwaltung": {
       "get": {
-        "description": "List Spiele as `GET /spiele` does, a planned season's included, in the admin shape.\n\nEach referee carries their whole name, and each booking its money.",
+        "description": "List one season's Spiele, the active one's unless `saison_id` names another, a planned season's included, in the admin shape.\n\nEach referee carries their whole name, and each booking its money.",
         "operationId": "spiele_get_spiele_verwaltung",
         "parameters": [
           {

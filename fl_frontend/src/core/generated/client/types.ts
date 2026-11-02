@@ -5542,10 +5542,6 @@ export interface FLSpieleAdminSingleResponse {
   spiel: FLSpielJoinedAdmin;
 }
 
-export interface FLSpieleListResponse {
-  spiele: FLSpielJoined[];
-}
-
 export interface FLSpieleSingleResponse {
   spiel: FLSpielJoined;
 }
@@ -6303,36 +6299,6 @@ export type SpielbestaetigungenGetSpielbestaetigungenParams = {
    */
   limit?: number;
 };
-
-export type SpieleGetSpieleParams = {
-  saison_id?: string | null;
-  saison_phase?: "playoffs" | FLSaisonPhase | null;
-  spiel_status?: FLSpielStatus | null;
-  team_id?: string | null;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: SpieleGetSpieleSortBy;
-  order?: SpieleGetSpieleOrder;
-};
-
-export type SpieleGetSpieleSortBy = (typeof SpieleGetSpieleSortBy)[keyof typeof SpieleGetSpieleSortBy];
-
-export const SpieleGetSpieleSortBy = {
-  datum: "datum",
-  uhrzeit: "uhrzeit",
-  spiel_nr: "spiel_nr",
-  saison_phase: "saison_phase",
-} as const;
-
-export type SpieleGetSpieleOrder = (typeof SpieleGetSpieleOrder)[keyof typeof SpieleGetSpieleOrder];
-
-export const SpieleGetSpieleOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
 
 export type SpieleGetSpieleActionRequiredParams = {
   saison_id?: string | null;
