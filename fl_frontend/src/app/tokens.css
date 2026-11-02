@@ -6,17 +6,20 @@
     --bg: #ffffff;
     /* The rail and a field's own fill. */
     --bg-surface: #f5f5f5;
-    --bg-muted: #e5e5e5;
+    /* One step above a card: the fill under the pointer on a card, and the small fills. */
+    --bg-muted: #d9d9d9;
     /* A card and a table, one step off the page; its head one step further; a dialog, menu, sheet, popover,
        tooltip or toast. Each a role of its own rather than a step of the scale above, so a theme can raise
-       its cards without moving the rail, the fields or the overlays. */
-    --bg-card: #ffffff;
-    --bg-card-head: #f5f5f5;
+       its cards without moving the rail, the fields or the overlays. The light card is as dark as a status
+       chip's tint on it allows while its word keeps 4.5:1, and its head as dark as the warning text allows. */
+    --bg-card: #eaeaea;
+    --bg-card-head: #d9d9d9;
     --bg-overlay: #ffffff;
     --fg: #0a0a0a;
     --fg-muted: #525252;
-    --border: #d4d4d4;
-    --border-control: #8e8e8e;
+    --border: #b3b3b3;
+    /* The lightest grey whose edge keeps 3:1 on a card, the darkest ground a field stands on. */
+    --border-control: #858585;
     --brand: #216c2d;
     --brand-solid: #033f11;
     --brand-solid-hover: #1b5123;
