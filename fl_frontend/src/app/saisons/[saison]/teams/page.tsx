@@ -6,6 +6,7 @@ import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSaisonTeams } from "@/features/saisons/queries";
+import { austrittKuerzel } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Metadata, ResolvingMetadata } from "next";
@@ -43,7 +44,7 @@ async function readTable(params: Props["params"]) {
         href: ROUTES.team.path(saison, team.id),
         plaque: { kuerzel: team.shorthand },
         muted: team.austritt_type !== null,
-        ...(team.austritt_type === "disqualifikation" ? { chip: { tone: "danger" as const, label: COPY.shared.disqualified } } : {}),
+        ...(team.austritt_type === "disqualifikation" ? { chip: { tone: "danger" as const, label: austrittKuerzel(team.austritt_type) } } : {}),
         cells: { gruppe: SERVER_COPY.season.gruppe(team.gruppe) },
       })),
       empty: { kind: "none" as const, plural: COPY.page.teams, glyph: "teams" as const },

@@ -11,6 +11,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
 import { matchdayOf, matchRowOf } from "@/features/spiele/blocks";
+import { austrittKuerzel } from "@/features/teams/constants";
 import { buildMapsSearchUrl } from "@/shared/utils/format";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -92,7 +93,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const address = `${team.address.strasse} ${team.address.hausnummer}, ${team.address.plz} ${team.address.stadt}`;
   return {
     title: { record: team.name },
-    ...(team.austritt?.type === "disqualifikation" ? { chip: { tone: "danger", label: COPY.shared.disqualified } } : {}),
+    ...(team.austritt?.type === "disqualifikation" ? { chip: { tone: "danger", label: austrittKuerzel(team.austritt.type) } } : {}),
     club: (
       <ClubHead
         kuerzel={team.shorthand}

@@ -167,7 +167,15 @@ export const COPY = catalogue({
       finale: "Finale",
     },
     afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
-    disqualified: "DQ",
+    /**
+     * The two routes out of a season, each in its three wordings: `label` names the record, `zustand` the club's
+     * resulting state, `kuerzel` the badge. `AUSTRITT_OPTIONS` serves them to every surface, so no two can name
+     * one record differently.
+     */
+    austritt: {
+      disqualifikation: { label: "Disqualifikation", zustand: "Disqualifiziert", kuerzel: "DQ" },
+      rueckzug: { label: "Rückzug", zustand: "Zurückgezogen", kuerzel: "RZ" },
+    },
     // Redesign: a line-up's chips read these.
     startelf: "Startelf",
     bank: "Bank",
