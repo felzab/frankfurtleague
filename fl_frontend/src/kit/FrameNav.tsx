@@ -591,11 +591,35 @@ export function EditorBack() {
 /** A link of the classic header: catalogue words and an address the layout gives. */
 export type HeaderLink = { label: Copy; href: Route };
 
+/** The season the site is on as the header's first entry, once its read lands; none while the league has none. */
+function SeasonEntry({ read, look }: { read: Promise<HeaderLink | null>; look: "band" | "sheet" }) {
+  const link = use(read);
+  if (link === null) return null;
+  return (
+    <NextLink
+      href={link.href}
+      data-kit-focus={look === "band" ? "ring" : "inset"}
+      className={look === "band" ? frameLink({ tone: "bandMuted" }) : menuEntry({ size: "phone" })}>
+      {link.label}
+    </NextLink>
+  );
+}
+
 /**
  * The classic header's links and „Anmelden“ on the band: in a row from 1024 px, and on a phone behind one
- * button opening them as a sheet.
+ * button opening them as a sheet. The season's entry leads them once its read lands; while it waits it holds no
+ * width and the band its fixed height, so nothing beside it moves up or down.
  */
-export function HeaderLinks({ links, signIn }: { links: ReadonlyArray<HeaderLink>; signIn: Route }) {
+export function HeaderLinks({
+  season,
+  links,
+  signIn,
+}: {
+  /** The season the site is on, read on a request, or null where the league has none. */
+  season?: Promise<HeaderLink | null>;
+  links: ReadonlyArray<HeaderLink>;
+  signIn: Route;
+}) {
   const current = currentOf(
     usePathname(),
     links.map((link) => link.href),
@@ -605,6 +629,14 @@ export function HeaderLinks({ links, signIn }: { links: ReadonlyArray<HeaderLink
       <nav
         aria-label={COPY.template.navigation}
         className="hidden gap-2 lg:flex">
+        {season !== undefined && (
+          <Suspense fallback={null}>
+            <SeasonEntry
+              read={season}
+              look="band"
+            />
+          </Suspense>
+        )}
         {links.map((link) => (
           <NextLink
             key={link.href}
@@ -638,6 +670,14 @@ export function HeaderLinks({ links, signIn }: { links: ReadonlyArray<HeaderLink
               </AriaButton>
             }>
             <div className="grid gap-1 pt-2">
+              {season !== undefined && (
+                <Suspense fallback={null}>
+                  <SeasonEntry
+                    read={season}
+                    look="sheet"
+                  />
+                </Suspense>
+              )}
               {[...links, { label: COPY.shared.verb.signIn, href: signIn }].map((link) => (
                 <NextLink
                   key={link.href}
