@@ -1,3 +1,4 @@
+import { cardSurface } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
@@ -38,7 +39,7 @@ const facts = tv({
       // row was drawn in, so a read page's or a mailed page's column splits its pairs and a phone's, or a box
       // narrower than a dialog on any screen, stacks them.
       boxed: {
-        list: "overflow-hidden rounded-lg border border-border @lg:grid @lg:grid-cols-2",
+        list: `overflow-hidden ${cardSurface()} @lg:grid @lg:grid-cols-2`,
         // In the wide box the second pair shares the first one's row, so it draws no hairline above it either.
         row: "border-t border-border px-3 py-2 first:border-t-0 @lg:nth-2:border-t-0",
       },

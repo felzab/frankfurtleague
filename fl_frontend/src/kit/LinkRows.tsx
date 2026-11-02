@@ -1,3 +1,4 @@
+import { cardSurface } from "./cardStyles";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
@@ -15,7 +16,7 @@ type LinkRow = { glyph?: IconName; label: Copy; value: string; href: Route };
  */
 export function LinkRows({ rows }: { rows: readonly LinkRow[] }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-bg">
+    <div className={cardSurface({ class: "overflow-hidden" })}>
       {rows.map((row) => (
         <div
           key={row.href}

@@ -1,16 +1,23 @@
 import { tv } from "./tv";
 
 /**
+ * The card's surface alone: its hairline, its corners and its fill, which every kit box standing as a card
+ * wears, so a ruling on the card's surface reaches each of them from here. A box keeps its own layout and
+ * padding beside it, passed as `class`.
+ */
+export const cardSurface = tv({ base: "rounded-lg border border-border bg-bg-card" });
+
+/**
  * A card's look, shared by the server-rendered `Card`, `CardLink` and `CardRow` and the client `CardFold`, so a
  * ruling on the card's surface, its head's fill or a row's hover changes one recipe. Kept apart from the
  * client module, whose every export a Server Component would receive as a reference it cannot call.
  *
- * A box with the hairline and the card corners, its head on the surface colour. Its body is rows, or fields
- * with the card's padding around them.
+ * A box of the card's surface, its head one step above it. Its body is rows, or fields with the card's
+ * padding around them.
  */
 export const card = tv({
   slots: {
-    root: "grid overflow-hidden rounded-lg border border-border bg-bg-card text-fg",
+    root: `grid overflow-hidden ${cardSurface()} text-fg`,
     head: "grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 border-b border-border bg-bg-card-head px-4 py-3",
     title: "text-base font-semibold break-words",
     count: "col-start-2 row-start-1 font-numeric text-sm text-fg-muted",

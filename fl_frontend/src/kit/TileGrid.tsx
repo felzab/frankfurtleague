@@ -1,5 +1,6 @@
 import Image from "next/image";
 
+import { cardSurface } from "./cardStyles";
 import { Link } from "./Link";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
@@ -22,7 +23,7 @@ const grid = tv({
   slots: {
     root: "grid grid-cols-2 gap-2 lg:grid-cols-4",
     // The tile's edge and corners hold the link, which fills under the pointer and rings inside them.
-    tile: "overflow-hidden rounded-lg border border-border bg-bg",
+    tile: `overflow-hidden ${cardSurface()}`,
     content: "text-sm font-medium",
   },
   variants: {

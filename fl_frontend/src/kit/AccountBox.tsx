@@ -5,6 +5,7 @@ import { Form } from "react-aria-components/Form";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { cardSurface } from "./cardStyles";
 import { StatusLine } from "./FieldParts";
 import { HelpPopover } from "./HelpPopover";
 import { SectionTitle } from "./Section";
@@ -38,7 +39,7 @@ export function AccountBox({
   const status = statusOf(answer, isBlocked, isPending);
 
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-bg">
+    <section className={cardSurface({ class: "overflow-hidden" })}>
       <Form
         validationErrors={answer !== null && !answer.ok ? answer.fieldErrors : undefined}
         onInvalid={block}

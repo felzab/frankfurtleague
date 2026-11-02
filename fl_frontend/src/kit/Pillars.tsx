@@ -1,3 +1,4 @@
+import { cardSurface } from "./cardStyles";
 import { Icon } from "./Icon";
 import { tv } from "./tv";
 
@@ -10,7 +11,7 @@ type Pillar = { glyph: IconName; title: Copy; text: Copy };
 const pillars = tv({
   slots: {
     root: "grid gap-4 lg:grid-cols-3",
-    card: "grid content-start gap-2 rounded-lg border border-border bg-bg p-6",
+    card: `grid content-start gap-2 ${cardSurface()} p-6`,
     // Board: the glyph's box, 40 px on the muted fill.
     mark: "mb-1 flex size-10 items-center justify-center rounded-lg bg-bg-muted text-fg",
     title: "text-base font-semibold",

@@ -1,6 +1,7 @@
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { cardSurface } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { HelpPopover } from "./HelpPopover";
 import { tv } from "./tv";
@@ -74,7 +75,7 @@ export function Section({
   children?: ReactNode;
 }) {
   return (
-    <section className="grid gap-4 rounded-lg border border-border bg-bg p-4">
+    <section className={cardSurface({ class: "grid gap-4 p-4" })}>
       {/* The ⓘ stands beside the heading, not in it, so the heading is named by its title alone. */}
       <div className="flex items-center gap-2">
         <SectionTitle text={title} />

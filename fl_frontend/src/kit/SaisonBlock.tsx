@@ -3,6 +3,7 @@ import { useId } from "react";
 import { now } from "@/core/clock";
 import { SERVER_COPY } from "@/core/serverCopy";
 
+import { cardSurface } from "./cardStyles";
 import { Countdown } from "./Countdown";
 import { Link } from "./Link";
 import { Podium } from "./Podium";
@@ -34,7 +35,7 @@ const block = tv({
     root: "grid min-w-0 content-start gap-4",
     head: "flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1",
     title: "text-base font-semibold",
-    box: "grid gap-4 rounded-lg border border-border bg-bg p-4",
+    box: `grid gap-4 ${cardSurface()} p-4`,
     line: "text-sm text-fg-muted",
     group: "grid gap-2",
     groupTitle: "text-xs font-medium tracking-caps text-fg-muted uppercase",

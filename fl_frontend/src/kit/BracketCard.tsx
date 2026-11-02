@@ -1,3 +1,4 @@
+import { cardSurface } from "./cardStyles";
 import { Link } from "./Link";
 import { figures, look, NONE, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
@@ -57,7 +58,7 @@ export function BracketCard({
   return (
     <div
       id={anchor}
-      className="kit-target overflow-hidden rounded-lg border border-border bg-bg text-sm">
+      className={cardSurface({ class: "kit-target overflow-hidden text-sm" })}>
       <Link
         href={href}
         placement="card">

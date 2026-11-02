@@ -1,5 +1,6 @@
 import { COPY } from "@/core/copy";
 
+import { cardSurface } from "./cardStyles";
 import { Chip } from "./Chip";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
@@ -187,7 +188,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty }: Tab
   // The columns where some row carries the mark of fixtures called off, whose every row keeps its slot.
   const marked = new Set(columns.filter((column) => rows.some((row) => typeof row.cells[column.key] === "object")).map((column) => column.key));
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-bg">
+    <div className={cardSurface({ class: "overflow-x-auto" })}>
       {rows.some((row) => row.anchor !== undefined) && <TargetMark />}
       {rows.length === 0 ? (
         <EmptyState {...empty} />

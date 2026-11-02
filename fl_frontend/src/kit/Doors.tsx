@@ -1,5 +1,6 @@
 import { SERVER_COPY } from "@/core/serverCopy";
 
+import { cardSurface } from "./cardStyles";
 import { LandingSection } from "./LandingSection";
 import { Link } from "./Link";
 import { SocialButtons } from "./SocialButtons";
@@ -15,7 +16,7 @@ type DoorWords = { title: Copy; text: Copy };
 const doors = tv({
   slots: {
     root: "grid gap-4",
-    door: "grid content-start gap-3 rounded-lg border border-border bg-bg p-6",
+    door: `grid content-start gap-3 ${cardSurface()} p-6`,
     title: "text-base font-semibold",
     text: "text-base text-fg-muted",
     act: "mt-1",
