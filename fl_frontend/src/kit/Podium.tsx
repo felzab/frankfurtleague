@@ -6,7 +6,7 @@ import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
 /** A placed club: its name and its Kürzel. */
-export type Placed = { name: string; kuerzel: string };
+type Placed = { name: string; kuerzel: string };
 
 /** A decided place: its club, or `null` where the place is vacant, its club having left the season by then (D499). */
 export type Place = Placed | null;
