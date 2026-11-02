@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatDatum,
   formatDatumLong,
+  formatDatumPair,
   formatDatumWithWeekday,
   formatErgebnis,
   formatEuro,
@@ -39,6 +40,21 @@ describe("formatDatum", () => {
 describe("formatDatumLong", () => {
   it("names the month, umlaut included", async (t) => {
     await same(t, formatDatumLong("2027-03-14"), "14. März 2027");
+  });
+});
+
+describe("formatDatumPair", () => {
+  it("sets the day and the month over the long weekday and the year", async (t) => {
+    const { figure, line } = formatDatumPair("2027-03-06");
+    await same(t, figure, "06.03.");
+    await same(t, line, "Samstag 2027");
+  });
+
+  // Late on New Year's Eve UTC it is already the new year in Berlin: its weekday and its year both.
+  it("reads an instant on the league's clock, the year included", async (t) => {
+    const { figure, line } = formatDatumPair(new Date("2026-12-31T23:30:00Z"));
+    await same(t, figure, "01.01.");
+    await same(t, line, "Freitag 2027");
   });
 });
 
