@@ -8,6 +8,7 @@
 @layer base {
   :root,
   [data-theme="light"] {
+    /* The body's ground, which is `tokens.css`'s `--bg` in each theme: a change to either writes both. */
     --bg-base: #ffffff;
     --bg-surface: #f5f5f5;
     --bg-muted: #e5e5e5;

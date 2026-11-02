@@ -138,6 +138,20 @@ describe("a card", () => {
     expect(bodies.map((body) => body?.classList.contains("min-w-0"))).toEqual([true, true]);
   });
 
+  it("keeps its head its own height when a grid stretches the card to a neighbour's, folded or not", () => {
+    render(
+      <>
+        <Card title={COPY.shared.saison}>
+          <p>{BODY}</p>
+        </Card>
+        {folded}
+      </>,
+    );
+    // jsdom draws no layout: the stretch is held by the root's packing, which gives spare height to no row.
+    const roots = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.closest("section") ?? heading.parentElement);
+    expect(roots.map((root) => root?.classList.contains("content-start"))).toEqual([true, true]);
+  });
+
   it("makes a chooser's card one link, its title and line read as its name", () => {
     render(
       <CardLink

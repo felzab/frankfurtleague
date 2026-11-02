@@ -24,7 +24,9 @@ export const cardHover = tv({ base: "transition-colors duration-(--motion-state)
  */
 export const card = tv({
   slots: {
-    root: `grid overflow-hidden ${cardSurface()} text-fg`,
+    // `content-start` packs the rows at the top: a card stretched to a grid neighbour's height gives the spare
+    // height to nothing, where auto rows would split it between the head and the body and grow the head.
+    root: `grid content-start overflow-hidden ${cardSurface()} text-fg`,
     head: "grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 border-b border-border bg-bg-card-head px-4 py-3",
     title: "text-base font-semibold break-words",
     count: "col-start-2 row-start-1 font-numeric text-sm text-fg-muted",
