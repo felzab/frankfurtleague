@@ -62,6 +62,8 @@ export type TableProps = {
   rows: ReadonlyArray<TableRow>;
   /** What stands in the rows' place when there are none. */
   empty: EmptyStateProps;
+  /** The rows alone, without the table's own box, inside a card's body, whose box already holds them. */
+  bare?: boolean;
 };
 
 const table = tv({
@@ -184,13 +186,13 @@ function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
  * muted capitals. A row opens its record, a chevron at its end saying so. Few columns: the name with its plaque
  * and chip, then a few facts.
  */
-export function Table({ label, nameLabel, rankLabel, columns, rows, empty }: TableProps) {
+export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare = false }: TableProps) {
   const nameHead = table({ align: "start" }).head();
   const isLinked = rows.some((row) => row.href !== undefined);
   // The columns where some row carries the mark of fixtures called off, whose every row keeps its slot.
   const marked = new Set(columns.filter((column) => rows.some((row) => typeof row.cells[column.key] === "object")).map((column) => column.key));
   return (
-    <div className={cardSurface({ class: "overflow-x-auto" })}>
+    <div className={bare ? "overflow-x-auto" : cardSurface({ class: "overflow-x-auto" })}>
       {rows.some((row) => row.anchor !== undefined) && <TargetMark />}
       {rows.length === 0 ? (
         <EmptyState {...empty} />

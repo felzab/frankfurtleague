@@ -80,6 +80,23 @@ describe("a table's name cell", () => {
   });
 });
 
+describe("a table's box", () => {
+  it("is the card's surface standing alone, and inside a card's body no box at all", () => {
+    const { container } = render(
+      <>
+        <Table {...props([{ id: "1", name: "Goethe", cells: { stadtteil: "Nordend" } }])} />
+        <Table
+          {...props([{ id: "2", name: "Bettina", cells: { stadtteil: "Westend" } }])}
+          bare
+        />
+      </>,
+    );
+    const [alone, bare] = [...container.children].map((box) => box.className.split(" "));
+    expect(alone).toEqual(expect.arrayContaining(["rounded-lg", "border", "border-border", "bg-bg-card", "overflow-x-auto"]));
+    expect(bare).toStrictEqual(["overflow-x-auto"]);
+  });
+});
+
 describe("a table's head", () => {
   // A card's head is the one band a card carries; a filled column head under it reads as a second band.
   it("sets its column heads over a hairline on the card's own fill, with no fill of their own", () => {
