@@ -12,8 +12,9 @@ export const SITE_OPEN_GRAPH = { siteName: COPY.brand.name, locale: "de_DE", typ
 
 /**
  * A page's metadata from its row in `fl_frontend/src/core/routes.ts :: ROUTES` and its address: the title,
- * the description, the address as the canonical and the preview's, and `noindex` where the row keeps search
- * engines from listing the page. A row titled by its record or its teams takes that title as `title`; a
+ * the description, the address as the preview's, and either the address as the canonical, on a page search
+ * engines list, or `noindex`, on one they do not: a canonical names the address to list, which a page kept out
+ * of the index has none of, so it declares none, as Yoast leaves it off a noindex page. A row titled by its record or its teams takes that title as `title`; a
  * listed page takes its description from `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY.description`,
  * which holds one for a listed row alone. Call it from `generateMetadata`, handing on the `parent` Next
  * passes there.
@@ -39,9 +40,8 @@ export async function pageMetadata(
   return {
     title: words.title ?? (typeof row.title === "string" ? row.title : undefined),
     description: words.description,
-    alternates: { canonical: path },
     openGraph: await openGraphFor(parent, path),
-    ...(row.crawl === "index" ? {} : { robots: { index: false, follow: false } }),
+    ...(row.crawl === "index" ? { alternates: { canonical: path } } : { robots: { index: false, follow: false } }),
   };
 }
 

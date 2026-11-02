@@ -20,3 +20,18 @@ describe("a page's own preview", () => {
     expect(openGraph).toMatchObject({ url: "/about", images: [SHARE_IMAGE] });
   });
 });
+
+describe("a page's canonical", () => {
+  it("names the address of a page search engines list", async () => {
+    const { alternates, robots } = await pageMetadata(parent, ROUTES.about, ROUTES.about.path());
+    expect(alternates).toEqual({ canonical: "/about" });
+    expect(robots).toBeUndefined();
+  });
+
+  // A canonical names the address to list; on a page kept out of the index it says the opposite of its noindex.
+  it("is left off a page kept out of the index", async () => {
+    const { alternates, robots } = await pageMetadata(parent, ROUTES.signIn, ROUTES.signIn.path());
+    expect(alternates).toBeUndefined();
+    expect(robots).toEqual({ index: false, follow: false });
+  });
+});
