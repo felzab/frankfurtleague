@@ -1,40 +1,25 @@
 import { SITE_URL } from "@/core/brand";
+import { ROUTES } from "@/core/routes";
 
+import type { RouteEntry } from "@/core/routes";
 import type { MetadataRoute } from "next";
 
-export default function robots(): MetadataRoute.Robots {
-  // Declares the AI-training opt-out the edge enforces. The edge's list sits in a dashboard no
-  // file reads, so nothing compares the two (`docs/ops/spec.md :: 1.8`).
-  // `Meta-ExternalFetcher` is left off: it is the user-initiated fetch, which documents bypassing
-  // this file anyway.
-  const aiBots = [
-    "Amazonbot",
-    "Applebot-Extended",
-    "Bytespider",
-    "CCBot",
-    "ClaudeBot",
-    "GPTBot",
-    "Google-Extended",
-    "meta-externalagent",
-    "Meta-ExternalAds",
-    "Meta-WebIndexer",
-  ];
+/** The first segment of a row's address, which every address the row builds shares. */
+function firstSegment(row: RouteEntry): string {
+  const path = row.path as (...segments: string[]) => string;
+  return `/${path(...Array.from({ length: path.length }, () => "_")).split("/")[1] ?? ""}`;
+}
 
+export default function robots(): MetadataRoute.Robots {
+  // Turns a crawler back BEFORE the fetch; a page's noindex is read only after one. Each segment stands
+  // unslashed, a prefix over the whole segment, so a new page under one takes no rule of its own. The
+  // AI-training opt-out is Cloudflare's managed robots.txt, which the edge puts before this file.
+  const rows: readonly RouteEntry[] = Object.values(ROUTES);
+  const disallowed = new Set(rows.filter((row) => row.crawl === "disallow").map(firstSegment));
+
+  // `/api/` serves handlers rather than pages, so no row names it.
   return {
     sitemap: `${SITE_URL}/sitemap.xml`,
-    rules: [
-      {
-        userAgent: "*",
-        allow: "/",
-        // Turns a crawler back BEFORE the fetch; a page's noindex is read only after one. Each mailed
-        // URL here carries a live token in its query, and `/bestaetigung` and `/bereich` stand
-        // unslashed, prefixes over their whole segments.
-        disallow: ["/api/", "/bereich", "/bestaetigung", "/loeschung", "/registrierung"],
-      },
-      ...aiBots.map((bot) => ({
-        userAgent: bot,
-        disallow: "/",
-      })),
-    ],
+    rules: [{ userAgent: "*", allow: "/", disallow: ["/api/", ...disallowed] }],
   };
 }

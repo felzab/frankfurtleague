@@ -1021,9 +1021,14 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
   (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx :: EMPFAENGER`), so a route
   aimed at a hosted mailbox changes that notice in the same step.
 - **The AI-bot controls admit an agent and refuse a trainer**: AI training blocked, AI agents
-  allowed, AI search allowed, and the managed `robots.txt` on. An agent fetching a page for a
-  person is a visitor; a crawler filling a training set is not, and the distinction is the whole
-  reason the three are set apart rather than by one toggle.
+  allowed, AI search allowed. An agent fetching a page for a person is a visitor; a crawler filling
+  a training set is not, and the distinction is the whole reason the three are set apart rather
+  than by one toggle.
+- **The managed `robots.txt` declares the training opt-out, and it is off until the owner switches
+  it on.** Cloudflare prepends its list of AI-training crawlers to the origin's `/robots.txt`
+  (<https://developers.cloudflare.com/bots/additional-configurations/managed-robots-txt/>), and
+  `fl_frontend/src/app/robots.ts` writes one rule for every crawler alike, so while the setting is
+  off the block above enforces the opt-out and nothing declares it.
 - **A Managed Challenge meets a navigation to `/signin` and to `/bewerbung/*`, and meets nothing
   else** — not `/api/*`, and not a server action's POST, for the reason §2 gives. It
   guards the page load alone: no rule checks the POST behind either page, which the Turnstile

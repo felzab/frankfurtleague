@@ -148,7 +148,7 @@ class Metadata:
 # under https://nextjs.org/docs/llms.txt, and next 16.3.8's own `is-metadata-route` module for the
 # webmanifest spelling, read under the installed packages no checkout carries. Read 2026-10-03.
 METADATA: Final[tuple[Metadata, ...]] = (
-    Metadata("sitemap", "/sitemap.xml", "a list pinned to CONTENT_LAST_MODIFIED rather than read off the clock"),
+    Metadata("sitemap", "/sitemap.xml", "the route table's listed pages, reading no request and no live value"),
     Metadata("robots", "/robots.txt", "a constant object, and the crawl entry point every other URL is reached through"),
     Metadata("manifest", "/manifest.webmanifest", "a constant object, fetched once per install"),
 )
