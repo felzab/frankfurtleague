@@ -55,9 +55,10 @@ export function Countdown({ kickoff, seed }: { kickoff: string; seed: number }) 
       role="timer"
       className="grid grid-cols-3 gap-2">
       {units.map(([figure, unit]) => (
+        // Each unit on the page's own ground, sunk into the raised card that holds the countdown.
         <span
           key={unit}
-          className="grid justify-items-center gap-0.5 rounded-lg bg-bg-surface px-2 py-3">
+          className="grid justify-items-center gap-0.5 rounded-lg bg-bg px-2 py-3">
           {/* Board: the figures' size, 32 px in Anton. */}
           <span className="font-heading text-3xl tracking-display">{formatNumber(figure)}</span>
           <span className="text-xs text-fg-muted">{unit}</span>
