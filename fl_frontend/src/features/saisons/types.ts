@@ -160,7 +160,7 @@ export type SaisonSwapTeam = {
 export type SaisonGruppenSwapContext = {
   /** Every club entered in this season, retired ones included, ordered by name. */
   teams: SaisonSwapTeam[];
-  /** `fl_backend/app/api/saisons/crud.py :: has_started`, the one predicate every start lock reads. */
+  /** `fl_backend/app/api/saisons/services.py :: has_started` off the stored `start_date`, the one predicate every start lock reads. */
   hasStarted: boolean;
 };
 

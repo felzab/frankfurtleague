@@ -97,7 +97,7 @@ function Body({ state }: { state: SaisonState }) {
         <div className={slots.box()}>
           {/* The server's instant seeds the count, so the markup it sends is the markup the page hydrates. */}
           <Countdown
-            kickoff={state.start}
+            start={state.start}
             seed={now().getTime()}
           />
           {state.opening !== undefined && (
