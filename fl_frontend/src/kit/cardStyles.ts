@@ -8,6 +8,13 @@ import { tv } from "./tv";
 export const cardSurface = tv({ base: "rounded-lg border border-border bg-bg-card" });
 
 /**
+ * The fill under the pointer of a row or a link covering a box of the card's surface: one step above the
+ * card, so it shows on the raised card as on the page. A card's rows, a table's linked rows, `LinkRows` and
+ * a card link (`Link`'s card placement, which `SpielRow`, `BracketCard` and the tiles place) read it.
+ */
+export const cardHover = tv({ base: "transition-colors duration-(--motion-state) hover:bg-bg-muted" });
+
+/**
  * A card's look, shared by the server-rendered `Card`, `CardLink` and `CardRow` and the client `CardFold`, so a
  * ruling on the card's surface, its head's fill or a row's hover changes one recipe. Kept apart from the
  * client module, whose every export a Server Component would receive as a reference it cannot call.
@@ -28,7 +35,7 @@ export const card = tv({
     body: "min-w-0",
     foot: "flex justify-end p-4",
     chevron: "",
-    row: "relative flex min-h-14 items-stretch gap-3 border-t border-border px-4 py-2 text-sm transition-colors duration-(--motion-state) first:border-t-0 hover:bg-bg-surface lg:min-h-13",
+    row: `relative flex min-h-14 items-stretch gap-3 border-t border-border px-4 py-2 text-sm first:border-t-0 lg:min-h-13 ${cardHover()}`,
   },
   variants: {
     body: {

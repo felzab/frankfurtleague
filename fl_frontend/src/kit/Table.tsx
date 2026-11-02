@@ -1,6 +1,6 @@
 import { COPY } from "@/core/copy";
 
-import { cardSurface } from "./cardStyles";
+import { cardHover, cardSurface } from "./cardStyles";
 import { Chip } from "./Chip";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
@@ -95,7 +95,7 @@ const table = tv({
       shown: {},
     },
     linked: {
-      true: { row: "transition-colors duration-(--motion-state) hover:bg-bg-surface" },
+      true: { row: cardHover() },
     },
     muted: {
       true: { row: "text-fg-muted" },

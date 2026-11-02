@@ -1,4 +1,4 @@
-import { cardSurface } from "./cardStyles";
+import { cardHover, cardSurface } from "./cardStyles";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
@@ -20,7 +20,10 @@ export function LinkRows({ rows }: { rows: readonly LinkRow[] }) {
       {rows.map((row) => (
         <div
           key={row.href}
-          className="relative flex min-h-14 items-center gap-3 border-t border-border px-4 py-2 text-base transition-colors duration-(--motion-state) first:border-t-0 hover:bg-bg-surface lg:min-h-13 lg:text-sm">
+          className={cardHover({
+            class:
+              "relative flex min-h-14 items-center gap-3 border-t border-border px-4 py-2 text-base first:border-t-0 lg:min-h-13 lg:text-sm",
+          })}>
           {row.glyph !== undefined && (
             <Icon
               glyph={row.glyph}

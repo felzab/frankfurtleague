@@ -29,9 +29,10 @@ export const buttonLook = tv({
   compoundVariants: [
     { look: "primary", host: "aria", class: "data-hovered:bg-brand-solid-hover data-pressed:bg-brand-solid-hover" },
     { look: "primary", host: "link", class: "hover:bg-brand-solid-hover active:bg-brand-solid-hover" },
-    // The lighter surface keeps the edge at 3:1 against the fill under the pointer.
-    { look: "secondary", host: "aria", class: "data-hovered:bg-bg-surface data-pressed:bg-bg-surface" },
-    { look: "secondary", host: "link", class: "hover:bg-bg-surface active:bg-bg-surface" },
+    // One step above the card, so the hover shows on a raised card as on the page and in an overlay; the edge
+    // keeps its 3:1 against the ground around it.
+    { look: "secondary", host: "aria", class: "data-hovered:bg-bg-muted data-pressed:bg-bg-muted" },
+    { look: "secondary", host: "link", class: "hover:bg-bg-muted active:bg-bg-muted" },
     { look: "icon", host: "aria", class: "data-hovered:bg-bg-muted data-pressed:bg-bg-muted" },
     { look: "icon", host: "link", class: "hover:bg-bg-muted active:bg-bg-muted" },
     { look: "quiet", host: "aria", class: "data-hovered:bg-bg-muted data-hovered:text-fg data-pressed:bg-bg-muted data-pressed:text-fg" },

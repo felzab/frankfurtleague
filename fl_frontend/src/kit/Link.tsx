@@ -1,6 +1,7 @@
 import NextLink from "next/link";
 
 import { buttonLook } from "./buttonStyles";
+import { cardHover } from "./cardStyles";
 import { Icon } from "./Icon";
 import { IconLink } from "./IconLink";
 import { tv } from "./tv";
@@ -22,7 +23,7 @@ const link = tv({
       detail: "text-fg-muted transition-colors duration-(--motion-state) hover:text-fg",
       // A row's name takes its row's colour, muted in a row that no longer counts.
       row: "text-inherit after:absolute after:inset-0 after:content-['']",
-      card: "block text-fg transition-colors duration-(--motion-state) hover:bg-bg-surface",
+      card: `block text-fg ${cardHover()}`,
       // The classic footer's links, its words and its sponsors' logos: muted until the pointer is over them.
       footer: "rounded-md text-sm leading-6 text-fg-muted hover:text-fg",
       // Drawn by `buttonLook` in the look the link names.
