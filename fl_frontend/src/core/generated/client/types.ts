@@ -2711,8 +2711,6 @@ export interface FLTeamStatistik {
  */
 export interface FLGruppenTeam {
   austritt_type: FLAustrittType | null;
-  /** @minimum 0 */
-  count_pending_spiele: number;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   /** @minLength 1 */
@@ -5828,12 +5826,10 @@ export interface FLSweepSaisonsResponse {
 }
 
 /**
- * One row of the Tabelle: the standing row and its placing, null for a club that can hold none.
+ * One row of the Tabelle: the standing row and its placing, null for a club that has played no match or has left.
  */
 export interface FLTabelleRow {
   austritt_type: FLAustrittType | null;
-  /** @minimum 0 */
-  count_pending_spiele: number;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   /** @minLength 1 */
@@ -5845,7 +5841,10 @@ export interface FLTabelleRow {
 }
 
 /**
- * Every group the season offers, in standing order, each row numbered as a `Platz` is: clubs the chain leaves level share one.
+ * Every group the season offers in standing order, the clubs that have played no match last.
+ *
+ * Each club that has played and is still in the season is numbered as a `Platz` is, and clubs the chain leaves level
+ * share one.
  */
 export type FLTabelle = Partial<Record<FLGruppenNames, FLTabelleRow[]>>;
 

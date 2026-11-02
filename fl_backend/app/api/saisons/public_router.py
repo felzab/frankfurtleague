@@ -347,7 +347,8 @@ async def get_tabelle(
 ) -> FLTabelleResponse:
     """Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.
 
-    A club that left the season keeps its row and holds no `platz`; 404 for a season this tier may not read.
+    A club that left the season keeps its row and holds no `platz`, and neither does a club that has played no match,
+    listed after every club that has; 404 for a season this tier may not read.
     """
 
     saison = await resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id)

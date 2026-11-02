@@ -508,46 +508,36 @@ def _tiers(
     return tiers
 
 
-def _can_hold_a_platz(*, has_left: bool, counted: int, still_to_play: int) -> bool:
-    """The one placing rule: a club still in the season with a match that counts or still could."""
-
-    return not has_left and counted + still_to_play > 0
-
-
 def _may_hold_a_platz(team: FLTeam, still_to_play: int) -> bool:
-    """Whether a team can hold a placing a bracket slot could name."""
+    """Whether a team can hold a placing a bracket slot could name: still in the season, with a match that counts or still could."""
 
-    return _can_hold_a_platz(has_left=team.austritt is not None, counted=team.statistik.count_gespielte_spiele, still_to_play=still_to_play)
+    return team.austritt is None and team.statistik.count_gespielte_spiele + still_to_play > 0
 
 
 def build_tabelle(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rules: FLSaisonRules) -> FLTabelle:
     """Each group's standing as the Tabelle shows it, every row numbered as a `Platz` is.
 
-    Numbered as the bracket counts its placings (`_placings`): only a row that can hold a place advances the number,
-    so a club that left reads null and hides none, and clubs the chain leaves level share the number their band
-    starts at, where the bracket seeds none of them. Before a group's first match nothing is level on what was
-    played, so each club takes a number of its own in the order the clubs arrived in.
+    A club that has played no match reads null and sorts below every club that has, whatever its zeroes would rank.
+    The rest are numbered as the bracket counts its placings (`_placings`), a club advancing the number only while it
+    is still in the season, so a club that left reads null and hides none, and clubs the chain leaves level share the
+    number their band starts at, where the bracket seeds none of them. The bracket also counts a club with no match
+    that has one still to play, so a club ranked below it prints a lower number than the bracket counts it at; the
+    bracket decides no such placing, since the club yet to play can still finish level with it on points at any goal
+    margin.
     """
 
     tabelle: dict[FLGruppenNames, list[FLTabelleRow]] = {}
     for name, ranked in _ranked_bands(teams, spiele, rules).items():
         placed: list[FLTabelleRow] = []
         platz = 1
-        rows = [row for band in ranked for row in band]
-        started = any(row.statistik.count_gespielte_spiele for row in rows)
-        for band in ranked if started else [[row] for row in rows]:
-            holders = {row.id for row in band if _row_holds_a_platz(row)}
+        for band in ranked:
+            holders = {row.id for row in band if row.austritt_type is None and row.statistik.count_gespielte_spiele}
             placed.extend(FLTabelleRow.model_validate({**row.model_dump(), "platz": platz if row.id in holders else None}) for row in band)
             platz += len(holders)
-        tabelle[name] = placed
+        # Stable, so the clubs that have played keep their standing order, and so do those that have not.
+        tabelle[name] = sorted(placed, key=lambda row: not row.statistik.count_gespielte_spiele)
 
     return FLTabelle(tabelle)
-
-
-def _row_holds_a_platz(row: FLGruppenTeam) -> bool:
-    return _can_hold_a_platz(
-        has_left=row.austritt_type is not None, counted=row.statistik.count_gespielte_spiele, still_to_play=row.count_pending_spiele
-    )
 
 
 def _spiele_by_gruppe(
@@ -793,8 +783,6 @@ def _ranked_bands(
     """
 
     teams = list(teams)
-    # Materialised because the fixtures are walked twice below, and a caller may pass a generator.
-    spiele = list(spiele)
 
     gruppe_of: dict[CustomObjectId, FLGruppenNames] = {team.id: team.gruppe for team in teams}
     by_gruppe, _ = _spiele_by_gruppe(spiele, gruppe_of)
@@ -813,21 +801,17 @@ def _ranked_bands(
     # Every figure is final AS A READING OF NOW, which is what lets the whole chain apply.
     everyone = frozenset(gruppe_of)
 
-    # Over the WHOLE scoped list, as `build_decided_standings` derives it: a fixture attributable to
-    # no group would otherwise count on one surface and not the other.
-    still_to_play = _still_to_play(spiele)
-
     return {
         name: [
-            [_standing_row(team, still_to_play.get(team.id, 0)) for team in band]
+            [_standing_row(team) for team in band]
             for band in _tiers(members, {team.id: team.statistik.punkte for team in members}, everyone, by_gruppe[name], rules)
         ]
         for name, members in grouped.items()
     }
 
 
-def _standing_row(team: FLTeam, still_to_play: int) -> FLGruppenTeam:
-    """One ranked team as the table publishes it, with the still-to-play term the placing rule needs."""
+def _standing_row(team: FLTeam) -> FLGruppenTeam:
+    """One ranked team as the table publishes it."""
 
     return FLGruppenTeam(
         id=team.id,
@@ -835,7 +819,6 @@ def _standing_row(team: FLTeam, still_to_play: int) -> FLGruppenTeam:
         shorthand=team.shorthand,
         statistik=team.statistik,
         austritt_type=team.austritt.type if team.austritt is not None else None,
-        count_pending_spiele=still_to_play,
     )
 
 

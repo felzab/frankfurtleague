@@ -6604,11 +6604,6 @@
               }
             ]
           },
-          "count_pending_spiele": {
-            "minimum": 0.0,
-            "title": "Count Pending Spiele",
-            "type": "integer"
-          },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id",
@@ -6633,8 +6628,7 @@
           "name",
           "shorthand",
           "statistik",
-          "austritt_type",
-          "count_pending_spiele"
+          "austritt_type"
         ],
         "title": "FLGruppenTeam",
         "type": "object"
@@ -17172,7 +17166,7 @@
           },
           "type": "array"
         },
-        "description": "Every group the season offers, in standing order, each row numbered as a `Platz` is: clubs the chain leaves level share one.",
+        "description": "Every group the season offers in standing order, the clubs that have played no match last.\n\nEach club that has played and is still in the season is numbered as a `Platz` is, and clubs the chain leaves level\nshare one.",
         "propertyNames": {
           "$ref": "#/components/schemas/FLGruppenNames"
         },
@@ -17199,7 +17193,7 @@
         "type": "object"
       },
       "FLTabelleRow": {
-        "description": "One row of the Tabelle: the standing row and its placing, null for a club that can hold none.",
+        "description": "One row of the Tabelle: the standing row and its placing, null for a club that has played no match or has left.",
         "properties": {
           "austritt_type": {
             "anyOf": [
@@ -17210,11 +17204,6 @@
                 "type": "null"
               }
             ]
-          },
-          "count_pending_spiele": {
-            "minimum": 0.0,
-            "title": "Count Pending Spiele",
-            "type": "integer"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -17253,7 +17242,6 @@
           "shorthand",
           "statistik",
           "austritt_type",
-          "count_pending_spiele",
           "platz"
         ],
         "title": "FLTabelleRow",
@@ -24873,7 +24861,7 @@
     },
     "/api/v0/saisons/{saison_id}/tabelle": {
       "get": {
-        "description": "Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.\n\nA club that left the season keeps its row and holds no `platz`; 404 for a season this tier may not read.",
+        "description": "Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.\n\nA club that left the season keeps its row and holds no `platz`, and neither does a club that has played no match,\nlisted after every club that has; 404 for a season this tier may not read.",
         "operationId": "saisons_get_tabelle",
         "parameters": [
           {
