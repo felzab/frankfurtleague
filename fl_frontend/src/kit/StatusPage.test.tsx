@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -27,20 +26,19 @@ describe("a status card", () => {
     expect(screen.getByRole("link", { name: COPY.shared.end.toHome }).getAttribute("href")).toBe("/");
   });
 
-  it("takes an error page's retry as its one act, a button that tries again", async () => {
-    const onRetry = vi.fn();
+  // D481: an error page offers the way to the start page, never a retry.
+  it("leads an error page's card to the start page, in the one landmark the classic frame writes", () => {
     render(
       <StatusPage
         frame="classic"
         mark="error"
         title={error.title}
         sentence={error.sentence}
-        next={{ label: error.retry, onRetry }}
+        next={{ label: COPY.shared.end.toHome, href: "/" }}
       />,
     );
     expect(screen.getAllByRole("main")).toHaveLength(1);
-    expect(screen.queryByRole("link")).toBe(null);
-    await userEvent.click(screen.getByRole("button", { name: error.retry }));
-    expect(onRetry).toHaveBeenCalledOnce();
+    expect(screen.getByRole("link", { name: COPY.shared.end.toHome }).getAttribute("href")).toBe("/");
+    expect(screen.queryByRole("button")).toBe(null);
   });
 });

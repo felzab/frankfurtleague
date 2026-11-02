@@ -463,7 +463,7 @@ export const COPY = catalogue({
     saison: { days: "Tage", hours: "Stunden", minutes: "Minuten" },
     /** The classic frame's error page, a client component's. */
     status: {
-      error: { title: UNEXPECTED, sentence: "Lade die Seite neu oder versuch es später.", retry: "Erneut versuchen" },
+      error: { title: UNEXPECTED, sentence: "Lade die Seite neu oder versuch es später." },
     },
   },
 

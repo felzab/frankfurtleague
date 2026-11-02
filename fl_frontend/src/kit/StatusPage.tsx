@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 
-import { Button } from "./Button";
 import { cardSurface } from "./cardStyles";
 import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { Icon } from "./Icon";
@@ -22,15 +21,6 @@ export type StatusCardProps = {
   next: { label: Copy; href: Route };
 };
 
-/**
- * An error page's one act, which the card takes in place of its way on: trying again what failed, from the
- * error boundary's own retry, so only a client error page can hand it.
- */
-type Retry = { label: Copy; onRetry: () => void };
-
-/** The card's one act: a link on, or a retry where the page is an error's. */
-type Act = StatusCardProps["next"] | Retry;
-
 const card = tv({
   slots: {
     root: `mx-auto grid w-full max-w-card justify-items-center gap-4 ${cardSurface()} px-6 py-8 text-center max-lg:justify-items-stretch`,
@@ -50,9 +40,10 @@ const card = tv({
 
 /**
  * The hairline card every end state shares: its mark, the title where the frame carries none, one sentence, one
- * act. It writes no landmark, so a page inside an old shell's `main` places it alone.
+ * way on; an error's too, which offers no retry (D481). It writes no landmark, so a page inside an old shell's
+ * `main` places it alone.
  */
-export function StatusCard({ mark, sentence, next, title }: Omit<StatusCardProps, "next"> & { next: Act; title?: Copy | string }) {
+export function StatusCard({ mark, sentence, next, title }: StatusCardProps & { title?: Copy | string }) {
   const slots = card({ mark });
   return (
     <div className={slots.root()}>
@@ -64,20 +55,12 @@ export function StatusCard({ mark, sentence, next, title }: Omit<StatusCardProps
       </span>
       {title !== undefined && <ClassicTitle text={title} />}
       <p className={slots.sentence()}>{sentence}</p>
-      {"href" in next ? (
-        <Link
-          href={next.href}
-          placement="button"
-          look="primary"
-          label={next.label}
-        />
-      ) : (
-        <Button
-          variant="primary"
-          label={next.label}
-          onPress={next.onRetry}
-        />
-      )}
+      <Link
+        href={next.href}
+        placement="button"
+        look="primary"
+        label={next.label}
+      />
     </div>
   );
 }
@@ -102,9 +85,7 @@ async function CardOnceRead({ card }: { card: Promise<StatusCardProps> }) {
  * waits in a boundary of its own under the strip, drawn meanwhile as nothing.
  */
 export function StatusPage(
-  props:
-    | (Omit<StatusCardProps, "next"> & { next: Act; frame: "classic"; title: Copy })
-    | ({ frame: "rail"; card: Promise<StatusCardProps> } & RailPageHead),
+  props: (StatusCardProps & { frame: "classic"; title: Copy }) | ({ frame: "rail"; card: Promise<StatusCardProps> } & RailPageHead),
 ) {
   if (props.frame === "classic") {
     return (
