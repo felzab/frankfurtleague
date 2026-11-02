@@ -10,13 +10,14 @@ import { ListPage } from "./ListPage";
 
 import type { AtRule, Container, Declaration, Document, Rule } from "postcss";
 import type { ComponentProps, ReactElement } from "react";
+import type { Filter } from "./Filters";
 import type { SpieltageContent } from "./ListPage";
 
 // The strip's own links, which need no router to be read, and the address the tabs link from.
 vi.mock("next/link", () => ({
   default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
 }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/saisons/2027" }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/saisons/2027", useRouter: () => ({ replace: vi.fn() }) }));
 
 const SPIELTAGE = COPY.spielplan.spieltage;
 const compiled = compiledGlobals();
@@ -111,6 +112,44 @@ describe("the list template's wait", () => {
 
     expect(within(page).getByRole("link", { name: "1. Spieltag" }).getAttribute("aria-current")).toBe("page");
     expect(within(page).queryByRole("status")).toBeNull();
+  });
+});
+
+describe("the list template's filter block", () => {
+  const filtered = (filters: Promise<ReadonlyArray<Filter>>) => (
+    <ListPage
+      head={{ scope: "saison", title: { route: "spielSearch" } }}
+      filters={filters}
+      list={{ kind: "tree", content: Promise.resolve({ tree: null, empty: { kind: "none", plural: SPIELTAGE } }) }}
+    />
+  );
+  const SPIELTAG: Filter = { name: "spieltag", label: COPY.page.spielplan, all: COPY.page.spielplan, options: [], value: null };
+
+  /** The heights a class list declares below `lg`, each with the media queries it stands under. */
+  async function phoneHeights(element: Element | null | undefined): Promise<string[]> {
+    const declared = await declarationsFor([...(element?.classList ?? [])]);
+    return declared
+      .filter(({ decl, media }) => decl.prop === "height" && !media.some((query) => query.includes("64rem")))
+      .map(({ decl, media }) => [...media, decl.value].join(" "))
+      .sort();
+  }
+
+  it("holds its place at the „Filter“ button's height on a phone while its choices are read", async () => {
+    const waiting = shell(filtered(new Promise(() => undefined)));
+    const read = await streamed(filtered(Promise.resolve([SPIELTAG])));
+
+    // The toolbar is the column's first row, and holds the filter block alone here, so its last element is the
+    // block's place.
+    const space = waiting.querySelector("main")?.firstElementChild?.firstElementChild?.lastElementChild;
+    expect(space?.getAttribute("aria-hidden")).toBe("true");
+    // By its text: the page stands outside the document, where a name another element gives cannot be resolved.
+    const button = within(read)
+      .getAllByRole("button")
+      .find((element) => element.textContent === COPY.shared.filter);
+    expect(button).toBeDefined();
+    const held = await phoneHeights(space);
+    expect(held).not.toStrictEqual([]);
+    expect(held).toStrictEqual(await phoneHeights(button));
   });
 });
 

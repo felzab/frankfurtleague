@@ -1,0 +1,52 @@
+import { CardFold } from "./CardFold";
+import { Table } from "./Table";
+
+import type { Copy } from "@/core/copy";
+import type { TableProps } from "./Table";
+
+/**
+ * One folded card: its title, catalogue text or a record's name such as a club's; how many it holds; and its
+ * tables, one, or several each under its head, such as a line-up's starters over its bench.
+ */
+export type FoldedCard = ({ title: Copy; titleText?: never } | { titleText: string; title?: never }) & {
+  count?: number;
+  tables: readonly [TableProps] | ReadonlyArray<{ head: Copy; table: TableProps }>;
+};
+
+/**
+ * A read page's tables, each folded behind its card's head, two side by side from `lg`, such as a match's
+ * line-ups: the content of `ReadPage`'s `folds` group. It is a module of its own, which only the pages folding
+ * a card import, so a read page folding nothing ships none of the fold's client code.
+ */
+export function ReadFolds({ cards }: { cards: ReadonlyArray<FoldedCard> }) {
+  return (
+    <div className={cards.length > 1 ? "grid content-start gap-3 lg:grid-cols-2" : "grid"}>
+      {cards.map(({ tables, ...card }) => (
+        <CardFold
+          key={card.title ?? card.titleText}
+          {...card}>
+          {tables.map((part) =>
+            "head" in part ? (
+              <section
+                key={part.head}
+                className="border-t border-border first:border-t-0">
+                {/* Set as a column head is, small muted capitals, so the card's head stays the one band it carries. */}
+                <h3 className="px-3 pt-3 text-xs font-medium tracking-caps text-fg-muted uppercase">{part.head}</h3>
+                <Table
+                  {...part.table}
+                  bare
+                />
+              </section>
+            ) : (
+              <Table
+                key={part.label}
+                {...part}
+                bare
+              />
+            ),
+          )}
+        </CardFold>
+      ))}
+    </div>
+  );
+}

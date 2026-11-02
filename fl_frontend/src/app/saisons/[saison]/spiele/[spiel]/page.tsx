@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 
+import { ReadFolds } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
 import { NONE } from "@/kit/SpielRow";
 
 import { COPY } from "@/core/copy";
-import { formatDatum, formatErgebnis, formatNumber, formatUhrzeit } from "@/core/format";
+import { formatDatumPair, formatErgebnis, formatNumber, formatUhrzeit } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { PHASE_LABELS } from "@/features/saisons/constants";
@@ -24,7 +25,8 @@ import type {
   FLSpielJoined,
   FLSpielPageResponse,
 } from "@/core/generated/client/types";
-import type { FoldedCard, ReadRecord } from "@/kit/ReadPage";
+import type { FoldedCard } from "@/kit/ReadFolds";
+import type { ReadRecord } from "@/kit/ReadPage";
 import type { StatTile } from "@/kit/StatTiles";
 import type { TableProps } from "@/kit/Table";
 import type { Checkpoint } from "@/kit/Timeline";
@@ -74,10 +76,14 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
       {
         title: words.aufstellung,
         kind: "folds",
-        cards: [
-          { titleText: heim.name, ...lineupOf(bericht?.aufstellungen.team1 ?? null) },
-          { titleText: gast.name, ...lineupOf(bericht?.aufstellungen.team2 ?? null) },
-        ],
+        folds: (
+          <ReadFolds
+            cards={[
+              { titleText: heim.name, ...lineupOf(bericht?.aufstellungen.team1 ?? null) },
+              { titleText: gast.name, ...lineupOf(bericht?.aufstellungen.team2 ?? null) },
+            ]}
+          />
+        ),
       },
       {
         title: words.toreUndKarten,
@@ -92,16 +98,17 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
 
 /**
  * The match's five facts, a tile each, an absent one a dash: its matchday, a group matchday by its number over its
- * phase; its date and its time; its referee where the referee's name is public; its venue.
+ * phase; its date, the day and the month over the weekday and the year, and its time; its referee where the referee's name is public; its venue.
  */
 function tilesOf(spiel: FLSpielJoined, position: number): readonly [StatTile, StatTile, StatTile, StatTile, StatTile] {
   const { fact } = COPY.spielplan;
   const group = spiel.saison_phase === "gruppenphase" && !isThirdPlace(spiel);
+  const datum = spiel.datum === null ? null : formatDatumPair(spiel.datum as CalendarDay);
   return [
     group
       ? { label: fact.spieltag, value: `${formatNumber(position)}.`, line: PHASE_LABELS.gruppenphase }
       : { label: fact.spieltag, value: matchdayOf(spiel, position), words: true },
-    { label: fact.datum, value: spiel.datum === null ? NONE : formatDatum(spiel.datum as CalendarDay) },
+    datum === null ? { label: fact.datum, value: NONE } : { label: fact.datum, value: datum.figure, line: datum.line },
     { label: fact.uhrzeit, value: spiel.uhrzeit === null ? NONE : formatUhrzeit(spiel.uhrzeit as Uhrzeit) },
     { label: fact.schiedsrichter, value: spiel.schiedsrichter?.name ?? NONE, words: true },
     spiel.ort === null

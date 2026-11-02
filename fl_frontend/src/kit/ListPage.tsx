@@ -105,6 +105,20 @@ function Spieltage({ label, selectedKey, tabs }: SpieltagTabs) {
   );
 }
 
+/**
+ * The filter block's place while its choices are read, at the height it will stand at, so nothing under the
+ * toolbar moves when it arrives (D470's frame part holding its space): on a phone the „Filter“ button's line,
+ * on desktop a labelled select, its label, its field and the line under it.
+ */
+function FiltersSpace() {
+  return (
+    <div
+      aria-hidden
+      className="h-9 lg:h-20 pointer-coarse:h-11 lg:pointer-coarse:h-22"
+    />
+  );
+}
+
 /** The filter block once its choices are read. */
 async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Filter>> }) {
   return <Filters filters={await filters} />;
@@ -202,7 +216,7 @@ export function ListPage({
           <div className="flex flex-wrap items-center gap-3">
             {search !== undefined && <ListSearchField label={search.label} />}
             {filters !== undefined && (
-              <Suspense fallback={null}>
+              <Suspense fallback={<FiltersSpace />}>
                 <FiltersOnceRead filters={filters} />
               </Suspense>
             )}
