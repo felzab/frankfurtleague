@@ -3200,9 +3200,16 @@ export interface FLLandingSide {
 /**
  * The season's opening match: when it is set to start, its two sides and its Spieltag's `position`.
  *
- * A side is null while its slot is empty, as a match's own sides are.
+ * `datum` and `uhrzeit` are Berlin wall time, `anpfiff` the same moment as an instant. A side is null while its slot
+ * is empty, as a match's own sides are.
  */
 export interface FLLandingKickoff {
+  /**
+   * The kick-off as an instant, `datum` at `uhrzeit` in Berlin with that day's offset; null while `uhrzeit` is.
+   *
+   * Null rather than the day's start, which no match kicks off at: a countdown to it would run out hours early.
+   */
+  readonly anpfiff: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   datum: string;
   /** @minimum 1 */

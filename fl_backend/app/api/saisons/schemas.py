@@ -1,6 +1,7 @@
+from datetime import date, datetime, time
 from typing import Annotated, Final, Literal, Self
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, computed_field, model_validator
 from pydantic_core import PydanticCustomError
 
 from app.api.spielberichte.schemas import FLSpielberichtPublic
@@ -454,7 +455,8 @@ class FLLandingSide(BaseReadModel):
 class FLLandingKickoff(BaseReadModel):
     """The season's opening match: when it is set to start, its two sides and its Spieltag's `position`.
 
-    A side is null while its slot is empty, as a match's own sides are.
+    `datum` and `uhrzeit` are Berlin wall time, `anpfiff` the same moment as an instant. A side is null while its slot
+    is empty, as a match's own sides are.
     """
 
     datum: CustomDateString
@@ -462,6 +464,19 @@ class FLLandingKickoff(BaseReadModel):
     spieltag_position: int = Field(ge=1)
     team1: FLLandingSide | None
     team2: FLLandingSide | None
+
+    @computed_field
+    @property
+    def anpfiff(self) -> datetime | None:
+        """The kick-off as an instant, `datum` at `uhrzeit` in Berlin with that day's offset; null while `uhrzeit` is.
+
+        Null rather than the day's start, which no match kicks off at: a countdown to it would run out hours early.
+        """
+
+        if self.uhrzeit is None:
+            return None
+
+        return datetime.combine(date.fromisoformat(self.datum), time.fromisoformat(self.uhrzeit), tzinfo=clock.GERMANY)
 
 
 class FLPodiumPlace(BaseReadModel):

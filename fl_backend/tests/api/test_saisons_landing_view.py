@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -6,6 +7,7 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_landing
+from app.api.saisons.schemas import FLLandingKickoff
 from app.api.spiele.schemas import FLSpielElfmeterschiessen, FLSpielJoined, FLSpielQuelleSpiel, FLSpielTeamFieldJoined
 from app.api.spiele.services import podium_of
 from app.core.collections import Collection
@@ -178,10 +180,26 @@ def test_a_season_before_its_first_match_shows_when_it_kicks_off(mongo_url: str)
     assert saison.first_kickoff.model_dump() == {
         "datum": "2026-03-10",
         "uhrzeit": "15:00:00",
+        # Winter time in Berlin, an hour ahead of UTC.
+        "anpfiff": datetime(2026, 3, 10, 14, 0, tzinfo=UTC),
         "spieltag_position": 2,
         "team1": {"team_id": str(BETA), "name": "Beta", "shorthand": "BET"},
         "team2": {"team_id": str(ALPHA), "name": "Alpha", "shorthand": "ALP"},
     }
+
+
+@pytest.mark.parametrize(
+    ("datum", "uhrzeit", "anpfiff"),
+    [
+        pytest.param("2026-07-04", "15:00:00", datetime(2026, 7, 4, 13, 0, tzinfo=UTC), id="summer time, two hours ahead of UTC"),
+        pytest.param("2026-11-07", "15:00:00", datetime(2026, 11, 7, 14, 0, tzinfo=UTC), id="winter time, one hour ahead of UTC"),
+        pytest.param("2026-07-04", None, None, id="no time set, so no instant to count down to"),
+    ],
+)
+def test_the_kick_off_is_served_as_the_instant_berlin_wall_time_names(datum: str, uhrzeit: str | None, anpfiff: datetime | None):
+    kickoff = FLLandingKickoff(datum=datum, uhrzeit=uhrzeit, spieltag_position=1, team1=None, team2=None)
+
+    assert kickoff.anpfiff == anpfiff
 
 
 @pytest.mark.db
