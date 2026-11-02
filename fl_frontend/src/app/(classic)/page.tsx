@@ -51,8 +51,19 @@ const QUESTION: ComponentProps<typeof Doors>["question"] = {
   threads: THREADS_URL as Route,
 };
 
+/** A season still being played: its last result and its next match, each where it has one. */
+function runningOf(saison: FLLandingSaison): ComponentProps<typeof SaisonBlock>["state"] {
+  const [last] = saison.recent;
+  const [next] = saison.upcoming;
+  return {
+    kind: "running",
+    ...(last === undefined ? {} : { last: matchRowOf(last) }),
+    ...(next === undefined ? {} : { next: matchRowOf(next) }),
+  };
+}
+
 /** Where the season stands, as its card beside the hero shows it. */
-function stateOf(saison: FLLandingSaison, window: FLBewerbungWindow | null): ComponentProps<typeof SaisonBlock>["state"] | null {
+function stateOf(saison: FLLandingSaison, window: FLBewerbungWindow | null): ComponentProps<typeof SaisonBlock>["state"] {
   switch (saison.state) {
     case "before_start": {
       const kickoff = saison.first_kickoff;
@@ -72,20 +83,13 @@ function stateOf(saison: FLLandingSaison, window: FLBewerbungWindow | null): Com
       }
       return window === null ? { kind: "undated" } : { kind: "window", until: window.bis as CalendarDay, apply: formOf(window) };
     }
-    case "running": {
-      const [last] = saison.recent;
-      const [next] = saison.upcoming;
-      return {
-        kind: "running",
-        ...(last === undefined ? {} : { last: matchRowOf(last) }),
-        ...(next === undefined ? {} : { next: matchRowOf(next) }),
-      };
-    }
+    case "running":
+      return runningOf(saison);
     case "decided": {
       const placed = (platz: number) => saison.podium.find((place) => place.platz === platz);
       const [first, second, third, fourth] = [1, 2, 3, 4].map(placed);
-      // Board: a podium missing a place its match did not decide is owed; until then the card shows none.
-      if (first === undefined || second === undefined || third === undefined || fourth === undefined) return null;
+      // Every season with a K.-o.-Runde has places 1 to 4 (D497); one still missing a place reads as undecided.
+      if (first === undefined || second === undefined || third === undefined || fourth === undefined) return runningOf(saison);
       const club = (place: typeof first) => ({ name: place.name, kuerzel: place.shorthand });
       return { kind: "decided", places: [club(first), club(second), club(third), club(fourth)] };
     }
@@ -107,12 +111,11 @@ function asideOf(saison: FLLandingSaison | null, window: FLBewerbungWindow | nul
       />
     );
   }
-  const state = stateOf(saison, window);
-  return state === null ? null : (
+  return (
     <SaisonBlock
       title={COPY.shared.saisonName(saison.id)}
       more={{ label: words.saison.toSpielplan, href: ROUTES.spielplan.path(saison.id) }}
-      state={state}
+      state={stateOf(saison, window)}
     />
   );
 }
