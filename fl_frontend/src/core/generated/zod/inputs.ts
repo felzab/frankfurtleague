@@ -3218,28 +3218,6 @@ export const SpieleGetSpielVerwaltungParams = zod.object({
 });
 
 /**
- * One team's squad in the current season unless `saison_id` names another; 404 while none is active and for one this tier may not read.
- *
- * A surname reads as its initial, both names `null` where the pupil's consent does not publish them, the row keeping
- * its `nummer` and `position`; no row carries the pupil's record id.
- * @summary List Spieler
- */
-export const spielerGetSpielerQueryTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const spielerGetSpielerQueryLimitDefault = 1024;
-export const spielerGetSpielerQueryLimitMax = 1024;
-
-export const spielerGetSpielerQuerySortByDefault = `position`;
-export const spielerGetSpielerQueryOrderDefault = `asc`;
-
-export const SpielerGetSpielerQueryParams = zod.object({
-  team_id: zod.string().regex(spielerGetSpielerQueryTeamIdRegExp),
-  saison_id: zod.union([zod.string(), zod.null()]).optional(),
-  limit: zod.int().min(1).max(spielerGetSpielerQueryLimitMax).default(spielerGetSpielerQueryLimitDefault),
-  sort_by: zod.enum(["vorname", "nummer", "position"]).default(spielerGetSpielerQuerySortByDefault),
-  order: zod.enum(["asc", "desc"]).default(spielerGetSpielerQueryOrderDefault),
-});
-
-/**
  * Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.
  *
  * Writes those two on this one record, each moved choice with its evidence (`nachweis.<choice>`), and nothing else:

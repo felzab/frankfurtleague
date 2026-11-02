@@ -187,7 +187,6 @@ import type {
   FLSpieleAdminSingleResponse,
   FLSpielerAccountEinwilligungResponse,
   FLSpielerAdminSingleResponse,
-  FLSpielerListResponse,
   FLSpielerNachnominierungResponse,
   FLSpielerSaisonsResponse,
   FLSpielerSelfResponse,
@@ -227,7 +226,6 @@ import type {
   SpieleGetSpieleActionRequiredParams,
   SpieleGetSpieleVerwaltungParams,
   SpielePatchSpielParams,
-  SpielerGetSpielerParams,
   SpielorteGetSpielorteParams,
   SpieltageGetSpieltageVerwaltungParams,
   TeamsGetTeamParams,
@@ -4198,29 +4196,6 @@ export const spieleGetSpielVerwaltung = async (
   });
 };
 
-export const getSpielerGetSpielerUrl = (params: SpielerGetSpielerParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/spieler?${stringifiedParams}` : `/api/v0/spieler`;
-};
-
-/**
- * One team's squad in the current season unless `saison_id` names another; 404 while none is active and for one this tier may not read.
- *
- * A surname reads as its initial, both names `null` where the pupil's consent does not publish them, the row keeping
- * its `nummer` and `position`; no row carries the pupil's record id.
- * @summary List Spieler
- */
-export const spielerGetSpieler = async (
-  params: SpielerGetSpielerParams,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLSpielerListResponse> => {
-  return baseKeyTransport<FLSpielerListResponse>(getSpielerGetSpielerUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSpielerPatchEinwilligungUrl = () => {
   return `/api/v0/spieler/account/einwilligung`;
 };
@@ -4387,8 +4362,8 @@ export const getSpielerGetSpielerSaisonsUrl = () => {
 /**
  * Every player, retired ones included, each with every squad row they hold.
  *
- * `GET /spieler` answers it at no setting: it serves one team's squad in one season, the season the
- * site is on where it names none, and so never a player outside that squad or their other rows.
+ * A club page's squad cannot answer it: it serves one team's squad in one season, and so never a
+ * player outside that squad or their other rows.
  *
  * `address_change_id` names the live change of the pupil's address, which the address tool shows, and
  * `address_change_viewable_denied` why the tool refuses it this administrator, null where it opens it.

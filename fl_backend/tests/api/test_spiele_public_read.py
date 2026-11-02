@@ -27,6 +27,7 @@ from app.api.spiele.schemas import (
 )
 from app.api.spieltage.schemas import FLSpielplanSpieltag
 from app.api.teams.schemas import FLTeam
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
@@ -359,7 +360,7 @@ class TestTheFixtureShapes:
         assert MONEY_KEYS <= keys_anywhere(joined_document())
 
     def test_the_base_tier_fixture_drops_both(self):
-        """`FLSpielJoined` is what `GET /spiele` and `GET /spiele/{spiel_id}` answer with, and Pydantic ignores an undeclared key."""
+        """`FLSpielJoined` is what the Spielplan and `GET /spiele/{spiel_id}` answer with, and Pydantic ignores an undeclared key."""
 
         dumped = FLSpielJoined.model_validate(joined_document()).model_dump()
 
@@ -427,7 +428,7 @@ class TestTheFixtureShapes:
         assert AUSTRITT_DETAIL_KEYS <= keys_under(joined_document(), "team2")
 
     def test_the_base_tier_fixture_drops_the_reason_and_the_day(self):
-        """`FLSpielJoined` is what `GET /spiele` and `GET /spiele/{spiel_id}` answer with, and Pydantic ignores an undeclared key."""
+        """`FLSpielJoined` is what the Spielplan and `GET /spiele/{spiel_id}` answer with, and Pydantic ignores an undeclared key."""
 
         dumped = FLSpielJoined.model_validate(joined_document()).model_dump()
 
@@ -644,3 +645,28 @@ def test_the_admin_body_carries_the_referees_whole_name(seeded_url: str, path: s
 
     assert response.status_code == 200
     assert SCHIEDSRICHTER_NAME in response.text
+
+
+# Each malformed a different way: `ObjectId` tests length before it decodes hex, so the third is refused on its characters.
+MALFORMED_QUERY_IDS = ["not-an-id", str(SPIEL_ID)[:-1], "z" * 24, f"{SPIEL_ID}0"]
+
+
+# Marked `db` because no query id is base-tier any longer, and the admin tier judges its actor against
+# the grants before the call's parameters are read.
+@pytest.mark.db
+@pytest.mark.parametrize("team_id", MALFORMED_QUERY_IDS)
+def test_a_malformed_query_id_is_a_422(seeded_url: str, team_id: str):
+    """A query validates, so a malformed id is a 422, never the 404 a path's would be."""
+    response = answered(seeded_url, f"{ADMIN_LIST_PATH}&team_id={team_id}", ADMIN_AUTH)
+
+    assert response.status_code == 422
+    assert response.json()["error_code"] == Code.PAYLOAD_REFUSED
+
+
+@pytest.mark.db
+def test_a_well_formed_query_id_is_read(seeded_url: str):
+    """The control: the same parameter carrying a real id is validated and narrows the list to that club's fixture."""
+    response = answered(seeded_url, f"{ADMIN_LIST_PATH}&team_id={HOME}", ADMIN_AUTH)
+
+    assert response.status_code == 200
+    assert [spiel["id"] for spiel in response.json()["spiele"]] == [str(SPIEL_ID)]

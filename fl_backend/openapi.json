@@ -16141,22 +16141,6 @@
         "title": "FLSpielerContext",
         "type": "object"
       },
-      "FLSpielerListResponse": {
-        "properties": {
-          "spieler": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielerPublic"
-            },
-            "title": "Spieler",
-            "type": "array"
-          }
-        },
-        "required": [
-          "spieler"
-        ],
-        "title": "FLSpielerListResponse",
-        "type": "object"
-      },
       "FLSpielerMembership": {
         "description": "One squad row as seen from its player.\n\nCarries `inactive_since`, which the team junction does not: a player leaves a squad mid-season,\nwhere a team never leaves a season at all.",
         "properties": {
@@ -28051,138 +28035,6 @@
         ]
       }
     },
-    "/api/v0/spieler": {
-      "get": {
-        "description": "One team's squad in the current season unless `saison_id` names another; 404 while none is active and for one this tier may not read.\n\nA surname reads as its initial, both names `null` where the pupil's consent does not publish them, the row keeping\nits `nummer` and `position`; no row carries the pupil's record id.",
-        "operationId": "spieler_get_spieler",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "team_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Team Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "saison_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Saison Id"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "sort_by",
-            "required": false,
-            "schema": {
-              "default": "position",
-              "enum": [
-                "vorname",
-                "nummer",
-                "position"
-              ],
-              "title": "Sort By",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "order",
-            "required": false,
-            "schema": {
-              "default": "asc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielerListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "List Spieler",
-        "tags": [
-          "spieler"
-        ]
-      }
-    },
     "/api/v0/spieler/account/einwilligung": {
       "patch": {
         "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`nachweis.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is\ntaken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `nachweis_stand`\nother than the record's own, either choice having moved since the page was served (`wording_not_allowed`); a\ngrant on a retired record (`giving_not_allowed`); a `text_version` naming no version of the account page's pupil\ncontrol, or a grant naming any but the page's running one (`wording_not_allowed`); `medien` moving to `true` where\nthe stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
@@ -28612,7 +28464,7 @@
     },
     "/api/v0/spieler/saisons": {
       "get": {
-        "description": "Every player, retired ones included, each with every squad row they hold.\n\n`GET /spieler` answers it at no setting: it serves one team's squad in one season, the season the\nsite is on where it names none, and so never a player outside that squad or their other rows.\n\n`address_change_id` names the live change of the pupil's address, which the address tool shows, and\n`address_change_viewable_denied` why the tool refuses it this administrator, null where it opens it.",
+        "description": "Every player, retired ones included, each with every squad row they hold.\n\nA club page's squad cannot answer it: it serves one team's squad in one season, and so never a\nplayer outside that squad or their other rows.\n\n`address_change_id` names the live change of the pupil's address, which the address tool shows, and\n`address_change_viewable_denied` why the tool refuses it this administrator, null where it opens it.",
         "operationId": "spieler_get_spieler_saisons",
         "responses": {
           "200": {

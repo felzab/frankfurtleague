@@ -5573,23 +5573,6 @@ export interface FLSpielerAdminSingleResponse {
 }
 
 /**
- * One squad row as the BASE TIER serves it -- all an anonymous visitor may read.
- *
- * `build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the
- * `stufe` is gone (`READ-PUPIL-002`), and the consent record with it.
- */
-export interface FLSpielerPublic {
-  nachname: string | null;
-  nummer: string | null;
-  position: FLSpielerPosition | null;
-  vorname: string | null;
-}
-
-export interface FLSpielerListResponse {
-  spieler: FLSpielerPublic[];
-}
-
-/**
  * One squad row as seen from its player.
  *
  * Carries `inactive_since`, which the team junction does not: a player leaves a squad mid-season,
@@ -5614,6 +5597,19 @@ export interface FLSpielerMembership {
 export interface FLSpielerNachnominierungResponse {
   nachnominierung: boolean;
   saison_id: string;
+}
+
+/**
+ * One squad row as the BASE TIER serves it -- all an anonymous visitor may read.
+ *
+ * `build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the
+ * `stufe` is gone (`READ-PUPIL-002`), and the consent record with it.
+ */
+export interface FLSpielerPublic {
+  nachname: string | null;
+  nummer: string | null;
+  position: FLSpielerPosition | null;
+  vorname: string | null;
 }
 
 /**
@@ -6344,36 +6340,6 @@ export type SpielePatchSpielParams = {
    */
   dry_run?: boolean;
 };
-
-export type SpielerGetSpielerParams = {
-  /**
-   * @pattern ^[0-9a-fA-F]{24}$
-   */
-  team_id: string;
-  saison_id?: string | null;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: SpielerGetSpielerSortBy;
-  order?: SpielerGetSpielerOrder;
-};
-
-export type SpielerGetSpielerSortBy = (typeof SpielerGetSpielerSortBy)[keyof typeof SpielerGetSpielerSortBy];
-
-export const SpielerGetSpielerSortBy = {
-  vorname: "vorname",
-  nummer: "nummer",
-  position: "position",
-} as const;
-
-export type SpielerGetSpielerOrder = (typeof SpielerGetSpielerOrder)[keyof typeof SpielerGetSpielerOrder];
-
-export const SpielerGetSpielerOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
 
 export type SpielorteGetSpielorteParams = {
   include_inactive?: boolean;
