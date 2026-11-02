@@ -42,7 +42,6 @@ const timeline = tv({
 /**
  * Things in their order along one dotted line, a checkpoint for each: a club's matches by matchday, a match's
  * goals and cards by minute. Each checkpoint names itself beside its point and holds its content under that.
- * @awaitsProduction session 3's club and match pages
  */
 export function Timeline({ label, items }: { label: Copy; items: readonly Checkpoint[] }) {
   const slots = timeline();

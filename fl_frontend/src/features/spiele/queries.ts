@@ -1,34 +1,17 @@
 import { cache } from "react";
-import { cacheLife, cacheTag } from "next/cache";
 
 import { isRecordMissing } from "@/core/errors";
-import { spieleGetSpiele, spieleGetSpieleVerwaltung, spieleGetSpielVerwaltung } from "@/core/generated/client/sdk";
-import { SITE_CACHE_TAG } from "@/core/siteCache";
+import { spieleGetSpieleVerwaltung, spieleGetSpielVerwaltung } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import type {
-  FLSpieleAdminListResponse,
-  FLSpieleAdminSingleResponse,
-  FLSpieleListResponse,
-  SpieleGetSpieleParams,
-  SpieleGetSpieleVerwaltungParams,
-} from "@/core/generated/client/types";
-
-export async function getSpiele(filters: SpieleGetSpieleParams = {}): Promise<FLSpieleListResponse> {
-  "use cache";
-
-  cacheTag(SITE_CACHE_TAG);
-  cacheLife("minutes");
-
-  return spieleGetSpiele(filters);
-}
+import type { FLSpieleAdminListResponse, FLSpieleAdminSingleResponse, SpieleGetSpieleVerwaltungParams } from "@/core/generated/client/types";
 
 /** One in-flight admin fixture read per filter set, held for the length of one render pass. */
 const adminSpieleInFlight = cache((): Map<string, Promise<FLSpieleAdminListResponse>> => new Map());
 
 /**
- * A season's fixtures for the admin surfaces, a planned season's included — `getSpiele` lists that
- * season as empty. **Uncached, and it stays uncached**.
+ * A season's fixtures for the admin surfaces, a planned season's included, which the public read lists as
+ * empty. **Uncached, and it stays uncached**.
  */
 export function getAdminSpiele(filters: SpieleGetSpieleVerwaltungParams = {}): Promise<FLSpieleAdminListResponse> {
   // Keyed on the filters SERIALIZED, never on the object: React's `cache` compares an argument by
