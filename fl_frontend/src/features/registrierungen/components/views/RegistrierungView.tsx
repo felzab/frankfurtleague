@@ -84,10 +84,10 @@ export function RegistrierungView({ start, siteKey }: { start: RegistrierungStar
         )}
 
         {/* Said before anything is typed, because it changes what the registration means rather than
-            whether it is accepted: the squad's own entries closed when the first matchday began. */}
+            whether it is accepted: the squad's own entries closed when the season began, on its start date. */}
         {stand === "valid" && ansicht !== null && ansicht.nachnominierung && (
           <p className={ABSATZ_CLASSES}>
-            Der erste Spieltag hat schon begonnen. Du wirst deshalb <Wert>nachnominiert</Wert>. Am Mitspielen ändert das nichts.
+            Die Saison hat schon begonnen. Du wirst deshalb <Wert>nachnominiert</Wert>. Am Mitspielen ändert das nichts.
           </p>
         )}
 
