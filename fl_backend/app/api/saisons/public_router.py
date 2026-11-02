@@ -13,6 +13,7 @@ from app.api.saisons.schemas import (
     FLLandingKickoff,
     FLLandingResponse,
     FLLandingSaison,
+    FLLandingSide,
     FLLandingState,
     FLPodium,
     FLPodiumPlace,
@@ -33,7 +34,7 @@ from app.api.saisons.schemas import (
 from app.api.saisons.services import base_tier_status_term, has_started, with_schedule
 from app.api.saisons.visibility import PublicSaison, resolve_public_saison
 from app.api.spielberichte.services import SEITEN, build_public_bericht_pipeline, compose_public_bericht, team_id_of
-from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedListAdapter, unplayed_filter
+from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedInternalListAdapter, FLSpielJoinedListAdapter, unplayed_filter
 from app.api.spiele.services import build_spiele_pipeline, podium_of
 from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerListAdapter
 from app.api.spieler.services import build_spieler_pipeline
@@ -253,9 +254,10 @@ async def get_landing(
     # Every season ends in a knockout (`find_rules_refusal` refuses rules drawing none), so the Finale's matchday
     # places it, and every one with a K.-o.-Runde has places one to four (D497): it is decided once all four are in,
     # a played final beside an unplayed match for third place still running.
+    # The internal shape, whose sides carry the exit record: a place decided once its club had left is vacant.
     match [
-        FLPodiumPlace(platz=platz, team_id=side.team_id, name=side.name, shorthand=side.shorthand)
-        for platz, side in podium_of(FLSpielJoinedListAdapter.validate_python(finale_raw))
+        FLPodiumPlace(platz=platz, team=None if side is None else FLLandingSide(team_id=side.team_id, name=side.name, shorthand=side.shorthand))
+        for platz, side in podium_of(FLSpielJoinedInternalListAdapter.validate_python(finale_raw))
     ]:
         case [first_place, second_place, third_place, fourth_place]:
             podium: FLPodium | None = (first_place, second_place, third_place, fourth_place)

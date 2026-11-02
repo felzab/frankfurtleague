@@ -28,7 +28,6 @@ from app.api.spiele.schemas import (
     FLSpielCommon,
     FLSpieleFilterParams,
     FLSpielElfmeterschiessen,
-    FLSpielJoined,
     FLSpielJoinedAdmin,
     FLSpielJoinedInternal,
     FLSpielOrtField,
@@ -40,13 +39,12 @@ from app.api.spiele.schemas import (
     FLSpielSchiedsrichterFieldPayload,
     FLSpielSlotHolder,
     FLSpielTeamField,
-    FLSpielTeamFieldJoined,
     FLSpielTeamFieldJoinedInternal,
     FLSpielTeamFieldPayload,
     is_unplayed,
     records_an_absence,
 )
-from app.api.teams.services import DecidedStanding, offered_gruppen
+from app.api.teams.services import DecidedStanding, in_the_season_when_decided, offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import build_query, build_sort
@@ -752,11 +750,13 @@ def winner_and_loser[Side: FLSpielTeamField](
     return (team1, team2) if team1_won else (team2, team1)
 
 
-def podium_of(finale: Sequence[FLSpielJoined]) -> list[tuple[int, FLSpielTeamFieldJoined]]:
+def podium_of(finale: Sequence[FLSpielJoinedInternal]) -> list[tuple[int, FLSpielTeamFieldJoinedInternal | None]]:
     """Places one to four as the Finale's matchday decides them, each pair only once its match has.
 
     The final gives places one and two; the match for third place, which exists only where the bracket has
-    semi-finals, gives three and four.
+    semi-finals, gives three and four. A place decided on or after the day its club left the season is vacant, its
+    club `None`, by the rule a group's placings keep (`in_the_season_when_decided`): still a decided place, so a season
+    whose fourth place is vacant has all four in.
     """
 
     # Told apart by number rather than by a `verlierer` source, which an admin may clear by hand: the draw numbers the
@@ -766,11 +766,14 @@ def podium_of(finale: Sequence[FLSpielJoined]) -> list[tuple[int, FLSpielTeamFie
     if not 1 <= len(ordered) <= 2:
         return []
 
-    places: list[tuple[int, FLSpielTeamFieldJoined]] = []
+    places: list[tuple[int, FLSpielTeamFieldJoinedInternal | None]] = []
     for first, spiel in ((1, ordered[-1]), *((3, for_third) for for_third in ordered[:-1])):
         decided = winner_and_loser(spiel.team1, spiel.team2, spiel.elfmeterschiessen)
         if decided is not None:
-            places.extend(((first, decided[0]), (first + 1, decided[1])))
+            places.extend(
+                (platz, side if in_the_season_when_decided(side.austritt, spiel.datum) else None)
+                for platz, side in ((first, decided[0]), (first + 1, decided[1]))
+            )
 
     return places
 

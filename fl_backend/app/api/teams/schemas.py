@@ -497,7 +497,7 @@ class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLGruppenTeam]]]):
 
 
 class FLTabelleRow(FLGruppenTeam):
-    """One row of the Tabelle: the standing row and its placing, null for a club that has played no match or has left."""
+    """One row of the Tabelle: the standing row and its placing, null for a club with no match or gone before its group was decided."""
 
     platz: int | None = Field(gt=0)
 
@@ -505,8 +505,8 @@ class FLTabelleRow(FLGruppenTeam):
 class FLTabelle(RootModel[Mapping[FLGruppenNames, list[FLTabelleRow]]]):
     """Every group the season offers in standing order, the clubs that have played no match last.
 
-    Each club that has played and is still in the season is numbered as a `Platz` is, and clubs the chain leaves level
-    share one.
+    Each club that has played and stood in the season on the day its group was decided is numbered as a `Platz` is, and
+    clubs the chain leaves level share one.
     """
 
 

@@ -3190,7 +3190,7 @@ export interface FLLandingCounts {
 }
 
 /**
- * One side of the opening match, under the name and shorthand the club plays the season under.
+ * A club as the landing names it, on the opening match or the podium, under the name and shorthand it plays the season under.
  */
 export interface FLLandingSide {
   name: string;
@@ -3215,18 +3215,17 @@ export interface FLLandingKickoff {
 }
 
 /**
- * One of places one to four, under the name and shorthand the club played the season under.
+ * One of places one to four, decided; `team` null where the place is vacant, its club having left the season by then.
+ *
+ * A vacancy is still a decided place, so a season with one has all four in.
  */
 export interface FLPodiumPlace {
-  name: string;
   /**
    * @minimum 1
    * @maximum 4
    */
   platz: number;
-  shorthand: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
+  team: FLLandingSide | null;
 }
 
 export type FLLandingState = (typeof FLLandingState)[keyof typeof FLLandingState];
@@ -5850,7 +5849,7 @@ export interface FLSweepSaisonsResponse {
 }
 
 /**
- * One row of the Tabelle: the standing row and its placing, null for a club that has played no match or has left.
+ * One row of the Tabelle: the standing row and its placing, null for a club with no match or gone before its group was decided.
  */
 export interface FLTabelleRow {
   austritt_type: FLAustrittType | null;
@@ -5867,8 +5866,8 @@ export interface FLTabelleRow {
 /**
  * Every group the season offers in standing order, the clubs that have played no match last.
  *
- * Each club that has played and is still in the season is numbered as a `Platz` is, and clubs the chain leaves level
- * share one.
+ * Each club that has played and stood in the season on the day its group was decided is numbered as a `Platz` is, and
+ * clubs the chain leaves level share one.
  */
 export type FLTabelle = Partial<Record<FLGruppenNames, FLTabelleRow[]>>;
 

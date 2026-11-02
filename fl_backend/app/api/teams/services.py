@@ -16,6 +16,7 @@ from app.api.spiele.schemas import (
     records_an_absence,
 )
 from app.api.teams.schemas import (
+    FLAustritt,
     FLGruppen,
     FLGruppenTeam,
     FLKontaktMint,
@@ -489,10 +490,12 @@ def _tiers(
     for team in teams:
         by_punkte.setdefault(punkte[team.id], []).append(team)
 
-    # Derived here so both callers ask one question: each ranks a club that has left and neither lets
-    # one hold a placing, so completeness judged over whoever is present would split the two surfaces.
+    # Derived here so both callers ask one question: each ranks a club that left before the group was
+    # decided and neither lets one hold a placing, so completeness judged over whoever is present would
+    # split the two surfaces.
     still_to_play = _still_to_play(spiele)
-    placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0)))
+    decided_on = _decided_on(spiele)
+    placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0), decided_on))
 
     tiers: list[list[FLTeam]] = []
     for score in sorted(by_punkte, reverse=True):
@@ -508,10 +511,39 @@ def _tiers(
     return tiers
 
 
-def _may_hold_a_platz(team: FLTeam, still_to_play: int) -> bool:
-    """Whether a team can hold a placing a bracket slot could name: still in the season, with a match that counts or still could."""
+def _decided_on(spiele: Iterable[FLSpielCommon]) -> str | None:
+    """The day one group's placings are decided: its last fixture's; `None` while a fixture that can still award points is undated."""
 
-    return team.austritt is None and team.statistik.count_gespielte_spiele + still_to_play > 0
+    days: list[str] = []
+    for spiel in spiele:
+        if spiel.datum is None:
+            # A fixture called off or struck out awards nothing, so it decides nothing either.
+            if spiel.sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT:
+                continue
+            return None
+        days.append(spiel.datum)
+
+    return max(days, default=None)
+
+
+def in_the_season_when_decided(austritt: FLAustritt | None, decided_on: str | None) -> bool:
+    """Whether a club still stood in the season on the day a place was decided, so the place is its to keep.
+
+    Strictly before the exit, as `eligibility_disqualified` and `find_departed_occupants` order a day against it: the exit's
+    own day counts as after it, and so does a place not yet dated. One rule for a group's placings and the podium's places,
+    and for either route out, since no rule keyed on a club having left reads `type`.
+    """
+
+    return austritt is None or (decided_on is not None and decided_on < austritt.datum)
+
+
+def _may_hold_a_platz(team: FLTeam, still_to_play: int, decided_on: str | None) -> bool:
+    """Whether a team can hold a placing a bracket slot could name.
+
+    In the season when its group was decided, with a match that counts or still could.
+    """
+
+    return in_the_season_when_decided(team.austritt, decided_on) and team.statistik.count_gespielte_spiele + still_to_play > 0
 
 
 def build_tabelle(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rules: FLSaisonRules) -> FLTabelle:
@@ -519,19 +551,27 @@ def build_tabelle(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rule
 
     A club that has played no match reads null and sorts below every club that has, whatever its zeroes would rank.
     The rest are numbered as the bracket counts its placings (`_placings`), a club advancing the number only while it
-    is still in the season, so a club that left reads null and hides none, and clubs the chain leaves level share the
+    stood in the season when its group was decided (`in_the_season_when_decided`), so a club that left before then reads
+    null and hides none, one that left after keeps its number, and clubs the chain leaves level share the
     number their band starts at, where the bracket seeds none of them. The bracket also counts a club with no match
     that has one still to play, so a club ranked below it prints a lower number than the bracket counts it at; the
     bracket decides no such placing, since the club yet to play can still finish level with it on points at any goal
     margin.
     """
 
+    teams = list(teams)
+    spiele = list(spiele)
+
+    # The same day `_tiers` decides each group on, so the table and the bracket agree on who holds a place.
+    by_gruppe, _ = _spiele_by_gruppe(spiele, {team.id: team.gruppe for team in teams})
+    still_in = frozenset(team.id for team in teams if in_the_season_when_decided(team.austritt, _decided_on(by_gruppe.get(team.gruppe, []))))
+
     tabelle: dict[FLGruppenNames, list[FLTabelleRow]] = {}
     for name, ranked in _ranked_bands(teams, spiele, rules).items():
         placed: list[FLTabelleRow] = []
         platz = 1
         for band in ranked:
-            holders = {row.id for row in band if row.austritt_type is None and row.statistik.count_gespielte_spiele}
+            holders = {row.id for row in band if row.id in still_in and row.statistik.count_gespielte_spiele}
             placed.extend(FLTabelleRow.model_validate({**row.model_dump(), "platz": platz if row.id in holders else None}) for row in band)
             platz += len(holders)
         # Stable, so the clubs that have played keep their standing order, and so do those that have not.
@@ -634,7 +674,9 @@ def _decide_one_gruppe(
         and spiel.team2 is not None
     ]
 
-    placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0)))
+    # One day for every hypothesised ending: the walk moves results, never dates.
+    decided_on = _decided_on(spiele)
+    placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0), decided_on))
     is_complete = not open_pairs and not has_unattributable
 
     if has_unattributable:
@@ -679,7 +721,7 @@ def _decide_one_gruppe(
                 if side in left_to_play:
                     left_to_play[side] -= 1
 
-        dropped = frozenset(team_id for team_id, left in left_to_play.items() if not _may_hold_a_platz(by_id[team_id], left))
+        dropped = frozenset(team_id for team_id, left in left_to_play.items() if not _may_hold_a_platz(by_id[team_id], left, decided_on))
         vector = tuple(punkte[team_id] for team_id in order)
         # The points table stopped deciding the ranking on its own once a call-off became an ending,
         # so a vector skipped on its table alone is one that ranks differently.

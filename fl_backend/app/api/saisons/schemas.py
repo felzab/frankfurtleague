@@ -461,7 +461,7 @@ type FLLandingState = Literal["before_start", "running", "decided"]
 
 
 class FLLandingSide(BaseReadModel):
-    """One side of the opening match, under the name and shorthand the club plays the season under."""
+    """A club as the landing names it, on the opening match or the podium, under the name and shorthand it plays the season under."""
 
     team_id: CustomObjectId
     name: str
@@ -491,12 +491,13 @@ def saison_start(start_date: str) -> datetime:
 
 
 class FLPodiumPlace(BaseReadModel):
-    """One of places one to four, under the name and shorthand the club played the season under."""
+    """One of places one to four, decided; `team` null where the place is vacant, its club having left the season by then.
+
+    A vacancy is still a decided place, so a season with one has all four in.
+    """
 
     platz: int = Field(ge=1, le=PODIUM_PLACES)
-    team_id: CustomObjectId
-    name: str
-    shorthand: str
+    team: FLLandingSide | None
 
 
 # Places one to four by position, one entry each: a further kind of place widens the entry's type, never the count.
