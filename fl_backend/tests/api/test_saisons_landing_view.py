@@ -174,17 +174,21 @@ def test_the_squad_count_walks_the_season_index(running_url: str):
 
 @pytest.mark.db
 def test_a_season_before_its_first_match_shows_when_it_kicks_off(mongo_url: str):
-    """The opening day holds an untimed fixture beside two timed ones, which a null sorting ahead of every time would hide."""
+    """The opening day holds an untimed fixture beside two timed ones, which a null sorting ahead of every time would hide.
+
+    Its Spieltag is the second, the first dated later, so the position served is the opening match's own; and the
+    opening match fields Beta first, so neither side is read off another match.
+    """
 
     seeded(
         mongo_url,
         BEFORE_START_DATABASE_NAME,
         {
-            Collection.SPIELTAGE: [spieltag(DAY_1, 1), spieltag(DAY_2, 2)],
+            Collection.SPIELTAGE: [spieltag(DAY_1, 2), spieltag(DAY_2, 1)],
             Collection.SPIELE: [
                 match(1, DAY_1, "2026-03-10", None, uhrzeit=None),
                 match(2, DAY_1, "2026-03-10", None, uhrzeit="17:30:00"),
-                match(3, DAY_1, "2026-03-10", None, uhrzeit="15:00:00"),
+                match(3, DAY_1, "2026-03-10", None, uhrzeit="15:00:00", names=("Beta", "Alpha")),
                 match(4, DAY_2, "2026-03-17", None, uhrzeit="10:00:00"),
                 match(5, DAY_2, None, None, uhrzeit=None),
             ],
@@ -194,7 +198,13 @@ def test_a_season_before_its_first_match_shows_when_it_kicks_off(mongo_url: str)
     saison = landing(mongo_url, BEFORE_START_DATABASE_NAME).saison
 
     assert (saison.state, saison.recent, saison.upcoming, saison.podium) == ("before_start", [], [], [])
-    assert saison.first_kickoff.model_dump() == {"datum": "2026-03-10", "uhrzeit": "15:00:00"}
+    assert saison.first_kickoff.model_dump() == {
+        "datum": "2026-03-10",
+        "uhrzeit": "15:00:00",
+        "spieltag_position": 2,
+        "team1": {"team_id": str(BETA), "name": "Beta", "shorthand": "BET"},
+        "team2": {"team_id": str(ALPHA), "name": "Alpha", "shorthand": "ALP"},
+    }
 
 
 @pytest.mark.db

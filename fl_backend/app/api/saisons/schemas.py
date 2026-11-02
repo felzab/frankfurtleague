@@ -443,11 +443,25 @@ PODIUM_PLACES: Final = 4
 type FLLandingState = Literal["before_start", "running", "decided"]
 
 
+class FLLandingSide(BaseReadModel):
+    """One side of the opening match, under the name and shorthand the club plays the season under."""
+
+    team_id: CustomObjectId
+    name: str
+    shorthand: str
+
+
 class FLLandingKickoff(BaseReadModel):
-    """When the season's first match is set to start."""
+    """The season's opening match: when it is set to start, its two sides and its Spieltag's `position`.
+
+    A side is null while its slot is empty, as a match's own sides are.
+    """
 
     datum: CustomDateString
     uhrzeit: CustomTimeString | None
+    spieltag_position: int = Field(ge=1)
+    team1: FLLandingSide | None
+    team2: FLLandingSide | None
 
 
 class FLPodiumPlace(BaseReadModel):
@@ -471,7 +485,7 @@ class FLLandingCounts(BaseReadModel):
 class FLLandingSaison(BaseReadModel):
     """The season the site is on as the landing shows it.
 
-    `first_kickoff` before the start, null while no group match is dated; `recent` and `upcoming` while it runs,
+    `first_kickoff` before the start, the earliest dated group match, null while none is; `recent` and `upcoming` while it runs,
     the latest results and the next matches; `podium` once decided, each place its match has decided.
     """
 

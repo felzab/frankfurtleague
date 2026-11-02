@@ -130,15 +130,41 @@ async def get_frame(saisons_collection: SaisonsCollection) -> FLSaisonFrameRespo
 LANDING_SPIELE: Final = 2
 
 
+_SPIELTAG_ROWS_AS = "spieltag_rows"
+
+# The matchday's `position` beside the match, which a match's page and the landing's opening match name it by, in the same aggregation.
+_SPIELTAG_POSITION_LOOKUP: Mapping[str, Any] = {
+    "$lookup": {
+        "from": Collection.SPIELTAGE,
+        "localField": "spieltag_id",
+        "foreignField": "_id",
+        "pipeline": [{"$project": {"_id": 0, "position": 1}}],
+        "as": _SPIELTAG_ROWS_AS,
+    }
+}
+
+
 def _first_kickoff_pipeline(saison_id: str) -> list[Mapping[str, Any]]:
-    """The season's earliest dated group match, a timed one ahead of an untimed one on the same day."""
+    """The season's earliest dated group match, a timed one ahead of an untimed one on the same day, with its matchday's `position`."""
 
     return [
         {"$match": {"saison_id": saison_id, "saison_phase": "gruppenphase", "datum": {"$type": "string"}}},
         # A null sorts ahead of every time, so an untimed fixture would otherwise hide the opening day's kick-off.
         {"$set": {"untimed": {"$ne": [{"$type": "$uhrzeit"}, "string"]}}},
         {"$sort": {"datum": 1, "untimed": 1, "uhrzeit": 1}},
-        {"$project": {"_id": 0, "datum": 1, "uhrzeit": 1}},
+        # Ahead of the lookup, so it joins the one match served rather than every dated one.
+        {"$limit": 1},
+        _SPIELTAG_POSITION_LOOKUP,
+        {
+            "$project": {
+                "_id": 0,
+                "datum": 1,
+                "uhrzeit": 1,
+                "spieltag_position": {"$first": f"${_SPIELTAG_ROWS_AS}.position"},
+                "team1": 1,
+                "team2": 1,
+            }
+        },
     ]
 
 
@@ -235,7 +261,7 @@ async def get_landing(
         saison=FLLandingSaison(
             id=saison.id,
             state=state,
-            first_kickoff=FLLandingKickoff(datum=first["datum"], uhrzeit=first.get("uhrzeit")) if state == "before_start" and first else None,
+            first_kickoff=FLLandingKickoff.model_validate(first) if state == "before_start" and first else None,
             recent=FLSpielJoinedListAdapter.validate_python(recent_raw) if state == "running" else [],
             upcoming=FLSpielJoinedListAdapter.validate_python(upcoming_raw) if state == "running" else [],
             podium=podium if state == "decided" else [],
@@ -435,20 +461,6 @@ async def get_team(
         spiele=FLSpielJoinedListAdapter.validate_python(spiele_raw),
         kader=FLSpielerListAdapter.validate_python(kader_raw),
     )
-
-
-_SPIELTAG_ROWS_AS = "spieltag_rows"
-
-# The matchday's `position` beside the match, which the page's eyebrow names it by, in the same aggregation.
-_SPIELTAG_POSITION_LOOKUP: Mapping[str, Any] = {
-    "$lookup": {
-        "from": Collection.SPIELTAGE,
-        "localField": "spieltag_id",
-        "foreignField": "_id",
-        "pipeline": [{"$project": {"_id": 0, "position": 1}}],
-        "as": _SPIELTAG_ROWS_AS,
-    }
-}
 
 
 @router.get(f"/{{saison_id}}/spiele{by_id('spiel_id')}", response_model=FLSpielPageResponse, summary="One Spiel's page")

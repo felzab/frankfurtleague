@@ -7706,12 +7706,37 @@
         "type": "object"
       },
       "FLLandingKickoff": {
-        "description": "When the season's first match is set to start.",
+        "description": "The season's opening match: when it is set to start, its two sides and its Spieltag's `position`.\n\nA side is null while its slot is empty, as a match's own sides are.",
         "properties": {
           "datum": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Datum",
             "type": "string"
+          },
+          "spieltag_position": {
+            "minimum": 1.0,
+            "title": "Spieltag Position",
+            "type": "integer"
+          },
+          "team1": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLLandingSide"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team2": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLLandingSide"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "uhrzeit": {
             "anyOf": [
@@ -7728,7 +7753,10 @@
         },
         "required": [
           "datum",
-          "uhrzeit"
+          "uhrzeit",
+          "spieltag_position",
+          "team1",
+          "team2"
         ],
         "title": "FLLandingKickoff",
         "type": "object"
@@ -7765,7 +7793,7 @@
         "type": "object"
       },
       "FLLandingSaison": {
-        "description": "The season the site is on as the landing shows it.\n\n`first_kickoff` before the start, null while no group match is dated; `recent` and `upcoming` while it runs,\nthe latest results and the next matches; `podium` once decided, each place its match has decided.",
+        "description": "The season the site is on as the landing shows it.\n\n`first_kickoff` before the start, the earliest dated group match, null while none is; `recent` and `upcoming` while it runs,\nthe latest results and the next matches; `podium` once decided, each place its match has decided.",
         "properties": {
           "counts": {
             "$ref": "#/components/schemas/FLLandingCounts"
@@ -7827,6 +7855,31 @@
           "teams"
         ],
         "title": "FLLandingSaison",
+        "type": "object"
+      },
+      "FLLandingSide": {
+        "description": "One side of the opening match, under the name and shorthand the club plays the season under.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "shorthand": {
+            "title": "Shorthand",
+            "type": "string"
+          },
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "team_id",
+          "name",
+          "shorthand"
+        ],
+        "title": "FLLandingSide",
         "type": "object"
       },
       "FLLandingState": {
