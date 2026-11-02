@@ -16,15 +16,13 @@ function subscribe(onChange: () => void) {
 
 /**
  * Whether the rail stands, the question `lg:` asks in a class, for the parts that act on it in script: a
- * menu's popover or sheet, the rail's shortcut, a card folded on a phone alone. The server's answer stands
- * until the browser's own replaces it at hydration. It is desktop by default, which a menu and a shortcut never
- * show: a menu renders its list only once opened, and a shortcut needs a key. A part whose first frame shows
- * the answer passes the one it would rather correct on a desktop than on a phone.
+ * menu's popover or sheet, and the rail's shortcut. The server answers desktop until the browser's own answer
+ * replaces it, which neither shows: a menu renders its list only once opened, and a shortcut needs a key.
  */
-export function useDesktop(serverAnswer = true) {
+export function useDesktop() {
   return useSyncExternalStore(
     subscribe,
     () => desktop().matches,
-    () => serverAnswer,
+    () => true,
   );
 }

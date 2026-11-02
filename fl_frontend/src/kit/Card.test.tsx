@@ -9,8 +9,6 @@ import { COPY } from "@/core/copy";
 import { Card, CardLink, CardRow } from "./Card";
 import { Table } from "./Table";
 
-import type { Folded } from "./CardFold";
-
 /** The screen the browser answers: a desktop from `lg`, a phone below it. */
 function onScreen(desktop: boolean) {
   vi.spyOn(window, "matchMedia").mockImplementation((media) => Object.assign(new EventTarget(), { media, matches: desktop }) as MediaQueryList);
@@ -18,11 +16,11 @@ function onScreen(desktop: boolean) {
 
 const BODY = "Mika Brandt";
 
-const folded = (when: Folded) => (
+const folded = (
   <Card
     title={COPY.page.teamKader}
     count={12}
-    folded={when}>
+    folded>
     <p>{BODY}</p>
   </Card>
 );
@@ -39,8 +37,7 @@ afterEach(() => {
 
 describe("a folded card", () => {
   it("keeps its title a heading whose button opens and closes the body", async () => {
-    onScreen(true);
-    render(folded("always"));
+    render(folded);
     const { button } = fold();
     expect(button.textContent).toContain(COPY.page.teamKader);
     expect(document.getElementById(button.getAttribute("aria-controls") ?? "")?.textContent).toBe(BODY);
@@ -51,21 +48,15 @@ describe("a folded card", () => {
     expect(fold().open).toBe(false);
   });
 
-  it("folded on a phone alone, starts folded on a phone and open on a desktop", () => {
-    onScreen(false);
-    const phone = render(folded("phone"));
-    expect(fold().open).toBe(false);
-    phone.unmount();
-    onScreen(true);
-    render(folded("phone"));
-    expect(fold().open).toBe(true);
-  });
-
-  it("folded on a phone alone, reaches the browser folded, so a phone never folds what it showed", () => {
-    // The server cannot see the screen; a desktop opens the card at hydration instead.
-    const markup = renderTree(folded("phone"));
-    expect(markup).toContain('aria-expanded="false"');
-    expect(markup).toMatch(/<div[^>]*hidden=""[^>]*><p>Mika Brandt<\/p>/);
+  it("starts folded on every screen, as the server drew it", () => {
+    // The server cannot see the screen, so a desktop opening the card at hydration would shift the page.
+    expect(renderTree(folded)).toContain('aria-expanded="false"');
+    for (const desktop of [false, true]) {
+      onScreen(desktop);
+      const card = render(folded);
+      expect(fold().open).toBe(false);
+      card.unmount();
+    }
   });
 });
 
@@ -134,7 +125,7 @@ describe("a card", () => {
         <Card title={COPY.page.teamKader}>{table}</Card>
         <Card
           title={COPY.page.teamKader}
-          folded="phone">
+          folded>
           {table}
         </Card>
       </>,

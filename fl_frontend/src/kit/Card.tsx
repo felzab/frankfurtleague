@@ -7,7 +7,6 @@ import { RowEnd } from "./RowEnd";
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
-import type { Folded } from "./CardFold";
 import type { ChipProps } from "./Chip";
 
 /** A card's one line under its title: catalogue text such as a figure's meaning, or a record's own detail. */
@@ -30,15 +29,14 @@ export function Card({
   /** The card's one button. */
   action?: ReactElement;
   body?: "rows" | "fields";
-  /** The body folded behind the head, which opens it: on every screen, or on a phone alone. */
-  folded?: Folded;
+  /** The body folded behind the head, which opens it. */
+  folded?: boolean;
   children?: ReactNode;
 } & (Line | { line?: never; lineText?: never })) {
   const line = props.line ?? props.lineText;
-  if (folded !== undefined) {
+  if (folded === true) {
     return (
       <CardFold
-        folded={folded}
         title={title}
         count={count}
         line={line}
