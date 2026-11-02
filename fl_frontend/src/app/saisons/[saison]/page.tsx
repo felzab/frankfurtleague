@@ -8,10 +8,10 @@ import { pageMetadata } from "@/shared/utils/metadata";
 
 import { matchRowOf, readSaison, readSpielplan } from "./spielplan";
 
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
-export async function generateMetadata({ params }: PageProps<"/saisons/[saison]">): Promise<Metadata> {
-  return pageMetadata(ROUTES.spielplan, ROUTES.spielplan.path((await params).saison));
+export async function generateMetadata({ params }: PageProps<"/saisons/[saison]">, parent: ResolvingMetadata): Promise<Metadata> {
+  return pageMetadata(parent, ROUTES.spielplan, ROUTES.spielplan.path((await params).saison));
 }
 
 /**

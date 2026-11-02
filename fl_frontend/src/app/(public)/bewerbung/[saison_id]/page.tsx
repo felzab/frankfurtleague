@@ -14,9 +14,9 @@ import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { NextPageProps } from "@/shared/types/types";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
-export async function generateMetadata(props: NextPageProps<{ saison_id: string }>): Promise<Metadata> {
+export async function generateMetadata(props: NextPageProps<{ saison_id: string }>, parent: ResolvingMetadata): Promise<Metadata> {
   // Answered here and thrown in the body: a `notFound()` in this function leaves the page the layout's
   // title, while the body's throw renders the same panel. The status is 200 either way.
   const saison_id = await parseSaisonIdParam(props.params);
@@ -31,8 +31,7 @@ export async function generateMetadata(props: NextPageProps<{ saison_id: string 
 
   return {
     title: `Bewerbung Saison ${saison_id}`,
-    description: `Melde Dein Schulteam für die Saison ${saison_id} der Frankfurt League an.`,
-    openGraph: openGraphFor(`/bewerbung/${saison_id}`),
+    openGraph: await openGraphFor(parent, `/bewerbung/${saison_id}`),
     alternates: { canonical: `/bewerbung/${saison_id}` },
     // A season with no deadline recorded, or a window this read could not reach, is one sentence rather
     // than content: an indexed copy outlives the day the window is there to show.

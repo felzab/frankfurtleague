@@ -5,16 +5,18 @@ import { BewerbungOffenBand } from "@/features/bewerbungen/components/ui/Bewerbu
 import { KontaktView } from "@/features/meta/components/views/KontaktView";
 import { openGraphFor } from "@/shared/utils/metadata";
 
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
-export const metadata: Metadata = {
-  title: KONTAKT_TITEL,
-  description: "So erreichst Du die Frankfurt League mit Fragen, Anregungen und allem Weiteren.",
-  openGraph: openGraphFor("/kontakt"),
-  alternates: {
-    canonical: "/kontakt",
-  },
-};
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return {
+    title: KONTAKT_TITEL,
+    description: "So erreichst Du die Frankfurt League mit Fragen, Anregungen und allem Weiteren.",
+    openGraph: await openGraphFor(parent, "/kontakt"),
+    alternates: {
+      canonical: "/kontakt",
+    },
+  };
+}
 
 export default function KontaktPage() {
   return (

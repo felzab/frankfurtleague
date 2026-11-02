@@ -2,33 +2,30 @@ import { Suspense } from "react";
 
 import { getLaufendeFassung } from "@/core/einwilligung";
 import { gekeyteFassung, SPIELER_ABSATZ_SCHLUESSEL, SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
+import { ROUTES } from "@/core/routes";
 import { SpielerBestaetigungView } from "@/features/registrierungen/components/views/SpielerBestaetigungView";
 import { EINWILLIGUNG_UMFANG_OPTIONS } from "@/features/registrierungen/constants";
 import { getSpielerBestaetigungAnsicht } from "@/features/registrierungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
-import { openGraphFor } from "@/shared/utils/metadata";
+import { pageMetadata } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { FLEinwilligungWording, FLRegistrierungConfirmationViewResponseSeite } from "@/core/generated/client/types";
 import type { SpielerBestaetigungStart, SpielerSeitenFassung } from "@/features/registrierungen/types";
 import type { NextPageProps } from "@/shared/types/types";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
 /**
  * A page file of its own under the segment rather than a `[type]` route: each confirmation page
- * keeps its own copy, `robots.ts` row and sitemap case.
+ * keeps its own copy and its own row in `fl_frontend/src/core/routes.ts :: ROUTES`.
  *
  * `referrer` keeps the token off the referer a press on the notice would send.
  */
-export const metadata: Metadata = {
-  title: "Registrierung bestätigen",
-  description: "Bestätige Deine Registrierung für eine Saison der Frankfurt League.",
-  robots: { index: false, follow: false },
-  referrer: "no-referrer",
-  openGraph: openGraphFor("/bestaetigung/spieler"),
-  alternates: { canonical: "/bestaetigung/spieler" },
-};
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  const row = ROUTES.registrierungConfirmation;
+  return { ...(await pageMetadata(parent, row, row.path())), referrer: "no-referrer" };
+}
 
 /**
  * Resolves nothing itself: a top-level await would tie the App Shell to one URL, and this page's

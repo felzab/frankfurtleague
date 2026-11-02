@@ -6,14 +6,17 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { factsOf, readSaison, readSpiel, sidesOf } from "../../spielplan";
 
 import type { ReadRecord } from "@/kit/ReadPage";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
-export async function generateMetadata({ params }: PageProps<"/saisons/[saison]/spiele/[spiel]">): Promise<Metadata> {
+export async function generateMetadata(
+  { params }: PageProps<"/saisons/[saison]/spiele/[spiel]">,
+  parent: ResolvingMetadata,
+): Promise<Metadata> {
   const { saison: saisonId, spiel: spielId } = await params;
   const { saison } = await readSaison(saisonId);
   const { spiel } = await readSpiel(saison, spielId);
   const { heim, gast } = sidesOf(spiel);
-  return pageMetadata(ROUTES.spiel, ROUTES.spiel.path(saison.id, spiel.id), ROUTES.spiel.title(heim.name, gast.name));
+  return pageMetadata(parent, ROUTES.spiel, ROUTES.spiel.path(saison.id, spiel.id), { title: ROUTES.spiel.title(heim.name, gast.name) });
 }
 
 /**

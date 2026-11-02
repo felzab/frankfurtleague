@@ -6,6 +6,10 @@ import { formatDatum, formatNumber } from "./format";
 
 import type { CalendarDay } from "./format";
 import type { Code } from "./generated/client/types";
+import type { ROUTES } from "./routes";
+
+/** The route keys of the pages a search engine may list. */
+type ListedRoute = { [Key in keyof typeof ROUTES]: (typeof ROUTES)[Key]["crawl"] extends "index" ? Key : never }[keyof typeof ROUTES];
 
 // One rule over two codes: a match whose result no play decides carries no goals, on the fixture and in its report.
 const NO_TORE = "Nur ohne eingetragene Tore";
@@ -195,4 +199,26 @@ export const SERVER_COPY = catalogue({
     /** Where a club stands, under its name in a match head, linking to its row on the Tabelle. */
     standing: (platz: number, gruppe: string) => `${formatNumber(platz)}. Platz · Gruppe ${gruppe}`,
   },
+
+  /**
+   * Each listed page's meta description, by its route key, as a search result shows it under the title. Exactly
+   * one for every row `ROUTES` lists and none for any other: a signed-in page, a sign-in page or one a mail opens
+   * carries none, and a description set nowhere is not inherited from the root either.
+   */
+  description: {
+    home: COPY.brand.description,
+    about: "Wer in der Frankfurt League spielt, nach welchen Regeln und wofür, und wer die Liga organisiert.",
+    spielplan: (saison: string) => `Alle Spiele der Saison ${saison} der Frankfurt League, Spieltag für Spieltag, mit Datum, Uhrzeit und Ort.`,
+    tabelle: (saison: string) => `Die Tabelle der Saison ${saison} der Frankfurt League: jede Gruppe mit Spielen, Toren und Punkten.`,
+    teams: (saison: string) => `Alle Teams der Saison ${saison} der Frankfurt League, mit Gruppe und Kader.`,
+    team: (team: string, saison: string) => `${team} in der Saison ${saison} der Frankfurt League: Stand, Spiele und Kader.`,
+    kORunde: (saison: string) => `Die K.-o.-Runde der Saison ${saison} der Frankfurt League: der K.-o.-Baum bis zum Finale.`,
+    spielSearch: (saison: string) => `Alle Spiele der Saison ${saison} der Frankfurt League zum Suchen und Filtern.`,
+    spiel: (heim: string, gast: string, saison: string) =>
+      `${heim} gegen ${gast} in der Saison ${saison} der Frankfurt League: Termin, Ort, Ergebnis und Aufstellungen.`,
+    contact: "Die Frankfurt League erreichst du per E-Mail, auf Instagram und auf Threads.",
+    sponsors: "Die Sponsoren der Frankfurt League, und wie du die Liga unterstützen kannst.",
+    legalNotice: "Anbieterkennzeichnung der Frankfurt League nach § 5 DDG und § 18 Abs. 2 MStV.",
+    privacyNotice: "Welche Daten die Frankfurt League verarbeitet, auf welcher Grundlage und wie lange.",
+  } satisfies Record<ListedRoute, string | ((...names: never) => string)>,
 });

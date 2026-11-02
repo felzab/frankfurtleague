@@ -7,10 +7,12 @@ import { SIGN_IN_LANDING } from "@/core/signInLanding";
 import { PasskeyStep } from "@/features/auth/components/forms/PasskeyStep";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
 /** No description, as `/signin` carries none. */
-export const metadata: Metadata = pageMetadata(ROUTES.signInPasskey, ROUTES.signInPasskey.path());
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return pageMetadata(parent, ROUTES.signInPasskey, ROUTES.signInPasskey.path());
+}
 
 // Never under `/bereich/admin`: the session that must reach this page is the one the admin guard is
 // refusing, so a page behind that guard is a page nobody can open.

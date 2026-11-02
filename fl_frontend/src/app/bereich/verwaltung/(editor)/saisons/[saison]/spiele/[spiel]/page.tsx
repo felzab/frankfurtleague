@@ -21,7 +21,7 @@ import { KEIN_SONDEREREIGNIS, werteOf } from "./spielWerte";
 import type { Copy } from "@/core/copy";
 import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/bereich/verwaltung/saisons/[saison]/spiele/[spiel]">;
 
@@ -47,10 +47,12 @@ const nameOf = (spiel: FLSpielJoinedAdmin) =>
     ? WORTE.number(spiel.spiel_nr)
     : ROUTES.verwaltungSpiel.title(spiel.team1.name, spiel.team2.name);
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison, spiel } = await params;
   const gelesen = await lesen(spiel);
-  return gelesen === null ? {} : pageMetadata(ROUTES.verwaltungSpiel, ROUTES.verwaltungSpiel.path(saison, spiel), nameOf(gelesen.spiel));
+  return gelesen === null
+    ? {}
+    : pageMetadata(parent, ROUTES.verwaltungSpiel, ROUTES.verwaltungSpiel.path(saison, spiel), { title: nameOf(gelesen.spiel) });
 }
 
 /** The match editor, on today's match read and write. */

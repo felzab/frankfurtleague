@@ -1,27 +1,24 @@
 import { Suspense } from "react";
 
+import { ROUTES } from "@/core/routes";
 import { getSubjectSession } from "@/core/subject";
 import { LoeschungView } from "@/features/konto/components/views/LoeschungView";
 import { readGrantHolderStepUp } from "@/features/konto/loeschungStepUp";
 import { getLoeschungAnsicht } from "@/features/konto/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
-import { openGraphFor } from "@/shared/utils/metadata";
+import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { NextPageProps } from "@/shared/types/types";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
 /**
- * `noindex` as the confirmation pages spell it;
- * `referrer` keeps the link's token off the referer a press on any link here would send.
+ * `referrer` keeps the link's token off the referer a press on any link here would send; the row keeps crawlers
+ * out, as the confirmation pages' do.
  */
-export const metadata: Metadata = {
-  title: "Konto löschen",
-  description: "Bestätige die Löschung Deines Kontos bei der Frankfurt League.",
-  robots: { index: false, follow: false },
-  referrer: "no-referrer",
-  openGraph: openGraphFor("/loeschung"),
-  alternates: { canonical: "/loeschung" },
-};
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  const row = ROUTES.accountErasure;
+  return { ...(await pageMetadata(parent, row, row.path())), referrer: "no-referrer" };
+}
 
 /**
  * Resolves nothing itself: a top-level await would tie the App Shell to one URL, and this page's

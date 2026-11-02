@@ -7,7 +7,7 @@ import { ThemeColor } from "@/kit/ThemeColor";
 import { SITE_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { RootProviders } from "@/core/providers/RootProviders";
-import { openGraphFor } from "@/shared/utils/metadata";
+import { SITE_OPEN_GRAPH } from "@/shared/utils/metadata";
 
 import type { Metadata } from "next";
 
@@ -38,22 +38,19 @@ const inter = Inter({
 });
 
 /**
- * `metadataBase` lets every route spell its canonical as a PATH, and one declaring none inherits
- * this file's. Next replaces `openGraph` WHOLE rather than merging, which is why every route
- * builds one through `openGraphFor(path)`.
+ * What every page inherits, so nothing here names one page: a description, a canonical or an og:url set
+ * here would stand on every page declaring none, a signed-in one or one a mail opens among them. Each page
+ * names its own title part, its description and its address through
+ * `fl_frontend/src/shared/utils/metadata.ts :: pageMetadata`; `metadataBase` lets it spell them as a PATH.
  */
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     template: `%s | ${COPY.brand.name}`,
-    default: "Frankfurt League | Die Oberstufenliga",
+    // Next requires it beside a template; a page naming no title of its own shows the league's name alone.
+    default: COPY.brand.name,
   },
-  description:
-    "Bei der Frankfurt League treten Frankfurter Oberstufen gegeneinander an, um herauszufinden, welche von ihnen die Beste ist. Hier gibt's alle Infos.",
-  alternates: {
-    canonical: "/",
-  },
-  openGraph: openGraphFor("/"),
+  openGraph: SITE_OPEN_GRAPH,
   // Without this X falls back to a small square thumbnail; the rest is inherited.
   twitter: {
     card: "summary_large_image",
