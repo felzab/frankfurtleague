@@ -1,20 +1,19 @@
 from collections.abc import Awaitable, Callable, Iterator
-from typing import Any, get_type_hints
+from typing import Any
 
 import pytest
 from bson import ObjectId
-from pydantic import BaseModel
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.saisons.public_router import get_tabelle
+from app.api.saisons.public_router import get_teams as get_saison_teams
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import advance_bracket_winners
 from app.api.teams.admin_router import get_teams_verwaltung
-from app.api.teams.public_router import get_team, get_teams
-from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamsFilterParams, FLTeamSingleFilterParams
+from app.api.teams.public_router import get_team
+from app.api.teams.schemas import FLGruppenTeam, FLPublicTeamsFilterParams, FLTeam, FLTeamsFilterParams, FLTeamSingleFilterParams
 from app.api.teams.services import build_team_pipeline
 from app.core.collections import Collection
-from app.core.config import API_VERSION
-from app.openapi_document import build_document
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import confirmed_kenntnisnahme
@@ -51,24 +50,11 @@ KONTAKT_EMAIL = "a.koerner@helmholtz.example.de"
 KONTAKT_TELEFON = "+49 170 1234567"
 KONTAKT_GEBURTSDATUM = "1984-05-09"
 
-# The models the two endpoints DECLARE: FastAPI builds the query parameters from these, so what a
-# caller may ask for is settled here rather than by anything a handler body does with the answer.
-BASE_FILTERS: type[BaseModel] = get_type_hints(get_teams)["filters"]
-ADMIN_FILTERS: type[BaseModel] = get_type_hints(get_teams_verwaltung)["filters"]
-
-# What a caller may actually SEND, read off the app's own schema: a model's fields plus anything the
-# handler declares beside them. Constructing a filter object asks for nothing -- `extra="ignore"`
-# drops an undeclared key before any read sees it.
-_PUBLISHED_PATHS = build_document()["paths"]
-BASE_QUERY_PARAMETERS = {parameter["name"] for parameter in _PUBLISHED_PATHS[f"/api/v{API_VERSION}/teams"]["get"]["parameters"]}
-_ADMIN_LIST = _PUBLISHED_PATHS[f"/api/v{API_VERSION}/teams/list/verwaltung"]
-ADMIN_QUERY_PARAMETERS = {parameter["name"] for parameter in _ADMIN_LIST["get"]["parameters"]}
-
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def saison_document(saison_id: str = SAISON, status: str = "active") -> dict[str, Any]:
-    """The grouped read derives every figure in the table from these rules, and the finale is seeded from the placings they rank."""
+    """The Tabelle derives every figure in it from these rules, and the finale is seeded from the placings they rank."""
 
     rules = documents.rules_document(win_points=3, draw_points=1, qualifiers_per_gruppe=2, tiebreak_order="tordifferenz")
 
@@ -149,18 +135,18 @@ def on_a_league(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-def base_filters(**overrides: Any) -> BaseModel:
-    """`model_validate`, not the constructor: the model is whatever `get_teams` declares, so its keywords are not known here statically."""
-
-    return BASE_FILTERS.model_validate({"saison_id": SAISON, **overrides})
-
-
-async def read_teams(database: AsyncDatabase, filters: Any) -> Any:
-    return await get_teams(
-        teams_collection=database[Collection.TEAMS],
+async def read_tabelle(database: AsyncDatabase, saison_id: str = SAISON) -> Any:
+    return await get_tabelle(
+        saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS],
+        teams_collection=database[Collection.TEAMS],
         spiele_collection=database[Collection.SPIELE],
-        filters=filters,
+    )
+
+
+async def read_saison_teams(database: AsyncDatabase, saison_id: str = SAISON) -> Any:
+    return await get_saison_teams(
+        saison_id=saison_id, saisons_collection=database[Collection.SAISONS], teams_collection=database[Collection.TEAMS]
     )
 
 
@@ -168,46 +154,25 @@ async def read_teams_verwaltung(database: AsyncDatabase, filters: FLTeamsFilterP
     return await get_teams_verwaltung(
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        spiele_collection=database[Collection.SPIELE],
         filters=filters,
     )
 
 
 def standing_names(response: Any) -> list[str]:
-    """Every club the four groups place, in the order the response ranked them."""
+    """Every club the groups place, in the order the response ranked them."""
 
     return [row.name for rows in response.gruppen.root.values() for row in rows]
 
 
 class TestTheBaseTierFilterSurface:
-    def test_the_retirement_switch_is_not_among_its_query_parameters(self):
-        """A standings row names no leaving date, so a read un-hiding retired clubs has no way to say which ones they are (`READ-SQUAD-002`)."""
-        assert "include_inactive" not in BASE_QUERY_PARAMETERS
-        # The contrast, so the name above is one FastAPI really publishes when a handler offers it.
-        assert "include_inactive" in ADMIN_QUERY_PARAMETERS
+    def test_the_admin_filters_are_the_base_tier_s_set_plus_the_switch(self):
+        """A standings row names no leaving date, so a base-tier read un-hiding retired clubs could not say which (`READ-SQUAD-002`).
 
-    def test_the_base_tier_filter_set_is_exactly_this(self):
-        """Every term the base tier may narrow on. A filter is part of the shape a read serves.
-
-        The difference against the admin model cannot stand in: that model inherits this one, so a
-        term added here propagates there and the difference is unchanged.
+        The base-tier views build their club reads from the model without the switch; the season editor has to list a
+        retired club that still holds a junction row, so the switch is the admin model's alone.
         """
-        assert set(BASE_FILTERS.model_fields) == {
-            "saison_id",
-            "gruppe",
-            "in_gruppen",
-            "has_austritt",
-            "austritt_type",
-            "statistik_scope",
-            "sort_by",
-            "order",
-            "limit",
-        }
-
-    def test_the_admin_filters_are_that_same_set_plus_the_switch(self):
-        """Moved rather than dropped: the season editor has to list a retired club that still holds a junction row."""
-        assert "include_inactive" in ADMIN_FILTERS.model_fields
-        assert set(ADMIN_FILTERS.model_fields) - set(BASE_FILTERS.model_fields) == {"include_inactive"}
+        assert "include_inactive" not in FLPublicTeamsFilterParams.model_fields
+        assert set(FLTeamsFilterParams.model_fields) - set(FLPublicTeamsFilterParams.model_fields) == {"include_inactive"}
 
     def test_a_standings_row_carries_no_leaving_date(self):
         """Why the switch is off that surface. `austritt_type` is no substitute: it records leaving a SEASON, not leaving the league."""
@@ -239,36 +204,35 @@ class TestARetiredClubStaysOutOfTheBaseTierReads:
         assert saison["status"] == "active"
         assert club["inactive_since"] > saison["end_date"]
 
-    def test_the_standings_leave_it_out(self, seeded_url: str):
-        response = on_a_league(seeded_url, lambda database: read_teams(database, base_filters(in_gruppen=True)))
+    def test_the_tabelle_leaves_it_out(self, seeded_url: str):
+        response = on_a_league(seeded_url, read_tabelle)
 
         assert standing_names(response) == ["Helmholtz"]
 
-    def test_the_flat_list_leaves_it_out_as_well(self, seeded_url: str):
-        """The switch left the ENDPOINT rather than one of its two shapes: the flat list is the same base-tier surface."""
-        response = on_a_league(seeded_url, lambda database: read_teams(database, base_filters()))
+    def test_the_season_s_club_list_leaves_it_out_as_well(self, seeded_url: str):
+        response = on_a_league(seeded_url, read_saison_teams)
 
         assert [team.name for team in response.teams] == ["Helmholtz"]
 
     def test_the_admin_read_still_un_hides_it(self, seeded_url: str):
         """Non-vacuity as well as the rule: the same corpus, one tier along, answers with the club every case above refused."""
-        filters = FLTeamsFilterParams(saison_id=SAISON, in_gruppen=True, include_inactive=True)
+        filters = FLTeamsFilterParams(saison_id=SAISON, include_inactive=True)
         response = on_a_league(seeded_url, lambda database: read_teams_verwaltung(database, filters))
 
-        assert sorted(standing_names(response)) == ["Helmholtz", "Lessing"]
+        assert sorted(team.name for team in response.teams) == ["Helmholtz", "Lessing"]
 
 
 @pytest.mark.db
 class TestAPastSeasonKeepsTheRetiredClubsThatPlayedIt:
     """A finished season's table has to add up with the fixtures it still shows."""
 
-    def test_the_standings_keep_them(self, seeded_url: str):
-        response = on_a_league(seeded_url, lambda database: read_teams(database, base_filters(saison_id=PAST_SAISON, in_gruppen=True)))
+    def test_the_tabelle_keeps_them(self, seeded_url: str):
+        response = on_a_league(seeded_url, lambda database: read_tabelle(database, PAST_SAISON))
 
         assert sorted(standing_names(response)) == ["Goethe", "Helmholtz", "Lessing"]
 
-    def test_the_flat_list_keeps_them_as_well(self, seeded_url: str):
-        response = on_a_league(seeded_url, lambda database: read_teams(database, base_filters(saison_id=PAST_SAISON)))
+    def test_the_season_s_club_list_keeps_them_as_well(self, seeded_url: str):
+        response = on_a_league(seeded_url, lambda database: read_saison_teams(database, PAST_SAISON))
 
         assert sorted(team.name for team in response.teams) == ["Goethe", "Helmholtz", "Lessing"]
 
@@ -428,8 +392,8 @@ class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
             assert "kontakte" not in row
             assert KONTAKT_TELEFON not in repr(row)
 
-    def test_the_list_endpoint_serves_none_of_it(self, seeded_url: str):
-        response = on_a_league(seeded_url, lambda database: read_teams(database, base_filters()))
+    def test_the_season_s_club_list_serves_none_of_it(self, seeded_url: str):
+        response = on_a_league(seeded_url, read_saison_teams)
 
         assert response.teams
         assert KONTAKT_EMAIL not in response.model_dump_json()

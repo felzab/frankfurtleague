@@ -2686,50 +2686,6 @@ export interface FLGrantsListResponse {
   grants: FLGrantRow[];
 }
 
-export interface FLTeamStatistik {
-  /** @minimum 0 */
-  count_abgesagte_spiele: number;
-  /** @minimum 0 */
-  count_gespielte_spiele: number;
-  /** @minimum 0 */
-  niederlagen: number;
-  /** @minimum 0 */
-  punkte: number;
-  /** @minimum 0 */
-  siege: number;
-  /** @minimum 0 */
-  tore_geschossen: number;
-  /** @minimum 0 */
-  tore_kassiert: number;
-  /** @minimum 0 */
-  unentschieden: number;
-}
-
-/**
- * One row of a league table: what a standing shows and nothing more.
- *
- * Narrower than `FLTeam` on purpose: a public CLIENT component renders this, so every field is
- * serialised into the page, and a club's address is a school's street.
- */
-export interface FLGruppenTeam {
-  austritt_type: FLAustrittType | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  /** @minLength 1 */
-  name: string;
-  /** @pattern ^[A-Z]{3}$ */
-  shorthand: string;
-  statistik: FLTeamStatistik;
-}
-
-/**
- * Every group the SEASON offers, all of them and no other, in standing order.
- *
- * Built by `fl_backend/app/api/teams/services.py :: build_gruppen` alone: the order is the tiebreak
- * chain, whose head-to-head criterion reads the season's matches.
- */
-export type FLGruppen = Partial<Record<FLGruppenNames, FLGruppenTeam[]>>;
-
 /**
  * A team's registration link, to one confirmed contact seat, for the pupils to register through.
  */
@@ -5544,10 +5500,6 @@ export interface FLSpieleAdminSingleResponse {
   spiel: FLSpielJoinedAdmin;
 }
 
-export interface FLSpieleListResponse {
-  spiele: FLSpielJoined[];
-}
-
 export interface FLSpieleSingleResponse {
   spiel: FLSpielJoined;
 }
@@ -5579,23 +5531,6 @@ export interface FLSpielerAdminSingleResponse {
 }
 
 /**
- * One squad row as the BASE TIER serves it -- all an anonymous visitor may read.
- *
- * `build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the
- * `stufe` is gone (`READ-PUPIL-002`), and the consent record with it.
- */
-export interface FLSpielerPublic {
-  nachname: string | null;
-  nummer: string | null;
-  position: FLSpielerPosition | null;
-  vorname: string | null;
-}
-
-export interface FLSpielerListResponse {
-  spieler: FLSpielerPublic[];
-}
-
-/**
  * One squad row as seen from its player.
  *
  * Carries `inactive_since`, which the team junction does not: a player leaves a squad mid-season,
@@ -5620,6 +5555,19 @@ export interface FLSpielerMembership {
 export interface FLSpielerNachnominierungResponse {
   nachnominierung: boolean;
   saison_id: string;
+}
+
+/**
+ * One squad row as the BASE TIER serves it -- all an anonymous visitor may read.
+ *
+ * `build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the
+ * `stufe` is gone (`READ-PUPIL-002`), and the consent record with it.
+ */
+export interface FLSpielerPublic {
+  nachname: string | null;
+  nummer: string | null;
+  position: FLSpielerPosition | null;
+  vorname: string | null;
 }
 
 /**
@@ -5848,6 +5796,25 @@ export interface FLSweepSaisonsResponse {
   saison_ids: string[];
 }
 
+export interface FLTeamStatistik {
+  /** @minimum 0 */
+  count_abgesagte_spiele: number;
+  /** @minimum 0 */
+  count_gespielte_spiele: number;
+  /** @minimum 0 */
+  niederlagen: number;
+  /** @minimum 0 */
+  punkte: number;
+  /** @minimum 0 */
+  siege: number;
+  /** @minimum 0 */
+  tore_geschossen: number;
+  /** @minimum 0 */
+  tore_kassiert: number;
+  /** @minimum 0 */
+  unentschieden: number;
+}
+
 /**
  * One row of the Tabelle: the standing row and its placing, null for a club with no match or gone before its group was decided.
  */
@@ -6033,19 +6000,6 @@ export interface FLTeamWithMemberships {
   website_url: string | null;
 }
 
-/**
- * The season's groups in standing order, and how many of each advance.
- *
- * `qualifiers_per_gruppe` rides along rather than being fetched separately, so a page cannot mark a
- * cutoff drawn from a different season than the table it marks.
- */
-export interface FLTeamsGroupedResponse {
-  format: "grouped";
-  gruppen: FLGruppen;
-  /** @exclusiveMinimum 0 */
-  qualifiers_per_gruppe: number;
-}
-
 export interface FLTeamsListResponse {
   format: "list";
   teams: FLTeam[];
@@ -6060,8 +6014,6 @@ export interface FLTeamsSaisonsResponse {
 
 /**
  * One team, from `GET /teams/{team_id}`.
- *
- * Not part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can return.
  */
 export interface FLTeamsSingleResponse {
   format: "single";
@@ -6306,36 +6258,6 @@ export type SpielbestaetigungenGetSpielbestaetigungenParams = {
   limit?: number;
 };
 
-export type SpieleGetSpieleParams = {
-  saison_id?: string | null;
-  saison_phase?: "playoffs" | FLSaisonPhase | null;
-  spiel_status?: FLSpielStatus | null;
-  team_id?: string | null;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: SpieleGetSpieleSortBy;
-  order?: SpieleGetSpieleOrder;
-};
-
-export type SpieleGetSpieleSortBy = (typeof SpieleGetSpieleSortBy)[keyof typeof SpieleGetSpieleSortBy];
-
-export const SpieleGetSpieleSortBy = {
-  datum: "datum",
-  uhrzeit: "uhrzeit",
-  spiel_nr: "spiel_nr",
-  saison_phase: "saison_phase",
-} as const;
-
-export type SpieleGetSpieleOrder = (typeof SpieleGetSpieleOrder)[keyof typeof SpieleGetSpieleOrder];
-
-export const SpieleGetSpieleOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
-
 export type SpieleGetSpieleActionRequiredParams = {
   saison_id?: string | null;
 };
@@ -6380,36 +6302,6 @@ export type SpielePatchSpielParams = {
    */
   dry_run?: boolean;
 };
-
-export type SpielerGetSpielerParams = {
-  /**
-   * @pattern ^[0-9a-fA-F]{24}$
-   */
-  team_id: string;
-  saison_id?: string | null;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: SpielerGetSpielerSortBy;
-  order?: SpielerGetSpielerOrder;
-};
-
-export type SpielerGetSpielerSortBy = (typeof SpielerGetSpielerSortBy)[keyof typeof SpielerGetSpielerSortBy];
-
-export const SpielerGetSpielerSortBy = {
-  vorname: "vorname",
-  nummer: "nummer",
-  position: "position",
-} as const;
-
-export type SpielerGetSpielerOrder = (typeof SpielerGetSpielerOrder)[keyof typeof SpielerGetSpielerOrder];
-
-export const SpielerGetSpielerOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
 
 export type SpielorteGetSpielorteParams = {
   include_inactive?: boolean;
@@ -6458,42 +6350,11 @@ export const SpieltageGetSpieltageVerwaltungOrder = {
   desc: "desc",
 } as const;
 
-export type TeamsGetTeamsParams = {
-  saison_id?: string | null;
-  gruppe?: FLGruppenNames | null;
-  has_austritt?: boolean | null;
-  austritt_type?: FLAustrittType | null;
-  in_gruppen?: boolean | null;
-  statistik_scope?: TeamsGetTeamsStatistikScope;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: "name";
-  order?: TeamsGetTeamsOrder;
-};
-
-export type TeamsGetTeamsStatistikScope = (typeof TeamsGetTeamsStatistikScope)[keyof typeof TeamsGetTeamsStatistikScope];
-
-export const TeamsGetTeamsStatistikScope = {
-  gruppenphase: "gruppenphase",
-  total: "total",
-} as const;
-
-export type TeamsGetTeamsOrder = (typeof TeamsGetTeamsOrder)[keyof typeof TeamsGetTeamsOrder];
-
-export const TeamsGetTeamsOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
-
 export type TeamsGetTeamsVerwaltungParams = {
   saison_id?: string | null;
   gruppe?: FLGruppenNames | null;
   has_austritt?: boolean | null;
   austritt_type?: FLAustrittType | null;
-  in_gruppen?: boolean | null;
   statistik_scope?: TeamsGetTeamsVerwaltungStatistikScope;
   /**
    * @minimum 1

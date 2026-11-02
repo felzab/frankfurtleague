@@ -57,6 +57,30 @@ describe("a match's own page", () => {
   });
 });
 
+describe("a club's own page", () => {
+  it("heads its groups with the club's head and, where the club left the season, its route, its day and its reason", async () => {
+    const title = COPY.shared.austrittSeit(COPY.shared.austritt.disqualifikation.zustand, "2026-03-14");
+    const page = await streamed(
+      <ReadPage
+        scope="saison"
+        record={Promise.resolve({
+          ...RECORD,
+          club: { head: <p>Goethe-Gymnasium</p>, austritt: { title, text: { record: "Zweimal nicht angetreten." } } },
+        })}
+      />,
+    );
+
+    const head = within(page).getByText("Goethe-Gymnasium");
+    const note = within(page).getByText(title);
+    const grund = within(page).getByText("Zweimal nicht angetreten.");
+    const facts = within(page).getByText(fact.spieltag);
+    expect(note.textContent).toBe("Disqualifiziert seit 14.03.2026");
+    expect(head.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(note.compareDocumentPosition(grund) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(grund.compareDocumentPosition(facts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
 describe("the read page's wait", () => {
   it("draws the facts' skeleton while the record is read, and the record once it is", async () => {
     const waiting = document.createElement("div");

@@ -185,10 +185,8 @@ import type {
   FLSpieleActionRequiredResponse,
   FLSpieleAdminListResponse,
   FLSpieleAdminSingleResponse,
-  FLSpieleListResponse,
   FLSpielerAccountEinwilligungResponse,
   FLSpielerAdminSingleResponse,
-  FLSpielerListResponse,
   FLSpielerNachnominierungResponse,
   FLSpielerSaisonsResponse,
   FLSpielerSelfResponse,
@@ -209,7 +207,6 @@ import type {
   FLTabelleResponse,
   FLTeamPageResponse,
   FLTeamSeatsResponse,
-  FLTeamsGroupedResponse,
   FLTeamsListResponse,
   FLTeamsSaisonsResponse,
   FLTeamsSingleResponse,
@@ -226,14 +223,11 @@ import type {
   SpielberichteGetSpielberichtVerwaltungParams,
   SpielbestaetigungenGetSpielbestaetigungenParams,
   SpieleGetSpieleActionRequiredParams,
-  SpieleGetSpieleParams,
   SpieleGetSpieleVerwaltungParams,
   SpielePatchSpielParams,
-  SpielerGetSpielerParams,
   SpielorteGetSpielorteParams,
   SpieltageGetSpieltageVerwaltungParams,
   TeamsGetTeamParams,
-  TeamsGetTeamsParams,
   TeamsGetTeamsVerwaltungParams,
 } from "./types.ts";
 
@@ -1098,24 +1092,6 @@ export const bewerbungenGetTrikotfarben = async (
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLBewerbungTrikotFarbenResponse> => {
   return baseKeyTransport<FLBewerbungTrikotFarbenResponse>(getBewerbungenGetTrikotfarbenUrl(saisonId), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getBewerbungenGetOpenWindowUrl = () => {
-  return `/api/v0/bewerbungen/window`;
-};
-
-/**
- * Return the season taking applications today -- its window open and the season not ended; 404 when none is.
- *
- * What is served is the window and whether its season has ended, never the season: the rule
- * withholds a `future` one from this tier (`READ-BEWERBUNG-001`).
- * @summary The Saison currently accepting applications
- */
-export const bewerbungenGetOpenWindow = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLBewerbungWindowResponse> => {
-  return baseKeyTransport<FLBewerbungWindowResponse>(getBewerbungenGetOpenWindowUrl(), {
     ...options,
     method: "GET",
   });
@@ -4100,29 +4076,6 @@ export const spielbestaetigungenEnterSpielbestaetigung = async (
   });
 };
 
-export const getSpieleGetSpieleUrl = (params?: SpieleGetSpieleParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/spiele?${stringifiedParams}` : `/api/v0/spiele`;
-};
-
-/**
- * List the Spiele matching the filters, of the current season unless `saison_id` names another.
- *
- * A season this tier may not read 404s; `playoffs` means every phase but `gruppenphase`, and `from_today`
- * includes today.
- * @summary List Spiele
- */
-export const spieleGetSpiele = async (
-  params?: SpieleGetSpieleParams,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLSpieleListResponse> => {
-  return baseKeyTransport<FLSpieleListResponse>(getSpieleGetSpieleUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSpieleGetSpieleActionRequiredUrl = (params?: SpieleGetSpieleActionRequiredParams) => {
   const stringifiedParams = serializeQuery(params);
 
@@ -4156,7 +4109,7 @@ export const getSpieleGetSpieleVerwaltungUrl = (params?: SpieleGetSpieleVerwaltu
 };
 
 /**
- * List Spiele as `GET /spiele` does, a planned season's included, in the admin shape.
+ * List one season's Spiele, the active one's unless `saison_id` names another, a planned season's included, in the admin shape.
  *
  * Each referee carries their whole name, and each booking its money.
  * @summary Spiele for the admin surfaces
@@ -4242,29 +4195,6 @@ export const spieleGetSpielVerwaltung = async (
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpieleAdminSingleResponse> => {
   return adminKeyTransport<FLSpieleAdminSingleResponse>(getSpieleGetSpielVerwaltungUrl(spielId), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getSpielerGetSpielerUrl = (params: SpielerGetSpielerParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/spieler?${stringifiedParams}` : `/api/v0/spieler`;
-};
-
-/**
- * One team's squad in the current season unless `saison_id` names another; 404 while none is active and for one this tier may not read.
- *
- * A surname reads as its initial, both names `null` where the pupil's consent does not publish them, the row keeping
- * its `nummer` and `position`; no row carries the pupil's record id.
- * @summary List Spieler
- */
-export const spielerGetSpieler = async (
-  params: SpielerGetSpielerParams,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLSpielerListResponse> => {
-  return baseKeyTransport<FLSpielerListResponse>(getSpielerGetSpielerUrl(params), {
     ...options,
     method: "GET",
   });
@@ -4435,8 +4365,8 @@ export const getSpielerGetSpielerSaisonsUrl = () => {
 /**
  * Every player, retired ones included, each with every squad row they hold.
  *
- * `GET /spieler` answers it at no setting: it serves one team's squad in one season, the season the
- * site is on where it names none, and so never a player outside that squad or their other rows.
+ * A club page's squad cannot answer it: it serves one team's squad in one season, and so never a
+ * player outside that squad or their other rows.
  *
  * `address_change_id` names the live change of the pupil's address, which the address tool shows, and
  * `address_change_viewable_denied` why the tool refuses it this administrator, null where it opens it.
@@ -4940,29 +4870,6 @@ export const systemCheckIsLive = async (options?: Parameters<typeof unkeyedTrans
   });
 };
 
-export const getTeamsGetTeamsUrl = (params?: TeamsGetTeamsParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/teams?${stringifiedParams}` : `/api/v0/teams`;
-};
-
-/**
- * One season's teams as a list, or with `in_gruppen=true` keyed by every group it offers in standing order, as `format` names.
- *
- * An omitted `saison_id` reads the season the site is on, and a club that left the league is listed in a `past` season
- * alone; 404 for a season this tier may not read.
- * @summary List teams, flat or grouped
- */
-export const teamsGetTeams = async (
-  params?: TeamsGetTeamsParams,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLTeamsListResponse | FLTeamsGroupedResponse> => {
-  return baseKeyTransport<FLTeamsListResponse | FLTeamsGroupedResponse>(getTeamsGetTeamsUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getTeamsPostTeamUrl = () => {
   return `/api/v0/teams`;
 };
@@ -5004,15 +4911,15 @@ export const getTeamsGetTeamsVerwaltungUrl = (params?: TeamsGetTeamsVerwaltungPa
 /**
  * List a season's teams for the admin surfaces, a `future` season's included.
  *
- * Same filters and shapes as `GET /teams`, without its season gate: a club is entered while its
- * season is still planned, so an admin who cannot see one cannot enter it.
+ * No base-tier season gate: a club is entered while its season is still planned, so an admin who
+ * cannot see one cannot enter it.
  * @summary Teams for a Saison, for the admin surfaces
  */
 export const teamsGetTeamsVerwaltung = async (
   params?: TeamsGetTeamsVerwaltungParams,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLTeamsListResponse | FLTeamsGroupedResponse> => {
-  return adminKeyTransport<FLTeamsListResponse | FLTeamsGroupedResponse>(getTeamsGetTeamsVerwaltungUrl(params), {
+): Promise<FLTeamsListResponse> => {
+  return adminKeyTransport<FLTeamsListResponse>(getTeamsGetTeamsVerwaltungUrl(params), {
     ...options,
     method: "GET",
   });
@@ -5025,7 +4932,7 @@ export const getTeamsGetTeamSaisonsUrl = () => {
 /**
  * Every team, retired ones included, each with every season membership it holds. Sorted by name.
  *
- * `GET /teams` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
+ * `GET /teams/list/verwaltung` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
  * change of each seat's address, which the address tool shows, and per seat why the tool refuses that change this
  * administrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was
  * ever owed.

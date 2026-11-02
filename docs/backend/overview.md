@@ -74,7 +74,7 @@ each changing nothing a reader sees, records what it replaced or removed on the 
 
 **The domain's relations are [`../domain.md`](../domain.md)'s**, and each write enforces the
 rules it is refused under where it writes. The league table is computed from the matches on each
-read of `GET /teams` and stored nowhere.
+read of the Tabelle (`GET /saisons/{saison_id}/tabelle`) and stored nowhere.
 
 ## Errors
 

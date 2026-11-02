@@ -17,7 +17,6 @@ from app.api.spiele.schemas import (
 )
 from app.api.teams.schemas import (
     FLAustritt,
-    FLGruppen,
     FLGruppenTeam,
     FLKontaktMint,
     FLPublicTeamsFilterParams,
@@ -807,12 +806,6 @@ def _placings(
         platz += len(holders)
 
     return placings
-
-
-def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rules: FLSaisonRules) -> FLGruppen:
-    """Every group the season offers, its rows in standing order."""
-
-    return FLGruppen({name: [row for band in bands for row in band] for name, bands in _ranked_bands(teams, spiele, rules).items()})
 
 
 def _ranked_bands(

@@ -167,7 +167,17 @@ export const COPY = catalogue({
       finale: "Finale",
     },
     afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
-    disqualified: "DQ",
+    /**
+     * The two routes out of a season, each in its three wordings: `label` names the record, `zustand` the club's
+     * resulting state, `kuerzel` the badge. `AUSTRITT_OPTIONS` serves them to every surface, so no two can name
+     * one record differently.
+     */
+    austritt: {
+      disqualifikation: { label: "Disqualifikation", zustand: "Disqualifiziert", kuerzel: "DQ" },
+      rueckzug: { label: "Rückzug", zustand: "Zurückgezogen", kuerzel: "RZ" },
+    },
+    /** The head of a club's exit note, „Disqualifiziert seit 14.03.2026“: its route's `zustand` and the day it took effect. */
+    austrittSeit: (zustand: Copy, day: CalendarDay) => `${zustand} seit ${formatDatum(day)}`,
     // Redesign: a line-up's chips read these.
     startelf: "Startelf",
     bank: "Bank",

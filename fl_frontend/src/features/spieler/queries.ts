@@ -12,7 +12,7 @@ import type {
 } from "@/core/generated/client/types";
 
 /**
- * The public squad read, `GET /spieler`, cannot serve the admin surfaces at any filter setting.
+ * The public squad read, a club page's squad, cannot serve the admin surfaces: it is one club's in one season.
  */
 // Never `"use cache"` here, which keys on the arguments rather than the caller.
 export const getSpielerSaisons = cache(async (): Promise<FLSpielerSaisonsResponse> => runAdminRead(() => spielerGetSpielerSaisons()));

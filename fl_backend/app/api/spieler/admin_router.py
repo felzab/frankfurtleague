@@ -101,8 +101,8 @@ async def get_spieler_saisons(
     """
     Every player, retired ones included, each with every squad row they hold.
 
-    `GET /spieler` answers it at no setting: it serves one team's squad in one season, the season the
-    site is on where it names none, and so never a player outside that squad or their other rows.
+    A club page's squad cannot answer it: it serves one team's squad in one season, and so never a
+    player outside that squad or their other rows.
 
     `address_change_id` names the live change of the pupil's address, which the address tool shows, and
     `address_change_viewable_denied` why the tool refuses it this administrator, null where it opens it.

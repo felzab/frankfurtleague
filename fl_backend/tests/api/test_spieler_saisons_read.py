@@ -80,7 +80,7 @@ class TestTheSaisonsPipeline:
 
 
 class TestWhyTheSeasonScopedReadCannotAnswerIt:
-    """`GET /spieler` reads one club's squad rows in one season, and its shape is one squad row's: two reasons it is not the admin list."""
+    """A club page's squad reads one club's squad rows in one season, and its shape is one squad row's: two reasons it is not the admin list."""
 
     def test_a_player_with_no_squad_row_does_not_validate_as_flspieler(self):
         """`team_id` is required, so the shape holds no player before their first squad row, whom the admin list offers one."""

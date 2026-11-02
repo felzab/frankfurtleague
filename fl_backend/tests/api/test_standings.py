@@ -7,7 +7,7 @@ import pytest
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLBracketFaultGruppe, FLSpiel, FLSpielListAdapter
 from app.api.spiele.services import BracketResolution, resolve_bracket
-from app.api.teams.schemas import FLGruppenTeam, FLTabelleRow, FLTeam, FLTeamStatistik
+from app.api.teams.schemas import FLTabelleRow, FLTeam, FLTeamStatistik
 from app.api.teams.services import (
     CERTAINTY_FIXTURE_LIMIT,
     _decide_one_gruppe,
@@ -16,7 +16,6 @@ from app.api.teams.services import (
     _separated_placings,
     _still_to_play,
     build_decided_standings,
-    build_gruppen,
     build_statistik_by_team,
     build_tabelle,
 )
@@ -101,13 +100,7 @@ DIREKTER_VERGLEICH = RULES.model_copy(update={"tiebreak_order": "direkter_vergle
 def order(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonRules = RULES) -> list[str]:
     """Group A's standing, as a list of names."""
 
-    return [row.name for row in table(teams, documents, rules)]
-
-
-def table(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonRules = RULES) -> list[FLGruppenTeam]:
-    """Group A's rows, in the shape the grouped response puts on the wire."""
-
-    return build_gruppen(teams, FLSpielListAdapter.validate_python(documents), rules).root["A"]
+    return [row.name for row in tabelle(teams, documents, rules)]
 
 
 def tabelle(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonRules = RULES) -> list[FLTabelleRow]:
@@ -365,7 +358,7 @@ class TestDirekterVergleich:
 class TestADepartedClubInTheBand:
     """A club that has left is ranked and displayed, and settles nothing for the clubs that can place.
 
-    `build_gruppen` ranks it and `build_decided_standings` never sees it, so a comparison judged over
+    `build_tabelle` ranks it and `build_decided_standings` never sees it, so a comparison judged over
     whoever is present would split the two surfaces.
     """
 

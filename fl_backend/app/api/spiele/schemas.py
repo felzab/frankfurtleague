@@ -646,7 +646,7 @@ FLSpielJoinedInternalListAdapter = TypeAdapter(list[FLSpielJoinedInternal])
 
 class FLSpieleFilterParams(BaseModel):
     # None and never the current season: which season is current is a database read, which only the
-    # route can make (`get_spiele`, `get_spiele_verwaltung`).
+    # route can make (`get_spiele_verwaltung`).
     saison_id: str | None = None
     saison_phase: Literal["playoffs"] | FLSaisonPhase | None = None
     spiel_status: FLSpielStatus | None = None
@@ -655,10 +655,6 @@ class FLSpieleFilterParams(BaseModel):
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: Literal["datum", "uhrzeit", "spiel_nr", "saison_phase"] = Field(default="datum")
     order: FLSortOrder = Field(default="asc")
-
-
-class FLSpieleListResponse(BaseAPIResponse):
-    spiele: list[FLSpielJoined]
 
 
 # The base tier reduces a referee's surname to an initial and the admin fixture search matches on

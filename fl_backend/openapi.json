@@ -6558,20 +6558,6 @@
         "title": "FLGrantsListResponse",
         "type": "object"
       },
-      "FLGruppen": {
-        "additionalProperties": {
-          "items": {
-            "$ref": "#/components/schemas/FLGruppenTeam"
-          },
-          "type": "array"
-        },
-        "description": "Every group the SEASON offers, all of them and no other, in standing order.\n\nBuilt by `fl_backend/app/api/teams/services.py :: build_gruppen` alone: the order is the tiebreak\nchain, whose head-to-head criterion reads the season's matches.",
-        "propertyNames": {
-          "$ref": "#/components/schemas/FLGruppenNames"
-        },
-        "title": "FLGruppen",
-        "type": "object"
-      },
       "FLGruppenNames": {
         "enum": [
           "A",
@@ -6592,48 +6578,6 @@
           "P"
         ],
         "type": "string"
-      },
-      "FLGruppenTeam": {
-        "description": "One row of a league table: what a standing shows and nothing more.\n\nNarrower than `FLTeam` on purpose: a public CLIENT component renders this, so every field is\nserialised into the page, and a club's address is a school's street.",
-        "properties": {
-          "austritt_type": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLAustrittType"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "name": {
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "shorthand": {
-            "pattern": "^[A-Z]{3}$",
-            "title": "Shorthand",
-            "type": "string"
-          },
-          "statistik": {
-            "$ref": "#/components/schemas/FLTeamStatistik"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "shorthand",
-          "statistik",
-          "austritt_type"
-        ],
-        "title": "FLGruppenTeam",
-        "type": "object"
       },
       "FLInvitationData": {
         "description": "A team's registration link, to one confirmed contact seat, for the pupils to register through.",
@@ -16011,22 +15955,6 @@
         "title": "FLSpieleAdminSingleResponse",
         "type": "object"
       },
-      "FLSpieleListResponse": {
-        "properties": {
-          "spiele": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielJoined"
-            },
-            "title": "Spiele",
-            "type": "array"
-          }
-        },
-        "required": [
-          "spiele"
-        ],
-        "title": "FLSpieleListResponse",
-        "type": "object"
-      },
       "FLSpieleSingleResponse": {
         "properties": {
           "spiel": {
@@ -16157,22 +16085,6 @@
           "saison"
         ],
         "title": "FLSpielerContext",
-        "type": "object"
-      },
-      "FLSpielerListResponse": {
-        "properties": {
-          "spieler": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielerPublic"
-            },
-            "title": "Spieler",
-            "type": "array"
-          }
-        },
-        "required": [
-          "spieler"
-        ],
-        "title": "FLSpielerListResponse",
         "type": "object"
       },
       "FLSpielerMembership": {
@@ -18042,32 +17954,6 @@
         "title": "FLTeamWithMemberships",
         "type": "object"
       },
-      "FLTeamsGroupedResponse": {
-        "description": "The season's groups in standing order, and how many of each advance.\n\n`qualifiers_per_gruppe` rides along rather than being fetched separately, so a page cannot mark a\ncutoff drawn from a different season than the table it marks.",
-        "properties": {
-          "format": {
-            "const": "grouped",
-            "default": "grouped",
-            "title": "Format",
-            "type": "string"
-          },
-          "gruppen": {
-            "$ref": "#/components/schemas/FLGruppen"
-          },
-          "qualifiers_per_gruppe": {
-            "exclusiveMinimum": 0.0,
-            "title": "Qualifiers Per Gruppe",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "format",
-          "gruppen",
-          "qualifiers_per_gruppe"
-        ],
-        "title": "FLTeamsGroupedResponse",
-        "type": "object"
-      },
       "FLTeamsListResponse": {
         "properties": {
           "format": {
@@ -18109,7 +17995,7 @@
         "type": "object"
       },
       "FLTeamsSingleResponse": {
-        "description": "One team, from `GET /teams/{team_id}`.\n\nNot part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can return.",
+        "description": "One team, from `GET /teams/{team_id}`.",
         "properties": {
           "format": {
             "const": "single",
@@ -20485,69 +20371,6 @@
           }
         ],
         "summary": "The kit colours a Saison has already assigned",
-        "tags": [
-          "bewerbungen"
-        ]
-      }
-    },
-    "/api/v0/bewerbungen/window": {
-      "get": {
-        "description": "Return the season taking applications today -- its window open and the season not ended; 404 when none is.\n\nWhat is served is the window and whether its season has ended, never the season: the rule\nwithholds a `future` one from this tier (`READ-BEWERBUNG-001`).",
-        "operationId": "bewerbungen_get_open_window",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungWindowResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "The Saison currently accepting applications",
         "tags": [
           "bewerbungen"
         ]
@@ -27610,182 +27433,6 @@
         ]
       }
     },
-    "/api/v0/spiele": {
-      "get": {
-        "description": "List the Spiele matching the filters, of the current season unless `saison_id` names another.\n\nA season this tier may not read 404s; `playoffs` means every phase but `gruppenphase`, and `from_today`\nincludes today.",
-        "operationId": "spiele_get_spiele",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "saison_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Saison Id"
-            }
-          },
-          {
-            "in": "query",
-            "name": "saison_phase",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "const": "playoffs",
-                  "type": "string"
-                },
-                {
-                  "$ref": "#/components/schemas/FLSaisonPhase"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Saison Phase"
-            }
-          },
-          {
-            "in": "query",
-            "name": "spiel_status",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/FLSpielStatus"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Spiel Status"
-            }
-          },
-          {
-            "in": "query",
-            "name": "team_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "pattern": "^[0-9a-fA-F]{24}$",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Team Id"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "sort_by",
-            "required": false,
-            "schema": {
-              "default": "datum",
-              "enum": [
-                "datum",
-                "uhrzeit",
-                "spiel_nr",
-                "saison_phase"
-              ],
-              "title": "Sort By",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "order",
-            "required": false,
-            "schema": {
-              "default": "asc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpieleListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "List Spiele",
-        "tags": [
-          "spiele"
-        ]
-      }
-    },
     "/api/v0/spiele/action_required": {
       "get": {
         "description": "List one season's Spiele needing the administrator, with the bracket's faults and every report's state.\n\nThe season is `saison_id`'s, else the active one, answering 404 while none is. A fixture qualifies when it is\ncalled off; lacks a date, time, venue or referee; is past without a result; has a knockout side with neither\nteam nor source; holds a report not adopted as it stands; is put before the administrator by a club's\nunclosed confirmation; or carries a bracket fault, a booking onto a retired venue or referee and a claim within\nfour hours of another fixture's among them.",
@@ -27869,7 +27516,7 @@
     },
     "/api/v0/spiele/list/verwaltung": {
       "get": {
-        "description": "List Spiele as `GET /spiele` does, a planned season's included, in the admin shape.\n\nEach referee carries their whole name, and each booking its money.",
+        "description": "List one season's Spiele, the active one's unless `saison_id` names another, a planned season's included, in the admin shape.\n\nEach referee carries their whole name, and each booking its money.",
         "operationId": "spiele_get_spiele_verwaltung",
         "parameters": [
           {
@@ -28308,138 +27955,6 @@
         ]
       }
     },
-    "/api/v0/spieler": {
-      "get": {
-        "description": "One team's squad in the current season unless `saison_id` names another; 404 while none is active and for one this tier may not read.\n\nA surname reads as its initial, both names `null` where the pupil's consent does not publish them, the row keeping\nits `nummer` and `position`; no row carries the pupil's record id.",
-        "operationId": "spieler_get_spieler",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "team_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Team Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "saison_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Saison Id"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "sort_by",
-            "required": false,
-            "schema": {
-              "default": "position",
-              "enum": [
-                "vorname",
-                "nummer",
-                "position"
-              ],
-              "title": "Sort By",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "order",
-            "required": false,
-            "schema": {
-              "default": "asc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielerListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "List Spieler",
-        "tags": [
-          "spieler"
-        ]
-      }
-    },
     "/api/v0/spieler/account/einwilligung": {
       "patch": {
         "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`nachweis.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is\ntaken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `nachweis_stand`\nother than the record's own, either choice having moved since the page was served (`wording_not_allowed`); a\ngrant on a retired record (`giving_not_allowed`); a `text_version` naming no version of the account page's pupil\ncontrol, or a grant naming any but the page's running one (`wording_not_allowed`); `medien` moving to `true` where\nthe stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
@@ -28869,7 +28384,7 @@
     },
     "/api/v0/spieler/saisons": {
       "get": {
-        "description": "Every player, retired ones included, each with every squad row they hold.\n\n`GET /spieler` answers it at no setting: it serves one team's squad in one season, the season the\nsite is on where it names none, and so never a player outside that squad or their other rows.\n\n`address_change_id` names the live change of the pupil's address, which the address tool shows, and\n`address_change_viewable_denied` why the tool refuses it this administrator, null where it opens it.",
+        "description": "Every player, retired ones included, each with every squad row they hold.\n\nA club page's squad cannot answer it: it serves one team's squad in one season, and so never a\nplayer outside that squad or their other rows.\n\n`address_change_id` names the live change of the pupil's address, which the address tool shows, and\n`address_change_viewable_denied` why the tool refuses it this administrator, null where it opens it.",
         "operationId": "spieler_get_spieler_saisons",
         "responses": {
           "200": {
@@ -30553,215 +30068,6 @@
       }
     },
     "/api/v0/teams": {
-      "get": {
-        "description": "One season's teams as a list, or with `in_gruppen=true` keyed by every group it offers in standing order, as `format` names.\n\nAn omitted `saison_id` reads the season the site is on, and a club that left the league is listed in a `past` season\nalone; 404 for a season this tier may not read.",
-        "operationId": "teams_get_teams",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "saison_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Saison Id"
-            }
-          },
-          {
-            "in": "query",
-            "name": "gruppe",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/FLGruppenNames"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Gruppe"
-            }
-          },
-          {
-            "in": "query",
-            "name": "has_austritt",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Has Austritt"
-            }
-          },
-          {
-            "in": "query",
-            "name": "austritt_type",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/FLAustrittType"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Austritt Type"
-            }
-          },
-          {
-            "in": "query",
-            "name": "in_gruppen",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "In Gruppen"
-            }
-          },
-          {
-            "in": "query",
-            "name": "statistik_scope",
-            "required": false,
-            "schema": {
-              "default": "gruppenphase",
-              "enum": [
-                "gruppenphase",
-                "total"
-              ],
-              "title": "Statistik Scope",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "sort_by",
-            "required": false,
-            "schema": {
-              "const": "name",
-              "default": "name",
-              "title": "Sort By",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "order",
-            "required": false,
-            "schema": {
-              "default": "asc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "discriminator": {
-                    "mapping": {
-                      "grouped": "#/components/schemas/FLTeamsGroupedResponse",
-                      "list": "#/components/schemas/FLTeamsListResponse"
-                    },
-                    "propertyName": "format"
-                  },
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/FLTeamsListResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/FLTeamsGroupedResponse"
-                    }
-                  ],
-                  "title": "Response Teams Get Teams"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "List teams, flat or grouped",
-        "tags": [
-          "teams"
-        ]
-      },
       "post": {
         "description": "Create a club. `shorthand` is unique across every club, retired ones included, so a duplicate is a 409.",
         "operationId": "teams_post_team",
@@ -30836,7 +30142,7 @@
     },
     "/api/v0/teams/list/verwaltung": {
       "get": {
-        "description": "List a season's teams for the admin surfaces, a `future` season's included.\n\nSame filters and shapes as `GET /teams`, without its season gate: a club is entered while its\nseason is still planned, so an admin who cannot see one cannot enter it.",
+        "description": "List a season's teams for the admin surfaces, a `future` season's included.\n\nNo base-tier season gate: a club is entered while its season is still planned, so an admin who\ncannot see one cannot enter it.",
         "operationId": "teams_get_teams_verwaltung",
         "parameters": [
           {
@@ -30901,22 +30207,6 @@
                 }
               ],
               "title": "Austritt Type"
-            }
-          },
-          {
-            "in": "query",
-            "name": "in_gruppen",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "In Gruppen"
             }
           },
           {
@@ -30986,22 +30276,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "discriminator": {
-                    "mapping": {
-                      "grouped": "#/components/schemas/FLTeamsGroupedResponse",
-                      "list": "#/components/schemas/FLTeamsListResponse"
-                    },
-                    "propertyName": "format"
-                  },
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/FLTeamsListResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/FLTeamsGroupedResponse"
-                    }
-                  ],
-                  "title": "Response Teams Get Teams Verwaltung"
+                  "$ref": "#/components/schemas/FLTeamsListResponse"
                 }
               }
             },
@@ -31057,7 +30332,7 @@
     },
     "/api/v0/teams/saisons": {
       "get": {
-        "description": "Every team, retired ones included, each with every season membership it holds. Sorted by name.\n\n`GET /teams` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live\nchange of each seat's address, which the address tool shows, and per seat why the tool refuses that change this\nadministrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was\never owed.",
+        "description": "Every team, retired ones included, each with every season membership it holds. Sorted by name.\n\n`GET /teams/list/verwaltung` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live\nchange of each seat's address, which the address tool shows, and per seat why the tool refuses that change this\nadministrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was\never owed.",
         "operationId": "teams_get_team_saisons",
         "responses": {
           "200": {

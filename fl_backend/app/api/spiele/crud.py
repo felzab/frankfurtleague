@@ -83,7 +83,7 @@ async def _resolve_one_saison(
 
     standings: Mapping[FLGruppenNames, DecidedStanding] = {}
     if gruppen_to_decide:
-        # `GET /teams`' own pipeline, so the bracket ranks the clubs the site's table ranks, and
+        # The Tabelle's own pipeline, so the bracket ranks the clubs the site's table ranks, and
         # `include_inactive` stays default: a club that table withholds must hold no placing the bracket
         # honours. `rules=None` asks it for the ROWS alone.
 

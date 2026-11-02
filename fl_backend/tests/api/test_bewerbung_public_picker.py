@@ -109,7 +109,6 @@ class TestTheKuerzelCheck:
 # Every public route, bound once: a route added to one list alone would keep its reachability test
 # and silently lose its unauthorised-answer test.
 PUBLIC_PATHS = [
-    f"{PREFIX}/window",
     f"{PREFIX}/window/{OPEN_SAISON}",
     f"{PREFIX}/schulen",
     f"{PREFIX}/kuerzel/ZEX",
@@ -120,7 +119,7 @@ PUBLIC_PATHS = [
 class TestTheTierTheseReadsAreServedAt:
     """Base-tier at a prefix whose other two routers are admin, which is exactly the mix `test_admin_guard.py` exists to catch.
 
-    It walks the window paths too, being one router's tier rather than one endpoint's.
+    It walks the window path too, being one router's tier rather than one endpoint's.
     """
 
     @pytest.mark.parametrize("path", PUBLIC_PATHS)

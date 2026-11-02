@@ -517,7 +517,7 @@ class TestTheOutgoingClubsSquadIsRetired:
     """The fifth surface, the one that does not move: `kader_team_not_in_saison` refuses a squad row whose club has no junction row there."""
 
     def test_the_live_rows_are_stamped_with_the_day_of_the_replacement(self, mongo_replica_set_url: str):
-        """Kills leaving them standing: a season-and-team read of `GET /spieler` goes on serving the outgoing club's squad."""
+        """Kills leaving them standing: the club page's squad, a season-and-team read, goes on serving the outgoing club's squad."""
 
         squad = on_a_seeded_season(mongo_replica_set_url, _squad_after)
 
