@@ -25,6 +25,8 @@ type AdminSaisonEditViewProps = {
   spielplan: SaisonSpielplanContext;
   hasDrawnSpiele: boolean;
   spieltagBound: SaisonSpieltagBound;
+  /** Whether a fixture of the season has taken place, which fixes its start date (`saison_start_taken_place`). */
+  isStartFixed: boolean;
 };
 
 /**
@@ -45,7 +47,16 @@ export function AdminSaisonEditView(props: AdminSaisonEditViewProps) {
 }
 
 /** Holds what outlives a save: the redraw's typing, which the save never writes, and the save's exit waiting over it. */
-function SaisonRedrawHolder({ saison, rollover, swap, ersatz, spielplan, hasDrawnSpiele, spieltagBound }: AdminSaisonEditViewProps) {
+function SaisonRedrawHolder({
+  saison,
+  rollover,
+  swap,
+  ersatz,
+  spielplan,
+  hasDrawnSpiele,
+  spieltagBound,
+  isStartFixed,
+}: AdminSaisonEditViewProps) {
   const [redraw, setRedraw] = useState<RedrawDraft>(() => startingRedraw(saison.rules));
   const [isSaveExitAsked, setSaveExitAsked] = useState(false);
 
@@ -60,6 +71,7 @@ function SaisonRedrawHolder({ saison, rollover, swap, ersatz, spielplan, hasDraw
       spielplan={spielplan}
       hasDrawnSpiele={hasDrawnSpiele}
       spieltagBound={spieltagBound}
+      isStartFixed={isStartFixed}
       pageHeader={{ title: `Saison ${saison.id}` }}
       redraw={redraw}
       onRedrawChange={setRedraw}

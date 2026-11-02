@@ -54,6 +54,8 @@ SAISON_ID = "2026"
 # counted over, the reference season being the running one rather than this.
 SPAETERE_SAISON_ID = "2027"
 TODAY = "2026-04-01"
+# Every season's start unless a case says so: after `TODAY`, so an entry made today is an ordinary one.
+AFTER_TODAY = "2026-04-20"
 # `TODAY` as the wire's clock reads it, so a request over the wire is judged on the day a direct call is.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # The deadline the submission stores, derived from the bound rather than spelled: a raised bound
@@ -129,9 +131,14 @@ def payload(**overrides: Any) -> dict[str, Any]:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def saison_document(saison_id: str, status: str, registrierung: Any) -> dict[str, Any]:
+def saison_document(saison_id: str, status: str, registrierung: Any, *, start_date: str = AFTER_TODAY) -> dict[str, Any]:
     return documents.saison_document(
-        saison_id, status, rules=dict(RULES), bewerbung=None, registrierung=None if registrierung is None else dict(registrierung)
+        saison_id,
+        status,
+        start_date=start_date,
+        rules=dict(RULES),
+        bewerbung=None,
+        registrierung=None if registrierung is None else dict(registrierung),
     )
 
 
@@ -154,8 +161,7 @@ def on_a_league(
     banned_bis: str = STANDING,
     saison_status: str = "active",
     spaetere_saison: bool = False,
-    matchday_beginn: str | None = None,
-    knockout_beginn: str | None = None,
+    start_date: str = AFTER_TODAY,
 ) -> Any:
     """A clean database carrying the shipped indexes, so a duplicate production would refuse fails here too.
 
@@ -165,7 +171,7 @@ def on_a_league(
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, registrierung))
+            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, registrierung, start_date=start_date))
             await database[Collection.TEAMS].insert_many([club_document(TEAM_OID, TEAM_NAME), club_document(OTHER_TEAM_OID, OTHER_TEAM_NAME)])
             await database[Collection.SAISON_TEAMS].insert_one(junction_document(SAISON_ID, TEAM_OID, TEAM_NAME))
             await database[Collection.INVITATIONS].insert_many(
@@ -197,32 +203,6 @@ def on_a_league(
 
             if banned is not None:
                 await database[Collection.SPERRLISTE].insert_one(documents.ban_document(banned, bis=banned_bis))
-
-            if matchday_beginn is not None:
-                await database[Collection.SPIELTAGE].insert_one(
-                    {
-                        "_id": ObjectId(),
-                        "beginn": matchday_beginn,
-                        "ende": matchday_beginn,
-                        "saison_phase": "gruppenphase",
-                        "saison_id": SAISON_ID,
-                        "position": 1,
-                    }
-                )
-
-            # A knockout matchday ALSO at position 1, `position` restarting in every phase: seeded
-            # with an earlier first day, so a read taking any position-1 row answers this one.
-            if knockout_beginn is not None:
-                await database[Collection.SPIELTAGE].insert_one(
-                    {
-                        "_id": ObjectId(),
-                        "beginn": knockout_beginn,
-                        "ende": knockout_beginn,
-                        "saison_phase": "achtelfinale",
-                        "saison_id": SAISON_ID,
-                        "position": 1,
-                    }
-                )
 
             return await body(database, client)
 
@@ -271,7 +251,6 @@ async def ansicht(database: AsyncDatabase, *, token: str = TOKEN) -> Any:
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        spieltage_collection=database[Collection.SPIELTAGE],
         teams_collection=database[Collection.TEAMS],
         today=TODAY,
     )
@@ -299,7 +278,6 @@ async def admit_as_the_team(database: AsyncDatabase, client: AsyncMongoClient, r
         saisons_collection=database[Collection.SAISONS],
         spieler_collection=database[Collection.SPIELER],
         records=record_collections(database),
-        spieltage_collection=database[Collection.SPIELTAGE],
         aktionen_collection=database[Collection.ACTION_LOG],
         sperrliste=ban_list(database),
         db=client,
@@ -900,29 +878,14 @@ class TestWhatTheInvitesOwnReadAnswers:
         assert on_a_league(mongo_replica_set_url, run) is True
         assert on_a_league(mongo_replica_set_url, run, squad=RULES["max_kadergroesse"]) is False
 
-    def test_the_nachnominierung_verdict_turns_on_matchday_ones_first_day(self, mongo_replica_set_url: str):
-        """False before it, true on it, and false again where matchday 1 carries no date at all."""
+    def test_the_nachnominierung_verdict_turns_on_the_seasons_start(self, mongo_replica_set_url: str):
+        """False the day before it, true on it: the squad create's own test, off the season the read already holds."""
 
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
             return (await ansicht(database)).nachnominierung
 
-        assert on_a_league(mongo_replica_set_url, run, matchday_beginn="2026-04-02") is False
-        assert on_a_league(mongo_replica_set_url, run, matchday_beginn=TODAY) is True
-        assert on_a_league(mongo_replica_set_url, run) is False
-
-    def test_a_knockout_matchday_at_position_one_decides_nothing(self, mongo_replica_set_url: str):
-        """`position` restarts in every phase, so the read narrows to the first phase too.
-
-        The knockout row carries an EARLIER first day: a read taking any position-1 row answers
-        true, where the group phase has not begun.
-        """
-
-        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
-            return (await ansicht(database)).nachnominierung
-
-        outcome = on_a_league(mongo_replica_set_url, run, matchday_beginn="2026-04-02", knockout_beginn="2026-03-20")
-
-        assert outcome is False
+        assert on_a_league(mongo_replica_set_url, run, start_date="2026-04-02") is False
+        assert on_a_league(mongo_replica_set_url, run, start_date=TODAY) is True
 
     def test_a_team_the_season_does_not_hold_is_a_state_the_page_can_word(self, mongo_replica_set_url: str):
         """The second club's link opens: the read answers rather than refusing, and says the team is not entered.

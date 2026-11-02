@@ -10,10 +10,10 @@ import { DAY_MS, HOUR_MS } from "@/core/timeUnits";
 
 import { Countdown } from "./Countdown";
 
-const KICKOFF = "2027-03-13T17:00:00.000Z";
-const AT_KICKOFF = Date.parse(KICKOFF);
-// Two days, three hours and four minutes before the kick-off, and half a minute more.
-const SEED = AT_KICKOFF - 2 * DAY_MS - 3 * HOUR_MS - 4 * 60_000 - 30_000;
+const START = "2027-03-13T17:00:00.000Z";
+const AT_START = Date.parse(START);
+// Two days, three hours and four minutes before the season's start, and half a minute more.
+const SEED = AT_START - 2 * DAY_MS - 3 * HOUR_MS - 4 * 60_000 - 30_000;
 
 /** The three figures the count shows, in its order. */
 const figuresOf = (root: HTMLElement) => [...root.querySelectorAll('[role="timer"] > span')].map((cell) => cell.firstElementChild?.textContent);
@@ -26,13 +26,13 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("what is left until the kick-off", () => {
-  it("never counts below zero once the kick-off has passed", () => {
+describe("what is left until the season's start", () => {
+  it("never counts below zero once the start has passed", () => {
     const container = document.createElement("div");
     container.innerHTML = renderToString(
       <Countdown
-        kickoff={KICKOFF}
-        seed={AT_KICKOFF + HOUR_MS}
+        start={START}
+        seed={AT_START + HOUR_MS}
       />,
     );
     expect(figuresOf(container)).toStrictEqual(["0", "0", "0"]);
@@ -43,7 +43,7 @@ describe("the countdown", () => {
   it("hydrates the server's markup without a mismatch, then counts from the visitor's clock", async () => {
     const markup = renderToString(
       <Countdown
-        kickoff={KICKOFF}
+        start={START}
         seed={SEED}
       />,
     );
@@ -60,7 +60,7 @@ describe("the countdown", () => {
       hydrateRoot(
         container,
         <Countdown
-          kickoff={KICKOFF}
+          start={START}
           seed={SEED}
         />,
         { onRecoverableError: (error) => mismatches.push(error) },

@@ -206,6 +206,7 @@
           "saison_span_below_spielplan",
           "spieltag_beginn_out_of_order",
           "saison_span_below_spielplan_as_stored",
+          "saison_start_taken_place",
           "invitation_team_not_entered",
           "wording_not_allowed",
           "medien_age",
@@ -243,6 +244,7 @@
           "replace_saison_started",
           "replace_incoming_already_entered",
           "replace_one_team_on_both_ends",
+          "sides_taken_place",
           "ergebnis_side_emptied",
           "retire_blocked",
           "spielort_still_booked",
@@ -7828,7 +7830,7 @@
         "type": "object"
       },
       "FLLandingSide": {
-        "description": "One side of the opening match, under the name and shorthand the club plays the season under.",
+        "description": "A club as the landing names it, on the opening match or the podium, under the name and shorthand it plays the season under.",
         "properties": {
           "name": {
             "title": "Name",
@@ -9377,33 +9379,28 @@
         "type": "object"
       },
       "FLPodiumPlace": {
-        "description": "One of places one to four, under the name and shorthand the club played the season under.",
+        "description": "One of places one to four, decided; `team` null where the place is vacant, its club having left the season by then.\n\nA vacancy is still a decided place, so a season with one has all four in.",
         "properties": {
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
           "platz": {
             "maximum": 4.0,
             "minimum": 1.0,
             "title": "Platz",
             "type": "integer"
           },
-          "shorthand": {
-            "title": "Shorthand",
-            "type": "string"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
+          "team": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLLandingSide"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
           "platz",
-          "team_id",
-          "name",
-          "shorthand"
+          "team"
         ],
         "title": "FLPodiumPlace",
         "type": "object"
@@ -11012,7 +11009,7 @@
         "type": "object"
       },
       "FLSaisonAdmin": {
-        "description": "The same season for the admin surfaces, with whether it has started.",
+        "description": "The same season for the admin surfaces, with whether it has started and whether a fixture of it has taken place.",
         "properties": {
           "begun": {
             "title": "Begun",
@@ -11077,6 +11074,10 @@
           "status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
           },
+          "taken_place": {
+            "title": "Taken Place",
+            "type": "boolean"
+          },
           "version": {
             "default": 0,
             "title": "Version",
@@ -11094,7 +11095,8 @@
           "spielplan",
           "version",
           "schedule",
-          "begun"
+          "begun",
+          "taken_place"
         ],
         "title": "FLSaisonAdmin",
         "type": "object"
@@ -17157,7 +17159,7 @@
           },
           "type": "array"
         },
-        "description": "Every group the season offers in standing order, the clubs that have played no match last.\n\nEach club that has played and is still in the season is numbered as a `Platz` is, and clubs the chain leaves level\nshare one.",
+        "description": "Every group the season offers in standing order, the clubs that have played no match last.\n\nEach club that has played and stood in the season on the day its group was decided is numbered as a `Platz` is, and\nclubs the chain leaves level share one.",
         "propertyNames": {
           "$ref": "#/components/schemas/FLGruppenNames"
         },
@@ -17184,7 +17186,7 @@
         "type": "object"
       },
       "FLTabelleRow": {
-        "description": "One row of the Tabelle: the standing row and its placing, null for a club that has played no match or has left.",
+        "description": "One row of the Tabelle: the standing row and its placing, null for a club with no match or gone before its group was decided.",
         "properties": {
           "austritt_type": {
             "anyOf": [
@@ -23902,7 +23904,7 @@
     },
     "/api/v0/saisons/list/verwaltung": {
       "get": {
-        "description": "List every season, the `future` ones `GET /saisons` withholds included, each with whether it has started.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league. `begun` is the start every\nstart lock refuses on, the swap's, the replacement's and the rules freeze's.",
+        "description": "List every season, the `future` ones `GET /saisons` withholds included, each with whether it has started and has been played.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league. `begun` is the start every\nstart lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what\nfixes the start date (`saison_start_taken_place`).",
         "operationId": "saisons_get_saisons_verwaltung",
         "parameters": [
           {
@@ -24096,7 +24098,7 @@
         ]
       },
       "patch": {
-        "description": "Update a season's dates and rules. `status` is on no payload.\n\nEditing the points moves every league table on the NEXT READ, standings being derived. What a\nstarted or drawn season has fixed is refused, as is a rule narrowed below what it holds.",
+        "description": "Update a season's dates and rules. `status` is on no payload.\n\nEditing the points moves every league table on the NEXT READ, standings being derived. What a\nstarted or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start\ndate moves until a fixture of the season has taken place (`saison_start_taken_place`); the rules\nfreeze reads the STORED start, so a season started too early is unlocked by one save moving its\nstart and a second changing its rules.",
         "operationId": "saisons_patch_saison",
         "parameters": [
           {
@@ -27763,7 +27765,7 @@
         ]
       },
       "patch": {
-        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nEvery name is composed by the server. With `adopts_bericht` the save also stamps the fixture's Spielbericht\nadopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A\n`dry_run` answers the same report and writes nothing.",
+        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nEvery name is composed by the server. With `adopts_bericht` the save also stamps the fixture's Spielbericht\nadopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A\n`dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the\n`dry_run` included.",
         "operationId": "spiele_patch_spiel",
         "parameters": [
           {
@@ -28308,7 +28310,7 @@
     },
     "/api/v0/spieler/nachnominierung/{saison_id}": {
       "get": {
-        "description": "Whether a player entered into this season's squads today would be marked a Nachnominierung.\n\n`POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the first\nday of matchday 1 of the season's first phase. A season whose matchday 1 is undated, or which\nholds none yet, answers `false`. 404 where no season has this id.",
+        "description": "Whether a player entered into this season's squads today would be marked a Nachnominierung.\n\n`POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the season's\n`start_date` on. 404 where no season has this id.",
         "operationId": "spieler_get_spieler_nachnominierung",
         "parameters": [
           {
@@ -28814,7 +28816,7 @@
     },
     "/api/v0/spieler/{spieler_id}/saisons": {
       "post": {
-        "description": "Put a player in a team's squad for a season.\n\n404 where no player has this id. One row per player per season: moving a player is a PATCH of\n`team_id`, and a repeat is a 409 even where the row is retired. A\nsquad holds each `rolle` once (`kader_rolle_taken`). `is_nachnominiert` is derived here and never\ntaken from the body: it is true from the first day of the season's matchday 1, and false while\nthat matchday is undated.",
+        "description": "Put a player in a team's squad for a season.\n\n404 where no player has this id. One row per player per season: moving a player is a PATCH of\n`team_id`, and a repeat is a 409 even where the row is retired. A\nsquad holds each `rolle` once (`kader_rolle_taken`). `is_nachnominiert` is derived here and never\ntaken from the body: it is true from the season's `start_date` on.",
         "operationId": "spieler_post_saison_spieler",
         "parameters": [
           {
@@ -30800,7 +30802,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}": {
       "patch": {
-        "description": "Rewrite a team's row for one season: group, exit record and kit colour.\n\nAll three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.\nThe contact block is `PATCH .../kontakte`'s.",
+        "description": "Rewrite a team's row for one season: group, exit record and kit colour.\n\nAll three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.\nThe contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which\nrefuses this write (`saison_past`).",
         "operationId": "teams_patch_saison_team",
         "parameters": [
           {

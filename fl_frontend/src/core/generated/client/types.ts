@@ -94,6 +94,7 @@ export const Code = {
   saison_span_below_spielplan: "saison_span_below_spielplan",
   spieltag_beginn_out_of_order: "spieltag_beginn_out_of_order",
   saison_span_below_spielplan_as_stored: "saison_span_below_spielplan_as_stored",
+  saison_start_taken_place: "saison_start_taken_place",
   invitation_team_not_entered: "invitation_team_not_entered",
   wording_not_allowed: "wording_not_allowed",
   medien_age: "medien_age",
@@ -131,6 +132,7 @@ export const Code = {
   replace_saison_started: "replace_saison_started",
   replace_incoming_already_entered: "replace_incoming_already_entered",
   replace_one_team_on_both_ends: "replace_one_team_on_both_ends",
+  sides_taken_place: "sides_taken_place",
   ergebnis_side_emptied: "ergebnis_side_emptied",
   retire_blocked: "retire_blocked",
   spielort_still_booked: "spielort_still_booked",
@@ -3144,7 +3146,7 @@ export interface FLLandingCounts {
 }
 
 /**
- * One side of the opening match, under the name and shorthand the club plays the season under.
+ * A club as the landing names it, on the opening match or the podium, under the name and shorthand it plays the season under.
  */
 export interface FLLandingSide {
   name: string;
@@ -3169,18 +3171,17 @@ export interface FLLandingKickoff {
 }
 
 /**
- * One of places one to four, under the name and shorthand the club played the season under.
+ * One of places one to four, decided; `team` null where the place is vacant, its club having left the season by then.
+ *
+ * A vacancy is still a decided place, so a season with one has all four in.
  */
 export interface FLPodiumPlace {
-  name: string;
   /**
    * @minimum 1
    * @maximum 4
    */
   platz: number;
-  shorthand: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
+  team: FLLandingSide | null;
 }
 
 export type FLLandingState = (typeof FLLandingState)[keyof typeof FLLandingState];
@@ -4400,7 +4401,7 @@ export interface FLSaison {
 }
 
 /**
- * The same season for the admin surfaces, with whether it has started.
+ * The same season for the admin surfaces, with whether it has started and whether a fixture of it has taken place.
  */
 export interface FLSaisonAdmin {
   begun: boolean;
@@ -4419,6 +4420,7 @@ export interface FLSaisonAdmin {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
   status: FLSaisonStatus;
+  taken_place: boolean;
   version: number;
 }
 
@@ -5814,7 +5816,7 @@ export interface FLTeamStatistik {
 }
 
 /**
- * One row of the Tabelle: the standing row and its placing, null for a club that has played no match or has left.
+ * One row of the Tabelle: the standing row and its placing, null for a club with no match or gone before its group was decided.
  */
 export interface FLTabelleRow {
   austritt_type: FLAustrittType | null;
@@ -5831,8 +5833,8 @@ export interface FLTabelleRow {
 /**
  * Every group the season offers in standing order, the clubs that have played no match last.
  *
- * Each club that has played and is still in the season is numbered as a `Platz` is, and clubs the chain leaves level
- * share one.
+ * Each club that has played and stood in the season on the day its group was decided is numbered as a `Platz` is, and
+ * clubs the chain leaves level share one.
  */
 export type FLTabelle = Partial<Record<FLGruppenNames, FLTabelleRow[]>>;
 

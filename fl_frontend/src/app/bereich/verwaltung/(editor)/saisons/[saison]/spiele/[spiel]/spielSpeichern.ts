@@ -113,6 +113,8 @@ export const spielSpeichern = action({
     "booking_unconfirmed_schiedsrichter",
     "spiel_double_booked",
     "eligibility_disqualified",
+    // The editor stays open on a finished season, whose fixtures the write refuses whole.
+    "saison_past",
   ],
   // The write's own paths: the date, the event and the venue have their boxes here, the referee and the two sides
   // are kept as stored.

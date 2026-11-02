@@ -161,7 +161,6 @@ async def the_admission(database: AsyncDatabase, client: AsyncMongoClient, regis
         saisons_collection=database[Collection.SAISONS],
         spieler_collection=database[Collection.SPIELER],
         records=record_collections(database),
-        spieltage_collection=database[Collection.SPIELTAGE],
         aktionen_collection=database[Collection.ACTION_LOG],
         sperrliste=ban_list(database),
         db=client,

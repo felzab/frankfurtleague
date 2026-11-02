@@ -162,10 +162,10 @@ class FLSpielTeamFieldJoined(FLSpielTeamField):
 
 
 class FLSpielTeamFieldJoinedInternal(FLSpielTeamFieldJoined):
-    """The same side with the record behind the type, for `find_departed_occupants` alone.
+    """The same side with the record behind the type, for `find_departed_occupants` and `podium_of`.
 
-    On NO endpoint, so no response carries a reason: the walk orders a fault on the DAY a club
-    left, which the type cannot answer.
+    On NO endpoint, so no response carries a reason: the walk orders a fault, and the podium a place,
+    on the DAY a club left, which the type cannot answer.
     """
 
     # Beside the inherited type, and never a second answer to it: one `$let` in `_joined_side`
@@ -629,8 +629,9 @@ class FLSpielJoinedAdmin(FLSpielJoined):
 class FLSpielJoinedInternal(FLSpielJoinedAdmin):
     """The fixture with each side's record behind its type; on no endpoint, for `FLSpielTeamFieldJoinedInternal`'s reason.
 
-    On the ADMIN shape because its one reader hands the faulted matches to
-    `GET /spiele/action_required`, whose cards print the referee's name.
+    On the ADMIN shape because the bracket's fault report hands the faulted matches to
+    `GET /spiele/action_required`, whose cards print the referee's name. The landing reads its
+    podium through it too, serving only the names.
     """
 
     team1: FLSpielTeamFieldJoinedInternal | None

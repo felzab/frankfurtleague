@@ -197,6 +197,7 @@ def _swap(**overrides: Any):
             "team2_gruppe": "B",
             "saison_status": "active",
             "started": False,
+            "taken_place": False,
             "clashing_spieltage": 0,
             "departed_fixtures": 0,
             **overrides,

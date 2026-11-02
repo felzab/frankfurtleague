@@ -61,6 +61,8 @@ SAISON_ID = "2026"
 NEXT_SAISON_ID = "2027"
 PAST_SAISON_ID = "2025"
 TODAY = "2026-04-01"
+# The active season's start unless a case says so: after `TODAY`, so an admission is an ordinary entry.
+AFTER_TODAY = "2026-04-20"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # The morning before the admission, when the pupil withdrew on the account page.
 WITHDRAWN_AT = datetime(2026, 4, 1, 9, 0, tzinfo=ZoneInfo("Europe/Berlin"))
@@ -113,8 +115,7 @@ def on_a_league(
     body: Body,
     *,
     squad: int = 0,
-    matchday_beginn: str | None = None,
-    matchday: bool = False,
+    start_date: str = AFTER_TODAY,
     stellvertretung_bestaetigt: bool = True,
 ) -> Any:
     """Two clubs in one active season, each with seats; `kader` live rows already on the first club.
@@ -125,7 +126,9 @@ def on_a_league(
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", rules=dict(RULES)))
+            await database[Collection.SAISONS].insert_one(
+                documents.saison_document(SAISON_ID, "active", start_date=start_date, rules=dict(RULES))
+            )
             await database[Collection.TEAMS].insert_many(
                 [documents.team_document(TEAM_OID, "Zorbanax", "ZOX"), documents.team_document(OTHER_TEAM_OID, "Quillhilde", "QUX")]
             )
@@ -161,18 +164,6 @@ def on_a_league(
             if squad:
                 await database[Collection.SAISON_SPIELER].insert_many(
                     [documents.saison_spieler_document(ObjectId(), SAISON_ID, TEAM_OID, nummer=str(seat)) for seat in range(squad)]
-                )
-
-            if matchday:
-                await database[Collection.SPIELTAGE].insert_one(
-                    {
-                        "_id": ObjectId(),
-                        "beginn": matchday_beginn,
-                        "ende": matchday_beginn,
-                        "saison_phase": "gruppenphase",
-                        "saison_id": SAISON_ID,
-                        "position": 1,
-                    }
                 )
 
             return await body(database, client)
@@ -255,7 +246,6 @@ async def admit(
             saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
             spieler_collection=database[Collection.SPIELER] if spieler is None else spieler,
         ),
-        spieltage_collection=database[Collection.SPIELTAGE],
         aktionen_collection=database[Collection.ACTION_LOG],
         sperrliste=ban_list(database),
         db=client,
@@ -489,26 +479,15 @@ class TestWhatAnAdmissionWrites:
 
 
 class TestTheLateEntry:
-    @pytest.mark.parametrize(
-        ("matchday", "beginn", "flagged"),
-        [
-            (True, "2026-03-15", True),
-            (True, "2026-04-20", False),
-            # The null arm: an undated matchday 1 has not begun, and reading `None` as a passed date
-            # would flag every admission into an undated season.
-            (True, None, False),
-            (False, None, False),
-        ],
-        ids=("after the first day", "before it", "an undated matchday 1", "no matchday 1"),
-    )
-    def test_the_marker_is_derived_at_the_admission(self, mongo_replica_set_url: str, matchday: bool, beginn: str | None, flagged: bool):
+    @pytest.mark.parametrize(("start_date", "flagged"), [("2026-03-15", True), (AFTER_TODAY, False)], ids=("after the start", "before it"))
+    def test_the_marker_is_derived_at_the_admission(self, mongo_replica_set_url: str, start_date: str, flagged: bool):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             answer = await admit(database, client, await seed(database, registrierung_document()))
             rows = await squad_rows(database, spieler_id=answer.spieler_id)
 
             return answer.is_nachnominiert, rows[0]["is_nachnominiert"]
 
-        assert on_a_league(mongo_replica_set_url, body, matchday=matchday, matchday_beginn=beginn) == (flagged, flagged)
+        assert on_a_league(mongo_replica_set_url, body, start_date=start_date) == (flagged, flagged)
 
 
 class TestTheStufe:
@@ -531,7 +510,7 @@ class TestTheStufe:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return (await admit(database, client, await seed(database, registrierung_document(stufe="Q2")))).stufe
 
-        assert on_a_league(mongo_replica_set_url, body, matchday=True, matchday_beginn="2026-03-15") == "Q2"
+        assert on_a_league(mongo_replica_set_url, body, start_date="2026-03-15") == "Q2"
 
 
 class TestTheSquadCap:

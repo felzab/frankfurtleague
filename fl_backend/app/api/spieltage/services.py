@@ -5,7 +5,7 @@ from typing import Any
 
 from app.api.saisons.schedule import expected_matches
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import PHASE_ORDER, PHASE_RANK, is_unplayed
+from app.api.spiele.schemas import PHASE_RANK, is_unplayed
 from app.api.spieltage.schemas import FLSpielplanSpieltag, FLSpielplanSpieltagListAdapter, FLSpieltag, FLSpieltageFilterParams
 from app.core.codes import Code
 from app.core.crud import build_query, build_sort
@@ -92,26 +92,6 @@ def current_spieltag_id(spieltage: Sequence[FLSpielplanSpieltag], *, saison_stat
                 return spieltag.id
 
     return spieltage[-1].id if spieltage else None
-
-
-def build_erster_spieltag_filter(*, saison_id: str) -> dict[str, Any]:
-    """Matchday 1 of a season, whose `beginn` opens the Nachnominierung period.
-
-    The phase is named because `position` restarts at 1 in every phase: the position alone matches
-    one row per phase, and the driver answers whichever it meets first.
-    """
-
-    return {"saison_id": saison_id, "saison_phase": PHASE_ORDER[0], "position": 1}
-
-
-# The period's one test: a second spelling lets the invite
-# tell a pupil one thing while the squad row stores another.
-def nachnominierung_laeuft(*, beginn: Any, today: str) -> bool:
-    """Whether an entry made on `today` is a Nachnominierung, on the rule's terms."""
-
-    # A type test rather than truthiness: an undated matchday stores `None`, and a value of any other
-    # type is no date this comparison can order.
-    return isinstance(beginn, str) and beginn <= today
 
 
 def find_spieltag_span_refusal(

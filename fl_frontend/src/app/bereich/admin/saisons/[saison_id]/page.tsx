@@ -181,6 +181,8 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
       spielplan={spielplan}
       hasDrawnSpiele={hasDrawnSpiele}
       spieltagBound={spieltagBound}
+      // The endpoint's own reading, beside `begun`: the start date closes exactly where its write refuses.
+      isStartFixed={saison.taken_place}
     />
   );
 }

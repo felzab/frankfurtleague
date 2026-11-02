@@ -11,6 +11,7 @@ from app.api.teams.schemas import FLTabelleRow, FLTeam, FLTeamStatistik
 from app.api.teams.services import (
     CERTAINTY_FIXTURE_LIMIT,
     _decide_one_gruppe,
+    _decided_on,
     _may_hold_a_platz,
     _separated_placings,
     _still_to_play,
@@ -38,7 +39,8 @@ RULES = FLSaisonRules(
     allowed_stufen=STUFEN,
 )
 
-# The walk keys on the field being non-null, never on what it says, so one value serves every case.
+# The day before every fixture the factory dates (2026-03-15), so every case using it reads an exit before the group
+# was decided; the cases on the date itself spell theirs out.
 AUSGETRETEN = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
 
 # One member serves for the same reason: the walk reads the SET a fixture's `sonderereignis` falls in.
@@ -824,7 +826,7 @@ class TestEveryWayThreeClubsCanStand:
         for case, rules, teams, spiele in every_three_club_group(a_team, played):
             groups += 1
             left_to_play = _still_to_play(spiele)
-            placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, left_to_play.get(team.id, 0)))
+            placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, left_to_play.get(team.id, 0), _decided_on(spiele)))
             settled = frozenset(team.id for team in teams if left_to_play.get(team.id, 0) == 0)
 
             walked = _decide_one_gruppe(teams=teams, spiele=spiele, rules=rules, still_to_play=left_to_play, has_unattributable=False)
@@ -920,3 +922,80 @@ class TestSeedingTheSlot:
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel, stored=stored)
 
         assert resolution.advancements == []
+
+
+def austritt_on(datum: str, route: str = "disqualifikation") -> dict[str, Any]:
+    return {"type": route, "grund": "Ausgeschieden", "datum": datum}
+
+
+class TestAnExitIsWeighedAgainstTheDayItsGroupWasDecided:
+    """A place decided before a club's exit stands, one decided on or after it is vacated, for either route out.
+
+    Team 1 tops group A on every table here, so whether it holds the first place is the exit rule and nothing else.
+    """
+
+    def _group(
+        self, a_team: TeamFactory, played: MatchFactory, austritt: dict[str, Any], **last: Any
+    ) -> tuple[list[FLTeam], list[dict[str, Any]]]:
+        teams = [a_team(1, punkte=6, austritt=austritt), a_team(2, punkte=3), a_team(3, punkte=0)]
+        # Dated 2026-03-15 by the factory unless `last` dates the third.
+        spiele = [played(1, 1, 2, 1, 0), played(2, 1, 3, 1, 0), played(3, 2, 3, 1, 0, **last)]
+
+        return teams, spiele
+
+    @pytest.mark.parametrize("route", ["disqualifikation", "rueckzug"])
+    def test_an_exit_after_the_last_fixture_keeps_its_place_and_its_seed(self, a_team: TeamFactory, played: MatchFactory, route: str):
+        teams, spiele = self._group(a_team, played, austritt_on("2026-03-16", route))
+
+        assert platz_by_team_id(teams, spiele) == {TEAM_ID.format(1): 1, TEAM_ID.format(2): 2, TEAM_ID.format(3): 3}
+        assert standing(teams, spiele).by_platz[1].id == teams[0].id
+
+    @pytest.mark.parametrize("route", ["disqualifikation", "rueckzug"])
+    def test_an_exit_on_the_last_fixtures_day_vacates_it(self, a_team: TeamFactory, played: MatchFactory, route: str):
+        """The exit's own day counts as after it, as the eligibility rule orders a day against it."""
+
+        teams, spiele = self._group(a_team, played, austritt_on("2026-03-15", route))
+
+        assert platz_by_team_id(teams, spiele) == {TEAM_ID.format(2): 1, TEAM_ID.format(3): 2}
+        assert standing(teams, spiele).by_platz[1].id == teams[1].id
+
+    def test_an_undated_fixture_that_can_still_award_points_vacates_it(self, a_team: TeamFactory, played: MatchFactory):
+        """Nothing says the group was decided before the exit, so the place is not the departed club's."""
+
+        teams, spiele = self._group(a_team, played, austritt_on("2026-12-31"), datum=None)
+
+        assert TEAM_ID.format(1) not in platz_by_team_id(teams, spiele)
+
+    def test_an_undated_call_off_decides_nothing(self, a_team: TeamFactory, played: MatchFactory):
+        """A fixture awarding nothing is not the day the group was decided, so the dated ones still are."""
+
+        teams, spiele = self._group(a_team, played, austritt_on("2026-03-16"))
+        spiele.append(played(4, 2, 3, datum=None, sonderereignis=CALLED_OFF))
+
+        assert platz_by_team_id(teams, spiele)[TEAM_ID.format(1)] == 1
+
+    @pytest.mark.parametrize(("datum", "seeded"), [("2026-03-21", True), ("2026-03-20", False)], ids=["after", "on the day"])
+    def test_the_walk_weighs_the_day_of_a_fixture_still_to_play(self, a_team: TeamFactory, played: MatchFactory, datum: str, seeded: bool):
+        """With a fixture still open the group is decided on its day, which the walk reads for every ending alike."""
+
+        teams = [a_team(1, punkte=9, austritt=austritt_on(datum)), a_team(2, punkte=3), a_team(3, punkte=0)]
+        spiele = [played(1, 1, 2, 1, 0), played(2, 1, 3, 1, 0), played(3, 2, 3, datum="2026-03-20")]
+
+        holder = standing(teams, spiele).by_platz.get(1)
+
+        assert (holder is not None and holder.id == teams[0].id) is seeded
+
+    @pytest.mark.parametrize("rules", [RULES, DIREKTER_VERGLEICH], ids=["tordifferenz", "direkter_vergleich"])
+    def test_a_club_that_left_after_the_group_is_decided_counts_in_its_tiebreak(
+        self, a_team: TeamFactory, played: MatchFactory, rules: FLSaisonRules
+    ):
+        """Level with two clubs and having met neither, so no meeting ranks the three: they share the place their band starts at.
+
+        Gone before the decision, the same club would be left out and the meeting of the other two would rank them.
+        """
+
+        level = {"punkte": 6, "geschossen": 4, "kassiert": 4}
+        teams = [a_team(1, **level), a_team(2, **level), a_team(3, **level, austritt=austritt_on("2026-03-16"))]
+        met = [played(1, 1, 2, 2, 0)]
+
+        assert platz_by_team_id(teams, met, rules) == {TEAM_ID.format(1): 1, TEAM_ID.format(2): 1, TEAM_ID.format(3): 1}

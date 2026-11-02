@@ -77,6 +77,7 @@ export function AdminSaisonEditForm({
   spielplan,
   hasDrawnSpiele,
   spieltagBound,
+  isStartFixed,
   pageHeader,
   redraw,
   onRedrawChange,
@@ -95,6 +96,8 @@ export function AdminSaisonEditForm({
   hasDrawnSpiele: boolean;
   /** The span the dated matchdays already occupy, which the date pickers may not shrink past. */
   spieltagBound: SaisonSpieltagBound;
+  /** Whether a fixture of the season has taken place, which fixes its start date (`saison_start_taken_place`). */
+  isStartFixed: boolean;
   pageHeader: EditPageHeaderContent;
   /**
    * The Spielplan panel's typing and the save's pending exit, both held above the key a save re-keys this editor
@@ -356,6 +359,7 @@ export function AdminSaisonEditForm({
             onEndDateChange={setEndDate}
             onFieldLeft={validateFields}
             spieltagBound={spieltagBound}
+            isStartFixed={isStartFixed}
             banners={banners}
           />
 

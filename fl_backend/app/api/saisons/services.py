@@ -42,6 +42,49 @@ def base_tier_status_term(requested: FLSaisonStatus | None = None) -> dict[str, 
     return {"status": {"$eq": requested, "$ne": WITHHELD_FROM_BASE_TIER}}
 
 
+def has_started(*, start_date: str, today: str) -> bool:
+    """Whether a season has started: from its `start_date`, the German day `today` is, onwards.
+
+    The one start every start lock, the Nachnominierung and the landing read, so the countdown reaching 00:00 in
+    Berlin and the locks closing are one instant. A date and never a fixture: the season's own field is what an
+    administrator sets, and a start read off the earliest match moved whenever a match was re-dated.
+    """
+
+    return start_date <= today
+
+
+def find_saison_start_refusal(*, stored_start_date: str, proposed_start_date: str, taken_place: bool) -> WriteRefusal | None:
+    """Why moving this season's start must be refused, or `None`: once a fixture of it has taken place, the start is fixed.
+
+    Editable until then, so a season frozen early is unlocked by moving its start. After a match, moving it would
+    reopen what every start lock closed on a season somebody already played. Compared by value, so an edit
+    resubmitting the stored date passes.
+    """
+
+    if stored_start_date == proposed_start_date or not taken_place:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.SAISON_START_TAKEN_PLACE,
+        status=HTTPStatus.CONFLICT,
+    )
+
+
+def find_saison_past_refusal(*, saison_status: str) -> WriteRefusal | None:
+    """`saison_past` for a write that a finished season's record no longer takes: a fixture's save, a club's season row.
+
+    Pure, and judged on a `status` its caller reads in-session, `activate_saison` moving it in a transaction of its own.
+    """
+
+    if saison_status != "past":
+        return None
+
+    return WriteRefusal(
+        error_code=Code.SAISON_PAST,
+        status=HTTPStatus.CONFLICT,
+    )
+
+
 # What a started season holds fixed: a league does not change its scoring or its seeding mid-season.
 # `allowed_stufen` stays editable because it bounds what a form offers, never what a stored squad
 # row holds.

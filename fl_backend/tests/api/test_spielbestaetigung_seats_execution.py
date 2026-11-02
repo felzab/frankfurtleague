@@ -168,7 +168,8 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await database[Collection.GRANTS].insert_many(grants_for_the_suite())
-            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, saison_status))
+            # Starting the day after `TODAY`, so the club's replacement is still open to it.
+            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, saison_status, start_date="2026-04-02"))
             # The season after, ended, which is what lets the sweep clear this one's blocks.
             await database[Collection.SAISONS].insert_one(documents.saison_document(LATER_SAISON_ID, "past"))
             for team_id, name, shorthand in (

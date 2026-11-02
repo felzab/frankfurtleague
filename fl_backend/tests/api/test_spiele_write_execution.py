@@ -718,6 +718,27 @@ class TestTheStateRefusalIsReachedThroughTheRoute:
         assert spiele[VIERTELFINALE_NR]["sonderereignis"] is None
 
 
+class TestAFinishedSeasonsFixtureIsRefused:
+    """`saison_past` through the route: a finished season's record, its bracket included, is closed to the save."""
+
+    @pytest.mark.parametrize("dry_run", [False, True], ids=["the save", "its dry run"])
+    def test_a_result_on_a_past_season_is_refused_and_writes_nothing(self, mongo_replica_set_url: str, dry_run: bool):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "past"}})
+            before = await spiele_now(database)
+            spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 4), team2=side(BETA, 0))
+
+            with pytest.raises(APIError) as refused:
+                await call_patch(database, client, VIERTELFINALE, spiel_data, dry_run=dry_run)
+
+            return refused.value, before, await spiele_now(database)
+
+        refused, before, after = on_a_seeded_season(mongo_replica_set_url, body, spiele=bracket_season())
+
+        assert refused.error_code == Code.SAISON_PAST
+        assert after == before, "a refused save wrote something"
+
+
 # The day Gamma is out of the season, which is also the day a fixture is moved onto below: the rule
 # reads `datum < departed_from`, so the boundary is the value an off-by-one comparison gets wrong.
 GAMMA_DEPARTED_FROM = "2026-03-20"

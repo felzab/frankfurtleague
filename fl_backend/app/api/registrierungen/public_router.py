@@ -48,8 +48,8 @@ from app.api.registrierungen.services import (
     seite_of,
     zustand_of,
 )
+from app.api.saisons.services import has_started
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
-from app.api.spieltage.crud import nachnominierung_laeuft_in
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
@@ -68,7 +68,6 @@ from app.core.dependencies import (
     SaisonTeamsReadCollection,
     SpielerCollection,
     SpielerReadCollection,
-    SpieltageReadCollection,
     TeamsReadCollection,
     get_german_date_str,
     get_germany_now,
@@ -91,9 +90,10 @@ router = APIRouter(
 )
 
 
-# What a season read serves this tier: the two rules a form is bounded by, the window, and the
-# status the page words a closed link with. No other field of a season reaches an invite's holder.
-SAISON_PROJECTION = ["registrierung", "rules.allowed_stufen", "rules.max_kadergroesse", "status"]
+# What a season read serves this tier: the two rules a form is bounded by, the window, the
+# status the page words a closed link with, and the start the Nachnominierung verdict is judged on,
+# which reaches the holder as that verdict alone. No other field of a season reaches an invite's holder.
+SAISON_PROJECTION = ["registrierung", "rules.allowed_stufen", "rules.max_kadergroesse", "status", "start_date"]
 
 # What a replay reads of the registration its key found: the digest it is compared by.
 WIEDERHOLUNG_PROJECTION = ["idempotency_fingerprint"]
@@ -138,7 +138,6 @@ async def post_invitation_view(
     saisons_collection: SaisonsReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     saison_spieler_collection: SaisonSpielerReadCollection,
-    spieltage_collection: SpieltageReadCollection,
     teams_collection: TeamsReadCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLInvitationViewResponse:
@@ -168,7 +167,7 @@ async def post_invitation_view(
 
     # The squad create's own test, so the page tells a pupil what an entry made TODAY would store --
     # not what a squad row written on a later day will.
-    nachnominierung = await nachnominierung_laeuft_in(spieltage_collection=spieltage_collection, saison_id=saison_id, today=today, session=None)
+    nachnominierung = has_started(start_date=saison_raw["start_date"], today=today)
 
     return FLInvitationViewResponse(
         team=str((junction_raw or team_raw)["name"]),

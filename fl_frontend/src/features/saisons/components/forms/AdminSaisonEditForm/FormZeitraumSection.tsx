@@ -16,6 +16,9 @@ import type { SaisonSpieltagBound } from "@/features/saisons/types";
 import type { CalendarDate } from "@internationalized/date";
 import type { SaisonBanner } from "./banners";
 
+/** Under the closed start, why it is closed: the panel offers no repair, a result being the record of play. */
+const START_FIXED = "Zu einem Spiel dieser Saison ist schon ein Ergebnis eingetragen, deshalb lässt sich der Beginn nicht mehr ändern.";
+
 /**
  * **The season contains its matchdays, both directions enforced**: `spieltag_outside_saison` outward and
  * `saison_span_below_spieltage` inward, which `spieltagBound` greys out below. A fixture is held to its MATCHDAY's
@@ -28,6 +31,7 @@ export function FormZeitraumSection({
   onEndDateChange,
   onFieldLeft,
   spieltagBound,
+  isStartFixed,
   banners,
 }: {
   startDate: CalendarDate | null;
@@ -36,6 +40,11 @@ export function FormZeitraumSection({
   onEndDateChange: (next: CalendarDate | null) => void;
   onFieldLeft: (paths: readonly string[]) => void;
   spieltagBound: SaisonSpieltagBound;
+  /**
+   * Whether a fixture of the season has taken place, which fixes its start (`saison_start_taken_place`): the start is
+   * the one every start lock reads, so a moved one would reopen what play has closed.
+   */
+  isStartFixed: boolean;
   banners: readonly SaisonBanner[];
 }) {
   const panel = formPanel();
@@ -72,6 +81,8 @@ export function FormZeitraumSection({
             onChange={onStartDateChange}
             onBlur={() => onFieldLeft(["start_date"])}
             maxValue={startMax}
+            isReadOnly={isStartFixed}
+            hint={isStartFixed ? START_FIXED : undefined}
           />
           <AppDatePicker
             name="end_date"

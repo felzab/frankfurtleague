@@ -8,8 +8,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_landing
 from app.api.saisons.schemas import saison_start
-from app.api.spiele.schemas import FLSpielElfmeterschiessen, FLSpielJoined, FLSpielQuelleSpiel, FLSpielTeamFieldJoined
+from app.api.spiele.schemas import FLSpielElfmeterschiessen, FLSpielJoinedInternal, FLSpielQuelleSpiel, FLSpielTeamFieldJoinedInternal
 from app.api.spiele.services import podium_of
+from app.api.teams.schemas import FLAustritt
 from app.core.collections import Collection
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
@@ -19,7 +20,9 @@ from .conftest import unwritten
 
 RUNNING_DATABASE_NAME = worker_database("fl_saisons_landing_view_test")
 BEFORE_START_DATABASE_NAME = worker_database("fl_saisons_landing_view_before_start_test")
+STARTED_DATABASE_NAME = worker_database("fl_saisons_landing_view_started_test")
 DECIDED_DATABASE_NAME = worker_database("fl_saisons_landing_view_decided_test")
+VACATED_DATABASE_NAME = worker_database("fl_saisons_landing_view_vacated_test")
 THIRD_UNPLAYED_DATABASE_NAME = worker_database("fl_saisons_landing_view_third_unplayed_test")
 EMPTY_DATABASE_NAME = worker_database("fl_saisons_landing_view_empty_test")
 
@@ -72,13 +75,16 @@ def spieltag(spieltag_id: ObjectId, position: int, saison_phase: str = "gruppenp
     return {"_id": spieltag_id, "beginn": None, "ende": None, "position": position, "saison_phase": saison_phase, "saison_id": SAISON}
 
 
-def seeded(url: str, database_name: str, collections: dict[str, list[dict[str, Any]]]) -> None:
-    """The season the site is on beside the next one, which takes applications today, and these documents."""
+def seeded(url: str, database_name: str, collections: dict[str, list[dict[str, Any]]], *, start_date: str = "2026-01-01") -> None:
+    """The season the site is on, from `start_date`, beside the next one, which takes applications today, and these documents."""
 
     async def _seed() -> None:
         async with a_clean_database(url, database_name) as (_, database):
             await database[Collection.SAISONS].insert_many(
-                [documents.saison_document(SAISON, "active"), documents.saison_document(NEXT, "future", bewerbung=dict(OPEN_WINDOW))]
+                [
+                    documents.saison_document(SAISON, "active", start_date=start_date),
+                    documents.saison_document(NEXT, "future", bewerbung=dict(OPEN_WINDOW)),
+                ]
             )
             for name, rows in collections.items():
                 await database[name].insert_many(rows)
@@ -154,7 +160,7 @@ def test_a_running_season_shows_its_latest_results_its_next_matches_and_its_figu
 
 @pytest.mark.db
 def test_a_season_before_its_first_match_counts_to_its_start_and_names_its_opening_match(mongo_url: str):
-    """The countdown's instant is the season's `start_date`, whatever its first match's day and time.
+    """The countdown's instant is the season's `start_date`, here its opening day, whatever its first match's time.
 
     The opening day holds an untimed fixture beside two timed ones, which a null sorting ahead of every time would hide.
 
@@ -175,13 +181,14 @@ def test_a_season_before_its_first_match_counts_to_its_start_and_names_its_openi
                 match(5, DAY_2, None, None, uhrzeit=None),
             ],
         },
+        start_date="2026-03-10",
     )
 
     saison = landing(mongo_url, BEFORE_START_DATABASE_NAME).saison
 
     assert (saison.state, saison.recent, saison.upcoming, saison.podium) == ("before_start", [], [], None)
-    # The season's `start_date` is the first of January, winter time in Berlin, an hour ahead of UTC.
-    assert saison.start == datetime(2025, 12, 31, 23, 0, tzinfo=UTC)
+    # The tenth of March, winter time in Berlin, an hour ahead of UTC.
+    assert saison.start == datetime(2026, 3, 9, 23, 0, tzinfo=UTC)
     assert saison.first_kickoff.model_dump() == {
         "datum": "2026-03-10",
         "uhrzeit": "15:00:00",
@@ -189,6 +196,19 @@ def test_a_season_before_its_first_match_counts_to_its_start_and_names_its_openi
         "team1": {"team_id": str(BETA), "name": "Beta", "shorthand": "BET"},
         "team2": {"team_id": str(ALPHA), "name": "Alpha", "shorthand": "ALP"},
     }
+
+
+@pytest.mark.db
+def test_a_season_past_its_start_date_runs_before_its_first_match(mongo_url: str):
+    """The start is the season's date and never a match's: from it the season runs, its results still empty."""
+
+    seeded(
+        mongo_url, STARTED_DATABASE_NAME, {Collection.SPIELTAGE: [spieltag(DAY_1, 1)], Collection.SPIELE: [match(1, DAY_1, "2026-03-10", None)]}
+    )
+
+    saison = landing(mongo_url, STARTED_DATABASE_NAME).saison
+
+    assert (saison.state, saison.first_kickoff, saison.recent, [spiel.spiel_nr for spiel in saison.upcoming]) == ("running", None, [], [1])
 
 
 @pytest.mark.parametrize(
@@ -226,8 +246,36 @@ def test_a_season_whose_final_is_played_shows_its_podium(mongo_url: str):
     saison = landing(mongo_url, DECIDED_DATABASE_NAME).saison
 
     assert (saison.state, saison.recent, saison.upcoming) == ("decided", [], [])
-    assert [(place.platz, place.name) for place in saison.podium] == [(1, "Alpha"), (2, "Beta"), (3, "Dora"), (4, "Cara")]
+    assert [(place.platz, place.team and place.team.name) for place in saison.podium] == [(1, "Alpha"), (2, "Beta"), (3, "Dora"), (4, "Cara")]
     assert saison.counts.count_tore == 7
+
+
+@pytest.mark.db
+def test_a_place_decided_after_its_club_left_is_served_vacant_and_the_season_decided(mongo_url: str):
+    """Cara left the season the day before the match for third place, which it lost: fourth is in, and nobody's."""
+
+    cara = ObjectId("6890a1b2c3d4e5f607440004")
+    seeded(
+        mongo_url,
+        VACATED_DATABASE_NAME,
+        {
+            Collection.SAISON_TEAMS: [
+                documents.saison_team_document(
+                    SAISON, cara, "Cara", "CAR", austritt={"type": "disqualifikation", "grund": "Ausgeschlossen", "datum": "2026-02-28"}
+                )
+            ],
+            Collection.SPIELTAGE: [spieltag(FINALE_DAY, 1, "finale")],
+            Collection.SPIELE: [
+                {**match(2, FINALE_DAY, "2026-03-01", (0, 3), names=("Cara", "Dora"), saison_phase="finale"), "team1": side(cara, "Cara", 0)},
+                match(3, FINALE_DAY, "2026-03-01", (2, 1), saison_phase="finale"),
+            ],
+        },
+    )
+
+    saison = landing(mongo_url, VACATED_DATABASE_NAME).saison
+
+    assert saison.state == "decided"
+    assert [(place.platz, place.team and place.team.name) for place in saison.podium] == [(1, "Alpha"), (2, "Beta"), (3, "Dora"), (4, None)]
 
 
 @pytest.mark.db
@@ -270,6 +318,8 @@ def test_a_league_with_no_season_on_shows_none(mongo_url: str):
 
 # The numbers the draw gives a bracket with semi-finals: theirs, then the match for third place, then the final.
 THIRD_NR, FINAL_NR = 23, 24
+# The day both Finale matches are played on, the one an exit is ordered against.
+MATCH_DAY = "2026-06-20"
 
 
 def finale_match(
@@ -279,14 +329,22 @@ def finale_match(
     third: bool,
     shootout: tuple[int, int] | None = None,
     cleared: bool = False,
-) -> FLSpielJoined:
-    """`cleared` is a slot an admin took over by clearing its source, which leaves the match its number alone."""
+    left: dict[str, str] | None = None,
+) -> FLSpielJoinedInternal:
+    """`cleared` is a slot an admin took over by clearing its source, which leaves the match its number alone.
 
-    def joined(name: str, tore: int | None) -> FLSpielTeamFieldJoined:
-        return FLSpielTeamFieldJoined(team_id=ObjectId(), name=name, shorthand=name[:3].upper(), tore=tore, austritt_type=None)
+    `left` names a club by name and the day it left the season; every match is played on `MATCH_DAY`.
+    """
+
+    def joined(name: str, tore: int | None) -> FLSpielTeamFieldJoinedInternal:
+        austritt = None if left is None or name not in left else FLAustritt(type="disqualifikation", grund="Ausgeschlossen", datum=left[name])
+        return FLSpielTeamFieldJoinedInternal(
+            team_id=ObjectId(), name=name, shorthand=name[:3].upper(), tore=tore, austritt_type=austritt and austritt.type, austritt=austritt
+        )
 
     quelle = None if cleared else FLSpielQuelleSpiel(type="spiel", spiel_nr=21, ausgang="verlierer" if third else "sieger")
-    return FLSpielJoined.model_construct(
+    return FLSpielJoinedInternal.model_construct(
+        datum=MATCH_DAY,
         spiel_nr=THIRD_NR if third else FINAL_NR,
         team1=joined(*team1),
         team2=joined(*team2),
@@ -315,7 +373,23 @@ def finale_match(
             [(1, "Alpha"), (2, "Beta"), (3, "Dora"), (4, "Cara")],
             id="a match for third place whose sources were cleared by hand, read in any order",
         ),
+        pytest.param(
+            [
+                finale_match(("Cara", 0), ("Dora", 3), third=True, left={"Cara": MATCH_DAY}),
+                finale_match(("Alpha", 1), ("Beta", 0), third=False),
+            ],
+            [(1, "Alpha"), (2, "Beta"), (3, "Dora"), (4, None)],
+            id="a club that left on the match's day leaves its place vacant",
+        ),
+        pytest.param(
+            [
+                finale_match(("Cara", 0), ("Dora", 3), third=True, left={"Cara": "2026-06-21"}),
+                finale_match(("Alpha", 1), ("Beta", 0), third=False),
+            ],
+            [(1, "Alpha"), (2, "Beta"), (3, "Dora"), (4, "Cara")],
+            id="a club that left the day after keeps it",
+        ),
     ],
 )
-def test_the_podium_places_each_pair_its_match_has_decided(finale: list[FLSpielJoined], places: list[tuple[int, str]]):
-    assert [(platz, side.name) for platz, side in podium_of(finale)] == places
+def test_the_podium_places_each_pair_its_match_has_decided(finale: list[FLSpielJoinedInternal], places: list[tuple[int, str | None]]):
+    assert [(platz, side and side.name) for platz, side in podium_of(finale)] == places

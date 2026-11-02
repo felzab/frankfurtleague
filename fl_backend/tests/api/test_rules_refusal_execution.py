@@ -20,7 +20,8 @@ DATABASE_NAME = worker_database("fl_rules_refusal_test")
 
 SAISON_ID = "2026"
 PRIOR_SAISON_ID = "2025"
-SAISON_START = "2026-01-01"
+# The day the season starts, which every drawn fixture and the one matchday are dated on too.
+SAISON_START = "2026-03-15"
 SAISON_END = "2026-06-30"
 
 # 4 groups of 4, which is 8 Gruppenphase fixtures a matchday. Widening the group is the edit under
@@ -102,9 +103,10 @@ def spiel_document(*, spiel_nr: int, **overrides: Any) -> dict[str, Any]:
     return {**documents.spiel_document(spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=spiel_nr, spieltag_id=SPIELTAG_OID), **overrides}
 
 
-# The day every drawn fixture is dated, which is the season's start, and the day before it.
-FIRST_FIXTURE_DAY = "2026-03-15"
+# The day every drawn fixture is dated, which is the season's start, the day before it, and a later start.
+FIRST_FIXTURE_DAY = SAISON_START
 THE_DAY_BEFORE = "2026-03-14"
+A_WEEK_LATER = "2026-03-22"
 
 
 def drawn_spiele() -> list[dict[str, Any]]:
@@ -136,6 +138,21 @@ def on_a_database(
     return on_the_seed_loop(_run())
 
 
+async def date_the_matchday(database: AsyncDatabase, day: str) -> None:
+    """What precedes a moved start: `saison_span_below_spieltage` keeps every dated matchday inside the season."""
+
+    await database[Collection.SPIELTAGE].update_one({"_id": SPIELTAG_OID}, {"$set": {"beginn": day, "ende": day}})
+
+
+async def stored_season(database: AsyncDatabase) -> Mapping[str, Any]:
+    """The season as a later request reads it."""
+
+    stored = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
+    assert stored is not None
+
+    return stored
+
+
 async def saved_rules(database: AsyncDatabase) -> Mapping[str, Any]:
     """The rules the season holds after a save, which answers 204 and none."""
 
@@ -145,13 +162,13 @@ async def saved_rules(database: AsyncDatabase) -> Mapping[str, Any]:
     return stored["rules"]
 
 
-async def patch_the_rules(database: AsyncDatabase, *, today: str = THE_DAY_BEFORE, **overrides: Any) -> Any:
+async def patch_the_rules(database: AsyncDatabase, *, today: str = THE_DAY_BEFORE, start_date: str = SAISON_START, **overrides: Any) -> Any:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it changes."""
 
     return await patch_saison(
         saison_id=SAISON_ID,
         saison_data=FLPatchSaisonPayload(
-            start_date=SAISON_START,
+            start_date=start_date,
             end_date=SAISON_END,
             rules=FLSaisonRules.model_validate(rules_document(**overrides)),
             # Stated rather than omitted: the payload replaces the season wholesale, so neither
@@ -226,9 +243,9 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
 
 
 class TestTheStartIsWhatFreezesTheScoring:
-    """`rules_saison_started` through the endpoint, whose read of the season's start is what the rule turns on."""
+    """`rules_saison_started` through the endpoint, whose read of the season's STORED start is what the rule turns on."""
 
-    def test_the_points_freeze_on_the_first_fixtures_day(self, mongo_replica_set_url: str):
+    def test_the_points_freeze_on_the_start_date(self, mongo_replica_set_url: str):
         """The table is derived, so a scoring change on a season under way would rewrite standings already played."""
 
         async def body(database: AsyncDatabase) -> APIError:
@@ -249,3 +266,63 @@ class TestTheStartIsWhatFreezesTheScoring:
             return await saved_rules(database)
 
         assert on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())["win_points"] == 2
+
+    def test_a_save_moving_the_start_cannot_lift_its_own_freeze(self, mongo_replica_set_url: str):
+        """The freeze reads the stored start: a payload carrying a later start and new points in one is still refused."""
+
+        async def body(database: AsyncDatabase) -> tuple[Code, Mapping[str, Any]]:
+            with pytest.raises(APIError) as refusal:
+                await patch_the_rules(database, today=FIRST_FIXTURE_DAY, start_date=A_WEEK_LATER, win_points=2)
+
+            return refusal.value.error_code, await stored_season(database)
+
+        code, stored = on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
+
+        assert code == Code.RULES_SAISON_STARTED
+        assert (stored["start_date"], stored["rules"]["win_points"]) == (SAISON_START, 3), "a refused save wrote something"
+
+    def test_moving_the_start_before_any_match_unlocks_the_next_save(self, mongo_replica_set_url: str):
+        """The way out of a season started too early: one save moves the start, the next changes the points."""
+
+        async def body(database: AsyncDatabase) -> Mapping[str, Any]:
+            await date_the_matchday(database, A_WEEK_LATER)
+            await patch_the_rules(database, today=FIRST_FIXTURE_DAY, start_date=A_WEEK_LATER)
+            await patch_the_rules(database, today=FIRST_FIXTURE_DAY, start_date=A_WEEK_LATER, win_points=2)
+            return await stored_season(database)
+
+        stored = on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
+
+        assert (stored["start_date"], stored["rules"]["win_points"]) == (A_WEEK_LATER, 2)
+
+
+class TestTheStartIsFixedOnceAFixtureHasTakenPlace:
+    """`saison_start_taken_place` through the endpoint, over the in-session read of every fixture of the season."""
+
+    def test_a_moved_start_on_a_played_season_is_refused(self, mongo_replica_set_url: str):
+        """One fixture holding a result fixes the start, and the refusal writes nothing."""
+
+        played = [*drawn_spiele()[1:], spiel_document(spiel_nr=1, datum=FIRST_FIXTURE_DAY, ergebnis="1:0")]
+
+        async def body(database: AsyncDatabase) -> tuple[Code, Mapping[str, Any]]:
+            await date_the_matchday(database, A_WEEK_LATER)
+            with pytest.raises(APIError) as refusal:
+                await patch_the_rules(database, today=THE_DAY_BEFORE, start_date=A_WEEK_LATER)
+
+            return refusal.value.error_code, await stored_season(database)
+
+        code, stored = on_a_database(mongo_replica_set_url, body, spiele=played)
+
+        assert code == Code.SAISON_START_TAKEN_PLACE
+        assert stored["start_date"] == SAISON_START, "a refused save moved the start"
+
+    def test_a_called_off_fixture_leaves_the_start_movable(self, mongo_replica_set_url: str):
+        """`has_taken_place`'s line: a fixture called off left no record, so the season has not been played."""
+
+        called_off = [*drawn_spiele()[1:], spiel_document(spiel_nr=1, datum=FIRST_FIXTURE_DAY, sonderereignis="ausgefallen")]
+
+        async def body(database: AsyncDatabase) -> Mapping[str, Any]:
+            await date_the_matchday(database, A_WEEK_LATER)
+            await patch_the_rules(database, today=THE_DAY_BEFORE, start_date=A_WEEK_LATER)
+            return await stored_season(database)
+
+        assert on_a_database(mongo_replica_set_url, body, spiele=called_off)["start_date"] == A_WEEK_LATER

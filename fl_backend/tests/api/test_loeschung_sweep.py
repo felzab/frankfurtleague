@@ -535,7 +535,6 @@ async def a_squad_row_entered(database: AsyncDatabase, client: AsyncMongoClient,
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        spieltage_collection=database[Collection.SPIELTAGE],
         db=client,
         today=TODAY,
     )

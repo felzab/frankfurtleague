@@ -227,46 +227,49 @@ describe("the season editor's one reading of the season, handed to its panels", 
   /* The swap (`swap_saison_started`) and the tiebreak (`rules_saison_started`) close on the season's one served start,
      and the rules panel's window is the undraw's own: a second reading of either drifts from the first and offers
      what the endpoint refuses. */
-  it("closes the swap picker and freezes the tiebreak on a started season, and states the window the undraw is closed by", () => {
-    render(
-      underNext(
-        h(AdminSaisonEditView, {
-          saison: {
-            id: "2026",
-            status: "future",
-            start_date: "2026-08-01",
-            end_date: "2027-06-30",
-            rules: RULES,
-            bewerbung: null,
-            registrierung: null,
-          },
-          rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false, loeschung: null },
-          // Two clubs in two groups, so only the start can close the picker.
-          swap: {
-            teams: [
-              { id: "a".repeat(24), name: "SV Alt", gruppe: "A", gruppenSpieleProSpieltag: {}, koSpieleProSpieltag: {} },
-              { id: "b".repeat(24), name: "SV Neu", gruppe: "B", gruppenSpieleProSpieltag: {}, koSpieleProSpieltag: {} },
-            ],
-            hasStarted: true,
-          },
-          ersatz: { rows: [], candidates: [] },
-          spielplan: {
-            spielplan: { generated_at: "2026-07-01", spieltage: 5, spiele: 15 },
-            spieltageCount: 5,
-            schedule: [
-              { phase: "gruppenphase", spieltage: 3, matches_per_spieltag: 4 },
-              { phase: "halbfinale", spieltage: 1, matches_per_spieltag: 2 },
-              { phase: "finale", spieltage: 1, matches_per_spieltag: 1 },
-            ],
-            bestand: { spiele: 15, erfasst: 2, angesetzt: 4 },
-            eingereichteBerichte: 0,
-          },
-          hasDrawnSpiele: true,
-          spieltagBound: { startMax: null, endMin: null },
-        }),
-        { search: "saison_id=2026" },
-      ),
+  /** A started, drawn season with two clubs in two groups, whose start is fixed where `isStartFixed` says. */
+  const editor = (isStartFixed: boolean) =>
+    underNext(
+      h(AdminSaisonEditView, {
+        saison: {
+          id: "2026",
+          status: "future",
+          start_date: "2026-08-01",
+          end_date: "2027-06-30",
+          rules: RULES,
+          bewerbung: null,
+          registrierung: null,
+        },
+        rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false, loeschung: null },
+        // Two clubs in two groups, so only the start can close the picker.
+        swap: {
+          teams: [
+            { id: "a".repeat(24), name: "SV Alt", gruppe: "A", gruppenSpieleProSpieltag: {}, koSpieleProSpieltag: {} },
+            { id: "b".repeat(24), name: "SV Neu", gruppe: "B", gruppenSpieleProSpieltag: {}, koSpieleProSpieltag: {} },
+          ],
+          hasStarted: true,
+        },
+        ersatz: { rows: [], candidates: [] },
+        spielplan: {
+          spielplan: { generated_at: "2026-07-01", spieltage: 5, spiele: 15 },
+          spieltageCount: 5,
+          schedule: [
+            { phase: "gruppenphase", spieltage: 3, matches_per_spieltag: 4 },
+            { phase: "halbfinale", spieltage: 1, matches_per_spieltag: 2 },
+            { phase: "finale", spieltage: 1, matches_per_spieltag: 1 },
+          ],
+          bestand: { spiele: 15, erfasst: 2, angesetzt: 4 },
+          eingereichteBerichte: 0,
+        },
+        hasDrawnSpiele: true,
+        spieltagBound: { startMax: null, endMin: null },
+        isStartFixed,
+      }),
+      { search: "saison_id=2026" },
     );
+
+  it("closes the swap picker and freezes the tiebreak on a started season, and states the window the undraw is closed by", () => {
+    render(editor(false));
 
     assert.ok(screen.getByText("Nach dem Beginn der Saison ist ein Gruppentausch nicht mehr möglich"));
     // No picker at all, the callout standing in its place: a picker on a started season offers a press the endpoint 409s.
@@ -276,5 +279,21 @@ describe("the season editor's one reading of the season, handed to its panels", 
       screen.getByText(/Solange zu mindestens einem Spiel dieser Saison etwas eingetragen ist/),
       "the rules panel decides the window itself",
     );
+  });
+
+  /* `saison_start_taken_place` refuses a moved start once a fixture has taken place: the field closes on the season
+     list's own `taken_place`, so it never offers what the save refuses. */
+  it("holds the start read-only, saying why, once a fixture of the season has taken place", () => {
+    // Each segment of the start's field, named after the field's label.
+    const startSegments = () => screen.getAllByRole("spinbutton", { name: /Beginn/ });
+    const { unmount } = render(editor(true));
+    expect(startSegments().length).toBeGreaterThan(0);
+    expect(startSegments().every((segment) => segment.getAttribute("aria-readonly") === "true")).toBe(true);
+    assert.ok(screen.getByText(/deshalb lässt sich der Beginn nicht mehr ändern/));
+    unmount();
+
+    render(editor(false));
+    expect(startSegments().some((segment) => segment.getAttribute("aria-readonly") === "true")).toBe(false);
+    expect(screen.queryByText(/deshalb lässt sich der Beginn nicht mehr ändern/)).toBe(null);
   });
 });

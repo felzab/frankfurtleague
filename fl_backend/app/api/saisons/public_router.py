@@ -6,13 +6,14 @@ from fastapi import APIRouter, Depends
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import saison_nimmt_bewerbungen_an
-from app.api.saisons.crud import CURRENT_SAISON_FILTER, has_started, pull_active_saison, pull_open_window_saison
+from app.api.saisons.crud import CURRENT_SAISON_FILTER, pull_active_saison, pull_open_window_saison
 from app.api.saisons.schemas import (
     FLBewerbungWindow,
     FLLandingCounts,
     FLLandingKickoff,
     FLLandingResponse,
     FLLandingSaison,
+    FLLandingSide,
     FLLandingState,
     FLPodium,
     FLPodiumPlace,
@@ -30,10 +31,10 @@ from app.api.saisons.schemas import (
     FLTeamPageSpielListAdapter,
     saison_start,
 )
-from app.api.saisons.services import base_tier_status_term, with_schedule
+from app.api.saisons.services import base_tier_status_term, has_started, with_schedule
 from app.api.saisons.visibility import PublicSaison, resolve_public_saison
 from app.api.spielberichte.services import SEITEN, build_public_bericht_pipeline, compose_public_bericht, team_id_of
-from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedListAdapter, unplayed_filter
+from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedInternalListAdapter, FLSpielJoinedListAdapter, unplayed_filter
 from app.api.spiele.services import build_spiele_pipeline, podium_of
 from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerListAdapter
 from app.api.spieler.services import build_spieler_pipeline
@@ -212,9 +213,8 @@ async def get_landing(
     saison_id = str(saison_raw["_id"])
     in_saison = {"saison_id": saison_id}
     # Two groups of reads sent at once, because one gather of nine types none of its results.
-    (started, first_raw, recent_raw, upcoming_raw, finale_raw), (teams, tore_raw, count_spiele, count_spieltage) = await asyncio.gather(
+    (first_raw, recent_raw, upcoming_raw, finale_raw), (teams, tore_raw, count_spiele, count_spieltage) = await asyncio.gather(
         asyncio.gather(
-            has_started(spiele_collection=spiele_collection, saison_id=saison_id, today=today),
             aggregate_many_from_db(collection=spiele_collection, pipeline=_first_kickoff_pipeline(saison_id), limit=1),
             aggregate_many_from_db(
                 collection=spiele_collection,
@@ -254,9 +254,10 @@ async def get_landing(
     # Every season ends in a knockout (`find_rules_refusal` refuses rules drawing none), so the Finale's matchday
     # places it, and every one with a K.-o.-Runde has places one to four (D497): it is decided once all four are in,
     # a played final beside an unplayed match for third place still running.
+    # The internal shape, whose sides carry the exit record: a place decided once its club had left is vacant.
     match [
-        FLPodiumPlace(platz=platz, team_id=side.team_id, name=side.name, shorthand=side.shorthand)
-        for platz, side in podium_of(FLSpielJoinedListAdapter.validate_python(finale_raw))
+        FLPodiumPlace(platz=platz, team=None if side is None else FLLandingSide(team_id=side.team_id, name=side.name, shorthand=side.shorthand))
+        for platz, side in podium_of(FLSpielJoinedInternalListAdapter.validate_python(finale_raw))
     ]:
         case [first_place, second_place, third_place, fourth_place]:
             podium: FLPodium | None = (first_place, second_place, third_place, fourth_place)
@@ -265,6 +266,8 @@ async def get_landing(
 
     first = first_raw[0] if first_raw else None
 
+    # The start every start lock reads, so the countdown reaching zero and the season reading as running are one instant.
+    started = has_started(start_date=saison_raw["start_date"], today=today)
     state: FLLandingState = "decided" if podium is not None else "running" if started else "before_start"
 
     return FLLandingResponse(

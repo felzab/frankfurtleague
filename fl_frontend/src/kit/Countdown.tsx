@@ -9,9 +9,9 @@ import { DAY_MS, HOUR_MS } from "@/core/timeUnits";
 
 const MINUTE_MS = 60 * 1000;
 
-/** What is left until `kickoff` at `at`, both in milliseconds: whole days, hours and minutes, none below zero. */
-function remaining(kickoff: number, at: number) {
-  const left = Math.max(0, kickoff - at);
+/** What is left until `start` at `at`, both in milliseconds: whole days, hours and minutes, none below zero. */
+function remaining(start: number, at: number) {
+  const left = Math.max(0, start - at);
   return {
     days: Math.floor(left / DAY_MS),
     hours: Math.floor((left % DAY_MS) / HOUR_MS),
@@ -20,14 +20,14 @@ function remaining(kickoff: number, at: number) {
 }
 
 /**
- * The days, hours and minutes left until the season's first kick-off, the one part of the landing that runs
+ * The days, hours and minutes left until the season's start (D499), the one part of the landing that runs
  * on the client. Its first render, on the server and again while the page hydrates, counts from `seed`, the
  * instant the server rendered at, so both write the same markup; once hydrated it counts from the visitor's
  * clock and wakes as each minute runs out, re-rendering these figures alone. No seconds: a figure ticking
  * every second never rests.
  */
-export function Countdown({ kickoff, seed }: { kickoff: string; seed: number }) {
-  const target = Date.parse(kickoff);
+export function Countdown({ start, seed }: { start: string; seed: number }) {
+  const target = Date.parse(start);
   const [at, setAt] = useState(seed);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;

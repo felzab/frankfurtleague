@@ -133,7 +133,10 @@ class _SaisonPayload(_SaisonWritable):
 
     @model_validator(mode="after")
     def the_season_ends_after_it_starts(self) -> Self:
-        """The rule a `past` season's edit can still fail: its dates stay editable so a mistyped one can be repaired."""
+        """Judged on every edit, a `past` season's included: its end date stays editable so a mistyped one can be repaired.
+
+        Its start date is fixed once a fixture has taken place, which `saison_start_taken_place` refuses on the stored season.
+        """
 
         refuse_reversed_span(start=self.start_date, end=self.end_date, kind="saison_ends_before_start")
 
@@ -186,11 +189,14 @@ FLSaisonListAdapter = TypeAdapter(list[FLSaison])
 
 
 class FLSaisonAdmin(FLSaison):
-    """The same season for the admin surfaces, with whether it has started."""
+    """The same season for the admin surfaces, with whether it has started and whether a fixture of it has taken place."""
 
-    # DERIVED per read by `app/api/saisons/crud.py :: has_started`, the predicate every start lock
-    # reads, so a control closed on it closes exactly what the endpoint refuses.
+    # DERIVED per read by `app/api/saisons/services.py :: has_started` off the stored `start_date`, the predicate
+    # every start lock reads, so a control closed on it closes exactly what the endpoint refuses.
     begun: bool
+    # DERIVED per read by `app/api/teams/services.py :: has_taken_place` over every fixture of the season: true,
+    # the start date is fixed (`saison_start_taken_place`), so the field closes exactly where the edit refuses.
+    taken_place: bool
 
 
 FLSaisonAdminListAdapter = TypeAdapter(list[FLSaisonAdmin])
@@ -455,7 +461,7 @@ type FLLandingState = Literal["before_start", "running", "decided"]
 
 
 class FLLandingSide(BaseReadModel):
-    """One side of the opening match, under the name and shorthand the club plays the season under."""
+    """A club as the landing names it, on the opening match or the podium, under the name and shorthand it plays the season under."""
 
     team_id: CustomObjectId
     name: str
@@ -485,12 +491,13 @@ def saison_start(start_date: str) -> datetime:
 
 
 class FLPodiumPlace(BaseReadModel):
-    """One of places one to four, under the name and shorthand the club played the season under."""
+    """One of places one to four, decided; `team` null where the place is vacant, its club having left the season by then.
+
+    A vacancy is still a decided place, so a season with one has all four in.
+    """
 
     platz: int = Field(ge=1, le=PODIUM_PLACES)
-    team_id: CustomObjectId
-    name: str
-    shorthand: str
+    team: FLLandingSide | None
 
 
 # Places one to four by position, one entry each: a further kind of place widens the entry's type, never the count.

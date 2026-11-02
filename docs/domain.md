@@ -160,15 +160,18 @@ is a schedule nobody has played.
 
 One freeze sits outside that one:
 
-- **A started season's scoring and seeding are frozen** (`rules_saison_started`) — from the day of its earliest
-  group-phase fixture (`fl_backend/app/api/saisons/crud.py :: has_started`), the points, the qualifiers per
-  group and the tie-break order hold: the table is derived from them on every read, and the bracket was
-  seeded from the placings the order decides. A `past` season stays frozen whatever its fixtures' dates.
+- **A started season's scoring and seeding are frozen** (`rules_saison_started`) — from its stored
+  `start_date` (`fl_backend/app/api/saisons/services.py :: has_started`, the start every start lock, the
+  Nachnominierung and the landing read), the points, the qualifiers per group and the tie-break order hold:
+  the table is derived from them on every read, and the bracket was seeded from the placings the order
+  decides. A `past` season stays frozen whatever its start date.
 
 **Every one of these judges the step and not the state it arrives in**, which is what keeps a season
 repairable: a date-only edit resubmits the whole `rules` object and passes whatever the stored values already
-say. The dates themselves sit outside `rules` and stay editable even on a
-finished season, correcting a mistyped one changing nothing anybody competed for.
+say. The dates themselves sit outside `rules`. The end date stays editable even on a finished season,
+correcting a mistyped one changing nothing anybody competed for. The start date moves until a fixture of the
+season has taken place (`saison_start_taken_place`), so a season frozen too early is unlocked by moving its
+start; after a match it would reopen what the start locks closed.
 
 ---
 
