@@ -158,6 +158,14 @@ export const COPY = catalogue({
     loadMore: "Weitere 50 laden",
     kORunde: "K.-o.-Runde",
     kOBaum: "K.-o.-Baum",
+    /** The one German spelling of each phase, which `PHASE_LABELS` serves to every surface. */
+    phase: {
+      gruppenphase: "Gruppenphase",
+      achtelfinale: "Achtelfinale",
+      viertelfinale: "Viertelfinale",
+      halbfinale: "Halbfinale",
+      finale: "Finale",
+    },
     afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
     disqualified: "DQ",
     // Redesign: a line-up's chips read these.

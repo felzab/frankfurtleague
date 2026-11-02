@@ -127,17 +127,18 @@ export const SERVER_COPY = catalogue({
       closed: "Das Bewerbungsfenster ist geschlossen.",
     },
 
-    /** How a season runs: the numbered dotted line, worded so it holds for any number of groups and rounds. */
+    /**
+     * How a season runs: the numbered dotted line, worded so it holds for any number of groups and rounds. Each
+     * point's text; its title is the name the season pages give the phase or the match.
+     */
     season: {
       eyebrow: "Spielbetrieb",
       title: "So läuft eine Saison",
-      gruppenphase: {
-        title: "Gruppenphase",
-        text: "Die Teams spielen in Gruppen jeder gegen jeden. Nur diese Spiele zählen für die Tabelle, und die Besten jeder Gruppe kommen weiter.",
-      },
-      kORunde: { title: COPY.shared.kORunde, text: "Wer verliert, scheidet aus. Bei Gleichstand entscheidet das Elfmeterschießen." },
-      platz3: { title: "Spiel um Platz 3", text: "Die beiden Verlierer der Halbfinale spielen um Platz 3." },
-      finale: { title: "Finale", text: "Das Spiel um den Titel." },
+      gruppenphase:
+        "Die Teams spielen in Gruppen jeder gegen jeden. Nur diese Spiele zählen für die Tabelle, und die Besten jeder Gruppe kommen weiter.",
+      kORunde: "Wer verliert, scheidet aus. Bei Gleichstand entscheidet das Elfmeterschießen.",
+      platz3: "Die beiden Verlierer der Halbfinale spielen um Platz 3.",
+      finale: "Das Spiel um den Titel.",
     },
 
     /** The season in four counts. */

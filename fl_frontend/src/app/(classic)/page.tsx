@@ -110,7 +110,14 @@ function sectionsOf(saison: FLLandingSaison | null, window: FLBewerbungWindow | 
       <LandingSection
         eyebrow={words.season.eyebrow}
         title={words.season.title}>
-        <StepsLine items={[words.season.gruppenphase, words.season.kORunde, words.season.platz3, words.season.finale]} />
+        <StepsLine
+          items={[
+            { title: COPY.shared.phase.gruppenphase, text: words.season.gruppenphase },
+            { title: COPY.shared.kORunde, text: words.season.kORunde },
+            { title: SERVER_COPY.season.thirdPlace, text: words.season.platz3 },
+            { title: COPY.shared.phase.finale, text: words.season.finale },
+          ]}
+        />
         <InfoCards items={[words.about.spielorte, words.about.admission, words.about.safety]} />
       </LandingSection>
       {saison !== null && (
