@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -12,6 +12,8 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { COPY } from "@/core/copy.ts";
+
 import type { ComponentType } from "react";
 import type { MockInstance } from "vitest";
 
@@ -23,6 +25,12 @@ const BOUNDARIES = filesUnder(APP_DIR, (name) => name === "error.tsx" || name ==
   file,
   shown: path.relative(APP_DIR, file).split(path.sep).join("/"),
 }));
+
+/* A boundary built on the kit's status card ends in one link, the way to the start page (D284), and offers no
+   retry; the old pages' boundaries still offer one. Read off the source, so a boundary rebuilt on the card
+   moves from the one set to the other with no edit here. */
+const LINKING = BOUNDARIES.filter(({ file }) => /from "@\/kit\/StatusPage"/.test(readFileSync(file, "utf8")));
+const RETRYING = BOUNDARIES.filter((boundary) => !LINKING.includes(boundary));
 
 type Boundary = ComponentType<{ error: unknown; retry: () => void }>;
 
@@ -73,18 +81,32 @@ describe.each(BOUNDARIES)("the error boundary $shown", ({ file, shown }) => {
   });
 
   /* Next passes a Client Component's throw on as it was thrown, so a boundary reading it as an
-     `Error` raises in place of its panel. The press re-renders the boundary, and a report keyed on
-     an `Error` rebuilt from the value on each render would post the one crash again. */
-  it("renders a thrown non-Error and reports it once across a press", async () => {
+     `Error` raises in place of its panel. A press or the router re-renders the boundary, and a report keyed
+     on an `Error` rebuilt from the value on each render would post the one crash again. */
+  it("renders a thrown non-Error and reports it once across a re-render", async () => {
     const Boundary = await boundaryOf(file);
 
-    render(underNext(h(Boundary, { error: null, retry: () => undefined })));
-    await userEvent.setup().click(screen.getByRole("button"));
+    const { rerender } = render(underNext(h(Boundary, { error: null, retry: () => undefined })));
+    rerender(underNext(h(Boundary, { error: null, retry: () => undefined })));
     await act(() => Promise.resolve());
 
     expect(sent.mock.calls.length, `${shown}: reports one thrown null ${String(sent.mock.calls.length)} times`).toBe(1);
   });
+});
 
+/* A boundary on the status card: its one act is the way to the start page, never a retry. */
+describe.each(LINKING)("the error boundary $shown", ({ file, shown }) => {
+  it("leads to the start page as its one act", async () => {
+    const Boundary = await boundaryOf(file);
+
+    render(underNext(h(Boundary, { error: new Error("gepflanzt"), retry: () => undefined })));
+
+    expect(screen.getByRole("link", { name: COPY.shared.end.toHome }).getAttribute("href"), `${shown}: the way home`).toBe("/");
+    expect(screen.queryByRole("button"), `${shown}: offers a retry beside its link`).toBeNull();
+  });
+});
+
+describe.each(RETRYING)("the error boundary $shown", ({ shown, file }) => {
   /* Next's `retry` is the refresh and the reset in one transition. A boundary wiring the two itself
      can drop either half with nothing failing, and a reset alone replays the router's cached failure. */
   it("calls the retry Next handed it once per press", async () => {
