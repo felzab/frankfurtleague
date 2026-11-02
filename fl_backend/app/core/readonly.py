@@ -3,15 +3,18 @@ CORE · a collection that can only be read, so an operation writing nothing is o
 
 A structural type (PEP 544): pymongo's `AsyncCollection` satisfies it as it stands, and it names the driver's reads
 alone, each cursor they return narrowed to its reads too, so a write called on it, on what it returns, or a write
-helper handed it, is a type error rather than a convention. Least privilege inside the one client the application holds; a second, read-only
-client is what the ratified `db` line refuses.
+helper handed it, is a type error rather than a convention. Least privilege inside the one client the application
+holds; a second, read-only client is what the ratified `db` line refuses.
 
 What the types cannot hold, each a step outside them rather than a slip inside:
 - the request's snapshot session (`app/core/dependencies.py :: SnapshotSession`), whose `client` is the driver's
   whole client: the one handle such an operation is handed that leads back to a write, kept because reading several
   times at one moment needs a session;
 - an aggregation stage writing its output (`$out`, `$merge`), which a pipeline's type does not show;
-- the client on `request.app.state`, for a handler or dependency taking the request, and a `cast` or `getattr`.
+- a handle handed on through anything written `Any`, on which pyright checks nothing: a parameter left without a
+  type is refused in `app` (`pyproject.toml`'s `reportMissingParameterType`), one typed `Any` is not;
+- the client on `request.app.state`, for a handler or dependency taking the request;
+- a `cast`, a `getattr`, or a comment silencing pyright.
 """
 
 from collections.abc import AsyncIterator, Mapping
