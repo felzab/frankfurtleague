@@ -8,9 +8,11 @@ handler or in any helper it hands them to. This holds the mark to those types, r
 way FastAPI resolves it: each database handle the handler or a dependency of it declares, judged by the type it is
 declared as.
 
-The fixture save's dry run (`x-safe-when` on `PATCH /spiele/{spiel_id}`) writes on the arm that is not dry, so it is
-handed writable collections and judged by no type; `tests/api/test_spiele_dry_run_execution.py` holds the dry arm,
-every collection of the database compared before and after a preview.
+The fixture save's dry run (`x-safe-when` on `PATCH /spiele/{spiel_id}`) writes on the arm that is not dry, so its
+handler is handed writable collections and judged here by no type. The read helpers its dry arm calls take read-only
+collections, so pyright refuses a write in any of them, on every path; the handler's own closures hold the writable
+ones, and `tests/api/test_spiele_dry_run_execution.py` holds them on the one scenario it runs, every collection of the
+database compared before and after a preview.
 """
 
 import inspect
