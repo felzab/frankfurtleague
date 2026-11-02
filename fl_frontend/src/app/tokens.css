@@ -4,8 +4,15 @@
 @layer base {
   :root {
     --bg: #ffffff;
+    /* The rail and a field's own fill. */
     --bg-surface: #f5f5f5;
     --bg-muted: #e5e5e5;
+    /* A card and a table, one step off the page; its head one step further; a dialog, menu, sheet, popover,
+       tooltip or toast. Each a role of its own rather than a step of the scale above, so a theme can raise
+       its cards without moving the rail, the fields or the overlays. */
+    --bg-card: #ffffff;
+    --bg-card-head: #f5f5f5;
+    --bg-overlay: #ffffff;
     --fg: #0a0a0a;
     --fg-muted: #525252;
     --border: #d4d4d4;
@@ -33,6 +40,9 @@
     --bg: #030303;
     --bg-surface: #121212;
     --bg-muted: #262626;
+    --bg-card: #121212;
+    --bg-card-head: #262626;
+    --bg-overlay: #121212;
     --fg: #ffffff;
     --fg-muted: #a3a3a3;
     --border: #333333;
@@ -187,6 +197,9 @@
   --color-bg: var(--bg);
   --color-bg-surface: var(--bg-surface);
   --color-bg-muted: var(--bg-muted);
+  --color-bg-card: var(--bg-card);
+  --color-bg-card-head: var(--bg-card-head);
+  --color-bg-overlay: var(--bg-overlay);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
   --color-border: var(--border);

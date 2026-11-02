@@ -10,8 +10,8 @@ import { tv } from "./tv";
  */
 export const card = tv({
   slots: {
-    root: "grid overflow-hidden rounded-lg border border-border bg-bg text-fg",
-    head: "grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 border-b border-border bg-bg-surface px-4 py-3",
+    root: "grid overflow-hidden rounded-lg border border-border bg-bg-card text-fg",
+    head: "grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 border-b border-border bg-bg-card-head px-4 py-3",
     title: "text-base font-semibold break-words",
     count: "col-start-2 row-start-1 font-numeric text-sm text-fg-muted",
     line: "col-span-2 text-sm text-fg-muted",
