@@ -177,7 +177,6 @@ export const SERVER_COPY = catalogue({
       /** The opening match's matchday, before its two plaques. */
       spieltag: (position: number) => `${formatNumber(position)}. Spieltag`,
       windowUntil: (until: CalendarDay) => `Bewerbungen bis ${formatDatum(until)}`,
-      undated: "Der erste Spieltag ist noch nicht angesetzt.",
       last: "Zuletzt",
       next: "Als Nächstes",
       place: (platz: number) => `${formatNumber(platz)}. Platz`,

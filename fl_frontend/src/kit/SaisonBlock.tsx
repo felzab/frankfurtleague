@@ -15,33 +15,33 @@ import type { Copy } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { Route } from "next";
 import type { Placed } from "./Podium";
-import type { SpielRowProps } from "./SpielRow";
+import type { SpielRowProps, SpielSide } from "./SpielRow";
 
 /** A match as the season card lists it. */
 type Shown = SpielRowProps & { id: string };
 
-/** The season's first match as the countdown names it: its matchday's label and its two clubs' Kürzel. */
-type Opening = { spieltag: Copy; home: string; away: string };
+/**
+ * The season's first match as the countdown names it: its day and time as its row shows them, its matchday's
+ * label and its two sides' plaques, a side whose slot is empty in the dashed open one.
+ */
+type Opening = { when: string; spieltag: Copy; home: SpielSide["plaque"]; away: SpielSide["plaque"] };
 
 /** Between the opening match's two plaques, as a fixture's pairing reads. */
 const VERSUS = "–";
 
 /**
- * Where the season stands: before its start, a countdown to its first kick-off and that match's pairing once
- * one is dated, the application window while none is, and the one sentence saying so while no window is open
- * either; while it runs, its last result and its next match; once decided, its places 1 to 4.
+ * Where the season stands: before its start, a countdown to it and its opening match once one is dated; while
+ * the league has no season on, the next one's application window; while it runs, its last result once there is
+ * one and its next match; once decided, its places 1 to 4.
  */
 type SaisonState =
   | {
       kind: "countdown";
-      /** The first match's instant. */
-      kickoff: string;
-      /** Its day and time, as its row shows them. */
-      when: string;
-      opening: Opening;
+      /** The season's start, as an instant. */
+      start: string;
+      opening?: Opening;
     }
   | { kind: "window"; until: CalendarDay; apply: Route }
-  | { kind: "undated" }
   | { kind: "running"; last?: Shown; next?: Shown }
   | { kind: "decided"; places: readonly [Placed, Placed, Placed, Placed] };
 
@@ -78,16 +78,20 @@ function Body({ state }: { state: SaisonState }) {
         <div className={slots.box()}>
           {/* The server's instant seeds the count, so the markup it sends is the markup the page hydrates. */}
           <Countdown
-            kickoff={state.kickoff}
+            kickoff={state.start}
             seed={now().getTime()}
           />
-          <p className={slots.line()}>{SERVER_COPY.landing.saison.kickoff(state.when)}</p>
-          <p className={slots.opening()}>
-            <span className={slots.openingLabel()}>{state.opening.spieltag}</span>
-            <TeamPlaque kuerzel={state.opening.home} />
-            <span aria-hidden>{VERSUS}</span>
-            <TeamPlaque kuerzel={state.opening.away} />
-          </p>
+          {state.opening !== undefined && (
+            <>
+              <p className={slots.line()}>{SERVER_COPY.landing.saison.kickoff(state.opening.when)}</p>
+              <p className={slots.opening()}>
+                <span className={slots.openingLabel()}>{state.opening.spieltag}</span>
+                <TeamPlaque {...state.opening.home} />
+                <span aria-hidden>{VERSUS}</span>
+                <TeamPlaque {...state.opening.away} />
+              </p>
+            </>
+          )}
         </div>
       );
     case "window":
@@ -100,12 +104,6 @@ function Body({ state }: { state: SaisonState }) {
             look="primary"
             label={SERVER_COPY.landing.toBewerbung}
           />
-        </div>
-      );
-    case "undated":
-      return (
-        <div className={slots.box()}>
-          <p className={slots.line()}>{SERVER_COPY.landing.saison.undated}</p>
         </div>
       );
     case "running":

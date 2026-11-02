@@ -25,7 +25,7 @@ const CONTENT: LandingContent = {
   aside: (
     <SaisonBlock
       title={COPY.shared.saisonName("2027")}
-      state={{ kind: "undated" }}
+      state={{ kind: "running" }}
     />
   ),
   sections: (
@@ -81,7 +81,7 @@ describe("the landing once read", () => {
         .getAllByRole("link", { name: /./ })
         .map((link) => link.textContent),
     ).toStrictEqual([COPY.page.spielplan, COPY.page.about]);
-    expect(within(page).getByText(landing.saison.undated)).toBeTruthy();
+    expect(within(page).getByRole("heading", { level: 2, name: COPY.shared.saisonName("2027") })).toBeTruthy();
     expect(within(page).getByRole("heading", { level: 2, name: landing.season.title })).toBeTruthy();
     expect(within(page).queryByRole("status")).toBeNull();
   });

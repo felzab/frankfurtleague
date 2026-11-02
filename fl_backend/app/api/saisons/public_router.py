@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import saison_nimmt_bewerbungen_an
-from app.api.saisons.crud import has_started, pull_active_saison, pull_open_window_saison
+from app.api.saisons.crud import CURRENT_SAISON_FILTER, has_started, pull_active_saison, pull_open_window_saison
 from app.api.saisons.schemas import (
     FLBewerbungWindow,
     FLLandingCounts,
@@ -14,6 +14,7 @@ from app.api.saisons.schemas import (
     FLLandingResponse,
     FLLandingSaison,
     FLLandingState,
+    FLPodium,
     FLPodiumPlace,
     FLSaison,
     FLSaisonFrameEntryListAdapter,
@@ -27,6 +28,7 @@ from app.api.saisons.schemas import (
     FLSpielSideStandings,
     FLTeamPageResponse,
     FLTeamPageSpielListAdapter,
+    saison_start,
 )
 from app.api.saisons.services import base_tier_status_term, with_schedule
 from app.api.saisons.visibility import PublicSaison, resolve_public_saison
@@ -169,9 +171,11 @@ def _first_kickoff_pipeline(saison_id: str) -> list[Mapping[str, Any]]:
     ]
 
 
-async def _active_or_none(saisons_collection: AsyncCollection) -> PublicSaison | None:
+async def _active_or_none(saisons_collection: AsyncCollection) -> Mapping[str, Any] | None:
+    """The season the site is on, its id and `start_date`; the `active` one, which no tier withholds."""
+
     try:
-        return await resolve_public_saison(saisons_collection=saisons_collection, saison_id=None)
+        return await pull_one_from_db(collection=saisons_collection, db_filter=CURRENT_SAISON_FILTER, projection=["_id", "start_date"])
     except DocumentNotFoundError:
         return None
 
@@ -189,7 +193,7 @@ async def get_landing(
     Beside it, the application window open today by the rule the submission refuses on.
     """
 
-    saison, open_window = await asyncio.gather(
+    saison_raw, open_window = await asyncio.gather(
         _active_or_none(saisons_collection),
         pull_open_window_saison(saisons_collection=saisons_collection, today=today),
     )
@@ -202,15 +206,16 @@ async def get_landing(
         else None
     )
 
-    if saison is None:
+    if saison_raw is None:
         return FLLandingResponse(saison=None, bewerbung_window=window)
 
-    in_saison = {"saison_id": saison.id}
+    saison_id = str(saison_raw["_id"])
+    in_saison = {"saison_id": saison_id}
     # Two groups of reads sent at once, because one gather of nine types none of its results.
     (started, first_raw, recent_raw, upcoming_raw, finale_raw), (teams, tore_raw, count_spiele, count_spieltage) = await asyncio.gather(
         asyncio.gather(
-            has_started(spiele_collection=spiele_collection, saison_id=saison.id, today=today),
-            aggregate_many_from_db(collection=spiele_collection, pipeline=_first_kickoff_pipeline(saison.id), limit=1),
+            has_started(spiele_collection=spiele_collection, saison_id=saison_id, today=today),
+            aggregate_many_from_db(collection=spiele_collection, pipeline=_first_kickoff_pipeline(saison_id), limit=1),
             aggregate_many_from_db(
                 collection=spiele_collection,
                 pipeline=build_spiele_pipeline(
@@ -232,7 +237,7 @@ async def get_landing(
             ),
         ),
         asyncio.gather(
-            _clubs_of(teams_collection=teams_collection, saison_id=saison.id),
+            _clubs_of(teams_collection=teams_collection, saison_id=saison_id),
             # The matches the Tabelle counts, every phase's, as `count_spiele` counts them.
             aggregate_many_from_db(
                 collection=spiele_collection,
@@ -246,24 +251,31 @@ async def get_landing(
         ),
     )
 
-    # Every season ends in a knockout (`find_rules_refusal` refuses rules drawing none), so the Finale decides it.
-    podium = [
+    # Every season ends in a knockout (`find_rules_refusal` refuses rules drawing none), so the Finale's matchday
+    # places it, and every one with a K.-o.-Runde has places one to four (D497): it is decided once all four are in,
+    # a played final beside an unplayed match for third place still running.
+    match [
         FLPodiumPlace(platz=platz, team_id=side.team_id, name=side.name, shorthand=side.shorthand)
         for platz, side in podium_of(FLSpielJoinedListAdapter.validate_python(finale_raw))
-    ]
+    ]:
+        case [first_place, second_place, third_place, fourth_place]:
+            podium: FLPodium | None = (first_place, second_place, third_place, fourth_place)
+        case _:
+            podium = None
 
     first = first_raw[0] if first_raw else None
 
-    state: FLLandingState = "decided" if any(place.platz == 1 for place in podium) else "running" if started else "before_start"
+    state: FLLandingState = "decided" if podium is not None else "running" if started else "before_start"
 
     return FLLandingResponse(
         saison=FLLandingSaison(
-            id=saison.id,
+            id=saison_id,
             state=state,
+            start=saison_start(saison_raw["start_date"]),
             first_kickoff=FLLandingKickoff.model_validate(first) if state == "before_start" and first else None,
             recent=FLSpielJoinedListAdapter.validate_python(recent_raw) if state == "running" else [],
             upcoming=FLSpielJoinedListAdapter.validate_python(upcoming_raw) if state == "running" else [],
-            podium=podium if state == "decided" else [],
+            podium=podium,
             counts=FLLandingCounts(
                 count_teams=len(teams),
                 # No group row where no match counts yet.

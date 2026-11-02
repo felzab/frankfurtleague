@@ -1,7 +1,7 @@
 from datetime import date, datetime, time
 from typing import Annotated, Final, Literal, Self
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, computed_field, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 from pydantic_core import PydanticCustomError
 
 from app.api.spielberichte.schemas import FLSpielberichtPublic
@@ -446,8 +446,8 @@ class FLSpielPageResponse(BaseAPIResponse):
     bericht: FLSpielberichtPublic | None
 
 
-# Where the season the site is on stands: before its first group match is played, while it runs, and once its
-# winner is known.
+# Where the season the site is on stands: before its first group match is played, while it runs, and once all
+# four places are in.
 # The places the landing celebrates once a season is decided.
 PODIUM_PLACES: Final = 4
 
@@ -463,10 +463,9 @@ class FLLandingSide(BaseReadModel):
 
 
 class FLLandingKickoff(BaseReadModel):
-    """The season's opening match: when it is set to start, its two sides and its Spieltag's `position`.
+    """The season's opening match: when it is set to start, in Berlin wall time, its two sides and its Spieltag's `position`.
 
-    `datum` and `uhrzeit` are Berlin wall time, `anpfiff` the same moment as an instant. A side is null while its slot
-    is empty, as a match's own sides are.
+    A side is null while its slot is empty, as a match's own sides are.
     """
 
     datum: CustomDateString
@@ -475,18 +474,14 @@ class FLLandingKickoff(BaseReadModel):
     team1: FLLandingSide | None
     team2: FLLandingSide | None
 
-    @computed_field
-    @property
-    def anpfiff(self) -> datetime | None:
-        """The kick-off as an instant, `datum` at `uhrzeit` in Berlin with that day's offset; null while `uhrzeit` is.
 
-        Null rather than the day's start, which no match kicks off at: a countdown to it would run out hours early.
-        """
+def saison_start(start_date: str) -> datetime:
+    """The instant a season starts, which the landing counts down to: 00:00 in Berlin on its `start_date`, with that day's offset.
 
-        if self.uhrzeit is None:
-            return None
+    The day's first minute exists on every day: Berlin changes its clocks at two and three in the morning.
+    """
 
-        return datetime.combine(date.fromisoformat(self.datum), time.fromisoformat(self.uhrzeit), tzinfo=clock.GERMANY)
+    return datetime.combine(date.fromisoformat(start_date), time(), tzinfo=clock.GERMANY)
 
 
 class FLPodiumPlace(BaseReadModel):
@@ -496,6 +491,10 @@ class FLPodiumPlace(BaseReadModel):
     team_id: CustomObjectId
     name: str
     shorthand: str
+
+
+# Places one to four by position, one entry each: a further kind of place widens the entry's type, never the count.
+FLPodium = tuple[FLPodiumPlace, FLPodiumPlace, FLPodiumPlace, FLPodiumPlace]
 
 
 class FLLandingCounts(BaseReadModel):
@@ -514,16 +513,18 @@ class FLLandingCounts(BaseReadModel):
 class FLLandingSaison(BaseReadModel):
     """The season the site is on as the landing shows it.
 
-    `first_kickoff` before the start, the earliest dated group match, null while none is; `recent` and `upcoming` while it runs,
-    the latest results and the next matches; `podium` once decided, each place its match has decided.
+    `start` the instant `saison_start` reads off its `start_date`. `first_kickoff` before the start, the earliest dated
+    group match, null while none is; `recent` and `upcoming` while it runs, the latest results and the next matches;
+    `podium` once decided, places one to four in their order, null before.
     """
 
     id: str
     state: FLLandingState
+    start: datetime
     first_kickoff: FLLandingKickoff | None
     recent: list[FLSpielJoined]
     upcoming: list[FLSpielJoined]
-    podium: list[FLPodiumPlace]
+    podium: FLPodium | None
     counts: FLLandingCounts
     teams: list[FLSaisonTeamEntry]
 

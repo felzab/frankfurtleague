@@ -66,7 +66,7 @@ function asideOf(saison: FLLandingSaison | null, window: FLBewerbungWindow | nul
     <SaisonBlock
       title={COPY.shared.saisonName(saison.id)}
       more={{ label: words.saison.toSpielplan, href: ROUTES.spielplan.path(saison.id) }}
-      state={stateOf(saison, window)}
+      state={stateOf(saison)}
     />
   );
 }
