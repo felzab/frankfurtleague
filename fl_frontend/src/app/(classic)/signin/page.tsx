@@ -8,10 +8,12 @@ import { SignInFlow } from "@/features/auth/components/forms/SignInFlow";
 import { SignedIn } from "@/features/auth/components/ui/SignedIn";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
 /** No description: a sign-in page carries none. */
-export const metadata: Metadata = pageMetadata(ROUTES.signIn, ROUTES.signIn.path());
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return pageMetadata(parent, ROUTES.signIn, ROUTES.signIn.path());
+}
 
 /**
  * Resolves nothing itself: the view is a function of the request's session, and a top-level await would

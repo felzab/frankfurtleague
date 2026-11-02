@@ -228,6 +228,13 @@ export const COPY = catalogue({
     verwaltungErasures: "Löschungen",
     verwaltungAddressChanges: "Adressänderungen",
     verwaltungActionLog: "Protokoll",
+    addressChangeConfirmation: "Änderung der E-Mail-Adresse",
+    /** A contact person's and a referee's confirmation of their own entry. */
+    entryConfirmation: "Eintrag bestätigen",
+    spielbestaetigung: "Spieltermin bestätigen",
+    registrierungConfirmation: "Registrierung bestätigen",
+    accountErasure: "Konto löschen",
+    registrierung: "Registrierung",
   },
 
   /** The Spielplan, and a match's page, which opens as the pop-up over it. */

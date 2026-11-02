@@ -1,29 +1,26 @@
 import { Suspense } from "react";
 
 import { frontend_config } from "@/core/config";
+import { ROUTES } from "@/core/routes";
 import { RegistrierungView } from "@/features/registrierungen/components/views/RegistrierungView";
 import { getEinladungAnsicht } from "@/features/registrierungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
-import { openGraphFor } from "@/shared/utils/metadata";
+import { pageMetadata } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { RegistrierungStart } from "@/features/registrierungen/types";
 import type { NextPageProps } from "@/shared/types/types";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
 /**
- * `noindex` as `/signin` spells it;
- * `referrer` keeps the invite's token off the referer a press on „Datenschutzerklärung“ would send.
+ * `referrer` keeps the invite's token off the referer a press on „Datenschutzerklärung“ would send; the row keeps
+ * crawlers out.
  */
-export const metadata: Metadata = {
-  title: "Registrierung",
-  description: "Registriere Dich mit dem Link Deines Teams für eine Saison der Frankfurt League.",
-  robots: { index: false, follow: false },
-  referrer: "no-referrer",
-  openGraph: openGraphFor("/registrierung"),
-  alternates: { canonical: "/registrierung" },
-};
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  const row = ROUTES.registrierung;
+  return { ...(await pageMetadata(parent, row, row.path())), referrer: "no-referrer" };
+}
 
 /**
  * Resolves nothing itself: a top-level await would tie the App Shell to one URL, and this page's

@@ -12,11 +12,13 @@ import { SPIELORT_REGELN } from "../../spielortRegeln";
 
 import type { FLSpielort } from "@/core/generated/client/types";
 import type { TableRow } from "@/kit/Table";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
 const WORTE = COPY.verwaltung.spielort;
 
-export const metadata: Metadata = pageMetadata(ROUTES.verwaltungSpielorte, ROUTES.verwaltungSpielorte.path());
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return pageMetadata(parent, ROUTES.verwaltungSpielorte, ROUTES.verwaltungSpielorte.path());
+}
 
 /** One venue's row: its name, „Stillgelegt“ and muted once retired, its street and its price. */
 const zeile = (ort: FLSpielort): TableRow => ({

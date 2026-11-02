@@ -346,10 +346,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   current code, and earlier versions stay in the public history
   (`DatenschutzView.tsx :: frühere Fassungen bleiben in dessen öffentlicher Versionsgeschichte`). The page's source
   carries this record once it leaves here.
-- **AI crawlers are both asked and blocked, and the block is the source of truth.**
-  `fl_frontend/src/app/robots.ts` disallows named crawlers, which is a request; the edge's
-  crawler block enforces it, and that setting lives in the hosting dashboard rather than in this
-  repository, which records that it exists and is deliberate.
+- **AI crawlers are both asked and blocked, and the block is the source of truth.** The request
+  is the edge's managed `robots.txt`, which it puts before the one
+  `fl_frontend/src/app/robots.ts` writes; the edge's crawler block enforces it. Both settings live
+  in the hosting dashboard rather than in this repository, which records that they exist and are
+  deliberate, and [`ops/spec.md`](ops/spec.md) records whether each is on.
 - **The free-text fields on public pages stay public** — a fixture's note, a withdrawal's reason and
   a club's description — with the input saying so (`READ-FREETEXT-001`, `READ-FREETEXT-002`, and
   for the description `fl_backend/app/api/teams/schemas.py :: _TeamWritable.description`, served by

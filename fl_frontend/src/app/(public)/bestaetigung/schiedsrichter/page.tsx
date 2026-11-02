@@ -2,31 +2,27 @@ import { Suspense } from "react";
 
 import { getLaufendeFassung } from "@/core/einwilligung";
 import { gekeyteFassung, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
+import { ROUTES } from "@/core/routes";
 import { SchiedsrichterBestaetigungView } from "@/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView";
 import { SCHIEDSRICHTER_UMFANG_WERTE } from "@/features/schiedsrichter/constants";
 import { getSchiedsrichterBestaetigungAnsicht } from "@/features/schiedsrichter/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
-import { openGraphFor } from "@/shared/utils/metadata";
+import { pageMetadata } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { SchiedsrichterBestaetigungStart } from "@/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView";
 import type { NextPageProps } from "@/shared/types/types";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
 /**
- * `noindex` as the contact confirmation spells it;
- * `referrer` keeps the link's token off the referer a press on
- * „Datenschutzerklärung“ would send.
+ * `referrer` keeps the link's token off the referer a press on „Datenschutzerklärung“ would send; the row keeps
+ * crawlers out, as the contact confirmation's does.
  */
-export const metadata: Metadata = {
-  title: "Eintrag bestätigen",
-  description: "Bestätige Deinen Eintrag als Schiedsrichterin oder Schiedsrichter bei der Frankfurt League.",
-  robots: { index: false, follow: false },
-  referrer: "no-referrer",
-  openGraph: openGraphFor("/bestaetigung/schiedsrichter"),
-  alternates: { canonical: "/bestaetigung/schiedsrichter" },
-};
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  const row = ROUTES.schiedsrichterConfirmation;
+  return { ...(await pageMetadata(parent, row, row.path())), referrer: "no-referrer" };
+}
 
 /**
  * Resolves nothing itself: a top-level await would tie the App Shell to one URL, and this page's
