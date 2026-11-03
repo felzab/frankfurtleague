@@ -1,11 +1,12 @@
+import { doubleApiClient } from "@/test-support/apiClientDouble";
 import { bodyField } from "@/test-support/refusedPayload";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { SITE_CACHE_TAG } from "@/core/siteCache";
 
-import { spielSpeichern } from "./spielSpeichern";
 import { KEIN_SONDEREREIGNIS } from "./spielWerte";
 
 import type { Code, FLPatchSpielDataPayload, FLPatchSpielDataResponse, FLSpielJoinedAdmin } from "@/core/generated/client/types";
@@ -45,28 +46,32 @@ const NICHTS_BEWEGT: FLPatchSpielDataResponse = {
   bericht_adopted: null,
 };
 
-/** The fixture the save reads before its write, every payload it sends, and what the write answers. */
+/** The fixture the save reads before its write, every payload it sends, what the write answers, and each tag cleared. */
 const stand = vi.hoisted(() => ({
   gelesen: null as unknown,
   gesendet: [] as unknown[],
   ablehnung: null as unknown,
   antwort: null as unknown,
+  cleared: [] as string[],
 }));
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("next/cache", () => ({ updateTag: (tag: string) => void stand.cleared.push(tag) }));
 vi.mock("@/core/auth", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
 
 vi.mock("@/features/spiele/queries", () => ({
   getAdminSpiel: async () => (stand.gelesen === null ? null : { spiel: stand.gelesen }),
 }));
 
-vi.mock("@/core/generated/client/sdk", () => ({
-  spielePatchSpiel: async (_id: string, payload: unknown) => {
-    stand.gesendet.push(payload);
-    if (stand.ablehnung !== null) throw stand.ablehnung;
-    return stand.antwort;
-  },
-}));
+// The backend client itself is replaced, so the write runs through the real generated call and the real dispatch,
+// which counts it and takes it back where the backend refuses it.
+const calls = doubleApiClient((call) => {
+  stand.gesendet.push(JSON.parse(call.body ?? "null"));
+  if (stand.ablehnung !== null) throw stand.ablehnung;
+  return stand.antwort;
+});
+
+const { spielSpeichern } = await import("./spielSpeichern");
 
 /** The write's 409, naming the body field it judged where it is about one. */
 const refusal = (serverErrorCode: Code, about?: readonly string[]) =>
@@ -83,10 +88,12 @@ const refusal = (serverErrorCode: Code, about?: readonly string[]) =>
   });
 
 beforeEach(() => {
+  calls.length = 0;
   stand.gelesen = GESPEICHERT;
   stand.gesendet = [];
   stand.ablehnung = null;
   stand.antwort = NICHTS_BEWEGT;
+  stand.cleared = [];
 });
 
 /** The version the editor was read at. */
@@ -97,6 +104,9 @@ describe("the match editor's save", () => {
     const answer = await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { uhrzeit: "18:00:00" } });
 
     expect(answer).toEqual({ ok: true, value: 4 });
+    // The write itself, never its dry run, and the site's cache cleared once it stands.
+    expect(calls.map(({ endpoint, method }) => ({ endpoint, method }))).toStrictEqual([{ endpoint: `/spiele/${SPIEL_ID}`, method: "PATCH" }]);
+    expect(stand.cleared).toStrictEqual([SITE_CACHE_TAG]);
     expect(stand.gesendet).toEqual([
       {
         datum: "2027-03-14",
@@ -270,5 +280,8 @@ describe("the match editor's save", () => {
     // The fixture changed since the editor read it: the write refused the version it was sent.
     stand.ablehnung = refusal("version_stale");
     expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "version_stale", reason: COPY.shared.failure.stale });
+
+    // Every refusal took its write back, so nothing the site caches changed.
+    expect(stand.cleared).toStrictEqual([]);
   });
 });
