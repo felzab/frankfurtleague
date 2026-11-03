@@ -180,7 +180,6 @@ export const COPY = catalogue({
     },
     /** The head of a club's exit note, „Disqualifiziert seit 14.03.2026“: its route's `zustand` and the day it took effect. */
     austrittSeit: (zustand: Copy, day: CalendarDay) => `${zustand} seit ${formatDatum(day)}`,
-    // Redesign: a line-up's chips read these.
     startelf: "Startelf",
     bank: "Bank",
 
