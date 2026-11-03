@@ -13,7 +13,7 @@ const STRANGER = "niemand@example.com";
 
 test("one address asking for code after code is refused", async ({ page }) => {
   const step = codeStep(page);
-  const refusal = failureLine(page).filter({ hasText: "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut." });
+  const refusal = failureLine(page).filter({ hasText: "Zu viele Versuche in kurzer Zeit." });
 
   // `nginx/shared/site.conf`'s sign-in zone, five a minute with a burst of three and no delay: four
   // requests at once pass, and each one more needs twelve seconds since the first that this one

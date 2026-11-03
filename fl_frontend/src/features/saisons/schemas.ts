@@ -1,6 +1,7 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
+import { COPY } from "@/core/copy";
 import { FLSaisonRulesTiebreakOrder } from "@/core/generated/client/types";
 import { FLSpielerStufeSchema } from "@/features/spieler/schemas";
 // Its `options` are read at module load below, so a VALUE cycle back into this file reads the set
@@ -8,7 +9,7 @@ import { FLSpielerStufeSchema } from "@/features/spieler/schemas";
 import { FLGruppenNamesSchema } from "@/features/teams/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
-import { MAX_QUALIFIERS, SAISON_ID_LENGTH } from "./constants";
+import { MAX_QUALIFIERS, MIN_QUALIFIERS, SAISON_ID_LENGTH } from "./constants";
 
 // The old season forms' own judgement of their drafts, in words an administrator reads, before each action sends the
 // write through the generated client, which types the body against the write's published contract.
@@ -105,9 +106,11 @@ const groupCannotOverQualify = {
   path: ["rules", "qualifiers_per_gruppe"],
 };
 
+// On the rules as a whole, which no control is named: the two counts together are at fault, so the form's one
+// failure line says it, as the write's refusal of the same rule does.
 const bracketMustHaveAShape = {
-  error: `Die Zahl der Gruppen mal die Qualifikanten pro Gruppe muss eine Zweierpotenz von 2 bis ${String(MAX_QUALIFIERS)} ergeben.`,
-  path: ["rules", "qualifiers_per_gruppe"],
+  error: COPY.verwaltung.saison.bracketImpossible,
+  path: ["rules"],
 };
 
 /** Zero is not a power of two, hence the `n > 0`. */
@@ -116,7 +119,7 @@ const isPowerOfTwo = (n: number) => n > 0 && (n & (n - 1)) === 0;
 const hasPlayableBracket = (rules: { number_of_gruppen: number; qualifiers_per_gruppe: number }) => {
   const qualifiers = rules.number_of_gruppen * rules.qualifiers_per_gruppe;
 
-  return qualifiers >= 2 && qualifiers <= MAX_QUALIFIERS && isPowerOfTwo(qualifiers);
+  return qualifiers >= MIN_QUALIFIERS && qualifiers <= MAX_QUALIFIERS && isPowerOfTwo(qualifiers);
 };
 
 const endsAfterItStarts = {

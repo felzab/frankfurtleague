@@ -1,7 +1,10 @@
 import { Suspense } from "react";
 
+import { SignInSkeleton } from "@/kit/SignInPage";
+
 import { getSignedInAddress } from "@/core/auth";
 import { frontend_config } from "@/core/config";
+import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SignInFlow } from "@/features/auth/components/forms/SignInFlow";
 import { SignedIn } from "@/features/auth/components/ui/SignedIn";
@@ -16,11 +19,11 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 /**
  * Resolves nothing itself: the view is a function of the request's session, and a top-level await would
- * tie the static shell to one visitor. No placeholder: the wait is a session read, well under a second.
+ * tie the static shell to one visitor. The session's read waits as every template's read does.
  */
 export default function AnmeldenPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<SignInSkeleton title={COPY.signIn.title} />}>
       <Anmelden />
     </Suspense>
   );

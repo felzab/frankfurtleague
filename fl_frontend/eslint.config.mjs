@@ -1065,23 +1065,51 @@ const DESIGN_BANS = [
   ),
   syntaxBan(
     syntax(
-      inLiteral(
-        [
-          String.raw`\.\.\.`,
-          "!",
-          "[–—]",
-          String.raw`\s-\s`,
-          ";",
-          String.raw`\b[Bb]itte\b`,
-          String.raw`\b(?:[Ee]rfolgreich|[Ll]eider|[Ww]irklich)`,
-          String.raw`\bund mehr\b`,
-          String.raw`\bz\.\s?B\.`,
-          String.raw`Mannschaft`,
-          String.raw`\b[Nn]och\s?(?:einmal|ein Mal|mal)\b|\b[Nn]ochmal`,
-          String.raw`[a-zäöüß,]\s(?:Sie|Ihre?[mnrs]?|Du|Dein\w*|Dir|Dich)\b`,
-        ].join("|"),
+      [
+        inLiteral(
+          [
+            String.raw`\.\.\.`,
+            "!",
+            String.raw`\s-\s`,
+            ";",
+            String.raw`\b[Bb]itte\b`,
+            String.raw`\b(?:[Ee]rfolgreich|[Ll]eider|[Ww]irklich)`,
+            String.raw`\bund mehr\b`,
+            String.raw`\bz\.\s?B\.`,
+            String.raw`Mannschaft`,
+            String.raw`\b[Nn]och\s?(?:einmal|ein Mal|mal)\b|\b[Nn]ochmal`,
+            String.raw`[a-zäöüß,]\s(?:Sie|Ihre?[mnrs]?|Du|Dein\w*|Dir|Dich)\b`,
+          ].join("|"),
+        ),
+        // A dash inside text, where the standard allows one in a date range alone, which the locale writes. A literal
+        // that is the en dash and nothing else is a glyph standing for a value, as the empty value's mark, and no prose.
+        ":matches(Literal[value=/[–—]/]:not([value=/^–$/]), TemplateElement[value.raw=/[–—]/], JSXText[value=/[–—]/])",
+      ].join(", "),
+      "The catalogue writes none of these: three periods, „!“, a dash inside text, a semicolon, „Bitte“, „erfolgreich“, „leider“, „wirklich“, „und mehr“, „z. B.“, „Mannschaft“, „noch einmal“, „Sie“ or a capitalised „Du“ inside a sentence.",
+    ),
+    EVERY,
+    { only: ["src/core/copy.ts", "src/core/serverCopy.ts"] },
+  ),
+  // A field's message line is one pattern phrase: no full stop, no article, 80 characters at most. Its entries are
+  // `COPY.shared.field`'s patterns, and the server's phrases for a code, `SERVER_COPY.refusal`.
+  ...[
+    ["field", "src/core/copy.ts"],
+    ["refusal", "src/core/serverCopy.ts"],
+  ].map(([key, file]) =>
+    syntaxBan(
+      syntax(
+        `Property[key.name="${key}"] ${inLiteral(String.raw`\.$|^.{81,}$|\b(?:[Dd](?:er|ie|as|es|em|en)|[Ee]in(?:e[mnrs]?)?)\b`)}`,
+        "A field's message is one pattern phrase: no full stop, no article, at most 80 characters.",
       ),
-      "The catalogue writes none of these: three periods, „!“, a dash, a semicolon, „Bitte“, „erfolgreich“, „leider“, „wirklich“, „und mehr“, „z. B.“, „Mannschaft“, „noch einmal“, „Sie“ or a capitalised „Du“ inside a sentence.",
+      EVERY,
+      { only: [file] },
+    ),
+  ),
+  // A status line or a callout says one sentence: what is so, never a second one saying why or how.
+  syntaxBan(
+    syntax(
+      `Property[key.name=/^(?:failure|refusal|refusalLine|ruleLine|botCheck|consequence)$/] ${inLiteral(String.raw`[.?]\s+\S`)}`,
+      "A status line or a callout is one short sentence saying what is so: no second sentence.",
     ),
     EVERY,
     { only: ["src/core/copy.ts", "src/core/serverCopy.ts"] },

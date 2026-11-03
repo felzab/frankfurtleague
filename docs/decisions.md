@@ -48,6 +48,8 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **css** — Leave a vendored overlay's zoom in place; write the app's scale override inside a
   `@layer`
 - **motion** — Stop a loading indicator under reduced motion; freeze an ornament that rests visible
+- **copy** — Type a visitor string outside the catalogue; word a field from anything but its
+  patterns; add a pattern the owner did not approve; explain why or how on a status line
 
 ## The backend
 

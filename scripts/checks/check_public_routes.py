@@ -152,16 +152,28 @@ class Metadata:
 
 # The URLs mirror Next's own metadata routing rather than anything here: the Metadata Files pages
 # under https://nextjs.org/docs/llms.txt, and next 16.3.8's own `is-metadata-route` module for the
-# webmanifest spelling, read under the installed packages no checkout carries. Read 2026-10-03.
+# webmanifest spelling, read under the installed packages no checkout carries. Read 2026-10-03. A
+# generated image at the root answers its stem's path, its content hash riding in the query alone:
+# next 16.4.2's `next-metadata-image-loader` builds the URL as the segment's path, the file's base
+# name and `?<contenthash>`, and an id from `generateImageMetadata` adds a path segment, which
+# `metadata` refuses. Read 2026-11-03.
 METADATA: Final[tuple[Metadata, ...]] = (
     Metadata("sitemap", "/sitemap.xml", "the route table's listed pages, rendered from the cached season list"),
     Metadata("robots", "/robots.txt", "a constant object, and the crawl entry point every other URL is reached through"),
     Metadata("manifest", "/manifest.webmanifest", "a constant object, fetched once per install"),
+    Metadata(
+        "opengraph-image",
+        "/opengraph-image",
+        "the share image, prerendered at build from the drawn file it serves and answered from the build's output",
+    ),
 )
 
-# Reserved and deliberately unplaced: Next answers a generated one at a URL carrying a hash it mints
-# at build, which no directory tree derives.
-METADATA_IMAGES: Final = ("icon", "apple-icon", "opengraph-image", "twitter-image")
+# Reserved and deliberately unplaced until a row above places one: what each answers is decided per
+# file, and a generated icon's sizes and ids are its exports', which this reader does not read.
+METADATA_IMAGES: Final = ("icon", "apple-icon", "twitter-image")
+
+# The export that gives a generated image an id per image, each answered one path segment further down.
+IMAGE_IDS_RE: Final = re.compile(r"\bgenerateImageMetadata\b")
 
 # A route group is dropped from the URL; a dynamic segment and a catch-all stay, because what they
 # make unmeterable is exactly what this check reports.
@@ -682,15 +694,17 @@ def metadata(app_dir: Path) -> tuple[Metadata, ...]:
         # than a second claim on the same URL.
         stem = path.stem
         if stem in METADATA_IMAGES:
-            raise RouteShape(f"{path}: the metadata image {path.name!r}, which Next answers at a URL carrying a hash it mints at build")
+            raise RouteShape(f"{path}: the metadata image {path.name!r}, whose URLs its own exports decide")
         row = placed.get(stem)
         if row is None:
             continue
         if path.parent != app_dir:
             raise RouteShape(
                 f"{path}: the metadata convention {path.name!r} outside the App Router root, where Next resolves robots and manifest "
-                "not at all and a sitemap at a URL its own exports decide"
+                "not at all, a sitemap at a URL its own exports decide and an image under its segment's own address"
             )
+        if IMAGE_IDS_RE.search(path.read_text(encoding="utf-8")):
+            raise RouteShape(f"{path}: the metadata image {path.name!r} exports generateImageMetadata, answering one URL per id")
         served.append(row)
     return tuple(served)
 

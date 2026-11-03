@@ -217,11 +217,38 @@ def test_the_repository_own_interceptors_are_one_per_address_under_no_group():
 def test_a_reserved_metadata_name_the_map_does_not_carry_refuses():
     """The gap this population closes is the NEXT metadata file, which silence would let through."""
     try:
-        routes.metadata(with_files("opengraph-image.tsx"))
+        routes.metadata(with_files("twitter-image.tsx"))
     except routes.RouteShape as refusal:
-        assert re.search("opengraph-image", str(refusal)), refusal
+        assert re.search("twitter-image", str(refusal)), refusal
     else:
         raise AssertionError("a generated metadata image was given a URL")
+
+
+def test_a_generated_share_image_at_the_tree_root_answers_its_stem():
+    """Next answers it at its base name, the content hash riding in the query, which no location reads."""
+    assert [one.url for one in routes.metadata(with_files("opengraph-image.tsx"))] == ["/opengraph-image"]
+
+
+def test_a_generated_share_image_below_the_tree_root_refuses():
+    """Below the root it answers under its segment's address, which this reader does not derive for a convention."""
+    try:
+        routes.metadata(with_files("saisons/opengraph-image.tsx"))
+    except routes.RouteShape as refusal:
+        assert re.search("outside the App Router root", str(refusal)), refusal
+    else:
+        raise AssertionError("a nested share image was placed at the root's URL")
+
+
+def test_a_generated_share_image_with_an_id_per_image_refuses():
+    """`generateImageMetadata` answers one URL per id, a path segment below the stem's."""
+    app = with_files()
+    write(app, "opengraph-image.tsx", "export function generateImageMetadata() {\n  return [];\n}\n" + GENERATED)
+    try:
+        routes.metadata(app)
+    except routes.RouteShape as refusal:
+        assert re.search("generateImageMetadata", str(refusal)), refusal
+    else:
+        raise AssertionError("a share image answering one URL per id was given one URL")
 
 
 def test_a_metadata_convention_below_the_tree_root_refuses():
@@ -837,7 +864,7 @@ def test_every_recorded_reason_is_charged_by_the_repository_own_tree():
 
 
 def test_the_repository_own_metadata_conventions_are_accounted_for():
-    """The three real files, so a convention filed or dropped here fails before the gate reports it."""
+    """The four real files, so a convention filed or dropped here fails before the gate reports it."""
     served = routes.metadata(routes.REPO_ROOT / routes.APP_ROUTER)
 
     assert set(served) == set(routes.METADATA)

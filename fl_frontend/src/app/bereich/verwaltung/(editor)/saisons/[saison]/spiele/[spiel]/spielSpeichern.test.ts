@@ -135,10 +135,28 @@ describe("the match editor's save", () => {
     expect(answer).toEqual({
       ok: true,
       value: 4,
-      note: COPY.verwaltung.spiel.savedWithConsequences(
-        "Die Paarung in Spiel 31 wurde ebenfalls aktualisiert. Das eingetragene Ergebnis in Spiel 31 wurde dabei gelöscht.",
-      ),
+      note: COPY.verwaltung.spiel.alsoChanged([31]),
     });
+  });
+
+  it("names each other fixture once, a released side's among them, in its number's order", async () => {
+    const voided = { voided_ergebnis: null, voided_elfmeterschiessen: null, voided_sonderereignis: null };
+    stand.antwort = {
+      ...NICHTS_BEWEGT,
+      advanced_to: [
+        { spiel_id: "64b000000000000000000007", spiel_nr: 31, ...voided },
+        { spiel_id: "64b000000000000000000008", spiel_nr: 12, ...voided },
+      ],
+      // One fixture both moved and released a side, and one only released it.
+      released_sides: [
+        { spiel_id: "64b000000000000000000008", spiel_nr: 12, side: "team2", team_name: "Weide", ...voided },
+        { spiel_id: "64b000000000000000000009", spiel_nr: 7, side: "team1", team_name: "Linde", ...voided },
+      ],
+    } satisfies FLPatchSpielDataResponse;
+
+    const answer = await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { uhrzeit: "18:00:00" } });
+
+    expect(answer).toEqual({ ok: true, value: 4, note: COPY.verwaltung.spiel.alsoChanged([7, 12, 31]) });
   });
 
   it("answers as stale a fixture gone since the editor read it, writing nothing", async () => {
@@ -207,43 +225,30 @@ describe("the match editor's save", () => {
   it("places the write's refusal on the field that caused it, in the status line, or on the stale-page line", async () => {
     const save = { id: SPIEL_ID, version: VERSION, changes: { datum: "2027-05-01" } } as const;
 
-    // Each by the path the write names, onto the editor's box for it.
-    const onBox = [
-      ["spiel_outside_spieltag", ["datum"], "changes.datum"],
-      ["state_ergebnis_on_a_non_event", ["sonderereignis"], "changes.sonderereignis"],
-      ["state_nichtantreten_without_two_sides", ["sonderereignis"], "changes.sonderereignis"],
-    ] as const;
-    for (const [code, about, box] of onBox) {
-      stand.ablehnung = refusal(code, about);
-      expect(await spielSpeichern(save), code).toEqual({ ok: false, errorCode: code, fieldErrors: { [box]: SERVER_COPY.refusal[code] } });
-    }
+    // A field pattern's phrase, by the path the write names, onto the editor's box for it.
+    stand.ablehnung = refusal("state_ergebnis_on_a_non_event", ["sonderereignis"]);
+    expect(await spielSpeichern(save)).toEqual({
+      ok: false,
+      errorCode: "state_ergebnis_on_a_non_event",
+      fieldErrors: { "changes.sonderereignis": SERVER_COPY.refusal.state_ergebnis_on_a_non_event },
+    });
 
-    // A refusal about the venue shows on its box, the bar pointing at it.
-    for (const code of ["booking_unknown_resource", "spiel_double_booked"] as const) {
-      stand.ablehnung = refusal(code, ["ort", "spielort_id"]);
-      expect(await spielSpeichern(save), code).toEqual({
-        ok: false,
-        errorCode: code,
-        fieldErrors: { "changes.spielort": SERVER_COPY.refusal[code] },
-      });
-    }
-
-    // One about a field the editor shows no box for reads on the bar after that field's name.
-    const { namedField } = COPY.template;
-    const withoutBox = [
-      ["booking_unknown_resource", ["schiedsrichter", "schiedsrichter_id"], COPY.spielplan.fact.schiedsrichter],
-      ["booking_unconfirmed_schiedsrichter", ["schiedsrichter", "schiedsrichter_id"], COPY.spielplan.fact.schiedsrichter],
-      ["spiel_double_booked", ["schiedsrichter", "schiedsrichter_id"], COPY.spielplan.fact.schiedsrichter],
-      ["eligibility_disqualified", ["team1", "team_id"], COPY.verwaltung.spiel.team1],
-      ["eligibility_disqualified", ["team2", "team_id"], COPY.verwaltung.spiel.team2],
+    // A refusal no pattern words is its sentence on the bar, naming the field the write names.
+    const { refusalLine } = SERVER_COPY;
+    const onBar = [
+      ["spiel_outside_spieltag", ["datum"], refusalLine.spiel_outside_spieltag],
+      ["state_nichtantreten_without_two_sides", ["sonderereignis"], refusalLine.state_nichtantreten_without_two_sides],
+      ["booking_unknown_resource", ["ort", "spielort_id"], refusalLine.booking_unknown_resource.ort],
+      ["booking_unknown_resource", ["schiedsrichter", "schiedsrichter_id"], refusalLine.booking_unknown_resource.schiedsrichter],
+      ["booking_unconfirmed_schiedsrichter", ["schiedsrichter", "schiedsrichter_id"], refusalLine.booking_unconfirmed_schiedsrichter],
+      ["spiel_double_booked", ["ort", "spielort_id"], refusalLine.spiel_double_booked.ort],
+      ["spiel_double_booked", ["schiedsrichter", "schiedsrichter_id"], refusalLine.spiel_double_booked.schiedsrichter],
+      ["eligibility_disqualified", ["team1", "team_id"], refusalLine.eligibility_disqualified.team1],
+      ["eligibility_disqualified", ["team2", "team_id"], refusalLine.eligibility_disqualified.team2],
     ] as const;
-    for (const [code, about, name] of withoutBox) {
+    for (const [code, about, reason] of onBar) {
       stand.ablehnung = refusal(code, about);
-      expect(await spielSpeichern(save), `${code} ${about.join(".")}`).toEqual({
-        ok: false,
-        errorCode: code,
-        reason: namedField(name, SERVER_COPY.refusal[code]),
-      });
+      expect(await spielSpeichern(save), `${code} ${about.join(".")}`).toEqual({ ok: false, errorCode: code, reason });
     }
 
     // A finished season refuses the write whole, so its line stands alone on the bar.

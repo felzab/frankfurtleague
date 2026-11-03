@@ -4,12 +4,15 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { postPublicForm } from "@/shared/utils/publicSubmit";
 
 import { handleSignIn } from "../../actions";
 import { SignInFlow } from "./SignInFlow";
 
-// The server action, the bot check and the passkey client each reach a service; the send alone is driven here.
+// The server action, the code route, the bot check and the passkey client each reach a service; the send and the
+// code's answers alone are driven here.
 vi.mock("../../actions", () => ({ handleSignIn: vi.fn() }));
+vi.mock("@/shared/utils/publicSubmit", () => ({ postPublicForm: vi.fn() }));
 vi.mock("@/shared/hooks/useTurnstile", () => ({
   useTurnstile: () => ({ widget: null, takeToken: () => Promise.resolve({ token: "token" }) }),
 }));
@@ -69,5 +72,33 @@ describe("the sign-in's send", () => {
     await waitFor(() => expect(line.textContent).toBe(""));
     await act(async () => second.resolve(refusal));
     expect(line.textContent).toBe(refusal.reason);
+  });
+});
+
+describe("the sign-in's code", () => {
+  it("shows the typed code's refusal under the boxes, and every other on the status line", async () => {
+    vi.mocked(handleSignIn).mockResolvedValue({ ok: true, value: "lena@example.com" });
+    const answered = (error: string) => ({ answered: true, body: { success: false, error } }) as const;
+    vi.mocked(postPublicForm)
+      .mockResolvedValueOnce(answered(COPY.signIn.refusal.codeWrong))
+      .mockResolvedValueOnce(answered(COPY.signIn.refusal.noRecord));
+    render(
+      <SignInFlow
+        next="/"
+        siteKey=""
+      />,
+    );
+    await userEvent.type(screen.getByRole("textbox", { name: COPY.signIn.address }), "lena@example.com");
+    await userEvent.click(screen.getByRole("button", { name: COPY.signIn.sendCode }));
+    const code = await screen.findByRole("textbox", { name: COPY.signIn.code });
+
+    await userEvent.type(code, "123456");
+    expect((await screen.findByRole("alert")).textContent).toBe(COPY.signIn.refusal.codeWrong);
+    expect(screen.queryByText(COPY.signIn.refusal.noRecord)).toBe(null);
+
+    // An address's refusal is no fault of the typed digits: the boxes stay clear of it.
+    await userEvent.type(screen.getByRole("textbox", { name: COPY.signIn.code }), "654321");
+    await waitFor(() => expect(screen.getByText(COPY.signIn.refusal.noRecord)).toBeTruthy());
+    expect(screen.getByRole("alert").textContent).toBe("");
   });
 });

@@ -278,8 +278,8 @@ export function buildSpielplanVorschau(schedule: readonly FLSaisonPhaseSchedule[
 
 /**
  * The generator's two counts as one phrase, in the NOMINATIVE so every call site can seat it
- * unchanged. The singular is a defence: the smallest season `rules_bracket_impossible` allows draws two of
- * each, and these counts arrive from the server.
+ * unchanged. The singular is a defence: the smallest season `rules_bracket_impossible` allows draws three
+ * matchdays and six matches, and these counts arrive from the server.
  */
 export function describeSpielplanUmfang(spieltage: number, spiele: number): string {
   const spielePhrase = spiele === 1 ? "ein Spiel" : `${String(spiele)} Spiele`;

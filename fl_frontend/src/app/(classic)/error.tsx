@@ -12,13 +12,11 @@ import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
  */
 export default function ClassicError({ error }: { error: unknown }) {
   useReportClientCrash(error);
-  const words = COPY.landing.status.error;
   return (
     <StatusPage
       frame="classic"
       mark="error"
-      title={words.title}
-      sentence={words.sentence}
+      title={COPY.shared.failure.unexpected}
       next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}
     />
   );

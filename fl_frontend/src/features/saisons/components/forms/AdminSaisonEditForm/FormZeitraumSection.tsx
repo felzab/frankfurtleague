@@ -2,6 +2,7 @@
 
 import { parseDate } from "@internationalized/date";
 
+import { COPY } from "@/core/copy";
 import { ZEITRAUM_ABSCHNITT } from "@/features/saisons/constants";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
@@ -17,7 +18,7 @@ import type { CalendarDate } from "@internationalized/date";
 import type { SaisonBanner } from "./banners";
 
 /** Under the closed start, why it is closed: the panel offers no repair, a result being the record of play. */
-const START_FIXED = "Zu einem Spiel dieser Saison ist schon ein Ergebnis eingetragen, deshalb lässt sich der Beginn nicht mehr ändern.";
+const START_FIXED = COPY.verwaltung.saison.startFixed;
 
 /**
  * **The season contains its matchdays, both directions enforced**: `spieltag_outside_saison` outward and

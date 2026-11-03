@@ -1,5 +1,6 @@
 import { assert, describe, expect, it } from "vitest";
 
+import { COPY } from "@/core/copy.ts";
 import { GRUPPEN_OFF_RULES, SPIELBERICHTE_HALTEN_DEN_SPIELPLAN, SPIELTAGE_UNDATED } from "@/features/saisons/constants.ts";
 
 import {
@@ -113,11 +114,8 @@ describe("spielplanBlockedReason", () => {
   /* `rules_bracket_impossible` reaches the draw on its `stored=None` path, where it reduces to a qualifier
      product no bracket has a shape for. It closes the control rather than warning beside a live
      press, which would offer what the write path refuses. */
-  it("closes the draw where the rules reach no knockout round, and names the repair", () => {
-    const reason = spielplanBlock({ hasKoRunden: false });
-
-    expect(reason ?? "").toMatch(/keine KO-Runde/);
-    expect(reason ?? "").toMatch(/Abschnitt Regeln/);
+  it("closes the draw where the rules reach no knockout round, in the rule's one sentence", () => {
+    expect(spielplanBlock({ hasKoRunden: false })).toBe(COPY.verwaltung.saison.bracketImpossible);
   });
 
   it("names a spielplan condition ahead of the rules fault, as the endpoint runs its two passes", () => {
@@ -141,7 +139,7 @@ describe("spielplanBlockedReason", () => {
   });
 
   it("names the rules fault ahead of the span, as the endpoint orders its passes", () => {
-    expect(spielplanBlock({ hasKoRunden: false, endDate: "2026-05-01" }) ?? "").toMatch(/keine KO-Runde/);
+    expect(spielplanBlock({ hasKoRunden: false, endDate: "2026-05-01" })).toBe(COPY.verwaltung.saison.bracketImpossible);
   });
 
   /* The one place this mirror parts from `find_spielplan_refusal`, which judges `spielplan_replace_outside_its_window`
@@ -224,7 +222,7 @@ describe("spielplanShapeBlockedReason", () => {
   });
 
   /* `rules_bracket_impossible` on the numbers the press carries, too large and shapeless alike. */
-  it("refuses a product with no bracket, and names the two boxes that make it", () => {
+  it("refuses a product with no bracket, in the rule's one sentence", () => {
     // Sixteen groups of two, which the entries fit, so the bracket of 32 is the one fact that refuses.
     const sixteenGroups = Object.fromEntries([..."ABCDEFGHIJKLMNOP"].map((gruppe) => [gruppe, 2]));
 
@@ -232,23 +230,24 @@ describe("spielplanShapeBlockedReason", () => {
       [{ qualifiers_per_gruppe: 3 }, FULL],
       [{ number_of_gruppen: 16, teams_per_gruppe: 2, qualifiers_per_gruppe: 2 }, sixteenGroups],
     ] as const) {
-      const reason = shapeBlock(shape, occupancy);
-      expect(reason ?? "", `${JSON.stringify(shape)} is offered`).toMatch(/keine KO-Runde/);
-      expect(reason ?? "").toMatch(/Gruppen oder die Qualifikanten pro Gruppe/);
+      expect(shapeBlock(shape, occupancy), `${JSON.stringify(shape)} is offered`).toBe(COPY.verwaltung.saison.bracketImpossible);
     }
   });
 
-  /* Four days, and two groups of four with one qualifying imply four matchdays: three rounds and a final. */
+  /* Five days, and two groups of four with two qualifying imply five matchdays: three rounds, the semi-finals and
+     the Finale; four qualifying add the quarter-finals. */
   it("weighs the span against the matchdays the sent numbers imply, counting both ends", () => {
-    expect(shapeBlock({ qualifiers_per_gruppe: 1 }, FULL, "2026-05-04")).toBe(null);
-    expect(shapeBlock({}, FULL, "2026-05-04") ?? "").toMatch(/zu kurz für die Spieltage, die sich aus diesen Zahlen ergeben/);
-    expect(shapeBlock({ qualifiers_per_gruppe: 1 }, FULL, "2026-05-03") ?? "").toMatch(/Abschnitt Zeitraum/);
+    expect(shapeBlock({}, FULL, "2026-05-05")).toBe(null);
+    expect(shapeBlock({ qualifiers_per_gruppe: 4 }, FULL, "2026-05-05") ?? "").toMatch(
+      /zu kurz für die Spieltage, die sich aus diesen Zahlen ergeben/,
+    );
+    expect(shapeBlock({}, FULL, "2026-05-04") ?? "").toMatch(/Abschnitt Zeitraum/);
   });
 
   /* The endpoint's order: `find_spielplan_refusal`, then `find_rules_refusal`, then the span. */
   it("names the groups ahead of the bracket, and the bracket ahead of the span", () => {
     expect(shapeBlock({ teams_per_gruppe: 5, qualifiers_per_gruppe: 3 }, FULL, "2026-05-01")).toBe(GRUPPEN_OFF_RULES);
-    expect(shapeBlock({ qualifiers_per_gruppe: 3 }, FULL, "2026-05-01") ?? "").toMatch(/keine KO-Runde/);
+    expect(shapeBlock({ qualifiers_per_gruppe: 3 }, FULL, "2026-05-01")).toBe(COPY.verwaltung.saison.bracketImpossible);
   });
 });
 

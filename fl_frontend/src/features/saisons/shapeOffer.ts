@@ -1,4 +1,4 @@
-import { MAX_QUALIFIERS } from "@/features/saisons/constants";
+import { MAX_QUALIFIERS, MIN_QUALIFIERS } from "@/features/saisons/constants";
 import { GRUPPEN_OPTIONS } from "@/features/teams/constants";
 
 import type { FLGruppenNames, FLSpielplanShape } from "@/core/generated/client/types";
@@ -42,8 +42,8 @@ export type ShapeRefusal = "noBracket" | "bracketTooLarge" | "overQualifies" | "
  * every panel, so each words these refusals identically.
  */
 export const SHAPE_REFUSAL_NOTE: Record<ShapeRefusal, string> = {
-  noBracket: "keine KO-Runde",
-  bracketTooLarge: "zu viele für die KO-Runde",
+  noBracket: "keine K.-o.-Runde",
+  bracketTooLarge: "zu viele für die K.-o.-Runde",
   overQualifies: "mehr als die Gruppe fasst",
   // Opening on a verb: a row's name IS a count here, and a note opening on a noun would read as
   // one more part of the number.
@@ -99,8 +99,8 @@ function bracketRefusal(groups: number, qualifiers: number): ShapeRefusal | null
   const bracket = groups * qualifiers;
 
   if (bracket > MAX_QUALIFIERS) return "bracketTooLarge";
-  // A one-club bracket is no knockout round at all: `knockout_phases_for` is empty below two.
-  if (bracket < 2) return "noBracket";
+  // Below four the bracket has no semi-finals, so no match for third place: `find_rules_refusal` refuses it.
+  if (bracket < MIN_QUALIFIERS) return "noBracket";
 
   // A count off the universe makes the product a non-power-of-two whatever stands beside it: every
   // rules write refuses one, so only a season written by hand holds it.
