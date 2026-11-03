@@ -10,6 +10,7 @@ import { formatErgebnis, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
+import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { matchdayOf, matchRowOf } from "@/features/spiele/blocks";
 import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
 import { buildMapsSearchUrl } from "@/shared/utils/format";
@@ -26,7 +27,7 @@ type Props = PageProps<"/saisons/[saison]/teams/[team]">;
 
 async function readPage(params: Props["params"]): Promise<FLTeamPageResponse> {
   const team = await resolveObjectIdParam(params, "team");
-  const page = await getTeamPage((await params).saison, team);
+  const page = await getTeamPage(await resolvePublicSaisonParam(params), team);
   if (page === null) notFound();
   return page;
 }

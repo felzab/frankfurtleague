@@ -10,6 +10,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { getSpielPage } from "@/features/saisons/queries";
+import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { ereignisOf, headOf, matchdayOf, sidesOf } from "@/features/spiele/blocks";
 import { buildMapsSearchUrl } from "@/shared/utils/format";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -37,7 +38,7 @@ type Props = PageProps<"/saisons/[saison]/spiele/[spiel]">;
 
 async function readPage(params: Props["params"]): Promise<FLSpielPageResponse> {
   const spiel = await resolveObjectIdParam(params, "spiel");
-  const page = await getSpielPage((await params).saison, spiel);
+  const page = await getSpielPage(await resolvePublicSaisonParam(params), spiel);
   if (page === null) notFound();
   return page;
 }

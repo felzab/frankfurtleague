@@ -7,6 +7,7 @@ import { formatErgebnis, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getTabelle } from "@/features/saisons/queries";
+import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -17,7 +18,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/saisons/[saison]/tabelle">;
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  const { saison } = await params;
+  const saison = await resolvePublicSaisonParam(params);
   return pageMetadata(parent, ROUTES.tabelle, ROUTES.tabelle.path(saison), { description: SERVER_COPY.description.tabelle(saison) });
 }
 
@@ -85,7 +86,7 @@ function rowOf(saison: string, row: FLTabelleRow, qualifiers: number): TableRow 
 }
 
 async function readGroups(params: Props["params"]) {
-  const { saison } = await params;
+  const saison = await resolvePublicSaisonParam(params);
   const tabelle = await getTabelle(saison);
   if (tabelle === null) notFound();
   const groups = Object.entries(tabelle.gruppen).sort(([one], [other]) => one.localeCompare(other));

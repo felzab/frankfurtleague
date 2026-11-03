@@ -36,6 +36,7 @@ const page = (austritt: FLAustritt | null): FLTeamPageResponse => ({
 const read = vi.hoisted(() => ({ page: null as FLTeamPageResponse | null, teams: [] as string[] }));
 
 vi.mock("@/features/saisons/queries", () => ({
+  getSaisonFrame: async () => ({ saisons: [{ id: "2027" }], active_saison_id: "2027" }),
   getTeamPage: async (_saison: string, team: string) => {
     read.teams.push(team);
     return read.page;

@@ -9,6 +9,7 @@ import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSpielplan } from "@/features/saisons/queries";
+import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { matchRowOf } from "@/features/spiele/blocks";
 import { spieltagLabels } from "@/features/spieltage/utils";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -19,7 +20,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/saisons/[saison]">;
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  const { saison } = await params;
+  const saison = await resolvePublicSaisonParam(params);
   return pageMetadata(parent, ROUTES.spielplan, ROUTES.spielplan.path(saison), { description: SERVER_COPY.description.spielplan(saison) });
 }
 
@@ -51,7 +52,7 @@ export default function SpielplanPage({ params, searchParams }: Props) {
 }
 
 async function readSpieltage(params: Props["params"], searchParams: Props["searchParams"]): Promise<SpieltageContent> {
-  const spielplan = await getSpielplan((await params).saison);
+  const spielplan = await getSpielplan(await resolvePublicSaisonParam(params));
   if (spielplan === null) notFound();
   const { spieltage, current_spieltag_id: current } = spielplan;
   const labels = spieltagLabels(spieltage);
