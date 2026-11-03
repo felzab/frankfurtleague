@@ -185,9 +185,6 @@ class FLSaisonRecord(_SaisonStored, Anchored):
     """A season as `saisons` stores it: no derived schedule."""
 
 
-FLSaisonListAdapter = TypeAdapter(list[FLSaison])
-
-
 class FLSaisonAdmin(FLSaison):
     """The same season for the admin surfaces, with whether it has started and whether a fixture of it has taken place."""
 
@@ -282,11 +279,6 @@ class FLSwapGruppenResponse(BaseAPIResponse):
     team2_id: CustomObjectId
     team2_gruppe: FLGruppenNames
     rewritten_spiele: int
-
-
-class FLSaisonsListResponse(BaseAPIResponse):
-    format: Literal["list"] = "list"
-    saisons: list[FLSaison]
 
 
 class FLSaisonsAdminListResponse(BaseAPIResponse):
@@ -399,9 +391,10 @@ class FLUndrawSpielplanResponse(BaseAPIResponse):
 
 
 class FLTeamPageSpiel(FLSpielJoined):
-    """One of a club's matches with its matchday's `position`, which the page names the matchday by."""
+    """One of a club's matches with its matchday's `position` and its phase's count of matchdays, which the page names the matchday by."""
 
     spieltag_position: int = Field(ge=1)
+    count_spieltage_in_phase: int = Field(ge=1)
 
 
 FLTeamPageSpielListAdapter: Final = TypeAdapter(list[FLTeamPageSpiel])
@@ -441,27 +434,20 @@ class FLSpielSideStandings(BaseReadModel):
 class FLSpielPageResponse(BaseAPIResponse):
     """One match as its page and its pop-up show it.
 
-    The match, its matchday's `position`, where each side stands, and what the public may read of its report, null
-    where none is stored.
+    The match, its matchday's `position` and its phase's count of matchdays, which together name the matchday, where
+    each side stands, and what the public may read of its report, null where none is stored.
     """
 
     spiel: FLSpielJoined
     spieltag_position: int = Field(ge=1)
+    count_spieltage_in_phase: int = Field(ge=1)
     standings: FLSpielSideStandings
     bericht: FLSpielberichtPublic | None
-
-
-# The places the landing celebrates once a season is decided.
-PODIUM_PLACES: Final = 4
-
-# Where the season the site is on stands: before its start date, from it while it runs, and once all four places are in.
-type FLLandingState = Literal["before_start", "running", "decided"]
 
 
 class FLLandingSide(BaseReadModel):
     """A club as the landing names it, on the opening match or the podium, under the name and shorthand it plays the season under."""
 
-    team_id: CustomObjectId
     name: str
     shorthand: str
 
@@ -488,18 +474,9 @@ def saison_start(start_date: str) -> datetime:
     return datetime.combine(date.fromisoformat(start_date), time(), tzinfo=clock.GERMANY)
 
 
-class FLPodiumPlace(BaseReadModel):
-    """One of places one to four, decided; `team` null where the place is vacant, its club having left the season by then.
-
-    A vacancy is still a decided place, so a season with one has all four in.
-    """
-
-    platz: int = Field(ge=1, le=PODIUM_PLACES)
-    team: FLLandingSide | None
-
-
-# Places one to four by position, one entry each: a further kind of place widens the entry's type, never the count.
-FLPodium = tuple[FLPodiumPlace, FLPodiumPlace, FLPodiumPlace, FLPodiumPlace]
+# Places one to four by position, each its club, or null where the place is vacant, its club having left the season by
+# then. A vacancy is still a decided place, so a season with one has all four in.
+FLPodium = tuple[FLLandingSide | None, FLLandingSide | None, FLLandingSide | None, FLLandingSide | None]
 
 
 class FLLandingCounts(BaseReadModel):
@@ -515,31 +492,46 @@ class FLLandingCounts(BaseReadModel):
     count_spieltage: int = Field(ge=0)
 
 
-class FLLandingSaison(BaseReadModel):
-    """The season the site is on as the landing shows it.
-
-    `start` the instant `saison_start` reads off its `start_date`. `opening_spiel` before the start, the earliest dated
-    group match, null while none is; `recent` and `upcoming` while it runs, the latest result and the next match, as
-    many of each as `public_router.py :: LANDING_SPIELE` names, empty where there is none; `podium` once decided,
-    places one to four in their order, null before.
-    """
+class _FLLandingSaisonFacts(BaseReadModel):
+    """What the landing shows of the season the site is on in every state: `start` is 00:00 in Berlin on its `start_date`."""
 
     id: str
-    state: FLLandingState
     start: datetime
-    opening_spiel: FLLandingOpeningSpiel | None
-    recent: list[FLSpielJoined]
-    upcoming: list[FLSpielJoined]
-    podium: FLPodium | None
     counts: FLLandingCounts
     teams: list[FLSaisonTeamEntry]
 
 
+class FLLandingBeforeStart(_FLLandingSaisonFacts):
+    """Before its start date: its opening match, the earliest dated group match, null while none is."""
+
+    state: Literal["before_start"]
+    opening_spiel: FLLandingOpeningSpiel | None
+
+
+class FLLandingRunning(_FLLandingSaisonFacts):
+    """From its start date: the latest result and the next match, at most one of each, empty where there is none."""
+
+    state: Literal["running"]
+    recent: list[FLSpielJoined]
+    upcoming: list[FLSpielJoined]
+
+
+class FLLandingDecided(_FLLandingSaisonFacts):
+    """Once all four places are in: places one to four in their order."""
+
+    state: Literal["decided"]
+    podium: FLPodium
+
+
+# One member per state, so a state is served with exactly the facts it shows and a reader narrowing on `state` is handed
+# them typed, rather than checking at run time for a field the flat shape left nullable in every state.
+FLLandingSaison = Annotated[FLLandingBeforeStart | FLLandingRunning | FLLandingDecided, Field(discriminator="state")]
+
+
 class FLBewerbungWindow(BaseReadModel):
-    """The application window open today, by the one rule the submission refuses on, and the season it is for."""
+    """The application window open today, by the one rule the submission refuses on: the season it is for and its last day."""
 
     saison_id: str
-    von: CustomDateString
     bis: CustomDateString
 
 

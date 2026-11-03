@@ -2,7 +2,7 @@ import { COPY } from "@/core/copy";
 import { formatDatum, formatUhrzeit } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { PHASE_LABELS } from "@/features/saisons/constants";
+import { spieltagLabel } from "@/features/spieltage/utils";
 import { buildMapsSearchUrl } from "@/shared/utils/format";
 
 import type { Copy } from "@/core/copy";
@@ -10,6 +10,7 @@ import type { CalendarDay, Pair, Uhrzeit } from "@/core/format";
 import type {
   FLSonderereignis,
   FLSpielJoined,
+  FLSpielPageResponse,
   FLSpielQuelle,
   FLSpielSideStanding,
   FLSpielSideStandings,
@@ -35,13 +36,16 @@ export function isThirdPlace(spiel: Pick<FLSpielJoined, "for_third_place">): boo
   return spiel.for_third_place;
 }
 
+/** A match's matchday as the page reads serve it beside the match: its `position`, and its phase's count of matchdays. */
+type Matchday = Pick<FLSpielPageResponse, "spieltag_position" | "count_spieltage_in_phase">;
+
 /**
- * What a matchday is called where the page names a single one: a group matchday by its number, a knockout one
- * by its round, the third-place match by its own name.
+ * What a matchday is called where the page names a single one: as the Spielplan's tabs name it (`spieltagLabel`),
+ * a knockout round spread over several matchdays numbered among them, and the third-place match by its own name.
  */
-export function matchdayOf(spiel: Pick<FLSpielJoined, "saison_phase" | "for_third_place">, position: number): Copy {
+export function matchdayOf(spiel: Pick<FLSpielJoined, "saison_phase" | "for_third_place">, matchday: Matchday): Copy {
   if (isThirdPlace(spiel)) return SERVER_COPY.season.thirdPlace;
-  return spiel.saison_phase === "gruppenphase" ? SERVER_COPY.season.spieltag(position) : PHASE_LABELS[spiel.saison_phase];
+  return spieltagLabel({ phase: spiel.saison_phase, ordinal: matchday.spieltag_position, countInPhase: matchday.count_spieltage_in_phase });
 }
 
 /**
@@ -133,9 +137,9 @@ function standingOf(spiel: FLSpielJoined, team: FLSpielTeamFieldJoined | null, s
  * The match's head, as its pop-up and its page show it: the matchday over the pairing and its score, each club's
  * name a link to its page and under it where it stands, a link to that place.
  */
-export function headOf(spiel: FLSpielJoined, position: number, standings: FLSpielSideStandings): SpielHeadProps {
+export function headOf(spiel: FLSpielJoined, matchday: Matchday, standings: FLSpielSideStandings): SpielHeadProps {
   const { heim, gast } = sidesOf(spiel);
-  const eyebrow = matchdayOf(spiel, position);
+  const eyebrow = matchdayOf(spiel, matchday);
   const side = (shown: SpielSide, team: FLSpielTeamFieldJoined | null, standing: FLSpielSideStanding | null) => ({
     ...shown,
     ...(team === null ? {} : { href: ROUTES.team.path(spiel.saison_id, team.team_id) }),

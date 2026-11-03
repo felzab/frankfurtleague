@@ -66,7 +66,8 @@ export default function SpielPage({ params }: Props) {
 }
 
 async function readRecord(params: Props["params"]): Promise<ReadRecord> {
-  const { spiel, spieltag_position: position, standings, bericht } = await readPage(params);
+  const page = await readPage(params);
+  const { spiel, standings, bericht } = page;
   const { heim, gast } = sidesOf(spiel);
   const words = SERVER_COPY.season.spiel;
   // The goals and cards as official: null until the report is adopted and where none is stored, so a result
@@ -74,9 +75,9 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const official = bericht?.torschuetzen == null || bericht.karten === null ? null : { tore: bericht.torschuetzen, karten: bericht.karten };
   return {
     title: { route: "spiel", heim: heim.name, gast: gast.name },
-    spiel: { head: headOf(spiel, position, standings), sonderereignis: ereignisOf(spiel) },
+    spiel: { head: headOf(spiel, page, standings), sonderereignis: ereignisOf(spiel) },
     groups: [
-      { kind: "tiles", tiles: { layout: "five", items: tilesOf(spiel, position) } },
+      { kind: "tiles", tiles: { layout: "five", items: tilesOf(spiel, page) } },
       {
         title: words.aufstellung,
         kind: "folds",
@@ -104,14 +105,14 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
  * The match's five facts, a tile each, an absent one a dash: its matchday, a group matchday by its number over its
  * phase; its date, the day and the month over the weekday and the year, and its time; its referee where the referee's name is public; its venue.
  */
-function tilesOf(spiel: FLSpielJoined, position: number): readonly [StatTile, StatTile, StatTile, StatTile, StatTile] {
+function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [StatTile, StatTile, StatTile, StatTile, StatTile] {
   const { fact } = COPY.spielplan;
   const group = spiel.saison_phase === "gruppenphase";
   const datum = spiel.datum === null ? null : formatDatumPair(spiel.datum as CalendarDay);
   return [
     group
-      ? { label: fact.spieltag, value: { record: formatOrdinal(position) }, line: PHASE_LABELS.gruppenphase }
-      : { label: fact.spieltag, value: matchdayOf(spiel, position), words: true },
+      ? { label: fact.spieltag, value: { record: formatOrdinal(page.spieltag_position) }, line: PHASE_LABELS.gruppenphase }
+      : { label: fact.spieltag, value: matchdayOf(spiel, page), words: true },
     datum === null
       ? { label: fact.datum, value: COPY.shared.noValue }
       : { label: fact.datum, value: { record: datum.figure }, line: { record: datum.line } },

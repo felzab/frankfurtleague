@@ -11,7 +11,7 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import advance_bracket_winners
 from app.api.teams.admin_router import get_teams_verwaltung
 from app.api.teams.public_router import get_team
-from app.api.teams.schemas import FLGruppenTeam, FLPublicTeamsFilterParams, FLTeam, FLTeamsFilterParams, FLTeamSingleFilterParams
+from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamsFilterParams, FLTeamSingleFilterParams
 from app.api.teams.services import build_team_pipeline
 from app.core.collections import Collection
 from tests import documents
@@ -165,15 +165,6 @@ def standing_names(response: Any) -> list[str]:
 
 
 class TestTheBaseTierFilterSurface:
-    def test_the_admin_filters_are_the_base_tier_s_set_plus_the_switch(self):
-        """A standings row names no leaving date, so a base-tier read un-hiding retired clubs could not say which (`READ-SQUAD-002`).
-
-        The base-tier views build their club reads from the model without the switch; the season editor has to list a
-        retired club that still holds a junction row, so the switch is the admin model's alone.
-        """
-        assert "include_inactive" not in FLPublicTeamsFilterParams.model_fields
-        assert set(FLTeamsFilterParams.model_fields) - set(FLPublicTeamsFilterParams.model_fields) == {"include_inactive"}
-
     def test_a_standings_row_carries_no_leaving_date(self):
         """Why the switch is off that surface. `austritt_type` is no substitute: it records leaving a SEASON, not leaving the league."""
         assert "inactive_since" not in FLGruppenTeam.model_fields

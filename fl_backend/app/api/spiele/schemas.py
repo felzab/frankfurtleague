@@ -137,8 +137,8 @@ KNOCKOUT_PHASES: tuple[FLSaisonPhase, ...] = PHASE_ORDER[1:]
 MAX_QUALIFIERS: int = 2 ** len(KNOCKOUT_PHASES)
 
 # A bracket with semi-finals, so every K.-o.-Runde plays a match for third place and decides four places;
-# a final alone would leave the podium two places short.
-MIN_QUALIFIERS: int = 4
+# a final alone would leave the podium two places short. Derived as the cap is, from the rounds the Halbfinale opens.
+MIN_QUALIFIERS: int = 2 ** len(PHASE_ORDER[PHASE_RANK["halbfinale"] :])
 
 
 # Declared BEFORE what references them: below, they resolve only through PEP 649 deferred

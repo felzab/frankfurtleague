@@ -123,7 +123,7 @@ def test_the_club_page_holds_its_own_row_matches_and_squad(seeded_url: str):
 
     assert response.standing is not None
     assert (response.team.name, response.standing.id, response.standing.platz) == ("Delta", CLUBS["Delta"], 2)
-    assert [(match.spiel_nr, match.spieltag_position) for match in response.spiele] == [(2, 2), (3, 2)]
+    assert [(match.spiel_nr, match.spieltag_position, match.count_spieltage_in_phase) for match in response.spiele] == [(2, 2, 1), (3, 2, 1)]
     assert [row.vorname for row in response.kader] == ["Nadja"]
 
 

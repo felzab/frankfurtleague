@@ -243,8 +243,8 @@ async def get_trikotfarben(
     # the carve-out stays the window reads' own.
     bewerbung, saison_status = await _pull_window(saisons_collection=saisons_collection, saison_id=saison_id)
 
-    # `saison_nimmt_bewerbungen_an`, the judgement `/window` and the submission already take: one
-    # spelling of "this season is taking applications", so a second cannot drift from it.
+    # `saison_nimmt_bewerbungen_an`, the judgement the landing's window, `/window/{saison_id}` and the submission
+    # already take: one spelling of "this season is taking applications", so a second cannot drift from it.
     if not saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today):
         raise DocumentNotFoundError()
 

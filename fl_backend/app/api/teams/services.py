@@ -19,7 +19,6 @@ from app.api.teams.schemas import (
     FLAustritt,
     FLGruppenTeam,
     FLKontaktMint,
-    FLPublicTeamsFilterParams,
     FLTabelle,
     FLTabelleRow,
     FLTeam,
@@ -176,7 +175,7 @@ def build_retirement_stages(saison_id: str) -> list[Mapping[str, Any]]:
     ]
 
 
-def build_team_pipeline(filters: FLPublicTeamsFilterParams, rules: FLSaisonRules | None, team_id: Any | None = None) -> list[Mapping[str, Any]]:
+def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules | None, team_id: Any | None = None) -> list[Mapping[str, Any]]:
     # Without a season the junction join stops being strict -- one row per season a club played --
     # and the statistics below match nothing, handing back a table of zeros that reads as an answer.
     if filters.saison_id is None:
@@ -187,9 +186,8 @@ def build_team_pipeline(filters: FLPublicTeamsFilterParams, rules: FLSaisonRules
     if team_id is not None:
         pipeline.append({"$match": {"_id": team_id}})
 
-    # Clubs that left the league -- never a team that left one season, which keeps its row. The switch
-    # is on the ADMIN model alone: a standings row carries no field that would mark one (`READ-SQUAD-002`).
-    if not (isinstance(filters, FLTeamsFilterParams) and filters.include_inactive):
+    # Clubs that left the league -- never a team that left one season, which keeps its row.
+    if not filters.include_inactive:
         pipeline.extend(build_retirement_stages(filters.saison_id))
 
     # Translated, not dumped: the row stores a record, never a boolean.
@@ -493,7 +491,7 @@ def _tiers(
     # decided and neither lets one hold a placing, so completeness judged over whoever is present would
     # split the two surfaces.
     still_to_play = _still_to_play(spiele)
-    decided_on = _decided_on(spiele, teams)
+    decided_on = _decided_on(spiele)
     placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0), decided_on))
 
     tiers: list[list[FLTeam]] = []
@@ -510,23 +508,19 @@ def _tiers(
     return tiers
 
 
-def _decided_on(spiele: Iterable[FLSpielCommon], teams: Iterable[FLTeam]) -> str | None:
-    """The day one group's placings are decided: its last fixture's; `None` while a fixture that can still award points is undated.
+def _decided_on(spiele: Iterable[FLSpielCommon]) -> str | None:
+    """The day one group's placings are decided: its last fixture's; `None` while any fixture is undated.
 
-    An undated call-off awards nothing and so decides nothing, except where it fields a club that left: it falls on that
-    exit's day, so whether the fixture carried a date cannot decide whether the club keeps its place.
+    Dates alone, never a result: a fixture's ending is what the walk hypothesises, so a day read off one would move
+    under the walk and let a later call-off hand a departed club back a place already seeded without it. A fixture
+    called off or played without a date leaves the group undecided as one still to play does: nothing then says the
+    group was decided before a club's exit, so a club that left keeps no place on the strength of a fixture nobody
+    dated.
     """
-
-    departed_on = {team.id: team.austritt.datum for team in teams if team.austritt is not None}
 
     days: list[str] = []
     for spiel in spiele:
         if spiel.datum is None:
-            if spiel.sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT:
-                days.extend(
-                    departed_on[side.team_id] for side in (spiel.team1, spiel.team2) if side is not None and side.team_id in departed_on
-                )
-                continue
             return None
         days.append(spiel.datum)
 
@@ -571,11 +565,11 @@ def build_tabelle(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rule
 
     # The same day `_tiers` decides each group on, so the table and the bracket agree on who holds a place.
     by_gruppe, _ = _spiele_by_gruppe(spiele, {team.id: team.gruppe for team in teams})
-    decided_on = {gruppe: _decided_on(fixtures, teams) for gruppe, fixtures in by_gruppe.items()}
+    decided_on = {gruppe: _decided_on(fixtures) for gruppe, fixtures in by_gruppe.items()}
     still_in = frozenset(team.id for team in teams if in_the_season_when_decided(team.austritt, decided_on.get(team.gruppe)))
 
     tabelle: dict[FLGruppenNames, list[FLTabelleRow]] = {}
-    for name, ranked in _ranked_bands(teams, spiele, rules).items():
+    for name, ranked in _ranked_bands(teams, by_gruppe, rules).items():
         placed: list[FLTabelleRow] = []
         platz = 1
         for band in ranked:
@@ -682,8 +676,8 @@ def _decide_one_gruppe(
         and spiel.team2 is not None
     ]
 
-    # One day for every hypothesised ending: the walk moves results, never dates.
-    decided_on = _decided_on(spiele, teams)
+    # One day for every hypothesised ending: the walk moves results, never dates, and `_decided_on` reads dates alone.
+    decided_on = _decided_on(spiele)
     placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0), decided_on))
     is_complete = not open_pairs and not has_unattributable
 
@@ -818,18 +812,14 @@ def _placings(
 
 
 def _ranked_bands(
-    teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rules: FLSaisonRules
+    teams: Sequence[FLTeam], by_gruppe: Mapping[FLGruppenNames, Sequence[FLSpielCommon]], rules: FLSaisonRules
 ) -> dict[FLGruppenNames, list[list[FLGruppenTeam]]]:
     """Every group the season offers as its standing's bands, a band of several being clubs the chain leaves level.
 
-    Seeded from that count rather than the teams present: a group nobody stands in keeps its key, and
-    the closed set here would answer a smaller season groups it never ran.
+    `by_gruppe` is `_spiele_by_gruppe`'s split of the season's fixtures, which the caller has already made. Seeded from
+    the count of groups rather than the teams present: a group nobody stands in keeps its key, and the closed set here
+    would answer a smaller season groups it never ran.
     """
-
-    teams = list(teams)
-
-    gruppe_of: dict[CustomObjectId, FLGruppenNames] = {team.id: team.gruppe for team in teams}
-    by_gruppe, _ = _spiele_by_gruppe(spiele, gruppe_of)
 
     grouped: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in offered_gruppen(rules.number_of_gruppen)}
     for team in teams:
@@ -843,7 +833,7 @@ def _ranked_bands(
         grouped[team.gruppe].append(team)
 
     # Every figure is final AS A READING OF NOW, which is what lets the whole chain apply.
-    everyone = frozenset(gruppe_of)
+    everyone = frozenset(team.id for team in teams)
 
     return {
         name: [

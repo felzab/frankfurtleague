@@ -2,19 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 
 import { resolveSaisonId, selectSaison } from "./resolvers.ts";
 
-import type { FLSaisonsListResponse } from "@/core/generated/client/types.ts";
+import type { FLSaisonsAdminListResponse } from "@/core/generated/client/types.ts";
 
-// The season list the resolver reads, standing in for the cached public read.
+// The season list the resolver reads, standing in for the admin read.
 vi.mock("./queries", () => {
-  const getSaisons = async (): Promise<FLSaisonsListResponse> =>
+  const getAdminSaisons = async (): Promise<FLSaisonsAdminListResponse> =>
     ({
       saisons: [
         { id: "2025", status: "past" },
         { id: "2026", status: "active" },
       ],
-    }) as unknown as FLSaisonsListResponse;
+    }) as unknown as FLSaisonsAdminListResponse;
 
-  return { getSaisons, getAdminSaisons: getSaisons };
+  return { getAdminSaisons };
 });
 
 /* The order every admin page and the admin header's default resolve in. */
@@ -49,7 +49,7 @@ describe("which season an address names", () => {
   /* `SaisonSelector` matches the raw parameter, so an id only a trim finds would name a season on the
      page and none in the header. */
   it("strips a padded id rather than trimming it", async () => {
-    await expect(resolveSaisonId(Promise.resolve({ saison_id: " 2026", gruppe: "A" }), "admin")).rejects.toSatisfy(
+    await expect(resolveSaisonId(Promise.resolve({ saison_id: " 2026", gruppe: "A" }))).rejects.toSatisfy(
       (error) => redirectQuery(error) === "?gruppe=A",
     );
   });
@@ -57,7 +57,7 @@ describe("which season an address names", () => {
   /* The redirect is a fresh request line and history entry, so an old search query a bookmark still
      holds stays behind. */
   it("leaves an old search query behind on the way back", async () => {
-    await expect(resolveSaisonId(Promise.resolve({ saison_id: " 2026", q: "Lena", gruppe: "A" }), "admin")).rejects.toSatisfy(
+    await expect(resolveSaisonId(Promise.resolve({ saison_id: " 2026", q: "Lena", gruppe: "A" }))).rejects.toSatisfy(
       (error) => redirectQuery(error) === "?gruppe=A",
     );
   });

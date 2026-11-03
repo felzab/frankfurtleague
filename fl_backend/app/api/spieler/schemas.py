@@ -177,19 +177,6 @@ class FLSaisonSpielerRecord(FLSaisonSpielerRow):
     idempotency_fingerprint: str | None = None
 
 
-class FLSpielerFilterParams(BaseModel):
-    """What a club page's squad read narrows on -- never a field the response withholds.
-
-    A filter on a withheld one rebuilds it from squads of one (`READ-PUPIL-002`), and
-    `include_inactive` would un-hide rows this tier serves no marker for (`READ-SQUAD-002`).
-    """
-
-    # Both REQUIRED: a squad is one club's in one season, which the club page names, and a term left out
-    # would drop from the `$match` and serve that club's rows from every season.
-    team_id: CustomObjectId
-    saison_id: str
-
-
 class FLPatchSpielerPayload(BaseModel):
     """Replaces the person's names WHOLESALE.
 

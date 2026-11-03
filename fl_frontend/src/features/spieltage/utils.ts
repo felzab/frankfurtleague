@@ -9,7 +9,7 @@ import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "@/core/generated/clie
  * a knockout round needs distinguishing: four quarter-finals over two dates are two matchdays a
  * reader has to tell apart.
  */
-function spieltagLabel({ phase, ordinal, countInPhase }: { phase: FLSaisonPhase; ordinal: number; countInPhase: number }): Copy {
+export function spieltagLabel({ phase, ordinal, countInPhase }: { phase: FLSaisonPhase; ordinal: number; countInPhase: number }): Copy {
   if (phase === "gruppenphase") return COPY.shared.spieltag(ordinal);
 
   return countInPhase > 1 ? COPY.shared.knockoutRound(COPY.shared.phase[phase], ordinal) : COPY.shared.phase[phase];

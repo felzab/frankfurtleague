@@ -234,7 +234,7 @@ async def get_saisons_verwaltung(
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonsAdminListResponse:
     """
-    List every season, the `future` ones `GET /saisons` withholds included, each with whether it has started and has been played.
+    List every season, the `future` ones every base-tier read withholds included, each with whether it has started and has been played.
 
     The admin surfaces read here because a season is created `future` and clubs are entered while it
     still is, so an admin who cannot see one cannot run the league. `begun` is the start every
@@ -576,7 +576,8 @@ async def activate_saison(
         # A fixture's save judges `saison_past` on a status it only reads, so the rollover writes what it writes:
         # one judged before this commit then conflicts, and its retry reads `past`. The club rows stay unanchored,
         # so a consent press committing across the rollover is not retried: the club move, the one row write
-        # judging `saison_past`, anchors the season document this demotion writes.
+        # judging `saison_past`, and the club rename, which rewrites the rows of every season it reads as open, anchor
+        # the season documents this demotion writes.
         if outgoing_ids:
             await anchor_in_db(collection=spiele_collection, db_filter={"saison_id": {"$in": outgoing_ids}}, session=session)
 

@@ -838,7 +838,7 @@ def test_every_recorded_reason_is_charged_by_the_repository_own_tree():
 
 
 def test_the_repository_own_metadata_conventions_are_accounted_for():
-    """The four real files, so a convention filed or dropped here fails before the gate reports it."""
+    """The three real files, so a convention filed or dropped here fails before the gate reports it."""
     served = routes.metadata(routes.REPO_ROOT / routes.APP_ROUTER)
 
     assert set(served) == set(routes.METADATA)

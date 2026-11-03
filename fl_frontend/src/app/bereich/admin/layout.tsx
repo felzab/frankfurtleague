@@ -40,5 +40,5 @@ async function AdminSaisonSlot() {
   // The builder stage has no reachable Mongo, so a session lookup resolved at build time fails the image build.
   if ((await getAdminSession()) === null) return null;
 
-  return <SaisonMetadataDisplay tier="admin" />;
+  return <SaisonMetadataDisplay />;
 }

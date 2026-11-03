@@ -193,6 +193,9 @@ class _Transacted(NamedTuple):
     standing: int
     # The server's own record of the route's session, read once the request is answered.
     transactions_held: list[Mapping[str, Any]]
+    # Whether the callback's first write returned: a route starting late enough has that write cut instead, which
+    # answers as every cut does and reaches none of the cuts a case is named for.
+    first_write_returned: bool
 
 
 async def _transactions_held(url: str, session_ids: list[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
@@ -218,10 +221,12 @@ def _transacted(url: str, cut: _Cut) -> _Transacted:
             written = database[Collection.ACTION_LOG]
 
             sessions: list[Mapping[str, Any]] = []
+            first_writes: list[Mapping[str, Any]] = []
 
             async def write_then_wait(session: AsyncClientSession) -> None:
                 sessions.append(session.session_id)
                 await post_one_to_db(collection=written, document={"_id": ObjectId()}, session=session)
+                first_writes.append(session.session_id)
                 if cut is _Cut.PAST_THE_GRACE:
                     await asyncio.sleep(_until_past_the_grace())
                 elif cut is not _Cut.NOWHERE:
@@ -242,7 +247,7 @@ def _transacted(url: str, cut: _Cut) -> _Transacted:
             # Read before anything else runs through `client`, whose next call would take the route's session.
             held = await _transactions_held(url, sessions)
             error_code = None if response.status_code == 200 else response.json()["error_code"]
-            return _Transacted(response.status_code, error_code, await written.count_documents({}), held)
+            return _Transacted(response.status_code, error_code, await written.count_documents({}), held, bool(first_writes))
 
     return on_the_seed_loop(body())
 
@@ -257,6 +262,8 @@ class TestATransactionPastTheRequestDeadlineCommitsNothing:
 
         transacted = _transacted(mongo_replica_set_url, cut)
 
+        # First, so a start slow enough that the deadline cut the first write reads red rather than passing on its answer.
+        assert transacted.first_write_returned, "the deadline cut the first write, so the case reached none of its cuts"
         assert (transacted.status, transacted.error_code, transacted.standing) == (500, Code.UNKNOWN_OUTCOME, 0)
         # Nothing standing is not nothing held: an open transaction keeps its write from every reader
         # and from every rival writer, until MongoDB's lifetime limit aborts it a minute on.
@@ -265,7 +272,7 @@ class TestATransactionPastTheRequestDeadlineCommitsNothing:
     def test_the_same_write_inside_the_deadline_commits(self, mongo_replica_set_url: str):
         """The control, under the shipped deadline: without it, a write that never landed at all would pass the case above."""
 
-        assert _transacted(mongo_replica_set_url, _Cut.NOWHERE) == (200, None, 1, [])
+        assert _transacted(mongo_replica_set_url, _Cut.NOWHERE) == (200, None, 1, [], True)
 
 
 # Named in the order the send walks them, which is by name: the stall falls on the middle team, so

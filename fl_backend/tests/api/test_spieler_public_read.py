@@ -17,12 +17,11 @@ from app.api.spieler.schemas import (
     FLSaisonSpielerResponse,
     FLSpieler,
     FLSpielerAdminSingleResponse,
-    FLSpielerFilterParams,
     FLSpielerMembership,
     FLSpielerPublic,
     FLSpielerSingleResponse,
 )
-from app.api.spieler.services import SQUAD_ORDER, build_spieler_pipeline, build_spieler_saisons_pipeline, public_initial
+from app.api.spieler.services import build_spieler_pipeline, build_spieler_saisons_pipeline, public_initial
 from app.core.crud import aggregate_many_from_db
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import (
@@ -48,10 +47,6 @@ PUBLIC_FIELDS = {"vorname", "nachname", "nummer", "position"}
 # `stufe`, `einwilligung`, `email` and `id` are the confidentiality rules; the rest fails the allow-list,
 # which asks what the surface renders rather than what looks sensitive. An unrendered field still ships.
 WITHHELD_FIELDS = ["stufe", "einwilligung", "email", "id", "team_id", "is_nachnominiert", "rolle", "inactive_since"]
-
-# Every term the squad read can narrow on: the club page builds its filter from this model, so a
-# term missing here is one nothing can set.
-SQUAD_FILTER_FIELDS = set(FLSpielerFilterParams.model_fields)
 
 # The club whose page serves the squad, in every corpus below: the page answers 404 for a club the
 # season does not hold, so each corpus enters it in each season it reads.
@@ -134,34 +129,28 @@ async def club_page(database: AsyncDatabase, saison_id: str = SAISON) -> FLTeamP
     )
 
 
-def _filters() -> FLSpielerFilterParams:
+def _pipeline() -> list[Mapping[str, Any]]:
     """One team's squad in one season -- the narrowing every case below shares."""
 
-    return FLSpielerFilterParams(team_id=TEAM_OID, saison_id=SAISON)
+    return build_spieler_pipeline(team_id=TEAM_OID, saison_id=SAISON)
 
 
-def _project(filters: FLSpielerFilterParams | None = None) -> dict[str, Any]:
-    pipeline = build_spieler_pipeline(filters or _filters())
-
-    return next(stage["$project"] for stage in pipeline if "$project" in stage)
+def _project() -> dict[str, Any]:
+    return next(stage["$project"] for stage in _pipeline() if "$project" in stage)
 
 
-def _sort(filters: FLSpielerFilterParams | None = None) -> dict[str, int]:
-    pipeline = build_spieler_pipeline(filters or _filters())
-
-    return next(stage["$sort"] for stage in pipeline if "$sort" in stage)
+def _sort() -> dict[str, int]:
+    return next(stage["$sort"] for stage in _pipeline() if "$sort" in stage)
 
 
-def _lookup_pipeline(filters: FLSpielerFilterParams | None = None) -> list[Any]:
-    pipeline = build_spieler_pipeline(filters or _filters())
-
-    return next(stage["$lookup"] for stage in pipeline if "$lookup" in stage)["pipeline"]
+def _lookup_pipeline() -> list[Any]:
+    return next(stage["$lookup"] for stage in _pipeline() if "$lookup" in stage)["pipeline"]
 
 
-def _squad_match(filters: FLSpielerFilterParams | None = None) -> dict[str, Any]:
+def _squad_match() -> dict[str, Any]:
     """The first stage, which narrows the squad rows before anything joins them."""
 
-    return build_spieler_pipeline(filters or _filters())[0]["$match"]
+    return _pipeline()[0]["$match"]
 
 
 class TestTheBaseTierShape:
@@ -277,29 +266,19 @@ class TestTheProjection:
         assert "einwilligung" not in _project()
         assert "$einwilligung.umfang" in json.dumps(_lookup_pipeline())
 
-    def test_the_level_is_gone_from_the_shape_and_from_every_way_of_asking_for_it(self):
-        """Serving no `stufe` while `?stufe=` still narrowed would leave the fact readable one level at a time."""
+    def test_the_level_is_gone_from_the_shape(self):
+        """`READ-PUPIL-002`: the level stays stored and admin-visible, and this tier never projects it."""
         assert "stufe" not in _project()
-        assert "stufe" not in SQUAD_FILTER_FIELDS
 
-    def test_the_backdated_flag_is_gone_from_the_shape_and_from_every_way_of_asking_for_it(self):
-        """The same sentence one field up: `is_nachnominiert` is withheld too, so a request per value would partition the squad by it."""
+    def test_the_backdated_flag_is_gone_from_the_shape(self):
+        """The same sentence one field up: `is_nachnominiert` is withheld too."""
         assert "is_nachnominiert" not in _project()
-        assert "is_nachnominiert" not in SQUAD_FILTER_FIELDS
 
     def test_the_sort_runs_after_the_mask_and_not_over_the_stored_names(self):
         """An order keyed on the stored forename answers, for a withheld row, what the projection withholds."""
-        stages = [next(iter(stage)) for stage in build_spieler_pipeline(_filters())]
+        stages = [next(iter(stage)) for stage in _pipeline()]
 
         assert stages.index("$sort") > stages.index("$project")
-
-    def test_nothing_a_caller_may_send_narrows_on_a_name(self):
-        """The other half of the same channel: a term matching a stored name would report a withheld row's name by which reads return it."""
-        assert SQUAD_FILTER_FIELDS == {"team_id", "saison_id"}
-
-    def test_no_caller_sent_field_orders_the_read(self):
-        """Ordering by a key reads it out whether or not the response carries it, so the order is the pipeline's own."""
-        assert _sort() == SQUAD_ORDER
 
     def test_the_public_sort_does_not_tiebreak_on_the_surname(self):
         """A tie-break is the last place an ordering could still depend on a field the response withholds."""
@@ -310,19 +289,9 @@ class TestTheProjection:
         """The contrast is the assertion: the admin list orders people by full name and is entitled to."""
         assert build_spieler_saisons_pipeline()[-1]["$sort"] == {"vorname": 1, "nachname": 1}
 
-    @pytest.mark.parametrize("key", ["nachname", "stufe"])
-    def test_the_base_tier_takes_no_order_to_ask_for(self, key: str):
-        """The tie-break was never the whole of it: a `sort_by` would let surname order be ASKED for outright, so none is taken."""
-        assert "sort_by" not in SQUAD_FILTER_FIELDS
-
-        filters = FLSpielerFilterParams.model_validate({"team_id": TEAM_OID, "saison_id": SAISON, "sort_by": key})
-
-        assert _sort(filters) == SQUAD_ORDER
-
     def test_the_squad_row_s_retirement_narrows_unconditionally(self):
-        """The other half, with no switch: this tier serves no field marking a row it would un-hide (`READ-SQUAD-002`)."""
+        """With no switch: this tier serves no field marking a row it would un-hide (`READ-SQUAD-002`)."""
         assert _squad_match()["inactive_since"] is None
-        assert "include_inactive" not in SQUAD_FILTER_FIELDS
 
 
 class TestTheInitial:
@@ -350,11 +319,11 @@ class TestTheBaseTierReadExecuted:
     def _by_vorname(self, url: str) -> dict[str, dict[str, Any]]:
         return {row["vorname"]: row for row in self._read(url)["kader"]}
 
-    def _rows(self, url: str, filters: FLSpielerFilterParams | None = None) -> list[Mapping[str, Any]]:
+    def _rows(self, url: str) -> list[Mapping[str, Any]]:
         """What mongod yields for the pipeline, one step BEFORE `FLSpielerPublic`, which declares five fields and drops the rest either way."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return await aggregate_many_from_db(collection=database.saison_spieler, pipeline=build_spieler_pipeline(filters or _filters()))
+            return await aggregate_many_from_db(collection=database.saison_spieler, pipeline=_pipeline())
 
         return on_a_database(url, body)
 

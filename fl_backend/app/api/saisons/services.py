@@ -27,19 +27,14 @@ def with_schedule(saison_raw: Mapping[str, Any]) -> dict[str, Any]:
 WITHHELD_FROM_BASE_TIER: FLSaisonStatus = "future"
 
 
-def base_tier_status_term(requested: FLSaisonStatus | None = None) -> dict[str, Any]:
-    """The `status` term every base-tier season read runs; `requested` is the caller's own filter.
+def base_tier_status_term() -> dict[str, Any]:
+    """The `status` term every base-tier season read runs.
 
     NARROWED, never fetched then hidden: a withheld season matches nothing, so `document_not_found`'s 404
     stays true and no 403 confirms the season exists.
     """
 
-    if requested is None:
-        return {"status": {"$ne": WITHHELD_FROM_BASE_TIER}}
-
-    # Both operators: an explicit `?status=future` then matches nothing, rather than the narrowing
-    # being overwritten by the term the caller asked for.
-    return {"status": {"$eq": requested, "$ne": WITHHELD_FROM_BASE_TIER}}
+    return {"status": {"$ne": WITHHELD_FROM_BASE_TIER}}
 
 
 def has_started(*, start_date: str, today: str) -> bool:
@@ -129,8 +124,8 @@ def find_rules_freeze_refusal(*, saison_status: str, started: bool, stored: FLSa
     Compared by value, so a dates-only edit resubmitting the stored rules passes.
     """
 
-    # `past` beside the start, so a finished season none of whose group fixtures carries a date stays
-    # frozen too.
+    # `past` beside the start, so a finished season stays frozen even where its stored `start_date` was
+    # moved past today.
     if not (started or saison_status == "past"):
         return None
 

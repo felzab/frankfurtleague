@@ -15,7 +15,6 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spiele.services import build_spiele_pipeline
-from app.api.spieler.schemas import FLSpielerFilterParams
 from app.api.spieler.services import build_spieler_pipeline, name_is_public
 from app.core.crud import aggregate_many_from_db
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
@@ -128,7 +127,7 @@ class TestTheSquadPipelineAnswersTheSameTable:
         async def body(database: AsyncDatabase) -> Any:
             rows = await aggregate_many_from_db(
                 collection=database.saison_spieler,
-                pipeline=build_spieler_pipeline(FLSpielerFilterParams(team_id=TEAM_OID, saison_id=SAISON)),
+                pipeline=build_spieler_pipeline(team_id=TEAM_OID, saison_id=SAISON),
             )
 
             return {row["nummer"]: row for row in rows}
