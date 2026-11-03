@@ -33,7 +33,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 ### `Spieltag` — matchday, fixture round
 
 **Is:** a block of matches inside a season, carrying a phase and, once somebody sets one, a date range.\
-**In code:** `fl_backend/app/api/spieltage/schemas.py :: FLSpieltag`, ordered by `fl_backend/app/api/spieltage/services.py :: order_spieltage`, labelled by `fl_frontend/src/features/spieltage/utils.ts :: spieltagLabel`.\
+**In code:** `fl_backend/app/api/spieltage/schemas.py :: FLSpieltag`, ordered by `fl_backend/app/api/spieltage/services.py :: order_spieltage`, labelled by `fl_frontend/src/features/spieltage/utils.ts :: spieltagLabel` alone, which a single match's page and pop-up and a club page reach through `fl_frontend/src/features/spiele/blocks.ts :: matchdayOf` off the `spieltag_position` and `count_spieltage_in_phase` their reads serve.\
 **Trap:** `position` is STORED and orders matchdays within one PHASE, so the numbers restart at 1 in every round and `uniq_saison_id_saison_phase_position` is what keeps two matchdays off one slot — the season's draw writes it and no payload carries it afterwards, and nothing renumbers a matchday — a confirmed replace removes the season's whole list and draws a fresh one, and an undraw removes that list and writes none back; `beginn` and `ende` are null until an admin dates the matchday, and an undated one states no span for a fixture to fall outside of; the name and the match count carry no field at all, the label being composed by the reader and `count_spiele` derived from the season's rules, which is why neither can be sorted on.\
 **See:** the `Spielplan` entry below for what creates a matchday and what removes one.
 

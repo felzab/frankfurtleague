@@ -95,14 +95,29 @@ LANDING_SPIELE: Final = 1
 
 _SPIELTAG_ROWS_AS = "spieltag_rows"
 
-# The matchday's `position` beside the match, in the same aggregation: the landing's opening match, the club page's
-# matches and a match's page each name its matchday by it.
+# The matchday's `position` beside the match, and how many matchdays its phase holds in the season, in the same
+# aggregation: the landing's opening match, the club page's matches and a match's page each name its matchday by them,
+# a knockout round spread over several matchdays telling each apart by its position.
 _SPIELTAG_POSITION_LOOKUP: Mapping[str, Any] = {
     "$lookup": {
         "from": Collection.SPIELTAGE,
         "localField": "spieltag_id",
         "foreignField": "_id",
-        "pipeline": [{"$project": {"_id": 0, "position": 1}}],
+        "pipeline": [
+            {
+                "$lookup": {
+                    "from": Collection.SPIELTAGE,
+                    "let": {"saison_id": "$saison_id", "saison_phase": "$saison_phase"},
+                    # Both equalities, so `uniq_saison_id_saison_phase_position`'s prefix serves the count.
+                    "pipeline": [
+                        {"$match": {"$expr": {"$and": [{"$eq": ["$saison_id", "$$saison_id"]}, {"$eq": ["$saison_phase", "$$saison_phase"]}]}}},
+                        {"$count": "spieltage"},
+                    ],
+                    "as": "in_phase",
+                }
+            },
+            {"$project": {"_id": 0, "position": 1, "count_in_phase": {"$first": "$in_phase.spieltage"}}},
+        ],
         "as": _SPIELTAG_ROWS_AS,
     }
 }
@@ -130,6 +145,14 @@ def _opening_spiel_pipeline(saison_id: str) -> list[Mapping[str, Any]]:
             }
         },
     ]
+
+
+def _matchday_of(spiel_raw: Mapping[str, Any]) -> dict[str, int]:
+    """A match's matchday as `_SPIELTAG_POSITION_LOOKUP` joined it: its `position` and its phase's count of matchdays."""
+
+    joined = spiel_raw[_SPIELTAG_ROWS_AS][0]
+
+    return {"spieltag_position": joined["position"], "count_spieltage_in_phase": joined["count_in_phase"]}
 
 
 async def _no_rows() -> list[Mapping[str, Any]]:
@@ -464,9 +487,7 @@ async def get_team(
     return FLTeamPageResponse(
         team=FLTeamPageClub.model_validate(club_raw[0]),
         standing=standing,
-        spiele=FLTeamPageSpielListAdapter.validate_python(
-            [{**spiel_raw, "spieltag_position": spiel_raw[_SPIELTAG_ROWS_AS][0]["position"]} for spiel_raw in spiele_raw]
-        ),
+        spiele=FLTeamPageSpielListAdapter.validate_python([{**spiel_raw, **_matchday_of(spiel_raw)} for spiel_raw in spiele_raw]),
         kader=FLSpielerListAdapter.validate_python(kader_raw),
     )
 
@@ -510,9 +531,12 @@ async def get_spiel(
         }
         standings = FLSpielSideStandings(**{seite: placed.get(team_id_of(spiel_raw, seite)) for seite in SEITEN})
 
+    matchday = _matchday_of(spiel_raw)
+
     return FLSpielPageResponse(
         spiel=FLSpielJoined.model_validate(spiel_raw),
-        spieltag_position=spiel_raw[_SPIELTAG_ROWS_AS][0]["position"],
+        spieltag_position=matchday["spieltag_position"],
+        count_spieltage_in_phase=matchday["count_spieltage_in_phase"],
         standings=standings,
         bericht=compose_public_bericht(berichte_raw[0], spiel_raw) if berichte_raw else None,
     )

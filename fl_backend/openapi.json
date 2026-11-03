@@ -13521,7 +13521,7 @@
         "type": "object"
       },
       "FLSpielPageResponse": {
-        "description": "One match as its page and its pop-up show it.\n\nThe match, its matchday's `position`, where each side stands, and what the public may read of its report, null\nwhere none is stored.",
+        "description": "One match as its page and its pop-up show it.\n\nThe match, its matchday's `position` and its phase's count of matchdays, which together name the matchday, where\neach side stands, and what the public may read of its report, null where none is stored.",
         "properties": {
           "bericht": {
             "anyOf": [
@@ -13532,6 +13532,11 @@
                 "type": "null"
               }
             ]
+          },
+          "count_spieltage_in_phase": {
+            "minimum": 1.0,
+            "title": "Count Spieltage In Phase",
+            "type": "integer"
           },
           "spiel": {
             "$ref": "#/components/schemas/FLSpielJoined"
@@ -13548,6 +13553,7 @@
         "required": [
           "spiel",
           "spieltag_position",
+          "count_spieltage_in_phase",
           "standings",
           "bericht"
         ],
@@ -17600,7 +17606,7 @@
         "type": "object"
       },
       "FLTeamPageSpiel": {
-        "description": "One of a club's matches with its matchday's `position`, which the page names the matchday by.",
+        "description": "One of a club's matches with its matchday's `position` and its phase's count of matchdays, which the page names the matchday by.",
         "properties": {
           "ansetzung_confirmed": {
             "anyOf": [
@@ -17612,6 +17618,11 @@
               }
             ],
             "title": "Ansetzung Confirmed"
+          },
+          "count_spieltage_in_phase": {
+            "minimum": 1.0,
+            "title": "Count Spieltage In Phase",
+            "type": "integer"
           },
           "datum": {
             "anyOf": [
@@ -17794,7 +17805,8 @@
           "notiz",
           "ansetzung_confirmed",
           "for_third_place",
-          "spieltag_position"
+          "spieltag_position",
+          "count_spieltage_in_phase"
         ],
         "title": "FLTeamPageSpiel",
         "type": "object"

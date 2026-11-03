@@ -4887,11 +4887,13 @@ export interface FLSpielSideStandings {
 /**
  * One match as its page and its pop-up show it.
  *
- * The match, its matchday's `position`, where each side stands, and what the public may read of its report, null
- * where none is stored.
+ * The match, its matchday's `position` and its phase's count of matchdays, which together name the matchday, where
+ * each side stands, and what the public may read of its report, null where none is stored.
  */
 export interface FLSpielPageResponse {
   bericht: FLSpielberichtPublic | null;
+  /** @minimum 1 */
+  count_spieltage_in_phase: number;
   spiel: FLSpielJoined;
   /** @minimum 1 */
   spieltag_position: number;
@@ -5907,10 +5909,12 @@ export interface FLTeamPageClub {
 }
 
 /**
- * One of a club's matches with its matchday's `position`, which the page names the matchday by.
+ * One of a club's matches with its matchday's `position` and its phase's count of matchdays, which the page names the matchday by.
  */
 export interface FLTeamPageSpiel {
   ansetzung_confirmed: boolean | null;
+  /** @minimum 1 */
+  count_spieltage_in_phase: number;
   datum: string | null;
   elfmeterschiessen: FLSpielElfmeterschiessen | null;
   ergebnis: string | null;

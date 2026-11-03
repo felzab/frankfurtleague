@@ -391,9 +391,10 @@ class FLUndrawSpielplanResponse(BaseAPIResponse):
 
 
 class FLTeamPageSpiel(FLSpielJoined):
-    """One of a club's matches with its matchday's `position`, which the page names the matchday by."""
+    """One of a club's matches with its matchday's `position` and its phase's count of matchdays, which the page names the matchday by."""
 
     spieltag_position: int = Field(ge=1)
+    count_spieltage_in_phase: int = Field(ge=1)
 
 
 FLTeamPageSpielListAdapter: Final = TypeAdapter(list[FLTeamPageSpiel])
@@ -433,12 +434,13 @@ class FLSpielSideStandings(BaseReadModel):
 class FLSpielPageResponse(BaseAPIResponse):
     """One match as its page and its pop-up show it.
 
-    The match, its matchday's `position`, where each side stands, and what the public may read of its report, null
-    where none is stored.
+    The match, its matchday's `position` and its phase's count of matchdays, which together name the matchday, where
+    each side stands, and what the public may read of its report, null where none is stored.
     """
 
     spiel: FLSpielJoined
     spieltag_position: int = Field(ge=1)
+    count_spieltage_in_phase: int = Field(ge=1)
     standings: FLSpielSideStandings
     bericht: FLSpielberichtPublic | None
 
