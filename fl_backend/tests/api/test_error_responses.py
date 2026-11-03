@@ -9,7 +9,7 @@ from typing import Annotated, Any, Self
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 from httpx2 import Response
@@ -18,6 +18,7 @@ from pydantic_core import PydanticCustomError
 from pymongo.errors import BulkWriteError, NetworkTimeout, PyMongoError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api.spiele.schemas import FLSpieleFilterParams
 from app.core.codes import Code
 from app.core.exception_handlers import (
     ROUTING_CODES,
@@ -138,6 +139,16 @@ async def raise_starlettes_own(status: int) -> None:
     """Raises the base class the router raises, at the status its path names."""
 
     raise StarletteHTTPException(status_code=status)
+
+
+FILTERED_PATH = "/filtered"
+
+
+@VALIDATION_APP.get(FILTERED_PATH)
+async def read_the_query(filters: FLSpieleFilterParams = Depends()) -> dict[str, str]:
+    """The admin fixture list's query, declared as that route declares it, naming the type its `team_id` reached it as."""
+
+    return {"team_id": type(filters.team_id).__name__}
 
 
 def rejected_name_error() -> ValidationError:
@@ -262,6 +273,28 @@ class TestARefusalIsAnsweredAtTheStatusItsCheckChose:
         response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get(f"/starlette/{status}")
 
         assert (response.status_code, response.json()["error_code"]) == (status, ROUTING_CODES[status])
+
+
+QUERY_ID = "6890a1b2c3d4e5f607182930"
+
+# Each malformed a different way: `ObjectId` tests length before it decodes hex, so the third is refused on its characters.
+MALFORMED_QUERY_IDS = ["not-an-id", QUERY_ID[:-1], "z" * 24, f"{QUERY_ID}0"]
+
+
+class TestAMalformedQueryIdIsARefusedPayload:
+    """A query validates, so a malformed id is a 422, never the 404 a path's would be (`tests/api/test_malformed_ids.py`)."""
+
+    @pytest.mark.parametrize("team_id", MALFORMED_QUERY_IDS)
+    def test_a_malformed_query_id_is_a_422(self, team_id: str):
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get(FILTERED_PATH, params={"team_id": team_id})
+
+        assert (response.status_code, response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
+
+    def test_a_well_formed_query_id_reaches_the_handler_as_an_object_id(self):
+        """The control: the same parameter carrying a real id is validated into the type every lookup by it needs."""
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get(FILTERED_PATH, params={"team_id": QUERY_ID})
+
+        assert (response.status_code, response.json()) == (200, {"team_id": ObjectId.__name__})
 
 
 def access_codes(caplog, request: Any) -> list[Any]:
