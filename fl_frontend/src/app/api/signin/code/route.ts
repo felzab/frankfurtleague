@@ -11,7 +11,7 @@ import { COPY } from "@/core/copy";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
 import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING } from "@/core/passkeyRefusal";
-import { CODE_FAILURE_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "@/core/signInCode";
+import { SIGN_IN_CODE_LENGTH } from "@/core/signInCode";
 import { OHNE_EINTRAG } from "@/features/auth/passkeyAnswers";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { crossSiteRefusal } from "@/shared/utils/adminMutation";
@@ -43,7 +43,7 @@ const REFUSAL_BY_CODE: Readonly<Record<string, string>> = {
   INVALID_OTP: FALSCH,
   OTP_EXPIRED: COPY.signIn.refusal.codeExpired,
   TOO_MANY_ATTEMPTS: COPY.signIn.refusal.codeTooOften,
-  [ADDRESS_ATTEMPTS_EXHAUSTED]: COPY.signIn.refusal.addressTooOften(CODE_FAILURE_WINDOW_HOURS),
+  [ADDRESS_ATTEMPTS_EXHAUSTED]: COPY.signIn.refusal.addressTooOften,
   // The mint's own refusals, met only past a right code, worded as one so that no answer tells a barred
   // address from one holding no record; the passkey's answers word the same two alike.
   [SIGN_IN_BARRED]: OHNE_EINTRAG,

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy.ts";
-import { CODE_FAILURE_WINDOW_HOURS } from "@/core/signInCode.ts";
 import { MENSCH_BESTAETIGEN } from "@/core/turnstileToken.ts";
 import { describeCeremonyRefusal, OHNE_EINTRAG } from "@/features/auth/passkeyAnswers.ts";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal.ts";
@@ -16,7 +15,7 @@ describe("a sign-in answer read back as the catalogue's words", () => {
     ["a wrong code", refusal.codeWrong],
     ["an expired code", refusal.codeExpired],
     ["a code tried too often", refusal.codeTooOften],
-    ["an address tried too often", refusal.addressTooOften(CODE_FAILURE_WINDOW_HOURS)],
+    ["an address tried too often", refusal.addressTooOften],
     ["a spent code", refusal.codeUsedUp],
     ["an address that may not sign in", OHNE_EINTRAG],
     ["a token the check refused", MENSCH_BESTAETIGEN],

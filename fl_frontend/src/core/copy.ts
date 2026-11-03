@@ -420,7 +420,7 @@ export const COPY = catalogue({
       codeWrong: "Falsch oder nicht mehr gültig",
       codeExpired: "Der Code ist abgelaufen.",
       codeTooOften: "Zu viele Versuche mit diesem Code.",
-      addressTooOften: (hours: number) => `Mit dieser Adresse geht die Anmeldung per Code erst in ${formatNumber(hours)} Stunden wieder.`,
+      addressTooOften: "Zu viele Versuche mit dieser Adresse.",
       codeUsedUp: "Die Anmeldung hat nicht geklappt, und dein Code ist verbraucht.",
       noRecord: "Mit dieser Adresse ist derzeit keine Anmeldung möglich.",
       unverified: "Dieser Passkey hat nicht bestätigt, dass du es bist.",
