@@ -10,11 +10,17 @@ predicate selects those, and `REASONS` carries the locations covering an unmeter
 A construct this reader cannot place refuses rather than answering; a reason covering no handler is a
 finding, and so is an exact match naming a URL nothing in the tree answers.
 
+The same walk judges the intercepting pages, which no build or test below the journeys sees: Next
+rewrites an intercepted URL by the page the visitor stands on, so two interceptors for one URL compete
+in an order Next documents nowhere, and one under a route group intercepts from pages its group's
+layout never draws.
+
 Invariants:
 - The population is `ROUTE_FILES` and the code-generated metadata conventions `METADATA` places,
   with `PAGE_FILES` joining it for an exact match's URL and a link page's meter.
 - A reserved metadata name this reader cannot place refuses; an image convention supplied as an
   image file runs no module and stands outside the population.
+- An intercepted URL has one intercepting page, with no route group above its intercepting segment.
 """
 
 from __future__ import annotations
@@ -495,6 +501,54 @@ def pages(app_dir: Path) -> tuple[Handler, ...]:
     return tuple(found)
 
 
+def _address(url: str) -> str:
+    """A URL with each dynamic segment reduced to its kind, so `[saison]` and `[id]` read as one address."""
+    return "/".join(
+        ("[[...]]" if part.startswith("[[") else "[...]" if part.startswith("[...") else "[]") if DYNAMIC_RE.match(part) else part
+        for part in url.split("/")
+    )
+
+
+def interceptions(paged: tuple[Handler, ...], app_dir: Path, root: Path) -> list[Finding]:
+    """Every intercepting page sharing its URL with another, or standing under a route group.
+
+    Next keys an interceptor's rewrite on the page the visitor leaves, read from the interceptor's level, and a route
+    group is no level: a slot of `(classic)` intercepting `(.)saisons` reaches from `/`, so from every page of the site,
+    where the group's layout draws the slot on its own pages alone. Two rewrites for one URL both match from a page
+    under both levels, and the first in the build's order wins.
+    """
+    findings: list[Finding] = []
+    by_address: dict[str, list[Handler]] = {}
+    for page in paged:
+        parts = page.path.parent.relative_to(app_dir).parts
+        at = next((index for index, part in enumerate(parts) if SAME_LEVEL_RE.match(part)), None)
+        if at is None:
+            continue
+        by_address.setdefault(_address(page.url), []).append(page)
+        grouped = [part for part in parts[:at] if GROUP_RE.match(part)]
+        if grouped:
+            findings.append(
+                Finding(
+                    "fail",
+                    f"{shown(page.path, root)} intercepts {page.url} under the route group {grouped[0]}\n"
+                    f"{CONTINUATION}a group is no level of the URL, so the interceptor reaches from every page of its "
+                    f"parent level while the group's layout draws the slot on its own pages alone: "
+                    f"put the slot in the layout every page it intercepts from shares",
+                )
+            )
+    for address, pages_there in sorted(by_address.items()):
+        if len(pages_there) > 1:
+            findings.append(
+                Finding(
+                    "fail",
+                    f"{', '.join(shown(one.path, root) for one in pages_there)} all intercept {address}\n"
+                    f"{CONTINUATION}from a page both levels hold, their rewrites compete in an order Next documents nowhere: "
+                    f"keep one interceptor for the address, in the slot every page it intercepts from shares",
+                )
+            )
+    return findings
+
+
 def link_pages(found: tuple[Handler, ...]) -> tuple[Handler, ...]:
     """Every page reading a mailed link's token from its search parameters."""
     linked: list[Handler] = []
@@ -895,6 +949,7 @@ def main() -> int:
     opened, unopened = minted_pages(mints, paged, root)
     linked = tuple(sorted(set(link_pages(paged)) | set(opened), key=lambda one: one.path))
     findings += unopened + unmetered_links(linked, where, root, conf_path.name) + uneven_links(where, conf_path.name)
+    findings += interceptions(paged, app_dir, root)
 
     code = report_findings(findings)
     if findings:
@@ -904,6 +959,7 @@ def main() -> int:
         print("      says why. A page a link opens sits where :: LINK_ZONES meters it and its twin, each zone on")
         print("      one line in every block naming it.")
         print("      The rule is docs/ops/spec.md, section 1.3; the reasons are :: REASONS.")
+        print("      An intercepted URL has one intercepting page, under no route group: :: interceptions says why.")
         return code
 
     metered = sum(1 for one in where if one.exact and one.metered)

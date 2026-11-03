@@ -172,6 +172,48 @@ def test_a_page_intercepting_a_level_up_or_the_root_refuses(marker):
         raise AssertionError("an intercepting route reaching above its level was given a URL")
 
 
+ROOT_INTERCEPTOR = "/@modal/(.)saisons/[saison]/spiele/[spiel]"
+
+
+def intercepting(*urls: str) -> list:
+    """What the interception rule says about a tree holding a page at each of `urls`."""
+    app = tree(*urls, file="page.tsx")
+    return routes.interceptions(routes.pages(app), app, app.parent)
+
+
+def test_one_interceptor_in_the_slot_every_page_shares_is_no_finding():
+    """The resting state: the root layout's slot, with the page it intercepts beside it."""
+    assert intercepting(ROOT_INTERCEPTOR, "/saisons/[saison]/spiele/[spiel]") == []
+
+
+def test_an_interceptor_under_a_route_group_is_a_finding():
+    """A group is no level, so `(classic)`'s slot intercepts from every page while its layout draws it on its own alone."""
+    findings = intercepting("/(classic)" + ROOT_INTERCEPTOR)
+
+    assert severities(findings) == ["fail"]
+    assert "under the route group (classic)" in details(findings)
+
+
+def test_a_route_group_below_the_intercepting_segment_is_no_finding():
+    """A group inside the intercepted path organises what is drawn, not the level the rewrite reads."""
+    assert intercepting("/@modal/(.)saisons/[saison]/(match)/spiele/[spiel]") == []
+
+
+def test_two_interceptors_for_one_address_are_a_finding():
+    """Each level's rewrite matches from a season page, whatever each names its dynamic segment."""
+    findings = intercepting(ROOT_INTERCEPTOR, "/saisons/[id]/@modal/(.)spiele/[spiel]")
+
+    assert severities(findings) == ["fail"]
+    assert "all intercept /saisons/[]/spiele/[]" in details(findings)
+
+
+def test_the_repository_own_interceptors_are_one_per_address_under_no_group():
+    """The real tree, so a second slot or a slot moved into a group fails here and not only in the journeys."""
+    app = routes.REPO_ROOT / routes.APP_ROUTER
+
+    assert routes.interceptions(routes.pages(app), app, routes.REPO_ROOT) == []
+
+
 def test_a_reserved_metadata_name_the_map_does_not_carry_refuses():
     """The gap this population closes is the NEXT metadata file, which silence would let through."""
     try:
@@ -838,6 +880,13 @@ def test_a_pair_a_page_answers_reaches_the_exit_contract_too(monkeypatch):
     app = tree("/signin", file="page.tsx")
 
     assert run_main(app, "server {\n" + exact("/signin") + exact("/signin/") + CATCH_ALL + "}\n", monkeypatch) == 0
+
+
+def test_two_interceptors_for_one_address_reach_the_exit_contract(monkeypatch):
+    """The interception rule reaches a reader through `main` alone, and a run that never calls it exits zero."""
+    app = tree(ROOT_INTERCEPTOR, "/saisons/[saison]/@modal/(.)spiele/[spiel]", file="page.tsx")
+
+    assert run_main(app, "server {\n" + CATCH_ALL + "}\n", monkeypatch) == 1
 
 
 def test_an_unmetered_link_page_reaches_the_exit_contract(monkeypatch):
