@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { SERVER_COPY } from "@/core/serverCopy";
 
-import { ereignisOf, matchRowOf, outcomeFor, popupFactsOf } from "./blocks";
+import { ereignisOf, matchdayOf, matchRowOf, outcomeFor, popupFactsOf } from "./blocks";
 
 import type { FLSonderereignis, FLSpielJoined } from "@/core/generated/client/types";
 
@@ -127,5 +128,29 @@ describe("the pop-up's facts", () => {
       href: "https://www.google.com/maps/search/?api=1&query=Sportplatz%20Ahornweg%2C%20Ahornweg%202",
       label: { record: "Sportplatz Ahornweg" },
     });
+  });
+});
+
+describe("what a match's matchday is called", () => {
+  const knockout = { saison_phase: "viertelfinale", for_third_place: false } as const;
+
+  // As the Spielplan's tabs name it: a round over two matchdays numbers each, so the second reads apart from the first.
+  it("numbers a knockout round spread over several matchdays", () => {
+    expect(matchdayOf(knockout, { spieltag_position: 2, count_spieltage_in_phase: 2 })).toBe(
+      COPY.shared.knockoutRound(COPY.shared.phase.viertelfinale, 2),
+    );
+  });
+
+  it("names a knockout round on one matchday by its phase alone", () => {
+    expect(matchdayOf(knockout, { spieltag_position: 1, count_spieltage_in_phase: 1 })).toBe(COPY.shared.phase.viertelfinale);
+  });
+
+  it("names a group matchday by its number, and the match for third place by its own name", () => {
+    expect(matchdayOf({ saison_phase: "gruppenphase", for_third_place: false }, { spieltag_position: 3, count_spieltage_in_phase: 5 })).toBe(
+      COPY.shared.spieltag(3),
+    );
+    expect(matchdayOf({ saison_phase: "finale", for_third_place: true }, { spieltag_position: 1, count_spieltage_in_phase: 1 })).toBe(
+      SERVER_COPY.season.thirdPlace,
+    );
   });
 });
