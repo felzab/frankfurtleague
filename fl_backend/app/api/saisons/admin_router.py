@@ -234,7 +234,7 @@ async def get_saisons_verwaltung(
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonsAdminListResponse:
     """
-    List every season, the `future` ones `GET /saisons` withholds included, each with whether it has started and has been played.
+    List every season, the `future` ones every base-tier read withholds included, each with whether it has started and has been played.
 
     The admin surfaces read here because a season is created `future` and clubs are entered while it
     still is, so an admin who cannot see one cannot run the league. `begun` is the start every

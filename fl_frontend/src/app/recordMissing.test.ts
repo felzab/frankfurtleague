@@ -20,7 +20,6 @@ doubleApiClient(() => {
 serveServerReact();
 
 const bewerbungen = await import("@/features/bewerbungen/queries.ts");
-const saisons = await import("@/features/saisons/queries.ts");
 const schiedsrichter = await import("@/features/schiedsrichter/queries.ts");
 const spiele = await import("@/features/spiele/queries.ts");
 const spieltage = await import("@/features/spieltage/queries.ts");
@@ -33,7 +32,6 @@ const freshId = (): string => (calls += 1).toString(16).padStart(24, "0");
 const READS: Readonly<Record<string, () => Promise<unknown>>> = {
   getBewerbungById: () => bewerbungen.getBewerbungById(freshId()),
   getBewerbungFenster: () => bewerbungen.getBewerbungFenster(freshId()),
-  getActiveSaisonOrNull: () => saisons.getActiveSaisonOrNull(),
   getSchiedsrichterById: () => schiedsrichter.getSchiedsrichterById(freshId()),
   getAdminSpiel: () => spiele.getAdminSpiel(freshId()),
   getAdminSpieltagById: () => spieltage.getAdminSpieltagById(freshId()),

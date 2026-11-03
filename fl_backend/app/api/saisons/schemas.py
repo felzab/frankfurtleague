@@ -185,9 +185,6 @@ class FLSaisonRecord(_SaisonStored, Anchored):
     """A season as `saisons` stores it: no derived schedule."""
 
 
-FLSaisonListAdapter = TypeAdapter(list[FLSaison])
-
-
 class FLSaisonAdmin(FLSaison):
     """The same season for the admin surfaces, with whether it has started and whether a fixture of it has taken place."""
 
@@ -282,11 +279,6 @@ class FLSwapGruppenResponse(BaseAPIResponse):
     team2_id: CustomObjectId
     team2_gruppe: FLGruppenNames
     rewritten_spiele: int
-
-
-class FLSaisonsListResponse(BaseAPIResponse):
-    format: Literal["list"] = "list"
-    saisons: list[FLSaison]
 
 
 class FLSaisonsAdminListResponse(BaseAPIResponse):

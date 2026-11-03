@@ -4550,11 +4550,6 @@ export interface FLSaisonsAdminListResponse {
   saisons: FLSaisonAdmin[];
 }
 
-export interface FLSaisonsListResponse {
-  format: "list";
-  saisons: FLSaison[];
-}
-
 export interface FLSaisonsSingleResponse {
   format: "single";
   saison: FLSaison;
@@ -6158,32 +6153,6 @@ export type RegistrierungenGetOpenRegistrierungenParams = {
   limit?: number;
   order?: FLSortOrder;
 };
-
-export type SaisonsGetSaisonsParams = {
-  status?: FLSaisonStatus | null;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: SaisonsGetSaisonsSortBy;
-  order?: SaisonsGetSaisonsOrder;
-};
-
-export type SaisonsGetSaisonsSortBy = (typeof SaisonsGetSaisonsSortBy)[keyof typeof SaisonsGetSaisonsSortBy];
-
-export const SaisonsGetSaisonsSortBy = {
-  _id: "_id",
-  start_date: "start_date",
-  end_date: "end_date",
-} as const;
-
-export type SaisonsGetSaisonsOrder = (typeof SaisonsGetSaisonsOrder)[keyof typeof SaisonsGetSaisonsOrder];
-
-export const SaisonsGetSaisonsOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
 
 export type SaisonsGetSaisonsVerwaltungParams = {
   status?: FLSaisonStatus | null;

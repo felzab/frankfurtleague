@@ -12053,29 +12053,6 @@
         "title": "FLSaisonsAdminListResponse",
         "type": "object"
       },
-      "FLSaisonsListResponse": {
-        "properties": {
-          "format": {
-            "const": "list",
-            "default": "list",
-            "title": "Format",
-            "type": "string"
-          },
-          "saisons": {
-            "items": {
-              "$ref": "#/components/schemas/FLSaison"
-            },
-            "title": "Saisons",
-            "type": "array"
-          }
-        },
-        "required": [
-          "format",
-          "saisons"
-        ],
-        "title": "FLSaisonsListResponse",
-        "type": "object"
-      },
       "FLSaisonsSingleResponse": {
         "properties": {
           "format": {
@@ -23604,126 +23581,6 @@
       }
     },
     "/api/v0/saisons": {
-      "get": {
-        "description": "Every season the public may read, a `future` one never among them, narrowed by `status` to `past` or `active`.\n\nWithout `status` it lists them all, never the season the site is on alone.",
-        "operationId": "saisons_get_saisons",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "status",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/FLSaisonStatus"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Status"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "sort_by",
-            "required": false,
-            "schema": {
-              "default": "_id",
-              "enum": [
-                "_id",
-                "start_date",
-                "end_date"
-              ],
-              "title": "Sort By",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "order",
-            "required": false,
-            "schema": {
-              "default": "asc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSaisonsListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "List Saisons",
-        "tags": [
-          "saisons"
-        ]
-      },
       "post": {
         "description": "Create a season, always `future`.\n\nThe id is supplied rather than generated -- it is the string every `saison_id` elsewhere\nreferences, so reusing one comes back 409. Making the season live is a separate step.",
         "operationId": "saisons_post_saison",
@@ -23791,69 +23648,6 @@
           }
         ],
         "summary": "Create a Saison",
-        "tags": [
-          "saisons"
-        ]
-      }
-    },
-    "/api/v0/saisons/active": {
-      "get": {
-        "description": "Return the season currently marked active -- what every other endpoint resolves an omitted `saison_id` against.",
-        "operationId": "saisons_get_active_saison",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSaisonsSingleResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "The active Saison",
         "tags": [
           "saisons"
         ]
@@ -23987,7 +23781,7 @@
     },
     "/api/v0/saisons/list/verwaltung": {
       "get": {
-        "description": "List every season, the `future` ones `GET /saisons` withholds included, each with whether it has started and has been played.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league. `begun` is the start every\nstart lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what\nfixes the start date (`saison_start_taken_place`).",
+        "description": "List every season, the `future` ones every base-tier read withholds included, each with whether it has started and has been played.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league. `begun` is the start every\nstart lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what\nfixes the start date (`saison_start_taken_place`).",
         "operationId": "saisons_get_saisons_verwaltung",
         "parameters": [
           {

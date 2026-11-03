@@ -6,7 +6,7 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import get_saisons_verwaltung
-from app.api.saisons.public_router import get_frame, get_saison, get_saisons
+from app.api.saisons.public_router import get_frame, get_saison
 from app.api.saisons.schemas import FLSaisonsFilterParams
 from app.api.saisons.services import base_tier_status_term
 from app.api.saisons.visibility import resolve_public_saison
@@ -42,19 +42,10 @@ FIXTURES = [
 
 
 class TestTheTermItselfWithholdsThePlannedSeason:
-    """No database: what a real `mongod` does with these two operators is the class below."""
+    """No database: what a real `mongod` does with the term is the class below."""
 
-    def test_an_unfiltered_read_excludes_the_planned_status(self):
+    def test_a_read_excludes_the_planned_status(self):
         assert base_tier_status_term() == {"status": {"$ne": "future"}}
-
-    @pytest.mark.parametrize("requested", ["past", "active"])
-    def test_a_requested_status_keeps_the_exclusion_beside_it(self, requested):
-        assert base_tier_status_term(requested) == {"status": {"$eq": requested, "$ne": "future"}}
-
-    def test_asking_for_the_planned_status_outright_yields_a_term_nothing_can_satisfy(self):
-        """`$eq` and `$ne` on one value: the request is answered with an empty list rather than dropped."""
-
-        assert base_tier_status_term("future") == {"status": {"$eq": "future", "$ne": "future"}}
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -86,22 +77,6 @@ def on_a_league(url: str, body: Body) -> Any:
 
 @pytest.mark.db
 class TestAPlannedSeasonIsWithheldFromTheBaseTier:
-    def test_the_list_serves_the_finished_and_the_running_season_only(self, seeded_league: str):
-        async def body(database: AsyncDatabase) -> Any:
-            return await get_saisons(saisons_collection=database[Collection.SAISONS], filters=FLSaisonsFilterParams())
-
-        response = on_a_league(seeded_league, body)
-
-        assert [saison.id for saison in response.saisons] == [ARCHIVED, RUNNING]
-
-    def test_asking_for_the_planned_status_answers_an_empty_list(self, seeded_league: str):
-        """The compound term is what makes this empty rather than the whole season list."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return await get_saisons(saisons_collection=database[Collection.SAISONS], filters=FLSaisonsFilterParams(status="future"))
-
-        assert on_a_league(seeded_league, body).saisons == []
-
     @pytest.mark.parametrize("saison_id", [ARCHIVED, RUNNING])
     def test_a_readable_season_is_still_served_by_id(self, saison_id: str, seeded_league: str):
         async def body(database: AsyncDatabase) -> Any:

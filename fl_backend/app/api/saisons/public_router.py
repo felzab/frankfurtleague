@@ -5,7 +5,7 @@ from typing import Any, Final
 from fastapi import APIRouter, Depends
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.saisons.crud import CURRENT_SAISON_FILTER, pull_active_saison, pull_open_window_saison
+from app.api.saisons.crud import CURRENT_SAISON_FILTER, pull_open_window_saison
 from app.api.saisons.schemas import (
     FLBewerbungWindow,
     FLLandingBeforeStart,
@@ -18,9 +18,6 @@ from app.api.saisons.schemas import (
     FLSaison,
     FLSaisonFrameEntryListAdapter,
     FLSaisonFrameResponse,
-    FLSaisonListAdapter,
-    FLSaisonsFilterParams,
-    FLSaisonsListResponse,
     FLSaisonsSingleResponse,
     FLSpielPageResponse,
     FLSpielSideStanding,
@@ -50,7 +47,7 @@ from app.api.teams.schemas import (
 from app.api.teams.services import build_team_pipeline, counting_fixtures_match
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, build_query, build_sort, pull_many_from_db, pull_one_from_db
+from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     SaisonsCollection,
     SaisonSpielerCollection,
@@ -70,41 +67,6 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/saisons",
     dependencies=[Depends(verify_access_base)],
 )
-
-
-@router.get("", response_model=FLSaisonsListResponse, summary="List Saisons")
-async def get_saisons(saisons_collection: SaisonsCollection, filters: FLSaisonsFilterParams = Depends()) -> FLSaisonsListResponse:
-    """Every season the public may read, a `future` one never among them, narrowed by `status` to `past` or `active`.
-
-    Without `status` it lists them all, never the season the site is on alone.
-    """
-
-    # `compiled` last, so the narrowing replaces the raw `status` the dump wrote for the caller.
-    db_filter = build_query(filters, terms={"status"}, compiled=base_tier_status_term(filters.status))
-    db_sort = build_sort(sort_by=filters.sort_by, order=filters.order)
-
-    saisons_raw = await pull_many_from_db(
-        collection=saisons_collection,
-        db_filter=db_filter,
-        limit=filters.limit,
-        sort_by=db_sort,
-    )
-    saisons = FLSaisonListAdapter.validate_python([with_schedule(raw) for raw in saisons_raw])
-
-    return FLSaisonsListResponse(saisons=saisons)
-
-
-@router.get("/active", response_model=FLSaisonsSingleResponse, summary="The active Saison")
-async def get_active_saison(
-    saisons_collection: SaisonsCollection,
-) -> FLSaisonsSingleResponse:
-    """Return the season currently marked active -- what every other endpoint resolves an omitted `saison_id` against."""
-
-    saison_raw = await pull_active_saison(saisons_collection=saisons_collection)
-
-    saison = FLSaison.model_validate(with_schedule(saison_raw))
-
-    return FLSaisonsSingleResponse(saison=saison)
 
 
 @router.get("/frame", response_model=FLSaisonFrameResponse, summary="The season pages' frame")
