@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 
 import { getPasskeyStep } from "@/core/auth";
 import { ROUTES } from "@/core/routes";
-import { SIGN_IN_LANDING } from "@/core/signInLanding";
 import { PasskeyStep } from "@/features/auth/components/forms/PasskeyStep";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -33,21 +32,21 @@ async function PasskeyInhalt() {
   // Which control stands here is the guard's answer and never this page's: the requirement it
   // enforces is judged per request, beside the session lifetimes.
   const schritt = await getPasskeyStep();
-  if (schritt === null) redirect(SIGN_IN_LANDING);
+  if (schritt === null) redirect(ROUTES.signInLanding.path());
 
   // „Später“ goes past the landing rather than to it, which would offer the passkey again.
   return schritt.step === "offer" ? (
     <PasskeyStep
       step="offer"
       address={schritt.email}
-      next={SIGN_IN_LANDING}
+      next={ROUTES.signInLanding.path()}
       later="/bereich"
     />
   ) : (
     <PasskeyStep
       step={schritt.step}
       address={schritt.email}
-      next={SIGN_IN_LANDING}
+      next={ROUTES.signInLanding.path()}
     />
   );
 }
