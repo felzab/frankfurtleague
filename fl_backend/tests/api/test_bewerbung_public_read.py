@@ -33,7 +33,6 @@ PREFIX = f"/api/v{API_VERSION}/bewerbungen"
 
 # Injected through `get_germany_now`, so the window judgement is not made against the wall clock.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-TODAY = "2026-04-01"
 
 # Fixed rather than generated, so a failure names the same club every run.
 OPEN_OID = ObjectId("6890a1b2c3d4e5f607950001")
@@ -228,7 +227,11 @@ class TestTheWindowReads:
     """What this tier learns about a `future` season the rule otherwise withholds: the window, and that it is there."""
 
     def test_the_open_window_is_the_season_whose_span_holds_today(self, seeded_url: str):
-        """Two near-misses sort ahead of the answer, so a query dropping either term picks one of them instead."""
+        """Two near-misses sort ahead of the answer, so a read judging less than the whole predicate picks one of them instead.
+
+        The predicate's boundary days are `tests/api/test_registrierung_window.py`'s, at the default tier: this case holds
+        only that the landing applies it.
+        """
 
         assert open_window(seeded_url)["saison_id"] == OPEN_SAISON
 
@@ -404,54 +407,3 @@ class TestASeasonThatHasEndedTakesNoApplication:
         database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW), status="past")])
 
         assert answered(mongo_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}", database_name=database).status_code == 404
-
-
-# Each window TOUCHES today on one end or both, so the query's `$lte` and `$gte` are what admit it.
-# `seeded_url`'s own corpus sits a month clear of either edge and cannot pin them.
-BOUNDARY_WINDOWS = [
-    pytest.param({"offen": True, "von": TODAY, "bis": TODAY}, id="a window of exactly today"),
-    pytest.param({"offen": True, "von": TODAY, "bis": "2026-06-30"}, id="a window opening today"),
-    pytest.param({"offen": True, "von": "2026-01-01", "bis": TODAY}, id="a window closing today"),
-]
-
-# A day either side, so the pair below shows the query admits the edge and nothing past it.
-OUTSIDE_WINDOWS = [
-    pytest.param({"offen": True, "von": "2026-04-02", "bis": "2026-06-30"}, id="a window opening tomorrow"),
-    pytest.param({"offen": True, "von": "2026-01-01", "bis": "2026-03-31"}, id="a window that closed yesterday"),
-]
-
-
-class TestTheOpenWindowQueryIsInclusiveAtBothEnds:
-    """Both ends of the span count as inside it.
-
-    The consequence otherwise: a school applying on the last day finds the public links gone while
-    `/window/{saison_id}` still reports `running` and the POST still accepts.
-    """
-
-    @pytest.mark.parametrize("bewerbung", BOUNDARY_WINDOWS)
-    def test_a_window_touching_today_is_found(self, mongo_url: str, bewerbung: dict[str, Any]):
-        """Narrow either comparison to `$lt` or `$gt` and one of these three offers no window."""
-
-        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
-
-        assert open_window(mongo_url, database_name=database)["saison_id"] == OPEN_SAISON
-
-    @pytest.mark.parametrize("bewerbung", OUTSIDE_WINDOWS)
-    def test_a_window_a_day_outside_is_not(self, mongo_url: str, bewerbung: dict[str, Any]):
-        """The control: without it every case above would pass on a query that matched everything."""
-
-        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
-
-        assert open_window(mongo_url, database_name=database) is None
-
-    @pytest.mark.parametrize("bewerbung", BOUNDARY_WINDOWS)
-    def test_the_query_and_the_served_judgement_agree_on_the_edge(self, mongo_url: str, bewerbung: dict[str, Any]):
-        """The two are separate expressions of one rule, so a boundary case has to hold for both.
-
-        The landing's window narrows in MQL and `/window/{saison_id}` computes `running` in Python; a school on
-        the last day must not see one say open and the other shut.
-        """
-
-        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
-
-        assert answered(mongo_url, f"{PREFIX}/window/{OPEN_SAISON}", database_name=database).json()["running"] is True
