@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import { cacheLife, cacheTag } from "next/cache";
 
 import { systemCheckIsLive } from "@/core/generated/client/sdk";
