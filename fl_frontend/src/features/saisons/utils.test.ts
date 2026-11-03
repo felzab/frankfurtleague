@@ -300,8 +300,6 @@ describe("buildSpielplanVorschau", () => {
     ).toStrictEqual({ spieltage: 6, spiele: 31, koRunden: ["viertelfinale", "halbfinale", "finale"] });
   });
 
-  // One group of two with both qualifying, which is the smallest `rules_bracket_impossible` allows: the one
-  // group fixture and the final are two matchdays, never one.
   // Two groups of two, both qualifying: the smallest bracket, four, plays semi-finals, and its Finale's matchday
   // holds the match for third place too.
   it("sums the smallest season the rules allow", () => {
@@ -344,10 +342,10 @@ describe("buildSpielplanVorschau", () => {
 });
 
 describe("describeSpielplanUmfang", () => {
-  // One group of two with both qualifying: a group fixture and a final. The generator writes nothing
+  // Two groups of two, both qualifying: three matchdays and six matches. The generator writes nothing
   // smaller, so no count below this reaches the phrase from a real season.
   it("counts the smallest draw the rules allow", () => {
-    expect(describeSpielplanUmfang(2, 2)).toBe("2 Spieltage und 2 Spiele");
+    expect(describeSpielplanUmfang(3, 6)).toBe("3 Spieltage und 6 Spiele");
   });
 
   it("counts a season-sized draw", () => {
