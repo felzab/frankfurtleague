@@ -7,10 +7,11 @@ from app.api.adresswechsel.services import LIVE_KEYED_TERMS
 from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerRolle
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import build_query, build_sort
+from app.core.crud import build_query
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SPIELER_ID
 from app.shared.einwilligung import NAME_IS_PUBLIC, is_confirmed
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
 
 AS_NAME = "person"
@@ -135,6 +136,12 @@ def build_spieler_filter(spieler_id: Any) -> Mapping[str, Any]:
     return {"_id": {"$eq": spieler_id, **_NOT_THE_GHOST}}
 
 
+# The squad table's own order, by position and then the forename served. Fixed rather than asked for: ordering by a key
+# reads it out whether or not the response carries it (`READ-PUPIL-001`, `READ-PUPIL-002`), so no caller names one, and
+# the chain stops at the forename, a surname this tier will not serve ordering nothing.
+SQUAD_ORDER: Mapping[str, int] = {"position": 1, "vorname": 1}
+
+
 def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, Any]]:
     """One club's squad in one season as the base tier serves it, run on `saison_spieler`.
 
@@ -187,11 +194,10 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
                 "nummer": 1,
             }
         },
-        # After the projection, so `vorname` orders by the name served, which the join masked. Through
-        # `build_sort` because `sort_by` may itself be `vorname`. The chain stops there:
-        # a surname this tier will not serve must not order the list either.
-        {"$sort": dict(build_sort(sort_by=filters.sort_by, order=filters.order, chain=(("vorname", 1),)))},
-        {"$limit": filters.limit},
+        # After the projection, so `vorname` orders by the name served, which the join masked.
+        {"$sort": dict(SQUAD_ORDER)},
+        # One page, as every season-scoped read takes.
+        {"$limit": LIST_LIMIT_DEFAULT},
     ]
 
 

@@ -5,7 +5,6 @@ from typing import Any, Final
 from fastapi import APIRouter, Depends
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.bewerbungen.services import saison_nimmt_bewerbungen_an
 from app.api.saisons.crud import CURRENT_SAISON_FILTER, pull_active_saison, pull_open_window_saison
 from app.api.saisons.schemas import (
     FLBewerbungWindow,
@@ -205,12 +204,10 @@ async def get_landing(
         pull_open_window_saison(saisons_collection=saisons_collection, today=today),
     )
 
-    # The submission's own rule over what the query found, so the landing never offers a window it refuses.
     window = (
-        FLBewerbungWindow(saison_id=str(open_window["_id"]), von=open_window["bewerbung"]["von"], bis=open_window["bewerbung"]["bis"])
-        if open_window is not None
-        and saison_nimmt_bewerbungen_an(saison_status=open_window["status"], bewerbung=open_window["bewerbung"], today=today)
-        else None
+        None
+        if open_window is None
+        else FLBewerbungWindow(saison_id=str(open_window["_id"]), von=open_window["bewerbung"]["von"], bis=open_window["bewerbung"]["bis"])
     )
 
     if saison_raw is None:
@@ -461,19 +458,19 @@ async def get_team(
     404 for a season this tier may not read and for a club the season does not hold.
     """
 
-    saison = await resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id)
-
     # A club that left the league stays addressable by id, as `GET /teams/{team_id}` keeps it: a caller holding one
     # was given it by something.
-    club_filters = FLTeamsFilterParams(saison_id=saison.id, include_inactive=True)
-    club_raw, tabelle, spiele_raw, kader_raw = await asyncio.gather(
+    club_filters = FLTeamsFilterParams(saison_id=saison_id, include_inactive=True)
+    # Beside the resolve, for `_spielplan_of`'s reason: each needs the path's id alone, and none is served before the
+    # resolve has passed.
+    saison, club_raw, spiele_raw, kader_raw = await asyncio.gather(
+        resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
         aggregate_many_from_db(collection=teams_collection, pipeline=build_team_pipeline(filters=club_filters, rules=None, team_id=team_id)),
-        pull_tabelle(teams_collection=teams_collection, spiele_collection=spiele_collection, saison_id=saison.id, rules=saison.rules),
         aggregate_many_from_db(
             collection=spiele_collection,
             pipeline=[
                 *build_spiele_pipeline(
-                    db_filter={"saison_id": saison.id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
+                    db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
                     sort_by=[("spiel_nr", 1)],
                 ),
                 _SPIELTAG_POSITION_LOOKUP,
@@ -481,13 +478,18 @@ async def get_team(
         ),
         aggregate_many_from_db(
             collection=saison_spieler_collection,
-            pipeline=build_spieler_pipeline(FLSpielerFilterParams(team_id=team_id, saison_id=saison.id)),
+            pipeline=build_spieler_pipeline(FLSpielerFilterParams(team_id=team_id, saison_id=saison_id)),
             collation=GERMAN_COLLATION,
         ),
     )
 
     if not club_raw:
         raise DocumentNotFoundError()
+
+    # After the resolve, being the one read that needs the season's rules.
+    tabelle = await pull_tabelle(
+        teams_collection=teams_collection, spiele_collection=spiele_collection, saison_id=saison.id, rules=saison.rules
+    )
 
     standing = next((row for rows in tabelle.root.values() for row in rows if row.id == team_id), None)
 

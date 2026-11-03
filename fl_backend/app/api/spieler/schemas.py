@@ -5,8 +5,6 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstra
 from app.core.crud import Anchored
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.bounds import (
-    LIST_LIMIT_DEFAULT,
-    LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
 )
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
@@ -15,7 +13,6 @@ from app.shared.schemas.kontakt import CustomKontaktName
 from app.shared.schemas.literals import (
     FLAddressChangeViewableDenied,
     FLEinwilligungUmfang,
-    FLSortOrder,
     FLSpielerPosition,
     FLSpielerStufe,
 )
@@ -24,11 +21,6 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
 # does not, and the two ends must accept and refuse the same shirt.
 SQUAD_NUMMER_PATTERN = r"^[0-9]{1,4}$"
-
-# Every option is a field the base tier serves: ordering by a key reads it out, whether or not the
-# response carries it (`READ-PUPIL-001`, `READ-PUPIL-002`). No admin read takes a sort parameter, so
-# there is one Literal.
-FLSpielerSortOptions = Literal["vorname", "nummer", "position"]
 
 # Slugs rather than the German `position` and `stufe` store: a role also has a label and a badge
 # Kuerzel, and a stored German word would be a third spelling for those two to drift from.
@@ -192,13 +184,10 @@ class FLSpielerFilterParams(BaseModel):
     `include_inactive` would un-hide rows this tier serves no marker for (`READ-SQUAD-002`).
     """
 
-    # The club is REQUIRED: a squad is one club's in one season, which the club page names.
+    # Both REQUIRED: a squad is one club's in one season, which the club page names, and a term left out
+    # would drop from the `$match` and serve that club's rows from every season.
     team_id: CustomObjectId
-    saison_id: str | None = None
-
-    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-    sort_by: FLSpielerSortOptions = Field(default="position")
-    order: FLSortOrder = Field(default="asc")
+    saison_id: str
 
 
 class FLPatchSpielerPayload(BaseModel):

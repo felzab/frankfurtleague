@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any
@@ -32,6 +33,7 @@ from app.api.identitaet.crud import faellige_anzahl, saison_statuses
 from app.api.identitaet.schemas import FLErasurePreviewResponse
 from app.api.identitaet.services import geschlossen_durch, statuses_after_activating
 from app.api.outbox.services import enqueue_mails
+from app.api.saisons.crud import a_fixture_has_taken_place
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
@@ -251,17 +253,14 @@ async def get_saisons_verwaltung(
         sort_by=db_sort,
     )
 
-    # Every fixture of the listed seasons through the one predicate, never a filter restating it in the query.
-    gespielt = {
-        spiel["saison_id"]
-        async for spiel in spiele_collection.find(
-            {"saison_id": {"$in": [raw["_id"] for raw in saisons_raw]}}, ["saison_id", *TAKEN_PLACE_FIELDS]
-        )
-        if has_taken_place(spiel)
-    }
+    # One read per listed season, each stopping at its first fixture that has taken place: a played season answers on
+    # its first, where one read of every season's fixtures would walk them all.
+    taken_place = await asyncio.gather(
+        *(a_fixture_has_taken_place(spiele_collection=spiele_collection, saison_id=str(raw["_id"]), session=None) for raw in saisons_raw)
+    )
     saisons = [
-        {**with_schedule(raw), "begun": has_started(start_date=str(raw["start_date"]), today=today), "taken_place": raw["_id"] in gespielt}
-        for raw in saisons_raw
+        {**with_schedule(raw), "begun": has_started(start_date=str(raw["start_date"]), today=today), "taken_place": played}
+        for raw, played in zip(saisons_raw, taken_place, strict=True)
     ]
 
     return FLSaisonsAdminListResponse(saisons=FLSaisonAdminListAdapter.validate_python(saisons))
@@ -422,13 +421,7 @@ async def patch_saison(
             )
         ]
 
-        # The first fixture that has taken place settles it, so the cursor stops there.
-        taken_place = False
-        async with spiele_collection.find({"saison_id": saison_id}, list(TAKEN_PLACE_FIELDS), session=session) as fixtures:
-            async for spiel in fixtures:
-                if has_taken_place(spiel):
-                    taken_place = True
-                    break
+        taken_place = await a_fixture_has_taken_place(spiele_collection=spiele_collection, saison_id=saison_id, session=session)
 
         # Validated, not read raw: a season missing a rules key fails here rather than comparing
         # against a default nobody chose.
