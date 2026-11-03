@@ -1,9 +1,14 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
 import { beforeEach, expect, it, vi } from "vitest";
 
 /** The restore's hold the module reads, which the case sets. */
 const settings = { RESTORE_HOLD: "off" };
 
-/** Work handed to Next's `after`, collected rather than run, so a case runs it where it reads the outcome. */
+/**
+ * Work handed to Next's `after`, collected rather than run, so a case runs it where it reads the outcome: bound to the
+ * caller's async context, as Next's `after` binds it, so work scheduled inside a request starts inside its scope.
+ */
 const scheduled: (() => Promise<void>)[] = [];
 
 /** `performance.now()`'s reading, which a drain moves past the request's own 30-second cut. */
@@ -15,7 +20,7 @@ const cut: boolean[] = [];
 vi.doMock("@/core/config.ts", () => ({ frontend_config: settings }));
 vi.doMock("next/server", async () => ({
   ...(await vi.importActual<object>("next/server")),
-  after: (task: () => Promise<void>) => void scheduled.push(task),
+  after: (task: () => Promise<void>) => void scheduled.push(AsyncLocalStorage.bind(task)),
 }));
 vi.doMock("@/core/mail.ts", () => ({
   drainOutbox: async () => {
@@ -25,7 +30,7 @@ vi.doMock("@/core/mail.ts", () => ({
 }));
 
 const { drainSoon } = await import("./afterResponse.ts");
-const { boundCall } = await import("./requestScope.ts");
+const { boundCall, runWithRequestScope } = await import("./requestScope.ts");
 
 beforeEach(() => {
   scheduled.length = 0;
@@ -47,9 +52,12 @@ it("schedules no drain under a restore's hold, and one without it", () => {
 });
 
 /* A page of ten sends and reports runs far past a request's 30 seconds at the provider's worst; under that cut every
-   send after it would be refused unsent and the page left to the hourly pass. */
+   send after it would be refused unsent and the page left to the hourly pass. Scheduled from inside a request, as a
+   write's drain is, so a drain run in the request's scope would inherit its cut. */
 it("drains behind the response under no request's cut, so a drain past 30 seconds still sends", async () => {
-  drainSoon();
+  await runWithRequestScope({ traceId: "0".repeat(32) }, async () => {
+    drainSoon();
+  });
   const [drain] = scheduled;
   expect(drain, "no drain was scheduled").toBeDefined();
 

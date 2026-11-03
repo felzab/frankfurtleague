@@ -10,6 +10,7 @@ import { afterTheResponse } from "./afterResponse";
 import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { COPY } from "./copy";
 import { APIBadStatusError } from "./errors";
+import { AFTER_RESPONSE_DEADLINE_MS, getRequestActor, requestTimeLeft, setRequestActor } from "./requestScope";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Code } from "./generated/client/types";
@@ -23,7 +24,10 @@ const state = vi.hoisted(() => ({
   /** Every step in the order it ran. */
   steps: [] as string[],
   lines: [] as { level: string; message: string; meta: unknown }[],
-  /** Work handed to Next's `after`, run by a case once its action has answered, as Next runs it. */
+  /**
+   * Work handed to Next's `after`, run by a case once its action has answered, as Next runs it: bound to the caller's
+   * async context, as Next's `after` binds it, so the work starts inside the action's request scope.
+   */
   behind: [] as (() => Promise<void>)[],
 }));
 
@@ -32,10 +36,13 @@ vi.mock("next/cache", () => ({
   updateTag: (tag: string) => state.steps.push(`updateTag ${tag}`),
   refresh: () => state.steps.push("refresh"),
 }));
-vi.mock("next/server", async (original) => ({
-  ...(await original<object>()),
-  after: (task: () => Promise<void>) => void state.behind.push(task),
-}));
+vi.mock("next/server", async (original) => {
+  const { AsyncLocalStorage } = await import("node:async_hooks");
+  return {
+    ...(await original<object>()),
+    after: (task: () => Promise<void>) => void state.behind.push(AsyncLocalStorage.bind(task)),
+  };
+});
 vi.mock("./mail", () => ({ drainOutbox: async () => undefined }));
 vi.mock("./auth", () => ({
   judgeAdminRequest: async () => {
@@ -462,13 +469,27 @@ describe("the site's cache", () => {
     },
   );
 
-  it("stands when the body's write runs behind the response", async () => {
-    await onLane("admin", async () => {
-      afterTheResponse(() => sends("POST"));
-    })({ name: "Nord" });
-    for (const task of state.behind.splice(0)) await task();
+  // Next starts the work inside the action's scope; its own scope is what leaves it no actor and a deadline of its own
+  // rather than what the action's 30 seconds have left.
+  it("stands when the body's write runs behind the response, in a scope of its own", async () => {
+    const clock = vi.spyOn(performance, "now").mockReturnValue(0);
+    const behind: { actor: unknown; left: number }[] = [];
+    try {
+      await onLane("admin", async () => {
+        setRequestActor({ email: "admin@example.org", lane: "admin", authTime: 0, factor: "passkey" });
+        afterTheResponse(async () => {
+          behind.push({ actor: getRequestActor(), left: requestTimeLeft() });
+          await sends("POST");
+        });
+      })({ name: "Nord" });
+      clock.mockReturnValue(20000);
+      for (const task of state.behind.splice(0)) await task();
+    } finally {
+      clock.mockRestore();
+    }
 
     expect(state.steps).toStrictEqual(["admin guard", "sent POST"]);
+    expect(behind).toStrictEqual([{ actor: undefined, left: AFTER_RESPONSE_DEADLINE_MS }]);
   });
 
   it.each(["admin", "person", "public"] as const)(
