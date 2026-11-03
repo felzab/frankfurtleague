@@ -5,7 +5,6 @@ import { isRefusal } from "@/shared/utils/actionError";
 
 import {
   GRUPPEN_OFF_RULES,
-  MAX_QUALIFIERS,
   RECORDED_FACTS_NONE,
   REGELN_ABSCHNITT,
   SPIELBERICHTE_HALTEN_DEN_SPIELPLAN,
@@ -23,7 +22,6 @@ const SAISON_ID_TAKEN = `Diese Saison-ID ist schon vergeben. Bearbeite die vorha
  * seats the sentence under its field, and the generator, having no field, seats it in a message that
  * names where the repair is made.
  */
-const BRACKET_HAS_NO_SHAPE = `Die Zahl der Gruppen mal die Qualifikanten pro Gruppe muss eine Zweierpotenz von 2 bis ${String(MAX_QUALIFIERS)} ergeben.`;
 const GROUP_OVER_QUALIFIES = "Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst.";
 const DRAW_BEATS_WIN = "Ein Unentschieden darf nicht mehr Punkte bringen als ein Sieg.";
 const FORFEIT_CANNOT_DECIDE =
@@ -56,8 +54,9 @@ export function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?:
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
+    // The two counts together are at fault, so neither field: the failure line says it, as the form's own check does.
     case "rules_bracket_impossible":
-      return { fieldErrors: { "rules.qualifiers_per_gruppe": BRACKET_HAS_NO_SHAPE } };
+      return { error: COPY.verwaltung.saison.bracketImpossible };
     case "rules_gruppen_in_use":
       return { fieldErrors: { "rules.number_of_gruppen": "Eine Gruppe, die noch Teams hält, kann nicht wegfallen." } };
     case "rules_capacity_below_use":
@@ -160,7 +159,7 @@ export function mapSpielplanRefusal(error: unknown, carriedShape: boolean): stri
       return SPIELBERICHTE_HALTEN_DEN_SPIELPLAN;
     // These three read the shape alone, whose numbers the Spielplan panel holds.
     case "rules_bracket_impossible":
-      return shapeFaultMessage(`Aus diesen Zahlen entsteht keine KO-Runde. ${BRACKET_HAS_NO_SHAPE}`);
+      return COPY.verwaltung.saison.bracketImpossible;
     case "rules_qualifiers_above_gruppe":
       return shapeFaultMessage(GROUP_OVER_QUALIFIES);
     case "rules_spiele_over_one_read":

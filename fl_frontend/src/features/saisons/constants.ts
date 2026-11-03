@@ -25,6 +25,12 @@ export const SAISON_PHASE_OPTIONS: readonly FLSaisonPhase[] = Object.values(FLSa
 export const MAX_QUALIFIERS = 2 ** (SAISON_PHASE_OPTIONS.length - 1);
 
 /**
+ * The smallest bracket the rules take, mirroring `fl_backend/app/api/spiele/schemas.py :: MIN_QUALIFIERS`:
+ * one with semi-finals, so a match for third place and four places.
+ */
+export const MIN_QUALIFIERS = 4;
+
+/**
  * Each phase's German name, spelled once in the catalogue, for every surface. Not an export from
  * `fl_frontend/src/features/spiele/components/ui/SaisonPhaseChip.tsx`: the filter facets and a
  * Spieltag's composed name need the label and render nothing.

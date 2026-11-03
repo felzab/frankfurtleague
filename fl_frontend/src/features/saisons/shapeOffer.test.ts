@@ -188,7 +188,9 @@ describe("what the season's own groups close", () => {
   it("closes a group count that would stop running a group holding clubs", () => {
     const rows = groupCountOptions({ groups: 4, qualifiers: 2, occupancy: { A: 4, B: 4, C: 4, D: 4 } });
 
-    expect(refusalOf(rows, 1)).toBe(SHAPE_REFUSAL_NOTE.groupsInUse);
+    // One group qualifying two makes a bracket of two, below the four the rules take, which `find_rules_refusal`
+    // judges ahead of a stranding.
+    expect(refusalOf(rows, 1)).toBe(SHAPE_REFUSAL_NOTE.noBracket);
     expect(refusalOf(rows, 2)).toBe(SHAPE_REFUSAL_NOTE.groupsInUse);
     expect(refusalOf(rows, 4), "the count the clubs are entered in is closed").toBe(null);
     // Raising strands nobody, which is why `find_rules_refusal` reads the direction: a count above
@@ -360,6 +362,7 @@ describe("the matchdays a replace's numbers imply", () => {
     const sixteenPerGroup = (groups: number, qualifiers: number): number =>
       drawnSpieltage({ number_of_gruppen: groups, teams_per_gruppe: 16, qualifiers_per_gruppe: qualifiers });
 
+    // A bracket of two is below the four the rules take, so it plays no knockout round either.
     expect([
       sixteenPerGroup(1, 1),
       sixteenPerGroup(1, 2),
@@ -368,7 +371,7 @@ describe("the matchdays a replace's numbers imply", () => {
       sixteenPerGroup(4, 4),
       sixteenPerGroup(1, 3),
       sixteenPerGroup(2, 16),
-    ]).toStrictEqual([15, 16, 17, 18, 19, 15, 15]);
+    ]).toStrictEqual([15, 15, 17, 18, 19, 15, 15]);
   });
 });
 

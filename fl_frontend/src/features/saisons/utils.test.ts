@@ -302,13 +302,16 @@ describe("buildSpielplanVorschau", () => {
 
   // One group of two with both qualifying, which is the smallest `rules_bracket_impossible` allows: the one
   // group fixture and the final are two matchdays, never one.
+  // Two groups of two, both qualifying: the smallest bracket, four, plays semi-finals, and its Finale's matchday
+  // holds the match for third place too.
   it("sums the smallest season the rules allow", () => {
     expect(
       buildSpielplanVorschau([
-        { phase: "gruppenphase", spieltage: 1, matches_per_spieltag: 1 },
-        { phase: "finale", spieltage: 1, matches_per_spieltag: 1 },
+        { phase: "gruppenphase", spieltage: 1, matches_per_spieltag: 2 },
+        { phase: "halbfinale", spieltage: 1, matches_per_spieltag: 2 },
+        { phase: "finale", spieltage: 1, matches_per_spieltag: 2 },
       ]),
-    ).toStrictEqual({ spieltage: 2, spiele: 2, koRunden: ["finale"] });
+    ).toStrictEqual({ spieltage: 3, spiele: 6, koRunden: ["halbfinale", "finale"] });
   });
 
   /* Two groups of five, two qualifying. The regression a hand-written mirror produces: five matchdays

@@ -50,6 +50,9 @@ const infinitive = (verb: Verb): string => `${VERB[verb].charAt(0).toLowerCase()
 // One line for every failure no reason names, the same in a toast and in a status line.
 const UNEXPECTED = "Etwas ist schiefgelaufen";
 
+// The glossary's one spelling, which the season editor's sentence about it takes too.
+const K_O_RUNDE = "K.-o.-Runde";
+
 /** A range's end: a figure, or a year as a string, which as a season id takes no thousands separator. */
 type Bound = number | string;
 
@@ -154,7 +157,7 @@ export const COPY = catalogue({
     // Redesign: the account menu reads it once it offers a second role.
     switchRole: "Funktion wechseln",
     loadMore: "Weitere 50 laden",
-    kORunde: "K.-o.-Runde",
+    kORunde: K_O_RUNDE,
     kOBaum: "K.-o.-Baum",
     /** The one German spelling of each phase, which `PHASE_LABELS` serves to every surface. */
     phase: {
@@ -439,6 +442,11 @@ export const COPY = catalogue({
     },
 
     saison: {
+      /**
+       * The groups and the qualifiers per group multiply to no bracket the league plays: the form's own check, the
+       * rules write's refusal and the draw's say it alike, on the status line, the two counts together being at fault.
+       */
+      bracketImpossible: `Aus diesen Zahlen entsteht keine ${K_O_RUNDE}.`,
       /** Under the season's start once a result is entered, which holds it. */
       startFixed: "Steht fest, seit ein Ergebnis eingetragen ist",
     },
