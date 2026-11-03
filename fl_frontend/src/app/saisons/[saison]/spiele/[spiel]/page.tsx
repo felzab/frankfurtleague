@@ -10,7 +10,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { getSpielPage } from "@/features/saisons/queries";
-import { ereignisOf, headOf, isThirdPlace, matchdayOf, sidesOf } from "@/features/spiele/blocks";
+import { ereignisOf, headOf, matchdayOf, sidesOf } from "@/features/spiele/blocks";
 import { buildMapsSearchUrl } from "@/shared/utils/format";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -102,7 +102,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
  */
 function tilesOf(spiel: FLSpielJoined, position: number): readonly [StatTile, StatTile, StatTile, StatTile, StatTile] {
   const { fact } = COPY.spielplan;
-  const group = spiel.saison_phase === "gruppenphase" && !isThirdPlace(spiel);
+  const group = spiel.saison_phase === "gruppenphase";
   const datum = spiel.datum === null ? null : formatDatumPair(spiel.datum as CalendarDay);
   return [
     group
