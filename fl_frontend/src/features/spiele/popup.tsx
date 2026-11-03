@@ -18,7 +18,7 @@ import type { SpielPopupContent } from "@/kit/SpielHead";
 export async function spielPopupOf(saison: string, spielId: string): Promise<SpielPopupContent> {
   const page = await getSpielPage(saison, spielId);
   if (page === null) notFound();
-  const { spiel, spieltag_position: position, standings } = page;
+  const { spiel, standings } = page;
   const { heim, gast } = sidesOf(spiel);
   return {
     title: ROUTES.spiel.title(heim.name, gast.name),
@@ -33,7 +33,7 @@ export async function spielPopupOf(saison: string, spielId: string): Promise<Spi
         label={COPY.shared.toSpiel}
       />
     ),
-    head: headOf(spiel, position, standings),
+    head: headOf(spiel, page, standings),
     facts: popupFactsOf(spiel),
     sonderereignis: ereignisOf(spiel),
   };

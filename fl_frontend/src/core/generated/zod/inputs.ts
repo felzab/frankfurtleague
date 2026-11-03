@@ -1643,25 +1643,6 @@ export const RegistrierungenDeclineBody = zod
   .describe("Why the team declines, from a closed set or not at all.");
 
 /**
- * Every season the public may read, a `future` one never among them, narrowed by `status` to `past` or `active`.
- *
- * Without `status` it lists them all, never the season the site is on alone.
- * @summary List Saisons
- */
-export const saisonsGetSaisonsQueryLimitDefault = 1024;
-export const saisonsGetSaisonsQueryLimitMax = 1024;
-
-export const saisonsGetSaisonsQuerySortByDefault = `_id`;
-export const saisonsGetSaisonsQueryOrderDefault = `asc`;
-
-export const SaisonsGetSaisonsQueryParams = zod.object({
-  status: zod.union([zod.enum(["past", "active", "future"]), zod.null()]).optional(),
-  limit: zod.int().min(1).max(saisonsGetSaisonsQueryLimitMax).default(saisonsGetSaisonsQueryLimitDefault),
-  sort_by: zod.enum(["_id", "start_date", "end_date"]).default(saisonsGetSaisonsQuerySortByDefault),
-  order: zod.enum(["asc", "desc"]).default(saisonsGetSaisonsQueryOrderDefault),
-});
-
-/**
  * Create a season, always `future`.
  *
  * The id is supplied rather than generated -- it is the string every `saison_id` elsewhere
@@ -1747,7 +1728,7 @@ export const SaisonsPostSaisonBody = zod.object({
 });
 
 /**
- * List every season, the `future` ones `GET /saisons` withholds included, each with whether it has started and has been played.
+ * List every season, the `future` ones every base-tier read withholds included, each with whether it has started and has been played.
  *
  * The admin surfaces read here because a season is created `future` and clubs are entered while it
  * still is, so an admin who cannot see one cannot run the league. `begun` is the start every

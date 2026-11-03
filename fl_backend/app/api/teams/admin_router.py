@@ -332,6 +332,10 @@ async def patch_team(
         )
         # One season per year against a 1024-row read: the list cannot truncate this century.
         open_saison_ids = [row["_id"] for row in open_saisons]
+        # A read alone joins no write set, and the rollover writes no club row, so without this a season closed under the
+        # rename would have its rows renamed after it closed; anchored, the rollover's demotion conflicts with the rename
+        # and the retry reads the season `past`.
+        await anchor_in_db(collection=saisons_collection, db_filter={"_id": {"$in": open_saison_ids}}, session=session)
 
         junction = await patch_many_in_db(
             collection=saison_teams_collection,

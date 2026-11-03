@@ -7,7 +7,7 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_landing
-from app.api.saisons.schemas import saison_start
+from app.api.saisons.schemas import FLLandingBeforeStart, FLLandingDecided, FLLandingRunning, saison_start
 from app.api.spiele.schemas import FLSpielElfmeterschiessen, FLSpielJoinedInternal, FLSpielTeamFieldJoinedInternal
 from app.api.spiele.services import podium_of
 from app.api.teams.schemas import FLAustritt
@@ -151,11 +151,11 @@ def test_a_running_season_shows_its_latest_results_its_next_matches_and_its_figu
     response = landing(running_url, RUNNING_DATABASE_NAME)
     saison = response.saison
 
-    assert (saison.id, saison.state, saison.opening_spiel, saison.podium) == (SAISON, "running", None, None)
+    assert (type(saison), saison.id, saison.state) == (FLLandingRunning, SAISON, "running")
     assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == ([3], [4])
     assert saison.counts.model_dump() == {"count_tore": 7, "count_spiele": 6, "count_spieltage": 2}
     assert [team.name for team in saison.teams] == ["Alpha", "Beta"]
-    assert response.bewerbung_window.model_dump() == {"saison_id": NEXT, "von": "2026-03-01", "bis": "2026-03-31"}
+    assert response.bewerbung_window.model_dump() == {"saison_id": NEXT, "bis": "2026-03-31"}
 
 
 @pytest.mark.db
@@ -186,15 +186,15 @@ def test_a_season_before_its_first_match_counts_to_its_start_and_names_its_openi
 
     saison = landing(mongo_url, BEFORE_START_DATABASE_NAME).saison
 
-    assert (saison.state, saison.recent, saison.upcoming, saison.podium) == ("before_start", [], [], None)
+    assert (type(saison), saison.state) == (FLLandingBeforeStart, "before_start")
     # The tenth of March, winter time in Berlin, an hour ahead of UTC.
     assert saison.start == datetime(2026, 3, 9, 23, 0, tzinfo=UTC)
     assert saison.opening_spiel.model_dump() == {
         "datum": "2026-03-10",
         "uhrzeit": "15:00:00",
         "spieltag_position": 2,
-        "team1": {"team_id": str(BETA), "name": "Beta", "shorthand": "BET"},
-        "team2": {"team_id": str(ALPHA), "name": "Alpha", "shorthand": "ALP"},
+        "team1": {"name": "Beta", "shorthand": "BET"},
+        "team2": {"name": "Alpha", "shorthand": "ALP"},
     }
 
 
@@ -208,7 +208,7 @@ def test_a_season_past_its_start_date_runs_before_its_first_match(mongo_url: str
 
     saison = landing(mongo_url, STARTED_DATABASE_NAME).saison
 
-    assert (saison.state, saison.opening_spiel, saison.recent, [spiel.spiel_nr for spiel in saison.upcoming]) == ("running", None, [], [1])
+    assert (type(saison), saison.recent, [spiel.spiel_nr for spiel in saison.upcoming]) == (FLLandingRunning, [], [1])
 
 
 @pytest.mark.parametrize(
@@ -246,8 +246,8 @@ def test_a_season_whose_final_is_played_shows_its_podium(mongo_url: str):
 
     saison = landing(mongo_url, DECIDED_DATABASE_NAME).saison
 
-    assert (saison.state, saison.recent, saison.upcoming) == ("decided", [], [])
-    assert [(place.platz, place.team and place.team.name) for place in saison.podium] == [(1, "Alpha"), (2, "Beta"), (3, "Dora"), (4, "Cara")]
+    assert (type(saison), saison.state) == (FLLandingDecided, "decided")
+    assert [place and place.name for place in saison.podium] == ["Alpha", "Beta", "Dora", "Cara"]
     assert saison.counts.count_tore == 7
 
 
@@ -275,8 +275,8 @@ def test_a_place_decided_after_its_club_left_is_served_vacant_and_the_season_dec
 
     saison = landing(mongo_url, VACATED_DATABASE_NAME).saison
 
-    assert saison.state == "decided"
-    assert [(place.platz, place.team and place.team.name) for place in saison.podium] == [(1, "Alpha"), (2, "Beta"), (3, "Dora"), (4, None)]
+    assert type(saison) is FLLandingDecided
+    assert [place and place.name for place in saison.podium] == ["Alpha", "Beta", "Dora", None]
 
 
 @pytest.mark.db
@@ -298,7 +298,7 @@ def test_a_season_whose_third_place_match_is_not_played_reads_running_its_last_r
 
     saison = landing(mongo_url, THIRD_UNPLAYED_DATABASE_NAME).saison
 
-    assert (saison.state, saison.podium) == ("running", None)
+    assert type(saison) is FLLandingRunning
     assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == ([3], [2])
 
 

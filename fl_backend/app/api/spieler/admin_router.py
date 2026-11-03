@@ -263,10 +263,17 @@ async def post_saison_spieler(
         # Asked first: a cap on a squad the club does not have is not a fact worth reporting.
         refuse(find_squad_refusal(team_in_saison=team_in_saison))
 
-        saison_raw = await refuse_a_full_squad(
+        saison_raw = await pull_one_from_db(
+            collection=saisons_collection,
+            db_filter={"_id": saison_spieler_data.saison_id},
+            projection=["rules", "start_date"],
+            session=session,
+        )
+        await refuse_a_full_squad(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_spieler_data.saison_id,
+            rules=saison_raw["rules"],
             team_id=saison_spieler_data.team_id,
             spieler_id=spieler_id,
             session=session,
@@ -290,7 +297,7 @@ async def post_saison_spieler(
             "spieler_id": spieler_id,
             **saison_spieler_data.model_dump(mode="json", exclude={"team_id"}),
             "team_id": saison_spieler_data.team_id,
-            # The start every start lock reads, off the cap's read of the season.
+            # The start every start lock reads, off the one read of the season the cap is judged on.
             "is_nachnominiert": has_started(start_date=saison_raw["start_date"], today=today),
             "inactive_since": None,
         }
@@ -340,12 +347,14 @@ async def patch_saison_spieler(
         ) > 0
         refuse(find_squad_refusal(team_in_saison=team_in_saison))
 
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
         # The team the payload NAMES, never the one the row currently holds: a transfer is judged
         # against where the player is going.
         await refuse_a_full_squad(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_id,
+            rules=saison_raw["rules"],
             team_id=saison_spieler_data.team_id,
             spieler_id=spieler_id,
             session=session,
@@ -460,10 +469,12 @@ async def reactivate_saison_spieler(
         # about a club the season does not hold.
         refuse(find_squad_refusal(team_in_saison=team_in_saison))
 
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
         await refuse_a_full_squad(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_id,
+            rules=saison_raw["rules"],
             team_id=stored_raw["team_id"],
             spieler_id=spieler_id,
             session=session,

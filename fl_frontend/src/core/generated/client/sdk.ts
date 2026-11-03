@@ -147,7 +147,6 @@ import type {
   FLReplaceSaisonTeamResponse,
   FLSaisonFrameResponse,
   FLSaisonsAdminListResponse,
-  FLSaisonsListResponse,
   FLSaisonSpielerResponse,
   FLSaisonsSingleResponse,
   FLSaisonTeamAccountEinwilligungResponse,
@@ -216,7 +215,6 @@ import type {
   RegistrierungenGetOpenRegistrierungenParams,
   RegistrierungenGetRegistrierungenParams,
   SaisonsGetInvitationsDispatchPreviewParams,
-  SaisonsGetSaisonsParams,
   SaisonsGetSaisonsVerwaltungParams,
   SchiedsrichterGetSchiedsrichterParams,
   SpielberichteGetSpielberichteParams,
@@ -2523,28 +2521,6 @@ export const registrierungenDecline = async (
   });
 };
 
-export const getSaisonsGetSaisonsUrl = (params?: SaisonsGetSaisonsParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/saisons?${stringifiedParams}` : `/api/v0/saisons`;
-};
-
-/**
- * Every season the public may read, a `future` one never among them, narrowed by `status` to `past` or `active`.
- *
- * Without `status` it lists them all, never the season the site is on alone.
- * @summary List Saisons
- */
-export const saisonsGetSaisons = async (
-  params?: SaisonsGetSaisonsParams,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLSaisonsListResponse> => {
-  return baseKeyTransport<FLSaisonsListResponse>(getSaisonsGetSaisonsUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSaisonsPostSaisonUrl = () => {
   return `/api/v0/saisons`;
 };
@@ -2577,21 +2553,6 @@ export const saisonsPostSaison = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLPostSaisonPayload),
-  });
-};
-
-export const getSaisonsGetActiveSaisonUrl = () => {
-  return `/api/v0/saisons/active`;
-};
-
-/**
- * Return the season currently marked active -- what every other endpoint resolves an omitted `saison_id` against.
- * @summary The active Saison
- */
-export const saisonsGetActiveSaison = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSaisonsSingleResponse> => {
-  return baseKeyTransport<FLSaisonsSingleResponse>(getSaisonsGetActiveSaisonUrl(), {
-    ...options,
-    method: "GET",
   });
 };
 
@@ -2634,7 +2595,7 @@ export const getSaisonsGetSaisonsVerwaltungUrl = (params?: SaisonsGetSaisonsVerw
 };
 
 /**
- * List every season, the `future` ones `GET /saisons` withholds included, each with whether it has started and has been played.
+ * List every season, the `future` ones every base-tier read withholds included, each with whether it has started and has been played.
  *
  * The admin surfaces read here because a season is created `future` and clubs are entered while it
  * still is, so an admin who cannot see one cannot run the league. `begun` is the start every

@@ -26,10 +26,11 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { formOf, readLanding, stateOf } from "./landing";
 
 import type { CalendarDay } from "@/core/format";
-import type { FLBewerbungWindow, FLLandingSaison } from "@/core/generated/client/types";
+import type { FLBewerbungWindow } from "@/core/generated/client/types";
 import type { LandingContent } from "@/kit/LandingPage";
 import type { Metadata, ResolvingMetadata, Route } from "next";
 import type { ComponentProps, ReactElement, ReactNode } from "react";
+import type { LandingSaison } from "./landing";
 
 const words = SERVER_COPY.landing;
 
@@ -40,7 +41,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 /** The way to the league's own page, which stands where applying would while no window is open. */
 const ABOUT = { label: COPY.page.about, href: ROUTES.about.path() };
 
-/** The question's door: the league's address and its two networks (D247, D481). */
+/** The question's door: the league's address and its two networks. */
 const QUESTION: ComponentProps<typeof Doors>["question"] = {
   ...words.doors.question,
   email: { label: words.contact.email, href: `mailto:${KONTAKT_EMAIL}` as Route, glyph: "email" },
@@ -49,7 +50,7 @@ const QUESTION: ComponentProps<typeof Doors>["question"] = {
 };
 
 /** The season's card, or the one sentence that the league has none yet. */
-function asideOf(saison: FLLandingSaison | null, window: FLBewerbungWindow | null): ReactElement {
+function asideOf(saison: LandingSaison | null, window: FLBewerbungWindow | null): ReactElement {
   if (saison === null) {
     return window === null ? (
       <EmptyState
@@ -72,7 +73,7 @@ function asideOf(saison: FLLandingSaison | null, window: FLBewerbungWindow | nul
 }
 
 /** The sections under the hero; the season's figures and schools only while the league has a season. */
-function sectionsOf(saison: FLLandingSaison | null, window: FLBewerbungWindow | null): ReactNode {
+function sectionsOf(saison: LandingSaison | null, window: FLBewerbungWindow | null): ReactNode {
   return (
     <>
       <LandingSection
@@ -187,7 +188,7 @@ async function contentOf(): Promise<LandingContent> {
   };
 }
 
-/** The landing: the league in one screen, then how it works, who runs it and the ways in (D207, D226 to D231, D247). */
+/** The landing: the league in one screen, then how it works, who runs it and the ways in. */
 export default function HomePage() {
   return (
     <>

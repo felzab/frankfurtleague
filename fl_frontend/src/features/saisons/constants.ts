@@ -27,9 +27,10 @@ export const MAX_QUALIFIERS = 2 ** (SAISON_PHASE_OPTIONS.length - 1);
 
 /**
  * The smallest bracket the rules take, mirroring `fl_backend/app/api/spiele/schemas.py :: MIN_QUALIFIERS`:
- * one with semi-finals, so a match for third place and four places.
+ * one with semi-finals, so a match for third place and four places. Derived from the rounds the Halbfinale opens,
+ * as the cap is, so both ends read one phase order.
  */
-export const MIN_QUALIFIERS = 4;
+export const MIN_QUALIFIERS = 2 ** (SAISON_PHASE_OPTIONS.length - SAISON_PHASE_OPTIONS.indexOf(FLSaisonPhase.halbfinale));
 
 /**
  * Each phase's German name, spelled once in the catalogue, for every surface. Not an export from

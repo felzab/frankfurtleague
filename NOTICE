@@ -34,7 +34,7 @@ Software stays with the holder named above.
      fl_frontend/src/app/icon.svg
      fl_frontend/src/app/favicon.ico
      fl_frontend/src/app/apple-icon.png
-     fl_frontend/src/app/opengraph-image.png
+     fl_frontend/src/app/share-image.png
      fl_frontend/public/icons/manifest/
      fl_frontend/src/shared/components/ui/FLLogo.tsx
 

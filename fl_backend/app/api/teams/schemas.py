@@ -695,12 +695,8 @@ class FLReplaceSaisonTeamPayload(BaseModel):
     incoming_team_id: CustomObjectId
 
 
-class FLPublicTeamsFilterParams(BaseModel):
-    """What a base-tier view's club read narrows on. `include_inactive` is on the admin model below alone.
-
-    A standings row names no leaving date, so a base-tier read that un-hid a retired club would say
-    nothing about which one had left (`READ-SQUAD-002`).
-    """
+class FLTeamsFilterParams(BaseModel):
+    """What a club read narrows on: the admin list's query, and the season views' and the club page's reads built in code."""
 
     # No `team_id`: one team by its id is addressed by `GET /teams/{team_id}`; this narrows a list.
     saison_id: str | None = None
@@ -720,16 +716,9 @@ class FLPublicTeamsFilterParams(BaseModel):
     sort_by: Literal["name"] = Field(default="name")
     order: FLSortOrder = Field(default="asc")
 
-
-class FLTeamsFilterParams(FLPublicTeamsFilterParams):
-    """The same filters plus the one switch a base-tier caller is not offered.
-
-    An extension rather than a second declaration, as `FLSpielerAdminSingleResponse` is: two
-    spellings of one filter set drift on every field they share.
-    """
-
-    # Retired CLUBS, for the admin pickers and for `GET /teams/{team_id}`, which is handed an id
-    # rather than discovering one.
+    # Retired CLUBS, for the admin pickers and for a read handed one club's id rather than discovering one. Never on a
+    # base-tier list: a standings row names no leaving date, so a list that un-hid a retired club would say nothing
+    # about which one had left (`READ-SQUAD-002`).
     include_inactive: bool = False
 
 

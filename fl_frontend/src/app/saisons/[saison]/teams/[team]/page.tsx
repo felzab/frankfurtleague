@@ -139,7 +139,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
           mark: { record: formatNumber(index + 1) },
           counts: true,
           outcome: outcomeFor(spiel, team.id),
-          title: matchdayOf(spiel, spiel.spieltag_position),
+          title: matchdayOf(spiel, spiel),
           children: <SpielList matches={[matchRowOf(spiel)]} />,
         })),
         empty: { kind: "none", plural: COPY.page.spiele },
