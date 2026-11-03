@@ -573,7 +573,7 @@ def build_tabelle(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rule
     still_in = frozenset(team.id for team in teams if in_the_season_when_decided(team.austritt, decided_on.get(team.gruppe)))
 
     tabelle: dict[FLGruppenNames, list[FLTabelleRow]] = {}
-    for name, ranked in _ranked_bands(teams, spiele, rules).items():
+    for name, ranked in _ranked_bands(teams, by_gruppe, rules).items():
         placed: list[FLTabelleRow] = []
         platz = 1
         for band in ranked:
@@ -816,18 +816,14 @@ def _placings(
 
 
 def _ranked_bands(
-    teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rules: FLSaisonRules
+    teams: Sequence[FLTeam], by_gruppe: Mapping[FLGruppenNames, Sequence[FLSpielCommon]], rules: FLSaisonRules
 ) -> dict[FLGruppenNames, list[list[FLGruppenTeam]]]:
     """Every group the season offers as its standing's bands, a band of several being clubs the chain leaves level.
 
-    Seeded from that count rather than the teams present: a group nobody stands in keeps its key, and
-    the closed set here would answer a smaller season groups it never ran.
+    `by_gruppe` is `_spiele_by_gruppe`'s split of the season's fixtures, which the caller has already made. Seeded from
+    the count of groups rather than the teams present: a group nobody stands in keeps its key, and the closed set here
+    would answer a smaller season groups it never ran.
     """
-
-    teams = list(teams)
-
-    gruppe_of: dict[CustomObjectId, FLGruppenNames] = {team.id: team.gruppe for team in teams}
-    by_gruppe, _ = _spiele_by_gruppe(spiele, gruppe_of)
 
     grouped: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in offered_gruppen(rules.number_of_gruppen)}
     for team in teams:
@@ -841,7 +837,7 @@ def _ranked_bands(
         grouped[team.gruppe].append(team)
 
     # Every figure is final AS A READING OF NOW, which is what lets the whole chain apply.
-    everyone = frozenset(gruppe_of)
+    everyone = frozenset(team.id for team in teams)
 
     return {
         name: [
