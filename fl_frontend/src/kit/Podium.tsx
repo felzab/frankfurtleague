@@ -1,4 +1,4 @@
-import { textOf } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
 
@@ -39,14 +39,17 @@ const podium = tv({
 });
 
 /**
- * A place's plaque and name. A vacant place draws the dashed open plaque, which names nothing, and its label in the
- * name's stead, so the label is what a screen reader reads for it.
+ * A place's plaque and name. A vacant place draws the dashed open plaque holding the dash, which already says no
+ * club stands there, and its label one rung under a name, 12 px muted, so it says why without standing where a
+ * club's name would; the label alone is what a screen reader reads for it.
  */
 function Who({ club, nameClass }: { club: Place; nameClass: string }) {
   return club === null ? (
     <>
-      <TeamPlaque plaque={{ quelle: null }} />
-      <span className={nameClass}>{SERVER_COPY.landing.saison.vacant}</span>
+      <span aria-hidden>
+        <TeamPlaque plaque={{ quelle: COPY.shared.noValue }} />
+      </span>
+      <span className="min-w-0 text-xs text-fg-muted">{SERVER_COPY.landing.saison.vacant}</span>
     </>
   ) : (
     <>

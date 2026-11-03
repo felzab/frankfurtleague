@@ -178,7 +178,8 @@ describe("the season's card once decided", () => {
     );
   });
 
-  // D499: a place left vacant keeps its step or row, labelled in the name's stead, so it reads as a place without a club.
+  // A place left vacant keeps its step or row, the dashed plaque and its label in the name's stead, so it reads as a
+  // place without a club.
   it("labels a vacant step and a vacant fourth place in the club's stead", () => {
     render(
       <SaisonBlock
@@ -199,9 +200,9 @@ describe("the season's card once decided", () => {
       within(screen.getByRole("list"))
         .getAllByRole("listitem")
         .map((place) => place.textContent),
-    ).toStrictEqual(["LIELiebig1", `${vacant}2`, "CMSCarlo-Mierendorff3"]);
+    ).toStrictEqual(["LIELiebig1", `${COPY.shared.noValue}${vacant}2`, "CMSCarlo-Mierendorff3"]);
     expect(screen.getByText(SERVER_COPY.landing.saison.place(4)).parentElement?.textContent).toBe(
-      `${SERVER_COPY.landing.saison.place(4)}${vacant}`,
+      `${SERVER_COPY.landing.saison.place(4)}${COPY.shared.noValue}${vacant}`,
     );
   });
 });
