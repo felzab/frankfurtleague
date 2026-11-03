@@ -32,10 +32,12 @@ export async function generateMetadata(props: NextPageProps<{ saison_id: string 
   return {
     title: `Bewerbung Saison ${saison_id}`,
     openGraph: await openGraphFor(parent, `/bewerbung/${saison_id}`),
-    alternates: { canonical: `/bewerbung/${saison_id}` },
     // A season with no deadline recorded, or a window this read could not reach, is one sentence rather
-    // than content: an indexed copy outlives the day the window is there to show.
-    ...(antwort === undefined || antwort.window === null ? { robots: { index: false } } : {}),
+    // than content: an indexed copy outlives the day the window is there to show. A canonical names the
+    // address to list, which a page kept out of the index has none of, so only the indexed branch declares one.
+    ...(antwort === undefined || antwort.window === null
+      ? { robots: { index: false } }
+      : { alternates: { canonical: `/bewerbung/${saison_id}` } }),
   };
 }
 
