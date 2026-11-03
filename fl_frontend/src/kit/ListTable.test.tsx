@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { ListMatches, ListQueryScope, ListSearchField, ListTable } from "./ListTable";
+import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 
 import type { ReactNode } from "react";
 import type { TableProps } from "./Table";
@@ -120,5 +120,35 @@ describe("the Spielsuche's matches", () => {
 
     await userEvent.type(screen.getByRole("searchbox"), "x");
     expect(screen.getByText(COPY.shared.empty.search(COPY.page.spiele))).toBeTruthy();
+  });
+});
+
+describe("Teams' tiles", () => {
+  const tile = (id: string, name: string, kuerzel: string) => ({
+    tile: { name: { record: name }, plaque: { record: kuerzel }, href: `/saisons/2027/teams/${id}` as const },
+    words: `${name} ${kuerzel}`,
+  });
+
+  // A club is known by its Kürzel as much as by its name: the plaques on every match row show the Kürzel alone.
+  it("finds a club by its name or its Kürzel, and says so in the list's words where none holds them", async () => {
+    render(
+      <Searched>
+        <ListTiles
+          tiles={[tile("1", "Elisabethenschule", "ELS"), tile("2", "Birken-Schule", "BKS")]}
+          empty={{ kind: "none", plural: COPY.page.teams }}
+        />
+      </Searched>,
+    );
+
+    await userEvent.type(screen.getByRole("searchbox"), "bks");
+    expect(screen.getByRole("link", { name: /Birken-Schule/ })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Elisabethenschule/ })).toBe(null);
+
+    await userEvent.clear(screen.getByRole("searchbox"));
+    await userEvent.type(screen.getByRole("searchbox"), "Elisa");
+    expect(screen.getByRole("link", { name: /Elisabethenschule/ })).toBeTruthy();
+
+    await userEvent.type(screen.getByRole("searchbox"), "x");
+    expect(screen.getByText(COPY.shared.empty.search(COPY.page.teams))).toBeTruthy();
   });
 });
