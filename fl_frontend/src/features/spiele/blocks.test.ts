@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { outcomeFor } from "./blocks";
+import { COPY } from "@/core/copy";
+
+import { ereignisOf, matchRowOf, outcomeFor, popupFactsOf } from "./blocks";
 
 import type { FLSonderereignis, FLSpielJoined } from "@/core/generated/client/types";
 
@@ -48,5 +50,82 @@ describe("how a match went for one of its clubs", () => {
   it("scores a forfeit and an abandoned match by the result entered", () => {
     expect(outcomeFor(spiel([3, 0], "nichtantreten_team2"), GOETHE)).toBe("won");
     expect(outcomeFor(spiel([0, 3], "abgebrochen"), GOETHE)).toBe("lost");
+  });
+});
+
+describe("a match as a row", () => {
+  it("opens the match's page and carries a shoot-out's goals beside the match's own", () => {
+    const row = matchRowOf({ ...spiel([1, 1]), elfmeterschiessen: { team1: 4, team2: 3 } });
+    expect(row.href).toBe(`/saisons/2027/spiele/${"2".repeat(24)}`);
+    expect(row.result).toStrictEqual({ tore: { team1: 1, team2: 1 }, elfmeterschiessen: { team1: 4, team2: 3 } });
+  });
+
+  // A row with a result draws its figures; one drawn for an unplayed match would read 0:0.
+  it("carries no result until one is entered", () => {
+    expect(matchRowOf(spiel(null)).result).toBeUndefined();
+  });
+
+  it("names a side the draw has not settled by its source, short in the plaque", () => {
+    const row = matchRowOf({
+      ...spiel(null),
+      team1: null,
+      team2: null,
+      team1_quelle: { type: "gruppe", gruppe: "A", platz: 1 },
+      team2_quelle: { type: "spiel", spiel_nr: 25, ausgang: "verlierer" },
+    });
+    const { quelle } = COPY.spielplan;
+    expect(row.home).toStrictEqual({ name: quelle.gruppe("A", 1), plaque: { quelle: quelle.gruppeShort("A", 1) } });
+    expect(row.away).toStrictEqual({ name: quelle.verlierer(25), plaque: { quelle: quelle.verliererShort(25) } });
+  });
+});
+
+describe("what befell a match", () => {
+  // Read backwards, the pop-up and the match page would publish that the wrong school failed to turn up.
+  it("names the side that did not turn up, and gives the match to the side that did", () => {
+    const { sonderereignis } = COPY.spielplan;
+    expect(ereignisOf(spiel([0, 3], "nichtantreten_team1"))).toStrictEqual({
+      title: sonderereignis.nichtAngetreten({ record: "Goethe" }),
+      text: sonderereignis.consequence.nichtAngetreten({ record: "Helmholtz" }),
+    });
+    expect(ereignisOf(spiel([3, 0], "nichtantreten_team2"))).toStrictEqual({
+      title: sonderereignis.nichtAngetreten({ record: "Helmholtz" }),
+      text: sonderereignis.consequence.nichtAngetreten({ record: "Goethe" }),
+    });
+  });
+
+  it("says whether an abandoned match is scored by whether a result is entered", () => {
+    const { consequence } = COPY.spielplan.sonderereignis;
+    expect(ereignisOf(spiel(null, "abgebrochen"))?.text).toBe(consequence.abgebrochenOpen);
+    expect(ereignisOf(spiel([2, 1], "abgebrochen"))?.text).toBe(consequence.abgebrochenScored);
+  });
+
+  it("is nothing for a match simply played", () => {
+    expect(ereignisOf(spiel([2, 1]))).toBeNull();
+  });
+});
+
+describe("the pop-up's facts", () => {
+  const booked: FLSpielJoined = {
+    ...spiel(null),
+    ort: { spielort_id: "4".repeat(24), name: "Sportplatz Ahornweg", maps_link: "Sportplatz Ahornweg, Ahornweg 2" },
+    schiedsrichter: { name: "Anna A.", name_is_public: true },
+  };
+  const { fact } = COPY.spielplan;
+
+  it("leave out every value the match does not hold", () => {
+    expect(popupFactsOf({ ...booked, datum: null, uhrzeit: null, ort: null, schiedsrichter: null })).toStrictEqual([]);
+    expect(popupFactsOf(booked).map((each) => each.label)).toStrictEqual([fact.datum, fact.uhrzeit, fact.spielort, fact.schiedsrichter]);
+  });
+
+  it("hold no referee whose name the public read withholds", () => {
+    const labels = popupFactsOf({ ...booked, schiedsrichter: { name: null, name_is_public: false } }).map((each) => each.label);
+    expect(labels).not.toContain(fact.schiedsrichter);
+  });
+
+  it("link the venue to its map on another site", () => {
+    expect(popupFactsOf(booked).find((each) => each.label === fact.spielort)?.elsewhere).toStrictEqual({
+      href: "https://www.google.com/maps/search/?api=1&query=Sportplatz%20Ahornweg%2C%20Ahornweg%202",
+      label: { record: "Sportplatz Ahornweg" },
+    });
   });
 });
