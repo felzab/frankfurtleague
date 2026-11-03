@@ -320,6 +320,8 @@ export const COPY = catalogue({
   template: {
     /** The phone bar's place opening the rest of the menu, and the link at the end of a folded text's third line. */
     more: "Mehr",
+    /** The same link once the folded text is open, naming the press that folds it again. */
+    less: "Weniger",
     /** The name of a frame's menu, the rail's and the phone bar's. */
     navigation: "Navigation",
     /** The account's place: the rail's account row and the phone bar's avatar. */
