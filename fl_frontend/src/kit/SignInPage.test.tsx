@@ -69,7 +69,7 @@ describe("the sign-in template", () => {
         row={null}
         sentence={WORDS.codeOnItsWay}
         address={ADDRESS}
-        code={{ label: WORDS.code, attempt: 0, isDisabled: false, onComplete: () => undefined }}
+        code={{ label: WORDS.code, error: null, attempt: 0, isDisabled: false, onComplete: () => undefined }}
         back={{ label: WORDS.otherAddress, onPress: () => undefined }}
       />,
     );

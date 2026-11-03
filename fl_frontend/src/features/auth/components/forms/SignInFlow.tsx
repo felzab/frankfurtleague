@@ -82,13 +82,22 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
       else setCodeFehler(checked.wroteNothing ? COPY.shared.failure.tooManyAttempts : COPY.shared.failure.unexpected);
     };
 
+    // The typed code's own refusal is a phrase under its boxes; every other answer is a sentence on the status line.
+    const imFeld = codeFehler === COPY.signIn.refusal.codeWrong;
+
     return (
       <SignInPage
         view="code"
         title={COPY.signIn.inbox}
         sentence={COPY.signIn.codeOnItsWay}
         address={address}
-        code={{ label: COPY.signIn.code, attempt: versuch, isDisabled: pruefe, onComplete: (code) => void check(code) }}
+        code={{
+          label: COPY.signIn.code,
+          error: imFeld ? codeFehler : null,
+          attempt: versuch,
+          isDisabled: pruefe,
+          onComplete: (code) => void check(code),
+        }}
         back={{
           label: COPY.signIn.otherAddress,
           isDisabled: pruefe,
@@ -97,7 +106,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
             setVerlassen(answer);
           },
         }}
-        row={codeFehler}
+        row={imFeld ? null : codeFehler}
       />
     );
   }

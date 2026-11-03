@@ -1,4 +1,3 @@
-import { KONTAKT_EMAIL } from "./brand";
 import { formatDatum, formatDatumLong, formatDatumWithWeekday, formatErgebnis, formatNumber, formatUhrzeit } from "./format";
 
 import type { CalendarDay, Pair, Uhrzeit } from "./format";
@@ -386,16 +385,16 @@ export const COPY = catalogue({
     /**
      * The code's and the passkey's refusals: the code route answers them, and the page finds each one here
      * again. A barred address and one holding no record meet one sentence, so nobody can probe the ban list.
+     * The typed code's own refusal is a phrase under its boxes; every other is a sentence on the status line.
      */
     refusal: {
-      codeWrong: "Der Code stimmt nicht oder gilt nicht mehr. Nimm den Code aus der neuesten E-Mail oder fordere einen neuen an.",
-      codeExpired: "Der Code ist abgelaufen. Fordere einen neuen an.",
-      codeTooOften: "Zu viele Versuche mit diesem Code. Fordere einen neuen an.",
-      addressTooOften: (hours: number) =>
-        `Zu viele Versuche mit dieser Adresse. Melde dich mit einem Passkey an oder versuche es in ${formatNumber(hours)} Stunden erneut.`,
-      codeUsedUp: "Die Anmeldung hat gerade nicht geklappt, und dein Code ist damit verbraucht. Fordere in ein paar Minuten einen neuen an.",
-      noRecord: `Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`,
-      unverified: "Dieser Passkey hat nicht bestätigt, dass du es bist. Nimm einen Passkey mit PIN, Fingerabdruck oder Gesichtserkennung.",
+      codeWrong: "Falsch oder nicht mehr gültig",
+      codeExpired: "Der Code ist abgelaufen.",
+      codeTooOften: "Zu viele Versuche mit diesem Code.",
+      addressTooOften: (hours: number) => `Mit dieser Adresse geht die Anmeldung per Code erst in ${formatNumber(hours)} Stunden wieder.`,
+      codeUsedUp: "Die Anmeldung hat nicht geklappt, und dein Code ist verbraucht.",
+      noRecord: "Mit dieser Adresse ist derzeit keine Anmeldung möglich.",
+      unverified: "Dieser Passkey hat nicht bestätigt, dass du es bist.",
     },
   },
 

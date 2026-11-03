@@ -294,7 +294,7 @@ describe("what a typed code answers", () => {
     const sessions = store.session.length;
     const typed = await typeTheCode(GRANTED, code);
 
-    expect(await typed.json()).toStrictEqual({ success: false, error: "Der Code ist abgelaufen. Fordere einen neuen an." });
+    expect(await typed.json()).toStrictEqual({ success: false, error: COPY.signIn.refusal.codeExpired });
     expect(store.session.length, "an expired code still minted a session").toBe(sessions);
   });
 });
