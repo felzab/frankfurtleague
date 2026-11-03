@@ -826,7 +826,9 @@ class TestEveryWayThreeClubsCanStand:
         for case, rules, teams, spiele in every_three_club_group(a_team, played):
             groups += 1
             left_to_play = _still_to_play(spiele)
-            placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, left_to_play.get(team.id, 0), _decided_on(spiele)))
+            placeable = frozenset(
+                team.id for team in teams if _may_hold_a_platz(team, left_to_play.get(team.id, 0), _decided_on(spiele, teams))
+            )
             settled = frozenset(team.id for team in teams if left_to_play.get(team.id, 0) == 0)
 
             walked = _decide_one_gruppe(teams=teams, spiele=spiele, rules=rules, still_to_play=left_to_play, has_unattributable=False)
@@ -973,6 +975,15 @@ class TestAnExitIsWeighedAgainstTheDayItsGroupWasDecided:
         spiele.append(played(4, 2, 3, datum=None, sonderereignis=CALLED_OFF))
 
         assert platz_by_team_id(teams, spiele)[TEAM_ID.format(1)] == 1
+
+    def test_an_undated_call_off_fielding_the_departed_club_falls_on_its_exit(self, a_team: TeamFactory, played: MatchFactory):
+        """Dated, the same call-off would land on or after the exit and vacate the place, so undated it may not keep it."""
+
+        teams, spiele = self._group(a_team, played, austritt_on("2026-03-16"))
+        spiele.append(played(4, 1, 3, datum=None, sonderereignis=CALLED_OFF))
+
+        assert TEAM_ID.format(1) not in platz_by_team_id(teams, spiele)
+        assert standing(teams, spiele).by_platz[1].id == teams[1].id
 
     @pytest.mark.parametrize(("datum", "seeded"), [("2026-03-21", True), ("2026-03-20", False)], ids=["after", "on the day"])
     def test_the_walk_weighs_the_day_of_a_fixture_still_to_play(self, a_team: TeamFactory, played: MatchFactory, datum: str, seeded: bool):
