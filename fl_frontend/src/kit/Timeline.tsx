@@ -6,13 +6,16 @@ import type { Copy, Words } from "@/core/copy";
 import type { ReactNode } from "react";
 
 /**
- * One checkpoint: its mark inside the point (a matchday's number, a minute), its title and detail beside the
- * point, and what stands under them, such as a match card. The mark is read with the title, since a minute
- * says when a goal fell and nothing else does.
+ * One checkpoint: its mark inside the point (a club's running count of its matches, a minute), its title and
+ * detail beside the point, and what stands under them, such as a match card. A minute is read with the title,
+ * since it says when a goal fell and nothing else does; a count is not, the ordered list telling a screen reader
+ * each checkpoint's place already, so „1“ is never read out before „1. Spieltag“.
  */
 export type Checkpoint = {
   id: string;
   mark: Words;
+  /** The mark counts the checkpoints, as a club's matches are numbered, rather than saying something of its own. */
+  counts?: true;
   title: Copy;
   detail?: Words;
   children?: ReactNode;
@@ -77,7 +80,11 @@ export function Timeline({ label, items }: { label: Copy; items: readonly Checkp
           key={item.id}
           className={slots.step()}>
           <div className={slots.line()}>
-            <span className={slots.point({ outcome: item.outcome })}>{textOf(item.mark)}</span>
+            <span
+              aria-hidden={item.counts}
+              className={slots.point({ outcome: item.outcome })}>
+              {textOf(item.mark)}
+            </span>
           </div>
           <div className={slots.body()}>
             <div className={slots.head()}>
