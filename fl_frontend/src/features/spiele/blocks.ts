@@ -31,11 +31,6 @@ import type { Route } from "next";
 const dayOf = (datum: string | null): CalendarDay | null => (datum === null ? null : (datum as CalendarDay));
 const timeOf = (uhrzeit: string | null): Uhrzeit | null => (uhrzeit === null ? null : (uhrzeit as Uhrzeit));
 
-/** The match between the two semi-finals' losers, as the read marks it: the one rule the podium reads too. */
-export function isThirdPlace(spiel: Pick<FLSpielJoined, "for_third_place">): boolean {
-  return spiel.for_third_place;
-}
-
 /** A match's matchday as the page reads serve it beside the match: its `position`, and its phase's count of matchdays. */
 type Matchday = Pick<FLSpielPageResponse, "spieltag_position" | "count_spieltage_in_phase">;
 
@@ -44,7 +39,7 @@ type Matchday = Pick<FLSpielPageResponse, "spieltag_position" | "count_spieltage
  * a knockout round spread over several matchdays numbered among them, and the third-place match by its own name.
  */
 export function matchdayOf(spiel: Pick<FLSpielJoined, "saison_phase" | "for_third_place">, matchday: Matchday): Copy {
-  if (isThirdPlace(spiel)) return SERVER_COPY.season.thirdPlace;
+  if (spiel.for_third_place) return SERVER_COPY.season.thirdPlace;
   return spieltagLabel({ phase: spiel.saison_phase, ordinal: matchday.spieltag_position, countInPhase: matchday.count_spieltage_in_phase });
 }
 
@@ -115,7 +110,7 @@ export function matchRowOf(spiel: FLSpielJoined): SpielRowProps & { id: string }
   return {
     id: spiel.id,
     href: ROUTES.spiel.path(spiel.saison_id, spiel.id),
-    when: isThirdPlace(spiel) ? SERVER_COPY.season.labelled(SERVER_COPY.season.thirdPlace, when) : when,
+    when: spiel.for_third_place ? SERVER_COPY.season.labelled(SERVER_COPY.season.thirdPlace, when) : when,
     home: heim,
     away: gast,
     ...resultOf(spiel),
