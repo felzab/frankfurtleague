@@ -6,20 +6,24 @@ import { COPY } from "@/core/copy";
 
 import SaisonsLayout from "./layout";
 
+import type { FLSaisonFrameResponse } from "@/core/generated/client/types";
+
 vi.mock("next/navigation", () => ({
   usePathname: () => "/saisons/2027",
   useParams: () => ({ saison: "2027" }),
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),
 }));
 vi.mock("next/server", () => ({ connection: async () => undefined }));
+// Typed whole, so a field the frame stops serving fails the compile rather than standing in the fixture.
 vi.mock("@/features/saisons/queries", () => ({
-  getSaisonFrame: async () => ({
-    saisons: [
-      { id: "2027", start_date: "2026-09-01", end_date: "2027-06-30", status: "active" },
-      { id: "2026", start_date: "2025-09-01", end_date: "2026-06-30", status: "past" },
-    ],
-    active_saison_id: "2027",
-  }),
+  getSaisonFrame: async () =>
+    ({
+      saisons: [
+        { id: "2027", start_date: "2026-09-01", end_date: "2027-06-30" },
+        { id: "2026", start_date: "2025-09-01", end_date: "2026-06-30" },
+      ],
+      active_saison_id: "2027",
+    }) satisfies FLSaisonFrameResponse,
 }));
 
 // Next keys a dynamic segment's subtree on its value, so whatever the `[saison]` layout draws is drawn anew
