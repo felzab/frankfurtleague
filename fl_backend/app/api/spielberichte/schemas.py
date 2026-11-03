@@ -339,17 +339,19 @@ class FLSpielberichtSpielerPublic(BaseReadModel):
 
 
 class FLSpielberichtTorPublic(BaseReadModel):
+    """One goal: `seite` is the scorer's own club, and an own goal (`eigentor`) counts for the other one."""
+
     seite: FLSpielSeite
-    minute: str
+    minute: CustomSpielberichtMinute
     eigentor: bool
     spieler: FLSpielberichtSpielerPublic
 
 
 class FLSpielberichtKartePublic(BaseReadModel):
-    """One card, its `grund` never served: a characterisation of a named pupil's conduct."""
+    """One card, `seite` its player's club, its `grund` never served: a characterisation of a named pupil's conduct."""
 
     seite: FLSpielSeite
-    minute: str
+    minute: CustomSpielberichtMinute
     farbe: FLKartenFarbe
     spieler: FLSpielberichtSpielerPublic
 

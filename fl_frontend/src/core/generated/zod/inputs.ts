@@ -2077,8 +2077,9 @@ export const SaisonsPostSpielplanBody = zod
 /**
  * Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.
  *
- * A club that left the season keeps its row and holds no `platz`, and neither does a club that has played no match,
- * listed after every club that has; 404 for a season this tier may not read.
+ * A club that left the season keeps its row; it holds no `platz` where it left before its group was decided, and
+ * neither does a club that has played no match, listed after every club that has; 404 for a season this tier may not
+ * read.
  * @summary One Saison's Tabelle
  */
 export const SaisonsGetTabelleParams = zod.object({

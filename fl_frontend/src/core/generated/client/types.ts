@@ -4425,7 +4425,7 @@ export interface FLSaisonAdmin {
 }
 
 /**
- * One season as the season pages' frame lists it: its id, its span and its status.
+ * One season as the season pages' frame lists it: its id and its span; which one the site is on is the response's.
  */
 export interface FLSaisonFrameEntry {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -4433,7 +4433,6 @@ export interface FLSaisonFrameEntry {
   id: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
-  status: FLSaisonStatus;
 }
 
 /**
@@ -4842,17 +4841,22 @@ export interface FLSpielberichtSpielerPublic {
 }
 
 /**
- * One card, its `grund` never served: a characterisation of a named pupil's conduct.
+ * One card, `seite` its player's club, its `grund` never served: a characterisation of a named pupil's conduct.
  */
 export interface FLSpielberichtKartePublic {
   farbe: FLKartenFarbe;
+  /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
   seite: FLSpielSeite;
   spieler: FLSpielberichtSpielerPublic;
 }
 
+/**
+ * One goal: `seite` is the scorer's own club, and an own goal (`eigentor`) counts for the other one.
+ */
 export interface FLSpielberichtTorPublic {
   eigentor: boolean;
+  /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
   seite: FLSpielSeite;
   spieler: FLSpielberichtSpielerPublic;

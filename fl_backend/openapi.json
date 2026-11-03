@@ -11143,7 +11143,7 @@
         "type": "object"
       },
       "FLSaisonFrameEntry": {
-        "description": "One season as the season pages' frame lists it: its id, its span and its status.",
+        "description": "One season as the season pages' frame lists it: its id and its span; which one the site is on is the response's.",
         "properties": {
           "end_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -11158,16 +11158,12 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Start Date",
             "type": "string"
-          },
-          "status": {
-            "$ref": "#/components/schemas/FLSaisonStatus"
           }
         },
         "required": [
           "id",
           "start_date",
-          "end_date",
-          "status"
+          "end_date"
         ],
         "title": "FLSaisonFrameEntry",
         "type": "object"
@@ -14274,12 +14270,13 @@
         "type": "object"
       },
       "FLSpielberichtKartePublic": {
-        "description": "One card, its `grund` never served: a characterisation of a named pupil's conduct.",
+        "description": "One card, `seite` its player's club, its `grund` never served: a characterisation of a named pupil's conduct.",
         "properties": {
           "farbe": {
             "$ref": "#/components/schemas/FLKartenFarbe"
           },
           "minute": {
+            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
             "title": "Minute",
             "type": "string"
           },
@@ -14879,12 +14876,14 @@
         "type": "object"
       },
       "FLSpielberichtTorPublic": {
+        "description": "One goal: `seite` is the scorer's own club, and an own goal (`eigentor`) counts for the other one.",
         "properties": {
           "eigentor": {
             "title": "Eigentor",
             "type": "boolean"
           },
           "minute": {
+            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
             "title": "Minute",
             "type": "string"
           },
@@ -24969,7 +24968,7 @@
     },
     "/api/v0/saisons/{saison_id}/tabelle": {
       "get": {
-        "description": "Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.\n\nA club that left the season keeps its row and holds no `platz`, and neither does a club that has played no match,\nlisted after every club that has; 404 for a season this tier may not read.",
+        "description": "Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.\n\nA club that left the season keeps its row; it holds no `platz` where it left before its group was decided, and\nneither does a club that has played no match, listed after every club that has; 404 for a season this tier may not\nread.",
         "operationId": "saisons_get_tabelle",
         "parameters": [
           {

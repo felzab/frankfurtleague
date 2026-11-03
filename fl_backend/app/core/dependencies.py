@@ -65,8 +65,6 @@ SpieleReadCollection = Annotated[ReadCollection, Depends(collection_dependency(C
 
 SpielerReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SPIELER))]
 
-SpieltageReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SPIELTAGE))]
-
 TeamsReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.TEAMS))]
 
 SaisonsReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SAISONS))]

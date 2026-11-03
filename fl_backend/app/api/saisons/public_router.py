@@ -121,13 +121,12 @@ async def get_frame(saisons_collection: SaisonsCollection) -> FLSaisonFrameRespo
         projection=["_id", "start_date", "end_date", "status"],
         limit=LIST_LIMIT_MAX,
     )
-    saisons = FLSaisonFrameEntryListAdapter.validate_python(saisons_raw)
 
     # The stored status alone: `uniq_saison_active` holds at most one, and activating the next
     # season is the one write that moves it, so a finished season stays the site's until then.
-    active_saison_id = next((saison.id for saison in saisons if saison.status == "active"), None)
+    active_saison_id = next((str(raw["_id"]) for raw in saisons_raw if raw["status"] == "active"), None)
 
-    return FLSaisonFrameResponse(saisons=saisons, active_saison_id=active_saison_id)
+    return FLSaisonFrameResponse(saisons=FLSaisonFrameEntryListAdapter.validate_python(saisons_raw), active_saison_id=active_saison_id)
 
 
 # How many of the latest results, and of the next matches, the landing shows while the season runs.
@@ -136,7 +135,8 @@ LANDING_SPIELE: Final = 2
 
 _SPIELTAG_ROWS_AS = "spieltag_rows"
 
-# The matchday's `position` beside the match, which a match's page and the landing's opening match name it by, in the same aggregation.
+# The matchday's `position` beside the match, in the same aggregation: the landing's opening match, the club page's
+# matches and a match's page each name its matchday by it.
 _SPIELTAG_POSITION_LOOKUP: Mapping[str, Any] = {
     "$lookup": {
         "from": Collection.SPIELTAGE,
@@ -405,8 +405,9 @@ async def get_tabelle(
 ) -> FLTabelleResponse:
     """Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.
 
-    A club that left the season keeps its row and holds no `platz`, and neither does a club that has played no match,
-    listed after every club that has; 404 for a season this tier may not read.
+    A club that left the season keeps its row; it holds no `platz` where it left before its group was decided, and
+    neither does a club that has played no match, listed after every club that has; 404 for a season this tier may not
+    read.
     """
 
     saison = await resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id)
@@ -444,20 +445,6 @@ async def get_teams(saison_id: str, saisons_collection: SaisonsCollection, teams
     )
 
     return FLSaisonTeamsResponse(teams=teams)
-
-
-_SPIELTAG_ROWS_AS = "spieltag_rows"
-
-# The matchday's `position` beside the match, which the page's eyebrow names it by, in the same aggregation.
-_SPIELTAG_POSITION_LOOKUP: Mapping[str, Any] = {
-    "$lookup": {
-        "from": Collection.SPIELTAGE,
-        "localField": "spieltag_id",
-        "foreignField": "_id",
-        "pipeline": [{"$project": {"_id": 0, "position": 1}}],
-        "as": _SPIELTAG_ROWS_AS,
-    }
-}
 
 
 @router.get(f"/{{saison_id}}/teams{by_id('team_id')}", response_model=FLTeamPageResponse, summary="One team's page in one Saison")
