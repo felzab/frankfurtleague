@@ -57,7 +57,8 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+/** `modal` is the slot where a match row, on the landing or a season page, opens its match as a pop-up. */
+export default function RootLayout({ children, modal }: LayoutProps<"/">) {
   return (
     <html
       lang="de"
@@ -70,6 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <RootProviders>
           <ThemeColor />
           {children}
+          {modal}
         </RootProviders>
       </body>
     </html>

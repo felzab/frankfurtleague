@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import Image from "next/image";
 
@@ -69,16 +68,11 @@ export function ClassicFrame({
       <header className="sticky top-0 z-20 shrink-0 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] lg:px-8">
         <div className="@container mx-auto flex h-(--classic-header) w-full max-w-classic items-center gap-2 lg:gap-8">
           <Brand ground="band" />
-          {/* The links mark their page by the address, which a route below with a param no build knows, the
-              landing's match pop-up, has only on a request: they stream in their own boundary, as the rail
-              frame's menus do. */}
-          <Suspense fallback={null}>
-            <HeaderLinks
-              season={season}
-              links={links}
-              signIn={signIn}
-            />
-          </Suspense>
+          <HeaderLinks
+            season={season}
+            links={links}
+            signIn={signIn}
+          />
         </div>
       </header>
 
