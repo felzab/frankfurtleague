@@ -20,7 +20,7 @@ import type { EmptyStateProps } from "./EmptyState";
 type TableColumn = {
   key: string;
   label: Copy;
-  /** Figures, set in Inter with columns that line up and to the right. */
+  /** Figures, set in Inter with columns that line up, centred under their head as the rank is. */
   figures?: boolean;
   /** The column that decides, such as points: its figures in the strong weight. */
   strong?: boolean;
@@ -104,7 +104,10 @@ const table = tv({
   variants: {
     align: {
       start: { head: "text-start", cell: "text-start" },
-      end: { head: "text-end", cell: "text-end" },
+      // A league table's figures stand centred under their heads: a head wider than its figures, „Pkt.“ over „4“,
+      // reads as one column with them only centred over them, and the tabular figures keep each digit's width, so a
+      // column's values still line up.
+      figure: { head: "text-center", cell: "text-center" },
       centre: { head: "w-11 text-center", cell: "w-11 text-center text-fg-muted" },
     },
     // On a phone, 6-px padding, 12-px figures and heads at 10 px without their tracking, the rank 28 px wide.
@@ -167,8 +170,9 @@ const phoneOf = (column: TableColumn) => (column.hideOnPhone === true ? "hidden"
 /**
  * A cell's value. In a column where some row's figure is short of fixtures called off, every row keeps the
  * mark's slot at the figure's end, so the digits stand under each other whether a row carries the mark or
- * not; the mark, a small red „+N“, stands over the figure's top-right corner, three quarters of it right of
- * the corner, over the slot and clear of the digits, and its name tells a screen reader what no line explains.
+ * not, and as much room at its start, so the figure stays centred under its head; the mark, a small red „+N“,
+ * stands over the figure's top-right corner, three quarters of it right of the corner, over the slot and clear
+ * of the digits, and its name tells a screen reader what no line explains.
  * A record is its three counts, `RecordFigures`.
  */
 function Cell({ cell, slot }: { cell: TableCell | undefined; slot: boolean }) {
@@ -177,7 +181,7 @@ function Cell({ cell, slot }: { cell: TableCell | undefined; slot: boolean }) {
   const { value, cancelled } = typeof cell === "string" ? { value: cell, cancelled: 0 } : cell;
   if (!slot) return value;
   return (
-    <span className="inline-block pe-2">
+    <span className="inline-block px-2">
       <span className="relative inline-block">
         {value}
         {cancelled > 0 && (
@@ -278,7 +282,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                   key={column.key}
                   scope="col"
                   className={table({
-                    align: column.figures === true ? "end" : "start",
+                    align: column.figures === true ? "figure" : "start",
                     phone: phoneOf(column),
                     compact,
                   }).head()}>
@@ -311,7 +315,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                     <td
                       key={column.key}
                       className={table({
-                        align: column.figures === true ? "end" : "start",
+                        align: column.figures === true ? "figure" : "start",
                         figures: column.figures === true,
                         strong: column.strong === true,
                         phone: phoneOf(column),
