@@ -129,8 +129,8 @@ def find_rules_freeze_refusal(*, saison_status: str, started: bool, stored: FLSa
     Compared by value, so a dates-only edit resubmitting the stored rules passes.
     """
 
-    # `past` beside the start, so a finished season none of whose group fixtures carries a date stays
-    # frozen too.
+    # `past` beside the start, so a finished season stays frozen even where its stored `start_date` was
+    # moved past today.
     if not (started or saison_status == "past"):
         return None
 
