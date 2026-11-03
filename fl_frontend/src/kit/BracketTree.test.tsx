@@ -1,5 +1,9 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { render, screen, within } from "@testing-library/react";
+import postcss from "postcss";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -89,5 +93,35 @@ describe("the K.-o.-Baum", () => {
       [SERVER_COPY.season.thirdPlace, 1],
       ["Finale", 1],
     ]);
+  });
+});
+
+/** The phone's card width the token sets, in px at the root's 16-px rem. */
+function phoneCardWidth(): number {
+  const file = path.resolve(import.meta.dirname, "..", "app", "tokens.css");
+  let width = Number.NaN;
+  postcss.parse(readFileSync(file, "utf8"), { from: file }).walkDecls("--container-bracket-phone", (declaration) => {
+    width = Number(/^([\d.]+)rem$/.exec(declaration.value)?.[1]) * 16;
+  });
+  return width;
+}
+
+// jsdom lays nothing out, so the fit is held by the token and the card's classes: a sideways scroll on a phone shows
+// on screen alone, where nothing but an eye would catch it.
+describe("the K.-o.-Baum on a phone", () => {
+  it("fits four cards across a 360-px phone inside the page's 16-px gutters", () => {
+    render(<BracketTree rounds={bracket(3)} />);
+    const [first] = screen.getAllByRole("list");
+    const cards = within(first as HTMLElement)
+      .getAllByRole("link")
+      .map((link) => link.closest("li")?.firstElementChild);
+
+    expect(cards).toHaveLength(4);
+    for (const card of cards) {
+      // Below `lg` the card takes no side padding of its own, so its width is the token's alone.
+      expect(card?.className.split(" ").filter((name) => /^p[xlrse]?-/.test(name))).toStrictEqual([]);
+      expect(card?.classList).toContain("w-bracket-phone");
+    }
+    expect(4 * phoneCardWidth() + 2 * 16).toBeLessThanOrEqual(360);
   });
 });

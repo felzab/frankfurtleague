@@ -27,8 +27,10 @@ const tree = tv({
     root: "overflow-x-auto [--bracket-gap:2rem] [--bracket-third-bus:0.875rem] [--bracket-third-inset:1.5rem] lg:[--bracket-gap:3rem]",
     row: "grid",
     cell: "flex justify-center",
-    // One column wide whatever its match spans, so every card of the tree is the same size.
-    card: "w-bracket-phone px-1 lg:max-w-bracket lg:px-2",
+    // One column wide whatever its match spans, so every card of the tree is the same size. On a phone the card is as
+    // wide as its token alone, the room between two cards what the round's equal columns leave over, so four
+    // across fit a 360-px phone inside the page's gutters; from `lg` it keeps 8 px of room on each side.
+    card: "w-bracket-phone lg:max-w-bracket lg:px-2",
     gap: "block h-(--bracket-gap)",
     feed: "relative h-(--bracket-gap)",
     // From each card of a pair down, across between them, and down to the match they feed.
