@@ -6,7 +6,7 @@ import { INSTAGRAM_URL, THREADS_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SPONSORS } from "@/features/meta/constants";
-import { getActiveSaisonOrNull } from "@/features/saisons/queries";
+import { getSaisonFrame } from "@/features/saisons/queries";
 
 import type { HeaderLink } from "@/kit/FrameNav";
 import type { ReactNode } from "react";
@@ -18,14 +18,15 @@ const LEGAL_NOTICE = { label: COPY.page.legalNotice, href: ROUTES.legalNotice.pa
 const PRIVACY_NOTICE = { label: COPY.page.privacyNotice, href: ROUTES.privacyNotice.path() };
 
 /**
- * The season the site is on, as the header's first entry: its name, leading to its Spielplan. Read on a request,
- * so the frame's prerendered shell holds none: the image's build reaches no backend.
+ * The season the site is on, as the header's first entry: its name, leading to its Spielplan. Read from the frame,
+ * the season pages' one source for it, on a request, so the frame's prerendered shell holds none: the image's
+ * build reaches no backend.
  */
 async function readSeasonEntry(): Promise<HeaderLink | null> {
   await connection();
-  const active = await getActiveSaisonOrNull();
+  const { active_saison_id: active } = await getSaisonFrame();
   if (active === null) return null;
-  return { label: COPY.shared.saisonName(active.saison.id), href: ROUTES.spielplan.path(active.saison.id) };
+  return { label: COPY.shared.saisonName(active), href: ROUTES.spielplan.path(active) };
 }
 
 /**
