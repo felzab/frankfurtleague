@@ -66,7 +66,7 @@ const ligaAktion = (origin: string) => ({ label: "Laufende Saison", href: `${ori
  */
 const neuBewerbenAktion = (origin: string, saisonId: string) => ({
   label: "Neu bewerben",
-  href: `${origin}/bewerbung/${encodeURIComponent(saisonId)}`,
+  href: `${origin}${ROUTES.bewerbung.path(encodeURIComponent(saisonId))}`,
 });
 
 /** A deadline as the mails state it; the backend sends the day, and the one German spelling of it is here. */

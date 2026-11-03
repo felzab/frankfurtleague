@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { frontend_config } from "@/core/config";
 import { getLaufendeFassung } from "@/core/einwilligung";
+import { ROUTES } from "@/core/routes";
 import { BewerbungView } from "@/features/bewerbungen/components/views/BewerbungView";
 import { getBewerbungFenster, getBewerbungSchulen, getBewerbungTrikotfarben } from "@/features/bewerbungen/queries";
 import { resolveSaisonIdParam } from "@/features/saisons/resolvers";
@@ -27,14 +28,14 @@ export async function generateMetadata(props: NextPageProps<{ saison_id: string 
   if (antwort === null) notFound();
 
   return {
-    title: `Bewerbung Saison ${saison_id}`,
-    openGraph: await openGraphFor(parent, `/bewerbung/${saison_id}`),
+    title: ROUTES.bewerbung.title(saison_id),
+    openGraph: await openGraphFor(parent, ROUTES.bewerbung.path(saison_id)),
     // A season with no deadline recorded, or a window this read could not reach, is one sentence rather
     // than content: an indexed copy outlives the day the window is there to show. A canonical names the
     // address to list, which a page kept out of the index has none of, so only the indexed branch declares one.
     ...(antwort === undefined || antwort.window === null
       ? { robots: { index: false } }
-      : { alternates: { canonical: `/bewerbung/${saison_id}` } }),
+      : { alternates: { canonical: ROUTES.bewerbung.path(saison_id) } }),
   };
 }
 

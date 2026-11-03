@@ -296,6 +296,7 @@ export const COPY = catalogue({
     registrierungConfirmation: "Registrierung bestätigen",
     accountErasure: "Konto löschen",
     registrierung: "Registrierung",
+    bewerbung: (saison: string) => `Bewerbung Saison ${saison}`,
   },
 
   /** The Spielplan, and a match's page, which opens as the pop-up over it. */
