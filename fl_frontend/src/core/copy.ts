@@ -154,7 +154,6 @@ export const COPY = catalogue({
     overview: "Übersicht",
     // Redesign: the account menu reads it once it offers a second role.
     switchRole: "Funktion wechseln",
-    more: "Mehr …",
     loadMore: "Weitere 50 laden",
     kORunde: "K.-o.-Runde",
     kOBaum: "K.-o.-Baum",
@@ -166,6 +165,8 @@ export const COPY = catalogue({
       halbfinale: "Halbfinale",
       finale: "Finale",
     },
+    /** A group matchday, by its served `position`: the season's lists, a match's head and the season card name it alike. */
+    spieltag: (position: number) => `${formatNumber(position)}. Spieltag`,
     afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
     /**
      * The two routes out of a season, each in its three wordings: `label` names the record, `zustand` the club's
@@ -178,7 +179,6 @@ export const COPY = catalogue({
     },
     /** The head of a club's exit note, „Disqualifiziert seit 14.03.2026“: its route's `zustand` and the day it took effect. */
     austrittSeit: (zustand: Copy, day: CalendarDay) => `${zustand} seit ${formatDatum(day)}`,
-    // Redesign: a line-up's chips read these.
     startelf: "Startelf",
     bank: "Bank",
 
@@ -314,7 +314,7 @@ export const COPY = catalogue({
 
   /** The page templates' own words: the frames around a page, the editor's bar, a list's paging, the end states. */
   template: {
-    /** The phone bar's place opening the rest of the menu, without the ellipsis a truncated text's link takes. */
+    /** The phone bar's place opening the rest of the menu, and the link at the end of a folded text's third line. */
     more: "Mehr",
     /** The name of a frame's menu, the rail's and the phone bar's. */
     navigation: "Navigation",

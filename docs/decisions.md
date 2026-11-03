@@ -27,7 +27,6 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **cache** — Split the one site-wide cache tag by resource or season; give a league read a lifetime
   past `minutes`
 - **spiele** — Move the Spiel write path to `admin`; let its form read `useAdmin()`
-- **spiele** — Merge the three `SpielCard` variants
 - **pages** — Remove the `await connection()` from a session read, from `runWithIncomingTrace` or ahead of
   a cached read a render reaches before any request value
 - **lint** — Scope a cross-feature import lint to anything but `core` and `shared`

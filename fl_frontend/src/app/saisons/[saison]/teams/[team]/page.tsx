@@ -94,7 +94,9 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const address = `${team.address.strasse} ${team.address.hausnummer}, ${team.address.plz} ${team.address.stadt}`;
   return {
     title: { record: team.name },
-    ...(team.austritt?.type === "disqualifikation" ? { chip: { tone: "danger", label: austrittKuerzel(team.austritt.type) } } : {}),
+    ...(team.austritt?.type === "disqualifikation"
+      ? { chip: { tone: "danger", label: austrittKuerzel(team.austritt.type), spoken: austrittZustand(team.austritt.type) } }
+      : {}),
     club: {
       head: (
         <ClubHead

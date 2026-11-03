@@ -86,12 +86,7 @@ export function CardRow({ href, name, chip, detail }: { href: Route; name: strin
             text={name}
           />
         </span>
-        {chip !== undefined && (
-          <Chip
-            tone={chip.tone}
-            label={chip.label}
-          />
-        )}
+        {chip !== undefined && <Chip {...chip} />}
       </span>
       {detail !== undefined && <span className="flex shrink-0 items-center font-numeric text-fg-muted">{detail}</span>}
       <RowEnd />
