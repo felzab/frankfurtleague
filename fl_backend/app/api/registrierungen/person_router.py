@@ -244,7 +244,7 @@ async def admit(
         )
         refuse(find_gesperrt_refusal(barred=bool(gesperrt)))
 
-        # `start_date` beside the rules for the Nachnominierung marker below, off the one read of the season.
+        # The one read of the season: its rules for the level and the cap, its `start_date` for the Nachnominierung marker.
         saison_raw = await pull_one_from_db(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "start_date"], session=session
         )
@@ -271,6 +271,7 @@ async def admit(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_id,
+            rules=saison_raw["rules"],
             team_id=team_id,
             spieler_id=spieler_id,
             session=session,

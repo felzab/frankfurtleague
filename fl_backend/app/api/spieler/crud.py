@@ -57,22 +57,19 @@ async def refuse_a_full_squad(
     saison_spieler_collection: AsyncCollection,
     saisons_collection: AsyncCollection,
     saison_id: str,
+    # The season's stored `rules`, which the caller reads in this session beside whatever else of the season it needs:
+    # the anchor below, not that read, is what closes the race.
+    rules: Mapping[str, Any],
     team_id: CustomObjectId,
     spieler_id: CustomObjectId,
     # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
-) -> Mapping[str, Any]:
-    """Refuse `kader_full` when this team's squad for this season is already at the season's cap; else the season as read.
+) -> None:
+    """Refuse `kader_full` when this team's squad for this season is already at the season's cap.
 
-    Shared by create, transfer and reactivate: the cap is a property of the DESTINATION squad, not
-    of the verb. The season comes back with its `start_date`, so the create derives `is_nachnominiert` off this one
-    read rather than a second.
+    Shared by every writer that grows a squad: the cap is a property of the DESTINATION squad, not of the verb.
     """
-
-    saison_raw = await pull_one_from_db(
-        collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "start_date"], session=session
-    )
 
     # A count is a read, which a snapshot re-validates nowhere, so two writers pass one figure
     # unless something puts them in one write set.
@@ -92,11 +89,9 @@ async def refuse_a_full_squad(
             squad_size=squad_size,
             # Validated, not read raw: a season missing the key fails here rather than admitting a
             # player against a bound nobody chose.
-            max_kadergroesse=FLSaisonRules.model_validate(saison_raw["rules"]).max_kadergroesse,
+            max_kadergroesse=FLSaisonRules.model_validate(rules).max_kadergroesse,
         )
     )
-
-    return saison_raw
 
 
 async def refuse_a_taken_rolle(
