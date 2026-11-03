@@ -172,6 +172,12 @@ def _first_kickoff_pipeline(saison_id: str) -> list[Mapping[str, Any]]:
     ]
 
 
+async def _no_rows() -> list[Mapping[str, Any]]:
+    """What a read the landing's state cannot serve answers, without the round trip."""
+
+    return []
+
+
 async def _active_or_none(saisons_collection: AsyncCollection) -> Mapping[str, Any] | None:
     """The season the site is on, its id and `start_date`; the `active` one, which no tier withholds."""
 
@@ -212,10 +218,17 @@ async def get_landing(
 
     saison_id = str(saison_raw["_id"])
     in_saison = {"saison_id": saison_id}
-    # Two groups of reads sent at once, because one gather of nine types none of its results.
+    # The start every start lock reads, so the countdown reaching zero and the season reading as running are one instant.
+    # Known before any match is read, so only the reads its state can serve are sent: the opening match before it, the
+    # two lists after. The Finale is read either way, a played one deciding the season over both.
+    started = has_started(start_date=saison_raw["start_date"], today=today)
+    # Two groups of reads sent at once, because `asyncio.gather`'s typing stops at six: one gather of eight types none
+    # of its results.
     (first_raw, recent_raw, upcoming_raw, finale_raw), (teams, tore_raw, count_spiele, count_spieltage) = await asyncio.gather(
         asyncio.gather(
-            aggregate_many_from_db(collection=spiele_collection, pipeline=_first_kickoff_pipeline(saison_id), limit=1),
+            _no_rows()
+            if started
+            else aggregate_many_from_db(collection=spiele_collection, pipeline=_first_kickoff_pipeline(saison_id), limit=1),
             aggregate_many_from_db(
                 collection=spiele_collection,
                 pipeline=build_spiele_pipeline(
@@ -223,7 +236,9 @@ async def get_landing(
                     sort_by=[("datum", -1), ("uhrzeit", -1), ("spiel_nr", -1)],
                     limit=LANDING_SPIELE,
                 ),
-            ),
+            )
+            if started
+            else _no_rows(),
             aggregate_many_from_db(
                 collection=spiele_collection,
                 pipeline=build_spiele_pipeline(
@@ -231,7 +246,9 @@ async def get_landing(
                     sort_by=[("datum", 1), ("uhrzeit", 1), ("spiel_nr", 1)],
                     limit=LANDING_SPIELE,
                 ),
-            ),
+            )
+            if started
+            else _no_rows(),
             aggregate_many_from_db(
                 collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={**in_saison, "saison_phase": "finale"})
             ),
@@ -266,8 +283,6 @@ async def get_landing(
 
     first = first_raw[0] if first_raw else None
 
-    # The start every start lock reads, so the countdown reaching zero and the season reading as running are one instant.
-    started = has_started(start_date=saison_raw["start_date"], today=today)
     state: FLLandingState = "decided" if podium is not None else "running" if started else "before_start"
 
     return FLLandingResponse(
@@ -280,7 +295,6 @@ async def get_landing(
             upcoming=FLSpielJoinedListAdapter.validate_python(upcoming_raw) if state == "running" else [],
             podium=podium,
             counts=FLLandingCounts(
-                count_teams=len(teams),
                 # No group row where no match counts yet.
                 count_tore=tore_raw[0]["tore"] if tore_raw else 0,
                 count_spiele=count_spiele,

@@ -153,7 +153,7 @@ def test_a_running_season_shows_its_latest_results_its_next_matches_and_its_figu
 
     assert (saison.id, saison.state, saison.first_kickoff, saison.podium) == (SAISON, "running", None, None)
     assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == ([3, 2], [4, 5])
-    assert saison.counts.model_dump() == {"count_teams": 2, "count_tore": 7, "count_spiele": 6, "count_spieltage": 2}
+    assert saison.counts.model_dump() == {"count_tore": 7, "count_spiele": 6, "count_spieltage": 2}
     assert [team.name for team in saison.teams] == ["Alpha", "Beta"]
     assert response.bewerbung_window.model_dump() == {"saison_id": NEXT, "von": "2026-03-01", "bis": "2026-03-31"}
 
