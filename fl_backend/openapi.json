@@ -4362,7 +4362,7 @@
         "type": "object"
       },
       "FLBewerbungWindow": {
-        "description": "The application window open today, by the one rule the submission refuses on, and the season it is for.",
+        "description": "The application window open today, by the one rule the submission refuses on: the season it is for and its last day.",
         "properties": {
           "bis": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -4372,16 +4372,10 @@
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
-          },
-          "von": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Von",
-            "type": "string"
           }
         },
         "required": [
           "saison_id",
-          "von",
           "bis"
         ],
         "title": "FLBewerbungWindow",
@@ -7618,6 +7612,55 @@
         "title": "FLKontaktpersonPayload",
         "type": "object"
       },
+      "FLLandingBeforeStart": {
+        "description": "Before its start date: its opening match, the earliest dated group match, null while none is.",
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/FLLandingCounts"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "opening_spiel": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLLandingOpeningSpiel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start": {
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          },
+          "state": {
+            "const": "before_start",
+            "title": "State",
+            "type": "string"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/FLSaisonTeamEntry"
+            },
+            "title": "Teams",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "start",
+          "counts",
+          "teams",
+          "state",
+          "opening_spiel"
+        ],
+        "title": "FLLandingBeforeStart",
+        "type": "object"
+      },
       "FLLandingCounts": {
         "description": "Three of the season's four figures, counted on every read: its goals, its matches and its matchdays.\n\nThe fourth, its clubs, is the length of the `teams` served beside them. `count_tore` is both sides' goals summed over\nevery match of any phase the Tabelle would count, one carrying an `ergebnis`: a forfeit's awarded goals among them, a\nshoot-out's never.",
         "properties": {
@@ -7643,6 +7686,93 @@
           "count_spieltage"
         ],
         "title": "FLLandingCounts",
+        "type": "object"
+      },
+      "FLLandingDecided": {
+        "description": "Once all four places are in: places one to four in their order.",
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/FLLandingCounts"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "podium": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/FLLandingSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/FLLandingSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/FLLandingSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/FLLandingSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            ],
+            "title": "Podium",
+            "type": "array"
+          },
+          "start": {
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          },
+          "state": {
+            "const": "decided",
+            "title": "State",
+            "type": "string"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/FLSaisonTeamEntry"
+            },
+            "title": "Teams",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "start",
+          "counts",
+          "teams",
+          "state",
+          "podium"
+        ],
+        "title": "FLLandingDecided",
         "type": "object"
       },
       "FLLandingOpeningSpiel": {
@@ -7717,12 +7847,31 @@
           "saison": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLLandingSaison"
+                "discriminator": {
+                  "mapping": {
+                    "before_start": "#/components/schemas/FLLandingBeforeStart",
+                    "decided": "#/components/schemas/FLLandingDecided",
+                    "running": "#/components/schemas/FLLandingRunning"
+                  },
+                  "propertyName": "state"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FLLandingBeforeStart"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FLLandingRunning"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FLLandingDecided"
+                  }
+                ]
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Saison"
           }
         },
         "required": [
@@ -7732,8 +7881,8 @@
         "title": "FLLandingResponse",
         "type": "object"
       },
-      "FLLandingSaison": {
-        "description": "The season the site is on as the landing shows it.\n\n`start` the instant `saison_start` reads off its `start_date`. `opening_spiel` before the start, the earliest dated\ngroup match, null while none is; `recent` and `upcoming` while it runs, the latest result and the next match, as\nmany of each as `public_router.py :: LANDING_SPIELE` names, empty where there is none; `podium` once decided,\nplaces one to four in their order, null before.",
+      "FLLandingRunning": {
+        "description": "From its start date: the latest result and the next match, at most one of each, empty where there is none.",
         "properties": {
           "counts": {
             "$ref": "#/components/schemas/FLLandingCounts"
@@ -7741,43 +7890,6 @@
           "id": {
             "title": "Id",
             "type": "string"
-          },
-          "opening_spiel": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLLandingOpeningSpiel"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "podium": {
-            "anyOf": [
-              {
-                "maxItems": 4,
-                "minItems": 4,
-                "prefixItems": [
-                  {
-                    "$ref": "#/components/schemas/FLPodiumPlace"
-                  },
-                  {
-                    "$ref": "#/components/schemas/FLPodiumPlace"
-                  },
-                  {
-                    "$ref": "#/components/schemas/FLPodiumPlace"
-                  },
-                  {
-                    "$ref": "#/components/schemas/FLPodiumPlace"
-                  }
-                ],
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Podium"
           },
           "recent": {
             "items": {
@@ -7792,7 +7904,9 @@
             "type": "string"
           },
           "state": {
-            "$ref": "#/components/schemas/FLLandingState"
+            "const": "running",
+            "title": "State",
+            "type": "string"
           },
           "teams": {
             "items": {
@@ -7811,16 +7925,14 @@
         },
         "required": [
           "id",
-          "state",
           "start",
-          "opening_spiel",
-          "recent",
-          "upcoming",
-          "podium",
           "counts",
-          "teams"
+          "teams",
+          "state",
+          "recent",
+          "upcoming"
         ],
-        "title": "FLLandingSaison",
+        "title": "FLLandingRunning",
         "type": "object"
       },
       "FLLandingSide": {
@@ -7833,28 +7945,14 @@
           "shorthand": {
             "title": "Shorthand",
             "type": "string"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
           }
         },
         "required": [
-          "team_id",
           "name",
           "shorthand"
         ],
         "title": "FLLandingSide",
         "type": "object"
-      },
-      "FLLandingState": {
-        "enum": [
-          "before_start",
-          "running",
-          "decided"
-        ],
-        "type": "string"
       },
       "FLOpenRegistrierung": {
         "description": "One pending registration as the team deciding it reads it.",
@@ -9370,33 +9468,6 @@
           "fanned_out_to_saison_teams"
         ],
         "title": "FLPatchTeamResponse",
-        "type": "object"
-      },
-      "FLPodiumPlace": {
-        "description": "One of places one to four, decided; `team` null where the place is vacant, its club having left the season by then.\n\nA vacancy is still a decided place, so a season with one has all four in.",
-        "properties": {
-          "platz": {
-            "maximum": 4.0,
-            "minimum": 1.0,
-            "title": "Platz",
-            "type": "integer"
-          },
-          "team": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLLandingSide"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "platz",
-          "team"
-        ],
-        "title": "FLPodiumPlace",
         "type": "object"
       },
       "FLPostBewerbungPayload": {

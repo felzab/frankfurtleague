@@ -8,14 +8,13 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.saisons.crud import CURRENT_SAISON_FILTER, pull_active_saison, pull_open_window_saison
 from app.api.saisons.schemas import (
     FLBewerbungWindow,
+    FLLandingBeforeStart,
     FLLandingCounts,
+    FLLandingDecided,
     FLLandingOpeningSpiel,
     FLLandingResponse,
-    FLLandingSaison,
+    FLLandingRunning,
     FLLandingSide,
-    FLLandingState,
-    FLPodium,
-    FLPodiumPlace,
     FLSaison,
     FLSaisonFrameEntryListAdapter,
     FLSaisonFrameResponse,
@@ -204,11 +203,7 @@ async def get_landing(
         pull_open_window_saison(saisons_collection=saisons_collection, today=today),
     )
 
-    window = (
-        None
-        if open_window is None
-        else FLBewerbungWindow(saison_id=str(open_window["_id"]), von=open_window["bewerbung"]["von"], bis=open_window["bewerbung"]["bis"])
-    )
+    window = None if open_window is None else FLBewerbungWindow(saison_id=str(open_window["_id"]), bis=open_window["bewerbung"]["bis"])
 
     if saison_raw is None:
         return FLLandingResponse(saison=None, bewerbung_window=window)
@@ -265,42 +260,53 @@ async def get_landing(
         ),
     )
 
+    start = saison_start(saison_raw["start_date"])
+    counts = FLLandingCounts(
+        # No group row where no match counts yet.
+        count_tore=tore_raw[0]["tore"] if tore_raw else 0,
+        count_spiele=count_spiele,
+        count_spieltage=count_spieltage,
+    )
+
     # Every season ends in a knockout (`find_rules_refusal` refuses rules drawing none), so the Finale's matchday
-    # places it, and every one with a K.-o.-Runde has places one to four (D497): it is decided once all four are in,
-    # a played final beside an unplayed match for third place still running.
-    # The internal shape, whose sides carry the exit record: a place decided once its club had left is vacant.
+    # places it, and every bracket the rules admit plays a match for third place: it is decided once all four places are
+    # in, a played final beside an unplayed match for third place still running. The internal shape, whose sides carry
+    # the exit record: a place decided once its club had left is vacant.
+    saison: FLLandingBeforeStart | FLLandingRunning | FLLandingDecided
     match [
-        FLPodiumPlace(platz=platz, team=None if side is None else FLLandingSide(team_id=side.team_id, name=side.name, shorthand=side.shorthand))
-        for platz, side in podium_of(FLSpielJoinedInternalListAdapter.validate_python(finale_raw))
+        None if side is None else FLLandingSide(name=side.name, shorthand=side.shorthand)
+        for _, side in podium_of(FLSpielJoinedInternalListAdapter.validate_python(finale_raw))
     ]:
         case [first_place, second_place, third_place, fourth_place]:
-            podium: FLPodium | None = (first_place, second_place, third_place, fourth_place)
+            saison = FLLandingDecided(
+                id=saison_id,
+                state="decided",
+                start=start,
+                podium=(first_place, second_place, third_place, fourth_place),
+                counts=counts,
+                teams=teams,
+            )
+        case _ if started:
+            saison = FLLandingRunning(
+                id=saison_id,
+                state="running",
+                start=start,
+                recent=FLSpielJoinedListAdapter.validate_python(recent_raw),
+                upcoming=FLSpielJoinedListAdapter.validate_python(upcoming_raw),
+                counts=counts,
+                teams=teams,
+            )
         case _:
-            podium = None
+            saison = FLLandingBeforeStart(
+                id=saison_id,
+                state="before_start",
+                start=start,
+                opening_spiel=FLLandingOpeningSpiel.model_validate(first_raw[0]) if first_raw else None,
+                counts=counts,
+                teams=teams,
+            )
 
-    first = first_raw[0] if first_raw else None
-
-    state: FLLandingState = "decided" if podium is not None else "running" if started else "before_start"
-
-    return FLLandingResponse(
-        saison=FLLandingSaison(
-            id=saison_id,
-            state=state,
-            start=saison_start(saison_raw["start_date"]),
-            opening_spiel=FLLandingOpeningSpiel.model_validate(first) if state == "before_start" and first else None,
-            recent=FLSpielJoinedListAdapter.validate_python(recent_raw) if state == "running" else [],
-            upcoming=FLSpielJoinedListAdapter.validate_python(upcoming_raw) if state == "running" else [],
-            podium=podium,
-            counts=FLLandingCounts(
-                # No group row where no match counts yet.
-                count_tore=tore_raw[0]["tore"] if tore_raw else 0,
-                count_spiele=count_spiele,
-                count_spieltage=count_spieltage,
-            ),
-            teams=teams,
-        ),
-        bewerbung_window=window,
-    )
+    return FLLandingResponse(saison=saison, bewerbung_window=window)
 
 
 # Declared after `/active`, `/frame` and `/landing`: routes match in declaration order, and the

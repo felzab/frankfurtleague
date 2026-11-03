@@ -1887,14 +1887,12 @@ export interface FLBewerbungWiderspruchData {
 }
 
 /**
- * The application window open today, by the one rule the submission refuses on, and the season it is for.
+ * The application window open today, by the one rule the submission refuses on: the season it is for and its last day.
  */
 export interface FLBewerbungWindow {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   bis: string;
   saison_id: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  von: string;
 }
 
 /**
@@ -3151,8 +3149,6 @@ export interface FLLandingCounts {
 export interface FLLandingSide {
   name: string;
   shorthand: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
 }
 
 /**
@@ -3171,28 +3167,6 @@ export interface FLLandingOpeningSpiel {
 }
 
 /**
- * One of places one to four, decided; `team` null where the place is vacant, its club having left the season by then.
- *
- * A vacancy is still a decided place, so a season with one has all four in.
- */
-export interface FLPodiumPlace {
-  /**
-   * @minimum 1
-   * @maximum 4
-   */
-  platz: number;
-  team: FLLandingSide | null;
-}
-
-export type FLLandingState = (typeof FLLandingState)[keyof typeof FLLandingState];
-
-export const FLLandingState = {
-  before_start: "before_start",
-  running: "running",
-  decided: "decided",
-} as const;
-
-/**
  * One club of a season as the Teams page lists it: the name and shorthand it plays this season under.
  */
 export interface FLSaisonTeamEntry {
@@ -3207,21 +3181,42 @@ export interface FLSaisonTeamEntry {
 }
 
 /**
- * The season the site is on as the landing shows it.
- *
- * `start` the instant `saison_start` reads off its `start_date`. `opening_spiel` before the start, the earliest dated
- * group match, null while none is; `recent` and `upcoming` while it runs, the latest result and the next match, as
- * many of each as `public_router.py :: LANDING_SPIELE` names, empty where there is none; `podium` once decided,
- * places one to four in their order, null before.
+ * Before its start date: its opening match, the earliest dated group match, null while none is.
  */
-export interface FLLandingSaison {
+export interface FLLandingBeforeStart {
   counts: FLLandingCounts;
   id: string;
   opening_spiel: FLLandingOpeningSpiel | null;
-  podium: [FLPodiumPlace, FLPodiumPlace, FLPodiumPlace, FLPodiumPlace] | null;
+  start: string;
+  state: "before_start";
+  teams: FLSaisonTeamEntry[];
+}
+
+/**
+ * Once all four places are in: places one to four in their order.
+ */
+export interface FLLandingDecided {
+  counts: FLLandingCounts;
+  id: string;
+  /**
+   * @minItems 4
+   * @maxItems 4
+   */
+  podium: [FLLandingSide | null, FLLandingSide | null, FLLandingSide | null, FLLandingSide | null];
+  start: string;
+  state: "decided";
+  teams: FLSaisonTeamEntry[];
+}
+
+/**
+ * From its start date: the latest result and the next match, at most one of each, empty where there is none.
+ */
+export interface FLLandingRunning {
+  counts: FLLandingCounts;
+  id: string;
   recent: FLSpielJoined[];
   start: string;
-  state: FLLandingState;
+  state: "running";
   teams: FLSaisonTeamEntry[];
   upcoming: FLSpielJoined[];
 }
@@ -3231,7 +3226,7 @@ export interface FLLandingSaison {
  */
 export interface FLLandingResponse {
   bewerbung_window: FLBewerbungWindow | null;
-  saison: FLLandingSaison | null;
+  saison: FLLandingBeforeStart | FLLandingRunning | FLLandingDecided | null;
 }
 
 /**
