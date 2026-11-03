@@ -8,7 +8,7 @@ import { spielePatchSpiel } from "@/core/generated/client/sdk";
 import { SpielePatchSpielBody, SpielePatchSpielParams } from "@/core/generated/zod/inputs";
 import { admitsShootOut } from "@/features/spiele/draftStatus";
 import { getAdminSpiel } from "@/features/spiele/queries";
-import { describeMovedSpiele, toStoredSide } from "@/features/spiele/utils";
+import { toStoredSide } from "@/features/spiele/utils";
 
 import { KEIN_SONDEREREIGNIS, werteOf } from "./spielWerte";
 
@@ -129,9 +129,12 @@ export const spielSpeichern = action({
 
     const geschrieben = await spielePatchSpiel(id, { ...payload, version });
 
-    // What the write did to other fixtures, a later round's occupant or result among them, in today's editor's words.
-    const folgen = describeMovedSpiele(geschrieben.advanced_to, geschrieben.bracket_faults, geschrieben.released_sides);
+    // The other fixtures the write changed: a later round's occupant or result, or a side it released on the same
+    // Spieltag. Each match once, in its number's order; the match's own page says what changed there.
     const value = geschrieben.version;
-    return folgen === undefined ? { ok: true, value } : { ok: true, value, note: COPY.verwaltung.spiel.savedWithConsequences(folgen) };
+    const geaendert = [...new Set([...geschrieben.advanced_to, ...geschrieben.released_sides].map(({ spiel_nr }) => spiel_nr))];
+    return geaendert.length === 0
+      ? { ok: true, value }
+      : { ok: true, value, note: COPY.verwaltung.spiel.alsoChanged(geaendert.toSorted((first, second) => first - second)) };
   },
 });

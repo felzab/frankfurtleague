@@ -66,6 +66,11 @@ export const SERVER_COPY = catalogue({
     torschuetzen_not_matching_tore: "Die Torschützen passen nicht zum Ergebnis.",
   },
 
+  /** The image a shared link's preview shows, by its alt, which a screen reader reads in the preview's place. */
+  shareImage: {
+    alt: `${COPY.brand.name}, die Fußballliga der Frankfurter Oberstufen: der Pokal über dem Schriftzug`,
+  },
+
   /** The administration's lines its old pages answer through their server actions, until each page's rebuild. */
   verwaltung: {
     /** A result entered early on a fixture of either club the group swap would trade. */

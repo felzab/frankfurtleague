@@ -135,10 +135,28 @@ describe("the match editor's save", () => {
     expect(answer).toEqual({
       ok: true,
       value: 4,
-      note: COPY.verwaltung.spiel.savedWithConsequences(
-        "Die Paarung in Spiel 31 wurde ebenfalls aktualisiert. Das eingetragene Ergebnis in Spiel 31 wurde dabei gelöscht.",
-      ),
+      note: COPY.verwaltung.spiel.alsoChanged([31]),
     });
+  });
+
+  it("names each other fixture once, a released side's among them, in its number's order", async () => {
+    const voided = { voided_ergebnis: null, voided_elfmeterschiessen: null, voided_sonderereignis: null };
+    stand.antwort = {
+      ...NICHTS_BEWEGT,
+      advanced_to: [
+        { spiel_id: "64b000000000000000000007", spiel_nr: 31, ...voided },
+        { spiel_id: "64b000000000000000000008", spiel_nr: 12, ...voided },
+      ],
+      // One fixture both moved and released a side, and one only released it.
+      released_sides: [
+        { spiel_id: "64b000000000000000000008", spiel_nr: 12, side: "team2", team_name: "Weide", ...voided },
+        { spiel_id: "64b000000000000000000009", spiel_nr: 7, side: "team1", team_name: "Linde", ...voided },
+      ],
+    } satisfies FLPatchSpielDataResponse;
+
+    const answer = await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { uhrzeit: "18:00:00" } });
+
+    expect(answer).toEqual({ ok: true, value: 4, note: COPY.verwaltung.spiel.alsoChanged([7, 12, 31]) });
   });
 
   it("answers as stale a fixture gone since the editor read it, writing nothing", async () => {

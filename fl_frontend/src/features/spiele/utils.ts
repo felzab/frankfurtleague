@@ -345,20 +345,6 @@ export const formatSpielUpdateMessage = (
   return asOneParagraph(["Die Spieldaten wurden aktualisiert", ...movedSpielSentences(advancedTo, bracketFaults, releasedSides)]);
 };
 
-/**
- * The same sentences without the save's lead, `undefined` where the write moved nothing. **The
- * save's wording and not a second set**: one event would otherwise reach an admin in two vocabularies.
- */
-export const describeMovedSpiele = (
-  advancedTo: readonly FLSpielAdvancement[],
-  bracketFaults: readonly FLBracketFault[] = [],
-  releasedSides: readonly FLSpielReleasedSide[] = [],
-): string | undefined => {
-  const sentences = movedSpielSentences(advancedTo, bracketFaults, releasedSides);
-
-  return sentences.length === 0 ? undefined : asOneParagraph(sentences);
-};
-
 /** Every sentence naming what a write reached beyond the fixture it was asked about, in reading order. */
 const movedSpielSentences = (
   advancedTo: readonly FLSpielAdvancement[],

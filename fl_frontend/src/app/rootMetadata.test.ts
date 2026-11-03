@@ -15,7 +15,7 @@ describe("what every page inherits from the root layout", () => {
     expect(metadata[field]).toBeUndefined();
   });
 
-  // Next adds `opengraph-image.png` only where the segment's own `openGraph` names no image, and an address here
+  // Next adds `opengraph-image.tsx`'s image only where the segment's own `openGraph` names no image, and an address here
   // would stand as og:url on every page declaring none.
   it("leaves the preview's image to the file convention and its address to each page", () => {
     expect(metadata.openGraph).not.toHaveProperty("images");

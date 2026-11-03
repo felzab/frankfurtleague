@@ -1,4 +1,4 @@
-import { formatDatum, formatDatumLong, formatDatumWithWeekday, formatErgebnis, formatNumber, formatUhrzeit } from "./format";
+import { formatDatum, formatDatumLong, formatDatumWithWeekday, formatErgebnis, formatList, formatNumber, formatUhrzeit } from "./format";
 
 import type { CalendarDay, Pair, Uhrzeit } from "./format";
 
@@ -433,7 +433,7 @@ export const COPY = catalogue({
       hausnummerExample: "12a",
       retired: "Stillgelegt",
       /** The venue list's last entry, which opens the create dialog with the name typed so far. */
-      createEntry: "Spielort anlegen …",
+      createEntry: "Spielort anlegen",
       /** One line of a venue's address: its street and number. */
       strasseWithHausnummer: (strasse: string, hausnummer: string) => `${strasse} ${hausnummer}`,
     },
@@ -466,9 +466,9 @@ export const COPY = catalogue({
       abgebrochen: "Abgebrochen",
       annulliert: "Annulliert",
       /** Why a no-show cannot be picked while a side is open. */
-      needsBothSides: "beide Seiten nötig",
-      /** The save's done line where the write moved other matches too, `folgen` naming them in today's editor's words. */
-      savedWithConsequences: (consequences: string) => `Gespeichert. ${consequences}`,
+      needsBothSides: "Nur mit beiden Teams",
+      /** The save's done line where the write moved other matches too, by their numbers: „Auch Spiel 5 und 7 geändert“. */
+      alsoChanged: (spiele: readonly number[]) => `Auch Spiel ${formatList(spiele.map(formatNumber))} geändert`,
     },
   },
 

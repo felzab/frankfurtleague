@@ -6,7 +6,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 /**
  * The preview fields every page shares, which the root layout declares. Their image is
- * `fl_frontend/src/app/opengraph-image.png`, which Next adds by file convention to the root's fields alone.
+ * `fl_frontend/src/app/opengraph-image.tsx`, which Next adds by file convention to the root's fields alone.
  */
 export const SITE_OPEN_GRAPH = { siteName: COPY.brand.name, locale: "de_DE", type: "website" } as const;
 
