@@ -135,6 +135,8 @@ export const SERVER_COPY = catalogue({
       /** The band: the open window's deadline, or the word that none is open. */
       open: (saison: string, until: CalendarDay) => `Bewerbungen für die Saison ${saison} bis ${formatDatum(until)}`,
       closed: "Das Bewerbungsfenster ist geschlossen.",
+      /** The school's door while a window is open, where the band and the season card carry its date. */
+      opened: "Das Bewerbungsfenster ist offen.",
     },
 
     /**

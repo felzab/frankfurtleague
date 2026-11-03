@@ -85,7 +85,7 @@ describe("a tile's contents", () => {
 });
 
 describe("a match's five facts", () => {
-  it("stand as four squares and one wide tile on a phone, and five equal tiles in one row from `lg`", () => {
+  it("stand two a row on a phone with the fifth wide, and five equal tiles in one row from `lg`, each at its natural height", () => {
     render(
       <StatTiles
         layout="five"
@@ -96,12 +96,13 @@ describe("a match's five facts", () => {
       expect.arrayContaining(["grid-cols-2", "lg:grid-cols-5"]),
     );
     const [first, second, third, fourth, fifth] = tileClasses();
-    for (const square of [first, second, third, fourth]) {
-      expect(square).toEqual(expect.arrayContaining(["aspect-square", "lg:aspect-auto", "lg:grid-rows-subgrid"]));
-      expect(square).not.toContain("col-span-2");
+    for (const tile of [first, second, third, fourth]) {
+      expect(tile).toEqual(expect.arrayContaining(["row-span-3", "grid-rows-subgrid"]));
+      expect(tile).not.toContain("col-span-2");
     }
     expect(fifth).toEqual(expect.arrayContaining(["col-span-2", "lg:col-span-1", "grid-rows-subgrid"]));
-    expect(fifth).not.toContain("aspect-square");
+    // No tile is a square at any width: each is as tall as its label, value and line.
+    for (const tile of [first, second, third, fourth, fifth]) expect(tile?.some((name) => name.includes("aspect"))).toBe(false);
   });
 });
 
