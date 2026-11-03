@@ -16,14 +16,14 @@ from app.api.saisons.schemas import (
 )
 from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLPatchSpielDataPayload
-from app.api.teams.admin_router import patch_saison_team
-from app.api.teams.schemas import FLPatchSaisonTeamPayload
+from app.api.teams.admin_router import patch_saison_team, patch_team
+from app.api.teams.schemas import FLPatchSaisonTeamPayload, FLPatchTeamPayload
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import rules_document, saison_document, saison_team_document
+from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
 from tests.isolation import MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
 from tests.payloads import spiel_patch_body
 from tests.session_headers import fresh_admin_actor
@@ -680,3 +680,74 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
 
         assert (outcome, statuses) == (Code.SAISON_PAST, {OUTGOING: "past", TARGET: "active"})
         assert season_reads == 2, f"{season_reads} reads: {MISCOUNTED_JUDGEMENTS}"
+
+
+class TeamsRunningOneHook(InterleavedCollection):
+    """A `teams` stand-in running one hook once, just after the rename's write to the club returns.
+
+    That write is the transaction's first operation and opens its snapshot, so a rival landing here commits after the
+    snapshot and before the rename reads which seasons are still open.
+    """
+
+    async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
+        written = await self._collection.find_one_and_update(*args, **kwargs)
+        await self.run_the_rival()
+
+        return written
+
+
+RENAMED = "Umbenannt"
+
+
+class TestARolloverLandingMidRenameIsJudgedAgain:
+    """A rename rewrites the club rows of every season it reads as open, and the rollover writes no club row."""
+
+    def test_the_season_closed_under_it_keeps_the_name_it_was_played_under(self, mongo_replica_set_url: str):
+        """Drop the open seasons' anchor from `patch_team` and this fails: the incumbent's row is renamed after it closed."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            row = await database[Collection.SAISON_TEAMS].find_one({"saison_id": OUTGOING})
+            assert row is not None, "the seed entered no club in the incumbent"
+            await database[Collection.TEAMS].insert_one(team_document(row["team_id"], row["name"], row["shorthand"]))
+
+            async def roll_over_between() -> None:
+                await call_activate(database, client, TARGET)
+
+            teams = TeamsRunningOneHook(database[Collection.TEAMS], roll_over_between)
+            await patch_team(
+                team_id=row["team_id"],
+                team_data=FLPatchTeamPayload.model_validate(
+                    {
+                        "name": RENAMED,
+                        "shorthand": "UMX",
+                        "description": "",
+                        "full_name": f"{RENAMED}-Schule",
+                        "website_url": "https://umbenannt.example.de",
+                        "schulform": "gymnasium_g9",
+                        "address": dict(ADDRESS),
+                    }
+                ),
+                # The stand-in delegates every call, which the endpoint's collection type cannot say.
+                teams_collection=cast(Any, teams),
+                spiele_collection=database[Collection.SPIELE],
+                saison_teams_collection=database[Collection.SAISON_TEAMS],
+                saisons_collection=database[Collection.SAISONS],
+                db=client,
+            )
+
+            rows = await database[Collection.SAISON_TEAMS].find({"team_id": row["team_id"]}).to_list(length=None)
+            return row["name"], {entry["saison_id"]: entry["name"] for entry in rows}, teams.passes, await statuses_now(database)
+
+        played_under, names, passes, statuses = on_a_league(
+            mongo_replica_set_url,
+            body,
+            # The incumbent undrawn, so the club has no fixture there for the rollover's own anchor to meet.
+            saisons=[seeded_saison(OUTGOING, "active"), seeded_saison(TARGET, "future")],
+            entered=(OUTGOING, TARGET),
+            drawn=(TARGET,),
+        )
+
+        assert statuses == {OUTGOING: "past", TARGET: "active"}
+        assert names == {OUTGOING: played_under, TARGET: RENAMED}
+        # The rename's first write and the retry's: the rename conflicted rather than committing on its stale read.
+        assert passes == 2, f"{passes} passes: {MISCOUNTED_JUDGEMENTS}"
