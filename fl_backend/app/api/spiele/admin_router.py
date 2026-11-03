@@ -238,8 +238,10 @@ async def get_spiele_action_required(
     response_model=FLSpieleAdminSingleResponse,
     summary="One Spiel for the admin editor",
 )
-async def get_spiel_verwaltung(spiel_id: CustomRouteObjectId, spiele_collection: SpieleCollection) -> FLSpieleAdminSingleResponse:
-    """Return one match in the admin shape, money included, for the editor."""
+async def get_spiel_verwaltung(
+    spiel_id: CustomRouteObjectId, spiele_collection: SpieleCollection, saisons_collection: SaisonsCollection
+) -> FLSpieleAdminSingleResponse:
+    """Return one match in the admin shape, money included, for the editor, with its season's status."""
 
     spiele_raw = await aggregate_many_from_db(
         collection=spiele_collection,
@@ -249,7 +251,10 @@ async def get_spiel_verwaltung(spiel_id: CustomRouteObjectId, spiele_collection:
     if not spiele_raw:
         raise DocumentNotFoundError()
 
-    return FLSpieleAdminSingleResponse(spiel=FLSpielJoinedAdmin.model_validate(spiele_raw[0]))
+    spiel = FLSpielJoinedAdmin.model_validate(spiele_raw[0])
+    # Read as the save's judgement reads it, so the editor opens read-only on exactly the season the write refuses.
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": spiel.saison_id}, projection=["status"])
+    return FLSpieleAdminSingleResponse(spiel=spiel, saison_status=saison_raw["status"])
 
 
 async def previewing(

@@ -105,6 +105,8 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     try:
         database = a_clean_database_sync(client, mongo_replica_set_url, database_name)
         database[Collection.GRANTS].insert_many(grants_for_the_suite())
+        # Finished, the one status that closes the editor, so the served status is this row's and no default's.
+        database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "past"))
         database[Collection.SPIELE].insert_one(spiel_document())
         database[Collection.SAISON_TEAMS].insert_one(junction_row())
 
@@ -173,6 +175,8 @@ def test_the_admin_key_gets_the_fixture_with_the_rent_and_the_payment(seeded_url
     # record: the reason is free text about a school, and only a club's own page renders it.
     assert spiel["team2"]["austritt_type"] == AUSTRITT["type"]
     assert spiel["team1"]["austritt_type"] is None
+    # The season's status, read off the fixture's own season, which closes the editor once past.
+    assert response.json()["saison_status"] == "past"
 
 
 @pytest.mark.db

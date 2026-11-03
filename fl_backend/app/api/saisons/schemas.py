@@ -519,8 +519,9 @@ class FLLandingSaison(BaseReadModel):
     """The season the site is on as the landing shows it.
 
     `start` the instant `saison_start` reads off its `start_date`. `opening_spiel` before the start, the earliest dated
-    group match, null while none is; `recent` and `upcoming` while it runs, the latest results and the next matches;
-    `podium` once decided, places one to four in their order, null before.
+    group match, null while none is; `recent` and `upcoming` while it runs, the latest result and the next match, as
+    many of each as `public_router.py :: LANDING_SPIELE` names, empty where there is none; `podium` once decided,
+    places one to four in their order, null before.
     """
 
     id: str

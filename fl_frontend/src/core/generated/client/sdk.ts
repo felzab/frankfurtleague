@@ -4188,7 +4188,7 @@ export const getSpieleGetSpielVerwaltungUrl = (spielId: string) => {
 };
 
 /**
- * Return one match in the admin shape, money included, for the editor.
+ * Return one match in the admin shape, money included, for the editor, with its season's status.
  * @summary One Spiel for the admin editor
  */
 export const spieleGetSpielVerwaltung = async (

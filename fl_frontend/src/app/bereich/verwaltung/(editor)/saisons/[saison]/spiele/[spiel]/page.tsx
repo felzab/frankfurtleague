@@ -8,7 +8,6 @@ import { FLSonderereignis } from "@/core/generated/client/types";
 import { SpielePatchSpielBody, spielePatchSpielBodyNotizOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { getAdminSaisons } from "@/features/saisons/queries";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { getSpielorte } from "@/features/spielorte/queries";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
@@ -65,10 +64,10 @@ export default function SpielEditorPage({ params }: Props) {
 async function readEditor(params: Props["params"]) {
   const { saison, spiel } = await params;
   // Retired venues included, so a match booked at one still names it.
-  const [gelesen, { spielorte }, { saisons }] = await Promise.all([lesen(spiel), getSpielorte({ include_inactive: true }), getAdminSaisons()]);
+  const [gelesen, { spielorte }] = await Promise.all([lesen(spiel), getSpielorte({ include_inactive: true })]);
   if (gelesen === null || gelesen.spiel.saison_id !== saison) notFound();
   // A finished season's matches take no write (`saison_past`), so the editor opens on one read-only.
-  const vorbei = saisons.find((eintrag) => eintrag.id === saison)?.status === "past";
+  const vorbei = gelesen.saison_status === "past";
   const gespeichert = gelesen.spiel;
   // A retired venue can be booked anew by no match: it is listed only where it is already this match's.
   const gebucht = gespeichert.ort?.spielort_id ?? null;
