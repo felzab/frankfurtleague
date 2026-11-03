@@ -4,10 +4,7 @@ import type { Copy, Words } from "@/core/copy";
 import type { RouteEntry } from "@/core/routes";
 import type { Metadata, ResolvingMetadata } from "next";
 
-/**
- * The preview fields every page shares, which the root layout declares. Their image is
- * `fl_frontend/src/app/opengraph-image.tsx`, which Next adds by file convention to the root's fields alone.
- */
+/** The preview fields every page shares, which the root layout declares beside the share image. */
 export const SITE_OPEN_GRAPH = { siteName: COPY.brand.name, locale: "de_DE", type: "website" } as const;
 
 /**
@@ -48,7 +45,7 @@ export async function pageMetadata(
 /**
  * A page's preview fields, its address among them as og:url, which Meta's scraper takes as the shared object's
  * identity. Next replaces the parent's whole `openGraph` once a page declares one, image included, so the image
- * the root's file convention set is carried over from `parent`.
+ * the root layout set is carried over from `parent`.
  */
 export async function openGraphFor(parent: ResolvingMetadata, path: string): Promise<NonNullable<Metadata["openGraph"]>> {
   return { ...SITE_OPEN_GRAPH, url: path, images: (await parent).openGraph?.images };
