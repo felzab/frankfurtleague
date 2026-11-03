@@ -162,8 +162,7 @@ export const SERVER_COPY = catalogue({
         title: "Spieler registrieren",
         text: "Dein Team bekommt einen Link, über den sich dein Jahrgang registriert. Die Kontaktpersonen nehmen die Spieler in den Kader auf.",
       },
-      /** The band: the open window's deadline, or the word that none is open. */
-      open: (saison: string, until: CalendarDay) => `Bewerbungen für die Saison ${saison} bis ${formatDatum(until)}`,
+      /** The band while no window is open; an open window's deadline is the season card's `windowUntil`. */
       closed: "Das Bewerbungsfenster ist geschlossen.",
       /** The school's door while a window is open, where the band and the season card carry its date. */
       opened: "Das Bewerbungsfenster ist offen.",
@@ -176,8 +175,7 @@ export const SERVER_COPY = catalogue({
     season: {
       eyebrow: SPIELBETRIEB,
       title: "So läuft eine Saison",
-      gruppenphase:
-        "Die Teams spielen in Gruppen jeder gegen jeden. Nur diese Spiele zählen für die Tabelle, und die Besten jeder Gruppe kommen weiter.",
+      gruppenphase: "Die Teams spielen in Gruppen jeder gegen jeden.",
       kORunde: "Wer verliert, scheidet aus. Bei Gleichstand entscheidet das Elfmeterschießen.",
       platz3: "Die beiden Verlierer der Halbfinale spielen um Platz 3.",
       finale: "Das Spiel um den Titel.",
@@ -220,6 +218,7 @@ export const SERVER_COPY = catalogue({
       opening: (when: Copy) => `Anpfiff ${when}`,
       /** The opening match's matchday, before its two plaques. */
       spieltag: COPY.shared.spieltag,
+      /** An open window's deadline, on the season card and the steps' band alike. */
       windowUntil: (until: CalendarDay) => `Bewerbungen bis ${formatDatum(until)}`,
       last: "Zuletzt",
       next: "Als Nächstes",
@@ -257,8 +256,6 @@ export const SERVER_COPY = catalogue({
      * played no match holds no place yet, and the line names its group alone.
      */
     standing: (platz: number | null, gruppe: string) => (platz === null ? gruppeName(gruppe) : `${placeName(platz)} · ${gruppeName(gruppe)}`),
-    /** `/saisons` while the league has no season yet, under the strip's title. */
-    noSaison: "Die erste Saison ist noch nicht angelegt.",
 
     /** The Tabelle's and the club page's column heads: the short forms on every width. */
     column: {

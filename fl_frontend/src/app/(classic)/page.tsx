@@ -102,7 +102,7 @@ function sectionsOf(saison: FLLandingSaison | null, window: FLBewerbungWindow | 
               ? { open: false, sentence: words.join.closed, act: ABOUT }
               : {
                   open: true,
-                  sentence: words.join.open(window.saison_id, window.bis as CalendarDay),
+                  sentence: words.saison.windowUntil(window.bis as CalendarDay),
                   act: { label: words.toBewerbung, href: formOf(window) },
                 }
           }
