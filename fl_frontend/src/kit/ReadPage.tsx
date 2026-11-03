@@ -13,7 +13,7 @@ import { StatTiles } from "./StatTiles";
 import { Table } from "./Table";
 import { Timeline } from "./Timeline";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, RecordText } from "@/core/copy";
 import type { ComponentProps, ReactElement } from "react";
 import type { ChipProps } from "./Chip";
 import type { EmptyStateProps } from "./EmptyState";
@@ -58,7 +58,7 @@ export type ReadRecord = {
    * A club's head over the groups, `ClubHead`, which the club's page places as `folds` holds `ReadFolds`; and, where
    * the club has left the season, its route and day over the reason as it was stored.
    */
-  club?: { head: ReactElement; austritt: { title: Copy; text: { record: string } } | null };
+  club?: { head: ReactElement; austritt: { title: Copy; text: RecordText } | null };
   /** The first group goes without a title where it is the page's only one: the page's own title names it. */
   groups: readonly [ReadGroup, ...ReadGroup[]];
   /** The decision's acts, the kit's buttons and the dialogs they open, under the first group. */

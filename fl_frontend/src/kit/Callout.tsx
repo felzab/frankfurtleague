@@ -1,6 +1,6 @@
 import { tv } from "./tv";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 
 const box = tv({
   // The tint is 12 % of the hue over the surface, as a chip's; the title takes the hue, the text the
@@ -24,7 +24,7 @@ export type CalloutProps = {
   /** A short head in the hue, where the sentence needs one. */
   title?: Copy;
   /** A sentence of the catalogue's, or a record's own text, shown as it was stored, as `PageTitle` takes a record's name. */
-  text: Copy | { record: string };
+  text: Words;
 };
 
 /** A consequence or a state, said in one visible box tinted in its status hue. */
