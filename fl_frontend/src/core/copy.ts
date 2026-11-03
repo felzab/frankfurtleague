@@ -357,8 +357,9 @@ export const COPY = catalogue({
     /** The strip's toggle folding the rail to its glyphs and back, named for what the next press does. */
     sidebar: { collapse: "Seitenleiste einklappen", expand: "Seitenleiste ausklappen" },
 
-    /** The footer: the league's group, which holds the sponsors' page, and the line over the sponsors' logos. */
+    /** The footer: the league's group, which holds the sponsors' page, the legal pages' group, and the line over the sponsors' logos. */
     liga: "Liga",
+    legal: "Rechtliches",
     oberstufenliga: "Die Frankfurter Oberstufenliga",
     supportedBy: "Mit Unterstützung von",
     instagram: "Instagram",
