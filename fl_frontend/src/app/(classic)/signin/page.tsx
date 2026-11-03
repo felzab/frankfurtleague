@@ -3,7 +3,6 @@ import { Suspense } from "react";
 import { getSignedInAddress } from "@/core/auth";
 import { frontend_config } from "@/core/config";
 import { ROUTES } from "@/core/routes";
-import { SIGN_IN_LANDING } from "@/core/signInLanding";
 import { SignInFlow } from "@/features/auth/components/forms/SignInFlow";
 import { SignedIn } from "@/features/auth/components/ui/SignedIn";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -32,7 +31,7 @@ async function Anmelden() {
   // The key off the request's settings, past the session read: a prerendered shell would carry the build's, which is none.
   return address === null ? (
     <SignInFlow
-      next={SIGN_IN_LANDING}
+      next={ROUTES.signInLanding.path()}
       siteKey={frontend_config.TURNSTILE_SITE_KEY}
     />
   ) : (

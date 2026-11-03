@@ -5,7 +5,7 @@ import z from "zod";
 import { SEARCH_QUERY_PARAM } from "@/shared/utils/searchQuery";
 
 import { SAISON_ID_LENGTH } from "./constants";
-import { getAdminSaisons, getSaisons } from "./queries";
+import { getAdminSaisons, getSaisonFrame, getSaisons } from "./queries";
 import { searchWithoutSaisonId } from "./utils";
 
 import type { FLSaisonAdmin, FLSaisonStatus } from "@/core/generated/client/types";
@@ -77,18 +77,26 @@ export async function requireAdminSaison(searchParamsPromise: NextPageProps["sea
  * parameter above there is no fallback: degrading would silently edit a season nobody asked for.
  */
 export async function resolveSaisonIdParam(paramsPromise: NextPageProps<{ saison_id: string }>["params"]): Promise<string> {
-  const saisonId = await parseSaisonIdParam(paramsPromise);
-  if (saisonId === null) notFound();
-
-  return saisonId;
-}
-
-/** The same judgement without the throw, for `generateMetadata`, which answers a 404's title where a throw leaves the layout's. */
-export async function parseSaisonIdParam(paramsPromise: NextPageProps<{ saison_id: string }>["params"]): Promise<string | null> {
   const parsed = z
     .string()
     .length(SAISON_ID_LENGTH)
     .safeParse((await paramsPromise).saison_id);
+  if (!parsed.success) notFound();
 
-  return parsed.success ? parsed.data : null;
+  return parsed.data;
+}
+
+/**
+ * A public season page's `[saison]` segment: a season the public may read, or not-found. Judged against the
+ * frame's list, which filters on the same withheld status as every season read
+ * (`fl_backend/app/api/saisons/visibility.py :: resolve_public_saison`), so a page's metadata carries the
+ * not-found title for an unknown, malformed or withheld season, and no such segment reaches the backend or keys a
+ * cache entry of its own: the frame is one read, which the season layout already makes.
+ */
+export async function resolvePublicSaisonParam(paramsPromise: Promise<{ saison: string }>): Promise<string> {
+  const { saison } = await paramsPromise;
+  const { saisons } = await getSaisonFrame();
+  if (!saisons.some((entry) => entry.id === saison)) notFound();
+
+  return saison;
 }

@@ -1,12 +1,9 @@
-import { notFound } from "next/navigation";
-
-import { Link } from "@/kit/Link";
 import { SpielPopup } from "@/kit/SpielHead";
 
-import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
-import { getSpielPage } from "@/features/saisons/queries";
-import { ereignisOf, headOf, popupFactsOf, sidesOf } from "@/features/spiele/blocks";
+import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
+import { spielPopupOf } from "@/features/spiele/popup";
+import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 
 import type { SpielPopupContent } from "@/kit/SpielHead";
 
@@ -19,26 +16,7 @@ export default function SpielPopupPage({ params }: PageProps<"/saisons/[saison]/
 }
 
 async function readPopup(params: Promise<{ saison: string; spiel: string }>): Promise<SpielPopupContent> {
-  const { saison, spiel: spielId } = await params;
-  const page = await getSpielPage(saison, spielId);
-  if (page === null) notFound();
-  const { spiel, spieltag_position: position, standings } = page;
-  const { heim, gast } = sidesOf(spiel);
-  return {
-    title: ROUTES.spiel.title(heim.name, gast.name),
-    beneath: ROUTES.spielplan.path(saison),
-    act: (
-      // A full page load: a client navigation to this same address is intercepted again as this pop-up.
-      <Link
-        href={ROUTES.spiel.path(saison, spiel.id)}
-        placement="button"
-        look="primary"
-        fullPage
-        label={COPY.shared.toSpiel}
-      />
-    ),
-    head: headOf(spiel, position, standings),
-    facts: popupFactsOf(spiel),
-    sonderereignis: ereignisOf(spiel),
-  };
+  const spielId = await resolveObjectIdParam(params, "spiel");
+  const saison = await resolvePublicSaisonParam(params);
+  return spielPopupOf(saison, spielId, ROUTES.spielplan.path(saison));
 }

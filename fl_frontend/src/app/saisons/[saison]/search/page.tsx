@@ -8,6 +8,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { getSpielplan } from "@/features/saisons/queries";
+import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { matchRowOf, sidesOf, whenOf } from "@/features/spiele/blocks";
 import { spieltagLabels } from "@/features/spieltage/utils";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -21,7 +22,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/saisons/[saison]/search">;
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  const { saison } = await params;
+  const saison = await resolvePublicSaisonParam(params);
   return pageMetadata(parent, ROUTES.spielSearch, ROUTES.spielSearch.path(saison));
 }
 
@@ -30,7 +31,7 @@ const keyOf = (spieltag: FLSpielplanSpieltag) => `${spieltag.saison_phase}-${Str
 
 /** The season's matches with their matchday's key, and the three filters over them with the address's values. */
 async function readSeason(params: Props["params"], searchParams: Props["searchParams"]) {
-  const spielplan = await getSpielplan((await params).saison);
+  const spielplan = await getSpielplan(await resolvePublicSaisonParam(params));
   if (spielplan === null) notFound();
   const address = await searchParams;
   const { spieltage } = spielplan;

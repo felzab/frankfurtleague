@@ -10,9 +10,11 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { getSpielPage } from "@/features/saisons/queries";
-import { ereignisOf, headOf, isThirdPlace, matchdayOf, sidesOf } from "@/features/spiele/blocks";
+import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
+import { ereignisOf, headOf, matchdayOf, sidesOf } from "@/features/spiele/blocks";
 import { buildMapsSearchUrl } from "@/shared/utils/format";
 import { pageMetadata } from "@/shared/utils/metadata";
+import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 
 import type { Copy } from "@/core/copy";
 import type { CalendarDay, Uhrzeit } from "@/core/format";
@@ -35,8 +37,8 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/saisons/[saison]/spiele/[spiel]">;
 
 async function readPage(params: Props["params"]): Promise<FLSpielPageResponse> {
-  const { saison, spiel } = await params;
-  const page = await getSpielPage(saison, spiel);
+  const spiel = await resolveObjectIdParam(params, "spiel");
+  const page = await getSpielPage(await resolvePublicSaisonParam(params), spiel);
   if (page === null) notFound();
   return page;
 }
@@ -68,6 +70,9 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const { spiel, spieltag_position: position, standings, bericht } = await readPage(params);
   const { heim, gast } = sidesOf(spiel);
   const words = SERVER_COPY.season.spiel;
+  // The goals and cards as official: null until the report is adopted and where none is stored, so a result
+  // awaiting its report never reads as nobody having scored, which an adopted report's empty lists say.
+  const official = bericht?.torschuetzen == null || bericht.karten === null ? null : { tore: bericht.torschuetzen, karten: bericht.karten };
   return {
     title: { route: "spiel", heim: heim.name, gast: gast.name },
     spiel: { head: headOf(spiel, position, standings), sonderereignis: ereignisOf(spiel) },
@@ -89,8 +94,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         title: words.toreUndKarten,
         kind: "timeline",
         label: words.toreUndKarten,
-        items: eventsOf(spiel, bericht?.torschuetzen ?? [], bericht?.karten ?? []),
-        empty: { kind: "none", plural: words.toreUndKarten },
+        items: official === null ? [] : eventsOf(spiel, official.tore, official.karten),
+        empty: { kind: "none", plural: official === null ? words.officialToreUndKarten : words.toreUndKarten },
       },
     ],
   };
@@ -102,7 +107,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
  */
 function tilesOf(spiel: FLSpielJoined, position: number): readonly [StatTile, StatTile, StatTile, StatTile, StatTile] {
   const { fact } = COPY.spielplan;
-  const group = spiel.saison_phase === "gruppenphase" && !isThirdPlace(spiel);
+  const group = spiel.saison_phase === "gruppenphase";
   const datum = spiel.datum === null ? null : formatDatumPair(spiel.datum as CalendarDay);
   return [
     group

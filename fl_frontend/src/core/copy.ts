@@ -350,9 +350,11 @@ export const COPY = catalogue({
 
   /** Signing in: the address and its code, the passkey, and the answers either can meet. */
   signIn: {
-    /** The tab titles of `/signin` and `/signin/passkey`. */
+    /** `/signin`'s tab title, and its card's heading, signed out and signed in. */
     title: "Anmelden",
     passkeyTitle: "Passkey",
+    /** `/signin/weiter`'s tab title, a page that only sends the session on to where it goes next. */
+    landingTitle: "Anmeldung",
 
     address: "E-Mail-Adresse",
     sendCode: "Code senden",

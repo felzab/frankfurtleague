@@ -1,3 +1,4 @@
+import { SERVER_COPY } from "@/core/serverCopy";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
@@ -27,7 +28,7 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
   }
   // The save and its dry run alike: the editor stays open on a finished season, whose fixtures the write refuses whole.
   if (error.serverErrorCode === "saison_past") {
-    return { error: "Diese Saison ist abgeschlossen. Ihre Spiele lassen sich nicht mehr ändern." };
+    return { error: SERVER_COPY.refusalLine.saison_past };
   }
   if (error.serverErrorCode === "ergebnis_side_emptied") {
     return {

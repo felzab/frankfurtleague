@@ -6,6 +6,7 @@ import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSaisonTeams } from "@/features/saisons/queries";
+import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -14,7 +15,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/saisons/[saison]/teams">;
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  const { saison } = await params;
+  const saison = await resolvePublicSaisonParam(params);
   return pageMetadata(parent, ROUTES.teams, ROUTES.teams.path(saison), { description: SERVER_COPY.description.teams(saison) });
 }
 
@@ -29,7 +30,7 @@ export default function TeamsPage({ params }: Props) {
 }
 
 async function readTable(params: Props["params"]) {
-  const { saison } = await params;
+  const saison = await resolvePublicSaisonParam(params);
   const read = await getSaisonTeams(saison);
   if (read === null) notFound();
   const { column } = SERVER_COPY.season;

@@ -1,9 +1,10 @@
 import { renderToReadableStream } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import SpielplanPage from "./page";
+import SpielplanPage, { generateMetadata } from "./page";
 
 import type { FLSpielplanResponse } from "@/core/generated/client/types";
+import type { ResolvingMetadata } from "next";
 import type { ComponentProps } from "react";
 
 vi.mock("next/link", () => ({
@@ -57,7 +58,17 @@ const SPIELPLAN = {
   }),
 } as FLSpielplanResponse;
 
-vi.mock("@/features/saisons/queries", () => ({ getSpielplan: async () => SPIELPLAN }));
+/** Each season the Spielplan was read for, so a case can tell that none was. */
+const reads = vi.hoisted((): string[] => []);
+
+vi.mock("@/features/saisons/queries", () => ({
+  // The seasons the public may read: 2027 alone.
+  getSaisonFrame: async () => ({ saisons: [{ id: "2027" }], active_saison_id: "2027" }),
+  getSpielplan: async (saison: string) => {
+    reads.push(saison);
+    return SPIELPLAN;
+  },
+}));
 
 /** The page's whole server render for the address's query: the document a browser shows before hydrating. */
 async function rendered(query: Record<string, string>) {
@@ -95,5 +106,28 @@ describe("the Spielplan's server render", () => {
     expect(html).toMatch(/<a[^>]*href="\?tab=finale-1"[^>]*>Finale</);
     expect(html).toMatch(/<a[^>]*href="\/saisons\/2027\/spiele\/sp-gruppenphase-2"/);
     expect(html).toMatch(/<a[^>]*href="\/saisons\/2027\/search"/);
+  });
+});
+
+describe("a season the public cannot read", () => {
+  // Unknown, malformed or withheld alike: the page's title and canonical would name a Spielplan the page does not show.
+  it.each(["2099", "abcd"])("answers %s as not-found in the metadata and the page, reading no Spielplan", async (saison) => {
+    reads.length = 0;
+    const params = Promise.resolve({ saison });
+
+    await expect(
+      generateMetadata({ params, searchParams: Promise.resolve({}) }, Promise.resolve({}) as unknown as ResolvingMetadata),
+    ).rejects.toMatchObject({
+      digest: "NEXT_HTTP_ERROR_FALLBACK;404",
+    });
+    const stream = await renderToReadableStream(
+      <SpielplanPage
+        params={params}
+        searchParams={Promise.resolve({})}
+      />,
+      { onError: () => undefined },
+    );
+    await stream.allReady;
+    expect(reads).toStrictEqual([]);
   });
 });

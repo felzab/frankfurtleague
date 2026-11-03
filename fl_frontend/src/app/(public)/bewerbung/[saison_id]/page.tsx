@@ -5,37 +5,36 @@ import { frontend_config } from "@/core/config";
 import { getLaufendeFassung } from "@/core/einwilligung";
 import { BewerbungView } from "@/features/bewerbungen/components/views/BewerbungView";
 import { getBewerbungFenster, getBewerbungSchulen, getBewerbungTrikotfarben } from "@/features/bewerbungen/queries";
-import { parseSaisonIdParam, resolveSaisonIdParam } from "@/features/saisons/resolvers";
+import { resolveSaisonIdParam } from "@/features/saisons/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { openGraphFor } from "@/shared/utils/metadata";
-import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata, ResolvingMetadata } from "next";
 
 export async function generateMetadata(props: NextPageProps<{ saison_id: string }>, parent: ResolvingMetadata): Promise<Metadata> {
-  // Answered here and thrown in the body: a `notFound()` in this function leaves the page the layout's
-  // title, while the body's throw renders the same panel. The status is 200 either way.
-  const saison_id = await parseSaisonIdParam(props.params);
-  if (saison_id === null) return NOT_FOUND_METADATA;
+  // A `notFound()` here gives the page the not-found file's metadata, as the body's throw renders its panel.
+  const saison_id = await resolveSaisonIdParam(props.params);
 
   // Caught for the body's reason: a window this page could not read is a state it renders, and a
   // failed read answering not-found would take the season down with the backend.
 
   // Unlogged: the body's handler logs this same memoised read's failure.
   const antwort = await getBewerbungFenster(saison_id).catch(() => undefined);
-  if (antwort === null) return NOT_FOUND_METADATA;
+  if (antwort === null) notFound();
 
   return {
     title: `Bewerbung Saison ${saison_id}`,
     openGraph: await openGraphFor(parent, `/bewerbung/${saison_id}`),
-    alternates: { canonical: `/bewerbung/${saison_id}` },
     // A season with no deadline recorded, or a window this read could not reach, is one sentence rather
-    // than content: an indexed copy outlives the day the window is there to show.
-    ...(antwort === undefined || antwort.window === null ? { robots: { index: false } } : {}),
+    // than content: an indexed copy outlives the day the window is there to show. A canonical names the
+    // address to list, which a page kept out of the index has none of, so only the indexed branch declares one.
+    ...(antwort === undefined || antwort.window === null
+      ? { robots: { index: false } }
+      : { alternates: { canonical: `/bewerbung/${saison_id}` } }),
   };
 }
 

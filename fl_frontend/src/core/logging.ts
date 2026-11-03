@@ -1,4 +1,4 @@
-import { now } from "./clock";
+import { loggedAt } from "./clock";
 import { getRequestTraceId } from "./requestScope";
 
 type Level = "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
@@ -22,7 +22,7 @@ function scrubbed(_key: string, value: unknown): unknown {
 function log(level: Level, message: string, { trace_id, error, ...fields }: LogMeta = {}): void {
   // `SYSTEM` outside every request, so a reader can rely on the key being there.
   const entry = {
-    timestamp: now().toISOString(),
+    timestamp: loggedAt().toISOString(),
     level,
     service: "fl_frontend",
     trace_id: trace_id ?? getRequestTraceId() ?? "SYSTEM",
