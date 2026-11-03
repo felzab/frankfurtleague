@@ -8,7 +8,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getTabelle } from "@/features/saisons/queries";
 import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
-import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
+import { austrittChip } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { FLTabelleRow } from "@/core/generated/client/types";
@@ -54,8 +54,8 @@ const signed = (difference: number) => (difference > 0 ? `+${formatNumber(differ
 
 /**
  * One club's row: its place as the backend numbers it, level clubs sharing one and a club that has played no
- * match holding none; the bar while its place qualifies; muted once it has left the season, „DQ“ where it was
- * disqualified; the matches it played carrying the mark of those called off.
+ * match holding none; the bar while its place qualifies; muted once it has left the season, with its exit chip;
+ * the matches it played carrying the mark of those called off.
  */
 function rowOf(saison: string, row: FLTabelleRow, qualifiers: number): TableRow {
   const { statistik } = row;
@@ -69,9 +69,7 @@ function rowOf(saison: string, row: FLTabelleRow, qualifiers: number): TableRow 
     place: row.platz,
     qualifies: row.platz !== null && row.platz <= qualifiers,
     muted: row.austritt_type !== null,
-    ...(row.austritt_type === "disqualifikation"
-      ? { chip: { tone: "danger", label: austrittKuerzel(row.austritt_type), spoken: austrittZustand(row.austritt_type) } }
-      : {}),
+    ...(row.austritt_type === null ? {} : { chip: austrittChip(row.austritt_type) }),
     cells: {
       spiele: statistik.count_abgesagte_spiele > 0 ? { value: played, cancelled: statistik.count_abgesagte_spiele } : played,
       siege: formatNumber(statistik.siege),

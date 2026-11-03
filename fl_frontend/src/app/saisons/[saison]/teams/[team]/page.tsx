@@ -12,7 +12,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
 import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { matchdayOf, matchRowOf } from "@/features/spiele/blocks";
-import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
+import { austrittChip, austrittZustand } from "@/features/teams/constants";
 import { buildMapsSearchUrl } from "@/shared/utils/format";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { resolveObjectIdParam } from "@/shared/utils/routeParams";
@@ -96,9 +96,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const address = `${team.address.strasse} ${team.address.hausnummer}, ${team.address.plz} ${team.address.stadt}`;
   return {
     title: { record: team.name },
-    ...(team.austritt?.type === "disqualifikation"
-      ? { chip: { tone: "danger", label: austrittKuerzel(team.austritt.type), spoken: austrittZustand(team.austritt.type) } }
-      : {}),
+    ...(team.austritt === null ? {} : { chip: austrittChip(team.austritt.type) }),
     club: {
       head: (
         <ClubHead
