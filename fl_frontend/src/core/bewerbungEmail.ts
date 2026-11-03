@@ -1,13 +1,12 @@
 import "server-only";
 
 import { BRAND_NAME, mailOrigin } from "./emailShell";
-import { formatDatum, formatList } from "./format";
+import { dayOf, formatDatum, formatList } from "./format";
 import { kontaktBestaetigungsLink } from "./kontaktLink";
 import { ROUTES } from "./routes";
 import { KONTAKT_ROLLE_LONG_FORM, rollenText, TRIKOT_FARBEN } from "./teamVocabulary";
 
 import type { Mail, Paragraph } from "./emailShell";
-import type { CalendarDay } from "./format";
 import type {
   FLBewerbungAbsageData,
   FLBewerbungErasureData,
@@ -70,7 +69,7 @@ const neuBewerbenAktion = (origin: string, saisonId: string) => ({
 });
 
 /** A deadline as the mails state it; the backend sends the day, and the one German spelling of it is here. */
-const fristText = (frist: string): string => formatDatum(frist as CalendarDay);
+const fristText = (frist: string): string => formatDatum(dayOf(frist));
 
 /** What a mail calls a seat whose person is gone — declined or erased, and outstanding either way. */
 const SEAT_OHNE_NAMEN = "Ohne Namen";

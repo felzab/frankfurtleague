@@ -1,12 +1,12 @@
 import { COPY } from "@/core/copy";
-import { formatDatum, formatUhrzeit } from "@/core/format";
+import { dayOf, formatDatum, formatUhrzeit, timeOf } from "@/core/format";
 import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { spieltagLabel } from "@/features/spieltage/utils";
 
 import type { Copy } from "@/core/copy";
-import type { CalendarDay, Pair, Uhrzeit } from "@/core/format";
+import type { Pair } from "@/core/format";
 import type {
   FLSonderereignis,
   FLSpielJoined,
@@ -26,10 +26,6 @@ import type { Route } from "next";
  * A match as the kit's blocks show it, built once for every season page, the match page and the pop-up, the
  * landing's among them: its sides, its row, its head and its facts, from the public read's match.
  */
-
-// The fixture's own strings, which its schema has already held to the stored formats.
-const dayOf = (datum: string | null): CalendarDay | null => (datum === null ? null : (datum as CalendarDay));
-const timeOf = (uhrzeit: string | null): Uhrzeit | null => (uhrzeit === null ? null : (uhrzeit as Uhrzeit));
 
 /** A match's matchday as the page reads serve it beside the match: its `position`, and its phase's count of matchdays. */
 type Matchday = Pick<FLSpielPageResponse, "spieltag_position" | "count_spieltage_in_phase">;

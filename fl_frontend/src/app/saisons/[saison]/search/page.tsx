@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY, textOf } from "@/core/copy";
-import { formatDatum, formatNumber } from "@/core/format";
+import { dayOf, formatDatum, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
@@ -14,7 +14,6 @@ import { spieltagNamer } from "@/features/spieltage/utils";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Copy } from "@/core/copy";
-import type { CalendarDay } from "@/core/format";
 import type { FLSpielJoined, FLSpielplanSpieltag } from "@/core/generated/client/types";
 import type { Filter } from "@/kit/Filters";
 import type { Metadata, ResolvingMetadata } from "next";
@@ -91,7 +90,7 @@ function wordsOf(spiel: FLSpielJoined): string {
     textOf(team2.name),
     spiel.ort?.name,
     whenOf(spiel),
-    spiel.datum === null ? null : formatDatum(spiel.datum as CalendarDay),
+    spiel.datum === null ? null : formatDatum(dayOf(spiel.datum)),
     formatNumber(spiel.spiel_nr),
     spiel.schiedsrichter?.name,
   ]

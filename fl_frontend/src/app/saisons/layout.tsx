@@ -2,11 +2,10 @@ import { connection } from "next/server";
 
 import { RailFrame } from "@/kit/RailFrame";
 
-import { formatPeriod } from "@/core/format";
+import { dayOf, formatPeriod } from "@/core/format";
 import { ROUTES, SAISON_PAGES } from "@/core/routes";
 import { getSaisonFrame } from "@/features/saisons/queries";
 
-import type { CalendarDay } from "@/core/format";
 import type { Saisons } from "@/kit/FrameNav";
 import type { ReactNode } from "react";
 
@@ -20,8 +19,7 @@ async function readSeasons(): Promise<Saisons | null> {
   const { saisons, active_saison_id: active } = await getSaisonFrame();
   if (active === null) return null;
   return {
-    // The season's own strings, which its schema has already held to the stored format.
-    entries: saisons.map((saison) => ({ id: saison.id, span: formatPeriod(saison.start_date as CalendarDay, saison.end_date as CalendarDay) })),
+    entries: saisons.map((saison) => ({ id: saison.id, span: formatPeriod(dayOf(saison.start_date), dayOf(saison.end_date)) })),
     standard: active,
   };
 }

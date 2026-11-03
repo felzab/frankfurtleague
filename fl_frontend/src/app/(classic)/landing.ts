@@ -1,12 +1,12 @@
 import { cacheLife, cacheTag } from "next/cache";
 
 import { COPY } from "@/core/copy";
+import { dayOf, timeOf } from "@/core/format";
 import { saisonsGetLanding } from "@/core/generated/client/sdk";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 import { matchRowOf } from "@/features/spiele/blocks";
 
-import type { CalendarDay, Uhrzeit } from "@/core/format";
 import type { FLBewerbungWindow, FLLandingResponse, FLLandingSide } from "@/core/generated/client/types";
 import type { Place } from "@/kit/Podium";
 import type { SaisonBlock } from "@/kit/SaisonBlock";
@@ -59,8 +59,7 @@ export function stateOf(saison: LandingSaison): SaisonState {
           ? {}
           : {
               opening: {
-                // The schema has already held both to the stored formats.
-                when: COPY.spielplan.when(spiel.datum as CalendarDay, spiel.uhrzeit as Uhrzeit | null),
+                when: COPY.spielplan.when(dayOf(spiel.datum), timeOf(spiel.uhrzeit)),
                 spieltag: SERVER_COPY.landing.saison.spieltag(spiel.spieltag_position),
                 team1: plaqueOf(spiel.team1),
                 team2: plaqueOf(spiel.team2),

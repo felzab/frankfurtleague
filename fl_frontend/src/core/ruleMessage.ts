@@ -1,10 +1,10 @@
 // Apart from the Zod map, which `instrumentation.ts` installs on both runtimes: the rule phrases are the server's
 // own catalogue, which neither instrumentation bundle is to carry.
 import { COPY } from "./copy";
+import { dayOf } from "./format";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Copy } from "./copy";
-import type { CalendarDay } from "./format";
 import type { FLRefusedField } from "./generated/client/types";
 
 const { field, failure } = COPY.shared;
@@ -12,7 +12,7 @@ const { field, failure } = COPY.shared;
 type Context = FLRefusedField["ctx"];
 
 /** A span's end: earliest its start, which the backend's rule names, as the end box's own earliest day reads. */
-const notBeforeStart = ({ start }: Context) => (typeof start === "string" ? field.earliest(start as CalendarDay) : undefined);
+const notBeforeStart = ({ start }: Context) => (typeof start === "string" ? field.earliest(dayOf(start)) : undefined);
 
 /**
  * Each rule the backend refuses a payload with that a field pattern words, by its kind, from the bounds the rule's

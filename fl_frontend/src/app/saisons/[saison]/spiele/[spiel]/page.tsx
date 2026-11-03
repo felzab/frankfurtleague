@@ -4,7 +4,7 @@ import { ReadFolds } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
 
 import { COPY } from "@/core/copy";
-import { formatDatumPair, formatErgebnis, formatOrdinal, formatUhrzeit } from "@/core/format";
+import { dayOf, formatDatumPair, formatErgebnis, formatOrdinal, formatUhrzeit, timeOf } from "@/core/format";
 import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -16,7 +16,6 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 
 import type { Copy, Words } from "@/core/copy";
-import type { CalendarDay, Uhrzeit } from "@/core/format";
 import type {
   FLAufstellungEntryPublic,
   FLAufstellungPublic,
@@ -108,7 +107,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
 function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [StatTile, StatTile, StatTile, StatTile, StatTile] {
   const { fact } = COPY.spielplan;
   const group = spiel.saison_phase === "gruppenphase";
-  const datum = spiel.datum === null ? null : formatDatumPair(spiel.datum as CalendarDay);
+  const datum = spiel.datum === null ? null : formatDatumPair(dayOf(spiel.datum));
   return [
     group
       ? { label: fact.spieltag, value: { record: formatOrdinal(page.spieltag_position) }, line: PHASE_LABELS.gruppenphase }
@@ -116,7 +115,7 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
     datum === null
       ? { label: fact.datum, value: COPY.shared.noValue }
       : { label: fact.datum, value: { record: datum.figure }, line: { record: datum.line } },
-    { label: fact.uhrzeit, value: spiel.uhrzeit === null ? COPY.shared.noValue : { record: formatUhrzeit(spiel.uhrzeit as Uhrzeit) } },
+    { label: fact.uhrzeit, value: spiel.uhrzeit === null ? COPY.shared.noValue : { record: formatUhrzeit(timeOf(spiel.uhrzeit)) } },
     {
       label: fact.schiedsrichter,
       value: spiel.schiedsrichter?.name == null ? COPY.shared.noValue : { record: spiel.schiedsrichter.name },

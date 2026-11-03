@@ -4,14 +4,13 @@ import { RailColumn, RailFrame } from "@/kit/RailFrame";
 
 import { judgeAdminRequest } from "@/core/auth";
 import { COPY } from "@/core/copy";
-import { formatPeriod } from "@/core/format";
+import { dayOf, formatPeriod } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 // Session 5: the old admin layout's guard, which moves with that layout.
 import { AdminSessionHold } from "@/features/admin/components/providers/AdminSessionHold";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { selectSaison } from "@/features/saisons/resolvers";
 
-import type { CalendarDay } from "@/core/format";
 import type { Account, RailGroup, Saisons } from "@/kit/FrameNav";
 import type { ReactNode } from "react";
 
@@ -132,8 +131,7 @@ async function readSeasons(session: Session): Promise<Saisons | null> {
   if (standard === undefined) return null;
   return {
     entries: saisons
-      // The season's own strings, which its schema has already held to the stored format.
-      .map((entry) => ({ id: entry.id, span: formatPeriod(entry.start_date as CalendarDay, entry.end_date as CalendarDay) }))
+      .map((entry) => ({ id: entry.id, span: formatPeriod(dayOf(entry.start_date), dayOf(entry.end_date)) }))
       .sort((one, other) => other.id.localeCompare(one.id)),
     standard: standard.id,
   };
