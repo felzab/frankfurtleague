@@ -208,12 +208,7 @@ function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
             </Link>
           )}
         </span>
-        {row.chip !== undefined && (
-          <Chip
-            tone={row.chip.tone}
-            label={row.chip.label}
-          />
-        )}
+        {row.chip !== undefined && <Chip {...row.chip} />}
       </span>
     </td>
   );
