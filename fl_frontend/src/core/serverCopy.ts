@@ -184,7 +184,8 @@ export const SERVER_COPY = catalogue({
 
     /** The season card beside the hero, in its states. */
     saison: {
-      kickoff: (when: string) => `Anpfiff ${when}`,
+      /** The opening match's Anpfiff, when it is set to start. */
+      opening: (when: string) => `Anpfiff ${when}`,
       /** The opening match's matchday, before its two plaques. */
       spieltag: COPY.shared.spieltag,
       windowUntil: (until: CalendarDay) => `Bewerbungen bis ${formatDatum(until)}`,

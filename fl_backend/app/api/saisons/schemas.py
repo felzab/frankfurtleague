@@ -466,7 +466,7 @@ class FLLandingSide(BaseReadModel):
     shorthand: str
 
 
-class FLLandingKickoff(BaseReadModel):
+class FLLandingOpeningSpiel(BaseReadModel):
     """The season's opening match: when it is set to start, in Berlin wall time, its two sides and its Spieltag's `position`.
 
     A side is null while its slot is empty, as a match's own sides are.
@@ -518,7 +518,7 @@ class FLLandingCounts(BaseReadModel):
 class FLLandingSaison(BaseReadModel):
     """The season the site is on as the landing shows it.
 
-    `start` the instant `saison_start` reads off its `start_date`. `first_kickoff` before the start, the earliest dated
+    `start` the instant `saison_start` reads off its `start_date`. `opening_spiel` before the start, the earliest dated
     group match, null while none is; `recent` and `upcoming` while it runs, the latest results and the next matches;
     `podium` once decided, places one to four in their order, null before.
     """
@@ -526,7 +526,7 @@ class FLLandingSaison(BaseReadModel):
     id: str
     state: FLLandingState
     start: datetime
-    first_kickoff: FLLandingKickoff | None
+    opening_spiel: FLLandingOpeningSpiel | None
     recent: list[FLSpielJoined]
     upcoming: list[FLSpielJoined]
     podium: FLPodium | None

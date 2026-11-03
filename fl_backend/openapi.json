@@ -7645,7 +7645,7 @@
         "title": "FLLandingCounts",
         "type": "object"
       },
-      "FLLandingKickoff": {
+      "FLLandingOpeningSpiel": {
         "description": "The season's opening match: when it is set to start, in Berlin wall time, its two sides and its Spieltag's `position`.\n\nA side is null while its slot is empty, as a match's own sides are.",
         "properties": {
           "datum": {
@@ -7698,7 +7698,7 @@
           "team1",
           "team2"
         ],
-        "title": "FLLandingKickoff",
+        "title": "FLLandingOpeningSpiel",
         "type": "object"
       },
       "FLLandingResponse": {
@@ -7733,24 +7733,24 @@
         "type": "object"
       },
       "FLLandingSaison": {
-        "description": "The season the site is on as the landing shows it.\n\n`start` the instant `saison_start` reads off its `start_date`. `first_kickoff` before the start, the earliest dated\ngroup match, null while none is; `recent` and `upcoming` while it runs, the latest results and the next matches;\n`podium` once decided, places one to four in their order, null before.",
+        "description": "The season the site is on as the landing shows it.\n\n`start` the instant `saison_start` reads off its `start_date`. `opening_spiel` before the start, the earliest dated\ngroup match, null while none is; `recent` and `upcoming` while it runs, the latest results and the next matches;\n`podium` once decided, places one to four in their order, null before.",
         "properties": {
           "counts": {
             "$ref": "#/components/schemas/FLLandingCounts"
           },
-          "first_kickoff": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "opening_spiel": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLLandingKickoff"
+                "$ref": "#/components/schemas/FLLandingOpeningSpiel"
               },
               {
                 "type": "null"
               }
             ]
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
           },
           "podium": {
             "anyOf": [
@@ -7813,7 +7813,7 @@
           "id",
           "state",
           "start",
-          "first_kickoff",
+          "opening_spiel",
           "recent",
           "upcoming",
           "podium",

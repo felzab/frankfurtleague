@@ -102,7 +102,7 @@ function Body({ state }: { state: SaisonState }) {
           />
           {state.opening !== undefined && (
             <>
-              <p className={slots.line()}>{SERVER_COPY.landing.saison.kickoff(state.opening.when)}</p>
+              <p className={slots.line()}>{SERVER_COPY.landing.saison.opening(state.opening.when)}</p>
               <p className={slots.opening()}>
                 <span className={slots.openingLabel()}>{state.opening.spieltag}</span>
                 <OpeningPlaque side={state.opening.home} />

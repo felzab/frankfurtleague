@@ -9,7 +9,7 @@ from app.api.saisons.crud import CURRENT_SAISON_FILTER, pull_active_saison, pull
 from app.api.saisons.schemas import (
     FLBewerbungWindow,
     FLLandingCounts,
-    FLLandingKickoff,
+    FLLandingOpeningSpiel,
     FLLandingResponse,
     FLLandingSaison,
     FLLandingSide,
@@ -147,12 +147,12 @@ _SPIELTAG_POSITION_LOOKUP: Mapping[str, Any] = {
 }
 
 
-def _first_kickoff_pipeline(saison_id: str) -> list[Mapping[str, Any]]:
+def _opening_spiel_pipeline(saison_id: str) -> list[Mapping[str, Any]]:
     """The season's earliest dated group match, a timed one ahead of an untimed one on the same day, with its matchday's `position`."""
 
     return [
         {"$match": {"saison_id": saison_id, "saison_phase": "gruppenphase", "datum": {"$type": "string"}}},
-        # A null sorts ahead of every time, so an untimed fixture would otherwise hide the opening day's kick-off.
+        # A null sorts ahead of every time, so an untimed fixture would otherwise hide the opening day's Anpfiff.
         {"$set": {"untimed": {"$ne": [{"$type": "$uhrzeit"}, "string"]}}},
         {"$sort": {"datum": 1, "untimed": 1, "uhrzeit": 1}},
         # Ahead of the lookup, so it joins the one match served rather than every dated one.
@@ -225,7 +225,7 @@ async def get_landing(
         asyncio.gather(
             _no_rows()
             if started
-            else aggregate_many_from_db(collection=spiele_collection, pipeline=_first_kickoff_pipeline(saison_id), limit=1),
+            else aggregate_many_from_db(collection=spiele_collection, pipeline=_opening_spiel_pipeline(saison_id), limit=1),
             aggregate_many_from_db(
                 collection=spiele_collection,
                 pipeline=build_spiele_pipeline(
@@ -287,7 +287,7 @@ async def get_landing(
             id=saison_id,
             state=state,
             start=saison_start(saison_raw["start_date"]),
-            first_kickoff=FLLandingKickoff.model_validate(first) if state == "before_start" and first else None,
+            opening_spiel=FLLandingOpeningSpiel.model_validate(first) if state == "before_start" and first else None,
             recent=FLSpielJoinedListAdapter.validate_python(recent_raw) if state == "running" else [],
             upcoming=FLSpielJoinedListAdapter.validate_python(upcoming_raw) if state == "running" else [],
             podium=podium,
