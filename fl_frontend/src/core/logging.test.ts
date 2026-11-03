@@ -64,4 +64,33 @@ describe("logger", () => {
 
     expect(lines.map(({ trace_id }) => trace_id)).toStrictEqual([TRACE, "SYSTEM"]);
   });
+
+  // A render crash is logged while the route's prerender still runs, where Next takes reading the clock through
+  // `Date` for an unstable value and prints its own error beside the line
+  // (`next/dist/server/node-environment-extensions/date.js`). The stand-in refuses those reads as Next flags them.
+  it("stamps its line without reading the clock through Date, as a prerender requires", async () => {
+    const Clock = Date;
+    class PrerenderDate extends Clock {
+      constructor(value?: string | number | Date) {
+        if (value === undefined) throw new Error("`new Date()` read the clock");
+        super(value);
+      }
+      static override now(): number {
+        throw new Error("`Date.now()` read the clock");
+      }
+    }
+
+    const [line] = await documentsWrittenByAsync(() => {
+      // Stubbed for the synchronous call alone, so the runner's own clock reads stay untouched.
+      vi.stubGlobal("Date", PrerenderDate);
+      try {
+        logger.error("system.request_crashed");
+      } finally {
+        vi.unstubAllGlobals();
+      }
+      return Promise.resolve();
+    });
+
+    expect(line).toMatchObject({ timestamp: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/) as unknown });
+  });
 });
