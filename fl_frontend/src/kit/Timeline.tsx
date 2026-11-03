@@ -10,11 +10,22 @@ import type { ReactNode } from "react";
  * point, and what stands under them, such as a match card. The mark is read with the title, since a minute
  * says when a goal fell and nothing else does.
  */
-export type Checkpoint = { id: string; mark: Words; title: Copy; detail?: Words; children?: ReactNode };
+export type Checkpoint = {
+  id: string;
+  mark: Words;
+  title: Copy;
+  detail?: Words;
+  children?: ReactNode;
+  /** A club's match: how it went for the club, which the point wears in the Tabelle's S, U and N colours. */
+  outcome?: Outcome;
+};
+
+/** How a match went for a club, or `none` while nothing is scored, such as an undecided or called-off match. */
+export type Outcome = "won" | "drawn" | "lost" | "none";
 
 /**
  * The point and the line every line of checkpoints draws, the season's stages on the landing among them: a
- * point outlined in the brand green with its mark inside, and from it a dotted line in the control edge's
+ * point outlined in the brand green, or in a club's match in its outcome's colour, with its mark inside, and from it a dotted line in the control edge's
  * grey to the next. A mark longer than two figures, a minute of stoppage time, widens the point into a pill.
  * Each block places the line, a `before:` box, by its own geometry.
  */
@@ -23,6 +34,16 @@ export const checkpoint = tv({
     point:
       "relative flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-brand bg-bg px-1 font-numeric text-xs font-semibold text-fg",
     line: "before:absolute before:border-l-2 before:border-dotted before:border-border-control",
+  },
+  variants: {
+    // A club's match in the colours its S, U and N carry in the Tabelle (`RecordFigures`), ring and mark alike, so
+    // a glance down the points reads the run of results; nothing scored keeps the control edge's grey.
+    outcome: {
+      won: { point: "border-success text-success" },
+      drawn: { point: "border-warn text-warn" },
+      lost: { point: "border-danger text-danger" },
+      none: { point: "border-border-control text-fg-muted" },
+    },
   },
 });
 
@@ -56,7 +77,7 @@ export function Timeline({ label, items }: { label: Copy; items: readonly Checkp
           key={item.id}
           className={slots.step()}>
           <div className={slots.line()}>
-            <span className={slots.point()}>{textOf(item.mark)}</span>
+            <span className={slots.point({ outcome: item.outcome })}>{textOf(item.mark)}</span>
           </div>
           <div className={slots.body()}>
             <div className={slots.head()}>
