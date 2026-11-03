@@ -73,7 +73,8 @@ def find_saison_start_refusal(*, stored_start_date: str, proposed_start_date: st
 def find_saison_past_refusal(*, saison_status: str) -> WriteRefusal | None:
     """`saison_past` for a write that a finished season's record no longer takes: a fixture's save, a club's season row.
 
-    Pure, and judged on a `status` its caller reads in-session, `activate_saison` moving it in a transaction of its own.
+    Pure. A caller's read of `status` stays current through its write set: `activate_saison` anchors the fixtures of every
+    season it closes, and the club move anchors the season document the rollover writes.
     """
 
     if saison_status != "past":

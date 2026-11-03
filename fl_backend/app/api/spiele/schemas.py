@@ -7,6 +7,7 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter,
 from pydantic_core import PydanticCustomError
 
 from app.api.teams.schemas import FLAustritt
+from app.core.crud import Anchored
 from app.shared.schemas.bounds import (
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
@@ -567,7 +568,7 @@ class FLSpielCommon(BaseReadModel):
     notiz: str | None = None
 
 
-class FLSpiel(FLSpielCommon):
+class FLSpiel(FLSpielCommon, Anchored):
     """One fixture as the `spiele` collection STORES it, and the shape every write composes.
 
     The money is re-declared because `$set` writes this model's dump, and a shape without it would

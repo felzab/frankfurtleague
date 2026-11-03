@@ -15,6 +15,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, saison_team_document, spiel_document, team_document
+from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -161,11 +162,15 @@ def on_a_seeded_season(
     return on_the_seed_loop(_run())
 
 
-async def call_swap(database: AsyncDatabase, client: AsyncMongoClient, team1_id: ObjectId, team2_id: ObjectId) -> Any:
+async def call_swap(
+    database: AsyncDatabase, client: AsyncMongoClient, team1_id: ObjectId, team2_id: ObjectId, *, saisons_collection: Any = None
+) -> Any:
+    """`saisons_collection` is overridable so a case can hand the endpoint a stand-in and nothing else."""
+
     return await swap_gruppen(
         saison_id=SAISON_ID,
         swap_data=FLSwapGruppenPayload(team1_id=team1_id, team2_id=team2_id),
-        saisons_collection=database[Collection.SAISONS],
+        saisons_collection=saisons_collection if saisons_collection is not None else database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         spiele_collection=database[Collection.SPIELE],
         teams_collection=database[Collection.TEAMS],
@@ -562,3 +567,42 @@ class TestTheRefusalsReadTheRealDocuments:
 
         assert stored[ALPHA] == "B" and stored[BETA] == "A"
         assert sides == {1: (BETA, ALPHA_RIVAL), 2: (BETA_RIVAL, ALPHA)}
+
+
+class SeasonsRunningARivalAfterTheSessionRead(InterleavedCollection):
+    """A `saisons` stand-in running its rival once, just after the first read made inside a transaction.
+
+    The read before the transaction is the 404 check, so a rival there would land before any snapshot.
+    """
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        found = await self._collection.find_one(*args, **kwargs)
+        if kwargs.get("session") is not None:
+            await self.run_the_rival()
+
+        return found
+
+
+class TestAStartMovedUnderTheSwapIsJudgedAgain:
+    """The season has not started when the swap judges, and has when it writes: `PATCH /saisons` moved its start."""
+
+    def test_the_swap_is_refused_on_the_start_moved_under_it(self, mongo_replica_set_url: str):
+        """Drop the season's anchor from `swap_gruppen` and this fails: the swap reads the start and writes only the clubs' rows."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def move_the_start_to_today() -> None:
+                # The season patch's own write, the one document both share.
+                await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"start_date": TODAY}})
+
+            seasons = SeasonsRunningARivalAfterTheSessionRead(database[Collection.SAISONS], move_the_start_to_today)
+            outcome = await outcome_of(call_swap(database, client, ALPHA, BETA, saisons_collection=seasons))
+
+            return outcome, seasons.passes, await gruppen_now(database)
+
+        outcome, passes, stored = on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
+
+        assert outcome != COMMITTED, "the swap committed on a start it judged before the patch moved it"
+        assert outcome == Code.SWAP_SAISON_STARTED
+        assert stored == {ALPHA: "A", ALPHA_RIVAL: "A", BETA: "B", BETA_RIVAL: "B"}
+        # The judgement's read and the retry's: the swap conflicted on the anchor rather than committing.
+        assert passes == 2

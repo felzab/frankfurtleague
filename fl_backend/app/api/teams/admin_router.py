@@ -100,6 +100,7 @@ from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
+    anchor_in_db,
     insert_live,
     patch_many_in_db,
     patch_one_in_db,
@@ -545,15 +546,17 @@ async def patch_saison_team(
             session=session,
         )
 
-        # One read of the season for both judgements below, in-session, `activate_saison` moving its status.
+        # One read of the season for both judgements below, anchored so the status belongs to this write set:
+        # `activate_saison` writes this document, so a rollover landing under the move conflicts and the retry reads `past`.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+        await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
         # Every write, an exit record included: a finished season's table and podium are read off these rows,
         # and an exit recorded now would move places its fixtures can no longer be saved to answer.
         refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
-        # Only a CHANGE is judged: recording an austritt writes the same row without moving anyone,
-        # and takes no season write either, so two austritte contend on nothing and need not.
+        # Only a CHANGE is judged: recording an austritt writes the same row without moving anyone, so two
+        # austritte contend only on the season's anchor above, which costs one retry.
         if saison_team_data.gruppe != existing_raw["gruppe"]:
             # Both sides, because a fixture fields a team on either.
             fixtures_drawn = await spiele_collection.count_documents(
@@ -831,11 +834,13 @@ async def replace_saison_team(
             session=session,
         )
 
-        # In-session, because `activate_saison` moves `status` in a transaction of its own, and the start
-        # beside it, which `PATCH /saisons/{saison_id}` moves.
         saison_raw = await pull_one_from_db(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status", "start_date"], session=session
         )
+        # Anchored, so the start and the status this is judged on belong to its write set: `PATCH /saisons/{saison_id}`
+        # moves the one and `activate_saison` the other, each writing this document, so either landing under the
+        # judgement conflicts and the retry judges the season it left.
+        await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
         # The ONE read of the incoming club, and it earns its place three times over: an id naming
         # nothing 404s here, the row's name is reseeded from it as `post_saison_team` seeds one at
