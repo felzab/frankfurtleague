@@ -16,6 +16,7 @@ const CLOSED = {
   tracking: { utility: "tracking", known: "tracking-[1px]" },
   text: { utility: "text", known: "text-[1px]" },
   radius: { utility: "rounded", known: "rounded-[1px]" },
+  blur: { utility: "backdrop-blur", known: "backdrop-blur-[1px]" },
 } as const;
 
 /** Every class `tokens.css`'s theme names in those namespaces. Parsed by PostCSS, so a commented-out name is not read. */
@@ -31,7 +32,7 @@ function themeClasses(): Array<{ token: string; own: string; known: string }> {
       found.push({ token: prop, own: `${utility}-${name}`, known });
     });
   });
-  assert(found.length > 0, "tokens.css's theme names no width, shadow, letterfit, size or corner");
+  assert(found.length > 0, "tokens.css's theme names no width, shadow, letterfit, size, corner or blur");
   return found;
 }
 

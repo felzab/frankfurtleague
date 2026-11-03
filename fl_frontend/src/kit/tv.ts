@@ -27,6 +27,7 @@ export const tv = createTV({
         ],
         shadow: ["menu", "dialog"],
         tracking: ["display", "caps"],
+        blur: ["scrim"],
       },
     },
   },
