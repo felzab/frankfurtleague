@@ -9,7 +9,7 @@ import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { CodeField } from "./CodeField";
 import { StatusLine } from "./FieldParts";
 import { Link } from "./Link";
-import { Skeleton } from "./Skeleton";
+import { Skeleton, SkeletonTitle } from "./Skeleton";
 import { TextField } from "./TextField";
 import { tv } from "./tv";
 
@@ -129,14 +129,21 @@ export function SignInPage(props: SignInView) {
 /**
  * The sign-in while its session is read: the title, which the address view and the signed-in view share, where
  * either sets it, and under it the facts' skeleton, which appears once the wait outlasts the delay every
- * template's skeleton keeps, the one wait every template draws.
+ * template's skeleton keeps, the one wait every template draws. `null` where the title waits on the read too, as
+ * the passkey's step names its own: the title's bar stands centred in its line, as a rail page's strip draws it.
  */
-export function SignInSkeleton({ title }: { title: Copy }) {
+export function SignInSkeleton({ title }: { title: Copy | null }) {
   const slots = look();
   return (
     <ClassicPage width="signin">
       <div className={slots.column()}>
-        <ClassicTitle text={title} />
+        {title === null ? (
+          <span className="flex h-8 justify-center">
+            <SkeletonTitle />
+          </span>
+        ) : (
+          <ClassicTitle text={title} />
+        )}
         <Skeleton shape="facts" />
       </div>
     </ClassicPage>
