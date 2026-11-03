@@ -361,14 +361,44 @@ Pressed = tuple[
 ]
 
 
-def _pressed(url: str, stand_in: Callable[[AsyncCollection], Any], *, seed_links: bool = True) -> Pressed:
+DISPATCH_PATH = f"/api/v{API_VERSION}/saisons/{SAISON_ID}/invitations/dispatch"
+
+
+@functools.cache
+def _pressing_app() -> FastAPI:
+    """One app for every press, as `_served` is for every fault.
+
+    The first request into a router branch builds it, up to a third of the send case's deadline, and an app per press
+    would pay that inside each one.
+    """
+
+    return create_app(build_test_config().model_copy(update={"db_base_name": DATABASE_NAME}))
+
+
+@pytest.fixture(scope="module")
+def pressing_app() -> FastAPI:
+    """The app with the press's branch built before any case times it.
+
+    A press without credentials walks the branch and is refused at the guard, which reads no database.
+    """
+
+    async def knock() -> int:
+        async with AsyncClient(transport=ASGITransport(app=_pressing_app(), raise_app_exceptions=False), base_url=TEST_BASE_URL) as http:
+            return (await http.post(DISPATCH_PATH, json={"resend": False})).status_code
+
+    # On the route, or the branch the cases press was never walked.
+    assert on_the_seed_loop(knock()) == 401
+
+    return _pressing_app()
+
+
+def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollection], Any], *, seed_links: bool = True) -> Pressed:
     """One press over ASGI, the route handed `stand_in` for its `einladungen` collection.
 
     Answers the status, the time, each team's skip, its live links, its seeded link and whether its
     row says a link was replaced.
     """
 
-    config = build_test_config().model_copy(update={"db_base_name": DATABASE_NAME})
     seeded = {team_id: _seeded_link(team_id) for team_id in TEAM_NAMES} if seed_links else {}
 
     async def body() -> Pressed:
@@ -386,18 +416,20 @@ def _pressed(url: str, stand_in: Callable[[AsyncCollection], Any], *, seed_links
             if seeded:
                 await database[Collection.INVITATIONS].insert_many(list(seeded.values()))
 
-            served = create_app(config)
             # The tier's shared client: closing it belongs to `tests/database.py :: _release`.
             served.state.db_client = client
-            served.dependency_overrides[collection_dependency(Collection.INVITATIONS)] = lambda: stand_in(database[Collection.INVITATIONS])
+            invitations = collection_dependency(Collection.INVITATIONS)
+            served.dependency_overrides[invitations] = lambda: stand_in(database[Collection.INVITATIONS])
 
-            transport = ASGITransport(app=served, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                started = time.monotonic()
-                response = await http.post(
-                    f"/api/v{API_VERSION}/saisons/{SAISON_ID}/invitations/dispatch", headers=ADMIN_HEADERS, json={"resend": False}
-                )
-                elapsed = time.monotonic() - started
+            try:
+                transport = ASGITransport(app=served, raise_app_exceptions=False)
+                async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+                    started = time.monotonic()
+                    response = await http.post(DISPATCH_PATH, headers=ADMIN_HEADERS, json={"resend": False})
+                    elapsed = time.monotonic() - started
+            finally:
+                # The app outlives the case, so the stand-in goes with it.
+                del served.dependency_overrides[invitations]
 
             live = {
                 team_id: [row["_id"] async for row in database[Collection.INVITATIONS].find({"team_id": team_id, "widerrufen_am": None})]
@@ -419,12 +451,14 @@ def _pressed(url: str, stand_in: Callable[[AsyncCollection], Any], *, seed_links
 
 @pytest.mark.db
 class TestTheSendPastItsDeadline:
-    def test_no_team_is_revoked_after_the_page_has_stopped_waiting(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch):
+    def test_no_team_is_revoked_after_the_page_has_stopped_waiting(
+        self, pressing_app: FastAPI, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch
+    ):
         """The press whose database stops answering mid-loop: a link revoked after the deadline is one whose replacement nobody receives."""
 
         monkeypatch.setattr(middlewares, "REQUEST_DEADLINE_S", SHORT_REQUEST_DEADLINE_S)
 
-        status, elapsed, skipped, live, seeded, _, held = _pressed(mongo_replica_set_url, _StallsOneTeam)
+        status, elapsed, skipped, live, seeded, _, held = _pressed(pressing_app, mongo_replica_set_url, _StallsOneTeam)
 
         assert status == 200
         assert elapsed < ANSWERED_WITHIN_S
@@ -436,29 +470,33 @@ class TestTheSendPastItsDeadline:
         assert live[STALLED] == [seeded[STALLED]]
         assert live[AFTER_THE_DEADLINE] == [seeded[AFTER_THE_DEADLINE]]
 
-    def test_a_commit_of_unknown_outcome_is_answered_as_unknown(self, mongo_replica_set_url: str):
+    def test_a_commit_of_unknown_outcome_is_answered_as_unknown(self, pressing_app: FastAPI, mongo_replica_set_url: str):
         """Never as failed: that row tells the admin the earlier link still opens, where the commit may have revoked it."""
 
-        status, _, skipped, _, _, replaced, _ = _pressed(mongo_replica_set_url, _CommitOfUnknownOutcomeForOneTeam)
+        status, _, skipped, _, _, replaced, _ = _pressed(pressing_app, mongo_replica_set_url, _CommitOfUnknownOutcomeForOneTeam)
 
         assert status == 200
         assert skipped == {str(BEFORE_THE_STALL): None, str(STALLED): MINT_OUTCOME_UNKNOWN, str(AFTER_THE_DEADLINE): None}
         # The link the plan found, which the unanswered commit may have revoked: the page says so.
         assert replaced[str(STALLED)] is True
 
-    def test_a_team_that_held_no_link_is_not_told_of_one(self, mongo_replica_set_url: str):
+    def test_a_team_that_held_no_link_is_not_told_of_one(self, pressing_app: FastAPI, mongo_replica_set_url: str):
         """The other half of the pair above: the row reads about a previous link only where the plan found one."""
 
-        status, _, skipped, _, _, replaced, _ = _pressed(mongo_replica_set_url, _CommitOfUnknownOutcomeForOneTeam, seed_links=False)
+        status, _, skipped, _, _, replaced, _ = _pressed(
+            pressing_app, mongo_replica_set_url, _CommitOfUnknownOutcomeForOneTeam, seed_links=False
+        )
 
         assert (status, skipped[str(STALLED)]) == (200, MINT_OUTCOME_UNKNOWN)
         assert replaced[str(STALLED)] is False
 
     @pytest.mark.parametrize("seed_links", [True, False], ids=["a team holding a link", "a team holding none"])
-    def test_a_failed_row_says_whether_the_team_holds_a_link_still(self, mongo_replica_set_url: str, seed_links: bool):
+    def test_a_failed_row_says_whether_the_team_holds_a_link_still(self, pressing_app: FastAPI, mongo_replica_set_url: str, seed_links: bool):
         """The page tells the admin the earlier link still opens only where there is one: a failure revokes nothing."""
 
-        status, _, skipped, live, seeded, replaced, held = _pressed(mongo_replica_set_url, _MintFailsForOneTeam, seed_links=seed_links)
+        status, _, skipped, live, seeded, replaced, held = _pressed(
+            pressing_app, mongo_replica_set_url, _MintFailsForOneTeam, seed_links=seed_links
+        )
 
         assert (status, skipped[str(STALLED)], replaced[str(STALLED)]) == (200, MINT_FAILED, False)
         assert held[str(STALLED)] is seed_links
