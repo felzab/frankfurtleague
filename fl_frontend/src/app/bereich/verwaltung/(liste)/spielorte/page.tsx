@@ -55,7 +55,7 @@ async function readSpielorte() {
   return {
     table: {
       label: ROUTES.verwaltungSpielorte.title,
-      nameLabel: WORTE.name,
+      nameLabel: COPY.shared.name,
       columns: [
         { key: "adresse", label: WORTE.address, hideOnPhone: true },
         { key: "mietpreis", label: WORTE.mietpreis, figures: true },
