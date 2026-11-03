@@ -7,6 +7,7 @@ import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { getSpielPage } from "@/features/saisons/queries";
 import { ereignisOf, headOf, popupFactsOf, sidesOf } from "@/features/spiele/blocks";
+import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 
 import type { SpielPopupContent } from "@/kit/SpielHead";
 
@@ -19,7 +20,8 @@ export default function SpielPopupPage({ params }: PageProps<"/saisons/[saison]/
 }
 
 async function readPopup(params: Promise<{ saison: string; spiel: string }>): Promise<SpielPopupContent> {
-  const { saison, spiel: spielId } = await params;
+  const spielId = await resolveObjectIdParam(params, "spiel");
+  const { saison } = await params;
   const page = await getSpielPage(saison, spielId);
   if (page === null) notFound();
   const { spiel, spieltag_position: position, standings } = page;

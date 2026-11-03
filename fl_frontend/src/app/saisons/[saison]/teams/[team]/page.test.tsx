@@ -4,9 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 import { austrittZustand } from "@/features/teams/constants";
 
-import TeamPage from "./page";
+import TeamPage, { generateMetadata } from "./page";
 
 import type { FLAustritt, FLTeamPageResponse } from "@/core/generated/client/types";
+import type { ResolvingMetadata } from "next";
 import type { ComponentProps } from "react";
 
 vi.mock("next/link", () => ({
@@ -32,9 +33,14 @@ const page = (austritt: FLAustritt | null): FLTeamPageResponse => ({
   standing: null,
 });
 
-const read = vi.hoisted(() => ({ page: null as FLTeamPageResponse | null }));
+const read = vi.hoisted(() => ({ page: null as FLTeamPageResponse | null, teams: [] as string[] }));
 
-vi.mock("@/features/saisons/queries", () => ({ getTeamPage: async () => read.page }));
+vi.mock("@/features/saisons/queries", () => ({
+  getTeamPage: async (_saison: string, team: string) => {
+    read.teams.push(team);
+    return read.page;
+  },
+}));
 
 /** The page's whole server render, the document a browser shows before hydrating. */
 async function rendered(served: FLTeamPageResponse) {
@@ -65,5 +71,18 @@ describe("the club page's server render", () => {
   it("states no exit for a club still in the season", async () => {
     const html = await rendered(page(null));
     for (const type of ["rueckzug", "disqualifikation"] as const) expect(html).not.toContain(austrittZustand(type));
+  });
+
+  // The backend answers a malformed id as a route it does not know, which the read takes for a failure: the page
+  // would show the error page, and every such address would key a cache entry of its own.
+  it("answers a malformed club id as not-found before any read", async () => {
+    read.teams = [];
+    const metadata = generateMetadata(
+      { params: Promise.resolve({ saison: "2027", team: "not-an-id" }), searchParams: Promise.resolve({}) },
+      Promise.resolve({}) as unknown as ResolvingMetadata,
+    );
+
+    await expect(metadata).rejects.toMatchObject({ digest: "NEXT_HTTP_ERROR_FALLBACK;404" });
+    expect(read.teams).toStrictEqual([]);
   });
 });

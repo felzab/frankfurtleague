@@ -14,6 +14,7 @@ import { matchdayOf, matchRowOf } from "@/features/spiele/blocks";
 import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
 import { buildMapsSearchUrl } from "@/shared/utils/format";
 import { pageMetadata } from "@/shared/utils/metadata";
+import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 
 import type { CalendarDay } from "@/core/format";
 import type { FLSpielerPublic, FLTeamPageResponse } from "@/core/generated/client/types";
@@ -24,8 +25,8 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/saisons/[saison]/teams/[team]">;
 
 async function readPage(params: Props["params"]): Promise<FLTeamPageResponse> {
-  const { saison, team } = await params;
-  const page = await getTeamPage(saison, team);
+  const team = await resolveObjectIdParam(params, "team");
+  const page = await getTeamPage((await params).saison, team);
   if (page === null) notFound();
   return page;
 }

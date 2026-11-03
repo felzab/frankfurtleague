@@ -13,6 +13,7 @@ import { getSpielPage } from "@/features/saisons/queries";
 import { ereignisOf, headOf, matchdayOf, sidesOf } from "@/features/spiele/blocks";
 import { buildMapsSearchUrl } from "@/shared/utils/format";
 import { pageMetadata } from "@/shared/utils/metadata";
+import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 
 import type { Copy } from "@/core/copy";
 import type { CalendarDay, Uhrzeit } from "@/core/format";
@@ -35,8 +36,8 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/saisons/[saison]/spiele/[spiel]">;
 
 async function readPage(params: Props["params"]): Promise<FLSpielPageResponse> {
-  const { saison, spiel } = await params;
-  const page = await getSpielPage(saison, spiel);
+  const spiel = await resolveObjectIdParam(params, "spiel");
+  const page = await getSpielPage((await params).saison, spiel);
   if (page === null) notFound();
   return page;
 }
