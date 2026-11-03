@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import { SERVER_COPY } from "@/core/serverCopy";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
