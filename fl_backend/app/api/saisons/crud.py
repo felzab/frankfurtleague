@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from typing import Any
 
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -68,25 +68,31 @@ async def pull_open_window_saison(*, saisons_collection: AsyncCollection, today:
     )
 
 
-async def a_fixture_has_taken_place(
+async def saisons_with_a_fixture_taken_place(
     *,
     spiele_collection: ReadCollection,
-    saison_id: str,
+    saison_ids: Collection[str],
     # REQUIRED, `None` included: a transactional caller that forgot it would read outside its
     # snapshot in silence, so the omission has to be a TypeError at the call.
     session: AsyncClientSession | None,
-) -> bool:
-    """Whether any fixture of this season has taken place, which fixes its start (`saison_start_taken_place`).
+) -> set[str]:
+    """The seasons among these holding a fixture that has taken place, which fixes a season's start (`saison_start_taken_place`).
 
-    Through `has_taken_place`, never a filter restating it, and the cursor stops at the first that has.
+    Judged by `has_taken_place`, never by a filter restating it, in one read over every season asked about, whose cursor
+    stops once every one of them is found.
     """
 
-    async with spiele_collection.find({"saison_id": saison_id}, list(TAKEN_PLACE_FIELDS), session=session) as fixtures:
+    found: set[str] = set()
+    async with spiele_collection.find(
+        {"saison_id": {"$in": list(saison_ids)}}, ["saison_id", *TAKEN_PLACE_FIELDS], session=session
+    ) as fixtures:
         async for spiel in fixtures:
             if has_taken_place(spiel):
-                return True
+                found.add(spiel["saison_id"])
+                if found.issuperset(saison_ids):
+                    break
 
-    return False
+    return found
 
 
 async def nachnominierung_laeuft_in(*, saisons_collection: ReadCollection, saison_id: str, today: str) -> bool:
