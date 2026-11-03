@@ -86,7 +86,7 @@ there.
 | List-truncation banner  | none                                                     | the load-more control instead                                                                    |
 | Page title              | the page's catalogue title                               | followed by the one suffix „\| Frankfurt League“; a match is „{Heim} gegen {Gast}“               |
 | Callout                 | a title plus at most 1 sentence                          | a state or a consequence                                                                         |
-| Team description        | three lines                                              | then „Mehr …“ opening the rest                                                                   |
+| Team description        | three lines                                              | „Mehr“ inside the text at the third line's end, no „…“ before it, opening the rest               |
 | Mail subject            | 50 characters                                            | what it is about first, no league name                                                           |
 | Mail body               | about 90 words                                           | more only where the law requires it on a first contact                                           |
 
@@ -146,8 +146,7 @@ A date field shows „tt.mm.jjjj“ and a time field „––:––“ while e
 - **German capitalisation**, no English title case.
 - **No full stop** after a heading, a label, a button, a tooltip or a one-phrase line; a full sentence
   ends with one.
-- **Quotation marks „…“.** The ellipsis character „…“ only for truncation and in `mehr`; never three
-  periods.
+- **Quotation marks „…“.** The ellipsis character „…“ only for truncation; never three periods.
 - **No „!“. No dash** except in a date range. **No semicolon** outside legal text.
 - **Banned**: „Bitte“; „erfolgreich“, „leider“, „wirklich“; a reassurance tail („wurde automatisch
   gemeldet“); „und mehr…“; „z.B.“ and „z. B.“, recast instead; a noun phrase where a verb exists

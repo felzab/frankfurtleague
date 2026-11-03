@@ -154,7 +154,6 @@ export const COPY = catalogue({
     overview: "Übersicht",
     // Redesign: the account menu reads it once it offers a second role.
     switchRole: "Funktion wechseln",
-    more: "Mehr …",
     loadMore: "Weitere 50 laden",
     kORunde: "K.-o.-Runde",
     kOBaum: "K.-o.-Baum",
@@ -315,7 +314,7 @@ export const COPY = catalogue({
 
   /** The page templates' own words: the frames around a page, the editor's bar, a list's paging, the end states. */
   template: {
-    /** The phone bar's place opening the rest of the menu, without the ellipsis a truncated text's link takes. */
+    /** The phone bar's place opening the rest of the menu, and the link at the end of a folded text's third line. */
     more: "Mehr",
     /** The name of a frame's menu, the rail's and the phone bar's. */
     navigation: "Navigation",
