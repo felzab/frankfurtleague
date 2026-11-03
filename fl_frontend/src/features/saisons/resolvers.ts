@@ -77,18 +77,11 @@ export async function requireAdminSaison(searchParamsPromise: NextPageProps["sea
  * parameter above there is no fallback: degrading would silently edit a season nobody asked for.
  */
 export async function resolveSaisonIdParam(paramsPromise: NextPageProps<{ saison_id: string }>["params"]): Promise<string> {
-  const saisonId = await parseSaisonIdParam(paramsPromise);
-  if (saisonId === null) notFound();
-
-  return saisonId;
-}
-
-/** The same judgement without the throw, for `generateMetadata`, which answers a 404's title where a throw leaves the layout's. */
-export async function parseSaisonIdParam(paramsPromise: NextPageProps<{ saison_id: string }>["params"]): Promise<string | null> {
   const parsed = z
     .string()
     .length(SAISON_ID_LENGTH)
     .safeParse((await paramsPromise).saison_id);
+  if (!parsed.success) notFound();
 
-  return parsed.success ? parsed.data : null;
+  return parsed.data;
 }
