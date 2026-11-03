@@ -37,11 +37,15 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
 - **One typed catalogue, German only, keyed by area.** Its `shared` section comes first and every
   area draws from it; an area adds a key of its own only for a string `shared` lacks. No test hunts
   duplicate text, so review is what keeps a second „Gespeichert“ out.
-- **A component's text prop takes `fl_frontend/src/core/copy.ts :: Copy`**, so a string typed into a
-  page does not compile. An `as Copy` assertion outside the catalogue defeats that and is never
-  written.
-- **A parameterised entry is a typed function** taking data, never a sentence: the plural of an empty
-  state is the list's own title entry, a date is a stored `YYYY-MM-DD` day.
+- **A component's text prop takes `fl_frontend/src/core/copy.ts :: Copy`, or a record's own data as
+  `{ record }` (`Words`)**, so a string typed into a page does not compile, and lint refuses a
+  literal inside a `{ record }`. A prop holding a block, such as a door's act, takes a
+  `ReactElement`, which a bare string is not. An `as Copy` assertion outside the catalogue defeats
+  that and is never written.
+- **A parameterised entry is a typed function** taking data or another entry, never a sentence or a
+  string to pass through: the plural of an empty state is the list's own title entry, a date is a
+  stored `YYYY-MM-DD` day, a year a range ends on is `{ year }`. A name that may be the catalogue's
+  or a record's is `Words`, and lint refuses an entry returning its argument as it came.
 - **Every date, time, number, amount, score and season label goes through
   `fl_frontend/src/core/format.ts`**, and the current time is read through
   `fl_frontend/src/core/clock.ts :: now` alone. Parsing a given date is not reading the clock.
