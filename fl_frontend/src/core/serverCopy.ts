@@ -11,8 +11,7 @@ import type { ROUTES } from "./routes";
 /** The route keys of the pages a search engine may list. */
 type ListedRoute = { [Key in keyof typeof ROUTES]: (typeof ROUTES)[Key]["crawl"] extends "index" ? Key : never }[keyof typeof ROUTES];
 
-// One rule over two codes: a match whose result no play decides carries no goals, on the fixture and in its report.
-const NO_TORE = "Nur ohne eingetragene Tore";
+const { team1, team2 } = COPY.verwaltung.spiel;
 
 /**
  * The catalogue's entries only the server reads, so no client bundle carries them: `COPY` is one object, and a
@@ -21,42 +20,50 @@ const NO_TORE = "Nur ohne eingetragene Tore";
  */
 export const SERVER_COPY = catalogue({
   /**
-   * A refusal's own phrase, by the backend's code, for a code a person causes knowingly from a screen; every other
-   * code answers one of the shared failure lines `COPY.shared.failure` holds. A refusal about one field shows on it,
-   * in the field patterns' form, or, where the screen shows no box for it, on the status line after the field's name;
-   * one naming no field is `refusalLine`'s.
+   * A refusal's phrase under the field it is about, by the backend's code, for a code a person causes knowingly from
+   * a screen: one of `COPY.shared.field`'s patterns, and nothing else. A code no pattern words takes `refusalLine`'s
+   * sentence instead; every other code answers one of the shared failure lines `COPY.shared.failure` holds.
    */
   refusal: {
     duplicate_key: COPY.shared.field.taken,
-    spiel_outside_spieltag: "Außerhalb des Spieltags",
-    state_ergebnis_on_a_non_event: NO_TORE,
-    state_nichtantreten_without_two_sides: "Nur mit beiden Teams",
-    booking_unknown_resource: "Stillgelegt oder gelöscht",
-    booking_unconfirmed_schiedsrichter: "Noch nicht bestätigt",
-    spiel_double_booked: "Zu dieser Zeit schon eingeteilt",
-    eligibility_disqualified: "Aus der Saison ausgeschieden",
+    // One rule over two codes: a match whose result no play decides carries no goals, on the fixture and in its report.
+    state_ergebnis_on_a_non_event: COPY.shared.field.without(COPY.verwaltung.spiel.tore),
   } satisfies Partial<Record<Code, string>>,
 
   /**
-   * A refusal's own line, by the backend's code, for a code a person causes knowingly from a screen that names no
-   * field: the write as a whole is refused, so the status line shows the sentence alone. Apart from `refusal`, whose
-   * phrases need their field as a subject.
+   * A refusal's sentence on the status line, by the backend's code, for a code a person causes knowingly from a
+   * screen that no field pattern words: the write as a whole, or a field the sentence names itself. Where one code
+   * is about one of several fields, its sentence is keyed by the first name of the path the backend names, so it
+   * says which; a path it holds no sentence for is not this screen's to word.
    */
   refusalLine: {
     saison_past: "Diese Saison ist abgeschlossen.",
-  } satisfies Partial<Record<Code, string>>,
+    spiel_outside_spieltag: "Dieses Datum liegt außerhalb des Spieltags.",
+    state_nichtantreten_without_two_sides: "Beide Teams stehen noch nicht fest.",
+    booking_unknown_resource: {
+      ort: "Der Spielort ist stillgelegt oder gelöscht.",
+      schiedsrichter: "Der Schiedsrichter ist stillgelegt oder gelöscht.",
+    },
+    booking_unconfirmed_schiedsrichter: "Der Schiedsrichter hat den eigenen Eintrag noch nicht bestätigt.",
+    spiel_double_booked: {
+      ort: "Der Spielort ist zu dieser Zeit schon belegt.",
+      schiedsrichter: "Der Schiedsrichter ist zu dieser Zeit schon eingeteilt.",
+    },
+    eligibility_disqualified: {
+      team1: `${team1} ist aus der Saison ausgeschieden.`,
+      team2: `${team2} ist aus der Saison ausgeschieden.`,
+    },
+  } satisfies Partial<Record<Code, string | Readonly<Record<string, string>>>>,
 
   /**
-   * A rule's own phrase, in the field patterns' form, by the kind the backend refuses a payload with
-   * (`fields[].kind`), for a rule a person can break that no field pattern words: placed as `refusal` places a code.
-   * Every other rule is worded from the patterns by `fl_frontend/src/core/ruleMessage.ts :: ruleMessage`.
+   * A rule's sentence on the status line, by the kind the backend refuses a payload with (`fields[].kind`), for a
+   * rule a person can break that no field pattern words: placed as `refusalLine` places a code. Every rule a pattern
+   * words is worded by `fl_frontend/src/core/ruleMessage.ts :: ruleMessage`.
    */
-  rule: {
-    elfmeterschiessen_without_winner: "Nur mit Sieger",
-    nichtantreten_with_tore: NO_TORE,
-    nichtantreten_with_torschuetzen: "Nur ohne Torschützen",
-    elfmeterschiessen_without_draw: "Nur nach Unentschieden",
-    torschuetzen_not_matching_tore: "Ein Eintrag je Tor",
+  ruleLine: {
+    elfmeterschiessen_without_winner: "Das Elfmeterschießen hat keinen Sieger.",
+    elfmeterschiessen_without_draw: "Das Ergebnis ist kein Unentschieden.",
+    torschuetzen_not_matching_tore: "Die Torschützen passen nicht zum Ergebnis.",
   },
 
   /** The administration's lines its old pages answer through their server actions, until each page's rebuild. */

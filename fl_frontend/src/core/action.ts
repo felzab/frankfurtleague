@@ -66,18 +66,19 @@ type Declared<Schema extends z.ZodType> = {
   /** The generated request schema, or a draft built from its fields, so every published bound holds the input. */
   readonly input: Schema;
   /**
-   * The codes and the rules this screen words, a person causing each knowingly from it. Each is placed by the paths
-   * its refusal names, every phrase wording one field; a code naming no field is answered with its own line where the
-   * catalogue has one. One naming a path `paths` does not declare, or no field without a line, answers as every other
-   * code does, and so does a refused payload breaking any rule the screen does not word: with a shared failure line.
+   * The codes and the rules this screen words, a person causing each knowingly from it. A field pattern's phrase is
+   * placed on the box `paths` names for the path its refusal names; a sentence stands on the status line. One whose
+   * phrase names a path `paths` does not declare, or whose sentence names a path its entry holds none for, answers
+   * as every other code does, and so does a refused payload breaking any rule the screen does not word: with a
+   * shared failure line.
    */
   readonly ownWords?: readonly (WordedCode | WordedRule)[];
   /**
-   * Where this screen shows a refusal about one field, by the path the backend names for it, its names joined by dots
-   * up to the first index as a box's are: the box showing it, or, for a field the screen shows no box for, the
-   * field's name, which the status line sets before the refusal's phrase.
+   * The box showing a field pattern's phrase, by the path the backend names for the refused field, its names joined
+   * by dots up to the first index as a box's are. A field the screen shows no box for has no entry: a phrase has no
+   * subject but its box, so a refusal only a phrase words, about a field this screen does not show, is not its own.
    */
-  readonly paths?: { readonly [path: string]: Field<z.output<Schema>> | { readonly name: Copy } };
+  readonly paths?: { readonly [path: string]: Field<z.output<Schema>> };
   /** The example a box's „Format: …“ message names, by the box. */
   readonly examples?: { readonly [F in Field<z.output<Schema>>]?: Copy };
 };
@@ -211,26 +212,27 @@ function parsed<Schema extends z.ZodType>(
 const wordsOwn = <Schema extends z.ZodType>(declared: Declared<Schema>, kind: string): boolean =>
   declared.ownWords?.some((own) => own === kind) ?? false;
 
+/** One refused field in the catalogue's words: a field pattern's phrase for its box, or a sentence of its own. */
+type Words = { readonly path: FLRefusedField["path"] } & ({ readonly field: Copy } | { readonly line: Copy });
+
 /**
- * Each refused field's line where this screen shows the field, by the path the backend named: on its box, or on the
- * status line after the field's name. `undefined` where the refusal names no field, or one the screen does not
- * declare, so no field phrase reaches the status line without its field.
+ * Each refusal where this screen shows it: a phrase on the box `paths` names for its path, a sentence on the status
+ * line. The first a box meets is the one it shows, and the first sentence the one the line shows. `undefined` where
+ * a phrase's path has no box here, so no field phrase reaches the status line without its field.
  */
-function placed<Schema extends z.ZodType>(
-  declared: Declared<Schema>,
-  code: Code,
-  lines: readonly { readonly path: FLRefusedField["path"]; readonly line: Copy }[],
-): ActionAnswer<never> | undefined {
-  if (lines.length === 0) return undefined;
+function placed<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code, refusals: readonly Words[]): ActionAnswer<never> | undefined {
+  if (refusals.length === 0) return undefined;
   const fieldErrors: Record<string, Copy> = {};
   let reason: Copy | undefined;
-  for (const { path, line } of lines) {
-    const field = fieldOf(path);
-    const shown: string | { readonly name: Copy } | undefined = field === undefined ? undefined : declared.paths?.[field];
-    if (shown === undefined) return undefined;
-    // The first refusal a box meets is the one it shows.
-    if (typeof shown === "string") fieldErrors[shown] ??= line;
-    else reason ??= COPY.template.namedField(shown.name, line);
+  for (const refusal of refusals) {
+    if ("line" in refusal) {
+      reason ??= refusal.line;
+      continue;
+    }
+    const field = fieldOf(refusal.path);
+    const box = field === undefined ? undefined : declared.paths?.[field];
+    if (box === undefined) return undefined;
+    fieldErrors[box] ??= refusal.field;
   }
   return {
     ok: false,
@@ -241,9 +243,20 @@ function placed<Schema extends z.ZodType>(
 }
 
 /**
- * A refusal this screen words, placed by its fields: a refused payload's broken rules where the screen words every
- * one, a code's phrase, or, for a code naming no field, its line on the status line. `undefined` where the screen does
- * not word it or cannot place it.
+ * A code's sentence for the path it names: the code's one sentence, or, where its entry is keyed by the field, the
+ * one for the path's first name. `undefined` where the entry holds none for it.
+ */
+function sentenceOf(code: Code & keyof typeof SERVER_COPY.refusalLine, path: FLRefusedField["path"] | undefined): Copy | undefined {
+  const entry: Copy | Readonly<Record<string, Copy>> = SERVER_COPY.refusalLine[code];
+  if (typeof entry === "string") return entry;
+  const [head] = path ?? [];
+  return typeof head === "string" && Object.hasOwn(entry, head) ? entry[head] : undefined;
+}
+
+/**
+ * A refusal this screen words: a refused payload's broken rules where the screen words every one, a code's phrase on
+ * the box of each field it names, or a code's sentence on the status line. `undefined` where the screen does not word
+ * it or cannot place it.
  */
 function worded<Schema extends z.ZodType>(
   declared: Declared<Schema>,
@@ -255,18 +268,21 @@ function worded<Schema extends z.ZodType>(
     return placed(
       declared,
       code,
-      fields.map((refused) => ({ path: refused.path, line: ruleMessage(refused) })),
+      fields.map((refused) => ({ path: refused.path, ...ruleMessage(refused) })),
     );
   }
-  // A refusal of the write as a whole, never a field's phrase without its field: a phrase needs its field as a subject.
-  if (fields.length === 0)
-    return isLined(code) && wordsOwn(declared, code) ? { ok: false, errorCode: code, reason: SERVER_COPY.refusalLine[code] } : undefined;
-  if (!isWorded(code) || !wordsOwn(declared, code)) return undefined;
-  const line = SERVER_COPY.refusal[code];
+  if (!wordsOwn(declared, code)) return undefined;
+  if (isLined(code)) {
+    const reason = sentenceOf(code, fields[0]?.path);
+    return reason === undefined ? undefined : { ok: false, errorCode: code, reason };
+  }
+  // A phrase names no field of its own, so a code naming none has nothing to place it on.
+  if (!isWorded(code)) return undefined;
+  const phrase = SERVER_COPY.refusal[code];
   return placed(
     declared,
     code,
-    fields.map(({ path }) => ({ path, line })),
+    fields.map(({ path }) => ({ path, field: phrase })),
   );
 }
 

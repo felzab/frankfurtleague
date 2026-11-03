@@ -116,16 +116,8 @@ export const spielSpeichern = action({
     // The editor stays open on a finished season, whose fixtures the write refuses whole.
     "saison_past",
   ],
-  // The write's own paths: the date, the event and the venue have their boxes here, the referee and the two sides
-  // are kept as stored.
-  paths: {
-    datum: "changes.datum",
-    sonderereignis: "changes.sonderereignis",
-    "ort.spielort_id": "changes.spielort",
-    "schiedsrichter.schiedsrichter_id": { name: COPY.spielplan.fact.schiedsrichter },
-    "team1.team_id": { name: COPY.verwaltung.spiel.team1 },
-    "team2.team_id": { name: COPY.verwaltung.spiel.team2 },
-  },
+  // The boxes a field pattern's phrase lands on; every other refusal here is a sentence naming its field itself.
+  paths: { sonderereignis: "changes.sonderereignis" },
   examples: { "changes.mietpreis": COPY.verwaltung.spielort.mietpreisExample },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
     // Read for the fields the editor does not show, which the wholesale write sends as stored.

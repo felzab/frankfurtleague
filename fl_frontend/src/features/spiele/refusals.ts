@@ -15,7 +15,7 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
   if (!isRefusal(error)) return null;
 
   if (error.serverErrorCode === "spiel_outside_spieltag") {
-    return { fieldErrors: { datum: "Dieses Datum liegt außerhalb des Spieltags." } };
+    return { fieldErrors: { datum: SERVER_COPY.refusalLine.spiel_outside_spieltag } };
   }
   // The referee alone, so the picker takes it: a kept one too, which a lifted call-off or a cleared result books again.
   if (error.serverErrorCode === "booking_unconfirmed_schiedsrichter") {

@@ -341,8 +341,6 @@ export const COPY = catalogue({
     changesLost: (count: number) => (count === 1 ? "1 Änderung geht verloren." : `${formatNumber(count)} Änderungen gehen verloren.`),
     /** A save refused for its fields: the fields say what, the status line that some are off. */
     checkFields: "Einige Felder sind nicht richtig ausgefüllt.",
-    /** A refusal about a field the screen shows no box for: the field's name, then the line its box would show. */
-    namedField: (name: Copy, line: Copy) => `${name}: ${line}`,
 
     /** A page a mail opened whose link no longer holds, above the catalogue's sentence for it. */
     linkInvalid: "Link nicht mehr gültig",
@@ -451,6 +449,9 @@ export const COPY = catalogue({
       number: (nr: number) => `Spiel ${formatNumber(nr)}`,
       ansetzung: "Ansetzung",
       ergebnis: "Ergebnis",
+      /** A result's goals and the players credited with them, as a field's message names what it must not hold. */
+      tore: "Tore",
+      torschuetzen: "Torschützen",
       notiz: "Notiz",
       datum: "Datum",
       uhrzeit: "Uhrzeit",

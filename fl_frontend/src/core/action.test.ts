@@ -95,7 +95,7 @@ function create(thrown?: unknown) {
     name: "anlegen",
     input: Venue,
     ownWords: ["duplicate_key", "spiel_double_booked", "saison_past"],
-    paths: { name: "name", "schiedsrichter.schiedsrichter_id": { name: COPY.spielplan.fact.schiedsrichter } },
+    paths: { name: "name" },
     examples: { plz: COPY.verwaltung.spielort.plzExample },
     run: async (input) => {
       state.steps.push(`body ${JSON.stringify(input)}`);
@@ -179,7 +179,7 @@ describe("the admin lane", () => {
     });
   });
 
-  it("places a code its screen words by the path the backend names: on the box, or after the field's name", async () => {
+  it("places a code its screen words: a phrase on the box of the path the backend names, a sentence on the status line", async () => {
     expect(await create(refusal("duplicate_key", ["name"]))({ name: "Nord", plz: "60438" })).toStrictEqual({
       ok: false,
       errorCode: "duplicate_key",
@@ -189,14 +189,15 @@ describe("the admin lane", () => {
       {
         ok: false,
         errorCode: "spiel_double_booked",
-        reason: COPY.template.namedField(COPY.spielplan.fact.schiedsrichter, SERVER_COPY.refusal["spiel_double_booked"]),
+        reason: SERVER_COPY.refusalLine.spiel_double_booked.schiedsrichter,
       },
     );
   });
 
-  it("never sets a field's phrase on the status line without its field", async () => {
-    // No field named, or one the screen does not declare: the phrase would have no subject, so the shared line answers.
-    for (const thrown of [refusal("spiel_double_booked"), refusal("duplicate_key", ["plz"])]) {
+  it("never sets a field's phrase on the status line without its field, nor a sentence for a field it does not name", async () => {
+    // A phrase for a box the screen does not declare would have no subject; a sentence keyed by its field has none for
+    // no field or another one. The shared line answers each.
+    for (const thrown of [refusal("spiel_double_booked"), refusal("spiel_double_booked", ["datum"]), refusal("duplicate_key", ["plz"])]) {
       expect(await create(thrown)({ name: "Nord", plz: "60438" })).toStrictEqual({
         ok: false,
         errorCode: thrown.serverErrorCode,
@@ -226,8 +227,8 @@ describe("the admin lane", () => {
         lane: "admin",
         name: "kontakte",
         input: z.object({ kontakte: z.array(z.object({ email: z.string() })), datum: z.string() }),
-        ownWords: ["kontakt_email_twice", "date_not_in_calendar", "good_spieler_exceed_kader"],
-        paths: { kontakte: "kontakte", datum: "datum", kader: { name: COPY.page.teamKader } },
+        ownWords: ["kontakt_email_twice", "date_not_in_calendar", "good_spieler_exceed_kader", "elfmeterschiessen_without_draw"],
+        paths: { kontakte: "kontakte", datum: "datum" },
         run: async () => {
           throw thrown;
         },
@@ -243,11 +244,17 @@ describe("the admin lane", () => {
         datum: COPY.shared.field.format(COPY.shared.field.exampleDate),
       },
     });
-    // A rule a pattern words takes its line from the bound the rule's context names; with no box, after the field's name.
-    expect(await kontakte(refusedPayload([bodyField(["kader"], "good_spieler_exceed_kader", { max: 8 })]))(input)).toStrictEqual({
+    // A rule a pattern words takes its line from the bound the rule's context names, and one no pattern words its
+    // sentence: both stand, the box's phrase and the status line's sentence, in the one answer.
+    const boxAndLine = refusedPayload([
+      bodyField(["datum"], "good_spieler_exceed_kader", { max: 8 }),
+      bodyField(["kontakte"], "elfmeterschiessen_without_draw"),
+    ]);
+    expect(await kontakte(boxAndLine)(input)).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
-      reason: COPY.template.namedField(COPY.page.teamKader, COPY.shared.field.max(8)),
+      fieldErrors: { datum: COPY.shared.field.max(8) },
+      reason: SERVER_COPY.ruleLine.elfmeterschiessen_without_draw,
     });
     // One rule the screen does not word, a published bound among them, or one naming no field it shows: the page is
     // older than the API, and no rule's phrase reaches the status line bare.
@@ -255,6 +262,8 @@ describe("the admin lane", () => {
       [["datum"], "kontakt_telefon_twice"],
       [["datum"], "string_too_long"],
       [[], "good_spieler_exceed_kader"],
+      // A field the screen shows no box for: its phrase has no subject on the status line.
+      [["kader"], "good_spieler_exceed_kader"],
     ] as const) {
       expect(
         await kontakte(refusedPayload([bodyField(["kontakte"], "kontakt_email_twice"), bodyField(path, kind, { max: 8 })]))(input),
