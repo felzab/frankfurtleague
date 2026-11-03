@@ -19,7 +19,6 @@ from app.api.teams.schemas import (
     FLAustritt,
     FLGruppenTeam,
     FLKontaktMint,
-    FLPublicTeamsFilterParams,
     FLTabelle,
     FLTabelleRow,
     FLTeam,
@@ -176,7 +175,7 @@ def build_retirement_stages(saison_id: str) -> list[Mapping[str, Any]]:
     ]
 
 
-def build_team_pipeline(filters: FLPublicTeamsFilterParams, rules: FLSaisonRules | None, team_id: Any | None = None) -> list[Mapping[str, Any]]:
+def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules | None, team_id: Any | None = None) -> list[Mapping[str, Any]]:
     # Without a season the junction join stops being strict -- one row per season a club played --
     # and the statistics below match nothing, handing back a table of zeros that reads as an answer.
     if filters.saison_id is None:
@@ -187,9 +186,8 @@ def build_team_pipeline(filters: FLPublicTeamsFilterParams, rules: FLSaisonRules
     if team_id is not None:
         pipeline.append({"$match": {"_id": team_id}})
 
-    # Clubs that left the league -- never a team that left one season, which keeps its row. The switch
-    # is on the ADMIN model alone: a standings row carries no field that would mark one (`READ-SQUAD-002`).
-    if not (isinstance(filters, FLTeamsFilterParams) and filters.include_inactive):
+    # Clubs that left the league -- never a team that left one season, which keeps its row.
+    if not filters.include_inactive:
         pipeline.extend(build_retirement_stages(filters.saison_id))
 
     # Translated, not dumped: the row stores a record, never a boolean.

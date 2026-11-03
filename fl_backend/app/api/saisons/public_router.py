@@ -35,13 +35,12 @@ from app.api.saisons.visibility import PublicSaison, resolve_public_saison
 from app.api.spielberichte.services import SEITEN, build_public_bericht_pipeline, compose_public_bericht, team_id_of
 from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedInternalListAdapter, FLSpielJoinedListAdapter, unplayed_filter
 from app.api.spiele.services import build_spiele_pipeline, podium_of
-from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerListAdapter
+from app.api.spieler.schemas import FLSpielerListAdapter
 from app.api.spieler.services import build_spieler_pipeline
 from app.api.spieltage.schemas import FLKoRundeResponse, FLSpielplanResponse, FLSpielplanSpieltag
 from app.api.spieltage.services import build_spielplan, current_spieltag_id
 from app.api.teams.crud import pull_tabelle
 from app.api.teams.schemas import (
-    FLPublicTeamsFilterParams,
     FLSaisonTeamEntry,
     FLSaisonTeamEntryListAdapter,
     FLSaisonTeamsResponse,
@@ -421,7 +420,7 @@ async def _clubs_of(*, teams_collection: AsyncCollection, saison_id: str) -> lis
 
     teams_raw = await aggregate_many_from_db(
         collection=teams_collection,
-        pipeline=build_team_pipeline(filters=FLPublicTeamsFilterParams(saison_id=saison_id), rules=None),
+        pipeline=build_team_pipeline(filters=FLTeamsFilterParams(saison_id=saison_id), rules=None),
         collation=GERMAN_COLLATION,
     )
 
@@ -479,7 +478,7 @@ async def get_team(
         ),
         aggregate_many_from_db(
             collection=saison_spieler_collection,
-            pipeline=build_spieler_pipeline(FLSpielerFilterParams(team_id=team_id, saison_id=saison_id)),
+            pipeline=build_spieler_pipeline(team_id=team_id, saison_id=saison_id),
             collation=GERMAN_COLLATION,
         ),
     )

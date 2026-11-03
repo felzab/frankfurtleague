@@ -4,10 +4,9 @@ from http import HTTPStatus
 from typing import Any, NamedTuple
 
 from app.api.adresswechsel.services import LIVE_KEYED_TERMS
-from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerRolle
+from app.api.spieler.schemas import FLSpielerRolle
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import build_query
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SPIELER_ID
 from app.shared.einwilligung import NAME_IS_PUBLIC, is_confirmed
@@ -142,20 +141,19 @@ def build_spieler_filter(spieler_id: Any) -> Mapping[str, Any]:
 SQUAD_ORDER: Mapping[str, int] = {"position": 1, "vorname": 1}
 
 
-def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, Any]]:
+def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[Mapping[str, Any]]:
     """One club's squad in one season as the base tier serves it, run on `saison_spieler`.
 
-    The caller resolves the season, which no default here can.
+    The caller resolves the season, which no default here can. Both terms are required, since a squad is one club's in
+    one season and a term left out would serve that club's rows from every season; and they are the whole of what the
+    read narrows on, since a term on a field the response withholds rebuilds it from squads of one (`READ-PUPIL-002`).
     """
-
-    # Terms are NAMED, never excluded: a field added to the filter model would otherwise reach the
-    # `$match` unreviewed, and a term the response withholds is an inference channel.
-    squad_terms = build_query(filters, terms={"team_id", "saison_id"})
 
     # First, so the read examines the one club's rows in the one season, through
     # `saison_spieler_saison_id_team_id_de` under the collation the callers pass, and never every person.
     squad_match: dict[str, Any] = {
-        **squad_terms,
+        "team_id": team_id,
+        "saison_id": saison_id,
         # The SQUAD ROW's retirement, and only ever that (`READ-SQUAD-001`): the same term on the
         # person would take a retired person's squad entries down with them. No switch: this tier
         # marks no row it would un-hide (`READ-SQUAD-002`).
