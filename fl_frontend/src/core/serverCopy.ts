@@ -83,10 +83,14 @@ export const SERVER_COPY = catalogue({
 
   /** The administration's lines its old pages answer through their server actions, until each page's rebuild. */
   verwaltung: {
-    /** A result entered early on a fixture of either club the group swap would trade. */
-    swapSidesTakenPlace: "Ein Spiel der beiden Teams hat schon ein Ergebnis.",
-    /** A result entered early on a fixture of the club a replacement takes out of the season. */
-    replacementSidesTakenPlace: "Ein Spiel des ausscheidenden Teams hat schon ein Ergebnis.",
+    /**
+     * A fixture of either club the group swap would trade has taken place, as
+     * `fl_backend/app/api/teams/services.py :: has_taken_place` judges it: a result, a recorded no-show or
+     * abandonment, or one side's goals.
+     */
+    swapSidesTakenPlace: "Ein Spiel der beiden Teams hat schon stattgefunden.",
+    /** A fixture of the club a replacement takes out of the season has taken place, judged as the swap's. */
+    replacementSidesTakenPlace: "Ein Spiel des ausscheidenden Teams hat schon stattgefunden.",
   },
 
   /** The mail shell's own lines; each mail's sentences are its template's until its area's session rewrites them. */

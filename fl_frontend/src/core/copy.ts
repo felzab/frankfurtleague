@@ -488,8 +488,12 @@ export const COPY = catalogue({
        * rules write's refusal and the draw's say it alike, on the status line, the two counts together being at fault.
        */
       bracketImpossible: `Aus diesen Zahlen entsteht keine ${K_O_RUNDE}.`,
-      /** Under the season's start once a result is entered, which holds it. */
-      startFixed: "Steht fest, seit ein Ergebnis eingetragen ist",
+      /**
+       * Under the season's start once a match of the season has taken place, which holds it: a match has taken place
+       * once it has a result, a recorded no-show or abandonment, or one side's goals
+       * (`fl_backend/app/api/teams/services.py :: has_taken_place`).
+       */
+      startFixed: "Steht fest, seit ein Spiel stattgefunden hat",
     },
 
     spiel: {
