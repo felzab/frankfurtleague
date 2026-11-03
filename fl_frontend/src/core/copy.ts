@@ -73,10 +73,13 @@ const ANMELDUNG = "Anmeldung";
 const MIT_PASSKEY_ANMELDEN = "Mit Passkey anmelden";
 const PASSKEY_EINRICHTEN = { title: "Passkey einrichten", button: "Jetzt einrichten" } as const;
 
-/** A range's end: a figure, or a year as a string, which as a season id takes no thousands separator. */
-type Bound = number | string;
+/**
+ * A range's end: a figure, or a year, which as a season id takes no thousands separator. A year is data, never a
+ * string, so no entry taking a bound passes a caller's words through as the catalogue's.
+ */
+type Bound = number | { year: number };
 
-const bound = (value: Bound): string => (typeof value === "string" ? value : formatNumber(value));
+const bound = (value: Bound): string => (typeof value === "number" ? formatNumber(value) : String(value.year));
 
 // The mark a result decided in a shoot-out carries: under the score in a match row, after it in a fact.
 const AFTER_ELFMETERSCHIESSEN = "n. E.";
