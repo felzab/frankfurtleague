@@ -50,9 +50,6 @@
   "src/app/(public)/bewerbung/[saison_id]/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "src/app/(public)/layout.tsx": {
