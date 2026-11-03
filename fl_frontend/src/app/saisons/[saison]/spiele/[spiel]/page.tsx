@@ -68,6 +68,9 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const { spiel, spieltag_position: position, standings, bericht } = await readPage(params);
   const { heim, gast } = sidesOf(spiel);
   const words = SERVER_COPY.season.spiel;
+  // The goals and cards as official: null until the report is adopted and where none is stored, so a result
+  // awaiting its report never reads as nobody having scored, which an adopted report's empty lists say.
+  const official = bericht?.torschuetzen == null || bericht.karten === null ? null : { tore: bericht.torschuetzen, karten: bericht.karten };
   return {
     title: { route: "spiel", heim: heim.name, gast: gast.name },
     spiel: { head: headOf(spiel, position, standings), sonderereignis: ereignisOf(spiel) },
@@ -89,8 +92,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         title: words.toreUndKarten,
         kind: "timeline",
         label: words.toreUndKarten,
-        items: eventsOf(spiel, bericht?.torschuetzen ?? [], bericht?.karten ?? []),
-        empty: { kind: "none", plural: words.toreUndKarten },
+        items: official === null ? [] : eventsOf(spiel, official.tore, official.karten),
+        empty: { kind: "none", plural: official === null ? words.officialToreUndKarten : words.toreUndKarten },
       },
     ],
   };

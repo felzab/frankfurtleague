@@ -264,6 +264,12 @@ export const SERVER_COPY = catalogue({
     spiel: {
       aufstellung: "Aufstellung",
       toreUndKarten: "Tore und Karten",
+      /**
+       * The plural the match's empty timeline names until its report is adopted, whose goals and cards are not
+       * official before: „Noch keine offiziellen Tore und Karten.“, where an adopted report naming none reads
+       * „Noch keine Tore und Karten.“
+       */
+      officialToreUndKarten: "offiziellen Tore und Karten",
       /** A pupil whose consent publishes no name, or one erased since. */
       anonym: "anonym",
       /** A goal nobody was named for. */
