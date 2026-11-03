@@ -7,13 +7,13 @@ import { SpielList } from "@/kit/SpielRow";
 
 import { COPY } from "@/core/copy";
 import { formatErgebnis, formatNumber, formatOrdinal } from "@/core/format";
+import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
 import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { matchdayOf, matchRowOf, outcomeFor } from "@/features/spiele/blocks";
 import { austrittChip, austrittZustand } from "@/features/teams/constants";
-import { buildMapsSearchUrl } from "@/shared/utils/format";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 

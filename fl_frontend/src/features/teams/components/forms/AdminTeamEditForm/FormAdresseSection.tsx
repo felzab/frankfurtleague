@@ -2,6 +2,7 @@
 
 import ArrowUpRightFromSquare from "@gravity-ui/icons/ArrowUpRightFromSquare";
 
+import { buildMapsSearchUrl } from "@/core/maps";
 import { AddressFields } from "@/shared/components/ui/AddressFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -9,7 +10,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { IN_NEUEM_TAB, NEW_TAB_ATTRIBUTES } from "@/shared/components/ui/NewTabLink";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
-import { buildMapsSearchUrl, formatAddressFull } from "@/shared/utils/format";
+import { formatAddressFull } from "@/shared/utils/format";
 
 import type { FLAddress } from "@/core/generated/client/types";
 import type { TeamFieldPath } from "@/features/teams/teamDraftStatus";

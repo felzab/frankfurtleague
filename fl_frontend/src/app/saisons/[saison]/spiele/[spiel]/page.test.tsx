@@ -2,8 +2,8 @@ import { renderToReadableStream } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { buildMapsSearchUrl } from "@/core/maps";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { buildMapsSearchUrl } from "@/shared/utils/format";
 
 import SpielPage, { generateMetadata } from "./page";
 

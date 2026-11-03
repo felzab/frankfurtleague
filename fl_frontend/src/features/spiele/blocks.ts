@@ -1,9 +1,9 @@
 import { COPY } from "@/core/copy";
 import { formatDatum, formatUhrzeit } from "@/core/format";
+import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { spieltagLabel } from "@/features/spieltage/utils";
-import { buildMapsSearchUrl } from "@/shared/utils/format";
 
 import type { Copy } from "@/core/copy";
 import type { CalendarDay, Pair, Uhrzeit } from "@/core/format";

@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer; `core/format.ts` replaces it.
 import { TIME_ZONE } from "@/core/format";
 
 import type { FLAddress } from "@/core/generated/client/types";
@@ -50,11 +51,6 @@ export function formatAddressFull(address: FLAddress): string {
   const ort = joinPresent([address.plz, address.stadtteil, address.stadt], " ");
 
   return joinPresent([strasse, ort, "Deutschland"], ", ");
-}
-
-/** Takes a string rather than a domain object: the call sites feed genuinely different queries, and only the shell is shared. */
-export function buildMapsSearchUrl(query: string): `https://${string}` {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 // `timeZone` is what carries this: without one the runtime's zone decides, so a server in UTC and a

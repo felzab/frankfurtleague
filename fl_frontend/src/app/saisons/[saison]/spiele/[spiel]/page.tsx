@@ -5,13 +5,13 @@ import { ReadPage } from "@/kit/ReadPage";
 
 import { COPY } from "@/core/copy";
 import { formatDatumPair, formatErgebnis, formatOrdinal, formatUhrzeit } from "@/core/format";
+import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { getSpielPage } from "@/features/saisons/queries";
 import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { ereignisOf, headOf, matchdayOf, sidesOf } from "@/features/spiele/blocks";
-import { buildMapsSearchUrl } from "@/shared/utils/format";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 
