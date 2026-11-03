@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import { SpielHead } from "./SpielHead";
 
@@ -13,9 +14,9 @@ vi.mock("next/link", () => ({
 }));
 
 const PAIRING = {
-  eyebrow: "1. Spieltag",
-  home: { name: "Goethe", plaque: { kuerzel: "GOE" } },
-  away: { name: "Helmholtz", plaque: { kuerzel: "HEL" } },
+  eyebrow: COPY.shared.spieltag(1),
+  home: { name: { record: "Goethe" }, plaque: { record: "GOE" } },
+  away: { name: { record: "Helmholtz" }, plaque: { record: "HEL" } },
 } as const;
 
 describe("the match head's clubs", () => {
@@ -26,7 +27,7 @@ describe("the match head's clubs", () => {
         home={{
           ...PAIRING.home,
           href: "/saisons/2027/teams/goe",
-          standing: { text: "1. Platz · Gruppe A", href: "/saisons/2027/tabelle#goe" },
+          standing: { text: SERVER_COPY.season.standing(1, "A"), href: "/saisons/2027/tabelle#goe" },
         }}
       />,
     );

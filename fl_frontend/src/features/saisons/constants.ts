@@ -2,6 +2,7 @@ import { COPY } from "@/core/copy";
 import { FLSaisonPhase } from "@/core/generated/client/types";
 import { TEAMS_EINTRAG } from "@/features/admin/constants";
 
+import type { Copy } from "@/core/copy";
 import type { FLSaisonRulesTiebreakOrder } from "@/core/generated/client/types";
 import type { PillTone } from "@/shared/components/ui/badges";
 
@@ -35,7 +36,7 @@ export const MIN_QUALIFIERS = 4;
  * `fl_frontend/src/features/spiele/components/ui/SaisonPhaseChip.tsx`: the filter facets and a
  * Spieltag's composed name need the label and render nothing.
  */
-export const PHASE_LABELS: Record<FLSaisonPhase, string> = COPY.shared.phase;
+export const PHASE_LABELS: Readonly<Record<FLSaisonPhase, Copy>> = COPY.shared.phase;
 
 /**
  * A phase added to `FLSaisonPhase` with no member in

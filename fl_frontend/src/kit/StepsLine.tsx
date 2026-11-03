@@ -6,7 +6,7 @@ import { tv } from "./tv";
 import type { Copy } from "@/core/copy";
 
 /** One stage of the line: when it falls, where the page knows it, its title and its one paragraph. */
-type LineStep = { when?: Copy | string; title: Copy; text: Copy };
+type LineStep = { when?: Copy; title: Copy; text: Copy };
 
 const line = tv({
   extend: checkpoint,

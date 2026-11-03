@@ -10,6 +10,18 @@ declare const copyBrand: unique symbol;
  */
 export type Copy = string & { readonly [copyBrand]: true };
 
+/**
+ * A record's own data where words stand, such as a club's name or a figure it holds: not the catalogue's words, and
+ * marked as data so a string typed into a page has no way into a text slot. Lint refuses a literal inside one.
+ */
+export type RecordText = { readonly record: string };
+
+/** What a kit text slot shows: the catalogue's words, or a record's own data. */
+export type Words = Copy | RecordText;
+
+/** The text a slot shows. */
+export const textOf = (words: Words): string => (typeof words === "string" ? words : words.record);
+
 type Catalogue<T> = T extends string
   ? Copy
   : T extends (...args: infer A) => string
@@ -228,9 +240,7 @@ export const COPY = catalogue({
     teams: "Teams",
     spielSearch: "Spielsuche",
     /** A match's page, named by its two teams in the order the fixture lists them. */
-    spiel: (heim: string, gast: string) => `${heim} gegen ${gast}`,
-    /** A club's page in one season, named by the club. */
-    team: (team: string) => team,
+    spiel: (heim: Words, gast: Words) => `${textOf(heim)} gegen ${textOf(gast)}`,
     about: "Über die Liga",
     contact: "Kontakt",
     sponsors: "Sponsoren",
@@ -288,7 +298,7 @@ export const COPY = catalogue({
     /** What befell a match, as a visitor reads it: a no-show names the club that did not turn up. */
     sonderereignis: {
       ausgefallen: "Ausgefallen",
-      nichtAngetreten: (team: string) => `${team} nicht angetreten`,
+      nichtAngetreten: (team: Words) => `${textOf(team)} nicht angetreten`,
       abgebrochen: "Abgebrochen",
       annulliert: "Annulliert",
       /**
@@ -298,7 +308,7 @@ export const COPY = catalogue({
        */
       consequence: {
         ausgefallen: "Das Spiel hat nicht stattgefunden und wird nicht gewertet.",
-        nichtAngetreten: (gegner: string) => `Das Spiel wird für ${gegner} gewertet.`,
+        nichtAngetreten: (gegner: Words) => `Das Spiel wird für ${textOf(gegner)} gewertet.`,
         abgebrochenScored: "Das eingetragene Ergebnis wird gewertet.",
         abgebrochenOpen: "Die Wertung steht noch nicht fest.",
         annulliert: "Das Spiel wurde annulliert und wird nicht gewertet.",
@@ -419,8 +429,6 @@ export const COPY = catalogue({
       schulenAndSpieler: "Schulen und Spieler",
       accessAndPrivacy: "Zugang und Datenschutz",
     },
-    /** A record's own page, named by the record. */
-    record: (name: string) => name,
 
     spielort: {
       /** The object of „Spielort anlegen“. */

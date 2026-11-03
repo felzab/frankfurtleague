@@ -34,10 +34,10 @@ export async function readLanding(): Promise<FLLandingResponse> {
 export const formOf = (window: FLBewerbungWindow) => `/bewerbung/${window.saison_id}` as Route;
 
 /** An opening side by its club's Kürzel, `null` while its slot is empty, which the card draws as the open plaque (D498). */
-const plaqueOf = (side: FLLandingSide | null) => (side === null ? null : { kuerzel: side.shorthand });
+const plaqueOf = (side: FLLandingSide | null) => (side === null ? null : { record: side.shorthand });
 
 /** A place as the podium names it: its club, or `null` where it is vacant, its club having left the season by then (D499). */
-const clubOf = ({ team }: FLPodiumPlace): Place => (team === null ? null : { name: team.name, kuerzel: team.shorthand });
+const clubOf = ({ team }: FLPodiumPlace): Place => (team === null ? null : { name: { record: team.name }, plaque: { record: team.shorthand } });
 
 /**
  * Where the season stands, as its card beside the hero shows it: before the start, the countdown to the season's

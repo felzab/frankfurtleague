@@ -410,6 +410,29 @@ const IMPORT_BANS = [
 // Syntax bans.
 // ---------------------------------------------------------------------------------------------------
 
+/** The two catalogue files, which alone write a reader's words. */
+const CATALOGUE_FILES = ["src/core/copy.ts", "src/core/serverCopy.ts"];
+
+/** The attributes whose value a reader hears or sees. */
+const SPOKEN_ATTRIBUTES =
+  "/^(?:aria-label|aria-description|aria-roledescription|aria-valuetext|aria-placeholder|title|alt|placeholder|textValue)$/";
+
+/** A literal holding words, two letters together: a string, or a template whose static text holds them. */
+const WORDS_LITERAL = "Literal[value=/[A-Za-zÄÖÜäöüß]{2}/], TemplateLiteral:has(> TemplateElement[value.raw=/[A-Za-zÄÖÜäöüß]{2}/])";
+
+/**
+ * Words as a reader reads them, which a code's token never is: a lower-case token, such as the kit's focus mark
+ * `"text"` under its placement's key, names a choice and says nothing.
+ */
+const PROSE_LITERAL = `Literal[value=/[A-Za-zÄÖÜäöüß]{2}/]:not([value=/^[a-z][a-z0-9_-]*$/]), TemplateLiteral:has(> TemplateElement[value.raw=/[A-Za-zÄÖÜäöüß]{2}/])`;
+
+/**
+ * The keys a page's objects word a reader's text under, the kit's text slots among them. A key that also names an id or
+ * a choice, such as `name`, `value` or `mark`, is left to the type checker, whose slot takes a `Copy` or a `{ record }`.
+ */
+const WORDED_KEYS =
+  "/^(?:label|title|text|sentence|note|reason|description|when|eyebrow|detail|line|hint|help|placeholder|alt|short|heading)$/";
+
 /**
  * One literal's text as a regular expression: a string, a template's static chunk, or JSX text. A
  * comment is none of these, so prose naming a spelling never trips its ban.
@@ -1042,18 +1065,43 @@ const DESIGN_BANS = [
   // The required mark is a glyph, not a word.
   ban("react/jsx-no-literals", { noStrings: true, ignoreProps: true, allowedStrings: ["*"] }, RENDERED),
   syntaxBan(syntax(PICKED_STRING, "Text a reader sees comes from the catalogue: a string a condition picks is no `Copy`."), RENDERED),
-  // The attributes a reader hears or sees, which `ignoreProps` passes over and an HTML element types `string`: the kit
-  // writes them from its `Copy` props. An empty `alt` marks a decorative image and says nothing.
+  // The attributes a reader hears or sees, which `ignoreProps` passes over and an HTML element or React Aria types
+  // `string`: the kit writes them from its `Copy` props, inside the kit as outside it. An empty `alt` marks a decorative
+  // image and says nothing. `textValue` is the words a list's entry is read and typed to by.
   syntaxBan(
     syntax(
       [
-        "JSXAttribute[name.name=/^(?:aria-label|aria-description|title|alt)$/] > Literal[value=/\\S/]",
-        "JSXAttribute[name.name=/^(?:aria-label|aria-description|title|alt)$/] > JSXExpressionContainer > Literal[value=/\\S/]",
-        "JSXAttribute[name.name=/^(?:aria-label|aria-description|title|alt)$/] > JSXExpressionContainer > TemplateLiteral > TemplateElement[value.raw=/\\S/]",
+        `JSXAttribute[name.name=${SPOKEN_ATTRIBUTES}] > Literal[value=/\\S/]`,
+        `JSXAttribute[name.name=${SPOKEN_ATTRIBUTES}] > JSXExpressionContainer > Literal[value=/\\S/]`,
+        `JSXAttribute[name.name=${SPOKEN_ATTRIBUTES}] > JSXExpressionContainer > TemplateLiteral > TemplateElement[value.raw=/\\S/]`,
       ].join(", "),
-      "Text a reader hears or sees comes from the catalogue: outside the kit, an `aria-label`, `aria-description`, `title` or `alt` takes a `Copy`.",
+      "Text a reader hears or sees comes from the catalogue: an `aria-label`, `aria-description`, `aria-roledescription`, `aria-valuetext`, `aria-placeholder`, `title`, `alt`, `placeholder` or `textValue` takes a `Copy`.",
     ),
-    OUTSIDE_KIT,
+    PRODUCTION,
+  ),
+  // A record's own data in a text slot, `{ record }`, is data read off the record: a literal there is a string typed
+  // into the page under data's name.
+  syntaxBan(
+    syntax(
+      `Property[key.name="record"] > :matches(${WORDS_LITERAL}), Property[key.name="record"] > ArrayExpression > :matches(${WORDS_LITERAL})`,
+      "`{ record }` holds a record's own data, read off the record: words typed here are no data. Take the catalogue's entry, or add one there.",
+    ),
+    PRODUCTION,
+    { allow: CATALOGUE_FILES },
+  ),
+  // The backstop for a module's object, which neither `jsx-no-literals` nor the picked-string ban reads: a property
+  // named for words, holding words. The kit's slots take a `Copy` or a `{ record }`, so the type checker refuses
+  // such a string at a slot; this refuses it where it is written, in any module. A recipe's slots, which `tv` takes
+  // by the parts they style, hold class lists.
+  syntaxBan(
+    syntax(
+      `Property[key.name=${WORDED_KEYS}]:not(CallExpression[callee.name="tv"] *) > :matches(${PROSE_LITERAL})`,
+      "Text a reader sees comes from the catalogue: a property named for words holds an entry of `COPY` or `SERVER_COPY`, or a record's own data as `{ record }`.",
+    ),
+    PRODUCTION,
+    // The league's own constants, which name it and its organisers and sponsors as data (`features/meta/constants.ts`);
+    // the boot's refusal, a line for an operator.
+    { allow: [...CATALOGUE_FILES, "src/core/brand.ts", "src/features/meta/constants.ts", "src/core/config.ts"] },
   ),
   syntaxBan(
     syntax(
@@ -1088,7 +1136,7 @@ const DESIGN_BANS = [
       "The catalogue writes none of these: three periods, „!“, a dash inside text, a semicolon, „Bitte“, „erfolgreich“, „leider“, „wirklich“, „und mehr“, „z. B.“, „Mannschaft“, „noch einmal“, „Sie“ or a capitalised „Du“ inside a sentence.",
     ),
     EVERY,
-    { only: ["src/core/copy.ts", "src/core/serverCopy.ts"] },
+    { only: CATALOGUE_FILES },
   ),
   // A field's message line is one pattern phrase: no full stop, no article, 80 characters at most. Its entries are
   // `COPY.shared.field`'s patterns, and the server's phrases for a code, `SERVER_COPY.refusal`.
@@ -1105,6 +1153,15 @@ const DESIGN_BANS = [
       { only: [file] },
     ),
   ),
+  // An entry returning what it is handed as it came would make any string a `Copy`: the catalogue words its argument.
+  syntaxBan(
+    syntax(
+      "ArrowFunctionExpression > Identifier.body, ArrowFunctionExpression > TemplateLiteral.body[expressions.length=1]:not(:has(> TemplateElement[value.raw=/\\S/]))",
+      "A catalogue entry words what it is handed: one returning its argument as it came makes any string a `Copy`. A record's own name stands in a slot as `{ record }`.",
+    ),
+    EVERY,
+    { only: CATALOGUE_FILES },
+  ),
   // A status line or a callout says one sentence: what is so, never a second one saying why or how.
   syntaxBan(
     syntax(
@@ -1112,7 +1169,7 @@ const DESIGN_BANS = [
       "A status line or a callout is one short sentence saying what is so: no second sentence.",
     ),
     EVERY,
-    { only: ["src/core/copy.ts", "src/core/serverCopy.ts"] },
+    { only: CATALOGUE_FILES },
   ),
 
   // Dates, numbers and the time.

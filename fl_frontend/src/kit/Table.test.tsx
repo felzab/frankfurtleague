@@ -33,7 +33,12 @@ describe("a table's name cell", () => {
     render(
       <Table
         {...props([
-          { id: "1", name: LONG, chip: { tone: "neutral", label: COPY.verwaltung.spielort.retired }, cells: { stadtteil: "Nordend" } },
+          {
+            id: "1",
+            name: { record: LONG },
+            chip: { tone: "neutral", label: COPY.verwaltung.spielort.retired },
+            cells: { stadtteil: { record: "Nordend" } },
+          },
         ])}
       />,
     );
@@ -51,7 +56,13 @@ describe("a table's name cell", () => {
   // around it: a hidden wrapper is positioned and clipped, which would shrink the link's stretched `::after`
   // to it and leave the row unable to open.
   it("on a phone draws a club's plaque alone, the row still opening the club under its full name", () => {
-    render(<Table {...props([{ id: "1", name: LONG, plaque: { kuerzel: "GOE" }, href: "/saisons/2027", cells: { stadtteil: "Nordend" } }])} />);
+    render(
+      <Table
+        {...props([
+          { id: "1", name: { record: LONG }, plaque: { record: "GOE" }, href: "/saisons/2027", cells: { stadtteil: { record: "Nordend" } } },
+        ])}
+      />,
+    );
     const link = screen.getByRole("link", { name: (accessible) => accessible.includes(LONG) });
     expect(link.getAttribute("data-kit-focus")).toBe("row");
     expect(link.textContent).toBe(`GOE${LONG}`);
@@ -68,14 +79,14 @@ describe("a table's name cell", () => {
   });
 
   it("ends a linked row with the chevron, in a column of its own", () => {
-    render(<Table {...props([{ id: "1", name: "Goethe", href: "/saisons/2027", cells: { stadtteil: "Nordend" } }])} />);
+    render(<Table {...props([{ id: "1", name: { record: "Goethe" }, href: "/saisons/2027", cells: { stadtteil: { record: "Nordend" } } }])} />);
     const row = screen.getByRole("link", { name: "Goethe" }).closest("tr");
     expect(row?.lastElementChild?.querySelector("svg")).not.toBe(null);
     expect(row?.children.length).toBe(screen.getAllByRole("columnheader").length + 1);
   });
 
   it("draws no chevron where no row leads anywhere", () => {
-    render(<Table {...props([{ id: "1", name: "Goethe", cells: { stadtteil: "Nordend" } }])} />);
+    render(<Table {...props([{ id: "1", name: { record: "Goethe" }, cells: { stadtteil: { record: "Nordend" } } }])} />);
     expect(screen.getByRole("table").querySelector("svg")).toBe(null);
   });
 });
@@ -84,9 +95,9 @@ describe("a table's box", () => {
   it("is the card's surface standing alone, and inside a card's body no box at all", () => {
     const { container } = render(
       <>
-        <Table {...props([{ id: "1", name: "Goethe", cells: { stadtteil: "Nordend" } }])} />
+        <Table {...props([{ id: "1", name: { record: "Goethe" }, cells: { stadtteil: { record: "Nordend" } } }])} />
         <Table
-          {...props([{ id: "2", name: "Bettina", cells: { stadtteil: "Westend" } }])}
+          {...props([{ id: "2", name: { record: "Bettina" }, cells: { stadtteil: { record: "Westend" } } }])}
           bare
         />
       </>,
@@ -104,10 +115,10 @@ describe("a table's rank column", () => {
     render(
       <Table
         {...props([
-          { id: "1", name: "Goethe", place: 1, cells: { stadtteil: "Nordend" } },
-          { id: "2", name: "Bettina", place: 1, cells: { stadtteil: "Westend" } },
-          { id: "3", name: "Schiller", place: 3, cells: { stadtteil: "Bornheim" } },
-          { id: "4", name: "Lessing", place: null, cells: { stadtteil: "Ostend" } },
+          { id: "1", name: { record: "Goethe" }, place: 1, cells: { stadtteil: { record: "Nordend" } } },
+          { id: "2", name: { record: "Bettina" }, place: 1, cells: { stadtteil: { record: "Westend" } } },
+          { id: "3", name: { record: "Schiller" }, place: 3, cells: { stadtteil: { record: "Bornheim" } } },
+          { id: "4", name: { record: "Lessing" }, place: null, cells: { stadtteil: { record: "Ostend" } } },
         ])}
         rankLabel={COPY.shared.saison}
       />,
@@ -123,7 +134,7 @@ describe("a table's rank column", () => {
 describe("a table's head", () => {
   // A card's head is the one band a card carries; a filled column head under it reads as a second band.
   it("sets its column heads over a hairline on the card's own fill, with no fill of their own", () => {
-    render(<Table {...props([{ id: "1", name: "Goethe", href: "/saisons/2027", cells: { stadtteil: "Nordend" } }])} />);
+    render(<Table {...props([{ id: "1", name: { record: "Goethe" }, href: "/saisons/2027", cells: { stadtteil: { record: "Nordend" } } }])} />);
     const head = screen.getByRole("table").querySelector("thead tr");
     expect(head?.classList).toContain("border-b");
     for (const cell of head?.children ?? []) expect(cell.className).not.toMatch(/(^|\s|:)bg-/);
@@ -135,7 +146,14 @@ describe("a table on a phone", () => {
   it("draws one record column in place of the three it stands for, each count in its colour", () => {
     render(
       <Table
-        {...props([{ id: "1", name: "Goethe", href: "/saisons/2027", cells: { s: "3", u: "1", n: "0", sun: { record: ["3", "1", "0"] } } }])}
+        {...props([
+          {
+            id: "1",
+            name: { record: "Goethe" },
+            href: "/saisons/2027",
+            cells: { s: { record: "3" }, u: { record: "1" }, n: { record: "0" }, sun: { counts: [3, 1, 0] } },
+          },
+        ])}
         columns={[
           ...(["s", "u", "n"] as const).map((key) => ({ key, label: COPY.shared.startelf, figures: true, hideOnPhone: true })),
           { key: "sun", label: COPY.shared.saison, figures: true, phoneOnly: true },
@@ -157,7 +175,7 @@ describe("a table on a phone", () => {
   });
 
   it("leaves the chevron out, the whole row still the link", () => {
-    render(<Table {...props([{ id: "1", name: "Goethe", href: "/saisons/2027", cells: { stadtteil: "Nordend" } }])} />);
+    render(<Table {...props([{ id: "1", name: { record: "Goethe" }, href: "/saisons/2027", cells: { stadtteil: { record: "Nordend" } } }])} />);
     const row = screen.getByRole("link", { name: "Goethe" }).closest("tr");
     expect(row?.lastElementChild?.classList).toContain("max-lg:hidden");
     expect(screen.getByRole("table").querySelector("thead tr")?.lastElementChild?.classList).toContain("max-lg:hidden");
@@ -166,7 +184,7 @@ describe("a table on a phone", () => {
 
 describe("a figure short of fixtures called off", () => {
   it("carries a small red „+N“ over its corner, three quarters right of it, which a screen reader hears by name", () => {
-    render(<Table {...props([{ id: "1", name: "Goethe", cells: { stadtteil: { value: "5", cancelled: 2 } } }])} />);
+    render(<Table {...props([{ id: "1", name: { record: "Goethe" }, cells: { stadtteil: { value: { record: "5" }, cancelled: 2 } } }])} />);
     const mark = screen.getByText(COPY.shared.season.cancelledMark(2));
     expect(mark.getAttribute("aria-hidden")).toBe("true");
     expect(mark.classList).toContain("text-danger");
@@ -183,8 +201,8 @@ describe("a figure short of fixtures called off", () => {
     render(
       <Table
         {...props([
-          { id: "1", name: "Goethe", cells: { stadtteil: { value: "5", cancelled: 1 } } },
-          { id: "2", name: "Helmholtz", cells: { stadtteil: "6" } },
+          { id: "1", name: { record: "Goethe" }, cells: { stadtteil: { value: { record: "5" }, cancelled: 1 } } },
+          { id: "2", name: { record: "Helmholtz" }, cells: { stadtteil: { record: "6" } } },
         ])}
       />,
     );
@@ -206,8 +224,8 @@ describe("a table row a link points to", () => {
     render(
       <Table
         {...props([
-          { id: "1", name: "Goethe", anchor: "goethe", cells: { stadtteil: "Nordend" } },
-          { id: "2", name: "Helmholtz", anchor: "helmholtz", cells: { stadtteil: "Bockenheim" } },
+          { id: "1", name: { record: "Goethe" }, anchor: "goethe", cells: { stadtteil: { record: "Nordend" } } },
+          { id: "2", name: { record: "Helmholtz" }, anchor: "helmholtz", cells: { stadtteil: { record: "Bockenheim" } } },
         ])}
       />,
     );
@@ -234,8 +252,8 @@ describe("a table row a link points to", () => {
     render(
       <Table
         {...props([
-          { id: "1", name: "Goethe", anchor: "goethe", cells: { stadtteil: "Nordend" } },
-          { id: "2", name: "Helmholtz", anchor: "helmholtz", cells: { stadtteil: "Bockenheim" } },
+          { id: "1", name: { record: "Goethe" }, anchor: "goethe", cells: { stadtteil: { record: "Nordend" } } },
+          { id: "2", name: { record: "Helmholtz" }, anchor: "helmholtz", cells: { stadtteil: { record: "Bockenheim" } } },
         ])}
       />,
     );

@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import { Timeline } from "./Timeline";
 
@@ -12,8 +13,18 @@ describe("a timeline", () => {
       <Timeline
         label={COPY.page.spiele}
         items={[
-          { id: "e1", mark: "12", title: "Tor · Mika Brandt", detail: "AHO · 1:0" },
-          { id: "e2", mark: "90+3", title: "Gelbe Karte · Leon Hartmann", children: <p>Foulspiel</p> },
+          {
+            id: "e1",
+            mark: { record: "12" },
+            title: SERVER_COPY.season.spiel.event(SERVER_COPY.season.spiel.tor, { record: "Mika Brandt" }),
+            detail: { record: "AHO · 1:0" },
+          },
+          {
+            id: "e2",
+            mark: { record: "90+3" },
+            title: SERVER_COPY.season.spiel.event(SERVER_COPY.season.spiel.karte.gelb, { record: "Leon Hartmann" }),
+            children: <p>Foulspiel</p>,
+          },
         ]}
       />,
     );

@@ -1,10 +1,12 @@
+import { textOf } from "@/core/copy";
+
 import { cardSurface } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { tv } from "./tv";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { ChipProps } from "./Chip";
 import type { IconName } from "./Icon";
@@ -18,10 +20,10 @@ export type Fact = {
   /** A small muted glyph before the label, as the match pop-up leads each of its facts (Notion's property pattern). */
   glyph?: IconName;
 } & (
-  | { value: string; /** Figures, set in Inter with columns that line up. */ figures?: boolean; link?: never; elsewhere?: never }
-  | { link: { href: Route; text: string }; value?: never; figures?: never; elsewhere?: never }
+  | { value: Words; /** Figures, set in Inter with columns that line up. */ figures?: boolean; link?: never; elsewhere?: never }
+  | { link: { href: Route; label: Words }; value?: never; figures?: never; elsewhere?: never }
   /** Another site's address, which `Link` opens in a new tab, leaving the site's page in place. */
-  | { elsewhere: { href: `https://${string}`; text: string }; value?: never; figures?: never; link?: never }
+  | { elsewhere: { href: `https://${string}`; label: Words }; value?: never; figures?: never; link?: never }
 );
 
 const facts = tv({
@@ -66,7 +68,7 @@ export function Facts({
   facts: rows,
   look = "boxed",
 }: {
-  subject?: { name: string; chip?: ChipProps };
+  subject?: { name: Words; chip?: ChipProps };
   facts: ReadonlyArray<Fact>;
   look?: "boxed" | "free";
 }) {
@@ -77,8 +79,8 @@ export function Facts({
         <p className="flex min-w-0 items-center gap-2 text-base font-semibold">
           <span
             className="min-w-0 truncate"
-            title={subject.name}>
-            {subject.name}
+            title={textOf(subject.name)}>
+            {textOf(subject.name)}
           </span>
           {subject.chip !== undefined && <Chip {...subject.chip} />}
         </p>
@@ -101,15 +103,15 @@ export function Facts({
                 {fact.label}
               </dt>
               <dd className={detail()}>
-                {to !== undefined ? (
-                  <Link
-                    href={to.href}
-                    placement="standalone"
-                    text={to.text}
-                  />
-                ) : (
-                  fact.value
-                )}
+                {fact.value !== undefined
+                  ? textOf(fact.value)
+                  : to !== undefined && (
+                      <Link
+                        href={to.href}
+                        placement="standalone"
+                        label={to.label}
+                      />
+                    )}
               </dd>
             </div>
           );

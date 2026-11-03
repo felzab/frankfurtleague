@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 import { ERGEBNIS_SEPARATOR } from "@/core/format";
 
 import { cardSurface } from "./cardStyles";
@@ -8,24 +8,26 @@ import { RowEnd } from "./RowEnd";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
+import type { Copy, Words } from "@/core/copy";
 import type { Pair } from "@/core/format";
 import type { Route } from "next";
 import type { ChipProps } from "./Chip";
+import type { Plaque } from "./TeamPlaque";
 
 /** One side of a match: the club's name and its plaque, or the source of a side not yet known. */
-export type SpielSide = { name: string; plaque: { kuerzel: string } | { quelle: string } };
+export type SpielSide = { name: Words; plaque: Plaque };
 
 export type SpielRowProps = {
   /** The match's own page, which opens as the pop-up over the list. */
   href: Route;
-  /** When it is played, as the formatting module writes it. */
-  when: string;
+  /** When it is played, as the catalogue words it. */
+  when: Copy;
   home: SpielSide;
   away: SpielSide;
   /** Absent until a result is entered, so an unplayed match never reads 0:0. */
   result?: { tore: Pair; elfmeterschiessen?: Pair };
-  /** The phase, as text. */
-  phase?: string;
+  /** The phase, by its catalogue name. */
+  phase?: Copy;
   /** The row's one chip, after the pairing, such as „Startelf“ on a pupil's list. */
   chip?: ChipProps;
 };
@@ -90,16 +92,17 @@ export function look(score: Figures, side: "home" | "away") {
 
 function Side({ side, score, part, mirrored }: { side: SpielSide; score: Figures; part: "home" | "away"; mirrored?: boolean }) {
   const style = row({ ...look(score, part), mirrored: mirrored === true });
+  const name = textOf(side.name);
   return (
     <span className={style.side()}>
-      {mirrored !== true && <TeamPlaque {...side.plaque} />}
+      {mirrored !== true && <TeamPlaque plaque={side.plaque} />}
       {/* Cut with „…“ where the side's column is too narrow, the whole name in its `title`. */}
       <span
         className={style.name()}
-        title={side.name}>
-        {side.name}
+        title={name}>
+        {name}
       </span>
-      {mirrored === true && <TeamPlaque {...side.plaque} />}
+      {mirrored === true && <TeamPlaque plaque={side.plaque} />}
     </span>
   );
 }

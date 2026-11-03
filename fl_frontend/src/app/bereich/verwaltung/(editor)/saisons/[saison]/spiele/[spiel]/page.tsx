@@ -47,7 +47,7 @@ const lesen = cache(async (spiel: string) => {
 const nameOf = (spiel: FLSpielJoinedAdmin) =>
   spiel.team1 === null || spiel.team2 === null
     ? WORTE.number(spiel.spiel_nr)
-    : ROUTES.verwaltungSpiel.title(spiel.team1.name, spiel.team2.name);
+    : ROUTES.verwaltungSpiel.title({ record: spiel.team1.name }, { record: spiel.team2.name });
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison, spiel } = await params;
@@ -87,15 +87,15 @@ async function readEditor(params: Props["params"]) {
 
   return (
     <SpielEditor
-      title={{ record: nameOf(gespeichert) }}
+      title={nameOf(gespeichert)}
       record={{ id: gespeichert.id, version: gespeichert.version, values: werteOf(gespeichert) }}
       save={spielSpeichern}
       spielorte={waehlbar.map((ort) => ({
         // The match's own retired venue stays in the list, marked and not to be chosen again once left.
         option:
           ort.inactive_since === null
-            ? { id: ort.id, label: ort.name }
-            : { id: ort.id, label: ort.name, isDisabled: true, note: COPY.verwaltung.spielort.retired },
+            ? { id: ort.id, label: { record: ort.name } }
+            : { id: ort.id, label: { record: ort.name }, isDisabled: true, note: COPY.verwaltung.spielort.retired },
         mietpreis: ort.default_mietpreis,
       }))}
       sonderereignisse={sonderereignisse}

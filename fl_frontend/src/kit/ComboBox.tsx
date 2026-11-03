@@ -5,6 +5,8 @@ import { useState } from "react";
 import { ComboBox as AriaComboBox, Button, Input } from "react-aria-components/ComboBox";
 import { Group } from "react-aria-components/Group";
 
+import { textOf } from "@/core/copy";
+
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { fieldButton, fieldFrame, fieldRoot, groupInput } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
@@ -56,7 +58,8 @@ export function ComboBox({
   // The field's text and value, followed rather than held, for the create entry to hand on.
   const [text, setText] = useState("");
   const [chosen, setChosen] = useState(defaultValue ?? null);
-  const shown = options.find((option) => option.id === (value === undefined ? chosen : value))?.label ?? "";
+  const chosenLabel = options.find((option) => option.id === (value === undefined ? chosen : value))?.label;
+  const shown = chosenLabel === undefined ? "" : textOf(chosenLabel);
   return (
     <AriaComboBox
       className={fieldRoot()}

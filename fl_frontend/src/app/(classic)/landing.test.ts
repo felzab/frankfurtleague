@@ -68,8 +68,8 @@ describe("the season card before the start", () => {
       opening: {
         when: COPY.spielplan.when("2027-03-06", "14:00"),
         spieltag: SERVER_COPY.landing.saison.spieltag(1),
-        home: { kuerzel: "GOE" },
-        away: { kuerzel: "HEL" },
+        home: { record: "GOE" },
+        away: { record: "HEL" },
       },
     });
   });
@@ -81,7 +81,7 @@ describe("the season card before the start", () => {
   // D498: an opening side whose slot is empty shows the Spielplan's dashed open plaque.
   it("shows an empty opening side as the open plaque", () => {
     const state = stateOf(saison({ opening_spiel: { ...OPENING_SPIEL, team2: null } }));
-    expect(state).toMatchObject({ opening: { home: { kuerzel: "GOE" }, away: null } });
+    expect(state).toMatchObject({ opening: { home: { record: "GOE" }, away: null } });
   });
 });
 
@@ -100,10 +100,10 @@ describe("the season card once decided", () => {
     expect(stateOf(saison({ state: "decided", podium: [...podium] }))).toStrictEqual({
       kind: "decided",
       places: [
-        { name: "LIE", kuerzel: "LIE" },
-        { name: "ELI", kuerzel: "ELI" },
-        { name: "ERS", kuerzel: "ERS" },
-        { name: "CMS", kuerzel: "CMS" },
+        { name: { record: "LIE" }, plaque: { record: "LIE" } },
+        { name: { record: "ELI" }, plaque: { record: "ELI" } },
+        { name: { record: "ERS" }, plaque: { record: "ERS" } },
+        { name: { record: "CMS" }, plaque: { record: "CMS" } },
       ],
     });
   });
@@ -113,7 +113,12 @@ describe("the season card once decided", () => {
     const podium = [place(1, "LIE"), place(2, "ELI"), place(3, "CMS"), { platz: 4, team: null }] as const;
     expect(stateOf(saison({ state: "decided", podium: [...podium] }))).toStrictEqual({
       kind: "decided",
-      places: [{ name: "LIE", kuerzel: "LIE" }, { name: "ELI", kuerzel: "ELI" }, { name: "CMS", kuerzel: "CMS" }, null],
+      places: [
+        { name: { record: "LIE" }, plaque: { record: "LIE" } },
+        { name: { record: "ELI" }, plaque: { record: "ELI" } },
+        { name: { record: "CMS" }, plaque: { record: "CMS" } },
+        null,
+      ],
     });
   });
 });

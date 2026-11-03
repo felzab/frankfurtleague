@@ -126,10 +126,10 @@ function sectionsOf(saison: FLLandingSaison | null, window: FLBewerbungWindow | 
           <StatTiles
             layout="four"
             items={[
-              { label: words.figures.schulen, value: formatNumber(saison.teams.length) },
-              { label: words.figures.tore, value: formatNumber(saison.counts.count_tore) },
-              { label: words.figures.spiele, value: formatNumber(saison.counts.count_spiele) },
-              { label: words.figures.spieltage, value: formatNumber(saison.counts.count_spieltage) },
+              { label: words.figures.schulen, value: { record: formatNumber(saison.teams.length) } },
+              { label: words.figures.tore, value: { record: formatNumber(saison.counts.count_tore) } },
+              { label: words.figures.spiele, value: { record: formatNumber(saison.counts.count_spiele) } },
+              { label: words.figures.spieltage, value: { record: formatNumber(saison.counts.count_spieltage) } },
             ]}
           />
         </LandingSection>
@@ -138,7 +138,7 @@ function sectionsOf(saison: FLLandingSaison | null, window: FLBewerbungWindow | 
         eyebrow={words.organisers.eyebrow}
         title={words.organisers.title}
         more={ABOUT}>
-        <Organisers people={ORGANISERS.map((person) => ({ name: person.name, role: words.organisers.role[person.role] }))} />
+        <Organisers people={ORGANISERS.map((person) => ({ name: { record: person.name }, role: words.organisers.role[person.role] }))} />
       </LandingSection>
       <LandingSection
         title={COPY.page.sponsors}
@@ -166,8 +166,8 @@ function sectionsOf(saison: FLLandingSaison | null, window: FLBewerbungWindow | 
           more={{ label: COPY.page.teams, href: ROUTES.teams.path(saison.id) }}>
           <SchoolTiles
             schools={saison.teams.map((team) => ({
-              name: team.name,
-              kuerzel: team.shorthand,
+              name: { record: team.name },
+              plaque: { record: team.shorthand },
               href: ROUTES.team.path(saison.id, team.id),
             }))}
           />

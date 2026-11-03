@@ -9,8 +9,8 @@ import { Tabs } from "./Tabs";
 
 const SPIELTAGE = COPY.spielplan.spieltage;
 const TABS = [
-  { id: "st-1", label: "1. Spieltag" },
-  { id: "st-2", label: "2. Spieltag" },
+  { id: "st-1", label: COPY.shared.spieltag(1) },
+  { id: "st-2", label: COPY.shared.spieltag(2) },
 ];
 
 describe("the kit's tabs", () => {

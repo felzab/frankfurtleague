@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { ListPage } from "@/kit/ListPage";
 
-import { COPY } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 import { formatDatum, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -10,7 +10,7 @@ import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants
 import { getSpielplan } from "@/features/saisons/queries";
 import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { matchRowOf, sidesOf, whenOf } from "@/features/spiele/blocks";
-import { spieltagLabels } from "@/features/spieltage/utils";
+import { spieltagNamer } from "@/features/spieltage/utils";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Copy } from "@/core/copy";
@@ -36,7 +36,7 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
   const address = await searchParams;
   const { spieltage } = spielplan;
   const matches = spieltage.flatMap((spieltag) => spieltag.spiele.map((spiel) => ({ spiel, spieltag: keyOf(spieltag) })));
-  const labels = spieltagLabels(spieltage);
+  const nameOf = spieltagNamer(spieltage);
   const clubs = new Map(
     matches.flatMap(({ spiel }) => [spiel.team1, spiel.team2].flatMap((team) => (team === null ? [] : [[team.team_id, team.name] as const]))),
   );
@@ -58,12 +58,12 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
     filter(
       "team",
       words.team,
-      [...clubs].map(([id, name]) => ({ id, label: name })).sort((one, other) => one.label.localeCompare(other.label, "de")),
+      [...clubs].sort(([, one], [, other]) => one.localeCompare(other, "de")).map(([id, name]) => ({ id, label: { record: name } })),
     ),
     filter(
       "spieltag",
       words.spieltag,
-      spieltage.map((spieltag) => ({ id: keyOf(spieltag), label: labels.get(spieltag.id)?.label ?? "" })),
+      spieltage.map((spieltag) => ({ id: keyOf(spieltag), label: nameOf(spieltag) })),
     ),
   ];
   return { matches, filters };
@@ -87,8 +87,8 @@ function passes(match: { spiel: FLSpielJoined; spieltag: string }, filters: read
 function wordsOf(spiel: FLSpielJoined): string {
   const { heim, gast } = sidesOf(spiel);
   return [
-    heim.name,
-    gast.name,
+    textOf(heim.name),
+    textOf(gast.name),
     spiel.ort?.name,
     whenOf(spiel),
     spiel.datum === null ? null : formatDatum(spiel.datum as CalendarDay),

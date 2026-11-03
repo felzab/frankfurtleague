@@ -5,6 +5,7 @@ import { Link } from "./Link";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
+import type { RecordText } from "@/core/copy";
 import type { Route } from "next";
 
 /**
@@ -12,10 +13,10 @@ import type { Route } from "next";
  * the short name its tile and the footer's logo line show, where one is common; the logo under `/icons/sponsors/`;
  * its site.
  */
-export type Sponsor = { name: string; short?: string; logo: string; href: string };
+export type Sponsor = { name: RecordText; short?: RecordText; logo: string; href: string };
 
 /** A club of the season: its name, its Kürzel and its page. */
-type SchoolTile = { name: string; kuerzel: string; href: Route };
+type SchoolTile = { name: RecordText; plaque: RecordText; href: Route };
 
 // One grid for both, since the season's schools and the sponsors were ruled one look, equal tiles in a
 // fixed grid, four columns and two on a phone; each tile's content is its own.
@@ -53,8 +54,8 @@ export function SchoolTiles({ schools }: { schools: readonly SchoolTile[] }) {
             href={school.href}
             placement="card">
             <span className={slots.content()}>
-              <TeamPlaque kuerzel={school.kuerzel} />
-              <span className="min-w-0">{school.name}</span>
+              <TeamPlaque plaque={school.plaque} />
+              <span className="min-w-0">{school.name.record}</span>
             </span>
           </Link>
         </li>
@@ -81,13 +82,13 @@ export function SponsorTiles({ sponsors }: { sponsors: readonly Sponsor[] }) {
             placement="card"
             sponsored>
             <span
-              title={sponsor.name}
+              title={sponsor.name.record}
               className={slots.content()}>
               <span className="relative block h-16 rounded-md bg-white">
                 {/* An SVG served as it is, which the image optimiser has nothing to do for, fitted into the plate. */}
                 <Image
                   src={sponsor.logo}
-                  alt={sponsor.name}
+                  alt={sponsor.name.record}
                   fill
                   unoptimized
                   sizes="12rem"
@@ -97,7 +98,7 @@ export function SponsorTiles({ sponsors }: { sponsors: readonly Sponsor[] }) {
               <span
                 aria-hidden
                 className="block truncate">
-                {sponsor.short ?? sponsor.name}
+                {(sponsor.short ?? sponsor.name).record}
               </span>
             </span>
           </Link>

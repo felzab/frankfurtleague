@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 
 import { cardSurface } from "./cardStyles";
 import { Link } from "./Link";
@@ -6,6 +6,7 @@ import { figures, look, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
+import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { Figures, SpielRowProps, SpielSide } from "./SpielRow";
 
@@ -24,16 +25,17 @@ function Line({ side, score, part }: { side: SpielSide; score: Figures; part: "h
   // A card sets both figures bold whatever the outcome, a shoot-out loser's included, where a match row sets
   // that loser's goals regular: with the shoot-out's goals added, the higher figure is the winner's.
   const style = card({ ...marks, goals: marks.goals === "lost" ? "counted" : marks.goals });
+  const name = textOf(side.name);
   return (
     <span className={style.line()}>
       <span className={style.name()}>
-        <TeamPlaque {...side.plaque} />
+        <TeamPlaque plaque={side.plaque} />
         {/* A phone's card draws the plaque alone, the name still the link's words for a screen reader; desktop
             sets the name, or a side's source, beside it, cut with „…“ and whole in its title. */}
         <span
-          title={side.name}
+          title={name}
           className="min-w-0 truncate max-lg:sr-only">
-          {side.name}
+          {name}
         </span>
       </span>
       <span className={style.goals()}>{score === null ? COPY.shared.noValue : score[part]}</span>
@@ -57,7 +59,7 @@ export function BracketCard({
   /** The card's fragment, so a link elsewhere, such as a club's line in a match head, opens the tree at it. */
   anchor?: string;
   href: Route;
-  when: string;
+  when: Copy;
   home: SpielSide;
   away: SpielSide;
   result?: SpielRowProps["result"];

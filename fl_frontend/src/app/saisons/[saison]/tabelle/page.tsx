@@ -56,29 +56,29 @@ const COLUMNS: TableProps["columns"] = [
  */
 function rowOf(saison: string, row: FLTabelleRow, qualifiers: number, rows: readonly FLTabelleRow[]): TableRow {
   const { statistik } = row;
-  const played = formatNumber(statistik.count_gespielte_spiele);
+  const played = { record: formatNumber(statistik.count_gespielte_spiele) };
   const qualifying = row.platz !== null && row.platz <= qualifiers;
   // Level clubs share their place, and the bracket seeds none of them until the tie resolves.
   const level = rows.some((other) => other.id !== row.id && other.platz === row.platz);
   return {
     id: row.id,
     anchor: row.id,
-    name: row.name,
+    name: { record: row.name },
     href: ROUTES.team.path(saison, row.id),
-    plaque: { kuerzel: row.shorthand },
+    plaque: { record: row.shorthand },
     place: row.platz,
     ...(qualifying ? { qualifies: level ? "level" : "settled" } : {}),
     muted: row.austritt_type !== null,
     ...(row.austritt_type === null ? {} : { chip: austrittChip(row.austritt_type) }),
     cells: {
       spiele: statistik.count_abgesagte_spiele > 0 ? { value: played, cancelled: statistik.count_abgesagte_spiele } : played,
-      siege: formatNumber(statistik.siege),
-      unentschieden: formatNumber(statistik.unentschieden),
-      niederlagen: formatNumber(statistik.niederlagen),
-      record: { record: [formatNumber(statistik.siege), formatNumber(statistik.unentschieden), formatNumber(statistik.niederlagen)] },
-      tore: formatErgebnis({ team1: statistik.tore_geschossen, team2: statistik.tore_kassiert }),
-      differenz: formatSigned(statistik.tore_geschossen - statistik.tore_kassiert),
-      punkte: formatNumber(statistik.punkte),
+      siege: { record: formatNumber(statistik.siege) },
+      unentschieden: { record: formatNumber(statistik.unentschieden) },
+      niederlagen: { record: formatNumber(statistik.niederlagen) },
+      record: { counts: [statistik.siege, statistik.unentschieden, statistik.niederlagen] },
+      tore: { record: formatErgebnis({ team1: statistik.tore_geschossen, team2: statistik.tore_kassiert }) },
+      differenz: { record: formatSigned(statistik.tore_geschossen - statistik.tore_kassiert) },
+      punkte: { record: formatNumber(statistik.punkte) },
     },
   };
 }

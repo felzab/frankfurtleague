@@ -1,14 +1,17 @@
+import { textOf } from "@/core/copy";
+
 import { CardFold } from "./CardFold";
 import { Table } from "./Table";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { TableProps } from "./Table";
 
 /**
  * One folded card: its title, catalogue text or a record's name such as a club's; how many it holds; and its
  * tables, one, or several each under its head, such as a line-up's starters over its bench.
  */
-export type FoldedCard = ({ title: Copy; titleText?: never } | { titleText: string; title?: never }) & {
+export type FoldedCard = {
+  title: Words;
   count?: number;
   tables: readonly [TableProps] | ReadonlyArray<{ head: Copy; table: TableProps }>;
 };
@@ -23,7 +26,7 @@ export function ReadFolds({ cards }: { cards: ReadonlyArray<FoldedCard> }) {
     <div className={cards.length > 1 ? "grid content-start gap-3 lg:grid-cols-2" : "grid"}>
       {cards.map(({ tables, ...card }) => (
         <CardFold
-          key={card.title ?? card.titleText}
+          key={textOf(card.title)}
           {...card}>
           {tables.map((part) =>
             "head" in part ? (

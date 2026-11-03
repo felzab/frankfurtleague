@@ -17,8 +17,8 @@ vi.mock("next/link", () => ({
 const { fact } = COPY.spielplan;
 
 const RECORD: ReadRecord = {
-  title: { route: "spiel", heim: "Goethe", gast: "Helmholtz" },
-  groups: [{ kind: "facts", facts: [{ label: fact.spieltag, value: "1. Spieltag" }] }],
+  title: { route: "spiel", heim: { record: "Goethe" }, gast: { record: "Helmholtz" } },
+  groups: [{ kind: "facts", facts: [{ label: fact.spieltag, value: { record: "1. Spieltag" } }] }],
 };
 
 /** The document once every boundary has its content. */
@@ -39,9 +39,9 @@ describe("a match's own page", () => {
           ...RECORD,
           spiel: {
             head: {
-              eyebrow: "1. Spieltag",
-              home: { name: "Goethe", plaque: { kuerzel: "GOE" } },
-              away: { name: "Helmholtz", plaque: { kuerzel: "HEL" } },
+              eyebrow: COPY.shared.spieltag(1),
+              home: { name: { record: "Goethe" }, plaque: { record: "GOE" } },
+              away: { name: { record: "Helmholtz" }, plaque: { record: "HEL" } },
             },
             sonderereignis: { title: COPY.spielplan.sonderereignis.ausgefallen, text: COPY.spielplan.sonderereignis.consequence.ausgefallen },
           },
@@ -100,7 +100,7 @@ describe("the read page's wait", () => {
         record={Promise.resolve(RECORD)}
       />,
     );
-    expect(within(read).getByRole("heading", { level: 1 }).textContent).toBe(COPY.page.spiel("Goethe", "Helmholtz"));
+    expect(within(read).getByRole("heading", { level: 1 }).textContent).toBe(COPY.page.spiel({ record: "Goethe" }, { record: "Helmholtz" }));
     expect(within(read).getByText("1. Spieltag")).toBeTruthy();
     expect(within(read).queryByRole("status")).toBeNull();
   });

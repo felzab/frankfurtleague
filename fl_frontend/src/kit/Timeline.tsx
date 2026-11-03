@@ -1,6 +1,8 @@
+import { textOf } from "@/core/copy";
+
 import { tv } from "./tv";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { ReactNode } from "react";
 
 /**
@@ -8,7 +10,7 @@ import type { ReactNode } from "react";
  * point, and what stands under them, such as a match card. The mark is read with the title, since a minute
  * says when a goal fell and nothing else does.
  */
-export type Checkpoint = { id: string; mark: string; title: string; detail?: string; children?: ReactNode };
+export type Checkpoint = { id: string; mark: Words; title: Copy; detail?: Words; children?: ReactNode };
 
 /**
  * The point and the line every line of checkpoints draws, the season's stages on the landing among them: a
@@ -54,12 +56,12 @@ export function Timeline({ label, items }: { label: Copy; items: readonly Checkp
           key={item.id}
           className={slots.step()}>
           <div className={slots.line()}>
-            <span className={slots.point()}>{item.mark}</span>
+            <span className={slots.point()}>{textOf(item.mark)}</span>
           </div>
           <div className={slots.body()}>
             <div className={slots.head()}>
               <span className={slots.title()}>{item.title}</span>
-              {item.detail !== undefined && <span className={slots.detail()}>{item.detail}</span>}
+              {item.detail !== undefined && <span className={slots.detail()}>{textOf(item.detail)}</span>}
             </div>
             {item.children}
           </div>

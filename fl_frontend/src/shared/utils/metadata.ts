@@ -1,6 +1,6 @@
-import { COPY } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { RouteEntry } from "@/core/routes";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -23,22 +23,22 @@ export function pageMetadata(
   parent: ResolvingMetadata,
   row: RouteEntry & { readonly title: Copy },
   path: string,
-  words?: { readonly description?: string },
+  words?: { readonly description?: Copy },
 ): Promise<Metadata>;
 export function pageMetadata(
   parent: ResolvingMetadata,
   row: RouteEntry,
   path: string,
-  words: { readonly title: string; readonly description?: string },
+  words: { readonly title: Words; readonly description?: Copy },
 ): Promise<Metadata>;
 export async function pageMetadata(
   parent: ResolvingMetadata,
   row: RouteEntry,
   path: string,
-  words: { readonly title?: string; readonly description?: string } = {},
+  words: { readonly title?: Words; readonly description?: Copy } = {},
 ): Promise<Metadata> {
   return {
-    title: words.title ?? (typeof row.title === "string" ? row.title : undefined),
+    title: words.title === undefined ? (typeof row.title === "string" ? row.title : undefined) : textOf(words.title),
     description: words.description,
     openGraph: await openGraphFor(parent, path),
     ...(row.crawl === "index" ? { alternates: { canonical: path } } : { robots: { index: false, follow: false } }),

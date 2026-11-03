@@ -90,7 +90,7 @@ describe("the kit's link", () => {
         <Link
           href="mailto:kontakt@frankfurtleague.de"
           placement="footer"
-          text="kontakt@frankfurtleague.de"
+          label={{ record: "kontakt@frankfurtleague.de" }}
         />
       </>,
     );

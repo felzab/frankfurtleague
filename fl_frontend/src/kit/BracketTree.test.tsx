@@ -14,14 +14,15 @@ vi.mock("next/link", () => ({
   default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
 }));
 
-const ROUND_NAMES = ["Achtelfinale", "Viertelfinale", "Halbfinale", "Finale"];
+const { phase } = COPY.shared;
+const ROUND_NAMES = [phase.achtelfinale, phase.viertelfinale, phase.halbfinale, phase.finale];
 
 const match = (id: string): BracketMatch => ({
   id,
   href: `/saisons/2027/spiele/${id}`,
-  when: "Termin offen",
-  home: { name: `Heim ${id}`, plaque: { quelle: "A1" } },
-  away: { name: `Gast ${id}`, plaque: { quelle: "B2" } },
+  when: COPY.spielplan.when(null, null),
+  home: { name: { record: `Heim ${id}` }, plaque: { quelle: COPY.spielplan.quelle.gruppeShort("A", 1) } },
+  away: { name: { record: `Gast ${id}` }, plaque: { quelle: COPY.spielplan.quelle.gruppeShort("B", 2) } },
 });
 
 /** The last `count` rounds of the bracket, each half as wide as the one before, the Finale last. */

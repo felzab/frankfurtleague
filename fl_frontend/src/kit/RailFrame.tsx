@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import NextLink from "next/link";
 
-import { COPY } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
 import { Brand } from "./Brand";
@@ -17,7 +17,7 @@ import { SkeletonTitle } from "./Skeleton";
 import { ToastRegion } from "./Toast";
 import { tv } from "./tv";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 import type { ChipProps } from "./Chip";
@@ -175,12 +175,12 @@ type TitledRoute = { [K in keyof typeof ROUTES]: (typeof ROUTES)[K]["title"] ext
 
 /**
  * A page's name: its route's catalogue title, a match's two teams in the fixture's order, or a record's own
- * name on its editor or read page.
+ * name on its editor or read page, as the catalogue words it or as the record holds it.
  */
-export type PageTitle = { route: TitledRoute } | { route: "spiel"; heim: string; gast: string } | { record: string };
+export type PageTitle = { route: TitledRoute } | { route: "spiel"; heim: Words; gast: Words } | Words;
 
 function titleOf(title: PageTitle): string {
-  if ("record" in title) return title.record;
+  if (typeof title === "string" || "record" in title) return textOf(title);
   if (title.route === "spiel") return ROUTES.spiel.title(title.heim, title.gast);
   return ROUTES[title.route].title;
 }

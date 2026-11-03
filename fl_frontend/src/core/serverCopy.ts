@@ -1,9 +1,10 @@
 import "server-only";
 
 import { KONTAKT_EMAIL } from "./brand";
-import { catalogue, COPY } from "./copy";
-import { formatDatum, formatNumber } from "./format";
+import { catalogue, COPY, textOf } from "./copy";
+import { formatDatum, formatNumber, formatSigned } from "./format";
 
+import type { Copy, Words } from "./copy";
 import type { CalendarDay } from "./format";
 import type { Code } from "./generated/client/types";
 import type { ROUTES } from "./routes";
@@ -207,7 +208,7 @@ export const SERVER_COPY = catalogue({
     /** The season card beside the hero, in its states. */
     saison: {
       /** The opening match's Anpfiff, when it is set to start. */
-      opening: (when: string) => `Anpfiff ${when}`,
+      opening: (when: Copy) => `Anpfiff ${when}`,
       /** The opening match's matchday, before its two plaques. */
       spieltag: COPY.shared.spieltag,
       windowUntil: (until: CalendarDay) => `Bewerbungen bis ${formatDatum(until)}`,
@@ -241,7 +242,7 @@ export const SERVER_COPY = catalogue({
     /** A group matchday, as a match's head names it. */
     spieltag: COPY.shared.spieltag,
     /** A match's own label before its date, on the one line every form of its row shows. */
-    labelled: (label: string, when: string) => `${label} · ${when}`,
+    labelled: (label: Words, when: Words) => `${textOf(label)} · ${textOf(when)}`,
     /**
      * Where a club stands, under its name in a match head, linking to its row on the Tabelle; a club that has
      * played no match holds no place yet, and the line names its group alone.
@@ -280,7 +281,7 @@ export const SERVER_COPY = catalogue({
       spiele: "Spiele",
       tore: "Tore",
       /** Under the goals: their difference, signed. */
-      differenz: (difference: string) => `Diff. ${difference}`,
+      differenz: (difference: number) => `Diff. ${formatSigned(difference)}`,
     },
 
     /** A match's page: its line-ups, and its goals and cards by minute. */
@@ -301,7 +302,7 @@ export const SERVER_COPY = catalogue({
       eigentor: "Eigentor",
       karte: { gelb: "Gelbe Karte", gelb_rot: "Gelb-Rote Karte", rot: "Rote Karte" },
       /** A checkpoint's title: what happened, and to whom. */
-      event: (what: string, who: string) => `${what} · ${who}`,
+      event: (what: Copy, who: Words) => `${what} · ${textOf(who)}`,
     },
   },
 
@@ -318,8 +319,8 @@ export const SERVER_COPY = catalogue({
     teams: (saison: string) => `Alle Teams der Saison ${saison} der Frankfurt League, mit Gruppe und Kader.`,
     team: (team: string, saison: string) => `${team} in der Saison ${saison} der Frankfurt League: Stand, Spiele und Kader.`,
     kORunde: (saison: string) => `Die K.-o.-Runde der Saison ${saison} der Frankfurt League: der K.-o.-Baum bis zum Finale.`,
-    spiel: (heim: string, gast: string, saison: string) =>
-      `${heim} gegen ${gast} in der Saison ${saison} der Frankfurt League: Termin, Ort, Ergebnis und Aufstellungen.`,
+    spiel: (heim: Words, gast: Words, saison: string) =>
+      `${textOf(heim)} gegen ${textOf(gast)} in der Saison ${saison} der Frankfurt League: Termin, Ort, Ergebnis und Aufstellungen.`,
     contact: "Die Frankfurt League erreichst du per E-Mail, auf Instagram und auf Threads.",
     sponsors: "Die Sponsoren der Frankfurt League, und wie du die Liga unterstützen kannst.",
     legalNotice: "Anbieterkennzeichnung der Frankfurt League nach § 5 DDG und § 18 Abs. 2 MStV.",

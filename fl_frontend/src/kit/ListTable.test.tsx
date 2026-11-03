@@ -17,8 +17,8 @@ const TABLE: TableProps = {
   nameLabel: COPY.shared.saison,
   columns: [{ key: "adresse", label: COPY.shared.startelf }],
   rows: [
-    { id: "1", name: "Sportpark Ost", cells: { adresse: "Nordend" } },
-    { id: "2", name: "Goethe-Halle", cells: { adresse: "Bockenheim" } },
+    { id: "1", name: { record: "Sportpark Ost" }, cells: { adresse: { record: "Nordend" } } },
+    { id: "2", name: { record: "Goethe-Halle" }, cells: { adresse: { record: "Bockenheim" } } },
   ],
   empty: { kind: "none", plural: COPY.shared.saison },
 };
@@ -88,9 +88,9 @@ const match = (id: string, home: string, away: string, words: string) => ({
   row: {
     id,
     href: `/saisons/2027/spiele/${id}` as const,
-    when: "Termin offen",
-    home: { name: home, plaque: { kuerzel: "AAA" } },
-    away: { name: away, plaque: { kuerzel: "BBB" } },
+    when: COPY.spielplan.when(null, null),
+    home: { name: { record: home }, plaque: { record: "AAA" } },
+    away: { name: { record: away }, plaque: { record: "BBB" } },
   },
   words: `${home} ${away} ${words}`,
 });

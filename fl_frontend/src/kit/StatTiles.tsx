@@ -1,9 +1,12 @@
+import { textOf } from "@/core/copy";
+
 import { cardSurface } from "./cardStyles";
 import { Link } from "./Link";
 import { RecordFigures } from "./Table";
 import { tv } from "./tv";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
+import type { Counts } from "./Table";
 
 /**
  * One tile: what it counts over its value and a line under it where one is due. The value is a figure, such
@@ -12,9 +15,9 @@ import type { Copy } from "@/core/copy";
  */
 export type StatTile = {
   label: Copy;
-  value: string;
+  value: Words;
   /** The line under the value: its own words, or a club's won, drawn and lost counts as the Tabelle draws them. */
-  line?: string | { record: readonly [won: string, drawn: string, lost: string] };
+  line?: Words | { counts: Counts };
   words?: true;
   href?: `https://${string}`;
 };
@@ -80,17 +83,19 @@ export function StatTiles({ layout, items }: Layout) {
             <dt className={slots.label()}>{item.label}</dt>
             <dd className={slots.value()}>
               {item.href === undefined ? (
-                item.value
+                textOf(item.value)
               ) : (
                 <Link
                   href={item.href}
                   placement="standalone"
-                  text={item.value}
+                  label={item.value}
                 />
               )}
             </dd>
             {item.line !== undefined && (
-              <dd className={slots.line()}>{typeof item.line === "string" ? item.line : <RecordFigures record={item.line.record} />}</dd>
+              <dd className={slots.line()}>
+                {typeof item.line === "object" && "counts" in item.line ? <RecordFigures counts={item.line.counts} /> : textOf(item.line)}
+              </dd>
             )}
           </div>
         );

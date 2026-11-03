@@ -41,9 +41,9 @@ async function readTable(params: Props["params"]) {
       columns: [{ key: "gruppe", label: column.gruppe }],
       rows: read.teams.map((team) => ({
         id: team.id,
-        name: team.name,
+        name: { record: team.name },
         href: ROUTES.team.path(saison, team.id),
-        plaque: { kuerzel: team.shorthand },
+        plaque: { record: team.shorthand },
         muted: team.austritt_type !== null,
         ...(team.austritt_type === null ? {} : { chip: austrittChip(team.austritt_type) }),
         cells: { gruppe: SERVER_COPY.season.gruppe(team.gruppe) },

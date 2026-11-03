@@ -5,13 +5,14 @@ import { BracketCard } from "./BracketCard";
 import { TargetMark } from "./TargetMark";
 import { tv } from "./tv";
 
+import type { Copy } from "@/core/copy";
 import type { ComponentProps } from "react";
 
 /** One knockout match in the tree: its card, by its id. */
 export type BracketMatch = ComponentProps<typeof BracketCard> & { id: string };
 
 /** One round, its matches in the bracket's order, so a match stands under the two that feed it. */
-export type BracketRound = { id: string; label: string; matches: ReadonlyArray<BracketMatch> };
+export type BracketRound = { id: string; label: Copy; matches: ReadonlyArray<BracketMatch> };
 
 /** How many matches the first round holds, and so how many columns the tree has: the draw allows 2 to 16 qualifiers. */
 type Width = 1 | 2 | 4 | 8;
@@ -66,7 +67,7 @@ const tree = tv({
 });
 
 /** One round's cards in one row, each centred over the span its match takes of the first round's columns. */
-function Row({ label, matches, width }: { label: string; matches: ReadonlyArray<BracketMatch>; width: Width }) {
+function Row({ label, matches, width }: { label: Copy; matches: ReadonlyArray<BracketMatch>; width: Width }) {
   const span = width / matches.length;
   if (!isWidth(span)) return null;
   const { row, cell, card } = tree({ columns: key(width), span: key(span) });
