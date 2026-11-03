@@ -17,6 +17,9 @@
        chip's tint on it allows while its word keeps 4.5:1, and its head as dark as the warning text allows. */
     --bg-card: #eaeaea;
     --bg-card-head: #d9d9d9;
+    /* A folded card's head under the pointer, lifted toward the text as a chip's tint is, as far as the head's
+       muted count keeps 4.5:1 on it. */
+    --bg-card-head-hover: #c8c8c8;
     --bg-overlay: #ffffff;
     --fg: #0a0a0a;
     --fg-muted: #525252;
@@ -50,6 +53,7 @@
     --bg-muted: #262626;
     --bg-card: #121212;
     --bg-card-head: #262626;
+    --bg-card-head-hover: #383838;
     --bg-overlay: #121212;
     --fg: #ffffff;
     --fg-muted: #a3a3a3;
@@ -207,6 +211,7 @@
   --color-bg-muted: var(--bg-muted);
   --color-bg-card: var(--bg-card);
   --color-bg-card-head: var(--bg-card-head);
+  --color-bg-card-head-hover: var(--bg-card-head-hover);
   --color-bg-overlay: var(--bg-overlay);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
