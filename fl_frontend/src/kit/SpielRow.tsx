@@ -1,7 +1,7 @@
 import { COPY, textOf } from "@/core/copy";
 import { ERGEBNIS_SEPARATOR } from "@/core/format";
 
-import { cardSurface } from "./cardStyles";
+import { cardSurface, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
@@ -142,7 +142,7 @@ function SpielRow({ href, when, home, away, result, phase, chip }: SpielRowProps
   const shootOut = score?.shootOut === true ? COPY.shared.afterElfmeterschiessen : null;
 
   return (
-    <div className="border-t border-border first:border-t-0">
+    <div className={stacked()}>
       <Link
         href={href}
         placement="card">

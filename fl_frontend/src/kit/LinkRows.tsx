@@ -1,6 +1,6 @@
 import { textOf } from "@/core/copy";
 
-import { cardHover, cardSurface } from "./cardStyles";
+import { cardHover, cardSurface, stacked } from "./cardStyles";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
@@ -23,8 +23,7 @@ export function LinkRows({ rows }: { rows: readonly LinkRow[] }) {
         <div
           key={row.href}
           className={cardHover({
-            class:
-              "relative flex min-h-14 items-center gap-3 border-t border-border px-4 py-2 text-base first:border-t-0 lg:min-h-13 lg:text-sm",
+            class: `relative flex min-h-14 items-center gap-3 ${stacked()} px-4 py-2 text-base lg:min-h-13 lg:text-sm`,
           })}>
           {row.glyph !== undefined && (
             <Icon

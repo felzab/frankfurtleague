@@ -1,6 +1,6 @@
 import { formatNumber } from "@/core/format";
 
-import { cardSurface } from "./cardStyles";
+import { cardSurface, stacked } from "./cardStyles";
 import { Link } from "./Link";
 import { tv } from "./tv";
 
@@ -20,7 +20,7 @@ const steps = tv({
   slots: {
     // Four columns from `lg`, parted by hairlines; one under another below it, the number beside each.
     list: "grid lg:grid-cols-4 lg:gap-4",
-    step: "grid grid-cols-[2.5rem_minmax(0,1fr)] content-start gap-x-4 gap-y-2 border-t border-border py-4 first:border-t-0 lg:grid-cols-1 lg:border-t-0 lg:border-l lg:px-6 lg:py-0 lg:first:border-l-0 lg:first:pl-0",
+    step: `grid grid-cols-[2.5rem_minmax(0,1fr)] content-start gap-x-4 gap-y-2 ${stacked()} py-4 lg:grid-cols-1 lg:border-t-0 lg:border-l lg:px-6 lg:py-0 lg:first:border-l-0 lg:first:pl-0`,
     // Board: the number's box, 40 px in the band's green.
     number:
       "row-span-2 flex size-10 items-center justify-center rounded-lg bg-brand-solid font-numeric text-base font-semibold text-on-brand lg:row-span-1",

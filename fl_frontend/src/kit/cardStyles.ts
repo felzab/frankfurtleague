@@ -15,6 +15,12 @@ export const cardSurface = tv({ base: "rounded-lg border border-border bg-bg-car
 export const cardHover = tv({ base: "transition-colors duration-(--motion-state) hover:bg-bg-muted" });
 
 /**
+ * The hairline parting parts stacked one under another inside one box, drawn above every part but the first: a
+ * card's rows, a table's, a match list's, the facts' pairs, the steps and the folded line-up's groups.
+ */
+export const stacked = tv({ base: "border-t border-border first:border-t-0" });
+
+/**
  * The kit's label rung: small muted capitals, set apart by their tracking. A table's column head and a card's
  * subhead wear it through `columnHead`, and so do a landing section's eyebrow, a fact card's label and the
  * classic footer's group headings, so one ruling on the rung reaches each of them from here.
@@ -68,7 +74,7 @@ export const card = tv({
     body: "min-w-0",
     foot: "flex justify-end p-4",
     chevron: "",
-    row: `relative flex min-h-14 items-stretch gap-3 border-t border-border px-4 py-2 text-sm first:border-t-0 lg:min-h-13 ${cardHover()}`,
+    row: `relative flex min-h-14 items-stretch gap-3 ${stacked()} px-4 py-2 text-sm lg:min-h-13 ${cardHover()}`,
   },
   variants: {
     body: {

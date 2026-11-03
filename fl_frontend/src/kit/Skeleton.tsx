@@ -1,6 +1,6 @@
 import { COPY } from "@/core/copy";
 
-import { card, cardSurface } from "./cardStyles";
+import { card, cardSurface, stacked } from "./cardStyles";
 import { tv } from "./tv";
 
 /**
@@ -43,7 +43,7 @@ const skeleton = tv({
     root: "opacity-0 [animation-delay:var(--loading-delay)] [animation-duration:var(--motion-in)] [animation-fill-mode:forwards] [animation-name:kit-appear]",
     // A box of rows, as the list, the table or the facts that will stand in its place.
     box: `overflow-hidden ${cardSurface()}`,
-    row: "flex items-center gap-3 border-t border-border px-4 first:border-t-0",
+    row: `flex items-center gap-3 ${stacked()} px-4`,
     // The base fill, with a lighter band sweeping across it every two seconds, under reduced motion too: a
     // loading indicator that stops reads as stuck.
     bar: "relative h-4 overflow-hidden rounded-md bg-bg-muted after:absolute after:inset-0 after:animate-[kit-shimmer_2s_linear_infinite] after:bg-linear-to-r after:from-transparent after:via-[rgb(255_255_255/0.55)] after:to-transparent dark:after:via-[rgb(255_255_255/0.09)]",

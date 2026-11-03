@@ -1,6 +1,6 @@
 import { textOf } from "@/core/copy";
 
-import { cardSurface } from "./cardStyles";
+import { cardSurface, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
@@ -43,7 +43,7 @@ const facts = tv({
       boxed: {
         list: `overflow-hidden ${cardSurface()} @lg:grid @lg:grid-cols-2`,
         // In the wide box the second pair shares the first one's row, so it draws no hairline above it either.
-        row: "border-t border-border px-3 py-2 first:border-t-0 @lg:nth-2:border-t-0",
+        row: `${stacked()} px-3 py-2 @lg:nth-2:border-t-0`,
       },
       // No box and no hairlines, two pairs a row at every width: the old pop-up's facts under its teams.
       free: {

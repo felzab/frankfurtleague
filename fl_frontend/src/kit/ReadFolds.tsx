@@ -1,6 +1,7 @@
 import { textOf } from "@/core/copy";
 
 import { CardFold } from "./CardFold";
+import { stacked } from "./cardStyles";
 import { GroupHead } from "./GroupHead";
 import { Table } from "./Table";
 
@@ -33,7 +34,7 @@ export function ReadFolds({ cards }: { cards: ReadonlyArray<FoldedCard> }) {
             "head" in part ? (
               <section
                 key={part.head}
-                className="border-t border-border first:border-t-0">
+                className={stacked()}>
                 <GroupHead text={part.head} />
                 <Table
                   {...part.table}

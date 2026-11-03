@@ -3,6 +3,7 @@ import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import { Card } from "./Card";
+import { stacked } from "./cardStyles";
 import { Countdown } from "./Countdown";
 import { GroupHead } from "./GroupHead";
 import { Link } from "./Link";
@@ -82,7 +83,7 @@ const block = tv({
     opening: "flex items-center gap-2 text-sm",
     openingLabel: "text-fg-muted",
     // The last and the next match, each under its head, a hairline between the two.
-    group: "border-t border-border first:border-t-0",
+    group: stacked(),
   },
 });
 
