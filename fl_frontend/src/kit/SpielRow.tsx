@@ -90,6 +90,16 @@ export function look(score: Figures, side: "home" | "away") {
   return { winner: own > other, goals: score.shootOut && own < other ? "lost" : "counted" } as const;
 }
 
+/** One side's goals as its block marks them, or the empty mark before a result: a row's, a head's or a bracket card's. */
+export function Goal({ score, part, className }: { score: Figures; part: "home" | "away"; className: string }) {
+  return <span className={className}>{score === null ? COPY.shared.noValue : score[part]}</span>;
+}
+
+/** The mark between the two sides' goals, muted with them before a result. */
+export function GoalSeparator({ score }: { score: Figures }) {
+  return <span className={score === null ? "text-fg-muted" : undefined}>{ERGEBNIS_SEPARATOR}</span>;
+}
+
 function Side({ side, score, part, mirrored }: { side: SpielSide; score: Figures; part: "home" | "away"; mirrored?: boolean }) {
   const style = row({ ...look(score, part), mirrored: mirrored === true });
   const name = textOf(side.name);
@@ -108,7 +118,13 @@ function Side({ side, score, part, mirrored }: { side: SpielSide; score: Figures
 }
 
 function Goals({ score, part }: { score: Figures; part: "home" | "away" }) {
-  return <span className={row(look(score, part)).goals()}>{score === null ? COPY.shared.noValue : score[part]}</span>;
+  return (
+    <Goal
+      score={score}
+      part={part}
+      className={row(look(score, part)).goals()}
+    />
+  );
 }
 
 function RowChip({ chip }: { chip?: ChipProps }) {
@@ -145,7 +161,7 @@ function SpielRow({ href, when, home, away, result, phase, chip }: SpielRowProps
               score={score}
               part="home"
             />
-            <span className={score === null ? "text-fg-muted" : undefined}>{ERGEBNIS_SEPARATOR}</span>
+            <GoalSeparator score={score} />
             <Goals
               score={score}
               part="away"

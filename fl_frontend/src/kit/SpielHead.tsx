@@ -1,13 +1,12 @@
 import { Suspense } from "react";
 
 import { COPY, textOf } from "@/core/copy";
-import { ERGEBNIS_SEPARATOR } from "@/core/format";
 
 import { Callout } from "./Callout";
 import { RouteDialog } from "./Dialog";
 import { Facts } from "./Facts";
 import { Link } from "./Link";
-import { figures, look, sideMarks } from "./SpielRow";
+import { figures, Goal, GoalSeparator, look, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -65,7 +64,13 @@ const head = tv({
 });
 
 function Goals({ score, part }: { score: Figures; part: "home" | "away" }) {
-  return <span className={head(look(score, part)).goals()}>{score === null ? COPY.shared.noValue : score[part]}</span>;
+  return (
+    <Goal
+      score={score}
+      part={part}
+      className={head(look(score, part)).goals()}
+    />
+  );
 }
 
 /** A side as the centred look sets it: the plaque over the name, and under it where the club stands. */
@@ -125,7 +130,7 @@ export function SpielHead({ eyebrow, home, away, result, placement = "dialog" }:
               score={score}
               part="home"
             />
-            <span className={score === null ? "text-fg-muted" : undefined}>{ERGEBNIS_SEPARATOR}</span>
+            <GoalSeparator score={score} />
             <Goals
               score={score}
               part="away"
