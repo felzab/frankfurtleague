@@ -7,6 +7,7 @@ import { Group } from "react-aria-components/Group";
 
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { fieldButton, fieldFrame, fieldRoot, groupInput } from "./fieldStyles";
+import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
 import { OptionList } from "./OptionList";
 
@@ -71,7 +72,7 @@ export function ComboBox({
       }}
       onInputChange={setText}
       isRequired={isRequired}
-      isDisabled={isDisabled}>
+      isDisabled={useDisabled(isDisabled)}>
       <FieldLabel
         label={label}
         isRequired={isRequired}

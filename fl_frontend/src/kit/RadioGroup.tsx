@@ -4,6 +4,7 @@ import { RadioGroup as AriaRadioGroup, Radio } from "react-aria-components/Radio
 
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { choiceCard, fieldRoot, radioDot, radioList, toggleBox, toggleRow } from "./fieldStyles";
+import { useDisabled } from "./formClosed";
 
 import type { Copy } from "@/core/copy";
 import type { Choice } from "./FieldParts";
@@ -58,7 +59,7 @@ export function RadioGroup({
       defaultValue={defaultValue}
       onChange={onChange}
       isRequired={isRequired}
-      isDisabled={isDisabled}>
+      isDisabled={useDisabled(isDisabled)}>
       <FieldLabel
         label={label}
         isRequired={isRequired}

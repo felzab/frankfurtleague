@@ -13,6 +13,7 @@ import { TextField } from "./TextField";
 import { useEditor } from "./useEditor";
 
 import type { ActionAnswer } from "@/core/action";
+import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { EditorSave } from "./useEditor";
 
@@ -27,12 +28,13 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),
 }));
 
-function SpielortEditor({ save }: { save: (change: EditorSave<Spielort>) => Promise<ActionAnswer<number>> }) {
+function SpielortEditor({ save, closed }: { save: (change: EditorSave<Spielort>) => Promise<ActionAnswer<number>>; closed?: Copy }) {
   const editor = useEditor({ id: "ort-1", version: 1, values: { name: "Riedberg" } }, save);
   return (
     <EditorPage
       title={{ record: "Riedberg" }}
       editor={editor}
+      closed={closed}
       sections={[
         {
           id: "ort",
@@ -76,6 +78,25 @@ describe("the editor template's save", () => {
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
 
     await waitFor(() => expect(save).toHaveBeenCalledWith({ id: "ort-1", version: 1, changes: { name: "Riedberg Nord" } }));
+  });
+});
+
+// The form's closed state reaches each field through the kit's context, which a field could miss in silence: the
+// record would read as editable until a save the write refuses.
+describe("an editor closed read-only", () => {
+  it("disables its fields, states its reason under the first title, carries its chip and offers no save", () => {
+    const reason = COPY.shared.notProvided;
+    render(
+      <SpielortEditor
+        save={vi.fn()}
+        closed={reason}
+      />,
+    );
+
+    expect((screen.getByRole("textbox") as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByText(reason)).toBeTruthy();
+    expect(screen.getByText(COPY.template.closed)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: COPY.shared.verb.save })).toBeNull();
   });
 });
 

@@ -345,6 +345,8 @@ export const COPY = catalogue({
     changes: "Änderungen",
     changesPending: (count: number) => (count === 1 ? "1 Änderung" : `${formatNumber(count)} Änderungen`),
     changesLost: (count: number) => (count === 1 ? "1 Änderung geht verloren." : `${formatNumber(count)} Änderungen gehen verloren.`),
+    /** The chip after an editor's title while its record is closed read-only, its season finished. */
+    closed: "Abgeschlossen",
     /** A save refused for its fields: the fields say what, the status line says where to look. */
     checkFields: "Prüfe die markierten Felder.",
     /** A refusal about a field the screen shows no box for: the field's name, then the line its box would show. */
