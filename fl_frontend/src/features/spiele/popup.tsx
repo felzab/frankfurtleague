@@ -9,20 +9,20 @@ import { getSpielPage } from "@/features/saisons/queries";
 import { ereignisOf, headOf, popupFactsOf, sidesOf } from "./blocks";
 
 import type { SpielPopupContent } from "@/kit/SpielHead";
-import type { Route } from "next";
 
 /**
- * The match pop-up's body, which every `@modal` slot showing match rows renders: the season area's and the landing's.
- * They differ in `beneath` alone, the page the pop-up opens over. The ids are the caller's, parsed already.
+ * The match pop-up's body, which the root layout's `@modal` slot renders over the page a match row was pressed on.
+ * The slot serves every page, so the page beneath is not known here: where the tab holds nothing to go back to,
+ * closing leads to the match's Spielplan, where its season lists it. The ids are the caller's, parsed already.
  */
-export async function spielPopupOf(saison: string, spielId: string, beneath: Route): Promise<SpielPopupContent> {
+export async function spielPopupOf(saison: string, spielId: string): Promise<SpielPopupContent> {
   const page = await getSpielPage(saison, spielId);
   if (page === null) notFound();
   const { spiel, spieltag_position: position, standings } = page;
   const { heim, gast } = sidesOf(spiel);
   return {
     title: ROUTES.spiel.title(heim.name, gast.name),
-    beneath,
+    beneath: ROUTES.spielplan.path(saison),
     act: (
       // A full page load: a client navigation to this same address is intercepted again as this pop-up.
       <Link

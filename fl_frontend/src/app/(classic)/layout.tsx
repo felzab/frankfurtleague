@@ -1,14 +1,11 @@
 import { Classic } from "./frame";
 
+import type { ReactNode } from "react";
+
 /**
- * The classic public frame around the pages it holds: the landing, About, Kontakt, the sponsors page and the sign-in;
- * and the `@modal` slot, where a match row on the landing opens its match as the season pages' pop-up.
+ * The classic public frame around the pages it holds: the landing, About, Kontakt, the sponsors page and the sign-in.
+ * A match row on the landing opens its pop-up in the root layout's slot, which serves every frame.
  */
-export default function ClassicLayout({ children, modal }: LayoutProps<"/">) {
-  return (
-    <Classic>
-      {children}
-      {modal}
-    </Classic>
-  );
+export default function ClassicLayout({ children }: { children: ReactNode }) {
+  return <Classic>{children}</Classic>;
 }

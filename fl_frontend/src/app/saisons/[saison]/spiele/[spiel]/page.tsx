@@ -55,7 +55,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 /**
  * A match's own page, on a direct load, a reload or „Zum Spiel“: its head, its five facts as tiles, the line-ups
  * folded side by side, and its goals and cards along the dotted line. Opened from a match card, the pop-up shows
- * instead (`@modal/(.)spiele/[spiel]`).
+ * instead (`app/@modal/(.)saisons/[saison]/spiele/[spiel]`).
  */
 export default function SpielPage({ params }: Props) {
   return (
