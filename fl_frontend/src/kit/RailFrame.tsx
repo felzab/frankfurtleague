@@ -241,12 +241,7 @@ export function RailPage({
       <header className={head()}>
         <RailToggle />
         {title === null ? <SkeletonTitle /> : <h1 className={heading()}>{titleOf(title)}</h1>}
-        {chip !== undefined && (
-          <Chip
-            tone={chip.tone}
-            label={chip.label}
-          />
-        )}
+        {chip !== undefined && <Chip {...chip} />}
         {action !== undefined && <Suspense fallback={<span className="size-9 shrink-0" />}>{action}</Suspense>}
         {scope === "saison" && (
           <nav

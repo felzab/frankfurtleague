@@ -112,14 +112,7 @@ function Goals({ score, part }: { score: Figures; part: "home" | "away" }) {
 }
 
 function RowChip({ chip }: { chip?: ChipProps }) {
-  return (
-    chip !== undefined && (
-      <Chip
-        tone={chip.tone}
-        label={chip.label}
-      />
-    )
-  );
+  return chip !== undefined && <Chip {...chip} />;
 }
 
 /**

@@ -7,7 +7,7 @@ import { formatErgebnis, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getTabelle } from "@/features/saisons/queries";
-import { austrittKuerzel } from "@/features/teams/constants";
+import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { FLTabelleRow } from "@/core/generated/client/types";
@@ -68,7 +68,9 @@ function rowOf(saison: string, row: FLTabelleRow, qualifiers: number): TableRow 
     place: row.platz,
     qualifies: row.platz !== null && row.platz <= qualifiers,
     muted: row.austritt_type !== null,
-    ...(row.austritt_type === "disqualifikation" ? { chip: { tone: "danger", label: austrittKuerzel(row.austritt_type) } } : {}),
+    ...(row.austritt_type === "disqualifikation"
+      ? { chip: { tone: "danger", label: austrittKuerzel(row.austritt_type), spoken: austrittZustand(row.austritt_type) } }
+      : {}),
     cells: {
       spiele: statistik.count_abgesagte_spiele > 0 ? { value: played, cancelled: statistik.count_abgesagte_spiele } : played,
       siege: formatNumber(statistik.siege),

@@ -27,6 +27,7 @@ from app.api.einladungen.services import compose_einladung
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.recording import log_stamp
+from app.core.routing import SAFE_WHEN
 from app.core.security import verify_access_admin
 from app.main import create_app
 from tests.app_client import app_client
@@ -59,8 +60,18 @@ REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f607510003")
 BEWERBUNG_OID = ObjectId(bewerbung_document(1)["_id"])
 
 
-# The fixture save, whose `dry_run` reads as its route's `x-safe-when` mark says: named by hand beside the POST reads, the one such write.
-READS_OVER_ANOTHER_METHOD = ADMIN_TIER_READS_OVER_POST | {("/api/v0/spiele/{spiel_id}", "patch")}
+(SAFE_WHEN_KEY,) = SAFE_WHEN
+
+# The writes whose dry run is a read: the operations the document marks safe on a query parameter
+# (`app/core/routing.py :: SAFE_WHEN`), derived as the POST reads are, so a dry run added later is swept without an edit here.
+READS_ON_A_DRY_RUN = frozenset(
+    (path, method)
+    for path, operations in application().openapi()["paths"].items()
+    for method, operation in operations.items()
+    if SAFE_WHEN_KEY in operation
+)
+
+READS_OVER_ANOTHER_METHOD = ADMIN_TIER_READS_OVER_POST | READS_ON_A_DRY_RUN
 
 
 def _serves_a_read(route: APIRoute) -> bool:

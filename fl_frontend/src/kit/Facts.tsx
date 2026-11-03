@@ -80,12 +80,7 @@ export function Facts({
             title={subject.name}>
             {subject.name}
           </span>
-          {subject.chip !== undefined && (
-            <Chip
-              tone={subject.chip.tone}
-              label={subject.chip.label}
-            />
-          )}
+          {subject.chip !== undefined && <Chip {...subject.chip} />}
         </p>
       )}
       <dl className={list()}>
