@@ -12,7 +12,7 @@ import { statusOf, useFormAction } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { StatusCardProps } from "./StatusPage";
 
 /** The end a one-shot form reaches: the status page that replaces it, as the server words it. */
@@ -38,7 +38,7 @@ export function OneShotForm({
   children,
 }: {
   /** What stands above the form: the page's title and what the person answers. */
-  head: ReactNode;
+  head: ReactElement;
   action: OneShotAction;
   acts: { primary: Copy; secondary?: Copy };
   /** The form's fields, the kit's, each with its `name`. */

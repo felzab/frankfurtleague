@@ -19,7 +19,7 @@ import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { ChipProps } from "./Chip";
 import type { AccountRead, FrameSaisons, RailGroup } from "./FrameNav";
 
@@ -230,9 +230,9 @@ export function RailPage({
    * the Spielsuche: the kit's link, which its tooltip names. It may wait for the page's address, as the
    * magnifier names its season, so it streams in a boundary of its own, its icon button's place held meanwhile.
    */
-  action?: ReactNode;
+  action?: ReactElement;
   /** The editor's bar, at the foot of the content from the rail's separator to the edge. */
-  bar?: ReactNode;
+  bar?: ReactElement;
   children: ReactNode;
 }) {
   const { head, heading } = strip({ scope });
@@ -273,4 +273,4 @@ export function RailPage({
  * What a page hands a template for the strip, drawn before the page's content is read: the area and the
  * title, the status chip where the record has one, and the way on beside the title where the page has one.
  */
-export type RailPageHead = { scope: "saison" | "area"; title: PageTitle; chip?: ChipProps; action?: ReactNode };
+export type RailPageHead = { scope: "saison" | "area"; title: PageTitle; chip?: ChipProps; action?: ReactElement };

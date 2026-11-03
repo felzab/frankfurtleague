@@ -12,7 +12,7 @@ import { formColumn, RailPage } from "./RailFrame";
 import { Section } from "./Section";
 
 import type { Copy } from "@/core/copy";
-import type { ReactNode } from "react";
+import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
 import type { SaveWarning } from "./EditorBar";
 import type { PageTitle } from "./RailFrame";
@@ -20,7 +20,7 @@ import type { DangerAct } from "./Section";
 import type { Editor, EditorValue } from "./useEditor";
 
 /** One of an editor's sections, in the order the person's task takes them: its title, its ⓘ, its fields. */
-export type EditorSection = { id: string; title: Copy; help?: Copy; fields: ReactNode };
+export type EditorSection = { id: string; title: Copy; help?: Copy; fields: ReactElement };
 
 /**
  * The editor template: its sections one under another in the column of at most 760 px centred in the

@@ -7,7 +7,7 @@ import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 /** One of the hero's two ways on: a label and its address. */
 type HeroAct = { label: Copy; href: Route };
@@ -17,7 +17,7 @@ export type LandingContent = {
   /** Applying while a window is open, the league's own page while none is. */
   secondary: HeroAct;
   /** The season's card, `SaisonBlock`. */
-  aside: ReactNode;
+  aside: ReactElement;
   /** The sections, each a landing block. */
   sections: ReactNode;
 };

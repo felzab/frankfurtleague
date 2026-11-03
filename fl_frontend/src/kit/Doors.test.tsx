@@ -57,7 +57,7 @@ describe("a door standing alone under a page's title", () => {
       <Door
         title={SERVER_COPY.landing.doors.support}
         level={2}
-        act={COPY.template.instagram}
+        act={<span>{COPY.template.instagram}</span>}
       />,
     );
     expect(screen.getByRole("heading", { level: 2 }).textContent).toBe(SERVER_COPY.landing.doors.support);

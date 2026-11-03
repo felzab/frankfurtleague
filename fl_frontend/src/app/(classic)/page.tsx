@@ -29,7 +29,7 @@ import type { CalendarDay } from "@/core/format";
 import type { FLBewerbungWindow, FLLandingSaison } from "@/core/generated/client/types";
 import type { LandingContent } from "@/kit/LandingPage";
 import type { Metadata, ResolvingMetadata, Route } from "next";
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps, ReactElement, ReactNode } from "react";
 
 const words = SERVER_COPY.landing;
 
@@ -49,7 +49,7 @@ const QUESTION: ComponentProps<typeof Doors>["question"] = {
 };
 
 /** The season's card, or the one sentence that the league has none yet. */
-function asideOf(saison: FLLandingSaison | null, window: FLBewerbungWindow | null): ReactNode {
+function asideOf(saison: FLLandingSaison | null, window: FLBewerbungWindow | null): ReactElement {
   if (saison === null) {
     return window === null ? (
       <EmptyState
