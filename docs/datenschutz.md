@@ -1168,7 +1168,12 @@ Each row cites where the decision now lives.
   (`fl_backend/app/api/saisons/public_router.py :: get_spiel`, through
   `fl_backend/app/api/spielberichte/services.py :: compose_public_bericht`) serves each card's colour
   and minute on an adopted report beside the public name of a pupil whose consent publishes it, and
-  never the card's reason. The question is whether a booking may stand there beside the name of a
+  never the card's reason. The same read serves each club's line-up for the match, which the match
+  page shows under its starters and its bench
+  (`fl_frontend/src/app/saisons/[saison]/spiele/[spiel]/page.tsx :: lineupOf`): every pupil it
+  lists, with their shirt number and position, their name through the squad lists' gate
+  ([section 2](#2-consent-comes-from-the-person-from-16-or-18)) and a nameless slot otherwise, and
+  served whether or not the report is adopted. The question is whether a booking may stand there beside the name of a
   player of sixteen or seventeen. Unlike the section's other entries, which the waiver above covers,
   this one I put to the Datenschutzexperte: the answer is owed before the deploy that ships the read,
   and the deploy waits on it.
