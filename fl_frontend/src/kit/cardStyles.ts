@@ -46,11 +46,12 @@ export const card = tv({
     },
     // The head is the fold's button, the whole width, its title after the chevron. A folded card is its head
     // alone, so the line between head and body is the body's, and goes with it; the chevron turns to point
-    // down while the body shows.
+    // down while the body shows. Under the pointer and pressed the head lifts a step, as every pressable row
+    // answers the pointer.
     fold: {
       true: {
         root: "group/fold",
-        head: "w-full cursor-default border-b-0 text-left",
+        head: "w-full cursor-default border-b-0 text-left transition-colors duration-(--motion-state) data-hovered:bg-bg-card-head-hover data-pressed:bg-bg-card-head-hover",
         title: "flex items-center gap-2",
         body: "border-t border-border",
         chevron: "flex shrink-0 text-fg-muted transition-transform duration-(--motion-state) group-data-expanded/fold:rotate-90",

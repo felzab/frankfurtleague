@@ -1,6 +1,5 @@
 import { COPY } from "@/core/copy";
-import { formatNumber } from "@/core/format";
-import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
+import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 
 import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "@/core/generated/client/types";
 
@@ -12,7 +11,7 @@ import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "@/core/generated/clie
 function spieltagLabel({ phase, ordinal, countInPhase }: { phase: FLSaisonPhase; ordinal: number; countInPhase: number }): string {
   if (phase === "gruppenphase") return COPY.shared.spieltag(ordinal);
 
-  return countInPhase > 1 ? `${PHASE_LABELS[phase]} (${formatNumber(ordinal)})` : PHASE_LABELS[phase];
+  return countInPhase > 1 ? COPY.shared.knockoutRound(COPY.shared.phase[phase], ordinal) : COPY.shared.phase[phase];
 }
 
 /**

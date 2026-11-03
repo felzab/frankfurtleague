@@ -153,6 +153,8 @@ export const COPY = catalogue({
     toSpiel: "Zum Spiel",
     // Redesign: the first fact its reader could supply, shown empty, reads it.
     notProvided: "Nicht hinterlegt",
+    /** A value not there yet, in a tile, a table cell or a score's place: a glyph, not a word. */
+    noValue: "–",
     overview: "Übersicht",
     // Redesign: the account menu reads it once it offers a second role.
     switchRole: "Funktion wechseln",
@@ -169,6 +171,8 @@ export const COPY = catalogue({
     },
     /** A group matchday, by its served `position`: the season's lists, a match's head and the season card name it alike. */
     spieltag: (position: number) => `${formatNumber(position)}. Spieltag`,
+    /** A knockout matchday where its phase spans several, „Viertelfinale (2)“: the phase's name and the matchday's place in it. */
+    knockoutRound: (phase: Copy, position: number) => `${phase} (${formatNumber(position)})`,
     afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
     /**
      * The two routes out of a season, each in its three wordings: `label` names the record, `zustand` the club's
@@ -318,6 +322,8 @@ export const COPY = catalogue({
   template: {
     /** The phone bar's place opening the rest of the menu, and the link at the end of a folded text's third line. */
     more: "Mehr",
+    /** The same link once the folded text is open, naming the press that folds it again. */
+    less: "Weniger",
     /** The name of a frame's menu, the rail's and the phone bar's. */
     navigation: "Navigation",
     /** The account's place: the rail's account row and the phone bar's avatar. */
@@ -341,6 +347,8 @@ export const COPY = catalogue({
     changes: "Änderungen",
     changesPending: (count: number) => (count === 1 ? "1 Änderung" : `${formatNumber(count)} Änderungen`),
     changesLost: (count: number) => (count === 1 ? "1 Änderung geht verloren." : `${formatNumber(count)} Änderungen gehen verloren.`),
+    /** The chip after an editor's title while its record is closed read-only, its season finished. */
+    closed: "Abgeschlossen",
     /** A save refused for its fields: the fields say what, the status line that some are off. */
     checkFields: "Einige Felder sind nicht richtig ausgefüllt.",
 
@@ -439,6 +447,8 @@ export const COPY = catalogue({
       createEntry: "Spielort anlegen",
       /** One line of a venue's address: its street and number. */
       strasseWithHausnummer: (strasse: string, hausnummer: string) => `${strasse} ${hausnummer}`,
+      /** A whole address on one line, „Schulweg 8, 60317 Frankfurt am Main“, after its street line. */
+      addressLine: (street: Copy, plz: string, stadt: string) => `${street}, ${plz} ${stadt}`,
     },
 
     saison: {

@@ -8,6 +8,7 @@ import { ToggleButtonGroup } from "react-aria-components/ToggleButtonGroup";
 
 import { MessageLine } from "./FieldParts";
 import { choiceButton, choiceGroup, fieldLabel, fieldRoot } from "./fieldStyles";
+import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
 
@@ -113,7 +114,7 @@ export function Segmented({
       aria-describedby={placement === "inline" || description === undefined ? undefined : descriptionId}
       selectionMode="single"
       disallowEmptySelection
-      isDisabled={isDisabled}
+      isDisabled={useDisabled(isDisabled)}
       selectedKeys={value === undefined ? undefined : value === null ? [] : [value]}
       defaultSelectedKeys={defaultValue === undefined ? undefined : [defaultValue]}
       // Every choice's id is a string, and a single choice never goes empty, so one string comes back.
@@ -169,7 +170,7 @@ export function ToggleBoxes({
         aria-labelledby={labelId}
         aria-describedby={description === undefined ? undefined : descriptionId}
         selectionMode="multiple"
-        isDisabled={isDisabled}
+        isDisabled={useDisabled(isDisabled)}
         selectedKeys={value}
         defaultSelectedKeys={defaultValue}
         onSelectionChange={onChange && ((keys) => onChange([...keys].map(String)))}

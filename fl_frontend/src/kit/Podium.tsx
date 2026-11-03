@@ -17,8 +17,11 @@ const podium = tv({
     steps: "grid grid-cols-3 items-end gap-2 px-4 pt-4",
     // Read in its place's order, drawn 2 · 1 · 3: the winner in the middle, second at the left, third at the right.
     place: "grid min-w-0 justify-items-center gap-2 text-center",
-    who: "grid min-w-0 justify-items-center gap-1",
-    name: "max-w-full text-sm font-semibold break-words",
+    // The name fills its step's column rather than shrinking to its content: a centred item is as wide as its
+    // longest word, so a one-word name such as „Elisabethenschule“ would run into the next column on a phone.
+    // At the column's width it wraps between words, then at a hyphenation point, and only past that anywhere.
+    who: "grid w-full min-w-0 justify-items-center gap-1",
+    name: "w-full min-w-0 text-sm font-semibold break-words hyphens-auto",
     step: "flex w-full justify-center rounded-t-lg pt-2 font-heading text-2xl tracking-display",
     fourth: "flex items-center gap-3 border-t border-border px-4 py-3 text-sm",
     fourthPlace: "shrink-0 text-fg-muted",

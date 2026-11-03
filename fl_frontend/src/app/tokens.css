@@ -4,9 +4,10 @@
 @layer base {
   :root {
     /* The page. The body paints `--bg-base` from `schemes/2027.css`, which the old pages read, so a change
-       here writes that value too, in each theme, until session 8 retires the scheme file. */
+       here writes that value too, in each theme.
+       Session 8: the scheme file goes with the old pages, and this second write with it. */
     --bg: #ffffff;
-    /* The rail and a field's own fill. */
+    /* The rail's fill, and a chosen box's lift. */
     --bg-surface: #f5f5f5;
     /* One step above a card: the fill under the pointer on a card, and the small fills. */
     --bg-muted: #d9d9d9;
@@ -16,10 +17,15 @@
        chip's tint on it allows while its word keeps 4.5:1, and its head as dark as the warning text allows. */
     --bg-card: #eaeaea;
     --bg-card-head: #d9d9d9;
+    /* A folded card's head under the pointer, lifted toward the text as a chip's tint is, as far as the head's
+       muted count keeps 4.5:1 on it. */
+    --bg-card-head-hover: #c8c8c8;
     --bg-overlay: #ffffff;
     --fg: #0a0a0a;
     --fg-muted: #525252;
-    --border: #b3b3b3;
+    /* A row's and a card's hairline: 2.4:1 on a card and 2.9:1 on the page, so the light cards read as clearly
+       as the dark ones, and still lighter than a control's edge, which a line must not match. */
+    --border: #999999;
     /* The lightest grey whose edge keeps 3:1 on a card, the darkest ground a field stands on. */
     --border-control: #858585;
     --brand: #216c2d;
@@ -47,6 +53,7 @@
     --bg-muted: #262626;
     --bg-card: #121212;
     --bg-card-head: #262626;
+    --bg-card-head-hover: #383838;
     --bg-overlay: #121212;
     --fg: #ffffff;
     --fg-muted: #a3a3a3;
@@ -204,6 +211,7 @@
   --color-bg-muted: var(--bg-muted);
   --color-bg-card: var(--bg-card);
   --color-bg-card-head: var(--bg-card-head);
+  --color-bg-card-head-hover: var(--bg-card-head-hover);
   --color-bg-overlay: var(--bg-overlay);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
@@ -272,7 +280,7 @@
   --container-signin: 22rem; /* the sign-in's column */
   --container-question: 25rem; /* a dialog asking one question */
   --container-card: 28rem; /* a status card, and the classic column holding one */
-  --container-bracket-phone: 5rem; /* a bracket card on a phone: the plaque and its figure */
+  --container-bracket-phone: 5.5rem; /* a bracket card on a phone: the plaque and a two-digit figure inside 8-px padding */
   --container-bracket: 12rem; /* a bracket card on desktop, the most a round's column gives it */
   --container-dialog: 35rem; /* a dialog holding a form */
   --container-form: 47.5rem; /* the form column: a classic form page's, an editor's and a read page's */

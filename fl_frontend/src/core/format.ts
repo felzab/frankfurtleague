@@ -22,6 +22,7 @@ const UHRZEIT = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, hour: "2
 // A stored time of day names no instant, so it is read in UTC, where no clock change can move it.
 const UHRZEIT_SAVED = new Intl.DateTimeFormat("de-DE", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
 const NUMBER = new Intl.NumberFormat("de-DE");
+const SIGNED = new Intl.NumberFormat("de-DE", { signDisplay: "exceptZero" });
 const EURO = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 const LIST = new Intl.ListFormat("de-DE", { type: "conjunction" });
 
@@ -77,6 +78,12 @@ export const formatPeriod = (from: CalendarDay | Date, to: CalendarDay | Date): 
 
 /** „1.234,5“. */
 export const formatNumber = (number: number): string => NUMBER.format(number);
+
+/** „+3“, „0“, „-3“: a difference, its sign written wherever it is not level. */
+export const formatSigned = (number: number): string => SIGNED.format(number);
+
+/** „3.“: a place or a position, a German ordinal being its figure and a full stop. */
+export const formatOrdinal = (number: number): string => `${NUMBER.format(number)}.`;
 
 /** „25,00 €“. */
 export const formatEuro = (amount: number): string => EURO.format(amount);

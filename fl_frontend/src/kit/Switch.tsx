@@ -4,6 +4,7 @@ import { SwitchButton, SwitchField } from "react-aria-components/Switch";
 
 import { MessageLine } from "./FieldParts";
 import { switchThumb, switchTrack, toggleField, toggleLine, toggleRow } from "./fieldStyles";
+import { useDisabled } from "./formClosed";
 
 import type { Copy } from "@/core/copy";
 
@@ -35,7 +36,7 @@ export function Switch({
       isSelected={isSelected}
       defaultSelected={defaultSelected}
       onChange={onChange}
-      isDisabled={isDisabled}>
+      isDisabled={useDisabled(isDisabled)}>
       <SwitchButton className={toggleRow({ in: "field" })}>
         {({ isSelected: selected }) => (
           <>

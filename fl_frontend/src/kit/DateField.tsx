@@ -18,6 +18,7 @@ import { Heading } from "react-aria-components/Heading";
 import { Segments } from "./dateParts";
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { calendarCell, calendarHead, fieldButton, fieldFrame, fieldRoot, menuPopover } from "./fieldStyles";
+import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
 
 import type { Copy } from "@/core/copy";
@@ -117,7 +118,7 @@ export function DateField({
       // The day and the month keep their leading zero, „03.04.2027“, as the site prints a date.
       shouldForceLeadingZeros
       isRequired={isRequired}
-      isDisabled={isDisabled}>
+      isDisabled={useDisabled(isDisabled)}>
       <FieldLabel
         label={label}
         isRequired={isRequired}

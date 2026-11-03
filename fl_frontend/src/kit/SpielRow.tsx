@@ -30,9 +30,6 @@ export type SpielRowProps = {
   chip?: ChipProps;
 };
 
-/** No result yet: a dash for each side's goals. */
-export const NONE = "–";
-
 /**
  * How a side's name and goals are marked wherever a match's two sides stand, in a row, a bracket card or the
  * pop-up's head: the winner's name semibold; goals bold, a shoot-out loser's regular, and no result yet
@@ -108,7 +105,7 @@ function Side({ side, score, part, mirrored }: { side: SpielSide; score: Figures
 }
 
 function Goals({ score, part }: { score: Figures; part: "home" | "away" }) {
-  return <span className={row(look(score, part)).goals()}>{score === null ? NONE : score[part]}</span>;
+  return <span className={row(look(score, part)).goals()}>{score === null ? COPY.shared.noValue : score[part]}</span>;
 }
 
 function RowChip({ chip }: { chip?: ChipProps }) {

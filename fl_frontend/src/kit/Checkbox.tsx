@@ -4,6 +4,7 @@ import { CheckboxButton, CheckboxField } from "react-aria-components/Checkbox";
 
 import { MessageLine, RequiredMark } from "./FieldParts";
 import { toggleBox, toggleField, toggleLine, toggleRow } from "./fieldStyles";
+import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
 
 import type { Copy } from "@/core/copy";
@@ -40,7 +41,7 @@ export function Checkbox({
       defaultSelected={defaultSelected}
       onChange={onChange}
       isRequired={isRequired}
-      isDisabled={isDisabled}>
+      isDisabled={useDisabled(isDisabled)}>
       <CheckboxButton className={toggleRow({ in: "field" })}>
         {({ isSelected: selected, isInvalid: invalid }) => (
           <>

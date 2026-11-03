@@ -6,6 +6,7 @@ import { TimeField as AriaTimeField } from "react-aria-components/TimeField";
 import { Segments } from "./dateParts";
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { fieldRoot } from "./fieldStyles";
+import { useDisabled } from "./formClosed";
 
 import type { Copy } from "@/core/copy";
 import type { Uhrzeit } from "@/core/format";
@@ -50,7 +51,7 @@ export function TimeField({
       hourCycle={24}
       shouldForceLeadingZeros
       isRequired={isRequired}
-      isDisabled={isDisabled}>
+      isDisabled={useDisabled(isDisabled)}>
       <FieldLabel
         label={label}
         isRequired={isRequired}

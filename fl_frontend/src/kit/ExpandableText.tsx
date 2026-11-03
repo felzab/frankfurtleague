@@ -23,15 +23,16 @@ const text = tv({
         // On the card's own fill, a short fade before it, so the line runs into the word rather than under it.
         more: "absolute end-0 bottom-0 bg-bg-card ps-1 before:absolute before:inset-y-0 before:end-full before:w-6 before:bg-linear-to-r before:from-transparent before:to-bg-card",
       },
-      true: { body: "cursor-pointer", more: "ms-1" },
+      true: { body: "cursor-pointer" },
     },
   },
 });
 
 /**
  * A record's own long text on a card, such as a club's description: three lines, and „Mehr“ in the brand colour,
- * underlined, at the end of the third line, where the text runs on. A press on „Mehr“ opens the rest; once open, a
- * press anywhere on the text folds it again, and „Mehr“, which keeps its `aria-expanded`, does so from the keyboard.
+ * underlined, at the end of the third line, where the text runs on. A press on „Mehr“ opens the rest; once open,
+ * the word reads „Weniger“ after the text's last word, and a press on it or anywhere on the text folds it again;
+ * the button keeps its `aria-expanded`, so a keyboard and a reader fold it there.
  * Whether the text runs past three lines is measured in the browser, so a short text shows no „Mehr“; before the
  * page hydrates the text stands folded without it.
  */
@@ -60,13 +61,16 @@ export function ExpandableText({ children }: { children: string }) {
         className={slots.body()}
         {...pressProps}>
         {children}
+        {/* A word space rather than a margin: where the word wraps to a line of its own, the space falls away at
+            the break and the word starts flush with the text, where a margin would indent it. */}
+        {isOpen && " "}
         {(runsOn || isOpen) && (
           <Button
             aria-expanded={isOpen}
             data-kit-focus="text"
             className={slots.more()}
             onPress={() => setOpen(!isOpen)}>
-            {COPY.template.more}
+            {isOpen ? COPY.template.less : COPY.template.more}
           </Button>
         )}
       </p>

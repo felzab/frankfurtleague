@@ -3,16 +3,16 @@ import { notFound } from "next/navigation";
 import { ClubHead } from "@/kit/ClubHead";
 import { ReadFolds } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
-import { NONE, SpielList } from "@/kit/SpielRow";
+import { SpielList } from "@/kit/SpielRow";
 
 import { COPY } from "@/core/copy";
-import { formatErgebnis, formatNumber } from "@/core/format";
+import { formatErgebnis, formatNumber, formatOrdinal, formatSigned } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
 import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { matchdayOf, matchRowOf } from "@/features/spiele/blocks";
-import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
+import { austrittChip, austrittZustand } from "@/features/teams/constants";
 import { buildMapsSearchUrl } from "@/shared/utils/format";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { resolveObjectIdParam } from "@/shared/utils/routeParams";
@@ -58,23 +58,20 @@ export default function TeamPage({ params }: Props) {
 const personOf = (spieler: FLSpielerPublic) =>
   spieler.vorname === null ? SERVER_COPY.season.spiel.anonym : [spieler.vorname, spieler.nachname].filter((name) => name !== null).join(" ");
 
-/** A goal difference, signed where it is not level. */
-const signed = (difference: number) => (difference > 0 ? `+${formatNumber(difference)}` : formatNumber(difference));
-
 /** The club's standing at a glance: its place in its group, its points, its matches played and its goals. */
 function tilesOf({ team, standing }: FLTeamPageResponse): readonly [StatTile, StatTile, StatTile, StatTile] {
   const words = SERVER_COPY.season.club;
   const group = SERVER_COPY.season.gruppe(team.gruppe);
   if (standing === null)
     return [
-      { label: words.platz, value: NONE, line: group },
-      { label: words.punkte, value: NONE },
-      { label: words.spiele, value: NONE },
-      { label: words.tore, value: NONE },
+      { label: words.platz, value: COPY.shared.noValue, line: group },
+      { label: words.punkte, value: COPY.shared.noValue },
+      { label: words.spiele, value: COPY.shared.noValue },
+      { label: words.tore, value: COPY.shared.noValue },
     ];
   const { statistik } = standing;
   return [
-    { label: words.platz, value: standing.platz === null ? NONE : `${formatNumber(standing.platz)}.`, line: group },
+    { label: words.platz, value: standing.platz === null ? COPY.shared.noValue : formatOrdinal(standing.platz), line: group },
     { label: words.punkte, value: formatNumber(statistik.punkte) },
     {
       label: words.spiele,
@@ -84,7 +81,7 @@ function tilesOf({ team, standing }: FLTeamPageResponse): readonly [StatTile, St
     {
       label: words.tore,
       value: formatErgebnis({ team1: statistik.tore_geschossen, team2: statistik.tore_kassiert }),
-      line: words.differenz(signed(statistik.tore_geschossen - statistik.tore_kassiert)),
+      line: words.differenz(formatSigned(statistik.tore_geschossen - statistik.tore_kassiert)),
     },
   ];
 }
@@ -93,12 +90,15 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const page = await readPage(params);
   const { team, spiele, kader } = page;
   const { column } = SERVER_COPY.season;
-  const address = `${team.address.strasse} ${team.address.hausnummer}, ${team.address.plz} ${team.address.stadt}`;
+  const { spielort } = COPY.verwaltung;
+  const address = spielort.addressLine(
+    spielort.strasseWithHausnummer(team.address.strasse, team.address.hausnummer),
+    team.address.plz,
+    team.address.stadt,
+  );
   return {
     title: { record: team.name },
-    ...(team.austritt?.type === "disqualifikation"
-      ? { chip: { tone: "danger", label: austrittKuerzel(team.austritt.type), spoken: austrittZustand(team.austritt.type) } }
-      : {}),
+    ...(team.austritt === null ? {} : { chip: austrittChip(team.austritt.type) }),
     club: {
       head: (
         <ClubHead

@@ -1,6 +1,8 @@
+import { COPY } from "@/core/copy";
+
 import { cardSurface } from "./cardStyles";
 import { Link } from "./Link";
-import { figures, look, NONE, sideMarks } from "./SpielRow";
+import { figures, look, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -10,7 +12,8 @@ import type { Figures, SpielRowProps, SpielSide } from "./SpielRow";
 const card = tv({
   extend: sideMarks,
   slots: {
-    line: "flex min-h-6 min-w-0 items-center justify-between gap-2",
+    // 6 px between the plaque and the figure on a phone, so a two-digit figure fits the card inside its padding.
+    line: "flex min-h-6 min-w-0 items-center justify-between gap-1.5 lg:gap-2",
     name: "flex min-w-0 items-center gap-2",
     goals: "whitespace-nowrap",
   },
@@ -33,7 +36,7 @@ function Line({ side, score, part }: { side: SpielSide; score: Figures; part: "h
           {side.name}
         </span>
       </span>
-      <span className={style.goals()}>{score === null ? NONE : score[part]}</span>
+      <span className={style.goals()}>{score === null ? COPY.shared.noValue : score[part]}</span>
     </span>
   );
 }
@@ -67,7 +70,7 @@ export function BracketCard({
       <Link
         href={href}
         placement="card">
-        <span className="grid gap-1 p-2 max-[23.125rem]:px-1 lg:px-3 lg:py-3">
+        <span className="grid gap-1 p-2 lg:px-3 lg:py-3">
           <Line
             side={home}
             score={score}

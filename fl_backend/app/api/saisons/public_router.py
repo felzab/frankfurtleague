@@ -128,8 +128,9 @@ async def get_frame(saisons_collection: SaisonsCollection) -> FLSaisonFrameRespo
     return FLSaisonFrameResponse(saisons=FLSaisonFrameEntryListAdapter.validate_python(saisons_raw), active_saison_id=active_saison_id)
 
 
-# How many of the latest results, and of the next matches, the landing shows while the season runs.
-LANDING_SPIELE: Final = 2
+# How many of the latest results, and of the next matches, the landing shows while the season runs: its card holds one
+# of each.
+LANDING_SPIELE: Final = 1
 
 
 _SPIELTAG_ROWS_AS = "spieltag_rows"

@@ -190,7 +190,7 @@ describe("a figure short of fixtures called off", () => {
     );
     const [marked, plain] = ["5", "6"].map((figure) => screen.getByText(figure).closest("td")?.firstElementChild);
     expect(plain?.className).toBe(marked?.className);
-    expect(plain?.classList).toContain("pe-2");
+    expect(plain?.classList).toContain("px-2");
   });
 });
 

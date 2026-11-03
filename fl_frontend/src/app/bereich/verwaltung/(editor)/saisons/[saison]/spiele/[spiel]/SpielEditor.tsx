@@ -17,6 +17,7 @@ import { COPY } from "@/core/copy";
 import { SpielortFelder } from "../../../../../SpielortFelder";
 
 import type { ActionAnswer } from "@/core/action";
+import type { Copy } from "@/core/copy";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
@@ -40,6 +41,7 @@ export function SpielEditor({
   mietpreisPflicht,
   spielortAnlegen,
   spielortRegeln,
+  closed,
 }: {
   title: PageTitle;
   record: EditorRecord<SpielWerte>;
@@ -53,6 +55,8 @@ export function SpielEditor({
   mietpreisPflicht: boolean;
   spielortAnlegen: (formData: FormData) => Promise<ActionAnswer>;
   spielortRegeln: SpielortRegeln;
+  /** Why the match is closed read-only: its season has finished, and the write refuses every change to it. */
+  closed?: Copy;
 }) {
   const editor = useEditor(record, save);
   const { draft, set } = editor;
@@ -64,6 +68,7 @@ export function SpielEditor({
     <EditorPage
       title={title}
       editor={editor}
+      closed={closed}
       sections={[
         {
           id: "ansetzung",

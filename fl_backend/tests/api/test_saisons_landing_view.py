@@ -146,13 +146,13 @@ def landing(url: str, database_name: str) -> Any:
 
 @pytest.mark.db
 def test_a_running_season_shows_its_latest_results_its_next_matches_and_its_figures(running_url: str):
-    """The latest two results newest first and the next two soonest first; the retired club in no figure."""
+    """The latest result and the soonest match to come, each out of three; the retired club in no figure."""
 
     response = landing(running_url, RUNNING_DATABASE_NAME)
     saison = response.saison
 
     assert (saison.id, saison.state, saison.opening_spiel, saison.podium) == (SAISON, "running", None, None)
-    assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == ([3, 2], [4, 5])
+    assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == ([3], [4])
     assert saison.counts.model_dump() == {"count_tore": 7, "count_spiele": 6, "count_spieltage": 2}
     assert [team.name for team in saison.teams] == ["Alpha", "Beta"]
     assert response.bewerbung_window.model_dump() == {"saison_id": NEXT, "von": "2026-03-01", "bis": "2026-03-31"}
@@ -299,7 +299,7 @@ def test_a_season_whose_third_place_match_is_not_played_reads_running_its_last_r
     saison = landing(mongo_url, THIRD_UNPLAYED_DATABASE_NAME).saison
 
     assert (saison.state, saison.podium) == ("running", None)
-    assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == ([3, 1], [2])
+    assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == ([3], [2])
 
 
 @pytest.mark.db
