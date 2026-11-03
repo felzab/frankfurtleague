@@ -39,11 +39,17 @@ const card = tv({
 });
 
 /**
+ * The card's words: a title where the frame carries none, and one sentence, which a titled card may leave out where
+ * its title says all there is, as an error's does.
+ */
+type CardWords = { title?: Copy | string; sentence: Copy } | { title: Copy | string; sentence?: undefined };
+
+/**
  * The hairline card every end state shares: its mark, the title where the frame carries none, one sentence, one
  * way on; an error's too, which offers no retry (D481). It writes no landmark, so a page inside an old shell's
  * `main` places it alone.
  */
-export function StatusCard({ mark, sentence, next, title }: StatusCardProps & { title?: Copy | string }) {
+export function StatusCard({ mark, sentence, next, title }: Omit<StatusCardProps, "sentence"> & CardWords) {
   const slots = card({ mark });
   return (
     <div className={slots.root()}>
@@ -54,7 +60,7 @@ export function StatusCard({ mark, sentence, next, title }: StatusCardProps & { 
         />
       </span>
       {title !== undefined && <ClassicTitle text={title} />}
-      <p className={slots.sentence()}>{sentence}</p>
+      {sentence !== undefined && <p className={slots.sentence()}>{sentence}</p>}
       <Link
         href={next.href}
         placement="button"
@@ -85,7 +91,9 @@ async function CardOnceRead({ card }: { card: Promise<StatusCardProps> }) {
  * waits in a boundary of its own under the strip, drawn meanwhile as nothing.
  */
 export function StatusPage(
-  props: (StatusCardProps & { frame: "classic"; title: Copy }) | ({ frame: "rail"; card: Promise<StatusCardProps> } & RailPageHead),
+  props:
+    | (Omit<StatusCardProps, "sentence"> & { frame: "classic"; title: Copy; sentence?: Copy })
+    | ({ frame: "rail"; card: Promise<StatusCardProps> } & RailPageHead),
 ) {
   if (props.frame === "classic") {
     return (

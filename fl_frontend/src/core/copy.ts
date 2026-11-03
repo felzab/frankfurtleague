@@ -472,14 +472,10 @@ export const COPY = catalogue({
     },
   },
 
-  /** The landing's and the classic frame's words a client component reads; the rest stand in `SERVER_COPY.landing`. */
+  /** The landing's words a client component reads; the rest stand in `SERVER_COPY.landing`. */
   landing: {
     /** The countdown's units, under its three figures. Board: their words. */
     saison: { days: "Tage", hours: "Stunden", minutes: "Minuten" },
-    /** The classic frame's error page, a client component's. */
-    status: {
-      error: { title: UNEXPECTED, sentence: "Lade die Seite neu oder versuch es später." },
-    },
   },
 
   /** The league's own name, which ends every tab title, and what an installed app calls itself. */

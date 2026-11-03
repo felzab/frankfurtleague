@@ -8,7 +8,6 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { StatusCard, StatusPage } from "./StatusPage";
 
 const { notFound } = SERVER_COPY.landing;
-const { error } = COPY.landing.status;
 
 describe("a status card", () => {
   it("writes no landmark of its own, so a page inside an old shell's main places it without a second one", () => {
@@ -32,8 +31,7 @@ describe("a status card", () => {
       <StatusPage
         frame="classic"
         mark="error"
-        title={error.title}
-        sentence={error.sentence}
+        title={COPY.shared.failure.unexpected}
         next={{ label: COPY.shared.end.toHome, href: "/" }}
       />,
     );
