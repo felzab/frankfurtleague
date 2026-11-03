@@ -8,7 +8,7 @@ import { ROUTES, SAISON_PAGES } from "@/core/routes";
 import { SPONSORS } from "@/features/meta/constants";
 import { getSaisonFrame } from "@/features/saisons/queries";
 
-import type { HeaderLink } from "@/kit/FrameNav";
+import type { HeaderLink } from "@/kit/HeaderLinks";
 import type { ReactNode } from "react";
 
 /** The league's own pages: the header's two and the footer's „Liga“ group, and the footer's legal pages. */

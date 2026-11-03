@@ -5,9 +5,9 @@ import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
-import { HeaderLinks } from "./FrameNav";
+import { HeaderLinks } from "./HeaderLinks";
 
-import type { HeaderLink } from "./FrameNav";
+import type { HeaderLink } from "./HeaderLinks";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/kontakt" }));
 

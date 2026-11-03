@@ -9,14 +9,14 @@ import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import { Brand } from "./Brand";
 import { smallCaps } from "./cardStyles";
-import { HeaderLinks } from "./FrameNav";
+import { HeaderLinks } from "./HeaderLinks";
 import { Link } from "./Link";
 import { ToastRegion } from "./Toast";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactNode } from "react";
-import type { HeaderLink } from "./FrameNav";
+import type { HeaderLink } from "./HeaderLinks";
 import type { Sponsor } from "./TileGrid";
 
 /** The year the © line names, read once a day rather than on every request. */
