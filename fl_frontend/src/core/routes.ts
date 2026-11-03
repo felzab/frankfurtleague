@@ -228,3 +228,9 @@ export const ROUTES = {
   // Session 7: its page is built.
   verwaltungActionLog: { path: () => "/bereich/verwaltung/log" as const, title: COPY.page.verwaltungActionLog, crawl: "disallow" },
 } as const satisfies Record<string, RouteEntry>;
+
+/**
+ * A season's public pages in the one order every frame lists them: the rail and the phone bar on a season page,
+ * and the classic footer's „Saison“ group. Each is named by its route's title.
+ */
+export const SAISON_PAGES = ["spielplan", "kORunde", "tabelle", "teams"] as const satisfies ReadonlyArray<keyof typeof ROUTES>;

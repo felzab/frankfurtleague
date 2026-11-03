@@ -2,9 +2,8 @@ import { connection } from "next/server";
 
 import { RailFrame } from "@/kit/RailFrame";
 
-import { COPY } from "@/core/copy";
 import { formatPeriod } from "@/core/format";
-import { ROUTES } from "@/core/routes";
+import { ROUTES, SAISON_PAGES } from "@/core/routes";
 import { getSaisonFrame } from "@/features/saisons/queries";
 
 import type { CalendarDay } from "@/core/format";
@@ -35,17 +34,8 @@ async function readSeasons(): Promise<Saisons | null> {
 export default function SaisonsLayout({ children }: { children: ReactNode }) {
   return (
     <RailFrame
-      groups={[
-        {
-          entries: [
-            { id: "spielplan", label: COPY.page.spielplan, saison: "spielplan", icon: "spielplan" },
-            { id: "kORunde", label: COPY.shared.kORunde, saison: "kORunde", icon: "kORunde" },
-            { id: "tabelle", label: COPY.page.tabelle, saison: "tabelle", icon: "tabelle" },
-            { id: "teams", label: COPY.page.teams, saison: "teams", icon: "teams" },
-          ],
-        },
-      ]}
-      bar={["spielplan", "kORunde", "tabelle", "teams"]}
+      groups={[{ entries: SAISON_PAGES.map((page) => ({ id: page, label: ROUTES[page].title, saison: page, icon: page })) }]}
+      bar={SAISON_PAGES}
       saison={{ saisons: readSeasons(), home: "spielplan" }}
       foot={{ kind: "signIn", href: ROUTES.signIn.path() }}>
       {children}
