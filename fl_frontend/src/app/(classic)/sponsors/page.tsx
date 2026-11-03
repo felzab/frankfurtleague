@@ -17,7 +17,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 }
 
 /**
- * The sponsors page (D266, D278, D280): each sponsor an equal tile, its logo over its short name, linking to its
+ * The sponsors page: each sponsor an equal tile, its logo over its short name, linking to its
  * site; beneath, the door for whoever wants to support the league, its one act the league's address.
  */
 export default function SponsorsPage() {

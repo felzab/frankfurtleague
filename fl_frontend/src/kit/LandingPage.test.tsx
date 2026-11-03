@@ -57,7 +57,7 @@ async function streamed(page: ReactElement): Promise<HTMLElement> {
 }
 
 describe("the landing while its read is on its way", () => {
-  // The tagline is the page's title, which stands outside the wait (D470); the rest is the first screen's skeleton (D496).
+  // The tagline is the page's title, which stands outside the wait; the rest is the first screen's skeleton.
   it("stands its tagline at once, and the skeleton of the rest of the first screen under one status", () => {
     const waiting = document.createElement("div");
     waiting.innerHTML = renderToString(landingWith(new Promise(() => undefined)));

@@ -51,7 +51,7 @@ type CardWords = { title?: Copy; sentence: Copy } | { title: Copy; sentence?: un
 
 /**
  * The hairline card every end state shares: its mark, the title where the frame carries none, one sentence, one
- * way on; an error's too, which offers no retry (D481). It writes no landmark, so a page inside an old shell's
+ * way on; an error's too, which offers no retry. It writes no landmark, so a page inside an old shell's
  * `main` places it alone.
  */
 export function StatusCard({ tone, sentence, next, title }: Omit<StatusCardProps, "sentence"> & CardWords) {

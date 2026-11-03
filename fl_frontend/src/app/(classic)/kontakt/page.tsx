@@ -16,7 +16,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return pageMetadata(parent, ROUTES.contact, ROUTES.contact.path(), { description: SERVER_COPY.description.contact });
 }
 
-/** Kontakt (D294, D490 plain): three rows, each a link, the address cut with „…“ where a phone is too narrow for it. */
+/** Kontakt: three rows, each a link, the address cut with „…“ where a phone is too narrow for it. */
 export default function KontaktPage() {
   return (
     <ClassicPage width="form">

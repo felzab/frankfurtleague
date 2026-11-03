@@ -117,11 +117,11 @@ export const SERVER_COPY = catalogue({
    * not-found page, each read by a Server Component.
    */
   landing: {
-    /** The hero's one heading (K260, D481). */
+    /** The hero's one heading. */
     tagline: "Frankfurts Abi-Jahrgänge spielen um den Titel",
-    /** The one paragraph the league describes itself with, under the tagline and at the head of About (K260, D291). */
+    /** The one paragraph the league describes itself with, under the tagline and at the head of About. */
     paragraph: `${COPY.brand.description} Ehrenamtliche aus den Jahrgängen organisieren die Liga.`,
-    /** The way to apply while a window is open: the hero's second act, the steps' band and the school's door (D481). */
+    /** The way to apply while a window is open: the hero's second act, the steps' band and the school's door. */
     toBewerbung: "Zur Bewerbung",
 
     /** What About tells in short sections, each written once: the landing's pillars and its small cards read them too. */
@@ -223,7 +223,7 @@ export const SERVER_COPY = catalogue({
       last: "Zuletzt",
       next: "Als Nächstes",
       place: placeName,
-      /** A place left vacant, its club having left the season before it was decided, beside the dashed open plaque (D499). */
+      /** A place left vacant, its club having left the season before it was decided, beside the dashed open plaque. */
       vacant: "Nicht vergeben",
       /** The chip in the card's head, one word for where the season stands: before its start, running, decided. */
       state: { planned: "Geplant", running: "Läuft", decided: "Entschieden" },

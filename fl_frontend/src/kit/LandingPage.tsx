@@ -86,9 +86,9 @@ async function Read({ lead, primary, content }: { lead: Copy; primary: HeroAct; 
  * `h1`, its tagline, over the lead and its two ways on, the season's card beside them; then the page's
  * sections, each one of the landing's blocks.
  *
- * The tagline is the page's title and stands at once (D470); everything under it waits for the read in the
- * template's one boundary, drawn meanwhile as the skeleton of the first screen, part by part in the place each
- * final block takes (D496).
+ * The tagline is the page's title and stands at once, as every template's title stands outside its wait;
+ * everything under it waits for the read in the template's one boundary, drawn meanwhile as the skeleton of the
+ * first screen, part by part in the place each final block takes, so nothing moves when the read arrives.
  */
 export function LandingPage({
   title,

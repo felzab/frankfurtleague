@@ -8,7 +8,7 @@ import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
 
 /**
  * A classic page that failed, inside the frame its layout drew: what happened, plainly, and the way to the start
- * page (D284, D481 error).
+ * page.
  */
 export default function ClassicError({ error }: { error: unknown }) {
   useReportClientCrash(error);

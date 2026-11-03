@@ -113,7 +113,7 @@ function Spieltage({ label, selectedKey, tabs }: SpieltagTabs) {
 
 /**
  * The filter block's place while its choices are read, at the height it will stand at, so nothing under the
- * toolbar moves when it arrives (D470's frame part holding its space): on a phone the „Filter“ button's line,
+ * toolbar moves when it arrives, as every part of a template's frame holds its space: on a phone the „Filter“ button's line,
  * on desktop a labelled select, its label, its field and the line under it.
  */
 function FiltersSpace() {

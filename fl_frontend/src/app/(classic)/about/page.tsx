@@ -18,8 +18,8 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 }
 
 /**
- * About (D294, D490 r1): the one paragraph, the three sections the landing's pillars show as cards, the
- * practical ones as short prose, and the organisers' row, the old Organisation page folded in (K263).
+ * About: the one paragraph, the three sections the landing's pillars show as cards, the
+ * practical ones as short prose, and the organisers' row, which holds what the old Organisation page held.
  */
 export default function AboutPage() {
   const sections = [words.about.spielorte, words.about.admission, words.about.safety];

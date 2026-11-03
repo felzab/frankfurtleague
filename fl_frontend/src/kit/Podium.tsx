@@ -10,7 +10,7 @@ import type { RecordText } from "@/core/copy";
 /** A placed club: its name and its Kürzel, its record's own data. */
 type Placed = { name: RecordText; plaque: RecordText };
 
-/** A decided place: its club, or `null` where the place is vacant, its club having left the season by then (D499). */
+/** A decided place: its club, or `null` where the place is vacant, its club having left the season by then. */
 export type Place = Placed | null;
 
 const podium = tv({

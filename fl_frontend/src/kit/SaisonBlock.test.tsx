@@ -67,7 +67,7 @@ describe("the season's card before the start", () => {
     expect(screen.getByText(SERVER_COPY.landing.saison.opening(SPIEL.when))).toBeTruthy();
   });
 
-  // The opening match by its plaques alone, so the line a phone shows never wraps (D481, D489).
+  // The opening match by its plaques alone, so the line a phone shows never wraps.
   it("names the opening match by its matchday and its two plaques, without the clubs' names", () => {
     render(
       <SaisonBlock
@@ -93,7 +93,7 @@ describe("the season's card before the start", () => {
     expect(within(line as HTMLElement).getByText(COPY.spielplan.quelle.open).classList).toContain("sr-only");
   });
 
-  // The countdown always shows (D499); only the opening match waits on a dated fixture.
+  // The countdown always shows, the season's start being its one instant; only the opening match waits on a dated fixture.
   it("counts down alone while no match is dated", () => {
     render(
       <SaisonBlock
