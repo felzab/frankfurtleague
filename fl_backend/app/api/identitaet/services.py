@@ -423,7 +423,7 @@ def lebt(row: Mapping[str, Any]) -> bool:
 def nicht_ausgetreten(row: Mapping[str, Any]) -> bool:
     """A season row its team has not withdrawn from: only such a row's seats grant.
 
-    The record's presence is the test, as every rule keyed on a club having left reads it.
+    The record's presence is the test and never its `datum`: a seat grants nothing from the day its team's exit is recorded.
     """
 
     return row.get("austritt") is None
