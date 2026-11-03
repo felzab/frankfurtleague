@@ -9,6 +9,7 @@ import { COPY } from "@/core/copy";
 
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { fieldFrame, fieldRoot, fieldUnit } from "./fieldStyles";
+import { useDisabled } from "./formClosed";
 
 import type { Copy } from "@/core/copy";
 import type { Constraints } from "./FieldParts";
@@ -134,7 +135,7 @@ export function TextField(props: TextFieldProps) {
       defaultValue={props.defaultValue}
       onChange={props.onChange}
       isRequired={isRequired}
-      isDisabled={isDisabled}
+      isDisabled={useDisabled(isDisabled)}
       maxLength={maxLength}
       minLength={minLength}
       type={keys.type}

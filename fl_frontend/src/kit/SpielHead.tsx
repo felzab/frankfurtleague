@@ -7,7 +7,7 @@ import { Callout } from "./Callout";
 import { RouteDialog } from "./Dialog";
 import { Facts } from "./Facts";
 import { Link } from "./Link";
-import { figures, look, NONE, sideMarks } from "./SpielRow";
+import { figures, look, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -65,7 +65,7 @@ const head = tv({
 });
 
 function Goals({ score, part }: { score: Figures; part: "home" | "away" }) {
-  return <span className={head(look(score, part)).goals()}>{score === null ? NONE : score[part]}</span>;
+  return <span className={head(look(score, part)).goals()}>{score === null ? COPY.shared.noValue : score[part]}</span>;
 }
 
 /** A side as the centred look sets it: the plaque over the name, and under it where the club stands. */

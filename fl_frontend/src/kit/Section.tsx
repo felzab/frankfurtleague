@@ -64,12 +64,15 @@ export const groupHeading = tv({ base: "text-xs font-medium text-fg-muted" });
 export function Section({
   title,
   help,
+  note,
   danger,
   children,
 }: {
   title: Copy;
   /** The section's one short help text, behind the ⓘ after its title. */
   help?: Copy;
+  /** Why the fields under the title cannot change, in the hue a closed act's reason takes, visible under the title. */
+  note?: Copy;
   /** An editor's irreversible and retiring acts, one row each, after the box's fields. */
   danger?: ReadonlyArray<DangerAct>;
   children?: ReactNode;
@@ -86,6 +89,7 @@ export function Section({
           />
         )}
       </div>
+      {note !== undefined && <p className="text-sm text-warn">{note}</p>}
       {/* Each child at its own width: a field fills the column itself, a button among the fields keeps its. 8 px
           apart, each field's message line, always there, holding the rest of the space between two fields. */}
       {children !== undefined && <div className="grid justify-items-start gap-2">{children}</div>}

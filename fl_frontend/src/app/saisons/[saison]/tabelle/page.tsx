@@ -3,12 +3,12 @@ import { notFound } from "next/navigation";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY } from "@/core/copy";
-import { formatErgebnis, formatNumber } from "@/core/format";
+import { formatErgebnis, formatNumber, formatSigned } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getTabelle } from "@/features/saisons/queries";
 import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
-import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
+import { austrittChip } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { FLTabelleRow } from "@/core/generated/client/types";
@@ -49,17 +49,17 @@ const COLUMNS: TableProps["columns"] = [
   { key: "punkte", label: column.punkte, figures: true, strong: true },
 ];
 
-/** A goal difference, signed where it is not level. */
-const signed = (difference: number) => (difference > 0 ? `+${formatNumber(difference)}` : formatNumber(difference));
-
 /**
  * One club's row: its place as the backend numbers it, level clubs sharing one and a club that has played no
- * match holding none; the bar while its place qualifies; muted once it has left the season, „DQ“ where it was
- * disqualified; the matches it played carrying the mark of those called off.
+ * match holding none; the bar while its place qualifies, grey while level clubs share it; muted once it has left
+ * the season, with its exit chip; the matches it played carrying the mark of those called off.
  */
-function rowOf(saison: string, row: FLTabelleRow, qualifiers: number): TableRow {
+function rowOf(saison: string, row: FLTabelleRow, qualifiers: number, rows: readonly FLTabelleRow[]): TableRow {
   const { statistik } = row;
   const played = formatNumber(statistik.count_gespielte_spiele);
+  const qualifying = row.platz !== null && row.platz <= qualifiers;
+  // Level clubs share their place, and the bracket seeds none of them until the tie resolves.
+  const level = rows.some((other) => other.id !== row.id && other.platz === row.platz);
   return {
     id: row.id,
     anchor: row.id,
@@ -67,11 +67,9 @@ function rowOf(saison: string, row: FLTabelleRow, qualifiers: number): TableRow 
     href: ROUTES.team.path(saison, row.id),
     plaque: { kuerzel: row.shorthand },
     place: row.platz,
-    qualifies: row.platz !== null && row.platz <= qualifiers,
+    ...(qualifying ? { qualifies: level ? "level" : "settled" } : {}),
     muted: row.austritt_type !== null,
-    ...(row.austritt_type === "disqualifikation"
-      ? { chip: { tone: "danger", label: austrittKuerzel(row.austritt_type), spoken: austrittZustand(row.austritt_type) } }
-      : {}),
+    ...(row.austritt_type === null ? {} : { chip: austrittChip(row.austritt_type) }),
     cells: {
       spiele: statistik.count_abgesagte_spiele > 0 ? { value: played, cancelled: statistik.count_abgesagte_spiele } : played,
       siege: formatNumber(statistik.siege),
@@ -79,7 +77,7 @@ function rowOf(saison: string, row: FLTabelleRow, qualifiers: number): TableRow 
       niederlagen: formatNumber(statistik.niederlagen),
       record: { record: [formatNumber(statistik.siege), formatNumber(statistik.unentschieden), formatNumber(statistik.niederlagen)] },
       tore: formatErgebnis({ team1: statistik.tore_geschossen, team2: statistik.tore_kassiert }),
-      differenz: signed(statistik.tore_geschossen - statistik.tore_kassiert),
+      differenz: formatSigned(statistik.tore_geschossen - statistik.tore_kassiert),
       punkte: formatNumber(statistik.punkte),
     },
   };
@@ -99,7 +97,8 @@ async function readGroups(params: Props["params"]) {
         nameLabel: column.team,
         rankLabel: column.platz,
         columns: COLUMNS,
-        rows: rows.map((row) => rowOf(saison, row, tabelle.qualifiers_per_gruppe)),
+        compact: true,
+        rows: rows.map((row) => rowOf(saison, row, tabelle.qualifiers_per_gruppe, rows)),
         empty: { kind: "none", plural: COPY.page.tabelle },
       } satisfies TableProps,
     })),

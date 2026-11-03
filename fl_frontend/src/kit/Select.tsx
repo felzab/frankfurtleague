@@ -4,6 +4,7 @@ import { Select as AriaSelect, Button, SelectValue } from "react-aria-components
 
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { fieldFrame, fieldRoot } from "./fieldStyles";
+import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
 import { OptionList } from "./OptionList";
 
@@ -49,7 +50,7 @@ export function Select({
       // Every option's id is a string, so the key handed back is one.
       onChange={onChange && ((key) => onChange(key === null ? null : String(key)))}
       isRequired={isRequired}
-      isDisabled={isDisabled}>
+      isDisabled={useDisabled(isDisabled)}>
       <FieldLabel
         label={label}
         isRequired={isRequired}

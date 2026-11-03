@@ -12,6 +12,7 @@ import type {
   FLTrainerAlso,
   FLTrikotFarbe,
 } from "@/core/generated/client/types";
+import type { ChipProps } from "@/kit/Chip";
 
 export const TEAMS_CRUD_COPY = {
   searchLabel: "Teams suchen",
@@ -84,6 +85,17 @@ export function austrittZustand(type: FLAustrittType): Copy {
 /** The badge form, for a table cell, a popover or a chip, where only two letters have room. */
 export function austrittKuerzel(type: FLAustrittType): Copy {
   return AUSTRITT_WORDS[type].kuerzel;
+}
+
+// A disqualification is the league's sanction, so its chip takes the danger hue; a withdrawal is the club's own act.
+const AUSTRITT_TONE = { disqualifikation: "danger", rueckzug: "neutral" } as const satisfies Record<FLAustrittType, ChipProps["tone"]>;
+
+/**
+ * A club's exit chip, after its name wherever a list or its page names it: the route's two letters, which a screen
+ * reader hears as the club's state, so every surface draws one chip for one record.
+ */
+export function austrittChip(type: FLAustrittType): ChipProps {
+  return { tone: AUSTRITT_TONE[type], label: austrittKuerzel(type), spoken: austrittZustand(type) };
 }
 
 /**

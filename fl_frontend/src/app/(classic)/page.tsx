@@ -2,7 +2,6 @@ import { connection } from "next/server";
 
 import { Doors } from "@/kit/Doors";
 import { EmptyState } from "@/kit/EmptyState";
-import { Figures } from "@/kit/Figures";
 import { InfoCards } from "@/kit/InfoCards";
 import { OrganizationJsonLd } from "@/kit/JsonLd";
 import { LandingPage } from "@/kit/LandingPage";
@@ -10,12 +9,14 @@ import { LandingSection } from "@/kit/LandingSection";
 import { Organisers } from "@/kit/Organisers";
 import { Pillars } from "@/kit/Pillars";
 import { SaisonBlock } from "@/kit/SaisonBlock";
+import { StatTiles } from "@/kit/StatTiles";
 import { Steps } from "@/kit/Steps";
 import { StepsLine } from "@/kit/StepsLine";
 import { SchoolTiles, SponsorTiles } from "@/kit/TileGrid";
 
 import { INSTAGRAM_URL, KONTAKT_EMAIL, THREADS_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
+import { formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/bewerbungen/constants";
@@ -122,12 +123,13 @@ function sectionsOf(saison: FLLandingSaison | null, window: FLBewerbungWindow | 
       </LandingSection>
       {saison !== null && (
         <LandingSection title={words.figures.title(saison.id)}>
-          <Figures
+          <StatTiles
+            layout="four"
             items={[
-              { value: saison.teams.length, label: words.figures.schulen },
-              { value: saison.counts.count_tore, label: words.figures.tore },
-              { value: saison.counts.count_spiele, label: words.figures.spiele },
-              { value: saison.counts.count_spieltage, label: words.figures.spieltage },
+              { label: words.figures.schulen, value: formatNumber(saison.teams.length) },
+              { label: words.figures.tore, value: formatNumber(saison.counts.count_tore) },
+              { label: words.figures.spiele, value: formatNumber(saison.counts.count_spiele) },
+              { label: words.figures.spieltage, value: formatNumber(saison.counts.count_spieltage) },
             ]}
           />
         </LandingSection>
@@ -150,7 +152,8 @@ function sectionsOf(saison: FLLandingSaison | null, window: FLBewerbungWindow | 
             ? undefined
             : {
                 title: words.doors.school.title,
-                text: words.join.open(window.saison_id, window.bis as CalendarDay),
+                // The date stands on the join band and the season card, each fact once: the door says only that the window is open.
+                text: words.join.opened,
                 act: { label: words.toBewerbung, href: formOf(window) },
               }
         }

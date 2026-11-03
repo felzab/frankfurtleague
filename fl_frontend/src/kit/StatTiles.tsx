@@ -21,9 +21,10 @@ export type StatTile = {
 
 /**
  * The grids a page may lay its tiles in, each fixing how many it holds, so a page cannot hand a layout the
- * wrong count: `four` for a club's standing, two a row on a phone and all four in one row from `lg`; `five`
- * for a match's facts, on a phone four squares two a row and the fifth, such as the venue, wide across both,
- * and from `lg` five equal tiles filling the row.
+ * wrong count: `four` for a club's standing or a season's counts, two a row on a phone and all four in one row
+ * from `lg`; `five` for a match's facts, two a row on a phone with the fifth, such as the venue, wide across both,
+ * and from `lg` five equal tiles filling the row. Every tile is a rectangle as tall as its label, value and line,
+ * at every width: one shape for every set of figures on the site.
  */
 type Layout =
   | { layout: "four"; items: readonly [StatTile, StatTile, StatTile, StatTile] }
@@ -54,21 +55,12 @@ const tiles = tv({
     words: {
       true: { value: "text-base break-words hyphens-auto whitespace-normal" },
     },
-    // The five's tiles on a phone: a figure's tile is a square, its value centred in it, which needs rows of its
-    // own; the fifth runs across both columns. From `lg` all five share the list's rows as every tile does.
-    shape: {
-      even: {},
-      square: {
-        tile: "aspect-square grid-rows-[auto_minmax(0,1fr)_auto] max-lg:row-span-1 lg:aspect-auto lg:grid-rows-subgrid",
-        value: "self-center lg:self-baseline",
-      },
-      wide: { tile: "col-span-2 lg:col-span-1" },
+    // The five's fifth tile runs across both columns on a phone, and from `lg` takes its one place in the row.
+    wide: {
+      true: { tile: "col-span-2 lg:col-span-1" },
     },
   },
-  defaultVariants: { shape: "even" },
 });
-
-const shapeOf = (layout: Layout["layout"], index: number) => (layout === "four" ? "even" : index === 4 ? "wide" : "square");
 
 /**
  * A record's figures at a glance, each in its own tile with its name over it: a club's standing, a match's
@@ -79,7 +71,7 @@ export function StatTiles({ layout, items }: Layout) {
   return (
     <dl className={tiles({ layout }).root()}>
       {items.map((item, index) => {
-        const slots = tiles({ layout, words: item.words, shape: shapeOf(layout, index) });
+        const slots = tiles({ layout, words: item.words, wide: layout === "five" && index === 4 });
         return (
           <div
             key={item.label}

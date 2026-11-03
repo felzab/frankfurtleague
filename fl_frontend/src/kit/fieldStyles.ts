@@ -62,14 +62,15 @@ export const statusLine = tv({
 });
 
 /**
- * The edge a value is typed into: 36 px with a mouse, 44 px and 16-px text on a touch screen, filled with the
- * surface one step up from the page inside its control edge. Inside a pair sharing its row on a phone
+ * The edge a value is typed into: 36 px with a mouse, 44 px and 16-px text on a touch screen, transparent inside
+ * its control edge, as every control is, so it takes the fill of the page or the card it stands on, as the
+ * secondary button does. Inside a pair sharing its row on a phone
  * (`FieldPair`'s `data-pair`), it fills its side of the row: a percentage minimum adds nothing to the width
  * the side is laid out at, so the side starts from the field's width class and the frame then fills what
  * the side grew to.
  */
 export const fieldFrame = tv({
-  base: "rounded-lg border border-border-control bg-bg-surface text-sm text-fg transition-colors duration-(--motion-state) group-data-invalid:border-danger data-disabled:opacity-50 data-invalid:border-danger max-lg:in-data-pair:min-w-full pointer-coarse:text-base",
+  base: "rounded-lg border border-border-control bg-transparent text-sm text-fg transition-colors duration-(--motion-state) group-data-invalid:border-danger data-disabled:opacity-50 data-invalid:border-danger max-lg:in-data-pair:min-w-full pointer-coarse:text-base",
   variants: {
     // A field is as wide as its value. The short widths are counted in characters, as the GOV.UK Design
     // System sizes its fixed-width inputs, so they grow with the reader's font size: each holds its count
@@ -148,12 +149,12 @@ export const searchClear = tv({
 export const codeRow = tv({ base: "relative flex justify-center gap-2" });
 
 /**
- * One drawn code box, in a field's frame and fill whatever the pointer, its digit large and centred: a square
+ * One drawn code box, in a field's frame and transparent fill whatever the pointer, its digit large and centred: a square
  * sharing the row with the other five, at most 44 px, so on a phone narrower than the six at full size they
  * stay square and narrow together.
  */
 export const codeBox = tv({
-  base: "flex aspect-square max-w-11 min-w-0 flex-1 items-center justify-center rounded-lg border border-border-control bg-bg-surface font-numeric text-xl font-semibold text-fg transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger",
+  base: "flex aspect-square max-w-11 min-w-0 flex-1 items-center justify-center rounded-lg border border-border-control bg-transparent font-numeric text-xl font-semibold text-fg transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger",
 });
 
 /**
@@ -215,7 +216,7 @@ export const toggleBox = tv({
     },
     selected: {
       true: "border-brand bg-brand text-bg",
-      false: "bg-bg",
+      false: "bg-transparent",
     },
     // A required box left empty at the send: the red edge every other field's error shows.
     invalid: {
@@ -257,7 +258,7 @@ export const radioList = tv({
  */
 export const choiceCard = tv({
   slots: {
-    card: "grid cursor-default grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-border-control bg-bg p-4 text-sm text-fg transition-colors duration-(--motion-state) data-disabled:opacity-50 data-selected:border-brand data-selected:inset-ring-1 data-selected:inset-ring-brand",
+    card: "grid cursor-default grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-border-control bg-transparent p-4 text-sm text-fg transition-colors duration-(--motion-state) data-disabled:opacity-50 data-selected:border-brand data-selected:inset-ring-1 data-selected:inset-ring-brand",
     words: "grid gap-1",
     title: "font-semibold",
     line: "text-xs text-fg-muted",
@@ -340,14 +341,14 @@ export const entryMark = tv({
 });
 
 /**
- * A short choice drawn as buttons: the segmented control of a single choice, its segments in one frame on the
- * surface, and the toggle boxes of a small multi-select, each box standing alone.
+ * A short choice drawn as buttons: the segmented control of a single choice, its segments in one frame, and the
+ * toggle boxes of a small multi-select, each box standing alone; both transparent inside their edges.
  */
 export const choiceGroup = tv({
   base: "flex flex-wrap",
   variants: {
     kind: {
-      segmented: "inline-flex h-9 self-start rounded-lg border border-border-control bg-bg-surface p-0.5 pointer-coarse:h-11",
+      segmented: "inline-flex h-9 self-start rounded-lg border border-border-control bg-transparent p-0.5 pointer-coarse:h-11",
       boxes: "gap-2",
     },
   },
@@ -364,7 +365,7 @@ export const choiceButton = tv({
     kind: {
       segmented: "h-full rounded-md border border-transparent data-selected:border-border-control data-selected:bg-bg-muted",
       boxes:
-        "h-9 min-w-16 rounded-lg border border-border-control bg-bg px-3 data-selected:border-fg-muted data-selected:bg-bg-surface pointer-coarse:h-11",
+        "h-9 min-w-16 rounded-lg border border-border-control bg-transparent px-3 data-selected:border-fg-muted data-selected:bg-bg-surface pointer-coarse:h-11",
     },
     // A segment holds words at the boxes' width, or a glyph alone, as wide as a control is tall, muted until chosen.
     content: {

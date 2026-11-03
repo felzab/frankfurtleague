@@ -280,7 +280,8 @@ SAISON_ID = "2026"
 # Server-side, so the database itself stops answering and only the deadline's `maxTimeMS` stops it.
 STALL = "sleep(60000) || true"
 
-# Long enough that the team before the stall is minted inside it on a loaded machine.
+# Long enough that the team before the stall is minted inside it on a loaded machine, after the first request into the
+# route's branch has built that branch.
 SHORT_REQUEST_DEADLINE_S = 1.5
 
 MINT_FAILED = "mint_failed"
@@ -364,32 +365,15 @@ Pressed = tuple[
 DISPATCH_PATH = f"/api/v{API_VERSION}/saisons/{SAISON_ID}/invitations/dispatch"
 
 
-@functools.cache
-def _pressing_app() -> FastAPI:
+@pytest.fixture(scope="module")
+def pressing_app() -> FastAPI:
     """One app for every press, as `_served` is for every fault.
 
-    The first request into a router branch builds it, up to a third of the send case's deadline, and an app per press
-    would pay that inside each one.
+    The first request into a router branch builds it, and an app per press would pay that build inside every case. The
+    case that reaches the branch first pays it once, inside its deadline.
     """
 
     return create_app(build_test_config().model_copy(update={"db_base_name": DATABASE_NAME}))
-
-
-@pytest.fixture(scope="module")
-def pressing_app() -> FastAPI:
-    """The app with the press's branch built before any case times it.
-
-    A press without credentials walks the branch and is refused at the guard, which reads no database.
-    """
-
-    async def knock() -> int:
-        async with AsyncClient(transport=ASGITransport(app=_pressing_app(), raise_app_exceptions=False), base_url=TEST_BASE_URL) as http:
-            return (await http.post(DISPATCH_PATH, json={"resend": False})).status_code
-
-    # On the route, or the branch the cases press was never walked.
-    assert on_the_seed_loop(knock()) == 401
-
-    return _pressing_app()
 
 
 def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollection], Any], *, seed_links: bool = True) -> Pressed:

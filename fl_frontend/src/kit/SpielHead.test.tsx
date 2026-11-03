@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { SpielHead } from "./SpielHead";
-import { NONE } from "./SpielRow";
 
 import type { ComponentProps } from "react";
 
@@ -54,7 +53,7 @@ describe("the match head", () => {
   it("reads a dash for each side until a result is entered, under the matchday", () => {
     render(<SpielHead {...PAIRING} />);
 
-    expect(screen.getAllByText(NONE)).toHaveLength(2);
+    expect(screen.getAllByText(COPY.shared.noValue)).toHaveLength(2);
     expect(screen.getByText("1. Spieltag")).toBeTruthy();
   });
 });
