@@ -1,6 +1,8 @@
+import { COPY } from "@/core/copy";
+
 import { cardSurface } from "./cardStyles";
 import { Link } from "./Link";
-import { figures, look, NONE, sideMarks } from "./SpielRow";
+import { figures, look, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -33,7 +35,7 @@ function Line({ side, score, part }: { side: SpielSide; score: Figures; part: "h
           {side.name}
         </span>
       </span>
-      <span className={style.goals()}>{score === null ? NONE : score[part]}</span>
+      <span className={style.goals()}>{score === null ? COPY.shared.noValue : score[part]}</span>
     </span>
   );
 }

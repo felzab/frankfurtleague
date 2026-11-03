@@ -6,7 +6,6 @@ import { Chip } from "./Chip";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
-import { NONE } from "./SpielRow";
 import { TargetMark } from "./TargetMark";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
@@ -303,7 +302,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                   className={table(marks).row()}>
                   {rankLabel !== undefined && (
                     <td className={table({ align: "centre", figures: true, qualifies: row.qualifies, compact }).cell()}>
-                      {row.place == null ? NONE : formatNumber(row.place)}
+                      {row.place == null ? COPY.shared.noValue : formatNumber(row.place)}
                     </td>
                   )}
                   <NameCell

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ClubHead } from "@/kit/ClubHead";
 import { ReadFolds } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
-import { NONE, SpielList } from "@/kit/SpielRow";
+import { SpielList } from "@/kit/SpielRow";
 
 import { COPY } from "@/core/copy";
 import { formatErgebnis, formatNumber, formatOrdinal, formatSigned } from "@/core/format";
@@ -64,14 +64,14 @@ function tilesOf({ team, standing }: FLTeamPageResponse): readonly [StatTile, St
   const group = SERVER_COPY.season.gruppe(team.gruppe);
   if (standing === null)
     return [
-      { label: words.platz, value: NONE, line: group },
-      { label: words.punkte, value: NONE },
-      { label: words.spiele, value: NONE },
-      { label: words.tore, value: NONE },
+      { label: words.platz, value: COPY.shared.noValue, line: group },
+      { label: words.punkte, value: COPY.shared.noValue },
+      { label: words.spiele, value: COPY.shared.noValue },
+      { label: words.tore, value: COPY.shared.noValue },
     ];
   const { statistik } = standing;
   return [
-    { label: words.platz, value: standing.platz === null ? NONE : formatOrdinal(standing.platz), line: group },
+    { label: words.platz, value: standing.platz === null ? COPY.shared.noValue : formatOrdinal(standing.platz), line: group },
     { label: words.punkte, value: formatNumber(statistik.punkte) },
     {
       label: words.spiele,

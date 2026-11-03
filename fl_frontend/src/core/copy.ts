@@ -151,6 +151,8 @@ export const COPY = catalogue({
     toSpiel: "Zum Spiel",
     // Redesign: the first fact its reader could supply, shown empty, reads it.
     notProvided: "Nicht hinterlegt",
+    /** A value not there yet, in a tile, a table cell or a score's place: a glyph, not a word. */
+    noValue: "–",
     overview: "Übersicht",
     // Redesign: the account menu reads it once it offers a second role.
     switchRole: "Funktion wechseln",
