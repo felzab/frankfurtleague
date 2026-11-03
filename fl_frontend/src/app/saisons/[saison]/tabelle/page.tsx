@@ -54,12 +54,15 @@ const signed = (difference: number) => (difference > 0 ? `+${formatNumber(differ
 
 /**
  * One club's row: its place as the backend numbers it, level clubs sharing one and a club that has played no
- * match holding none; the bar while its place qualifies; muted once it has left the season, with its exit chip;
- * the matches it played carrying the mark of those called off.
+ * match holding none; the bar while its place qualifies, grey while level clubs share it; muted once it has left
+ * the season, with its exit chip; the matches it played carrying the mark of those called off.
  */
-function rowOf(saison: string, row: FLTabelleRow, qualifiers: number): TableRow {
+function rowOf(saison: string, row: FLTabelleRow, qualifiers: number, rows: readonly FLTabelleRow[]): TableRow {
   const { statistik } = row;
   const played = formatNumber(statistik.count_gespielte_spiele);
+  const qualifying = row.platz !== null && row.platz <= qualifiers;
+  // Level clubs share their place, and the bracket seeds none of them until the tie resolves.
+  const level = rows.some((other) => other.id !== row.id && other.platz === row.platz);
   return {
     id: row.id,
     anchor: row.id,
@@ -67,7 +70,7 @@ function rowOf(saison: string, row: FLTabelleRow, qualifiers: number): TableRow 
     href: ROUTES.team.path(saison, row.id),
     plaque: { kuerzel: row.shorthand },
     place: row.platz,
-    qualifies: row.platz !== null && row.platz <= qualifiers,
+    ...(qualifying ? { qualifies: level ? "level" : "settled" } : {}),
     muted: row.austritt_type !== null,
     ...(row.austritt_type === null ? {} : { chip: austrittChip(row.austritt_type) }),
     cells: {
@@ -97,7 +100,8 @@ async function readGroups(params: Props["params"]) {
         nameLabel: column.team,
         rankLabel: column.platz,
         columns: COLUMNS,
-        rows: rows.map((row) => rowOf(saison, row, tabelle.qualifiers_per_gruppe)),
+        compact: true,
+        rows: rows.map((row) => rowOf(saison, row, tabelle.qualifiers_per_gruppe, rows)),
         empty: { kind: "none", plural: COPY.page.tabelle },
       } satisfies TableProps,
     })),

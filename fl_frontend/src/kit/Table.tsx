@@ -47,8 +47,12 @@ export type TableRow = {
   chip?: ChipProps;
   /** The row's values, by column key; a missing value leaves its cell empty. */
   cells: Readonly<Record<string, TableCell>>;
-  /** Places 1 and 2: the 2-px brand bar at the row's left edge. */
-  qualifies?: boolean;
+  /**
+   * A place that qualifies, the 2-px bar at the row's left edge: in the brand's green where the place is the row's
+   * alone, `settled`, and in the control grey where level clubs share it, `level`, since until the tie resolves the
+   * bracket seeds none of them.
+   */
+  qualifies?: "settled" | "level";
   /** A row that no longer counts, such as a disqualified team's: its text muted. */
   muted?: boolean;
   /** The row's fragment, so a link elsewhere, such as a club's line in a match head, opens the page at it. */
@@ -73,21 +77,24 @@ export type TableProps = {
   empty: EmptyStateProps;
   /** The rows alone, without the table's own box, inside a card's body, whose box already holds them. */
   bare?: boolean;
+  /**
+   * A table of more figures than a phone's width holds at the standard padding, the Tabelle's: on a phone every
+   * column keeps its place by compact cells. Every other table keeps its 12-px cells on a phone.
+   */
+  compact?: boolean;
 };
 
 const table = tv({
   slots: {
     // Small muted capitals over the head row's hairline on the card's own fill: a card's head is the one band
     // it carries, so the column heads never compete with it.
-    // On a phone every column keeps its place by compact cells: 6-px padding, 12-px figures, and heads at 10 px
-    // without their tracking.
-    head: "h-10 px-3 text-xs font-medium tracking-caps whitespace-nowrap text-fg-muted uppercase max-lg:px-1.5 max-lg:text-2xs max-lg:tracking-normal",
+    head: "h-10 px-3 text-xs font-medium tracking-caps whitespace-nowrap text-fg-muted uppercase",
     // A row a link may point to by its fragment, marked while the address names it.
     row: "kit-target relative h-14 border-t border-border first:border-t-0 lg:h-13",
-    cell: "px-3 whitespace-nowrap max-lg:px-1.5 max-lg:text-xs",
+    cell: "px-3 whitespace-nowrap",
     // The name takes the room the facts leave and is cut with „…“ where it is longer (`max-w-0` lets a cell
     // of an automatic table layout shrink below its content, so the cut can happen at all).
-    name: "w-full max-w-0 px-3 py-2 max-lg:px-1.5",
+    name: "w-full max-w-0 px-3 py-2",
     // A club's name beside its plaque, read but not drawn on a phone, where the plaque stands for it alone.
     clubName: "ms-2 max-lg:sr-only",
     // A linked row's last cell, as narrow as the chevron that says the row leads on; a phone, short of room,
@@ -98,7 +105,15 @@ const table = tv({
     align: {
       start: { head: "text-start", cell: "text-start" },
       end: { head: "text-end", cell: "text-end" },
-      centre: { head: "w-11 text-center max-lg:w-7", cell: "w-11 text-center text-fg-muted max-lg:w-7" },
+      centre: { head: "w-11 text-center", cell: "w-11 text-center text-fg-muted" },
+    },
+    // On a phone, 6-px padding, 12-px figures and heads at 10 px without their tracking, the rank 28 px wide.
+    compact: {
+      true: {
+        head: "max-lg:px-1.5 max-lg:text-2xs max-lg:tracking-normal",
+        cell: "max-lg:px-1.5 max-lg:text-xs",
+        name: "max-lg:px-1.5",
+      },
     },
     figures: {
       true: { cell: "font-numeric" },
@@ -119,9 +134,11 @@ const table = tv({
     },
     qualifies: {
       // Drawn inside the first cell, so it takes no width and moves nothing.
-      true: { cell: "shadow-[inset_2px_0_0_var(--brand)]", name: "shadow-[inset_2px_0_0_var(--brand)]" },
+      settled: { cell: "shadow-[inset_2px_0_0_var(--brand)]", name: "shadow-[inset_2px_0_0_var(--brand)]" },
+      level: { cell: "shadow-[inset_2px_0_0_var(--border-control)]", name: "shadow-[inset_2px_0_0_var(--border-control)]" },
     },
   },
+  compoundVariants: [{ align: "centre", compact: true, class: { head: "max-lg:w-7", cell: "max-lg:w-7" } }],
 });
 
 /** The hyphen between a record's counts, „3-1-0“, as its head „S-U-N“ joins their letters. */
@@ -181,8 +198,8 @@ function Cell({ cell, slot }: { cell: TableCell | undefined; slot: boolean }) {
  * its size and its line. A club's plaque stands before its name inside the row's link, so on a phone, where
  * the plaque alone is drawn, the link still opens the club and is named by the club's full name.
  */
-function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
-  const s = table({ qualifies: barred });
+function NameCell({ row, barred, compact }: { row: TableRow; barred: TableRow["qualifies"]; compact: boolean }) {
+  const s = table({ qualifies: barred, compact });
   const words =
     row.plaque === undefined ? (
       row.name
@@ -219,8 +236,8 @@ function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
  * muted capitals. A row opens its record, a chevron at its end saying so. Few columns: the name with its plaque
  * and chip, then a few facts.
  */
-export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare = false }: TableProps) {
-  const nameHead = table({ align: "start" }).head();
+export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare = false, compact = false }: TableProps) {
+  const nameHead = table({ align: "start", compact }).head();
   const isLinked = rows.some((row) => row.href !== undefined);
   // The columns where some row carries the mark of fixtures called off, whose every row keeps its slot.
   const marked = new Set(
@@ -247,7 +264,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
               {rankLabel !== undefined && (
                 <th
                   scope="col"
-                  className={table({ align: "centre" }).head()}>
+                  className={table({ align: "centre", compact }).head()}>
                   {rankLabel}
                 </th>
               )}
@@ -263,6 +280,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                   className={table({
                     align: column.figures === true ? "end" : "start",
                     phone: phoneOf(column),
+                    compact,
                   }).head()}>
                   {column.label}
                 </th>
@@ -280,13 +298,14 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                   id={row.anchor}
                   className={table(marks).row()}>
                   {rankLabel !== undefined && (
-                    <td className={table({ align: "centre", figures: true, qualifies: row.qualifies === true }).cell()}>
+                    <td className={table({ align: "centre", figures: true, qualifies: row.qualifies, compact }).cell()}>
                       {row.place == null ? NONE : formatNumber(row.place)}
                     </td>
                   )}
                   <NameCell
                     row={row}
-                    barred={rankLabel === undefined && row.qualifies === true}
+                    barred={rankLabel === undefined ? row.qualifies : undefined}
+                    compact={compact}
                   />
                   {columns.map((column) => (
                     <td
@@ -296,6 +315,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                         figures: column.figures === true,
                         strong: column.strong === true,
                         phone: phoneOf(column),
+                        compact,
                       }).cell()}>
                       <Cell
                         cell={row.cells[column.key]}
