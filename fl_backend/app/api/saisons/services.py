@@ -5,7 +5,7 @@ from typing import Any
 
 from app.api.saisons.schedule import expected_matches, knockout_phases_for, qualifier_count, schedule_for
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import FLSpiel, is_unplayed
+from app.api.spiele.schemas import MIN_QUALIFIERS, FLSpiel, is_unplayed
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
@@ -193,8 +193,9 @@ def find_rules_refusal(
     qualifiers = proposed.number_of_gruppen * proposed.qualifiers_per_gruppe
     stored_qualifiers = None if stored is None else stored.number_of_gruppen * stored.qualifiers_per_gruppe
     # Against the stored product: an unchanged product carries an unchanged verdict, so equality
-    # alone lets the dates-only edit through, `rules` being required on the patch.
-    if not knockout_phases_for(qualifiers) and qualifiers != stored_qualifiers:
+    # alone lets the dates-only edit through, `rules` being required on the patch. The floor is the
+    # rules' and not `knockout_phases_for`'s, which still answers a stored two-club bracket's rounds.
+    if (qualifiers < MIN_QUALIFIERS or not knockout_phases_for(qualifiers)) and qualifiers != stored_qualifiers:
         return WriteRefusal(
             error_code=Code.RULES_BRACKET_IMPOSSIBLE,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,

@@ -127,6 +127,10 @@ KNOCKOUT_PHASES: tuple[FLSaisonPhase, ...] = PHASE_ORDER[1:]
 # A knockout ladder halves each round down to one final, so the cap is what the phases can hold.
 MAX_QUALIFIERS: int = 2 ** len(KNOCKOUT_PHASES)
 
+# A bracket with semi-finals, so every K.-o.-Runde plays a match for third place and decides four places;
+# a final alone would leave the podium two places short.
+MIN_QUALIFIERS: int = 4
+
 
 # Declared BEFORE what references them: below, they resolve only through PEP 649 deferred
 # annotations, so touching the core schema before the first validation raises `PydanticUserError`.

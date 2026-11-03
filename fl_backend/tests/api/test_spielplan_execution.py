@@ -64,9 +64,9 @@ TEAMS_PER_GROUP = 4
 QUALIFIERS = 2
 
 # `(number_of_groups, teams_per_group, qualifiers_per_group)`: the ordinary season, and one whose odd
-# groups take a bye round and whose bracket is a single final.
-SHAPES: tuple[tuple[int, int, int], ...] = ((GROUPS, TEAMS_PER_GROUP, QUALIFIERS), (2, 3, 1))
-SHAPE_IDS = ("four groups of four into a quarter-final", "two odd groups into one final")
+# groups take a bye round and whose bracket opens at the semi-finals, the smallest the rules take.
+SHAPES: tuple[tuple[int, int, int], ...] = ((GROUPS, TEAMS_PER_GROUP, QUALIFIERS), (2, 3, 2))
+SHAPE_IDS = ("four groups of four into a quarter-final", "two odd groups into a semi-final")
 
 # Deliberately in no collection until a case seeds it: a matchday and the fixture hanging on it are
 # each their own refusal.
@@ -1506,9 +1506,10 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
 NARROWED_QUALIFIERS = 1
 
 # A first draw's own shape, off a season created with placeholder numbers: two odd groups holding
-# every club that turned up, into a single final.
+# every club that turned up, into a semi-final.
 SHORT_GROUPS = 2
 SHORT_PER_GROUP = 3
+SHORT_QUALIFIERS = 2
 
 
 @dataclass(frozen=True)
@@ -1559,7 +1560,7 @@ def a_short_seed(*, extra_rules: Mapping[str, Any] | None = None) -> Seed:
 
 
 def the_short_shape() -> FLSpielplanShape:
-    return a_shape(groups=SHORT_GROUPS, teams=SHORT_PER_GROUP, qualifiers=NARROWED_QUALIFIERS)
+    return a_shape(groups=SHORT_GROUPS, teams=SHORT_PER_GROUP, qualifiers=SHORT_QUALIFIERS)
 
 
 class TestADrawStoresTheShapeItRanFrom:
@@ -1574,10 +1575,10 @@ class TestADrawStoresTheShapeItRanFrom:
 
         drawn = a_season_drawn_from(mongo_replica_set_url, seed=a_short_seed(), shape=the_short_shape())
         expected = expected_counts(
-            FLSaisonRules.model_validate(rules_document(groups=SHORT_GROUPS, teams=SHORT_PER_GROUP, qualifiers=NARROWED_QUALIFIERS))
+            FLSaisonRules.model_validate(rules_document(groups=SHORT_GROUPS, teams=SHORT_PER_GROUP, qualifiers=SHORT_QUALIFIERS))
         )
 
-        assert [drawn.rules[rule] for rule in the_short_shape().model_dump()] == [SHORT_GROUPS, SHORT_PER_GROUP, NARROWED_QUALIFIERS]
+        assert [drawn.rules[rule] for rule in the_short_shape().model_dump()] == [SHORT_GROUPS, SHORT_PER_GROUP, SHORT_QUALIFIERS]
         # The draw itself, not the numbers alone: a `$set` beside a draw off the stored rules would store one shape and play another.
         assert (len(drawn.spieltage), len(drawn.spiele)) == expected
         assert (drawn.response.spieltage, drawn.response.spiele) == expected
@@ -1597,7 +1598,7 @@ class TestADrawStoresTheShapeItRanFrom:
 
         assert {rule: drawn.rules.get(rule) for rule in UNDECLARED_RULE} == UNDECLARED_RULE
         # Beside the shape it moved, so this cannot pass on a draw that wrote nothing at all.
-        assert drawn.rules["qualifiers_per_gruppe"] == NARROWED_QUALIFIERS
+        assert drawn.rules["number_of_gruppen"] == SHORT_GROUPS
 
     def test_a_draw_that_states_no_shape_leaves_every_rule_alone(self, mongo_replica_set_url: str):
         """The control: a `$set` running unconditionally would pass every case above and rewrite a season that asked for nothing."""
@@ -1706,11 +1707,12 @@ class TestAShapeTheSeasonCannotBeDrawnFromIsRefused:
         assert refused.watermark["generated_at"] == TODAY
 
 
-# Two groups of four into a single final: three group matchdays and the final, in a season of
-# exactly four days -- the shortest span `POST /saisons` accepts for those rules.
+# Two groups of four into a semi-final: three group matchdays, the semi-finals and the Finale, in a
+# season of exactly five days -- the shortest span `POST /saisons` accepts for those rules.
 TIGHT_GROUPS = 2
 TIGHT_PER_GROUP = 4
-TIGHT_SPAN = ("2026-05-01", "2026-05-04")
+TIGHT_QUALIFIERS = 2
+TIGHT_SPAN = ("2026-05-01", "2026-05-05")
 
 # The free lever: `spielplan_gruppen_off_rules` pins the other two to the clubs standing in the groups, while
 # each doubling of `number_of_gruppen` x `qualifiers_per_gruppe` adds a knockout round.
@@ -1722,7 +1724,7 @@ def a_tight_seed() -> Seed:
 
     return Seed(
         saison=saison_document(
-            rules=rules_document(groups=TIGHT_GROUPS, teams=TIGHT_PER_GROUP, qualifiers=NARROWED_QUALIFIERS),
+            rules=rules_document(groups=TIGHT_GROUPS, teams=TIGHT_PER_GROUP, qualifiers=TIGHT_QUALIFIERS),
             start_date=TIGHT_SPAN[0],
             end_date=TIGHT_SPAN[1],
         ),
@@ -1742,7 +1744,7 @@ class TestASeasonIsNeverDrawnMoreMatchdaysThanItHasDays:
     """
 
     def test_a_shape_implying_more_matchdays_than_the_season_has_days_is_refused(self, mongo_replica_set_url: str):
-        """Drop the span call and this fails: six matchdays land in a four-day season, and no two may share a day."""
+        """Drop the span call and this fails: six matchdays land in a five-day season, and no two may share a day."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(APIError) as refused:
@@ -1757,15 +1759,15 @@ class TestASeasonIsNeverDrawnMoreMatchdaysThanItHasDays:
         assert counts == (0, 0), "a refused draw wrote a schedule the season has no room for"
         # Read back rather than inferred from the refusal: the shape stored beside no fixtures would
         # come back `saison_span_below_spielplan` on the next patch of any rule at all.
-        assert rules == rules_document(groups=TIGHT_GROUPS, teams=TIGHT_PER_GROUP, qualifiers=NARROWED_QUALIFIERS)
+        assert rules == rules_document(groups=TIGHT_GROUPS, teams=TIGHT_PER_GROUP, qualifiers=TIGHT_QUALIFIERS)
         assert watermark is None
 
     def test_a_shape_the_season_has_exactly_room_for_is_drawn(self, mongo_replica_set_url: str):
-        """The control: four matchdays fit four days, so an off-by-one -- or a span read off another season -- refuses a legal draw."""
+        """The control: five matchdays fit five days, so an off-by-one -- or a span read off another season -- refuses a legal draw."""
 
-        drawn = a_season_drawn_from(mongo_replica_set_url, seed=a_tight_seed(), shape=the_tight_shape(qualifiers=NARROWED_QUALIFIERS))
+        drawn = a_season_drawn_from(mongo_replica_set_url, seed=a_tight_seed(), shape=the_tight_shape(qualifiers=TIGHT_QUALIFIERS))
         expected = expected_counts(
-            FLSaisonRules.model_validate(rules_document(groups=TIGHT_GROUPS, teams=TIGHT_PER_GROUP, qualifiers=NARROWED_QUALIFIERS))
+            FLSaisonRules.model_validate(rules_document(groups=TIGHT_GROUPS, teams=TIGHT_PER_GROUP, qualifiers=TIGHT_QUALIFIERS))
         )
 
         assert (len(drawn.spieltage), len(drawn.spiele)) == expected

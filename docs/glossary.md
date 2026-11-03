@@ -249,7 +249,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 **Is:** `ausgang` inside a `spiel` reference: `sieger` or `verlierer`.\
 **In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielQuelle`.\
-**Trap:** `verlierer` feeds the match for third place, the one fixture the draw wires from it (`fl_backend/app/api/saisons/spielplan.py :: draw_spielplan`): every bracket with semi-finals plays one, fed by the two semi-finals' losers on the Finale's matchday ahead of the final, under the phase `finale` rather than one of its own, so the Finale's `count_spiele` is 2; a bracket of two qualifiers has no semi-final and plays none. A level match with no shoot-out has neither outcome, so a reference to either resolves to nobody and the slot stays empty.
+**Trap:** `verlierer` feeds the match for third place, the one fixture the draw wires from it (`fl_backend/app/api/saisons/spielplan.py :: draw_spielplan`): every bracket plays one, fed by the two semi-finals' losers on the Finale's matchday ahead of the final, under the phase `finale` rather than one of its own, so the Finale's `count_spiele` is 2, and the rules refuse a bracket too small for semi-finals (`rules_bracket_impossible`). A level match with no shoot-out has neither outcome, so a reference to either resolves to nobody and the slot stays empty.
 
 ### `Herkunft` — one German word over four unrelated origins
 

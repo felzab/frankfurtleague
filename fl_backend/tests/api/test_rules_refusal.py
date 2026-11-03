@@ -113,6 +113,14 @@ class TestTheBracketMustHaveAShape:
         assert refusal is not None
         assert refusal.error_code == Code.RULES_BRACKET_IMPOSSIBLE
 
+    def test_refuses_a_final_alone(self):
+        """2 is a power of two with no semi-finals, so no match for third place and two places where the podium shows four."""
+
+        refusal = judge(proposed=rules(groups=2, qualifiers=1))
+
+        assert refusal is not None
+        assert refusal.error_code == Code.RULES_BRACKET_IMPOSSIBLE
+
     def test_permits_resubmitting_an_illegal_product_unchanged(self):
         """`rules` is required on the patch, so a season stored with 4 x 3 would otherwise be unpatchable, dates included."""
 

@@ -46,9 +46,6 @@ Score = tuple[tuple[int, ...], tuple[int, ...]]
 # `(number_of_groups, teams_per_group, qualifiers_per_group)`. Every `BRACKET_SEEDING` row is drawn
 # by one of these, and each shape's legality is derived rather than trusted -- both below.
 SHAPES: tuple[tuple[int, int, int], ...] = (
-    (1, 2, 2),
-    (2, 3, 1),
-    (1, 6, 2),
     (1, 7, 4),
     (1, 8, 8),
     (2, 4, 2),
