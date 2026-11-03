@@ -4,13 +4,13 @@ import { card, cardSurface } from "./cardStyles";
 import { tv } from "./tv";
 
 /**
- * The final boxes a template waits for: a table's rows, a match list's, the match cards a Spielplan sets two a
- * row, a read page's facts, an editor's sections, the school tiles Teams sets four a row.
+ * The final boxes a template waits for: a table's rows, the match cards a Spielplan sets two a row, a read page's
+ * facts, an editor's sections, the school tiles Teams sets four a row.
  */
-export type SkeletonShape = "table" | "spiel" | "cards" | "facts" | "sections" | "tiles";
+export type SkeletonShape = "table" | "cards" | "facts" | "sections" | "tiles";
 
 /** How many rows or boxes each shape draws. */
-const ROWS: Readonly<Record<SkeletonShape, number>> = { table: 8, spiel: 6, cards: 6, facts: 4, sections: 2, tiles: 8 };
+const ROWS: Readonly<Record<SkeletonShape, number>> = { table: 8, cards: 6, facts: 4, sections: 2, tiles: 8 };
 
 /**
  * The shapes whose rows are boxes of their own, laid out as their final boxes are: the sections one under another,
@@ -24,13 +24,10 @@ const GRID: Partial<Record<SkeletonShape, string>> = {
 
 /**
  * Each shape's bars, by their widths, where the final row's columns will stand: a table's rank, its name and
- * three figures at the row's end; a match row's date, home side, score and away side, the date and the away
- * side's bar left out on a phone, whose two-line card stacks them; a match card's date line over its two
- * sides; a fact's label over its value; a section's title; a tile's plaque and its name.
+ * three figures at the row's end; a match card's date line over its two sides; a fact's label over its value; a section's title; a tile's plaque and its name.
  */
 const BARS: Readonly<Record<SkeletonShape, readonly string[]>> = {
   table: ["w-6", "w-1/3", "ms-auto w-6", "w-6", "w-6"],
-  spiel: ["w-20 max-lg:hidden", "w-1/3", "w-8", "w-1/3 max-lg:hidden"],
   cards: ["h-3 w-1/4", "w-1/2", "w-1/2"],
   facts: ["h-3 w-1/4", "w-1/2"],
   sections: ["w-1/2"],
@@ -52,11 +49,10 @@ const skeleton = tv({
     bar: "relative h-4 overflow-hidden rounded-md bg-bg-muted after:absolute after:inset-0 after:animate-[kit-shimmer_2s_linear_infinite] after:bg-linear-to-r after:from-transparent after:via-[rgb(255_255_255/0.55)] after:to-transparent dark:after:via-[rgb(255_255_255/0.09)]",
   },
   variants: {
-    // Each shape's rows at the final box's height: a table's row; a match row, one line on desktop and two on
-    // a phone; a fact, its label over its value; an editor's section, its title over its fields.
+    // Each shape's rows at the final box's height: a table's row; a fact, its label over its value; an editor's
+    // section, its title over its fields.
     shape: {
       table: { row: "h-14 lg:h-13" },
-      spiel: { row: "h-24 lg:h-14" },
       cards: { row: `h-24 flex-col items-start justify-center gap-2 ${cardSurface()} first:border-t` },
       // A fact's label stands over its value, the label's bar shorter and lower.
       facts: { row: "h-14 flex-col items-start justify-center gap-2" },

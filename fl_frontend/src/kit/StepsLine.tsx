@@ -5,8 +5,8 @@ import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 
-/** One stage of the line: when it falls, where the page knows it, its title and its one paragraph. */
-type LineStep = { when?: Copy; title: Copy; text: Copy };
+/** One stage of the line: its title and its one paragraph. */
+type LineStep = { title: Copy; text: Copy };
 
 const line = tv({
   extend: checkpoint,
@@ -18,7 +18,6 @@ const line = tv({
     line: "relative grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-4 pb-6 before:top-6 before:bottom-0 before:left-[calc(0.75rem-1px)] last:pb-0 last:before:hidden lg:grid-cols-1 lg:pt-8 lg:pb-0 lg:before:top-[calc(0.75rem-1px)] lg:before:right-[-1rem] lg:before:bottom-auto lg:before:left-8 lg:before:border-t-2 lg:before:border-l-0",
     point: "lg:absolute lg:top-0 lg:left-0",
     body: "grid gap-1",
-    when: "text-xs font-medium tracking-caps text-fg-muted uppercase",
     title: "text-base font-semibold",
     text: "text-sm text-fg-muted",
   },
@@ -39,7 +38,6 @@ export function StepsLine({ items }: { items: readonly LineStep[] }) {
             {formatNumber(index + 1)}
           </span>
           <div className={slots.body()}>
-            {item.when !== undefined && <p className={slots.when()}>{item.when}</p>}
             <h3 className={slots.title()}>{item.title}</h3>
             <p className={slots.text()}>{item.text}</p>
           </div>
