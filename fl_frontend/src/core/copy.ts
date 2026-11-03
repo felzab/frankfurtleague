@@ -166,6 +166,8 @@ export const COPY = catalogue({
       halbfinale: "Halbfinale",
       finale: "Finale",
     },
+    /** A group matchday, by its served `position`: the season's lists, a match's head and the season card name it alike. */
+    spieltag: (position: number) => `${formatNumber(position)}. Spieltag`,
     afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
     /**
      * The two routes out of a season, each in its three wordings: `label` names the record, `zustand` the club's

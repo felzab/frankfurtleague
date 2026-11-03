@@ -186,7 +186,7 @@ export const SERVER_COPY = catalogue({
     saison: {
       kickoff: (when: string) => `Anpfiff ${when}`,
       /** The opening match's matchday, before its two plaques. */
-      spieltag: (position: number) => `${formatNumber(position)}. Spieltag`,
+      spieltag: COPY.shared.spieltag,
       windowUntil: (until: CalendarDay) => `Bewerbungen bis ${formatDatum(until)}`,
       last: "Zuletzt",
       next: "Als Nächstes",
@@ -216,7 +216,7 @@ export const SERVER_COPY = catalogue({
     /** The match between the two semi-finals' losers: its label, its card's row above the Finale, the pop-up's head. */
     thirdPlace: "Spiel um Platz 3",
     /** A group matchday, as a match's head names it. */
-    spieltag: (position: number) => `${formatNumber(position)}. Spieltag`,
+    spieltag: COPY.shared.spieltag,
     /** A match's own label before its date, on the one line every form of its row shows. */
     labelled: (label: string, when: string) => `${label} · ${when}`,
     /**
