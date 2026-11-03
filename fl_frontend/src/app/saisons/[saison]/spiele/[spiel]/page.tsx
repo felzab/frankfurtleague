@@ -5,7 +5,7 @@ import { ReadPage } from "@/kit/ReadPage";
 import { NONE } from "@/kit/SpielRow";
 
 import { COPY } from "@/core/copy";
-import { formatDatumPair, formatErgebnis, formatNumber, formatUhrzeit } from "@/core/format";
+import { formatDatumPair, formatErgebnis, formatOrdinal, formatUhrzeit } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { PHASE_LABELS } from "@/features/saisons/constants";
@@ -111,7 +111,7 @@ function tilesOf(spiel: FLSpielJoined, position: number): readonly [StatTile, St
   const datum = spiel.datum === null ? null : formatDatumPair(spiel.datum as CalendarDay);
   return [
     group
-      ? { label: fact.spieltag, value: `${formatNumber(position)}.`, line: PHASE_LABELS.gruppenphase }
+      ? { label: fact.spieltag, value: formatOrdinal(position), line: PHASE_LABELS.gruppenphase }
       : { label: fact.spieltag, value: matchdayOf(spiel, position), words: true },
     datum === null ? { label: fact.datum, value: NONE } : { label: fact.datum, value: datum.figure, line: datum.line },
     { label: fact.uhrzeit, value: spiel.uhrzeit === null ? NONE : formatUhrzeit(spiel.uhrzeit as Uhrzeit) },

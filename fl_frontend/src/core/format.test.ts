@@ -10,6 +10,7 @@ import {
   formatInstant,
   formatNumber,
   formatPeriod,
+  formatSigned,
   formatUhrzeit,
 } from "./format.ts";
 
@@ -97,6 +98,13 @@ describe("formatNumber and formatEuro", () => {
 
   it("put the euro sign after a no-break space", async (t) => {
     await same(t, formatEuro(25), "25,00\u00a0€");
+  });
+});
+
+describe("formatSigned", () => {
+  // The runtime's ICU data writes the sign, so a minus it spells another way shows here first.
+  it("signs a difference where it is not level, and a level one bare", async (t) => {
+    await same(t, [formatSigned(3), formatSigned(0), formatSigned(-3)].join(" "), "+3 0 -3");
   });
 });
 

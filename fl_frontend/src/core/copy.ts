@@ -167,6 +167,8 @@ export const COPY = catalogue({
     },
     /** A group matchday, by its served `position`: the season's lists, a match's head and the season card name it alike. */
     spieltag: (position: number) => `${formatNumber(position)}. Spieltag`,
+    /** A knockout matchday where its phase spans several, „Viertelfinale (2)“: the phase's name and the matchday's place in it. */
+    knockoutRound: (phase: Copy, position: number) => `${phase} (${formatNumber(position)})`,
     afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
     /**
      * The two routes out of a season, each in its three wordings: `label` names the record, `zustand` the club's
@@ -441,6 +443,8 @@ export const COPY = catalogue({
       createEntry: "Spielort anlegen …",
       /** One line of a venue's address: its street and number. */
       strasseWithHausnummer: (strasse: string, hausnummer: string) => `${strasse} ${hausnummer}`,
+      /** A whole address on one line, „Schulweg 8, 60317 Frankfurt am Main“, after its street line. */
+      addressLine: (street: Copy, plz: string, stadt: string) => `${street}, ${plz} ${stadt}`,
     },
 
     spiel: {

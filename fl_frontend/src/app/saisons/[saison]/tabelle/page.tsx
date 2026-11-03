@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY } from "@/core/copy";
-import { formatErgebnis, formatNumber } from "@/core/format";
+import { formatErgebnis, formatNumber, formatSigned } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getTabelle } from "@/features/saisons/queries";
@@ -49,9 +49,6 @@ const COLUMNS: TableProps["columns"] = [
   { key: "punkte", label: column.punkte, figures: true, strong: true },
 ];
 
-/** A goal difference, signed where it is not level. */
-const signed = (difference: number) => (difference > 0 ? `+${formatNumber(difference)}` : formatNumber(difference));
-
 /**
  * One club's row: its place as the backend numbers it, level clubs sharing one and a club that has played no
  * match holding none; the bar while its place qualifies, grey while level clubs share it; muted once it has left
@@ -80,7 +77,7 @@ function rowOf(saison: string, row: FLTabelleRow, qualifiers: number, rows: read
       niederlagen: formatNumber(statistik.niederlagen),
       record: { record: [formatNumber(statistik.siege), formatNumber(statistik.unentschieden), formatNumber(statistik.niederlagen)] },
       tore: formatErgebnis({ team1: statistik.tore_geschossen, team2: statistik.tore_kassiert }),
-      differenz: signed(statistik.tore_geschossen - statistik.tore_kassiert),
+      differenz: formatSigned(statistik.tore_geschossen - statistik.tore_kassiert),
       punkte: formatNumber(statistik.punkte),
     },
   };
