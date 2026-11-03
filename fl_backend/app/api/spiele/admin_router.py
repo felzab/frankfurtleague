@@ -305,8 +305,9 @@ async def patch_spiel(
         )
         saison_id = str(stored_raw["saison_id"])
 
-        # Through the session, as every `saison_past` judges its status: `activate_saison` moves it in a
-        # transaction of its own. Ahead of the normalisation because a forfeit is awarded from the rules
+        # Through the session, though the read alone guards nothing: `activate_saison` anchors the
+        # fixtures of every season it closes, so a rollover landing under this save conflicts with its write
+        # and the retry reads `past`. Ahead of the normalisation because a forfeit is awarded from the rules
         # rather than typed.
         saison_raw = await pull_one_from_db(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "status"], session=session

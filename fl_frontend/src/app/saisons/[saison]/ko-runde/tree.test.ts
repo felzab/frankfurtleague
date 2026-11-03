@@ -4,7 +4,7 @@ import { treeOf } from "./tree";
 
 import type { FLSaisonPhase, FLSpielplanSpieltag, FLSpielQuelle } from "@/core/generated/client/types";
 
-/** A knockout match fed by `feeders`' winners, or by the semi-finals' losers where `third` says so. */
+/** A knockout match fed by `feeders`' winners, or the match for third place, fed by the semi-finals' losers and marked so, where `third` says so. */
 const spiel = (spiel_nr: number, saison_phase: FLSaisonPhase, feeders: [number, number] | null, third = false) => {
   const quelle = (nr: number): FLSpielQuelle => ({ type: "spiel", spiel_nr: nr, ausgang: third ? "verlierer" : "sieger" });
   return {
@@ -22,6 +22,7 @@ const spiel = (spiel_nr: number, saison_phase: FLSaisonPhase, feeders: [number, 
     ort: null,
     schiedsrichter: null,
     ansetzung_confirmed: null,
+    for_third_place: third,
     team1: null,
     team2: null,
     team1_quelle: feeders === null ? null : quelle(feeders[0]),

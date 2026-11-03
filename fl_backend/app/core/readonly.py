@@ -46,6 +46,11 @@ class ReadCursor[DocumentT](ReadCommandCursor[DocumentT], Protocol):
 
     def skip(self, skip: int) -> ReadCursor[DocumentT]: ...
 
+    # Its context, which closes it on the way out, so a read stopping at its first match frees the server's cursor.
+    async def __aenter__(self) -> ReadCursor[DocumentT]: ...
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None: ...
+
 
 class ReadCollection[DocumentT: Mapping[str, Any]](Protocol):
     """The reads of `pymongo.asynchronous.collection.AsyncCollection`, each returning a cursor narrowed to its reads.

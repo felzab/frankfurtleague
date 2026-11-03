@@ -1,4 +1,5 @@
-from typing import NamedTuple
+from collections.abc import Mapping
+from typing import Any, NamedTuple
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -61,14 +62,17 @@ async def refuse_a_full_squad(
     # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
-) -> None:
-    """Refuse `kader_full` when this team's squad for this season is already at the season's cap.
+) -> Mapping[str, Any]:
+    """Refuse `kader_full` when this team's squad for this season is already at the season's cap; else the season as read.
 
     Shared by create, transfer and reactivate: the cap is a property of the DESTINATION squad, not
-    of the verb.
+    of the verb. The season comes back with its `start_date`, so the create derives `is_nachnominiert` off this one
+    read rather than a second.
     """
 
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
+    saison_raw = await pull_one_from_db(
+        collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "start_date"], session=session
+    )
 
     # A count is a read, which a snapshot re-validates nowhere, so two writers pass one figure
     # unless something puts them in one write set.
@@ -91,6 +95,8 @@ async def refuse_a_full_squad(
             max_kadergroesse=FLSaisonRules.model_validate(saison_raw["rules"]).max_kadergroesse,
         )
     )
+
+    return saison_raw
 
 
 async def refuse_a_taken_rolle(

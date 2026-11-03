@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import json
 from collections.abc import Awaitable, Callable, Iterator, Mapping
-from typing import Any, NamedTuple, get_args
+from typing import Any, NamedTuple
 
 import pytest
 from bson import ObjectId
 from bson import encode as bson_encode
-from pydantic import ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_team
@@ -22,9 +21,8 @@ from app.api.spieler.schemas import (
     FLSpielerMembership,
     FLSpielerPublic,
     FLSpielerSingleResponse,
-    FLSpielerSortOptions,
 )
-from app.api.spieler.services import build_spieler_pipeline, build_spieler_saisons_pipeline, public_initial
+from app.api.spieler.services import SQUAD_ORDER, build_spieler_pipeline, build_spieler_saisons_pipeline, public_initial
 from app.core.crud import aggregate_many_from_db
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import (
@@ -283,27 +281,25 @@ class TestTheProjection:
         """Serving no `stufe` while `?stufe=` still narrowed would leave the fact readable one level at a time."""
         assert "stufe" not in _project()
         assert "stufe" not in SQUAD_FILTER_FIELDS
-        assert "stufe" not in get_args(FLSpielerSortOptions)
 
     def test_the_backdated_flag_is_gone_from_the_shape_and_from_every_way_of_asking_for_it(self):
         """The same sentence one field up: `is_nachnominiert` is withheld too, so a request per value would partition the squad by it."""
         assert "is_nachnominiert" not in _project()
         assert "is_nachnominiert" not in SQUAD_FILTER_FIELDS
-        assert "is_nachnominiert" not in get_args(FLSpielerSortOptions)
 
     def test_the_sort_runs_after_the_mask_and_not_over_the_stored_names(self):
-        """`sort_by` is a filter term.
-
-        An order keyed on the stored forename answers, for a withheld row, what the projection
-        withholds.
-        """
+        """An order keyed on the stored forename answers, for a withheld row, what the projection withholds."""
         stages = [next(iter(stage)) for stage in build_spieler_pipeline(_filters())]
 
         assert stages.index("$sort") > stages.index("$project")
 
     def test_nothing_a_caller_may_send_narrows_on_a_name(self):
         """The other half of the same channel: a term matching a stored name would report a withheld row's name by which reads return it."""
-        assert SQUAD_FILTER_FIELDS == {"team_id", "saison_id", "limit", "sort_by", "order"}
+        assert SQUAD_FILTER_FIELDS == {"team_id", "saison_id"}
+
+    def test_no_caller_sent_field_orders_the_read(self):
+        """Ordering by a key reads it out whether or not the response carries it, so the order is the pipeline's own."""
+        assert _sort() == SQUAD_ORDER
 
     def test_the_public_sort_does_not_tiebreak_on_the_surname(self):
         """A tie-break is the last place an ordering could still depend on a field the response withholds."""
@@ -315,12 +311,13 @@ class TestTheProjection:
         assert build_spieler_saisons_pipeline()[-1]["$sort"] == {"vorname": 1, "nachname": 1}
 
     @pytest.mark.parametrize("key", ["nachname", "stufe"])
-    def test_the_base_tier_refuses_to_order_by_a_key_it_will_not_serve(self, key: str):
-        """The tie-break was never the whole of it: `sort_by` is a filter term, so surname order could be ASKED for outright."""
-        assert key not in get_args(FLSpielerSortOptions)
+    def test_the_base_tier_takes_no_order_to_ask_for(self, key: str):
+        """The tie-break was never the whole of it: a `sort_by` would let surname order be ASKED for outright, so none is taken."""
+        assert "sort_by" not in SQUAD_FILTER_FIELDS
 
-        with pytest.raises(ValidationError):
-            FLSpielerFilterParams.model_validate({"sort_by": key})
+        filters = FLSpielerFilterParams.model_validate({"team_id": TEAM_OID, "saison_id": SAISON, "sort_by": key})
+
+        assert _sort(filters) == SQUAD_ORDER
 
     def test_the_squad_row_s_retirement_narrows_unconditionally(self):
         """The other half, with no switch: this tier serves no field marking a row it would un-hide (`READ-SQUAD-002`)."""

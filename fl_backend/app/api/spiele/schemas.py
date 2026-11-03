@@ -7,6 +7,7 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter,
 from pydantic_core import PydanticCustomError
 
 from app.api.teams.schemas import FLAustritt
+from app.core.crud import Anchored
 from app.shared.schemas.bounds import (
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
@@ -126,6 +127,10 @@ KNOCKOUT_PHASES: tuple[FLSaisonPhase, ...] = PHASE_ORDER[1:]
 
 # A knockout ladder halves each round down to one final, so the cap is what the phases can hold.
 MAX_QUALIFIERS: int = 2 ** len(KNOCKOUT_PHASES)
+
+# A bracket with semi-finals, so every K.-o.-Runde plays a match for third place and decides four places;
+# a final alone would leave the podium two places short.
+MIN_QUALIFIERS: int = 4
 
 
 # Declared BEFORE what references them: below, they resolve only through PEP 649 deferred
@@ -563,7 +568,7 @@ class FLSpielCommon(BaseReadModel):
     notiz: str | None = None
 
 
-class FLSpiel(FLSpielCommon):
+class FLSpiel(FLSpielCommon, Anchored):
     """One fixture as the `spiele` collection STORES it, and the shape every write composes.
 
     The money is re-declared because `$set` writes this model's dump, and a shape without it would
@@ -607,6 +612,9 @@ class FLSpielJoined(FLSpielCommon):
     # Here and never on `FLSpielCommon`, whose stored child `FLSpiel` would write it onto the fixture at
     # the next save. Required: only the join composes it.
     ansetzung_confirmed: bool | None
+
+    # Whether this is the match for third place, the one rule every reader and the podium read; on the same grounds.
+    for_third_place: bool
 
     # The acceptance gate ahead of the consent gate; `FLSpielJoinedAdmin`
     # re-declares the field plainly, which drops this validator there.

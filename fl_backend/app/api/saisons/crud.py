@@ -4,9 +4,10 @@ from typing import Any
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.bewerbungen.services import build_open_window_filter
+from app.api.bewerbungen.services import SAISON_NOT_ENDED_FILTER, saison_nimmt_bewerbungen_an
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import has_started
+from app.api.teams.services import TAKEN_PLACE_FIELDS, has_taken_place
 from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
@@ -51,37 +52,51 @@ async def pull_massgebliche_saison_id(saisons_collection: ReadCollection, sessio
 async def pull_open_window_saison(*, saisons_collection: AsyncCollection, today: str) -> Mapping[str, Any] | None:
     """The season taking applications today, its window and status alone; `None` where none is.
 
-    Sorted and limited rather than `find_one`: two open windows is a state an administrator can create, and an
-    arbitrary pick would move between reads. Newest season id first, ids being years.
+    Judged by `saison_nimmt_bewerbungen_an`, the rule the submission refuses on, over every season not yet ended, and
+    never by a filter restating it, so the landing cannot offer a window the submission refuses. Newest season id
+    first, ids being years: two open windows is a state an administrator can create, and an arbitrary pick would move
+    between reads.
     """
 
-    open_saisons = await pull_many_from_db(
-        collection=saisons_collection,
-        db_filter=build_open_window_filter(today),
-        limit=1,
-        sort_by=[("_id", -1)],
-        projection=["bewerbung", "status"],
+    candidates = await pull_many_from_db(
+        collection=saisons_collection, db_filter=SAISON_NOT_ENDED_FILTER, sort_by=[("_id", -1)], projection=["bewerbung", "status"]
     )
 
-    return open_saisons[0] if open_saisons else None
+    return next(
+        (raw for raw in candidates if saison_nimmt_bewerbungen_an(saison_status=raw["status"], bewerbung=raw.get("bewerbung"), today=today)),
+        None,
+    )
 
 
-async def nachnominierung_laeuft_in(
+async def a_fixture_has_taken_place(
     *,
-    saisons_collection: ReadCollection,
+    spiele_collection: ReadCollection,
     saison_id: str,
-    today: str,
     # REQUIRED, `None` included: a transactional caller that forgot it would read outside its
     # snapshot in silence, so the omission has to be a TypeError at the call.
     session: AsyncClientSession | None,
 ) -> bool:
+    """Whether any fixture of this season has taken place, which fixes its start (`saison_start_taken_place`).
+
+    Through `has_taken_place`, never a filter restating it, and the cursor stops at the first that has.
+    """
+
+    async with spiele_collection.find({"saison_id": saison_id}, list(TAKEN_PLACE_FIELDS), session=session) as fixtures:
+        async for spiel in fixtures:
+            if has_taken_place(spiel):
+                return True
+
+    return False
+
+
+async def nachnominierung_laeuft_in(*, saisons_collection: ReadCollection, saison_id: str, today: str) -> bool:
     """Whether an entry into this season's squads on `today` is a Nachnominierung: one made once the season has started.
 
     The start every start lock reads (`app/api/saisons/services.py :: has_started`), so the marker and the locks
     cannot disagree about when the season began. 404 where no season has this id.
     """
 
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["start_date"], session=session)
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["start_date"])
 
     return has_started(start_date=saison_raw["start_date"], today=today)
 

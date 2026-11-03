@@ -295,12 +295,11 @@ class FLSaisonsAdminListResponse(BaseAPIResponse):
 
 
 class FLSaisonFrameEntry(BaseReadModel):
-    """One season as the season pages' frame lists it: its id, its span and its status."""
+    """One season as the season pages' frame lists it: its id and its span; which one the site is on is the response's."""
 
     id: str = Field(validation_alias="_id", serialization_alias="id")
     start_date: CustomDateString
     end_date: CustomDateString
-    status: FLSaisonStatus
 
 
 FLSaisonFrameEntryListAdapter = TypeAdapter(list[FLSaisonFrameEntry])
@@ -452,11 +451,10 @@ class FLSpielPageResponse(BaseAPIResponse):
     bericht: FLSpielberichtPublic | None
 
 
-# Where the season the site is on stands: before its first group match is played, while it runs, and once all
-# four places are in.
 # The places the landing celebrates once a season is decided.
 PODIUM_PLACES: Final = 4
 
+# Where the season the site is on stands: before its start date, from it while it runs, and once all four places are in.
 type FLLandingState = Literal["before_start", "running", "decided"]
 
 
@@ -505,13 +503,13 @@ FLPodium = tuple[FLPodiumPlace, FLPodiumPlace, FLPodiumPlace, FLPodiumPlace]
 
 
 class FLLandingCounts(BaseReadModel):
-    """The season's four figures, counted on every read: its clubs, its goals, its matches and its matchdays.
+    """Three of the season's four figures, counted on every read: its goals, its matches and its matchdays.
 
-    `count_tore` is both sides' goals summed over every match of any phase the Tabelle would count, one carrying an
-    `ergebnis`: a forfeit's awarded goals among them, a shoot-out's never.
+    The fourth, its clubs, is the length of the `teams` served beside them. `count_tore` is both sides' goals summed over
+    every match of any phase the Tabelle would count, one carrying an `ergebnis`: a forfeit's awarded goals among them, a
+    shoot-out's never.
     """
 
-    count_teams: int = Field(ge=0)
     count_tore: int = Field(ge=0)
     count_spiele: int = Field(ge=0)
     count_spieltage: int = Field(ge=0)

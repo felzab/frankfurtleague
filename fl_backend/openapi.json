@@ -7619,7 +7619,7 @@
         "type": "object"
       },
       "FLLandingCounts": {
-        "description": "The season's four figures, counted on every read: its clubs, its goals, its matches and its matchdays.\n\n`count_tore` is both sides' goals summed over every match of any phase the Tabelle would count, one carrying an\n`ergebnis`: a forfeit's awarded goals among them, a shoot-out's never.",
+        "description": "Three of the season's four figures, counted on every read: its goals, its matches and its matchdays.\n\nThe fourth, its clubs, is the length of the `teams` served beside them. `count_tore` is both sides' goals summed over\nevery match of any phase the Tabelle would count, one carrying an `ergebnis`: a forfeit's awarded goals among them, a\nshoot-out's never.",
         "properties": {
           "count_spiele": {
             "minimum": 0.0,
@@ -7631,11 +7631,6 @@
             "title": "Count Spieltage",
             "type": "integer"
           },
-          "count_teams": {
-            "minimum": 0.0,
-            "title": "Count Teams",
-            "type": "integer"
-          },
           "count_tore": {
             "minimum": 0.0,
             "title": "Count Tore",
@@ -7643,7 +7638,6 @@
           }
         },
         "required": [
-          "count_teams",
           "count_tore",
           "count_spiele",
           "count_spieltage"
@@ -11149,7 +11143,7 @@
         "type": "object"
       },
       "FLSaisonFrameEntry": {
-        "description": "One season as the season pages' frame lists it: its id, its span and its status.",
+        "description": "One season as the season pages' frame lists it: its id and its span; which one the site is on is the response's.",
         "properties": {
           "end_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -11164,16 +11158,12 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Start Date",
             "type": "string"
-          },
-          "status": {
-            "$ref": "#/components/schemas/FLSaisonStatus"
           }
         },
         "required": [
           "id",
           "start_date",
-          "end_date",
-          "status"
+          "end_date"
         ],
         "title": "FLSaisonFrameEntry",
         "type": "object"
@@ -12949,6 +12939,10 @@
             ],
             "title": "Ergebnis"
           },
+          "for_third_place": {
+            "title": "For Third Place",
+            "type": "boolean"
+          },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id",
@@ -13085,7 +13079,8 @@
           "saison_phase",
           "saison_id",
           "notiz",
-          "ansetzung_confirmed"
+          "ansetzung_confirmed",
+          "for_third_place"
         ],
         "title": "FLSpielJoined",
         "type": "object"
@@ -13137,6 +13132,10 @@
               }
             ],
             "title": "Ergebnis"
+          },
+          "for_third_place": {
+            "title": "For Third Place",
+            "type": "boolean"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -13280,6 +13279,7 @@
           "saison_id",
           "notiz",
           "ansetzung_confirmed",
+          "for_third_place",
           "version"
         ],
         "title": "FLSpielJoinedAdmin",
@@ -14270,12 +14270,13 @@
         "type": "object"
       },
       "FLSpielberichtKartePublic": {
-        "description": "One card, its `grund` never served: a characterisation of a named pupil's conduct.",
+        "description": "One card, `seite` its player's club, its `grund` never served: a characterisation of a named pupil's conduct.",
         "properties": {
           "farbe": {
             "$ref": "#/components/schemas/FLKartenFarbe"
           },
           "minute": {
+            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
             "title": "Minute",
             "type": "string"
           },
@@ -14875,12 +14876,14 @@
         "type": "object"
       },
       "FLSpielberichtTorPublic": {
+        "description": "One goal: `seite` is the scorer's own club, and an own goal (`eigentor`) counts for the other one.",
         "properties": {
           "eigentor": {
             "title": "Eigentor",
             "type": "boolean"
           },
           "minute": {
+            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
             "title": "Minute",
             "type": "string"
           },
@@ -17592,6 +17595,10 @@
             ],
             "title": "Ergebnis"
           },
+          "for_third_place": {
+            "title": "For Third Place",
+            "type": "boolean"
+          },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id",
@@ -17734,6 +17741,7 @@
           "saison_id",
           "notiz",
           "ansetzung_confirmed",
+          "for_third_place",
           "spieltag_position"
         ],
         "title": "FLTeamPageSpiel",
@@ -24960,7 +24968,7 @@
     },
     "/api/v0/saisons/{saison_id}/tabelle": {
       "get": {
-        "description": "Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.\n\nA club that left the season keeps its row and holds no `platz`, and neither does a club that has played no match,\nlisted after every club that has; 404 for a season this tier may not read.",
+        "description": "Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.\n\nA club that left the season keeps its row; it holds no `platz` where it left before its group was decided, and\nneither does a club that has played no match, listed after every club that has; 404 for a season this tier may not\nread.",
         "operationId": "saisons_get_tabelle",
         "parameters": [
           {

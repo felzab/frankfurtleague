@@ -48,6 +48,7 @@ function spiel(spielNr: number, over: Partial<FLSpiel> = {}): FLSpiel {
     saison_id: "2526",
     notiz: null,
     ansetzung_confirmed: null,
+    for_third_place: false,
     ...over,
   };
 }

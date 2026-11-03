@@ -131,11 +131,12 @@ retired row. `retire_blocked`, `spielort_still_booked` and `schiedsrichter_still
 **Where a document really is removed, the removal is what the operation is for.** A confirmed **replace** of
 a season's draw takes its matchdays and fixtures away and writes fresh ones; an **undraw** takes the same two
 sets away and writes nothing back, and what it is for is [the rules
-below](#a-seasons-rules-are-the-interesting-case). A pupil's **erasure** removes the person, every one of
-their squad rows and their values in the action log, as one transaction over all three, and asks no
-retirement first — any one of the three alone would leave the erasure defeated
-while reporting success, the squad read joining from the person outward and a log row holding what was erased
-being exactly the record the erasure exists to remove.
+below](#a-seasons-rules-are-the-interesting-case). A pupil's **erasure** removes the person and every one of
+their squad rows, repoints every scorer and card entry naming them in a match report at the erased sentinel
+(`fl_backend/app/api/spielberichte/crud.py :: repoint_pupil_entries_in_session`) and removes their values in the
+action log, as one transaction over all four, and asks no retirement first — any one of the four alone would
+leave the erasure defeated while reporting success, a report entry or a log row holding what was erased being
+exactly the record the erasure exists to remove.
 
 ### A season's rules are the interesting case
 
@@ -189,10 +190,11 @@ start; after a match it would reopen what the start locks closed.
 - **Every group plays one round robin, and the groups play in step.** Round _k_ of every group is matchday
   _k_, which is what keeps a club from standing twice on one matchday and makes every group finish together.
   An odd-sized group leaves one club on a bye each round rather than shortening the phase.
-- **The bracket has to have a shape.** Groups times qualifiers-per-group must be a power of two the round set
-  can hold (`rules_bracket_impossible`), because a knockout ladder halves each round down to one final; the rounds are
+- **The bracket has to have a shape.** Groups times qualifiers-per-group must be a power of two from four up to
+  what the round set can hold (`rules_bracket_impossible`), because a knockout ladder halves each round down to one
+  final and the podium needs semi-finals to fill four places; the rounds are
   `fl_backend/app/api/spiele/schemas.py :: KNOCKOUT_PHASES`, declared in playing order, and each of them is
-  one matchday. Wherever semi-finals precede the final, their two losers play for third place on the Finale's
+  one matchday. The two semi-final losers play for third place on the Finale's
   matchday, ahead of the final and under its phase (`fl_backend/app/api/saisons/schedule.py :: plays_for_third_place`).
 - **A bracket fixture is drawn naming its sources rather than its teams.** A side is fed by a group placing,
   or by which side came out of an earlier fixture — so the whole season is drawn end to end before anybody has
@@ -305,7 +307,7 @@ no later feature can come to depend on a flag.
 - **A Spieltag on which a club already stands twice.** The swap, `spieltag_occupied` and `spieltag_occupied_by_the_resolution`
   refuse only a pair the write would create, since refusing over a standing fault would block its repair;
   each standing appearance is reported.
-- **A departed club holding drawn fixtures.** It keeps its group place and its opponents need a fixture to
+- **A departed club holding drawn fixtures.** It keeps its row in its group and its opponents need a fixture to
   record the walkover on; `eligibility_disqualified` refuses only a request disturbing one.
 - **A group phase in which every club qualifies.** A seeding-only group stage is a real format, so
   `rules_qualifiers_above_gruppe` bounds the qualifiers from above alone.

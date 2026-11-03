@@ -124,7 +124,7 @@ function sectionsOf(saison: FLLandingSaison | null, window: FLBewerbungWindow | 
         <LandingSection title={words.figures.title(saison.id)}>
           <Figures
             items={[
-              { value: saison.counts.count_teams, label: words.figures.schulen },
+              { value: saison.teams.length, label: words.figures.schulen },
               { value: saison.counts.count_tore, label: words.figures.tore },
               { value: saison.counts.count_spiele, label: words.figures.spiele },
               { value: saison.counts.count_spieltage, label: words.figures.spieltage },

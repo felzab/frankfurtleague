@@ -29,16 +29,16 @@ import type { Route } from "next";
 const dayOf = (datum: string | null): CalendarDay | null => (datum === null ? null : (datum as CalendarDay));
 const timeOf = (uhrzeit: string | null): Uhrzeit | null => (uhrzeit === null ? null : (uhrzeit as Uhrzeit));
 
-/** The match between the two semi-finals' losers, which the draw feeds from a semi-final's `verlierer`. */
-export function isThirdPlace(spiel: Pick<FLSpielJoined, "team1_quelle" | "team2_quelle">): boolean {
-  return [spiel.team1_quelle, spiel.team2_quelle].some((quelle) => quelle?.type === "spiel" && quelle.ausgang === "verlierer");
+/** The match between the two semi-finals' losers, as the read marks it: the one rule the podium reads too. */
+export function isThirdPlace(spiel: Pick<FLSpielJoined, "for_third_place">): boolean {
+  return spiel.for_third_place;
 }
 
 /**
  * What a matchday is called where the page names a single one: a group matchday by its number, a knockout one
  * by its round, the third-place match by its own name.
  */
-export function matchdayOf(spiel: Pick<FLSpielJoined, "saison_phase" | "team1_quelle" | "team2_quelle">, position: number): string {
+export function matchdayOf(spiel: Pick<FLSpielJoined, "saison_phase" | "for_third_place">, position: number): string {
   if (isThirdPlace(spiel)) return SERVER_COPY.season.thirdPlace;
   return spiel.saison_phase === "gruppenphase" ? SERVER_COPY.season.spieltag(position) : PHASE_LABELS[spiel.saison_phase];
 }

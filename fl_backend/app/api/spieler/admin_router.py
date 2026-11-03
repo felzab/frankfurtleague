@@ -8,6 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.adresswechsel.crud import verwehrte_adressen
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.saisons.crud import nachnominierung_laeuft_in
+from app.api.saisons.services import has_started
 from app.api.spieler.crud import (
     pull_a_person_to_enter,
     refuse_a_full_squad,
@@ -147,7 +148,7 @@ async def get_spieler_nachnominierung(
 
     return FLSpielerNachnominierungResponse(
         saison_id=saison_id,
-        nachnominierung=await nachnominierung_laeuft_in(saisons_collection=saisons_collection, saison_id=saison_id, today=today, session=None),
+        nachnominierung=await nachnominierung_laeuft_in(saisons_collection=saisons_collection, saison_id=saison_id, today=today),
     )
 
 
@@ -262,7 +263,7 @@ async def post_saison_spieler(
         # Asked first: a cap on a squad the club does not have is not a fact worth reporting.
         refuse(find_squad_refusal(team_in_saison=team_in_saison))
 
-        await refuse_a_full_squad(
+        saison_raw = await refuse_a_full_squad(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_spieler_data.saison_id,
@@ -289,9 +290,8 @@ async def post_saison_spieler(
             "spieler_id": spieler_id,
             **saison_spieler_data.model_dump(mode="json", exclude={"team_id"}),
             "team_id": saison_spieler_data.team_id,
-            "is_nachnominiert": await nachnominierung_laeuft_in(
-                saisons_collection=saisons_collection, saison_id=saison_spieler_data.saison_id, today=today, session=session
-            ),
+            # The start every start lock reads, off the cap's read of the season.
+            "is_nachnominiert": has_started(start_date=saison_raw["start_date"], today=today),
             "inactive_since": None,
         }
         await post_one_to_db(collection=saison_spieler_collection, document=document, session=session)

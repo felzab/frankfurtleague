@@ -18,7 +18,7 @@ const saison = (fields: Partial<FLLandingSaison>): FLLandingSaison => ({
   recent: [],
   upcoming: [],
   podium: null,
-  counts: { count_teams: 0, count_tore: 0, count_spiele: 0, count_spieltage: 0 },
+  counts: { count_tore: 0, count_spiele: 0, count_spieltage: 0 },
   teams: [],
   ...fields,
 });
@@ -49,6 +49,7 @@ const spiel = (id: string): FLSpielJoined => ({
   elfmeterschiessen: null,
   sonderereignis: null,
   ansetzung_confirmed: null,
+  for_third_place: false,
   notiz: null,
   ort: null,
   schiedsrichter: null,

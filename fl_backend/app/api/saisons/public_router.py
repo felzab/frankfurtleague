@@ -5,7 +5,6 @@ from typing import Any, Final
 from fastapi import APIRouter, Depends
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.bewerbungen.services import saison_nimmt_bewerbungen_an
 from app.api.saisons.crud import CURRENT_SAISON_FILTER, pull_active_saison, pull_open_window_saison
 from app.api.saisons.schemas import (
     FLBewerbungWindow,
@@ -121,13 +120,12 @@ async def get_frame(saisons_collection: SaisonsCollection) -> FLSaisonFrameRespo
         projection=["_id", "start_date", "end_date", "status"],
         limit=LIST_LIMIT_MAX,
     )
-    saisons = FLSaisonFrameEntryListAdapter.validate_python(saisons_raw)
 
     # The stored status alone: `uniq_saison_active` holds at most one, and activating the next
     # season is the one write that moves it, so a finished season stays the site's until then.
-    active_saison_id = next((saison.id for saison in saisons if saison.status == "active"), None)
+    active_saison_id = next((str(raw["_id"]) for raw in saisons_raw if raw["status"] == "active"), None)
 
-    return FLSaisonFrameResponse(saisons=saisons, active_saison_id=active_saison_id)
+    return FLSaisonFrameResponse(saisons=FLSaisonFrameEntryListAdapter.validate_python(saisons_raw), active_saison_id=active_saison_id)
 
 
 # How many of the latest results, and of the next matches, the landing shows while the season runs.
@@ -136,7 +134,8 @@ LANDING_SPIELE: Final = 2
 
 _SPIELTAG_ROWS_AS = "spieltag_rows"
 
-# The matchday's `position` beside the match, which a match's page and the landing's opening match name it by, in the same aggregation.
+# The matchday's `position` beside the match, in the same aggregation: the landing's opening match, the club page's
+# matches and a match's page each name its matchday by it.
 _SPIELTAG_POSITION_LOOKUP: Mapping[str, Any] = {
     "$lookup": {
         "from": Collection.SPIELTAGE,
@@ -172,6 +171,12 @@ def _first_kickoff_pipeline(saison_id: str) -> list[Mapping[str, Any]]:
     ]
 
 
+async def _no_rows() -> list[Mapping[str, Any]]:
+    """What a read the landing's state cannot serve answers, without the round trip."""
+
+    return []
+
+
 async def _active_or_none(saisons_collection: AsyncCollection) -> Mapping[str, Any] | None:
     """The season the site is on, its id and `start_date`; the `active` one, which no tier withholds."""
 
@@ -199,12 +204,10 @@ async def get_landing(
         pull_open_window_saison(saisons_collection=saisons_collection, today=today),
     )
 
-    # The submission's own rule over what the query found, so the landing never offers a window it refuses.
     window = (
-        FLBewerbungWindow(saison_id=str(open_window["_id"]), von=open_window["bewerbung"]["von"], bis=open_window["bewerbung"]["bis"])
-        if open_window is not None
-        and saison_nimmt_bewerbungen_an(saison_status=open_window["status"], bewerbung=open_window["bewerbung"], today=today)
-        else None
+        None
+        if open_window is None
+        else FLBewerbungWindow(saison_id=str(open_window["_id"]), von=open_window["bewerbung"]["von"], bis=open_window["bewerbung"]["bis"])
     )
 
     if saison_raw is None:
@@ -212,10 +215,17 @@ async def get_landing(
 
     saison_id = str(saison_raw["_id"])
     in_saison = {"saison_id": saison_id}
-    # Two groups of reads sent at once, because one gather of nine types none of its results.
+    # The start every start lock reads, so the countdown reaching zero and the season reading as running are one instant.
+    # Known before any match is read, so only the reads its state can serve are sent: the opening match before it, the
+    # two lists after. The Finale is read either way, a played one deciding the season over both.
+    started = has_started(start_date=saison_raw["start_date"], today=today)
+    # Two groups of reads sent at once, because `asyncio.gather`'s typing stops at six: one gather of eight types none
+    # of its results.
     (first_raw, recent_raw, upcoming_raw, finale_raw), (teams, tore_raw, count_spiele, count_spieltage) = await asyncio.gather(
         asyncio.gather(
-            aggregate_many_from_db(collection=spiele_collection, pipeline=_first_kickoff_pipeline(saison_id), limit=1),
+            _no_rows()
+            if started
+            else aggregate_many_from_db(collection=spiele_collection, pipeline=_first_kickoff_pipeline(saison_id), limit=1),
             aggregate_many_from_db(
                 collection=spiele_collection,
                 pipeline=build_spiele_pipeline(
@@ -223,7 +233,9 @@ async def get_landing(
                     sort_by=[("datum", -1), ("uhrzeit", -1), ("spiel_nr", -1)],
                     limit=LANDING_SPIELE,
                 ),
-            ),
+            )
+            if started
+            else _no_rows(),
             aggregate_many_from_db(
                 collection=spiele_collection,
                 pipeline=build_spiele_pipeline(
@@ -231,7 +243,9 @@ async def get_landing(
                     sort_by=[("datum", 1), ("uhrzeit", 1), ("spiel_nr", 1)],
                     limit=LANDING_SPIELE,
                 ),
-            ),
+            )
+            if started
+            else _no_rows(),
             aggregate_many_from_db(
                 collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={**in_saison, "saison_phase": "finale"})
             ),
@@ -266,8 +280,6 @@ async def get_landing(
 
     first = first_raw[0] if first_raw else None
 
-    # The start every start lock reads, so the countdown reaching zero and the season reading as running are one instant.
-    started = has_started(start_date=saison_raw["start_date"], today=today)
     state: FLLandingState = "decided" if podium is not None else "running" if started else "before_start"
 
     return FLLandingResponse(
@@ -280,7 +292,6 @@ async def get_landing(
             upcoming=FLSpielJoinedListAdapter.validate_python(upcoming_raw) if state == "running" else [],
             podium=podium,
             counts=FLLandingCounts(
-                count_teams=len(teams),
                 # No group row where no match counts yet.
                 count_tore=tore_raw[0]["tore"] if tore_raw else 0,
                 count_spiele=count_spiele,
@@ -391,8 +402,9 @@ async def get_tabelle(
 ) -> FLTabelleResponse:
     """Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.
 
-    A club that left the season keeps its row and holds no `platz`, and neither does a club that has played no match,
-    listed after every club that has; 404 for a season this tier may not read.
+    A club that left the season keeps its row; it holds no `platz` where it left before its group was decided, and
+    neither does a club that has played no match, listed after every club that has; 404 for a season this tier may not
+    read.
     """
 
     saison = await resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id)
@@ -432,20 +444,6 @@ async def get_teams(saison_id: str, saisons_collection: SaisonsCollection, teams
     return FLSaisonTeamsResponse(teams=teams)
 
 
-_SPIELTAG_ROWS_AS = "spieltag_rows"
-
-# The matchday's `position` beside the match, which the page's eyebrow names it by, in the same aggregation.
-_SPIELTAG_POSITION_LOOKUP: Mapping[str, Any] = {
-    "$lookup": {
-        "from": Collection.SPIELTAGE,
-        "localField": "spieltag_id",
-        "foreignField": "_id",
-        "pipeline": [{"$project": {"_id": 0, "position": 1}}],
-        "as": _SPIELTAG_ROWS_AS,
-    }
-}
-
-
 @router.get(f"/{{saison_id}}/teams{by_id('team_id')}", response_model=FLTeamPageResponse, summary="One team's page in one Saison")
 async def get_team(
     saison_id: str,
@@ -460,19 +458,19 @@ async def get_team(
     404 for a season this tier may not read and for a club the season does not hold.
     """
 
-    saison = await resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id)
-
     # A club that left the league stays addressable by id, as `GET /teams/{team_id}` keeps it: a caller holding one
     # was given it by something.
-    club_filters = FLTeamsFilterParams(saison_id=saison.id, include_inactive=True)
-    club_raw, tabelle, spiele_raw, kader_raw = await asyncio.gather(
+    club_filters = FLTeamsFilterParams(saison_id=saison_id, include_inactive=True)
+    # Beside the resolve, for `_spielplan_of`'s reason: each needs the path's id alone, and none is served before the
+    # resolve has passed.
+    saison, club_raw, spiele_raw, kader_raw = await asyncio.gather(
+        resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
         aggregate_many_from_db(collection=teams_collection, pipeline=build_team_pipeline(filters=club_filters, rules=None, team_id=team_id)),
-        pull_tabelle(teams_collection=teams_collection, spiele_collection=spiele_collection, saison_id=saison.id, rules=saison.rules),
         aggregate_many_from_db(
             collection=spiele_collection,
             pipeline=[
                 *build_spiele_pipeline(
-                    db_filter={"saison_id": saison.id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
+                    db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
                     sort_by=[("spiel_nr", 1)],
                 ),
                 _SPIELTAG_POSITION_LOOKUP,
@@ -480,13 +478,18 @@ async def get_team(
         ),
         aggregate_many_from_db(
             collection=saison_spieler_collection,
-            pipeline=build_spieler_pipeline(FLSpielerFilterParams(team_id=team_id, saison_id=saison.id)),
+            pipeline=build_spieler_pipeline(FLSpielerFilterParams(team_id=team_id, saison_id=saison_id)),
             collation=GERMAN_COLLATION,
         ),
     )
 
     if not club_raw:
         raise DocumentNotFoundError()
+
+    # After the resolve, being the one read that needs the season's rules.
+    tabelle = await pull_tabelle(
+        teams_collection=teams_collection, spiele_collection=spiele_collection, saison_id=saison.id, rules=saison.rules
+    )
 
     standing = next((row for rows in tabelle.root.values() for row in rows if row.id == team_id), None)
 

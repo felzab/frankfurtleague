@@ -129,6 +129,7 @@ def joined_document() -> dict[str, Any]:
         "team1": {**document["team1"], "austritt": None, AUSTRITT_TYPE_KEY: None},
         "team2": {**document["team2"], "austritt": dict(AUSTRITT), AUSTRITT_TYPE_KEY: AUSTRITT["type"]},
         "ansetzung_confirmed": None,
+        "for_third_place": False,
         # A referee publishing their name and agreeing to this fixture: both gates pass, so the reduction is what is left.
         "schiedsrichter": {**document["schiedsrichter"], "name_is_public": True, "einsatz_confirmed": True},
     }
@@ -283,6 +284,8 @@ BASE_TIER_FIXTURE_FIELDS = frozenset(
         "notiz",
         # A verdict and never a row: no seat, no answer's reason.
         "ansetzung_confirmed",
+        # The one rule for the match for third place, which the join composes.
+        "for_third_place",
     }
 )
 
