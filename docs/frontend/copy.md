@@ -97,7 +97,7 @@ there.
 | Tooltip                 | 5 words                                                  | names an icon-only control, nothing more                                                      |
 | Section info tip (ⓘ)    | 2 sentences, about 200 characters                        | only where a named question needs it                                                          |
 | Field error             | one phrase, one line, 80 characters                      | a fixed pattern                                                                               |
-| Form refusal            | 1 short sentence, the status line's two lines on a phone | a refusal about the whole form; one about a field shows on that field                         |
+| Form refusal            | 1 short sentence, the status line's two lines on a phone | a refusal about the whole form, or about a field no pattern words, naming that field          |
 | Failure line            | 1 short sentence, the status line's two lines on a phone | what happened, never the repair; a failure no reason names, the one line `failure.unexpected` |
 | Empty state             | 1 sentence plus at most one button                       | which narrowing emptied it                                                                    |
 | Toast                   | a title of 1 to 3 words, no body                         | a past participle; a failure, the one line `failure.unexpected`                               |
@@ -117,7 +117,7 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   rule refused the value, filled with the bounds the rule names („Höchstens 11“ under the Startelf's
   box). The address example is `field.exampleAddress`, a reserved domain, never a school's address.
 - **A refusal a person can cause knowingly from the screen** that one of `field`'s patterns words
-  shows on its field's box, and the status line says `checkFields`. Every other such refusal, about
+  shows on its field's box, and the status line says `COPY.template.checkFields`. Every other such refusal, about
   the whole form or about a field no pattern can word, takes the status line in one short sentence
   that fits its two lines on a phone and names its field itself where it has one; a field phrase
   never stands on the status line, since it has no subject there. Every other refusal takes a
