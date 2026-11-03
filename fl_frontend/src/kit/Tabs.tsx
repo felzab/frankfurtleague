@@ -56,7 +56,7 @@ export function Tabs({
                 scroll={scroll}
                 aria-current={tab.id === selectedKey ? "page" : undefined}
                 data-kit-focus="inset"
-                className="flex h-9 items-center border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap text-fg-muted transition-colors duration-(--motion-state) hover:text-fg aria-[current=page]:border-brand aria-[current=page]:text-fg pointer-coarse:h-11">
+                className="flex h-8 items-center border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap text-fg-muted transition-colors duration-(--motion-state) hover:text-fg aria-[current=page]:border-brand aria-[current=page]:text-fg pointer-coarse:h-10">
                 {tab.label}
               </NextLink>
             </li>

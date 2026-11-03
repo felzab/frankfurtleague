@@ -91,7 +91,7 @@ const landing = tv({
     // The lead's three lines and the hero's two buttons.
     lead: "grid gap-2",
     acts: "flex flex-wrap gap-3",
-    button: "h-9 w-32 rounded-lg",
+    button: "h-8 w-32 rounded-lg pointer-coarse:h-10",
     // The season card, the kit's card: its name and its chip in the head's band, then its body.
     cardBox: card().root(),
     cardHead: card().head(),

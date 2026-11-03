@@ -228,7 +228,7 @@ export function RailPage({
   /**
    * The page's one icon-only way on beside its title, after its chip, such as the Spielplan's magnifier to
    * the Spielsuche: the kit's link, which its tooltip names. It may wait for the page's address, as the
-   * magnifier names its season, so it streams in a boundary of its own, its 36-px place held meanwhile.
+   * magnifier names its season, so it streams in a boundary of its own, its icon button's place held meanwhile.
    */
   action?: ReactNode;
   /** The editor's bar, at the foot of the content from the rail's separator to the edge. */
@@ -242,7 +242,7 @@ export function RailPage({
         <RailToggle />
         {title === null ? <SkeletonTitle /> : <h1 className={heading()}>{titleOf(title)}</h1>}
         {chip !== undefined && <Chip {...chip} />}
-        {action !== undefined && <Suspense fallback={<span className="size-9 shrink-0" />}>{action}</Suspense>}
+        {action !== undefined && <Suspense fallback={<span className="size-8 shrink-0 pointer-coarse:size-10" />}>{action}</Suspense>}
         {scope === "saison" && (
           <nav
             aria-label={COPY.template.navigation}

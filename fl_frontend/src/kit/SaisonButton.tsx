@@ -41,7 +41,7 @@ const trigger = tv({
       },
       band: {
         place: "ms-auto shrink-0",
-        root: "h-9 border-on-brand/45 bg-transparent px-3 font-medium text-on-brand pointer-coarse:h-11",
+        root: "h-8 border-on-brand/45 bg-transparent px-3 font-medium text-on-brand pointer-coarse:h-10",
         arrow: "text-on-brand/80",
       },
     },

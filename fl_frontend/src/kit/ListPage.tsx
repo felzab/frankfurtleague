@@ -120,7 +120,7 @@ function FiltersSpace() {
   return (
     <div
       aria-hidden
-      className="h-9 lg:h-20 pointer-coarse:h-11 lg:pointer-coarse:h-22"
+      className="h-8 lg:h-19 pointer-coarse:h-10 lg:pointer-coarse:h-21"
     />
   );
 }

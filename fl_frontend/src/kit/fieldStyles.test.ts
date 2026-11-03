@@ -15,7 +15,7 @@ describe("a short field's width in the built stylesheet", () => {
   it.each([
     ["C2", "calc(3ch + 1.375rem)"],
     ["C5", "calc(6ch + 1.375rem)"],
-    ["C10", "calc(11ch + 1.375rem + 2.25rem)"],
+    ["C10", "calc(11ch + 1.375rem + 2rem)"],
   ] as const)("sets %s to %s, in characters of the field's own font", async (width, value) => {
     const [name] = widthOf(fieldFrame({ width, inset: "full" }));
     expect(name).toBeDefined();
@@ -28,7 +28,7 @@ describe("a short field's width in the built stylesheet", () => {
       .find((name) => name.startsWith("pointer-coarse:w-"));
     expect(coarse).toBeDefined();
     const rules = await declared(coarse!, "width");
-    expect(rules.map((rule) => rule.value)).toStrictEqual(["calc(11ch + 1.375rem + 2.75rem)"]);
+    expect(rules.map((rule) => rule.value)).toStrictEqual(["calc(11ch + 1.375rem + 2.5rem)"]);
   });
 });
 

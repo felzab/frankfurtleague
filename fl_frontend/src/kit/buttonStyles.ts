@@ -7,7 +7,7 @@ import { tv } from "./tv";
  */
 export const buttonLook = tv({
   // The border colour is named on every variant: HeroUI's base sheet colours every element's border.
-  base: "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg border text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) data-disabled:opacity-50 pointer-coarse:h-11",
+  base: "inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-lg border text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) data-disabled:opacity-50 pointer-coarse:h-10",
   variants: {
     look: {
       primary: "border-transparent bg-brand-solid px-3.5 text-on-brand",
@@ -16,7 +16,7 @@ export const buttonLook = tv({
       danger: "border-transparent bg-danger-solid px-3.5 text-on-brand",
       // The quiet act beside or beneath a primary one, such as the passkey offer's „Später“: words alone.
       quiet: "border-transparent bg-transparent px-3.5 text-fg-muted",
-      icon: "w-9 border-transparent bg-transparent text-fg pointer-coarse:w-11",
+      icon: "w-8 border-transparent bg-transparent text-fg pointer-coarse:w-10",
     },
     // React Aria's button marks its own hover, which a touch never sets; a plain anchor takes the pointer's
     // `:hover`, which Tailwind applies only where the device can hover.
