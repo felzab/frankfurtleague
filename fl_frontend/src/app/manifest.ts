@@ -11,7 +11,7 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     // Both copied from `fl_frontend/src/app/tokens.css` because the manifest is JSON. The title bar
     // takes the light theme's `--bg-surface`, the browser bar's colour: the manifest offers no
-    // colour-scheme media, and the dark value is the viewport's in `layout.tsx`.
+    // colour-scheme media, and the dark value is `fl_frontend/src/kit/ThemeColor.tsx`'s, which the root layout renders.
     theme_color: "#ffffff",
     // `--brand-solid`, not white: `background_color` paints the splash before the first frame, so an
     // installed app would open on a white flash.
