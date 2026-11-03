@@ -45,9 +45,6 @@ function OpeningPlaque({ side }: { side: OpeningSide }) {
   );
 }
 
-/** Between the opening match's two plaques, as a fixture's pairing reads. */
-const VERSUS = "–";
-
 /**
  * Where the season stands: before its start, a countdown to it and its opening match once one is dated; while
  * the league has no season on, the next one's application window; while it runs, its last result once there is
@@ -122,7 +119,7 @@ function Body({ state }: { state: SaisonState }) {
               <p className={slots.opening()}>
                 <span className={slots.openingLabel()}>{state.opening.spieltag}</span>
                 <OpeningPlaque side={state.opening.home} />
-                <span aria-hidden>{VERSUS}</span>
+                <span aria-hidden>{COPY.shared.versus}</span>
                 <OpeningPlaque side={state.opening.away} />
               </p>
             </>
