@@ -1,4 +1,13 @@
-import { formatDatum, formatDatumLong, formatDatumWithWeekday, formatErgebnis, formatList, formatNumber, formatUhrzeit } from "./format";
+import {
+  formatDatum,
+  formatDatumLong,
+  formatDatumWithWeekday,
+  formatErgebnis,
+  formatList,
+  formatNumber,
+  formatOrdinal,
+  formatUhrzeit,
+} from "./format";
 
 import type { CalendarDay, Pair, Uhrzeit } from "./format";
 
@@ -193,7 +202,7 @@ export const COPY = catalogue({
       finale: "Finale",
     },
     /** A group matchday, by its served `position`: the season's lists, a match's head and the season card name it alike. */
-    spieltag: (position: number) => `${formatNumber(position)}. Spieltag`,
+    spieltag: (position: number) => `${formatOrdinal(position)} Spieltag`,
     /** A knockout matchday where its phase spans several, „Viertelfinale (2)“: the phase's name and the matchday's place in it. */
     knockoutRound: (phase: Copy, position: number) => `${phase} (${formatNumber(position)})`,
     afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
@@ -301,7 +310,7 @@ export const COPY = catalogue({
     /** A side the draw has not settled: its source short in the dashed plaque, and in full as its name. */
     quelle: {
       gruppeShort: (gruppe: string, platz: number) => `${gruppe}${formatNumber(platz)}`,
-      gruppe: (gruppe: string, platz: number) => `${formatNumber(platz)}. der Gruppe ${gruppe}`,
+      gruppe: (gruppe: string, platz: number) => `${formatOrdinal(platz)} der Gruppe ${gruppe}`,
       siegerShort: (spiel: number) => `S${formatNumber(spiel)}`,
       sieger: (spiel: number) => `Sieger von Spiel ${formatNumber(spiel)}`,
       verliererShort: (spiel: number) => `V${formatNumber(spiel)}`,

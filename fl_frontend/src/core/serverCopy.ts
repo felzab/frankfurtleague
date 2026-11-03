@@ -2,7 +2,7 @@ import "server-only";
 
 import { KONTAKT_EMAIL } from "./brand";
 import { catalogue, COPY, textOf } from "./copy";
-import { formatDatum, formatNumber, formatSigned } from "./format";
+import { formatDatum, formatNumber, formatOrdinal, formatSigned } from "./format";
 
 import type { Copy, Words } from "./copy";
 import type { CalendarDay } from "./format";
@@ -21,7 +21,7 @@ const TEAM = "Team";
 const DIFFERENZ = "Diff.";
 const SPIELBETRIEB = "Spielbetrieb";
 const gruppeName = (gruppe: string) => `Gruppe ${gruppe}`;
-const placeName = (platz: number) => `${formatNumber(platz)}. ${PLATZ}`;
+const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
 
 /**
  * The catalogue's entries only the server reads, so no client bundle carries them: `COPY` is one object, and a
