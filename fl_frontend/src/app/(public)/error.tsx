@@ -16,7 +16,7 @@ export default function PublicErrorBoundary({ error }: { error: unknown }) {
   useReportClientCrash(error);
   return (
     <StatusCard
-      mark="error"
+      tone="danger"
       title={COPY.shared.failure.unexpected}
       next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}
     />

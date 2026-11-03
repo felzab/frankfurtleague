@@ -14,7 +14,7 @@ describe("a status card", () => {
     render(
       <main>
         <StatusCard
-          mark="info"
+          tone="info"
           title={notFound.title}
           sentence={notFound.sentence}
           next={{ label: COPY.shared.end.toHome, href: "/" }}
@@ -30,7 +30,7 @@ describe("a status card", () => {
     render(
       <StatusPage
         frame="classic"
-        mark="error"
+        tone="danger"
         title={COPY.shared.failure.unexpected}
         next={{ label: COPY.shared.end.toHome, href: "/" }}
       />,

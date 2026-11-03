@@ -48,7 +48,7 @@ export function MailedPage(
       return (
         <StatusPage
           frame="classic"
-          mark="warning"
+          tone="warn"
           title={COPY.template.linkInvalid}
           sentence={COPY.shared.end.linkInvalid}
           next={props.next}
@@ -58,7 +58,7 @@ export function MailedPage(
       return (
         <StatusPage
           frame="classic"
-          mark="info"
+          tone="info"
           title={props.title}
           sentence={props.sentence}
           next={props.next}

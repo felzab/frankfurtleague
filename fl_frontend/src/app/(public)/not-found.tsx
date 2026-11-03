@@ -15,7 +15,7 @@ export default function PublicNotFound() {
   const words = SERVER_COPY.landing.notFound;
   return (
     <StatusCard
-      mark="info"
+      tone="info"
       title={words.title}
       sentence={words.sentence}
       next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}

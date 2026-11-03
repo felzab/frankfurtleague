@@ -15,7 +15,7 @@ export default function ClassicError({ error }: { error: unknown }) {
   return (
     <StatusPage
       frame="classic"
-      mark="error"
+      tone="danger"
       title={COPY.shared.failure.unexpected}
       next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}
     />
