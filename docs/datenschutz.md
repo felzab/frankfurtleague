@@ -218,8 +218,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **There is no guardian workflow.** No code composes a consent on a guardian's word: a pupil's own
   registration is what records one, and the record holds no field naming anyone else as its source
   (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`).
-- **Nothing about a person is published without that person's recorded consent.** Both public reads
-  of a pupil decide through `fl_backend/app/api/spieler/services.py :: name_is_public`, which
+- **Nothing about a person is published without that person's recorded consent.** The three public
+  reads of a pupil decide by one rule, `fl_backend/app/api/spieler/services.py :: name_is_public`:
+  the read of one pupil by id (`fl_backend/app/api/spieler/public_router.py :: get_spieler_by_id`)
+  through the function, and the club page's squad and the match report
+  (`fl_backend/app/api/spieler/services.py :: build_spieler_pipeline`,
+  `fl_backend/app/api/spielberichte/services.py :: build_public_bericht_pipeline`) through its
+  expression at the join, `fl_backend/app/shared/einwilligung.py :: NAME_IS_PUBLIC`. The rule
   publishes a name only where the consent record is present, its `umfang` is `kader_oeffentlich` and
   its `confirmed_at` is stamped; every other row is
   served as a nameless slot keeping its `nummer` and `position`. No squad row carries the pupil's
@@ -288,8 +293,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
 ## 4. What is published, and on what basis
 
 - **A club's street address is public and the application form says so**
-  (`fl_backend/app/api/teams/schemas.py :: _TeamWritable.address`, which `:: FLTeam` serves on both
-  team reads; `fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx`).
+  (`fl_backend/app/api/teams/schemas.py :: _TeamWritable.address`, which `:: FLTeam` serves on the
+  read of one team and `:: FLTeamPageClub` on the club page;
+  `fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx`).
   **Datenschutzexperte consulted.** Ruled 2026-08.
 - **The address sentence stands on the acceptance screen as well as on the application form.** The
   acceptance screen is where the administrator takes the action that publishes it, which
@@ -322,6 +328,19 @@ Every ruling below is the sign-up flow as it stands for the next season.
   named and no squad served, and writes it no more, whoever wrote it.
   The published notice says so.
   Ruled 2026-10-20, the season's bound the same day.
+- **A match's page publishes its report's goals and cards and the clubs' line-ups, each pupil named
+  through the squad lists' gate.** The public match read
+  (`fl_backend/app/api/saisons/public_router.py :: get_spiel`, through
+  `fl_backend/app/api/spielberichte/services.py :: compose_public_bericht`) serves, on an adopted
+  report alone, each goal's minute, side and scorer and each card's minute, colour and player, and
+  never a card's reason or the report's remarks. Whether or not the report is adopted, it serves
+  each club's line-up as the club entered it, which the match page shows under its starters and
+  its bench (`fl_frontend/src/app/saisons/[saison]/spiele/[spiel]/page.tsx :: lineupOf`). Every pupil it
+  names is served with their shirt number and position, their name where
+  [section 2](#2-consent-comes-from-the-person-from-16-or-18)'s rule publishes it and a nameless
+  slot otherwise. Whether a card may stand beside the name of a player of sixteen or seventeen is
+  open, and the deploy that ships the read waits on the answer
+  ([section 11](#11-open-and-owed-a-decision)).
 - **A photograph, a video or an interview needs a consent of its own, and only a person of eighteen
   or over may give it, for the Datenschutzexperte.** The consent is separate from the name and
   answered as a yes or a no on a pupil's, a referee's and a contact person's confirmation page
@@ -337,20 +356,22 @@ Every ruling below is the sign-up flow as it stands for the next season.
   `fl_backend/app/api/einwilligung/services.py :: find_self_medien_refusal` for a contact person, against
   `fl_backend/app/shared/schemas/bounds.py :: MEDIEN_MIN_AGE_YEARS`). Such media is published on this
   website and on the league's Instagram account; ruled 2026-09-23.
-- **The organisers named on the public Organisation page each fully agreed to be listed**, having confirmed
-  it to me directly on 2026-09-02. The page carries a forename apiece
-  (`fl_frontend/src/features/meta/constants.ts :: TEAM_MEMBERS`), and the board's full names stand
+- **The organisers named on the public pages each fully agreed to be listed**, having confirmed
+  it to me directly on 2026-09-02. The landing and the About page carry a forename apiece
+  (`fl_frontend/src/features/meta/constants.ts :: ORGANISERS`), and the board's full names stand
   in the same public source (`fl_frontend/src/core/brand.ts :: VORSTAND`), so removal is a code
   change plus a deploy, and a name stays in the repository's history regardless. The published notice
   says exactly that, as I ruled on 2026-09-22: a withdrawal takes a name off the site and out of the
   current code, and earlier versions stay in the public history
-  (`DatenschutzView.tsx :: frühere Fassungen bleiben in dessen öffentlicher Versionsgeschichte`). The page's source
+  (`DatenschutzView.tsx :: frühere Fassungen bleiben in dessen öffentlicher Versionsgeschichte`). The list's source
   carries this record once it leaves here.
-- **AI crawlers are both asked and blocked, and the block is the source of truth.** The request
-  is the edge's managed `robots.txt`, which it puts before the one
-  `fl_frontend/src/app/robots.ts` writes; the edge's crawler block enforces it. Both settings live
-  in the hosting dashboard rather than in this repository, which records that they exist and are
-  deliberate, and [`ops/spec.md`](ops/spec.md) records whether each is on.
+- **AI crawlers are blocked, and asked as well once the edge's managed `robots.txt` is switched
+  on; the block is the source of truth.** The edge's crawler block enforces the opt-out. The
+  request is the managed `robots.txt`, which the edge puts before the one
+  `fl_frontend/src/app/robots.ts` writes, and while that setting is off nothing declares the opt-out
+  ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state) records whether each is on). Both
+  settings live in the hosting dashboard rather than in this repository, which records that they
+  exist and are deliberate.
 - **The free-text fields on public pages stay public** — a fixture's note, a withdrawal's reason and
   a club's description — with the input saying so (`READ-FREETEXT-001`, `READ-FREETEXT-002`, and
   for the description `fl_backend/app/api/teams/schemas.py :: _TeamWritable.description`, served by
@@ -1022,7 +1043,8 @@ Each row cites where the decision now lives.
 
 ## 11. Open, and owed a decision
 
-- **No Datenschutzexperte reviews the questions below.** Since 2026-09-21 I decide the legal
+- **No Datenschutzexperte reviews the questions below, save the one on a card published beside a
+  named minor.** Since 2026-09-21 I decide the legal
   questions myself, and on 2026-09-22 I waived the review
   the rulings above were waiting on. A ruling above marked **for the Datenschutzexperte** is a legal
   characterisation I have decided; that mark stays, as the marks on the entries below do, so a later
@@ -1168,15 +1190,10 @@ Each row cites where the decision now lives.
   (`fl_backend/app/api/saisons/public_router.py :: get_spiel`, through
   `fl_backend/app/api/spielberichte/services.py :: compose_public_bericht`) serves each card's colour
   and minute on an adopted report beside the public name of a pupil whose consent publishes it, and
-  never the card's reason. The same read serves each club's line-up for the match, which the match
-  page shows under its starters and its bench
-  (`fl_frontend/src/app/saisons/[saison]/spiele/[spiel]/page.tsx :: lineupOf`): every pupil it
-  lists, with their shirt number and position, their name through the squad lists' gate
-  ([section 2](#2-consent-comes-from-the-person-from-16-or-18)) and a nameless slot otherwise, and
-  served whether or not the report is adopted. The question is whether a booking may stand there beside the name of a
-  player of sixteen or seventeen. Unlike the section's other entries, which the waiver above covers,
-  this one I put to the Datenschutzexperte: the answer is owed before the deploy that ships the read,
-  and the deploy waits on it.
+  never the card's reason ([section 4](#4-what-is-published-and-on-what-basis)). The question is
+  whether a booking may stand there beside the name of a player of sixteen or seventeen. This one I
+  put to the Datenschutzexperte: the answer is owed before the deploy that ships the read, and the
+  deploy waits on it.
 - **The edge's clearance after a challenge, and the bot check on three forms, for the
   Datenschutzexperte.** A Managed Challenge meets a navigation to the sign-in page and to the
   application form, and passing it leaves a clearance in the browser that spares the visitor a
