@@ -11,7 +11,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
 import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
-import { matchdayOf, matchRowOf } from "@/features/spiele/blocks";
+import { matchdayOf, matchRowOf, outcomeFor } from "@/features/spiele/blocks";
 import { austrittChip, austrittZustand } from "@/features/teams/constants";
 import { buildMapsSearchUrl } from "@/shared/utils/format";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -137,6 +137,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         items: spiele.map((spiel, index) => ({
           id: spiel.id,
           mark: { record: formatNumber(index + 1) },
+          counts: true,
+          outcome: outcomeFor(spiel, team.id),
           title: matchdayOf(spiel, spiel.spieltag_position),
           children: <SpielList matches={[matchRowOf(spiel)]} />,
         })),

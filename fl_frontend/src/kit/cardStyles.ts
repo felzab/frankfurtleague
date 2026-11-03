@@ -15,6 +15,28 @@ export const cardSurface = tv({ base: "rounded-lg border border-border bg-bg-car
 export const cardHover = tv({ base: "transition-colors duration-(--motion-state) hover:bg-bg-muted" });
 
 /**
+ * The column head's look: small muted capitals, 40 px tall, over a hairline, on the card's own fill. A table's
+ * head row reads it, and so does every subhead parting the groups inside one card, such as a line-up's starters
+ * and bench or the season card's last and next match, through `GroupHead`: a card's head is the one band it
+ * carries, so a group inside it is headed as a column is and never by a second band.
+ */
+export const columnHead = tv({
+  slots: {
+    // On a table's head row, the row its heads share; on a subhead, the subhead itself.
+    rule: "border-b border-border",
+    text: "h-10 text-xs font-medium tracking-caps whitespace-nowrap text-fg-muted uppercase",
+  },
+  variants: {
+    // In line with what the head stands over: a table's 12-px cells, or a card's 16-px rows such as a match's.
+    inset: {
+      cells: { text: "px-3" },
+      rows: { text: "px-4" },
+    },
+  },
+  defaultVariants: { inset: "cells" },
+});
+
+/**
  * A card's look, shared by the server-rendered `Card`, `CardLink` and `CardRow` and the client `CardFold`, so a
  * ruling on the card's surface, its head's fill or a row's hover changes one recipe. Kept apart from the
  * client module, whose every export a Server Component would receive as a reference it cannot call.
@@ -30,6 +52,8 @@ export const card = tv({
     head: "grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 border-b border-border bg-bg-card-head px-4 py-3",
     title: "text-base font-semibold break-words",
     count: "col-start-2 row-start-1 font-numeric text-sm text-fg-muted",
+    // A title with its chip after it, the chip keeping its size while the title wraps.
+    named: "flex min-w-0 items-center gap-2",
     line: "col-span-2 text-sm text-fg-muted",
     // A grid item is never narrower than its content by default, so a wide table would be cut at the card's
     // edge; the body shrinks to the card instead, where the table truncates its names or scrolls as its page

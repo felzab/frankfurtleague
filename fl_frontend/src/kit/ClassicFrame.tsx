@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import Image from "next/image";
 
@@ -25,12 +26,43 @@ async function Year() {
   return COPY.template.copyright(now().getFullYear(), COPY.brand.name);
 }
 
+/** One of the footer's link groups under its heading, a landmark named by it. */
+function FooterGroup({ heading, links }: { heading: Copy; links: ReadonlyArray<HeaderLink> }) {
+  return (
+    <nav
+      aria-label={heading}
+      className="grid content-start gap-1">
+      <h2 className="mb-1 text-xs font-semibold tracking-caps text-fg-muted uppercase">{heading}</h2>
+      {links.map((link) => (
+        <Link
+          key={link.href}
+          href={link.href}
+          placement="footer"
+          label={link.label}
+        />
+      ))}
+    </nav>
+  );
+}
+
+/** The „Saison“ group once the season the site is on is read, and nothing where the league has none. */
+async function SeasonGroup({ pages }: { pages: Promise<ReadonlyArray<HeaderLink> | null> }) {
+  const read = await pages;
+  return read === null ? null : (
+    <FooterGroup
+      heading={COPY.shared.saison}
+      links={read}
+    />
+  );
+}
+
 /**
  * The classic public frame, which a layout places around the landing, About, Kontakt, the sponsors page,
  * the legal pages, the application form, the pages a mail opens and the sign-in: the dark-green band with
- * the logo, its links and „Anmelden“ at the top, the footer at the foot. The footer holds the league's line,
- * Instagram and Threads, its link groups, „Sponsoren“ under „Liga“, and the sponsors' logos under „Mit
- * Unterstützung von“ above the © line.
+ * the logo, its links and „Anmelden“ at the top, the footer at the foot. The footer holds the logo and the
+ * league's line at the left with Instagram and Threads as glyph links under them, the question door's, and to
+ * their right three link groups, „Saison“, „Liga“ closed by „Sponsoren“, and „Rechtliches“, two a row on a
+ * phone; under them the sponsors' logos under „Mit Unterstützung von“ above the © line.
  *
  * Each page's template writes its title and its content through `ClassicPage` and `ClassicTitle`.
  */
@@ -38,8 +70,9 @@ export function ClassicFrame({
   season,
   links,
   signIn,
-  groups,
+  seasonPages,
   liga,
+  legal,
   social,
   sponsors,
   children,
@@ -50,17 +83,18 @@ export function ClassicFrame({
   links: ReadonlyArray<HeaderLink>;
   /** Where „Anmelden“ leads. */
   signIn: Route;
-  /** The footer's link groups beside the league's own, each under its heading. */
-  groups: ReadonlyArray<{ heading: Copy; links: ReadonlyArray<HeaderLink> }>;
+  /** The pages of the season the site is on, the footer's „Saison“ group once read; null where the league has none. */
+  seasonPages: Promise<ReadonlyArray<HeaderLink> | null>;
   /** The „Liga“ group's links before „Sponsoren“, which closes it. */
   liga: ReadonlyArray<HeaderLink>;
+  /** The „Rechtliches“ group's links, the legal pages. */
+  legal: ReadonlyArray<HeaderLink>;
   /** The league's Instagram and Threads addresses. */
   social: { instagram: string; threads: string };
   /** Each sponsor's logo, small and grey, as a link to its site, its full name the logo's name, its short name beside it where it has one; no line while there are none. */
   sponsors: ReadonlyArray<Sponsor>;
   children: ReactNode;
 }) {
-  const ligaLinks = [...liga, { label: COPY.page.sponsors, href: ROUTES.sponsors.path() }];
   return (
     // The header's height is `tokens.css`'s, read by the header, by a page filling the first screen under it
     // (`ClassicPage`) and by the toasts.
@@ -80,39 +114,40 @@ export function ClassicFrame({
 
       <footer className="shrink-0 border-t border-border bg-bg px-4 lg:px-8">
         <div className="mx-auto grid w-full max-w-classic gap-6 py-6 lg:py-8">
-          <div className="grid gap-6 lg:grid-cols-[2fr_1fr_1fr]">
-            <div className="grid content-start gap-2">
+          <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
+            <div className="grid content-start justify-items-start gap-2">
               <Brand ground="page" />
               <p className="text-sm text-fg-muted">{COPY.template.oberstufenliga}</p>
-              <div className="flex gap-4">
+              {/* The glyphs the question door draws, so the networks read the same on every page. */}
+              <div className="flex gap-2">
                 <Link
                   href={social.instagram}
-                  placement="footer"
+                  placement="icon"
+                  icon="instagram"
                   label={COPY.template.instagram}
                 />
                 <Link
                   href={social.threads}
-                  placement="footer"
+                  placement="icon"
+                  icon="threads"
                   label={COPY.template.threads}
                 />
               </div>
             </div>
-            {[{ heading: COPY.template.liga, links: ligaLinks }, ...groups].map((group) => (
-              <nav
-                key={group.heading}
-                aria-label={group.heading}
-                className="grid content-start gap-1">
-                <h2 className="mb-1 text-xs font-semibold tracking-caps text-fg-muted uppercase">{group.heading}</h2>
-                {group.links.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    placement="footer"
-                    label={link.label}
-                  />
-                ))}
-              </nav>
-            ))}
+            <div className="grid grid-cols-2 gap-6 lg:grid-cols-3">
+              {/* The season's pages wait for the read naming the season; the footer stands below the first screen. */}
+              <Suspense fallback={null}>
+                <SeasonGroup pages={seasonPages} />
+              </Suspense>
+              <FooterGroup
+                heading={COPY.template.liga}
+                links={[...liga, { label: COPY.page.sponsors, href: ROUTES.sponsors.path() }]}
+              />
+              <FooterGroup
+                heading={COPY.template.legal}
+                links={legal}
+              />
+            </div>
           </div>
           {sponsors.length > 0 && (
             <div className="grid gap-2">

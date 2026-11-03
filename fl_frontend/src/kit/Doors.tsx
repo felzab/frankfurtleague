@@ -8,7 +8,7 @@ import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps, ReactElement } from "react";
 
 /** A door's own words: its title and its one paragraph. */
 type DoorWords = { title: Copy; text: Copy };
@@ -32,7 +32,7 @@ const doors = tv({
  * that section's third heading step; standing alone under a page's title, as the sponsors page's door, its
  * second.
  */
-export function Door({ title, text, level = 3, act }: { title: Copy; text?: Copy; level?: 2 | 3; act: ReactNode }) {
+export function Door({ title, text, level = 3, act }: { title: Copy; text?: Copy; level?: 2 | 3; act: ReactElement }) {
   const slots = doors();
   const Title = level === 2 ? "h2" : "h3";
   return (

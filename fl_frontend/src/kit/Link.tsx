@@ -55,15 +55,15 @@ export const frameLink = tv({
 });
 
 /**
- * An entry of a list a frame opens, its glyph before its words where it has one: a menu's, 36 px on desktop,
- * and a sheet's, 44 px on a phone.
+ * An entry of a list a frame opens, its glyph before its words where it has one: a menu's, 32 px on desktop,
+ * and a sheet's, 40 px on a phone, as tall as every control.
  */
 export const menuEntry = tv({
   base: "flex items-center gap-3 rounded-md px-3 font-medium text-fg",
   variants: {
     size: {
-      desktop: "h-9 text-sm",
-      phone: "h-11 text-base",
+      desktop: "h-8 text-sm",
+      phone: "h-10 text-base",
     },
   },
 });

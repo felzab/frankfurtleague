@@ -11,36 +11,48 @@ import { getSaisonFrame } from "@/features/saisons/queries";
 import type { HeaderLink } from "@/kit/FrameNav";
 import type { ReactNode } from "react";
 
-/** The league's own pages: the header's two, and the footer's group with the legal pages. */
+/** The league's own pages: the header's two and the footer's „Liga“ group, and the footer's legal pages. */
 const ABOUT = { label: COPY.page.about, href: ROUTES.about.path() };
 const CONTACT = { label: COPY.page.contact, href: ROUTES.contact.path() };
 const LEGAL_NOTICE = { label: COPY.page.legalNotice, href: ROUTES.legalNotice.path() };
 const PRIVACY_NOTICE = { label: COPY.page.privacyNotice, href: ROUTES.privacyNotice.path() };
 
 /**
- * The season the site is on, as the header's first entry: its name, leading to its Spielplan. Read from the frame,
- * the season pages' one source for it, on a request, so the frame's prerendered shell holds none: the image's
- * build reaches no backend.
+ * The season the site is on, read from the frame, the season pages' one source for it, on a request, so the
+ * frame's prerendered shell holds none: the image's build reaches no backend.
  */
-async function readSeasonEntry(): Promise<HeaderLink | null> {
+async function readActiveSaison(): Promise<string | null> {
   await connection();
   const { active_saison_id: active } = await getSaisonFrame();
-  if (active === null) return null;
-  return { label: COPY.shared.saisonName(active), href: ROUTES.spielplan.path(active) };
+  return active;
 }
 
 /**
  * The classic public frame around a page, as its layout places it and as the root's not-found page, which
- * renders under the root layout alone, places it again.
+ * renders under the root layout alone, places it again. The season the site is on is read once, for the
+ * header's first entry, its name leading to its Spielplan, and for the footer's „Saison“ group of its pages.
  */
 export function Classic({ children }: { children: ReactNode }) {
+  const active = readActiveSaison();
   return (
     <ClassicFrame
-      season={readSeasonEntry()}
+      season={active.then((saison): HeaderLink | null =>
+        saison === null ? null : { label: COPY.shared.saisonName(saison), href: ROUTES.spielplan.path(saison) },
+      )}
       links={[ABOUT, CONTACT]}
       signIn={ROUTES.signIn.path()}
-      groups={[]}
-      liga={[ABOUT, CONTACT, LEGAL_NOTICE, PRIVACY_NOTICE]}
+      seasonPages={active.then((saison) =>
+        saison === null
+          ? null
+          : [
+              { label: COPY.page.spielplan, href: ROUTES.spielplan.path(saison) },
+              { label: COPY.page.tabelle, href: ROUTES.tabelle.path(saison) },
+              { label: COPY.page.teams, href: ROUTES.teams.path(saison) },
+              { label: COPY.shared.kORunde, href: ROUTES.kORunde.path(saison) },
+            ],
+      )}
+      liga={[ABOUT, CONTACT]}
+      legal={[LEGAL_NOTICE, PRIVACY_NOTICE]}
       social={{ instagram: INSTAGRAM_URL, threads: THREADS_URL }}
       sponsors={SPONSORS}>
       {children}

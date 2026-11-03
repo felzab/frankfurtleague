@@ -15,9 +15,10 @@ import type { CardProps } from "./Card";
  * accordion pattern), so the card's title stays a heading a reader can jump to. It is not `<details>`,
  * because a heading inside `<summary>` is not exposed as a heading in every browser and reader. A folded
  * body stays in the document as `hidden="until-found"`, which a browser's find on the page opens. It starts
- * folded on every screen, so the server's markup is its first frame everywhere.
+ * folded on every screen, so the server's markup is its first frame everywhere. Its head carries no chip, which
+ * stands in a plain card's head alone.
  */
-export function CardFold({ title, count, action, body = "rows", children, line }: CardProps) {
+export function CardFold({ title, count, action, body = "rows", children, line }: CardProps & { chip?: never }) {
   const s = card({ body, fold: true });
   return (
     <Disclosure className={s.root()}>

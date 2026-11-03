@@ -1,11 +1,10 @@
-import { useId } from "react";
-
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import { cardSurface } from "./cardStyles";
+import { Card } from "./Card";
 import { Countdown } from "./Countdown";
+import { GroupHead } from "./GroupHead";
 import { Link } from "./Link";
 import { Podium } from "./Podium";
 import { SpielList } from "./SpielRow";
@@ -15,6 +14,7 @@ import { tv } from "./tv";
 import type { Copy, RecordText } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { Route } from "next";
+import type { ChipProps } from "./Chip";
 import type { Place } from "./Podium";
 import type { SpielRowProps } from "./SpielRow";
 
@@ -64,28 +64,44 @@ type SaisonState =
   | { kind: "running"; last?: Shown; next?: Shown }
   | { kind: "decided"; places: readonly [Place, Place, Place, Place] };
 
+/**
+ * The chip naming the state in the card's head: a season still ahead, its application window included, in the
+ * informing blue, a running one in the green of success, a decided one in the warning's amber, each apart from
+ * the others by its hue.
+ */
+const STATE_CHIP: Record<SaisonState["kind"], ChipProps> = {
+  countdown: { tone: "info", label: SERVER_COPY.landing.saison.state.planned },
+  window: { tone: "info", label: SERVER_COPY.landing.saison.state.planned },
+  running: { tone: "success", label: SERVER_COPY.landing.saison.state.running },
+  decided: { tone: "warn", label: SERVER_COPY.landing.saison.state.decided },
+};
+
 const block = tv({
   slots: {
-    root: "grid min-w-0 content-start gap-4",
-    head: "flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1",
-    title: "text-base font-semibold",
-    box: `grid gap-4 ${cardSurface()} p-4`,
+    // A state worded rather than listed, inside the card's padding.
+    padded: "grid gap-4 p-4",
     line: "text-sm text-fg-muted",
     // The plaques alone, one short line a phone never wraps.
     opening: "flex items-center gap-2 text-sm",
     openingLabel: "text-fg-muted",
-    group: "grid gap-2",
-    groupTitle: "text-xs font-medium tracking-caps text-fg-muted uppercase",
+    // The last and the next match, each under its head, a hairline between the two.
+    group: "border-t border-border first:border-t-0",
   },
 });
 
 function Group({ title, spiel }: { title: Copy; spiel: Shown }) {
   const slots = block();
   return (
-    <div className={slots.group()}>
-      <h3 className={slots.groupTitle()}>{title}</h3>
-      <SpielList matches={[spiel]} />
-    </div>
+    <section className={slots.group()}>
+      <GroupHead
+        text={title}
+        inset="rows"
+      />
+      <SpielList
+        matches={[spiel]}
+        bare
+      />
+    </section>
   );
 }
 
@@ -94,7 +110,7 @@ function Body({ state }: { state: SaisonState }) {
   switch (state.kind) {
     case "countdown":
       return (
-        <div className={slots.box()}>
+        <div className={slots.padded()}>
           {/* The server's instant seeds the count, so the markup it sends is the markup the page hydrates. */}
           <Countdown
             start={state.start}
@@ -115,7 +131,7 @@ function Body({ state }: { state: SaisonState }) {
       );
     case "window":
       return (
-        <div className={slots.box()}>
+        <div className={slots.padded()}>
           <p>{SERVER_COPY.landing.saison.windowUntil(state.until)}</p>
           <Link
             href={state.apply}
@@ -148,32 +164,17 @@ function Body({ state }: { state: SaisonState }) {
 }
 
 /**
- * The season's card beside the hero, the one part of the landing that changes with the season's state: its
- * name, a link on to its matches, and the state's own content. Rendered on a request, or in a cached scope,
- * since the countdown reads the server's clock for its first figures.
+ * The season's card beside the hero, the one part of the landing that changes with the season's state: the kit's
+ * card in every state, the season's name in its head with the state's chip, and the state's own content in its
+ * body. It carries no link to the matches, since the hero's „Spielplan“ button beside it leads there. Rendered on a
+ * request, or in a cached scope, since the countdown reads the server's clock for its first figures.
  */
-export function SaisonBlock({ title, more, state }: { title: Copy; more?: { label: Copy; href: Route }; state: SaisonState }) {
-  const id = useId();
-  const slots = block();
+export function SaisonBlock({ title, state }: { title: Copy; state: SaisonState }) {
   return (
-    <section
-      aria-labelledby={id}
-      className={slots.root()}>
-      <div className={slots.head()}>
-        <h2
-          id={id}
-          className={slots.title()}>
-          {title}
-        </h2>
-        {more !== undefined && (
-          <Link
-            href={more.href}
-            placement="standalone"
-            label={more.label}
-          />
-        )}
-      </div>
+    <Card
+      title={title}
+      chip={STATE_CHIP[state.kind]}>
       <Body state={state} />
-    </section>
+    </Card>
   );
 }

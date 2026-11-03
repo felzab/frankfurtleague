@@ -1,8 +1,7 @@
-import { textOf } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import { cardSurface } from "./cardStyles";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -16,7 +15,7 @@ export type Place = Placed | null;
 
 const podium = tv({
   slots: {
-    root: `grid gap-0 overflow-hidden ${cardSurface()}`,
+    root: "grid",
     steps: "grid grid-cols-3 items-end gap-2 px-4 pt-4",
     // Read in its place's order, drawn 2 · 1 · 3: the winner in the middle, second at the left, third at the right.
     place: "grid min-w-0 justify-items-center gap-2 text-center",
@@ -40,14 +39,17 @@ const podium = tv({
 });
 
 /**
- * A place's plaque and name. A vacant place draws the dashed open plaque, which names nothing, and its label in the
- * name's stead, so the label is what a screen reader reads for it.
+ * A place's plaque and name. A vacant place draws the dashed open plaque holding the dash, which already says no
+ * club stands there, and its label one rung under a name, 12 px muted, so it says why without standing where a
+ * club's name would; the label alone is what a screen reader reads for it.
  */
 function Who({ club, nameClass }: { club: Place; nameClass: string }) {
   return club === null ? (
     <>
-      <TeamPlaque plaque={{ quelle: null }} />
-      <span className={nameClass}>{SERVER_COPY.landing.saison.vacant}</span>
+      <span aria-hidden>
+        <TeamPlaque plaque={{ quelle: COPY.shared.noValue }} />
+      </span>
+      <span className="min-w-0 text-xs text-fg-muted">{SERVER_COPY.landing.saison.vacant}</span>
     </>
   ) : (
     <>
@@ -57,7 +59,10 @@ function Who({ club, nameClass }: { club: Place; nameClass: string }) {
   );
 }
 
-/** The decided season's places 1 to 3 on a three-step podium, and place 4 as a row under it; any place may be vacant. */
+/**
+ * The decided season's places 1 to 3 on a three-step podium, and place 4 as a row under it; any place may be vacant.
+ * It has no box of its own: it stands in the season card's body, whose box holds it.
+ */
 export function Podium({ places }: { places: readonly [Place, Place, Place, Place] }) {
   const [first, second, third, fourth] = places;
   const slots = podium();

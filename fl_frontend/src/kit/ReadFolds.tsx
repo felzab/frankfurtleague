@@ -1,6 +1,7 @@
 import { textOf } from "@/core/copy";
 
 import { CardFold } from "./CardFold";
+import { GroupHead } from "./GroupHead";
 import { Table } from "./Table";
 
 import type { Copy, Words } from "@/core/copy";
@@ -33,8 +34,7 @@ export function ReadFolds({ cards }: { cards: ReadonlyArray<FoldedCard> }) {
               <section
                 key={part.head}
                 className="border-t border-border first:border-t-0">
-                {/* Set as a column head is, small muted capitals, so the card's head stays the one band it carries. */}
-                <h3 className="px-3 pt-3 text-xs font-medium tracking-caps text-fg-muted uppercase">{part.head}</h3>
+                <GroupHead text={part.head} />
                 <Table
                   {...part.table}
                   bare

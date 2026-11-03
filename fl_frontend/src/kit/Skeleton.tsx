@@ -1,22 +1,32 @@
 import { COPY } from "@/core/copy";
 
-import { cardSurface } from "./cardStyles";
+import { card, cardSurface } from "./cardStyles";
 import { tv } from "./tv";
 
 /**
  * The final boxes a template waits for: a table's rows, a match list's, the match cards a Spielplan sets two a
- * row, a read page's facts, an editor's sections.
+ * row, a read page's facts, an editor's sections, the school tiles Teams sets four a row.
  */
-export type SkeletonShape = "table" | "spiel" | "cards" | "facts" | "sections";
+export type SkeletonShape = "table" | "spiel" | "cards" | "facts" | "sections" | "tiles";
 
 /** How many rows or boxes each shape draws. */
-const ROWS: Readonly<Record<SkeletonShape, number>> = { table: 8, spiel: 6, cards: 6, facts: 4, sections: 2 };
+const ROWS: Readonly<Record<SkeletonShape, number>> = { table: 8, spiel: 6, cards: 6, facts: 4, sections: 2, tiles: 8 };
+
+/**
+ * The shapes whose rows are boxes of their own, laid out as their final boxes are: the sections one under another,
+ * the match cards two a row from `lg`, the tiles four a row and two on a phone. Every other shape is one box of rows.
+ */
+const GRID: Partial<Record<SkeletonShape, string>> = {
+  sections: "grid gap-6",
+  cards: "grid gap-3 lg:grid-cols-2",
+  tiles: "grid grid-cols-2 gap-2 lg:grid-cols-4",
+};
 
 /**
  * Each shape's bars, by their widths, where the final row's columns will stand: a table's rank, its name and
  * three figures at the row's end; a match row's date, home side, score and away side, the date and the away
  * side's bar left out on a phone, whose two-line card stacks them; a match card's date line over its two
- * sides; a fact's label over its value; a section's title.
+ * sides; a fact's label over its value; a section's title; a tile's plaque and its name.
  */
 const BARS: Readonly<Record<SkeletonShape, readonly string[]>> = {
   table: ["w-6", "w-1/3", "ms-auto w-6", "w-6", "w-6"],
@@ -24,6 +34,7 @@ const BARS: Readonly<Record<SkeletonShape, readonly string[]>> = {
   cards: ["h-3 w-1/4", "w-1/2", "w-1/2"],
   facts: ["h-3 w-1/4", "w-1/2"],
   sections: ["w-1/2"],
+  tiles: ["h-6 w-10", "w-1/2"],
 };
 
 const skeleton = tv({
@@ -50,6 +61,8 @@ const skeleton = tv({
       // A fact's label stands over its value, the label's bar shorter and lower.
       facts: { row: "h-14 flex-col items-start justify-center gap-2" },
       sections: { row: `h-40 ${cardSurface()} first:border-t` },
+      // A school tile's height, 48 px on a phone and 44 from `lg`, its plaque before its name.
+      tiles: { row: `h-12 gap-2 px-2.5 lg:h-11 ${cardSurface()} first:border-t` },
     },
   },
 });
@@ -78,10 +91,12 @@ const landing = tv({
     // The lead's three lines and the hero's two buttons.
     lead: "grid gap-2",
     acts: "flex flex-wrap gap-3",
-    button: "h-9 w-32 rounded-lg",
-    // The season card: its name and its link, then its box.
-    head: "flex items-center justify-between gap-4",
-    cardBox: `grid gap-3 ${cardSurface()} p-4`,
+    button: "h-8 w-32 rounded-lg pointer-coarse:h-10",
+    // The season card, the kit's card: its name and its chip in the head's band, then its body.
+    cardBox: card().root(),
+    cardHead: card().head(),
+    cardNamed: card().named(),
+    cardBody: "grid gap-3 p-4",
     // The first section: its eyebrow and title, then three cards side by side from `lg`.
     sectionHead: "grid gap-2",
     cards: "grid gap-4 lg:grid-cols-3",
@@ -120,12 +135,14 @@ export function LandingSkeleton({ part }: { part: LandingPart }) {
       </div>
     ),
     card: (
-      <div className="grid gap-4">
-        <div className={slots.head()}>
-          <span className={slots.bar({ class: "w-24" })} />
-          <span className={slots.bar({ class: "w-20" })} />
+      <div className={slots.cardBox()}>
+        <div className={slots.cardHead()}>
+          <span className={slots.cardNamed()}>
+            <span className={slots.bar({ class: "w-24" })} />
+            <span className={slots.bar({ class: "h-5 w-16" })} />
+          </span>
         </div>
-        <div className={slots.cardBox()}>
+        <div className={slots.cardBody()}>
           <span className={slots.bar({ class: "h-20 w-full" })} />
           <span className={slots.bar({ class: "w-2/3" })} />
         </div>
@@ -193,7 +210,7 @@ export function Skeleton({ shape }: { shape: SkeletonShape }) {
       </span>
       <div
         aria-hidden
-        className={shape === "sections" ? "grid gap-6" : shape === "cards" ? "grid gap-3 lg:grid-cols-2" : box()}>
+        className={GRID[shape] ?? box()}>
         {rows}
       </div>
     </div>

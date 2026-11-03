@@ -225,7 +225,8 @@ export const SERVER_COPY = catalogue({
       place: placeName,
       /** A place left vacant, its club having left the season before it was decided, beside the dashed open plaque (D499). */
       vacant: "Nicht vergeben",
-      toSpielplan: "Zum Spielplan",
+      /** The chip in the card's head, one word for where the season stands: before its start, running, decided. */
+      state: { planned: "Geplant", running: "Läuft", decided: "Entschieden" },
     },
 
     /** Kontakt's rows, and the doors' links. */
@@ -270,14 +271,13 @@ export const SERVER_COPY = catalogue({
       tore: COPY.shared.tore,
       differenz: DIFFERENZ,
       punkte: "Pkt.",
-      gruppe: "Gruppe",
       name: COPY.shared.name,
       nummer: "Nr.",
       position: "Position",
     },
 
-    /** The Spielsuche's three filters, each opening on every match. */
-    filter: { phase: "Phase", team: TEAM, spieltag: COPY.spielplan.fact.spieltag, all: "Alle" },
+    /** The Spielsuche's three filters and Teams' one, each opening on every match or club. */
+    filter: { phase: "Phase", team: TEAM, spieltag: COPY.spielplan.fact.spieltag, gruppe: "Gruppe", all: "Alle" },
 
     /** A club's page: its tiles, its matches and its squad. */
     club: {

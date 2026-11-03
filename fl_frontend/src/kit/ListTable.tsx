@@ -10,12 +10,14 @@ import { EmptyState } from "./EmptyState";
 import { SearchField } from "./SearchField";
 import { SpielList } from "./SpielRow";
 import { Table } from "./Table";
+import { SchoolTiles } from "./TileGrid";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { EmptyStateProps } from "./EmptyState";
 import type { SpielRowProps } from "./SpielRow";
 import type { TableProps, TableRow } from "./Table";
+import type { SchoolTile } from "./TileGrid";
 
 /**
  * One page of a list past one read's cap, and where the next starts, or `null` where none follows.
@@ -72,6 +74,24 @@ export function ListMatches({
       layout="cards"
     />
   );
+}
+
+/**
+ * The list template's school tiles, each with the words a visitor may search it by, searched by the text its
+ * scope holds, as `ListMatches` searches the matches: four a row, two on a phone, and a search that empties the
+ * list says so.
+ */
+export function ListTiles({ tiles, empty }: { tiles: ReadonlyArray<{ tile: SchoolTile; words: string }>; empty: EmptyStateProps }) {
+  const { query } = use(ListQuery);
+  const wanted = query.trim().toLowerCase();
+  const shown = wanted === "" ? tiles : tiles.filter((tile) => tile.words.toLowerCase().includes(wanted));
+  if (shown.length === 0)
+    return (
+      <div className={cardSurface({ class: "overflow-hidden" })}>
+        <EmptyState {...(wanted === "" ? empty : { ...empty, kind: "search" })} />
+      </div>
+    );
+  return <SchoolTiles schools={shown.map((tile) => tile.tile)} />;
 }
 
 /**

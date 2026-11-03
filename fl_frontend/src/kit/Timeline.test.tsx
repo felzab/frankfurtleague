@@ -42,4 +42,18 @@ describe("a timeline", () => {
       ["90+3", "Gelbe Karte · Leon Hartmann", "Foulspiel"],
     ]);
   });
+
+  // A club's matches are counted along the line, which the ordered list already says: read aloud, the count
+  // would stand before a title repeating it, „1“ before „1. Spieltag“, which only a screen reader's user hears.
+  it("leaves a counting mark unread, its title read alone", () => {
+    render(
+      <Timeline
+        label={COPY.page.spiele}
+        items={[{ id: "s1", mark: { record: "1" }, counts: true, title: SERVER_COPY.season.spieltag(1) }]}
+      />,
+    );
+    const [item] = within(screen.getByRole("list", { name: COPY.page.spiele })).getAllByRole("listitem");
+    expect(screen.getByText("1").closest("[aria-hidden]")).not.toBe(null);
+    expect(item?.textContent).toBe(`1${SERVER_COPY.season.spieltag(1)}`);
+  });
 });

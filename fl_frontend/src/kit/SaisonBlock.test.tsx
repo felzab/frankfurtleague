@@ -31,6 +31,29 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe("the season's card in every state", () => {
+  // The chip is the one place the card says where the season stands, and the states it tells apart are months
+  // apart on the live site, so a state wearing another's word would stand unseen until its season came round.
+  it("names the state in one word beside the season's name, in the card's head", () => {
+    const states = [
+      [{ kind: "countdown", start: new Date(Date.now() + DAY_MS).toISOString() }, SERVER_COPY.landing.saison.state.planned],
+      [{ kind: "window", until: "2026-12-31", apply: "/bewerbung/2027" }, SERVER_COPY.landing.saison.state.planned],
+      [{ kind: "running" }, SERVER_COPY.landing.saison.state.running],
+      [{ kind: "decided", places: [null, null, null, null] }, SERVER_COPY.landing.saison.state.decided],
+    ] as const;
+    for (const [state, word] of states) {
+      const { unmount } = render(
+        <SaisonBlock
+          title={TITLE}
+          state={state}
+        />,
+      );
+      expect(screen.getByRole("heading", { level: 2, name: TITLE }).parentElement?.textContent).toBe(`${TITLE}${word}`);
+      unmount();
+    }
+  });
+});
+
 describe("the season's card before the start", () => {
   it("counts down to the season's start from the server's clock, and names when its opening match kicks off", () => {
     render(
@@ -155,7 +178,8 @@ describe("the season's card once decided", () => {
     );
   });
 
-  // D499: a place left vacant keeps its step or row, labelled in the name's stead, so it reads as a place without a club.
+  // A place left vacant keeps its step or row, the dashed plaque and its label in the name's stead, so it reads as a
+  // place without a club.
   it("labels a vacant step and a vacant fourth place in the club's stead", () => {
     render(
       <SaisonBlock
@@ -176,9 +200,9 @@ describe("the season's card once decided", () => {
       within(screen.getByRole("list"))
         .getAllByRole("listitem")
         .map((place) => place.textContent),
-    ).toStrictEqual(["LIELiebig1", `${vacant}2`, "CMSCarlo-Mierendorff3"]);
+    ).toStrictEqual(["LIELiebig1", `${COPY.shared.noValue}${vacant}2`, "CMSCarlo-Mierendorff3"]);
     expect(screen.getByText(SERVER_COPY.landing.saison.place(4)).parentElement?.textContent).toBe(
-      `${SERVER_COPY.landing.saison.place(4)}${vacant}`,
+      `${SERVER_COPY.landing.saison.place(4)}${COPY.shared.noValue}${vacant}`,
     );
   });
 });

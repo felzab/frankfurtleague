@@ -213,8 +213,15 @@ function SpielRow({ href, when, home, away, result, phase, chip }: SpielRowProps
  * `cards` sets each match in a box of its own instead, one under another on a phone and two a row from `lg`, as
  * the Spielplan shows a matchday: each box its own container, so a phone's box and every box of a pair takes
  * the two-line card, and only a lone box wider than 42 rem below `lg`, a tablet's, the one-line row.
+ *
+ * `bare` sets the rows without the box's own surface, inside a card's body, whose box already holds them, as a
+ * table's `bare` does: the season card's matches.
  */
-export function SpielList({ matches, layout = "rows" }: { matches: ReadonlyArray<SpielRowProps & { id: string }>; layout?: "rows" | "cards" }) {
+export function SpielList({
+  matches,
+  layout = "rows",
+  bare = false,
+}: { matches: ReadonlyArray<SpielRowProps & { id: string }> } & ({ layout?: "rows"; bare?: boolean } | { layout: "cards"; bare?: never })) {
   if (layout === "cards") {
     return (
       <div className="grid gap-3 lg:grid-cols-2">
@@ -229,7 +236,7 @@ export function SpielList({ matches, layout = "rows" }: { matches: ReadonlyArray
     );
   }
   return (
-    <div className={cardSurface({ class: "@container overflow-hidden" })}>
+    <div className={bare ? "@container" : cardSurface({ class: "@container overflow-hidden" })}>
       {matches.map(({ id, ...spiel }) => (
         <SpielRow
           key={id}

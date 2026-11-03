@@ -802,9 +802,10 @@ without the extension is held by the format scope and CI alone. `.editorconfig` 
 conventions to the files prettier never opens and stays clear of every setting `.prettierrc.json`
 decides.
 
-**Every untracked file a run leaves is gitignored where it lands**, the three caches this repository
-opts into — `tsc`'s, eslint's and prettier's — among them, so none of it is a tracked file the gate
-wrote. **Outside
+**Every untracked file a run leaves is gitignored where it lands**, the two caches this repository
+opts into — `tsc`'s and prettier's — among them, so none of it is a tracked file the gate wrote.
+eslint runs uncached: its typed rules read other files' types, which its per-file cache never keys
+on. **Outside
 CI the two Next commands install as well as write**: handed a missing `typescript` or `@types/*`
 package, `next typegen` and `next build` add it to `node_modules` rather than failing, where a
 runner takes the refusing branch, keyed off Next's own `isCI`.

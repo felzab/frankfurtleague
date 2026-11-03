@@ -62,7 +62,7 @@ export const statusLine = tv({
 });
 
 /**
- * The edge a value is typed into: 36 px with a mouse, 44 px and 16-px text on a touch screen, transparent inside
+ * The edge a value is typed into: 32 px with a mouse, 40 px and 16-px text on a touch screen, transparent inside
  * its control edge, as every control is, so it takes the fill of the page or the card it stands on, as the
  * secondary button does. Inside a pair sharing its row on a phone
  * (`FieldPair`'s `data-pair`), it fills its side of the row: a percentage minimum adds nothing to the width
@@ -78,15 +78,15 @@ export const fieldFrame = tv({
     // (1.375 rem together). Then the column, and the column at four lines for a paragraph.
     width: {
       // A score.
-      C2: "h-9 w-[calc(3ch+1.375rem)] pointer-coarse:h-11",
+      C2: "h-8 w-[calc(3ch+1.375rem)] pointer-coarse:h-10",
       // A postcode, a time, whole euros, a house number.
-      C5: "h-9 w-[calc(6ch+1.375rem)] pointer-coarse:h-11",
-      // A date: the width of a ten-character field and its calendar button beside it, 36 px with a mouse
-      // and 44 on a touch screen as every field's button is.
-      C10: "h-9 w-[calc(11ch+1.375rem+2.25rem)] pointer-coarse:h-11 pointer-coarse:w-[calc(11ch+1.375rem+2.75rem)]",
-      W3: "h-9 w-full pointer-coarse:h-11",
+      C5: "h-8 w-[calc(6ch+1.375rem)] pointer-coarse:h-10",
+      // A date: the width of a ten-character field and its calendar button beside it, 32 px with a mouse
+      // and 40 on a touch screen as every field's button is.
+      C10: "h-8 w-[calc(11ch+1.375rem+2rem)] pointer-coarse:h-10 pointer-coarse:w-[calc(11ch+1.375rem+2.5rem)]",
+      W3: "h-8 w-full pointer-coarse:h-10",
       // A select of a few short choices: as wide as its longest choice, which `Select` lays in the frame unseen.
-      fit: "h-9 w-fit max-w-full min-w-40 pointer-coarse:h-11",
+      fit: "h-8 w-fit max-w-full min-w-40 pointer-coarse:h-10",
       W4: "min-h-26 w-full resize-none py-2",
     },
     // A frame holding the value alone takes the padding; a frame grouping a value and a button keeps its
@@ -129,7 +129,7 @@ export const fieldUnit = tv({
 });
 
 /** The button at a field's end, a date's calendar or a combo box's arrow: as tall and as wide as the field. */
-export const fieldButton = tv({ base: "flex h-full w-9 shrink-0 items-center justify-center text-fg-muted pointer-coarse:w-11" });
+export const fieldButton = tv({ base: "flex h-full w-8 shrink-0 items-center justify-center text-fg-muted pointer-coarse:w-10" });
 
 /** The text a combo box or a search field is typed into, filling its frame between the frame's other parts. */
 export const groupInput = tv({ base: "h-full min-w-0 flex-1 bg-transparent" });
@@ -142,7 +142,7 @@ export const searchInput = tv({ base: "h-full min-w-0 flex-1 bg-transparent [&::
 
 /** A search field's clearing button, there only once something is typed. */
 export const searchClear = tv({
-  base: "flex h-full w-9 shrink-0 items-center justify-center text-fg-muted group-data-empty:invisible pointer-coarse:w-11",
+  base: "flex h-full w-8 shrink-0 items-center justify-center text-fg-muted group-data-empty:invisible pointer-coarse:w-10",
 });
 
 /** The six code boxes, centred in the column as every code entry sets them, with the code's one input laid over them. */
@@ -176,7 +176,7 @@ export const calendarHead = tv({ base: "pb-1 text-xs font-medium text-fg-muted" 
 
 /** A day in a date's calendar, as large as a control; the chosen day inverts. */
 export const calendarCell = tv({
-  base: "flex size-9 cursor-default items-center justify-center rounded-md font-numeric text-sm data-disabled:opacity-50 data-outside-month:text-fg-muted data-selected:bg-fg data-selected:text-bg pointer-coarse:size-11",
+  base: "flex size-8 cursor-default items-center justify-center rounded-md font-numeric text-sm data-disabled:opacity-50 data-outside-month:text-fg-muted data-selected:bg-fg data-selected:text-bg pointer-coarse:size-10",
 });
 
 /**
@@ -322,7 +322,7 @@ export const menuPopover = tv({
 
 /** One entry of that menu: a fill when the pointer or the arrow keys reach it. */
 export const menuItem = tv({
-  base: "flex min-h-9 cursor-default items-center justify-between gap-2 rounded-md px-3 text-sm text-fg data-disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:text-base",
+  base: "flex min-h-8 cursor-default items-center justify-between gap-2 rounded-md px-3 text-sm text-fg data-disabled:opacity-50 pointer-coarse:min-h-10 pointer-coarse:text-base",
 });
 
 /**
@@ -348,7 +348,7 @@ export const choiceGroup = tv({
   base: "flex flex-wrap",
   variants: {
     kind: {
-      segmented: "inline-flex h-9 self-start rounded-lg border border-border-control bg-transparent p-0.5 pointer-coarse:h-11",
+      segmented: "inline-flex h-8 self-start rounded-lg border border-border-control bg-transparent p-0.5 pointer-coarse:h-10",
       boxes: "gap-2",
     },
   },
@@ -365,7 +365,7 @@ export const choiceButton = tv({
     kind: {
       segmented: "h-full rounded-md border border-transparent data-selected:border-border-control data-selected:bg-bg-muted",
       boxes:
-        "h-9 min-w-16 rounded-lg border border-border-control bg-transparent px-3 data-selected:border-fg-muted data-selected:bg-bg-surface pointer-coarse:h-11",
+        "h-8 min-w-16 rounded-lg border border-border-control bg-transparent px-3 data-selected:border-fg-muted data-selected:bg-bg-surface pointer-coarse:h-10",
     },
     // A segment holds words at the boxes' width, or a glyph alone, as wide as a control is tall, muted until chosen.
     content: {
@@ -375,7 +375,7 @@ export const choiceButton = tv({
   },
   compoundVariants: [
     { kind: "segmented", content: "words", class: "min-w-16 px-3" },
-    { kind: "segmented", content: "glyph", class: "w-9 text-fg-muted data-selected:text-fg pointer-coarse:w-11" },
+    { kind: "segmented", content: "glyph", class: "w-8 text-fg-muted data-selected:text-fg pointer-coarse:w-10" },
   ],
   defaultVariants: { content: "words" },
 });

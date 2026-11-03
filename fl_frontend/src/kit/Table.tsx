@@ -1,7 +1,7 @@
 import { COPY, textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
-import { cardHover, cardSurface } from "./cardStyles";
+import { cardHover, cardSurface, columnHead } from "./cardStyles";
 import { Chip } from "./Chip";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
@@ -89,9 +89,9 @@ export type TableProps = {
 
 const table = tv({
   slots: {
-    // Small muted capitals over the head row's hairline on the card's own fill: a card's head is the one band
-    // it carries, so the column heads never compete with it.
-    head: "h-10 px-3 text-xs font-medium tracking-caps whitespace-nowrap text-fg-muted uppercase",
+    // The column head's look, which every subhead inside a card shares, so the column heads never compete
+    // with the card's head band.
+    head: columnHead().text(),
     // A row a link may point to by its fragment, marked while the address names it.
     row: "kit-target relative h-14 border-t border-border first:border-t-0 lg:h-13",
     cell: "px-3 whitespace-nowrap",
@@ -268,7 +268,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
           aria-label={label}
           className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-border">
+            <tr className={columnHead().rule()}>
               {rankLabel !== undefined && (
                 <th
                   scope="col"

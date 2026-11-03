@@ -528,7 +528,7 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
 }
 
 // On the dark-green band, as tall as a touch target; the chevron stands where the logo's edge would.
-const back = tv({ base: "-ms-2 flex h-11 items-center gap-1 rounded-lg ps-1 pe-3 text-sm font-medium text-on-brand" });
+const back = tv({ base: "-ms-2 flex h-10 items-center gap-1 rounded-lg ps-1 pe-3 text-sm font-medium text-on-brand" });
 
 /**
  * „‹ Zurück“ in the band where the logo stands: in Konto, and on a phone in an editor. While an editor holds
@@ -662,7 +662,7 @@ export function HeaderLinks({
               <AriaButton
                 aria-label={COPY.template.menu}
                 data-kit-focus="ring"
-                className="flex size-11 items-center justify-center rounded-lg text-on-brand">
+                className="flex size-10 items-center justify-center rounded-lg text-on-brand">
                 <Icon
                   glyph="menu"
                   size={18}

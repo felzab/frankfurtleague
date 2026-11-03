@@ -73,10 +73,13 @@ const ANMELDUNG = "Anmeldung";
 const MIT_PASSKEY_ANMELDEN = "Mit Passkey anmelden";
 const PASSKEY_EINRICHTEN = { title: "Passkey einrichten", button: "Jetzt einrichten" } as const;
 
-/** A range's end: a figure, or a year as a string, which as a season id takes no thousands separator. */
-type Bound = number | string;
+/**
+ * A range's end: a figure, or a year, which as a season id takes no thousands separator. A year is data, never a
+ * string, so no entry taking a bound passes a caller's words through as the catalogue's.
+ */
+type Bound = number | { year: number };
 
-const bound = (value: Bound): string => (typeof value === "string" ? value : formatNumber(value));
+const bound = (value: Bound): string => (typeof value === "number" ? formatNumber(value) : String(value.year));
 
 // The mark a result decided in a shoot-out carries: under the score in a match row, after it in a fact.
 const AFTER_ELFMETERSCHIESSEN = "n. E.";
@@ -357,8 +360,9 @@ export const COPY = catalogue({
     /** The strip's toggle folding the rail to its glyphs and back, named for what the next press does. */
     sidebar: { collapse: "Seitenleiste einklappen", expand: "Seitenleiste ausklappen" },
 
-    /** The footer: the league's group, which holds the sponsors' page, and the line over the sponsors' logos. */
+    /** The footer: the league's group, which holds the sponsors' page, the legal pages' group, and the line over the sponsors' logos. */
     liga: "Liga",
+    legal: "Rechtliches",
     oberstufenliga: "Die Frankfurter Oberstufenliga",
     supportedBy: "Mit Unterstützung von",
     instagram: "Instagram",
@@ -420,7 +424,7 @@ export const COPY = catalogue({
       codeWrong: "Falsch oder nicht mehr gültig",
       codeExpired: "Der Code ist abgelaufen.",
       codeTooOften: "Zu viele Versuche mit diesem Code.",
-      addressTooOften: (hours: number) => `Mit dieser Adresse geht die Anmeldung per Code erst in ${formatNumber(hours)} Stunden wieder.`,
+      addressTooOften: "Zu viele Versuche mit dieser Adresse.",
       codeUsedUp: "Die Anmeldung hat nicht geklappt, und dein Code ist verbraucht.",
       noRecord: "Mit dieser Adresse ist derzeit keine Anmeldung möglich.",
       unverified: "Dieser Passkey hat nicht bestätigt, dass du es bist.",

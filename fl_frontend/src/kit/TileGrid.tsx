@@ -1,12 +1,14 @@
 import Image from "next/image";
 
 import { cardSurface } from "./cardStyles";
+import { Chip } from "./Chip";
 import { Link } from "./Link";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
-import type { RecordText } from "@/core/copy";
+import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
+import type { ChipProps } from "./Chip";
 
 /**
  * A sponsor, a code constant with its logo file: its full name, which is its logo's accessible name and title;
@@ -15,8 +17,11 @@ import type { Route } from "next";
  */
 export type Sponsor = { name: RecordText; short?: RecordText; logo: string; href: string };
 
-/** A club of the season: its name, its Kürzel and its page. */
-type SchoolTile = { name: RecordText; plaque: RecordText; href: Route };
+/**
+ * A club of the season: its name, its Kürzel and its page; on Teams also its group, under the name, and, where it
+ * has left the season, its exit's chip after the name and its words muted, as a list row carries them.
+ */
+export type SchoolTile = { name: RecordText; plaque: RecordText; href: Route; line?: Copy; chip?: ChipProps; muted?: boolean };
 
 // One grid for both, since the season's schools and the sponsors were ruled one look, equal tiles in a
 // fixed grid, four columns and two on a phone; each tile's content is its own.
@@ -53,9 +58,15 @@ export function SchoolTiles({ schools }: { schools: readonly SchoolTile[] }) {
           <Link
             href={school.href}
             placement="card">
-            <span className={slots.content()}>
+            <span className={slots.content({ class: school.muted === true ? "text-fg-muted" : undefined })}>
               <TeamPlaque plaque={school.plaque} />
-              <span className="min-w-0">{school.name.record}</span>
+              <span className="grid min-w-0">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="min-w-0">{school.name.record}</span>
+                  {school.chip !== undefined && <Chip {...school.chip} />}
+                </span>
+                {school.line !== undefined && <span className="text-xs font-normal text-fg-muted">{school.line}</span>}
+              </span>
             </span>
           </Link>
         </li>

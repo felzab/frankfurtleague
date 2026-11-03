@@ -8,7 +8,7 @@ import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
 import { EmptyState } from "./EmptyState";
 import { Filters } from "./Filters";
-import { ListMatches, ListQueryScope, ListSearchField, ListTable } from "./ListTable";
+import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 import { RailPage } from "./RailFrame";
 import { Skeleton } from "./Skeleton";
 import { Table } from "./Table";
@@ -24,6 +24,7 @@ import type { RailPageHead } from "./RailFrame";
 import type { SkeletonShape } from "./Skeleton";
 import type { SpielRowProps } from "./SpielRow";
 import type { TableProps } from "./Table";
+import type { SchoolTile } from "./TileGrid";
 
 /** The matchday tabs, each with its matches, and the tab the server chose by `chosenTab`. */
 type SpieltagTabs = {
@@ -60,6 +61,9 @@ type TreeContent = {
 /** Matches the filters left, each with the words the search narrows them by, and why there are none. */
 type SpieleContent = { matches: ReadonlyArray<{ row: SpielRowProps & { id: string }; words: string }>; empty: EmptyStateProps };
 
+/** Clubs the filters left as school tiles, each with the words the search narrows them by, and why there are none. */
+type TilesContent = { tiles: ReadonlyArray<{ tile: SchoolTile; words: string }>; empty: EmptyStateProps };
+
 /**
  * What the list shows, by its kind, which is known before its content is read: the kind decides the shape
  * the wait is drawn in.
@@ -73,15 +77,17 @@ type ListContent =
   | { kind: "spieltage"; content: Promise<SpieltageContent> }
   | { kind: "groups"; content: Promise<GroupsContent> }
   | { kind: "tree"; content: Promise<TreeContent> }
-  | { kind: "spiele"; /** The search field's name. */ search: ListSearch; content: Promise<SpieleContent> };
+  | { kind: "spiele"; /** The search field's name. */ search: ListSearch; content: Promise<SpieleContent> }
+  | { kind: "tiles"; /** The search field's name. */ search: ListSearch; content: Promise<TilesContent> };
 
-/** The skeleton each kind waits in: rows, a matchday's match cards, the tree's cards, a list of matches. */
+/** The skeleton each kind waits in: rows, a matchday's match cards, the tree's cards, a list of matches, the tiles. */
 const WAIT: Readonly<Record<ListContent["kind"], SkeletonShape>> = {
   table: "table",
   groups: "table",
   spieltage: "cards",
   tree: "cards",
   spiele: "cards",
+  tiles: "tiles",
 };
 
 /** A list's empty state inside the list's box, as `Table` places its own. */
@@ -114,7 +120,7 @@ function FiltersSpace() {
   return (
     <div
       aria-hidden
-      className="h-9 lg:h-20 pointer-coarse:h-11 lg:pointer-coarse:h-22"
+      className="h-8 lg:h-19 pointer-coarse:h-10 lg:pointer-coarse:h-21"
     />
   );
 }
@@ -171,6 +177,15 @@ async function ListBody({ list }: { list: ListContent }) {
         />
       );
     }
+    case "tiles": {
+      const { tiles, empty } = await list.content;
+      return (
+        <ListTiles
+          tiles={tiles}
+          empty={empty}
+        />
+      );
+    }
   }
 }
 
@@ -181,8 +196,9 @@ async function ListBody({ list }: { list: ListContent }) {
  * „Weitere 50 laden“ under it only while the server reports more rows; or, for the season's matches, the
  * matchday tabs, one matchday at a time, opening on the one the server names; or one card per group, its
  * head naming the group over its table, as the Tabelle stands its groups one under another; or the
- * K.-o.-Baum; or matches the filters left, which the search narrows, as the Spielsuche lists them. A list
- * with nothing in it shows its empty state in its place.
+ * K.-o.-Baum; or matches the filters left, which the search narrows, as the Spielsuche lists them; or the
+ * clubs the filters left as school tiles, which the search narrows, as Teams lists them. A list with nothing
+ * in it shows its empty state in its place.
  *
  * The title and the toolbar are drawn at once; the list alone waits for its content, in the template's one
  * boundary, drawn meanwhile as the skeleton of its box. Typing into the search field before the rows arrive
@@ -204,7 +220,7 @@ export function ListPage({
   create?: DialogAct;
   list: ListContent;
 }) {
-  const search = list.kind === "table" || list.kind === "spiele" ? list.search : undefined;
+  const search = list.kind === "table" || list.kind === "spiele" || list.kind === "tiles" ? list.search : undefined;
   const hasToolbar = search !== undefined || filters !== undefined || create !== undefined;
 
   return (

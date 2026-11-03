@@ -18,6 +18,7 @@ import type {
 import type { Fact } from "@/kit/Facts";
 import type { SpielHeadProps } from "@/kit/SpielHead";
 import type { SpielRowProps, SpielSide } from "@/kit/SpielRow";
+import type { Outcome } from "@/kit/Timeline";
 import type { Route } from "next";
 
 /**
@@ -52,6 +53,18 @@ function toreOf(spiel: FLSpielJoined): Pair | null {
   const team1 = spiel.team1?.tore ?? null;
   const team2 = spiel.team2?.tore ?? null;
   return spiel.ergebnis === null || team1 === null || team2 === null ? null : { team1, team2 };
+}
+
+/**
+ * How a match went for one of its clubs, as the Tabelle counts it: won, drawn or lost by its goals, a shoot-out
+ * deciding nothing there, and `none` while it has no result, as a match called off or struck out never has, the
+ * backend refusing one on either (`state_ergebnis_on_a_non_event`).
+ */
+export function outcomeFor(spiel: FLSpielJoined, teamId: string): Outcome {
+  const tore = toreOf(spiel);
+  if (tore === null) return "none";
+  const [own, other] = spiel.team1?.team_id === teamId ? [tore.team1, tore.team2] : [tore.team2, tore.team1];
+  return own > other ? "won" : own < other ? "lost" : "drawn";
 }
 
 function quelleWords(quelle: FLSpielQuelle | null): { short: Copy; long: Copy } | null {
