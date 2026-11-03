@@ -18,8 +18,8 @@ describe("a bracket card", () => {
       <BracketCard
         href="/saisons/2027/spiele/64b000000000000000000001"
         when={COPY.spielplan.when(null, null)}
-        home={{ name: { record: "Goethe" }, plaque: { record: "GOE" } }}
-        away={{ name: { record: "Helmholtz" }, plaque: { record: "HEL" } }}
+        team1={{ name: { record: "Goethe" }, plaque: { record: "GOE" } }}
+        team2={{ name: { record: "Helmholtz" }, plaque: { record: "HEL" } }}
         result={{ tore: { team1: 1, team2: 1 }, elfmeterschiessen: { team1: 4, team2: 3 } }}
       />,
     );
@@ -39,8 +39,8 @@ describe("a bracket card", () => {
       <BracketCard
         href="/saisons/2027/spiele/64b000000000000000000001"
         when={COPY.spielplan.when(null, null)}
-        home={{ name: { record: "Carlo-Mierendorff-Schule" }, plaque: { record: "CMS" } }}
-        away={{ name: { record: "Helmholtzschule" }, plaque: { record: "HEL" } }}
+        team1={{ name: { record: "Carlo-Mierendorff-Schule" }, plaque: { record: "CMS" } }}
+        team2={{ name: { record: "Helmholtzschule" }, plaque: { record: "HEL" } }}
       />,
     );
 

@@ -8,8 +8,8 @@ import type { BracketMatch, BracketRound } from "@/kit/BracketTree";
 
 /** A match as its card in the tree: its date alone, the tree's own row naming the third place. */
 function cardOf(spiel: FLSpielJoined): BracketMatch {
-  const { id, href, home, away, result } = matchRowOf(spiel);
-  return { id, href, when: whenOf(spiel), home, away, ...(result === undefined ? {} : { result }), anchor: spiel.id };
+  const { id, href, team1, team2, result } = matchRowOf(spiel);
+  return { id, href, when: whenOf(spiel), team1, team2, ...(result === undefined ? {} : { result }), anchor: spiel.id };
 }
 
 /** The match a side's winner comes from, by its number. */

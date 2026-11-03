@@ -75,8 +75,8 @@ describe("a match as a row", () => {
       team2_quelle: { type: "spiel", spiel_nr: 25, ausgang: "verlierer" },
     });
     const { quelle } = COPY.spielplan;
-    expect(row.home).toStrictEqual({ name: quelle.gruppe("A", 1), plaque: { quelle: quelle.gruppeShort("A", 1) } });
-    expect(row.away).toStrictEqual({ name: quelle.verlierer(25), plaque: { quelle: quelle.verliererShort(25) } });
+    expect(row.team1).toStrictEqual({ name: quelle.gruppe("A", 1), plaque: { quelle: quelle.gruppeShort("A", 1) } });
+    expect(row.team2).toStrictEqual({ name: quelle.verlierer(25), plaque: { quelle: quelle.verliererShort(25) } });
   });
 });
 

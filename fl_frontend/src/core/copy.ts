@@ -266,7 +266,7 @@ export const COPY = catalogue({
     teams: "Teams",
     spielSearch: "Spielsuche",
     /** A match's page, named by its two teams in the order the fixture lists them. */
-    spiel: (heim: Words, gast: Words) => `${textOf(heim)} gegen ${textOf(gast)}`,
+    spiel: (team1: Words, team2: Words) => `${textOf(team1)} gegen ${textOf(team2)}`,
     about: "Über die Liga",
     contact: "Kontakt",
     sponsors: "Sponsoren",

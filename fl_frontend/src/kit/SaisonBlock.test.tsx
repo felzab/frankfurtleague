@@ -12,14 +12,14 @@ const TITLE = COPY.shared.saisonName("2027");
 const SPIEL = {
   href: "/saisons/2027/spiele/1",
   when: COPY.spielplan.when("2027-03-13", "18:00"),
-  home: { name: { record: "Goethe" }, plaque: { record: "GOE" } },
-  away: { name: { record: "Helmholtz" }, plaque: { record: "HEL" } },
+  team1: { name: { record: "Goethe" }, plaque: { record: "GOE" } },
+  team2: { name: { record: "Helmholtz" }, plaque: { record: "HEL" } },
 } as const;
 const OPENING = {
   when: SPIEL.when,
   spieltag: SERVER_COPY.landing.saison.spieltag(1),
-  home: { record: "GOE" },
-  away: { record: "HEL" },
+  team1: { record: "GOE" },
+  team2: { record: "HEL" },
 } as const;
 
 beforeEach(() => {
@@ -77,7 +77,7 @@ describe("the season's card before the start", () => {
     );
     const line = screen.getByText(OPENING.spieltag).parentElement;
     expect(line?.textContent).toBe(`${OPENING.spieltag}GOE–HEL`);
-    expect(screen.queryByText(SPIEL.home.name.record)).toBe(null);
+    expect(screen.queryByText(SPIEL.team1.name.record)).toBe(null);
   });
 
   // The dashed open plaque holds no text, so the Spielplan's words for an open side name it to a screen reader.
@@ -85,7 +85,7 @@ describe("the season's card before the start", () => {
     render(
       <SaisonBlock
         title={TITLE}
-        state={{ kind: "countdown", start: new Date(Date.now() + DAY_MS).toISOString(), opening: { ...OPENING, away: null } }}
+        state={{ kind: "countdown", start: new Date(Date.now() + DAY_MS).toISOString(), opening: { ...OPENING, team2: null } }}
       />,
     );
     const line = screen.getByText(OPENING.spieltag).parentElement;

@@ -85,10 +85,10 @@ function passes(match: { spiel: FLSpielJoined; spieltag: string }, filters: read
  * its card shows it and as a reader writes it; its number; its referee where the name is public.
  */
 function wordsOf(spiel: FLSpielJoined): string {
-  const { heim, gast } = sidesOf(spiel);
+  const { team1, team2 } = sidesOf(spiel);
   return [
-    textOf(heim.name),
-    textOf(gast.name),
+    textOf(team1.name),
+    textOf(team2.name),
     spiel.ort?.name,
     whenOf(spiel),
     spiel.datum === null ? null : formatDatum(spiel.datum as CalendarDay),

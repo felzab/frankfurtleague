@@ -29,7 +29,7 @@ type OpeningSide = RecordText | null;
  * The season's first match as the countdown names it: its day and time as its row shows them, its matchday's
  * label and its two sides' plaques, a side whose slot is empty in the dashed open one.
  */
-type Opening = { when: Copy; spieltag: Copy; home: OpeningSide; away: OpeningSide };
+type Opening = { when: Copy; spieltag: Copy; team1: OpeningSide; team2: OpeningSide };
 
 /**
  * An opening side's plaque. An empty slot's dashed open plaque names nothing, so the Spielplan's words for an open
@@ -119,9 +119,9 @@ function Body({ state }: { state: SaisonState }) {
               <p className={slots.line()}>{SERVER_COPY.landing.saison.opening(state.opening.when)}</p>
               <p className={slots.opening()}>
                 <span className={slots.openingLabel()}>{state.opening.spieltag}</span>
-                <OpeningPlaque side={state.opening.home} />
+                <OpeningPlaque side={state.opening.team1} />
                 <span aria-hidden>{COPY.shared.versus}</span>
-                <OpeningPlaque side={state.opening.away} />
+                <OpeningPlaque side={state.opening.team2} />
               </p>
             </>
           )}

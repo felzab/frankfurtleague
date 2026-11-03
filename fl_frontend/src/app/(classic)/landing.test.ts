@@ -56,8 +56,8 @@ describe("the season card before the start", () => {
       opening: {
         when: COPY.spielplan.when("2027-03-06", "14:00"),
         spieltag: SERVER_COPY.landing.saison.spieltag(1),
-        home: { record: "GOE" },
-        away: { record: "HEL" },
+        team1: { record: "GOE" },
+        team2: { record: "HEL" },
       },
     });
   });
@@ -69,7 +69,7 @@ describe("the season card before the start", () => {
   // An opening side whose slot is empty shows the Spielplan's dashed open plaque.
   it("shows an empty opening side as the open plaque", () => {
     const state = stateOf({ ...FACTS, state: "before_start", opening_spiel: { ...OPENING_SPIEL, team2: null } });
-    expect(state).toMatchObject({ opening: { home: { record: "GOE" }, away: null } });
+    expect(state).toMatchObject({ opening: { team1: { record: "GOE" }, team2: null } });
   });
 });
 

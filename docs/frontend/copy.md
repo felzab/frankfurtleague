@@ -103,7 +103,7 @@ there.
 | Toast                   | a title of 1 to 3 words, no body                         | a past participle; a failure, the one line `failure.unexpected`                               |
 | Page or section intro   | none                                                     | a page's title is its explanation                                                             |
 | List-truncation banner  | none                                                     | the load-more control instead                                                                 |
-| Page title              | the page's catalogue title                               | followed by the one suffix „\| Frankfurt League“; a match is „{Heim} gegen {Gast}“            |
+| Page title              | the page's catalogue title                               | followed by the one suffix „\| Frankfurt League“; a match is „{Team 1} gegen {Team 2}“        |
 | Callout                 | a title plus at most 1 sentence                          | a state or a consequence                                                                      |
 | Team description        | three lines                                              | „Mehr“ inside the text at the third line's end, no „…“ before it, opening the rest            |
 | Mail subject            | 50 characters                                            | what it is about first, no league name                                                        |

@@ -25,8 +25,8 @@ const match = (id: string): BracketMatch => ({
   id,
   href: `/saisons/2027/spiele/${id}`,
   when: COPY.spielplan.when(null, null),
-  home: { name: { record: `Heim ${id}` }, plaque: { quelle: COPY.spielplan.quelle.gruppeShort("A", 1) } },
-  away: { name: { record: `Gast ${id}` }, plaque: { quelle: COPY.spielplan.quelle.gruppeShort("B", 2) } },
+  team1: { name: { record: `Heim ${id}` }, plaque: { quelle: COPY.spielplan.quelle.gruppeShort("A", 1) } },
+  team2: { name: { record: `Gast ${id}` }, plaque: { quelle: COPY.spielplan.quelle.gruppeShort("B", 2) } },
 });
 
 /** The last `count` rounds of the bracket, each half as wide as the one before, the Finale last. */

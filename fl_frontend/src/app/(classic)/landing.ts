@@ -62,8 +62,8 @@ export function stateOf(saison: LandingSaison): SaisonState {
                 // The schema has already held both to the stored formats.
                 when: COPY.spielplan.when(spiel.datum as CalendarDay, spiel.uhrzeit as Uhrzeit | null),
                 spieltag: SERVER_COPY.landing.saison.spieltag(spiel.spieltag_position),
-                home: plaqueOf(spiel.team1),
-                away: plaqueOf(spiel.team2),
+                team1: plaqueOf(spiel.team1),
+                team2: plaqueOf(spiel.team2),
               },
             }),
       };

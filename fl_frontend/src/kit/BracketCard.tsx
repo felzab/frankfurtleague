@@ -20,7 +20,7 @@ const card = tv({
   },
 });
 
-function Line({ side, score, part }: { side: SpielSide; score: Figures; part: "home" | "away" }) {
+function Line({ side, score, part }: { side: SpielSide; score: Figures; part: "team1" | "team2" }) {
   const marks = look(score, part);
   // A card sets both figures bold whatever the outcome, a shoot-out loser's included, where a match row sets
   // that loser's goals regular: with the shoot-out's goals added, the higher figure is the winner's.
@@ -55,8 +55,8 @@ function Line({ side, score, part }: { side: SpielSide; score: Figures; part: "h
 export function BracketCard({
   href,
   when,
-  home,
-  away,
+  team1,
+  team2,
   result,
   anchor,
 }: {
@@ -64,8 +64,8 @@ export function BracketCard({
   anchor?: string;
   href: Route;
   when: Copy;
-  home: SpielSide;
-  away: SpielSide;
+  team1: SpielSide;
+  team2: SpielSide;
   result?: SpielRowProps["result"];
 }) {
   const score = figures(result);
@@ -78,14 +78,14 @@ export function BracketCard({
         placement="card">
         <span className="grid gap-1 p-2 lg:px-3 lg:py-3">
           <Line
-            side={home}
+            side={team1}
             score={score}
-            part="home"
+            part="team1"
           />
           <Line
-            side={away}
+            side={team2}
             score={score}
-            part="away"
+            part="team2"
           />
           <span className="mt-1 border-t border-border pt-2 font-numeric text-xs text-fg-muted max-lg:hidden">{when}</span>
         </span>

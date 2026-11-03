@@ -44,10 +44,10 @@ async function readPage(params: Props["params"]): Promise<FLSpielPageResponse> {
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { spiel } = await readPage(params);
-  const { heim, gast } = sidesOf(spiel);
+  const { team1, team2 } = sidesOf(spiel);
   return pageMetadata(parent, ROUTES.spiel, ROUTES.spiel.path(spiel.saison_id, spiel.id), {
-    title: ROUTES.spiel.title(heim.name, gast.name),
-    description: SERVER_COPY.description.spiel(heim.name, gast.name, spiel.saison_id),
+    title: ROUTES.spiel.title(team1.name, team2.name),
+    description: SERVER_COPY.description.spiel(team1.name, team2.name, spiel.saison_id),
   });
 }
 
@@ -68,13 +68,13 @@ export default function SpielPage({ params }: Props) {
 async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const page = await readPage(params);
   const { spiel, standings, bericht } = page;
-  const { heim, gast } = sidesOf(spiel);
+  const { team1, team2 } = sidesOf(spiel);
   const words = SERVER_COPY.season.spiel;
   // The goals and cards as official: null until the report is adopted and where none is stored, so a result
   // awaiting its report never reads as nobody having scored, which an adopted report's empty lists say.
   const official = bericht?.torschuetzen == null || bericht.karten === null ? null : { tore: bericht.torschuetzen, karten: bericht.karten };
   return {
-    title: { route: "spiel", heim: heim.name, gast: gast.name },
+    title: { route: "spiel", team1: team1.name, team2: team2.name },
     spiel: { head: headOf(spiel, page, standings), sonderereignis: ereignisOf(spiel) },
     groups: [
       { kind: "tiles", tiles: { layout: "five", items: tilesOf(spiel, page) } },
@@ -84,8 +84,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         folds: (
           <ReadFolds
             cards={[
-              { title: heim.name, ...lineupOf(bericht?.aufstellungen.team1 ?? null) },
-              { title: gast.name, ...lineupOf(bericht?.aufstellungen.team2 ?? null) },
+              { title: team1.name, ...lineupOf(bericht?.aufstellungen.team1 ?? null) },
+              { title: team2.name, ...lineupOf(bericht?.aufstellungen.team2 ?? null) },
             ]}
           />
         ),

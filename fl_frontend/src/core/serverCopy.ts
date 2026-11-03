@@ -328,8 +328,8 @@ export const SERVER_COPY = catalogue({
     teams: (saison: string) => `Alle Teams der Saison ${saison} der Frankfurt League, mit Gruppe und Kader.`,
     team: (team: string, saison: string) => `${team} in der Saison ${saison} der Frankfurt League: Stand, Spiele und Kader.`,
     kORunde: (saison: string) => `Die K.-o.-Runde der Saison ${saison} der Frankfurt League: der K.-o.-Baum bis zum Finale.`,
-    spiel: (heim: Words, gast: Words, saison: string) =>
-      `${textOf(heim)} gegen ${textOf(gast)} in der Saison ${saison} der Frankfurt League: Termin, Ort, Ergebnis und Aufstellungen.`,
+    spiel: (team1: Words, team2: Words, saison: string) =>
+      `${textOf(team1)} gegen ${textOf(team2)} in der Saison ${saison} der Frankfurt League: Termin, Ort, Ergebnis und Aufstellungen.`,
     contact: "Die Frankfurt League erreichst du per E-Mail, auf Instagram und auf Threads.",
     sponsors: "Die Sponsoren der Frankfurt League, und wie du die Liga unterstützen kannst.",
     legalNotice: "Anbieterkennzeichnung der Frankfurt League nach § 5 DDG und § 18 Abs. 2 MStV.",
