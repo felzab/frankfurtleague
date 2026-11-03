@@ -164,10 +164,9 @@ describe("the running label", () => {
     beginRenderPass();
     api.answerWith(() => Promise.resolve({ running_wordings: { bewerbung: BEWERBUNG.text_version } }));
 
-    await expect(getLaufendesLabel("bestaetigung_kontakt")).rejects.toMatchObject({
-      name: "ContractBreakError",
-      message: expect.stringMatching(/runs no label for the page bestaetigung_kontakt/),
-    });
+    const read = getLaufendesLabel("bestaetigung_kontakt");
+    await expect(read).rejects.toHaveProperty("name", "ContractBreakError");
+    await expect(read).rejects.toThrow(/runs no label for the page bestaetigung_kontakt/);
   });
 
   /* Thrown as a contract break, which every page's degraded catch hands to the error boundary. */
@@ -179,10 +178,9 @@ describe("the running label", () => {
         : Promise.resolve(einwilligungAnswer(endpoint)),
     );
 
-    await expect(getLaufendeFassung("bewerbung")).rejects.toMatchObject({
-      name: "ContractBreakError",
-      message: expect.stringMatching(/runs 2026-01-nirgends on bewerbung/),
-    });
+    const read = getLaufendeFassung("bewerbung");
+    await expect(read).rejects.toHaveProperty("name", "ContractBreakError");
+    await expect(read).rejects.toThrow(/runs 2026-01-nirgends on bewerbung/);
   });
 });
 

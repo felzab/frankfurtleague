@@ -46,7 +46,7 @@ describe("a form's action through the one wrapper", () => {
 
   it("lets Next's redirect through to Next", async () => {
     const answered = answering(async (): Promise<ActionAnswer> => redirect("/bereich"), vi.fn());
-    await expect(answered(undefined)).rejects.toMatchObject({ digest: expect.stringContaining("NEXT_REDIRECT") });
+    await expect(answered(undefined)).rejects.toHaveProperty("digest", expect.stringContaining("NEXT_REDIRECT"));
   });
 });
 

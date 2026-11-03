@@ -126,7 +126,7 @@ async function withoutTableScans<T>(body: () => Promise<T>): Promise<T> {
 /** Every index the four collections hold, by collection, as `listIndexes` answers them. */
 async function heldIndexes(): Promise<Record<string, Record<string, unknown>[]>> {
   const held: Record<string, Record<string, unknown>[]> = {};
-  for (const collection of COLLECTIONS) held[collection] = await store().collection(collection).listIndexes().toArray();
+  for (const collection of COLLECTIONS) held[collection] = await store().collection(collection).indexes();
   return held;
 }
 

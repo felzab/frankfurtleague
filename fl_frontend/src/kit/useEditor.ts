@@ -50,7 +50,9 @@ function sameValue(a: EditorValue | undefined, b: EditorValue | undefined) {
 
 /** The edits that still differ from the stored values: an edit typed back to the stored value is no change. */
 function changesOf<Values extends Record<string, EditorValue>>(stored: Values, edits: Partial<Values>) {
-  return Object.fromEntries(Object.entries(edits).filter(([key, value]) => !sameValue(value, stored[key]))) as Partial<Values>;
+  return Object.fromEntries(
+    Object.entries<EditorValue | undefined>(edits).filter(([key, value]) => !sameValue(value, stored[key])),
+  ) as Partial<Values>;
 }
 
 type Held<Values extends Record<string, EditorValue>> = {
@@ -83,7 +85,9 @@ const fresh = <Values extends Record<string, EditorValue>>(record: EditorRecord<
 
 /** The edits less those a save sent that nobody has touched since: the record holds them now, in its own form. */
 function lessSent<Values extends Record<string, EditorValue>>(edits: Partial<Values>, sent: Partial<Values>) {
-  return Object.fromEntries(Object.entries(edits).filter(([key, value]) => !(key in sent && sameValue(value, sent[key])))) as Partial<Values>;
+  return Object.fromEntries(
+    Object.entries<EditorValue | undefined>(edits).filter(([key, value]) => !(key in sent && sameValue(value, sent[key]))),
+  ) as Partial<Values>;
 }
 
 /**

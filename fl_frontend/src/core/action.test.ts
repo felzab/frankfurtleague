@@ -299,9 +299,10 @@ describe("the admin lane", () => {
   });
 
   it("hands Next's redirect on", async () => {
-    await expect(create(catchRedirect())({ name: "Nord", plz: "60438" })).rejects.toMatchObject({
-      digest: expect.stringContaining("NEXT_REDIRECT"),
-    });
+    await expect(create(catchRedirect())({ name: "Nord", plz: "60438" })).rejects.toHaveProperty(
+      "digest",
+      expect.stringContaining("NEXT_REDIRECT"),
+    );
   });
 });
 

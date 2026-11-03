@@ -2,6 +2,7 @@ import {
   ADMIN_EMAIL,
   configDouble,
   cookieHeader,
+  cookiePair,
   memoryAdapterDouble,
   memoryStore,
   registerAuthDoubles,
@@ -66,7 +67,7 @@ describe("the proxy's session cookie over https", () => {
 describe("the proxy's matcher over https", () => {
   it("skips a prefetch carrying the session cookie the library writes there, and runs on one carrying none", async () => {
     const written = cookieHeader(await signInByCode(auth, ADMIN_EMAIL, HEADERS));
-    const cookies = Object.fromEntries(written.split("; ").map((pair) => pair.split(/=(.*)/s, 2)));
+    const cookies = Object.fromEntries(written.split("; ").map(cookiePair));
     const runs = (carried: Record<string, string>): boolean =>
       unstable_doesMiddlewareMatch({
         config,

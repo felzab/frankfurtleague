@@ -1268,6 +1268,31 @@ const eslintConfig = defineConfig([
     },
   },
 
+  // Typed linting, through typescript-eslint's project service: an `any`, such as a `JSON.parse` result or a
+  // library's untyped value, is assignable to every type, a `Copy` among them, so the type checker passes whatever
+  // it carries. The `no-unsafe-*` rules refuse an `any` that flows on, so a value is typed where it enters,
+  // `unknown` until it is parsed. The TypeScript files alone: the config's own JavaScript carries no types to
+  // check. The root config files stand outside `tsconfig.json`'s `include` and take the parser's default project,
+  // which is meant for such files. `scripts.lint` writes the route types first, a page's props being Next's
+  // generated `PageProps`, and passes no `--cache`: eslint caches a file by its own content, which a type changed
+  // in another file never moves.
+  {
+    files: ["**/*.{ts,tsx,mts,cts}"],
+    languageOptions: {
+      parserOptions: {
+        projectService: { allowDefaultProject: ["next.config.ts", "orval.config.ts", "vitest.config.mts"] },
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-unsafe-argument": "error",
+      "@typescript-eslint/no-unsafe-assignment": "error",
+      "@typescript-eslint/no-unsafe-call": "error",
+      "@typescript-eslint/no-unsafe-member-access": "error",
+      "@typescript-eslint/no-unsafe-return": "error",
+    },
+  },
+
   // An exemption written as a disable comment is a roster entry: once the line it excuses is gone,
   // the comment fails rather than standing ready to excuse whatever is written there next.
   { linterOptions: { reportUnusedDisableDirectives: "error" } },

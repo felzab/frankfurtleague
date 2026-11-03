@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     return new NextResponse(null, { status: 403 });
   }
 
-  const body = await request.json().catch(() => null);
+  const body: unknown = await request.json().catch(() => null);
   const report = ClientErrorReportSchema.safeParse(body);
   if (!report.success) {
     return new NextResponse(null, { status: 422 });

@@ -87,10 +87,10 @@ describe("the season card before the start", () => {
 
 describe("the season card while it runs", () => {
   it("draws no last result until one exists", () => {
-    expect(stateOf(saison({ state: "running", upcoming: [spiel("2")] }))).toStrictEqual({
-      kind: "running",
-      next: expect.objectContaining({ id: "2" }),
-    });
+    const state = stateOf(saison({ state: "running", upcoming: [spiel("2")] }));
+    expect(state).toHaveProperty("kind", "running");
+    expect(state).toHaveProperty("next.id", "2");
+    expect(state).not.toHaveProperty("last");
   });
 });
 

@@ -34,7 +34,7 @@ function leafAt(schema: ZodType, path: string): ZodType | undefined {
       continue;
     }
     if (at.def.type !== "object") return undefined;
-    at = (at as ZodObject).shape[key];
+    at = (at as ZodObject<Record<string, ZodType>>).shape[key];
     if (at === undefined) return undefined;
   }
 

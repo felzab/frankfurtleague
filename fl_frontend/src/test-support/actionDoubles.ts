@@ -449,7 +449,7 @@ export function doubleToasts(): { raised: RaisedToast[] } {
     });
   vi.doMock("@/shared/utils/appToast.ts", async (importOriginal) => {
     const { appToast } = await importOriginal<typeof AppToastModule>();
-    const members = Object.keys(appToast).map((name) => [name, name === "failure" ? fail : raise(name)]);
+    const members = Object.keys(appToast).map((name): [string, unknown] => [name, name === "failure" ? fail : raise(name)]);
     return { appToast: Object.fromEntries(members) };
   });
 
