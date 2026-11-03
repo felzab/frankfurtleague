@@ -137,7 +137,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 **Is:** the closed set `A` through `P` on the `saison_teams` junction; a season runs the first `rules.number_of_gruppen` of them.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLGruppenNames`, read by the frontend as the generated `fl_frontend/src/core/generated/client/types.ts :: FLGruppenNames`.\
-**Trap:** the grouped response is seeded from `rules.number_of_gruppen` rather than from the teams present, so a group holding nobody keeps its key and a group the season does not run has none; and teams arrive already in standing order, so re-sorting a group anywhere is a second answer to who finished second.
+**Trap:** the Tabelle's response is keyed by group and seeded from `rules.number_of_gruppen` rather than from the teams present, so a group holding nobody keeps its key and a group the season does not run has none; and teams arrive already in standing order, so re-sorting a group anywhere is a second answer to who finished second.
 
 ### `Spielplan` — a season's whole draw
 
@@ -249,7 +249,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 **Is:** `ausgang` inside a `spiel` reference: `sieger` or `verlierer`.\
 **In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielQuelle`.\
-**Trap:** `verlierer` feeds the match for third place, the one fixture the draw wires from it (`fl_backend/app/api/saisons/spielplan.py :: draw_spielplan`): every bracket plays one, fed by the two semi-finals' losers on the Finale's matchday ahead of the final, under the phase `finale` rather than one of its own, so the Finale's `count_spiele` is 2, and the rules refuse a bracket too small for semi-finals (`rules_bracket_impossible`). A level match with no shoot-out has neither outcome, so a reference to either resolves to nobody and the slot stays empty.
+**Trap:** `verlierer` feeds the match for third place, the one fixture the draw wires from it (`fl_backend/app/api/saisons/spielplan.py :: draw_spielplan`): every bracket the rules admit plays one, fed by the two semi-finals' losers on the Finale's matchday ahead of the final, under the phase `finale` rather than one of its own, so the Finale's `count_spiele` is 2, and the rules refuse a bracket too small for semi-finals (`rules_bracket_impossible`). A level match with no shoot-out has neither outcome, so a reference to either resolves to nobody and the slot stays empty.
 
 ### `Herkunft` — one German word over four unrelated origins
 
@@ -268,7 +268,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 **Is:** a marker on a squad entry made on or after the season's `start_date`.\
 **In code:** `fl_backend/app/api/spieler/schemas.py :: FLSaisonSpielerRow`, the `saison_spieler` row's own declared shape.\
-**Trap:** the squad create, the admission and the invite's read derive it from the season's start (`fl_backend/app/api/saisons/services.py :: has_started`, read by the squad create through `fl_backend/app/api/saisons/crud.py :: nachnominierung_laeuft_in`), never from the season's status or its matchdays: an `active` season whose start is still ahead enters players as ordinary ones, and the invite's read tells a pupil the same verdict; no payload carries it, so no form and no edit can set or clear it, and a row stored before the start moved keeps its marker; an admission reviving a retired row derives it afresh.
+**Trap:** the squad create, the admission and the invite's read derive it from the season's start (`fl_backend/app/api/saisons/services.py :: has_started`, each off its own read of the season, and by the squad editor's verdict, `GET /spieler/nachnominierung/{saison_id}`, through `fl_backend/app/api/saisons/crud.py :: nachnominierung_laeuft_in`), never from the season's status or its matchdays: an `active` season whose start is still ahead enters players as ordinary ones, and the invite's read tells a pupil the same verdict; no payload carries it, so no form and no edit can set or clear it, and a row stored before the start moved keeps its marker; an admission reviving a retired row derives it afresh.
 
 ### `rolle` — which of a squad's leading roles a player holds
 
@@ -394,7 +394,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 | `slice`                     | A frontend code-organisation unit under `src/features/`, one per business entity                                                                                                                                                  |
 | `surface`                   | A documentation term: frontend, backend, or ops, each with its folder under `docs/`                                                                                                                                               |
 | `base` / `system` / `admin` | The three API key tiers, not user roles. See [`backend/overview.md`](backend/overview.md#authorization)                                                                                                                           |
-| `format`                    | The discriminator on the teams response (`list` · `grouped`, or `single` from `GET /teams/{team_id}`)                                                                                                                             |
+| `format`                    | The discriminator on the teams response (`list`, or `single` from `GET /teams/{team_id}`)                                                                                                                                         |
 | `Aktion`                    | In code one entry is `action_log_entry` and the log is `action_log` ([its entry](#aktion--action_log_entry--one-recorded-write-and-what-it-replaced-or-removed))                                                                  |
 | `Einladung`                 | In code `invitation` ([its entry](#einladung--invitation--the-link-one-team-registers-its-players-through))                                                                                                                       |
 | `Berechtigung`              | In code `grant` ([its entry](#berechtigung--grant--one-addresss-access-to-the-verwaltung-stored))                                                                                                                                 |

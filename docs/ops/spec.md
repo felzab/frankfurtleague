@@ -397,17 +397,18 @@ a branded page with its way back to the site, since a sentence alone, opened fro
 end. The page is written inline in the configuration, because the deploy compares every file under
 `nginx/shared/` with what nginx loaded (§1.2) and a page nginx never loads would fail every deploy;
 it withholds the referrer, as every link page does, since its URL carries the link's token; and its
-colours are the season scheme's, copied by hand. Next 16.4.2 hands a server action's caller the body of a
-failed answer that is not RSC as the error's message under that exact type alone, and the frontend
-reads that message as a press that wrote nothing. A `charset` makes the header
+colours are the rebuilt site's, copied by hand from `fl_frontend/src/app/tokens.css` under its
+names. Next 16.4.2 hands a server action's caller the body of a failed answer that is not RSC as
+the error's message under that exact type alone, and the frontend reads that message as a press that
+wrote nothing. A `charset` makes the header
 `text/plain; charset=utf-8`, after which every refused press reads as an unclear save again. A route
 handler's caller reads the status alone, and a page load past the connection ceiling shows the
 sentence, a link page's the page. `nginx/edge_test.sh` grades a refused action's type, its body byte for byte against the
 file, and its security headers, asked with and without `Accept-Encoding: gzip`: nginx's gzip filter
 compresses a `200`, `403` or `404` alone, so the `429` leaves the origin plain either way. It
 grades a link page's refused load the same way against the page, and that page's referrer tag and its
-colours against the scheme `fl_frontend/src/app/globals.css` imports, which a comparison with the
-file it was read off cannot hold.
+colours against `fl_frontend/src/app/tokens.css`, name by name, so a colour that drifts from the
+file it was copied off fails.
 
 **A refusal writes no record to the error log**, `limit_req_log_level` and `limit_conn_log_level`
 both sitting below that log's own level. nginx puts the request line there WHOLE, query string and
