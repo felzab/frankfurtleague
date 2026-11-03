@@ -17,7 +17,6 @@ const ANTWORTEN: readonly Copy[] = [
   refusal.codeUsedUp,
   refusal.noRecord,
   ...Object.values(COPY.shared.botCheck),
-  COPY.signIn.botCheckNotLoaded,
 ];
 
 /**

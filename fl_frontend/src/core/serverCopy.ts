@@ -43,7 +43,7 @@ export const SERVER_COPY = catalogue({
    * phrases need their field as a subject.
    */
   refusalLine: {
-    saison_past: "Diese Saison ist abgeschlossen. Ihre Spiele lassen sich nicht mehr ändern.",
+    saison_past: "Diese Saison ist abgeschlossen.",
   } satisfies Partial<Record<Code, string>>,
 
   /**
@@ -57,6 +57,14 @@ export const SERVER_COPY = catalogue({
     nichtantreten_with_torschuetzen: "Nur ohne Torschützen",
     elfmeterschiessen_without_draw: "Nur nach Unentschieden",
     torschuetzen_not_matching_tore: "Ein Eintrag je Tor",
+  },
+
+  /** The administration's lines its old pages answer through their server actions, until each page's rebuild. */
+  verwaltung: {
+    /** A result entered early on a fixture of either club the group swap would trade. */
+    swapSidesTakenPlace: "Ein Spiel der beiden Teams hat schon ein Ergebnis.",
+    /** A result entered early on a fixture of the club a replacement takes out of the season. */
+    replacementSidesTakenPlace: "Ein Spiel des ausscheidenden Teams hat schon ein Ergebnis.",
   },
 
   /** The mail shell's own lines; each mail's sentences are its template's until its area's session rewrites them. */

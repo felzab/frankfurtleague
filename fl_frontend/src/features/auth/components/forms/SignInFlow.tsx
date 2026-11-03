@@ -30,7 +30,7 @@ const CODE_ENDPOINT = "/api/signin/code";
  */
 export function SignInFlow({ next, siteKey }: { next: string; siteKey: string }) {
   const [email, setEmail] = useState("");
-  const humanCheck = useTurnstile(siteKey, COPY.signIn.botCheckNotLoaded);
+  const humanCheck = useTurnstile(siteKey);
 
   // The send answers every address alike: the code view and its sentence are written here from the address
   // the action folded, never from what the action says, so a member's answer and a stranger's cannot differ.

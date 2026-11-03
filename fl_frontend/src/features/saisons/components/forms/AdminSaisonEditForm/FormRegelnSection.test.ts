@@ -10,6 +10,8 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { assert, describe, expect, it } from "vitest";
 
+import { COPY } from "@/core/copy.ts";
+
 import type { FLSaisonRules } from "@/core/generated/client/types.ts";
 import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus.ts";
 
@@ -289,11 +291,11 @@ describe("the season editor's one reading of the season, handed to its panels", 
     const { unmount } = render(editor(true));
     expect(startSegments().length).toBeGreaterThan(0);
     expect(startSegments().every((segment) => segment.getAttribute("aria-readonly") === "true")).toBe(true);
-    assert.ok(screen.getByText(/deshalb lässt sich der Beginn nicht mehr ändern/));
+    assert.ok(screen.getByText(COPY.verwaltung.saison.startFixed));
     unmount();
 
     render(editor(false));
     expect(startSegments().some((segment) => segment.getAttribute("aria-readonly") === "true")).toBe(false);
-    expect(screen.queryByText(/deshalb lässt sich der Beginn nicht mehr ändern/)).toBe(null);
+    expect(screen.queryByText(COPY.verwaltung.saison.startFixed)).toBe(null);
   });
 });

@@ -8,7 +8,7 @@ import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal.ts";
 
 import { signInAnswer } from "./signInAnswers.ts";
 
-const { refusal, botCheckNotLoaded } = COPY.signIn;
+const { refusal } = COPY.signIn;
 
 describe("a sign-in answer read back as the catalogue's words", () => {
   // Each sentence the code route, the send's bot check or the widget can answer with a reason.
@@ -22,7 +22,7 @@ describe("a sign-in answer read back as the catalogue's words", () => {
     ["a token the check refused", MENSCH_BESTAETIGEN],
     ["a disturbed check", COPY.shared.botCheck.disrupted],
     ["a check not yet done", COPY.shared.botCheck.notReady],
-    ["a check that did not load", botCheckNotLoaded],
+    ["a check that did not load", COPY.shared.botCheck.notLoaded],
   ])("finds %s", (_, satz) => {
     expect(signInAnswer(satz)).toBe(satz);
   });

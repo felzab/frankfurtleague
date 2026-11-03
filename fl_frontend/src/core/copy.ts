@@ -100,14 +100,14 @@ export const COPY = catalogue({
     /** The three lines every refusal no person causes knowingly from the screen falls back to. */
     failure: {
       unexpected: UNEXPECTED,
-      stale: "Die Seite ist nicht mehr aktuell. Lade sie neu.",
-      signInExpired: "Deine Anmeldung ist abgelaufen. Melde dich neu an.",
+      stale: "Die Seite ist nicht mehr aktuell.",
+      signInExpired: "Deine Anmeldung ist abgelaufen.",
       /** The edge refused the press for its rate before anything behind it ran; the meter refills within the minute. */
-      tooManyAttempts: "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.",
+      tooManyAttempts: "Zu viele Versuche in kurzer Zeit.",
       /** An administrator's grant is gone or was never held: no sign-in and no retry repairs it. */
       accessGone: "Dein Zugang zur Verwaltung besteht nicht mehr.",
       /** The backend left the grant unread: nothing ran, and a sign-in would meet the same outage. */
-      accessUnchecked: "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen. Versuch es erneut.",
+      accessUnchecked: "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen.",
     },
 
     /** Beside the save button once the record is stored. */
@@ -205,10 +205,10 @@ export const COPY = catalogue({
 
     /** The bot check before a public send: refused, disturbed, not yet done, or not loaded at all. */
     botCheck: {
-      confirm: "Bestätige kurz, dass du ein Mensch bist.",
-      disrupted: "Die Prüfung, ob du ein Mensch bist, ist gerade gestört. Versuche es später erneut.",
-      notReady: "Die Prüfung, ob du ein Mensch bist, ist noch nicht fertig. Versuche es gleich erneut.",
-      notLoaded: `Die Prüfung, ob du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in deinem Browser oder Werbeblocker und lade die Seite neu, oder schreib uns an ${KONTAKT_EMAIL}.`,
+      confirm: "Die Bestätigung, dass du ein Mensch bist, fehlt.",
+      disrupted: "Die Prüfung, ob du ein Mensch bist, ist gerade gestört.",
+      notReady: "Die Prüfung, ob du ein Mensch bist, ist noch nicht fertig.",
+      notLoaded: "Die Prüfung, ob du ein Mensch bist, ließ sich nicht laden.",
     },
   },
 
@@ -293,8 +293,8 @@ export const COPY = catalogue({
       consequence: {
         ausgefallen: "Das Spiel hat nicht stattgefunden und wird nicht gewertet.",
         nichtAngetreten: (gegner: string) => `Das Spiel wird für ${gegner} gewertet.`,
-        abgebrochenScored: "Das Spiel wurde abgebrochen. Das eingetragene Ergebnis wird gewertet.",
-        abgebrochenOpen: "Das Spiel wurde abgebrochen. Wie es gewertet wird, steht noch nicht fest.",
+        abgebrochenScored: "Das eingetragene Ergebnis wird gewertet.",
+        abgebrochenOpen: "Die Wertung steht noch nicht fest.",
         annulliert: "Das Spiel wurde annulliert und wird nicht gewertet.",
       },
     },
@@ -339,8 +339,8 @@ export const COPY = catalogue({
     changes: "Änderungen",
     changesPending: (count: number) => (count === 1 ? "1 Änderung" : `${formatNumber(count)} Änderungen`),
     changesLost: (count: number) => (count === 1 ? "1 Änderung geht verloren." : `${formatNumber(count)} Änderungen gehen verloren.`),
-    /** A save refused for its fields: the fields say what, the status line says where to look. */
-    checkFields: "Prüfe die markierten Felder.",
+    /** A save refused for its fields: the fields say what, the status line that some are off. */
+    checkFields: "Einige Felder sind nicht richtig ausgefüllt.",
     /** A refusal about a field the screen shows no box for: the field's name, then the line its box would show. */
     namedField: (name: Copy, line: Copy) => `${name}: ${line}`,
 
@@ -360,8 +360,6 @@ export const COPY = catalogue({
     sendCode: "Code senden",
     or: "oder",
     withPasskey: "Mit Passkey anmelden",
-    /** The bot check that did not load, naming the passkey, which signs in without it. */
-    botCheckNotLoaded: `Die Prüfung, ob du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in deinem Browser oder Werbeblocker und lade die Seite neu, melde dich mit einem Passkey an oder schreib uns an ${KONTAKT_EMAIL}.`,
 
     /**
      * The code view: one sentence for every address, so it says nothing about who holds an account, in the two
@@ -403,7 +401,7 @@ export const COPY = catalogue({
     },
   },
 
-  /** The administration's own words: its frame, the Spielorte list and the match editor. */
+  /** The administration's own words: its frame, the Spielorte list, the match editor and the season editor. */
   verwaltung: {
     /** The role an administrator acts in, the account row's second line. */
     role: "Verwaltung",
@@ -441,6 +439,11 @@ export const COPY = catalogue({
       createEntry: "Spielort anlegen …",
       /** One line of a venue's address: its street and number. */
       strasseWithHausnummer: (strasse: string, hausnummer: string) => `${strasse} ${hausnummer}`,
+    },
+
+    saison: {
+      /** Under the season's start once a result is entered, which holds it. */
+      startFixed: "Steht fest, seit ein Ergebnis eingetragen ist",
     },
 
     spiel: {
