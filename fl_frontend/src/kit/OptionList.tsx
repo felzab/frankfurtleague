@@ -19,7 +19,7 @@ import type { Copy, Words } from "@/core/copy";
 export type Option = { id: string; label: Words } & ({ isDisabled?: false; note?: never } | { isDisabled: true; note: Copy });
 
 /**
- * An entry that acts rather than chooses, such as a combo box's „Spielort anlegen …“, which creates the record
+ * An entry that acts rather than chooses, such as a combo box's „Spielort anlegen“, which creates the record
  * the list lacks: last in the list, under a hairline. Choosing it leaves the field's value as it was. `typed`
  * is the field's text, which the entry's filter text ends with, so a combo box's filter always keeps it.
  */

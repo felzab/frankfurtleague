@@ -17,7 +17,7 @@ import type { Copy } from "@/core/copy";
 import type { Option } from "./OptionList";
 
 /**
- * The entry creating the record the list lacks, such as „Spielort anlegen …“: last in the list whatever is
+ * The entry creating the record the list lacks, such as „Spielort anlegen“: last in the list whatever is
  * typed, and alone where nothing matches. `onCreate` receives the text typed into the field, which the create
  * dialog starts from, or nothing where the field shows the chosen record's own name.
  */
