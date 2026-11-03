@@ -47,19 +47,19 @@ const clubOf = ({ team }: FLPodiumPlace): Place => (team === null ? null : { nam
 export function stateOf(saison: FLLandingSaison): SaisonState {
   switch (saison.state) {
     case "before_start": {
-      const kickoff = saison.first_kickoff;
+      const spiel = saison.opening_spiel;
       return {
         kind: "countdown",
         start: saison.start,
-        ...(kickoff === null
+        ...(spiel === null
           ? {}
           : {
               opening: {
                 // The schema has already held both to the stored formats.
-                when: COPY.spielplan.when(kickoff.datum as CalendarDay, kickoff.uhrzeit as Uhrzeit | null),
-                spieltag: SERVER_COPY.landing.saison.spieltag(kickoff.spieltag_position),
-                home: plaqueOf(kickoff.team1),
-                away: plaqueOf(kickoff.team2),
+                when: COPY.spielplan.when(spiel.datum as CalendarDay, spiel.uhrzeit as Uhrzeit | null),
+                spieltag: SERVER_COPY.landing.saison.spieltag(spiel.spieltag_position),
+                home: plaqueOf(spiel.team1),
+                away: plaqueOf(spiel.team2),
               },
             }),
       };

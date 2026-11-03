@@ -41,7 +41,7 @@ describe("the season's card before the start", () => {
     );
     const timer = screen.getByRole("timer");
     expect(timer.textContent).toBe(`12${COPY.landing.saison.days}0${COPY.landing.saison.hours}0${COPY.landing.saison.minutes}`);
-    expect(screen.getByText(SERVER_COPY.landing.saison.kickoff(SPIEL.when))).toBeTruthy();
+    expect(screen.getByText(SERVER_COPY.landing.saison.opening(SPIEL.when))).toBeTruthy();
   });
 
   // The opening match by its plaques alone, so the line a phone shows never wraps (D481, D489).
@@ -82,7 +82,7 @@ describe("the season's card before the start", () => {
       `1${COPY.landing.saison.days}0${COPY.landing.saison.hours}0${COPY.landing.saison.minutes}`,
     );
     expect(screen.queryByText(SERVER_COPY.landing.saison.spieltag(1))).toBe(null);
-    expect(screen.queryByText(SERVER_COPY.landing.saison.kickoff(SPIEL.when))).toBe(null);
+    expect(screen.queryByText(SERVER_COPY.landing.saison.opening(SPIEL.when))).toBe(null);
   });
 
   it("shows the application window while no match is dated, with the way to apply", () => {

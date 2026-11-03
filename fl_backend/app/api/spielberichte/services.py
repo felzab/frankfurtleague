@@ -549,7 +549,7 @@ def referee_report_image_edits(image: Mapping[str, Any], schiedsrichter_ids: Seq
     return {"bericht.submitted_by.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}
 
 
-# Where the clubs' line-ups stand on the report document, one block per side; session 8 writes them.
+# Where the clubs' line-ups stand on the report document, one block per side, as the public report reads them.
 AUFSTELLUNGEN_FIELD: Final = "aufstellungen"
 
 _NAMED_IDS_AS = "named_ids"

@@ -187,7 +187,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 ### `Anpfiff` — kick-off
 
 **Is:** the word the landing labels the season's opening match with, ahead of when it is set to start: its `datum`, and its `uhrzeit` in Berlin wall time where one is set.\
-**In code:** `fl_backend/app/api/saisons/schemas.py :: FLLandingKickoff`, served as `FLLandingSaison.first_kickoff`; the line is `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY.landing.saison.kickoff`.\
+**In code:** the line is `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY.landing.saison.opening`; the opening match it labels is `fl_backend/app/api/saisons/schemas.py :: FLLandingOpeningSpiel`, served as `FLLandingSaison.opening_spiel`.\
 **Trap:** the landing's countdown counts to the season's start, 00:00 in Berlin on its `start_date` (`fl_backend/app/api/saisons/schemas.py :: saison_start`), never to the opening match's Anpfiff.
 
 ### `Einteilung` — the message telling a referee they are booked onto one fixture

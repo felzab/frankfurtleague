@@ -5,7 +5,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 
 import { stateOf } from "./landing.ts";
 
-import type { FLLandingKickoff, FLLandingSaison, FLPodiumPlace, FLSpielJoined } from "@/core/generated/client/types";
+import type { FLLandingOpeningSpiel, FLLandingSaison, FLPodiumPlace, FLSpielJoined } from "@/core/generated/client/types";
 
 const START = "2027-02-28T23:00:00Z";
 
@@ -14,7 +14,7 @@ const saison = (fields: Partial<FLLandingSaison>): FLLandingSaison => ({
   id: "2027",
   state: "before_start",
   start: START,
-  first_kickoff: null,
+  opening_spiel: null,
   recent: [],
   upcoming: [],
   podium: null,
@@ -23,7 +23,7 @@ const saison = (fields: Partial<FLLandingSaison>): FLLandingSaison => ({
   ...fields,
 });
 
-const KICKOFF: FLLandingKickoff = {
+const OPENING_SPIEL: FLLandingOpeningSpiel = {
   datum: "2027-03-06",
   uhrzeit: "14:00",
   spieltag_position: 1,
@@ -62,7 +62,7 @@ const spiel = (id: string): FLSpielJoined => ({
 describe("the season card before the start", () => {
   // The season's start is the one instant the card counts to (D499), whatever its opening match's day.
   it("counts down to the season's start, and names its opening match once one is dated", () => {
-    expect(stateOf(saison({ first_kickoff: KICKOFF }))).toStrictEqual({
+    expect(stateOf(saison({ opening_spiel: OPENING_SPIEL }))).toStrictEqual({
       kind: "countdown",
       start: START,
       opening: {
@@ -80,7 +80,7 @@ describe("the season card before the start", () => {
 
   // D498: an opening side whose slot is empty shows the Spielplan's dashed open plaque.
   it("shows an empty opening side as the open plaque", () => {
-    const state = stateOf(saison({ first_kickoff: { ...KICKOFF, team2: null } }));
+    const state = stateOf(saison({ opening_spiel: { ...OPENING_SPIEL, team2: null } }));
     expect(state).toMatchObject({ opening: { home: { kuerzel: "GOE" }, away: null } });
   });
 });

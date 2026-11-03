@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any
@@ -33,7 +32,7 @@ from app.api.identitaet.crud import faellige_anzahl, saison_statuses
 from app.api.identitaet.schemas import FLErasurePreviewResponse
 from app.api.identitaet.services import geschlossen_durch, statuses_after_activating
 from app.api.outbox.services import enqueue_mails
-from app.api.saisons.crud import a_fixture_has_taken_place
+from app.api.saisons.crud import saisons_with_a_fixture_taken_place
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
@@ -253,14 +252,12 @@ async def get_saisons_verwaltung(
         sort_by=db_sort,
     )
 
-    # One read per listed season, each stopping at its first fixture that has taken place: a played season answers on
-    # its first, where one read of every season's fixtures would walk them all.
-    taken_place = await asyncio.gather(
-        *(a_fixture_has_taken_place(spiele_collection=spiele_collection, saison_id=str(raw["_id"]), session=None) for raw in saisons_raw)
+    taken_place = await saisons_with_a_fixture_taken_place(
+        spiele_collection=spiele_collection, saison_ids=[raw["_id"] for raw in saisons_raw], session=None
     )
     saisons = [
-        {**with_schedule(raw), "begun": has_started(start_date=str(raw["start_date"]), today=today), "taken_place": played}
-        for raw, played in zip(saisons_raw, taken_place, strict=True)
+        {**with_schedule(raw), "begun": has_started(start_date=str(raw["start_date"]), today=today), "taken_place": raw["_id"] in taken_place}
+        for raw in saisons_raw
     ]
 
     return FLSaisonsAdminListResponse(saisons=FLSaisonAdminListAdapter.validate_python(saisons))
@@ -421,7 +418,9 @@ async def patch_saison(
             )
         ]
 
-        taken_place = await a_fixture_has_taken_place(spiele_collection=spiele_collection, saison_id=saison_id, session=session)
+        taken_place = saison_id in await saisons_with_a_fixture_taken_place(
+            spiele_collection=spiele_collection, saison_ids=[saison_id], session=session
+        )
 
         # Validated, not read raw: a season missing a rules key fails here rather than comparing
         # against a default nobody chose.

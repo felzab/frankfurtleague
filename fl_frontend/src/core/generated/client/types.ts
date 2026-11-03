@@ -3160,7 +3160,7 @@ export interface FLLandingSide {
  *
  * A side is null while its slot is empty, as a match's own sides are.
  */
-export interface FLLandingKickoff {
+export interface FLLandingOpeningSpiel {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   datum: string;
   /** @minimum 1 */
@@ -3209,14 +3209,14 @@ export interface FLSaisonTeamEntry {
 /**
  * The season the site is on as the landing shows it.
  *
- * `start` the instant `saison_start` reads off its `start_date`. `first_kickoff` before the start, the earliest dated
+ * `start` the instant `saison_start` reads off its `start_date`. `opening_spiel` before the start, the earliest dated
  * group match, null while none is; `recent` and `upcoming` while it runs, the latest results and the next matches;
  * `podium` once decided, places one to four in their order, null before.
  */
 export interface FLLandingSaison {
   counts: FLLandingCounts;
-  first_kickoff: FLLandingKickoff | null;
   id: string;
+  opening_spiel: FLLandingOpeningSpiel | null;
   podium: [FLPodiumPlace, FLPodiumPlace, FLPodiumPlace, FLPodiumPlace] | null;
   recent: FLSpielJoined[];
   start: string;

@@ -151,7 +151,7 @@ def test_a_running_season_shows_its_latest_results_its_next_matches_and_its_figu
     response = landing(running_url, RUNNING_DATABASE_NAME)
     saison = response.saison
 
-    assert (saison.id, saison.state, saison.first_kickoff, saison.podium) == (SAISON, "running", None, None)
+    assert (saison.id, saison.state, saison.opening_spiel, saison.podium) == (SAISON, "running", None, None)
     assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == ([3, 2], [4, 5])
     assert saison.counts.model_dump() == {"count_tore": 7, "count_spiele": 6, "count_spieltage": 2}
     assert [team.name for team in saison.teams] == ["Alpha", "Beta"]
@@ -189,7 +189,7 @@ def test_a_season_before_its_first_match_counts_to_its_start_and_names_its_openi
     assert (saison.state, saison.recent, saison.upcoming, saison.podium) == ("before_start", [], [], None)
     # The tenth of March, winter time in Berlin, an hour ahead of UTC.
     assert saison.start == datetime(2026, 3, 9, 23, 0, tzinfo=UTC)
-    assert saison.first_kickoff.model_dump() == {
+    assert saison.opening_spiel.model_dump() == {
         "datum": "2026-03-10",
         "uhrzeit": "15:00:00",
         "spieltag_position": 2,
@@ -208,7 +208,7 @@ def test_a_season_past_its_start_date_runs_before_its_first_match(mongo_url: str
 
     saison = landing(mongo_url, STARTED_DATABASE_NAME).saison
 
-    assert (saison.state, saison.first_kickoff, saison.recent, [spiel.spiel_nr for spiel in saison.upcoming]) == ("running", None, [], [1])
+    assert (saison.state, saison.opening_spiel, saison.recent, [spiel.spiel_nr for spiel in saison.upcoming]) == ("running", None, [], [1])
 
 
 @pytest.mark.parametrize(
