@@ -1,4 +1,4 @@
-import { cardSurface } from "./cardStyles";
+import { cardSurface, smallCaps } from "./cardStyles";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -11,8 +11,8 @@ const cards = tv({
     // Three side by side from `lg`, one under another below it.
     root: "grid gap-4 lg:grid-cols-3",
     card: `grid content-start gap-1 ${cardSurface()} p-4`,
-    // Board: the label in the footer headings' small capitals over its sentence.
-    title: "text-xs font-medium tracking-caps text-fg-muted uppercase",
+    // The label in the kit's small capitals over its sentence.
+    title: smallCaps(),
     text: "text-sm",
   },
 });

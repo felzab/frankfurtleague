@@ -8,6 +8,7 @@ import { ROUTES } from "@/core/routes";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import { Brand } from "./Brand";
+import { smallCaps } from "./cardStyles";
 import { HeaderLinks } from "./FrameNav";
 import { Link } from "./Link";
 import { ToastRegion } from "./Toast";
@@ -32,7 +33,7 @@ function FooterGroup({ heading, links }: { heading: Copy; links: ReadonlyArray<H
     <nav
       aria-label={heading}
       className="grid content-start gap-1">
-      <h2 className="mb-1 text-xs font-semibold tracking-caps text-fg-muted uppercase">{heading}</h2>
+      <h2 className={smallCaps({ class: "mb-1" })}>{heading}</h2>
       {links.map((link) => (
         <Link
           key={link.href}

@@ -1,5 +1,6 @@
 import { useId } from "react";
 
+import { smallCaps } from "./cardStyles";
 import { Link } from "./Link";
 import { tv } from "./tv";
 
@@ -11,8 +12,8 @@ const section = tv({
   slots: {
     root: "grid min-w-0 gap-6",
     head: "grid max-w-measure justify-items-start gap-2",
-    // Board: the eyebrow over a section's title, in the footer headings' small capitals.
-    eyebrow: "text-xs font-medium tracking-caps text-fg-muted uppercase",
+    // The eyebrow over a section's title, in the kit's small capitals.
+    eyebrow: smallCaps(),
     title: "font-heading text-2xl tracking-display uppercase",
   },
 });
