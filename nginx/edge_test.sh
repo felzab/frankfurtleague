@@ -822,23 +822,15 @@ awk "/^[[:space:]]*return 429 '/ { open = 1; sub(/^[[:space:]]*return 429 '/, \"
   open { print }" "${REPO_ROOT}/nginx/shared/site.conf" > "$REFUSAL_PAGE"
 [[ -s "$REFUSAL_PAGE" ]] || refuse "nginx/shared/site.conf returns no 429 page this test can read."
 
-# The page's colours against the season scheme `fl_frontend/src/app/globals.css` imports, both
-# copied by hand. The read is a standalone script, so it needs nothing of this scope's interpreter
-# beyond its standard library.
+# The page's colours against the tokens the rebuilt site paints, `fl_frontend/src/app/tokens.css`, each
+# copied by hand under the name that file gives it. The read is a standalone script, so it needs nothing of
+# this scope's interpreter beyond its standard library.
 PAGE_PALETTE_READ='
 import re
 import sys
 
 page = open(sys.argv[1], "rb").read().decode("utf-8")
-app = sys.argv[2] + "/fl_frontend/src/app/"
-FROM_SCHEME = {
-    "--surface": "--bg-surface",
-    "--card": "--bg-base",
-    "--text": "--fg-muted",
-    "--heading": "--fg-base",
-    "--rule": "--border-base",
-    "--brand": "--accent-brand",
-}
+SITE_TOKENS = ("--bg", "--bg-card", "--fg-muted", "--fg", "--border", "--brand")
 
 
 def body_after(text, opener):
@@ -853,25 +845,22 @@ def body_after(text, opener):
     return ""
 
 
-imported = re.search(r"@import\s+\"\./(schemes/[^\"]+)\"", open(app + "globals.css", "rb").read().decode("utf-8"))
-if imported is None:
-    sys.exit("globals.css imports no season scheme")
-scheme = open(app + imported.group(1), "rb").read().decode("utf-8")
-scheme = re.sub(r"/\*.*?\*/", lambda comment: re.sub(r"[^\n]", " ", comment.group(0)), scheme, flags=re.DOTALL)
+site = open(sys.argv[2] + "/fl_frontend/src/app/tokens.css", "rb").read().decode("utf-8")
+site = re.sub(r"/\*.*?\*/", lambda comment: re.sub(r"[^\n]", " ", comment.group(0)), site, flags=re.DOTALL)
 problems = []
-for theme, scheme_opener, page_opener in (
-    ("light", r":root\s*,\s*\[data-theme=\"light\"\]\s*\{", r":root\s*\{"),
+for theme, site_opener, page_opener in (
+    ("light", r":root\s*\{", r":root\s*\{"),
     ("dark", r"\[data-theme=\"dark\"\]\s*\{", r"prefers-color-scheme:\s*dark\)\s*\{\s*:root\s*\{"),
 ):
-    tokens = dict(re.findall(r"(--[a-z0-9-]+)\s*:\s*(\S+?)\s*;", body_after(scheme, scheme_opener)))
+    tokens = dict(re.findall(r"(--[a-z0-9-]+)\s*:\s*(\S+?)\s*;", body_after(site, site_opener)))
     shown = {
         name: "".join(format(int(channel), "02x") for channel in channels)
-        for name, *channels in re.findall(r"(--[a-z]+):\s*rgb\((\d+) (\d+) (\d+)\);", body_after(page, page_opener))
+        for name, *channels in re.findall(r"(--[a-z-]+):\s*rgb\((\d+) (\d+) (\d+)\);", body_after(page, page_opener))
     }
-    for name, token in FROM_SCHEME.items():
-        wanted = tokens.get(token, "").lower().removeprefix(chr(35))
+    for name in SITE_TOKENS:
+        wanted = tokens.get(name, "").lower().removeprefix(chr(35))
         if not wanted or shown.get(name) != wanted:
-            problems.append(f"{theme} {name} reads {shown.get(name)}, the scheme {token} {wanted or None}")
+            problems.append(f"{theme} {name} reads {shown.get(name)}, tokens.css {wanted or None}")
 print("; ".join(problems))
 sys.exit(1 if problems else 0)
 '
@@ -898,7 +887,7 @@ grade_page() { # $1 the transfer's label, its files named for it; $2 "head" wher
   fi
   if [[ "${2:-}" != head ]] && ! palette="$("$EDGE_PY" -c "$PAGE_PALETTE_READ" "${SCRATCH}/$1.body" "$REPO_ROOT" 2>&1)"; then
     fail "ACTION $1"
-    detail "expected the page's colours to be the season scheme's: ${palette}"
+    detail "expected the page's colours to be the rebuilt site's tokens: ${palette}"
     ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
   fi
   grade_security_headers "the edge's own 429 page, $1"
