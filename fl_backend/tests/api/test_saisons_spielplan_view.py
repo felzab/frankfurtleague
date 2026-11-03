@@ -81,8 +81,8 @@ IN_PLAYING_ORDER = [("gruppenphase", 1, [1, 2]), ("gruppenphase", 2, [4]), ("fin
 def test_the_spielplan_holds_each_matchday_s_matches_in_playing_order():
     """The phase, then the position; each matchday's matches by number."""
 
-    # Each match as the pipeline yields it, beside the confirmation verdict only its join composes.
-    joined = [{**document, "ansetzung_confirmed": None} for document in STORED_SPIELE]
+    # Each match as the pipeline yields it, beside the confirmation verdict and the mark only its join composes.
+    joined = [{**document, "ansetzung_confirmed": None, "for_third_place": False} for document in STORED_SPIELE]
     spieltage = build_spielplan(STORED_SPIELTAGE, joined, FLSaisonRules.model_validate(rules_document()))
 
     assert [(day.saison_phase, day.position, [match.spiel_nr for match in day.spiele]) for day in spieltage] == IN_PLAYING_ORDER

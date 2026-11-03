@@ -1217,6 +1217,7 @@ def joined(
         "saison_phase": saison_phase,
         "saison_id": SAISON_ID,
         "ansetzung_confirmed": None,
+        "for_third_place": False,
     }
 
 

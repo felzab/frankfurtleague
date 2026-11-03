@@ -236,6 +236,47 @@ def _ansetzung_confirmed() -> Mapping[str, Any]:
 
 SCHIEDSRICHTER_AS_NAME = "schiedsrichter_rows"
 
+# The served mark's key, which `FLSpielJoined` declares and no stored shape does.
+FOR_THIRD_PLACE = "for_third_place"
+
+FINALE_KEY_NAME = "finale_key"
+FINALE_AS_NAME = "finale_rows"
+
+
+def _third_place_stages() -> list[Mapping[str, Any]]:
+    """Mark the match for third place: of a Finale matchday holding the two the draw writes, the lower-numbered.
+
+    Told apart by number rather than by a `verlierer` source, which an admin may clear by hand: the draw numbers the
+    match for third place just ahead of the final, and no save renumbers a match. A Finale holding more than the draw
+    writes was wired by hand, and marks none. The one rule, which `podium_of` reads off the mark.
+    """
+
+    return [
+        # Keyed on the season for a Finale match alone: every other match looks up a null key, which no fixture holds,
+        # so only the Finale's two read their phase.
+        {"$set": {FINALE_KEY_NAME: {"$cond": [{"$eq": ["$saison_phase", "finale"]}, "$saison_id", None]}}},
+        {
+            "$lookup": {
+                "from": Collection.SPIELE,
+                "localField": FINALE_KEY_NAME,
+                "foreignField": "saison_id",
+                "pipeline": [{"$match": {"saison_phase": "finale"}}, {"$project": {"_id": 0, "spiel_nr": 1}}],
+                "as": FINALE_AS_NAME,
+            }
+        },
+        {
+            "$set": {
+                FOR_THIRD_PLACE: {
+                    "$and": [
+                        {"$eq": [{"$size": f"${FINALE_AS_NAME}"}, 2]},
+                        {"$eq": ["$spiel_nr", {"$min": f"${FINALE_AS_NAME}.spiel_nr"}]},
+                    ]
+                }
+            }
+        },
+    ]
+
+
 # The served verdicts' keys on the referee block, which `FLSpielSchiedsrichterFieldPublic` and
 # `FLSpielJoined` read and no stored shape declares.
 NAME_IS_PUBLIC_KEY = "name_is_public"
@@ -382,6 +423,8 @@ def build_spiele_pipeline(
 
     pipeline.append(_referee_lookup())
 
+    pipeline.extend(_third_place_stages())
+
     pipeline.append(
         {
             "$set": {
@@ -395,7 +438,7 @@ def build_spiele_pipeline(
 
     # Dropped here rather than at validation: `extra="ignore"` discards these scratch rows in
     # silence, after the driver has carried one array per fixture across every list read.
-    pipeline.append({"$unset": [SAISON_TEAMS_AS_NAME, SPIELBESTAETIGUNGEN_AS_NAME, SCHIEDSRICHTER_AS_NAME]})
+    pipeline.append({"$unset": [SAISON_TEAMS_AS_NAME, SPIELBESTAETIGUNGEN_AS_NAME, SCHIEDSRICHTER_AS_NAME, FINALE_KEY_NAME, FINALE_AS_NAME]})
 
     return pipeline
 
@@ -753,21 +796,19 @@ def winner_and_loser[Side: FLSpielTeamField](
 def podium_of(finale: Sequence[FLSpielJoinedInternal]) -> list[tuple[int, FLSpielTeamFieldJoinedInternal | None]]:
     """Places one to four as the Finale's matchday decides them, each pair only once its match has.
 
-    The final gives places one and two; the match for third place, which exists only where the bracket has
-    semi-finals, gives three and four. A place decided on or after the day its club left the season is vacant, its
-    club `None`, by the rule a group's placings keep (`in_the_season_when_decided`): still a decided place, so a season
-    whose fourth place is vacant has all four in.
+    The final gives places one and two; the match for third place, as the read marks it (`_third_place_stages`), gives
+    three and four. A place decided on or after the day its club left the season is vacant, its club `None`, by the rule
+    a group's placings keep (`in_the_season_when_decided`): still a decided place, so a season whose fourth place is
+    vacant has all four in.
     """
 
-    # Told apart by number rather than by a `verlierer` source, which an admin may clear by hand: the draw numbers the
-    # match for third place just ahead of the final, and no save renumbers a match. A matchday holding more than the
-    # draw writes was wired by hand, and it names nobody.
-    ordered = sorted(finale, key=lambda spiel: spiel.spiel_nr)
-    if not 1 <= len(ordered) <= 2:
+    # A matchday holding more than the draw writes was wired by hand, and it names nobody.
+    if not 1 <= len(finale) <= 2:
         return []
 
     places: list[tuple[int, FLSpielTeamFieldJoinedInternal | None]] = []
-    for first, spiel in ((1, ordered[-1]), *((3, for_third) for for_third in ordered[:-1])):
+    for spiel in finale:
+        first = 3 if spiel.for_third_place else 1
         decided = winner_and_loser(spiel.team1, spiel.team2, spiel.elfmeterschiessen)
         if decided is not None:
             places.extend(
@@ -775,7 +816,8 @@ def podium_of(finale: Sequence[FLSpielJoinedInternal]) -> list[tuple[int, FLSpie
                 for platz, side in ((first, decided[0]), (first + 1, decided[1]))
             )
 
-    return places
+    # By place, whichever order the Finale's two were read in.
+    return sorted(places, key=lambda place: place[0])
 
 
 def _fault_order(fault: FLBracketFault) -> tuple[int, str, str, int]:

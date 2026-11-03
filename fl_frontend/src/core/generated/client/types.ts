@@ -3004,6 +3004,7 @@ export interface FLSpielJoined {
   datum: string | null;
   elfmeterschiessen: FLSpielElfmeterschiessen | null;
   ergebnis: string | null;
+  for_third_place: boolean;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   notiz: string | null;
@@ -4802,6 +4803,7 @@ export interface FLSpielJoinedAdmin {
   datum: string | null;
   elfmeterschiessen: FLSpielElfmeterschiessen | null;
   ergebnis: string | null;
+  for_third_place: boolean;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   notiz: string | null;
@@ -5914,6 +5916,7 @@ export interface FLTeamPageSpiel {
   datum: string | null;
   elfmeterschiessen: FLSpielElfmeterschiessen | null;
   ergebnis: string | null;
+  for_third_place: boolean;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   notiz: string | null;

@@ -12949,6 +12949,10 @@
             ],
             "title": "Ergebnis"
           },
+          "for_third_place": {
+            "title": "For Third Place",
+            "type": "boolean"
+          },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id",
@@ -13085,7 +13089,8 @@
           "saison_phase",
           "saison_id",
           "notiz",
-          "ansetzung_confirmed"
+          "ansetzung_confirmed",
+          "for_third_place"
         ],
         "title": "FLSpielJoined",
         "type": "object"
@@ -13137,6 +13142,10 @@
               }
             ],
             "title": "Ergebnis"
+          },
+          "for_third_place": {
+            "title": "For Third Place",
+            "type": "boolean"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -13280,6 +13289,7 @@
           "saison_id",
           "notiz",
           "ansetzung_confirmed",
+          "for_third_place",
           "version"
         ],
         "title": "FLSpielJoinedAdmin",
@@ -17592,6 +17602,10 @@
             ],
             "title": "Ergebnis"
           },
+          "for_third_place": {
+            "title": "For Third Place",
+            "type": "boolean"
+          },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id",
@@ -17734,6 +17748,7 @@
           "saison_id",
           "notiz",
           "ansetzung_confirmed",
+          "for_third_place",
           "spieltag_position"
         ],
         "title": "FLTeamPageSpiel",

@@ -257,6 +257,7 @@ def faulted_saison(spiel: PayloadFactory) -> list[dict[str, Any]]:
                 "ort": None,
                 "schiedsrichter": None,
                 "ansetzung_confirmed": None,
+                "for_third_place": False,
                 **overrides,
             }
         )

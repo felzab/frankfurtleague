@@ -613,6 +613,9 @@ class FLSpielJoined(FLSpielCommon):
     # the next save. Required: only the join composes it.
     ansetzung_confirmed: bool | None
 
+    # Whether this is the match for third place, the one rule every reader and the podium read; on the same grounds.
+    for_third_place: bool
+
     # The acceptance gate ahead of the consent gate; `FLSpielJoinedAdmin`
     # re-declares the field plainly, which drops this validator there.
     schiedsrichter: Annotated[FLSpielSchiedsrichterFieldPublic | None, BeforeValidator(_withheld_unless_agreed)]

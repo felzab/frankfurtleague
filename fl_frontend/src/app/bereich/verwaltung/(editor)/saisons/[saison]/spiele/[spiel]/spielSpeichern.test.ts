@@ -32,6 +32,7 @@ const GESPEICHERT: FLSpielJoinedAdmin = {
   saison_id: "2027",
   notiz: "Flutlicht",
   ansetzung_confirmed: null,
+  for_third_place: false,
   version: 3,
 };
 

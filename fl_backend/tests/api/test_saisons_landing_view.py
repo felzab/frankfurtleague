@@ -8,7 +8,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_landing
 from app.api.saisons.schemas import saison_start
-from app.api.spiele.schemas import FLSpielElfmeterschiessen, FLSpielJoinedInternal, FLSpielQuelleSpiel, FLSpielTeamFieldJoinedInternal
+from app.api.spiele.schemas import FLSpielElfmeterschiessen, FLSpielJoinedInternal, FLSpielTeamFieldJoinedInternal
 from app.api.spiele.services import podium_of
 from app.api.teams.schemas import FLAustritt
 from app.core.collections import Collection
@@ -227,7 +227,8 @@ def test_a_season_starts_at_midnight_in_berlin_on_its_start_date(start_date: str
 def test_a_season_whose_final_is_played_shows_its_podium(mongo_url: str):
     """The match for third place and the final, read off the Finale's matchday through the joined shape the landing serves.
 
-    Its goals count the Finale's beside the group phase's, as the season's own figure.
+    Neither names a source, as a match an admin cleared by hand names none, so the read marks the match for third place by
+    its number. Its goals count the Finale's beside the group phase's, as the season's own figure.
     """
 
     seeded(
@@ -328,13 +329,9 @@ def finale_match(
     *,
     third: bool,
     shootout: tuple[int, int] | None = None,
-    cleared: bool = False,
     left: dict[str, str] | None = None,
 ) -> FLSpielJoinedInternal:
-    """`cleared` is a slot an admin took over by clearing its source, which leaves the match its number alone.
-
-    `left` names a club by name and the day it left the season; every match is played on `MATCH_DAY`.
-    """
+    """`third` is the read's mark; `left` names a club by name and the day it left the season; every match is played on `MATCH_DAY`."""
 
     def joined(name: str, tore: int | None) -> FLSpielTeamFieldJoinedInternal:
         austritt = None if left is None or name not in left else FLAustritt(type="disqualifikation", grund="Ausgeschlossen", datum=left[name])
@@ -342,14 +339,12 @@ def finale_match(
             team_id=ObjectId(), name=name, shorthand=name[:3].upper(), tore=tore, austritt_type=austritt and austritt.type, austritt=austritt
         )
 
-    quelle = None if cleared else FLSpielQuelleSpiel(type="spiel", spiel_nr=21, ausgang="verlierer" if third else "sieger")
     return FLSpielJoinedInternal.model_construct(
         datum=MATCH_DAY,
         spiel_nr=THIRD_NR if third else FINAL_NR,
+        for_third_place=third,
         team1=joined(*team1),
         team2=joined(*team2),
-        team1_quelle=quelle,
-        team2_quelle=quelle,
         elfmeterschiessen=None if shootout is None else FLSpielElfmeterschiessen(team1=shootout[0], team2=shootout[1]),
     )
 
@@ -369,9 +364,9 @@ def finale_match(
         ),
         pytest.param([finale_match(("Alpha", 1), ("Beta", 1), third=False)], [], id="a level final with no shoot-out names nobody"),
         pytest.param(
-            [finale_match(("Alpha", 1), ("Beta", 0), third=False), finale_match(("Cara", 0), ("Dora", 1), third=True, cleared=True)],
+            [finale_match(("Alpha", 1), ("Beta", 0), third=False), finale_match(("Cara", 0), ("Dora", 1), third=True)],
             [(1, "Alpha"), (2, "Beta"), (3, "Dora"), (4, "Cara")],
-            id="a match for third place whose sources were cleared by hand, read in any order",
+            id="the Finale's two read in either order",
         ),
         pytest.param(
             [

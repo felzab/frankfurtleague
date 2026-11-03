@@ -26,6 +26,7 @@ const spiel = (key: string) => ({
   ort: null,
   schiedsrichter: null,
   ansetzung_confirmed: null,
+  for_third_place: false,
   team1: { team_id: "t1", name: "Woehlerschule", shorthand: "WOE", tore: null, austritt_type: null },
   team2: { team_id: "t2", name: "Ernst-Reuter-Schule", shorthand: "ERS", tore: null, austritt_type: null },
   team1_quelle: null,

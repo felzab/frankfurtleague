@@ -49,6 +49,7 @@ const spiel = (id: string): FLSpielJoined => ({
   elfmeterschiessen: null,
   sonderereignis: null,
   ansetzung_confirmed: null,
+  for_third_place: false,
   notiz: null,
   ort: null,
   schiedsrichter: null,
