@@ -1,5 +1,7 @@
 import { tv } from "./tv";
 
+import type { Copy, RecordText } from "@/core/copy";
+
 const plaque = tv({
   // `align-middle` centres it on the line where it stands in a line of text, as inside a table row's link;
   // a flex or grid parent, which centres it everywhere else, ignores it.
@@ -16,13 +18,16 @@ const plaque = tv({
 });
 
 /**
- * The 40 × 24-px plaque before a club's name, holding its three-letter Kürzel; one size for every place.
- * A side not yet known shows its source short instead, „A1“ or „S25“, in a dashed plaque.
+ * What a plaque holds: the club's Kürzel, its record's own data, or, for a side not yet known, its source short,
+ * „A1“ or „S25“, and `null` for a side with neither a club nor a source yet.
  */
-export function TeamPlaque(props: { kuerzel: string; quelle?: never } | { quelle: string; kuerzel?: never }) {
-  return props.kuerzel !== undefined ? (
-    <span className={plaque({ known: true })}>{props.kuerzel}</span>
+export type Plaque = RecordText | { quelle: Copy | null };
+
+/** The 40 × 24-px plaque before a club's name, holding its three-letter Kürzel; one size for every place. */
+export function TeamPlaque({ plaque: held }: { plaque: Plaque }) {
+  return "record" in held ? (
+    <span className={plaque({ known: true })}>{held.record}</span>
   ) : (
-    <span className={plaque({ known: false })}>{props.quelle}</span>
+    <span className={plaque({ known: false })}>{held.quelle}</span>
   );
 }

@@ -19,9 +19,9 @@ function SpielortField({ onCreate, onChange }: { onCreate: (typed: string) => vo
     <ComboBox
       label={SPIELORT.object}
       options={[
-        { id: "ost", label: "Sportplatz Ost" },
-        { id: "west", label: "Sportplatz West" },
-        { id: "halle", label: "Sporthalle Nord" },
+        { id: "ost", label: { record: "Sportplatz Ost" } },
+        { id: "west", label: { record: "Sportplatz West" } },
+        { id: "halle", label: { record: "Sporthalle Nord" } },
       ]}
       value={value}
       onChange={(id) => {
@@ -114,8 +114,8 @@ describe("a select's chosen value", () => {
       <Select
         label={COPY.shared.saison}
         options={[
-          { id: "a", label: "Goethe" },
-          { id: "b", label: "Helmholtz" },
+          { id: "a", label: { record: "Goethe" } },
+          { id: "b", label: { record: "Helmholtz" } },
         ]}
         defaultValue="a"
       />,

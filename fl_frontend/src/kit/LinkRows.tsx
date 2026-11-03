@@ -1,14 +1,16 @@
+import { textOf } from "@/core/copy";
+
 import { cardHover, cardSurface } from "./cardStyles";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { IconName } from "./Icon";
 
 /** One way to reach the league: its glyph where it has one, its name, what it reaches, and the link itself. */
-type LinkRow = { glyph?: IconName; label: Copy; value: string; href: Route };
+type LinkRow = { glyph?: IconName; label: Copy; value: Words; href: Route };
 
 /**
  * The ways to reach the league, one row each in one box, each row one link through its name, the address or
@@ -41,8 +43,8 @@ export function LinkRows({ rows }: { rows: readonly LinkRow[] }) {
           </span>
           <span
             className="min-w-0 flex-1 truncate text-end text-fg-muted"
-            title={row.value}>
-            {row.value}
+            title={textOf(row.value)}>
+            {textOf(row.value)}
           </span>
           <RowEnd />
         </div>

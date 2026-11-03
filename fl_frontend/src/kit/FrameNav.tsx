@@ -26,7 +26,7 @@ import { Sheet } from "./Sheet";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
 import type { GlyphChoice } from "./ChoiceButtons";
@@ -148,11 +148,11 @@ function useEntries(groups: ReadonlyArray<RailGroup>) {
 /** The person signed in, as the rail's foot and the phone bar's account place show them. */
 export type Account = {
   /** The person's name; an administrator's grant stores none, so the row names the address instead. */
-  name?: string;
+  name?: RecordText;
   /** The role the area is for, the row's second line. */
   role: Copy;
   /** The sign-in address: under the name at the top of the menu, or the row's own name where there is none. */
-  address: string;
+  address: RecordText;
 };
 
 /**
@@ -348,7 +348,7 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
   const collapsed = useRailCollapsed();
   const account = use(read);
   if (account === null) return null;
-  const name = account.name ?? account.address;
+  const { record: name } = account.name ?? account.address;
   return (
     <AccountMenu
       account={account}
@@ -518,7 +518,7 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
           <span
             aria-hidden
             className={avatar({ size: "bar" })}>
-            {initials(account.name ?? account.address)}
+            {initials((account.name ?? account.address).record)}
           </span>
           {COPY.template.account}
         </AriaButton>

@@ -6,7 +6,7 @@ import { ReadPage } from "@/kit/ReadPage";
 import { SpielList } from "@/kit/SpielRow";
 
 import { COPY } from "@/core/copy";
-import { formatErgebnis, formatNumber, formatOrdinal, formatSigned } from "@/core/format";
+import { formatErgebnis, formatNumber, formatOrdinal } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
@@ -17,6 +17,7 @@ import { buildMapsSearchUrl } from "@/shared/utils/format";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 
+import type { Words } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { FLSpielerPublic, FLTeamPageResponse } from "@/core/generated/client/types";
 import type { ReadRecord } from "@/kit/ReadPage";
@@ -36,7 +37,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   const { saison } = await params;
   const { team } = await readPage(params);
   return pageMetadata(parent, ROUTES.team, ROUTES.team.path(saison, team.id), {
-    title: ROUTES.team.title(team.name),
+    title: { record: team.name },
     description: SERVER_COPY.description.team(team.name, saison),
   });
 }
@@ -55,8 +56,16 @@ export default function TeamPage({ params }: Props) {
 }
 
 /** A pupil of the squad as the public read names them: a name the consent publishes, else „anonym“. */
-const personOf = (spieler: FLSpielerPublic) =>
-  spieler.vorname === null ? SERVER_COPY.season.spiel.anonym : [spieler.vorname, spieler.nachname].filter((name) => name !== null).join(" ");
+const personOf = (spieler: FLSpielerPublic): Words =>
+  spieler.vorname === null
+    ? SERVER_COPY.season.spiel.anonym
+    : { record: [spieler.vorname, spieler.nachname].filter((name) => name !== null).join(" ") };
+
+/** A pupil's number and position, each left out while the record holds none. */
+const cellsOf = ({ nummer, position }: Pick<FLSpielerPublic, "nummer" | "position">) => ({
+  ...(nummer === null ? {} : { nummer: { record: nummer } }),
+  ...(position === null ? {} : { position: { record: position } }),
+});
 
 /** The club's standing at a glance: its place in its group, its points, its matches played and its goals. */
 function tilesOf({ team, standing }: FLTeamPageResponse): readonly [StatTile, StatTile, StatTile, StatTile] {
@@ -71,17 +80,17 @@ function tilesOf({ team, standing }: FLTeamPageResponse): readonly [StatTile, St
     ];
   const { statistik } = standing;
   return [
-    { label: words.platz, value: standing.platz === null ? COPY.shared.noValue : formatOrdinal(standing.platz), line: group },
-    { label: words.punkte, value: formatNumber(statistik.punkte) },
+    { label: words.platz, value: standing.platz === null ? COPY.shared.noValue : { record: formatOrdinal(standing.platz) }, line: group },
+    { label: words.punkte, value: { record: formatNumber(statistik.punkte) } },
     {
       label: words.spiele,
-      value: formatNumber(statistik.count_gespielte_spiele),
-      line: { record: [formatNumber(statistik.siege), formatNumber(statistik.unentschieden), formatNumber(statistik.niederlagen)] },
+      value: { record: formatNumber(statistik.count_gespielte_spiele) },
+      line: { counts: [statistik.siege, statistik.unentschieden, statistik.niederlagen] },
     },
     {
       label: words.tore,
-      value: formatErgebnis({ team1: statistik.tore_geschossen, team2: statistik.tore_kassiert }),
-      line: words.differenz(formatSigned(statistik.tore_geschossen - statistik.tore_kassiert)),
+      value: { record: formatErgebnis({ team1: statistik.tore_geschossen, team2: statistik.tore_kassiert }) },
+      line: words.differenz(statistik.tore_geschossen - statistik.tore_kassiert),
     },
   ];
 }
@@ -102,13 +111,13 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
     club: {
       head: (
         <ClubHead
-          kuerzel={team.shorthand}
-          name={team.name}
+          plaque={{ record: team.shorthand }}
+          name={{ record: team.name }}
           website={team.website_url?.startsWith("https://") === true ? (team.website_url as `https://${string}`) : null}
-          school={team.full_name}
+          school={{ record: team.full_name }}
           address={address}
           map={buildMapsSearchUrl(address)}
-          description={team.description}
+          description={{ record: team.description }}
         />
       ),
       austritt:
@@ -127,7 +136,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         label: COPY.page.spiele,
         items: spiele.map((spiel, index) => ({
           id: spiel.id,
-          mark: formatNumber(index + 1),
+          mark: { record: formatNumber(index + 1) },
           title: matchdayOf(spiel, spiel.spieltag_position),
           children: <SpielList matches={[matchRowOf(spiel)]} />,
         })),
@@ -152,7 +161,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
                     rows: kader.map((spieler, index) => ({
                       id: String(index),
                       name: personOf(spieler),
-                      cells: { nummer: spieler.nummer ?? "", position: spieler.position ?? "" },
+                      cells: cellsOf(spieler),
                     })),
                     empty: { kind: "none", plural: COPY.page.teamKader },
                   },

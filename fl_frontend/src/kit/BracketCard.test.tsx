@@ -2,6 +2,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { COPY } from "@/core/copy";
+
 import { BracketCard } from "./BracketCard";
 
 import type { ComponentProps } from "react";
@@ -15,9 +17,9 @@ describe("a bracket card", () => {
     render(
       <BracketCard
         href="/saisons/2027/spiele/64b000000000000000000001"
-        when="Termin offen"
-        home={{ name: "Goethe", plaque: { kuerzel: "GOE" } }}
-        away={{ name: "Helmholtz", plaque: { kuerzel: "HEL" } }}
+        when={COPY.spielplan.when(null, null)}
+        home={{ name: { record: "Goethe" }, plaque: { record: "GOE" } }}
+        away={{ name: { record: "Helmholtz" }, plaque: { record: "HEL" } }}
         result={{ tore: { team1: 1, team2: 1 }, elfmeterschiessen: { team1: 4, team2: 3 } }}
       />,
     );
@@ -36,9 +38,9 @@ describe("a bracket card", () => {
     render(
       <BracketCard
         href="/saisons/2027/spiele/64b000000000000000000001"
-        when="Termin offen"
-        home={{ name: "Carlo-Mierendorff-Schule", plaque: { kuerzel: "CMS" } }}
-        away={{ name: "Helmholtzschule", plaque: { kuerzel: "HEL" } }}
+        when={COPY.spielplan.when(null, null)}
+        home={{ name: { record: "Carlo-Mierendorff-Schule" }, plaque: { record: "CMS" } }}
+        away={{ name: { record: "Helmholtzschule" }, plaque: { record: "HEL" } }}
       />,
     );
 

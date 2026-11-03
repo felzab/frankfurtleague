@@ -34,8 +34,8 @@ export function Tabs({
   scroll?: boolean;
   /** The tab the address names, or the one most likely wanted, chosen on the server by `chosenTab`. */
   selectedKey: string;
-  /** Each tab's label is data, a matchday's name. */
-  tabs: ReadonlyArray<{ id: string; label: string }>;
+  /** Each tab's label, a matchday's name. */
+  tabs: ReadonlyArray<{ id: string; label: Copy }>;
   /** The chosen tab's content, alone: the other tabs' content never reaches the page. */
   children: ReactNode;
 }) {

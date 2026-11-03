@@ -83,7 +83,7 @@ describe("a card", () => {
       <Card title={COPY.shared.saison}>
         <CardRow
           href="/saisons/2027"
-          name="Helmholtzschule"
+          name={{ record: "Helmholtzschule" }}
           chip={{ tone: "warn", label: COPY.shared.startelf }}
         />
       </Card>,
@@ -103,7 +103,7 @@ describe("a card", () => {
       <Card title={COPY.shared.saison}>
         <CardRow
           href="/saisons/2027"
-          name={name}
+          name={{ record: name }}
           chip={{ tone: "warn", label: COPY.shared.startelf }}
         />
       </Card>,
@@ -122,7 +122,7 @@ describe("a card", () => {
         label={COPY.page.teamKader}
         nameLabel={COPY.page.teamKader}
         columns={[{ key: "stufe", label: COPY.shared.startelf }]}
-        rows={[{ id: "1", name: "Mika Brandt", cells: { stufe: "Q2" } }]}
+        rows={[{ id: "1", name: { record: "Mika Brandt" }, cells: { stufe: { record: "Q2" } } }]}
         empty={{ kind: "none", plural: COPY.page.teamKader }}
       />
     );
@@ -157,7 +157,7 @@ describe("a card", () => {
       <CardLink
         href="/saisons/2027"
         title={COPY.shared.saison}
-        lineText="Helmholtzschule"
+        line={{ record: "Helmholtzschule" }}
       />,
     );
     expect(screen.getByRole("link").textContent).toBe(`${COPY.shared.saison}Helmholtzschule`);
@@ -191,22 +191,24 @@ describe("a fill under the pointer on a card", () => {
         <Card title={COPY.shared.saison}>
           <CardRow
             href="/saisons/2027"
-            name="Helmholtzschule"
+            name={{ record: "Helmholtzschule" }}
           />
         </Card>
         <CardLink
           href="/saisons/2027"
           title={COPY.shared.saison}
-          lineText="Bettinaschule"
+          line={{ record: "Bettinaschule" }}
         />
         <Table
           label={COPY.page.teamKader}
           nameLabel={COPY.page.teamKader}
           columns={[]}
-          rows={[{ id: "1", name: "Ahorn-Gymnasium", href: "/saisons/2027", cells: {} }]}
+          rows={[{ id: "1", name: { record: "Ahorn-Gymnasium" }, href: "/saisons/2027", cells: {} }]}
           empty={{ kind: "none", plural: COPY.page.teamKader }}
         />
-        <LinkRows rows={[{ label: COPY.template.instagram, value: "@frankfurtleague", href: "https://www.instagram.com/frankfurtleague" }]} />
+        <LinkRows
+          rows={[{ label: COPY.template.instagram, value: { record: "@frankfurtleague" }, href: "https://www.instagram.com/frankfurtleague" }]}
+        />
       </>,
     );
     const hovered = [

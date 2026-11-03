@@ -5,7 +5,6 @@ import { StatusPage } from "@/kit/StatusPage";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { getSaisonFrame } from "@/features/saisons/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -25,7 +24,12 @@ async function readSaison(): Promise<StatusCardProps> {
   await connection();
   const { active_saison_id: active } = await getSaisonFrame();
   if (active !== null) redirect(ROUTES.spielplan.path(active));
-  return { mark: "info", sentence: SERVER_COPY.season.noSaison, next: { label: COPY.shared.end.toHome, href: ROUTES.home.path() } };
+  // The landing's words for the same fact, the empty pattern under the season's noun.
+  return {
+    mark: "info",
+    sentence: COPY.shared.empty.none(COPY.shared.saison),
+    next: { label: COPY.shared.end.toHome, href: ROUTES.home.path() },
+  };
 }
 
 /** `/saisons`: the address a link uses where it cannot know the season, which leads on to the season the site is on. */

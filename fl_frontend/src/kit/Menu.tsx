@@ -13,7 +13,7 @@ import {
   SubmenuTrigger,
 } from "react-aria-components/Menu";
 
-import { COPY } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 
 import { useOpenUntilHidden } from "./Dialog";
 import { entryMark, menuPopover } from "./fieldStyles";
@@ -23,7 +23,7 @@ import { SheetFrame } from "./Sheet";
 import { tv } from "./tv";
 import { useDesktop } from "./useDesktop";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, RecordText, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { ComponentProps, ReactElement, ReactNode } from "react";
 import type { IconName } from "./Icon";
@@ -33,12 +33,10 @@ import type { IconName } from "./Icon";
  * one. Its words are catalogue text, or a record's own name such as a season's.
  * @awaitsPage Redesign: the first page that builds a menu's entries
  */
-export type MenuLink = { href: Route; icon?: IconName; isCurrent?: boolean } & (
-  { label: Copy; text?: never } | { text: string; label?: never }
-) & {
-    /** How the router goes there, `replace` for a step Back should skip (React Aria's `routerOptions`). */
-    routerOptions?: ComponentProps<typeof MenuItem>["routerOptions"];
-  };
+export type MenuLink = { href: Route; icon?: IconName; isCurrent?: boolean; label: Words } & {
+  /** How the router goes there, `replace` for a step Back should skip (React Aria's `routerOptions`). */
+  routerOptions?: ComponentProps<typeof MenuItem>["routerOptions"];
+};
 
 /**
  * One entry of a menu: a link, an action, or a second list of links.
@@ -56,7 +54,7 @@ export type MenuProps = {
   /** The kit control that opens it. */
   trigger: ReactElement;
   /** Plain text above the entries, such as a person's name and address: data, not catalogue text. */
-  head?: { name: string; detail: string };
+  head?: { name: RecordText; detail: RecordText };
   /** The entries, a separator between two groups. */
   groups: ReadonlyArray<ReadonlyArray<MenuEntry>>;
   /** Where the menu opens on desktop: under its trigger, or above it for a trigger at the rail's foot. */
@@ -128,11 +126,11 @@ function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
       id={link.href}
       href={link.href}
       routerOptions={link.routerOptions}
-      textValue={link.label ?? link.text}
+      textValue={textOf(link.label)}
       data-kit-focus="item"
       className={`${menuEntry({ size })} ${entryMark({ mark: "place" })}`}>
       <Entry
-        label={link.label ?? link.text}
+        label={textOf(link.label)}
         icon={link.icon}
       />
     </MenuItem>
@@ -252,8 +250,8 @@ function Group({ entries, size, onOpenSubmenu }: { entries: ReadonlyArray<MenuEn
 function Head({ head, size }: { head: NonNullable<MenuProps["head"]>; size: Size }) {
   return (
     <div className={size === "desktop" ? "grid px-3 py-2 text-sm" : "grid px-3 pt-3 pb-2 text-base"}>
-      <span className="truncate font-semibold">{head.name}</span>
-      <span className="truncate font-numeric text-xs text-fg-muted">{head.detail}</span>
+      <span className="truncate font-semibold">{head.name.record}</span>
+      <span className="truncate font-numeric text-xs text-fg-muted">{head.detail.record}</span>
     </div>
   );
 }

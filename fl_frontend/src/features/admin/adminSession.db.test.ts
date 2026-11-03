@@ -195,7 +195,7 @@ describe("the administrator's guard across a server action", () => {
 
 /** Puts every stored session where the library's next refreshing read would write it, its windows untouched. */
 async function dueForRefresh(): Promise<() => Promise<unknown[]>> {
-  const sessions = client.db("auth").collection("session");
+  const sessions = client.db("auth").collection<{ updatedAt: Date; expiresAt: Date }>("session");
   const updateAge = (auth.options.session?.updateAge ?? Number.NaN) * 1000;
   // The library refreshes by how far `expiresAt` has run down, never by `updatedAt`, which the guards' idle windows read.
   await sessions.updateMany({}, [{ $set: { expiresAt: { $subtract: ["$expiresAt", 2 * updateAge] } } }]);

@@ -50,7 +50,7 @@ describe("what the single invite press answers", () => {
 
     expect(res.success).toBe(true);
     expect(sentence(res)).toBe("Der Link ist an alle 2 Adressen unterwegs.");
-    expect(calls.map((call) => JSON.parse(call.body ?? "null"))).toStrictEqual([{ invitation_id: EINLADUNG_ID }]);
+    expect(calls.map((call): unknown => JSON.parse(call.body ?? "null"))).toStrictEqual([{ invitation_id: EINLADUNG_ID }]);
   });
 
   it("refuses a team holding no contact block before anything is owed", async () => {

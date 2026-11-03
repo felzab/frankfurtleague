@@ -9,10 +9,10 @@ import { StatTiles } from "./StatTiles";
 import type { StatTile } from "./StatTiles";
 
 const FOUR = [
-  { label: COPY.spielplan.fact.spieltag, value: "1.", line: "Gruppenphase" },
-  { label: COPY.spielplan.fact.datum, value: "06.03.", line: "Samstag 2027" },
-  { label: COPY.spielplan.fact.uhrzeit, value: "14:00" },
-  { label: COPY.spielplan.fact.spielort, value: "Sportplatz Ahornweg", words: true },
+  { label: COPY.spielplan.fact.spieltag, value: { record: "1." }, line: COPY.shared.phase.gruppenphase },
+  { label: COPY.spielplan.fact.datum, value: { record: "06.03." }, line: { record: "Samstag 2027" } },
+  { label: COPY.spielplan.fact.uhrzeit, value: { record: "14:00" } },
+  { label: COPY.spielplan.fact.spielort, value: { record: "Sportplatz Ahornweg" }, words: true },
 ] as const satisfies readonly StatTile[];
 
 describe("the stat tiles", () => {
@@ -42,11 +42,11 @@ describe("the stat tiles", () => {
 });
 
 const FIVE = [
-  { label: COPY.spielplan.fact.spieltag, value: "1." },
-  { label: COPY.spielplan.fact.datum, value: "06.03.", line: "Samstag 2027" },
-  { label: COPY.spielplan.fact.uhrzeit, value: "14:00" },
-  { label: COPY.spielplan.fact.schiedsrichter, value: "2" },
-  { label: COPY.spielplan.fact.spielort, value: "Sportplatz Ahornweg", words: true },
+  { label: COPY.spielplan.fact.spieltag, value: { record: "1." } },
+  { label: COPY.spielplan.fact.datum, value: { record: "06.03." }, line: { record: "Samstag 2027" } },
+  { label: COPY.spielplan.fact.uhrzeit, value: { record: "14:00" } },
+  { label: COPY.spielplan.fact.schiedsrichter, value: { record: "2" } },
+  { label: COPY.spielplan.fact.spielort, value: { record: "Sportplatz Ahornweg" }, words: true },
 ] as const satisfies readonly StatTile[];
 
 /** Each tile's classes, in the list's order. */

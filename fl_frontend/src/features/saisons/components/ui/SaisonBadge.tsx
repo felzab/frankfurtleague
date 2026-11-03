@@ -1,3 +1,4 @@
+import { COPY } from "@/core/copy";
 import { laufendDot } from "@/features/saisons/components/ui/laufendDot";
 import { labelBadge } from "@/shared/components/ui/badges";
 
@@ -16,7 +17,7 @@ const TINT: Record<FLSaisonStatus, PillTone> = {
   past: "success",
 };
 
-const WORT: Record<FLSaisonStatus, string> = { active: "Laufend", future: "Geplant", past: "Abgeschlossen" };
+const WORT: Record<FLSaisonStatus, string> = { active: "Laufend", future: "Geplant", past: COPY.template.closed };
 
 /** The app's one wording and one palette for a season's state. */
 export function SaisonBadge({ status, className = "" }: { status: FLSaisonStatus; className?: string }) {

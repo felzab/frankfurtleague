@@ -104,7 +104,7 @@ describe("the list template's wait", () => {
     const page = await streamed(
       spielplan(
         Promise.resolve({
-          tabs: { label: SPIELTAGE, selectedKey: "1", tabs: [{ id: "1", label: "1. Spieltag", panel: "Spiele des ersten" }] },
+          tabs: { label: SPIELTAGE, selectedKey: "1", tabs: [{ id: "1", label: COPY.shared.spieltag(1), panel: "Spiele des ersten" }] },
           empty: { kind: "none", plural: SPIELTAGE },
         }),
       ),
@@ -170,8 +170,8 @@ describe("the list template's matchday list", () => {
             label: SPIELTAGE,
             selectedKey: "2",
             tabs: [
-              { id: "1", label: "1. Spieltag", panel: "Spiele des ersten" },
-              { id: "2", label: "2. Spieltag", panel: "Spiele des zweiten" },
+              { id: "1", label: COPY.shared.spieltag(1), panel: "Spiele des ersten" },
+              { id: "2", label: COPY.shared.spieltag(2), panel: "Spiele des zweiten" },
             ],
           },
           empty: { kind: "none", plural: SPIELTAGE },

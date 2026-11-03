@@ -1,3 +1,4 @@
+import { textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
 
@@ -5,8 +6,10 @@ import { cardSurface } from "./cardStyles";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
-/** A placed club: its name and its Kürzel. */
-type Placed = { name: string; kuerzel: string };
+import type { RecordText } from "@/core/copy";
+
+/** A placed club: its name and its Kürzel, its record's own data. */
+type Placed = { name: RecordText; plaque: RecordText };
 
 /** A decided place: its club, or `null` where the place is vacant, its club having left the season by then (D499). */
 export type Place = Placed | null;
@@ -43,13 +46,13 @@ const podium = tv({
 function Who({ club, nameClass }: { club: Place; nameClass: string }) {
   return club === null ? (
     <>
-      <TeamPlaque quelle="" />
+      <TeamPlaque plaque={{ quelle: null }} />
       <span className={nameClass}>{SERVER_COPY.landing.saison.vacant}</span>
     </>
   ) : (
     <>
-      <TeamPlaque kuerzel={club.kuerzel} />
-      <span className={nameClass}>{club.name}</span>
+      <TeamPlaque plaque={club.plaque} />
+      <span className={nameClass}>{textOf(club.name)}</span>
     </>
   );
 }

@@ -2,6 +2,8 @@
 
 import { Select as AriaSelect, Button, SelectValue } from "react-aria-components/Select";
 
+import { textOf } from "@/core/copy";
+
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { fieldFrame, fieldRoot } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
@@ -70,7 +72,7 @@ export function Select({
                 key={option.id}
                 aria-hidden
                 className="invisible col-start-1 row-start-1 whitespace-nowrap">
-                {option.label}
+                {textOf(option.label)}
               </span>
             ))}
           </span>

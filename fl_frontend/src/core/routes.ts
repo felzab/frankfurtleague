@@ -13,11 +13,12 @@ type Crawl = "index" | "noindex" | "disallow";
 /**
  * One page: the address it answers at, built from its segments, the name its tab and its strip show,
  * and what a search engine may do with it. A link takes its address from here, so with typed routes
- * on, an address whose page does not exist fails where the link is written.
+ * on, an address whose page does not exist fails where the link is written. A page named by its record, such
+ * as a club's, holds `null`: the page hands its record's name as a title of its own (`{ record }`).
  */
 export type RouteEntry = {
   readonly path: (...segments: never) => `/${string}`;
-  readonly title: Copy | ((...names: never) => Copy);
+  readonly title: Copy | ((...names: never) => Copy) | null;
   readonly crawl: Crawl;
 };
 
@@ -50,7 +51,7 @@ export const ROUTES = {
   /** A club's page in one season, its squad among it, named by the club. */
   team: {
     path: (saison: string, team: string) => `/saisons/${saison}/teams/${team}` as const,
-    title: COPY.page.team,
+    title: null,
     crawl: "index",
   },
   spiel: {
@@ -165,7 +166,7 @@ export const ROUTES = {
   // Session 5: its page is built.
   verwaltungSpielort: {
     path: (spielort: string) => `/bereich/verwaltung/spielorte/${spielort}` as const,
-    title: COPY.verwaltung.record,
+    title: null,
     crawl: "disallow",
   },
   // Session 5: its page is built.

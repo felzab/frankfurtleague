@@ -1,8 +1,10 @@
 import { cardSurface } from "./cardStyles";
 import { tv } from "./tv";
 
+import type { Copy, RecordText } from "@/core/copy";
+
 /** One of the people running the league: their first name and what they do. */
-type Organiser = { name: string; role: string };
+type Organiser = { name: RecordText; role: Copy };
 
 const row = tv({
   slots: {
@@ -22,15 +24,15 @@ export function Organisers({ people }: { people: readonly Organiser[] }) {
     <ul className={slots.root()}>
       {people.map((person) => (
         <li
-          key={person.name}
+          key={person.name.record}
           className={slots.person()}>
           <span
             aria-hidden
             className={slots.avatar()}>
-            {person.name.charAt(0)}
+            {person.name.record.charAt(0)}
           </span>
           <span className="grid">
-            <span className={slots.name()}>{person.name}</span>
+            <span className={slots.name()}>{person.name.record}</span>
             <span className={slots.role()}>{person.role}</span>
           </span>
         </li>

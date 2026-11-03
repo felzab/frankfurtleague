@@ -2,7 +2,7 @@
 
 import { createContext, use, useEffect, useRef, useState, useTransition } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 
 import { Button } from "./Button";
 import { cardSurface } from "./cardStyles";
@@ -42,7 +42,7 @@ export type ListSearch = { label: Copy };
 /** A row's name holds what is typed, upper and lower case alike. */
 const matches = (query: string) => {
   const wanted = query.trim().toLowerCase();
-  return (row: TableRow) => row.name.toLowerCase().includes(wanted);
+  return (row: TableRow) => textOf(row.name).toLowerCase().includes(wanted);
 };
 
 /**

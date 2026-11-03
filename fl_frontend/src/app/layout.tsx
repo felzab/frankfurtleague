@@ -7,7 +7,10 @@ import { ThemeColor } from "@/kit/ThemeColor";
 import { SITE_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { RootProviders } from "@/core/providers/RootProviders";
+import { SERVER_COPY } from "@/core/serverCopy";
 import { SITE_OPEN_GRAPH } from "@/shared/utils/metadata";
+
+import shareImage from "./share-image.png";
 
 import type { Metadata } from "next";
 
@@ -50,7 +53,13 @@ export const metadata: Metadata = {
     // Next requires it beside a template; a page naming no title of its own shows the league's name alone.
     default: COPY.brand.name,
   },
-  openGraph: SITE_OPEN_GRAPH,
+  // The share image as a static import: its address under `/_next/static/media/` carries a hash of the file's own
+  // bytes, so a redrawn image is a new URL a preview fetches anew. A generated `opengraph-image` route's hash is its
+  // source's, and the static file convention takes its alt from a `.txt` outside the catalogue.
+  openGraph: {
+    ...SITE_OPEN_GRAPH,
+    images: [{ url: shareImage.src, width: shareImage.width, height: shareImage.height, alt: SERVER_COPY.shareImage.alt }],
+  },
   // Without this X falls back to a small square thumbnail; the rest is inherited.
   twitter: {
     card: "summary_large_image",

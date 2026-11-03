@@ -26,11 +26,11 @@ export default function KontaktPage() {
           {
             glyph: "email",
             label: SERVER_COPY.landing.contact.email,
-            value: KONTAKT_EMAIL,
+            value: { record: KONTAKT_EMAIL },
             href: `mailto:${KONTAKT_EMAIL}` as Route,
           },
-          { glyph: "instagram", label: COPY.template.instagram, value: INSTAGRAM_HANDLE, href: INSTAGRAM_URL as Route },
-          { glyph: "threads", label: COPY.template.threads, value: THREADS_HANDLE, href: THREADS_URL as Route },
+          { glyph: "instagram", label: COPY.template.instagram, value: { record: INSTAGRAM_HANDLE }, href: INSTAGRAM_URL as Route },
+          { glyph: "threads", label: COPY.template.threads, value: { record: THREADS_HANDLE }, href: THREADS_URL as Route },
         ]}
       />
     </ClassicPage>

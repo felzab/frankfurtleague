@@ -25,7 +25,15 @@ from app.shared.schemas.custom import (
     CustomSpielNr,
     CustomTimeString,
 )
-from app.shared.schemas.literals import FLAustrittType, FLGruppenNames, FLSaisonPhase, FLSonderereignis, FLSortOrder, FLSpielSeite
+from app.shared.schemas.literals import (
+    FLAustrittType,
+    FLGruppenNames,
+    FLSaisonPhase,
+    FLSaisonStatus,
+    FLSonderereignis,
+    FLSortOrder,
+    FLSpielSeite,
+)
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 type FLSpielStatus = Literal["from_today", "past", "today", "abgesagt", "unknown"]
@@ -678,9 +686,14 @@ class FLSpieleSingleResponse(BaseAPIResponse):
 
 
 class FLSpieleAdminSingleResponse(BaseAPIResponse):
-    """One fixture for the admin editor, money included."""
+    """One fixture for the admin editor, money included, and its season's status.
+
+    On the response rather than on the fixture: the editor alone asks it, to open a finished season's match
+    read-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.
+    """
 
     spiel: FLSpielJoinedAdmin
+    saison_status: FLSaisonStatus
 
 
 # Private for `_BracketFault`'s reason: the reports state the destroyed result once.

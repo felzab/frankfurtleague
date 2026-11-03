@@ -1,9 +1,10 @@
 import "server-only";
 
 import { KONTAKT_EMAIL } from "./brand";
-import { catalogue, COPY } from "./copy";
-import { formatDatum, formatNumber } from "./format";
+import { catalogue, COPY, textOf } from "./copy";
+import { formatDatum, formatNumber, formatSigned } from "./format";
 
+import type { Copy, Words } from "./copy";
 import type { CalendarDay } from "./format";
 import type { Code } from "./generated/client/types";
 import type { ROUTES } from "./routes";
@@ -12,6 +13,15 @@ import type { ROUTES } from "./routes";
 type ListedRoute = { [Key in keyof typeof ROUTES]: (typeof ROUTES)[Key]["crawl"] extends "index" ? Key : never }[keyof typeof ROUTES];
 
 const { team1, team2 } = COPY.verwaltung.spiel;
+
+// Words two entries of this one object say alike, each written once: a club's place, a group, the goals' difference
+// and match operations, the season line's eyebrow and an organiser's role.
+const PLATZ = "Platz";
+const TEAM = "Team";
+const DIFFERENZ = "Diff.";
+const SPIELBETRIEB = "Spielbetrieb";
+const gruppeName = (gruppe: string) => `Gruppe ${gruppe}`;
+const placeName = (platz: number) => `${formatNumber(platz)}. ${PLATZ}`;
 
 /**
  * The catalogue's entries only the server reads, so no client bundle carries them: `COPY` is one object, and a
@@ -27,7 +37,7 @@ export const SERVER_COPY = catalogue({
   refusal: {
     duplicate_key: COPY.shared.field.taken,
     // One rule over two codes: a match whose result no play decides carries no goals, on the fixture and in its report.
-    state_ergebnis_on_a_non_event: COPY.shared.field.without(COPY.verwaltung.spiel.tore),
+    state_ergebnis_on_a_non_event: COPY.shared.field.without(COPY.shared.tore),
   } satisfies Partial<Record<Code, string>>,
 
   /**
@@ -125,7 +135,7 @@ export const SERVER_COPY = catalogue({
         text: "11 gegen 11 über 90 Minuten, bei jedem Wetter. Die Schiedsrichter kommen, soweit möglich, von außerhalb.",
       },
       purpose: { title: "Wofür", text: "Beide Teams verdienen an Tickets und am Verkauf vor Ort und teilen den Erlös." },
-      spielorte: { title: "Spielorte", text: "Kein zentraler Platz. Wo und wann ein Spiel stattfindet, steht im Spielplan." },
+      spielorte: { title: COPY.page.verwaltungSpielorte, text: "Kein zentraler Platz. Wo und wann ein Spiel stattfindet, steht im Spielplan." },
       admission: { title: "Eintritt", text: "2 bis 5 €, je nach Spiel. Im Vorverkauf meist günstiger." },
       safety: { title: "Sicherheit", text: "Bei den meisten Spielen sind Sanitäter vor Ort." },
     },
@@ -152,8 +162,7 @@ export const SERVER_COPY = catalogue({
         title: "Spieler registrieren",
         text: "Dein Team bekommt einen Link, über den sich dein Jahrgang registriert. Die Kontaktpersonen nehmen die Spieler in den Kader auf.",
       },
-      /** The band: the open window's deadline, or the word that none is open. */
-      open: (saison: string, until: CalendarDay) => `Bewerbungen für die Saison ${saison} bis ${formatDatum(until)}`,
+      /** The band while no window is open; an open window's deadline is the season card's `windowUntil`. */
       closed: "Das Bewerbungsfenster ist geschlossen.",
       /** The school's door while a window is open, where the band and the season card carry its date. */
       opened: "Das Bewerbungsfenster ist offen.",
@@ -164,10 +173,9 @@ export const SERVER_COPY = catalogue({
      * point's text; its title is the name the season pages give the phase or the match.
      */
     season: {
-      eyebrow: "Spielbetrieb",
+      eyebrow: SPIELBETRIEB,
       title: "So läuft eine Saison",
-      gruppenphase:
-        "Die Teams spielen in Gruppen jeder gegen jeden. Nur diese Spiele zählen für die Tabelle, und die Besten jeder Gruppe kommen weiter.",
+      gruppenphase: "Die Teams spielen in Gruppen jeder gegen jeden.",
       kORunde: "Wer verliert, scheidet aus. Bei Gleichstand entscheidet das Elfmeterschießen.",
       platz3: "Die beiden Verlierer der Halbfinale spielen um Platz 3.",
       finale: "Das Spiel um den Titel.",
@@ -177,16 +185,16 @@ export const SERVER_COPY = catalogue({
     figures: {
       title: (saison: string) => `Saison ${saison} in Zahlen`,
       schulen: "Schulen",
-      tore: "Tore",
+      tore: COPY.shared.tore,
       spiele: COPY.page.spiele,
-      spieltage: "Spieltage",
+      spieltage: COPY.spielplan.spieltage,
     },
 
     organisers: {
       eyebrow: "Organisation",
       title: "Wer dahintersteht",
       /** What each organiser does, under their first name. */
-      role: { vorstand: "Vorstand", spielbetrieb: "Spielbetrieb", website: "Website", kommunikation: "Kommunikation" },
+      role: { vorstand: "Vorstand", spielbetrieb: SPIELBETRIEB, website: "Website", kommunikation: "Kommunikation" },
     },
 
     /** The ways in: the school's while a window is open, and the question's; the heading counts them. */
@@ -207,13 +215,14 @@ export const SERVER_COPY = catalogue({
     /** The season card beside the hero, in its states. */
     saison: {
       /** The opening match's Anpfiff, when it is set to start. */
-      opening: (when: string) => `Anpfiff ${when}`,
+      opening: (when: Copy) => `Anpfiff ${when}`,
       /** The opening match's matchday, before its two plaques. */
       spieltag: COPY.shared.spieltag,
+      /** An open window's deadline, on the season card and the steps' band alike. */
       windowUntil: (until: CalendarDay) => `Bewerbungen bis ${formatDatum(until)}`,
       last: "Zuletzt",
       next: "Als Nächstes",
-      place: (platz: number) => `${formatNumber(platz)}. Platz`,
+      place: placeName,
       /** A place left vacant, its club having left the season before it was decided, beside the dashed open plaque (D499). */
       vacant: "Nicht vergeben",
       toSpielplan: "Zum Spielplan",
@@ -235,52 +244,49 @@ export const SERVER_COPY = catalogue({
    */
   season: {
     /** One group's card on the Tabelle, and a club's group on Teams and its page. */
-    gruppe: (gruppe: string) => `Gruppe ${gruppe}`,
+    gruppe: gruppeName,
     /** The match between the two semi-finals' losers: its label, its card's row above the Finale, the pop-up's head. */
     thirdPlace: "Spiel um Platz 3",
     /** A group matchday, as a match's head names it. */
     spieltag: COPY.shared.spieltag,
     /** A match's own label before its date, on the one line every form of its row shows. */
-    labelled: (label: string, when: string) => `${label} · ${when}`,
+    labelled: (label: Words, when: Words) => `${textOf(label)} · ${textOf(when)}`,
     /**
      * Where a club stands, under its name in a match head, linking to its row on the Tabelle; a club that has
      * played no match holds no place yet, and the line names its group alone.
      */
-    standing: (platz: number | null, gruppe: string) =>
-      platz === null ? `Gruppe ${gruppe}` : `${formatNumber(platz)}. Platz · Gruppe ${gruppe}`,
-    /** `/saisons` while the league has no season yet, under the strip's title. */
-    noSaison: "Die erste Saison ist noch nicht angelegt.",
+    standing: (platz: number | null, gruppe: string) => (platz === null ? gruppeName(gruppe) : `${placeName(platz)} · ${gruppeName(gruppe)}`),
 
     /** The Tabelle's and the club page's column heads: the short forms on every width. */
     column: {
-      platz: "Platz",
-      team: "Team",
+      platz: PLATZ,
+      team: TEAM,
       spiele: "Sp.",
       siege: "S",
       unentschieden: "U",
       niederlagen: "N",
       /** A phone's one column for the three counts, its figures in green, yellow and red. */
       record: "S-U-N",
-      tore: "Tore",
-      differenz: "Diff.",
+      tore: COPY.shared.tore,
+      differenz: DIFFERENZ,
       punkte: "Pkt.",
       gruppe: "Gruppe",
-      name: "Name",
+      name: COPY.shared.name,
       nummer: "Nr.",
       position: "Position",
     },
 
     /** The Spielsuche's three filters, each opening on every match. */
-    filter: { phase: "Phase", team: "Team", spieltag: "Spieltag", all: "Alle" },
+    filter: { phase: "Phase", team: TEAM, spieltag: COPY.spielplan.fact.spieltag, all: "Alle" },
 
     /** A club's page: its tiles, its matches and its squad. */
     club: {
-      platz: "Platz",
+      platz: PLATZ,
       punkte: "Punkte",
-      spiele: "Spiele",
-      tore: "Tore",
+      spiele: COPY.page.spiele,
+      tore: COPY.shared.tore,
       /** Under the goals: their difference, signed. */
-      differenz: (difference: string) => `Diff. ${difference}`,
+      differenz: (difference: number) => `${DIFFERENZ} ${formatSigned(difference)}`,
     },
 
     /** A match's page: its line-ups, and its goals and cards by minute. */
@@ -301,7 +307,7 @@ export const SERVER_COPY = catalogue({
       eigentor: "Eigentor",
       karte: { gelb: "Gelbe Karte", gelb_rot: "Gelb-Rote Karte", rot: "Rote Karte" },
       /** A checkpoint's title: what happened, and to whom. */
-      event: (what: string, who: string) => `${what} · ${who}`,
+      event: (what: Copy, who: Words) => `${what} · ${textOf(who)}`,
     },
   },
 
@@ -318,8 +324,8 @@ export const SERVER_COPY = catalogue({
     teams: (saison: string) => `Alle Teams der Saison ${saison} der Frankfurt League, mit Gruppe und Kader.`,
     team: (team: string, saison: string) => `${team} in der Saison ${saison} der Frankfurt League: Stand, Spiele und Kader.`,
     kORunde: (saison: string) => `Die K.-o.-Runde der Saison ${saison} der Frankfurt League: der K.-o.-Baum bis zum Finale.`,
-    spiel: (heim: string, gast: string, saison: string) =>
-      `${heim} gegen ${gast} in der Saison ${saison} der Frankfurt League: Termin, Ort, Ergebnis und Aufstellungen.`,
+    spiel: (heim: Words, gast: Words, saison: string) =>
+      `${textOf(heim)} gegen ${textOf(gast)} in der Saison ${saison} der Frankfurt League: Termin, Ort, Ergebnis und Aufstellungen.`,
     contact: "Die Frankfurt League erreichst du per E-Mail, auf Instagram und auf Threads.",
     sponsors: "Die Sponsoren der Frankfurt League, und wie du die Liga unterstützen kannst.",
     legalNotice: "Anbieterkennzeichnung der Frankfurt League nach § 5 DDG und § 18 Abs. 2 MStV.",

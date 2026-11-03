@@ -7,6 +7,7 @@ import "next/dist/server/node-environment-baseline.js";
 import {
   ADMIN_EMAIL,
   configDouble,
+  cookiePair,
   GATE_BACKEND_CONFIG,
   HOLDS_NOTHING,
   madeByPasskey,
@@ -196,7 +197,7 @@ function matched(
 
   // Handed over as the helper's own `cookies`: it writes that header from them whatever `headers` carried.
   const { cookie = "", ...rest } = headers;
-  const cookies = Object.fromEntries(cookie.split(";").flatMap((pair) => (pair.includes("=") ? [pair.trim().split(/=(.*)/s, 2)] : [])));
+  const cookies = Object.fromEntries(cookie.split(";").flatMap((pair) => (pair.includes("=") ? [cookiePair(pair.trim())] : [])));
 
   return [pathname, spelled].some((path) =>
     // A copy each time: the helper writes a `host` into the object it is handed.

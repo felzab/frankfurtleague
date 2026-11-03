@@ -38,7 +38,8 @@ describe("logger", () => {
     const [line] = await documentsWrittenByAsync(() => Promise.resolve(logger.error("auth.crash", duplicate, { recipient: ADDRESS })));
 
     expect(JSON.stringify(line)).not.toContain(ADDRESS);
-    expect(line).toMatchObject({ error: { name: "MongoServerError", stack: expect.stringMatching(/^MongoServerError: E11000 .*\n {4}at /) } });
+    expect(line).toHaveProperty("error.name", "MongoServerError");
+    expect(line).toHaveProperty("error.stack", expect.stringMatching(/^MongoServerError: E11000 .*\n {4}at /));
   });
 
   for (const row of LOG_ADDRESSES) {

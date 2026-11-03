@@ -15,7 +15,7 @@ import { buildMapsSearchUrl } from "@/shared/utils/format";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { CalendarDay, Uhrzeit } from "@/core/format";
 import type {
   FLAufstellungEntryPublic,
@@ -83,8 +83,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         folds: (
           <ReadFolds
             cards={[
-              { titleText: heim.name, ...lineupOf(bericht?.aufstellungen.team1 ?? null) },
-              { titleText: gast.name, ...lineupOf(bericht?.aufstellungen.team2 ?? null) },
+              { title: heim.name, ...lineupOf(bericht?.aufstellungen.team1 ?? null) },
+              { title: gast.name, ...lineupOf(bericht?.aufstellungen.team2 ?? null) },
             ]}
           />
         ),
@@ -110,23 +110,29 @@ function tilesOf(spiel: FLSpielJoined, position: number): readonly [StatTile, St
   const datum = spiel.datum === null ? null : formatDatumPair(spiel.datum as CalendarDay);
   return [
     group
-      ? { label: fact.spieltag, value: formatOrdinal(position), line: PHASE_LABELS.gruppenphase }
+      ? { label: fact.spieltag, value: { record: formatOrdinal(position) }, line: PHASE_LABELS.gruppenphase }
       : { label: fact.spieltag, value: matchdayOf(spiel, position), words: true },
-    datum === null ? { label: fact.datum, value: COPY.shared.noValue } : { label: fact.datum, value: datum.figure, line: datum.line },
-    { label: fact.uhrzeit, value: spiel.uhrzeit === null ? COPY.shared.noValue : formatUhrzeit(spiel.uhrzeit as Uhrzeit) },
-    { label: fact.schiedsrichter, value: spiel.schiedsrichter?.name ?? COPY.shared.noValue, words: true },
+    datum === null
+      ? { label: fact.datum, value: COPY.shared.noValue }
+      : { label: fact.datum, value: { record: datum.figure }, line: { record: datum.line } },
+    { label: fact.uhrzeit, value: spiel.uhrzeit === null ? COPY.shared.noValue : { record: formatUhrzeit(spiel.uhrzeit as Uhrzeit) } },
+    {
+      label: fact.schiedsrichter,
+      value: spiel.schiedsrichter?.name == null ? COPY.shared.noValue : { record: spiel.schiedsrichter.name },
+      words: true,
+    },
     spiel.ort === null
       ? { label: fact.spielort, value: COPY.shared.noValue, words: true }
-      : { label: fact.spielort, value: spiel.ort.name, words: true, href: buildMapsSearchUrl(spiel.ort.maps_link) },
+      : { label: fact.spielort, value: { record: spiel.ort.name }, words: true, href: buildMapsSearchUrl(spiel.ort.maps_link) },
   ];
 }
 
 /** A pupil as the public read names them: a name the consent publishes, else „anonym“; a goal nobody was named for, „unbekannt“. */
-function personOf(spieler: Pick<FLSpielberichtSpielerPublic, "type" | "vorname" | "nachname">): string {
+function personOf(spieler: Pick<FLSpielberichtSpielerPublic, "type" | "vorname" | "nachname">): Words {
   const words = SERVER_COPY.season.spiel;
   if (spieler.type === "unknown") return words.unbekannt;
   if (spieler.type === "anonymous" || spieler.vorname === null) return words.anonym;
-  return spieler.nachname === null ? spieler.vorname : `${spieler.vorname} ${spieler.nachname}`;
+  return { record: spieler.nachname === null ? spieler.vorname : `${spieler.vorname} ${spieler.nachname}` };
 }
 
 /** A line-up's pupils as one table: a row a pupil, with their number and position. */
@@ -142,7 +148,10 @@ function tableOf(label: Copy, spieler: readonly FLAufstellungEntryPublic[]): Tab
     rows: spieler.map((entry, index) => ({
       id: String(index),
       name: personOf(entry),
-      cells: { nummer: entry.nummer ?? "", position: entry.position ?? "" },
+      cells: {
+        ...(entry.nummer === null ? {} : { nummer: { record: entry.nummer } }),
+        ...(entry.position === null ? {} : { position: { record: entry.position } }),
+      },
     })),
     empty: { kind: "none", plural: spiel.aufstellung },
   };
@@ -182,7 +191,7 @@ const earlier = (one: string, other: string) => {
  */
 function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtTorPublic[], karten: readonly FLSpielberichtKartePublic[]): Checkpoint[] {
   const words = SERVER_COPY.season.spiel;
-  const kuerzel = { team1: spiel.team1?.shorthand ?? "", team2: spiel.team2?.shorthand ?? "" };
+  const kuerzel = { team1: { record: spiel.team1?.shorthand ?? "" }, team2: { record: spiel.team2?.shorthand ?? "" } };
   const events = [
     ...tore.map((tor) => ({ kind: "tor" as const, minute: tor.minute, tor })),
     ...karten.map((karte) => ({ kind: "karte" as const, minute: karte.minute, karte })),
@@ -193,7 +202,7 @@ function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtTorPublic[]
       const { karte } = event;
       return {
         id: `k${String(index)}`,
-        mark: karte.minute,
+        mark: { record: karte.minute },
         title: words.event(words.karte[karte.farbe], personOf(karte.spieler)),
         detail: kuerzel[karte.seite],
       };
@@ -202,9 +211,9 @@ function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtTorPublic[]
     score[tor.eigentor ? (tor.seite === "team1" ? "team2" : "team1") : tor.seite] += 1;
     return {
       id: `t${String(index)}`,
-      mark: tor.minute,
+      mark: { record: tor.minute },
       title: words.event(tor.eigentor ? words.eigentor : words.tor, personOf(tor.spieler)),
-      detail: SERVER_COPY.season.labelled(kuerzel[tor.seite], formatErgebnis(score)),
+      detail: SERVER_COPY.season.labelled(kuerzel[tor.seite], { record: formatErgebnis(score) }),
     };
   });
 }

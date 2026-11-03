@@ -11,7 +11,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getSpielplan } from "@/features/saisons/queries";
 import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { matchRowOf } from "@/features/spiele/blocks";
-import { spieltagLabels } from "@/features/spieltage/utils";
+import { spieltagNamer } from "@/features/spieltage/utils";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { SpieltageContent } from "@/kit/ListPage";
@@ -55,7 +55,7 @@ async function readSpieltage(params: Props["params"], searchParams: Props["searc
   const spielplan = await getSpielplan(await resolvePublicSaisonParam(params));
   if (spielplan === null) notFound();
   const { spieltage, current_spieltag_id: current } = spielplan;
-  const labels = spieltagLabels(spieltage);
+  const nameOf = spieltagNamer(spieltage);
   // The address names a matchday by its stored phase and position, unique together in a season, so it reads
   // without a database id.
   const keyOf = (spieltag: (typeof spieltage)[number]) => `${spieltag.saison_phase}-${String(spieltag.position)}`;
@@ -69,7 +69,7 @@ async function readSpieltage(params: Props["params"], searchParams: Props["searc
             selectedKey: chosenTab(await searchParams, spieltage.map(keyOf), keyOf(opening)),
             tabs: spieltage.map((spieltag) => ({
               id: keyOf(spieltag),
-              label: labels.get(spieltag.id)?.label ?? "",
+              label: nameOf(spieltag),
               panel: (
                 <SpielList
                   matches={spieltag.spiele.map(matchRowOf)}

@@ -28,7 +28,7 @@ vi.mock("./Toast", async (original) => ({ ...(await original<Record<string, unkn
 const ADDRESS = "verwaltung@example.com";
 
 // An administrator: the grant stores no name.
-const ACCOUNT: Account = { role: COPY.verwaltung.role, address: ADDRESS };
+const ACCOUNT: Account = { role: COPY.verwaltung.role, address: { record: ADDRESS } };
 
 /** The frame of a one-page area around a page, its account read as given. */
 async function renderFrame(account: Promise<Account | null>) {
@@ -205,7 +205,7 @@ describe("the account menu", () => {
   });
 
   it("heads the menu with a person's name and address where the person has a name", async () => {
-    await renderFrame(Promise.resolve({ ...ACCOUNT, name: "Mia Berg" }));
+    await renderFrame(Promise.resolve({ ...ACCOUNT, name: { record: "Mia Berg" } }));
     await openMenu();
 
     expect(screen.getAllByText("Mia Berg")).toHaveLength(2);

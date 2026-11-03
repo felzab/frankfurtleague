@@ -9,6 +9,8 @@ import { COPY } from "@/core/copy";
 
 import { tv } from "./tv";
 
+import type { RecordText } from "@/core/copy";
+
 const text = tv({
   slots: {
     root: "relative text-sm",
@@ -36,7 +38,7 @@ const text = tv({
  * Whether the text runs past three lines is measured in the browser, so a short text shows no „Mehr“; before the
  * page hydrates the text stands folded without it.
  */
-export function ExpandableText({ children }: { children: string }) {
+export function ExpandableText({ text: words }: { text: RecordText }) {
   const [isOpen, setOpen] = useState(false);
   const [runsOn, setRunsOn] = useState(false);
   const body = useRef<HTMLParagraphElement>(null);
@@ -60,7 +62,7 @@ export function ExpandableText({ children }: { children: string }) {
         ref={body}
         className={slots.body()}
         {...pressProps}>
-        {children}
+        {words.record}
         {/* A word space rather than a margin: where the word wraps to a line of its own, the space falls away at
             the break and the word starts flush with the text, where a margin would indent it. */}
         {isOpen && " "}

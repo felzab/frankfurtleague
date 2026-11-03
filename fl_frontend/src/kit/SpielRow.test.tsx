@@ -2,6 +2,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { COPY } from "@/core/copy";
 import { formatErgebnis } from "@/core/format";
 
 import { SpielList } from "./SpielRow";
@@ -9,9 +10,9 @@ import { SpielList } from "./SpielRow";
 const SPIEL = {
   id: "1",
   href: "/saisons/2027",
-  when: "Mi, 14.04. · 15:30",
-  home: { name: "Goethe", plaque: { kuerzel: "GOE" } },
-  away: { name: "Helmholtz", plaque: { kuerzel: "HEL" } },
+  when: COPY.spielplan.when("2027-04-14", "15:30"),
+  home: { name: { record: "Goethe" }, plaque: { record: "GOE" } },
+  away: { name: { record: "Helmholtz" }, plaque: { record: "HEL" } },
 } as const;
 
 describe("a match row's score", () => {

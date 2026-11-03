@@ -116,7 +116,7 @@ async function readAccount(session: Session): Promise<Account | null> {
   const served = await session;
   if (served === null) return null;
   // An administrator is an address: the grant stores no name, so the row names the address.
-  return { role: COPY.verwaltung.role, address: served.user.email };
+  return { role: COPY.verwaltung.role, address: { record: served.user.email } };
 }
 
 /**

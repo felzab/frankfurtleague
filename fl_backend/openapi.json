@@ -7733,7 +7733,7 @@
         "type": "object"
       },
       "FLLandingSaison": {
-        "description": "The season the site is on as the landing shows it.\n\n`start` the instant `saison_start` reads off its `start_date`. `opening_spiel` before the start, the earliest dated\ngroup match, null while none is; `recent` and `upcoming` while it runs, the latest results and the next matches;\n`podium` once decided, places one to four in their order, null before.",
+        "description": "The season the site is on as the landing shows it.\n\n`start` the instant `saison_start` reads off its `start_date`. `opening_spiel` before the start, the earliest dated\ngroup match, null while none is; `recent` and `upcoming` while it runs, the latest result and the next match, as\nmany of each as `public_router.py :: LANDING_SPIELE` names, empty where there is none; `podium` once decided,\nplaces one to four in their order, null before.",
         "properties": {
           "counts": {
             "$ref": "#/components/schemas/FLLandingCounts"
@@ -15946,14 +15946,18 @@
         "type": "object"
       },
       "FLSpieleAdminSingleResponse": {
-        "description": "One fixture for the admin editor, money included.",
+        "description": "One fixture for the admin editor, money included, and its season's status.\n\nOn the response rather than on the fixture: the editor alone asks it, to open a finished season's match\nread-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.",
         "properties": {
+          "saison_status": {
+            "$ref": "#/components/schemas/FLSaisonStatus"
+          },
           "spiel": {
             "$ref": "#/components/schemas/FLSpielJoinedAdmin"
           }
         },
         "required": [
-          "spiel"
+          "spiel",
+          "saison_status"
         ],
         "title": "FLSpieleAdminSingleResponse",
         "type": "object"
@@ -27890,7 +27894,7 @@
     },
     "/api/v0/spiele/{spiel_id}/verwaltung": {
       "get": {
-        "description": "Return one match in the admin shape, money included, for the editor.",
+        "description": "Return one match in the admin shape, money included, for the editor, with its season's status.",
         "operationId": "spiele_get_spiel_verwaltung",
         "parameters": [
           {

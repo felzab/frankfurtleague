@@ -3,6 +3,8 @@ import { ExpandableText } from "./ExpandableText";
 import { Link } from "./Link";
 import { TeamPlaque } from "./TeamPlaque";
 
+import type { Copy, RecordText } from "@/core/copy";
+
 /**
  * A club's head over its read page: its plaque and its name, a link to its own website where it has one; the
  * school's full name; its address, a link to the map; and its description, three lines until it is opened.
@@ -10,7 +12,7 @@ import { TeamPlaque } from "./TeamPlaque";
  * the description's client code.
  */
 export function ClubHead({
-  kuerzel,
+  plaque,
   name,
   website,
   school,
@@ -18,43 +20,43 @@ export function ClubHead({
   map,
   description,
 }: {
-  kuerzel: string;
-  name: string;
+  plaque: RecordText;
+  name: RecordText;
   website: `https://${string}` | null;
-  school: string;
-  address: string;
+  school: RecordText;
+  address: Copy;
   map: `https://${string}`;
-  description: string;
+  description: RecordText;
 }) {
   return (
     <div className={cardSurface({ class: "grid gap-3 p-4" })}>
       <div className="flex min-w-0 items-center gap-3">
-        <TeamPlaque kuerzel={kuerzel} />
+        <TeamPlaque plaque={plaque} />
         <span
           className="min-w-0 truncate text-base font-semibold"
-          title={name}>
+          title={name.record}>
           {website === null ? (
-            name
+            name.record
           ) : (
             <Link
               href={website}
               placement="standalone"
-              text={name}
+              label={name}
             />
           )}
         </span>
       </div>
       <div className="grid gap-0.5 text-sm">
-        <span>{school}</span>
+        <span>{school.record}</span>
         <span>
           <Link
             href={map}
             placement="detail"
-            text={address}
+            label={address}
           />
         </span>
       </div>
-      {description !== "" && <ExpandableText>{description}</ExpandableText>}
+      {description.record !== "" && <ExpandableText text={description} />}
     </div>
   );
 }

@@ -11,15 +11,15 @@ import { SaisonBlock } from "./SaisonBlock";
 const TITLE = COPY.shared.saisonName("2027");
 const SPIEL = {
   href: "/saisons/2027/spiele/1",
-  when: "Sa., 13.03. · 18:00",
-  home: { name: "Goethe", plaque: { kuerzel: "GOE" } },
-  away: { name: "Helmholtz", plaque: { kuerzel: "HEL" } },
+  when: COPY.spielplan.when("2027-03-13", "18:00"),
+  home: { name: { record: "Goethe" }, plaque: { record: "GOE" } },
+  away: { name: { record: "Helmholtz" }, plaque: { record: "HEL" } },
 } as const;
 const OPENING = {
   when: SPIEL.when,
   spieltag: SERVER_COPY.landing.saison.spieltag(1),
-  home: { kuerzel: "GOE" },
-  away: { kuerzel: "HEL" },
+  home: { record: "GOE" },
+  away: { record: "HEL" },
 } as const;
 
 beforeEach(() => {
@@ -54,7 +54,7 @@ describe("the season's card before the start", () => {
     );
     const line = screen.getByText(OPENING.spieltag).parentElement;
     expect(line?.textContent).toBe(`${OPENING.spieltag}GOE–HEL`);
-    expect(screen.queryByText(SPIEL.home.name)).toBe(null);
+    expect(screen.queryByText(SPIEL.home.name.record)).toBe(null);
   });
 
   // The dashed open plaque holds no text, so the Spielplan's words for an open side name it to a screen reader.
@@ -136,10 +136,10 @@ describe("the season's card once decided", () => {
         state={{
           kind: "decided",
           places: [
-            { name: "Liebig", kuerzel: "LIE" },
-            { name: "Elisabethen", kuerzel: "ELI" },
-            { name: "Ernst-Reuter", kuerzel: "ERS" },
-            { name: "Carlo-Mierendorff", kuerzel: "CMS" },
+            { name: { record: "Liebig" }, plaque: { record: "LIE" } },
+            { name: { record: "Elisabethen" }, plaque: { record: "ELI" } },
+            { name: { record: "Ernst-Reuter" }, plaque: { record: "ERS" } },
+            { name: { record: "Carlo-Mierendorff" }, plaque: { record: "CMS" } },
           ],
         }}
       />,
@@ -162,7 +162,12 @@ describe("the season's card once decided", () => {
         title={TITLE}
         state={{
           kind: "decided",
-          places: [{ name: "Liebig", kuerzel: "LIE" }, null, { name: "Carlo-Mierendorff", kuerzel: "CMS" }, null],
+          places: [
+            { name: { record: "Liebig" }, plaque: { record: "LIE" } },
+            null,
+            { name: { record: "Carlo-Mierendorff" }, plaque: { record: "CMS" } },
+            null,
+          ],
         }}
       />,
     );

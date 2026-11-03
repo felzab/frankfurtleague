@@ -29,7 +29,7 @@ import type { TableProps } from "./Table";
 type SpieltagTabs = {
   label: Copy;
   selectedKey: string;
-  tabs: ReadonlyArray<{ id: string; label: string; panel: ReactNode }>;
+  tabs: ReadonlyArray<{ id: string; label: Copy; panel: ReactNode }>;
 };
 
 /** A table's rows, and how a list past one read's cap reaches the rest. */

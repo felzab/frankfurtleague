@@ -1050,10 +1050,12 @@ const authOptions = (origin: URL, client: MongoClient) =>
 
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        // The library types a request's body `any`: read here as what it is, a value nothing has checked yet.
+        const body: unknown = ctx.body;
         // Above the in-process return below, because the route handler's own call is in process and
         // is the only caller. Counted whatever the address holds: a lock only members met would be a
         // membership oracle.
-        const address = ctx.path === CODE_SIGN_IN_PATH ? codeSignInAddress(ctx.body) : null;
+        const address = ctx.path === CODE_SIGN_IN_PATH ? codeSignInAddress(body) : null;
         if (address !== null) {
           const own = await withinBound(
             ctx.context,
@@ -1065,13 +1067,13 @@ const authOptions = (origin: URL, client: MongoClient) =>
             logger.info("auth.code_attempts_exhausted");
             throw new APIError("TOO_MANY_REQUESTS", { code: ADDRESS_ATTEMPTS_EXHAUSTED, message: "Too many failed codes for this address." });
           }
-          if (typeof ctx.body === "object" && ctx.body !== null) attemptRows.set(ctx.body, own);
+          if (typeof body === "object" && body !== null) attemptRows.set(body, own);
         }
 
         // Ahead of the plugin, which writes each new code before its send callback runs: capped there,
         // a send voids the held code and mails none. Ahead of the gate, so the store's rows never tell a
         // member from a stranger.
-        const recipient = ctx.path === CODE_SEND_PATH ? codeSendAddress(ctx.body) : null;
+        const recipient = ctx.path === CODE_SEND_PATH ? codeSendAddress(body) : null;
 
         // The total read ahead of the plugin as well, so a full hour voids no held code; writing nothing
         // and naming nobody, it answers members and strangers alike. The counted row comes past the gate.
@@ -1096,7 +1098,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
 
         // Ahead of the library, which mints the token row before its sender runs: capped, nothing is minted or
         // mailed and the answer reads as mailed, as a capped code send's does. No session is the library's to refuse.
-        if (ctx.path === DELETE_USER_PATH && asksForDeletionLink(ctx.body)) {
+        if (ctx.path === DELETE_USER_PATH && asksForDeletionLink(body)) {
           const asking = await getSessionFromCtx(ctx);
           if (asking !== null && (await deletionLinkCapped(ctx.context, asking.user.email))) {
             return ctx.json({ success: true, message: DELETION_LINK_SENT });
@@ -1131,9 +1133,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
 
         // Refused rather than dropped: a caller who read the plugin's own body schema is answered,
         // and a request reshaped behind its back is how the next reader believes the field works.
-        const asked: unknown = ctx.body;
         for (const field of ENROLMENT_FIELDS_REFUSED) {
-          if (typeof asked === "object" && asked !== null && field in asked) throw APIError.fromStatus("BAD_REQUEST");
+          if (typeof body === "object" && body !== null && field in body) throw APIError.fromStatus("BAD_REQUEST");
           // The options half takes `name` on the query string instead, where it becomes the account
           // name the browser's own prompt shows.
           if (Reflect.get(ctx.query ?? {}, field) !== undefined) throw APIError.fromStatus("BAD_REQUEST");
@@ -1159,10 +1160,11 @@ const authOptions = (origin: URL, client: MongoClient) =>
       // The `Set-Cookie` the endpoint wrote is untouched: `runAfterHooks` merges this hook's own
       // headers into the response's rather than replacing them, so the credential still travels.
       after: createAuthMiddleware(async (ctx) => {
+        const body: unknown = ctx.body;
         // Logged and left on a failure: by now the rotation has ended the browser's old session, so a
         // throw here would answer a right code with a 500 and no cookie.
-        if (ctx.path === CODE_SIGN_IN_PATH && typeof ctx.body === "object" && ctx.body !== null) {
-          const own = attemptRows.get(ctx.body);
+        if (ctx.path === CODE_SIGN_IN_PATH && typeof body === "object" && body !== null) {
+          const own = attemptRows.get(body);
           await unlessUnsettled(() => settleCodeAttempt(ctx.context, own, ctx.context.returned));
           // The code refused, never a mint refusing past a right one, and by trace alone: the address stays off the line.
           if (isAPIError(ctx.context.returned) && !refusedAtMint(ctx.context.returned)) {
@@ -1314,7 +1316,8 @@ let built: ReturnType<typeof build> | undefined;
  * handler imports it, and every other module calls one of the narrow functions below.
  */
 export const auth = new Proxy({} as ReturnType<typeof build>, {
-  get: (_, key) => Reflect.get((built ??= build()), key),
+  // `Reflect.get` answers `any`: the proxy's own type, the instance's, is what every caller reads.
+  get: (_, key): unknown => Reflect.get((built ??= build()), key),
   // `toNextJsHandler` asks `"handler" in auth` on every request.
   has: (_, key) => Reflect.has((built ??= build()), key),
 });

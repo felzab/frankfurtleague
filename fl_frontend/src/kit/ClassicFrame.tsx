@@ -125,21 +125,21 @@ export function ClassicFrame({
                     placement="footer"
                     sponsored>
                     <span
-                      title={sponsor.name}
+                      title={sponsor.name.record}
                       className="flex items-center gap-2 text-xs">
                       {/* An SVG served as it is, which the image optimiser has nothing to do for; small and grey,
                         each logo fitted into the same box whatever its own proportions. */}
                       <span className="relative block h-6 w-24">
                         <Image
                           src={sponsor.logo}
-                          alt={sponsor.name}
+                          alt={sponsor.name.record}
                           fill
                           unoptimized
                           sizes="6rem"
                           className="object-contain object-left grayscale"
                         />
                       </span>
-                      {sponsor.short !== undefined && <span aria-hidden>{sponsor.short}</span>}
+                      {sponsor.short !== undefined && <span aria-hidden>{sponsor.short.record}</span>}
                     </span>
                   </Link>
                 ))}

@@ -12,7 +12,7 @@ import { SpielList } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, RecordText } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { Route } from "next";
 import type { Place } from "./Podium";
@@ -22,13 +22,13 @@ import type { SpielRowProps } from "./SpielRow";
 type Shown = SpielRowProps & { id: string };
 
 /** One side of the opening match: its club's Kürzel, or `null` while its slot is empty. */
-type OpeningSide = { kuerzel: string } | null;
+type OpeningSide = RecordText | null;
 
 /**
  * The season's first match as the countdown names it: its day and time as its row shows them, its matchday's
  * label and its two sides' plaques, a side whose slot is empty in the dashed open one.
  */
-type Opening = { when: string; spieltag: Copy; home: OpeningSide; away: OpeningSide };
+type Opening = { when: Copy; spieltag: Copy; home: OpeningSide; away: OpeningSide };
 
 /**
  * An opening side's plaque. An empty slot's dashed open plaque names nothing, so the Spielplan's words for an open
@@ -37,11 +37,11 @@ type Opening = { when: string; spieltag: Copy; home: OpeningSide; away: OpeningS
 function OpeningPlaque({ side }: { side: OpeningSide }) {
   return side === null ? (
     <>
-      <TeamPlaque quelle="" />
+      <TeamPlaque plaque={{ quelle: null }} />
       <span className="sr-only">{COPY.spielplan.quelle.open}</span>
     </>
   ) : (
-    <TeamPlaque kuerzel={side.kuerzel} />
+    <TeamPlaque plaque={side} />
   );
 }
 

@@ -17,7 +17,7 @@ const QUESTION = {
 
 const SCHOOL = {
   title: SERVER_COPY.landing.doors.school.title,
-  text: SERVER_COPY.landing.join.open("2027", "2026-12-31"),
+  text: SERVER_COPY.landing.saison.windowUntil("2026-12-31"),
   act: { label: SERVER_COPY.landing.toBewerbung, href: "/bewerbung/2027" },
 } as const;
 

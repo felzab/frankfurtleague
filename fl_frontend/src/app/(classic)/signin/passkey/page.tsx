@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 
+import { SignInSkeleton } from "@/kit/SignInPage";
+
 import { getPasskeyStep } from "@/core/auth";
 import { ROUTES } from "@/core/routes";
 import { PasskeyStep } from "@/features/auth/components/forms/PasskeyStep";
@@ -18,11 +20,12 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 /**
  * Resolves nothing itself: a top-level await would tie the static shell to one URL, and this page is a
- * function of the session on the request.
+ * function of the session on the request. It waits in the sign-in's skeleton, as `/signin` does, its title a bar:
+ * the step the session reads names it.
  */
 export default function PasskeyPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<SignInSkeleton title={null} />}>
       <PasskeyInhalt />
     </Suspense>
   );

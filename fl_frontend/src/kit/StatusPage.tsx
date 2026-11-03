@@ -42,7 +42,7 @@ const card = tv({
  * The card's words: a title where the frame carries none, and one sentence, which a titled card may leave out where
  * its title says all there is, as an error's does.
  */
-type CardWords = { title?: Copy | string; sentence: Copy } | { title: Copy | string; sentence?: undefined };
+type CardWords = { title?: Copy; sentence: Copy } | { title: Copy; sentence?: undefined };
 
 /**
  * The hairline card every end state shares: its mark, the title where the frame carries none, one sentence, one

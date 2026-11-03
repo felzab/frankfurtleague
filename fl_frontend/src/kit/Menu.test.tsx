@@ -32,8 +32,8 @@ describe("a navigating menu's current entry", () => {
         }
         groups={[
           [
-            { kind: "link", href: "/saisons/2027", text: "2027", isCurrent: true },
-            { kind: "link", href: "/saisons/2026", text: "2026" },
+            { kind: "link", href: "/saisons/2027", label: { record: "2027" }, isCurrent: true },
+            { kind: "link", href: "/saisons/2026", label: { record: "2026" } },
           ],
         ]}
       />,
@@ -70,7 +70,7 @@ describe("a menu's foot", () => {
             label={COPY.shared.saison}
           />
         }
-        groups={[[{ kind: "link", href: "/saisons/2027", text: "2027" }]]}
+        groups={[[{ kind: "link", href: "/saisons/2027", label: { record: "2027" } }]]}
         foot={{
           label: COPY.page.accountAppearance,
           control: (

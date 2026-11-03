@@ -45,10 +45,12 @@ export function treeOf(spieltage: readonly FLSpielplanSpieltag[]): { rounds: [Br
     ordered.push([...placed, ...byNumber.filter((spiel) => !placed.includes(spiel))]);
   }
 
-  const [first, ...rest] = ordered.reverse().map((round, index) => ({
-    id: phases[index]?.phase ?? String(index),
-    label: phases[index] === undefined ? "" : PHASE_LABELS[phases[index].phase],
-    matches: round.map(cardOf),
+  // `ordered` holds the rounds from the Finale up, so reversed it lines up with `phases`, a round each.
+  const rounds = ordered.reverse();
+  const [first, ...rest] = phases.map(({ phase }, index) => ({
+    id: phase,
+    label: PHASE_LABELS[phase],
+    matches: (rounds[index] ?? []).map(cardOf),
   }));
   if (first === undefined) return null;
   return { rounds: [first, ...rest], ...(third === undefined ? {} : { third: cardOf(third) }) };

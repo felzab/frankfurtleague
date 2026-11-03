@@ -8,7 +8,6 @@ import { FLSonderereignis } from "@/core/generated/client/types";
 import { SpielePatchSpielBody, spielePatchSpielBodyNotizOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { getAdminSaisons } from "@/features/saisons/queries";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { getSpielorte } from "@/features/spielorte/queries";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
@@ -47,7 +46,7 @@ const lesen = cache(async (spiel: string) => {
 const nameOf = (spiel: FLSpielJoinedAdmin) =>
   spiel.team1 === null || spiel.team2 === null
     ? WORTE.number(spiel.spiel_nr)
-    : ROUTES.verwaltungSpiel.title(spiel.team1.name, spiel.team2.name);
+    : ROUTES.verwaltungSpiel.title({ record: spiel.team1.name }, { record: spiel.team2.name });
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison, spiel } = await params;
@@ -65,10 +64,10 @@ export default function SpielEditorPage({ params }: Props) {
 async function readEditor(params: Props["params"]) {
   const { saison, spiel } = await params;
   // Retired venues included, so a match booked at one still names it.
-  const [gelesen, { spielorte }, { saisons }] = await Promise.all([lesen(spiel), getSpielorte({ include_inactive: true }), getAdminSaisons()]);
+  const [gelesen, { spielorte }] = await Promise.all([lesen(spiel), getSpielorte({ include_inactive: true })]);
   if (gelesen === null || gelesen.spiel.saison_id !== saison) notFound();
   // A finished season's matches take no write (`saison_past`), so the editor opens on one read-only.
-  const vorbei = saisons.find((eintrag) => eintrag.id === saison)?.status === "past";
+  const vorbei = gelesen.saison_status === "past";
   const gespeichert = gelesen.spiel;
   // A retired venue can be booked anew by no match: it is listed only where it is already this match's.
   const gebucht = gespeichert.ort?.spielort_id ?? null;
@@ -87,15 +86,15 @@ async function readEditor(params: Props["params"]) {
 
   return (
     <SpielEditor
-      title={{ record: nameOf(gespeichert) }}
+      title={nameOf(gespeichert)}
       record={{ id: gespeichert.id, version: gespeichert.version, values: werteOf(gespeichert) }}
       save={spielSpeichern}
       spielorte={waehlbar.map((ort) => ({
         // The match's own retired venue stays in the list, marked and not to be chosen again once left.
         option:
           ort.inactive_since === null
-            ? { id: ort.id, label: ort.name }
-            : { id: ort.id, label: ort.name, isDisabled: true, note: COPY.verwaltung.spielort.retired },
+            ? { id: ort.id, label: { record: ort.name } }
+            : { id: ort.id, label: { record: ort.name }, isDisabled: true, note: COPY.verwaltung.spielort.retired },
         mietpreis: ort.default_mietpreis,
       }))}
       sonderereignisse={sonderereignisse}

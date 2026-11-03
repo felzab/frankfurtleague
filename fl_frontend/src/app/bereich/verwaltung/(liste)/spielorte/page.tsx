@@ -23,13 +23,13 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 /** One venue's row: its name, „Stillgelegt“ and muted once retired, its street and its price. */
 const zeile = (ort: FLSpielort): TableRow => ({
   id: ort.id,
-  name: ort.name,
+  name: { record: ort.name },
   // No `href` while no venue page answers at `ROUTES.verwaltungSpielort`: a row linking there would open the
   // not-found page. The record page brings the link back.
   ...(ort.inactive_since === null ? {} : { chip: { tone: "neutral" as const, label: WORTE.retired }, muted: true }),
   cells: {
     adresse: WORTE.strasseWithHausnummer(ort.address.strasse, ort.address.hausnummer),
-    mietpreis: formatEuro(ort.default_mietpreis),
+    mietpreis: { record: formatEuro(ort.default_mietpreis) },
   },
 });
 
@@ -55,7 +55,7 @@ async function readSpielorte() {
   return {
     table: {
       label: ROUTES.verwaltungSpielorte.title,
-      nameLabel: WORTE.name,
+      nameLabel: COPY.shared.name,
       columns: [
         { key: "adresse", label: WORTE.address, hideOnPhone: true },
         { key: "mietpreis", label: WORTE.mietpreis, figures: true },

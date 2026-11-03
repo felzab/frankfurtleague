@@ -28,7 +28,7 @@ describe("the field patterns over the backend's rules", () => {
     // A repeat across the contact block reads as the field pattern alone, never with the field's name before it.
     expect(rule("kontakt_email_twice")).toStrictEqual({ field: field.taken });
     expect(rule("kontakt_telefon_twice")).toStrictEqual({ field: field.taken });
-    expect(rule("nichtantreten_with_tore")).toStrictEqual({ field: field.without(COPY.verwaltung.spiel.tore) });
+    expect(rule("nichtantreten_with_tore")).toStrictEqual({ field: field.without(COPY.shared.tore) });
     expect(rule("nichtantreten_with_torschuetzen")).toStrictEqual({ field: field.without(COPY.verwaltung.spiel.torschuetzen) });
   });
 

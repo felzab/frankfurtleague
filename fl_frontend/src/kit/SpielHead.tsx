@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 import { ERGEBNIS_SEPARATOR } from "@/core/format";
 
 import { Callout } from "./Callout";
@@ -29,12 +29,12 @@ type SpielHeadSide = SpielSide & {
    * holding it, `Table` or `BracketTree`, marks it through `TargetMark`, since a client navigation never sets
    * the browser's `:target`.
    */
-  standing?: { text: string; href: Route };
+  standing?: { text: Copy; href: Route };
 };
 
 export type SpielHeadProps = {
   /** The line above the pairing, as a competition's round stands over a scoreboard: the matchday. */
-  eyebrow: string;
+  eyebrow: Copy;
   home: SpielHeadSide;
   away: SpielHeadSide;
   /** Absent until a result is entered, so an unplayed match never reads 0:0. */
@@ -73,17 +73,17 @@ function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part
   const style = head(look(score, part));
   return (
     <span className={style.side()}>
-      <TeamPlaque {...side.plaque} />
+      <TeamPlaque plaque={side.plaque} />
       <span
         className={style.name()}
-        title={side.name}>
+        title={textOf(side.name)}>
         {side.href === undefined ? (
-          side.name
+          textOf(side.name)
         ) : (
           <Link
             href={side.href}
             placement="standalone"
-            text={side.name}
+            label={side.name}
           />
         )}
       </span>
@@ -92,7 +92,7 @@ function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part
           <Link
             href={side.standing.href}
             placement="detail"
-            text={side.standing.text}
+            label={side.standing.text}
           />
         </span>
       )}

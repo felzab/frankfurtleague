@@ -1,43 +1,42 @@
+import { textOf } from "@/core/copy";
+
 import { card } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
 import type { ChipProps } from "./Chip";
 
-/** A card's one line under its title: catalogue text such as a figure's meaning, or a record's own detail. */
-type Line = { line: Copy; lineText?: never } | { lineText: string; line?: never };
-
-/** A card's title: catalogue text such as the kind of open work, or a record's own name, such as a club's. */
-type Title = { title: Copy; titleText?: never } | { titleText: string; title?: never };
-
 /** A card's props, which its folded form, `CardFold`, takes as they are. */
-export type CardProps = Title & {
+export type CardProps = {
+  /** Catalogue text such as the kind of open work, or a record's own name, such as a club's. */
+  title: Words;
   /** How many items the card holds open. */
   count?: number;
   /** The card's one button. */
   action?: ReactElement;
   body?: "rows" | "fields";
   children?: ReactNode;
-} & (Line | { line?: never; lineText?: never });
+  /** The one line under the title: catalogue text such as a figure's meaning, or a record's own detail. */
+  line?: Words;
+};
 
 /**
  * One kind of open work, its count beside its title, its records as rows or its inputs as fields. A card whose
  * body folds behind its head is `CardFold`, a module of its own, so a page placing only plain cards ships none
  * of the fold's client code.
  */
-export function Card({ title, titleText, count, action, body = "rows", children, ...props }: CardProps) {
-  const line = props.line ?? props.lineText;
+export function Card({ title, count, action, body = "rows", children, line }: CardProps) {
   const s = card({ body });
   return (
     <section className={s.root()}>
       <div className={s.head()}>
-        <h2 className={s.title()}>{title ?? titleText}</h2>
+        <h2 className={s.title()}>{textOf(title)}</h2>
         {count !== undefined && <span className={s.count()}>{count}</span>}
-        {line !== undefined && <span className={s.line()}>{line}</span>}
+        {line !== undefined && <span className={s.line()}>{textOf(line)}</span>}
       </div>
       {children !== undefined && <div className={s.body()}>{children}</div>}
       {action !== undefined && <div className={s.foot()}>{action}</div>}
@@ -49,7 +48,7 @@ export function Card({ title, titleText, count, action, body = "rows", children,
  * One choice of the chooser: the whole card one link, its title and its line, the chevron at its right.
  * @awaitsProduction the role chooser's page
  */
-export function CardLink({ href, title, ...props }: { href: Route; title: Copy } & Line) {
+export function CardLink({ href, title, line }: { href: Route; title: Copy; line: Words }) {
   return (
     <section className={card().root()}>
       <Link
@@ -58,7 +57,7 @@ export function CardLink({ href, title, ...props }: { href: Route; title: Copy }
         <span className="flex items-stretch gap-x-3 px-4 py-3">
           <span className="grid min-w-0 flex-1 gap-1">
             <span className="text-base font-semibold break-words">{title}</span>
-            <span className="text-sm text-fg-muted">{props.line ?? props.lineText}</span>
+            <span className="text-sm text-fg-muted">{textOf(line)}</span>
           </span>
           <RowEnd />
         </span>
@@ -73,22 +72,22 @@ export function CardLink({ href, title, ...props }: { href: Route; title: Copy }
  * chip keeps its place beside it; the full name stays the link's accessible name and shows as its title.
  * @awaitsProduction the Übersicht's cards
  */
-export function CardRow({ href, name, chip, detail }: { href: Route; name: string; chip?: ChipProps; detail?: string }) {
+export function CardRow({ href, name, chip, detail }: { href: Route; name: Words; chip?: ChipProps; detail?: Words }) {
   return (
     <div className={card().row()}>
       <span className="flex min-w-0 flex-1 items-center gap-2">
         <span
-          title={name}
+          title={textOf(name)}
           className="min-w-0 truncate">
           <Link
             href={href}
             placement="row"
-            text={name}
+            label={name}
           />
         </span>
         {chip !== undefined && <Chip {...chip} />}
       </span>
-      {detail !== undefined && <span className="flex shrink-0 items-center font-numeric text-fg-muted">{detail}</span>}
+      {detail !== undefined && <span className="flex shrink-0 items-center font-numeric text-fg-muted">{textOf(detail)}</span>}
       <RowEnd />
     </div>
   );

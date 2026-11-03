@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
 import { cardHover, cardSurface } from "./cardStyles";
@@ -10,10 +10,11 @@ import { TargetMark } from "./TargetMark";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { ChipProps } from "./Chip";
 import type { EmptyStateProps } from "./EmptyState";
+import type { Plaque } from "./TeamPlaque";
 
 /** A column after the name: its head, and how its values set. */
 type TableColumn = {
@@ -29,20 +30,23 @@ type TableColumn = {
   | { phoneOnly: true; hideOnPhone?: never }
 );
 
+/** A club's won, drawn and lost counts. */
+export type Counts = readonly [won: number, drawn: number, lost: number];
+
 /**
- * A cell's value: its text; a figure some of the club's fixtures left short, such as its count of matches
+ * A cell's value: its words; a figure some of the club's fixtures left short, such as its count of matches
  * while some were called off, carrying the mark that says how many, which its name tells a screen reader and
  * no line explains; or a club's won, drawn and lost counts in one cell, „3-1-0“, each in its own colour.
  */
-type TableCell = string | { value: string; cancelled: number } | { record: readonly [won: string, drawn: string, lost: string] };
+type TableCell = Words | { value: Words; cancelled: number } | { counts: Counts };
 
 export type TableRow = {
   id: string;
   /** The record's name; with `href` the whole row opens the record. */
-  name: string;
+  name: Words;
   href?: Route;
   /** A club's plaque before its name. */
-  plaque?: { kuerzel: string } | { quelle: string };
+  plaque?: Plaque;
   chip?: ChipProps;
   /** The row's values, by column key; a missing value leaves its cell empty. */
   cells: Readonly<Record<string, TableCell>>;
@@ -150,15 +154,15 @@ const RECORD_JOIN = "-";
  * A club's won, drawn and lost counts, „3-1-0“, each in its own colour, success, warning and danger, the hyphens
  * between them in the text's: a Tabelle row's phone column and a club's tile alike.
  */
-export function RecordFigures({ record }: { record: readonly [won: string, drawn: string, lost: string] }) {
-  const [won, drawn, lost] = record;
+export function RecordFigures({ counts }: { counts: Counts }) {
+  const [won, drawn, lost] = counts;
   return (
     <>
-      <span className="font-semibold text-success">{won}</span>
+      <span className="font-semibold text-success">{formatNumber(won)}</span>
       {RECORD_JOIN}
-      <span className="font-semibold text-warn">{drawn}</span>
+      <span className="font-semibold text-warn">{formatNumber(drawn)}</span>
       {RECORD_JOIN}
-      <span className="font-semibold text-danger">{lost}</span>
+      <span className="font-semibold text-danger">{formatNumber(lost)}</span>
     </>
   );
 }
@@ -176,13 +180,13 @@ const phoneOf = (column: TableColumn) => (column.hideOnPhone === true ? "hidden"
  */
 function Cell({ cell, slot }: { cell: TableCell | undefined; slot: boolean }) {
   if (cell === undefined) return null;
-  if (typeof cell === "object" && "record" in cell) return <RecordFigures record={cell.record} />;
-  const { value, cancelled } = typeof cell === "string" ? { value: cell, cancelled: 0 } : cell;
-  if (!slot) return value;
+  if (typeof cell === "object" && "counts" in cell) return <RecordFigures counts={cell.counts} />;
+  const { value, cancelled } = typeof cell === "object" && "cancelled" in cell ? cell : { value: cell, cancelled: 0 };
+  if (!slot) return textOf(value);
   return (
     <span className="inline-block px-2">
       <span className="relative inline-block">
-        {value}
+        {textOf(value)}
         {cancelled > 0 && (
           <span
             aria-hidden
@@ -203,13 +207,14 @@ function Cell({ cell, slot }: { cell: TableCell | undefined; slot: boolean }) {
  */
 function NameCell({ row, barred, compact }: { row: TableRow; barred: TableRow["qualifies"]; compact: boolean }) {
   const s = table({ qualifies: barred, compact });
+  const name = textOf(row.name);
   const words =
     row.plaque === undefined ? (
-      row.name
+      name
     ) : (
       <>
-        <TeamPlaque {...row.plaque} />
-        <span className={s.clubName()}>{row.name}</span>
+        <TeamPlaque plaque={row.plaque} />
+        <span className={s.clubName()}>{name}</span>
       </>
     );
   return (
@@ -217,7 +222,7 @@ function NameCell({ row, barred, compact }: { row: TableRow; barred: TableRow["q
       <span className="flex min-w-0 items-center gap-2">
         <span
           className="min-w-0 truncate"
-          title={row.name}>
+          title={name}>
           {row.href === undefined ? (
             words
           ) : (

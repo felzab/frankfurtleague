@@ -18,8 +18,13 @@ describe("the ways to reach the league", () => {
     render(
       <LinkRows
         rows={[
-          { label: SERVER_COPY.landing.contact.email, value: "info@example.org", href: "mailto:info@example.org" },
-          { glyph: "instagram", label: COPY.template.instagram, value: "@frankfurtleague", href: "https://www.instagram.com/frankfurtleague" },
+          { label: SERVER_COPY.landing.contact.email, value: { record: "info@example.org" }, href: "mailto:info@example.org" },
+          {
+            glyph: "instagram",
+            label: COPY.template.instagram,
+            value: { record: "@frankfurtleague" },
+            href: "https://www.instagram.com/frankfurtleague",
+          },
         ]}
       />,
     );
@@ -36,7 +41,7 @@ describe("an address too long for its row", () => {
   // address takes the rest of the row with Tailwind's `truncate`.
   it("is cut with „…“ and whole in its title, the way's name keeping its line", () => {
     const address = "ansprechpartner.schulsport@frankfurt-league.example.org";
-    render(<LinkRows rows={[{ label: SERVER_COPY.landing.contact.email, value: address, href: `mailto:${address}` }]} />);
+    render(<LinkRows rows={[{ label: SERVER_COPY.landing.contact.email, value: { record: address }, href: `mailto:${address}` }]} />);
 
     const value = screen.getByTitle(address);
     expect(value.textContent).toBe(address);

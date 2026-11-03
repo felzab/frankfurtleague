@@ -2,6 +2,8 @@
 
 import { Button, Disclosure, DisclosurePanel, Heading } from "react-aria-components/Disclosure";
 
+import { textOf } from "@/core/copy";
+
 import { card } from "./cardStyles";
 import { Icon } from "./Icon";
 
@@ -15,8 +17,7 @@ import type { CardProps } from "./Card";
  * body stays in the document as `hidden="until-found"`, which a browser's find on the page opens. It starts
  * folded on every screen, so the server's markup is its first frame everywhere.
  */
-export function CardFold({ title, titleText, count, action, body = "rows", children, ...props }: CardProps) {
-  const line = props.line ?? props.lineText;
+export function CardFold({ title, count, action, body = "rows", children, line }: CardProps) {
   const s = card({ body, fold: true });
   return (
     <Disclosure className={s.root()}>
@@ -32,10 +33,10 @@ export function CardFold({ title, titleText, count, action, body = "rows", child
                 size={16}
               />
             </span>
-            <span className="min-w-0">{title ?? titleText}</span>
+            <span className="min-w-0">{textOf(title)}</span>
           </span>
           {count !== undefined && <span className={s.count()}>{count}</span>}
-          {line !== undefined && <span className={s.line()}>{line}</span>}
+          {line !== undefined && <span className={s.line()}>{textOf(line)}</span>}
         </Button>
       </Heading>
       <DisclosurePanel className={s.body()}>

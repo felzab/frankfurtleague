@@ -177,6 +177,12 @@ export const cookieHeader = (response: { headers: Headers }): string =>
     .map((line) => line.split(";")[0])
     .join("; ");
 
+/** One `name=value` pair of a `Cookie` header as an entry, split at its first `=`. */
+export function cookiePair(pair: string): [name: string, value: string] {
+  const at = pair.indexOf("=");
+  return at === -1 ? [pair, ""] : [pair.slice(0, at), pair.slice(at + 1)];
+}
+
 /**
  * A session minted the way a typed code mints one, off the plugin's own server-only mint, which
  * passes no gate and sends nothing: it serves an address the send mails nothing, and never meets

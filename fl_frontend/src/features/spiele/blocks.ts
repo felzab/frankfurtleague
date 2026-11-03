@@ -38,7 +38,7 @@ export function isThirdPlace(spiel: Pick<FLSpielJoined, "for_third_place">): boo
  * What a matchday is called where the page names a single one: a group matchday by its number, a knockout one
  * by its round, the third-place match by its own name.
  */
-export function matchdayOf(spiel: Pick<FLSpielJoined, "saison_phase" | "for_third_place">, position: number): string {
+export function matchdayOf(spiel: Pick<FLSpielJoined, "saison_phase" | "for_third_place">, position: number): Copy {
   if (isThirdPlace(spiel)) return SERVER_COPY.season.thirdPlace;
   return spiel.saison_phase === "gruppenphase" ? SERVER_COPY.season.spieltag(position) : PHASE_LABELS[spiel.saison_phase];
 }
@@ -66,9 +66,11 @@ function quelleWords(quelle: FLSpielQuelle | null): { short: Copy; long: Copy } 
 
 /** One side: the club and its plaque, or, while the draw has not settled it, where it comes from. */
 function sideOf(team: FLSpielTeamFieldJoined | null, quelle: FLSpielQuelle | null): SpielSide {
-  if (team !== null) return { name: team.name, plaque: { kuerzel: team.shorthand } };
+  if (team !== null) return { name: { record: team.name }, plaque: { record: team.shorthand } };
   const words = quelleWords(quelle);
-  return words === null ? { name: COPY.spielplan.quelle.open, plaque: { quelle: "" } } : { name: words.long, plaque: { quelle: words.short } };
+  return words === null
+    ? { name: COPY.spielplan.quelle.open, plaque: { quelle: null } }
+    : { name: words.long, plaque: { quelle: words.short } };
 }
 
 /** The match's two sides, the first-listed side first. */
@@ -84,7 +86,7 @@ function resultOf(spiel: FLSpielJoined): Pick<SpielRowProps, "result"> {
 }
 
 /** When a match is played, as its row and its bracket card show it. */
-export const whenOf = (spiel: FLSpielJoined): string => COPY.spielplan.when(dayOf(spiel.datum), timeOf(spiel.uhrzeit));
+export const whenOf = (spiel: FLSpielJoined): Copy => COPY.spielplan.when(dayOf(spiel.datum), timeOf(spiel.uhrzeit));
 
 /**
  * A match as a row or a card of a match list, the whole of it a link to the match, which opens as the pop-up
@@ -104,7 +106,7 @@ export function matchRowOf(spiel: FLSpielJoined): SpielRowProps & { id: string }
 }
 
 /** Where a group side stands, a link to its row of the Tabelle; a knockout side's round, a link to the match's card in the tree. */
-function standingOf(spiel: FLSpielJoined, team: FLSpielTeamFieldJoined | null, standing: FLSpielSideStanding | null, round: string) {
+function standingOf(spiel: FLSpielJoined, team: FLSpielTeamFieldJoined | null, standing: FLSpielSideStanding | null, round: Copy) {
   if (team === null) return undefined;
   if (spiel.saison_phase !== "gruppenphase") return { text: round, href: `${ROUTES.kORunde.path(spiel.saison_id)}#${spiel.id}` as Route };
   if (standing === null) return undefined;
@@ -144,12 +146,18 @@ export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
   const day = dayOf(spiel.datum);
   const time = timeOf(spiel.uhrzeit);
   const facts: (Fact | null)[] = [
-    day === null ? null : { label: fact.datum, glyph: "calendar", value: formatDatum(day), figures: true },
-    time === null ? null : { label: fact.uhrzeit, glyph: "uhrzeit", value: formatUhrzeit(time), figures: true },
+    day === null ? null : { label: fact.datum, glyph: "calendar", value: { record: formatDatum(day) }, figures: true },
+    time === null ? null : { label: fact.uhrzeit, glyph: "uhrzeit", value: { record: formatUhrzeit(time) }, figures: true },
     spiel.ort === null
       ? null
-      : { label: fact.spielort, glyph: "spielorte", elsewhere: { href: buildMapsSearchUrl(spiel.ort.maps_link), text: spiel.ort.name } },
-    spiel.schiedsrichter?.name == null ? null : { label: fact.schiedsrichter, glyph: "schiedsrichter", value: spiel.schiedsrichter.name },
+      : {
+          label: fact.spielort,
+          glyph: "spielorte",
+          elsewhere: { href: buildMapsSearchUrl(spiel.ort.maps_link), label: { record: spiel.ort.name } },
+        },
+    spiel.schiedsrichter?.name == null
+      ? null
+      : { label: fact.schiedsrichter, glyph: "schiedsrichter", value: { record: spiel.schiedsrichter.name } },
   ];
   return facts.filter((each) => each !== null);
 }

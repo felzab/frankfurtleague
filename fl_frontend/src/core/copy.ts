@@ -10,6 +10,18 @@ declare const copyBrand: unique symbol;
  */
 export type Copy = string & { readonly [copyBrand]: true };
 
+/**
+ * A record's own data where words stand, such as a club's name or a figure it holds: not the catalogue's words, and
+ * marked as data so a string typed into a page has no way into a text slot. Lint refuses a literal inside one.
+ */
+export type RecordText = { readonly record: string };
+
+/** What a kit text slot shows: the catalogue's words, or a record's own data. */
+export type Words = Copy | RecordText;
+
+/** The text a slot shows. */
+export const textOf = (words: Words): string => (typeof words === "string" ? words : words.record);
+
 type Catalogue<T> = T extends string
   ? Copy
   : T extends (...args: infer A) => string
@@ -52,6 +64,14 @@ const UNEXPECTED = "Etwas ist schiefgelaufen";
 
 // The glossary's one spelling, which the season editor's sentence about it takes too.
 const K_O_RUNDE = "K.-o.-Runde";
+
+// Words two areas of this one object say alike, each written once and read under both keys: a match's facts and
+// its events as a visitor reads them and as the editor's fields name them, and the sign-in's acts and pages.
+const SPIEL_FACT = { ergebnis: "Ergebnis", sonderereignis: "Sonderereignis", datum: "Datum", uhrzeit: "Uhrzeit", notiz: "Notiz" } as const;
+const SONDEREREIGNIS = { ausgefallen: "Ausgefallen", abgebrochen: "Abgebrochen", annulliert: "Annulliert" } as const;
+const ANMELDUNG = "Anmeldung";
+const MIT_PASSKEY_ANMELDEN = "Mit Passkey anmelden";
+const PASSKEY_EINRICHTEN = { title: "Passkey einrichten", button: "Jetzt einrichten" } as const;
 
 /** A range's end: a figure, or a year as a string, which as a season id takes no thousands separator. */
 type Bound = number | string;
@@ -187,6 +207,10 @@ export const COPY = catalogue({
     austrittSeit: (zustand: Copy, day: CalendarDay) => `${zustand} seit ${formatDatum(day)}`,
     startelf: "Startelf",
     bank: "Bank",
+    /** A club's goals, a match's and a season's: a column head, a tile, a field's message. */
+    tore: "Tore",
+    /** A record's name: a box's label, a list's column head. */
+    name: "Name",
 
     /**
      * The kit's season blocks that a client component draws: a table's rows reach the list's client table. The
@@ -228,15 +252,13 @@ export const COPY = catalogue({
     teams: "Teams",
     spielSearch: "Spielsuche",
     /** A match's page, named by its two teams in the order the fixture lists them. */
-    spiel: (heim: string, gast: string) => `${heim} gegen ${gast}`,
-    /** A club's page in one season, named by the club. */
-    team: (team: string) => team,
+    spiel: (heim: Words, gast: Words) => `${textOf(heim)} gegen ${textOf(gast)}`,
     about: "Über die Liga",
     contact: "Kontakt",
     sponsors: "Sponsoren",
     legalNotice: "Impressum",
     privacyNotice: "Datenschutz",
-    accountSignIn: "Anmeldung",
+    accountSignIn: ANMELDUNG,
     accountSecurity: "Sicherheit",
     accountAppearance: "Darstellung",
     accountEntries: "Deine Einträge",
@@ -287,10 +309,10 @@ export const COPY = catalogue({
 
     /** What befell a match, as a visitor reads it: a no-show names the club that did not turn up. */
     sonderereignis: {
-      ausgefallen: "Ausgefallen",
-      nichtAngetreten: (team: string) => `${team} nicht angetreten`,
-      abgebrochen: "Abgebrochen",
-      annulliert: "Annulliert",
+      ausgefallen: SONDEREREIGNIS.ausgefallen,
+      nichtAngetreten: (team: Words) => `${textOf(team)} nicht angetreten`,
+      abgebrochen: SONDEREREIGNIS.abgebrochen,
+      annulliert: SONDEREREIGNIS.annulliert,
       /**
        * What the event means for the result, under its name in the pop-up's callout: a match called off or
        * struck out awards nothing, a no-show awards the side that turned up the forfeit the season's rules
@@ -298,7 +320,7 @@ export const COPY = catalogue({
        */
       consequence: {
         ausgefallen: "Das Spiel hat nicht stattgefunden und wird nicht gewertet.",
-        nichtAngetreten: (gegner: string) => `Das Spiel wird für ${gegner} gewertet.`,
+        nichtAngetreten: (gegner: Words) => `Das Spiel wird für ${textOf(gegner)} gewertet.`,
         abgebrochenScored: "Das eingetragene Ergebnis wird gewertet.",
         abgebrochenOpen: "Die Wertung steht noch nicht fest.",
         annulliert: "Das Spiel wurde annulliert und wird nicht gewertet.",
@@ -307,14 +329,14 @@ export const COPY = catalogue({
 
     /** A match's facts, each by its label. */
     fact: {
-      ergebnis: "Ergebnis",
-      sonderereignis: "Sonderereignis",
+      ergebnis: SPIEL_FACT.ergebnis,
+      sonderereignis: SPIEL_FACT.sonderereignis,
       spieltag: "Spieltag",
-      datum: "Datum",
-      uhrzeit: "Uhrzeit",
+      datum: SPIEL_FACT.datum,
+      uhrzeit: SPIEL_FACT.uhrzeit,
       spielort: "Ort",
       schiedsrichter: "Schiedsrichter",
-      notiz: "Notiz",
+      notiz: SPIEL_FACT.notiz,
     },
   },
 
@@ -358,16 +380,16 @@ export const COPY = catalogue({
 
   /** Signing in: the address and its code, the passkey, and the answers either can meet. */
   signIn: {
-    /** `/signin`'s tab title, and its card's heading, signed out and signed in. */
-    title: "Anmelden",
+    /** `/signin`'s tab title, and its card's heading, signed out and signed in: the act its button names. */
+    title: VERB.signIn,
     passkeyTitle: "Passkey",
     /** `/signin/weiter`'s tab title, a page that only sends the session on to where it goes next. */
-    landingTitle: "Anmeldung",
+    landingTitle: ANMELDUNG,
 
     address: "E-Mail-Adresse",
     sendCode: "Code senden",
     or: "oder",
-    withPasskey: "Mit Passkey anmelden",
+    withPasskey: MIT_PASSKEY_ANMELDEN,
 
     /**
      * The code view: one sentence for every address, so it says nothing about who holds an account, in the two
@@ -383,13 +405,9 @@ export const COPY = catalogue({
     signedInAs: { before: "Du bist als", after: "angemeldet." },
 
     passkey: {
-      setUp: { title: "Passkey einrichten", sentence: "Die Verwaltung ist erst mit einem Passkey erreichbar.", button: "Jetzt einrichten" },
-      signIn: { title: "Mit Passkey anmelden", sentence: "Melde dich mit dem Passkey an, den du eingerichtet hast.", button: "Jetzt anmelden" },
-      offer: {
-        title: "Passkey einrichten",
-        sentence: "Mit einem Passkey meldest du dich künftig sicher ohne Code an.",
-        button: "Jetzt einrichten",
-      },
+      setUp: { ...PASSKEY_EINRICHTEN, sentence: "Die Verwaltung ist erst mit einem Passkey erreichbar." },
+      signIn: { title: MIT_PASSKEY_ANMELDEN, sentence: "Melde dich mit dem Passkey an, den du eingerichtet hast.", button: "Jetzt anmelden" },
+      offer: { ...PASSKEY_EINRICHTEN, sentence: "Mit einem Passkey meldest du dich künftig sicher ohne Code an." },
       later: "Später",
     },
 
@@ -419,14 +437,11 @@ export const COPY = catalogue({
       schulenAndSpieler: "Schulen und Spieler",
       accessAndPrivacy: "Zugang und Datenschutz",
     },
-    /** A record's own page, named by the record. */
-    record: (name: string) => name,
 
     spielort: {
       /** The object of „Spielort anlegen“. */
       object: "Spielort",
       search: "Spielorte suchen",
-      name: "Name",
       /** The create dialog's two groups: the address's lines, and the record's terms, the price among them. */
       address: "Adresse",
       terms: "Konditionen",
@@ -465,24 +480,23 @@ export const COPY = catalogue({
       /** The editor of a match whose two teams are not both known yet, named by its number. */
       number: (nr: number) => `Spiel ${formatNumber(nr)}`,
       ansetzung: "Ansetzung",
-      ergebnis: "Ergebnis",
-      /** A result's goals and the players credited with them, as a field's message names what it must not hold. */
-      tore: "Tore",
+      ergebnis: SPIEL_FACT.ergebnis,
+      /** The players credited with a result's goals, as a field's message names what it must not hold. */
       torschuetzen: "Torschützen",
-      notiz: "Notiz",
-      datum: "Datum",
-      uhrzeit: "Uhrzeit",
-      sonderereignis: "Sonderereignis",
+      notiz: SPIEL_FACT.notiz,
+      datum: SPIEL_FACT.datum,
+      uhrzeit: SPIEL_FACT.uhrzeit,
+      sonderereignis: SPIEL_FACT.sonderereignis,
       /** The Sonderereignis' first entry: nothing beyond the match being played. */
       none: "Keines",
-      ausgefallen: "Ausgefallen",
+      ausgefallen: SONDEREREIGNIS.ausgefallen,
       nichtantretenTeam1: "Nichtantreten Team 1",
       nichtantretenTeam2: "Nichtantreten Team 2",
       /** The fixture's two sides, by the names the Sonderereignis' entries give them. */
       team1: "Team 1",
       team2: "Team 2",
-      abgebrochen: "Abgebrochen",
-      annulliert: "Annulliert",
+      abgebrochen: SONDEREREIGNIS.abgebrochen,
+      annulliert: SONDEREREIGNIS.annulliert,
       /** Why a no-show cannot be picked while a side is open. */
       needsBothSides: "Nur mit beiden Teams",
       /** The save's done line where the write moved other matches too, by their numbers: „Auch Spiel 5 und 7 geändert“. */

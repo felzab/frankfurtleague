@@ -43,7 +43,7 @@ export default function AboutPage() {
           { kind: "heading", text: words.organisers.title },
         ]}
       />
-      <Organisers people={ORGANISERS.map((person) => ({ name: person.name, role: words.organisers.role[person.role] }))} />
+      <Organisers people={ORGANISERS.map((person) => ({ name: { record: person.name }, role: words.organisers.role[person.role] }))} />
     </ClassicPage>
   );
 }

@@ -294,7 +294,7 @@ function SpielortFieldWithDialog() {
     <>
       <ComboBox
         label={COPY.verwaltung.spielort.object}
-        options={[{ id: "ost", label: "Sportplatz Ost" }]}
+        options={[{ id: "ost", label: { record: "Sportplatz Ost" } }]}
         create={{
           label: COPY.verwaltung.spielort.createEntry,
           onCreate: (typed) => {

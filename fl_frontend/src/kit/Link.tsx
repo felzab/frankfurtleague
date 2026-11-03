@@ -1,12 +1,14 @@
 import NextLink from "next/link";
 
+import { textOf } from "@/core/copy";
+
 import { buttonLook } from "./buttonStyles";
 import { cardHover } from "./cardStyles";
 import { Icon } from "./Icon";
 import { IconLink } from "./IconLink";
 import { tv } from "./tv";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 import type { IconName } from "./Icon";
@@ -71,32 +73,31 @@ export const menuEntry = tv({
 // drawn as a button rings as a button does. The footer's words hug their ring as text does.
 const FOCUS = { text: "text", standalone: "ring", detail: "ring", row: "row", card: "inset", footer: "text", button: "ring" } as const;
 
-type Words =
-  | { /** Catalogue words. */ label: Copy; text?: never; children?: never }
-  | { /** A record's own name, such as a club's or a venue's: data, not catalogue text. */ text: string; label?: never; children?: never };
+/** The link's words: the catalogue's, or a record's own name, such as a club's or a venue's. */
+type Worded = { label: Words; children?: never };
 
 /**
  * A link drawn as a button: `primary` for a page's one next step, such as a status card's way on;
  * `secondary` for a way on beside it, or one standing where the page has no single next step. Its words may
  * lead with a glyph.
  */
-type Button = { placement: "button"; look: "primary" | "secondary"; leadingIcon?: IconName } & Words;
+type Button = { placement: "button"; look: "primary" | "secondary"; leadingIcon?: IconName } & Worded;
 
 /**
  * A glyph alone, in the icon-only button's look: `label`, at most five words, is its name, which the kit's
  * tooltip shows above it.
  */
-type IconOnly = { placement: "icon"; icon: IconName; label: Copy; text?: never; children?: never; fullPage?: never };
+type IconOnly = { placement: "icon"; icon: IconName; label: Copy; children?: never; fullPage?: never };
 
 /**
  * A row's link, its record's name stretched over the row it stands in, which `Table` and `LinkRows` write. Its
  * content may be markup, the link's accessible name as a card's is: a table row's club, its plaque with the
  * name a phone hides visually, so the stretched link keeps the full name where only the plaque shows.
  */
-type Row = { placement: "row" } & (Words | { children: ReactNode; label?: never; text?: never });
+type Row = { placement: "row" } & (Worded | { children: ReactNode; label?: never });
 
 /** A link of the classic footer: its words, or a sponsor's logo with its short name. */
-type Footer = { placement: "footer" } & (Words | { children: ReactNode; label?: never; text?: never });
+type Footer = { placement: "footer" } & (Worded | { children: ReactNode; label?: never });
 
 type Card = {
   placement: "card";
@@ -107,7 +108,6 @@ type Card = {
    */
   children: ReactNode;
   label?: never;
-  text?: never;
 };
 
 /**
@@ -131,7 +131,7 @@ export function Link<T extends string>(
      * to the page it stands for: Next shows that page, not the pop-up, on a full page load.
      */
     fullPage?: boolean;
-  } & (({ placement: "text" | "standalone" | "detail" } & Words) | Row | Footer | Button | IconOnly | Card),
+  } & (({ placement: "text" | "standalone" | "detail" } & Worded) | Row | Footer | Button | IconOnly | Card),
 ) {
   const { href, sponsored = false, fullPage = false } = props;
   const elsewhere = ELSEWHERE.test(href);
@@ -163,7 +163,7 @@ export function Link<T extends string>(
           size={16}
         />
       )}
-      {props.children ?? props.label ?? props.text}
+      {props.children ?? (props.label === undefined ? null : textOf(props.label))}
     </>
   );
   return fullPage ? <a {...anchor}>{words}</a> : <NextLink {...anchor}>{words}</NextLink>;
