@@ -194,6 +194,9 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
   if (res.status === 204 || res.headers.get("content-length") === "0") return null as T;
 
   try {
+    // Typed, not parsed: the backend's response model validated this body on its way out, and `T` is generated
+    // from the same OpenAPI document, as orval's own custom client returns `response.json()` as its `T`; a check
+    // at run time would be orval's separate zod output, parsed by the caller.
     return (await res.json()) as T;
   } catch (error) {
     // A body cut or stalled on its way: the call may have landed, as any answer lost in transit.
