@@ -2,7 +2,6 @@ import { textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import { cardSurface } from "./cardStyles";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -16,7 +15,7 @@ export type Place = Placed | null;
 
 const podium = tv({
   slots: {
-    root: `grid gap-0 overflow-hidden ${cardSurface()}`,
+    root: "grid",
     steps: "grid grid-cols-3 items-end gap-2 px-4 pt-4",
     // Read in its place's order, drawn 2 · 1 · 3: the winner in the middle, second at the left, third at the right.
     place: "grid min-w-0 justify-items-center gap-2 text-center",
@@ -57,7 +56,10 @@ function Who({ club, nameClass }: { club: Place; nameClass: string }) {
   );
 }
 
-/** The decided season's places 1 to 3 on a three-step podium, and place 4 as a row under it; any place may be vacant. */
+/**
+ * The decided season's places 1 to 3 on a three-step podium, and place 4 as a row under it; any place may be vacant.
+ * It has no box of its own: it stands in the season card's body, whose box holds it.
+ */
 export function Podium({ places }: { places: readonly [Place, Place, Place, Place] }) {
   const [first, second, third, fourth] = places;
   const slots = podium();

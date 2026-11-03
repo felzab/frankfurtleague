@@ -225,7 +225,8 @@ export const SERVER_COPY = catalogue({
       place: placeName,
       /** A place left vacant, its club having left the season before it was decided, beside the dashed open plaque (D499). */
       vacant: "Nicht vergeben",
-      toSpielplan: "Zum Spielplan",
+      /** The chip in the card's head, one word for where the season stands: before its start, running, decided. */
+      state: { planned: "Geplant", running: "Läuft", decided: "Entschieden" },
     },
 
     /** Kontakt's rows, and the doors' links. */

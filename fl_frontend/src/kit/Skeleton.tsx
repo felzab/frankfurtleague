@@ -1,6 +1,6 @@
 import { COPY } from "@/core/copy";
 
-import { cardSurface } from "./cardStyles";
+import { card, cardSurface } from "./cardStyles";
 import { tv } from "./tv";
 
 /**
@@ -79,9 +79,11 @@ const landing = tv({
     lead: "grid gap-2",
     acts: "flex flex-wrap gap-3",
     button: "h-9 w-32 rounded-lg",
-    // The season card: its name and its link, then its box.
-    head: "flex items-center justify-between gap-4",
-    cardBox: `grid gap-3 ${cardSurface()} p-4`,
+    // The season card, the kit's card: its name and its chip in the head's band, then its body.
+    cardBox: card().root(),
+    cardHead: card().head(),
+    cardNamed: card().named(),
+    cardBody: "grid gap-3 p-4",
     // The first section: its eyebrow and title, then three cards side by side from `lg`.
     sectionHead: "grid gap-2",
     cards: "grid gap-4 lg:grid-cols-3",
@@ -120,12 +122,14 @@ export function LandingSkeleton({ part }: { part: LandingPart }) {
       </div>
     ),
     card: (
-      <div className="grid gap-4">
-        <div className={slots.head()}>
-          <span className={slots.bar({ class: "w-24" })} />
-          <span className={slots.bar({ class: "w-20" })} />
+      <div className={slots.cardBox()}>
+        <div className={slots.cardHead()}>
+          <span className={slots.cardNamed()}>
+            <span className={slots.bar({ class: "w-24" })} />
+            <span className={slots.bar({ class: "h-5 w-16" })} />
+          </span>
         </div>
-        <div className={slots.cardBox()}>
+        <div className={slots.cardBody()}>
           <span className={slots.bar({ class: "h-20 w-full" })} />
           <span className={slots.bar({ class: "w-2/3" })} />
         </div>
