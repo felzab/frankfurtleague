@@ -4,7 +4,8 @@
 @layer base {
   :root {
     /* The page. The body paints `--bg-base` from `schemes/2027.css`, which the old pages read, so a change
-       here writes that value too, in each theme, until session 8 retires the scheme file. */
+       here writes that value too, in each theme.
+       Session 8: the scheme file goes with the old pages, and this second write with it. */
     --bg: #ffffff;
     /* The rail and a field's own fill. */
     --bg-surface: #f5f5f5;
