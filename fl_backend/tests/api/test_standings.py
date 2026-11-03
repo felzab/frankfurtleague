@@ -826,9 +826,7 @@ class TestEveryWayThreeClubsCanStand:
         for case, rules, teams, spiele in every_three_club_group(a_team, played):
             groups += 1
             left_to_play = _still_to_play(spiele)
-            placeable = frozenset(
-                team.id for team in teams if _may_hold_a_platz(team, left_to_play.get(team.id, 0), _decided_on(spiele, teams))
-            )
+            placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, left_to_play.get(team.id, 0), _decided_on(spiele)))
             settled = frozenset(team.id for team in teams if left_to_play.get(team.id, 0) == 0)
 
             walked = _decide_one_gruppe(teams=teams, spiele=spiele, rules=rules, still_to_play=left_to_play, has_unattributable=False)
@@ -968,21 +966,30 @@ class TestAnExitIsWeighedAgainstTheDayItsGroupWasDecided:
 
         assert TEAM_ID.format(1) not in platz_by_team_id(teams, spiele)
 
-    def test_an_undated_call_off_decides_nothing(self, a_team: TeamFactory, played: MatchFactory):
-        """A fixture awarding nothing is not the day the group was decided, so the dated ones still are."""
+    @pytest.mark.parametrize("sides", [(2, 3), (1, 3)], ids=["between two clubs that stay", "fielding the departed club"])
+    def test_an_undated_call_off_leaves_the_group_undecided(self, a_team: TeamFactory, played: MatchFactory, sides: tuple[int, int]):
+        """It awards nothing, and still nothing says the group was decided before the exit, so the place is not the departed club's."""
 
         teams, spiele = self._group(a_team, played, austritt_on("2026-03-16"))
-        spiele.append(played(4, 2, 3, datum=None, sonderereignis=CALLED_OFF))
-
-        assert platz_by_team_id(teams, spiele)[TEAM_ID.format(1)] == 1
-
-    def test_an_undated_call_off_fielding_the_departed_club_falls_on_its_exit(self, a_team: TeamFactory, played: MatchFactory):
-        """Dated, the same call-off would land on or after the exit and vacate the place, so undated it may not keep it."""
-
-        teams, spiele = self._group(a_team, played, austritt_on("2026-03-16"))
-        spiele.append(played(4, 1, 3, datum=None, sonderereignis=CALLED_OFF))
+        spiele.append(played(4, *sides, datum=None, sonderereignis=CALLED_OFF))
 
         assert TEAM_ID.format(1) not in platz_by_team_id(teams, spiele)
+        assert standing(teams, spiele).by_platz[1].id == teams[1].id
+
+    @pytest.mark.parametrize("last", [{}, {"sonderereignis": CALLED_OFF}], ids=["still to play", "called off"])
+    def test_a_place_the_walk_decides_stays_decided_when_its_undated_fixture_is_called_off(
+        self, a_team: TeamFactory, played: MatchFactory, last: dict[str, Any]
+    ):
+        """While the one undated fixture is open the walk seeds the club below the departed one, so calling it off may not hand the place back.
+
+        Club 1 left the day after every dated fixture, so a day read off the call-off would date the group before the exit
+        and give club 1 back the first place, rewriting a slot the bracket had seeded with club 2.
+        """
+
+        teams = [a_team(1, punkte=9, austritt=austritt_on("2026-03-16")), a_team(2, punkte=6), a_team(3), a_team(4)]
+        dated = [played(nr, home, away, 1, 0) for nr, (home, away) in enumerate(all_pairs([1, 2, 3, 4])[:-1], start=1)]
+        spiele = [*dated, played(6, 3, 4, datum=None, **last)]
+
         assert standing(teams, spiele).by_platz[1].id == teams[1].id
 
     @pytest.mark.parametrize(("datum", "seeded"), [("2026-03-21", True), ("2026-03-20", False)], ids=["after", "on the day"])

@@ -491,7 +491,7 @@ def _tiers(
     # decided and neither lets one hold a placing, so completeness judged over whoever is present would
     # split the two surfaces.
     still_to_play = _still_to_play(spiele)
-    decided_on = _decided_on(spiele, teams)
+    decided_on = _decided_on(spiele)
     placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0), decided_on))
 
     tiers: list[list[FLTeam]] = []
@@ -508,23 +508,19 @@ def _tiers(
     return tiers
 
 
-def _decided_on(spiele: Iterable[FLSpielCommon], teams: Iterable[FLTeam]) -> str | None:
-    """The day one group's placings are decided: its last fixture's; `None` while a fixture that can still award points is undated.
+def _decided_on(spiele: Iterable[FLSpielCommon]) -> str | None:
+    """The day one group's placings are decided: its last fixture's; `None` while any fixture is undated.
 
-    An undated call-off awards nothing and so decides nothing, except where it fields a club that left: it falls on that
-    exit's day, so whether the fixture carried a date cannot decide whether the club keeps its place.
+    Dates alone, never a result: a fixture's ending is what the walk hypothesises, so a day read off one would move
+    under the walk and let a later call-off hand a departed club back a place already seeded without it. A fixture
+    called off or played without a date leaves the group undecided as one still to play does: nothing then says the
+    group was decided before a club's exit, so a club that left keeps no place on the strength of a fixture nobody
+    dated.
     """
-
-    departed_on = {team.id: team.austritt.datum for team in teams if team.austritt is not None}
 
     days: list[str] = []
     for spiel in spiele:
         if spiel.datum is None:
-            if spiel.sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT:
-                days.extend(
-                    departed_on[side.team_id] for side in (spiel.team1, spiel.team2) if side is not None and side.team_id in departed_on
-                )
-                continue
             return None
         days.append(spiel.datum)
 
@@ -569,7 +565,7 @@ def build_tabelle(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rule
 
     # The same day `_tiers` decides each group on, so the table and the bracket agree on who holds a place.
     by_gruppe, _ = _spiele_by_gruppe(spiele, {team.id: team.gruppe for team in teams})
-    decided_on = {gruppe: _decided_on(fixtures, teams) for gruppe, fixtures in by_gruppe.items()}
+    decided_on = {gruppe: _decided_on(fixtures) for gruppe, fixtures in by_gruppe.items()}
     still_in = frozenset(team.id for team in teams if in_the_season_when_decided(team.austritt, decided_on.get(team.gruppe)))
 
     tabelle: dict[FLGruppenNames, list[FLTabelleRow]] = {}
@@ -680,8 +676,8 @@ def _decide_one_gruppe(
         and spiel.team2 is not None
     ]
 
-    # One day for every hypothesised ending: the walk moves results, never dates.
-    decided_on = _decided_on(spiele, teams)
+    # One day for every hypothesised ending: the walk moves results, never dates, and `_decided_on` reads dates alone.
+    decided_on = _decided_on(spiele)
     placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0), decided_on))
     is_complete = not open_pairs and not has_unattributable
 
