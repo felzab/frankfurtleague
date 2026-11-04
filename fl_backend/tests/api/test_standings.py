@@ -339,6 +339,38 @@ class TestDirekterVergleich:
         assert order(teams, one_meeting, DIREKTER_VERGLEICH) == order(teams, one_meeting, RULES)
         assert standing(teams, one_meeting, DIREKTER_VERGLEICH).by_platz == {}
 
+    @pytest.mark.parametrize(
+        ("its_fixtures", "displayed"),
+        [
+            pytest.param(None, ["Team 1", "Team 2", "Team 4", "Team 3", "Team 5"], id="still to play, so the goal keys rank the band"),
+            pytest.param(CALLED_OFF, ["Team 1", "Team 3", "Team 2", "Team 4", "Team 5"], id="all called off, so the meetings rank it"),
+        ],
+    )
+    def test_a_club_yet_to_play_its_first_match_holds_the_mini_table_back_and_one_with_nothing_left_does_not(
+        self, a_team: TeamFactory, played: MatchFactory, its_fixtures: str | None, displayed: list[str]
+    ):
+        """Team 5 has played nothing and stands level with three clubs that drew each other, a draw worth nothing here.
+
+        With a match still to play it can still hold a place, so its missing meetings leave the band to the goal keys; with
+        every fixture called off it can hold none, and the three that met are ranked on their meetings. The Tabelle lists
+        Team 5 last either way, so only the three clubs' order tells the two apart.
+        """
+
+        rules = DIREKTER_VERGLEICH.model_copy(update={"draw_points": 0})
+        # The figures the fixtures below add up to: Team 1 beat the three, which drew each other.
+        teams = [
+            a_team(1, punkte=9, geschossen=6, kassiert=0),
+            a_team(2, punkte=0, geschossen=2, kassiert=3),
+            a_team(3, punkte=0, geschossen=3, kassiert=7),
+            a_team(4, punkte=0, geschossen=1, kassiert=2),
+            a_team(5, punkte=0, gespielt=0),
+        ]
+        among_the_three = [played(1, 2, 3, 2, 2), played(2, 2, 4, 0, 0), played(3, 3, 4, 1, 1)]
+        against_team_1 = [played(4, 1, 2, 1, 0), played(5, 1, 3, 4, 0), played(6, 1, 4, 1, 0)]
+        team_5s = [in_state(played, 7 + index, 5, other, its_fixtures) for index, other in enumerate((1, 2, 3, 4))]
+
+        assert order(teams, [*among_the_three, *against_team_1, *team_5s], rules) == displayed
+
     def test_the_fallback_still_ranks_a_subgroup_that_has_met(self, a_team: TeamFactory, played: MatchFactory):
         """The guard refuses a missing comparison, never a real one: Teams 1 and 2 met, and their meeting still decides."""
 
@@ -650,6 +682,34 @@ class TestACallOffIsAnEndingToo:
 
         assert decided.eligible == 1
         assert decided.by_platz[1].name == "Team 2"
+
+    @pytest.mark.parametrize(
+        ("left_on", "seeded"),
+        [
+            pytest.param(None, ["Team 1"], id="a club in the season"),
+            pytest.param("2026-03-16", ["Team 1"], id="a club leaving the day after the group's last fixture"),
+            pytest.param("2026-03-15", ["Team 1", "Team 3"], id="the control, a club leaving on that day"),
+        ],
+    )
+    def test_a_club_yet_to_play_its_first_match_holds_open_the_place_it_could_win(
+        self, a_team: TeamFactory, played: MatchFactory, left_on: str | None, seeded: list[str]
+    ):
+        """Team 2 has played nothing and meets Team 3, three points ahead, in the group's last fixture.
+
+        A win draws Team 2 level, so second place waits on that fixture; only the call-off, the one ending leaving Team 2
+        nothing counted, takes it out of the set. Leaving on the fixture's own day it holds no place in any ending, and
+        Team 3's second place is decided whatever the fixture brings.
+        """
+
+        teams = [
+            a_team(1, punkte=9),
+            a_team(2, punkte=0, gespielt=0, austritt=None if left_on is None else austritt_on(left_on)),
+            a_team(3, punkte=3, gespielt=2),
+        ]
+        # Dated 2026-03-15 by the factory, the day the group is decided on.
+        decided = standing(teams, [played(1, 2, 3)])
+
+        assert [decided.by_platz[platz].name for platz in sorted(decided.by_platz)] == seeded
 
     def test_a_call_off_is_told_from_a_draw_awarding_the_same_nothing(self, a_team: TeamFactory, played: MatchFactory):
         """`FLSaisonRules` bounds `draw_points` below at zero, where the draw and the call-off leave every total identical.

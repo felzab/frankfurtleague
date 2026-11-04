@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -9,9 +9,10 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.saisons.public_router import get_landing
 from app.api.saisons.schemas import FLLandingBeforeStart, FLLandingDecided, FLLandingRunning, saison_start
 from app.api.spiele.schemas import FLSpielElfmeterschiessen, FLSpielJoinedInternal, FLSpielTeamFieldJoinedInternal
-from app.api.spiele.services import podium_of
+from app.api.spiele.services import FOR_THIRD_PLACE, build_spiele_pipeline, podium_of
 from app.api.teams.schemas import FLAustritt
 from app.core.collections import Collection
+from app.core.crud import aggregate_many_from_db
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.worker import worker_database
@@ -24,6 +25,7 @@ STARTED_DATABASE_NAME = worker_database("fl_saisons_landing_view_started_test")
 DECIDED_DATABASE_NAME = worker_database("fl_saisons_landing_view_decided_test")
 VACATED_DATABASE_NAME = worker_database("fl_saisons_landing_view_vacated_test")
 THIRD_UNPLAYED_DATABASE_NAME = worker_database("fl_saisons_landing_view_third_unplayed_test")
+MARKED_DATABASE_NAME = worker_database("fl_saisons_landing_view_third_place_mark_test")
 EMPTY_DATABASE_NAME = worker_database("fl_saisons_landing_view_empty_test")
 
 SAISON, NEXT = "2026", "2027"
@@ -307,6 +309,46 @@ def test_a_season_whose_third_place_match_is_not_played_reads_running_its_last_r
 
 
 @pytest.mark.db
+@pytest.mark.parametrize(
+    ("finale_nrs", "marked"),
+    [
+        pytest.param((2, 3), {1: False, 2: True, 3: False}, id="the draw's two mark the lower-numbered"),
+        pytest.param((2,), {1: False, 2: False}, id="a final alone, as a bracket of two clubs draws it, marks none"),
+        pytest.param((2, 3, 4), {1: False, 2: False, 3: False, 4: False}, id="three wired by hand mark none"),
+    ],
+)
+def test_the_read_marks_the_match_for_third_place_only_on_a_finale_of_the_draws_two(
+    mongo_url: str, finale_nrs: tuple[int, ...], marked: dict[int, bool]
+):
+    """The mark as the Finale read hands it to `podium_of`, beside a group match, which never carries it.
+
+    Read off the pipeline rather than the landing: a mark on a lone final or a hand-wired third match leaves the season
+    running either way, so only the read's own rows show it.
+    """
+
+    seeded(
+        mongo_url,
+        MARKED_DATABASE_NAME,
+        {
+            Collection.SPIELTAGE: [spieltag(DAY_1, 1), spieltag(FINALE_DAY, 1, "finale")],
+            Collection.SPIELE: [
+                match(1, DAY_1, "2026-02-20", (2, 1)),
+                *(match(nr, FINALE_DAY, "2026-03-01", None, names=(f"Heim {nr}", f"Gast {nr}"), saison_phase="finale") for nr in finale_nrs),
+            ],
+        },
+    )
+
+    async def read(database: AsyncDatabase) -> list[Mapping[str, Any]]:
+        return await aggregate_many_from_db(
+            collection=database[Collection.SPIELE], pipeline=build_spiele_pipeline(db_filter={"saison_id": SAISON})
+        )
+
+    rows = on_the_seed_loop(read(shared_client(mongo_url)[MARKED_DATABASE_NAME]))
+
+    assert {row["spiel_nr"]: row[FOR_THIRD_PLACE] for row in rows} == marked
+
+
+@pytest.mark.db
 def test_a_league_with_no_season_on_shows_none(mongo_url: str):
     """A fresh league whose first season is still being drawn up: the frontend shows the status page's empty state."""
 
@@ -367,6 +409,20 @@ def finale_match(
             id="third place still to play",
         ),
         pytest.param([finale_match(("Alpha", 1), ("Beta", 1), third=False)], [], id="a level final with no shoot-out names nobody"),
+        pytest.param(
+            [finale_match(("Alpha", 1), ("Beta", 0), third=False)],
+            [(1, "Alpha"), (2, "Beta")],
+            id="a final alone, as a bracket of two clubs draws it, gives the first two places",
+        ),
+        pytest.param(
+            [
+                finale_match(("Cara", 0), ("Dora", 1), third=True),
+                finale_match(("Alpha", 1), ("Beta", 0), third=False),
+                finale_match(("Emil", 2), ("Fritz", 0), third=False),
+            ],
+            [],
+            id="a Finale wired by hand past the draw's two names nobody",
+        ),
         pytest.param(
             [finale_match(("Alpha", 1), ("Beta", 0), third=False), finale_match(("Cara", 0), ("Dora", 1), third=True)],
             [(1, "Alpha"), (2, "Beta"), (3, "Dora"), (4, "Cara")],
