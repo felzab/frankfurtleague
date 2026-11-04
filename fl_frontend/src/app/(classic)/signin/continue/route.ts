@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 
-import { getSignInDestination } from "@/core/auth/landing";
+import { getSignInLanding } from "@/core/auth/landing";
 import { allowedReturnAddress, RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { rolesOf } from "@/core/roles";
-import { getSubjectSession } from "@/core/subject";
-import { zieleOf } from "@/features/funktionen/utils";
+import { ROUTES } from "@/core/routes";
+import { soleTeamOf, zieleOf } from "@/features/funktionen/utils";
 
 import type { NextRequest } from "next/server";
 
@@ -15,19 +15,13 @@ import type { NextRequest } from "next/server";
  */
 export async function GET(request: NextRequest): Promise<never> {
   const asked = allowedReturnAddress(request.nextUrl.searchParams.get(RETURN_PARAMETER));
-  const landing = await getSignInDestination();
+  const { destination, subject } = await getSignInLanding();
+  const area = ROUTES.area.path();
+
+  // `/area`'s own landing rule over the person the landing read, so the sign-in lands where `/area` would send it
+  // without a second redirect; a backend that did not answer is `/area`'s to say, which renders its outage panel.
+  const landing = destination === area ? (asked ?? (subject === null ? null : soleTeamOf(zieleOf(rolesOf(subject).roles))) ?? area) : null;
 
   // Outside any `try`, as Next documents for a Route Handler: `redirect` throws to lead on.
-  redirect(landing === "/area" ? (asked ?? (await areaLanding())) : withReturnAddress(landing, asked));
-}
-
-/** The page `/area` itself would send the session on to, so the sign-in lands there without a second redirect. */
-async function areaLanding(): Promise<string> {
-  // A backend that cannot answer is `/area`'s to say, which renders its area's outage panel.
-  const subject = await getSubjectSession().catch(() => null);
-  if (subject === null) return "/area";
-
-  // A lone team seat goes straight to its team, as `app/area/(persoenlich)/page.tsx` sends it.
-  const [erstes, ...weitere] = zieleOf(rolesOf(subject).roles);
-  return erstes !== undefined && weitere.length === 0 && erstes.funktionen[0].art === "kontakt" ? erstes.href : "/area";
+  redirect(landing ?? withReturnAddress(destination, asked));
 }

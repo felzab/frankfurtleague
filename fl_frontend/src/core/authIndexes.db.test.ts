@@ -82,7 +82,7 @@ const { sent } = registerAuthDoubles({
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { toNextJsHandler } = await import("better-auth/next-js");
 const { auth } = await import("./auth/library.ts");
-const { endSessionsOfAddress, revokeOtherSessions } = await import("./auth/accountSessions.ts");
+const { endOtherSessions, endSessionsOfAddress } = await import("./auth/accountSessions.ts");
 const { getKontoSession } = await import("./auth/guards.ts");
 const { readServedSession } = await import("./auth/session.ts");
 const { removePasskey } = await import("./auth/passkeys.ts");
@@ -225,7 +225,7 @@ describe("every query the sign-in store serves, with table scans refused", () =>
     await withoutTableScans(() => signInByCode(auth, ADMIN_EMAIL));
     await withoutTableScans(() => signInByCode(auth, ADMIN_EMAIL));
     expect(await withoutTableScans(() => devicesOf(served)), "the account page counted no other device").toBeGreaterThan(1);
-    await withoutTableScans(() => revokeOtherSessions(asRequest(byPasskey)));
+    await withoutTableScans(() => endOtherSessions(served.user.id, served.session.id));
 
     // A second passkey, listed, renamed and removed.
     const second = await withoutTableScans(() => enrol(byPasskey, Buffer.from("fl-index-db-second-authenticator")));

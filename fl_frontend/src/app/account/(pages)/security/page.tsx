@@ -1,14 +1,11 @@
-import { redirect } from "next/navigation";
-
 import { AccountPage } from "@/kit/AccountPage";
 
 import { PASSKEY_LIMIT } from "@/core/auth/enrolment";
-import { getKontoSession } from "@/core/auth/guards";
 import { FRESH_SIGN_IN_SECONDS, PASSKEY_FACTOR } from "@/core/auth/sessionStamps";
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
-import { requireKontoSubject } from "@/features/konto/account";
+import { requireAccountSession } from "@/features/konto/account";
 import { devicesOf } from "@/features/konto/sicherheit";
 import { passkeyStandOf } from "@/features/passkeys/bestand";
 import { PASSKEY_NAME_MAX, PasskeyNameSchema } from "@/features/passkeys/schemas";
@@ -42,13 +39,11 @@ function setUpClosedOf(
 
 /** The passkeys and the devices, read for the session the page is drawn for. */
 async function SecurityContent() {
-  await requireKontoSubject();
-  // The account page's own verdict on the session, which holds an administrator's address to the administrator's lane.
-  const served = await getKontoSession();
-  if (served === null) redirect(ROUTES.signIn.path());
+  const { subject, served } = await requireAccountSession(ROUTES.accountSecurity.path());
   const [stand, devices] = await Promise.all([passkeyStandOf(served), devicesOf(served)]);
   return (
     <SecurityBoxes
+      holder={subject.email}
       passkeys={stand.rows}
       setUpClosed={setUpClosedOf(served, stand)}
       // An administrator's last passkey is their only way into the administration, which the removal refuses.

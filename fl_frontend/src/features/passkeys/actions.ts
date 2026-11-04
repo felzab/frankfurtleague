@@ -6,9 +6,8 @@ import { headers } from "next/headers";
 import { isAPIError } from "better-auth/api";
 import { z } from "zod";
 
-import { action } from "@/core/action";
+import { action, TOUCH_HOLDER } from "@/core/action";
 import { afterTheResponse } from "@/core/afterResponse";
-import { getKontoSession } from "@/core/auth/guards";
 import { notifyPasskeyRemoved } from "@/core/auth/mails";
 import { passkeysOf, removePasskey, renamePasskey } from "@/core/auth/passkeys";
 import { COPY } from "@/core/copy";
@@ -27,23 +26,20 @@ const PasskeyId = z.string().min(1).max(64);
 type Removed = "thisDevice" | "otherDevices";
 
 /**
- * Removes one of the person's passkeys, the passkey touch first, and every session it signed in with it. Where that
- * ended this device's own session the body records no write and renders nothing again, since the page would render
- * under a session that is gone: the page leaves by a document load. Otherwise it reads the page again itself, the
- * sign-in store holding what changed. The notice mail is owed behind the response, so its write counts as none of
- * this action's.
+ * Removes one of the person's passkeys, the passkey touch first, and every session it signed in with, the one this
+ * request arrived with among them where the touch answered with this passkey: a session the removed passkey made is
+ * no session of a passkey the account holds. Where that ended this device's own session the body records no write
+ * and renders nothing again, since the page would render under a session that is gone: the page leaves by a document
+ * load. Otherwise it reads the page again itself, the sign-in store holding what changed. The notice mail is owed
+ * behind the response, so its write counts as none of this action's.
  */
 export const removePasskeyAction = action({
   lane: "person",
-  claim: "record",
+  claim: "account",
   passkey: true,
   name: "removePasskeyAction",
-  input: z.object({ id: PasskeyId }),
-  run: async ({ id }) => {
-    // The account page's own verdict, which keeps an administrator's address to the administrator's lane.
-    const served = await getKontoSession();
-    if (served === null) return { ok: false, reason: COPY.shared.failure.signInExpired };
-
+  input: z.object({ id: PasskeyId, ...TOUCH_HOLDER }),
+  run: async ({ id }, { served }) => {
     // Read before the removal, which may end the session this request arrived with.
     const thisDevice = (await passkeysOf(served.user.id)).some(
       (row) => row.id === id && row.credentialID === served.session.passkeyCredentialId,
@@ -70,10 +66,13 @@ export const removePasskeyAction = action({
   },
 });
 
-/** The name a passkey's row shows; the plugin checks the row is the caller's own before it writes. */
+/**
+ * The name a passkey's row shows; the plugin checks the row is the caller's own before it writes. Off the touch's
+ * fixed list, which names the acts handing access over: a name changes none.
+ */
 export const renamePasskeyAction = action({
   lane: "person",
-  claim: "record",
+  claim: "account",
   name: "renamePasskeyAction",
   input: z.object({ id: PasskeyId, name: PasskeyNameSchema }),
   run: async ({ id, name }) => {

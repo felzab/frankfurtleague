@@ -120,7 +120,7 @@ beforeEach(() => {
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { auth } = await import("./auth/library.ts");
 const { getAdminSession } = await import("./auth/guards.ts");
-const { getSignInDestination } = await import("./auth/landing.ts");
+const { getSignInLanding } = await import("./auth/landing.ts");
 const { getSubjectSession } = await import("./subject.ts");
 const { lookUpSubjekt } = await import("./signInGate.ts");
 const { verwaltungOf } = await import("./verwaltung.ts");
@@ -497,7 +497,7 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
 
     expect(answer).toBe(null);
     expect(actor, "a refused session named the actor of whatever this request writes next").toBe(undefined);
-    expect(await getSignInDestination(), "the two copies of the idle figure answer differently").toBe("/signin");
+    expect((await getSignInLanding()).destination, "the two copies of the idle figure answer differently").toBe("/signin");
   });
 
   /* The case that fails first if the absolute cap is dropped as redundant: a session kept sliding
@@ -511,7 +511,7 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
 
     expect(answer).toBe(null);
     expect(actor, "a refused session named the actor of whatever this request writes next").toBe(undefined);
-    expect(await getSignInDestination(), "the two copies of the absolute figure answer differently").toBe("/signin");
+    expect((await getSignInLanding()).destination, "the two copies of the absolute figure answer differently").toBe("/signin");
   });
 
   it("serves a session thirteen days idle and twenty-nine old, so the two cases above are the windows and not the harness", async () => {
@@ -520,7 +520,7 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
     arriveAs(cookie);
 
     assert.ok(await getSubjectSession());
-    expect(await getSignInDestination()).toBe("/area");
+    expect((await getSignInLanding()).destination).toBe("/area");
   });
 });
 

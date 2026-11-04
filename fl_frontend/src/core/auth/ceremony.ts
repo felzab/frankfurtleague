@@ -34,15 +34,33 @@ export function ceremonyCredentialId(ctx: Pick<GenericEndpointContext, "body">):
 const PASSKEY_CHALLENGE_COOKIE = "better-auth-passkey";
 
 /**
+ * The challenge row the ceremony's cookie names, as the options request stored it, or `null` where there is none to
+ * read: left to the plugin, which refuses a missing or spent challenge itself.
+ */
+async function challengeOf(ctx: GenericEndpointContext): Promise<{ readonly value: string; readonly createdAt: Date } | null> {
+  const token = await ctx.getSignedCookie(ctx.context.createAuthCookie(PASSKEY_CHALLENGE_COOKIE).name, ctx.context.secret);
+  if (typeof token !== "string" || token === "") return null;
+  return ctx.context.internalAdapter.findVerificationValue(token);
+}
+
+/**
+ * When this ceremony's options were issued, read before the plugin spends the challenge: the moment the enrolment's
+ * options request was judged, which its verify call is held to (`fl_frontend/src/core/auth/enrolment.ts ::
+ * refuseEnrolment`). `null` where no challenge stands.
+ */
+export async function challengeIssuedAt(ctx: GenericEndpointContext): Promise<Date | null> {
+  const challenge = await challengeOf(ctx);
+  if (challenge === null) return null;
+  const issued = new Date(challenge.createdAt);
+  return Number.isFinite(issued.getTime()) ? issued : null;
+}
+
+/**
  * A signed-in page's challenge names its account, and the plugin checks the credential, never whose:
  * another account's passkey would sign that account in and end the page's session.
  */
 export async function refuseAnotherAccountsPasskey(ctx: GenericEndpointContext): Promise<void> {
-  const token = await ctx.getSignedCookie(ctx.context.createAuthCookie(PASSKEY_CHALLENGE_COOKIE).name, ctx.context.secret);
-  // Left to the plugin, which refuses a missing or spent challenge itself.
-  if (typeof token !== "string" || token === "") return;
-
-  const challenge = await ctx.context.internalAdapter.findVerificationValue(token);
+  const challenge = await challengeOf(ctx);
   if (challenge === null) return;
 
   const parsed: unknown = JSON.parse(challenge.value);

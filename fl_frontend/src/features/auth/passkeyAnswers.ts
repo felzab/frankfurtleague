@@ -43,3 +43,21 @@ export const CEREMONY_ABORTED = "ERROR_CEREMONY_ABORTED";
 
 /** The library's refusal of an enrolment from a session older than its `freshAge`. */
 export const SESSION_NOT_FRESH = "SESSION_NOT_FRESH";
+
+/**
+ * The browser's refusal to set up a passkey on an authenticator already holding one of the person's, which the
+ * plugin's client answers by this code (`@better-auth/passkey/client :: registerPasskey`): the options name the
+ * person's passkeys as `excludeCredentials`.
+ */
+const PREVIOUSLY_REGISTERED = "ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED";
+
+/** Every refusal of a further passkey's set-up a retry would meet again, by the plugin's own code. */
+const SET_UP_WORDED: ReadonlyMap<string, Copy> = new Map([
+  [SESSION_NOT_FRESH, COPY.konto.passkeys.signInTooOld],
+  [PREVIOUSLY_REGISTERED, COPY.konto.passkeys.alreadyOnDevice],
+]);
+
+/** Why Sicherheit's set-up did not happen: the refusals above by their code, and any other as the shared failure line. */
+export function describeSetUpRefusal(error: unknown): Copy {
+  return SET_UP_WORDED.get(refusalCode(error) ?? "") ?? COPY.shared.failure.unexpected;
+}

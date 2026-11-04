@@ -12,14 +12,20 @@ import { passkeysOf } from "./passkeys";
 import { readLibrarySession, readRequestSession, servedSessionOf } from "./session";
 import { FRESH_SIGN_IN_SECONDS, isWithinPersonLifetime, PASSKEY_FACTOR } from "./sessionStamps";
 
+import type { SubjectSession } from "../subject";
 import type { Verwaltung } from "../verwaltung";
 import type { ServedSession } from "./session";
 
 /** Where `/signin/continue` sends the session it was handed, before `/area` is resolved to the page it leads to. */
 export type SignInDestination = "/signin/passkey" | "/area" | "/signin";
 
-export async function getSignInDestination(): Promise<SignInDestination> {
-  return (await landingOf(await headers())).destination;
+/**
+ * Where `/signin/continue` sends the session, and, where that is `/area` and the backend answered, the person as the
+ * landing read them, so the person area's own landing rule is asked of the reads already made.
+ */
+export async function getSignInLanding(): Promise<{ readonly destination: SignInDestination; readonly subject: SubjectSession | null }> {
+  const { destination, subject } = await landingOf(await headers());
+  return { destination, subject };
 }
 
 /**
@@ -31,8 +37,8 @@ export async function getSignedInAddress(): Promise<string | null> {
   return destination === "/signin" || served === null ? null : asSignInIdentifier(served.user.email);
 }
 
-/** The landing's verdict, and the session it judged where one stands. */
-type Landing = { readonly destination: SignInDestination; readonly served: ServedSession | null };
+/** The landing's verdict, the session it judged where one stands, and the person it read where the backend answered. */
+type Landing = { readonly destination: SignInDestination; readonly served: ServedSession | null; readonly subject: SubjectSession | null };
 
 /**
  * Every guard that refuses a session sends it to `/signin`, so this is where one no lane will serve
@@ -42,7 +48,7 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
   // `readRequestSession`'s wait, for the sign-in pages' read past it.
   await connection();
   const read = await readLibrarySession(requestHeaders, false);
-  if (read === null) return { destination: "/signin", served: null };
+  if (read === null) return { destination: "/signin", served: null, subject: null };
 
   // Past a person's figures no lane serves it, so one past an administrator's alone stands, the person
   // lane still serving it; its passkey gone, none ever will.
@@ -52,13 +58,15 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
   // An unread lookup is the backend down: `/area` answers it with the person area's outage panel, its
   // own lookup failing, where `/signin` would mail no code and say nothing.
   const subjekt = await subjektOrNull(served.user.email);
-  if (subjekt === null) return { destination: "/area", served: served };
+  if (subjekt === null) return { destination: "/area", served: served, subject: null };
 
   // The ban itself, never read through the grant: every guard behind `/area` refuses a barred session,
   // and one left standing serves again on the ban's lift with no sign-in.
   if (subjekt.barred) return ended(read);
 
-  return { destination: await destinationOf(served, subjekt), served: served };
+  // As the person guard builds it (`fl_frontend/src/core/subject.ts`), off this one lookup.
+  const subject = { email: asSignInIdentifier(served.user.email), admin: isAdminSession(served, subjekt), subject: subjekt };
+  return { destination: await destinationOf(served, subjekt), served: served, subject: subject };
 }
 
 /**
@@ -68,7 +76,7 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
 async function ended(read: ServedSession): Promise<Landing> {
   const { adapter } = await auth.$context;
   await adapter.delete({ model: "session", where: [{ field: "id", value: read.session.id }] });
-  return { destination: "/signin", served: null };
+  return { destination: "/signin", served: null, subject: null };
 }
 
 async function destinationOf(served: ServedSession, verwaltung: Verwaltung): Promise<SignInDestination> {

@@ -17,7 +17,7 @@ export const STEP_UP_REFUSED = "Wir konnten Dich nicht mit einem Passkey bestät
 
 /**
  * Which confirmation a write is held to: `true` for the step-up window, `"enrolment"` for the
- * minutes-narrow one a change outliving its session takes, as adding a passkey does
+ * minutes-narrow one a change outliving its session takes, as a write on access to the administration does
  * (`fl_frontend/src/core/sessionLifetimes.ts :: ENROLMENT_WINDOW_MS`), and `false` for none.
  */
 export type StepUpDemand = boolean | "enrolment";

@@ -17,8 +17,9 @@ import type { Verwaltung } from "../verwaltung";
 import type { ServedSession } from "./session";
 
 /**
- * Whether the request's actor may make an act the passkey touch guards: a person holding a passkey by the touch
- * alone, every time, and a person holding none as they stand. `false` where no guard recorded an actor.
+ * Whether the request's actor may make an act the passkey touch guards: a person holding a passkey on a session the
+ * touch made within its window alone, and a person holding none as they stand. The browser asks the touch before every
+ * press, so a second act inside one window is a request no page sends. `false` where no guard recorded an actor.
  */
 export async function passesPasskeyTouch(actor: RequestActor | undefined): Promise<boolean> {
   if (actor === undefined) return false;
@@ -34,11 +35,11 @@ export async function passesPasskeyTouch(actor: RequestActor | undefined): Promi
 }
 
 // React's `cache`: a page's boxes share one verdict, and no request another's. A server action runs
-// outside a render, where it memoises nothing, and asks it once in its body.
+// outside a render, where it memoises nothing, and asks it once in its lane.
 /**
- * The account page's guard, both lanes' own verdict on the served session: an address holding a grant
- * is admitted by the administrator's guard alone, so a session its mailbox made cannot manage that
- * administrator's passkeys.
+ * The account's own guard, for Konto's pages and its acts' lane, over the served session: an address holding a grant
+ * is admitted by the administrator's verdict alone, so a session its mailbox made changes nothing of that
+ * administrator's sign-in, its passkeys and its other devices among it.
  */
 export const getKontoSession = cache(async (): Promise<JudgedSession | null> => {
   const served = await readRequestSession();
@@ -61,7 +62,7 @@ export const getKontoSession = cache(async (): Promise<JudgedSession | null> => 
  * A served session beside the grant this request read for its address, which a step-up judges it by.
  * Held for the request alone: a stamp on the stored row would outlive a revoke made in the database.
  */
-type JudgedSession = ServedSession & { readonly verwaltung: boolean };
+export type JudgedSession = ServedSession & { readonly verwaltung: boolean };
 
 export function isAdminWithinWindow(served: ServedSession): boolean {
   // A refreshed `updatedAt` shows none of the idle gap before it, and the mark does.

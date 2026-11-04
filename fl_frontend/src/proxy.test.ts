@@ -49,7 +49,7 @@ const store = memoryStore(STORE);
 const { NextRequest } = await import("next/server");
 const { auth } = await import("./core/auth/library.ts");
 const { getAdminSession, getKontoSession } = await import("./core/auth/guards.ts");
-const { getSignInDestination } = await import("./core/auth/landing.ts");
+const { getSignInLanding } = await import("./core/auth/landing.ts");
 const { getSubjectSession } = await import("./core/subject.ts");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
 const { adapter } = await import("next/dist/server/web/adapter.js");
@@ -228,7 +228,7 @@ describe("where the proxy sends a request for the administrator's subtree carryi
     await expect(requireAdminRequest()).rejects.toSatisfy(
       (error: { digest?: unknown }) => error.digest === `NEXT_REDIRECT;replace;${ROUTES.signInLanding.path()};307;`,
     );
-    expect(await getSignInDestination(), "the landing sends a code-borne administrator somewhere else").toBe("/signin/passkey");
+    expect((await getSignInLanding()).destination, "the landing sends a code-borne administrator somewhere else").toBe("/signin/passkey");
   });
 });
 
@@ -534,7 +534,7 @@ describe("where a session that is only read slides", () => {
     const due = stampsOf(row);
 
     arriveAs(cookie);
-    expect(await getSignInDestination(), "the render read no live session, so the case proves nothing").toBe("/area");
+    expect((await getSignInLanding()).destination, "the render read no live session, so the case proves nothing").toBe("/area");
 
     expect(stampsOf(row)).toStrictEqual(due);
   });
@@ -568,7 +568,7 @@ describe("where a session that is only read slides", () => {
     assert.ok(setSessionCookie(await visit(PERSON_URL, cookie), cookie), "nothing slid, so the case proves nothing");
 
     arriveAs(cookie);
-    expect(await getSignInDestination()).toBe("/signin");
+    expect((await getSignInLanding()).destination).toBe("/signin");
     expect(await getSubjectSession()).toBe(null);
     expect(await getKontoSession()).toBe(null);
   });

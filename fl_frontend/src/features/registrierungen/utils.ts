@@ -179,8 +179,9 @@ export async function mapBestaetigungRefusal(
     // backend's sends this, which a reopened link would offer again: switching it off is the repair.
     case "medien_age":
       return { error: medienNochNicht((await ansicht())?.medien_minimum_age ?? null) };
-    // Answers the page did not ask: a drifted client, the label check refusing a page whose person
-    // changed since it opened first. The mail's link reopens it.
+    // Answers the page did not ask, or none where it asked: a drifted client, or a page whose person changed since
+    // it opened first, a new pupil's page asking both choices and a returning pupil's neither. The mail's link
+    // reopens it.
     case "registrierung_choices_unsuitable":
       return { error: ANTWORT_NEU_OEFFNEN };
     case "link_invalid":

@@ -224,7 +224,7 @@ const { auth } = await import("./auth/library.ts");
 const { deleteAccountFor, deleteOwnAccount, listAccounts, requestAccountDeletion } = await import("./auth/accounts.ts");
 const { endSessionsOfAddress } = await import("./auth/accountSessions.ts");
 const { getAdminSession, getKontoSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards.ts");
-const { getSignedInAddress, getPasskeyStep, getSignInDestination } = await import("./auth/landing.ts");
+const { getSignedInAddress, getPasskeyStep, getSignInLanding } = await import("./auth/landing.ts");
 const { isFreshlySignedIn } = await import("./auth/sessionStamps.ts");
 const { PASSKEY_LIMIT } = await import("./auth/enrolment.ts");
 const { readServedSession } = await import("./auth/session.ts");
@@ -514,6 +514,34 @@ describe("what the mounted HTTP surface answers", () => {
     expect(verified.headers.getSetCookie().join(";")).toContain(minted.token);
   });
 
+  /* A post from another site of the sender's own code, carrying no cookie, would sign the visiting browser in to the
+     sender's account. The library's origin check reads only a request carrying a cookie, so what holds it is the body:
+     a page of another site sends without a CORS preflight only the three content types below, and the code check
+     takes JSON alone, which a preflight this origin grants nobody would have to admit. */
+  it.each(["application/x-www-form-urlencoded", "multipart/form-data; boundary=x", "text/plain"])(
+    "refuses a cross-site post of a code as %s, carrying no cookie, minting no session",
+    async (contentType) => {
+      await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+      const otp = lastMailedCode(sent, ADMIN_EMAIL);
+      assert.ok(otp !== null);
+      const sessions = store.session.length;
+
+      const crossSite = await handler.POST(
+        new Request("http://localhost:3000/api/auth/sign-in/email-otp", {
+          method: "POST",
+          headers: { ...ORIGIN, origin: "https://example.com", "sec-fetch-site": "cross-site", "content-type": contentType },
+          body:
+            contentType === "text/plain"
+              ? JSON.stringify({ email: ADMIN_EMAIL, otp })
+              : new URLSearchParams({ email: ADMIN_EMAIL, otp }).toString(),
+        }),
+      );
+      expect(crossSite.status).toBe(415);
+      expect(store.session.length, "the cross-site post minted a session").toBe(sessions);
+      expect(crossSite.headers.getSetCookie(), "the cross-site post set a cookie").toStrictEqual([]);
+    },
+  );
+
   /* The page's sign-out posts here, so the session ends in a request that renders no page: the request's own
      session alone, and a post another site sends meets the library's origin check before any row is read. */
   it("ends the session its own cookie names over HTTP, and refuses a post from another origin", async () => {
@@ -616,7 +644,7 @@ describe("a session read the store does not answer", () => {
     try {
       await expect(getAdminSession()).rejects.toThrow();
       await expect(getKontoSession()).rejects.toThrow();
-      await expect(getSignInDestination()).rejects.toThrow();
+      await expect(getSignInLanding()).rejects.toThrow();
       await expect(getSignedInAddress()).rejects.toThrow();
     } finally {
       adapterCalls.refusing = undefined;
@@ -646,7 +674,7 @@ describe("a session read the store does not answer", () => {
     arriveAs(cookie);
 
     expect(await getAdminSession()).toBe(null);
-    expect(await getSignInDestination()).toBe("/signin");
+    expect((await getSignInLanding()).destination).toBe("/signin");
   });
 });
 
@@ -677,12 +705,12 @@ describe("whom `/signin` greets rather than offering a sign-in", () => {
     try {
       const { cookie } = await signIn(PERSON_EMAIL);
       arriveAs(cookie);
-      expect(await getSignInDestination(), "the seated person was not landed, so the case below proves nothing").not.toBe("/signin");
+      expect((await getSignInLanding()).destination, "the seated person was not landed, so the case below proves nothing").not.toBe("/signin");
       expect(await getSignedInAddress()).toBe(PERSON_EMAIL);
 
       BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
 
-      expect(await getSignInDestination()).toBe("/signin");
+      expect((await getSignInLanding()).destination).toBe("/signin");
       expect(await getSignedInAddress()).toBe(null);
     } finally {
       BACKENDS.delete(PERSON_EMAIL);
@@ -745,14 +773,14 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     arriveAs(admin.cookie);
 
     expect(await getAdminSession()).toBe(null);
-    expect(await getSignInDestination()).toBe("/signin");
+    expect((await getSignInLanding()).destination).toBe("/signin");
     assert.ok(store.session.includes(admin.row), "the landing ended a session the person lane still serves");
 
     const person = await signIn(PERSON_EMAIL);
     ageRow(person.row, { created: 24 * HOUR_MS + MINUTE_MS });
     arriveAs(person.cookie);
 
-    expect(await getSignInDestination()).toBe("/area");
+    expect((await getSignInLanding()).destination).toBe("/area");
   });
 
   /* The case that fails first if the absolute cap is dropped as redundant: no `expiresIn` supplies
@@ -762,7 +790,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     ageRow(row, { created: 31 * DAY_MS });
     arriveAs(cookie);
 
-    expect(await getSignInDestination()).toBe("/signin");
+    expect((await getSignInLanding()).destination).toBe("/signin");
   });
 
   /* The person's arm alone: an administrator at fifteen days is refused by a twenty-four-hour cap
@@ -772,7 +800,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     ageRow(person.row, { created: 15 * DAY_MS, idle: 15 * DAY_MS });
     arriveAs(person.cookie);
 
-    expect(await getSignInDestination()).toBe("/signin");
+    expect((await getSignInLanding()).destination).toBe("/signin");
   });
 
   /* What the stored stamps are is the adapter's answer rather than this module's, and a shape it
@@ -784,7 +812,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     arriveAs(cookie);
 
     expect(await getAdminSession()).toBe(null);
-    expect(await getSignInDestination()).toBe("/signin");
+    expect((await getSignInLanding()).destination).toBe("/signin");
   });
 
   it("serves a person's session thirteen days idle, so the case above is the window and not the harness", async () => {
@@ -792,7 +820,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     ageRow(row, { created: 29 * DAY_MS, idle: 13 * DAY_MS });
     arriveAs(cookie);
 
-    expect(await getSignInDestination()).toBe("/area");
+    expect((await getSignInLanding()).destination).toBe("/area");
   });
 
   it("serves an administrator's session a minute short of twenty-four hours old, for the same reason", async () => {
@@ -802,7 +830,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     arriveAs(cookie);
 
     assert.ok(await getAdminSession());
-    expect(await getSignInDestination()).toBe("/area");
+    expect((await getSignInLanding()).destination).toBe("/area");
   });
 
   it("refuses an administrator's session a minute past an hour idle, and keeps it for the person lane", async () => {
@@ -812,7 +840,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     arriveAs(cookie);
 
     expect(await getAdminSession()).toBe(null);
-    expect(await getSignInDestination()).toBe("/signin");
+    expect((await getSignInLanding()).destination).toBe("/signin");
     assert.ok(store.session.includes(row), "the landing ended a session the person lane still serves");
   });
 
@@ -877,7 +905,7 @@ describe("the administrator's idle hour across the proxy's slide", () => {
     arriveAs(cookie);
     assert.ok(await getKontoSession(), "the account guard refused a person's marked session");
     assert.ok(await getSubjectSession(), "the person guard refused a person's marked session");
-    expect(await getSignInDestination()).toBe("/area");
+    expect((await getSignInLanding()).destination).toBe("/area");
   });
 });
 
@@ -894,7 +922,7 @@ describe("a grant the backend cannot answer for", () => {
     const loggedBefore = logged.length;
 
     expect(await getAdminSession()).toBe(null);
-    expect(await getSignInDestination()).toBe("/area");
+    expect((await getSignInLanding()).destination).toBe("/area");
     expect(await getPasskeyStep()).toBe(null);
     expect(logged.slice(loggedBefore).map((line) => [line.message, line.meta])).toStrictEqual(
       Array.from({ length: 3 }, () => ["auth.verwaltung_unread", { name: "APINetworkError" }]),
@@ -967,7 +995,7 @@ describe("a passkey session made before its grant", () => {
     expect(await getAdminSession()).toBe(null);
     expect(await judgeAdminRequest()).toStrictEqual({ refused: "signIn" });
     expect(await getKontoSession(), "the account page served an administrator's session its grant postdates").toBe(null);
-    expect(await getSignInDestination()).toBe("/signin");
+    expect((await getSignInLanding()).destination).toBe("/signin");
   });
 
   it("administers once the grant is dated before it, the same session and the same rows otherwise", async () => {
@@ -975,7 +1003,7 @@ describe("a passkey session made before its grant", () => {
 
     assert.ok(await getAdminSession(), "the control was refused, so the case above proves nothing");
     assert.ok(await getKontoSession());
-    expect(await getSignInDestination()).toBe("/area");
+    expect((await getSignInLanding()).destination).toBe("/area");
   });
 
   it("is judged to the millisecond: refused a millisecond before its grant, admitted at it", async () => {
@@ -1062,7 +1090,7 @@ describe("a grant on a barred address", () => {
     BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, barred: true });
 
     expect(await getAdminSession()).toBe(null);
-    expect(await getSignInDestination()).toBe("/signin");
+    expect((await getSignInLanding()).destination).toBe("/signin");
     expect(await getSignedInAddress()).toBe(null);
   });
 });
@@ -1074,7 +1102,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     arriveAs(cookie);
 
     expect(await getAdminSession()).toBe(null);
-    expect(await getSignInDestination()).toBe("/signin/passkey");
+    expect((await getSignInLanding()).destination).toBe("/signin/passkey");
   });
 
   it("admits the same address once the session was made by the passkey", async () => {
@@ -1083,7 +1111,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     arriveAs(cookie);
 
     assert.ok(await getAdminSession());
-    expect(await getSignInDestination()).toBe("/area");
+    expect((await getSignInLanding()).destination).toBe("/area");
   });
 
   /* A passkey enrolled elsewhere leaves this mailbox session as it was, so holding one decides which
@@ -1130,7 +1158,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     arriveAs(cookie);
 
     expect(await getPasskeyStep()).toStrictEqual({ step: "offer", email: PERSON_EMAIL });
-    expect(await getSignInDestination()).toBe("/signin/passkey");
+    expect((await getSignInLanding()).destination).toBe("/signin/passkey");
   });
 
   it("offers a person no passkey once they hold one, or once the passkey made the session", async () => {
@@ -1139,13 +1167,13 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     arriveAs(holding.cookie);
 
     expect(await getPasskeyStep()).toBe(null);
-    expect(await getSignInDestination()).toBe("/area");
+    expect((await getSignInLanding()).destination).toBe("/area");
 
     store.passkey.length = 0;
     madeByPasskey(store, holding.row);
 
     expect(await getPasskeyStep(), "a session the passkey made was offered one").toBe(null);
-    expect(await getSignInDestination()).toBe("/area");
+    expect((await getSignInLanding()).destination).toBe("/area");
   });
 
   /* The enrolment is refused past the library's `freshAge`, so a card offered there is a press the server
@@ -1156,7 +1184,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     arriveAs(cookie);
 
     expect(await getPasskeyStep()).toBe(null);
-    expect(await getSignInDestination()).toBe("/area");
+    expect((await getSignInLanding()).destination).toBe("/area");
   });
 
   /* Past the window an administrator holding none has no card the server would honour: sent to the
@@ -1167,12 +1195,12 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     arriveAs(cookie);
 
     expect(await getPasskeyStep()).toBe(null);
-    expect(await getSignInDestination()).toBe("/signin");
+    expect((await getSignInLanding()).destination).toBe("/signin");
 
     store.passkey.push(aPasskeyFor(row.userId));
 
     expect(await getPasskeyStep()).toStrictEqual({ step: "assert", email: ADMIN_EMAIL });
-    expect(await getSignInDestination()).toBe("/signin/passkey");
+    expect((await getSignInLanding()).destination).toBe("/signin/passkey");
   });
 
   it("asks nothing of a visitor carrying no session", async () => {
@@ -1180,7 +1208,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
 
     expect(await getAdminSession()).toBe(null);
     expect(await getPasskeyStep()).toBe(null);
-    expect(await getSignInDestination()).toBe("/signin");
+    expect((await getSignInLanding()).destination).toBe("/signin");
   });
 
   it("turns on the factor alone, over one session the store serves twice", async () => {
@@ -1234,7 +1262,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
 
           const seen = await served(cookie);
           assert.ok(seen);
-          const destination = await getSignInDestination();
+          const destination = (await getSignInLanding()).destination;
 
           expect(
             destination === "/area",
@@ -1266,7 +1294,7 @@ describe("a passkey session whose passkey is gone", () => {
 
     // No passkey is enrolled twice under one credential, so a session its passkey's removal missed is served by no lane again.
     store.passkey.length = 0;
-    expect(await getSignInDestination()).toBe("/signin");
+    expect((await getSignInLanding()).destination).toBe("/signin");
     assert.ok(!store.session.includes(row), "the landing left a session standing that no guard will serve");
   });
 
@@ -1277,7 +1305,7 @@ describe("a passkey session whose passkey is gone", () => {
     arriveAs(cookie);
 
     expect(await getKontoSession()).toBe(null);
-    expect(await getSignInDestination()).toBe("/signin");
+    expect((await getSignInLanding()).destination).toBe("/signin");
   });
 
   /* Another account's row under the same credential id is none of the session's own. */
@@ -1632,6 +1660,31 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     ).rejects.toSatisfy((raised: unknown) => Reflect.get(raised as object, "status") === "NOT_FOUND");
 
     expect(store.passkey, "the callback let a stale session write a row").toStrictEqual([held]);
+  });
+
+  /* The touch is judged where its options were asked for: a cross-device prompt by QR code can outlast the touch's
+     minute, and a verify judged now would refuse a credential the authenticator has already stored. */
+  it("enrols on a touch its ceremony's options were asked inside, however long the browser's prompt then takes", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    steppedUp(row);
+    store.passkey.push(aPasskeyFor(row.userId));
+    const offered = await overHttp("/passkey/generate-register-options", { cookie });
+    expect(offered.status, await offered.clone().text()).toBe(200);
+    const { challenge } = (await offered.json()) as { challenge: string };
+
+    // A prompt of a minute and a half: the touch and the options it asked for are both that much older now.
+    ageRow(row, { created: PASSKEY_TOUCH_MS + 30_000 });
+    const issued = store.verification.at(-1);
+    assert.ok(issued !== undefined, "the options stored no challenge");
+    issued.createdAt = new Date(row.createdAt.getTime() + 5_000);
+
+    const answer = await overHttp("/passkey/verify-registration", {
+      method: "POST",
+      cookie: `${cookie}; ${cookieHeader(offered)}`,
+      body: { response: registrationFor(challenge, true, SECOND_RAW_ID) },
+    });
+    expect(answer.status, await answer.clone().text()).toBe(200);
+    expect(store.passkey.length).toBe(2);
   });
 
   /* A person's passkey is optional, so a fresh sign-in by either factor enrols the first: the mailbox is the
@@ -2197,7 +2250,7 @@ describe("what a ban ends in the sign-in store", () => {
     expect(store.passkey.length, "the ban deleted the account's passkey").toBe(1);
 
     arriveAs(first.cookie);
-    expect(await getSignInDestination()).toBe("/signin");
+    expect((await getSignInLanding()).destination).toBe("/signin");
   });
 
   /* The store holds the folded address, lower-cased: a ban typed in capitals has to reach the stored account. */
@@ -2282,7 +2335,7 @@ describe("what a ban ends in the sign-in store", () => {
       arriveAs(cookie);
       expect(await readServedSession(new Headers({ ...ORIGIN, cookie })), "the lift served the stamped session again").toBe(null);
       expect(await getKontoSession()).toBe(null);
-      expect(await getSignInDestination()).toBe("/signin");
+      expect((await getSignInLanding()).destination).toBe("/signin");
       assert.ok(!store.session.includes(row), "the landing left the stamped row standing");
     } finally {
       BACKENDS.delete(PERSON_EMAIL);
@@ -3448,19 +3501,20 @@ describe("a person's own account deletion", () => {
 
   /* Asked and refused: a case passing where the hook never ran -- no session, another account's token --
      would leave the same rows standing. */
-  it("leaves the account and its passkeys standing where the backend refuses the erasure, having asked it", async () => {
+  /* The library spends the link before the erasure runs, so the press says so rather than offering the link again. */
+  it("leaves the account and its passkeys standing where the backend refuses the erasure, having asked it, its link spent", async () => {
     const person = await seedAccount("verweigert-loeschung@example.org");
     const refusal = await loeschungRefused();
     const loeschungen: string[] = [];
 
-    await expect(
-      asPerson("verweigert-loeschung@example.org", () =>
+    expect(
+      await asPerson("verweigert-loeschung@example.org", () =>
         deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
           loeschungen.push("asked");
           return Promise.reject(refusal);
         }),
       ),
-    ).rejects.toSatisfy((thrown) => thrown === refusal);
+    ).toBe("spentUnerased");
 
     expect(loeschungen, "the backend was never asked, so the refusal proves nothing").toStrictEqual(["asked"]);
     const held = heldOf(person);
@@ -3518,7 +3572,7 @@ describe("a person's own account deletion", () => {
 
     await expect(
       asPerson("ohne-loeschung@example.org", () => auth.api.deleteUser({ body: { token: person.token }, headers })),
-    ).rejects.toSatisfy((thrown: Error) => thrown.name === "DeletionWithoutLoeschung");
+    ).rejects.toSatisfy((thrown: Error) => thrown.name === "DeletionWithoutErasure");
     expect(heldOf(person).user).toBe(1);
 
     await requestAccountDeletion(headers);
@@ -3529,7 +3583,10 @@ describe("a person's own account deletion", () => {
           return Promise.resolve({});
         }),
       ),
-    ).rejects.toSatisfy((thrown: Error) => thrown.name === "DeletionWithoutLoeschung");
+      // Past the library's spend of the link, so of an outcome the press cannot name.
+    ).rejects.toSatisfy(
+      (thrown: Error) => thrown.name === "DeletionOutcomeUnknown" && (thrown.cause as Error).name === "DeletionWithoutErasure",
+    );
 
     expect(loeschungen, "another person's records were erased").toStrictEqual([]);
     const held = heldOf(person);

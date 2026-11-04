@@ -1,6 +1,7 @@
 import { SignInShell } from "@/kit/SignInShell";
 
 import { getSignedInAddress } from "@/core/auth/landing";
+import { SIGN_IN_REFERRER } from "@/core/auth/returnAddress";
 import { frontend_config } from "@/core/config";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -10,9 +11,9 @@ import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Metadata, ResolvingMetadata } from "next";
 
-/** No description: a sign-in page carries none. */
+/** No description: a sign-in page carries none. Its referrer names the origin alone (`SIGN_IN_REFERRER`). */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.signIn, ROUTES.signIn.path());
+  return { ...(await pageMetadata(parent, ROUTES.signIn, ROUTES.signIn.path())), ...SIGN_IN_REFERRER };
 }
 
 /**

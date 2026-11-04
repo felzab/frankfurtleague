@@ -7,10 +7,11 @@ import { redirect } from "next/navigation";
 import { linkInvalid } from "@/kit/MailedPage";
 import { z } from "zod";
 
-import { action } from "@/core/action";
-import { deleteOwnAccount, requestAccountDeletion } from "@/core/auth/accounts";
-import { revokeOtherSessions } from "@/core/auth/accountSessions";
+import { action, TOUCH_HOLDER } from "@/core/action";
+import { deleteOwnAccount, DeletionOutcomeUnknown, requestAccountDeletion } from "@/core/auth/accounts";
+import { endOtherSessions } from "@/core/auth/accountSessions";
 import { COPY } from "@/core/copy";
+import { APIBadStatusError } from "@/core/errors";
 import {
   BewerbungenPatchEinwilligungBody,
   BewerbungenPatchEinwilligungParams,
@@ -22,6 +23,7 @@ import {
   TeamsPatchEinwilligungBody,
   TeamsPatchEinwilligungParams,
 } from "@/core/generated/zod/inputs";
+import { logger } from "@/core/logging";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
@@ -31,9 +33,10 @@ import { patchSchiedsrichterKontoEinwilligung } from "@/features/schiedsrichter/
 import { patchSpielerKontoEinwilligung } from "@/features/spieler/mutations";
 
 import { beantrageKontoAdresswechsel, loeschenEigeneDaten, stoppeKontoAdresswechsel } from "./mutations";
-import { getLoeschungAnsicht } from "./queries";
+import { getKontoEinwilligungen, getLoeschungAnsicht } from "./queries";
 
 import type { ActionAnswer } from "@/core/action";
+import type { FLAccountEinwilligungenResponse } from "@/core/generated/client/types";
 import type { MailedEnd } from "@/kit/MailedPage";
 
 /** An act that posts no field: the signed-in session names everything it acts on. */
@@ -45,16 +48,17 @@ const NOTHING = z.object({});
  * answering: Next renders the posting page again after an action writes a cookie, and the library deletes the session's
  * cookie, but a `redirect` from the body renders the destination alone, the builder having cleared the site's tag on
  * its way out. A link the library refuses, spent, lapsed or another account's, ends as the link no longer valid, with
- * nothing erased.
+ * nothing erased; so does one the library spent on a press the backend's erasure then refused, which leads to Konto,
+ * where a fresh link is asked for. A press failing past the spent link with its outcome unknown reads the stale-page
+ * line, as the passkey removal's does: a reload shows whether the account stands.
  */
 export const kontoLoeschen = action({
   lane: "person",
-  claim: "record",
+  claim: "account",
   passkey: true,
   name: "kontoLoeschen",
   // The library's own token, which no backend schema publishes: one line of letters, digits, `-` and `_`.
-  input: z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/) }),
-  ownWords: ["last_owner_erasure"],
+  input: z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/), ...TOUCH_HOLDER }),
   run: async ({ token }, { subject }): Promise<ActionAnswer<MailedEnd>> => {
     // Refused before the library spends the link, so the same link completes once another owner is made; the
     // backend refuses two owners at once. Read for an owner alone, the one tier that can be the last.
@@ -62,9 +66,17 @@ export const kontoLoeschen = action({
       return { ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure };
     }
 
-    const outcome = await deleteOwnAccount(token, await headers(), () => loeschenEigeneDaten());
-    if (outcome === "linkRefused")
+    let outcome: Awaited<ReturnType<typeof deleteOwnAccount>>;
+    try {
+      outcome = await deleteOwnAccount(token, await headers(), () => loeschenEigeneDaten());
+    } catch (failed) {
+      if (!(failed instanceof DeletionOutcomeUnknown)) throw failed;
+      logger.error("konto.deletion_outcome_unknown", undefined, { name: failed.cause instanceof Error ? failed.cause.name : "unknown" });
+      return { ok: false, reason: COPY.shared.failure.stale };
+    }
+    if (outcome !== "deleted") {
       return { ok: true, value: linkInvalid({ label: COPY.shared.end.toAccount, href: ROUTES.accountSignIn.path() }) };
+    }
 
     redirect(ROUTES.accountErased.path());
   },
@@ -74,14 +86,16 @@ export const kontoLoeschen = action({
  * The person's own address change from Konto: the address on file is mailed its link first, and the new address its
  * own once that confirms, the change taking effect once both have. A passkey holder touches the passkey first, the
  * one check guarding it, since the backend judges no fresh sign-in. The address typed is judged by the sign-in's own
- * rule, so every address a sign-in would refuse is refused here before it is mailed.
+ * rule, so every address a sign-in would refuse is refused here before it is mailed. An account standing at the new
+ * address is not refused here: the start answers alike whatever the new address holds, so it tells nobody which
+ * addresses hold an account, and the new mailbox's own press refuses it (`fl_frontend/src/app/(classic)/confirm/address/antworten.ts`).
  */
 export const startAddressChange = action({
   lane: "person",
-  claim: "record",
+  claim: "account",
   passkey: true,
   name: "startAddressChange",
-  input: SignInPayloadSchema,
+  input: SignInPayloadSchema.extend(TOUCH_HOLDER),
   examples: { email: COPY.shared.field.exampleAddress },
   ownWords: ["address_change_unchanged", "address_change_no_approver"],
   run: async ({ email }) => {
@@ -93,7 +107,7 @@ export const startAddressChange = action({
 /** The pending change withdrawn from Konto, the address on file's stop link's twin: it hands nothing over, so it asks no touch. */
 export const withdrawAddressChange = action({
   lane: "person",
-  claim: "record",
+  claim: "account",
   name: "withdrawAddressChange",
   input: NOTHING,
   run: async () => {
@@ -109,7 +123,7 @@ export const withdrawAddressChange = action({
  */
 export const requestErasure = action({
   lane: "person",
-  claim: "record",
+  claim: "account",
   name: "requestErasure",
   input: NOTHING,
   run: async () => {
@@ -118,14 +132,14 @@ export const requestErasure = action({
   },
 });
 
-/** Ends every session of the person's but this device's, through the library's own in-process call. */
+/** Ends every session of the person's but the one this request arrived with, however many stand. */
 export const signOutOthers = action({
   lane: "person",
-  claim: "record",
+  claim: "account",
   name: "signOutOthers",
   input: NOTHING,
-  run: async () => {
-    await revokeOtherSessions(await headers());
+  run: async (_, { served }) => {
+    await endOtherSessions(served.user.id, served.session.id);
     // The sign-in store holds what changed, past every cached read: the device count is read again.
     refresh();
     return { ok: true, value: undefined };
@@ -135,16 +149,41 @@ export const signOutOthers = action({
 // The consents Deine Einträge saves, one record a box: both choices on every press, with the labels the page showed
 // and the evidence it was served, so a press on a page older than either change is refused rather than stamped.
 
+/**
+ * A save whose media choice the backend refused as given below its floor, in the sentence Deine Einträge shows under
+ * that switch, at the floor the record's view serves; `floorOf` answers it, or `undefined` where the record is gone
+ * from the view, which the stale-page line answers. The page offers the switch from the served age alone, so only a
+ * birthdate or a day that moved since it was served reaches this; any other failure goes to the builder.
+ */
+async function savedWithMediaFloor(
+  save: () => Promise<unknown>,
+  floorOf: (view: FLAccountEinwilligungenResponse) => number | undefined,
+): Promise<ActionAnswer> {
+  try {
+    await save();
+  } catch (failed) {
+    if (!(failed instanceof APIBadStatusError) || failed.serverErrorCode !== "medien_age") throw failed;
+    const floor = floorOf(await getKontoEinwilligungen());
+    return {
+      ok: false,
+      errorCode: "medien_age",
+      reason: floor === undefined ? COPY.shared.failure.stale : COPY.konto.entries.mediaFrom(floor),
+    };
+  }
+  return { ok: true, value: undefined };
+}
+
 /** A pupil's own two choices on their record. */
 export const saveSpielerConsent = action({
   lane: "person",
   claim: "record",
   name: "saveSpielerConsent",
   input: SpielerPatchEinwilligungBody,
-  run: async (choices) => {
-    await patchSpielerKontoEinwilligung(choices);
-    return { ok: true, value: undefined };
-  },
+  run: (choices) =>
+    savedWithMediaFloor(
+      () => patchSpielerKontoEinwilligung(choices),
+      (view) => view.spieler?.medien_minimum_age,
+    ),
 });
 
 /** A referee's own two choices on one of their rows, of which one address may hold several. */
@@ -153,10 +192,11 @@ export const saveSchiedsrichterConsent = action({
   claim: "record",
   name: "saveSchiedsrichterConsent",
   input: SchiedsrichterPatchEinwilligungParams.extend(SchiedsrichterPatchEinwilligungBody.shape),
-  run: async ({ schiedsrichter_id, ...choices }) => {
-    await patchSchiedsrichterKontoEinwilligung(schiedsrichter_id, choices);
-    return { ok: true, value: undefined };
-  },
+  run: ({ schiedsrichter_id, ...choices }) =>
+    savedWithMediaFloor(
+      () => patchSchiedsrichterKontoEinwilligung(schiedsrichter_id, choices),
+      (view) => view.schiedsrichter.find((row) => row.schiedsrichter_id === schiedsrichter_id)?.medien_minimum_age,
+    ),
 });
 
 /** A pupil's withdrawal on their pending registration, whose grant waits on the team's admission. */
@@ -177,10 +217,11 @@ export const saveSeatConsent = action({
   claim: "record",
   name: "saveSeatConsent",
   input: TeamsPatchEinwilligungParams.extend(TeamsPatchEinwilligungBody.shape),
-  run: async ({ team_id, saison_id, ...choices }) => {
-    await patchSitzEinwilligung(team_id, saison_id, choices);
-    return { ok: true, value: undefined };
-  },
+  run: ({ team_id, saison_id, ...choices }) =>
+    savedWithMediaFloor(
+      () => patchSitzEinwilligung(team_id, saison_id, choices),
+      (view) => view.seats.find((seat) => seat.team_id === team_id && seat.saison_id === saison_id)?.medien_minimum_age,
+    ),
 });
 
 /** A seat holder's withdrawal on a pending application, whose grant is its confirmation page's alone. */

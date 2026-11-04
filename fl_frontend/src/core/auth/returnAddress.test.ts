@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { allowedReturnAddress, withReturnAddress } from "./returnAddress.ts";
 
 describe("the addresses a sign-in may return to", () => {
-  it.each(["/area", "/account", "/area/admin/administratoren", "/erasure?token=Ab3-x_9"])("holds %s", (asked) => {
+  it.each(["/area", "/account", "/admin", "/area/admin/administratoren", "/admin/spielorte", "/erasure?token=Ab3-x_9"])("holds %s", (asked) => {
     expect(allowedReturnAddress(asked)).toBe(asked);
   });
 
@@ -14,7 +14,7 @@ describe("the addresses a sign-in may return to", () => {
     ["an escaped separator", "/area%2F..%2Fadmin"],
     ["an escaped slash ahead of the host", "/%2Fexample.com"],
     ["a dot segment", "/area/../impressum"],
-    ["a page outside the two", "/impressum"],
+    ["a page outside the three", "/impressum"],
     ["a query on an area's page", "/account?next=https://example.com/"],
     ["a deletion link without its token", "/erasure"],
     ["a line break past the address", "/area\n"],

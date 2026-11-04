@@ -27,9 +27,9 @@ import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MA
 import { mayReceiveSignIn } from "../signInGate";
 import { HOUR_MS } from "../timeUnits";
 import { readTraceparent, TRACEPARENT_HEADER } from "../trace";
-import { ceremonyCredentialId, isDuplicateCredential, refuseAnotherAccountsPasskey } from "./ceremony";
+import { ceremonyCredentialId, challengeIssuedAt, isDuplicateCredential, refuseAnotherAccountsPasskey } from "./ceremony";
 import { ADDRESS_ATTEMPTS_EXHAUSTED } from "./codeRefusal";
-import { carriedOrRefuse, ENROLMENT_READ, refuseBarred, refuseEnrolment } from "./enrolment";
+import { carriedEnrolmentRead, carriedOrRefuse, ENROLMENT_READ, refuseBarred, refuseEnrolment } from "./enrolment";
 import { enrolmentAnmeldung } from "./gateReads";
 import { notifyPasskey, oweSignInMail, sendDeletionLink } from "./mails";
 import { endReplacedSession, lineageOf, refuseUnadmitted, replacedToken } from "./minting";
@@ -283,35 +283,41 @@ const userOptions = {
     enabled: true,
     deleteTokenExpiresIn: LOESCHUNG_LINK_GUELTIG_STUNDEN * 60 * 60,
     sendDeleteAccountVerification: sendDeletionLink,
-    beforeDelete: loeschenBeforeTheAccount,
+    beforeDelete: eraseBeforeTheAccount,
   },
 } satisfies BetterAuthOptions["user"];
 
 /** Named, because the library's failure line records an error's name and nothing else. */
-class DeletionWithoutLoeschung extends Error {
-  override name = "DeletionWithoutLoeschung";
+class DeletionWithoutErasure extends Error {
+  override name = "DeletionWithoutErasure";
 }
 
 // Our own dependency injection, never a compensation for the library: the hook takes no per-call
 // value, the backend's write lives in a slice's mutations module, and `core` imports no slice.
-/** The erasure of the league's records one press hands `deleteOwnAccount`, for the deletion that call makes. */
-export const ownLoeschung = new AsyncLocalStorage<() => Promise<unknown>>();
+/**
+ * One press of a mailed deletion link: the erasure of the league's records it hands `deleteOwnAccount`, and whether
+ * the library has spent the link, which it does before this hook runs and whatever the hook then answers.
+ */
+export type DeletionPress = { readonly erase: () => Promise<unknown>; linkSpent: boolean };
+
+/** The press `deleteOwnAccount` runs the library's deletion under, for the deletion that call makes. */
+export const ownErasure = new AsyncLocalStorage<DeletionPress>();
 
 /**
- * Runs after the library has checked the token against the signed-in user and before it deletes anything:
- * an account never goes while the league's records of its address stand.
+ * Runs after the library has spent the token and checked it against the signed-in user, and before it deletes
+ * anything: an account never goes while the league's records of its address stand.
  */
-async function loeschenBeforeTheAccount(user: { id: string; email: string }): Promise<void> {
-  const loeschen = ownLoeschung.getStore();
+async function eraseBeforeTheAccount(user: { id: string; email: string }): Promise<void> {
+  const press = ownErasure.getStore();
+  // First: whatever follows, the link this press carried is spent (`better-auth/api :: deleteUserCallback`).
+  if (press !== undefined) press.linkSpent = true;
   // The backend erases the request's person and the library deletes the session's user, so the two must
   // be one address; with no erasure handed in, no deletion goes ahead at all.
   const actor = getRequestActor();
-  if (loeschen === undefined || actor?.lane !== "person" || actor.email !== asSignInIdentifier(user.email))
-    throw new DeletionWithoutLoeschung();
+  if (press === undefined || actor?.lane !== "person" || actor.email !== asSignInIdentifier(user.email)) throw new DeletionWithoutErasure();
 
-  // Thrown on as it came, so the press reads the backend's refusal, or a write of unknown outcome, as every
-  // person write does; the account and its passkeys stand for a fresh link.
-  await loeschen();
+  // Thrown on as it came, for the press to word: the account and its passkeys stand, the link spent.
+  await press.erase();
 
   // Before the library deletes the user row: a failure past here leaves that row for the account sweep,
   // never passkeys whose account is gone.
@@ -559,7 +565,13 @@ const authOptions = (origin: URL, client: MongoClient) =>
         const enrolmentRead: EnrolmentRead | undefined =
           enrolling === null
             ? undefined
-            : { userId: enrolling.user.id, anmeldung: await enrolmentAnmeldung(enrolling.user.email), sentAt: sentAt };
+            : {
+                userId: enrolling.user.id,
+                anmeldung: await enrolmentAnmeldung(enrolling.user.email),
+                sentAt: sentAt,
+                // Here, before the plugin spends the challenge the verify call reads.
+                challengeIssuedAt: await challengeIssuedAt(ctx),
+              };
         const carried = enrolmentRead === undefined ? undefined : { context: { [ENROLMENT_READ]: enrolmentRead } };
 
         // An absent `ctx.request` is the library's own test for a call that did not arrive over HTTP,
@@ -591,7 +603,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
         if (caller === null || endedByItsAccount(caller)) throw APIError.fromStatus("NOT_FOUND");
 
         refuseBarred(enrolmentRead?.anmeldung ?? (await enrolmentAnmeldung(caller.user.email)));
-        await refuseEnrolment(ctx.context.adapter, caller.user.id, stampsOf(caller.session));
+        // The options request is judged now; the verify call as of its ceremony's options, or now where none stands.
+        await refuseEnrolment(ctx.context.adapter, caller.user.id, stampsOf(caller.session), enrolmentRead?.challengeIssuedAt ?? undefined);
 
         return carried;
       }),
@@ -716,6 +729,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
               adapter,
               user.id,
               enrolling === null ? null : stampsOf(enrolling.session),
+              // As of the ceremony's options, as the hook judged it, the challenge being spent by now.
+              (enrolling === null ? undefined : carriedEnrolmentRead(ctx, enrolling.user.id)?.challengeIssuedAt) ?? undefined,
               verification.registrationInfo?.credential.id,
             );
           },

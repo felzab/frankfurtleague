@@ -25,7 +25,8 @@ function projected({ user, session }: LibraryRead): ServedSession {
   return {
     user: { id: user.id, email: user.email, sessionsEndedAt: user.sessionsEndedAt ?? null },
     session: {
-      // The row's id and never its token: the passkey removal keeps the one session it ran in by it.
+      // The row's id and never its token: „Alle anderen abmelden“ keeps the session it ran in by it, and the landing
+      // ends a session no lane serves by it.
       id: session.id,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,

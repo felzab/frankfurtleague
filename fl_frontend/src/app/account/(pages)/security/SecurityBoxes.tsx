@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { AccountBox, AccountRows } from "@/kit/AccountBox";
 import { TextField } from "@/kit/TextField";
 
+import { loadAuthClient } from "@/core/auth/browserClient";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
+import { describeSetUpRefusal } from "@/features/auth/passkeyAnswers";
 import { signOutOthers } from "@/features/konto/personActions";
 import { removePasskeyAction, renamePasskeyAction } from "@/features/passkeys/actions";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
@@ -18,9 +20,6 @@ import type { AccountRow } from "@/kit/AccountBox";
 
 const PASSKEY = COPY.signIn.passkeyTitle;
 
-/** Why a set-up the library refused did not happen: a first passkey past `freshAge` answers 403, anything else none we word. */
-const SET_UP_REFUSED = (status: number): Copy => (status === 403 ? COPY.konto.passkeys.signInTooOld : COPY.shared.failure.unexpected);
-
 /**
  * Sicherheit's two boxes: the passkeys, each a row with its rename and its removal, the set-up in the footer; and the
  * devices, with „Alle anderen abmelden“. `held` says the person holds a passkey, whose set-up and removal then ask the
@@ -28,12 +27,15 @@ const SET_UP_REFUSED = (status: number): Copy => (status === 403 ? COPY.konto.pa
  * removal of the one passkey an administrator must keep.
  */
 export function SecurityBoxes({
+  holder,
   passkeys,
   setUpClosed,
   lastKept,
   devices,
   name,
 }: {
+  /** The address the page is drawn for, which each removal posts behind its touch. */
+  holder: string;
   passkeys: readonly PasskeyRow[];
   /** Why no further passkey may be set up, or `undefined` where one may. */
   setUpClosed: Copy | undefined;
@@ -49,9 +51,9 @@ export function SecurityBoxes({
 
   // The library's own registration, a request of the browser's past every server action: the page is read again.
   const setUp = async (): Promise<ActionAnswer> => {
-    const { authClient } = await import("@/core/authClient");
+    const authClient = await loadAuthClient();
     const { error } = await authClient.passkey.addPasskey();
-    if (error !== null) return { ok: false, reason: SET_UP_REFUSED(error.status) };
+    if (error !== null) return { ok: false, reason: describeSetUpRefusal(error) };
     router.refresh();
     return { ok: true, value: undefined };
   };
@@ -86,7 +88,7 @@ export function SecurityBoxes({
       touch: true,
       closed: lastKept,
       run: async () => {
-        const answer = await removePasskeyAction({ id: passkey.id });
+        const answer = await removePasskeyAction({ id: passkey.id, holder });
         // The removal ended the session this page runs in, so the page renders nothing again: it leaves as a new
         // document, since a soft navigation keeps every hidden route with what it showed that session.
         if (answer.ok && answer.value === "thisDevice") leaveDocumentFor(ROUTES.signIn.path());

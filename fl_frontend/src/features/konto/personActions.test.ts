@@ -71,6 +71,10 @@ const ANSICHT_PATH = "/api/v0/identity/account/erasure/view";
 /** Whether the preview reads the press as the last owner's. */
 let letzterInhaber = false;
 
+/** The person's own address change, and the method of every request sent to it. */
+const ADDRESS_CHANGE_PATH = "/api/v0/account/address_change";
+const addressChanges: string[] = [];
+
 globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
   if (path === ANSICHT_PATH) {
@@ -81,6 +85,10 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
     loeschungen.push({ method: init?.method ?? "GET", actor: new Headers(init?.headers).get("x-fl-actor") });
     return Promise.resolve(loeschungAnswer());
   }
+  if (path === ADDRESS_CHANGE_PATH) {
+    addressChanges.push(init?.method ?? "GET");
+    return Promise.resolve(Response.json({ id: "a1", valid_until: "2026-11-05T12:00:00Z", email: "neu@example.org" }));
+  }
 
   const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
   const fixture = HELD.get(email ?? "") ?? { ...NO_RECORDS, seats: [SEAT], account: true };
@@ -88,7 +96,8 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
 }) as typeof globalThis.fetch;
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { kontoLoeschen, requestErasure } = await import("./personActions.ts");
+const { kontoLoeschen, requestErasure, signOutOthers, startAddressChange } = await import("./personActions.ts");
+const { removePasskeyAction } = await import("@/features/passkeys/actions.ts");
 const { COPY } = await import("@/core/copy.ts");
 const { SERVER_COPY } = await import("@/core/serverCopy.ts");
 const { auth } = await import("@/core/auth/library.ts");
@@ -98,6 +107,7 @@ beforeEach(() => {
   store.verification.length = 0;
   cacheCalls.length = 0;
   loeschungen.length = 0;
+  addressChanges.length = 0;
   HELD.clear();
   loeschungAnswer = () => Response.json(GELOESCHT);
   letzterInhaber = false;
@@ -109,7 +119,10 @@ function arriveAs(cookie: string): void {
 }
 
 /** A signed-in person, the request arriving as them, and a deletion link mailed to them; `passkey` adds one they hold. */
-async function mitLink(email: string, { passkey = false }: { passkey?: boolean } = {}): Promise<{ row: SessionRow; token: string }> {
+async function mitLink(
+  email: string,
+  { passkey = false }: { passkey?: boolean } = {},
+): Promise<{ row: SessionRow; token: string; holder: string }> {
   const { cookie, row } = await sessionByCode(auth, store, email);
   if (passkey) {
     store.passkey.push({
@@ -127,7 +140,7 @@ async function mitLink(email: string, { passkey = false }: { passkey?: boolean }
   const found = /\/erasure\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
   assert.ok(found?.[1] !== undefined, "the mail carries no link to the page");
 
-  return { row, token: found[1] };
+  return { row, token: found[1], holder: email };
 }
 
 /** What the store still holds of the account `userId` names. */
@@ -153,7 +166,7 @@ async function ledToTheDonePage(pressed: Promise<unknown>): Promise<void> {
 }
 
 /** A signed-in owner, the request arriving as their passkey session of this moment, and a link mailed to them. */
-async function inhaberinMitLink(email: string): Promise<{ row: SessionRow; token: string }> {
+async function inhaberinMitLink(email: string): Promise<{ row: SessionRow; token: string; holder: string }> {
   HELD.set(email, {
     ...NO_RECORDS,
     verwaltung: "owner",
@@ -168,18 +181,18 @@ async function inhaberinMitLink(email: string): Promise<{ row: SessionRow; token
   const found = /\/erasure\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
   assert.ok(found?.[1] !== undefined, "the mail carries no link to the page");
 
-  return { row: durchPasskey.row, token: found[1] };
+  return { row: durchPasskey.row, token: found[1], holder: email };
 }
 
 // Each a loss nobody would see: an account deleted with its records left, a deletion the cache keeps serving, the last
 // owner gone, a link spent by a refusal the person can no longer repair, a passkey holder deleted without the touch.
 describe("a person's own account deletion through the mailed link's page", () => {
   it("erases the records under the person's actor, deletes the account, clears the site's tag and leads to the done page", async () => {
-    const { row, token } = await mitLink("ganz-weg@example.org");
+    const { row, token, holder } = await mitLink("ganz-weg@example.org");
     // The link's own request cleared it too, mailing being a write.
     cacheCalls.length = 0;
 
-    await ledToTheDonePage(kontoLoeschen({ token }));
+    await ledToTheDonePage(kontoLoeschen({ token, holder }));
 
     expect(
       loeschungen.map(({ method, actor }) => [method, actor !== null]),
@@ -190,52 +203,63 @@ describe("a person's own account deletion through the mailed link's page", () =>
   });
 
   it("asks a passkey holder signed in by code for the touch, erasing nothing and leaving the link standing", async () => {
-    const { row, token } = await mitLink("mit-passkey@example.org", { passkey: true });
+    const { row, token, holder } = await mitLink("mit-passkey@example.org", { passkey: true });
 
-    expect(await kontoLoeschen({ token })).toStrictEqual({ ok: false, reason: COPY.signIn.refusal.touchMissing });
+    expect(await kontoLoeschen({ token, holder })).toStrictEqual({ ok: false, reason: COPY.signIn.refusal.touchMissing });
     expect(loeschungen).toStrictEqual([]);
     expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
     assert.ok(linkStands(token), "the refused press spent the link");
   });
 
   it("deletes for a passkey holder whose passkey signed in a moment ago", async () => {
-    const { row, token } = await mitLink("beruehrt@example.org", { passkey: true });
+    const { row, token, holder } = await mitLink("beruehrt@example.org", { passkey: true });
     madeByPasskey(store, row);
 
-    await ledToTheDonePage(kontoLoeschen({ token }));
+    await ledToTheDonePage(kontoLoeschen({ token, holder }));
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
   });
 
   it("refuses the league's last owner before the link is spent, and deletes on the same link once another owns", async () => {
-    const { row, token } = await inhaberinMitLink("letzte-inhaberin@example.org");
+    const { row, token, holder } = await inhaberinMitLink("letzte-inhaberin@example.org");
     letzterInhaber = true;
 
-    expect(await kontoLoeschen({ token })).toStrictEqual({ ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure });
+    expect(await kontoLoeschen({ token, holder })).toStrictEqual({ ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure });
     expect(loeschungen, "the erasure was asked for although the preview read the last owner").toStrictEqual([]);
     assert.ok(linkStands(token), "the refused press spent the link, which the owner can no longer open");
 
     letzterInhaber = false;
-    await ledToTheDonePage(kontoLoeschen({ token }));
+    await ledToTheDonePage(kontoLoeschen({ token, holder }));
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
   });
 
-  it("words the backend's own last-owner refusal, having asked the backend, and deletes nothing", async () => {
-    const { row, token } = await inhaberinMitLink("zweite-inhaberin@example.org");
+  /* The library spends the link before the erasure runs, so a press the backend refuses there can never complete: the
+     form left standing would offer a press that ends on the link no longer valid. */
+  it("ends a press the backend's erasure refused, its link spent, as the link no longer valid, leading to Konto", async () => {
+    const { row, token, holder } = await inhaberinMitLink("zweite-inhaberin@example.org");
     loeschungAnswer = () => Response.json({ error_code: "last_owner_erasure", trace_id: "0".repeat(32) }, { status: 409 });
 
-    expect(await kontoLoeschen({ token })).toStrictEqual({
-      ok: false,
-      errorCode: "last_owner_erasure",
-      reason: SERVER_COPY.refusalLine.last_owner_erasure,
+    expect(await kontoLoeschen({ token, holder })).toMatchObject({
+      ok: true,
+      value: { title: COPY.template.linkInvalid, next: { href: "/account/signin" } },
     });
     expect(loeschungen.length, "the backend was never asked, so the refusal proves nothing").toBe(1);
     expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
+    assert.ok(!linkStands(token), "the library left the link standing, so the case proves nothing about a spent one");
+  });
+
+  it("answers a press failing past its spent link with its outcome unknown on the stale-page line", async () => {
+    const { token, holder } = await mitLink("unbekannt@example.org");
+    loeschungAnswer = () => {
+      throw new TypeError("fetch failed");
+    };
+
+    expect(await kontoLoeschen({ token, holder })).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
   });
 
   it("ends a link the library refuses as the link no longer valid, erasing nothing", async () => {
-    const { row } = await mitLink("falscher-link@example.org");
+    const { row, holder } = await mitLink("falscher-link@example.org");
 
-    const answer = await kontoLoeschen({ token: "kein-gemailter-link" });
+    const answer = await kontoLoeschen({ token: "kein-gemailter-link", holder });
 
     expect(answer).toMatchObject({ ok: true, value: { title: COPY.template.linkInvalid, sentence: COPY.shared.end.linkInvalid } });
     expect(loeschungen).toStrictEqual([]);
@@ -261,12 +285,87 @@ describe("a person's own account deletion through the mailed link's page", () =>
     ],
   ] as const) {
     it(`deletes and erases nothing from a session ${label}`, async () => {
-      const { row, token } = await mitLink(email);
+      const { row, token, holder } = await mitLink(email);
       judged();
 
-      expect(await kontoLoeschen({ token })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+      expect(await kontoLoeschen({ token, holder })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
       expect(loeschungen).toStrictEqual([]);
       expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 0 });
     });
   }
+});
+
+// Each a loss nobody would see: a passkey holder's address moved or passkey removed by whoever reads their mailbox, an
+// administrator's other devices ended from a session that mailbox made, a device left signed in past a list's page.
+describe("the account's acts, behind the account's guard and the touch", () => {
+  /** A signed-in person holding a passkey, the request arriving as their mailed code's session. */
+  async function holderByCode(email: string): Promise<SessionRow> {
+    const { cookie, row } = await sessionByCode(auth, store, email);
+    store.passkey.push({
+      id: `passkey-${row.userId}`,
+      userId: row.userId,
+      credentialID: `credential-${row.userId}`,
+      publicKey: "k",
+      counter: 0,
+    });
+    arriveAs(cookie);
+    return row;
+  }
+
+  it("refuses a passkey holder signed in by code the address change's start, sending nothing", async () => {
+    await holderByCode("start-ohne-touch@example.org");
+
+    expect(await startAddressChange({ email: "neu@example.org", holder: "start-ohne-touch@example.org" })).toStrictEqual({
+      ok: false,
+      reason: COPY.signIn.refusal.touchMissing,
+    });
+    expect(addressChanges).toStrictEqual([]);
+  });
+
+  it("refuses a passkey holder signed in by code the removal of a passkey, removing nothing", async () => {
+    const row = await holderByCode("entfernen-ohne-touch@example.org");
+
+    expect(await removePasskeyAction({ id: `passkey-${row.userId}`, holder: "entfernen-ohne-touch@example.org" })).toStrictEqual({
+      ok: false,
+      reason: COPY.signIn.refusal.touchMissing,
+    });
+    expect(heldOf(row.userId).passkeys).toBe(1);
+  });
+
+  it("starts the change for a passkey holder whose passkey signed in a moment ago", async () => {
+    const row = await holderByCode("start-mit-touch@example.org");
+    madeByPasskey(store, row);
+
+    expect(await startAddressChange({ email: "neu@example.org", holder: "start-mit-touch@example.org" })).toStrictEqual({
+      ok: true,
+      value: undefined,
+    });
+    expect(addressChanges).toStrictEqual(["POST"]);
+  });
+
+  /* The person guard admits an address holding a grant on its mailed code alone, reporting it no administrator: the
+     account's acts are the administrator's lane's to admit. */
+  it("refuses an administrator's session made by a mailed code alone every untouched act of the account", async () => {
+    const email = "verwalterin-per-code@example.org";
+    HELD.set(email, { ...NO_RECORDS, verwaltung: "administration", granted_since: "2026-01-01T00:00:00Z", inhaber_seit: null, account: false });
+    const { cookie, row } = await sessionByCode(auth, store, email);
+    const other = { ...row, id: `other-${row.id}`, token: `other-${row.token}` };
+    store.session.push(other);
+    arriveAs(cookie);
+    const mailed = mail.sent.length;
+
+    expect(await signOutOthers({})).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+    expect(await requestErasure({})).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+    assert.ok(store.session.includes(other), "the mailbox's session ended the administrator's other device");
+    expect(mail.sent.length, "the mailbox's session had a deletion link mailed").toBe(mailed);
+  });
+
+  it("ends every other session of the account however many stand, and keeps this one", async () => {
+    const { cookie, row } = await sessionByCode(auth, store, "viele-geraete@example.org");
+    for (let index = 0; index < 120; index += 1) store.session.push({ ...row, id: `device-${String(index)}`, token: `token-${String(index)}` });
+    arriveAs(cookie);
+
+    expect(await signOutOthers({})).toStrictEqual({ ok: true, value: undefined });
+    expect(store.session.filter((session) => session.userId === row.userId)).toStrictEqual([row]);
+  });
 });

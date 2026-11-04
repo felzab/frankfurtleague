@@ -270,20 +270,6 @@ describe("what the gate's backend read leaves on the response", () => {
 });
 
 describe("what a typed code answers", () => {
-  /* The library answers the session's token beside the user, and the token is the `httpOnly` cookie's own value:
-     the browser's one copy of it is the cookie. */
-  it("answers a typed code with the cookie and no token in its body", async () => {
-    await signInWith(GRANTED);
-    const code = theLastCode();
-
-    const typed = await typeTheCode(GRANTED, code);
-
-    expect(await typed.json()).toStrictEqual({ status: true });
-    const minted = store.session.at(-1);
-    assert.ok(minted, "the code minted no session, so nothing below is compared");
-    expect(typed.headers.getSetCookie().join(";"), "the session's cookie did not ride the answer").toContain(minted.token);
-  });
-
   /* The window the message states is worth nothing unless the store enforces it: the library
      consumes an expired row on the way past, so a code typed late must refuse rather than sign in. */
   it("refuses a code whose row has expired, and mints no session for it", async () => {

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
+import { loadAuthClient, usePreloadedAuthClient } from "@/core/auth/browserClient";
 import { COPY } from "@/core/copy";
 
 import type { Copy } from "@/core/copy";
@@ -18,16 +19,13 @@ export function usePasskeyTouch(held: boolean) {
   const [isTouching, setTouching] = useState(false);
   // The touch's own refusal: the act never ran, so no answer of its says it.
   const [refusal, setRefusal] = useState<Copy | null>(null);
-  // The library's client fetched once the page stands, as the sign-in fetches it, so the press keeps its gesture.
-  useEffect(() => {
-    if (held) void import("@/core/authClient").catch(() => undefined);
-  }, [held]);
+  usePreloadedAuthClient(held);
 
   const touch = async (): Promise<Copy | null> => {
     if (!held) return null;
     setTouching(true);
     try {
-      const { authClient } = await import("@/core/authClient");
+      const authClient = await loadAuthClient();
       const { error } = await authClient.signIn.passkey();
       // A cancelled prompt and a refused passkey alike: the act did not run, and the passkey did not answer for it.
       return error === null ? null : COPY.signIn.refusal.unverified;

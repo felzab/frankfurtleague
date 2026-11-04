@@ -3,7 +3,7 @@ import { AccountEmpty, AccountPage } from "@/kit/AccountPage";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDatum } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { requireKontoSubject } from "@/features/konto/account";
+import { requireAccountSession } from "@/features/konto/account";
 import { getKontoEinwilligungen } from "@/features/konto/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -128,7 +128,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
 
 /** The person's records, read for the session the page is drawn for. */
 async function EntriesContent() {
-  await requireKontoSubject();
+  await requireAccountSession(ROUTES.accountEntries.path());
   const entries = entriesOf(await getKontoEinwilligungen());
   return entries.length === 0 ? (
     <AccountEmpty

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { rolesOf } from "@/core/roles";
 import { FunktionenView } from "@/features/funktionen/components/views/FunktionenView";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
-import { zieleOf } from "@/features/funktionen/utils";
+import { soleTeamOf, zieleOf } from "@/features/funktionen/utils";
 
 /** Where a signed-in person lands, and the switch between everything they hold. */
 export default async function PersoenlichStartPage() {
@@ -15,9 +15,8 @@ export default async function PersoenlichStartPage() {
 
   const { roles: funktionen, unconfirmed: unbestaetigt } = rolesOf(subject);
   const ziele = zieleOf(funktionen);
-  const [erstes, ...weitere] = ziele;
 
-  if (erstes === undefined)
+  if (ziele.length === 0)
     return (
       <FunktionenView
         zustand="konto"
@@ -25,10 +24,9 @@ export default async function PersoenlichStartPage() {
       />
     );
 
-  // Every person lands on a page named „Übersicht“: a team's own
-  // landing is one, so one team alone goes straight on; any other lone place is one card here.
-  const [{ art }] = erstes.funktionen;
-  if (weitere.length === 0 && art === "kontakt") redirect(erstes.href);
+  // Every person lands on a page named „Übersicht“, a team's own landing among them.
+  const team = soleTeamOf(ziele);
+  if (team !== null) redirect(team);
 
   return (
     <FunktionenView

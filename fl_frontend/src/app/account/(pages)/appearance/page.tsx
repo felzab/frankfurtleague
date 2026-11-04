@@ -4,7 +4,7 @@ import { ThemeChoice } from "@/kit/FrameNav";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
-import { requireKontoSubject } from "@/features/konto/account";
+import { requireAccountSession } from "@/features/konto/account";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Metadata, ResolvingMetadata } from "next";
@@ -15,7 +15,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 /** The theme's box, once the session is judged: the choice is the browser's, read on no server. */
 async function AppearanceContent() {
-  await requireKontoSubject();
+  await requireAccountSession(ROUTES.accountAppearance.path());
   return (
     <AccountBox
       title={COPY.page.accountAppearance}

@@ -513,6 +513,8 @@ export const COPY = catalogue({
       limit: (count: number) => `Mehr als ${formatNumber(count)} Passkeys sind nicht möglich.`,
       /** A first passkey set up past the sign-in library's `freshAge`. */
       signInTooOld: "Deine Anmeldung liegt zu lange zurück.",
+      /** A further passkey set up on an authenticator holding one of the person's already. */
+      alreadyOnDevice: "Auf diesem Gerät hast du schon einen Passkey.",
     },
     devices: {
       title: "Geräte",
