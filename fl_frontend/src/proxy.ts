@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { sessionCookieOf } from "./core/auth/library";
 import { withReturnAddress } from "./core/auth/returnAddress";
 import { slideSession } from "./core/auth/session";
+import { MAILED_LINK_PAGES, swapMailedLinkToken } from "./core/mailedLink";
 import { ROUTES } from "./core/routes";
 
 import type { NextRequest } from "next/server";
@@ -12,6 +13,11 @@ import type { NextRequest } from "next/server";
  * the matcher stay scoped to the pages a session serves — the slide is a Mongo round trip, never on a public load.
  */
 export async function proxy(req: NextRequest): Promise<NextResponse> {
+  // First, so the token has left the address before a page, the sign-in or a script reads it.
+  const page = MAILED_LINK_PAGES.find((path) => spellings(req.nextUrl.pathname).includes(path));
+  const swapped = page === undefined ? null : swapMailedLinkToken(req, page);
+  if (swapped !== null) return swapped;
+
   // Optimistic, as Next and the library document a proxy's check: the cookie alone, before any read, so a
   // visitor holding none meets sign-in, never an area's frame. Every verdict past it is a guard's.
   if (sessionCookieOf(req.headers) === null) {
@@ -46,9 +52,13 @@ function turnAway(req: NextRequest, destination: string): NextResponse {
 /** The signed-in pages' first segments: a person's area, the administration and the account, as the matcher lists them. */
 const AREAS = ["/area", "/admin", "/account"] as const;
 
-/** Raw and decoded both, as Next tests `config.matcher`: an area is judged on every spelling the matcher admits. */
 function inArea(pathname: string): boolean {
-  return [pathname, decoded(pathname)].some((path) => AREAS.some((area) => path === area || path.startsWith(`${area}/`)));
+  return spellings(pathname).some((path) => AREAS.some((area) => path === area || path.startsWith(`${area}/`)));
+}
+
+/** Raw and decoded both, as Next tests `config.matcher`: a page is judged on every spelling the matcher admits. */
+function spellings(pathname: string): string[] {
+  return [pathname, decoded(pathname)];
 }
 
 // A malformed escape is left as written, as Next leaves it: a person's address never throws here.
@@ -89,6 +99,8 @@ export const config = {
       has: [{ type: "header", key: "purpose", value: "prefetch" }],
       missing: [{ type: "header", key: "cookie", value: ".*\\.session_token=.*" }],
     },
+    // `fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES`, on a request carrying a token alone.
+    { source: "/(erasure|registrierung)", has: [{ type: "query", key: "token" }] },
     {
       source: "/signin/:path*",
       missing: [

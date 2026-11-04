@@ -186,7 +186,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     what is stored in or read from the browser.
   - Data: each request's address, time, page, status, browser identifier and referrer, never a
     credential or a typed search query (`nginx/edge_test.sh` holds that); application log lines;
-    in the browser the session cookie, a passkey ceremony's cookie, the theme in local storage,
+    in the browser the session cookie, a passkey ceremony's cookie, a mailed link's cookie holding
+    its token for an hour (`fl_frontend/src/core/mailedLink.ts`), the theme in local storage,
     Cloudflare's challenge clearance and Turnstile's frame.
   - Recipients: Hetzner and Cloudflare (section 7).
 - **Media and the organisers' names.**

@@ -110,7 +110,8 @@ test("the person deletes their account from the mailed link, signed out when it 
   // The passkey offer's „Später“ goes on to the address the link asked for, as the code's landing does.
   await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey" && url.searchParams.has("return"));
   await page.getByRole("button", { name: "Später" }).click();
-  await expect(page).toHaveURL((url) => url.pathname === "/erasure" && url.searchParams.has("token"));
+  // The token rides in the page's cookie, never in an address the sign-in or its bot check could read.
+  await expect(page).toHaveURL((url) => url.pathname === "/erasure" && url.search === "");
 
   // The list of what goes names the account's address, as the value of its row.
   const erasure = page.getByRole("main");
