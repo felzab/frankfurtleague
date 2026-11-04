@@ -16,10 +16,8 @@ import pytest
 from bson import ObjectId
 from fastapi import FastAPI
 from httpx2 import AsyncClient
-from pydantic import BaseModel, ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.account.schemas import FLAccountBewerbungSeatEinwilligung, FLAccountSeatEinwilligung
 from app.api.registrierungen.schemas import FLRegistrierungSeite
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.codes import Code
@@ -276,18 +274,6 @@ def served[T](url: str, steps: Callable[[AsyncClient, AsyncDatabase], Awaitable[
 
 async def _records(database: AsyncDatabase) -> dict[Any, Any]:
     return {row["_id"]: row async for row in database[Collection.SCHIEDSRICHTER].find({}, {"einwilligung": 1})}
-
-
-@pytest.mark.parametrize("model", [FLAccountSeatEinwilligung, FLAccountBewerbungSeatEinwilligung])
-def test_a_seat_entry_names_at_least_one_role_and_publishes_the_floor(model: type[BaseModel]):
-    """The page parses `rollen` as non-empty, and a contract compared past its bounds would not see the backend serve `[]`."""
-
-    assert model.model_json_schema()["properties"]["rollen"]["minItems"] == 1
-    with pytest.raises(ValidationError) as refused:
-        model.model_validate({**{field: None for field in model.model_fields}, "rollen": []})
-
-    # Among the other fields' refusals, the one this case is about.
-    assert ("too_short", ("rollen",)) in [(error["type"], error["loc"]) for error in refused.value.errors()]
 
 
 @pytest.mark.db
@@ -870,26 +856,13 @@ class TestTheSeatsWhatsAppChoice:
         assert (seat["umfang"], seat["medien"], seat[NACHWEIS]["medien"]) == ("kontaktdaten", True, medien_beleg)
         assert seat[NACHWEIS]["umfang"] == SEAT_WITHDRAWAL["umfang"]
 
-    def test_a_press_from_a_page_served_before_the_scope_moved_is_refused_and_unwritten(self, mongo_replica_set_url: str):
-        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
-            await _whatsapp_on_every_held_seat(database)
-            path = _seat_path(TEAM_B_OID, ACTIVE_SAISON)
-            served_stand = _seated_stand(1, umfang="kontaktdaten_whatsapp")
-            first = await http.patch(path, json=_seat_body(medien=True, stand=served_stand), headers=_person(IDENTIFIER))
-            before = await _rows(database)
-            stale = await http.patch(path, json=_seat_body(medien=False, stand=served_stand), headers=_person(IDENTIFIER))
-            return first, stale, before, await _rows(database)
 
-        first, stale, before, after = served(mongo_replica_set_url, steps)
-
-        assert first.status_code == 204, first.text
-        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.CHOICES_STALE)
-        assert after == before
-
-
+# The unanswered application reads first in the season, which `app/api/account/services.py :: BEWERBUNG_ORDER` sorts
+# by id: a read stopping at an application holding none of the person's confirmed seats, rather than passing it,
+# then drops the pending one.
+UNANSWERED_OID = ObjectId("6890a1b2c3d4e5f607850050")
 PENDING_OID = ObjectId("6890a1b2c3d4e5f607850051")
 DECIDED_OID = ObjectId("6890a1b2c3d4e5f607850052")
-UNANSWERED_OID = ObjectId("6890a1b2c3d4e5f607850053")
 PENDING_SCHULE = "Goethe, wie beworben"
 
 

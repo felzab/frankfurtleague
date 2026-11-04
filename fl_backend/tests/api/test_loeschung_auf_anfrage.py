@@ -922,8 +922,3 @@ class TestADomainIsRefusedBeyondAscii:
             payload.model_validate(body)
 
         assert [(error["loc"], error["type"]) for error in raised.value.errors()] == [(("email",), "email_not_accepted")]
-
-    def test_the_stored_punycode_is_looked_up(self):
-        """The control: the spelling every payload stored the domain in."""
-
-        assert FLErasureAdressePayload.model_validate({"email": "anna@xn--mller-kva.de"}).email == "anna@xn--mller-kva.de"

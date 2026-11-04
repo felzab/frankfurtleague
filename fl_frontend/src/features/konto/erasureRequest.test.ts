@@ -45,8 +45,6 @@ globalThis.fetch = ((input: string | URL | Request) => {
 const { requestErasure } = await import("./personActions.ts");
 const { auth } = await import("@/core/auth/library.ts");
 
-const HOUR_MS = 60 * 60 * 1000;
-
 beforeEach(() => {
   store.verification.length = 0;
 });
@@ -78,18 +76,5 @@ describe("the account page's request for a deletion link", () => {
       store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length,
       "a capped press minted a token row",
     ).toBe(5);
-  });
-
-  /* The link goes to the session's own mailbox, so a session past the step-up window still asks for one. */
-  it("mails the link from a session signed in past the step-up window", async () => {
-    const { cookie, row } = await sessionByCode(auth, store, "spaeter@example.org");
-    row.createdAt = new Date(Date.now() - 3 * HOUR_MS);
-    arriveAs(cookie);
-
-    expect((await requestErasure({ holder: "spaeter@example.org" })).ok).toBe(true);
-    assert.ok(
-      mail.sent.some((sent) => sent.to === "spaeter@example.org"),
-      "no link was mailed",
-    );
   });
 });

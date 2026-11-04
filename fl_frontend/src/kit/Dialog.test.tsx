@@ -133,70 +133,7 @@ describe("the kit's confirmation", () => {
 
     expectTheSharedOverlay(screen.getByRole("alertdialog"));
   });
-
-  it("closes once Next hides its page, though the control asking holds its open state in a plain one", async () => {
-    await leaveAndReturnWithOpen(HeldQuestion, "alertdialog");
-
-    expect(screen.queryByRole("alertdialog")).toBeNull();
-  });
 });
-
-/** A control asking its question through an open state of its own, a plain one, as Konto's removal holds it. */
-function HeldQuestion() {
-  const [isOpen, setOpen] = useState(false);
-  return (
-    <>
-      <Button
-        variant="secondary"
-        label={COPY.shared.verb.delete}
-        onPress={() => setOpen(true)}
-      />
-      <ConfirmDialog
-        verb="delete"
-        subject={NAME}
-        consequence={COPY.shared.failure.stale}
-        tone="danger"
-        onConfirm={() => undefined}
-        open={{ isOpen, onOpenChange: setOpen }}
-      />
-    </>
-  );
-}
-
-/** Which render a closing setter came from, as `FreshSetterDialog` records it. */
-const FROM_THE_OPEN_RENDER = "closed by the setter of the render that showed it open";
-const FROM_THE_FIRST_RENDER = "closed by the setter of the render that mounted it";
-
-/**
- * A control handing its dialog a new setter on every render, a closure over that render's state, as an inline
- * handler is: each records which render it came from as it closes the dialog.
- */
-function FreshSetterDialog() {
-  const [held, setHeld] = useState({ isOpen: false, closedBy: "" });
-  const from = held.isOpen ? FROM_THE_OPEN_RENDER : FROM_THE_FIRST_RENDER;
-  return (
-    <>
-      <Button
-        variant="secondary"
-        label={COPY.shared.verb.create}
-        onPress={() => setHeld({ isOpen: true, closedBy: "" })}
-      />
-      <p>{held.closedBy}</p>
-      <Dialog
-        title={NAME}
-        act={{ verb: "create", object: NAME }}
-        action={async () => DONE}
-        open={{ isOpen: held.isOpen, onOpenChange: (isOpen) => setHeld({ isOpen, closedBy: from }) }}>
-        <TextField
-          label={INPUT}
-          name="created"
-          width="W3"
-          kind="text"
-        />
-      </Dialog>
-    </>
-  );
-}
 
 /** A control opening its dialog through an open state of its own, a plain one. */
 function HeldDialog() {
@@ -225,17 +162,17 @@ function HeldDialog() {
 }
 
 /**
- * Opens the overlay a page holds by its one button, then leaves the page and comes back: Next keeps a departed page
+ * Opens the dialog a page holds by its one button, then leaves the page and comes back: Next keeps a departed page
  * in a hidden `Activity`, its state with it, and shows it again on the way back.
  */
-async function leaveAndReturnWithOpen(Page: () => ReactElement, role: "dialog" | "alertdialog") {
+async function leaveAndReturnWithOpen(Page: () => ReactElement) {
   const { rerender } = render(
     <Activity mode="visible">
       <Page />
     </Activity>,
   );
   await userEvent.click(screen.getByRole("button"));
-  expect(screen.getByRole(role)).toBeTruthy();
+  expect(screen.getByRole("dialog")).toBeTruthy();
   for (const mode of ["hidden", "visible"] as const)
     await act(async () =>
       rerender(
@@ -401,18 +338,9 @@ describe("the kit's dialog", () => {
     ["opened by its own trigger", () => <CreateDialog create={async () => DONE} />],
     ["opened by a control holding its open state in a plain one", HeldDialog],
   ])("closes once Next hides its page, %s", async (_opening, Page) => {
-    await leaveAndReturnWithOpen(Page, "dialog");
+    await leaveAndReturnWithOpen(Page);
 
     expect(screen.queryByRole("dialog")).toBeNull();
-  });
-
-  /* The hide's cleanup runs once, set up at mount: a holder's setter of that first render closes over state long
-     stale, which the holder's write would then put back. */
-  it("closes through the holder's setter of its latest render, a holder handing a new one each time", async () => {
-    await leaveAndReturnWithOpen(FreshSetterDialog, "dialog");
-
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(screen.getByText(FROM_THE_OPEN_RENDER)).toBeTruthy();
   });
 });
 

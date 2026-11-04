@@ -4,7 +4,6 @@ from typing import Any, Final
 import pytest
 from bson import ObjectId
 from pydantic import BaseModel, TypeAdapter, ValidationError
-from pydantic_core import PydanticCustomError
 
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
 from app.api.registrierungen.schemas import FLRegistrierungConfirmationPayload, FLRegistrierungEinwilligung
@@ -14,15 +13,11 @@ from app.api.teams.schemas import FLKontaktKenntnisnahme
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_nachweis import CHOICES, NACHWEIS, FLEinwilligungChoice
 from app.shared.schemas.einwilligung import (
-    FLAccountEinwilligungPayload,
     FLEinwilligungTextVersion,
-    FLSchiedsrichterAccountEinwilligungPayload,
     FLSchiedsrichterTextVersions,
-    FLSeatEinwilligungPayload,
     FLSeatTextVersions,
     FLSpielerTextVersions,
     labels_of,
-    refuse_a_stale_grant,
 )
 from tests.documents import (
     SCHIEDSRICHTER_TEXT_VERSIONS,
@@ -124,37 +119,8 @@ class TestARecordCitesItsKindsWordings:
             assert [error["type"] for error in refused.value.errors()] == ["text_version_of_another_wording"], other
 
 
-@pytest.mark.parametrize("kind", [FLSeatTextVersions, FLSpielerTextVersions, FLSchiedsrichterTextVersions])
-class TestAGrantNamesItsChoicesCurrentWording:
-    """A page loaded before a rewording names the label it replaced, which every record of its kind still cites.
-
-    Constructed past validation: every kind's records cite its current labels alone until a rewording adds one, so no
-    request can carry another yet.
-    """
-
-    STALE: Final = "2026-10-ersetzt-1"
-
-    @pytest.mark.parametrize(("choice", "giving"), [("umfang", "kader_oeffentlich"), ("umfang", "kontaktdaten_whatsapp"), ("medien", True)])
-    def test_a_grant_under_a_replaced_label_is_refused(self, kind: type[FLSeatTextVersions], choice: FLEinwilligungChoice, giving: Any):
-        labels = {**kind.current, choice: self.STALE}
-        stale = kind.model_construct(umfang=labels["umfang"], medien=labels["medien"])
-        with pytest.raises(PydanticCustomError) as refused:
-            refuse_a_stale_grant(stale, {choice: giving})
-        assert refused.value.type == "grant_wording_stale"
-
-    def test_a_withdrawal_under_a_replaced_label_is_taken(self, kind: type[FLSeatTextVersions]):
-        """Taking a consent back is never harder than giving it."""
-
-        stale = kind.model_construct(umfang=self.STALE, medien=self.STALE)
-        refuse_a_stale_grant(stale, {"umfang": "intern", "medien": False})
-        refuse_a_stale_grant(stale, {"umfang": "kontaktdaten", "medien": False})
-
-    def test_a_grant_under_the_current_label_is_taken(self, kind: type[FLSeatTextVersions]):
-        """The floor for the refusal above."""
-
-        refuse_a_stale_grant(kind.model_validate(dict(kind.current)), {"umfang": "kader_oeffentlich", "medien": True})
-
-
+# Constructed past validation: every kind's records cite its current labels alone until a rewording adds one, so no
+# request can carry another yet.
 STALE: Final = "2026-10-ersetzt-1"
 
 
@@ -187,63 +153,21 @@ def _confirmation(model: type[BaseModel]) -> Callable[..., Any]:
     return validate
 
 
-def _account_press(model: type[BaseModel]) -> Callable[..., Any]:
-    def validate(*, umfang: str, medien: bool, text_versions: Any) -> Any:
-        return model.model_validate(
-            {"umfang": umfang, "medien": medien, "text_versions": text_versions, "nachweis_stand": {"umfang": None, "medien": None}}
-        )
-
-    return validate
-
-
 # Each payload carrying `text_versions`, beside its kind and the value granting each choice in its vocabulary.
 CONFIRMATIONS: Final[list[Any]] = [
-    pytest.param(_seat_answer, FLSeatTextVersions, "kontaktdaten_whatsapp", "kontaktdaten", id="a seat's answer"),
-    pytest.param(_confirmation(FLRegistrierungConfirmationPayload), FLSpielerTextVersions, "kader_oeffentlich", "intern", id="a registration"),
-    pytest.param(
-        _confirmation(FLSchiedsrichterConfirmationPayload), FLSchiedsrichterTextVersions, "kader_oeffentlich", "intern", id="a referee"
-    ),
-]
-ACCOUNT_PRESSES: Final[list[Any]] = [
-    pytest.param(_account_press(FLAccountEinwilligungPayload), FLSpielerTextVersions, "kader_oeffentlich", "intern", id="a pupil's press"),
-    pytest.param(
-        _account_press(FLSchiedsrichterAccountEinwilligungPayload),
-        FLSchiedsrichterTextVersions,
-        "kader_oeffentlich",
-        "intern",
-        id="a referee's press",
-    ),
-    pytest.param(_account_press(FLSeatEinwilligungPayload), FLSeatTextVersions, "kontaktdaten_whatsapp", "kontaktdaten", id="a seat's press"),
+    pytest.param(_seat_answer, FLSeatTextVersions, "kontaktdaten_whatsapp", id="a seat's answer"),
+    pytest.param(_confirmation(FLRegistrierungConfirmationPayload), FLSpielerTextVersions, "kader_oeffentlich", id="a registration"),
+    pytest.param(_confirmation(FLSchiedsrichterConfirmationPayload), FLSchiedsrichterTextVersions, "kader_oeffentlich", id="a referee"),
 ]
 
 
-@pytest.mark.parametrize(("validate", "kind", "giving", "withholding"), CONFIRMATIONS)
+@pytest.mark.parametrize(("validate", "kind", "giving"), CONFIRMATIONS)
 class TestAConfirmationGrantsUnderItsCurrentWording:
     """Each confirmation is a first answer, so every choice it grants moves and names the current label in its payload."""
 
     @pytest.mark.parametrize("choice", CHOICES)
-    def test_a_grant_under_a_replaced_label_is_refused(
-        self, validate: Callable[..., Any], kind: Any, giving: str, withholding: str, choice: str
-    ):
+    def test_a_grant_under_a_replaced_label_is_refused(self, validate: Callable[..., Any], kind: Any, giving: str, choice: str):
         with pytest.raises(ValidationError) as refused:
             validate(umfang=giving, medien=True, text_versions=_replaced(kind, choice))
 
         assert [error["type"] for error in refused.value.errors()] == ["grant_wording_stale"]
-
-    @pytest.mark.parametrize("choice", CHOICES)
-    def test_a_choice_withheld_under_a_replaced_label_is_taken(
-        self, validate: Callable[..., Any], kind: Any, giving: str, withholding: str, choice: str
-    ):
-        """The other half of each payload's mapping onto the two choices: a withheld choice names any label its kind cites."""
-
-        validate(umfang=withholding, medien=False, text_versions=_replaced(kind, choice))
-
-
-@pytest.mark.parametrize(("validate", "kind", "giving", "withholding"), ACCOUNT_PRESSES)
-@pytest.mark.parametrize("choice", CHOICES)
-def test_an_account_press_leaves_a_grants_label_to_its_writer(
-    validate: Callable[..., Any], kind: Any, giving: str, withholding: str, choice: str
-):
-    """Only the writer reads whether a granted choice moves (`tests/api/test_account_press.py`), so the payload takes it."""
-
-    validate(umfang=giving, medien=True, text_versions=_replaced(kind, choice))

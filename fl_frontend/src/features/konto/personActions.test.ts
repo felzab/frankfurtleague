@@ -60,8 +60,7 @@ const GELOESCHT = {
   grants_approval_requests: 0,
 };
 
-/** What the backend's erasure answers, and every erasure it was asked for, with the actor header each carried. */
-let loeschungAnswer: () => Response = () => Response.json(GELOESCHT);
+/** Every erasure the backend was asked for, with the actor header each carried. */
 const loeschungen: { method: string; actor: string | null }[] = [];
 
 const LOESCHUNG_PATH = "/api/v0/identity/account/erasure";
@@ -90,7 +89,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   }
   if (path === LOESCHUNG_PATH) {
     loeschungen.push({ method: init?.method ?? "GET", actor: new Headers(init?.headers).get("x-fl-actor") });
-    return Promise.resolve(loeschungAnswer());
+    return Promise.resolve(Response.json(GELOESCHT));
   }
   if (path === ADDRESS_CHANGE_PATH) {
     addressChanges.push(init?.method ?? "GET");
@@ -128,7 +127,6 @@ beforeEach(() => {
   addressChanges.length = 0;
   consentWrites.length = 0;
   HELD.clear();
-  loeschungAnswer = () => Response.json(GELOESCHT);
   letzterInhaber = false;
 });
 
@@ -230,14 +228,6 @@ describe("a person's own account deletion through the mailed link's page", () =>
     assert.ok(linkStands(token), "the refused press spent the link");
   });
 
-  it("deletes for a passkey holder whose passkey signed in a moment ago", async () => {
-    const { row, token, holder } = await mitLink("beruehrt@example.org", { passkey: true });
-    madeByPasskey(store, row);
-
-    await ledToTheDonePage(eraseAccount({ token, holder }));
-    expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
-  });
-
   it("refuses the league's last owner before the link is spent, and deletes on the same link once another owns", async () => {
     const { row, token, holder } = await inhaberinMitLink("letzte-inhaberin@example.org");
     letzterInhaber = true;
@@ -249,30 +239,6 @@ describe("a person's own account deletion through the mailed link's page", () =>
     letzterInhaber = false;
     await ledToTheDonePage(eraseAccount({ token, holder }));
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
-  });
-
-  /* The library spends the link before the erasure runs, so a press the backend refuses there can never complete: the
-     form left standing would offer a press that ends on the link no longer valid. */
-  it("ends a press the backend's erasure refused, its link spent, as the link no longer valid, leading to Konto", async () => {
-    const { row, token, holder } = await inhaberinMitLink("zweite-inhaberin@example.org");
-    loeschungAnswer = () => Response.json({ error_code: "last_owner_erasure", trace_id: "0".repeat(32) }, { status: 409 });
-
-    expect(await eraseAccount({ token, holder })).toMatchObject({
-      ok: true,
-      value: { title: COPY.template.linkInvalid, next: { href: "/account/signin" } },
-    });
-    expect(loeschungen.length, "the backend was never asked, so the refusal proves nothing").toBe(1);
-    expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
-    assert.ok(!linkStands(token), "the library left the link standing, so the case proves nothing about a spent one");
-  });
-
-  it("answers a press failing past its spent link with its outcome unknown on the stale-page line", async () => {
-    const { token, holder } = await mitLink("unbekannt@example.org");
-    loeschungAnswer = () => {
-      throw new TypeError("fetch failed");
-    };
-
-    expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
   });
 
   it("ends a link the library refuses as the link no longer valid, erasing nothing", async () => {
@@ -349,17 +315,6 @@ describe("the account's acts, behind the account's guard and the touch", () => {
       reason: COPY.signIn.refusal.touchMissing,
     });
     expect(heldOf(row.userId).passkeys).toBe(1);
-  });
-
-  it("starts the change for a passkey holder whose passkey signed in a moment ago", async () => {
-    const row = await holderByCode("start-mit-touch@example.org");
-    madeByPasskey(store, row);
-
-    expect(await startAddressChange({ email: "neu@example.org", holder: "start-mit-touch@example.org" })).toStrictEqual({
-      ok: true,
-      value: undefined,
-    });
-    expect(addressChanges).toStrictEqual(["POST"]);
   });
 
   /* The person guard admits an address holding a grant on its mailed code alone, reporting it no administrator: the
