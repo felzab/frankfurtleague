@@ -247,24 +247,27 @@ def compose_spieler_account(row: Mapping[str, Any], *, givable: bool, today: str
     }
 
 
-def compose_schiedsrichter_self(row: Mapping[str, Any]) -> dict[str, Any]:
-    """One referee row's stored data, as `app/api/schiedsrichter/services.py :: SELBST_FIELDS` projects it."""
-
+def _compose_schiedsrichter_person(row: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "schiedsrichter_id": row["_id"],
         "name": row["name"],
         "schule": row.get("schule"),
-        "honorar": row["default_payment"],
         "kontakt": row["kontakt"],
         "geburtsdatum": row.get("geburtsdatum"),
     }
 
 
+def compose_schiedsrichter_self(row: Mapping[str, Any]) -> dict[str, Any]:
+    """One referee row's stored data and its fee, as `app/api/schiedsrichter/services.py :: SELBST_FIELDS` projects them."""
+
+    return {**_compose_schiedsrichter_person(row), "honorar": row["default_payment"]}
+
+
 def compose_schiedsrichter_account(row: Mapping[str, Any], *, givable: bool, today: str) -> dict[str, Any]:
-    """One referee row's account entry: its stored data and its consent."""
+    """One referee row's account entry: its stored data and its consent, never its fee, which the page shows nowhere."""
 
     return {
-        **compose_schiedsrichter_self(row),
+        **_compose_schiedsrichter_person(row),
         "einwilligung": row["einwilligung"],
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "givable": givable,

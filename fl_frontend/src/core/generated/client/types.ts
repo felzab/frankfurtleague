@@ -472,13 +472,15 @@ export interface FLKontakt {
 }
 
 /**
- * One referee record on the account page: its stored data and the consent the page moves.
+ * One referee record on the account page: the stored data its box shows and the consent the page moves.
+ *
+ * Its own shape rather than `app/api/schiedsrichter/schemas.py :: FLSchiedsrichterSelf`'s, whose fee the confirmation
+ * page lists and this box does not.
  */
 export interface FLAccountSchiedsrichterEinwilligung {
   einwilligung: FLEinwilligung;
   geburtsdatum: string | null;
   givable: boolean;
-  honorar: number;
   kontakt: FLKontakt;
   /** @exclusiveMinimum 0 */
   medien_minimum_age: number;

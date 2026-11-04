@@ -555,7 +555,9 @@ class TestTheAccountPagesRead:
         assert response.status_code == 200, response.text
         body = response.json()
         assert (body["spieler"]["spieler_id"], body["spieler"]["givable"]) == (str(PUPIL_OID), True)
-        assert [(record["schiedsrichter_id"], record["honorar"]) for record in body["schiedsrichter"]] == [(str(REFEREE_OID), 20)]
+        assert [(record["schiedsrichter_id"], record["name"]) for record in body["schiedsrichter"]] == [
+            (str(REFEREE_OID), "Ortrud Zwiebelmayer")
+        ]
         assert [(sitz["team_name"], sitz["saison_id"], sorted(sitz["rollen"]), sitz["medien"], sitz["givable"]) for sitz in body["seats"]] == [
             (ROW_NAME_B, ACTIVE_SAISON, ["stellvertretung"], True, True),
             (ROW_NAME_A_PAST, PAST_SAISON, ["ansprechperson", "trainer"], True, False),
