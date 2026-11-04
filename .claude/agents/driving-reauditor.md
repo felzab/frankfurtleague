@@ -83,6 +83,9 @@ in a fresh worktree to fail a page breaking Next's route types.
 - No page is yours to open, by any route: this definition holds no MCP tool, the browser pane's
   included, whose calls carry no timeout. What a person sees is the owner's browser pass; you drive
   tests, `tsc` and source.
+- A refused command is never re-run with a changed path, name or split: report the refusal.
+- Never run a command acting on resources you did not create -- a prune, a bulk remove, a shutdown:
+  report the need.
 
 10 TELL ME. A guard refusal is a rule arriving: comply and report it. Reaching the same end through a
 different tool, a container or an interpreter is a violation. Mid-task, `SendMessage` to `main`
