@@ -283,13 +283,13 @@ const userOptions = {
     enabled: true,
     deleteTokenExpiresIn: LOESCHUNG_LINK_GUELTIG_STUNDEN * 60 * 60,
     sendDeleteAccountVerification: sendDeletionLink,
-    beforeDelete: loeschenBeforeTheAccount,
+    beforeDelete: eraseBeforeTheAccount,
   },
 } satisfies BetterAuthOptions["user"];
 
 /** Named, because the library's failure line records an error's name and nothing else. */
-class DeletionWithoutLoeschung extends Error {
-  override name = "DeletionWithoutLoeschung";
+class DeletionWithoutErasure extends Error {
+  override name = "DeletionWithoutErasure";
 }
 
 // Our own dependency injection, never a compensation for the library: the hook takes no per-call
@@ -301,20 +301,20 @@ class DeletionWithoutLoeschung extends Error {
 export type DeletionPress = { readonly erase: () => Promise<unknown>; linkSpent: boolean };
 
 /** The press `deleteOwnAccount` runs the library's deletion under, for the deletion that call makes. */
-export const ownLoeschung = new AsyncLocalStorage<DeletionPress>();
+export const ownErasure = new AsyncLocalStorage<DeletionPress>();
 
 /**
  * Runs after the library has spent the token and checked it against the signed-in user, and before it deletes
  * anything: an account never goes while the league's records of its address stand.
  */
-async function loeschenBeforeTheAccount(user: { id: string; email: string }): Promise<void> {
-  const press = ownLoeschung.getStore();
+async function eraseBeforeTheAccount(user: { id: string; email: string }): Promise<void> {
+  const press = ownErasure.getStore();
   // First: whatever follows, the link this press carried is spent (`better-auth/api :: deleteUserCallback`).
   if (press !== undefined) press.linkSpent = true;
   // The backend erases the request's person and the library deletes the session's user, so the two must
   // be one address; with no erasure handed in, no deletion goes ahead at all.
   const actor = getRequestActor();
-  if (press === undefined || actor?.lane !== "person" || actor.email !== asSignInIdentifier(user.email)) throw new DeletionWithoutLoeschung();
+  if (press === undefined || actor?.lane !== "person" || actor.email !== asSignInIdentifier(user.email)) throw new DeletionWithoutErasure();
 
   // Thrown on as it came, for the press to word: the account and its passkeys stand, the link spent.
   await press.erase();

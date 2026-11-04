@@ -6,7 +6,7 @@ import { MongoServerError } from "mongodb";
 import { asSignInIdentifier } from "../emailAddress";
 import { APIBadStatusError, RolledBackError } from "../errors";
 import { deleteEndedSessions } from "./accountSessions";
-import { auth, ownLoeschung } from "./library";
+import { auth, ownErasure } from "./library";
 import { SESSIONS_ENDED_FIELD } from "./sessionStamps";
 import { deleteSignInRowsOf, DUPLICATE_KEY, EVERY_ROW, RemovalOutsideTransaction } from "./signInRows";
 
@@ -85,21 +85,21 @@ export class DeletionOutcomeUnknown extends Error {
 }
 
 /**
- * Completes a mailed deletion link for the session `requestHeaders` names, `loeschenRecords` erasing that
+ * Completes a mailed deletion link for the session `requestHeaders` names, `eraseRecords` erasing that
  * person's league records first. A failure before the library spends the link comes back as thrown; one after it
  * as `spentUnerased` or `DeletionOutcomeUnknown`.
  */
 export async function deleteOwnAccount(
   token: string,
   requestHeaders: Headers,
-  loeschenRecords: () => Promise<unknown>,
+  eraseRecords: () => Promise<unknown>,
 ): Promise<OwnAccountDeletion> {
   // The library reads an empty token as a request for a new link, which it would mint and mail: no link at all.
   if (token === "") return "linkRefused";
 
-  const press: DeletionPress = { erase: loeschenRecords, linkSpent: false };
+  const press: DeletionPress = { erase: eraseRecords, linkSpent: false };
   try {
-    const answer = await ownLoeschung.run(press, () => auth.api.deleteUser({ body: { token: token }, headers: requestHeaders }));
+    const answer = await ownErasure.run(press, () => auth.api.deleteUser({ body: { token: token }, headers: requestHeaders }));
     // The library's own word for a deletion, never the absence of a throw. Its one other answer, a link's, comes
     // only for an empty token, which the guard above refuses first: no case reaches this check alone.
     if (answer.message !== ACCOUNT_DELETED) throw new DeletionNotAnswered();

@@ -3572,7 +3572,7 @@ describe("a person's own account deletion", () => {
 
     await expect(
       asPerson("ohne-loeschung@example.org", () => auth.api.deleteUser({ body: { token: person.token }, headers })),
-    ).rejects.toSatisfy((thrown: Error) => thrown.name === "DeletionWithoutLoeschung");
+    ).rejects.toSatisfy((thrown: Error) => thrown.name === "DeletionWithoutErasure");
     expect(heldOf(person).user).toBe(1);
 
     await requestAccountDeletion(headers);
@@ -3585,7 +3585,7 @@ describe("a person's own account deletion", () => {
       ),
       // Past the library's spend of the link, so of an outcome the press cannot name.
     ).rejects.toSatisfy(
-      (thrown: Error) => thrown.name === "DeletionOutcomeUnknown" && (thrown.cause as Error).name === "DeletionWithoutLoeschung",
+      (thrown: Error) => thrown.name === "DeletionOutcomeUnknown" && (thrown.cause as Error).name === "DeletionWithoutErasure",
     );
 
     expect(loeschungen, "another person's records were erased").toStrictEqual([]);
