@@ -71,12 +71,13 @@ test("Konto's frame, Darstellung and „Alle anderen abmelden“, on one sign-in
     await expect(page).not.toHaveURL(/\/account/);
   }
 
-  // Darstellung acts at once, with the account menu's three glyphs.
+  // Darstellung acts at once, with the account menu's three glyphs: one choice of three, so React Aria's single-select
+  // button group draws them as radios, and next-themes marks the theme on the root's `data-theme`.
   await page.goto("/account/appearance");
-  await page.getByRole("main").getByRole("button", { name: "Dunkel" }).click();
-  await expect(page.locator("html")).toHaveClass(/dark/);
-  await page.getByRole("main").getByRole("button", { name: "Hell" }).click();
-  await expect(page.locator("html")).not.toHaveClass(/dark/);
+  await page.getByRole("main").getByRole("radio", { name: "Dunkel" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByRole("main").getByRole("radio", { name: "Hell" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 
   // „Alle anderen abmelden“ asks first, then ends the other device's session and keeps this one.
   await page.goto("/account/security");
