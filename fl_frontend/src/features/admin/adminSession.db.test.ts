@@ -128,7 +128,7 @@ describe("the administrator's session across one render pass", () => {
   itOpensAScopeThatMemoizes();
 
   /* The admin layout's hold, season slot and switcher each read the session, all in one render pass:
-     `fl_frontend/src/app/bereich/admin/layout.tsx :: AdminLayout`. */
+     `fl_frontend/src/app/area/admin/layout.tsx :: AdminLayout`. */
   it("reads the store once for the frame's three readers", async () => {
     requestHeaders = await signInAsAdministrator();
 

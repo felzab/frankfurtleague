@@ -336,7 +336,7 @@ async def accept_bewerbung(
                 "austritt": None,
                 "trikot_farbe": annahme_data.trikot_farbe,
                 # The three people arrive WITH the row rather than in a later write: they are what the
-                # application was, and `/bereich/admin/kontakte` reads them from here. Copied whole, each seat
+                # application was, and `/area/admin/kontakte` reads them from here. Copied whole, each seat
                 # confirmed by its own person before acceptance was allowed (`bewerbung_kontakte_unconfirmed`).
                 "kontakte": bewerbung_raw["kontakte"],
                 # Copied rather than joined on read.

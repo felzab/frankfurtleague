@@ -15,8 +15,8 @@ import { FRESH_SIGN_IN_SECONDS, isWithinPersonLifetime, PASSKEY_FACTOR } from ".
 import type { Verwaltung } from "../verwaltung";
 import type { ServedSession } from "./session";
 
-/** Where `/signin/continue` sends the session it was handed, before `/bereich` is resolved to the page it leads to. */
-export type SignInDestination = "/signin/passkey" | "/bereich" | "/signin";
+/** Where `/signin/continue` sends the session it was handed, before `/area` is resolved to the page it leads to. */
+export type SignInDestination = "/signin/passkey" | "/area" | "/signin";
 
 export async function getSignInDestination(): Promise<SignInDestination> {
   return (await landingOf(await headers())).destination;
@@ -49,12 +49,12 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
   const served = await servedSessionOf(read);
   if (served === null || !isWithinPersonLifetime(read.session)) return ended(read);
 
-  // An unread lookup is the backend down: `/bereich` answers it with the person area's outage panel, its
+  // An unread lookup is the backend down: `/area` answers it with the person area's outage panel, its
   // own lookup failing, where `/signin` would mail no code and say nothing.
   const subjekt = await subjektOrNull(served.user.email);
-  if (subjekt === null) return { destination: "/bereich", served: served };
+  if (subjekt === null) return { destination: "/area", served: served };
 
-  // The ban itself, never read through the grant: every guard behind `/bereich` refuses a barred session,
+  // The ban itself, never read through the grant: every guard behind `/area` refuses a barred session,
   // and one left standing serves again on the ban's lift with no sign-in.
   if (subjekt.barred) return ended(read);
 
@@ -73,21 +73,21 @@ async function ended(read: ServedSession): Promise<Landing> {
 
 async function destinationOf(served: ServedSession, verwaltung: Verwaltung): Promise<SignInDestination> {
   if (verwaltung.verwaltung !== null) {
-    // The guard's own verdict rather than a second spelling of it: `/bereich` sends a granted session
-    // the guard refuses on to `/bereich/admin`, whose guards send it back here.
-    if (isAdminSession(served, verwaltung)) return "/bereich";
+    // The guard's own verdict rather than a second spelling of it: `/area` sends a granted session
+    // the guard refuses on to `/area/admin`, whose guards send it back here.
+    if (isAdminSession(served, verwaltung)) return "/area";
 
     // Where the passkey page has no step to offer, the session is spent, and an administrator signs in
     // afresh rather than being sent to a person's landing with no way to the step they owe.
     return (await passkeyStepOf(served, true)) === null ? "/signin" : "/signin/passkey";
   }
 
-  return (await passkeyStepOf(served, false)) === "offer" ? "/signin/passkey" : "/bereich";
+  return (await passkeyStepOf(served, false)) === "offer" ? "/signin/passkey" : "/area";
 }
 
 /**
  * Which card `/signin/passkey` shows: an administrator's required enrolment or assertion, or the
- * passkey offered to a person, whose „Später“ goes on to `/bereich`.
+ * passkey offered to a person, whose „Später“ goes on to `/area`.
  */
 export type PasskeyStep = { readonly step: "enrol" | "assert" | "offer"; readonly email: string };
 

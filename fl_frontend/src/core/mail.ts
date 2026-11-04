@@ -262,7 +262,7 @@ async function drain(): Promise<void> {
     for (const mail of mails) {
       const report = { lease: lease, ...(await sendHandedOut(mail)) };
       // The provider's name for a refusal is its own token, kept only where the endpoint takes it: the outcome stands
-      // without one, as `fl_frontend/src/app/api/mail/zustellung/route.ts` keeps a delivery event's.
+      // without one, as `fl_frontend/src/app/api/mail/delivery/route.ts` keeps a delivery event's.
       const response = await outboxPostResult(OutboxPostResultBody.safeParse(report).data ?? { ...report, grund: null });
       for (const field of Object.keys(response) as (keyof DrainCount)[]) sinceLastPass[field] += response[field];
     }

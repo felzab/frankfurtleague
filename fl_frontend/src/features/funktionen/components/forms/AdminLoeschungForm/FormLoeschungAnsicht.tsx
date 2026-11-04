@@ -76,14 +76,14 @@ function zeilenOf(
       : [
           {
             text: EIGENER_ADRESSWECHSEL_ZEILE,
-            href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${eigener_adresswechsel.address_change_id}`),
+            href: saisonHref(`/area/admin/adresswechsel?adresswechsel=${eigener_adresswechsel.address_change_id}`),
           },
         ]),
     // A pending change names no person of its own, so its line opens the change in the address tool, or says why the
     // tool would refuse this reader and where it opens instead.
     ...adresswechsel.map(({ address_change_id: adresswechsel_id, viewable_denied: einsehbar_verwehrt }) =>
       einsehbar_verwehrt === null
-        ? { text: ADRESSWECHSEL_ZEILE, href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechsel_id}`) }
+        ? { text: ADRESSWECHSEL_ZEILE, href: saisonHref(`/area/admin/adresswechsel?adresswechsel=${adresswechsel_id}`) }
         : { text: `${ADRESSWECHSEL_ZEILE}. ${EINSEHBAR_VERWEHRT[einsehbar_verwehrt]}` },
     ),
     ...(verwaltung === null

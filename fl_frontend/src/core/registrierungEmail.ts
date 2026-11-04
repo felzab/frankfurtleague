@@ -6,7 +6,7 @@ import type { Mail } from "./emailShell";
 import type { FLRegistrierungAbsageData, FLRegistrierungLinkData } from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
 
-const SPIELER_BESTAETIGUNG_PATH = "/bestaetigung/spieler";
+const SPIELER_BESTAETIGUNG_PATH = "/confirm/spieler";
 
 // Beside the builders that spend it rather than in the slice: `core` may not import a feature.
 
@@ -32,7 +32,7 @@ export function buildRegistrierungBestaetigungEmail(
   { origin, token }: MailLink,
 ): Mail {
   // Through `mailOrigin` once, and the link minted on what it answered: a raw `AUTH_URL` with a
-  // trailing slash would otherwise put `//bestaetigung/spieler` in every registering pupil's mail,
+  // trailing slash would otherwise put `//confirm/spieler` in every registering pupil's mail,
   // which the edge's noindex prefix does not match.
   const site = mailOrigin(origin);
 

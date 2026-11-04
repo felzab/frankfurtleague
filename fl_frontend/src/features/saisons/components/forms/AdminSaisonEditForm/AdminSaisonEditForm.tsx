@@ -271,7 +271,7 @@ export function AdminSaisonEditForm({
   };
 
   const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
-    fallbackHref: saisonHref("/bereich/admin/saisons"),
+    fallbackHref: saisonHref("/area/admin/saisons"),
     isDirty,
     // The redraw too: it is left, like the draft, on a tree the router keeps.
     resetDraftToStored: () => {

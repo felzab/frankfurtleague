@@ -2,12 +2,12 @@
 export const RETURN_PARAMETER = "return";
 
 /**
- * The addresses a sign-in may return to, written out rather than parsed: a signed-in area's page, and the mailed
- * deletion link with its token. Each segment is letters, digits, `-` and `_` alone, so no `.`, `%`, `\` or second
+ * The addresses a sign-in may return to, written out rather than parsed: a page under `/area`, `/admin` or
+ * `/account`, the three the proxy turns away signed out, and the mailed deletion link with its token. Each segment is letters, digits, `-` and `_` alone, so no `.`, `%`, `\` or second
  * `/` can turn a path into another host or a decoded one into another path.
  */
 // The query's mark as a class, so `scripts/checks/check_public_routes.py` reads no minted link here.
-const ALLOWED = /^\/(?:bereich(?:\/[A-Za-z0-9_-]+)*|loeschung[?]token=[A-Za-z0-9_-]+)$/;
+const ALLOWED = /^\/(?:(?:area|admin|account)(?:\/[A-Za-z0-9_-]+)*|erasure[?]token=[A-Za-z0-9_-]+)$/;
 
 /**
  * The address a sign-in returns to, or `null` for any the allowlist does not hold, an absent one included: a

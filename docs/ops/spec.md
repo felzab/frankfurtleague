@@ -225,28 +225,28 @@ never publishes its port, which ends that scope refused.
 
 Longest-prefix match. Order in the file is irrelevant; specificity decides.
 
-| Location                              | Upstream        | Notes                                                                                                                                                                                                |
-| ------------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/auth`                           | `frontend:3000` | Every path the sign-in library mounts but the code check below, the passkey ceremony and the sign-out among them, metered on `authapi`/`authapi48` — a PREFIX, so no trailing-slash twin             |
-| `= /api/auth/sign-in/email-otp`       | `frontend:3000` | The sign-in library's own route, the typed sign-in code's check — paired `limit_req` `zone=confirmation burst=3` and `zone=confirmation48 burst=30`, and `client_max_body_size 8k`                   |
-| `= /api/client-error`                 | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30` ([`docs/logging/overview.md`](../logging/overview.md))                                             |
-| `= /api/bewerbung`                    | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's |
-| `= /api/bewerbung/kuerzel`            | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                             |
-| `= /api/bestaetigung/kontakt`         | `frontend:3000` | Next route handler, the contact person's confirmation — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                             |
-| `= /api/registrierung`                | `frontend:3000` | Next route handler, a pupil's registration through their team's invite — paired `limit_req` `zone=registrierung burst=40` and `zone=registrierung48 burst=400`, and `client_max_body_size 8k`        |
-| `= /api/bestaetigung/spieler`         | `frontend:3000` | Next route handler, the pupil's confirmation — paired `limit_req` `zone=spielerlink burst=40` and `zone=spielerlink48 burst=400`, and `client_max_body_size 8k`                                      |
-| `= /api/bestaetigung/schiedsrichter`  | `frontend:3000` | Next route handler, the referee's confirmation link — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                               |
-| `= /api/bestaetigung/spiel`           | `frontend:3000` | Next route handler, a club's answer to a fixture confirmation link — paired `limit_req` `zone=spielbestaetigung burst=10` and `zone=spielbestaetigung48 burst=100`, and `client_max_body_size 8k`    |
-| `= /api/mail/zustellung`              | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`, and `client_max_body_size 8k`                          |
-| the `/` twins                         | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
-| `= /api/v0/system/is_live`            | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (§3)                                                                                                  |
-| `= /signin`                           | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
-| `= /signin/continue`                  | `frontend:3000` | Next route handler, the sign-in's landing — `/api/auth`'s `authapi`/`authapi48` pair, every method metered                                                                                           |
-| `/_next/static/`                      | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`, and the server-action pair, which meters no GET                                                                                                |
-| `/bestaetigung/`                      | `frontend:3000` | Every link page under it, a PREFIX: paired `limit_req` `zone=linkseite burst=60` and `zone=linkseite48 burst=600` on every request, beside `/`'s ceiling and action pair                             |
-| `= /registrierung` and `= /loeschung` | `frontend:3000` | The two link pages outside that segment, a team's invite and the deletion link: `/bestaetigung/`'s lines, each with its twin                                                                         |
-| `= /account` and `/account/`          | `frontend:3000` | Konto, its list with its twin and its four pages by a PREFIX: paired `limit_req` `zone=account burst=10` and `zone=account48 burst=100` on its POSTs, beside `/`'s ceiling and action pair           |
-| `/`                                   | `frontend:3000` | Catch-all — `limit_conn conn 50`, and the server-action pair, which meters nothing else                                                                                                              |
+| Location                             | Upstream        | Notes                                                                                                                                                                                                |
+| ------------------------------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/auth`                          | `frontend:3000` | Every path the sign-in library mounts but the code check below, the passkey ceremony and the sign-out among them, metered on `authapi`/`authapi48` — a PREFIX, so no trailing-slash twin             |
+| `= /api/auth/sign-in/email-otp`      | `frontend:3000` | The sign-in library's own route, the typed sign-in code's check — paired `limit_req` `zone=confirmation burst=3` and `zone=confirmation48 burst=30`, and `client_max_body_size 8k`                   |
+| `= /api/client-error`                | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30` ([`docs/logging/overview.md`](../logging/overview.md))                                             |
+| `= /api/bewerbung`                   | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's |
+| `= /api/bewerbung/kuerzel`           | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                             |
+| `= /api/bestaetigung/kontakt`        | `frontend:3000` | Next route handler, the contact person's confirmation — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                             |
+| `= /api/registrierung`               | `frontend:3000` | Next route handler, a pupil's registration through their team's invite — paired `limit_req` `zone=registrierung burst=40` and `zone=registrierung48 burst=400`, and `client_max_body_size 8k`        |
+| `= /api/bestaetigung/spieler`        | `frontend:3000` | Next route handler, the pupil's confirmation — paired `limit_req` `zone=spielerlink burst=40` and `zone=spielerlink48 burst=400`, and `client_max_body_size 8k`                                      |
+| `= /api/bestaetigung/schiedsrichter` | `frontend:3000` | Next route handler, the referee's confirmation link — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                               |
+| `= /api/bestaetigung/spiel`          | `frontend:3000` | Next route handler, a club's answer to a fixture confirmation link — paired `limit_req` `zone=spielbestaetigung burst=10` and `zone=spielbestaetigung48 burst=100`, and `client_max_body_size 8k`    |
+| `= /api/mail/delivery`               | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`, and `client_max_body_size 8k`                          |
+| the `/` twins                        | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
+| `= /api/v0/system/is_live`           | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (§3)                                                                                                  |
+| `= /signin`                          | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
+| `= /signin/continue`                 | `frontend:3000` | Next route handler, the sign-in's landing — `/api/auth`'s `authapi`/`authapi48` pair, every method metered                                                                                           |
+| `/_next/static/`                     | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`, and the server-action pair, which meters no GET                                                                                                |
+| `/confirm/`                          | `frontend:3000` | Every link page under it, a PREFIX: paired `limit_req` `zone=linkseite burst=60` and `zone=linkseite48 burst=600` on every request, beside `/`'s ceiling and action pair                             |
+| `= /registrierung` and `= /erasure`  | `frontend:3000` | The two link pages outside that segment, a team's invite and the deletion link: `/confirm/`'s lines, each with its twin                                                                              |
+| `= /account` and `/account/`         | `frontend:3000` | Konto, its list with its twin and its four pages by a PREFIX: paired `limit_req` `zone=account burst=10` and `zone=account48 burst=100` on its POSTs, beside `/`'s ceiling and action pair           |
+| `/`                                  | `frontend:3000` | Catch-all — `limit_conn conn 50`, and the server-action pair, which meters nothing else                                                                                                              |
 
 **The edge reaches each upstream by its service name as it serves, never by an address read at
 load**. A container compose recreates or starts again comes back under its name at another
@@ -363,10 +363,10 @@ the one line in `nginx/shared/site.conf` bounds whole connections locally.
 and every method**, on `linkseite`/`linkseite48`: each GET renders a page reading the database,
 through the backend or the sign-in store, so one network reloading a link page spends database
 operations the whole league shares. No page links to one, so a visit is one request rather than a
-navigation's fan-out, which is what a zone at `location /` would refuse. **`/bestaetigung/` is a
+navigation's fan-out, which is what a zone at `location /` would refuse. **`/confirm/` is a
 prefix because every page under it is a link page**, so a page added there is metered the day it
 exists; a link page added anywhere else needs an exact match and its twin, as `/registrierung` and
-`/loeschung` have. **`scripts/checks/check_public_routes.py :: LINK_ZONES` holds every link page to a
+`/erasure` have. **`scripts/checks/check_public_routes.py :: LINK_ZONES` holds every link page to a
 location naming that pair, at its URL and at its twin's, each zone on one `limit_req` line in every
 block naming it**: a link page is one whose own module reads `token` from its search parameters, or
 one a module under `fl_frontend/src` mints a `?token=` link to, so a page reading the token through
@@ -644,7 +644,7 @@ local stack starts with an empty `auth` and a sign-in builds it; the grants deci
 which administrator may sign in, and which the backend admits, arrive with the copy
 (`berechtigungen`), so a `--fresh` stack admits nobody until one is written, and anybody else is
 offered a sign-in only where the local backend holds records for their address (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). **A sign-in alone does not reach
-`/bereich/admin` there**: the code stamps its session `code` where the admin guard wants `passkey`
+`/area/admin` there**: the code stamps its session `code` where the admin guard wants `passkey`
 (`fl_frontend/src/core/auth/guards.ts :: isAdminSession`), so `/signin/passkey` offers an enrolment first —
 bound to this machine's own authenticator and to `localhost`, the relying party the local `AUTH_URL`
 gives. Every machine, and every `--fresh`, enrols again. A second passkey is added from the
@@ -1019,8 +1019,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 - **Email Routing receives every message sent to the domain and only forwards it**: the zone's MX
   records name Cloudflare's routing servers, and each league address forwards to the personal
   mailboxes of the organisers who answer it, the league holding no mailbox. The published privacy
-  notice says exactly that
-  (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx :: EMPFAENGER`), so a route
+  notice at `/datenschutz` says exactly that, so a route
   aimed at a hosted mailbox changes that notice in the same step.
 - **The AI-bot controls admit an agent and refuse a trainer**: AI training blocked, AI agents
   allowed, AI search allowed. An agent fetching a page for a person is a visitor; a crawler filling

@@ -43,11 +43,12 @@ function turnAway(req: NextRequest, destination: string): NextResponse {
   return NextResponse.redirect(new URL(returnTo, req.nextUrl));
 }
 
-const AREA = "/bereich";
+/** The signed-in pages' first segments: a person's area, the administration and the account, as the matcher lists them. */
+const AREAS = ["/area", "/admin", "/account"] as const;
 
-/** Raw and decoded both, as Next tests `config.matcher`: the area is judged on every spelling the matcher admits. */
+/** Raw and decoded both, as Next tests `config.matcher`: an area is judged on every spelling the matcher admits. */
 function inArea(pathname: string): boolean {
-  return [pathname, decoded(pathname)].some((path) => path === AREA || path.startsWith(`${AREA}/`));
+  return [pathname, decoded(pathname)].some((path) => AREAS.some((area) => path === area || path.startsWith(`${area}/`)));
 }
 
 // A malformed escape is left as written, as Next leaves it: a person's address never throws here.
@@ -60,12 +61,13 @@ function decoded(pathname: string): string {
 }
 
 export const config = {
-  // Next tests the raw path and its decoded spelling both, so an escaped `bereich` is matched too.
+  // Next tests the raw path and its decoded spelling both, so an escaped `area` is matched too. A source is a
+  // literal Next reads at build time, so the three areas are spelled here rather than read from `AREAS`.
   matcher: [
     // A prefetch is no page anybody read, and Next runs the proxy on every one a page's links make. Next
     // strips the prefetch header before the proxy runs, so only the matcher can keep it from sliding.
     {
-      source: "/bereich/:path*",
+      source: "/(area|admin|account)/:path*",
       missing: [
         // No `value`, so it matches the header whatever it carries, a partial prefetch's `2` and `3` among them. A full
         // prefetch sends no header and runs the proxy.
@@ -76,14 +78,14 @@ export const config = {
     // Save a prefetch carrying no session cookie: the cookie check turns it away before any read, so a visitor
     // holding none is sent to sign-in rather than shown the prefetched frame.
     {
-      source: "/bereich/:path*",
+      source: "/(area|admin|account)/:path*",
       has: [{ type: "header", key: "next-router-prefetch" }],
       // A matcher holds literals, so the name is matched on its suffix, of any prefix: a foreign cookie bearing it
       // skips the proxy, and its prefetched frame paints until the page's guard sends it on.
       missing: [{ type: "header", key: "cookie", value: ".*\\.session_token=.*" }],
     },
     {
-      source: "/bereich/:path*",
+      source: "/(area|admin|account)/:path*",
       has: [{ type: "header", key: "purpose", value: "prefetch" }],
       missing: [{ type: "header", key: "cookie", value: ".*\\.session_token=.*" }],
     },

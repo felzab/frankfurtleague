@@ -629,7 +629,7 @@ describe("a session read the store does not answer", () => {
 
     adapterCalls.refusing = refusingSessions;
     try {
-      const answer = await proxy(new NextRequest("http://localhost:3000/bereich/admin/spiele", { headers: { cookie } }));
+      const answer = await proxy(new NextRequest("http://localhost:3000/area/admin/spiele", { headers: { cookie } }));
 
       expect(answer.headers.get("location"), "the proxy signed an administrator out on an outage").toBe(null);
       expect(answer.headers.get("x-middleware-next")).toBe("1");
@@ -670,7 +670,7 @@ describe("whom `/signin` greets rather than offering a sign-in", () => {
     expect(await getSignedInAddress()).toBe(null);
   });
 
-  /* A session its ban's ending missed: every guard behind `/bereich` refuses it, so a landing there
+  /* A session its ban's ending missed: every guard behind `/area` refuses it, so a landing there
      sends it straight back to a page that would greet it as signed in. */
   it("greets no barred person, and lands them on the sign-in rather than in the person area", async () => {
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
@@ -752,7 +752,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     ageRow(person.row, { created: 24 * HOUR_MS + MINUTE_MS });
     arriveAs(person.cookie);
 
-    expect(await getSignInDestination()).toBe("/bereich");
+    expect(await getSignInDestination()).toBe("/area");
   });
 
   /* The case that fails first if the absolute cap is dropped as redundant: no `expiresIn` supplies
@@ -792,7 +792,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     ageRow(row, { created: 29 * DAY_MS, idle: 13 * DAY_MS });
     arriveAs(cookie);
 
-    expect(await getSignInDestination()).toBe("/bereich");
+    expect(await getSignInDestination()).toBe("/area");
   });
 
   it("serves an administrator's session a minute short of twenty-four hours old, for the same reason", async () => {
@@ -802,7 +802,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     arriveAs(cookie);
 
     assert.ok(await getAdminSession());
-    expect(await getSignInDestination()).toBe("/bereich");
+    expect(await getSignInDestination()).toBe("/area");
   });
 
   it("refuses an administrator's session a minute past an hour idle, and keeps it for the person lane", async () => {
@@ -850,7 +850,7 @@ describe("the administrator's idle hour across the proxy's slide", () => {
     madeByPasskey(store, row);
     refreshedAgo(row, idle);
 
-    await proxy(new NextRequest("http://localhost:3000/bereich/admin/spiele", { headers: { cookie } }));
+    await proxy(new NextRequest("http://localhost:3000/area/admin/spiele", { headers: { cookie } }));
     assert.ok(Date.now() - row.updatedAt.getTime() < MINUTE_MS, "the proxy slid nothing, so the case proves nothing");
 
     arriveAs(cookie);
@@ -871,13 +871,13 @@ describe("the administrator's idle hour across the proxy's slide", () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     refreshedAgo(row, 2 * HOUR_MS);
 
-    await proxy(new NextRequest("http://localhost:3000/bereich/konto", { headers: { cookie } }));
+    await proxy(new NextRequest("http://localhost:3000/account", { headers: { cookie } }));
     expect(Reflect.get(row, "adminLapsed"), "the slide left no mark, so the case proves nothing").toBe(true);
 
     arriveAs(cookie);
     assert.ok(await getKontoSession(), "the account guard refused a person's marked session");
     assert.ok(await getSubjectSession(), "the person guard refused a person's marked session");
-    expect(await getSignInDestination()).toBe("/bereich");
+    expect(await getSignInDestination()).toBe("/area");
   });
 });
 
@@ -894,7 +894,7 @@ describe("a grant the backend cannot answer for", () => {
     const loggedBefore = logged.length;
 
     expect(await getAdminSession()).toBe(null);
-    expect(await getSignInDestination()).toBe("/bereich");
+    expect(await getSignInDestination()).toBe("/area");
     expect(await getPasskeyStep()).toBe(null);
     expect(logged.slice(loggedBefore).map((line) => [line.message, line.meta])).toStrictEqual(
       Array.from({ length: 3 }, () => ["auth.verwaltung_unread", { name: "APINetworkError" }]),
@@ -975,7 +975,7 @@ describe("a passkey session made before its grant", () => {
 
     assert.ok(await getAdminSession(), "the control was refused, so the case above proves nothing");
     assert.ok(await getKontoSession());
-    expect(await getSignInDestination()).toBe("/bereich");
+    expect(await getSignInDestination()).toBe("/area");
   });
 
   it("is judged to the millisecond: refused a millisecond before its grant, admitted at it", async () => {
@@ -1083,7 +1083,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     arriveAs(cookie);
 
     assert.ok(await getAdminSession());
-    expect(await getSignInDestination()).toBe("/bereich");
+    expect(await getSignInDestination()).toBe("/area");
   });
 
   /* A passkey enrolled elsewhere leaves this mailbox session as it was, so holding one decides which
@@ -1139,13 +1139,13 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     arriveAs(holding.cookie);
 
     expect(await getPasskeyStep()).toBe(null);
-    expect(await getSignInDestination()).toBe("/bereich");
+    expect(await getSignInDestination()).toBe("/area");
 
     store.passkey.length = 0;
     madeByPasskey(store, holding.row);
 
     expect(await getPasskeyStep(), "a session the passkey made was offered one").toBe(null);
-    expect(await getSignInDestination()).toBe("/bereich");
+    expect(await getSignInDestination()).toBe("/area");
   });
 
   /* The enrolment is refused past the library's `freshAge`, so a card offered there is a press the server
@@ -1156,7 +1156,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     arriveAs(cookie);
 
     expect(await getPasskeyStep()).toBe(null);
-    expect(await getSignInDestination()).toBe("/bereich");
+    expect(await getSignInDestination()).toBe("/area");
   });
 
   /* Past the window an administrator holding none has no card the server would honour: sent to the
@@ -1216,8 +1216,8 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
   });
 
   /* The landing re-spelled the guard's conditions once, so a third one added to the guard would land a
-     granted session on a `/bereich` that sends it on to an `/bereich/admin` whose guard bounces it. */
-  it("lands a granted session on `/bereich` exactly where the guard admits it, over the same seeded rows", async ({ onTestFinished }) => {
+     granted session on a `/area` that sends it on to an `/area/admin` whose guard bounces it. */
+  it("lands a granted session on `/area` exactly where the guard admits it, over the same seeded rows", async ({ onTestFinished }) => {
     onTestFinished(() => void BACKENDS.delete(ADMIN_EMAIL));
     const { cookie, row } = await signIn(ADMIN_EMAIL);
 
@@ -1237,7 +1237,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
           const destination = await getSignInDestination();
 
           expect(
-            destination === "/bereich",
+            destination === "/area",
             `${factor} at ${String(created / HOUR_MS)}h, granted ${String(grantedAgo / HOUR_MS)}h ago, landed on ${destination}`,
           ).toBe(isAdminSession(seen, grant));
         }
@@ -3346,7 +3346,7 @@ async function asPerson<T>(email: string, run: () => Promise<T>): Promise<T> {
 function mailedToken(email: string): string {
   const message = sent.findLast((entry) => entry.to === email);
   assert.ok(message !== undefined, "no deletion mail went to the address");
-  const found = /\/loeschung\?token=([0-9a-z]+)/.exec(message.text);
+  const found = /\/erasure\?token=([0-9a-z]+)/.exec(message.text);
   assert.ok(found?.[1] !== undefined, "the deletion mail carries no link to the interstitial");
 
   return found[1];
@@ -3417,7 +3417,7 @@ describe("a person's own account deletion", () => {
     const message = sent.findLast((entry) => entry.to === email);
     assert.ok(message !== undefined, "the request mailed nothing");
     for (const part of [message.html, message.text]) {
-      assert.ok(part.includes("http://localhost:3000/loeschung?token="), "a part of the mail lacks the interstitial's link");
+      assert.ok(part.includes("http://localhost:3000/erasure?token="), "a part of the mail lacks the interstitial's link");
       assert.ok(!part.includes("/delete-user"), "a part of the mail carries the library's own deleting URL");
     }
     const stored = store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId);

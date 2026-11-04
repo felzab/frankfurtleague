@@ -8,7 +8,7 @@ import type { FLSchiedsrichterConfirmationData } from "./generated/client/types"
 import type { MailLink } from "./mailKinds";
 
 /** A segment of its own rather than a query on a shared page, so the sitemap and `robots.ts` answer it by name. */
-const SCHIEDSRICHTER_BESTAETIGUNG_PATH = "/bestaetigung/schiedsrichter";
+const SCHIEDSRICHTER_BESTAETIGUNG_PATH = "/confirm/schiedsrichter";
 
 /**
  * The one place the referee's confirmation link is spelled. `token` is the parameter name because

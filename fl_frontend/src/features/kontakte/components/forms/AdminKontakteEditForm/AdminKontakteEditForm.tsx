@@ -135,7 +135,7 @@ export function AdminKontakteEditForm({
   };
 
   const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
-    fallbackHref: saisonHref("/bereich/admin/kontakte"),
+    fallbackHref: saisonHref("/area/admin/kontakte"),
     isDirty,
     resetDraftToStored,
   });

@@ -207,7 +207,7 @@ function BerichtInhalt({
           </Hint>
         ) : (
           <Link
-            href={saisonHref(`/bereich/admin/spiele/${spiel.spiel_id}/spielbericht`)}
+            href={saisonHref(`/area/admin/spiele/${spiel.spiel_id}/spielbericht`)}
             prefetch={false}
             className={`${formButton({ intent: "nav", size: "xs" })} self-start`}>
             {KORREKTUR}

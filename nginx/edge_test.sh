@@ -252,13 +252,13 @@ done
 CASES=(
   # The pages a mailed link lands on: pins against narrowing the map, which matches the parameter
   # wherever it sits, to a path list.
-  "LEAK|${BASE}/bestaetigung/schiedsrichter?token=${TOK}"
-  "LEAK|${BASE}/bestaetigung/spieler?token=${TOK}"
-  "LEAK|${BASE}/bestaetigung/adresse?token=${TOK}"
-  "LEAK|${BASE}/bestaetigung/kontakt?token=${TOK}"
-  "LEAK|${BASE}/bestaetigung/spiel?token=${TOK}"
+  "LEAK|${BASE}/confirm/schiedsrichter?token=${TOK}"
+  "LEAK|${BASE}/confirm/spieler?token=${TOK}"
+  "LEAK|${BASE}/confirm/address?token=${TOK}"
+  "LEAK|${BASE}/confirm/kontakt?token=${TOK}"
+  "LEAK|${BASE}/confirm/spiel?token=${TOK}"
   "LEAK|${BASE}/registrierung?token=${TOK}"
-  "LEAK|${BASE}/loeschung?token=${TOK}"
+  "LEAK|${BASE}/erasure?token=${TOK}"
   "LEAK|${BASE}/signin?token=${TOK}"
   "LEAK|${BASE}/signin?foo=1&token=${TOK}"
   "LEAK|${BASE}/signin?foo=1&EMAIL=${EM}"
@@ -292,7 +292,7 @@ CASES=(
 
   # A typed search query, which no page writes: an address in the first parameter, a name past
   # another on the Spielsuche's own address, and the page a visitor came from, plain and encoded.
-  "LEAK|${BASE}/bereich/admin/sperrliste?q=${EM}"
+  "LEAK|${BASE}/area/admin/sperrliste?q=${EM}"
   "LEAK|${BASE}/saisons/2026/search?a=1&q=${TOK}"
   "LEAK-REF|http://localhost/saisons/2026/search?q=${TOK}"
   "LEAK-REF|http://localhost/x%3Fq%3D${TOK}"
@@ -305,7 +305,7 @@ CASES=(
   "KEEP|${BASE}/teams?saison_id=abc&seq=2|seq=2"
   "KEEP-REF|http://localhost/teams?saison_id=abc&seq=2|seq=2"
   "KEEP|${BASE}/teams?saison_id=abc&shorthand=FCB|shorthand=FCB"
-  "KEEP|${BASE}/bereich/admin/spiele?saison_id=abc|saison_id=abc"
+  "KEEP|${BASE}/area/admin/spiele?saison_id=abc|saison_id=abc"
 
   # A control over the CLIENT: it fails when `--path-as-is` stops taking effect, and every
   # spelling above is then graded on a path nginx never received.
@@ -696,7 +696,7 @@ ACTION_REQUESTS=()
 # Twenty saves at once, under the burst of thirty.
 for _ in $(seq 1 20); do
   action_request rhythm -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
-    --data '[]' "${BASE}/bereich/admin/spiele"
+    --data '[]' "${BASE}/area/admin/spiele"
 done
 # Thirty more inside the same seconds: the burst and the second or two of refill are spent.
 for _ in $(seq 1 30); do
@@ -710,7 +710,7 @@ spent_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-T
 # An id opening with a colon, which a key joined on `:` would read as no id at all.
 spent_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 # Each link page's block, whose own pair has room left here, so only its restated action pair refuses.
-LINK_ACTION_PATHS=( /bestaetigung/spiel /registrierung /registrierung/ /loeschung /loeschung/ )
+LINK_ACTION_PATHS=( /confirm/spiel /registrierung /registrierung/ /erasure /erasure/ )
 for _i in "${!LINK_ACTION_PATHS[@]}"; do
   spent_request "link-action-${_i}" -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' \
     "${BASE}${LINK_ACTION_PATHS[_i]}"
@@ -736,31 +736,31 @@ ACTION_REQUESTS=()
 LINK_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=linkseite burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
 [[ -n "$LINK_BURST" ]] || refuse "nginx/shared/site.conf declares no linkseite burst this test can read."
 for _ in $(seq 1 $(( LINK_BURST + 20 ))); do
-  action_request link-flood "${BASE}/bestaetigung/spiel?token=${TOK}"
+  action_request link-flood "${BASE}/confirm/spiel?token=${TOK}"
 done
 # The key spent: every link page, each block's own twin and the spellings nginx resolves before
 # choosing a location, each kept whole, since a block declaring its own error_page answers 429 too.
 LINK_MARKER="fl-link"
 LINK_SPENT=(
-  "/bestaetigung/kontakt?token=${TOK}"
-  "/bestaetigung/schiedsrichter?token=${TOK}"
-  "/bestaetigung/spieler?token=${TOK}"
-  "/bestaetigung/adresse?token=${TOK}"
+  "/confirm/kontakt?token=${TOK}"
+  "/confirm/schiedsrichter?token=${TOK}"
+  "/confirm/spieler?token=${TOK}"
+  "/confirm/address?token=${TOK}"
   "/registrierung?token=${TOK}"
   "/registrierung/?token=${TOK}"
-  "/loeschung?token=${TOK}"
-  "/loeschung/?token=${TOK}"
-  "//bestaetigung/spiel?token=${TOK}"
-  "/bestaetigung/./spiel?token=${TOK}"
-  "/%62estaetigung/spiel?token=${TOK}"
+  "/erasure?token=${TOK}"
+  "/erasure/?token=${TOK}"
+  "//confirm/spiel?token=${TOK}"
+  "/confirm/./spiel?token=${TOK}"
+  "/%63onfirm/spiel?token=${TOK}"
 )
 for _i in "${!LINK_SPENT[@]}"; do
   spent_request "link-spent-${_i}" --path-as-is -A "$LINK_MARKER" "${BASE}${LINK_SPENT[_i]}"
 done
 # A key covering GETs alone lets both of these through, and one exempting HEAD, which a mail
 # gateway's link check may send, the second.
-spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/bestaetigung/spiel?token=${TOK}"
-spent_request link-head -A "$LINK_MARKER" --head "${BASE}/bestaetigung/spiel?token=${TOK}"
+spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/confirm/spiel?token=${TOK}"
+spent_request link-head -A "$LINK_MARKER" --head "${BASE}/confirm/spiel?token=${TOK}"
 
 # Konto's pair, on JSON posts to one of its pages the action pair's key leaves out, so only `account` can refuse.
 # Its burst read off the file, flooded past with five more for the refill the run takes.

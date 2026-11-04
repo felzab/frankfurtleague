@@ -71,7 +71,7 @@ describe("the proxy's matcher over https", () => {
     const runs = (carried: Record<string, string>): boolean =>
       unstable_doesMiddlewareMatch({
         config,
-        url: `${HTTPS_ORIGIN}/bereich/konto`,
+        url: `${HTTPS_ORIGIN}/account`,
         headers: { "next-router-prefetch": "1" },
         cookies: carried,
       });

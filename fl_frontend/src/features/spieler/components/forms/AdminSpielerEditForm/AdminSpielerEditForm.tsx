@@ -182,7 +182,7 @@ function SpielerEditForm({ spieler, einwilligung, saison, teams, pageHeader }: A
   };
 
   const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
-    fallbackHref: saisonHref("/bereich/admin/spieler"),
+    fallbackHref: saisonHref("/area/admin/spieler"),
     isDirty,
     resetDraftToStored,
   });

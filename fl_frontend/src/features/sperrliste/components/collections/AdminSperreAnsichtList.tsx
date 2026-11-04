@@ -40,14 +40,14 @@ const EINTRAEGE: Eintraege = {
       const person = `Spielerin oder Spieler: ${nameOf(vorname, nachname)}`;
       if (kader.length === 0) {
         return [
-          { text: person, verweise: [{ label: SPERRE_ANSICHT_VERWEISE.eintrag, href: saisonHref(`/bereich/admin/spieler/${spieler_id}`) }] },
+          { text: person, verweise: [{ label: SPERRE_ANSICHT_VERWEISE.eintrag, href: saisonHref(`/area/admin/spieler/${spieler_id}`) }] },
         ];
       }
 
       return kader.map(({ saison_id, team_name, inactive_since }) => {
         const zeile =
           team_name === null ? `${person}, im Kader der Saison ${saison_id}` : `${person}, im Kader von ${team_name}, Saison ${saison_id}`;
-        const href = withSaisonId(`/bereich/admin/spieler/${spieler_id}`, saison_id);
+        const href = withSaisonId(`/area/admin/spieler/${spieler_id}`, saison_id);
 
         return inactive_since === null
           ? { text: zeile, verweise: [{ label: SPERRE_ANSICHT_VERWEISE.kader, href: href }] }
@@ -60,7 +60,7 @@ const EINTRAEGE: Eintraege = {
   schiedsrichter: (schiedsrichter, saisonHref) =>
     schiedsrichter.map(({ schiedsrichter_id, name, inactive_since, spiele_without_ergebnis_saison_ids: spiele_ohne_ergebnis_saison_ids }) => {
       const person = name === null ? "Schiedsrichterin oder Schiedsrichter ohne Namen" : `Schiedsrichterin oder Schiedsrichter: ${name}`;
-      const href = saisonHref(`/bereich/admin/schiedsrichter/${schiedsrichter_id}`);
+      const href = saisonHref(`/area/admin/schiedsrichter/${schiedsrichter_id}`);
 
       return {
         text: inactive_since === null ? person : `${person}, stillgelegt seit ${formatSpielDatum(inactive_since)}`,
@@ -69,7 +69,7 @@ const EINTRAEGE: Eintraege = {
           // the referee list's own link carries, never a typed query.
           ...spiele_ohne_ergebnis_saison_ids.map((saisonId) => ({
             label: spieleNeuBesetzen(saisonId),
-            href: withSaisonId(`/bereich/admin/spielsuche?schiedsrichter=${schiedsrichter_id}`, saisonId),
+            href: withSaisonId(`/area/admin/spielsuche?schiedsrichter=${schiedsrichter_id}`, saisonId),
           })),
           { label: inactive_since === null ? SPERRE_ANSICHT_VERWEISE.stilllegen : SPERRE_ANSICHT_VERWEISE.eintrag, href: href },
         ],
@@ -79,12 +79,12 @@ const EINTRAEGE: Eintraege = {
   seats: (sitze) =>
     sitze.map(({ team_id, saison_id, team_name, rolle, vorname, nachname }) => ({
       text: `${rollenLangform([rolle])} bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
-      verweise: [{ label: SPERRE_ANSICHT_VERWEISE.kontakte, href: withSaisonId(`/bereich/admin/kontakte/${team_id}`, saison_id) }],
+      verweise: [{ label: SPERRE_ANSICHT_VERWEISE.kontakte, href: withSaisonId(`/area/admin/kontakte/${team_id}`, saison_id) }],
     })),
   bewerbungen: (bewerbungen, saisonHref) =>
     bewerbungen.map(({ bewerbung_id, saison_id, rolle, vorname, nachname }) => ({
       text: `${rollenLangform([rolle])} in einer Bewerbung für die Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
-      verweise: [{ label: SPERRE_ANSICHT_VERWEISE.bewerbung, href: saisonHref(`/bereich/admin/bewerbungen/${bewerbung_id}`) }],
+      verweise: [{ label: SPERRE_ANSICHT_VERWEISE.bewerbung, href: saisonHref(`/area/admin/bewerbungen/${bewerbung_id}`) }],
     })),
   // The registrations list serves the pending ones alone, so a declined one is named with no link.
   registrierungen: (registrierungen, saisonHref) =>
@@ -97,7 +97,7 @@ const EINTRAEGE: Eintraege = {
             ? `${art} für die Saison ${saison_id}: ${nameOf(vorname, nachname)}`
             : `${art} bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
         verweise:
-          status === "declined" ? [] : [{ label: SPERRE_ANSICHT_VERWEISE.registrierungen, href: saisonHref("/bereich/admin/registrierungen") }],
+          status === "declined" ? [] : [{ label: SPERRE_ANSICHT_VERWEISE.registrierungen, href: saisonHref("/area/admin/registrierungen") }],
       };
     }),
   // Served only to a reader the address tool admits to it, so it always links there.
@@ -110,7 +110,7 @@ const EINTRAEGE: Eintraege = {
             verweise: [
               {
                 label: SPERRE_ANSICHT_VERWEISE.adresswechsel,
-                href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${eigener.address_change_id}`),
+                href: saisonHref(`/area/admin/adresswechsel?adresswechsel=${eigener.address_change_id}`),
               },
             ],
           },
@@ -124,7 +124,7 @@ const EINTRAEGE: Eintraege = {
             verweise: [
               {
                 label: SPERRE_ANSICHT_VERWEISE.adresswechsel,
-                href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechsel_id}`),
+                href: saisonHref(`/area/admin/adresswechsel?adresswechsel=${adresswechsel_id}`),
               },
             ],
           }

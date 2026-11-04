@@ -16,7 +16,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return pageMetadata(parent, ROUTES.signInPasskey, ROUTES.signInPasskey.path());
 }
 
-// Never under `/bereich/admin`: the session that must reach this page is the one the admin guard is
+// Never under `/area/admin`: the session that must reach this page is the one the admin guard is
 // refusing, so a page behind that guard is a page nobody can open.
 
 /**
@@ -50,7 +50,7 @@ async function readView(searchParams: NextPageProps["searchParams"]) {
       step="offer"
       address={schritt.email}
       next={ROUTES.signInLanding.path()}
-      later="/bereich"
+      later="/area"
     />
   ) : (
     <PasskeyStep

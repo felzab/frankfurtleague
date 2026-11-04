@@ -770,7 +770,7 @@ describe("a session only read, against a real database", () => {
     expect(await stamps(), "a guard's read wrote the row").toStrictEqual(due);
 
     const before = Date.now();
-    await proxy(new NextRequest("http://localhost:3000/bereich/konto", { headers: { ...ORIGIN, cookie } }));
+    await proxy(new NextRequest("http://localhost:3000/account", { headers: { ...ORIGIN, cookie } }));
 
     const [[slidAt = 0, lapsesAt = 0] = []] = await stamps();
     assert.ok(slidAt >= before && lapsesAt >= before + expiresIn, "the proxy's read left the stored row where it was");
@@ -805,7 +805,7 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
     },
   });
   await requestAccountDeletion(new Headers({ ...ORIGIN, cookie }));
-  const found = /\/loeschung\?token=([0-9a-z]+)/.exec([...sent].reverse().find((message) => message.to === email)?.text ?? "");
+  const found = /\/erasure\?token=([0-9a-z]+)/.exec([...sent].reverse().find((message) => message.to === email)?.text ?? "");
   assert.ok(found?.[1] !== undefined, "the request mailed no link to the interstitial");
   await requestAccountDeletion(new Headers({ ...ORIGIN, cookie }));
 
