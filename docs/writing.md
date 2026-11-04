@@ -29,16 +29,28 @@ check is on this page.
   which `fl_frontend/src/core/routes.test.ts` holds every address to but those under the two trees its
   `UNHELD` names: `/area/admin`, the administration's old pages, until sessions 5 to 7 rebuild them,
   and `/api/bestaetigung`, the confirmation handlers, until sessions 5, 6 and 8 move their last
-  importers). A
-  data noun stored or served under its German name (`datum`, `vorname`, `grund`, `art`) keeps it,
-  and a stored field name or value already in production keeps its spelling unless a paste is owed
-  anyway. A name the production host or a deploy holds (a secret file, an environment variable, a
+  importers). A stored or served name — a collection, a field, a value, an index — follows this rule
+  as a code name does: a core entity or attribute of the league keeps the glossary's German word
+  (`saison_phase`, `sonderereignis`, `mietpreis`), and every other data noun is English
+  (`first_name`, never `vorname`; `date`, never `datum`; `reason`, never `grund`). Each is renamed in
+  its area's switch paste, with its record model (`fl_backend/app/readback.py :: RECORD_MODELS`) and
+  the read-back in the same commit, and an index naming it is dropped in that paste so the boot
+  builds it under the new name. A name the production host or a deploy holds (a secret file, an environment variable, a
   compose service or secret, a CI secret reference, a header) follows the rule like any other, and
   its rename is an owner step; a Docker volume keeps its name, since a renamed volume is a new empty
   one. A key of the copy catalogue is a name like any other, never the copy it keys: a page title's
   key is its route key, and a title several routes share is one entry keyed by its noun
   (`COPY.page.accountSecurity`, `COPY.page.spiele`, `COPY.shared.field.required`). An English twin of a glossary noun in
   code takes the German noun, so one search finds every site.
+- **A file or folder is cased by its kind.** A React component's file is PascalCase after the
+  component it exports (`LinkRows.tsx`), every other TypeScript module camelCase after its main
+  export (`signInGate.ts`), a Python module or package and a shell script snake_case
+  (`journal_replay.py`, `verify.sh`), and a Markdown file kebab-case (`glossary-entry.md`). Every
+  folder is lowercase kebab-case (`features/address-change/`), and a dynamic route segment is named
+  as its param (`[saison_id]`). A test file is named after the module it tests (`routes.test.ts`,
+  `test_journal.py`). A name a framework or a tool looks for keeps its spelling (`page.tsx`,
+  `README.md`). The frontend lint's file-name rule (`fl_frontend/eslint.config.mjs`) and ruff's
+  pep8-naming module rule (`N999`, `fl_backend/pyproject.toml`) hold it at build time.
 - **State a decision neutrally, with the date it was taken.** A decision no tool or comment can
   hold is one line in [the decisions record](decisions.md), written in the commit that takes it;
   the line carries no date, because that commit holds its date and its argument, and
