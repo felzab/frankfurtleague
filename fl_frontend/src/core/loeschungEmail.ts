@@ -11,7 +11,7 @@ import type { Mail } from "./emailShell";
  * The one figure: `fl_frontend/src/core/auth/library.ts` expires the deletion link on it and this message
  * states it, as `fl_frontend/src/core/authEmail.ts :: CODE_VALIDITY_MINUTES` is shared.
  */
-export const LOESCHUNG_LINK_GUELTIG_STUNDEN = 24;
+export const ERASURE_LINK_VALID_HOURS = 24;
 
 const WORDS = SERVER_COPY.mail.erasureLink;
 
@@ -20,7 +20,7 @@ const WORDS = SERVER_COPY.mail.erasureLink;
  * which deletes on a GET. `token` is the name
  * `nginx/shared/http.conf :: $credential_free_uri` redacts.
  */
-function loeschungsLink(origin: string, token: string): string {
+function erasureLink(origin: string, token: string): string {
   return `${origin}${ROUTES.accountErasure.path()}?token=${encodeURIComponent(token)}`;
 }
 
@@ -35,7 +35,7 @@ export function buildLoeschungEmail({ origin, token }: { origin: string; token: 
     subjectLine: COPY.page.accountErasure,
     origin: site,
     vorname: "",
-    paragraphs: [[WORDS.lead], [[{ strong: WORDS.consequence }]], [SERVER_COPY.mail.linkValidFor(LOESCHUNG_LINK_GUELTIG_STUNDEN)]],
-    button: { label: COPY.page.accountErasure, href: loeschungsLink(site, token) },
+    paragraphs: [[WORDS.lead], [[{ strong: WORDS.consequence }]], [SERVER_COPY.mail.linkValidFor(ERASURE_LINK_VALID_HOURS)]],
+    button: { label: COPY.page.accountErasure, href: erasureLink(site, token) },
   };
 }

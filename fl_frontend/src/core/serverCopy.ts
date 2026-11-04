@@ -87,9 +87,9 @@ export const SERVER_COPY = catalogue({
     /** The league's last owner, whose erasure would leave the administration owned by nobody. */
     last_owner_erasure: "Du bist die letzte Inhaberin oder der letzte Inhaber der Verwaltung.",
     /** A person's own address change to the address they already sign in with. */
-    address_change_unchanged: COPY.konto.address.unchanged,
+    address_change_unchanged: COPY.account.address.unchanged,
     /** A grant's move nobody but the person could approve. */
-    address_change_no_approver: COPY.konto.address.noApprover,
+    address_change_no_approver: COPY.account.address.noApprover,
     eligibility_disqualified: {
       team1: `${team1} ist aus der Saison ausgeschieden.`,
       team2: `${team2} ist aus der Saison ausgeschieden.`,
@@ -189,9 +189,9 @@ export const SERVER_COPY = catalogue({
    */
   addressChange: {
     /** The noun of the address on file's act, „Änderung bestätigen“: Konto's word for the pending change. */
-    change: COPY.konto.address.change,
+    change: COPY.account.address.change,
     /** The address on file's question names the address the change goes to under Konto's label for it. */
-    newAddress: COPY.konto.address.new,
+    newAddress: COPY.account.address.new,
     previous: {
       question: "Für dein Konto soll eine neue E-Mail-Adresse gelten.",
       confirmed: "Änderung bestätigt",
@@ -211,7 +211,7 @@ export const SERVER_COPY = catalogue({
     /** Under the list of what goes, each row a record the read found. */
     question: "Alles oben wird endgültig gelöscht.",
     /** The list's rows beside each record's own: the account's passkeys, under their box's title, its live address changes, its grant. */
-    passkeys: COPY.konto.passkeys.title,
+    passkeys: COPY.account.passkeys.title,
     addressChanges: "Laufende Adressänderungen",
     grant: "Zugang",
     done: "Konto gelöscht",

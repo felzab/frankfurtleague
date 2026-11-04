@@ -1,7 +1,7 @@
 import { ClassicPage, ClassicTitle } from "@/kit/ClassicPage";
 import { Prose } from "@/kit/Prose";
 
-import { ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_TAGE } from "@/core/adresswechsel";
+import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS } from "@/core/adresswechsel";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
 import { COPY } from "@/core/copy";
@@ -65,7 +65,7 @@ export default function PrivacyNoticePage() {
         { idleHours: ADMIN_IDLE_HOURS, hours: ADMIN_WINDOW_HOURS },
       ),
     ),
-    paragraph(words.account.changes(ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_TAGE)),
+    paragraph(words.account.changes(ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS)),
     heading(words.mail.heading),
     paragraph(words.mail.senders),
     paragraph(words.mail.forwarding),
@@ -100,7 +100,7 @@ export default function PrivacyNoticePage() {
                 : row.period({
                     bewerbungDays: BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
                     schiedsrichterDays: SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
-                    addressChangeLinkHours: ADRESSWECHSEL_GUELTIG_STUNDEN,
+                    addressChangeLinkHours: ADDRESS_CHANGE_VALID_HOURS,
                     code: { minutes: CODE_VALIDITY_MINUTES, mailHours: CODE_MAIL_WINDOW_HOURS, failureHours: CODE_FAILURE_WINDOW_HOURS },
                     person: { idleDays: PERSON_LIFETIME.idle / DAY_MS, days: PERSON_WINDOW_DAYS },
                     admin: { idleHours: ADMIN_IDLE_HOURS, hours: ADMIN_WINDOW_HOURS },

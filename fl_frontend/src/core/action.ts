@@ -6,7 +6,7 @@ import { unstable_rethrow } from "next/navigation";
 
 import { z } from "zod";
 
-import { getKontoSession, judgeAdminRequest, passesPasskeyTouch } from "./auth/guards";
+import { getAccountSession, judgeAdminRequest, passesPasskeyTouch } from "./auth/guards";
 import { COPY } from "./copy";
 import { asSignInIdentifier, KONTAKT_EMAIL_MAX_LENGTH } from "./emailAddress";
 import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
@@ -88,19 +88,21 @@ type Declared<Schema extends z.ZodType> = {
 type Run<Schema extends z.ZodType, Context, Value> = (input: z.output<Schema>, context: Context) => Promise<ActionAnswer<Value>>;
 
 /**
- * The address the page was drawn for, which every act behind the passkey touch posts: a page whose own session has
- * ended asks the touch of a prompt naming nobody, which any account's passkey answers, signing that account in.
+ * The address the page was drawn for, which every act of the account and every act behind the passkey touch posts: a
+ * page whose own session has ended acts as whichever account the browser holds now, and its touch asks a prompt naming
+ * nobody, which any account's passkey answers, signing that account in.
  */
-export const TOUCH_HOLDER = { holder: z.string().min(1).max(KONTAKT_EMAIL_MAX_LENGTH) };
+export const PAGE_HOLDER = { holder: z.string().min(1).max(KONTAKT_EMAIL_MAX_LENGTH) };
+
+/** Declarable only over an input carrying `PAGE_HOLDER`, so no such act is posted without it. */
+type Held<Schema extends z.ZodType> = z.output<Schema> extends { readonly holder: string } ? unknown : never;
 
 /**
  * The passkey touch, which an act on its fixed list declares: the browser asks it before every press, and the act runs
  * only on a session a passkey sign-in made within `PASSKEY_TOUCH_SECONDS`, for a person holding a passkey, and only
- * for the address its page was drawn for; a person holding none passes. Declarable only over an input carrying
- * `TOUCH_HOLDER`, so no touched act is posted without it.
+ * for the address its page was drawn for; a person holding none passes.
  */
-type Touched<Schema extends z.ZodType> =
-  { readonly passkey?: never } | ({ readonly passkey: true } & (z.output<Schema> extends { readonly holder: string } ? unknown : never));
+type Touched<Schema extends z.ZodType> = { readonly passkey?: never } | ({ readonly passkey: true } & Held<Schema>);
 
 /** An administrator's write: the administrator's guard admits the caller before anything else runs. */
 type AdminLane<Schema extends z.ZodType, Value> = Declared<Schema> &
@@ -111,15 +113,19 @@ type AdminLane<Schema extends z.ZodType, Value> = Declared<Schema> &
 
 /**
  * A person's write, by the claim it makes: a seat the session must hold at the team and season its input names; a
- * record of the person's own, which the backend authorises in its transaction; or the person's sign-in account, which
- * the account's own guard admits too (`fl_frontend/src/core/auth/guards.ts :: getKontoSession`), handing the body the
- * session it judged, so a session an administrator's mailbox made changes nothing of that administrator's sign-in.
+ * record of the person's own, which the backend authorises in its transaction; or an act only Konto's pages reach,
+ * which the account's own guard admits too (`fl_frontend/src/core/auth/guards.ts :: getAccountSession`), handing the
+ * body the session it judged, so a session an administrator's mailbox made changes nothing of that administrator's
+ * account, their consents among it. An act of the account runs only for the address its page was drawn for.
  */
 type PersonLane<Schema extends z.ZodType, Value> = Declared<Schema> &
   Touched<Schema> & { readonly lane: "person" } & (
     | { readonly claim: "seat"; readonly run: Run<Schema, { readonly subject: SubjectSession; readonly seats: readonly Seat[] }, Value> }
     | { readonly claim: "record"; readonly run: Run<Schema, { readonly subject: SubjectSession }, Value> }
-    | { readonly claim: "account"; readonly run: Run<Schema, { readonly subject: SubjectSession; readonly served: JudgedSession }, Value> }
+    | ({
+        readonly claim: "account";
+        readonly run: Run<Schema, { readonly subject: SubjectSession; readonly served: JudgedSession }, Value>;
+      } & Held<Schema>)
   );
 
 /**
@@ -340,19 +346,19 @@ function turnedAwayPerson(operation: string, refusal: "keine_sitzung" | "kein_si
 }
 
 /**
- * A touched act whose recorded actor is not the address its page was drawn for: the touch signed another account in,
- * the page's own session having ended, and the act would run as that account. Answered as the page's sign-in ended,
- * which is what happened to it. `undefined` where the two are one address.
+ * An act whose recorded actor is not the address its page was drawn for: the page's own session ended and the browser
+ * holds another account's now, a touch's sign-in or any other, so the act would run as that account. Answered as the
+ * page's sign-in ended, which is what happened to it. `undefined` where the two are one address.
  */
 function anotherHolder(input: unknown): ActionAnswer<never> | undefined {
-  // `Touched` declares the touch only over an input carrying the holder.
+  // `Held` declares the touch and the account's claim only over an input carrying the holder.
   const { holder } = input as { readonly holder: string };
   return asSignInIdentifier(holder) === getRequestActor()?.email ? undefined : { ok: false, reason: COPY.shared.failure.signInExpired };
 }
 
 /**
- * Past a lane's guard: the touch it declares, judged on the actor the guard recorded, the parse, the holder the touch's
- * input names, then `run` on the input, in that order.
+ * Past a lane's guard: the touch it declares, judged on the actor the guard recorded, the parse, the holder a touched
+ * act's or an account act's input names, then `run` on the input, in that order.
  */
 async function admitted<Schema extends z.ZodType, Value>(
   lane: Lane<Schema, Value>,
@@ -363,7 +369,8 @@ async function admitted<Schema extends z.ZodType, Value>(
   if (touched && !(await passesPasskeyTouch(getRequestActor()))) return { ok: false, reason: COPY.signIn.refusal.touchMissing };
   const read = parsed(lane, raw);
   if ("answer" in read) return read.answer;
-  return (touched ? anotherHolder(read.input) : undefined) ?? run(read.input);
+  const held = touched || (lane.lane === "person" && lane.claim === "account");
+  return (held ? anotherHolder(read.input) : undefined) ?? run(read.input);
 }
 
 /**
@@ -384,7 +391,7 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
         case "record":
           return admitted(lane, raw, (input) => body(lane, () => lane.run(input, { subject })));
         case "account": {
-          const served = await getKontoSession();
+          const served = await getAccountSession();
           if (served === null) return turnedAwayPerson(lane.name, "keine_sitzung");
           return admitted(lane, raw, (input) => body(lane, () => lane.run(input, { subject, served })));
         }
@@ -452,6 +459,21 @@ export function action<Schema extends z.ZodType, Value = undefined>(
 ): (raw: z.input<Schema> | FormData) => Promise<ActionAnswer<Value>> {
   return async (raw) => {
     const incoming = readTraceparent((await headers()).get(TRACEPARENT_HEADER));
-    return runWithRequestScope({ traceId: incoming ?? mintTraceId() }, () => guarded(lane, raw));
+    return runWithRequestScope({ traceId: incoming ?? mintTraceId() }, () => answered(lane, raw));
   };
+}
+
+/**
+ * The lane, its guards' own failures answered as the unexpected failure, as the body answers its own: a guard whose
+ * lookup the backend could not answer has written nothing, while the browser's catch of a thrown action reads the page
+ * again as though the press may have landed (`fl_frontend/src/kit/useFormAction.ts :: answering`).
+ */
+async function answered<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value>, raw: unknown): Promise<ActionAnswer<Value>> {
+  try {
+    return await guarded(lane, raw);
+  } catch (error) {
+    unstable_rethrow(error);
+    logFailure(lane.name, error);
+    return UNEXPECTED;
+  }
 }

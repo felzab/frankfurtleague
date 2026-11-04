@@ -5,7 +5,7 @@ import { person, seat } from "@/test-support/subjectFixtures.ts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { action, TOUCH_HOLDER } from "./action";
+import { action, PAGE_HOLDER } from "./action";
 import { afterTheResponse } from "./afterResponse";
 import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { COPY } from "./copy";
@@ -62,8 +62,9 @@ vi.mock("./auth/guards", () => ({
     state.steps.push("passkey touch");
     return state.touch;
   },
-  getKontoSession: async () => {
+  getAccountSession: async () => {
     state.steps.push("account guard");
+    if (state.account instanceof Error) throw state.account;
     return state.account;
   },
 }));
@@ -392,7 +393,7 @@ describe("the passkey touch a lane declares", () => {
     state.steps.push("body");
     return { ok: true as const, value: undefined };
   };
-  const declared = { name: "passkeyAendern", input: Venue.extend(TOUCH_HOLDER), passkey: true } as const;
+  const declared = { name: "passkeyAendern", input: Venue.extend(PAGE_HOLDER), passkey: true } as const;
   const touched = (lane: "admin" | "person") =>
     lane === "admin" ? action({ ...declared, lane, run }) : action({ ...declared, lane, claim: "record", run });
 
@@ -435,33 +436,57 @@ describe("the passkey touch a lane declares", () => {
 });
 
 describe("the account's own acts", () => {
+  const HOLDER = "kontoinhaberin@example.org";
   const signOut = action({
     lane: "person",
     claim: "account",
     name: "abmelden",
-    input: z.object({}),
+    input: z.object(PAGE_HOLDER),
     run: async (_input, { served }) => {
       state.steps.push(`body ${JSON.stringify(served)}`);
       return { ok: true, value: undefined };
     },
   });
 
+  beforeEach(() => {
+    state.subject = person({});
+    state.actor = { email: HOLDER, lane: "person", authTime: 0, factor: "code" };
+  });
+
   /* An address holding a grant signed in by its mailed code alone passes the person guard: its mailbox's holder
      would end the administrator's other sessions. */
   it("turns away a session the account's guard refuses, before the input is read", async () => {
-    state.subject = person({});
     state.account = null;
 
-    expect(await signOut({})).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+    // An input the schema refuses: read first, it would answer with the box's message.
+    expect(await signOut({ holder: "" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
     expect(state.steps).toStrictEqual(["person guard", "account guard"]);
   });
 
-  it("runs the body on the session the account's guard judged", async () => {
-    state.subject = person({});
+  it("runs the body on the session the account's guard judged, for the address its page was drawn for", async () => {
     state.account = { user: { id: "u1" } };
 
-    expect(await signOut({})).toStrictEqual({ ok: true, value: undefined });
+    expect(await signOut({ holder: HOLDER.toUpperCase() })).toStrictEqual({ ok: true, value: undefined });
     expect(state.steps).toStrictEqual(["person guard", "account guard", 'body {"user":{"id":"u1"}}']);
+  });
+
+  /* A page whose own session ended, the browser signed in as another account since: untouched, the act would run as
+     that account, ending its devices and reporting success on the first account's page. */
+  /* The guard's lookup is the backend's, and a throw past the builder reaches the browser's catch, which reads the page
+     again as though the press may have written: nothing was. */
+  it("answers a guard whose lookup throws as the unexpected failure, logging its name, before the input is read", async () => {
+    state.account = new TypeError("fetch failed");
+
+    expect(await signOut({ holder: "" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.unexpected });
+    expect(state.steps).toStrictEqual(["person guard", "account guard"]);
+    expect(state.lines).toStrictEqual([{ level: "error", message: "action.failed", meta: { action: "abmelden", name: "TypeError" } }]);
+  });
+
+  it("refuses an untouched act posted from a page drawn for another address, running nothing", async () => {
+    state.account = { user: { id: "u1" } };
+
+    expect(await signOut({ holder: "jemand-anderes@example.org" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+    expect(state.steps).toStrictEqual(["person guard", "account guard"]);
   });
 });
 

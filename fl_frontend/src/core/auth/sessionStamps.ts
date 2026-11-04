@@ -56,6 +56,15 @@ export function isPasskeyTouch(session: SessionStamps, at: Date = now()): boolea
 }
 
 /**
+ * Whether a session is young enough for the library's `freshAge`, which refuses a passkey enrolment past it: the one
+ * judgement of it, so a page offers the enrolment exactly where the library takes it.
+ */
+export function isFreshForEnrolment(session: SessionStamps): boolean {
+  const created = new Date(session.createdAt).getTime();
+  return Number.isFinite(created) && now().getTime() - created < FRESH_SIGN_IN_SECONDS * 1000;
+}
+
+/**
  * The stamps sit on the stored row and on neither arm's declared type, the library typing both to
  * its own base shape: read through `Reflect` rather than cast, so nothing here claims they are there.
  */
@@ -89,8 +98,8 @@ export function withinLifetime(session: { createdAt: Date; updatedAt: Date }, li
   // NaN's own answer, which the next comparison added here would not inherit.
   if (!Number.isFinite(created) || !Number.isFinite(updated)) return false;
 
-  const now = Date.now();
-  return now - updated < lifetime.idle && now - created < lifetime.absolute;
+  const at = now().getTime();
+  return at - updated < lifetime.idle && at - created < lifetime.absolute;
 }
 
 /** Exported for `fl_frontend/src/core/subject.ts`, which judges the same window in its own lane. */

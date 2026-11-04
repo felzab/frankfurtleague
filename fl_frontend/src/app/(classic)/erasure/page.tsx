@@ -1,5 +1,8 @@
+import { redirect } from "next/navigation";
+
 import { MAILED_PAGE_METADATA, MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
+import { getAccountSession } from "@/core/auth/guards";
 import { passkeysOf } from "@/core/auth/passkeys";
 import { withReturnAddress } from "@/core/auth/returnAddress";
 import { readRequestSession } from "@/core/auth/session";
@@ -8,8 +11,8 @@ import { formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSubjectSession } from "@/core/subject";
-import { kontoLoeschen } from "@/features/konto/personActions";
-import { getLoeschungAnsicht } from "@/features/konto/queries";
+import { eraseAccount } from "@/features/konto/personActions";
+import { getErasureView } from "@/features/konto/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Copy, Words } from "@/core/copy";
@@ -26,7 +29,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 }
 
 const WORDS = SERVER_COPY.accountErasure;
-const ENTRIES = COPY.konto.entries;
+const ENTRIES = COPY.account.entries;
 
 /**
  * `/erasure`, the deletion link's page: the list of what goes, and the act, for the signed-in person the link was
@@ -44,9 +47,9 @@ async function readState(searchParams: NextPageProps["searchParams"]): Promise<M
 
   // A signed-out browser signs in and returns to the link, the allowlist holding the deletion link's address. Built by
   // `URLSearchParams`, so the token is encoded as the link's own query is.
+  const link = `${ROUTES.accountErasure.path()}?${new URLSearchParams({ token: token }).toString()}`;
   const subject = await getSubjectSession();
   if (subject === null) {
-    const link = `${ROUTES.accountErasure.path()}?${new URLSearchParams({ token: token }).toString()}`;
     return {
       state: "ende",
       tone: "info",
@@ -57,15 +60,21 @@ async function readState(searchParams: NextPageProps["searchParams"]): Promise<M
   }
 
   // Uncaught: without the list the page cannot say what goes, so a failed read reaches the error boundary.
-  const [view, served] = await Promise.all([getLoeschungAnsicht(), readRequestSession()]);
+  const [view, served, account] = await Promise.all([getErasureView(), readRequestSession(), getAccountSession()]);
   const passkeys = served === null ? 0 : (await passkeysOf(served.user.id)).length;
+
+  // The act is the account's guard's to admit, which refuses an administrator's session a mailed code made. A passkey
+  // holder's touch, which the question asks first, makes the session it admits; an administrator holding none signs in
+  // afresh by the landing, which owes the passkey step, and returns to the link, so no question is asked that its press
+  // would refuse.
+  if (account === null && passkeys === 0) redirect(withReturnAddress(ROUTES.signInLanding.path(), link));
 
   return {
     state: "frage",
     title: COPY.page.accountErasure,
     facts: factsOf(subject.email, passkeys, view),
     sentence: WORDS.question,
-    action: kontoLoeschen,
+    action: eraseAccount,
     acts: { primary: COPY.page.accountErasure },
     carry: { token: token, holder: subject.email },
     // Every person holding a passkey touches it first, an administrator always among them.

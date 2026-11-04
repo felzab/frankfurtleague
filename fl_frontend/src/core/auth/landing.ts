@@ -3,14 +3,13 @@ import "server-only";
 import { headers } from "next/headers";
 import { connection } from "next/server";
 
-import { now } from "../clock";
 import { asSignInIdentifier } from "../emailAddress";
-import { subjektOrNull } from "./gateReads";
+import { subjectOrNull } from "./gateReads";
 import { isAdminSession, isAdminWithinWindow } from "./guards";
 import { auth } from "./library";
 import { passkeysOf } from "./passkeys";
 import { readLibrarySession, readRequestSession, servedSessionOf } from "./session";
-import { FRESH_SIGN_IN_SECONDS, isWithinPersonLifetime, PASSKEY_FACTOR } from "./sessionStamps";
+import { isFreshForEnrolment, isWithinPersonLifetime, PASSKEY_FACTOR } from "./sessionStamps";
 
 import type { SubjectSession } from "../subject";
 import type { Verwaltung } from "../verwaltung";
@@ -57,7 +56,7 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
 
   // An unread lookup is the backend down: `/area` answers it with the person area's outage panel, its
   // own lookup failing, where `/signin` would mail no code and say nothing.
-  const subjekt = await subjektOrNull(served.user.email);
+  const subjekt = await subjectOrNull(served.user.email);
   if (subjekt === null) return { destination: "/area", served: served, subject: null };
 
   // The ban itself, never read through the grant: every guard behind `/area` refuses a barred session,
@@ -109,8 +108,7 @@ async function passkeyStepOf(served: ServedSession, admin: boolean): Promise<Pas
   if (served.session.authFactor === PASSKEY_FACTOR) return null;
 
   // Past the library's `freshAge` the enrolment is refused, so no card offers one.
-  const created = new Date(served.session.createdAt).getTime();
-  const mayEnrol = Number.isFinite(created) && now().getTime() - created < FRESH_SIGN_IN_SECONDS * 1000;
+  const mayEnrol = isFreshForEnrolment(served.session);
   if (!admin && !mayEnrol) return null;
 
   // The question `refuseEnrolment` puts to the adapter, by the same user id: they agree or the page
@@ -130,7 +128,7 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
 
   // An unread read offers no card, for the landing's reason; a barred subject none either, its
   // enrolment being refused.
-  const subjekt = await subjektOrNull(served.user.email);
+  const subjekt = await subjectOrNull(served.user.email);
   if (subjekt === null || subjekt.barred) return null;
 
   const step = await passkeyStepOf(served, subjekt.verwaltung !== null);

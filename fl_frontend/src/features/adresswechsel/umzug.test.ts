@@ -21,11 +21,11 @@ doubleApiClient((call) => {
 vi.doMock("@/core/auth/accounts.ts", () => ({
   carryAccount: (von: string, nach: string) => {
     carried.push([von, nach]);
-    return Promise.resolve("umgezogen");
+    return Promise.resolve("moved");
   },
 }));
 
-const { runAdresswechselUmzuege } = await import("./umzug.ts");
+const { runAddressChangeMoves } = await import("./umzug.ts");
 
 const umzug = (n: number) => ({ id: n.toString(16).padStart(24, "0"), von: `alt${String(n)}@schule.de`, nach: `neu${String(n)}@schule.de` });
 
@@ -39,7 +39,7 @@ describe("the owed carries", () => {
   it("carries every listed account, reports each page carried, and ends once the list is empty", async () => {
     seiten = [[umzug(1), umzug(2)], [umzug(3)]];
 
-    await runAdresswechselUmzuege();
+    await runAddressChangeMoves();
 
     expect(carried).toStrictEqual([
       ["alt1@schule.de", "neu1@schule.de"],

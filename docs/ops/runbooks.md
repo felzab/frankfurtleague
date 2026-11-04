@@ -1182,7 +1182,7 @@ ending the address changes whose step lapsed and making the due ones take effect
 notice to the Postausgang: each replaced address gets its completion notice and the new address of a
 confirmed change refused at its due time or lapsed unapproved a notice naming nobody. The pass ends
 by carrying each sign-in account an effect still owes
-(`fl_frontend/src/features/adresswechsel/umzug.ts :: runAdresswechselUmzuege`). Its counts and no person
+(`fl_frontend/src/features/adresswechsel/umzug.ts :: runAddressChangeMoves`). Its counts and no person
 are the pass line's `address_change_` ones, `address_change_remaining` the rows it left due. A half that threw fails the applications' job once the seasons have run, which
 `scheduler.job_failed` names as `bewerbungen`.
 
@@ -1191,14 +1191,15 @@ every owed mail, and a notice it gives up is counted on the pass's line and repo
 the heartbeat. **An account's carry the pass could not
 make stays owed on the change**, and the account sweep keeps the replaced address's account until it
 is made: the next pass, or the next confirmation, tries it again, and a pass whose carry threw
-rejects, for the heartbeat to name. A carry the new address refused files
-`address_change.account_not_moved`:
+rejects, for the heartbeat to name. A confirmation whose own carry threw files
+`address_change.carry_failed` at `ERROR` and still shows the person the done page, the pass owing
+the carry. A carry the new address refused files `address_change.account_not_moved`:
 
 ```bash
 docker compose logs --since 2h frontend | grep -E 'address_change\.(account_not_moved|carry_failed)|scheduler\.job_failed'
 ```
 
-A `account_not_moved` line at `WARN` needs no repair: reading `grund: "belegt"`, the new address
+An `account_not_moved` line at `WARN` needs no repair: reading `grund: "occupied"`, the new address
 held an account of its own, and the person signs in there anew.
 
 **The pupils' deletion runs on every pass**

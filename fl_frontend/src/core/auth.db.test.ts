@@ -506,7 +506,7 @@ describe("an address change carrying the account, against a real database", () =
     const person = await accountAt("alt@schule.example");
     const other = await accountAt("unbeteiligt@example.org");
 
-    expect(await carryAccount("Alt@Schule.example", "Neu@XN--BCHER-KVA.example")).toBe("umgezogen");
+    expect(await carryAccount("Alt@Schule.example", "Neu@XN--BCHER-KVA.example")).toBe("moved");
 
     expect(await accounts()).toStrictEqual(
       [
@@ -522,11 +522,11 @@ describe("an address change carrying the account, against a real database", () =
   });
 
   // The unique index refuses the move, and the stamp rides that refused write: nothing of either account changes.
-  it("answers „belegt“ and moves nothing where the new address holds an account of its own", async () => {
+  it("answers taken and moves nothing where the new address holds an account of its own", async () => {
     const person = await accountAt("alt@schule.example");
     const holder = await accountAt("neu@schule.example");
 
-    expect(await carryAccount("alt@schule.example", "neu@schule.example")).toBe("belegt");
+    expect(await carryAccount("alt@schule.example", "neu@schule.example")).toBe("taken");
 
     expect(await accounts()).toStrictEqual(
       [

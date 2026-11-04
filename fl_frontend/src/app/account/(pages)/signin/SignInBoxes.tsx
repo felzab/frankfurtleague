@@ -43,7 +43,7 @@ export function SignInBoxes({
   const address = (
     <Facts
       look="free"
-      facts={[{ label: COPY.konto.address.current, value: { record: email } }]}
+      facts={[{ label: COPY.account.address.current, value: { record: email } }]}
     />
   );
   return (
@@ -51,19 +51,17 @@ export function SignInBoxes({
       {pending === null ? (
         <AccountBox
           title={COPY.signIn.address}
-          description={COPY.konto.address.description}
+          description={COPY.account.address.description}
           act={{
-            // The address the page is drawn for, which the start posts behind its touch.
-            run: (formData) => {
-              formData.set("holder", email);
-              return startAddressChange(formData);
-            },
-            button: { label: COPY.shared.withObject(COPY.konto.address.link, "send") },
+            run: startAddressChange,
+            // The address the page is drawn for, which every act of the account posts.
+            carry: { holder: email },
+            button: { label: COPY.shared.withObject(COPY.account.address.link, "send") },
             touch: held,
           }}>
           {address}
           <TextField
-            label={COPY.konto.address.new}
+            label={COPY.account.address.new}
             name="email"
             width="W3"
             kind="email"
@@ -73,10 +71,14 @@ export function SignInBoxes({
       ) : (
         <AccountBox
           title={COPY.signIn.address}
-          description={COPY.konto.address.description}
+          description={COPY.account.address.description}
           act={
             pending.own
-              ? { run: withdrawAddressChange, button: { label: COPY.shared.withObject(COPY.konto.address.change, "withdraw") } }
+              ? {
+                  run: withdrawAddressChange,
+                  carry: { holder: email },
+                  button: { label: COPY.shared.withObject(COPY.account.address.change, "withdraw") },
+                }
               : undefined
           }>
           {address}
@@ -87,23 +89,26 @@ export function SignInBoxes({
           {pending.lapsed && (
             <Callout
               tone="warn"
-              text={COPY.konto.address.lapsed}
+              text={COPY.account.address.lapsed}
             />
           )}
           {pending.grant && (
             <Callout
               tone="info"
-              text={COPY.konto.address.grantNote}
+              text={COPY.account.address.grantNote}
             />
           )}
         </AccountBox>
       )}
       <AccountBox
         title={COPY.page.accountErasure}
-        description={COPY.konto.erasure.description}
+        description={COPY.account.erasure.description}
         act={{
           run: requestErasure,
-          button: { confirm: { verb: "delete", subject: COPY.template.account, consequence: COPY.konto.erasure.consequence, tone: "danger" } },
+          carry: { holder: email },
+          button: {
+            confirm: { verb: "delete", subject: COPY.template.account, consequence: COPY.account.erasure.consequence, tone: "danger" },
+          },
           done: COPY.shared.toast.linkSent,
           closed: lastOwner,
         }}

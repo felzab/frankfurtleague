@@ -14,9 +14,9 @@ const read = vi.hoisted(() => ({ view: null as FLAddressChangeViewResponse["view
 vi.mock("@/shared/utils/traceScope", () => ({ runWithIncomingTrace: <T,>(fn: () => Promise<T>) => fn() }));
 vi.mock("@/features/adresswechsel/mutations", async (original) => ({
   ...(await original<object>()),
-  postAdresswechselAnsicht: async () => ({ view: read.view }),
+  postAddressChangeView: async () => ({ view: read.view }),
 }));
-vi.mock("@/features/adresswechsel/konto", () => ({ kontoAnNeuerAdresse: async () => read.accountAtTheNewAddress }));
+vi.mock("@/features/adresswechsel/konto", () => ({ accountAtNewAddress: async () => read.accountAtTheNewAddress }));
 
 const WORDS = SERVER_COPY.addressChange;
 const NEW_ADDRESS = "lenore.q@neupost.example.org";

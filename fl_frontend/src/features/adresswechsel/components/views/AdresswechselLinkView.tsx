@@ -6,7 +6,7 @@ import CircleCheck from "@gravity-ui/icons/CircleCheck";
 
 import { Button } from "@heroui/react/button";
 
-import { ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_DAUER } from "@/core/adresswechsel";
+import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_SPAN } from "@/core/adresswechsel";
 import { ADRESSWECHSEL_STOPPEN } from "@/core/adresswechselAntworten";
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { formatInstant } from "@/core/format";
@@ -33,16 +33,16 @@ import { ANTWORT_UNKLAR, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 import type { ActionAnswer } from "@/core/action";
 import type { FLAddressChangeEndArt, FLAddressChangeWay } from "@/core/generated/client/types";
 import type {
-  AdresswechselAnsicht,
-  AdresswechselGedrueckt,
-  AdresswechselLinkZustand,
-  AdresswechselStart,
+  AddressChangeLinkState,
+  AddressChangePressed,
+  AddressChangeStart,
+  AddressChangeView,
   OldViewPreviousState,
 } from "@/features/adresswechsel/link";
 
-type Antwort = AdresswechselGedrueckt["answer"];
+type Antwort = AddressChangePressed["answer"];
 
-type Beendet = Extract<AdresswechselAnsicht, { zustand: "ended" }>;
+type Beendet = Extract<AddressChangeView, { zustand: "ended" }>;
 
 /**
  * What a press of this view comes to, as `app/(classic)/confirm/address/answers.ts :: verwaltungswegBeantworten`
@@ -50,7 +50,7 @@ type Beendet = Extract<AdresswechselAnsicht, { zustand: "ended" }>;
  * which the link's own read says, null where that read failed.
  */
 export type AdresswechselPresse =
-  { gedrueckt: Omit<AdresswechselGedrueckt, "success"> } | { zustand: AdresswechselLinkZustand } | { ansicht: AdresswechselAnsicht | null };
+  { gedrueckt: Omit<AddressChangePressed, "success"> } | { zustand: AddressChangeLinkState } | { ansicht: AddressChangeView | null };
 
 /** The action every press of this view sends through, with the link's token. */
 type Beantworten = (presse: { token: string; antwort: Antwort }) => Promise<ActionAnswer<AdresswechselPresse>>;
@@ -66,7 +66,7 @@ const NICHT_MEINE_ADRESSE = "Das ist nicht meine Adresse";
 const STOPP_TITEL = "Änderung Deiner E-Mail-Adresse";
 
 /** One heading per live state. A barred link's page has none; an ended change's heading is its side's and its end's. */
-const TITEL: Record<Exclude<AdresswechselStart["zustand"], "barred" | "ended">, string> = {
+const TITEL: Record<Exclude<AddressChangeStart["zustand"], "barred" | "ended">, string> = {
   valid: "Neue E-Mail-Adresse bestätigen",
   confirmed: "Adresse bestätigt",
   open: STOPP_TITEL,
@@ -141,7 +141,7 @@ const DANACH: Readonly<Record<FLAddressChangeWay, string>> = {
 };
 
 /** The state a press's answer leaves the page in, the side being the press's own. */
-function nachDruck(antwort: AdresswechselGedrueckt, way: FLAddressChangeWay): AdresswechselStart {
+function nachDruck(antwort: AddressChangePressed, way: FLAddressChangeWay): AddressChangeStart {
   if (antwort.answer === "declined") return { zustand: "ended", side: "new", art: "declined" };
   if (antwort.answer === "stopped") return { zustand: "ended", side: "previous", art: "stopped" };
   if (antwort.effective) return { zustand: "ended", side: "new", art: "effective" };
@@ -150,7 +150,7 @@ function nachDruck(antwort: AdresswechselGedrueckt, way: FLAddressChangeWay): Ad
 }
 
 /** Sends one answer through the link and hands its outcome to the page: a result, or the state a refused press leaves the link in. */
-function useAntwort(start: AdresswechselStart, beantworten: Beantworten, onAbschluss: (stand: AdresswechselStart) => void) {
+function useAntwort(start: AddressChangeStart, beantworten: Beantworten, onAbschluss: (stand: AddressChangeStart) => void) {
   const [isPending, startSending] = useTransition();
   const [gedrueckt, setGedrueckt] = useState<Antwort | null>(null);
   // Only a state holding a token renders a press, and each of those names its way.
@@ -225,7 +225,7 @@ function AntwortPanel({ gueltigBis, way: way, antwort }: { gueltigBis: string; w
       <p className={ABSATZ_CLASSES}>
         Für ein Konto bei der Frankfurt League soll künftig diese E-Mail-Adresse gelten. Bestätigst Du sie, schreiben wir Dir hierhin, und Du
         meldest Dich mit ihr an.
-        {way === "waiting_period" && ` Sie gilt ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach Deiner Bestätigung.`}
+        {way === "waiting_period" && ` Sie gilt ${ADDRESS_CHANGE_WAIT_SPAN} nach Deiner Bestätigung.`}
       </p>
       <p className={ABSATZ_CLASSES}>
         Bis dahin gilt die bisherige Adresse. Der Link gilt bis <Wert>{formatInstant(gueltigBis)}</Wert>.
@@ -281,7 +281,7 @@ function stoppSatz(zustand: OldViewPreviousState, way: FLAddressChangeWay, wirks
   // Told by the way, which the read carries on this side too: a change waiting a week after its confirmation is
   // never said to take effect at the confirmation.
   if (way === "waiting_period") {
-    return `Die Verwaltung hat eine neue E-Mail-Adresse für Dein Konto eingetragen, weil diese nicht mehr erreichbar sein soll. Bestätigt die neue Adresse ihren Link, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} danach. Hast Du das nicht angefragt, stoppe die Änderung. Dann bleibt diese Adresse.`;
+    return `Die Verwaltung hat eine neue E-Mail-Adresse für Dein Konto eingetragen, weil diese nicht mehr erreichbar sein soll. Bestätigt die neue Adresse ihren Link, gilt sie ${ADDRESS_CHANGE_WAIT_SPAN} danach. Hast Du das nicht angefragt, stoppe die Änderung. Dann bleibt diese Adresse.`;
   }
   return "Für Dein Konto soll eine neue E-Mail-Adresse gelten, sobald sie bestätigt ist. Hast Du das nicht selbst angefragt, stoppe die Änderung. Dann bleibt diese Adresse.";
 }
@@ -336,10 +336,10 @@ function bestaetigtSatz({ wirksamAb, genehmigungOffen }: { wirksamAb: string | n
  * an approval; the person's own way, ended changes included, is `kit/MailedPage.tsx`'s. A grant holder's own change
  * confirmed and waiting on its approval stands here too, the approval being the administrators' page's.
  */
-export function AdresswechselLinkView({ start, beantworten }: { start: AdresswechselStart; beantworten: Beantworten }) {
-  const [stand, setStand] = useState<AdresswechselStart>(start);
+export function AdresswechselLinkView({ start, beantworten }: { start: AddressChangeStart; beantworten: Beantworten }) {
+  const [stand, setStand] = useState<AddressChangeStart>(start);
   const { ergebnisRef, beantwortet } = useLinkSeite(stand.zustand);
-  const onAbschluss = (naechster: AdresswechselStart) => {
+  const onAbschluss = (naechster: AddressChangeStart) => {
     beantwortet();
     setStand(naechster);
   };
@@ -401,7 +401,7 @@ export function AdresswechselLinkView({ start, beantworten }: { start: Adresswec
             panelRef={ergebnisRef}
             tone="hinweis">
             <p className={ABSATZ_CLASSES}>
-              Dieser Link ist abgelaufen. Ein Link gilt {String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden.{" "}
+              Dieser Link ist abgelaufen. Ein Link gilt {String(ADDRESS_CHANGE_VALID_HOURS)} Stunden.{" "}
               {/* Only the person's own start can be asked again on the account page; an administrator's needs the league. */}
               {stand.way === "account"
                 ? "Hast Du die Änderung selbst angefragt, frag sie in Deinem Konto neu an."

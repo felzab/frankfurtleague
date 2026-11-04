@@ -85,7 +85,7 @@ const SONDEREREIGNIS = { ausgefallen: "Ausgefallen", abgebrochen: "Abgebrochen",
 const ANMELDUNG = "Anmeldung";
 const MIT_PASSKEY_ANMELDEN = "Mit Passkey anmelden";
 const PASSKEY_EINRICHTEN = { title: "Passkey einrichten", button: "Jetzt einrichten" } as const;
-// The glossary's nouns, each one entry of `shared` and read under the page keys and the account keys naming them.
+// The glossary's nouns, each one entry of `shared` and read under the page keys and the match facts naming them.
 const SPIELER = "Spieler";
 const SCHIEDSRICHTER = "Schiedsrichter";
 const KADER = "Kader";
@@ -411,8 +411,6 @@ export const COPY = catalogue({
     /** `/signin`'s tab title, and its card's heading, signed out and signed in: the act its button names. */
     title: VERB.signIn,
     passkeyTitle: "Passkey",
-    /** `/signin/continue`'s name in the route table, an address that only sends the session on to where it goes next. */
-    landingTitle: ANMELDUNG,
 
     address: "E-Mail-Adresse",
     sendCode: "Code senden",
@@ -459,7 +457,7 @@ export const COPY = catalogue({
   },
 
   /** Konto, the account's own pages, each box's title over its one sentence of description. */
-  konto: {
+  account: {
     address: {
       description: "Mit dieser Adresse meldest du dich an.",
       /** The address on file, shown over the field for its replacement; the pending change's sentence calls it the same. */
@@ -529,13 +527,10 @@ export const COPY = catalogue({
     },
     /**
      * „Funktion wechseln“'s entries: a team by its name, with this line under it naming the season and the seats held
-     * there in the seats' order; a pupil's, a referee's and the administration's by their area alone. The two nouns
-     * are `shared`'s, read here under the keys the account menu's entries name.
+     * there in the seats' order; a pupil's and a referee's by `shared`'s nouns, the administration's by its role.
      */
     role: {
       seats: (saison: Copy, rollen: readonly FLKontaktRolle[]) => `${saison} · ${rollenText(rollen)}`,
-      spieler: SPIELER,
-      schiedsrichter: SCHIEDSRICHTER,
     },
     /**
      * Each record an address holds, as Deine Einträge boxes it: titled by what the record is, a team's seats by the

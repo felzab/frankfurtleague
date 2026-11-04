@@ -6,7 +6,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { requireAccountSession } from "@/features/konto/account";
-import { getKontoAdresswechsel, getLoeschungAnsicht } from "@/features/konto/queries";
+import { getAccountAddressChange, getErasureView } from "@/features/konto/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { SignInBoxes } from "./SignInBoxes";
@@ -21,7 +21,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 /** The change pending on the address, worded on the server, where its deadline is written in the league's time zone. */
 function pendingOf(open: FLAccountAddressChangeOpen): Pending {
-  const { pending } = COPY.konto.address;
+  const { pending } = COPY.account.address;
   // The person's own change asks the address on file's link first, then the new address's own.
   const previous = open.waits_on === "previous_address";
   return {
@@ -37,10 +37,10 @@ function pendingOf(open: FLAccountAddressChangeOpen): Pending {
 async function SignInContent() {
   const { subject, served } = await requireAccountSession(ROUTES.accountSignIn.path());
   const [change, held, lastOwner] = await Promise.all([
-    getKontoAdresswechsel(),
+    getAccountAddressChange(),
     passkeysOf(served.user.id).then((rows) => rows.length > 0),
     // Read for an owner alone, the one tier that can be the last; the deletion's own page refuses it again.
-    subject.subject.verwaltung === "owner" ? getLoeschungAnsicht().then((view) => view.last_owner) : false,
+    subject.subject.verwaltung === "owner" ? getErasureView().then((view) => view.last_owner) : false,
   ]);
   return (
     <SignInBoxes

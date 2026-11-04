@@ -36,6 +36,12 @@ type Question = Omit<ConfirmDialogProps, "trigger" | "open" | "onConfirm">;
 /** The one act a box's footer holds, beside its status line. */
 export type AccountAct = {
   run: Run;
+  /**
+   * What the act posts beside the box's fields, unseen: the address the page was drawn for, `holder`, which its touch
+   * answers for too. A field rather than a closure around `run`, so a box drawn on the server hands its act a server
+   * action's reference alone.
+   */
+  carry?: Readonly<Record<string, string>>;
   /** Its button's label, or the question it asks first. */
   button: { label: Copy } | { confirm: Question };
   /** The passkey touch first, for a person holding a passkey (`usePasskeyTouch`). */
@@ -63,8 +69,8 @@ function lineOf(answer: ActionAnswer<unknown> | null, isBlocked: boolean, isPend
 }
 
 /** An act through the kit's one form wrapper, the passkey touch first where it asks one, its outcome as a line. */
-function useAct({ run, touch = false, done, saves }: Pick<AccountAct, "run" | "touch" | "done" | "saves">) {
-  const { run: touched, refusal, isTouching } = usePasskeyTouch(touch);
+function useAct({ run, touch = false, done, saves, carry }: Pick<AccountAct, "run" | "touch" | "done" | "saves" | "carry">) {
+  const { run: touched, refusal, isTouching } = usePasskeyTouch(touch, carry?.holder);
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
       const answered = await run(formData);
@@ -163,7 +169,10 @@ function ActBox({ act, head, children }: { act: AccountAct; head: ReactElement; 
 
   const press = () => {
     setRowStatus(null);
-    if (form.current !== null) send(new FormData(form.current));
+    if (form.current === null) return;
+    const formData = new FormData(form.current);
+    for (const [name, value] of Object.entries(act.carry ?? {})) formData.set(name, value);
+    send(formData);
   };
 
   return (
@@ -234,7 +243,16 @@ type Rename = { title: Copy; run: (formData: FormData) => Promise<ActionAnswer>;
  * the touch made, then the act. `closed` keeps the button shut where the page knows at render that the act would be
  * refused; the box's `line` says why.
  */
-type Remove = { verb: Verb; subject: Copy; consequence: Copy; touch: boolean; closed?: Copy; run: () => Promise<ActionAnswer<unknown>> };
+type Remove = {
+  verb: Verb;
+  subject: Copy;
+  consequence: Copy;
+  touch: boolean;
+  /** The address the page was drawn for, the one account the touch may answer for. */
+  holder: string;
+  closed?: Copy;
+  run: () => Promise<ActionAnswer<unknown>>;
+};
 
 /** One record of a box: its name, the line under it, and its acts as icon buttons at the row's end. */
 export type AccountRow = { id: string; name: RecordText; detail: Copy; rename?: Rename; remove: Remove };
@@ -314,7 +332,7 @@ function RenameAct({ rename, describedBy }: { rename: Rename; describedBy: strin
 function RemoveAct({ remove, describedBy }: { remove: Remove; describedBy: string }) {
   const setLine = useContext(BoxLine);
   const router = useRouter();
-  const { run, isTouching } = usePasskeyTouch(remove.touch);
+  const { run, isTouching } = usePasskeyTouch(remove.touch, remove.holder);
   // The touch signed the person in afresh: the page is read again under that session, and the question waits for the
   // read, so its consequence is worded from the session the act will run under.
   const [isRefreshing, startRefresh] = useTransition();

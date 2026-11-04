@@ -15,8 +15,8 @@ export const PASSKEY_LIMIT = 5;
  * A barred address enrols nothing, whatever it holds: its session is one a ban's ending missed or a
  * mint raced, and a passkey would outlive both.
  */
-export function refuseBarred(anmeldung: AnmeldungRecords): void {
-  if (anmeldung.barred) throw APIError.fromStatus("NOT_FOUND");
+export function refuseBarred(signIn: AnmeldungRecords): void {
+  if (signIn.barred) throw APIError.fromStatus("NOT_FOUND");
 }
 
 /**
@@ -27,7 +27,7 @@ export function refuseBarred(anmeldung: AnmeldungRecords): void {
  */
 export type EnrolmentRead = {
   readonly userId: string;
-  readonly anmeldung: AnmeldungRecords;
+  readonly signIn: AnmeldungRecords;
   readonly sentAt: Date;
   readonly challengeIssuedAt: Date | null;
 };
@@ -47,15 +47,17 @@ export function carriedEnrolmentRead(ctx: object | undefined, userId: string): E
 export function carriedOrRefuse(ctx: object, userId: string): AnmeldungRecords {
   const read = carriedEnrolmentRead(ctx, userId);
   if (read === undefined) throw APIError.fromStatus("NOT_FOUND");
-  return read.anmeldung;
+  return read.signIn;
 }
 
 /**
  * Every condition an enrolment meets past the library's `freshAge`, on both arms: the plugin gates its two
  * registration endpoints on that and on nothing else. The touch is judged as of `touchAt`, now where it is
  * `undefined`: the options request judges it now, and the verify call as of that ceremony's options, so the browser's
- * own prompt, a cross-device one by QR code among them, takes as long as the challenge lives and never runs the
- * touch's window down.
+ * own prompt, a cross-device one by QR code among them, never runs the touch's window down. What bounds the prompt is
+ * the library's `freshAge`, which holds the verify call to the session's creation (`FRESH_SIGN_IN_SECONDS`, 300): after a
+ * touch, whose options fall inside `PASSKEY_TOUCH_SECONDS` (60), that leaves the prompt between 240 and 300 seconds, and
+ * a prompt running past it is refused as a sign-in too old.
  */
 export async function refuseEnrolment(
   adapter: DBTransactionAdapter,

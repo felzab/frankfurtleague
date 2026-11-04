@@ -1,5 +1,6 @@
 import "server-only";
 
+import { now } from "../clock";
 import { asSignInIdentifier } from "../emailAddress";
 import { logger } from "../logging";
 import { auth } from "./library";
@@ -43,7 +44,7 @@ export async function liveSessionsOf(userId: string): Promise<LiveSessionRow[]> 
     // Past the library's own expiry a row is dead whatever else holds, so the store never sends it.
     where: [
       { field: "userId", value: userId },
-      { field: "expiresAt", operator: "gt", value: new Date() },
+      { field: "expiresAt", operator: "gt", value: now() },
     ],
     limit: EVERY_ROW,
   });
@@ -67,7 +68,7 @@ export async function endSessionsOfAddress(address: string): Promise<boolean> {
   const account = await adapter.update<{ id: string }>({
     model: "user",
     where: [{ field: "email", value: folded }],
-    update: { [SESSIONS_ENDED_FIELD]: new Date() },
+    update: { [SESSIONS_ENDED_FIELD]: now() },
   });
   // Answered from the stamp, never the deletion, so a failed deletion keeps the mail it owes.
   if (account === null) return false;

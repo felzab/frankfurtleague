@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_DAUER } from "./adresswechsel";
+import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_SPAN } from "./adresswechsel";
 import { ADRESSWECHSEL_STOPPEN } from "./adresswechselAntworten";
 import { KONTAKT_EMAIL } from "./brand";
 import { COPY } from "./copy";
@@ -22,20 +22,20 @@ import type { MailLink, MailOrigin } from "./mailKinds";
  * The one spelling of the address page's link, the stop link's too, the page telling them apart by hash.
  * `token`, because `nginx/shared/http.conf :: $credential_free_uri` redacts that name alone.
  */
-function adresswechselLink(origin: string, token: string): string {
+function addressChangeLink(origin: string, token: string): string {
   return `${origin}${ROUTES.addressChangeConfirmation.path()}?token=${encodeURIComponent(token)}`;
 }
 
 const WORDS = SERVER_COPY.addressChange;
 
 /** Both mails of the person's own change state the link's lifetime, which the backend refuses past. */
-const LINK_VALID: Paragraph = [SERVER_COPY.mail.linkValidFor(ADRESSWECHSEL_GUELTIG_STUNDEN)];
+const LINK_VALID: Paragraph = [SERVER_COPY.mail.linkValidFor(ADDRESS_CHANGE_VALID_HOURS)];
 
 /**
  * The link to the new address, asking only whether the mailbox is theirs. It greets nobody: behind a
  * mistyped address its reader is a stranger. It names no record, the change moving every one.
  */
-export function buildAdresswechselEmail({ way, valid_until: validUntil }: FLAddressChangeLinkData, { origin, token }: MailLink): Mail {
+export function buildAddressChangeEmail({ way, valid_until: validUntil }: FLAddressChangeLinkData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
 
   // The person's own change, the address on file having confirmed it first: the page's question, its title the button.
@@ -46,7 +46,7 @@ export function buildAdresswechselEmail({ way, valid_until: validUntil }: FLAddr
       origin: site,
       vorname: "",
       paragraphs: [[WORDS.new.question], LINK_VALID],
-      button: { label: COPY.shared.withObject(COPY.signIn.address, "confirm"), href: adresswechselLink(site, token) },
+      button: { label: COPY.shared.withObject(COPY.signIn.address, "confirm"), href: addressChangeLink(site, token) },
     };
   }
 
@@ -64,10 +64,10 @@ export function buildAdresswechselEmail({ way, valid_until: validUntil }: FLAddr
       [
         ["Bestätige sie bis ", { strong: formatInstant(validUntil) }, " über diesen Link."],
         "Er funktioniert nur einmal.",
-        `Nach Deiner Bestätigung gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} später.`,
+        `Nach Deiner Bestätigung gilt sie ${ADDRESS_CHANGE_WAIT_SPAN} später.`,
       ],
     ],
-    button: { label: "Adresse bestätigen", href: adresswechselLink(site, token) },
+    button: { label: "Adresse bestätigen", href: addressChangeLink(site, token) },
   };
 }
 
@@ -75,7 +75,7 @@ export function buildAdresswechselEmail({ way, valid_until: validUntil }: FLAddr
  * The mail to the address on file. It names no new address, which the page its link opens shows: the change may be
  * somebody else's mistake or a pretext, and a mail travels further than the page it links.
  */
-export function buildAdresswechselHinweisEmail({ way, vorname }: FLAddressChangeNoticeData, { origin, token: stopToken }: MailLink): Mail {
+export function buildAddressChangeNoticeEmail({ way, vorname }: FLAddressChangeNoticeData, { origin, token: stopToken }: MailLink): Mail {
   const site = mailOrigin(origin);
 
   // The person's own change asks the address on file first: its link confirms or declines the change.
@@ -86,7 +86,7 @@ export function buildAdresswechselHinweisEmail({ way, vorname }: FLAddressChange
       origin: site,
       vorname: vorname ?? "",
       paragraphs: [[WORDS.previous.question, SERVER_COPY.mail.addressChange.previousEffect], LINK_VALID],
-      button: { label: COPY.shared.withObject(WORDS.change, "confirm"), href: adresswechselLink(site, stopToken) },
+      button: { label: COPY.shared.withObject(WORDS.change, "confirm"), href: addressChangeLink(site, stopToken) },
     };
   }
 
@@ -100,13 +100,13 @@ export function buildAdresswechselHinweisEmail({ way, vorname }: FLAddressChange
     paragraphs: [
       [
         "Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen, weil diese Adresse nicht mehr erreichbar sein soll.",
-        `Bestätigt die neue Adresse ihren Link, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} danach.`,
+        `Bestätigt die neue Adresse ihren Link, gilt sie ${ADDRESS_CHANGE_WAIT_SPAN} danach.`,
       ],
       ["Hast Du das nicht veranlasst? Dann stoppe die Änderung über diesen Link.", "Er gilt, bis die Änderung wirksam wird."],
       [["Fragen jederzeit an ", { address: KONTAKT_EMAIL }, "."]],
     ],
     // The stop: no link approves anything.
-    button: { label: ADRESSWECHSEL_STOPPEN, href: adresswechselLink(site, stopToken) },
+    button: { label: ADRESSWECHSEL_STOPPEN, href: addressChangeLink(site, stopToken) },
   };
 }
 
@@ -114,7 +114,7 @@ export function buildAdresswechselHinweisEmail({ way, vorname }: FLAddressChange
  * The completion notice: no control and no new address. The way to repudiate the change (NIST SP 800-63B-4,
  * read 2026-10-20: "clear instructions, including contact information") is the security kind's own last line.
  */
-export function buildAdresswechselWirksamEmail({ vorname, instant }: FLAddressChangeEffectiveData, { origin }: MailOrigin): Mail {
+export function buildAddressChangeEffectiveEmail({ vorname, instant }: FLAddressChangeEffectiveData, { origin }: MailOrigin): Mail {
   return {
     kind: "security",
     subjectLine: "Deine E-Mail-Adresse wurde geändert",
@@ -134,7 +134,7 @@ export function buildAdresswechselWirksamEmail({ vorname, instant }: FLAddressCh
  * The new mailbox's notice that a confirmed change did not take effect at its time. No name, no reason:
  * a ban on this very address is among the reasons, and the holder of the address may be a stranger.
  */
-export function buildAdresswechselNichtWirksamEmail(_data: FLAddressChangeDiscardedData, { origin }: MailOrigin): Mail {
+export function buildAddressChangeDiscardedEmail(_data: FLAddressChangeDiscardedData, { origin }: MailOrigin): Mail {
   return {
     kind: "security",
     subjectLine: "Deine E-Mail-Adresse wurde nicht geändert",

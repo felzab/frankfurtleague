@@ -109,22 +109,26 @@ function referee(name, schule, payment, email, inactiveSince) {
   return { _id: ObjectId(), name, schule, default_payment: payment, kontakt: { telefon: null, email }, inactive_since: inactiveSince };
 }
 
-// A referee's consent as their own confirmation wrote it, the name kept off the public pages and no media, each choice
-// evidenced under its wording's label (`fl_frontend/src/core/consentWordings.ts :: SCHIEDSRICHTER_TEXT_VERSIONS`). A
-// referee row is its person's own only once confirmed (`fl_backend/app/api/identity/services.py ::
-// ist_eigener_schiedsrichter`), so an address change or an erasure moves nothing of a row without one. Its own day and
-// labels, the pupils' `CONSENTED` and `LABELS` being declared further down.
+// Every person's consent as their own confirmation wrote it, on one day, each choice evidenced under its wording's
+// label (`fl_frontend/src/core/consentWordings.ts`): a pupil's (`SPIELER_TEXT_VERSIONS`), whose media wording every
+// kind shares.
+const CONSENTED = day(-60);
+const LABELS = { umfang: "2026-11-name-kader-1", medien: "2026-11-medien-1" };
+
+// A referee's consent, the name kept off the public pages and no media, its name's choice under the referees' own
+// wording (`SCHIEDSRICHTER_TEXT_VERSIONS`). A referee row is its person's own only once confirmed
+// (`fl_backend/app/api/identity/services.py :: ist_eigener_schiedsrichter`), so an address change or an erasure moves
+// nothing of a row without one.
 function consented(row) {
-  const at = day(-60);
-  const evidence = (textVersion) => ({ am: `${at}T10:00:00+00:00`, text_version: textVersion });
+  const evidence = (textVersion) => ({ am: `${CONSENTED}T10:00:00+00:00`, text_version: textVersion });
   return {
     ...row,
     einwilligung: {
       umfang: "intern",
-      datum: at,
-      confirmed_at: at,
+      datum: CONSENTED,
+      confirmed_at: CONSENTED,
       medien: false,
-      nachweis: { umfang: evidence("2026-11-name-spielplan-1"), medien: evidence("2026-11-medien-1") },
+      nachweis: { umfang: evidence("2026-11-name-spielplan-1"), medien: evidence(LABELS.medien) },
     },
   };
 }
@@ -134,9 +138,9 @@ const REFEREES = [
   referee("Ben Brandt", null, 25, "ben.brandt@example.com", null),
   referee("Carla Conrad", "Ulme-Gymnasium", 20, null, null),
   referee("Dieter Dorn", null, 15, null, day(-90)),
-  // Each project's leaver, whom the account acts' journey moves to a new address and then deletes: last, so no
-  // fixture's booking (`booked`, by index) changes, and no other journey signs in as either. Each consented, without
-  // which their row is nothing the change moves.
+  // Each project's leaver, whom the account acts' journey moves to a new address and then deletes: after every
+  // referee a fixture books, so no fixture's booking (`booked`, by index) changes, and no other journey signs in as
+  // either. Each consented, without which their row is nothing the change moves.
   consented(referee("Clara Kranz", null, 20, "clara.kranz@example.com", null)),
   consented(referee("Dora Dahl", null, 20, "dora.dahl@example.com", null)),
   // The desktop passkey journey's own person, whose passkeys it sets up and removes: no other journey signs in as them,
@@ -430,11 +434,7 @@ const GHOST_SPIELER = {
   inactive_since: "2000-01-01",
 };
 
-// Each pupil's consent as their own confirmation wrote it, publishing the name and no media, each choice
-// evidenced under its wording's label (`fl_frontend/src/core/consentWordings.ts :: SPIELER_TEXT_VERSIONS`).
-const CONSENTED = day(-60);
-const LABELS = { umfang: "2026-11-name-kader-1", medien: "2026-11-medien-1" };
-
+// Each pupil's consent, publishing the name and no media, on the day and under the labels above `REFEREES`.
 function pupil(vorname, nachname) {
   const evidence = (choice) => ({ am: `${CONSENTED}T10:00:00+00:00`, text_version: LABELS[choice] });
   return {

@@ -48,7 +48,7 @@ const store = memoryStore(STORE);
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { NextRequest } = await import("next/server");
 const { auth } = await import("./core/auth/library.ts");
-const { getAdminSession, getKontoSession } = await import("./core/auth/guards.ts");
+const { getAdminSession, getAccountSession } = await import("./core/auth/guards.ts");
 const { getSignInLanding } = await import("./core/auth/landing.ts");
 const { getSubjectSession } = await import("./core/subject.ts");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
@@ -570,7 +570,7 @@ describe("where a session that is only read slides", () => {
     arriveAs(cookie);
     expect((await getSignInLanding()).destination).toBe("/signin");
     expect(await getSubjectSession()).toBe(null);
-    expect(await getKontoSession()).toBe(null);
+    expect(await getAccountSession()).toBe(null);
   });
 
   it("leaves an administrator's twenty-four-hour cap, and the step-up window, where the sign-in set them", async () => {

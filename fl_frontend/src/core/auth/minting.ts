@@ -3,6 +3,7 @@ import "server-only";
 import { APIError } from "better-auth/api";
 import { makeSignature } from "better-auth/crypto";
 
+import { now } from "../clock";
 import { logger } from "../logging";
 import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING } from "../passkeyRefusal";
 import { mayReceiveSignIn, signInVerdictOf } from "../signInGate";
@@ -101,9 +102,8 @@ export async function refuseUnadmitted(ctx: GenericEndpointContext, userId: stri
   // Inside a registration's transaction the before hook's read decides, never a second round trip.
   const carried = carriedEnrolmentRead(ctx, userId);
   // Answered to date the session it admits: taken before the read is sent, so a ban the read missed ends it.
-  const sentAt = carried?.sentAt ?? new Date();
-  const verdict =
-    account === null ? "failed" : carried === undefined ? await mayReceiveSignIn(account.email) : signInVerdictOf(carried.anmeldung);
+  const sentAt = carried?.sentAt ?? now();
+  const verdict = account === null ? "failed" : carried === undefined ? await mayReceiveSignIn(account.email) : signInVerdictOf(carried.signIn);
   if (verdict === "admitted") return sentAt;
 
   // Worded where the ceremony starts (`fl_frontend/src/features/auth/passkeyAnswers.ts`); a failed

@@ -41,7 +41,7 @@ export async function passesPasskeyTouch(actor: RequestActor | undefined): Promi
  * is admitted by the administrator's verdict alone, so a session its mailbox made changes nothing of that
  * administrator's sign-in, its passkeys and its other devices among it.
  */
-export const getKontoSession = cache(async (): Promise<JudgedSession | null> => {
+export const getAccountSession = cache(async (): Promise<JudgedSession | null> => {
   const served = await readRequestSession();
   if (served === null) return null;
 

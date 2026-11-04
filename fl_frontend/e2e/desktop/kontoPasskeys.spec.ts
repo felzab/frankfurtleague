@@ -8,11 +8,12 @@
  */
 import { expect } from "@playwright/test";
 
+import { answerOf } from "../support/actionAnswer";
 import { test } from "../support/journey";
 import { filedMessages, mailedLink } from "../support/mailSink";
 import { signInWithCode } from "../support/signIn";
 
-import type { Page, Response } from "@playwright/test";
+import type { Page, Request, Response } from "@playwright/test";
 
 /** The person this journey alone signs in as (`scripts/ops/seed/seed.js`), and the one its last step erases. */
 const HOLDER = "emil.ernst@example.com";
@@ -30,40 +31,29 @@ test.describe.configure({ mode: "serial" });
 type Pressed = { readonly touches: number; readonly headers: Readonly<Record<string, string>>; readonly body: string };
 
 /**
- * Presses an act behind the touch on the page at `pathname`, and answers what its server action sent back. The answer
- * is fetched through the route and handed on to the page, so its body is read before the page acts on it: an act
- * ending this device's session leaves by a document load, which discards a response the browser fetched itself.
+ * Presses an act behind the touch on the page at `pathname`, and answers what its server action sent back, read whole
+ * through `answerOf`, with the passkey assertions answered before the act's post went.
  */
 async function pressBehindTheTouch(page: Page, pathname: string, press: () => Promise<void>): Promise<Pressed> {
   let touches = 0;
+  let beforeTheAct: number | undefined;
   const counted = (response: Response) => {
     if (response.request().method() === "POST" && new URL(response.url()).pathname === TOUCH_PATH && response.ok()) touches += 1;
   };
+  // Counted as the act is sent: a touch answered after it is no touch for it.
+  const sent = (request: Request) => {
+    const isTheAct = request.method() === "POST" && new URL(request.url()).pathname === pathname && "next-action" in request.headers();
+    if (isTheAct) beforeTheAct ??= touches;
+  };
   page.on("response", counted);
-
-  let answered: (pressed: Pressed) => void = () => undefined;
-  const pressed = new Promise<Pressed>((resolve) => {
-    answered = resolve;
-  });
-  const theAct = (url: URL) => url.pathname === pathname;
-  await page.route(theAct, async (route) => {
-    const request = route.request();
-    if (request.method() !== "POST" || (await request.headerValue("next-action")) === null) {
-      await route.fallback();
-      return;
-    }
-    // Counted as the act is sent: a touch answered after it is no touch for it.
-    const before = touches;
-    const response = await route.fetch();
-    answered({ touches: before, headers: response.headers(), body: await response.text() });
-    await route.fulfill({ response });
-  });
-
-  await press();
-  const answer = await pressed;
-  await page.unroute(theAct);
-  page.off("response", counted);
-  return answer;
+  page.on("request", sent);
+  try {
+    const { headers, body } = await answerOf(page, pathname, press);
+    return { touches: beforeTheAct ?? touches, headers, body };
+  } finally {
+    page.off("response", counted);
+    page.off("request", sent);
+  }
 }
 
 test("a person's passkeys on Sicherheit: set up, renamed, and removed with and without this device's session", async ({ page, context }) => {

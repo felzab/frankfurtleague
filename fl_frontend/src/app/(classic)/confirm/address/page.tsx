@@ -6,10 +6,10 @@ import { dayOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { AdresswechselLinkView } from "@/features/adresswechsel/components/views/AdresswechselLinkView";
-import { kontoAnNeuerAdresse } from "@/features/adresswechsel/konto";
-import { ansichtOf, startOf } from "@/features/adresswechsel/link";
-import { postAdresswechselAnsicht } from "@/features/adresswechsel/mutations";
-import { mapAdresswechselAnsichtRefusal } from "@/features/adresswechsel/refusals";
+import { accountAtNewAddress } from "@/features/adresswechsel/konto";
+import { startOf, viewOf } from "@/features/adresswechsel/link";
+import { postAddressChangeView } from "@/features/adresswechsel/mutations";
+import { mapAddressChangeViewRefusal } from "@/features/adresswechsel/refusals";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
@@ -48,8 +48,8 @@ async function readState(searchParams: NextPageProps["searchParams"]): Promise<M
 
   // A failed read is no state of the link's: it reaches the frame's error boundary, which logs it.
   const read = await runWithIncomingTrace(() =>
-    postAdresswechselAnsicht({ token: token }).catch((error: unknown) => {
-      if (mapAdresswechselAnsichtRefusal(error) === null) throw error;
+    postAddressChangeView({ token: token }).catch((error: unknown) => {
+      if (mapAddressChangeViewRefusal(error) === null) throw error;
       return null;
     }),
   );
@@ -87,13 +87,13 @@ async function ownWay(view: FLAddressChangeViewResponse["view"], token: string):
     const released = dayOf(view.released_on);
     // Confirmed, the change waiting on the new mailbox; an approval a grant holder's change waits on is the old view's.
     if (view.state === "open" && released !== null) return doneOnEnd("previous", "confirmed", released);
-    return view.state === "approval" ? oldView(ansichtOf({ view }), token) : INVALID;
+    return view.state === "approval" ? oldView(viewOf({ view }), token) : INVALID;
   }
 
   // Waiting on an approval after the new mailbox confirmed: the old view's, with the approval.
-  if (view.state === "confirmed" || view.state === "approval_expired") return oldView(ansichtOf({ view }), token);
+  if (view.state === "confirmed" || view.state === "approval_expired") return oldView(viewOf({ view }), token);
   // The backend cannot see the sign-in store, so its view offers the press an account at the new address closes.
-  if (view.state !== "valid" || view.email === null || (await kontoAnNeuerAdresse({ token: token }))) return INVALID;
+  if (view.state !== "valid" || view.email === null || (await accountAtNewAddress({ token: token }))) return INVALID;
   return question("new", token, COPY.shared.withObject(COPY.signIn.address, "confirm"), COPY.signIn.address, view.email, WORDS.new.question);
 }
 
@@ -112,15 +112,15 @@ function question(side: Side, token: string, title: Copy, label: Copy, email: st
 
 /** Session 7: the administrator's way, which keeps the old view. */
 async function administratorsWay(read: FLAddressChangeViewResponse, token: string): Promise<MailedState> {
-  const gelesen = ansichtOf(read);
+  const gelesen = viewOf(read);
   // The backend cannot see the sign-in store, so its view offers the press an account at the new address closes.
-  if (gelesen.zustand === "valid" && (await kontoAnNeuerAdresse({ token: token }))) {
+  if (gelesen.zustand === "valid" && (await accountAtNewAddress({ token: token }))) {
     return oldView({ zustand: "not_confirmable", way: gelesen.way }, token);
   }
   return oldView(gelesen, token);
 }
 
-function oldView(gelesen: ReturnType<typeof ansichtOf>, token: string): MailedState {
+function oldView(gelesen: ReturnType<typeof viewOf>, token: string): MailedState {
   return {
     state: "alt",
     view: (

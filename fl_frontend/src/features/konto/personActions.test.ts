@@ -75,8 +75,15 @@ let letzterInhaber = false;
 const ADDRESS_CHANGE_PATH = "/api/v0/account/address_change";
 const addressChanges: string[] = [];
 
+/** Every consent save that reached the backend, by its path. */
+const consentWrites: string[] = [];
+
 globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
+  if (path.endsWith("/einwilligung")) {
+    consentWrites.push(path);
+    return Promise.resolve(Response.json({}));
+  }
   if (path === ANSICHT_PATH) {
     const leer = { spieler: [], schiedsrichter: [], seats: [], bewerbungen: [], registrierungen: [], address_change: 0 };
     return Promise.resolve(Response.json({ ...leer, verwaltung: "owner", last_owner: letzterInhaber }));
@@ -96,7 +103,18 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
 }) as typeof globalThis.fetch;
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { kontoLoeschen, requestErasure, signOutOthers, startAddressChange } = await import("./personActions.ts");
+const {
+  eraseAccount,
+  requestErasure,
+  saveBewerbungConsent,
+  saveRegistrierungConsent,
+  saveSchiedsrichterConsent,
+  saveSeatConsent,
+  saveSpielerConsent,
+  signOutOthers,
+  startAddressChange,
+  withdrawAddressChange,
+} = await import("./personActions.ts");
 const { removePasskeyAction } = await import("@/features/passkeys/actions.ts");
 const { COPY } = await import("@/core/copy.ts");
 const { SERVER_COPY } = await import("@/core/serverCopy.ts");
@@ -108,6 +126,7 @@ beforeEach(() => {
   cacheCalls.length = 0;
   loeschungen.length = 0;
   addressChanges.length = 0;
+  consentWrites.length = 0;
   HELD.clear();
   loeschungAnswer = () => Response.json(GELOESCHT);
   letzterInhaber = false;
@@ -135,7 +154,7 @@ async function mitLink(
   }
   arriveAs(cookie);
 
-  const angefordert = await requestErasure({});
+  const angefordert = await requestErasure({ holder: email });
   expect(angefordert.ok, `the account page's press answered ${JSON.stringify(angefordert)}`).toBe(true);
   const found = /\/erasure\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
   assert.ok(found?.[1] !== undefined, "the mail carries no link to the page");
@@ -177,7 +196,7 @@ async function inhaberinMitLink(email: string): Promise<{ row: SessionRow; token
   const durchPasskey = await sessionByCode(auth, store, email);
   madeByPasskey(store, durchPasskey.row);
   arriveAs(durchPasskey.cookie);
-  expect((await requestErasure({})).ok, "the owner's passkey session mailed no link").toBe(true);
+  expect((await requestErasure({ holder: email })).ok, "the owner's passkey session mailed no link").toBe(true);
   const found = /\/erasure\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
   assert.ok(found?.[1] !== undefined, "the mail carries no link to the page");
 
@@ -192,7 +211,7 @@ describe("a person's own account deletion through the mailed link's page", () =>
     // The link's own request cleared it too, mailing being a write.
     cacheCalls.length = 0;
 
-    await ledToTheDonePage(kontoLoeschen({ token, holder }));
+    await ledToTheDonePage(eraseAccount({ token, holder }));
 
     expect(
       loeschungen.map(({ method, actor }) => [method, actor !== null]),
@@ -205,7 +224,7 @@ describe("a person's own account deletion through the mailed link's page", () =>
   it("asks a passkey holder signed in by code for the touch, erasing nothing and leaving the link standing", async () => {
     const { row, token, holder } = await mitLink("mit-passkey@example.org", { passkey: true });
 
-    expect(await kontoLoeschen({ token, holder })).toStrictEqual({ ok: false, reason: COPY.signIn.refusal.touchMissing });
+    expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: COPY.signIn.refusal.touchMissing });
     expect(loeschungen).toStrictEqual([]);
     expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
     assert.ok(linkStands(token), "the refused press spent the link");
@@ -215,7 +234,7 @@ describe("a person's own account deletion through the mailed link's page", () =>
     const { row, token, holder } = await mitLink("beruehrt@example.org", { passkey: true });
     madeByPasskey(store, row);
 
-    await ledToTheDonePage(kontoLoeschen({ token, holder }));
+    await ledToTheDonePage(eraseAccount({ token, holder }));
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
   });
 
@@ -223,12 +242,12 @@ describe("a person's own account deletion through the mailed link's page", () =>
     const { row, token, holder } = await inhaberinMitLink("letzte-inhaberin@example.org");
     letzterInhaber = true;
 
-    expect(await kontoLoeschen({ token, holder })).toStrictEqual({ ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure });
+    expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure });
     expect(loeschungen, "the erasure was asked for although the preview read the last owner").toStrictEqual([]);
     assert.ok(linkStands(token), "the refused press spent the link, which the owner can no longer open");
 
     letzterInhaber = false;
-    await ledToTheDonePage(kontoLoeschen({ token, holder }));
+    await ledToTheDonePage(eraseAccount({ token, holder }));
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
   });
 
@@ -238,7 +257,7 @@ describe("a person's own account deletion through the mailed link's page", () =>
     const { row, token, holder } = await inhaberinMitLink("zweite-inhaberin@example.org");
     loeschungAnswer = () => Response.json({ error_code: "last_owner_erasure", trace_id: "0".repeat(32) }, { status: 409 });
 
-    expect(await kontoLoeschen({ token, holder })).toMatchObject({
+    expect(await eraseAccount({ token, holder })).toMatchObject({
       ok: true,
       value: { title: COPY.template.linkInvalid, next: { href: "/account/signin" } },
     });
@@ -253,13 +272,13 @@ describe("a person's own account deletion through the mailed link's page", () =>
       throw new TypeError("fetch failed");
     };
 
-    expect(await kontoLoeschen({ token, holder })).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
+    expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
   });
 
   it("ends a link the library refuses as the link no longer valid, erasing nothing", async () => {
     const { row, holder } = await mitLink("falscher-link@example.org");
 
-    const answer = await kontoLoeschen({ token: "kein-gemailter-link", holder });
+    const answer = await eraseAccount({ token: "kein-gemailter-link", holder });
 
     expect(answer).toMatchObject({ ok: true, value: { title: COPY.template.linkInvalid, sentence: COPY.shared.end.linkInvalid } });
     expect(loeschungen).toStrictEqual([]);
@@ -288,7 +307,7 @@ describe("a person's own account deletion through the mailed link's page", () =>
       const { row, token, holder } = await mitLink(email);
       judged();
 
-      expect(await kontoLoeschen({ token, holder })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+      expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
       expect(loeschungen).toStrictEqual([]);
       expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 0 });
     });
@@ -354,10 +373,44 @@ describe("the account's acts, behind the account's guard and the touch", () => {
     arriveAs(cookie);
     const mailed = mail.sent.length;
 
-    expect(await signOutOthers({})).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
-    expect(await requestErasure({})).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+    expect(await signOutOthers({ holder: email })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+    expect(await requestErasure({ holder: email })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
     assert.ok(store.session.includes(other), "the mailbox's session ended the administrator's other device");
     expect(mail.sent.length, "the mailbox's session had a deletion link mailed").toBe(mailed);
+  });
+
+  /* Deine Einträge's saves are the account's too: on the person lane alone, the mailbox's session would change the
+     administrator's consents, the page alone refusing it. */
+  it("refuses an administrator's session made by a mailed code alone every consent save, sending none", async () => {
+    const email = "verwalterin-einwilligung@example.org";
+    HELD.set(email, { ...NO_RECORDS, verwaltung: "administration", granted_since: "2026-01-01T00:00:00Z", inhaber_seit: null, account: false });
+    const { cookie } = await sessionByCode(auth, store, email);
+    arriveAs(cookie);
+
+    for (const save of [saveSpielerConsent, saveSchiedsrichterConsent, saveRegistrierungConsent, saveSeatConsent, saveBewerbungConsent]) {
+      const posted = new FormData();
+      posted.set("holder", email);
+      expect(await save(posted)).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+    }
+    expect(consentWrites, "the mailbox's session sent a consent save").toStrictEqual([]);
+  });
+
+  /* A tab drawn for one account, the browser signed in as another since: the act would run as the second account and
+     report success on the first one's page. */
+  it("refuses every untouched act posted from a page drawn for another address, ending and mailing nothing", async () => {
+    const { cookie, row } = await sessionByCode(auth, store, "jetzt-angemeldet@example.org");
+    const other = { ...row, id: `other-${row.id}`, token: `other-${row.token}` };
+    store.session.push(other);
+    arriveAs(cookie);
+    const mailed = mail.sent.length;
+    const stale = { holder: "frueher-angemeldet@example.org" };
+
+    expect(await signOutOthers(stale)).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+    expect(await requestErasure(stale)).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+    expect(await withdrawAddressChange(stale)).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+    assert.ok(store.session.includes(other), "the stale page ended the signed-in account's other device");
+    expect(mail.sent.length, "the stale page had a deletion link mailed").toBe(mailed);
+    expect(addressChanges, "the stale page withdrew the signed-in account's change").toStrictEqual([]);
   });
 
   it("ends every other session of the account however many stand, and keeps this one", async () => {
@@ -365,7 +418,7 @@ describe("the account's acts, behind the account's guard and the touch", () => {
     for (let index = 0; index < 120; index += 1) store.session.push({ ...row, id: `device-${String(index)}`, token: `token-${String(index)}` });
     arriveAs(cookie);
 
-    expect(await signOutOthers({})).toStrictEqual({ ok: true, value: undefined });
+    expect(await signOutOthers({ holder: "viele-geraete@example.org" })).toStrictEqual({ ok: true, value: undefined });
     expect(store.session.filter((session) => session.userId === row.userId)).toStrictEqual([row]);
   });
 });

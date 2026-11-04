@@ -4,7 +4,7 @@ import { COPY } from "@/core/copy";
 import { dayOf, formatDatum } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/konto/account";
-import { getKontoEinwilligungen } from "@/features/konto/queries";
+import { getAccountEinwilligungen } from "@/features/konto/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { EntriesBoxes } from "./EntriesBoxes";
@@ -19,7 +19,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return pageMetadata(parent, ROUTES.accountEntries, ROUTES.accountEntries.path());
 }
 
-const { entries: WORDS } = COPY.konto;
+const { entries: WORDS } = COPY.account;
 
 /** A fact the record holds, left out where it holds none. */
 const fact = (label: Copy, value: string | null): Fact[] => (value === null || value === "" ? [] : [{ label, value: { record: value } }]);
@@ -128,15 +128,18 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
 
 /** The person's records, read for the session the page is drawn for. */
 async function EntriesContent() {
-  await requireAccountSession(ROUTES.accountEntries.path());
-  const entries = entriesOf(await getKontoEinwilligungen());
+  const { subject } = await requireAccountSession(ROUTES.accountEntries.path());
+  const entries = entriesOf(await getAccountEinwilligungen());
   return entries.length === 0 ? (
     <AccountEmpty
       plural={WORDS.plural}
       glyph="entries"
     />
   ) : (
-    <EntriesBoxes entries={entries} />
+    <EntriesBoxes
+      entries={entries}
+      holder={subject.email}
+    />
   );
 }
 

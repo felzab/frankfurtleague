@@ -61,9 +61,6 @@ export type AdresswechselEntwurf = { email: string; weg: Weg; grund: string };
 
 export const LEERER_ENTWURF: AdresswechselEntwurf = { email: "", weg: "unerreichbar", grund: "" };
 
-/** The reason, which every start records. */
-const gesendeterGrund = ({ grund }: AdresswechselEntwurf): string => grund;
-
 type Fehler = { email?: string; grund?: string };
 
 /** The box's two values as the write's own schema judges them, at the press and never between keystrokes. */
@@ -71,7 +68,7 @@ function fehlerIn(adresse: string, entwurf: AdresswechselEntwurf): Fehler {
   const geprueft = FLAdresswechselVerwaltungPayloadSchema.safeParse({
     adresse: adresse,
     email: entwurf.email,
-    grund: gesendeterGrund(entwurf),
+    grund: entwurf.grund,
   });
   if (geprueft.success) return {};
   const fehler = toFieldErrors(geprueft.error);
@@ -142,7 +139,7 @@ export function AdresswechselBeantragen({
       stepUp,
       router,
       pending: setSendet,
-      write: () => beantrageAdresswechselAction({ adresse: adresse, email: entwurf.email, grund: gesendeterGrund(entwurf) }),
+      write: () => beantrageAdresswechselAction({ adresse: adresse, email: entwurf.email, grund: entwurf.grund }),
       repair: START_OHNE_ANTWORT,
     });
     if (res === null) return;

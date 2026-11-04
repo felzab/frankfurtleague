@@ -33,7 +33,7 @@ const mail = registerAuthDoubles({
   },
 });
 
-const store = memoryStore("__flLoeschungStore");
+const store = memoryStore("__flErasureRequestStore");
 
 // Every address the subject read and the gate ask about holds a live seat.
 globalThis.fetch = ((input: string | URL | Request) => {
@@ -66,7 +66,7 @@ describe("the account page's request for a deletion link", () => {
     arriveAs(cookie);
 
     const answers = [];
-    for (let press = 0; press < 50; press += 1) answers.push(await requestErasure({}));
+    for (let press = 0; press < 50; press += 1) answers.push(await requestErasure({ holder: email }));
 
     assert.ok(
       answers.every((answer) => answer.ok),
@@ -86,7 +86,7 @@ describe("the account page's request for a deletion link", () => {
     row.createdAt = new Date(Date.now() - 3 * HOUR_MS);
     arriveAs(cookie);
 
-    expect((await requestErasure({})).ok).toBe(true);
+    expect((await requestErasure({ holder: "spaeter@example.org" })).ok).toBe(true);
     assert.ok(
       mail.sent.some((sent) => sent.to === "spaeter@example.org"),
       "no link was mailed",

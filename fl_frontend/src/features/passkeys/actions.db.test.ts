@@ -310,7 +310,7 @@ const { COPY } = await import("@/core/copy.ts");
 
 const GLEICHZEITIG_GEAENDERT = COPY.shared.failure.stale;
 
-const LETZTER_PASSKEY = COPY.konto.passkeys.lastKept;
+const LETZTER_PASSKEY = COPY.account.passkeys.lastKept;
 
 /** A removal the store failed under, whatever became of it. */
 const UNEXPECTED = { ok: false, reason: COPY.shared.failure.unexpected };

@@ -223,7 +223,7 @@ const { runWithEndpointContext } = (await import(
 const { auth } = await import("./auth/library.ts");
 const { deleteAccountFor, deleteOwnAccount, listAccounts, requestAccountDeletion } = await import("./auth/accounts.ts");
 const { endSessionsOfAddress } = await import("./auth/accountSessions.ts");
-const { getAdminSession, getKontoSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards.ts");
+const { getAdminSession, getAccountSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards.ts");
 const { getSignedInAddress, getPasskeyStep, getSignInLanding } = await import("./auth/landing.ts");
 const { isFreshlySignedIn } = await import("./auth/sessionStamps.ts");
 const { PASSKEY_LIMIT } = await import("./auth/enrolment.ts");
@@ -643,7 +643,7 @@ describe("a session read the store does not answer", () => {
     adapterCalls.refusing = refusingSessions;
     try {
       await expect(getAdminSession()).rejects.toThrow();
-      await expect(getKontoSession()).rejects.toThrow();
+      await expect(getAccountSession()).rejects.toThrow();
       await expect(getSignInLanding()).rejects.toThrow();
       await expect(getSignedInAddress()).rejects.toThrow();
     } finally {
@@ -734,7 +734,7 @@ describe("what the landing ends", () => {
     assert.ok(!store.session.includes(row), "a barred session the ban's ending missed outlived the landing");
 
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
-    expect(await getKontoSession(), "the ban's lift served the session again with no sign-in").toBe(null);
+    expect(await getAccountSession(), "the ban's lift served the session again with no sign-in").toBe(null);
   });
 
   /* The shared device: another person's passkey is refused on a page whose challenge names the spent account. */
@@ -903,7 +903,7 @@ describe("the administrator's idle hour across the proxy's slide", () => {
     expect(Reflect.get(row, "adminLapsed"), "the slide left no mark, so the case proves nothing").toBe(true);
 
     arriveAs(cookie);
-    assert.ok(await getKontoSession(), "the account guard refused a person's marked session");
+    assert.ok(await getAccountSession(), "the account guard refused a person's marked session");
     assert.ok(await getSubjectSession(), "the person guard refused a person's marked session");
     expect((await getSignInLanding()).destination).toBe("/area");
   });
@@ -994,7 +994,7 @@ describe("a passkey session made before its grant", () => {
 
     expect(await getAdminSession()).toBe(null);
     expect(await judgeAdminRequest()).toStrictEqual({ refused: "signIn" });
-    expect(await getKontoSession(), "the account page served an administrator's session its grant postdates").toBe(null);
+    expect(await getAccountSession(), "the account page served an administrator's session its grant postdates").toBe(null);
     expect((await getSignInLanding()).destination).toBe("/signin");
   });
 
@@ -1002,7 +1002,7 @@ describe("a passkey session made before its grant", () => {
     await aPasskeySessionGranted(-60 * 1000);
 
     assert.ok(await getAdminSession(), "the control was refused, so the case above proves nothing");
-    assert.ok(await getKontoSession());
+    assert.ok(await getAccountSession());
     expect((await getSignInLanding()).destination).toBe("/area");
   });
 
@@ -1029,7 +1029,7 @@ describe("a passkey session made before its grant", () => {
     await aPasskeySessionGranted(null);
 
     expect(await getAdminSession()).toBe(null);
-    expect(await getKontoSession()).toBe(null);
+    expect(await getAccountSession()).toBe(null);
   });
 });
 
@@ -1042,11 +1042,11 @@ describe("the account page's guard on a barred address", () => {
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    assert.ok(await getKontoSession(), "the seated person's session was refused, so the case below proves nothing");
+    assert.ok(await getAccountSession(), "the seated person's session was refused, so the case below proves nothing");
 
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
 
-    expect(await getKontoSession()).toBe(null);
+    expect(await getAccountSession()).toBe(null);
   });
 });
 
@@ -1244,7 +1244,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
   });
 
   /* The landing re-spelled the guard's conditions once, so a third one added to the guard would land a
-     granted session on a `/area` that sends it on to an `/area/admin` whose guard bounces it. */
+     granted session on a `/area` that sends it back to the landing. */
   it("lands a granted session on `/area` exactly where the guard admits it, over the same seeded rows", async ({ onTestFinished }) => {
     onTestFinished(() => void BACKENDS.delete(ADMIN_EMAIL));
     const { cookie, row } = await signIn(ADMIN_EMAIL);
@@ -1284,13 +1284,13 @@ describe("a passkey session whose passkey is gone", () => {
     arriveAs(cookie);
 
     expect(await getAdminSession()).toBe(null);
-    expect(await getKontoSession()).toBe(null);
+    expect(await getAccountSession()).toBe(null);
     expect(await getPasskeyStep()).toBe(null);
 
     // The control: the same session with its passkey's row standing.
     madeByPasskey(store, row);
     assert.ok(await getAdminSession());
-    assert.ok(await getKontoSession());
+    assert.ok(await getAccountSession());
 
     // No passkey is enrolled twice under one credential, so a session its passkey's removal missed is served by no lane again.
     store.passkey.length = 0;
@@ -1304,7 +1304,7 @@ describe("a passkey session whose passkey is gone", () => {
     store.passkey.length = 0;
     arriveAs(cookie);
 
-    expect(await getKontoSession()).toBe(null);
+    expect(await getAccountSession()).toBe(null);
     expect((await getSignInLanding()).destination).toBe("/signin");
   });
 
@@ -2334,7 +2334,7 @@ describe("what a ban ends in the sign-in store", () => {
     try {
       arriveAs(cookie);
       expect(await readServedSession(new Headers({ ...ORIGIN, cookie })), "the lift served the stamped session again").toBe(null);
-      expect(await getKontoSession()).toBe(null);
+      expect(await getAccountSession()).toBe(null);
       expect((await getSignInLanding()).destination).toBe("/signin");
       assert.ok(!store.session.includes(row), "the landing left the stamped row standing");
     } finally {

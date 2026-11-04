@@ -19,7 +19,7 @@ async function AppearanceContent() {
   return (
     <AccountBox
       title={COPY.page.accountAppearance}
-      description={COPY.konto.appearance.description}
+      description={COPY.account.appearance.description}
       control={<ThemeChoice />}
     />
   );
