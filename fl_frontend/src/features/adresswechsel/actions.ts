@@ -91,7 +91,7 @@ export async function beantrageAdresswechselAction(rawPayload: FLAddressChangeVe
       // The address the start names, never the one typed: a rival request landing between the two
       // replaced the mailbox the link is owed.
       message: describeAdresswechselMail(mint),
-      link: mint.way !== "release",
+      link: true,
     };
   });
 }

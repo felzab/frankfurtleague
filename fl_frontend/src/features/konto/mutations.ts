@@ -1,14 +1,8 @@
-import {
-  accountDeleteAddressChange,
-  accountPostAddressChange,
-  accountPostAddressChangeRelease,
-  identityPostAccountErasure,
-} from "@/core/generated/client/sdk";
+import { accountDeleteAddressChange, accountPostAddressChange, identityPostAccountErasure } from "@/core/generated/client/sdk";
 
 import type {
   FLAccountAddressChangeMintResponse,
   FLAccountAddressChangePayload,
-  FLAccountAddressChangeReleasePayload,
   FLAccountAddressChangeResponse,
   FLErasureResponse,
 } from "@/core/generated/client/types";
@@ -27,11 +21,6 @@ export async function loeschenEigeneDaten(): Promise<FLErasureResponse> {
  */
 export async function beantrageKontoAdresswechsel(payload: FLAccountAddressChangePayload): Promise<FLAccountAddressChangeMintResponse> {
   return accountPostAddressChange(payload);
-}
-
-/** The address on file's approval of the change an administrator started without a reason, named by the id its page showed. */
-export async function gibKontoAdresswechselFrei(payload: FLAccountAddressChangeReleasePayload): Promise<FLAccountAddressChangeMintResponse> {
-  return accountPostAddressChangeRelease(payload);
 }
 
 /** The address on file's stop, which hands nothing over and so asks no fresh sign-in. */

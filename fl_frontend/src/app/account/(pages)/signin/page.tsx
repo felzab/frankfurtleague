@@ -26,9 +26,6 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
  */
 const waitsOnPrevious = (open: FLAccountAddressChangeOpen): boolean => open.waits_on === "release" && open.way === "account";
 
-/** Whether an administrator's start waits on this page's approval, the address on file handing its records over. */
-const waitsOnApproval = (open: FLAccountAddressChangeOpen): boolean => open.waits_on === "release" && open.way !== "account";
-
 /** The change pending on the address, worded on the server, where its deadline is written in the league's time zone. */
 function pendingOf(open: FLAccountAddressChangeOpen): Pending {
   const { pending } = COPY.konto.address;
@@ -37,7 +34,7 @@ function pendingOf(open: FLAccountAddressChangeOpen): Pending {
     email: open.email,
     lapsed: open.expired,
     grant: open.approval !== null && !open.approval.approved,
-    approve: waitsOnApproval(open) ? open.id : null,
+    own: open.way === "account",
   };
 }
 

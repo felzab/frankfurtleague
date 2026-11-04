@@ -6,7 +6,7 @@ import { Facts } from "@/kit/Facts";
 import { TextField } from "@/kit/TextField";
 
 import { COPY } from "@/core/copy";
-import { approveAddressChange, requestErasure, startAddressChange, withdrawAddressChange } from "@/features/konto/personActions";
+import { requestErasure, startAddressChange, withdrawAddressChange } from "@/features/konto/personActions";
 
 import type { Copy } from "@/core/copy";
 
@@ -18,8 +18,8 @@ export type Pending = {
   readonly lapsed: boolean;
   /** Said where a grant's move waits on another administrator too. */
   readonly grant: boolean;
-  /** The change an administrator started, waiting on this page's approval, by its id: approved rather than withdrawn. */
-  readonly approve: string | null;
+  /** The person's own change, which this page withdraws; an administrator's the old address's stop link ends. */
+  readonly own: boolean;
 };
 
 /**
@@ -68,16 +68,9 @@ export function AnmeldungBoxes({
           title={COPY.signIn.address}
           description={COPY.konto.address.description}
           act={
-            pending.approve === null
+            pending.own
               ? { run: withdrawAddressChange, button: { label: COPY.shared.withObject(COPY.konto.address.change, "withdraw") } }
-              : {
-                  run: (formData) => {
-                    formData.set("id", pending.approve ?? "");
-                    return approveAddressChange(formData);
-                  },
-                  button: { label: COPY.shared.withObject(COPY.konto.address.change, "confirm") },
-                  touch: held,
-                }
+              : undefined
           }>
           {address}
           <AccountSentence

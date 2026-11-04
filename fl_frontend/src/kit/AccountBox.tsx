@@ -106,14 +106,16 @@ const box = tv({
  * One box of a Konto page, every box the same shape: its 16-px title, one sentence under it saying what the box
  * holds, its content, and a footer band holding the status line and its one act, the secondary button but for an
  * act whose question is a danger's. A box holding one control that acts at once, Darstellung's, is the one
- * exception: its title and sentence at the start and its control at the end of one row, no footer. A row of the
+ * exception: its title and sentence at the start and its control at the end of one row, no footer; and a box holding
+ * nothing this page acts on, an address change an administrator started, which the old address's stop link ends,
+ * shows its content and no footer. A row of the
  * box (`AccountRows`) answers on the footer's line too. The outcome stands in that line: a refusal in red with the
  * input kept, a field's message under its field; a done act leaves the line empty, the box showing what changed,
  * and the line's answer is cleared once the page is left.
  */
 export function AccountBox(
   props: { title: Copy; description: Copy } & (
-    { act: AccountAct; children?: ReactNode; control?: never } | { control: ReactElement; act?: never }
+    { act: AccountAct | undefined; children?: ReactNode; control?: never } | { control: ReactElement; act?: never; children?: never }
   ),
 ) {
   const slots = box();
@@ -124,12 +126,22 @@ export function AccountBox(
     </div>
   );
 
-  if (props.act === undefined) {
+  if (props.control !== undefined) {
     return (
       <section className={slots.root()}>
         <div className={slots.inline()}>
           {head}
           {props.control}
+        </div>
+      </section>
+    );
+  }
+  if (props.act === undefined) {
+    return (
+      <section className={slots.root()}>
+        <div className={slots.body()}>
+          {head}
+          {props.children !== undefined && <div className={slots.content()}>{props.children}</div>}
         </div>
       </section>
     );

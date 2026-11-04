@@ -12,7 +12,6 @@ import { deleteOwnAccount, requestAccountDeletion } from "@/core/auth/accounts";
 import { revokeOtherSessions } from "@/core/auth/accountSessions";
 import { COPY } from "@/core/copy";
 import {
-  AccountPostAddressChangeReleaseBody,
   BewerbungenPatchEinwilligungBody,
   BewerbungenPatchEinwilligungParams,
   RegistrierungenPatchEinwilligungBody,
@@ -31,7 +30,7 @@ import { patchRegistrierungEinwilligung } from "@/features/registrierungen/mutat
 import { patchSchiedsrichterKontoEinwilligung } from "@/features/schiedsrichter/mutations";
 import { patchSpielerKontoEinwilligung } from "@/features/spieler/mutations";
 
-import { beantrageKontoAdresswechsel, gibKontoAdresswechselFrei, loeschenEigeneDaten, stoppeKontoAdresswechsel } from "./mutations";
+import { beantrageKontoAdresswechsel, loeschenEigeneDaten, stoppeKontoAdresswechsel } from "./mutations";
 import { getLoeschungAnsicht } from "./queries";
 
 import type { ActionAnswer } from "@/core/action";
@@ -87,23 +86,6 @@ export const startAddressChange = action({
   ownWords: ["address_change_unchanged", "address_change_no_approver"],
   run: async ({ email }) => {
     await beantrageKontoAdresswechsel({ email });
-    return { ok: true, value: undefined };
-  },
-});
-
-/**
- * The address on file's approval of the change an administrator started without a reason, the passkey touch first:
- * only now does the new address get its link. A later start replaced the one the page showed, and the press then
- * approves nothing.
- */
-export const approveAddressChange = action({
-  lane: "person",
-  claim: "record",
-  passkey: true,
-  name: "approveAddressChange",
-  input: AccountPostAddressChangeReleaseBody,
-  run: async ({ id }) => {
-    await gibKontoAdresswechselFrei({ id });
     return { ok: true, value: undefined };
   },
 });

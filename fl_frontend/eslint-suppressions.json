@@ -543,7 +543,7 @@
       "count": 1
     },
     "no-restricted-syntax": {
-      "count": 9
+      "count": 8
     },
     "react/forbid-component-props": {
       "count": 12
