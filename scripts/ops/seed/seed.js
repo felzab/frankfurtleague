@@ -146,14 +146,30 @@ const REFEREES = [
 
 // --- Grants --------------------------------------------------------------------------------------
 
+// Each grant as the grant page's write leaves it (`fl_backend/app/api/berechtigungen/crud.py :: grant_in_session`):
+// seen as it is written, and announced by a row of its own, so the reconciliation's first pass, a minute after the
+// frontend starts, finds nothing to date afresh. Written as a Playground paste instead, each would be found then and
+// dated by that moment, and every administrator's session signed in before it sent back to the sign-in on its next
+// page (`docs/ops/runbooks.md` §3). Its notice is owed nobody: no administrator was told of a grant before it.
 // Folded as the sign-in folds an address, or the grant admits nobody (`docs/ops/runbooks.md` §3).
+const GRANTED_AT = new Date();
 const GRANTS = [
   ["inhaber@example.com", "owner"],
   ["admin.desktop@example.com", "administration"],
   ["admin.telefon@example.com", "administration"],
   ["admin.editor@example.com", "administration"],
   ["admin.verwaltung@example.com", "administration"],
-].map(([adresse, verwaltung]) => ({ _id: ObjectId(), adresse, verwaltung, granted_by: "MADE-UP-SEED", granted_at: new Date() }));
+].map(([adresse, verwaltung]) => ({
+  _id: ObjectId(),
+  adresse,
+  verwaltung,
+  granted_by: "MADE-UP-SEED",
+  granted_at: GRANTED_AT,
+  gesehen_am: GRANTED_AT,
+}));
+
+// The announced record of each, keyed by its grant's id: `fl_backend/app/api/berechtigungen/services.py :: compose_announced`.
+const ANNOUNCED = GRANTS.map(({ _id, adresse, verwaltung }) => ({ _id, adresse, verwaltung, angekuendigt_am: GRANTED_AT }));
 
 // --- Seasons -------------------------------------------------------------------------------------
 
@@ -531,5 +547,10 @@ for (const [name, documents] of Object.entries(DOCUMENTS)) {
   const inserted = db.getCollection(name).insertMany(versioned, { ordered: true }).insertedIds;
   print(`seeded ${name}: ${Object.keys(inserted).length} document(s)`);
 }
+
+// The grants' announced record is bookkeeping no form edits: outside `EDITED_COLLECTIONS`, its documents carry no
+// `version`, and its record model refuses one.
+const announced = db.getCollection("berechtigungen_angekuendigt").insertMany(ANNOUNCED, { ordered: true }).insertedIds;
+print(`seeded berechtigungen_angekuendigt: ${Object.keys(announced).length} document(s)`);
 
 print(`made-up seed written to '${db.getName()}', today being ${TODAY}`);

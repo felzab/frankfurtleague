@@ -348,9 +348,9 @@ sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
   session older than the grant administers nothing. Grant an
   address only where its mailbox is trusted as an administrator's.
 - **A Playground grant is dated twice, so whoever it admits signs in once more.** Until the
-  reconciliation's next pass (`fl_frontend/src/features/berechtigungen/abgleich.ts ::
-ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `granted_at`, or by the moment its
-  `_id` was generated where that is later — so leave `_id` to the Playground, write `new Date()` for
+  reconciliation's next pass finds the row, hourly and first a minute after the frontend starts
+  (`fl_frontend/src/instrumentation-node.ts`'s `PASS_INTERVAL_MS` and `FIRST_PASS_DELAY_MS`), it is
+  dated by its own `granted_at`, or by the moment its `_id` was generated where that is later — so leave `_id` to the Playground, write `new Date()` for
   `granted_at`, and any sign-in after the paste admits. Once found, it is dated by that moment instead: a session signed in between the paste and the find is sent back to
   the sign-in, and the next passkey sign-in admits.
 - **A row the pass has read is no fresh paste: edit it and it admits nobody until the pass finds the

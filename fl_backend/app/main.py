@@ -5,7 +5,8 @@ from typing import Any, Final
 from fastapi import APIRouter, FastAPI
 from fastapi.openapi.utils import get_openapi
 from fastapi.routing import APIRoute
-from pydantic.json_schema import models_json_schema
+from pydantic import TypeAdapter
+from pydantic.json_schema import JsonSchemaMode, models_json_schema
 
 from app.api.account.person_router import router as account_person_router
 from app.api.adresswechsel.admin_router import router as address_change_admin_router
@@ -57,6 +58,7 @@ from app.core.db import lifespan
 from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, register_exception_handlers
 from app.core.logging import fl_logger, setup_logging
 from app.core.middlewares import TracedApp
+from app.shared.schemas.einwilligung import CURRENT_TEXT_VERSIONS
 from app.shared.schemas.responses import FLFailureBody
 
 # Every router under its slice's tag, the first segment of each path it serves, so an operation's id
@@ -133,6 +135,22 @@ def with_failure_responses(document: Mapping[str, Any]) -> dict[str, Any]:
     return {**document, "components": {**components, "schemas": schemas, "responses": responses}}
 
 
+def with_current_text_versions(document: Mapping[str, Any]) -> dict[str, Any]:
+    """`document` publishing each consent's current label as a schema of its own, which the frontend's grants are checked against.
+
+    No operation names one alone, and Pydantic inlines an alias that a model references only once.
+    """
+
+    components = document.get("components", {})
+    adapters: list[tuple[str, JsonSchemaMode, TypeAdapter[Any]]] = [
+        (alias.__name__, "validation", TypeAdapter(alias)) for alias in CURRENT_TEXT_VERSIONS
+    ]
+    labels = TypeAdapter.json_schemas(adapters, ref_template=SCHEMA_REF)[1]["$defs"]
+    schemas = dict(sorted({**components.get("schemas", {}), **labels}.items()))
+
+    return {**document, "components": {**components, "schemas": schemas}}
+
+
 # The document's name, which a client generated from it carries in each file's header.
 DOCUMENT_TITLE = "Frankfurt League API"
 
@@ -143,7 +161,7 @@ def publish_document(app: FastAPI) -> None:
     def openapi() -> dict[str, Any]:
         if not app.openapi_schema:
             document = get_openapi(title=DOCUMENT_TITLE, version=app.version, openapi_version=app.openapi_version, routes=app.routes)
-            app.openapi_schema = with_failure_responses(document)
+            app.openapi_schema = with_current_text_versions(with_failure_responses(document))
 
         return app.openapi_schema
 

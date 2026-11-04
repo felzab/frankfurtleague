@@ -328,8 +328,7 @@ export const getAccountGetEinwilligungenUrl = () => {
  *
  * PERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered
  * `spieler: null` and four empty lists, never refused. A retired record, a past season's seat and a withdrawn team's
- * seat are served too, a withdrawal staying open wherever a consent stands; `context` carries what the record's
- * confirmation page filled its words with, as those records stand today; `givable` says whether a grant is
+ * seat are served too, a withdrawal staying open wherever a consent stands; `givable` says whether a grant is
  * admitted, `medien_offered` whether the media consent may be switched on. A record awaiting its person's
  * confirmation is not served: there is nothing on it yet to change.
  * @summary A signed-in person's own consent records

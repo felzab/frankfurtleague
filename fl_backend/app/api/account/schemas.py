@@ -3,7 +3,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.api.adresswechsel.schemas import FLAddressChangeApprovalState
 from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelf
-from app.api.spieler.schemas import FLEinwilligung, FLSpielerContext, FLSpielerSelf
+from app.api.spieler.schemas import FLEinwilligung, FLSpielerSelf
 from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomEmail
@@ -19,16 +19,6 @@ from app.shared.schemas.literals import (
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
-class FLSeatContext(BaseModel):
-    """What the contact confirmation page's slots name for this seat today."""
-
-    vorname: str | None
-    team: str
-    # The club's own name, today; null where its document is gone.
-    schule: str | None
-    saison: str
-
-
 class FLAccountSpielerEinwilligung(FLSpielerSelf):
     """The pupil's record on the account page: its stored data and the consent the page moves."""
 
@@ -40,10 +30,8 @@ class FLAccountSpielerEinwilligung(FLSpielerSelf):
     # Served rather than derived on the page, which would judge a grant with a second copy of the rule.
     givable: bool
     medien_offered: bool
-    # The floors the record's confirmation page named, so the page fills its words from the rule.
-    minimum_age: int
+    # The media floor, which the page names where the record is short of it.
     medien_minimum_age: int = Field(gt=0)
-    context: FLSpielerContext
 
 
 class FLAccountSchiedsrichterEinwilligung(FLSchiedsrichterSelf, BaseReadModel):
@@ -54,18 +42,7 @@ class FLAccountSchiedsrichterEinwilligung(FLSchiedsrichterSelf, BaseReadModel):
     nachweis_stand: FLEinwilligungStand
     givable: bool
     medien_offered: bool
-    minimum_age: int
     medien_minimum_age: int = Field(gt=0)
-
-
-class FLSeatConfirmed(BaseModel):
-    """One confirmation a person gave on a row: the seats it answered, its day and the floor its page named."""
-
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
-    confirmed_at: CustomOptionalDateString
-    # The age floor that page named over these roles, which the page fills `{minAlter}` from.
-    minimum_age: int
-    context: FLSeatContext
 
 
 class FLAccountSeatEinwilligung(BaseModel):
@@ -87,9 +64,7 @@ class FLAccountSeatEinwilligung(BaseModel):
     nachweis_stand: FLEinwilligungStand
     medien_offered: bool
     givable: bool
-    # Never empty, a held seat being a confirmed one.
-    confirmed: list[FLSeatConfirmed] = Field(min_length=1)
-    # One per entry: every confirmation and the control's own words name the same media floor.
+    # One per entry: the control's own words name the media floor every held seat shares.
     medien_minimum_age: int = Field(gt=0)
 
 
@@ -109,8 +84,7 @@ class FLAccountBewerbungSeatEinwilligung(BaseModel):
     umfang: FLKontaktKenntnisnahmeUmfang
     medien: bool
     nachweis_stand: FLEinwilligungStand
-    confirmed: list[FLSeatConfirmed] = Field(min_length=1)
-    # One per entry: every confirmation and the control's own words name the same media floor.
+    # The media floor every entry serves, though the page names none on a withdraw-only entry, which grants nothing.
     medien_minimum_age: int = Field(gt=0)
 
 
@@ -127,12 +101,8 @@ class FLAccountRegistrierungEinwilligung(BaseModel):
     umfang: FLEinwilligungUmfang | None
     medien: bool | None
     nachweis_stand: FLEinwilligungStand
-    # For `app/api/spieler/schemas.py :: FLSpielerSelf`'s reason.
-    minimum_age: int
-    # For `app/api/spieler/schemas.py :: FLSpielerSelf`'s reason.
+    # The media floor every entry serves, though the page names none on a withdraw-only entry, which grants nothing.
     medien_minimum_age: int = Field(gt=0)
-    # What the pupil's confirmation page filled its words with, read today.
-    context: FLSpielerContext
     # As the registration stores them: the account page shows what is kept about the pupil.
     vorname: str
     nachname: str
