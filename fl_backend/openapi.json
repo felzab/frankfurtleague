@@ -949,7 +949,7 @@
         "type": "object"
       },
       "FLAccountSchiedsrichterEinwilligung": {
-        "description": "One referee record on the account page: the stored data its box shows and the consent the page moves.\n\nIts own shape rather than `app/api/schiedsrichter/schemas.py :: FLSchiedsrichterSelf`'s, whose fee the confirmation\npage lists and this box does not.",
+        "description": "One referee record on the account page: the stored data its box shows and the consent the page moves.",
         "properties": {
           "einwilligung": {
             "$ref": "#/components/schemas/FLAccountEinwilligung"
@@ -12074,7 +12074,7 @@
         "type": "object"
       },
       "FLSchiedsrichterSelf": {
-        "description": "One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.\n\nFor `app/api/spieler/schemas.py :: FLSpielerSelf`'s reason, the account page's entry extends it.",
+        "description": "The referee's own page's read: the record and its fee.\n\nThe fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.",
         "properties": {
           "geburtsdatum": {
             "anyOf": [
@@ -12122,8 +12122,8 @@
           "name",
           "schule",
           "kontakt",
-          "honorar",
-          "geburtsdatum"
+          "geburtsdatum",
+          "honorar"
         ],
         "title": "FLSchiedsrichterSelf",
         "type": "object"

@@ -203,19 +203,27 @@ class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     delivery: FLOutboxStatus | None
 
 
-class FLSchiedsrichterSelf(BaseReadModel):
-    """One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.
+class FLSchiedsrichterSelfPerson(BaseReadModel):
+    """One referee record's stored data as its own person reads it: contact details, never the link's bookkeeping.
 
-    For `app/api/spieler/schemas.py :: FLSpielerSelf`'s reason, the account page's entry extends it.
+    Its consent is the account page's, whose entry `app/api/account/schemas.py :: FLAccountSchiedsrichterEinwilligung` extends this.
     """
 
     schiedsrichter_id: CustomObjectId
     name: CustomNonEmptyString
     schule: str | None
     kontakt: FLKontakt
+    geburtsdatum: CustomOptionalDateString = None
+
+
+class FLSchiedsrichterSelf(FLSchiedsrichterSelfPerson):
+    """The referee's own page's read: the record and its fee.
+
+    The fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.
+    """
+
     # `default_payment`, named as the screen names it: the confirmation page lists it among what is stored.
     honorar: int
-    geburtsdatum: CustomOptionalDateString = None
 
 
 class FLSchiedsrichterSelfResponse(BaseAPIResponse):

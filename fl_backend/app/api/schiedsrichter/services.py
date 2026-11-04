@@ -523,7 +523,7 @@ SELF_REFEREE_ORDER: Final[Mapping[str, int]] = {"_id": 1}
 
 
 def build_self_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """The referee rows a person's own pages read, each a candidate for `app/api/identity/services.py :: ist_eigener_schiedsrichter`.
+    """The referee rows the referee's own page reads, each a candidate for `app/api/identity/services.py :: ist_eigener_schiedsrichter`.
 
     Unbounded: a capped list reads as a person holding fewer records.
     """

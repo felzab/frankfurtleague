@@ -435,9 +435,6 @@ export interface FLKontakt {
 
 /**
  * One referee record on the account page: the stored data its box shows and the consent the page moves.
- *
- * Its own shape rather than `app/api/schiedsrichter/schemas.py :: FLSchiedsrichterSelf`'s, whose fee the confirmation
- * page lists and this box does not.
  */
 export interface FLAccountSchiedsrichterEinwilligung {
   einwilligung: FLAccountEinwilligung;
@@ -4523,9 +4520,9 @@ export interface FLSchiedsrichterReactivateResponse {
 }
 
 /**
- * One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.
+ * The referee's own page's read: the record and its fee.
  *
- * For `app/api/spieler/schemas.py :: FLSpielerSelf`'s reason, the account page's entry extends it.
+ * The fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.
  */
 export interface FLSchiedsrichterSelf {
   geburtsdatum: string | null;
