@@ -19,7 +19,7 @@ from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import FLAddressChangeEndArt, FLAddressChangeWaitsOn, FLAddressChangeWay, FLVerwaltung
 from app.shared.schemas.responses import BaseAPIResponse
 
-type FLAddressChangeAntwort = Literal["confirmed", "declined"]
+type FLAddressChangeAnswer = Literal["confirmed", "declined"]
 
 # How an administrator checked who asks, where the address on file is gone: the erasure occasion's ceiling, being
 # copied onto the start's log row as that occasion is. An address typed here would outlive every redaction of the change.
@@ -89,7 +89,7 @@ class FLAdresswechsel(BaseModel):
 
 
 class FLAdresswechselStopp(BaseModel):
-    """The address on file's stop link."""
+    """The address on file's link: the person's own change's confirmation or decline until it confirms, then every way's stop."""
 
     token_hashes: list[str]
 
@@ -97,7 +97,8 @@ class FLAdresswechselStopp(BaseModel):
 class FLAdresswechselRecord(FLAdresswechsel):
     """One change as `adresswechsel` stores it, its two links' hashes with it, each minted as its mail is handed out."""
 
-    # Empty until the new mailbox's link is handed out, and on the `release` way until the address on file approves.
+    # Empty until the new mailbox's link is handed out, which on the person's own change waits until its address on file
+    # confirms.
     token_hashes: list[str]
     stop: FLAdresswechselStopp
 
@@ -167,7 +168,7 @@ class FLAddressChangeApprovalState(BaseModel):
 class FLAddressChangeViewNew(BaseModel):
     """What the new mailbox's link opens while the change stands."""
 
-    seite: Literal["new"]
+    side: Literal["new"]
     state: FLAdresswechselNeuZustand
     # Null exactly where the change is confirmed: it waits on no deadline of this link's.
     valid_until: FLUtcInstant | None
@@ -175,47 +176,62 @@ class FLAddressChangeViewNew(BaseModel):
     way: FLAddressChangeWay
     # Null exactly where not `confirmed`: whether the confirmed change waits on another administrator's approval.
     approval_open: bool | None
+    # The address this link was mailed to, exactly where `valid`: the question its holder answers names it, and the holder
+    # of that mailbox knows it.
+    email: str | None
 
 
 class FLAddressChangeViewPrevious(BaseModel):
-    """What the address on file's stop link opens: the step the change waits on, never whether it could be confirmed."""
+    """What the address on file's link opens: the step the change waits on, never whether the new mailbox could confirm it."""
 
-    seite: Literal["previous"]
+    side: Literal["previous"]
     state: FLAdresswechselBisherigZustand
     valid_until: FLUtcInstant | None
     effective_from: FLUtcInstant | None
     way: FLAddressChangeWay
+    # The new address, exactly where the person's own change waits on this link (`release_open` on `account`): the holder
+    # of the address on file cannot judge a change without the address it goes to.
+    email: str | None
+    # The German day the address on file confirmed the change, which a link opened again names; null before.
+    released_on: CustomDateString | None
 
 
 class FLAddressChangeViewEnded(BaseModel):
     """What either link opens once its change ended, for as long as its record is kept."""
 
-    seite: Literal["new", "previous"]
+    side: Literal["new", "previous"]
     state: Literal["ended"]
     art: FLAddressChangeEndArt
+    # The German day it ended on, which the page names beside what became of it.
+    ended_on: CustomDateString
+    # The way it began, which tells the person's own change apart on either side, as the live views do.
+    way: FLAddressChangeWay
+    # The German day the address on file confirmed it, on the address on file's side once it has; null otherwise.
+    released_on: CustomDateString | None
 
 
 class FLAddressChangeViewResponse(BaseAPIResponse):
-    """What one address link opens: never a name, either address or the id."""
+    """What one address link opens: never a name or the id, and the new address only where a link asks its question."""
 
     view: Annotated[FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded, Field(discriminator="state")]
 
 
-class FLAddressChangeAntwortPayload(BaseModel):
+class FLAddressChangeAnswerPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     token: CustomToken
     # Required rather than defaulted: a page that omitted it would have the model answer for the person whether a mailbox is theirs.
-    antwort: FLAddressChangeAntwort
+    answer: FLAddressChangeAnswer
 
 
-class FLAddressChangeAntwortResponse(BaseAPIResponse):
+class FLAddressChangeAnswerResponse(BaseAPIResponse):
     """The answer recorded, and no address of the change: the notices an effect owes are queued, never answered."""
 
-    antwort: FLAddressChangeAntwort
+    answer: FLAddressChangeAnswer
     # Set where a change waiting after its confirmation now waits until then.
     effective_from: FLUtcInstant | None
-    # Set where the change now waits on another administrator's approval of its grant's move.
+    # Set where the change waits on another administrator's approval of its grant's move: now, on the new mailbox's
+    # confirmation, or once the new mailbox confirms, on the address on file's. The page tells the two by the side it pressed.
     approval_open: bool
     # Set where the change took effect: its notice is owed in the Postausgang and its account's carry on the record.
     effective: bool
@@ -294,15 +310,14 @@ class FLAddressChangeVerwaltungViewResponse(BaseAPIResponse):
 
 
 class FLAddressChangeVerwaltungPayload(BaseModel):
-    """The address a change starts on, the address it goes to, and the reason where the address on file is gone."""
+    """The address a change starts on, the address it goes to, and how the administrator established who asks for it."""
 
     model_config = ConfigDict(extra="forbid")
 
     adresse: CustomEmail
     email: CustomEmail
-    # Required, null meaning the address on file is asked first: a form forgetting the box must not start the change
-    # that hands the records over without that address.
-    grund: CustomAdresswechselGrund | None
+    # Never null: the change hands the records over without the address on file, so it stands on a recorded reason.
+    grund: CustomAdresswechselGrund
 
 
 class FLAddressChangeVerwaltungMintResponse(BaseAPIResponse):

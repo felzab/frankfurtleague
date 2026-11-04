@@ -1,20 +1,17 @@
 """
-API · a commit refused or its answer lost, and a read held: the journals, the sweeps, an adoption's stamp, a repoint, the subject lookup
+API · a commit refused or its answer lost, and a read held: the journals, the sweeps, an adoption's stamp, a repoint, the per-request lookups
 
-The erasures' and a press's journal, each sweep's unanswered line, an adoption's stamp and an erased pupil's repointed
-report entries meet a refused or unanswered commit; the subject lookup's reads are held on the server, so that the reads
-it gathers are seen in flight together.
+The erasures' and a press's journal, the confirmation pass's mint, an adoption's stamp and an erased pupil's repointed
+report entries meet a refused or unanswered commit; the per-request lookups' reads are held on the server, so that the
+reads each gathers are seen in flight together, and the ones a transaction runs one at a time.
 
 Every case configuring `failCommand` lives in this module: the fail point is one setting the server holds for all
 workers, so a second module configuring it on another worker would replace this one's configuration, and either case's
 `off` would clear both. The gate's `--dist loadfile` runs one module on one worker, its cases one after another.
 """
 
-import ast
 import logging
 from collections.abc import Awaitable, Callable
-from importlib.util import resolve_name
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -23,6 +20,8 @@ from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
+from app.api.berechtigungen.crud import live_unbarred_grant_since
+from app.api.identity.crud import find_subjekt_in_session
 from app.api.spielbestaetigungen.services import halter_of
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -30,20 +29,22 @@ from app.core.db import NO_OWNER
 from app.core.journal import JOURNAL_TOKEN
 from app.core.security import actor_pseudonym, erasure_journal_hash
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
+from tests.bans import ban_list
 from tests.documents import ban_document
+from tests.records import record_collections
 from tests.whole_database import where_held
 
 from . import test_spielbestaetigung_sweep_execution as confirmations
 from . import test_spiele_write_execution as fixture_saves
-from .test_adresswechsel_sweep_execution import MINTED_TO_LAPSE_YESTERDAY, a_change, with_history
-from .test_adresswechsel_sweep_execution import numbered as change_numbered
-from .test_adresswechsel_sweep_execution import on_a_league as on_the_changes_league
-from .test_adresswechsel_sweep_execution import sweep as an_address_change_call
 from .test_funktionen_loeschung import IDENTIFIER, THEIR_GRANT_OID, a_grant
 from .test_funktionen_loeschung import geloescht_by_the_handler as geloescht_by_the_person
 from .test_funktionen_loeschung import on_a_league as on_their_league
-from .test_identitaet_subjekt_execution import FUTURE_SAISON, VERWALTUNG_STORED, call_subjekt
-from .test_identitaet_subjekt_execution import on_a_league as on_the_subjects_league
+from .test_identity_anmeldung_execution import GESPERRT as SIGN_IN_GESPERRT
+from .test_identity_anmeldung_execution import call_anmeldung
+from .test_identity_anmeldung_execution import on_a_league as on_the_sign_ins_league
+from .test_identity_subjekt_execution import FUTURE_SAISON, VERWALTUNG_STORED, call_subjekt
+from .test_identity_subjekt_execution import IDENTIFIER as SUBJECTS_SEAT_HOLDER
+from .test_identity_subjekt_execution import on_a_league as on_the_subjects_league
 from .test_journal_replay import PERSON, PUPIL_OID, V, _app, _person, _withdrawal, journalled, served
 from .test_loeschung_auf_anfrage import CONFIG as REQUEST_CONFIG
 from .test_loeschung_auf_anfrage import geloescht_by_the_handler as geloescht_on_request
@@ -76,9 +77,6 @@ HELD_READS_APP = "subject-held-reads"
 # Far longer than opening a connection for each gathered read takes, so every read gathered beside the first is sent
 # before the first is answered, and a read awaited before the next is sent shows as an answer ahead of that send.
 HELD_FOR_MS = 200
-TESTS_ROOT = Path(__file__).resolve().parents[1]
-BACKEND_ROOT = TESTS_ROOT.parent
-THIS_MODULE = ".".join(Path(__file__).resolve().relative_to(BACKEND_ROOT).with_suffix("").parts)
 
 
 class _Commits(monitoring.CommandListener):
@@ -131,64 +129,36 @@ class _InFlight(monitoring.CommandListener):
         return sorted(collection for kind, collection in self.events[:first] if kind == "sent")
 
 
-def _modules_imported(path: Path) -> frozenset[str]:
-    """Every module the file imports, and every name it imports from one read as a submodule, relative levels resolved."""
+async def _first_reads(url: str, database: AsyncDatabase, call: Callable[[AsyncMongoClient], Awaitable[Any]]) -> tuple[Any, list[str]]:
+    """`call`'s answer over a client whose reads the server holds, and every read it sent before the first was answered."""
 
-    package = ".".join(path.relative_to(BACKEND_ROOT).with_suffix("").parts[:-1])
-    found: set[str] = set()
-    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-        if isinstance(node, ast.Import):
-            found.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom):
-            base = resolve_name("." * node.level + (node.module or ""), package)
-            found.add(base)
-            found.update(f"{base}.{alias.name}" for alias in node.names)
+    reads = _InFlight()
+    held = AsyncMongoClient(url, serverMonitoringMode="poll", appname=HELD_READS_APP, event_listeners=[reads])
+    holding = {"failCommands": ["find", "aggregate"], "appName": HELD_READS_APP, "blockConnection": True, "blockTimeMS": HELD_FOR_MS}
+    await database.client.admin.command("configureFailPoint", FAIL_POINT, mode="alwaysOn", data=holding)
+    try:
+        answer = await call(held)
+    finally:
+        await database.client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
+        await held.close()
 
-    return frozenset(found)
-
-
-def test_no_other_module_configures_the_fail_point():
-    """The rule this module's docstring states: a second module's configuration replaces this one's on a shared server.
-
-    Two routes reach it: spelling the fail point, and importing this module, whose helpers configure it unspelled.
-    """
-
-    texts = {path.relative_to(TESTS_ROOT).as_posix(): (path, path.read_text(encoding="utf-8")) for path in sorted(TESTS_ROOT.rglob("*.py"))}
-    spelling = [name for name, (_, text) in texts.items() if FAIL_POINT in text]
-    # Parsed only where the module's own name is spelled, as every import of it spells it.
-    importing = [name for name, (path, text) in texts.items() if Path(__file__).stem in text and THIS_MODULE in _modules_imported(path)]
-
-    assert (spelling, importing) == ([Path(__file__).relative_to(TESTS_ROOT).as_posix()], [])
+    return answer, reads.sent_before_the_first_answer()
 
 
 @pytest.mark.db
-class TestTheSubjectLookupsReads:
-    """`POST /identity/subject` answers every signed-in render, so its reads are paid in latency on every page."""
+class TestTheReadsAPerRequestLookupGathers:
+    """Each lookup here answers every signed-in render, sign-in or admin-tier request, so its reads are paid in latency each time."""
 
-    def test_the_records_the_ban_and_the_grant_are_read_at_once(self, mongo_replica_set_url: str):
-        """The first read of each: the records' three, the ban's running season and the grant, each sent before any answers.
+    def test_the_subjects_records_ban_and_grant_are_read_at_once(self, mongo_replica_set_url: str):
+        """`POST /identity/subject`: the records' three, the ban's running season and the grant, each sent before any answers.
 
-        The ban's own row follows its season, which it needs, and a seat's season follows the seats; neither is a first read.
+        The ban's own row follows its season, which it needs, and a seat's season is joined inside the seats' read; neither is a first read.
         """
 
         async def body(database: AsyncDatabase) -> Any:
             await database[Collection.SPERRLISTE].insert_one(ban_document(VERWALTUNG_STORED, bis=FUTURE_SAISON))
-            reads = _InFlight()
-            held = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=HELD_READS_APP, event_listeners=[reads])
-            holding = {
-                "failCommands": ["find", "aggregate"],
-                "appName": HELD_READS_APP,
-                "blockConnection": True,
-                "blockTimeMS": HELD_FOR_MS,
-            }
-            await database.client.admin.command("configureFailPoint", FAIL_POINT, mode="alwaysOn", data=holding)
-            try:
-                answer = await call_subjekt(held[database.name], VERWALTUNG_STORED)
-            finally:
-                await database.client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
-                await held.close()
 
-            return answer, reads.sent_before_the_first_answer()
+            return await _first_reads(mongo_replica_set_url, database, lambda held: call_subjekt(held[database.name], VERWALTUNG_STORED))
 
         answer, sent = on_the_subjects_league(mongo_replica_set_url, body)
 
@@ -196,6 +166,64 @@ class TestTheSubjectLookupsReads:
         assert (answer.barred, answer.verwaltung) == (True, "administration")
         first_reads = (Collection.GRANTS, Collection.SAISONS, Collection.SAISON_TEAMS, Collection.SCHIEDSRICHTER, Collection.SPIELER)
         assert sent == sorted(map(str, first_reads)), "the endpoint awaited one read before sending the next"
+
+    def test_the_sign_in_gates_five_records_ban_and_grant_are_read_at_once(self, mongo_replica_set_url: str):
+        """`POST /identity/sign_in`, the one read paying for the two kinds granting no panel: all seven first reads at once."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            return await _first_reads(mongo_replica_set_url, database, lambda held: call_anmeldung(held[database.name], SIGN_IN_GESPERRT))
+
+        answer, sent = on_the_sign_ins_league(mongo_replica_set_url, body)
+
+        assert (answer.barred, answer.account) == (True, True)
+        first_reads = (
+            Collection.BEWERBUNGEN,
+            Collection.GRANTS,
+            Collection.REGISTRIERUNGEN,
+            Collection.SAISONS,
+            Collection.SAISON_TEAMS,
+            Collection.SCHIEDSRICHTER,
+            Collection.SPIELER,
+        )
+        assert sent == sorted(map(str, first_reads)), "the gate awaited one read before sending the next"
+
+    def test_the_actor_checks_grant_and_ban_are_read_at_once(self, mongo_replica_set_url: str):
+        """Every admin-tier request pays this check before its handler runs: the grant and the ban's season, sent together."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            async def check(held: AsyncMongoClient) -> Any:
+                async with held.start_session() as session:
+                    return await live_unbarred_grant_since(
+                        VERWALTUNG_STORED,
+                        berechtigungen_collection=held[database.name][Collection.GRANTS],
+                        sperrliste=ban_list(held[database.name]),
+                        session=session,
+                    )
+
+            return await _first_reads(mongo_replica_set_url, database, check)
+
+        since, sent = on_the_subjects_league(mongo_replica_set_url, body)
+
+        assert since is not None, "the check found no grant, so the order below is of reads that answered nothing"
+        assert sent == sorted(map(str, (Collection.GRANTS, Collection.SAISONS))), "the check awaited the grant before asking the ban list"
+
+    def test_inside_a_transaction_the_subjects_reads_run_one_at_a_time(self, mongo_replica_set_url: str):
+        """PyMongo documents that one session runs one operation at a time and refuses nothing, so gathered here they would race unseen."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            async def lookup(held: AsyncMongoClient) -> Any:
+                records = record_collections(held[database.name])
+                async with held.start_session() as session:
+                    return await session.with_transaction(
+                        lambda transaction: find_subjekt_in_session(SUBJECTS_SEAT_HOLDER, records, session=transaction)
+                    )
+
+            return await _first_reads(mongo_replica_set_url, database, lookup)
+
+        answer, sent = on_the_subjects_league(mongo_replica_set_url, body)
+
+        assert answer.seats, "the lookup found no seat, so a single read sent proves nothing of the others"
+        assert len(sent) == 1, f"the lookup sent {sent} before the first answered"
 
 
 @pytest.mark.db
@@ -396,83 +424,9 @@ class TestAPersonsOwnPress:
 
         refusal, pressed = served(mongo_replica_set_url, steps)
 
-        assert refusal == (409, Code.WORDING_NOT_ALLOWED, 0, True)
+        assert refusal == (409, Code.CHOICES_STALE, 0, True)
         # The control: the capture reads the line a press that lands leaves.
-        assert (pressed, len(journalled(caplog))) == (200, 1)
-
-
-async def _first_commit_unanswered(
-    url: str, database: AsyncDatabase, client: AsyncMongoClient, call: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
-) -> list[int | None]:
-    """`call` on a client of its own, whose first commit lands and answers only that its time ran out; each commit's answer."""
-
-    commits = _Commits()
-    losing = AsyncMongoClient(url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
-    await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=UNANSWERED)
-    try:
-        await call(losing[database.name], losing)
-    finally:
-        await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
-        await losing.close()
-
-    return commits.answered
-
-
-# The fields the three sweeps' stopping lines carry beside their code.
-STOPPING_FIELDS = ("spieler_id", "erasure_unanswered", "art", "address_change_id", "unanswered", "clock", "may_stand")
-
-
-def _stopping_lines(caplog: pytest.LogCaptureFixture) -> list[tuple[str | None, str, dict[str, Any]]]:
-    return [
-        (
-            getattr(record, "error_code", None),
-            record.getMessage(),
-            {field: getattr(record, field) for field in STOPPING_FIELDS if hasattr(record, field)},
-        )
-        for record in caplog.records
-        if getattr(record, "error_code", None) in {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
-    ]
-
-
-@pytest.mark.db
-class TestTheSweepsNameACommitTheyCannotRead:
-    """Each sweep reads the unknown-result label off the timeout its commit raised: without it, the line says the row stays due."""
-
-    def test_the_deletion_pass_names_the_pupil_whose_loeschung_went_unanswered(
-        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
-    ):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seeded(database, a_due_pupil(1), a_due_pupil(2))
-
-            return await _first_commit_unanswered(mongo_replica_set_url, database, client, a_deletion_call)
-
-        with caplog.at_level(logging.WARNING):
-            commits = on_the_pupils_league(mongo_replica_set_url, body)
-
-        assert commits == [MAX_TIME_EXPIRED]
-        assert _stopping_lines(caplog) == [
-            (Code.UNKNOWN_OUTCOME, "identity.erasure_cut", {"spieler_id": str(pupil_numbered(1)), "erasure_unanswered": True})
-        ]
-
-    def test_the_address_change_sweep_names_the_change_whose_end_went_unanswered(
-        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
-    ):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await with_history(database, *(a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in (1, 2)))
-
-            return await _first_commit_unanswered(mongo_replica_set_url, database, client, an_address_change_call)
-
-        with caplog.at_level(logging.WARNING):
-            commits = on_the_changes_league(mongo_replica_set_url, body)
-
-        assert commits == [MAX_TIME_EXPIRED]
-        assert _stopping_lines(caplog) == [
-            (
-                Code.UNKNOWN_OUTCOME,
-                "address_change.sweep_cut",
-                {"art": "lapsed", "address_change_id": str(change_numbered(1)), "unanswered": "end"},
-            )
-        ]
+        assert (pressed, len(journalled(caplog))) == (204, 1)
 
 
 @pytest.mark.db

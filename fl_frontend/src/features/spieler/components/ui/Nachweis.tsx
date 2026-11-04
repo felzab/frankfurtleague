@@ -1,5 +1,4 @@
 import { beschreibeNachweis } from "@/features/spieler/nachweis";
-import { Leer } from "@/shared/components/ui/Angabe";
 
 import type { FLEinwilligungNachweis } from "@/core/generated/client/types";
 import type { Bestaetigung } from "@/features/spieler/nachweis";
@@ -10,31 +9,4 @@ import type { Bestaetigung } from "@/features/spieler/nachweis";
  */
 export function Beleg({ nachweis, bestaetigung }: { nachweis: FLEinwilligungNachweis | null; bestaetigung: Bestaetigung }) {
   return <span className="block muted-meta">{beschreibeNachweis(nachweis, bestaetigung)}</span>;
-}
-
-/**
- * A stored label names a label of the backend's registry, so one the registry does not hold is a
- * record citing words nobody can produce, and a bare key renders the two alike.
- */
-export function Fassung({ textVersion, istBekannt }: { textVersion: string; istBekannt: boolean | null }) {
-  // `null` where the registry's read failed: the key stands, and the check says it was not made.
-  if (istBekannt === null) {
-    return (
-      <>
-        {textVersion} <Leer>Nicht geprüft</Leer>
-      </>
-    );
-  }
-
-  // Beside the key rather than instead of it: whoever repairs the mismatch needs the key that
-  // resolved to nothing.
-  if (!istBekannt) {
-    return (
-      <>
-        {textVersion} <Leer>Unbekannte Fassung</Leer>
-      </>
-    );
-  }
-
-  return textVersion;
 }

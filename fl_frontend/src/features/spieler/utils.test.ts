@@ -1,5 +1,6 @@
-import { bestaetigteEinwilligung } from "@/test-support/einwilligung.ts";
 import { describe, expect, it } from "vitest";
+
+import { SPIELER_TEXT_VERSIONS } from "@/core/consentWordings.ts";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import { collectHeldRollen, countLiveSquadRows, judgeRowReturn, nummerPayload, squadIsFull } from "./utils.ts";
@@ -28,7 +29,17 @@ const SPIELER: FLSpielerWithMemberships = {
   nachname: null,
   inactive_since: null,
   geburtsdatum: "2009-05-04",
-  einwilligung: bestaetigteEinwilligung(),
+  // As the pupil's own confirmation stamps it, each choice evidenced under its wording.
+  einwilligung: {
+    umfang: "kader_oeffentlich",
+    datum: "2026-09-01",
+    confirmed_at: "2026-09-01",
+    medien: false,
+    nachweis: {
+      umfang: { am: "2026-09-01T10:00:00Z", text_version: SPIELER_TEXT_VERSIONS.umfang, given_before: null },
+      medien: { am: "2026-09-01T10:00:00Z", text_version: SPIELER_TEXT_VERSIONS.medien, given_before: null },
+    },
+  },
   email: "x@example.com",
   address_change_id: null,
   address_change_viewable_denied: null,

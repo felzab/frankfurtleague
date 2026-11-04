@@ -1,19 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { SignInPage } from "@/kit/SignInPage";
 
-import { authClient } from "@/core/authClient";
+import { loadAuthClient, usePreloadedAuthClient } from "@/core/auth/browserClient";
+import { allowedReturnAddress, RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { COPY } from "@/core/copy";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
-import { describeCeremonyRefusal, refusalStatus } from "../../passkeyAnswers";
+import { describeCeremonyRefusal, refusalCode, refusalStatus, SESSION_NOT_FRESH } from "../../passkeyAnswers";
 
 import type { Copy } from "@/core/copy";
 
-/** Named off `fl_frontend/src/core/auth.ts :: PasskeyStep`, whose verdict the page hands over. */
+/** Named off `fl_frontend/src/core/auth/landing.ts :: PasskeyStep`, whose verdict the page hands over. */
 type Step = "enrol" | "assert" | "offer";
 
 /** One set of words per step, so a heading and its control cannot drift apart. */
@@ -31,13 +32,16 @@ async function ceremonyHeld(step: Step): Promise<Held | null> {
     // frame it, and a hand-rolled ceremony would own that pairing without owning the endpoints.
 
     // `createSession`: setting the passkey up signs in with it, ending the code's session in the same step.
+    const authClient = await loadAuthClient();
     const { error } = enrolling ? await authClient.passkey.addPasskey({ createSession: true }) : await authClient.signIn.passkey();
 
     if (error === null) return null;
 
-    // The guard's own refusal, which an enrolment another tab or device finished first earns too: the step
-    // this view was handed is then stale in the same way.
-    if (enrolling && refusalStatus(error) === 404) return { satz: COPY.shared.failure.unexpected, stale: true };
+    // The guard's own refusal, which an enrolment another tab or device finished first earns too, and the library's
+    // for a session that aged past its `freshAge` while the card stood: the step this view was handed is then stale.
+    if (enrolling && (refusalStatus(error) === 404 || refusalCode(error) === SESSION_NOT_FRESH)) {
+      return { satz: COPY.shared.failure.unexpected, stale: true };
+    }
 
     return { satz: describeCeremonyRefusal(error), stale: false };
   } catch {
@@ -49,7 +53,7 @@ async function ceremonyHeld(step: Step): Promise<Held | null> {
 // session that could remove one would let a stolen mailbox swap the administrator's own out.
 
 // Removal lives behind a fresh sign-in, and the plugin's own three management paths stay refused at
-// `fl_frontend/src/core/auth.ts :: BROWSER_PATHS`.
+// `fl_frontend/src/core/auth/library.ts :: BROWSER_PATHS`.
 
 /** Where „Später“ goes, which only the offer carries: the requirement and the assertion have no way past them. */
 type Props = { readonly address: string; readonly next: string } & (
@@ -63,6 +67,9 @@ export function PasskeyStep(props: Props) {
   const [isPending, setIsPending] = useState(false);
   const [fehler, setFehler] = useState<Copy | null>(null);
   const worte = WORTE[step];
+  usePreloadedAuthClient();
+  // The address a mailed link asked for, which both ways on carry where the allowlist holds it.
+  const asked = allowedReturnAddress(useSearchParams().get(RETURN_PARAMETER));
 
   const run = async () => {
     setIsPending(true);
@@ -80,7 +87,7 @@ export function PasskeyStep(props: Props) {
     // Never `router.refresh()` beside a soft navigation here: either ceremony replaced the session, so this
     // page's own guard redirects to the landing while the navigation redirects past it, and the two left the
     // reader on the landing for good.
-    leaveDocumentFor(next);
+    leaveDocumentFor(withReturnAddress(next, asked));
   };
 
   return (
@@ -95,7 +102,7 @@ export function PasskeyStep(props: Props) {
       // The session is unchanged, so a soft navigation is the right tool here.
       later={
         props.step === "offer"
-          ? { label: COPY.signIn.passkey.later, isDisabled: isPending, onPress: () => router.push(props.later) }
+          ? { label: COPY.signIn.passkey.later, isDisabled: isPending, onPress: () => router.push(asked ?? props.later) }
           : undefined
       }
       row={fehler}

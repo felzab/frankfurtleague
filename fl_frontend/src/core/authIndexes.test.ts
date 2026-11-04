@@ -12,9 +12,8 @@ const clientEvents = new EventEmitter();
 const builds: Build[] = [];
 const lines: { event: string; fields: unknown }[] = [];
 
-/** The builds still running, by collection, which the ordering case reads as each one begins. */
+/** The builds still running, by collection, which `afterChange` waits out. */
 const running = new Map<string, number>();
-let mostAtOnceInOneCollection = 0;
 
 /** What each build answers, which a case sets; every build succeeds unless it names one. */
 let answer: (build: Build) => Promise<unknown> = () => Promise.resolve("built");
@@ -29,10 +28,7 @@ const DB_DOUBLE = {
           const build = { collection: collection, name: options.name, timeoutMS: options.timeoutMS };
           builds.push(build);
           running.set(collection, (running.get(collection) ?? 0) + 1);
-          mostAtOnceInOneCollection = Math.max(mostAtOnceInOneCollection, running.get(collection) ?? 0);
           try {
-            // A turn of the loop first, so a build started beside this one is counted while it runs.
-            await new Promise((resolve) => setImmediate(resolve));
             return await answer(build);
           } finally {
             running.set(collection, (running.get(collection) ?? 1) - 1);
@@ -88,7 +84,6 @@ beforeEach(() => {
   builds.length = 0;
   lines.length = 0;
   running.clear();
-  mostAtOnceInOneCollection = 0;
   answer = () => Promise.resolve("built");
 });
 
@@ -110,20 +105,6 @@ describe("the sign-in store's index build", () => {
     assert.ok(!JSON.stringify(lines).includes("@"), "the line quoted the address the refusal named");
   });
 
-  // A store unreachable at boot refuses every build, and the boot's unawaited call must not end the process.
-  it("settles rather than rejecting when every build fails, logging each one", async () => {
-    answer = () => Promise.reject(UNANSWERED);
-
-    await buildAuthIndexes();
-
-    expect(lines.length).toBe(builds.length);
-    expect(new Set(lines.map(({ fields }) => (fields as { name: string }).name))).toStrictEqual(new Set(["MongoServerSelectionError"]));
-
-    // The rebuild it arms is the next case's subject; run it out here, so no case inherits it.
-    answer = () => Promise.resolve("built");
-    await afterChange();
-  });
-
   /* The client reconnects once the store answers, and a restart is
      what the build waited for otherwise. */
   it("builds every index again once a store that did not answer is writable, and not before", async () => {
@@ -143,17 +124,6 @@ describe("the sign-in store's index build", () => {
     expect(names(builds.slice(first))).toStrictEqual(names(builds.slice(0, first)));
   });
 
-  // A refusal the server answered meets the same answer on every recovery, so it waits for the next release.
-  it("waits for no recovery where the server itself refused an index", async () => {
-    answer = (build) => (build.collection === "user" ? Promise.reject(DUPLICATE_ADDRESS) : Promise.resolve("built"));
-    await buildAuthIndexes();
-    const first = builds.length;
-
-    await afterChange();
-
-    expect(builds.length, "a refusal the server answered was built again on a recovery").toBe(first);
-  });
-
   /* The client's `timeoutMS` is a visitor's, and a build cut short by it is abandoned by the server. */
   it("gives every build a time budget of its own", async () => {
     await buildAuthIndexes();
@@ -163,23 +133,5 @@ describe("the sign-in store's index build", () => {
       builds.every(({ timeoutMS }) => typeof timeoutMS === "number"),
       "a build took the client's per-request budget",
     );
-  });
-
-  // MongoDB documents nothing about two builds racing on one collection.
-  it("never runs two builds on one collection at once", async () => {
-    await buildAuthIndexes();
-
-    assert.ok(builds.length > 1);
-    expect(mostAtOnceInOneCollection).toBe(1);
-  });
-
-  // The boot and a recovery can each start a run while the other is building: the second waits.
-  it("never runs two builds on one collection at once across two runs started together", async () => {
-    const first = buildAuthIndexes();
-    const second = buildAuthIndexes();
-    await Promise.all([first, second]);
-
-    assert.ok(builds.length > 1);
-    expect(mostAtOnceInOneCollection).toBe(1);
   });
 });

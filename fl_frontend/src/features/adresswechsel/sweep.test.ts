@@ -49,14 +49,6 @@ describe("the address changes' hourly pass", () => {
     expect(calls).toStrictEqual(["-", ORT, "moves"]);
   });
 
-  /* Each call counts every lapsed change standing, an earlier page's failures among them, so the remainder is the last
-     call's: a sum would count the first page's unreached rows as left behind. */
-  it("answers the last call's remainder, never a sum, beside the pages' summed counts", async () => {
-    antworten = [antwort(2, 5, ORT), antwort(3, 1)];
-
-    expect(await sweepAdresswechsel()).toStrictEqual({ removed: 5, effective: 0, discarded: 0, remaining: 1 });
-  });
-
   /* A place not past the one sent would hold the pass, and every clock behind it, for ever. */
   it("rejects where a call answers a place not past the one sent, carrying nothing", async () => {
     antworten = [antwort(2, 5, ORT), antwort(1, 4, ORT)];

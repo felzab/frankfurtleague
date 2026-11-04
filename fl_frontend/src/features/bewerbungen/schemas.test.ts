@@ -1,7 +1,7 @@
-import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { renderMarkup, textOf } from "@/test-support/renderMarkup.ts";
 import { assert, describe, expect, it } from "vitest";
 
+import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings.ts";
 import { gleicheAdresse } from "@/features/teams/kontaktePersonen";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -18,7 +18,6 @@ import { bewerbungPayload, buildEmptyBewerbungDraft } from "./utils.ts";
 import type { BewerbungFormDraft, BewerbungKontaktpersonDraft, BewerbungSchuleDraft } from "./types.ts";
 
 /** The label the application form runs, off the registry the backend generated. */
-const FORM_LABEL = laufendeFassung("bewerbung").text_version;
 
 /** A whole person, so every case below fails for the one rule it names and no other. */
 const person = (vorname: string, overrides: Partial<BewerbungKontaktpersonDraft> = {}): BewerbungKontaktpersonDraft => ({
@@ -26,7 +25,7 @@ const person = (vorname: string, overrides: Partial<BewerbungKontaktpersonDraft>
   nachname: "Mustermann",
   email: `${vorname.toLowerCase()}@beispiel.de`,
   telefon: `069 ${vorname.length}234567`,
-  einwilligung: { text_version: "2026-08", given: true },
+  einwilligung: { given: true },
   ...overrides,
 });
 
@@ -43,7 +42,7 @@ const schule = (overrides: Partial<BewerbungSchuleDraft> = {}): BewerbungSchuleD
 
 /** A submission that passes, so a failing case below fails for the field it changed and no other. */
 const validDraft = (overrides: Partial<BewerbungFormDraft> = {}): BewerbungFormDraft => ({
-  ...buildEmptyBewerbungDraft("2627", FORM_LABEL),
+  ...buildEmptyBewerbungDraft("2627"),
   auswahl: SCHULE_NICHT_IN_LISTE,
   schule: schule(),
   kontakte: {
@@ -72,14 +71,15 @@ describe("what the public submission schema accepts", () => {
     expect(refusedPaths(validDraft())).toStrictEqual([]);
   });
 
-  /* The API stores an umlaut domain as its punycode and refuses an umlaut before the at sign, so the
+  /* The API takes a domain spelled in punycode and refuses an umlaut on either side of the at sign, so the
      one school applies and the other is told so at the box. */
-  it("accepts a contact address with an umlaut domain and refuses one with an umlaut before the at sign", () => {
+  it("accepts a contact address with a punycode domain and refuses one with an umlaut", () => {
     const draft = validDraft();
     const withAddress = (email: string) => validDraft({ kontakte: { ...draft.kontakte, trainer: person("Tim", { email }) } });
 
-    expect(refusedPaths(withAddress("erika@käthe-schule.example"))).toStrictEqual([]);
+    expect(refusedPaths(withAddress("erika@xn--kthe-schule-l8a.example"))).toStrictEqual([]);
     expect(refusedPaths(withAddress("käthe@beispiel.de"))).toStrictEqual(["kontakte.trainer.email"]);
+    expect(refusedPaths(withAddress("erika@käthe-schule.example"))).toStrictEqual(["kontakte.trainer.email"]);
   });
 
   /* The API answers a hyphen-final label with a payload_refused that marks the box with a generic
@@ -194,7 +194,7 @@ describe("the three people have to be tellable apart", () => {
     const sharedSeat = validDraft({
       kontakte: {
         ...draft.kontakte,
-        trainer: person("Tim", { einwilligung: { text_version: "2026-08", given: false } }),
+        trainer: person("Tim", { einwilligung: { given: false } }),
         stellvertretung: person("Lena", { email: draft.kontakte.ansprechperson.email }),
       },
     });
@@ -205,7 +205,7 @@ describe("the three people have to be tellable apart", () => {
   /* Read off the issues rather than the field map, which keeps a box's first message: the empty box's
      own refusal comes first and would hide a second one claiming the empty numbers are shared. */
   it("calls no two empty boxes one person, the fold reading two empty numbers as equal", () => {
-    const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(buildEmptyBewerbungDraft("2627", FORM_LABEL)));
+    const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(buildEmptyBewerbungDraft("2627")));
     const sharedSeat = parsed.success ? [] : parsed.error.issues.filter((issue) => issue.message.includes("schon bei einer anderen Person"));
 
     expect(parsed.success).toBe(false);
@@ -282,20 +282,10 @@ describe("the Kenntnisnahme each seat carries", () => {
      that would record the absence of an acknowledgement as an answer to the question. */
   it("refuses an unticked box on the seat that left it unticked", () => {
     const without = validDraft({
-      kontakte: { ...validDraft().kontakte, stellvertretung: person("Lena", { einwilligung: { text_version: "2026-08", given: false } }) },
+      kontakte: { ...validDraft().kontakte, stellvertretung: person("Lena", { einwilligung: { given: false } }) },
     });
 
     expect(refusedPaths(without)).toStrictEqual(["kontakte.stellvertretung.einwilligung.given"]);
-  });
-
-  /* The version is what a stored record cites. Without it the record claims acknowledgement of wording
-     nobody can identify afterwards. */
-  it("refuses a Kenntnisnahme citing no wording version", () => {
-    const without = validDraft({
-      kontakte: { ...validDraft().kontakte, trainer: person("Tim", { einwilligung: { text_version: "  ", given: true } }) },
-    });
-
-    expect(refusedPaths(without)).toStrictEqual(["kontakte.trainer.einwilligung.text_version"]);
   });
 });
 
@@ -309,7 +299,7 @@ describe("a submission names exactly one school", () => {
   /* zod skips a refinement once any box is refused, so without `when` an empty first press would mark
      every box but the picker, whose message would come with the second. */
   it("marks the unpicked school in the same press as every empty box", () => {
-    const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(buildEmptyBewerbungDraft("2627", FORM_LABEL)));
+    const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(buildEmptyBewerbungDraft("2627")));
     const refusals = parsed.success ? {} : toFieldErrors(parsed.error);
 
     assert.ok(Object.keys(refusals).length > 1, "the empty draft is refused for the picker alone, so nothing else competes with it");
@@ -660,7 +650,7 @@ describe("the one field of a submitted application an administrator may move", (
   /* The correction exists to reach a mailbox the submission could not, so an address the API stores
      has to pass here: refused, the seat stays unreachable and no other route moves it. */
   it("takes every address the API stores, so any mailbox can be corrected to", () => {
-    for (const email of ["erika@käthe-schule.example", "a!b@schule.de"]) {
+    for (const email of ["erika@xn--kthe-schule-l8a.example", "a!b@schule.de"]) {
       expect(refusalFor({ ...CORRECTION, email }), email).toStrictEqual({});
     }
   });
@@ -673,13 +663,11 @@ describe("the one field of a submitted application an administrator may move", (
     expect(gleicheAdresse("", ""), "two empty boxes read as one address, which would refuse a seat that has none").toBe(false);
   });
 
-  /* The sign-in fold, as the API compares: an umlaut domain is its punycode, a full-width „e“ before the
-     at sign is another address (built from its code point, rendering as the ASCII one), and „strasse“
-     is not „straße“. */
+  /* The sign-in fold, as the API compares: ASCII case alone, so a full-width „e“ before the at sign is
+     another address (built from its code point, rendering as the ASCII one). */
   it("folds as sign-in folds, never as a case-fold would", () => {
-    expect(gleicheAdresse("erika@müller.de", "Erika@xn--mller-kva.de")).toBe(true);
+    expect(gleicheAdresse("erika@XN--MLLER-KVA.de", "Erika@xn--mller-kva.de")).toBe(true);
     expect(gleicheAdresse(`${String.fromCharCode(0xff45)}rika@schule.de`, "erika@schule.de")).toBe(false);
-    expect(gleicheAdresse("erika@straße.de", "erika@strasse.de")).toBe(false);
   });
 });
 
@@ -693,7 +681,7 @@ describe("the consenting answer's birth date", () => {
       geburtsdatum: "",
       whatsapp: false,
       medien: false,
-      text_version: "2026-08",
+      text_versions: SEAT_TEXT_VERSIONS,
     });
 
     expect(parsed.error?.issues.map((issue) => [issue.path.join("."), issue.message])).toStrictEqual([
@@ -718,22 +706,5 @@ describe("the ceiling on the confirmation link's own token", () => {
 
   it("takes a token at the ceiling, as the endpoint does", () => {
     expect(verdict("x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH)).success).toBe(true);
-  });
-});
-
-describe("the label a confirmation's answer names", () => {
-  /* The endpoint refuses an empty label, so the page refuses it first, in German, rather than sending a
-     body the endpoint answers with a code no box can carry. */
-  it("is refused empty or blank, as the endpoint refuses it", () => {
-    // A consent, the one answer naming a label, with a date inside every floor and ceiling for decades.
-    const antwort = { token: "kein-echtes-token", antwort: "given", geburtsdatum: "1980-01-01", whatsapp: false, medien: false };
-
-    for (const text_version of ["", "   "]) {
-      const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ ...antwort, text_version });
-      expect(
-        parsed.error?.issues.map((issue) => [issue.path.join("."), issue.message]),
-        JSON.stringify(text_version),
-      ).toStrictEqual([["text_version", "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail erneut."]]);
-    }
   });
 });

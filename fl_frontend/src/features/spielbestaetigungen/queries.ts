@@ -2,10 +2,10 @@ import { cache } from "react";
 
 import { ContractBreakError } from "@/core/errors";
 import { spielbestaetigungenGetSelf, spielbestaetigungenGetSpielbestaetigungen } from "@/core/generated/client/sdk";
+import { runWithIncomingTrace } from "@/core/traceScope";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { runPersonRead } from "@/shared/utils/personRead";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { postSpielbestaetigungAnsicht } from "./mutations";
 import { mapAnsetzungAnsichtRefusal } from "./utils";

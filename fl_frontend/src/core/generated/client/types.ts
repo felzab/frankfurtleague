@@ -96,7 +96,8 @@ export const Code = {
   saison_span_below_spielplan_as_stored: "saison_span_below_spielplan_as_stored",
   saison_start_taken_place: "saison_start_taken_place",
   invitation_team_not_entered: "invitation_team_not_entered",
-  wording_not_allowed: "wording_not_allowed",
+  choices_stale: "choices_stale",
+  grant_wording_stale: "grant_wording_stale",
   medien_age: "medien_age",
   giving_not_allowed: "giving_not_allowed",
   eligibility_disqualified: "eligibility_disqualified",
@@ -256,7 +257,7 @@ export interface FLAcceptBewerbungResponse {
 }
 
 /**
- * The change a start or an approval wrote, and the mailbox its link is owed in the Postausgang: no link is answered.
+ * The change a start wrote: no link is answered, the one owed the address on file waiting in the Postausgang.
  */
 export interface FLAccountAddressChangeMintResponse {
   email: string;
@@ -284,8 +285,8 @@ export interface FLAddressChangeApprovalState {
 export type FLAddressChangeWaitsOn = (typeof FLAddressChangeWaitsOn)[keyof typeof FLAddressChangeWaitsOn];
 
 export const FLAddressChangeWaitsOn = {
-  release: "release",
-  new_adresse: "new_adresse",
+  previous_address: "previous_address",
+  new_address: "new_address",
   approval: "approval",
   waiting_period: "waiting_period",
 } as const;
@@ -294,7 +295,6 @@ export type FLAddressChangeWay = (typeof FLAddressChangeWay)[keyof typeof FLAddr
 
 export const FLAddressChangeWay = {
   account: "account",
-  release: "release",
   waiting_period: "waiting_period",
 } as const;
 
@@ -319,49 +319,10 @@ export interface FLAccountAddressChangePayload {
 }
 
 /**
- * The change the page showed: an administrator's later start replaces it, and the approval then reaches nothing.
- */
-export interface FLAccountAddressChangeReleasePayload {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-}
-
-/**
- * Whether the signed-in address may change, and the change pending on it.
+ * The change pending on the signed-in address.
  */
 export interface FLAccountAddressChangeResponse {
   open: FLAccountAddressChangeOpen | null;
-  possible: boolean;
-}
-
-/**
- * What the contact confirmation page's slots name for this seat today.
- */
-export interface FLSeatContext {
-  saison: string;
-  schule: string | null;
-  team: string;
-  vorname: string | null;
-}
-
-export type FLKontaktRolle = (typeof FLKontaktRolle)[keyof typeof FLKontaktRolle];
-
-export const FLKontaktRolle = {
-  trainer: "trainer",
-  ansprechperson: "ansprechperson",
-  stellvertretung: "stellvertretung",
-} as const;
-
-/**
- * One confirmation a person gave on a row: the seats it answered, its words and the floor its page named.
- */
-export interface FLSeatConfirmed {
-  confirmed_at: string | null;
-  context: FLSeatContext;
-  minimum_age: number;
-  /** @minItems 1 */
-  rollen: FLKontaktRolle[];
-  text_version: string;
 }
 
 /**
@@ -373,6 +334,14 @@ export interface FLEinwilligungStand {
   medien: string | null;
   umfang: string | null;
 }
+
+export type FLKontaktRolle = (typeof FLKontaktRolle)[keyof typeof FLKontaktRolle];
+
+export const FLKontaktRolle = {
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
+} as const;
 
 export type FLKontaktKenntnisnahmeUmfang = (typeof FLKontaktKenntnisnahmeUmfang)[keyof typeof FLKontaktKenntnisnahmeUmfang];
 
@@ -389,22 +358,13 @@ export const FLKontaktKenntnisnahmeUmfang = {
 export interface FLAccountBewerbungSeatEinwilligung {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   bewerbung_id: string;
-  /** @minItems 1 */
-  confirmed: FLSeatConfirmed[];
   medien: boolean;
-  /** @exclusiveMinimum 0 */
-  medien_minimum_age: number;
   nachweis_stand: FLEinwilligungStand;
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
   saison_id: string;
   schule: string;
   umfang: FLKontaktKenntnisnahmeUmfang;
-}
-
-export interface FLEinwilligungStandPayload {
-  medien: string | null;
-  umfang: string | null;
 }
 
 export type FLEinwilligungUmfang = (typeof FLEinwilligungUmfang)[keyof typeof FLEinwilligungUmfang];
@@ -415,120 +375,57 @@ export const FLEinwilligungUmfang = {
 } as const;
 
 /**
- * A pupil's, a referee's or a registration's own two choices on their record.
+ * A person's own record's two choices as its box shows them.
  *
- * Both choices on every press, and no member defaulted: a default would let a page that forgot one
- * reset the person's other choice.
+ * The choices alone: the box names no day and no label, and `nachweis_stand` stands for each choice's evidence in the
+ * precondition a press echoes.
+ */
+export interface FLAccountEinwilligung {
+  medien: boolean;
+  umfang: FLEinwilligungUmfang;
+}
+
+export interface FLEinwilligungStandPayload {
+  medien: string | null;
+  umfang: string | null;
+}
+
+export type FLCitedMedienTextVersion = "2026-11-medien-1";
+
+export type FLSpielerUmfangTextVersion = "2026-11-name-kader-1";
+
+/**
+ * A pupil's two wordings: the name on the squad and the media switch.
+ */
+export interface FLSpielerTextVersions {
+  medien: FLCitedMedienTextVersion;
+  umfang: FLSpielerUmfangTextVersion;
+}
+
+/**
+ * A pupil's or a registration's own two choices on their record.
  */
 export interface FLAccountEinwilligungPayload {
   medien: boolean;
   nachweis_stand: FLEinwilligungStandPayload;
-  /**
-   * @minLength 1
-   * @maxLength 64
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  text_version: string;
+  text_versions: FLSpielerTextVersions;
   umfang: FLEinwilligungUmfang;
 }
-
-/**
- * What the pupil confirmation page's slots name for this record today, so its agreed words render whole.
- *
- * Null where no squad row names a team and season; the words then render without them.
- */
-export interface FLSpielerContext {
-  saison: string | null;
-  schule: string | null;
-  team: string | null;
-}
-
-export type FLSpielerPosition = (typeof FLSpielerPosition)[keyof typeof FLSpielerPosition];
-
-export const FLSpielerPosition = {
-  Tor: "Tor",
-  Abwehr: "Abwehr",
-  Mittelfeld: "Mittelfeld",
-  Angriff: "Angriff",
-} as const;
-
-export type FLSpielerStufe = (typeof FLSpielerStufe)[keyof typeof FLSpielerStufe];
-
-export const FLSpielerStufe = {
-  E1: "E1",
-  E2: "E2",
-  Q1: "Q1",
-  Q2: "Q2",
-  Q3: "Q3",
-  Q4: "Q4",
-} as const;
 
 /**
  * One pending registration its pupil confirmed: its choices to withdraw, and what it stores.
  */
 export interface FLAccountRegistrierungEinwilligung {
-  confirmed_text_version: string;
-  context: FLSpielerContext;
   geburtsdatum: string | null;
   medien: boolean | null;
-  /** @exclusiveMinimum 0 */
-  medien_minimum_age: number;
-  minimum_age: number;
   nachname: string;
   nachweis_stand: FLEinwilligungStand;
-  nummer: string | null;
-  position: FLSpielerPosition | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   registrierung_id: string;
   saison_id: string;
-  stufe: FLSpielerStufe | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
   team_name: string | null;
   umfang: FLEinwilligungUmfang | null;
   vorname: string;
-}
-
-/**
- * When a person set one consent choice, and under which wording.
- */
-export interface FLEinwilligungBeleg {
-  am: string;
-  text_version: string;
-}
-
-/**
- * The evidence one consent choice keeps: the act that set its value, and on a withdrawal the grant it ended.
- */
-export interface FLEinwilligungNachweis {
-  am: string;
-  given_before: FLEinwilligungBeleg | null;
-  text_version: string;
-}
-
-/**
- * Each choice's evidence, null until its person sets it: a record no person has answered carries none.
- */
-export interface FLEinwilligungNachweise {
-  medien: FLEinwilligungNachweis | null;
-  umfang: FLEinwilligungNachweis | null;
-}
-
-/**
- * What this person agreed may be published about them.
- *
- * Its keys stand TOGETHER, as `FLAustritt`'s do: a scope with no confirmation date claims somebody
- * consented, and no surface can tell that from one somebody gave.
- */
-export interface FLEinwilligung {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  confirmed_at: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  datum: string;
-  medien: boolean;
-  nachweis: FLEinwilligungNachweise;
-  text_version: string;
-  umfang: FLEinwilligungUmfang;
 }
 
 export interface FLKontakt {
@@ -537,20 +434,16 @@ export interface FLKontakt {
 }
 
 /**
- * One referee record on the account page: its stored data and the consent the page moves.
+ * One referee record on the account page: the stored data its box shows and the consent the page moves.
  */
 export interface FLAccountSchiedsrichterEinwilligung {
-  confirmed_text_version: string;
-  einwilligung: FLEinwilligung;
+  einwilligung: FLAccountEinwilligung;
   geburtsdatum: string | null;
   givable: boolean;
-  honorar: number;
-  inactive_since: string | null;
   kontakt: FLKontakt;
   /** @exclusiveMinimum 0 */
   medien_minimum_age: number;
   medien_offered: boolean;
-  minimum_age: number;
   nachweis_stand: FLEinwilligungStand;
   /** @minLength 1 */
   name: string;
@@ -565,8 +458,6 @@ export interface FLAccountSchiedsrichterEinwilligung {
  * Per season row and not per slot: one person holding two of a row's slots answers one choice for both.
  */
 export interface FLAccountSeatEinwilligung {
-  /** @minItems 1 */
-  confirmed: FLSeatConfirmed[];
   givable: boolean;
   medien: boolean;
   /** @exclusiveMinimum 0 */
@@ -582,45 +473,17 @@ export interface FLAccountSeatEinwilligung {
   umfang: FLKontaktKenntnisnahmeUmfang;
 }
 
-export type FLSpielerRolle = (typeof FLSpielerRolle)[keyof typeof FLSpielerRolle];
-
-export const FLSpielerRolle = {
-  kapitaen: "kapitaen",
-  co_kapitaen: "co_kapitaen",
-} as const;
-
-/**
- * One squad row as its own pupil reads it, with the name the club played that season under.
- */
-export interface FLSpielerSelfKaderRow {
-  inactive_since: string | null;
-  is_nachnominiert: boolean;
-  nummer: string | null;
-  position: FLSpielerPosition | null;
-  rolle: FLSpielerRolle | null;
-  saison_id: string;
-  stufe: FLSpielerStufe | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  team_name: string;
-}
-
 /**
  * The pupil's record on the account page: its stored data and the consent the page moves.
  */
 export interface FLAccountSpielerEinwilligung {
-  confirmed_text_version: string;
-  context: FLSpielerContext;
-  einwilligung: FLEinwilligung;
+  einwilligung: FLAccountEinwilligung;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   geburtsdatum: string;
   givable: boolean;
-  inactive_since: string | null;
-  kader: FLSpielerSelfKaderRow[];
   /** @exclusiveMinimum 0 */
   medien_minimum_age: number;
   medien_offered: boolean;
-  minimum_age: number;
   nachname: string | null;
   nachweis_stand: FLEinwilligungStand;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -856,15 +719,15 @@ export interface FLAddressChangeAdresseResponse {
   email: string | null;
 }
 
-export type FLAddressChangeAntwort = (typeof FLAddressChangeAntwort)[keyof typeof FLAddressChangeAntwort];
+export type FLAddressChangeAnswer = (typeof FLAddressChangeAnswer)[keyof typeof FLAddressChangeAnswer];
 
-export const FLAddressChangeAntwort = {
+export const FLAddressChangeAnswer = {
   confirmed: "confirmed",
   declined: "declined",
 } as const;
 
-export interface FLAddressChangeAntwortPayload {
-  antwort: FLAddressChangeAntwort;
+export interface FLAddressChangeAnswerPayload {
+  answer: FLAddressChangeAnswer;
   /**
    * @minLength 1
    * @maxLength 128
@@ -876,8 +739,8 @@ export interface FLAddressChangeAntwortPayload {
 /**
  * The answer recorded, and no address of the change: the notices an effect owes are queued, never answered.
  */
-export interface FLAddressChangeAntwortResponse {
-  antwort: FLAddressChangeAntwort;
+export interface FLAddressChangeAnswerResponse {
+  answer: FLAddressChangeAnswer;
   approval_open: boolean;
   effective: boolean;
   effective_from: string | null;
@@ -962,7 +825,10 @@ export interface FLAddressChangeMovesResponse {
 }
 
 /**
- * The address on file's notice of an address change, its stop link minted at the hand-out into `stop.token_hashes`.
+ * The address on file's mail about an address change, its link minted at the hand-out into `stop.token_hashes`.
+ *
+ * On the person's own `account` way the link confirms or declines the change before the new mailbox is asked, and once
+ * it confirmed, stops the change; on the lost-mailbox way it stops the change.
  */
 export interface FLAddressChangeNoticeData {
   art: "address_change_notice";
@@ -988,6 +854,8 @@ export interface FLAddressChangeSweepResponse {
   remaining: number;
   removed: number;
 }
+
+export type FLAddressChangeValidHours = 24;
 
 /**
  * The approval a change moving a grant waits on, read-only here: the administrators page approves it.
@@ -1092,14 +960,19 @@ export interface FLAddressChangeVerwaltungOpen {
 }
 
 /**
- * The address a change starts on, the address it goes to, and the reason where the address on file is gone.
+ * The address a change starts on, the address it goes to, and how the administrator established who asks for it.
  */
 export interface FLAddressChangeVerwaltungPayload {
   /** @maxLength 254 */
   adresse: string;
   /** @maxLength 254 */
   email: string;
-  grund: string | null;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  grund: string;
 }
 
 /**
@@ -1117,9 +990,9 @@ export interface FLAddressChangeVerwaltungViewResponse {
   possible: boolean;
 }
 
-export type FLAddressChangeViewEndedSeite = (typeof FLAddressChangeViewEndedSeite)[keyof typeof FLAddressChangeViewEndedSeite];
+export type FLAddressChangeViewEndedSide = (typeof FLAddressChangeViewEndedSide)[keyof typeof FLAddressChangeViewEndedSide];
 
-export const FLAddressChangeViewEndedSeite = {
+export const FLAddressChangeViewEndedSide = {
   new: "new",
   previous: "previous",
 } as const;
@@ -1129,8 +1002,12 @@ export const FLAddressChangeViewEndedSeite = {
  */
 export interface FLAddressChangeViewEnded {
   art: FLAddressChangeEndArt;
-  seite: FLAddressChangeViewEndedSeite;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  ended_on: string;
+  released_on: string | null;
+  side: FLAddressChangeViewEndedSide;
   state: "ended";
+  way: FLAddressChangeWay;
 }
 
 export type FLAddressChangeViewNewState = (typeof FLAddressChangeViewNewState)[keyof typeof FLAddressChangeViewNewState];
@@ -1150,7 +1027,8 @@ export const FLAddressChangeViewNewState = {
 export interface FLAddressChangeViewNew {
   approval_open: boolean | null;
   effective_from: string | null;
-  seite: "new";
+  email: string | null;
+  side: "new";
   state: FLAddressChangeViewNewState;
   valid_until: string | null;
   way: FLAddressChangeWay;
@@ -1160,24 +1038,27 @@ export type FLAddressChangeViewPreviousState = (typeof FLAddressChangeViewPrevio
 
 export const FLAddressChangeViewPreviousState = {
   release_open: "release_open",
+  release_expired: "release_expired",
   open: "open",
   approval: "approval",
   waiting_period: "waiting_period",
 } as const;
 
 /**
- * What the address on file's stop link opens: the step the change waits on, never whether it could be confirmed.
+ * What the address on file's link opens: the step the change waits on, never whether the new mailbox could confirm it.
  */
 export interface FLAddressChangeViewPrevious {
   effective_from: string | null;
-  seite: "previous";
+  email: string | null;
+  released_on: string | null;
+  side: "previous";
   state: FLAddressChangeViewPreviousState;
   valid_until: string | null;
   way: FLAddressChangeWay;
 }
 
 /**
- * What one address link opens: never a name, either address or the id.
+ * What one address link opens: never a name or the id, and the new address only where a link asks its question.
  */
 export interface FLAddressChangeViewResponse {
   view: FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded;
@@ -1189,6 +1070,8 @@ export const FLAddressChangeViewableDenied = {
   own: "own",
   verwaltung: "verwaltung",
 } as const;
+
+export type FLAddressChangeWaitingPeriodDays = 7;
 
 export interface FLAddressPayload {
   /**
@@ -1219,6 +1102,15 @@ export const FLApprovalDenied = {
   started: "started",
   owner: "owner",
   younger: "younger",
+} as const;
+
+export type FLSpielerPosition = (typeof FLSpielerPosition)[keyof typeof FLSpielerPosition];
+
+export const FLSpielerPosition = {
+  Tor: "Tor",
+  Abwehr: "Abwehr",
+  Mittelfeld: "Mittelfeld",
+  Angriff: "Angriff",
 } as const;
 
 export type FLSpielberichtSpielerType = (typeof FLSpielberichtSpielerType)[keyof typeof FLSpielberichtSpielerType];
@@ -1335,8 +1227,40 @@ export const FLKontaktEnteredBy = {
   liga: "liga",
 } as const;
 
+export type FLSeatUmfangTextVersion = "2026-11-whatsapp-1";
+
+export type FLSchiedsrichterUmfangTextVersion = "2026-11-name-spielplan-1";
+
+export type FLEinwilligungTextVersion =
+  FLSeatUmfangTextVersion | FLSpielerUmfangTextVersion | FLSchiedsrichterUmfangTextVersion | FLCitedMedienTextVersion;
+
 /**
- * Which wording this person was shown, and how the record came to be held.
+ * When a person set one consent choice, and under which wording.
+ */
+export interface FLEinwilligungBeleg {
+  am: string;
+  text_version: FLEinwilligungTextVersion;
+}
+
+/**
+ * The evidence one consent choice keeps: the act that set its value, and on a withdrawal the grant it ended.
+ */
+export interface FLEinwilligungNachweis {
+  am: string;
+  given_before: FLEinwilligungBeleg | null;
+  text_version: FLEinwilligungTextVersion;
+}
+
+/**
+ * Each choice's evidence, null until its person sets it: a record no person has answered carries none.
+ */
+export interface FLEinwilligungNachweise {
+  medien: FLEinwilligungNachweis | null;
+  umfang: FLEinwilligungNachweis | null;
+}
+
+/**
+ * How this person's record came to be held, and what they answered.
  *
  * Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's
  * `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely
@@ -1349,7 +1273,6 @@ export interface FLKontaktKenntnisnahme {
   entered_by: FLKontaktEnteredBy;
   medien: boolean;
   nachweis: FLEinwilligungNachweise;
-  text_version: string;
   umfang: FLKontaktKenntnisnahmeUmfang;
 }
 
@@ -1467,18 +1390,6 @@ export interface FLBewerbungAbsageData {
 }
 
 /**
- * Which of the application's seats the withdrawal reached, and the two answers they now all hold.
- */
-export interface FLBewerbungAccountEinwilligungResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  bewerbung_id: string;
-  medien: boolean;
-  nachweis_stand: FLEinwilligungStand;
-  rollen: FLKontaktRolle[];
-  umfang: FLKontaktKenntnisnahmeUmfang;
-}
-
-/**
  * The school's address, with the Stadtteil required.
  */
 export interface FLBewerbungAddressPayload {
@@ -1505,6 +1416,8 @@ export interface FLBewerbungAddressPayload {
    */
   strasse: string;
 }
+
+export type FLBewerbungConfirmationDeadlineDays = 14;
 
 export type FLEinwilligungErgebnis = (typeof FLEinwilligungErgebnis)[keyof typeof FLEinwilligungErgebnis];
 
@@ -1538,6 +1451,14 @@ export interface FLBewerbungEinwilligungDeclined {
 }
 
 /**
+ * A contact seat's two wordings: the WhatsApp switch and the media switch.
+ */
+export interface FLSeatTextVersions {
+  medien: FLCitedMedienTextVersion;
+  umfang: FLSeatUmfangTextVersion;
+}
+
+/**
  * One person's consent for one seat: their own birthdate, their two choices and the wording they saw.
  */
 export interface FLBewerbungEinwilligungGiven {
@@ -1545,12 +1466,7 @@ export interface FLBewerbungEinwilligungGiven {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   geburtsdatum: string;
   medien: boolean;
-  /**
-   * @minLength 1
-   * @maxLength 64
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  text_version: string;
+  text_versions: FLSeatTextVersions;
   /**
    * @minLength 1
    * @maxLength 128
@@ -1561,17 +1477,12 @@ export interface FLBewerbungEinwilligungGiven {
 }
 
 /**
- * What the applicant agreed to; the scope and the date are the server's.
+ * What the applicant acknowledged; the scope and the date are the server's.
  */
-export interface FLBewerbungEinwilligungPayload {
-  given: true;
-  /**
-   * @minLength 1
-   * @maxLength 64
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  text_version: string;
-}
+export const FLBewerbungEinwilligungPayloadValue = {
+  given: true,
+} as const;
+export type FLBewerbungEinwilligungPayload = typeof FLBewerbungEinwilligungPayloadValue;
 
 /**
  * The seat whose link was replaced and where its fresh one is owed; the old one opens nothing.
@@ -1623,7 +1534,6 @@ export interface FLBewerbungEinwilligungViewResponse {
   quelle: FLBewerbungEinwilligungViewResponseQuelle;
   rolle: FLKontaktRolle;
   row: FLKontaktRow | null;
-  running_wording: string;
   saison_id: string;
   schule: string;
   state: FLBewerbungEinwilligungViewResponseState;
@@ -1682,6 +1592,8 @@ export interface FLBewerbungKontaktEmailResponse {
   rollen: FLKontaktRolle[];
 }
 
+export type FLBewerbungKontaktMinAgeYears = 16;
+
 /**
  * The person seated where a contact person stepped out, who has agreed to nothing yet.
  */
@@ -1696,12 +1608,6 @@ export interface FLBewerbungKontaktSeatPayload {
   nachname: string;
   /** @pattern ^([+]?[ 0-9\-().]{2,19}[0-9])$ */
   telefon: string;
-  /**
-   * @minLength 1
-   * @maxLength 64
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  text_version: string;
   /**
    * @minLength 1
    * @maxLength 80
@@ -2245,38 +2151,20 @@ export interface FLDeclineBewerbungResponse {
   id: string;
 }
 
-export type FLEinwilligungSeitenResponseRunningWordings = { [key: string]: string };
-
 /**
- * The label each page stamps on a new acceptance today, which a deploy moves: never cached by a reader.
- */
-export interface FLEinwilligungSeitenResponse {
-  running_wordings: FLEinwilligungSeitenResponseRunningWordings;
-}
-
-export type FLEinwilligungWordingAbsaetzeNachSchluessel = { [key: string]: string } | null;
-
-export type FLEinwilligungWordingControls = { [key: string]: string };
-
-/**
- * The words one consent label names, as the person stamping it was shown them.
+ * What this person agreed may be published about them.
  *
- * Never changed once served: different words are a new label.
+ * Its keys stand TOGETHER, as `FLAustritt`'s do: a scope with no confirmation date claims somebody
+ * consented, and no surface can tell that from one somebody gave.
  */
-export interface FLEinwilligungWording {
-  absaetze: string[];
-  absaetze_nach_schluessel: FLEinwilligungWordingAbsaetzeNachSchluessel;
+export interface FLEinwilligung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  applies_from: string;
-  controls: FLEinwilligungWordingControls;
-  placeholder: string[];
-  seite: string;
-  switch: string;
-  text_version: string;
-}
-
-export interface FLEinwilligungWordingResponse {
-  wording: FLEinwilligungWording;
+  confirmed_at: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  datum: string;
+  medien: boolean;
+  nachweis: FLEinwilligungNachweise;
+  umfang: FLEinwilligungUmfang;
 }
 
 /**
@@ -2284,6 +2172,7 @@ export interface FLEinwilligungWordingResponse {
  */
 export interface FLErasureAdressePayload {
   /**
+   * Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`.
    * @maxLength 254
    * @pattern @
    */
@@ -2301,6 +2190,7 @@ export interface FLErasurePayload {
    */
   anlass: string;
   /**
+   * Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`.
    * @maxLength 254
    * @pattern @
    */
@@ -2832,6 +2722,17 @@ export interface FLInvitationResponse {
   team_id: string;
 }
 
+export type FLSpielerStufe = (typeof FLSpielerStufe)[keyof typeof FLSpielerStufe];
+
+export const FLSpielerStufe = {
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
+} as const;
+
 export type FLSaisonStatus = (typeof FLSaisonStatus)[keyof typeof FLSaisonStatus];
 
 export const FLSaisonStatus = {
@@ -2868,6 +2769,13 @@ export interface FLInvitationWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
 }
+
+export type FLSpielerRolle = (typeof FLSpielerRolle)[keyof typeof FLSpielerRolle];
+
+export const FLSpielerRolle = {
+  kapitaen: "kapitaen",
+  co_kapitaen: "co_kapitaen",
+} as const;
 
 /**
  * One squad row as its team's seat holder reads it (`READ-KADER-001`).
@@ -3078,12 +2986,6 @@ export interface FLKontaktInviteResponse {
 export interface FLKontaktKenntnisnahmePayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   datum: string;
-  /**
-   * @minLength 1
-   * @maxLength 64
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  text_version: string;
   umfang: "kontaktdaten";
 }
 
@@ -3229,6 +3131,14 @@ export interface FLLandingResponse {
   bewerbung_window: FLBewerbungWindow | null;
   saison: FLLandingBeforeStart | FLLandingRunning | FLLandingDecided | null;
 }
+
+export type FLMedienMinAgeYears = 18;
+
+export type FLMedienTextVersion = "2026-11-medien-1";
+
+export type FLNameKaderTextVersion = "2026-11-name-kader-1";
+
+export type FLNameSpielplanTextVersion = "2026-11-name-spielplan-1";
 
 /**
  * The stored person a confirmed registration's address resolves to, named so the team can be asked whether it is the same one.
@@ -4152,7 +4062,6 @@ export interface FLRegistrierungEinwilligung {
   datum: string | null;
   medien: boolean | null;
   nachweis: FLEinwilligungNachweise;
-  text_version: string;
   umfang: FLEinwilligungUmfang | null;
 }
 
@@ -4189,16 +4098,6 @@ export interface FLRegistrierung {
 }
 
 /**
- * The registration's consent record as it stands after the write, everything the pupil did not move unchanged.
- */
-export interface FLRegistrierungAccountEinwilligungResponse {
-  einwilligung: FLRegistrierungEinwilligung;
-  nachweis_stand: FLEinwilligungStand;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  registrierung_id: string;
-}
-
-/**
  * The squad entry the admission wrote, and the person it belongs to.
  */
 export interface FLRegistrierungAdmissionResponse {
@@ -4232,12 +4131,7 @@ export interface FLRegistrierungAdmitPayload {
 export interface FLRegistrierungConfirmationPayload {
   geburtsdatum: string | null;
   medien: boolean | null;
-  /**
-   * @minLength 1
-   * @maxLength 64
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  text_version: string;
+  text_versions: FLSpielerTextVersions | null;
   /**
    * @minLength 1
    * @maxLength 128
@@ -4297,6 +4191,8 @@ export interface FLRegistrierungDeclineResponse {
   /** @minLength 1 */
   vorname: string;
 }
+
+export type FLRegistrierungMinAgeYears = 16;
 
 /**
  * One season's pass: the reminders owed and the erasures made, each committed.
@@ -4461,19 +4357,6 @@ export interface FLSaisonSpielerResponse {
   version: number;
 }
 
-/**
- * Which of the row's seats the press reached, and the two answers they now all hold.
- */
-export interface FLSaisonTeamAccountEinwilligungResponse {
-  medien: boolean;
-  nachweis_stand: FLEinwilligungStand;
-  rollen: FLKontaktRolle[];
-  saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  umfang: FLKontaktKenntnisnahmeUmfang;
-}
-
 export interface FLSaisonTeamAddressChangeDenied {
   ansprechperson: FLAddressChangeViewableDenied | null;
   stellvertretung: FLAddressChangeViewableDenied | null;
@@ -4572,25 +4455,30 @@ export interface FLSchiedsrichter {
 }
 
 /**
- * The record as it stands after the write, everything the person did not move unchanged.
+ * A referee's two wordings: the name on the fixtures and the media switch.
  */
-export interface FLSchiedsrichterAccountEinwilligungResponse {
-  einwilligung: FLEinwilligung;
-  nachweis_stand: FLEinwilligungStand;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  schiedsrichter_id: string;
+export interface FLSchiedsrichterTextVersions {
+  medien: FLCitedMedienTextVersion;
+  umfang: FLSchiedsrichterUmfangTextVersion;
 }
+
+/**
+ * A referee's own two choices on their record.
+ */
+export interface FLSchiedsrichterAccountEinwilligungPayload {
+  medien: boolean;
+  nachweis_stand: FLEinwilligungStandPayload;
+  text_versions: FLSchiedsrichterTextVersions;
+  umfang: FLEinwilligungUmfang;
+}
+
+export type FLSchiedsrichterConfirmationFristDays = 14;
 
 export interface FLSchiedsrichterConfirmationPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   geburtsdatum: string;
   medien: boolean;
-  /**
-   * @minLength 1
-   * @maxLength 64
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  text_version: string;
+  text_versions: FLSchiedsrichterTextVersions;
   /**
    * @minLength 1
    * @maxLength 128
@@ -4646,9 +4534,9 @@ export interface FLSchiedsrichterReactivateResponse {
 }
 
 /**
- * One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.
+ * The referee's own page's read: the record and its fee.
  *
- * For `app/api/spieler/schemas.py :: FLSpielerSelf`'s reason, the account page's entry extends it.
+ * The fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.
  */
 export interface FLSchiedsrichterSelf {
   geburtsdatum: string | null;
@@ -4677,19 +4565,14 @@ export interface FLSchiedsrichterSingleResponse {
 }
 
 /**
- * A seat holder's own two choices for every seat they hold on one row.
+ * A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.
  *
  * Both choices on every press: a page that sent one alone would leave the other judged by nothing.
  */
 export interface FLSeatEinwilligungPayload {
   medien: boolean;
   nachweis_stand: FLEinwilligungStandPayload;
-  /**
-   * @minLength 1
-   * @maxLength 64
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  text_version: string;
+  text_versions: FLSeatTextVersions;
   umfang: FLKontaktKenntnisnahmeUmfang;
 }
 
@@ -5508,16 +5391,6 @@ export interface FLSpieleSingleResponse {
 }
 
 /**
- * The record as it stands after the write, everything the person did not move unchanged.
- */
-export interface FLSpielerAccountEinwilligungResponse {
-  einwilligung: FLEinwilligung;
-  nachweis_stand: FLEinwilligungStand;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spieler_id: string;
-}
-
-/**
  * The same player echoed back to the admin who just wrote them, with their whole name.
  *
  * `inactive_since` rides here alone: it IS the answer `DELETE` and `reactivate` give, and no public
@@ -5604,9 +5477,25 @@ export interface FLSpielerSaisonsResponse {
 }
 
 /**
- * One pupil record's stored data as its own person reads it: the whole surname and the birthdate, never masked.
+ * One squad row as its own pupil reads it, with the name the club played that season under.
+ */
+export interface FLSpielerSelfKaderRow {
+  inactive_since: string | null;
+  is_nachnominiert: boolean;
+  nummer: string | null;
+  position: FLSpielerPosition | null;
+  rolle: FLSpielerRolle | null;
+  saison_id: string;
+  stufe: FLSpielerStufe | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+  team_name: string;
+}
+
+/**
+ * The pupil's own page's read: the record and every squad row it holds.
  *
- * Its consent is the account page's, whose entry extends this (`app/api/konto/schemas.py :: FLAccountSpielerEinwilligung`).
+ * The squad rows are this read's alone: the account page lists none, so its entry extends the record without them.
  */
 export interface FLSpielerSelf {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -5962,8 +5851,7 @@ export interface FLTeamPageResponse {
 /**
  * One seat as the people beside it see it: who holds it and whether they answered their link.
  *
- * No address, telephone number or birthdate: the contact page promises that only administrators
- * see those (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`).
+ * No address, telephone number or birthdate: only administrators see those.
  */
 export interface FLTeamSeat {
   confirmed: boolean;
@@ -6056,6 +5944,10 @@ export interface FLUndrawSpielplanResponse {
   spieltage: number;
   watermark_cleared: boolean;
 }
+
+export type FLVertretungMinAgeYears = 18;
+
+export type FLWhatsappTextVersion = "2026-11-whatsapp-1";
 
 /**
  * Bad Request

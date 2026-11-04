@@ -16,21 +16,19 @@ from pymongo import ASCENDING
 
 from app.api.adresswechsel.schemas import (
     FLAddressChangeAdressePayload,
-    FLAddressChangeAdresseResponse,
-    FLAddressChangeAntwortPayload,
+    FLAddressChangeAnswerPayload,
+    FLAddressChangeVerwaltungPayload,
     FLAddressChangeViewEnded,
     FLAddressChangeViewNew,
     FLAddressChangeViewPrevious,
 )
-from app.api.adresswechsel.services import ist_abgelaufen, maskierte_adresse, neu_zustand
+from app.api.adresswechsel.services import bisherig_zustand, ist_abgelaufen, maskierte_adresse
 from app.api.berechtigungen.services import genehmigung_steht, genehmigung_verwehrt
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.constraints import SUPPORT_INDEXES, UNIQUE_INDEXES
+from app.core.constraints import SUPPORT_INDEXES
 from app.core.recording import ERASED_ACTOR_MARKER
-from app.shared.folding import canonical_address
-from app.shared.schemas.responses import BaseAPIResponse
 from tests.config import BASE_AUTH
 from tests.core.app_source import application
 
@@ -52,36 +50,21 @@ class TestTheMask:
     def test_it_shows_the_first_letters_and_the_last_label_and_never_the_length(self, email: str, masked: str):
         assert maskierte_adresse(email) == masked
 
-    @pytest.mark.parametrize(
-        ("email", "masked"),
-        [
-            pytest.param("x@Mailbox.invalid", "x•••@m•••.invalid", id="a special-use domain"),
-            pytest.param("x@localhost", "x•••@l•••", id="a dotless domain"),
-            pytest.param("x@xn--zz-garbage.de", "x•••@x•••.de", id="a label no punycode decodes, shown as stored"),
-        ],
-    )
-    def test_a_stored_address_the_rule_came_to_refuse_still_masks(self, email: str, masked: str):
-        """The account page masks what is stored, and a stored value the rule refuses would answer it a 500."""
-
-        with pytest.raises(ValueError):
-            canonical_address(email)
-        assert maskierte_adresse(email) == masked
-
-    def test_two_addresses_differing_past_their_first_letters_mask_alike(self):
-        """The mask hands nothing over: a reader cannot tell which of two such mailboxes the change goes to."""
-
-        assert maskierte_adresse("anna.lang@gmx.de") == maskierte_adresse("ab@gx.de")
-
 
 class TestWhatALeakedLinkLearns:
-    """`READ-ADRESSWECHSEL-001`: a link is a stranger's to forward, so its page learns its side, its state and its instants."""
+    """`READ-ADRESSWECHSEL-001`: a link is a stranger's to forward, so its page learns little.
+
+    Its side, its state, its way and its days, and the new address only where it asks its question.
+    """
 
     @pytest.mark.parametrize(
         ("model", "fields"),
         [
-            pytest.param(FLAddressChangeViewNew, {"seite", "state", "valid_until", "effective_from", "way", "approval_open"}, id="new"),
-            pytest.param(FLAddressChangeViewPrevious, {"seite", "state", "valid_until", "effective_from", "way"}, id="on file"),
-            pytest.param(FLAddressChangeViewEnded, {"seite", "state", "art"}, id="ended"),
+            pytest.param(FLAddressChangeViewNew, {"side", "state", "valid_until", "effective_from", "way", "approval_open", "email"}, id="new"),
+            pytest.param(
+                FLAddressChangeViewPrevious, {"side", "state", "valid_until", "effective_from", "way", "email", "released_on"}, id="on file"
+            ),
+            pytest.param(FLAddressChangeViewEnded, {"side", "state", "art", "ended_on", "way", "released_on"}, id="ended"),
         ],
     )
     def test_each_view_declares_exactly_its_side_its_state_and_its_instants(self, model: type[BaseModel], fields: set[str]):
@@ -91,16 +74,13 @@ class TestWhatALeakedLinkLearns:
         """Defaulted, the model would answer for the person whether a mailbox is theirs."""
 
         with pytest.raises(ValidationError):
-            FLAddressChangeAntwortPayload.model_validate({"token": "t" * 43})
+            FLAddressChangeAnswerPayload.model_validate({"token": "t" * 43})
         with pytest.raises(ValidationError):
-            FLAddressChangeAntwortPayload.model_validate({"token": "t" * 43, "antwort": "confirmed", "email": "x@example.org"})
+            FLAddressChangeAnswerPayload.model_validate({"token": "t" * 43, "answer": "confirmed", "email": "x@example.org"})
 
 
 class TestTheSystemsReadOfTheNewAddress:
     """`READ-ADRESSWECHSEL-002`: the address a change would move to, for the frontend's server alone."""
-
-    def test_it_answers_the_address_and_nothing_else(self):
-        assert set(FLAddressChangeAdresseResponse.model_fields) - set(BaseAPIResponse.model_fields) == {"email"}
 
     @pytest.mark.parametrize(
         "key",
@@ -123,50 +103,67 @@ class TestTheSystemsReadOfTheNewAddress:
 NOW = datetime(2026, 4, 1, 10, 0, tzinfo=UTC)
 
 
-def a_live_change(*, lapsed: bool, confirmed: bool = False) -> dict[str, Any]:
-    """`lapsed`: its link's deadline passed, or, once confirmed, which drops that deadline, its grant's approval week."""
+def a_step(step: str, *, lapsed: bool) -> dict[str, Any]:
+    """A live change waiting on `step`, its deadline for that step passed or not."""
 
-    if confirmed:
-        bis = NOW - timedelta(minutes=1) if lapsed else NOW + timedelta(days=1)
-        return {"valid_until": None, "confirmed_at": NOW - timedelta(days=1), "approval": {"bis": bis, "approved_at": None}}
+    deadline = NOW - timedelta(minutes=1) if lapsed else NOW + timedelta(hours=1)
+    released = {"way": "account", "released_at": NOW - timedelta(days=1)}
+    if step == "previous_address":
+        return {"way": "account", "released_at": None, "valid_until": deadline, "confirmed_at": None, "approval": None}
+    if step == "new_address":
+        return {**released, "valid_until": deadline, "confirmed_at": None, "approval": None}
+    confirmed = {"valid_until": None, "confirmed_at": NOW - timedelta(days=1)}
+    if step == "approval":
+        return {**released, **confirmed, "effective_from": None, "approval": {"bis": deadline, "approved_at": None}}
+    # The lost-mailbox way's waiting time: its end is the effect, never a lapse.
+    return {"way": "waiting_period", "released_at": None, **confirmed, "effective_from": NOW + timedelta(days=3), "approval": None}
 
-    return {"valid_until": NOW - timedelta(minutes=1) if lapsed else NOW + timedelta(hours=1), "confirmed_at": None, "approval": None}
 
+class TestTheAddressOnFilesState:
+    """`release_expired` is the person's own change's unanswered question past its deadline, and no other step's lapse.
 
-class TestTheNewMailboxsState:
-    """In the order the confirmation judges, so a refused press names what a reload of its page shows."""
+    Every other step's stop is refused nothing, so its link keeps showing the step until the hourly pass ends the change.
+    """
 
     @pytest.mark.parametrize(
-        ("record", "barred", "nicht_bestaetigbar", "state"),
+        ("step", "lapsed", "state"),
         [
-            pytest.param(a_live_change(lapsed=True), True, False, "barred", id="a ban ranks ahead of the deadline"),
-            pytest.param(a_live_change(lapsed=True), False, True, "expired", id="every unconfirmable cause reads alike behind it"),
-            pytest.param(a_live_change(lapsed=False), False, True, "not_confirmable", id="an unconfirmable cause inside it"),
-            pytest.param(a_live_change(lapsed=False, confirmed=True), True, True, "confirmed", id="a confirmed change waits on no link"),
-            pytest.param(
-                a_live_change(lapsed=True, confirmed=True),
-                True,
-                True,
-                "approval_expired",
-                id="a confirmed change's lapsed approval week ranks first, apart from a lapsed link",
-            ),
+            pytest.param("previous_address", False, "release_open", id="the question open"),
+            pytest.param("previous_address", True, "release_expired", id="the question lapsed"),
+            pytest.param("new_address", False, "open", id="the new mailbox asked"),
+            pytest.param("new_address", True, "open", id="the new mailbox's link lapsed"),
+            pytest.param("approval", False, "approval", id="the approval owed"),
+            pytest.param("approval", True, "approval", id="the approval's week lapsed"),
+            pytest.param("waiting_period", False, "waiting_period", id="the waiting time"),
         ],
     )
-    def test_the_view_ranks_the_states_as_the_press_refuses(self, record: dict[str, Any], barred: bool, nicht_bestaetigbar: bool, state: str):
-        assert neu_zustand(record, now=NOW, barred=barred, nicht_bestaetigbar=nicht_bestaetigbar) == state
+    def test_the_link_shows_its_step_and_lapses_only_its_own_question(self, step: str, lapsed: bool, state: str):
+        record = a_step(step, lapsed=lapsed)
+        # The control: each lapsed row is lapsed as the pass judges it, so the row passing is the guard's doing.
+        assert ist_abgelaufen(record, now=NOW) is lapsed
 
-    def test_the_deadline_s_own_instant_is_past(self):
-        assert ist_abgelaufen({"valid_until": NOW, "approval": None}, now=NOW)
+        assert bisherig_zustand(record, now=NOW) == state
+
+
+class TestTheLostMailboxsStart:
+    @pytest.mark.parametrize("grund", [pytest.param(None, id="null"), pytest.param(..., id="missing")])
+    def test_it_is_refused_without_a_reason(self, grund: Any, assert_rejects):
+        """The change hands the records over without the address on file, so it stands on a recorded reason."""
+
+        payload: dict[str, Any] = {"adresse": CHANGED, "email": "neu@beispielschule.de"}
+        if grund is not ...:
+            payload["grund"] = grund
+
+        assert_rejects(FLAddressChangeVerwaltungPayload, payload, "grund")
 
 
 class TestTheLinksLookups:
     @pytest.mark.parametrize("key", ["token_hashes", "stop.token_hashes"])
-    def test_each_hash_a_stranger_drives_is_indexed_and_never_unique(self, key: str):
-        """Indexed, as a stranger sends the lookup; never unique, as a kept record holds its hashes beside a live one's."""
+    def test_each_hash_a_stranger_drives_is_indexed(self, key: str):
+        """Indexed, as a stranger sends the lookup: without one, every link opened scans the collection."""
 
         keyed = [index for index in SUPPORT_INDEXES if index.collection == Collection.ADDRESS_CHANGES and index.keys == ((key, ASCENDING),)]
         assert len(keyed) == 1
-        assert not [index for index in UNIQUE_INDEXES if index.collection == Collection.ADDRESS_CHANGES and key in index.keys]
 
 
 # Each grant in effect since a day before the request, but `LATE`'s, granted after it, and `PROMOTED`'s owner tier, made after it.

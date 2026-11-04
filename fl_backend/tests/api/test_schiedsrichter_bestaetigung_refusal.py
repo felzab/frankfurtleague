@@ -30,6 +30,7 @@ from app.shared.schemas.bounds import (
 )
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token, mint_token
+from tests.documents import SCHIEDSRICHTER_TEXT_VERSIONS
 
 TODAY = "2026-04-01"
 # The confirmation's instant on `TODAY`, as `app/core/recording.py :: log_stamp` spells one.
@@ -45,7 +46,7 @@ LIVE_BLOCK: Mapping[str, Any] = {**compose_bestaetigung(today=TODAY), "token_has
 
 
 def confirmed(*, confirmed_at: str = TODAY) -> dict[str, Any]:
-    return {**compose_einwilligung(umfang="intern", medien=False, text_version="v1", today=TODAY), "confirmed_at": confirmed_at}
+    return {**compose_einwilligung(umfang="intern", medien=False, today=TODAY), "confirmed_at": confirmed_at}
 
 
 class TestTheStoredBlock:
@@ -68,7 +69,12 @@ class TestTheRecordTheConfirmationWrites:
         """One write and never two: between them the row would hold a birthdate nobody had yet consented to the league keeping."""
 
         update = compose_confirmation_update(
-            geburtsdatum=AN_ADULTS_BIRTHDATE, umfang="kader_oeffentlich", medien=True, text_version="v1", today=TODAY, am=CONFIRMED_AT
+            geburtsdatum=AN_ADULTS_BIRTHDATE,
+            umfang="kader_oeffentlich",
+            medien=True,
+            text_versions=SCHIEDSRICHTER_TEXT_VERSIONS,
+            today=TODAY,
+            am=CONFIRMED_AT,
         )
 
         assert set(update) == {"$set"}
@@ -78,23 +84,28 @@ class TestTheRecordTheConfirmationWrites:
         """Whole and never dotted: a dotted `$set` under the null block a live referee row stores aborts the transaction."""
 
         update = compose_confirmation_update(
-            geburtsdatum=AN_ADULTS_BIRTHDATE, umfang="kader_oeffentlich", medien=True, text_version="v1", today=TODAY, am=CONFIRMED_AT
+            geburtsdatum=AN_ADULTS_BIRTHDATE,
+            umfang="kader_oeffentlich",
+            medien=True,
+            text_versions=SCHIEDSRICHTER_TEXT_VERSIONS,
+            today=TODAY,
+            am=CONFIRMED_AT,
         )
 
         assert update["$set"][EINWILLIGUNG_FELD]["nachweis"] == {
-            "umfang": {"am": CONFIRMED_AT, "text_version": "v1"},
-            "medien": {"am": CONFIRMED_AT, "text_version": "v1"},
+            "umfang": {"am": CONFIRMED_AT, "text_version": SCHIEDSRICHTER_TEXT_VERSIONS["umfang"]},
+            "medien": {"am": CONFIRMED_AT, "text_version": SCHIEDSRICHTER_TEXT_VERSIONS["medien"]},
         }
 
     def test_the_record_carries_the_media_answer_even_when_it_is_off(self):
         """An off switch is an answer, so the key is stored rather than omitted for the model's default to supply."""
 
-        assert compose_einwilligung(umfang="intern", medien=False, text_version="v1", today=TODAY)["medien"] is False
+        assert compose_einwilligung(umfang="intern", medien=False, today=TODAY)["medien"] is False
 
     def test_the_record_is_given_and_confirmed_in_one_press(self):
         """Nobody but the referee answers on their own link."""
 
-        record = compose_einwilligung(umfang="intern", medien=False, text_version="v1", today=TODAY)
+        record = compose_einwilligung(umfang="intern", medien=False, today=TODAY)
 
         assert record["datum"] == record["confirmed_at"] == TODAY
 
@@ -199,7 +210,12 @@ class TestTheTokenPayloadBound:
 
         with pytest.raises(ValidationError):
             FLSchiedsrichterConfirmationPayload.model_validate(
-                {"token": RAW_TOKEN, "geburtsdatum": AN_ADULTS_BIRTHDATE, "umfang": "intern", "text_version": "v1"}
+                {
+                    "token": RAW_TOKEN,
+                    "geburtsdatum": AN_ADULTS_BIRTHDATE,
+                    "umfang": "intern",
+                    "text_versions": dict(SCHIEDSRICHTER_TEXT_VERSIONS),
+                }
             )
 
 

@@ -1,12 +1,11 @@
 import "server-only";
 
 import { BRAND_NAME, mailOrigin } from "./emailShell";
+import { ROUTES } from "./routes";
 
 import type { Mail } from "./emailShell";
 import type { FLRegistrierungAbsageData, FLRegistrierungLinkData } from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
-
-const SPIELER_BESTAETIGUNG_PATH = "/bestaetigung/spieler";
 
 // Beside the builders that spend it rather than in the slice: `core` may not import a feature.
 
@@ -17,7 +16,7 @@ const SPIELER_BESTAETIGUNG_PATH = "/bestaetigung/spieler";
  * a second spelling reaches the access line and the referer unredacted.
  */
 function spielerBestaetigungsLink(origin: string, token: string): string {
-  return `${origin}${SPIELER_BESTAETIGUNG_PATH}?token=${encodeURIComponent(token)}`;
+  return `${origin}${ROUTES.registrierungConfirmation.path()}?token=${encodeURIComponent(token)}`;
 }
 
 /**
@@ -32,7 +31,7 @@ export function buildRegistrierungBestaetigungEmail(
   { origin, token }: MailLink,
 ): Mail {
   // Through `mailOrigin` once, and the link minted on what it answered: a raw `AUTH_URL` with a
-  // trailing slash would otherwise put `//bestaetigung/spieler` in every registering pupil's mail,
+  // trailing slash would otherwise put `//confirm/spieler` in every registering pupil's mail,
   // which the edge's noindex prefix does not match.
   const site = mailOrigin(origin);
 

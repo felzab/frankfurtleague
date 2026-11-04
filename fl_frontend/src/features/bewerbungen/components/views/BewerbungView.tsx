@@ -17,10 +17,9 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLBewerbungWindowResponse, FLTrikotFarbe } from "@/core/generated/client/types";
-import type { BewerbungFassung } from "@/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection";
 
 /** Where a school goes when this page cannot take its application, whatever closed it. */
-const ZUM_KONTAKT = { href: "/kontakt", label: KONTAKT_TITEL };
+const ZUM_KONTAKT = { href: "/contact", label: KONTAKT_TITEL };
 
 /**
  * The rest of the site, from a page reached cold. `ROUTES.saisons` opens the season the site is on,
@@ -41,7 +40,6 @@ const KOPF_LINKS = [
  */
 export function BewerbungView({
   saisonId,
-  fassung,
   fenster,
   isUnlesbar,
   today,
@@ -51,8 +49,6 @@ export function BewerbungView({
   siteKey,
 }: {
   saisonId: string;
-  /** The form's words and the label they stamp, `null` where the page could not read them. */
-  fassung: BewerbungFassung | null;
   /** `null` where the season takes no applications at all, which is its own answer. */
   fenster: FLBewerbungWindowResponse | null;
   /** The window could not be read. Never folded into a closed state: no deadline was learnt. */
@@ -66,9 +62,7 @@ export function BewerbungView({
   /** The bot check's public key, which the form alone loads Cloudflare's script for. */
   siteKey: string;
 }) {
-  const fensterStand = isUnlesbar ? "unlesbar" : fensterZustand(fenster, today);
-  // A running window whose words could not be read offers no form: one without them stamps nothing.
-  const zustand = fensterStand === "running" && fassung === null ? "worteUnlesbar" : fensterStand;
+  const zustand = isUnlesbar ? "unlesbar" : fensterZustand(fenster, today);
 
   return (
     <section className={SEITE_CLASSES}>
@@ -123,10 +117,9 @@ export function BewerbungView({
         </nav>
       </header>
 
-      {zustand === "running" && fenster !== null && fassung !== null && (
+      {zustand === "running" && fenster !== null && (
         <BewerbungForm
           saisonId={saisonId}
-          fassung={fassung}
           schulen={schulen}
           isSchulenLesbar={isSchulenLesbar}
           vergebeneFarben={vergebeneFarben}
@@ -165,16 +158,6 @@ export function BewerbungView({
         <ZustandPanel
           titel="Die Bewerbungsfrist ist abgelaufen"
           text={`Für die Saison ${saisonId} nehmen wir keine Bewerbungen mehr an. Schreib uns trotzdem: Wir sagen Dir, was noch geht und wann die nächste Saison öffnet.`}
-          aktion={ZUM_KONTAKT}
-        />
-      )}
-
-      {/* Says that it does not know, and nothing else. Folded into a closed state, this arm would
-          tell a school the deadline had passed on a day the league was still taking applications. */}
-      {zustand === "worteUnlesbar" && (
-        <ZustandPanel
-          titel="Wir können das Formular gerade nicht laden"
-          text="Die Bewerbung läuft, aber das Formular können wir Dir im Moment nicht zeigen. Lade die Seite in ein paar Minuten neu, oder schreib uns."
           aktion={ZUM_KONTAKT}
         />
       )}

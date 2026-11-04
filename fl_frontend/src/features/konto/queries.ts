@@ -14,19 +14,19 @@ import type {
  * none: the account page is every signed-in person's.
  */
 // Never `"use cache"`, which keys on the arguments rather than the caller.
-export const getKontoEinwilligungen = cache(async (): Promise<FLAccountEinwilligungenResponse> =>
+export const getAccountEinwilligungen = cache(async (): Promise<FLAccountEinwilligungenResponse> =>
   runPersonRead(() => accountGetEinwilligungen()),
 );
 
 /** Every record the signed-in person's erasure would reach, read off the backend rather than inferred here, so the list shown is the list erased. */
-// Never `"use cache"`, for `getKontoEinwilligungen`'s reason.
-export const getLoeschungAnsicht = cache(async (): Promise<FLAccountErasureViewResponse> =>
-  runPersonRead(() => identityGetAccountErasureView()),
-);
+// Never `"use cache"`, for `getAccountEinwilligungen`'s reason.
+export const getErasureView = cache(async (): Promise<FLAccountErasureViewResponse> => runPersonRead(() => identityGetAccountErasureView()));
 
 /**
  * The signed-in address's address control: whether it holds a record to move, and the change pending there with its
  * new address, whole where the person typed it and masked where the league did.
  */
-// Never `"use cache"`, for `getKontoEinwilligungen`'s reason.
-export const getKontoAdresswechsel = cache(async (): Promise<FLAccountAddressChangeResponse> => runPersonRead(() => accountGetAddressChange()));
+// Never `"use cache"`, for `getAccountEinwilligungen`'s reason.
+export const getAccountAddressChange = cache(async (): Promise<FLAccountAddressChangeResponse> =>
+  runPersonRead(() => accountGetAddressChange()),
+);

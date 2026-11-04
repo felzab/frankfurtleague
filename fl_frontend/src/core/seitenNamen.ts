@@ -12,7 +12,7 @@ export const DEIN_BEREICH_TITEL = "Dein Bereich";
 /** A referee's bookings on their own page, which the Einteilung's button and the landing's card name as well. */
 export const EINSAETZE_TITEL = "Deine Einsätze";
 
-/** The administration's own name, which `/bereich/admin` carries rather than the section it redirects to. */
+/** The administration's own name, which `/area/admin` carries rather than the section it redirects to. */
 export const VERWALTUNG_TITEL = "Verwaltung";
 
 /** The grants' page in the administration, which the mail asking an approver to approve an address change names. */
@@ -23,12 +23,12 @@ export const OFFENE_ANTRAEGE = "Offene Anträge";
 
 export const ABOUT_TITEL = "About";
 
-/** The organisers' page, which the privacy notice and the about page's answer name as well. */
+/** The organisers' name, which the old top bar and footer show. */
 export const ORGANISATION_TITEL = "Organisation";
 
 export const KONTAKT_TITEL = "Kontakt";
 
 export const IMPRESSUM_TITEL = "Impressum";
 
-/** The page's name, beside which its heading reads „Datenschutzerklärung“. */
+/** The privacy notice's name, which the old footer links. */
 export const DATENSCHUTZ_TITEL = "Datenschutz";

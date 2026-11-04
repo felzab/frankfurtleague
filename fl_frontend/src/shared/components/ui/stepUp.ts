@@ -17,7 +17,7 @@ export const STEP_UP_REFUSED = "Wir konnten Dich nicht mit einem Passkey bestät
 
 /**
  * Which confirmation a write is held to: `true` for the step-up window, `"enrolment"` for the
- * minutes-narrow one a change outliving its session takes, as adding a passkey does
+ * minutes-narrow one a change outliving its session takes, as a write on access to the administration does
  * (`fl_frontend/src/core/sessionLifetimes.ts :: ENROLMENT_WINDOW_MS`), and `false` for none.
  */
 export type StepUpDemand = boolean | "enrolment";
@@ -30,7 +30,6 @@ export interface StepUp {
   readonly confirm: () => Promise<boolean>;
 }
 
-// Undefined outside the administrator's shell and a grant holder's deletion press
-// (`fl_frontend/src/features/konto/components/views/LoeschungView.tsx`): a control there asks nothing
-// first, and the server's own refusal is the whole of its step-up.
+// Undefined outside the administrator's shell: a control there asks nothing first, and the server's own
+// refusal is the whole of its step-up.
 export const StepUpContext = createContext<StepUp | undefined>(undefined);

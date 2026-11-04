@@ -6,11 +6,11 @@ import { FieldError, FieldErrorContext } from "react-aria-components/FieldError"
 import { Label } from "react-aria-components/Label";
 import { Text } from "react-aria-components/Text";
 
-import { COPY } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 
 import { fieldLabel, messageLine, requiredMark, statusLine } from "./fieldStyles";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { ValidationResult } from "react-aria-components/FieldError";
 import type { FormStatus } from "./useFormAction";
@@ -68,11 +68,14 @@ export function RequiredMark({ isRequired }: { isRequired: boolean }) {
   );
 }
 
-/** The label above a field, an asterisk after it where a value is required. */
-export function FieldLabel({ label, isRequired }: { label: Copy; isRequired: boolean }) {
+/**
+ * The label above a field, an asterisk after it where a value is required: the catalogue's words, or a wording of its
+ * own such as a consent's question, which stands as it was shown.
+ */
+export function FieldLabel({ label, isRequired }: { label: Words; isRequired: boolean }) {
   return (
     <Label className={fieldLabel()}>
-      {label}
+      {textOf(label)}
       <RequiredMark isRequired={isRequired} />
     </Label>
   );

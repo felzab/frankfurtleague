@@ -5,7 +5,7 @@ import {
   addressChangeGetAddressChangeVerwaltungView,
   addressChangeGetAddressChangeView,
   addressChangeInviteAddressChange,
-  addressChangePostAddressChangeAntwort,
+  addressChangePostAddressChangeAnswer,
   addressChangePostAddressChangeApproval,
   addressChangePostAddressChangeMovesDone,
   addressChangePostAddressChangeStop,
@@ -16,8 +16,8 @@ import {
 import type {
   FLAddressChangeAdressePayload,
   FLAddressChangeAdresseResponse,
-  FLAddressChangeAntwortPayload,
-  FLAddressChangeAntwortResponse,
+  FLAddressChangeAnswerPayload,
+  FLAddressChangeAnswerResponse,
   FLAddressChangeApprovalResponse,
   FLAddressChangeIdResponse,
   FLAddressChangeMovesDonePayload,
@@ -38,17 +38,17 @@ import type { FLAdresswechselEinladenPayload, FLAdresswechselGenehmigungPayload,
  * A POST that reads: the token is the credential, and a GET would put it in a query string the backend's route template
  * does not redact. On the base tier, as the press is: the token in the body is the whole authorization.
  */
-export async function postAdresswechselAnsicht(payload: FLTokenPayload): Promise<FLAddressChangeViewResponse> {
+export async function postAddressChangeView(payload: FLTokenPayload): Promise<FLAddressChangeViewResponse> {
   return addressChangeGetAddressChangeView(payload);
 }
 
 /** The new mailbox's own answer. */
-export async function postAdresswechselAntwort(payload: FLAddressChangeAntwortPayload): Promise<FLAddressChangeAntwortResponse> {
-  return addressChangePostAddressChangeAntwort(payload);
+export async function postAddressChangeAnswer(payload: FLAddressChangeAnswerPayload): Promise<FLAddressChangeAnswerResponse> {
+  return addressChangePostAddressChangeAnswer(payload);
 }
 
 /** The stop of the address on file, which hands nothing over. */
-export async function postAdresswechselStopp(payload: FLTokenPayload): Promise<FLAddressChangeStopResponse> {
+export async function postAddressChangeStop(payload: FLTokenPayload): Promise<FLAddressChangeStopResponse> {
   return addressChangePostAddressChangeStop(payload);
 }
 

@@ -46,10 +46,10 @@ const scrollsSideways = (page: Page) =>
  * old search's editor link names it.
  */
 async function spielId(page: Page): Promise<string> {
-  await page.goto(`/bereich/admin/spielsuche?saison_id=${SAISON}&status=heute`);
+  await page.goto(`/area/admin/spielsuche?saison_id=${SAISON}&status=heute`);
   const link = page.getByRole("link", { name: `Spiel bearbeiten: Spiel Nr. ${String(SPIEL_NR)}` });
   const href = await link.getAttribute("href");
-  const id = /\/bereich\/admin\/spiele\/([0-9a-f]{24})/.exec(href ?? "")?.[1];
+  const id = /\/area\/admin\/spiele\/([0-9a-f]{24})/.exec(href ?? "")?.[1];
   if (id === undefined) throw new Error(`no editor link for match ${String(SPIEL_NR)} on today's search`);
   return id;
 }
@@ -60,15 +60,15 @@ test("an administrator creates a venue over the Spielorte list, then moves a mat
 
   // --- Spielorte ---------------------------------------------------------------------------------
 
-  await page.goto("/bereich/verwaltung/spielorte");
-  await expect(page.getByRole("heading", { level: 1, name: "Spielorte" })).toBeVisible();
+  await page.goto("/admin/spielorte");
+  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Spielorte" })).toBeVisible();
 
   // A long name wraps in its row and pushes nothing sideways, on desktop and at a phone's width.
-  await expect(page.getByRole("cell", { name: LONG_NAME })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("cell", { name: LONG_NAME })).toBeVisible();
   expect(await scrollsSideways(page), "the page or its list scrolls sideways on desktop").toBe(false);
   const desktop = page.viewportSize();
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole("cell", { name: LONG_NAME })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("cell", { name: LONG_NAME })).toBeVisible();
   expect(await scrollsSideways(page), "the page or its list scrolls sideways at a phone's width").toBe(false);
   if (desktop !== null) await page.setViewportSize(desktop);
 
@@ -85,23 +85,19 @@ test("an administrator creates a venue over the Spielorte list, then moves a mat
 
   // The dialog closes once the venue is created, and the list behind it reads it at once.
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole("cell", { name: NEW_VENUE })).toBeVisible();
-
-  // The search narrows the list held on the page to the new venue.
-  await page.getByRole("searchbox", { name: "Spielorte suchen" }).fill("Ulmen");
-  await expect(page.getByRole("cell", { name: NEW_VENUE })).toBeVisible();
-  await expect(page.getByRole("cell", { name: "Sporthalle Birkenallee" })).toBeHidden();
+  await expect(page.getByRole("main").getByRole("cell", { name: NEW_VENUE })).toBeVisible();
 
   // --- The match editor --------------------------------------------------------------------------
 
-  const editor = `/bereich/verwaltung/saisons/${SAISON}/spiele/${await spielId(page)}`;
+  const editor = `/admin/saisons/${SAISON}/spiele/${await spielId(page)}`;
   await page.goto(editor);
-  await expect(page.getByRole("heading", { level: 1, name: "Kastanie gegen Eiche" })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Kastanie gegen Eiche" })).toBeVisible();
 
   // The kick-off's hour, then its minutes: the segmented field moves on by itself after two digits.
   const uhrzeit = page.getByRole("group", { name: /^Uhrzeit/ });
   await uhrzeit.getByRole("spinbutton").first().click();
   await page.keyboard.type("1830");
+  // The editor's save bar stands below `main` in no landmark of its own, so its line is read over the page.
   await expect(page.getByText("1 Änderung", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Speichern" }).click();

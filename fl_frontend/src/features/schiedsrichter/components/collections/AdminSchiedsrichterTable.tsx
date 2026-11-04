@@ -142,7 +142,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         {/* On the row's OWN id: this list serves no erased person and never the ghost, so no row here
             stands for more fixtures than its own. Inline, and admin-only. */}
         <RowActionLink
-          href={saisonHref(`/bereich/admin/spielsuche?schiedsrichter=${schiedsrichter.id}`)}
+          href={saisonHref(`/area/admin/spielsuche?schiedsrichter=${schiedsrichter.id}`)}
           label="Einsätze anzeigen"
           subject={rowSubject}>
           <Magnifier
@@ -161,7 +161,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         )}
         {/* A link and not a press: the referee form edits on a page of its own. */}
         <RowActionLink
-          href={saisonHref(`/bereich/admin/schiedsrichter/${schiedsrichter.id}`)}
+          href={saisonHref(`/area/admin/schiedsrichter/${schiedsrichter.id}`)}
           label="Bearbeiten"
           subject={rowSubject}>
           <Pencil

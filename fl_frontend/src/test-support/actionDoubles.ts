@@ -3,7 +3,7 @@ import { afterEach, beforeAll, beforeEach, expect, vi } from "vitest";
 
 import { failureToastTitle } from "@/shared/utils/failureToastTitle.ts";
 
-import type { AdminRefusal } from "@/core/auth.ts";
+import type { AdminRefusal } from "@/core/auth/guards.ts";
 import type { SubjectSession } from "@/core/subject.ts";
 import type { ActionFailure } from "@/shared/types/types.ts";
 import type * as AppToastModule from "@/shared/utils/appToast.ts";
@@ -221,7 +221,7 @@ type SignInAnswers = {
 };
 
 /** Where the real store sends a caller the session leaves out, when a case names no other. */
-const destinationOf = (session: AdminSessionDouble): string => (session === null ? "/signin" : "/bereich");
+const destinationOf = (session: AdminSessionDouble): string => (session === null ? "/signin" : "/area");
 
 const answering = (answer: unknown): Promise<unknown> => (answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer));
 
@@ -243,16 +243,16 @@ async function administratorOf({ session, served }: SignInAnswers): Promise<unkn
 
 /**
  * The guard's verdict with its reason. Nobody signed in is told apart by the landing the case named,
- * as the real guard and landing judge one session: `/bereich` is a session whose address holds no grant.
+ * as the real guard and landing judge one session: `/area` is a session whose address holds no grant.
  */
 async function verdictOf(answers: SignInAnswers): Promise<unknown> {
-  if (answers.session === null) return { refused: answers.refusal ?? (answers.destination === "/bereich" ? "noGrant" : "signIn") };
+  if (answers.session === null) return { refused: answers.refusal ?? (answers.destination === "/area" ? "noGrant" : "signIn") };
 
   return { session: await administratorOf(answers) };
 }
 
 /**
- * The shape `fl_frontend/src/core/auth.ts :: getKontoSession` serves, signed in by passkey this moment:
+ * The shape `fl_frontend/src/core/auth/guards.ts :: getAccountSession` serves, signed in by passkey this moment:
  * a caller reading `user.id` or `session` off the bare `{ user }` would read `undefined` and pass.
  */
 const servedOf = (session: AdminSessionDouble): unknown => {
@@ -270,33 +270,52 @@ const servedOf = (session: AdminSessionDouble): unknown => {
  * replaced whole because the real one opens the database driver as it loads.
  */
 const signInStore = (answers: SignInAnswers) => ({
-  getAdminSession: () => administratorOf(answers),
-  judgeAdminRequest: () => verdictOf(answers),
-  // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
-  getKontoSession: () => answering(answers.served),
-  getSignInDestination: () => Promise.resolve(answers.destination),
-  // The sign-in page's read, `null` wherever the landing sends the caller to sign in, as the real one judges.
-  getSignedInAddress: () =>
-    answers.session instanceof Error
-      ? Promise.reject(answers.session)
-      : Promise.resolve(answers.session === null || answers.destination === "/signin" ? null : answers.session.user.email),
-  // `null`, as the real store answers the session `served` holds: one its passkey made is offered no card.
-  getPasskeyStep: () => (answers.session instanceof Error ? Promise.reject(answers.session) : Promise.resolve(null)),
-  isFreshlySignedIn: () => answers.fresh,
-  endSessionsOfAddress: (address: unknown) => {
-    answers.signedOut.push(String(address));
-    return answering(answers.signOutFailure ?? answers.accountHeld);
+  guards: {
+    getAdminSession: () => administratorOf(answers),
+    judgeAdminRequest: () => verdictOf(answers),
+    // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
+    getAccountSession: () => answering(answers.served),
   },
-  deleteAccountFor: (address: unknown) => {
-    answers.deletedAccounts.push(String(address));
-    return answering(answers.accountDeletionFailure ?? answers.accountHeld);
+  landing: {
+    // The landing as read for a session the person lookup is not doubled for: its person stands unread.
+    getSignInLanding: () => Promise.resolve({ destination: answers.destination, subject: null }),
+    // The sign-in page's read, `null` wherever the landing sends the caller to sign in, as the real one judges.
+    getSignedInAddress: () =>
+      answers.session instanceof Error
+        ? Promise.reject(answers.session)
+        : Promise.resolve(answers.session === null || answers.destination === "/signin" ? null : answers.session.user.email),
+    // `null`, as the real store answers the session `served` holds: one its passkey made is offered no card.
+    getPasskeyStep: () => (answers.session instanceof Error ? Promise.reject(answers.session) : Promise.resolve(null)),
   },
-  // Folded as the real lookup folds, so a case naming one spelling holds every other; imported at the call, for
-  // `administratorOf`'s reason.
-  accountStandsAt: async (address: unknown) => {
-    const { asSignInIdentifier } = await import("@/core/emailAddress.ts");
-    return answers.accountsAt.includes(asSignInIdentifier(String(address)));
+  sessionStamps: { isFreshlySignedIn: () => answers.fresh },
+  accountSessions: {
+    endSessionsOfAddress: (address: unknown) => {
+      answers.signedOut.push(String(address));
+      return answering(answers.signOutFailure ?? answers.accountHeld);
+    },
   },
+  accounts: {
+    deleteAccountFor: (address: unknown) => {
+      answers.deletedAccounts.push(String(address));
+      return answering(answers.accountDeletionFailure ?? answers.accountHeld);
+    },
+    // Folded as the real lookup folds, so a case naming one spelling holds every other; imported at the call, for
+    // `administratorOf`'s reason.
+    accountStandsAt: async (address: unknown) => {
+      const { asSignInIdentifier } = await import("@/core/emailAddress.ts");
+      return answers.accountsAt.includes(asSignInIdentifier(String(address)));
+    },
+  },
+  // Every other module of the sign-in store, replaced as empty as the store's old single module left them.
+  ceremony: {},
+  enrolment: {},
+  gateReads: {},
+  library: {},
+  mails: {},
+  minting: {},
+  passkeys: {},
+  session: {},
+  signInRows: {},
 });
 
 /**
@@ -393,7 +412,7 @@ export function doubleActionRequest({
   readTracesOnceLoaded();
   // The request every action runs in: the sign-in store, the subject lookup and the logger, and the
   // two packages that answer only inside a request Next itself is serving.
-  vi.doMock("@/core/auth.ts", () => signInStore(answers));
+  for (const [module, double] of Object.entries(signInStore(answers))) vi.doMock(`@/core/auth/${module}.ts`, () => double);
   vi.doMock("@/core/subject.ts", () => subjectLookup(answers));
   vi.doMock("@/core/logging.ts", () => SILENT_LOGGER);
   vi.doMock("next/cache", () => NEXT_CACHE_DOUBLE);

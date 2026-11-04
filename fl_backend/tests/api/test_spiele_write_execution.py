@@ -359,7 +359,7 @@ def referee_documents() -> list[dict[str, Any]]:
             "einwilligung": (
                 None
                 if schiedsrichter_id in (SCHIEDSRICHTER_UNBESTAETIGT, GHOST_SCHIEDSRICHTER_ID)
-                else documents.own_einwilligung_document(text_version="v1", confirmed_at="2026-01-20")
+                else documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-01-20")
             ),
         }
         for schiedsrichter_id, (name, inactive_since) in REFEREES.items()

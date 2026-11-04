@@ -1,22 +1,17 @@
 import "server-only";
 
 import { mailOrigin } from "./emailShell";
+import { SERVER_COPY } from "./serverCopy";
 
-import type { Mail, Sentence } from "./emailShell";
+import type { Mail } from "./emailShell";
 
 /**
- * The one figure: `fl_frontend/src/core/auth.ts` expires the code on it and this message states it.
+ * The one figure: `fl_frontend/src/core/auth/library.ts` expires the code on it and this message states it.
  * It lives HERE because the import the other way round would read it inside its own dead zone.
  */
 export const CODE_VALIDITY_MINUTES = 10;
 
-/**
- * The phishing warning: a code typed into anything but this site's own form is the one way it leaks, so
- * it names the host a relay page cannot wear, read off the serving origin the code signs in on.
- */
-function nurHierSatz(site: string): readonly [Sentence, Sentence] {
-  return [["Gib ihn nur auf ", { strong: new URL(site).host }, " ein."], "Wir fragen Dich nie auf anderem Weg nach diesem Code."];
-}
+const WORDS = SERVER_COPY.mail.signInCode;
 
 // No button: a link that carried the code would sign in whoever opened a forwarded message, and one
 // without it opens a second `/signin` holding none of the step the reader is standing in.
@@ -25,12 +20,15 @@ export function buildCodeEmail(code: string, origin: string): Mail {
 
   return {
     kind: "signIn",
-    subjectLine: "Dein Anmeldecode",
+    subjectLine: WORDS.subject,
     origin: site,
     vorname: "",
-    // One sentence for both pages that send it: the sign-in page's code step and the account page's confirmation.
-    paragraphs: [["Gib diesen Code auf der Seite ein, auf der Du ihn angefordert hast:"]],
+    paragraphs: [[WORDS.lead]],
     block: { code: code },
-    afterBlock: [[`Er ist ${String(CODE_VALIDITY_MINUTES)} Minuten gültig und kann nur einmal verwendet werden.`], nurHierSatz(site)],
+    // The host a relay page cannot wear, read off the serving origin the code signs in on: a code typed into anything
+    // but this site's own form is the one way it leaks.
+    afterBlock: [
+      [WORDS.validity(CODE_VALIDITY_MINUTES), [`${WORDS.onlyHere.before} `, { strong: new URL(site).host }, ` ${WORDS.onlyHere.after}`]],
+    ],
   };
 }

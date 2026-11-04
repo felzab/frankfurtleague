@@ -18,6 +18,9 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.account.person_router import delete_address_change as stop_on_the_account_page
+from app.api.account.person_router import get_address_change, post_address_change
+from app.api.account.schemas import FLAccountAddressChangePayload
 from app.api.adresswechsel.admin_router import (
     delete_address_change,
     get_address_change_verwaltung_view,
@@ -25,22 +28,17 @@ from app.api.adresswechsel.admin_router import (
     post_address_change_approval,
     post_address_change_verwaltung,
 )
-from app.api.adresswechsel.public_router import get_address_change_view, post_address_change_antwort, post_address_change_stop
+from app.api.adresswechsel.public_router import get_address_change_view, post_address_change_answer, post_address_change_stop
 from app.api.adresswechsel.schemas import (
-    FLAddressChangeAntwortPayload,
+    FLAddressChangeAnswerPayload,
     FLAddressChangeVerwaltungPayload,
     FLAddressChangeVerwaltungViewPayload,
     FLAdresswechselSweepParams,
 )
 from app.api.adresswechsel.system_router import sweep_address_change
-from app.api.konto.person_router import delete_address_change as stop_on_the_account_page
-from app.api.konto.person_router import get_address_change, post_address_change, post_address_change_release
-from app.api.konto.schemas import FLAccountAddressChangePayload, FLAccountAddressChangeReleasePayload
 from app.api.outbox.system_router import post_handout
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.core.security import PASSKEY_FACTOR, SessionActor
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import ADDRESS_CHANGE_WAITING_PERIOD_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
@@ -87,7 +85,6 @@ SPIEL_OID = ObjectId("6890a1b2c3d4e5f607850061")
 CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607850062")
 
 UNCONFIRMED_REG_LINK = "the-unconfirmed-registrations-link"
-REFEREE_LABEL = LAUFENDE_FASSUNGEN["bestaetigung_schiedsrichter"]
 
 A_BOUNCE: Mapping[str, Any] = {"message_id": "m-1", "state": "undeliverable", "grund": "NoEmail", "am": "2126-03-21T10:00:00.000000+00:00"}
 
@@ -109,7 +106,6 @@ def registration(registrierung_id: ObjectId, team_id: ObjectId, *, confirmed: bo
         submitted_at="2126-03-30",
         frist="2126-04-06",
         confirmed=documents.registrierung_confirmed(
-            "bestaetigung_spieler",
             geburtsdatum="2009-05-04",
             today="2126-03-31",
             am="2126-03-31T08:00:00+00:00",
@@ -141,7 +137,9 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 email=EMAIL,
                 name="Lenore Quastenbach",
                 default_payment=20,
-                einwilligung=documents.own_einwilligung_document(text_version=REFEREE_LABEL, confirmed_at="2126-03-02"),
+                einwilligung=documents.own_einwilligung_document(
+                    text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2126-03-02"
+                ),
                 confirmation={
                     "token_hash": "c" * 64,
                     "sent_at": "2126-03-01",
@@ -248,20 +246,16 @@ async def granted(database: AsyncDatabase, adresse: str = EMAIL, *, verwaltung: 
     return grant_id
 
 
-def person_actor(*, factor: str | None) -> SessionActor:
-    """The person's session, made a minute ago, by passkey or, with `factor` None, by code."""
-
-    return verified_actor(EMAIL, factor=PASSKEY_FACTOR if factor == PASSKEY_FACTOR else "code")
-
-
 def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> Awaitable[Any]:
     """The handler with every collection it names taken off `database` by its parameter's spelling, and the rest defaulted.
 
-    An administrator's call acts as the suite's first administrator, signed in a minute ago, unless the case names another.
+    An administrator's call acts as the suite's first administrator, signed in a minute ago, unless the case names another;
+    a person's as the suite's person, by passkey a minute ago.
     """
 
     supplied: dict[str, Any] = {}
-    for name in inspect.signature(handler).parameters:
+    parameters = inspect.signature(handler).parameters
+    for name in parameters:
         if name in given:
             supplied[name] = given[name]
         elif name.endswith("_collection"):
@@ -283,7 +277,8 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
         elif name == "identifier":
             supplied[name] = EMAIL
         elif name == "actor":
-            supplied[name] = person_actor(factor=PASSKEY_FACTOR)
+            # An administrator's handler names its operator beside its actor, and a person's names none.
+            supplied[name] = verified_actor(given.get("operator", ADMIN) if "operator" in parameters else EMAIL)
 
     if "session" in inspect.signature(handler).parameters and "session" not in given:
         # The request's snapshot session (`app/core/dependencies.py :: SnapshotSession`), open for the handler's run.
@@ -343,19 +338,26 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
     return Minted(answer=answer, token=links.get("token"), stopp_token=links.get("stopp_token"))
 
 
-async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = NEW_EMAIL, **given: Any) -> Minted:
-    answer = await call(post_address_change, database, client, adresswechsel_data=FLAccountAddressChangePayload(email=email), **given)
-    return await handed_out(database, client, answer, now=given.get("germany_now", NOW))
+async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = NEW_EMAIL, released: bool = True, **given: Any) -> Minted:
+    """The person's start, and unless `released` is off the address on file's confirmation through its link.
 
+    That confirmation is what owes the new mailbox its link, which the answer then carries beside the address on file's.
+    """
 
-async def approve_as_the_address(database: AsyncDatabase, client: AsyncMongoClient, address_change_id: ObjectId, **given: Any) -> Minted:
-    payload = FLAccountAddressChangeReleasePayload(id=address_change_id)
-    return await handed_out(
+    now = given.get("germany_now", NOW)
+    started = await handed_out(
         database,
         client,
-        await call(post_address_change_release, database, client, freigabe_data=payload, **given),
-        now=given.get("germany_now", NOW),
+        await call(post_address_change, database, client, adresswechsel_data=FLAccountAddressChangePayload(email=email), **given),
+        now=now,
     )
+    if not released:
+        return started
+
+    await answer(database, client, started.stopp_token, germany_now=now)
+    confirmed = await handed_out(database, client, started.answer, now=now)
+
+    return Minted(answer=started.answer, token=confirmed.token, stopp_token=started.stopp_token)
 
 
 def stop_here(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> Awaitable[Any]:
@@ -363,7 +365,7 @@ def stop_here(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -
 
 
 async def administrator_starts(
-    database: AsyncDatabase, client: AsyncMongoClient, *, grund: str | None, adresse: str = EMAIL, email: str = NEW_EMAIL, **given: Any
+    database: AsyncDatabase, client: AsyncMongoClient, *, grund: str, adresse: str = EMAIL, email: str = NEW_EMAIL, **given: Any
 ) -> Minted:
     payload = FLAddressChangeVerwaltungPayload.model_validate({"adresse": adresse, "email": email, "grund": grund})
     return await handed_out(
@@ -403,9 +405,11 @@ def _handed(token: str | None) -> str:
     return token
 
 
-def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str | None, antwort: str = "confirmed", **given: Any) -> Awaitable[Any]:
-    payload = FLAddressChangeAntwortPayload.model_validate({"token": _handed(token), "antwort": antwort})
-    return call(post_address_change_antwort, database, client, antwort_data=payload, **given)
+def answer(
+    database: AsyncDatabase, client: AsyncMongoClient, token: str | None, given_answer: str = "confirmed", **given: Any
+) -> Awaitable[Any]:
+    payload = FLAddressChangeAnswerPayload.model_validate({"token": _handed(token), "answer": given_answer})
+    return call(post_address_change_answer, database, client, answer_data=payload, **given)
 
 
 def stop_by_link(database: AsyncDatabase, client: AsyncMongoClient, token: str | None, **given: Any) -> Awaitable[Any]:

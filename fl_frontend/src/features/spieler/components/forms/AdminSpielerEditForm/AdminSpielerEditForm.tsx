@@ -42,8 +42,6 @@ import type { FieldErrors } from "@/shared/utils/validation";
 type AdminSpielerEditFormProps = {
   spieler: AdminSpielerStored;
   einwilligung: FLEinwilligung;
-  /** Whether the registry holds the stored label. */
-  istFassungBekannt: boolean | null;
   /** The sidemenu selector's season and its squad row, resolved by the page. */
   saison: SpielerSaisonMembership;
   /** The selected season's teams, for the picker and for reading a `team_id` as a name. */
@@ -62,7 +60,7 @@ export function AdminSpielerEditForm(props: AdminSpielerEditFormProps) {
 }
 
 /** **One save bar over TWO endpoints**: a partial failure is toasted as well as shown inline. */
-function SpielerEditForm({ spieler, einwilligung, istFassungBekannt, saison, teams, pageHeader }: AdminSpielerEditFormProps) {
+function SpielerEditForm({ spieler, einwilligung, saison, teams, pageHeader }: AdminSpielerEditFormProps) {
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
 
@@ -184,7 +182,7 @@ function SpielerEditForm({ spieler, einwilligung, istFassungBekannt, saison, tea
   };
 
   const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
-    fallbackHref: saisonHref("/bereich/admin/spieler"),
+    fallbackHref: saisonHref("/area/admin/spieler"),
     isDirty,
     resetDraftToStored,
   });
@@ -308,10 +306,7 @@ function SpielerEditForm({ spieler, einwilligung, istFassungBekannt, saison, tea
 
           {/* Beside the name and above the season's panels: consent is the person's, and it does not
               change when the sidemenu's season does. */}
-          <FormEinwilligungSection
-            einwilligung={einwilligung}
-            istFassungBekannt={istFassungBekannt}
-          />
+          <FormEinwilligungSection einwilligung={einwilligung} />
 
           <FormKaderSection
             saison={{ saisonId: saison.saisonId, saisonStatus: saison.saisonStatus, erlaubteStufen: saison.erlaubteStufen }}

@@ -1,28 +1,18 @@
-/**
- * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: how long an address change's link stays open,
- * so a page and a mail state the instant the backend refuses at.
- */
-export const ADRESSWECHSEL_GUELTIG_STUNDEN = 24;
+import type { FLAddressChangeValidHours, FLAddressChangeWaitingPeriodDays } from "./generated/client/types";
 
 /**
- * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days a change started with a reason waits after its
- * confirmation, so the address on file can still stop it.
+ * How long an address change's link stays open, so a page and a mail state the instant the backend refuses at;
+ * checked against the bound `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS` publishes, so
+ * the backend moving it fails the type check here.
  */
-const ADRESSWECHSEL_WARTEZEIT_TAGE = 7;
+export const ADDRESS_CHANGE_VALID_HOURS = 24 satisfies FLAddressChangeValidHours;
 
 /**
- * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days an ended change's record, holding no address,
- * stays so either link can still say how it ended; the privacy notice states it.
+ * The days a change started with a reason waits after its confirmation, so the address on file can still stop it;
+ * checked against `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_WAITING_PERIOD_DAYS` as the link's hours are.
  */
-export const ADRESSWECHSEL_NACHLAUF_TAGE = 30;
-
-/**
- * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days a write waits for a second administrator's approval
- * before it lapses, which the notice states for a moved grant and a grant request.
- */
-const GENEHMIGUNG_TAGE = 7;
+export const ADDRESS_CHANGE_WAIT_DAYS = 7 satisfies FLAddressChangeWaitingPeriodDays;
 
 // Indexed by the constant, so a waiting time this map has no words for fails the type check rather
 // than printing a numeral beside every other duration the pages spell out.
-export const ADRESSWECHSEL_WARTEZEIT_DAUER = ({ 7: "eine Woche" } as const)[ADRESSWECHSEL_WARTEZEIT_TAGE];
-export const GENEHMIGUNG_DAUER = ({ 7: "eine Woche" } as const)[GENEHMIGUNG_TAGE];
+export const ADDRESS_CHANGE_WAIT_SPAN = ({ 7: "eine Woche" } as const)[ADDRESS_CHANGE_WAIT_DAYS];

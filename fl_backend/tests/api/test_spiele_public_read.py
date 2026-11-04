@@ -35,6 +35,7 @@ from tests.config import ADMIN_AUTH, BASE_AUTH, build_test_config, grants_for_th
 from tests.core.app_source import application
 from tests.database import a_clean_database_sync
 from tests.documents import (
+    SCHIEDSRICHTER_TEXT_VERSIONS,
     own_einwilligung_document,
     saison_document,
     saison_team_document,
@@ -231,7 +232,7 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
                 email="ada.kern@example.com",
                 name=SCHIEDSRICHTER_NAME,
                 default_payment=PAYMENT,
-                einwilligung=own_einwilligung_document(text_version="v1", confirmed_at="2026-03-01"),
+                einwilligung=own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-03-01"),
             )
         )
         # Agreeing to the fixture as it stands, without which the base tier withholds the referee whole.

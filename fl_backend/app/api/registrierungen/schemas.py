@@ -1,6 +1,6 @@
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
 from app.api.spieler.schemas import SQUAD_NUMMER_PATTERN, FLEinwilligung
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
@@ -11,7 +11,12 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomOptionalDateString,
 )
-from app.shared.schemas.einwilligung import CustomEinwilligungTextVersion, FLEinwilligungNachweise, FLEinwilligungStand
+from app.shared.schemas.einwilligung import (
+    FLEinwilligungNachweise,
+    FLSpielerTextVersions,
+    cite_their_kind,
+    refuse_a_stale_grant,
+)
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.literals import (
     FLConfirmationState,
@@ -59,8 +64,11 @@ class FLRegistrierungEinwilligung(FLEinwilligung, BaseReadModel):
     datum: CustomOptionalDateString = None
     # Null where nobody was asked, never `False`: a returning pupil's media answer stands on their own record.
     medien: bool | None = None
-    # Empty on a returning pupil's record, which evidences no choice it never asked.
-    nachweis: FLEinwilligungNachweise = Field(default_factory=FLEinwilligungNachweise)
+    # Empty on a returning pupil's record, which evidences no choice it never asked. A pupil's wordings alone: a
+    # registration becomes the pupil's record.
+    nachweis: Annotated[FLEinwilligungNachweise, AfterValidator(lambda nachweise: cite_their_kind(nachweise, FLSpielerTextVersions))] = Field(
+        default_factory=FLEinwilligungNachweise
+    )
 
 
 class _RegistrierungStored(BaseModel):
@@ -194,8 +202,8 @@ class FLRegistrierungenListResponse(BaseAPIResponse):
 # --- The CONFIRMATION. The token is the whole credential, as it is for the application's link, so
 # both endpoints are base-tier and every payload forbids an undeclared key.
 
-# The two pages one link may open, members of `app/shared/einwilligung.py :: Seite`: the returning
-# pupil's asks no choice, so the press is judged against whichever its own transaction resolves.
+# The two pages one link may open: the returning pupil's asks no choice, so the press is judged against
+# whichever its own transaction resolves.
 FLRegistrierungSeite = Literal["bestaetigung_spieler", "bestaetigung_spieler_wiederkehrend"]
 
 
@@ -208,7 +216,7 @@ class FLRegistrierungConfirmationViewResponse(BaseAPIResponse):
     team: CustomNonEmptyString
     schule: CustomNonEmptyString
     saison_id: str
-    # Served rather than left to the page to infer: the press refuses the other page's label, and the
+    # Served rather than left to the page to infer: the press refuses the other page's answers, and the
     # returning pupil's takes the stored person's birthdate rather than asking one.
     seite: FLRegistrierungSeite
     # Served rather than read from a constant of the page's own: the floor the write judges by is
@@ -233,8 +241,14 @@ class FLRegistrierungConfirmationPayload(BaseModel):
     # the person's.
     umfang: FLEinwilligungUmfang | None
     medien: bool | None
-    # The label of the words the page showed: the write refuses any but the running one.
-    text_version: CustomEinwilligungTextVersion
+    # The wordings the page showed beside the two choices, null where it asked none, as `umfang` is.
+    text_versions: FLSpielerTextVersions | None
+
+    @model_validator(mode="after")
+    def _grants_name_the_current_wording(self) -> Self:
+        if self.text_versions is not None:
+            refuse_a_stale_grant(self.text_versions, {"umfang": self.umfang, "medien": self.medien})
+        return self
 
 
 class FLRegistrierungConfirmationResponse(BaseAPIResponse):
@@ -248,18 +262,6 @@ class FLRegistrierungConfirmationResponse(BaseAPIResponse):
     # Null on a returning pupil's press, which posted none.
     umfang: FLEinwilligungUmfang | None
     medien: bool | None
-
-
-# --- The pupil's own WITHDRAWAL on the account page, between the confirmation and the admission.
-
-
-class FLRegistrierungAccountEinwilligungResponse(BaseAPIResponse):
-    """The registration's consent record as it stands after the write, everything the pupil did not move unchanged."""
-
-    registrierung_id: CustomObjectId
-    einwilligung: FLRegistrierungEinwilligung
-    # For `app/api/spieler/schemas.py :: FLSpielerAccountEinwilligungResponse`'s reason.
-    nachweis_stand: FLEinwilligungStand
 
 
 # --- The retention SWEEP, system tier. The backend decides, erases and owes each reminder in the
@@ -281,7 +283,7 @@ class FLRegistrierungSweepResponse(BaseAPIResponse):
 
 # --- The TEAM's decision, person tier. No model below declares `email`, `telefon`, `geburtsdatum` or
 # `einwilligung`: a seat holder reads who registered and decides, and a pupil's address and birthdate
-# are the league administrators' alone (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`).
+# are the league administrators' alone.
 
 
 class FLOffeneRegistrierungenParams(BaseModel):

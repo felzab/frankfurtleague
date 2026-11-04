@@ -108,4 +108,4 @@ def get_germany_now() -> datetime:
 
 
 def get_german_date_str(germany_now: datetime = Depends(get_germany_now)) -> str:
-    return germany_now.strftime("%Y-%m-%d")
+    return clock.german_day(germany_now)

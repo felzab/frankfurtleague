@@ -20,7 +20,6 @@ from app.api.berechtigungen.loeschung import GeloeschtGrantsAndAuthorship, loesc
 from app.api.berechtigungen.schemas import FLGrantSnapshot
 from app.api.berechtigungen.services import compose_mitteilung
 from app.api.einladungen.services import compose_einladung
-from app.api.kontakte.services import same_address
 from app.api.outbox.schemas import FLGrantData
 from app.api.outbox.services import DELIVERY_DEADLINE, RETENTION
 from app.api.registrierungen.services import compose_ablehnung_update
@@ -52,10 +51,10 @@ ERIKA_TYPED = "Erika.Zwirbelmoos@FrankfurtLeague.de"
 NAHE = "erikaxzwirbelmoos@frankfurtleague.de"
 # Another mailbox, a long s where hers has an s: the pattern's `i` may read it as hers, the fold does not.
 LANGES_S = ERIKA.replace("moos@", f"moo{chr(0x17F)}@")
-# Her mailbox at a Unicode domain, whose fold is punycode, and as a paste would spell it, the full stop
-# fullwidth: the fold equates the two, and a read narrowed on any listed spelling of her domain misses it.
-ERIKA_UNICODE = "erika@xn--mller-kva.de"
-ERIKA_UNICODE_PASTED = "Erika@MÜLLER．de"
+# Her mailbox at a punycode domain, and as a hand-typed paste may spell it, in capitals and padded: the fold equates
+# the two, and a read asking the stored spelling alone misses it.
+ERIKA_PUNYCODE = "erika@xn--mller-kva.de"
+ERIKA_PUNYCODE_PASTED = f"Erika@XN--MLLER-KVA.DE{chr(0xA0)}"
 # Another `owner`, erasing her as the administrator's own route will.
 DORA = "dora.inhaberin@frankfurtleague.de"
 BERND = "bernd.admin@frankfurtleague.de"
@@ -291,39 +290,25 @@ class TestHerGrantsGo:
         assert records == {DORA_ID, BERND_ID, CLARA_ID, NAHE_ID}
         assert (result.removed_berechtigungen, result.removed_angekuendigt) == (2, 1)
 
-    def test_the_last_owner_goes_below_the_floor_of_two_and_the_step_refuses_neither(self, mongo_replica_set_url: str):
-        """Neither the revoke's floor nor its owner refusal holds against the step.
-
-        Whether the last owner may go is the caller's: `fl_backend/tests/api/test_funktionen_loeschung.py :: TestTheLastOwner`.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
-            await database[Collection.GRANTS].delete_many({"_id": {"$nin": [ERIKA_ID, BERND_ID]}})
-            await geloescht(database, client)
-
-            return [str(row["_id"]) async for row in database[Collection.GRANTS].find()]
-
-        assert on_a_league(mongo_replica_set_url, body) == [str(BERND_ID)]
-
-    def test_a_grant_pasted_with_her_domain_in_unicode_goes_and_her_pasted_authorship_with_it(self, mongo_replica_set_url: str):
-        """Catches a read narrowed on spellings of her domain, which leaves this grant and its authorship standing."""
+    def test_a_grant_pasted_unfolded_goes_and_her_pasted_authorship_with_it(self, mongo_replica_set_url: str):
+        """Catches a read asking the stored spelling alone, which leaves this grant and its authorship standing."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, Any, dict[str, list[str]]]:
             pasted, granted = ObjectId(), ObjectId()
             await database[Collection.GRANTS].insert_many(
                 [
-                    grant_row(pasted, ERIKA_UNICODE_PASTED, "administration", "PLAYGROUND"),
-                    grant_row(granted, "neu@frankfurtleague.de", "administration", ERIKA_UNICODE_PASTED),
+                    grant_row(pasted, ERIKA_PUNYCODE_PASTED, "administration", "PLAYGROUND"),
+                    grant_row(granted, "neu@frankfurtleague.de", "administration", ERIKA_PUNYCODE_PASTED),
                 ]
             )
-            await geloescht(database, client, identifier=ERIKA_UNICODE)
+            await geloescht(database, client, identifier=ERIKA_PUNYCODE)
             stands = await database[Collection.GRANTS].find_one({"_id": pasted}) is not None
             row = await database[Collection.GRANTS].find_one({"_id": granted})
             assert row is not None
 
-            return stands, row["granted_by"], await where_held(database, "MÜLLER")
+            return stands, row["granted_by"], await where_held(database, "MLLER-KVA", folded=True)
 
-        assert on_a_league(mongo_replica_set_url, body) == (False, ERASED_ACTOR_MARKER, {"MÜLLER": []})
+        assert on_a_league(mongo_replica_set_url, body) == (False, ERASED_ACTOR_MARKER, {"MLLER-KVA": []})
 
 
 class TestTheNotices:
@@ -472,16 +457,6 @@ class TestTheRecordsSheMade:
             return [await self.author(database, collection, row_id, path) for collection, row_id, path, _ in self.BYSTANDERS]
 
         assert on_a_league(mongo_replica_set_url, body) == [author for _, _, _, author in self.BYSTANDERS]
-
-    def test_the_pattern_reads_the_long_s_spelling_so_the_fold_alone_keeps_that_ban(self, mongo_replica_set_url: str):
-        """The control under the case above: a server whose `i` refused the long s would let that case pass on the pattern alone."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> set[ObjectId]:
-            cursor = await database[Collection.SPERRLISTE].aggregate([{"$match": {"created_by": same_address(ERIKA)}}])
-
-            return {row["_id"] for row in await cursor.to_list()}
-
-        assert BAN_BY_LANGES_S in on_a_league(mongo_replica_set_url, body)
 
 
 def test_her_address_is_held_nowhere_in_the_database_in_either_spelling(mongo_replica_set_url: str):

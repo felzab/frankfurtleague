@@ -10,7 +10,7 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
-from app.api.identitaet.schemas import FLErasureResponse
+from app.api.identity.schemas import FLErasureResponse
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.schiedsrichter.admin_router import (
     delete_schiedsrichter,
@@ -53,7 +53,7 @@ from app.shared.tokens import hash_token
 from tests.bans import ban_list
 from tests.config import ADMINISTRATORS
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import own_einwilligung_document, rules_document, saison_document, spiel_document
+from tests.documents import SCHIEDSRICHTER_TEXT_VERSIONS, own_einwilligung_document, rules_document, saison_document, spiel_document
 from tests.erasure import erased
 from tests.outbox import MAIL_NOW
 from tests.payloads import spiel_patch_body
@@ -166,7 +166,7 @@ def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
         # Seeded because the erasure adds no `$set` for any of the three: a row carrying none of
         # them would let a nulling write pass every case below.
         "confirmation": {**compose_bestaetigung(today=MINTED_ON), "token_hashes": [TOKEN_HASHES[schiedsrichter_id]]},
-        "einwilligung": own_einwilligung_document(text_version="v1", confirmed_at=MINTED_ON, medien=True),
+        "einwilligung": own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=MINTED_ON, medien=True),
         "geburtsdatum": GEBURTSDATUM,
     }
 

@@ -15,7 +15,7 @@ from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter
-from app.api.identitaet.crud import loeschen_pupil_actor_in_session, unattribute_in_session
+from app.api.identity.crud import loeschen_pupil_actor_in_session, unattribute_in_session
 from app.api.spielberichte.crud import pull_bericht_lage
 from app.api.spieler.person_router import _read_the_squad
 from app.core.collections import Collection
@@ -84,8 +84,8 @@ LEFTOVER_VIEW = "leftover_view"
 ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
 
 
-# The seat as its applicant named the person under the form's label, and as that person then confirmed it.
-SEATED: Final = {"text_version": "v1", "datum": "2026-01-15"}
+# The seat as its applicant named the person, and as that person then confirmed it.
+SEATED: Final = {"datum": "2026-01-15"}
 
 
 def kontaktperson(vorname: str) -> dict[str, Any]:

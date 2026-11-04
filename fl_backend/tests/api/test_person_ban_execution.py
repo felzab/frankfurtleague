@@ -66,14 +66,6 @@ def test_a_person_a_standing_ban_holds_is_refused(mongo_url: str, email: str):
     assert BARRED not in str(body).lower()
 
 
-def test_an_address_beyond_ascii_reaches_the_ban_read_decoded_and_folded(mongo_url: str):
-    """Percent-encoded as the frontend sends it, and asked in the punycode spelling every record stores."""
-
-    status, body = answered(mongo_url, "anna@müller.de", bis="2031", barred="anna@xn--mller-kva.de")
-
-    assert (status, body["error_code"]) == (403, Code.PERSON_BARRED)
-
-
 def test_a_person_no_ban_holds_is_served(mongo_url: str):
     """The control, beside a ban on another address."""
 

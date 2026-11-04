@@ -3,7 +3,7 @@ import "server-only";
 import { ContractBreakError } from "@/core/errors";
 
 import { postAdresswechselSweep } from "./mutations";
-import { runAdresswechselUmzuege } from "./umzug";
+import { runAddressChangeMoves } from "./umzug";
 
 import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types";
 
@@ -32,7 +32,7 @@ export async function sweepAdresswechsel(): Promise<Omit<FLAddressChangeSweepRes
   } while (nach !== null);
 
   // An effect of this pass, or one whose press lost its answer, owes its account's carry.
-  await runAdresswechselUmzuege();
+  await runAddressChangeMoves();
 
   // The last call's count, never a sum: each call counts every lapsed change standing, an earlier page's failures among them.
   return { removed: entfernt, effective: wirksam, discarded: verworfen, remaining: antwort.remaining };

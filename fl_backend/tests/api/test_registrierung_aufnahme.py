@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.konto.services import compose_person_move
+from app.api.account.services import compose_person_move
 from app.api.registrierungen import person_router
 from app.api.registrierungen.person_router import get_open_registrierungen
 from app.api.registrierungen.person_router import patch_einwilligung as patch_registrierung_einwilligung
@@ -33,16 +33,16 @@ from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.main import create_app
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
 from app.shared.schemas.confirmation import FLTokenPayload
-from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
+from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, FLSpielerTextVersions
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import SPIELER_TEXT_VERSIONS
 from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.outbox import MAIL_NOW
@@ -84,8 +84,8 @@ NORA = "nora@example.com"
 TYPED_EMAIL = "Thessaly.Okonkwo@beispielschule.de"
 FOLDED_EMAIL = "thessaly.okonkwo@beispielschule.de"
 GEBURTSDATUM = "2009-05-04"
-# The label of the account page's pupil control a press is given under.
-KONTO_LABEL = "2026-10-konto-spieler"
+# The label of the media wording a press withdrawing it is given under.
+KONTO_LABEL = SPIELER_TEXT_VERSIONS["medien"]
 TOKEN = "hwGqQ4kP6yJr3VnZbT8sXeM2dLuF9aCwR1oY5iN7pKg"
 
 RULES: Mapping[str, Any] = documents.rules_document(max_kadergroesse=3, allowed_stufen=["Q1", "Q2"])
@@ -207,7 +207,7 @@ def registrierung_document(
             "geburtsdatum": geburtsdatum,
             "umfang": "intern",
             "medien": False,
-            "text_version": "2026-09",
+            "text_versions": SPIELER_TEXT_VERSIONS,
             "today": "2026-03-31",
             "am": "2026-03-31T08:00:00+00:00",
         },
@@ -243,7 +243,6 @@ async def admit(
         spieler_collection=database[Collection.SPIELER] if spieler is None else spieler,
         records=record_collections(
             database,
-            saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
             spieler_collection=database[Collection.SPIELER] if spieler is None else spieler,
         ),
         aktionen_collection=database[Collection.ACTION_LOG],
@@ -344,13 +343,15 @@ def a_stored_person(spieler_id: ObjectId, *, email: str | None = FOLDED_EMAIL, *
     return documents.spieler_document(spieler_id, stored.pop("vorname", "Thessaly"), stored.pop("nachname", "Okonkwo-Brandt"), **stored)
 
 
-# A person's record as their own confirmation under an older label left it, both choices granted, and the evidence it left.
+# A person's record as their own earlier confirmation left it, both choices granted, and the evidence each choice left.
 STORED_AM = "2026-01-20T11:00:00+00:00"
-STORED_GRANT = {"am": STORED_AM, "text_version": "2025-09"}
+STORED_GRANT = {choice: {"am": STORED_AM, "text_version": label} for choice, label in SPIELER_TEXT_VERSIONS.items()}
 
 
-def granted_under_an_older_label() -> dict[str, Any]:
-    return documents.own_einwilligung_document(text_version="2025-09", confirmed_at="2026-01-20", am=STORED_AM, medien=True)
+def granted_by_an_earlier_registration() -> dict[str, Any]:
+    return documents.own_einwilligung_document(
+        text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20", am=STORED_AM, medien=True
+    )
 
 
 class TestWhatAnAdmissionWrites:
@@ -397,7 +398,7 @@ class TestWhatAnAdmissionWrites:
                     geburtsdatum=GEBURTSDATUM,
                     umfang="intern",
                     medien=False,
-                    text_version=LAUFENDE_FASSUNGEN["bestaetigung_spieler"],
+                    text_versions=FLSpielerTextVersions.model_validate(SPIELER_TEXT_VERSIONS),
                 ),
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                 spieler_collection=database[Collection.SPIELER],
@@ -668,7 +669,7 @@ class TestThePersonAnAdmissionNames:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(
-                a_stored_person(stored_id, einwilligung={**granted_under_an_older_label(), "medien": False})
+                a_stored_person(stored_id, einwilligung={**granted_by_an_earlier_registration(), "medien": False})
             )
             registrierung_id = await seed(database, registrierung_document())
             fresh = (await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id}) or {})["einwilligung"]
@@ -685,7 +686,7 @@ class TestThePersonAnAdmissionNames:
             **fresh,
             "nachweis": {
                 **fresh["nachweis"],
-                "umfang": {**fresh["nachweis"]["umfang"], "given_before": STORED_GRANT},
+                "umfang": {**fresh["nachweis"]["umfang"], "given_before": STORED_GRANT["umfang"]},
             },
         }
 
@@ -697,15 +698,20 @@ class TestThePersonAnAdmissionNames:
 
         stored_id = ObjectId()
         bestaetigt = compose_confirmation_update(
-            geburtsdatum=GEBURTSDATUM, umfang="intern", medien=True, text_version="2026-09", today="2026-03-31", am="2026-03-31T08:00:00+00:00"
+            geburtsdatum=GEBURTSDATUM,
+            umfang="intern",
+            medien=True,
+            text_versions=SPIELER_TEXT_VERSIONS,
+            today="2026-03-31",
+            am="2026-03-31T08:00:00+00:00",
         )["$set"]["einwilligung"]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=granted_under_an_older_label()))
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=granted_by_an_earlier_registration()))
             registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
             stored = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]
             press = compose_person_move(
-                gespeichert=stored, gewaehlt={"medien": False}, am="2026-04-01T09:00:00+00:00", text_version=KONTO_LABEL
+                gespeichert=stored, gewaehlt={"medien": False}, am="2026-04-01T09:00:00+00:00", text_versions=SPIELER_TEXT_VERSIONS
             )
             assert press is not None, "the press moved nothing, so this case proves nothing"
             await database[Collection.SPIELER].update_one({"_id": stored_id}, press)
@@ -722,7 +728,7 @@ class TestThePersonAnAdmissionNames:
             {
                 "am": "2026-04-01T09:00:00+00:00",
                 "text_version": KONTO_LABEL,
-                "given_before": STORED_GRANT,
+                "given_before": STORED_GRANT["medien"],
             },
         )
         # The scope set at the registration is newer than the person's stored grant, so it is renewed,
@@ -731,22 +737,27 @@ class TestThePersonAnAdmissionNames:
             "intern",
             {
                 "am": "2026-03-31T08:00:00+00:00",
-                "text_version": "2026-09",
-                "given_before": STORED_GRANT,
+                "text_version": SPIELER_TEXT_VERSIONS["umfang"],
+                "given_before": STORED_GRANT["umfang"],
             },
         )
-        assert (einwilligung["confirmed_at"], einwilligung["text_version"]) == ("2026-03-31", "2026-09")
+        assert einwilligung["confirmed_at"] == "2026-03-31"
 
     def test_a_withdrawal_the_pupil_made_on_the_pending_registration_is_carried(self, mongo_replica_set_url: str):
         """The account page's registration control, then the admission: the withdrawal is newer than every grant, so it stands."""
 
         stored_id = ObjectId()
         bestaetigt = compose_confirmation_update(
-            geburtsdatum=GEBURTSDATUM, umfang="intern", medien=True, text_version="2026-09", today="2026-03-31", am="2026-03-31T08:00:00+00:00"
+            geburtsdatum=GEBURTSDATUM,
+            umfang="intern",
+            medien=True,
+            text_versions=SPIELER_TEXT_VERSIONS,
+            today="2026-03-31",
+            am="2026-03-31T08:00:00+00:00",
         )["$set"]["einwilligung"]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=granted_under_an_older_label()))
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=granted_by_an_earlier_registration()))
             registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
             await patch_registrierung_einwilligung(
                 registrierung_id=registrierung_id,
@@ -754,7 +765,7 @@ class TestThePersonAnAdmissionNames:
                     {
                         "umfang": "intern",
                         "medien": False,
-                        "text_version": KONTO_LABEL,
+                        "text_versions": dict(SPIELER_TEXT_VERSIONS),
                         "nachweis_stand": nachweis_stand_of(bloecke=[bestaetigt]),
                     }
                 ),
@@ -777,7 +788,7 @@ class TestThePersonAnAdmissionNames:
             {
                 "am": "2026-04-01T07:00:00+00:00",
                 "text_version": KONTO_LABEL,
-                "given_before": STORED_GRANT,
+                "given_before": STORED_GRANT["medien"],
             },
         )
 
@@ -837,7 +848,7 @@ class TestTheSentinelIsNobodyToAdmit:
 
 
 async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    """The returning pupil's page pressed over a stored birthdate: its label, and no choice and no date."""
+    """The returning pupil's page pressed over a stored birthdate: no label, no choice and no date."""
 
     return await post_confirmation(
         antwort_data=FLRegistrierungConfirmationPayload(
@@ -845,7 +856,7 @@ async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient
             geburtsdatum=None,
             umfang=None,
             medien=None,
-            text_version=LAUFENDE_FASSUNGEN["bestaetigung_spieler_wiederkehrend"],
+            text_versions=None,
         ),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         spieler_collection=database[Collection.SPIELER],
@@ -859,9 +870,9 @@ async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient
 class TestAReturningRegistration:
     """A registration confirmed on the returning pupil's page moves nothing on the person's record."""
 
-    # Confirmed under an older label, its media grant standing, so a renewal of either choice or a
-    # restamp of the label would each move a byte.
-    HELD = granted_under_an_older_label()
+    # Confirmed on an earlier day, its media grant standing, so a renewal of either choice would move a byte. No label
+    # but the current one exists yet, so a restamp of the label would move none.
+    HELD = granted_by_an_earlier_registration()
 
     def test_its_person_moved_off_the_address_before_the_admission_admits_nobody(self, mongo_replica_set_url: str):
         """Not as a new person: the registration carries no choice for one to stand on."""
@@ -961,7 +972,9 @@ class TestAReturningRegistration:
                 today=TODAY,
             )
             held = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]
-            press = compose_person_move(gespeichert=held, gewaehlt={"medien": False}, am="2026-04-01T09:00:00+00:00", text_version=KONTO_LABEL)
+            press = compose_person_move(
+                gespeichert=held, gewaehlt={"medien": False}, am="2026-04-01T09:00:00+00:00", text_versions=SPIELER_TEXT_VERSIONS
+            )
             assert press is not None, "the withdrawal moved nothing, so this case proves nothing"
             await database[Collection.SPIELER].update_one({"_id": stored_id}, press)
             await confirm_as_returning(database, client)

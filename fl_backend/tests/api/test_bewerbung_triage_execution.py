@@ -30,7 +30,7 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungKontaktSeatPayload,
     FLDeclineBewerbungPayload,
 )
-from app.api.bewerbungen.services import bestaetigungsfrist_from, bewerbung_kontakt_seite, compose_new_club
+from app.api.bewerbungen.services import bestaetigungsfrist_from, compose_new_club
 from app.api.outbox.crud import states_of
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import post_team
@@ -41,7 +41,6 @@ from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
 from app.shared.tokens import hash_token
 from tests import documents
@@ -52,6 +51,7 @@ from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_
 from tests.delivery import a_mail_that_bounced
 from tests.documents import (
     ADDRESS,
+    SEAT_TEXT_VERSIONS,
     ban_document,
     kontaktperson_document,
     minted_confirmations,
@@ -109,8 +109,8 @@ NEW_SCHOOL_NAME, NEW_SCHOOL_SHORTHAND = "Zorbanax", "ZXX"
 RULES: Mapping[str, Any] = rules_document(number_of_gruppen=2, teams_per_gruppe=2)
 
 
-# The seat as its applicant named the person under the form's label, and as that person then confirmed it.
-SEATED: Final = {"text_version": "v1", "datum": "2026-01-15"}
+# The seat as its applicant named the person, and as that person then confirmed it.
+SEATED: Final = {"datum": "2026-01-15"}
 
 
 def kontaktperson(vorname: str) -> dict[str, Any]:
@@ -349,7 +349,7 @@ class TestAnAcceptanceEntersTheSchool:
         assert (rows[0]["team_id"], rows[0]["name"], rows[0]["shorthand"]) == (EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND)
 
     def test_the_three_people_reach_the_junction_row_as_they_confirmed(self, mongo_replica_set_url: str):
-        """They arrive WITH the season's row rather than being typed in after it, which is what `/bereich/admin/kontakte` then reads."""
+        """They arrive WITH the season's row rather than being typed in after it, which is what `/area/admin/kontakte` then reads."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await accept(database, client, PICKED_BEWERBUNG)
@@ -1590,9 +1590,7 @@ class MissesTheFirstWrite:
 
 
 async def answer_the_link(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-    # Under the label of the page the seat's view answers, which the press is judged against.
-    seite = bewerbung_kontakt_seite(bewerbung_raw=await stored_bewerbung(database, ERNEUT_BEWERBUNG), seat="ansprechperson")
-    await answer_for(database, client, "ansprechperson", antwort="given", geburtsdatum="1980-05-04", text_version=LAUFENDE_FASSUNGEN[seite])
+    await answer_for(database, client, "ansprechperson", antwort="given", geburtsdatum="1980-05-04", text_versions=dict(SEAT_TEXT_VERSIONS))
 
 
 async def object_to_the_link(database: AsyncDatabase, client: AsyncMongoClient) -> None:
@@ -1760,9 +1758,6 @@ RESEAT_PERSON: Mapping[str, Any] = {
 # The address the seeded Ansprechperson held before their Widerspruch emptied the seat.
 LEFT_THE_SEAT = str(confirmed_kontakte(open_seat="ansprechperson")["ansprechperson"]["email"])
 
-# The application form's running label, the only one a reseat is admitted under.
-RESEAT_TEXT_VERSION = LAUFENDE_FASSUNGEN["bewerbung"]
-
 
 async def reseat(
     database: AsyncDatabase,
@@ -1770,12 +1765,11 @@ async def reseat(
     seat: str,
     *,
     email: str = RESEAT_PERSON["email"],
-    text_version: str = RESEAT_TEXT_VERSION,
 ) -> Any:
     return await post_kontakt_seat(
         bewerbung_id=RESEAT_BEWERBUNG,
         seat=seat,
-        sitz_data=FLBewerbungKontaktSeatPayload.model_validate({**RESEAT_PERSON, "email": email, "text_version": text_version}),
+        sitz_data=FLBewerbungKontaktSeatPayload.model_validate({**RESEAT_PERSON, "email": email}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
         outbox_collection=database[Collection.OUTBOX],
@@ -1794,7 +1788,7 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
     """
 
     return await post_einwilligung(
-        # A Widerspruch unless the case answers otherwise, and then a consent naming its own date and label.
+        # A Widerspruch unless the case answers otherwise, and then a consent naming its own date and labels.
         antwort_data=TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(
             {"token": token, **({"whatsapp": False, "medien": False, **answer} if answer else {"antwort": "declined"})}
         ),
@@ -1868,7 +1862,6 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             # of the seat travels to the one seated, their evidence included.
             "einwilligung": {
                 "umfang": "kontaktdaten",
-                "text_version": RESEAT_TEXT_VERSION,
                 "datum": TODAY,
                 "confirmed_at": None,
                 "medien": False,
@@ -2064,33 +2057,6 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
 
         assert stored["confirmation_deadline"] == bestaetigungsfrist_from(today=TODAY)
         assert stored["confirmation_deadline"] > TODAY, "the new person is seated behind a link that already opens nothing"
-
-
-@pytest.mark.db
-class TestTheLabelAReseatNames:
-    """`wording_not_allowed`: the person seated is a new acceptance, so only the form's running label is admitted."""
-
-    @pytest.mark.parametrize(
-        "named",
-        [
-            pytest.param("2026-09-bestaetigung-4", id="a superseded form label"),
-            pytest.param(LAUFENDE_FASSUNGEN["bestaetigung_kontakt"], id="the confirmation page's running label"),
-            pytest.param("liga-kenntnisnahme-2026-01", id="a label the registry never held"),
-        ],
-    )
-    def test_any_other_label_is_refused_and_seats_nobody(self, mongo_replica_set_url: str, named: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seed_an_application_a_seat_was_declined_on(database, client)
-            emptied = await stored_bewerbung(database, RESEAT_BEWERBUNG)
-            with pytest.raises(APIError) as refused:
-                await reseat(database, client, "ansprechperson", text_version=named)
-
-            return refused.value, emptied, await stored_bewerbung(database, RESEAT_BEWERBUNG)
-
-        refusal, emptied, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert (refusal.error_code, refusal.status_code) == (Code.WORDING_NOT_ALLOWED, 409)
-        assert stored == emptied
 
 
 @pytest.mark.db

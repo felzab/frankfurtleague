@@ -40,7 +40,7 @@ export function AdresswechselOffen({
       läuft eine Änderung.{" "}
       {verwehrt === null ? (
         <Link
-          href={saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechselId}`)}
+          href={saisonHref(`/area/admin/adresswechsel?adresswechsel=${adresswechselId}`)}
           prefetch={false}
           className={textLink()}>
           {ZUR_AENDERUNG}
@@ -78,7 +78,7 @@ export function AdresswechselHinweis({
         Mit dieser Adresse meldet sich die Person an. Eine neue trägt sie selbst in ihrem Konto ein. Sagt sie, dass sie sich nicht mehr anmelden
         kann, ändert die Verwaltung sie unter{" "}
         <Link
-          href={saisonHref("/bereich/admin/adresswechsel")}
+          href={saisonHref("/area/admin/adresswechsel")}
           prefetch={false}
           className={textLink()}>
           „{ADRESSWECHSEL_EINTRAG.label}“

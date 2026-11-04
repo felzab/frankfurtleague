@@ -1011,7 +1011,7 @@ def seated_identifiers(teams: Sequence[Mapping[str, Any]]) -> list[str]:
 def mit_adresswechseln(teams: Sequence[Mapping[str, Any]], *, live: Mapping[str, Any], denied: Mapping[str, str]) -> list[dict[str, Any]]:
     """The memberships read with each confirmed seat's live address change by id, `live` keyed by the folded address.
 
-    An unconfirmed seat names none: the change moves only confirmed seats (`app/api/identitaet/services.py ::
+    An unconfirmed seat names none: the change moves only confirmed seats (`app/api/identity/services.py ::
     eigene_sitze`).
     """
 
@@ -1052,9 +1052,8 @@ SEAT_IDENTITY_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
 def _identity_of(seat: Mapping[str, Any]) -> tuple[str, ...]:
     """Who this seat holds, folded so two spellings of one person compare equal."""
 
-    # The address as sign-in folds it, so a stamp never crosses to a domain the sign-in fold reads as
-    # another inbox, „strasse“ for „straße“ among them; re-typing „ida“ as „Ida“ still costs nobody a
-    # fresh confirmation.
+    # The address as sign-in folds it, so a stamp never crosses to another inbox, and re-typing „ida“
+    # as „Ida“ still costs nobody a fresh confirmation.
     return tuple(
         sign_in_identifier(str(seat.get(field) or "")) if field == "email" else person_name_key(seat.get(field))
         for field in SEAT_IDENTITY_FIELDS
@@ -1141,27 +1140,6 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
         composed[slot] = {**seat, "geburtsdatum": _geburtsdatum_held_by(stored_slot, seat=seat), "einwilligung": einwilligung}
 
     return composed
-
-
-def kontakte_fassungen_genannt(*, kontakte: Mapping[str, Any] | None) -> dict[str, str]:
-    seats = {slot: kontakte.get(slot) for slot in KONTAKT_ROLLEN} if kontakte is not None else {}
-
-    return {slot: str(seat["einwilligung"]["text_version"]) for slot, seat in seats.items() if isinstance(seat, Mapping)}
-
-
-def kontakte_fassungen_gehalten(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, str | None]:
-    """The label each seat holds where the save leaves its PERSON unchanged, never where it hands the seat on."""
-
-    stored_block = stored if isinstance(stored, Mapping) else {}
-    gehalten: dict[str, str | None] = {}
-
-    for slot in KONTAKT_ROLLEN:
-        seat = kontakte.get(slot) if kontakte is not None else None
-        held = _confirmation_held_by(stored_block.get(slot), seat=seat) if isinstance(seat, Mapping) else None
-        if held is not None:
-            gehalten[slot] = held.get("text_version")
-
-    return gehalten
 
 
 # --- The CONFIRMATION LINK a seat an administrator typed in is mailed, stored beside the slot at

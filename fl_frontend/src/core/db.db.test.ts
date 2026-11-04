@@ -244,7 +244,9 @@ const storeOf = async (url: string): Promise<MongoClient> => (await evaluated(ur
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const client = await storeOf(PRODUCTION_DB);
-const { auth, readServedSession, removePasskey } = await import("./auth.ts");
+const { auth } = await import("./auth/library.ts");
+const { readServedSession } = await import("./auth/session.ts");
+const { removePasskey } = await import("./auth/passkeys.ts");
 // The same module evaluated again, so further clients built by the same code, each connecting first
 // inside its own case.
 const coldClient = await storeOf(`${import.meta.resolve("./db.ts")}?cold-start`);

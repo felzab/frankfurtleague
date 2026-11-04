@@ -132,8 +132,9 @@ independent. Stop once the bar is met.
   is a check that nothing on the critical path waits, never a target.
 - You are the fleet's one serial resource: bank every report, a fixer's included, with
   `ledger.py bank --from`, which saves it and closes the agent's live row, and a one-line verdict.
-  Route or close every row in that command (`--route`, `--close`), at its class: to a live fixer, a
-  check, or an owner's queue where unsure — never to an unasked issue. A row owed to a fixer
+  Route or close every row in that command (`--route`, `--close`), at its class and worth
+  (`.claude/CLAUDE.md` §3): to a live fixer, a check, or an owner's queue where unsure — never to an
+  unasked issue. A row owed to a fixer
   not yet briefed stays OPEN, named by its exit 4, until that fixer's `Rows:` line routes it.
 - Verify every count, file list and exit code in a report against the agent's branch
   (`git log --stat <session branch>..<branch>`, `git show <branch>:<path>`). Check a finding about a

@@ -170,7 +170,7 @@ def test_the_day_files_from_the_snapshot_s_day_on_are_handed_in_oldest_first() -
         "backend",
         "python",
         "-m",
-        "app.api.identitaet.wiederherstellung",
+        "app.api.identity.journal_replay",
         "--since",
         SNAPSHOT,
         "--until",

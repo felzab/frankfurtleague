@@ -25,7 +25,7 @@ LOG_DIR="/var/log/frankfurtleague"
 PASS_STAMP="${LOG_DIR}/erasure-journal.last-pass"
 
 # The backend module that judges the lines, run where its settings and the restored database's credentials are.
-REPLAY_MODULE="app.api.identitaet.wiederherstellung"
+REPLAY_MODULE="app.api.identity.journal_replay"
 
 # An ISO 8601 instant naming its offset, as the module reads one: without it, which instant it is depends on the clock
 # reading it, and this host's and the container's need not agree.

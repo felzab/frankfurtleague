@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useLayoutEffect, useState } from "react";
+import { startTransition, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
@@ -23,14 +23,27 @@ import type { ReactElement, ReactNode } from "react";
 import type { ModalOverlayProps } from "react-aria-components/Modal";
 import type { DialogAct } from "./dialogAct";
 
+/** An overlay's open state as another control holds it, such as a combo box's create entry. */
+export type HeldOpen = { isOpen: boolean; onOpenChange: (isOpen: boolean) => void };
+
 /**
  * An overlay's open state, closed whenever Next hides the page it stands on: Next keeps a departed route
  * in a hidden `Activity`, and a menu or dialog found open on the way back is stale. Closing in a layout
- * effect's cleanup is the reset Next's guide to preserving UI state gives for transient overlays.
+ * effect's cleanup is the reset Next's guide to preserving UI state gives for transient overlays. Given the
+ * state another control holds, it closes that one through its setter, so the overlay closes whatever kind of
+ * state its holder keeps; an overlay mounted already open is closed by React's strict mode in development,
+ * which runs that cleanup once on mount, so a holder mounts the overlay closed and opens it by the state.
  */
-export function useOpenUntilHidden() {
-  const [isOpen, setOpen] = useState(false);
-  useLayoutEffect(() => () => setOpen(false), []);
+export function useOpenUntilHidden(held?: HeldOpen) {
+  const [own, setOwn] = useState(false);
+  const isOpen = held?.isOpen ?? own;
+  const setOpen = held?.onOpenChange ?? setOwn;
+  // The cleanup runs once, with the setter of the last render: a holder may pass a new one on every render.
+  const close = useRef(setOpen);
+  useLayoutEffect(() => {
+    close.current = setOpen;
+  });
+  useLayoutEffect(() => () => close.current(false), []);
   return [isOpen, setOpen] as const;
 }
 
@@ -238,7 +251,7 @@ type Opening =
     }
   | {
       /** The open state, held by the control that opens the dialog, such as a combo box's create entry. */
-      open: { isOpen: boolean; onOpenChange: (isOpen: boolean) => void };
+      open: HeldOpen;
       trigger?: never;
     };
 
@@ -249,9 +262,7 @@ type Opening =
  * a refused one leaves it open with the input kept and the refusal shown.
  */
 export function Dialog({ title, act, trigger, open, action, children }: DialogAct & Opening) {
-  const [own, setOwn] = useOpenUntilHidden();
-  const isOpen = open?.isOpen ?? own;
-  const setOpen = open?.onOpenChange ?? setOwn;
+  const [isOpen, setOpen] = useOpenUntilHidden(open);
   const label = actLabel(act);
 
   const overlay = (

@@ -13,8 +13,8 @@ from app.api.adresswechsel.crud import (
     end_the_change_in_session,
     ending_line,
     lage_of_the_link,
-    owe_the_hinweis_in_session,
     owe_the_link_in_session,
+    owe_the_notice_in_session,
     read_the_bestand,
     refusal_of,
     start_the_change_in_session,
@@ -58,8 +58,8 @@ from app.api.adresswechsel.services import (
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.berechtigungen.services import genehmiger_of, genehmigung_verwehrt, holds_an_owners_power
-from app.api.identitaet.lookup import SubjektLookup
-from app.api.identitaet.services import JEDE_VERWALTUNG, find_eigene_adresse_refusal, find_verwaltung_adresse_refusal
+from app.api.identity.lookup import SubjektLookup
+from app.api.identity.services import JEDE_VERWALTUNG, find_eigene_adresse_refusal, find_verwaltung_adresse_refusal
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.spieler.crud import another_pupil_holds
@@ -284,12 +284,12 @@ async def post_address_change_verwaltung(
     """
     Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
 
-    **Nothing moves here.** Without a `grund` the change asks the address on file first: it is owed the request with its
-    stop link, and nothing goes to the new mailbox until that address approves on its account page. With a `grund`,
-    recording how the administrator established who asks, the new mailbox is owed its link and the address on file a
-    notice with its stop link; the change then takes effect `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox
-    confirms. Where the address holds a grant, the change also waits on another administrator's approval, never this
-    one's. No link is answered. The address's live change ends replaced.
+    **Nothing moves here.** The `grund` records how the administrator established who asks, the address on file being
+    lost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link
+    and the address on file a notice with its stop link; the change then takes effect
+    `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms. Where the address holds a grant, the change also
+    waits on another administrator's approval, never this one's. No link is answered. The address's live change ends
+    replaced.
 
     Refused the administrator's own address (`own_adresse`), a grant holder's without an owner's power
     (`verwaltung_adresse`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds
@@ -300,7 +300,7 @@ async def post_address_change_verwaltung(
 
     identifier, email, grund = sign_in_identifier(str(adresswechsel_data.adresse)), str(adresswechsel_data.email), adresswechsel_data.grund
     akteur = sign_in_identifier(operator)
-    weg: FLAddressChangeWay = "release" if grund is None else "waiting_period"
+    weg: FLAddressChangeWay = "waiting_period"
     gehasht = sperrliste.hash_of(email)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
@@ -370,27 +370,26 @@ async def post_address_change_verwaltung(
             session=session,
         )
         # The notice first and the link after, as the address on file is told before the new mailbox can answer.
-        await owe_the_hinweis_in_session(
+        await owe_the_notice_in_session(
             address_change_id=address_change_id,
             adresse=identifier,
             way=weg,
             valid_until=record["valid_until"],
-            # Greeting nobody on the lost-mailbox way: the address on file may have passed to a stranger.
-            vorname=None if weg == "waiting_period" else bestand.vorname,
+            # Greeting nobody: the lost address on file may have passed to a stranger.
+            vorname=None,
             outbox_collection=outbox_collection,
             now=germany_now,
             session=session,
         )
-        if weg != "release":
-            await owe_the_link_in_session(
-                address_change_id=address_change_id,
-                email=email,
-                way=weg,
-                valid_until=record["valid_until"],
-                outbox_collection=outbox_collection,
-                now=germany_now,
-                session=session,
-            )
+        await owe_the_link_in_session(
+            address_change_id=address_change_id,
+            email=email,
+            way=weg,
+            valid_until=record["valid_until"],
+            outbox_collection=outbox_collection,
+            now=germany_now,
+            session=session,
+        )
 
         return FLAddressChangeVerwaltungMintResponse(id=address_change_id, way=weg, valid_until=record["valid_until"], email=email)
 
@@ -434,7 +433,7 @@ async def invite_address_change(
     (`address_change_barred`), where another pupil has come to sign in on it (`address_change_taken`), where an entry has come to name it,
     confirmed or not (`address_change_occupied`), where a grant's approval week has passed (`link_expired`), and where the change ended
     (`address_change_ended`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on
-    file's approval, or confirmed, has no link to re-send.
+    file's confirmation, or confirmed, has no link to re-send.
     """
 
     akteur = sign_in_identifier(operator)
@@ -489,7 +488,7 @@ async def invite_address_change(
         updated = await patch_one_in_db(
             collection=adresswechsel_collection,
             db_filter=build_live_filter(address_change_id, build_resendable_terms()),
-            update=compose_link_update(now=germany_now, freigabe=False),
+            update=compose_link_update(now=germany_now, released=False),
             session=session,
             return_document=ReturnDocument.AFTER,
         )

@@ -33,7 +33,6 @@ from app.api.einladungen.services import (
     find_saison_vorbei_refusal,
     find_team_in_saison_refusal,
 )
-from app.api.einwilligung.services import find_fassung_refusal
 from app.api.kontakte.crud import clear_seats, redact_seats_in_documents
 from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, contact_block_image_edits, seated_people
 from app.api.outbox.crud import state_of, states_of
@@ -84,8 +83,6 @@ from app.api.teams.services import (
     find_retire_refusal,
     has_taken_place,
     kontakt_zeile_of,
-    kontakte_fassungen_gehalten,
-    kontakte_fassungen_genannt,
     links_owed,
     membership_row_ids,
     mit_adresswechseln,
@@ -658,9 +655,7 @@ async def patch_saison_team_kontakte(
 
     **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
     or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
-    person's own write grants one. Such a seat's label must be the application form's running one
-    (`wording_not_allowed`). A kept seat may name its stored label back, whichever page it is a version of, or the
-    running one, and its record is carried either way.
+    person's own write grants one.
     """
 
     if kontakte_data.kontakte is None:
@@ -675,7 +670,7 @@ async def patch_saison_team_kontakte(
 
     async def rewrite_the_block(session: AsyncClientSession) -> FLPatchSaisonTeamKontakteResponse:
         # In session, so the precondition judges what this write will land on. Read outside one, an
-        # erasure (`app/api/identitaet/crud.py :: loeschen_everything`) committing between the
+        # erasure (`app/api/identity/crud.py :: loeschen_everything`) committing between the
         # judgement and the `$set` puts the seat it cleared back with nothing refusing it.
         stored = await pull_one_from_db(
             collection=saison_teams_collection,
@@ -685,9 +680,6 @@ async def patch_saison_team_kontakte(
         )
 
         refuse(find_kontakte_precondition_refusal(erwartet=payload["kontakte_stand"], stored=stored.get("kontakte")))
-        # In session too: `gehalten` reads the stored person, whom an erasure or a handover may just have moved.
-        gehalten = kontakte_fassungen_gehalten(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
-        refuse(find_fassung_refusal(seite="bewerbung", named=kontakte_fassungen_genannt(kontakte=payload["kontakte"]), gehalten=gehalten))
 
         kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
 
@@ -830,8 +822,8 @@ async def replace_saison_team(
         )
         outgoing, outgoing_names = seated_people(outgoing_raw)
 
-        # The club's accepted application seated them first, and the row's page promises them deletion
-        # at once (`app/shared/einwilligung.py :: _BESTAETIGUNGSSEITE_SAISON`), so their seats there go too.
+        # The club's accepted application seated them first, and a team's exit deletes its contacts at
+        # once, so their seats there go too.
         applications = await aggregate_many_from_db(
             collection=bewerbungen_collection,
             pipeline=build_accepted_application_pipeline(saison_id=saison_id, team_id=team_id),
@@ -909,8 +901,8 @@ async def replace_saison_team(
             session=session,
         )
 
-        # Owed at once by the row's page (`app/shared/einwilligung.py :: _BESTAETIGUNGSSEITE_SAISON`). The
-        # contacts and their links alone leave the images: the exit record and every earlier state stay.
+        # Owed at once, as the exit deletes the contacts. The contacts and their links alone leave the
+        # images: the exit record and every earlier state stay.
         await redact_images_in_session(
             aktionen_collection=aktionen_collection,
             db_filter=build_redaction_filter([(Collection.SAISON_TEAMS, [updated_raw["_id"]])]),

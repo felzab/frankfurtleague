@@ -27,7 +27,7 @@ from tests.api import test_registrierung_sweep_refusal as budget
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
-from tests.documents import own_einwilligung_document, rules_document, saison_document, team_document
+from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document, rules_document, saison_document, team_document
 from tests.outbox import MAIL_NOW
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
@@ -58,7 +58,7 @@ TEAM_NAME = "Adler"
 
 
 def einwilligung(*, confirmed_at: str = MAILED_ON_THE_MARK) -> dict[str, Any]:
-    stored = own_einwilligung_document(text_version="2026-10-spielerseite-5", confirmed_at=MAILED_ON_THE_MARK)
+    stored = own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at=MAILED_ON_THE_MARK)
 
     return {**stored, "confirmed_at": confirmed_at}
 

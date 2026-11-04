@@ -16,22 +16,6 @@ import type { KontaktRolle } from "@/features/teams/constants";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
 
 /**
- * The block with every seat naming `textVersion`, the form's running label: a handed seat is a new
- * acceptance only that label may stamp, and a kept seat's stored record stands whatever is sent.
- */
-export function mitLaufenderFassung(kontakte: FLSaisonTeamKontaktePayload, textVersion: string): FLSaisonTeamKontaktePayload {
-  const gestempelt = (sitz: FLKontaktpersonPayload | null) =>
-    sitz === null ? null : { ...sitz, einwilligung: { ...sitz.einwilligung, text_version: textVersion } };
-
-  return {
-    ...kontakte,
-    trainer: gestempelt(kontakte.trainer),
-    ansprechperson: gestempelt(kontakte.ansprechperson),
-    stellvertretung: gestempelt(kontakte.stellvertretung),
-  };
-}
-
-/**
  * The Trainer seat, filled from the seat that declared itself the coach. **Composed at save time,
  * never written into the draft**: a stored row can hold the claim over two DIFFERENT people, and
  * writing it in overwrites the other, with no undo.
@@ -49,15 +33,12 @@ export function applySeatPresence(
   value: SaisonTeamKontakteDraft,
   rolle: KontaktRolle,
   present: boolean,
-  /** The label the application form runs, which a seat opened blank stamps; `null` where it could not be read. */
-  textVersion: string | null,
   /** What the seat held when it was switched off. Absent for a seat that has never held anybody. */
   zurueck?: KontaktpersonDraft,
 ): { next: SaisonTeamKontakteDraft; revalidate: boolean } {
   // Given BACK rather than rebuilt: a switch is not a delete, and turning a seat off and on again asks
-  // for nothing typed to be thrown away. Without a label a blank seat has no wording to stamp.
-  const blank = textVersion === null ? null : buildEmptyKontaktperson(textVersion);
-  const seat = present ? (zurueck ?? blank) : null;
+  // for nothing typed to be thrown away.
+  const seat = present ? (zurueck ?? buildEmptyKontaktperson()) : null;
 
   return { next: { ...value, [rolle]: seat }, revalidate: !present };
 }
@@ -152,7 +133,7 @@ export function addressOnlyConfirmedSeatLabels(
 export function teamPageHref(teamId: string, saisonId: string): string {
   // The season rides along: the seats are season-scoped, and a link without it lands the admin on
   // whichever season that page falls back to.
-  return `/bereich/admin/teams/${teamId}?saison_id=${encodeURIComponent(saisonId)}`;
+  return `/area/admin/teams/${teamId}?saison_id=${encodeURIComponent(saisonId)}`;
 }
 
 /**
@@ -223,7 +204,6 @@ const kontaktpersonPayload = (person: KontaktpersonDraft | null): FLKontaktperso
         // server carries the stored seat's forward and this editor may not name one at all.
         einwilligung: {
           umfang: EINWILLIGUNG_UMFANG,
-          text_version: person.einwilligung.text_version,
           datum: person.einwilligung.datum,
         },
       };

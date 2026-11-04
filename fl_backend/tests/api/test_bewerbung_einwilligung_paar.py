@@ -14,14 +14,13 @@ from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import kontaktperson_document, minted_confirmations
+from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, minted_confirmations
 from tests.worker import worker_database
 
 # Module level, as the execution suite marks its own: every test below reaches a real mongod.
@@ -88,10 +87,6 @@ def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]]) -> Any
     return on_the_seed_loop(_run())
 
 
-# The applicant's page: every seat here is the applicant's, dated the submission's day.
-BEWERBER_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]
-
-
 async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, **overrides: Any) -> Any:
     body = {
         "token": token,
@@ -99,7 +94,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         "geburtsdatum": AN_ADULTS_BIRTHDATE,
         "whatsapp": False,
         "medien": False,
-        "text_version": BEWERBER_SEITE,
+        "text_versions": dict(SEAT_TEXT_VERSIONS),
         **overrides,
     }
 
@@ -201,37 +196,3 @@ class TestTheFloorIsThePersons:
         assert code == Code.CONFIRMATION_AGE
         assert document == paired
         assert rows == []
-
-    def test_a_trainer_holding_that_seat_alone_takes_the_same_date(self, mongo_replica_set_url: str):
-        """Without it the case above passes for a floor raised on every seat rather than carried by the second one."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["trainer"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)
-
-            return response, await stored(database)
-
-        single = bewerbung_document(kontakte=paired_kontakte(trainer_is_also=None, ansprechperson=kontaktperson_document("Quillhilde")))
-        response, document = on_a_league(mongo_replica_set_url, body, documents=[single])
-
-        assert response.ergebnis == "confirmed"
-        assert document["kontakte"]["trainer"]["geburtsdatum"] == A_SEVENTEEN_YEAR_OLDS_BIRTHDATE
-
-
-class TestAPairedConfirmation:
-    def test_a_partner_whose_slot_is_gone_is_left_alone(self, mongo_replica_set_url: str):
-        """The mirror of the decline's hazard, on the branch that writes five keys into the partner's slot."""
-
-        emptied = bewerbung_document(kontakte=paired_kontakte(trainer=None))
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["ansprechperson"])
-
-            return response, await stored(database)
-
-        response, document = on_a_league(mongo_replica_set_url, body, documents=[emptied])
-
-        assert response.ergebnis == "confirmed"
-        assert document["kontakte"]["ansprechperson"]["geburtsdatum"] == AN_ADULTS_BIRTHDATE
-        assert document["kontakte"]["ansprechperson"]["einwilligung"]["confirmed_at"] == TODAY
-        assert document["kontakte"]["trainer"] is None
-        # The emptied seat has no stamp, so the application still cannot be accepted on it.

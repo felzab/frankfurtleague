@@ -1,3 +1,4 @@
+import { PageFade } from "./PageFade";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -33,9 +34,11 @@ const page = tv({
 export function ClassicPage({ width, children }: { width: "form" | "card" | "signin" | "landing"; children: ReactNode }) {
   const { main, column } = page({ width });
   return (
-    <main className={main()}>
-      <div className={column()}>{children}</div>
-    </main>
+    <PageFade>
+      <main className={main()}>
+        <div className={column()}>{children}</div>
+      </main>
+    </PageFade>
   );
 }
 

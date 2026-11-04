@@ -5,8 +5,10 @@ from typing import Any, Final
 from fastapi import APIRouter, FastAPI
 from fastapi.openapi.utils import get_openapi
 from fastapi.routing import APIRoute
-from pydantic.json_schema import models_json_schema
+from pydantic import TypeAdapter
+from pydantic.json_schema import JsonSchemaMode, models_json_schema
 
+from app.api.account.person_router import router as account_person_router
 from app.api.adresswechsel.admin_router import router as address_change_admin_router
 from app.api.adresswechsel.public_router import router as address_change_public_router
 from app.api.adresswechsel.system_router import router as address_change_system_router
@@ -17,11 +19,9 @@ from app.api.bewerbungen.admin_router import router as bewerbungen_admin_router
 from app.api.bewerbungen.person_router import router as bewerbungen_person_router
 from app.api.bewerbungen.public_router import router as bewerbungen_public_router
 from app.api.bewerbungen.system_router import router as bewerbungen_system_router
-from app.api.einwilligung.public_router import router as einwilligung_public_router
-from app.api.identitaet.admin_router import router as identity_admin_router
-from app.api.identitaet.person_router import router as identity_person_router
-from app.api.identitaet.system_router import router as identity_system_router
-from app.api.konto.person_router import router as account_person_router
+from app.api.identity.admin_router import router as identity_admin_router
+from app.api.identity.person_router import router as identity_person_router
+from app.api.identity.system_router import router as identity_system_router
 from app.api.outbox.system_router import router as outbox_system_router
 from app.api.registrierungen.admin_router import router as registrierungen_admin_router
 from app.api.registrierungen.person_router import router as registrierungen_person_router
@@ -58,6 +58,8 @@ from app.core.db import lifespan
 from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, register_exception_handlers
 from app.core.logging import fl_logger, setup_logging
 from app.core.middlewares import TracedApp
+from app.shared.schemas.bounds import ADDRESS_CHANGE_BOUNDS, CONSENT_BOUNDS
+from app.shared.schemas.einwilligung import CURRENT_TEXT_VERSIONS
 from app.shared.schemas.responses import FLFailureBody
 
 # Every router under its slice's tag, the first segment of each path it serves, so an operation's id
@@ -68,7 +70,6 @@ ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
     "action_log": (action_log_admin_router,),
     "grants": (grants_admin_router, grants_system_router),
     "bewerbungen": (bewerbungen_admin_router, bewerbungen_public_router, bewerbungen_person_router, bewerbungen_system_router),
-    "einwilligung": (einwilligung_public_router,),
     "identity": (identity_system_router, identity_admin_router, identity_person_router),
     "account": (account_person_router,),
     "outbox": (outbox_system_router,),
@@ -135,6 +136,27 @@ def with_failure_responses(document: Mapping[str, Any]) -> dict[str, Any]:
     return {**document, "components": {**components, "schemas": schemas, "responses": responses}}
 
 
+# Every alias a frontend constant is checked against: each consent's current label, which a grant sends, and the
+# address change's and the consents' bounds, which the pages state.
+MIRRORED_CONSTANTS: Final = (*CURRENT_TEXT_VERSIONS, *ADDRESS_CHANGE_BOUNDS, *CONSENT_BOUNDS)
+
+
+def with_mirrored_constants(document: Mapping[str, Any]) -> dict[str, Any]:
+    """`document` publishing each of `MIRRORED_CONSTANTS` as a schema of its own, which the frontend's constants are checked against.
+
+    No operation names one alone, and Pydantic inlines an alias that a model references only once.
+    """
+
+    components = document.get("components", {})
+    adapters: list[tuple[str, JsonSchemaMode, TypeAdapter[Any]]] = [
+        (alias.__name__, "validation", TypeAdapter(alias)) for alias in MIRRORED_CONSTANTS
+    ]
+    constants = TypeAdapter.json_schemas(adapters, ref_template=SCHEMA_REF)[1]["$defs"]
+    schemas = dict(sorted({**components.get("schemas", {}), **constants}.items()))
+
+    return {**document, "components": {**components, "schemas": schemas}}
+
+
 # The document's name, which a client generated from it carries in each file's header.
 DOCUMENT_TITLE = "Frankfurt League API"
 
@@ -145,7 +167,7 @@ def publish_document(app: FastAPI) -> None:
     def openapi() -> dict[str, Any]:
         if not app.openapi_schema:
             document = get_openapi(title=DOCUMENT_TITLE, version=app.version, openapi_version=app.openapi_version, routes=app.routes)
-            app.openapi_schema = with_failure_responses(document)
+            app.openapi_schema = with_mirrored_constants(with_failure_responses(document))
 
         return app.openapi_schema
 

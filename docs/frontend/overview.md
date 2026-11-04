@@ -9,14 +9,16 @@ its invalidation live here rather than in the backend.
 
 ## How it is organised
 
-| Folder                   | Holds                                                                                                                                                       |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/app/`               | The routes: the public pages, `saisons/` for the season pages, `bereich/` for every signed-in area                                                          |
-| `src/kit/`               | The design system's components, built on React Aria Components                                                                                              |
-| `src/core/`              | What the server process is and what every surface needs: configuration, the API client, auth, mail, logging, the string catalogue and the formatting module |
-| `src/shared/`            | What a rendered page is built from beside the kit: components, hooks and the utilities those call                                                           |
-| `src/features/<domain>/` | One slice per domain: its cached reads, server actions, schemas and the components of its pages                                                             |
-| `src/proxy.ts`           | The request proxy in front of every signed-in area                                                                                                          |
+| Folder                   | Holds                                                                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/`               | The routes: the public pages, `saisons/` for the season pages, `area/`, `admin/` and `account/` for the signed-in areas                                                               |
+| `src/kit/`               | The design system's components, built on React Aria Components                                                                                                                        |
+| `src/core/`              | What the server process is and what every surface needs: configuration, the API client, auth, mail, logging, the string catalogue and the formatting module                           |
+| `src/shared/`            | What a rendered page is built from beside the kit: components, hooks and the utilities those call                                                                                     |
+| `src/features/<domain>/` | One slice per domain: its cached reads, server actions, schemas and the components of its pages                                                                                       |
+| `src/proxy.ts`           | The request proxy in front of every signed-in area                                                                                                                                    |
+| `src/test-support/`      | What the unit and database tests share and production never imports: doubles, fixtures, the test setup and the sweeps' tree walk                                                      |
+| `e2e/`                   | The Playwright journeys against the end-to-end stack, every project's at its top and one project's under `desktop/` or `phone/`, and `support/`, the fixtures and helpers they import |
 
 **Routes are thin**: a page fetches, then hands off to its slice. A slice holds only the modules it
 needs: `queries.ts` for reads, `mutations.ts` for the calls that write, `actions.ts` for the server
@@ -61,9 +63,8 @@ changes state outside the cache, the sign-in store's, calls `refresh()` itself. 
 response clears nothing, so no league write moves there. The old
 `fl_frontend/src/shared/utils/adminMutation.ts :: runGuardedMutation`, and
 `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest` for a route handler, clear it
-after a write that may stand. The league's reads keep Next's `minutes` lifetime; the read of a
-`Fassung` (`fl_frontend/src/core/einwilligung.ts :: getEinwilligungFassung`) keeps the longest,
-since a label's words never change. **The administration's reads are not cached**: each runs through
+after a write that may stand. The league's reads keep Next's `minutes` lifetime. **The
+administration's reads are not cached**: each runs through
 `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`, which judges the session first.
 
 **A change no save makes, a background pass's or an edit made straight in MongoDB, is served stale
@@ -91,8 +92,8 @@ A value list in any slice is the generated value, as in `z.enum(FLSaisonStatus)`
 ## Rendering
 
 **Every read waits for a real request with `await connection()` in the few functions the reads share**,
-never in a page: the session reads (`fl_frontend/src/core/auth.ts :: readRequestSession` and the
-sign-in landing's), `fl_frontend/src/shared/utils/traceScope.ts :: runWithIncomingTrace`, which every
+never in a page: the session reads (`fl_frontend/src/core/auth/session.ts :: readRequestSession` and the
+sign-in landing's), `fl_frontend/src/core/traceScope.ts :: runWithIncomingTrace`, which every
 admin, person and uncached public read passes, and each component that reaches a `"use cache"` read
 or the clock before the URL or any of those. This looks like it defeats static rendering and is
 deliberate: the Docker builder stage has **no reachable backend or sign-in store**, so a page that
@@ -126,17 +127,19 @@ and sits on every authorization check. Application data goes through FastAPI wit
 `fl_frontend/src/core/verwaltung.ts :: verwaltungOf`, and the backend checks it again on every
 administration request. A backend that cannot answer admits nobody, and a revoked grant admits
 nothing from the next request on. Every admin server action opens on
-`fl_frontend/src/core/auth.ts :: judgeAdminRequest`, through the builder's admin lane or, for a form
+`fl_frontend/src/core/auth/guards.ts :: judgeAdminRequest`, through the builder's admin lane or, for a form
 not yet moved onto it, `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`.
 
-**Route protection is layered.** `src/proxy.ts` turns away a request to `/bereich` carrying no
+**Route protection is layered.** `src/proxy.ts` turns away a request to `/area`, `/admin` or `/account` carrying no
 session cookie before any read, and judges nothing further, as Next's and Better Auth's guidance has a
 proxy check. The session, its sign-in factor and the grant are judged where the data is read: no
 layout turns a session away, because Next renders a page whatever its layout decides.
 
-**A person's sign-in is managed on one account page, `/bereich/konto`**, whichever area they hold:
-every signed-in shell links it, and its passkeys and sign-ins change only behind a recent sign-in or
-confirmation.
+**A person's sign-in is managed on Konto, `/account` and its four pages**, whichever area they hold:
+every signed-in shell and every frame's account menu links it, and an act on the passkey touch's fixed
+list, a passkey's removal and the address change's start among them, runs only on a passkey sign-in
+made seconds before, for a person holding a passkey (`fl_frontend/src/core/action.ts`, a lane's
+`passkey`).
 
 ## Configuration and tests
 

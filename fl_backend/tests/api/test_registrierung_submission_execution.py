@@ -26,7 +26,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError
 from app.main import create_app
-from app.shared.folding import canonical_address
+from app.shared.folding import league_address
 from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_FRIST_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
@@ -35,6 +35,7 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import SPIELER_TEXT_VERSIONS
 from tests.holds import HoldsAfterItsLookup
 from tests.outbox import MAIL_NOW, drained
 from tests.records import record_collections
@@ -260,7 +261,12 @@ async def admit_as_the_team(database: AsyncDatabase, client: AsyncMongoClient, r
     """The pupil's confirmation and a confirmed seat beside it, then the team's own admission through its handler."""
 
     confirmation = compose_confirmation_update(
-        geburtsdatum="2009-05-04", umfang="intern", medien=False, text_version="2026-09", today=TODAY, am="2026-03-31T08:00:00+00:00"
+        geburtsdatum="2009-05-04",
+        umfang="intern",
+        medien=False,
+        text_versions=SPIELER_TEXT_VERSIONS,
+        today=TODAY,
+        am="2026-03-31T08:00:00+00:00",
     )
     await database[Collection.REGISTRIERUNGEN].update_one({"_id": registrierung_id}, dict(confirmation))
     seat = documents.kontaktperson_document("Anna", confirmed_at=TODAY)
@@ -760,7 +766,7 @@ class TestWhatASubmissionIsRefused:
 
             return refused.value.error_code
 
-        assert canonical_address(BANNED_EMAIL.upper()) == canonical_address(BANNED_EMAIL)
+        assert league_address(BANNED_EMAIL.upper()) == league_address(BANNED_EMAIL)
         assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == Code.REGISTRIERUNG_ADRESSE_BARRED
 
     def test_an_address_no_row_holds_registers(self, mongo_replica_set_url: str):

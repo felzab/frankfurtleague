@@ -28,9 +28,9 @@ from app.api.einladungen.services import (
     find_saison_vorbei_refusal,
     plan_einladung_versand,
 )
-from app.api.identitaet.crud import faellige_anzahl, saison_statuses
-from app.api.identitaet.schemas import FLErasurePreviewResponse
-from app.api.identitaet.services import geschlossen_durch, statuses_after_activating
+from app.api.identity.crud import faellige_anzahl, saison_statuses
+from app.api.identity.schemas import FLErasurePreviewResponse
+from app.api.identity.services import geschlossen_durch, statuses_after_activating
 from app.api.outbox.services import enqueue_mails
 from app.api.saisons.crud import saisons_with_a_fixture_taken_place
 from app.api.saisons.schemas import (

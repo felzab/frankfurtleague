@@ -1,13 +1,33 @@
-import dataclasses
-import hashlib
-from collections.abc import Mapping
-from datetime import date
-from typing import Any, Final, cast, get_args
+from collections.abc import Callable, Mapping
+from typing import Any, Final
 
 import pytest
+from bson import ObjectId
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN, Fassung, Seite, is_confirmed
-from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
+from app.api.registrierungen.schemas import FLRegistrierungConfirmationPayload, FLRegistrierungEinwilligung
+from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationPayload, FLSchiedsrichterRecord
+from app.api.spieler.schemas import FLSpielerRecord
+from app.api.teams.schemas import FLKontaktKenntnisnahme
+from app.shared.einwilligung import is_confirmed
+from app.shared.einwilligung_nachweis import CHOICES, NACHWEIS, FLEinwilligungChoice
+from app.shared.schemas.einwilligung import (
+    FLEinwilligungTextVersion,
+    FLSchiedsrichterTextVersions,
+    FLSeatTextVersions,
+    FLSpielerTextVersions,
+    labels_of,
+)
+from tests.documents import (
+    SCHIEDSRICHTER_TEXT_VERSIONS,
+    SEAT_TEXT_VERSIONS,
+    SPIELER_TEXT_VERSIONS,
+    kontaktperson_document,
+    own_einwilligung_document,
+    schiedsrichter_document,
+    spieler_document,
+)
 
 STAMP = "2026-02-01"
 
@@ -23,536 +43,125 @@ def test_every_shape_short_of_a_stamp_is_unconfirmed(einwilligung: Any):
     assert is_confirmed(einwilligung) is False
 
 
-def test_a_stamp_confirms():
-    """The control: without it every case above passes on a predicate answering no to everything."""
-
-    assert is_confirmed({"umfang": "kontaktdaten", "confirmed_at": STAMP}) is True
+def _own(labels: Mapping[FLEinwilligungChoice, str]) -> dict[str, Any]:
+    return own_einwilligung_document(text_versions=labels, confirmed_at=STAMP)
 
 
-# Ported once with the words from the frontend's own pin, equal digests over the identical join
-# proving the port; this is now their only pin. Frozen once a deployed build served a label: moved
-# words are a new label.
-FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
-    "2026-08": "5ee0fd132685f067dfcb5efd9a85e1df36fabdfcb5dab451c98d760a262c4dc8",
-    "2026-09-bestaetigung": "2b7227c1252f386e7c9f68967f049fa78a353540dfd309d3fc5bdce3e4c0d7fa",
-    "2026-09-bestaetigung-2": "061b910a47324eb91c9c6b81191804b44b015ee5153b6c8843c884422d02f811",
-    "2026-09-bestaetigung-3": "694d9949915bbb999214f6e0f276a20020e464bdd28955152d58c19edc803a22",
-    "2026-09-bestaetigung-4": "6cd1ecde85282bb369a0e3437915752bf0ac4fe1dc35b0fe8b4ba2b15f84ecf3",
-    "2026-09-bestaetigung-5": "f111318b2d71ef2a8cddaa0eb98fe525f18d0c754408e450e397a77a4ffb1d09",
-    "2026-09-bestaetigungsseite": "0f43376babe1890edc2e38e482300d940b50de65c75b2f8bdeb4393be1a459f6",
-    "2026-09-bestaetigungsseite-2": "a3f63055cde360a1a547f6e04e547101d90af2de71b89058e4a684d5e1f4ed2f",
-    "2026-09-bestaetigungsseite-3": "d14ba6338194b3ba562ab09a76472af2bd7b7834e9a4b7956046025b8c8f3f19",
-    "2026-09-bestaetigungsseite-4": "5bd721936cf000ca996d98013728b06af2d116d0e19b69d9c29771965a40a411",
-    "2026-09-bestaetigungsseite-5": "8d3de56751483fe06311f894784b4562908e9d133386e004e9702db6e631215a",
-    "2026-09-bestaetigungsseite-6": "1227f765f47568c1ef105d9ccddeee88732e5bf37b768eaa285b2717f236c905",
-    # The account page's three, minted over the backend's words: no frontend copy of them ever existed.
-    "2026-10-konto-spieler": "6b923626436ceb6b4670f6eb447e16bdbf633f2f8c2a637fa5818aff49f68031",
-    "2026-10-konto-schiedsrichter": "c19cab56bfd34675507b17933d1c355a98b268d36f6ead18aa07fcda12a28192",
-    "2026-10-konto-kontakt": "59c714135fa1a5662913aa268cfb87aaaee21534549bf8017e6bb2ee6a3f3b5c",
-    "2026-10-bestaetigungsseite-7": "c60d790129420fda529b1c7d790d6cf0dd3dead79ad7189cd7664e53f7641f01",
-    "2026-10-bestaetigungsseite-verwaltung": "783c9d3c23d444371ac861d1d30cf2ec9412f5c0f8f6a9f526ea8ad51710a709",
-    "2026-10-bestaetigungsseite-saison": "f336b66db9ad01b1636f0eda72d48a8f0e851960e8851a302e6c3a547cf460b5",
-    "2026-10-spielerseite-5": "67c3db041790712b7c649b1ff10a8800a2e69d1260250b7e769ffe727ffa4d29",
-    "2026-10-schiedsrichterseite-4": "1146c7493ca1c03bd2fb509ae5d870c28497337124776c4143f2c006288bb0af",
-    "2026-10-bestaetigungsseite-8": "36008941791735e7b283b3c47566083f5a182fad6ef8ac5ab1e07f3a1fc62a77",
-    "2026-10-bestaetigungsseite-verwaltung-2": "f38fb3df50883ebd87e89ee2b40c74b4554f4f94029c998a17db60577af0a711",
-    "2026-10-bestaetigungsseite-saison-2": "a566bb3e3cd6b1942429dd3690554ddbd08ba0e58b915bf0792e247e1775f31b",
-    "2026-10-spielerseite-wiederkehrend-3": "513713fe524a1748819abb930a56b34f500246c24892d1a6d9462e6f6dbf3e58",
-}
-
-
-# What the digest leaves out, frozen beside it for the digest's reason: a label moved to another page
-# is admitted on that page by the judgement, and a page reading its sections by key loses a renamed one.
-FASSUNG_STAMMDATEN: Final[Mapping[str, tuple[str, date, tuple[str, ...] | None]]] = {
-    "2026-08": ("bewerbung", date(2026, 8, 31), None),
-    "2026-09-bestaetigung": ("bewerbung", date(2026, 9, 4), None),
-    "2026-09-bestaetigung-2": ("bewerbung", date(2026, 9, 7), None),
-    "2026-09-bestaetigung-3": ("bewerbung", date(2026, 9, 7), None),
-    "2026-09-bestaetigung-4": ("bewerbung", date(2026, 9, 21), None),
-    "2026-09-bestaetigung-5": ("bewerbung", date(2026, 9, 24), None),
-    "2026-09-bestaetigungsseite": ("bestaetigung_kontakt", date(2026, 9, 4), None),
-    "2026-09-bestaetigungsseite-2": ("bestaetigung_kontakt", date(2026, 9, 5), None),
-    "2026-09-bestaetigungsseite-3": ("bestaetigung_kontakt", date(2026, 9, 7), None),
-    "2026-09-bestaetigungsseite-4": ("bestaetigung_kontakt", date(2026, 9, 9), None),
-    "2026-09-bestaetigungsseite-5": ("bestaetigung_kontakt", date(2026, 9, 21), None),
-    "2026-09-bestaetigungsseite-6": (
-        "bestaetigung_kontakt",
-        date(2026, 9, 24),
-        (
-            "worum",
-            "gespeichert",
-            "geburtsdatum",
-            "rechtsgrundlage",
-            "nichtOeffentlich",
-            "fristAbgelehnt",
-            "fristAngenommen",
-            "fristUnvollstaendig",
-            "fristOhneEntscheidung",
-            "ablehnen",
-            "ablehnenFolge",
-            "widerruf",
-            "art21",
-            "whatsapp",
-            "klickIdentitaet",
-            "klickEintrag",
-            "klickAlter",
-            "klickHinweise",
-            "keineEinwilligung",
-        ),
+# Each record model a read-back judges, beside its kind's labels, a document of it, and the way to its consent block.
+RECORDS: Final[list[Any]] = [
+    pytest.param(
+        FLSpielerRecord,
+        SPIELER_TEXT_VERSIONS,
+        lambda: spieler_document(ObjectId(), "Anna", "Muster", einwilligung=_own(SPIELER_TEXT_VERSIONS)),
+        lambda document: document["einwilligung"],
+        id="a pupil",
     ),
-    "2026-10-konto-spieler": (
-        "konto_spieler",
-        date(2026, 10, 12),
-        (
-            "veroeffentlichung",
-            "medien",
-            "widerruf",
-            "nurWiderrufNichtAktiv",
-            "nurWiderrufBisAufnahme",
+    pytest.param(
+        FLSchiedsrichterRecord,
+        SCHIEDSRICHTER_TEXT_VERSIONS,
+        lambda: schiedsrichter_document(
+            ObjectId(), email="rita@example.com", name="Rita", default_payment=20, einwilligung=_own(SCHIEDSRICHTER_TEXT_VERSIONS)
         ),
+        lambda document: document["einwilligung"],
+        id="a referee",
     ),
-    "2026-10-konto-schiedsrichter": (
-        "konto_schiedsrichter",
-        date(2026, 10, 12),
-        (
-            "veroeffentlichung",
-            "medien",
-            "widerruf",
-            "nurWiderrufNichtAktiv",
-        ),
+    pytest.param(
+        FLRegistrierungEinwilligung, SPIELER_TEXT_VERSIONS, lambda: _own(SPIELER_TEXT_VERSIONS), lambda block: block, id="a registration"
     ),
-    "2026-10-konto-kontakt": (
-        "konto_kontakt",
-        date(2026, 10, 12),
-        (
-            "whatsapp",
-            "medien",
-            "widerruf",
-            "nurWiderrufVorbei",
-            "nurWiderrufBisZusage",
-        ),
+    pytest.param(
+        FLKontaktKenntnisnahme,
+        SEAT_TEXT_VERSIONS,
+        lambda: kontaktperson_document("Kim", confirmed_at=STAMP)["einwilligung"],
+        lambda block: block,
+        id="a contact seat",
     ),
-    "2026-10-bestaetigungsseite-7": (
-        "bestaetigung_kontakt",
-        date(2026, 10, 12),
-        (
-            "worum",
-            "gespeichert",
-            "geburtsdatum",
-            "rechtsgrundlage",
-            "nichtOeffentlich",
-            "fristAbgelehnt",
-            "fristAngenommen",
-            "fristUnvollstaendig",
-            "fristOhneEntscheidung",
-            "ablehnen",
-            "ablehnenFolge",
-            "widerruf",
-            "art21",
-            "whatsapp",
-            "medien",
-            "klickIdentitaet",
-            "klickEintrag",
-            "klickAlter",
-            "klickHinweise",
-            "keineEinwilligung",
-        ),
-    ),
-    "2026-10-bestaetigungsseite-verwaltung": (
-        "bestaetigung_kontakt_verwaltung",
-        date(2026, 10, 12),
-        (
-            "worum",
-            "gespeichert",
-            "geburtsdatum",
-            "rechtsgrundlage",
-            "nichtOeffentlich",
-            "fristAbgelehnt",
-            "fristAngenommen",
-            "fristUnvollstaendig",
-            "fristOhneEntscheidung",
-            "ablehnen",
-            "ablehnenFolge",
-            "widerruf",
-            "art21",
-            "whatsapp",
-            "medien",
-            "klickIdentitaet",
-            "klickEintrag",
-            "klickAlter",
-            "klickHinweise",
-            "keineEinwilligung",
-        ),
-    ),
-    "2026-10-bestaetigungsseite-saison": (
-        "bestaetigung_kontakt_saison",
-        date(2026, 10, 12),
-        (
-            "worum",
-            "gespeichert",
-            "geburtsdatum",
-            "rechtsgrundlage",
-            "nichtOeffentlich",
-            "fristAbgelehnt",
-            "fristAngenommen",
-            "fristUnvollstaendig",
-            "fristOhneEntscheidung",
-            "ablehnen",
-            "ablehnenFolge",
-            "widerruf",
-            "art21",
-            "whatsapp",
-            "medien",
-            "klickIdentitaet",
-            "klickEintrag",
-            "klickAlter",
-            "klickHinweise",
-            "keineEinwilligung",
-        ),
-    ),
-    "2026-10-spielerseite-5": (
-        "bestaetigung_spieler",
-        date(2026, 10, 18),
-        (
-            "worum",
-            "gespeichert",
-            "geburtsdatum",
-            "wer",
-            "veroeffentlichung",
-            "medien",
-            "rechtsgrundlage",
-            "frist",
-            "widerruf",
-            "art21",
-            "klickIdentitaet",
-            "klickAlter",
-            "klickEinwilligung",
-            "klickHinweise",
-        ),
-    ),
-    "2026-10-schiedsrichterseite-4": (
-        "bestaetigung_schiedsrichter",
-        date(2026, 10, 18),
-        (
-            "worum",
-            "gespeichert",
-            "geburtsdatum",
-            "wer",
-            "veroeffentlichung",
-            "medien",
-            "rechtsgrundlage",
-            "frist",
-            "widerruf",
-            "art21",
-            "klickIdentitaet",
-            "klickEintrag",
-            "klickAlter",
-            "klickEinwilligung",
-            "klickHinweise",
-        ),
-    ),
-    "2026-10-bestaetigungsseite-8": (
-        "bestaetigung_kontakt",
-        date(2026, 10, 18),
-        (
-            "worum",
-            "gespeichert",
-            "geburtsdatum",
-            "rechtsgrundlage",
-            "nichtOeffentlich",
-            "fristAbgelehnt",
-            "fristAngenommen",
-            "fristUnvollstaendig",
-            "fristOhneEntscheidung",
-            "ablehnen",
-            "ablehnenFolge",
-            "widerruf",
-            "art21",
-            "whatsapp",
-            "medien",
-            "klickIdentitaet",
-            "klickEintrag",
-            "klickAlter",
-            "klickHinweise",
-            "keineEinwilligung",
-        ),
-    ),
-    "2026-10-bestaetigungsseite-verwaltung-2": (
-        "bestaetigung_kontakt_verwaltung",
-        date(2026, 10, 18),
-        (
-            "worum",
-            "gespeichert",
-            "geburtsdatum",
-            "rechtsgrundlage",
-            "nichtOeffentlich",
-            "fristAbgelehnt",
-            "fristAngenommen",
-            "fristUnvollstaendig",
-            "fristOhneEntscheidung",
-            "ablehnen",
-            "ablehnenFolge",
-            "widerruf",
-            "art21",
-            "whatsapp",
-            "medien",
-            "klickIdentitaet",
-            "klickEintrag",
-            "klickAlter",
-            "klickHinweise",
-            "keineEinwilligung",
-        ),
-    ),
-    "2026-10-bestaetigungsseite-saison-2": (
-        "bestaetigung_kontakt_saison",
-        date(2026, 10, 18),
-        (
-            "worum",
-            "gespeichert",
-            "geburtsdatum",
-            "rechtsgrundlage",
-            "nichtOeffentlich",
-            "fristAbgelehnt",
-            "fristAngenommen",
-            "fristUnvollstaendig",
-            "fristOhneEntscheidung",
-            "ablehnen",
-            "ablehnenFolge",
-            "widerruf",
-            "art21",
-            "whatsapp",
-            "medien",
-            "klickIdentitaet",
-            "klickEintrag",
-            "klickAlter",
-            "klickHinweise",
-            "keineEinwilligung",
-        ),
-    ),
-    "2026-10-spielerseite-wiederkehrend-3": (
-        "bestaetigung_spieler_wiederkehrend",
-        date(2026, 10, 27),
-        (
-            "worum",
-            "gespeichert",
-            "geburtsdatum",
-            "wer",
-            "einwilligungen",
-            "rechtsgrundlage",
-            "frist",
-            "widerruf",
-            "art21",
-            "klickIdentitaet",
-            "klickAlter",
-            "klickHinweise",
-        ),
-    ),
-}
+]
 
 
-def fassung_digest(wording: Fassung) -> str:
-    """Every word the label freezes, joined as the frontend's digest joins them: the paragraphs, the switch, each control."""
+class TestARecordCitesItsKindsWordings:
+    """What `python -m app.readback` holds a stored record to: a re-point mapping one choice's label onto another reads as refused."""
 
-    controls = [f"{key}={wording.controls[key]}" for key in sorted(wording.controls)]
+    @pytest.mark.parametrize(("model", "labels", "document", "block"), RECORDS)
+    def test_its_kinds_own_labels_read(self, model: type[BaseModel], labels: Any, document: Callable[[], dict[str, Any]], block: Any):
+        """The floor: without it the refusals below would pass on a model refusing everything."""
 
-    return hashlib.sha256("\n".join([*wording.absaetze, wording.switch, *controls]).encode("utf-8")).hexdigest()
+        model.model_validate(document())
+
+    @pytest.mark.parametrize(("model", "labels", "document", "block"), RECORDS)
+    @pytest.mark.parametrize("choice", CHOICES)
+    @pytest.mark.parametrize("cited_by", ["the act", "the grant it ended"])
+    def test_another_wordings_label_on_a_choice_is_refused(
+        self,
+        model: type[BaseModel],
+        labels: Mapping[FLEinwilligungChoice, str],
+        document: Callable[[], dict[str, Any]],
+        block: Callable[[dict[str, Any]], dict[str, Any]],
+        choice: FLEinwilligungChoice,
+        cited_by: str,
+    ):
+        others = labels_of(FLEinwilligungTextVersion) - {labels[choice]}
+        assert others, "every kind's choice shares its words with no other choice"
+        for other in others:
+            stored = document()
+            beleg = block(stored)[NACHWEIS][choice]
+            if cited_by == "the grant it ended":
+                beleg["given_before"] = {"am": beleg["am"], "text_version": other}
+            else:
+                beleg["text_version"] = other
+            with pytest.raises(ValidationError) as refused:
+                model.model_validate(stored)
+            assert [error["type"] for error in refused.value.errors()] == ["text_version_of_another_wording"], other
 
 
-class TestTheRegistryOfWordings:
-    def test_every_label_still_holds_the_words_its_digest_was_minted_over(self):
-        """Both directions: a new label fails until its own digest is minted, and a digest whose label is gone fails."""
+# Constructed past validation: every kind's records cite its current labels alone until a rewording adds one, so no
+# request can carry another yet.
+STALE: Final = "2026-10-ersetzt-1"
 
-        assert sorted(FASSUNG_DIGESTS) == sorted(FASSUNGEN), "a label has no frozen digest, or the reverse"
-        assert {label: fassung_digest(fassung) for label, fassung in FASSUNGEN.items()} == FASSUNG_DIGESTS
 
-    def test_every_label_keeps_the_page_the_day_and_the_section_keys_it_was_given(self):
-        """Both directions, as the digests: a label is pinned here before it lands, and a pin whose label is gone fails."""
+def _replaced(kind: type[FLSeatTextVersions] | type[FLSpielerTextVersions] | type[FLSchiedsrichterTextVersions], choice: str) -> Any:
+    """`kind`'s labels with `choice`'s replaced, an instance a payload's field takes as it is: Pydantic revalidates none."""
 
-        assert {
-            label: (
-                fassung.seite,
-                fassung.applies_from,
-                None if fassung.absaetze_nach_schluessel is None else tuple(fassung.absaetze_nach_schluessel),
-            )
-            for label, fassung in FASSUNGEN.items()
-        } == FASSUNG_STAMMDATEN
+    labels = {**kind.current, choice: STALE}
+    return kind.model_construct(umfang=labels["umfang"], medien=labels["medien"])
 
-    def test_every_page_runs_a_label_of_its_own(self):
-        for seite, label in LAUFENDE_FASSUNGEN.items():
-            assert label in FASSUNGEN, f"{seite} runs {label}, which the registry does not hold"
-            assert FASSUNGEN[label].seite == seite, f"{seite} runs {label}, a version of another page"
 
-    def test_every_declared_page_runs_a_label(self):
-        """The type names a page and the mapping runs one: a page added to either alone fails here."""
-
-        assert set(get_args(Seite)) == set(LAUFENDE_FASSUNGEN)
-
-    def test_every_label_belongs_to_a_declared_page(self):
-        """A label of an undeclared page could never be stamped, and a write judging it would find no running label."""
-
-        assert {fassung.seite for fassung in FASSUNGEN.values()} == set(LAUFENDE_FASSUNGEN)
-
-    def test_each_page_runs_its_latest_label(self):
-        """Pins WHICH label runs, which the digests do not: a running label moved back to an earlier one passes every other case."""
-
-        for seite, label in LAUFENDE_FASSUNGEN.items():
-            latest = max(fassung.applies_from for fassung in FASSUNGEN.values() if fassung.seite == seite)
-
-            assert FASSUNGEN[label].applies_from == latest, f"{seite} runs {label}, older than a label of its own page"
-
-    def test_a_later_label_of_a_page_never_took_effect_before_an_earlier_one(self):
-        """In registry order, which is the order each page's labels were minted in."""
-
-        for seite in LAUFENDE_FASSUNGEN:
-            days = [fassung.applies_from for fassung in FASSUNGEN.values() if fassung.seite == seite]
-
-            assert days == sorted(days), f"{seite}'s labels took effect out of the order they were minted in"
-
-    def test_keyed_paragraphs_are_the_frozen_ones_in_order(self):
-        """The page places its sections by key and the label freezes them by position, so the two may never part."""
-
-        keyed = {
-            label: (tuple(fassung.absaetze_nach_schluessel.values()), fassung.absaetze)
-            for label, fassung in FASSUNGEN.items()
-            if fassung.absaetze_nach_schluessel is not None
+def _seat_answer(*, umfang: str, medien: bool, text_versions: Any) -> Any:
+    return TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(
+        {
+            "antwort": "given",
+            "token": "raw-trainer",
+            "geburtsdatum": "1984-05-09",
+            "whatsapp": umfang == "kontaktdaten_whatsapp",
+            "medien": medien,
+            "text_versions": text_versions,
         }
-
-        assert keyed, "no label carries keyed paragraphs, so this case compares nothing"
-        for label, (nach_schluessel, absaetze) in keyed.items():
-            assert nach_schluessel == absaetze, label
-
-    def test_every_running_label_a_page_places_by_key_carries_its_keys(self):
-        """The confirmation pages render by key; a running label of theirs without keys leaves the page nothing to place."""
-
-        for seite in (
-            "bestaetigung_kontakt",
-            "bestaetigung_kontakt_verwaltung",
-            "bestaetigung_kontakt_saison",
-            "bestaetigung_spieler",
-            "bestaetigung_spieler_wiederkehrend",
-            "bestaetigung_schiedsrichter",
-        ):
-            assert FASSUNGEN[LAUFENDE_FASSUNGEN[seite]].absaetze_nach_schluessel is not None, seite
-
-    def test_the_seated_persons_page_differs_from_the_applicants_by_its_opening_and_its_legal_basis_alone(self):
-        """Both are one page to the person reading it; a sentence reworded on one side only would tell two people two rules.
-
-        The two that differ say who entered the person, which no applicant did on this page.
-        """
-
-        bewerbung = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]]
-        verwaltung = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_kontakt_verwaltung"]]
-        assert bewerbung.absaetze_nach_schluessel is not None and verwaltung.absaetze_nach_schluessel is not None
-
-        anders = {key for key, text in verwaltung.absaetze_nach_schluessel.items() if bewerbung.absaetze_nach_schluessel.get(key) != text}
-
-        assert list(verwaltung.absaetze_nach_schluessel) == list(bewerbung.absaetze_nach_schluessel)
-        assert anders == {"worum", "rechtsgrundlage"}
-        assert (verwaltung.switch, dict(verwaltung.controls)) == (bewerbung.switch, dict(bewerbung.controls))
-
-    @pytest.mark.parametrize("seite", ["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung", "bestaetigung_kontakt_saison"])
-    def test_both_contact_pages_offer_the_media_consent_beside_the_whatsapp_one(self, seite: Seite):
-        """A seat's `medien` is asked on whichever page the link opens, its paragraph naming the age the switch is offered from."""
-
-        fassung = FASSUNGEN[LAUFENDE_FASSUNGEN[seite]]
-        assert fassung.absaetze_nach_schluessel is not None
-
-        assert set(fassung.controls) == {"medien"}
-        assert "{medienMinAlter}" in fassung.absaetze_nach_schluessel["medien"]
-        assert "außer der freiwilligen für WhatsApp" not in fassung.absaetze_nach_schluessel["widerruf"]
-
-    def test_the_season_rows_page_keeps_the_applicants_words_but_where_they_speak_of_the_application(self):
-        """A person the administration entered on a team's season row reads nothing of an application or its submitter."""
-
-        bewerbung = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]]
-        saison = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_kontakt_saison"]]
-        assert bewerbung.absaetze_nach_schluessel is not None and saison.absaetze_nach_schluessel is not None
-
-        anders = {key for key, text in saison.absaetze_nach_schluessel.items() if bewerbung.absaetze_nach_schluessel.get(key) != text}
-
-        assert list(saison.absaetze_nach_schluessel) == list(bewerbung.absaetze_nach_schluessel)
-        assert {key for key, text in bewerbung.absaetze_nach_schluessel.items() if "Bewerbung" in text} <= anders
-        assert not [key for key, text in saison.absaetze_nach_schluessel.items() if "Bewerbung" in text]
-        assert (saison.switch, dict(saison.controls)) == (bewerbung.switch, dict(bewerbung.controls))
-
-    def test_the_pupil_page_keeps_a_registration_until_its_team_decides(self):
-        """When a registration goes, which the notice states the same way: never at the next season's close."""
-
-        running = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_spieler"]].absaetze_nach_schluessel
-        assert running is not None
-
-        assert "bis in der nächsten Saison die Registrierung geschlossen ist" not in running["frist"]
-        assert "einen Monat nach der Entscheidung" in running["frist"]
-
-    @pytest.mark.parametrize(
-        "seite",
-        [
-            "bestaetigung_spieler",
-            "bestaetigung_spieler_wiederkehrend",
-            "bestaetigung_schiedsrichter",
-            "bestaetigung_kontakt",
-            "bestaetigung_kontakt_verwaltung",
-            "bestaetigung_kontakt_saison",
-        ],
     )
-    def test_no_link_page_names_its_reader(self, seite: Seite):
-        """Its link went to an address nobody has confirmed, which behind a typo is a stranger's, so no paragraph has a name to fill."""
 
-        assert not [text for text in FASSUNGEN[LAUFENDE_FASSUNGEN[seite]].absaetze if "{vorname}" in text]
 
-    def test_the_returning_pupils_page_keeps_the_pupil_pages_words_but_where_they_ask_a_choice_or_the_birthdate(self):
-        """One registration under one set of rules: a sentence reworded on one page alone would tell two pupils two rules.
+def _confirmation(model: type[BaseModel]) -> Callable[..., Any]:
+    def validate(*, umfang: str, medien: bool, text_versions: Any) -> Any:
+        return model.model_validate(
+            {"token": "raw-link", "geburtsdatum": "1984-05-09", "umfang": umfang, "medien": medien, "text_versions": text_versions}
+        )
 
-        No choice is asked or shown, so a control word frozen here is one no reader saw.
-        """
+    return validate
 
-        neu = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_spieler"]]
-        wiederkehrend = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_spieler_wiederkehrend"]]
-        assert neu.absaetze_nach_schluessel is not None and wiederkehrend.absaetze_nach_schluessel is not None
 
-        geteilt = {key for key, text in wiederkehrend.absaetze_nach_schluessel.items() if neu.absaetze_nach_schluessel.get(key) == text}
+# Each payload carrying `text_versions`, beside its kind and the value granting each choice in its vocabulary.
+CONFIRMATIONS: Final[list[Any]] = [
+    pytest.param(_seat_answer, FLSeatTextVersions, "kontaktdaten_whatsapp", id="a seat's answer"),
+    pytest.param(_confirmation(FLRegistrierungConfirmationPayload), FLSpielerTextVersions, "kader_oeffentlich", id="a registration"),
+    pytest.param(_confirmation(FLSchiedsrichterConfirmationPayload), FLSchiedsrichterTextVersions, "kader_oeffentlich", id="a referee"),
+]
 
-        assert geteilt == {"wer", "rechtsgrundlage", "frist", "widerruf", "art21", "klickIdentitaet", "klickHinweise"}
-        assert not {"veroeffentlichung", "medien", "klickEinwilligung"} & set(wiederkehrend.absaetze_nach_schluessel)
-        assert (wiederkehrend.switch, dict(wiederkehrend.controls)) == (neu.switch, {})
 
-    @pytest.mark.parametrize("seite", ["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung", "bestaetigung_kontakt_saison"])
-    def test_the_whatsapp_consent_is_taken_back_on_the_account_page_under_the_words_it_was_given(self, seite: Seite):
-        """The contact page names the account page, and the account page's switch reads as the one the consent was given on."""
+@pytest.mark.parametrize(("validate", "kind", "giving"), CONFIRMATIONS)
+class TestAConfirmationGrantsUnderItsCurrentWording:
+    """Each confirmation is a first answer, so every choice it grants moves and names the current label in its payload."""
 
-        kontakt = FASSUNGEN[LAUFENDE_FASSUNGEN[seite]]
-        konto = FASSUNGEN[LAUFENDE_FASSUNGEN["konto_kontakt"]]
-        assert kontakt.absaetze_nach_schluessel is not None
+    @pytest.mark.parametrize("choice", CHOICES)
+    def test_a_grant_under_a_replaced_label_is_refused(self, validate: Callable[..., Any], kind: Any, giving: str, choice: str):
+        with pytest.raises(ValidationError) as refused:
+            validate(umfang=giving, medien=True, text_versions=_replaced(kind, choice))
 
-        assert "in Deinem Konto" in kontakt.absaetze_nach_schluessel["whatsapp"]
-        assert konto.controls["kontaktdaten_whatsapp"] == kontakt.switch
-
-    def test_no_word_is_empty_or_padded(self):
-        for label, fassung in FASSUNGEN.items():
-            assert fassung.absaetze, f"{label} holds no paragraph"
-            for text in (*fassung.absaetze, fassung.switch, *fassung.controls.values()):
-                assert text and text == text.strip(), f"{label} holds an empty or padded text"
-
-    def test_no_word_holds_a_line_break(self):
-        """The digest joins its texts with newlines, so a paragraph holding one digests as two paragraphs would."""
-
-        for label, fassung in FASSUNGEN.items():
-            for text in (*fassung.absaetze, fassung.switch, *fassung.controls, *fassung.controls.values()):
-                assert "\n" not in text and "\r" not in text, f"{label} holds a line break"
-
-    def test_every_label_fits_the_length_a_record_may_cite(self):
-        for label in FASSUNGEN:
-            assert len(label) <= EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, label
-
-    def test_no_reader_can_reword_a_label_in_place(self):
-        """Read-only all the way down: a caller writing into a served mapping would reword it for every later request."""
-
-        label = LAUFENDE_FASSUNGEN["bestaetigung_spieler"]
-        fassung = FASSUNGEN[label]
-        mappings = ((FASSUNGEN, label), (LAUFENDE_FASSUNGEN, "bewerbung"), (fassung.controls, "intern"))
-
-        for mapping, key in (*mappings, (fassung.absaetze_nach_schluessel, "worum")):
-            with pytest.raises(TypeError):
-                cast(Any, mapping)[key] = "anders"
-        with pytest.raises(dataclasses.FrozenInstanceError):
-            cast(Any, fassung).switch = "anders"
+        assert [error["type"] for error in refused.value.errors()] == ["grant_wording_stale"]

@@ -28,14 +28,13 @@ import { BestaetigungSaisonVorbei } from "./BestaetigungSaisonVorbei";
 import type { FLBewerbungEinwilligungViewResponse, FLBewerbungEinwilligungViewResponseQuelle } from "@/core/generated/client/types";
 import type { LinkZustand } from "@/features/bewerbungen/types";
 import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
-import type { KontaktFassung } from "./BestaetigungHinweise";
 
 /**
  * What the page opens on. The token rides only with a link a press can still spend: every other
  * state is a panel that names nobody, and a dead link handed onward identifies nobody either.
  */
 export type BestaetigungStart =
-  | { zustand: "valid"; ansicht: FLBewerbungEinwilligungViewResponse; token: string; wording: KontaktFassung }
+  | { zustand: "valid"; ansicht: FLBewerbungEinwilligungViewResponse; token: string }
   | { zustand: "saison_past"; ansicht: FLBewerbungEinwilligungViewResponse; token: string }
   | { zustand: LinkZustand | "unlesbar"; quelle?: FLBewerbungEinwilligungViewResponseQuelle };
 
@@ -127,11 +126,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
 
       {stand.zustand === "valid" && (
         <BestaetigungFormPanel
-          fassung={stand.wording}
           token={stand.token}
-          schule={stand.ansicht.schule}
-          saison={stand.ansicht.saison_id}
-          rolle={linkRollen(stand.ansicht)}
           istSaison={saisonRow}
           mindestalter={stand.ansicht.minimum_age}
           medienMindestalter={stand.ansicht.medien_minimum_age}

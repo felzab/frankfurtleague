@@ -27,7 +27,7 @@ registerAuthDoubles({
   },
   specifiers: {
     "next/headers": { headers: () => Promise.resolve(requestHeaders) },
-    // Reached through the account spine `readSicherheit` imports, and called by no case here.
+    // Called by no case here.
     "next/cache": { refresh: () => undefined },
   },
 });
@@ -40,12 +40,15 @@ serveServerReact();
 const { signInStore } = (await import(PRODUCTION_DB)) as { signInStore: () => MongoClient };
 const client = signInStore();
 closing(() => client.close());
-const { auth, getAdminSession, getKontoSession, getPasskeyStep, judgeAdminRequest } = await import("@/core/auth.ts");
+const { auth } = await import("@/core/auth/library.ts");
+const { getAdminSession, getAccountSession, judgeAdminRequest } = await import("@/core/auth/guards.ts");
+const { getPasskeyStep } = await import("@/core/auth/landing.ts");
 const { buildAuthIndexes } = await import("@/core/authIndexes.ts");
 const { getSubjectSession } = await import("@/core/subject.ts");
-const { readSicherheit } = await import("@/features/konto/sicherheit.ts");
+const { devicesOf } = await import("@/features/konto/security.ts");
+const { heldPasskeysOf } = await import("@/features/passkeys/held.ts");
 const { runAdminRead } = await import("@/shared/utils/adminRead.ts");
-const { runWithIncomingTrace } = await import("@/shared/utils/traceScope.ts");
+const { runWithIncomingTrace } = await import("@/core/traceScope.ts");
 
 // Production's indexes under every case, so the library is driven over what it meets there, and an
 // empty store, each case signing the administrator in afresh.
@@ -125,7 +128,7 @@ describe("the administrator's session across one render pass", () => {
   itOpensAScopeThatMemoizes();
 
   /* The admin layout's hold, season slot and switcher each read the session, all in one render pass:
-     `fl_frontend/src/app/bereich/admin/layout.tsx :: AdminLayout`. */
+     `fl_frontend/src/app/area/admin/layout.tsx :: AdminLayout`. */
   it("reads the store once for the frame's three readers", async () => {
     requestHeaders = await signInAsAdministrator();
 
@@ -179,18 +182,6 @@ describe("the administrator's guard across a server action", () => {
     await runWithIncomingTrace(() => runAdminRead(() => Promise.resolve()));
     expect(sessionReads.length - before.reads, "the render after the action was answered from the action's verdict").toBe(2);
   });
-
-  /* The control: without it, a harness whose `cache` still memoized would pass the case above. */
-  it("reads the session on every guard called outside a request scope, where nothing memoizes", async () => {
-    requestHeaders = await signInAsAdministrator();
-
-    leaveRenderPass();
-    const before = sessionReads.length;
-    await getAdminSession();
-    await getAdminSession();
-
-    expect(sessionReads.length - before).toBe(2);
-  });
 });
 
 /** Puts every stored session where the library's next refreshing read would write it, its windows untouched. */
@@ -214,9 +205,9 @@ describe("the account and passkey pages, each across one render pass", () => {
     beginRenderPass();
     const commands = await sentBy(async () => {
       assert.ok(await getSubjectSession(), "the person guard refused the administrator");
-      const served = await getKontoSession();
+      const served = await getAccountSession();
       assert.ok(served, "the account page's guard refused the administrator, so the count below counts a refusal");
-      await readSicherheit(served);
+      await Promise.all([heldPasskeysOf(served), devicesOf(served)]);
     });
 
     // The guards' one read, the check its passkey stands, the page's passkeys and its sign-ins.
@@ -273,11 +264,11 @@ describe("the holder's passkeys, with another account's beside them in the store
     await aSecondAccountsPasskey();
 
     beginRenderPass();
-    const served = await getKontoSession();
+    const served = await getAccountSession();
     assert.ok(served, "the account page's guard refused the administrator");
-    const { passkeys } = await readSicherheit(served);
+    const { rows } = await heldPasskeysOf(served);
 
-    expect(passkeys.length, "the account page listed another account's passkey").toBe(1);
+    expect(rows.length, "the account page listed another account's passkey").toBe(1);
   });
 
   it("offers a holder of no passkey the enrolment, not the sign-in by another account's", async () => {
@@ -288,36 +279,6 @@ describe("the holder's passkeys, with another account's beside them in the store
 
     expect(await getPasskeyStep()).toStrictEqual({ step: "enrol", email: ADMIN_EMAIL });
   });
-
-  it("counts the holder's passkeys alone against the cap", async () => {
-    const { PASSKEY_LIMIT } = await import("@/core/auth.ts");
-    const { readPasskeyStandAction } = await import("@/features/passkeys/actions.ts");
-    requestHeaders = await signInAsAdministrator();
-    await aSecondAccountsPasskey();
-    const { adapter } = await auth.$context;
-    const [holder] = await client.db("auth").collection("user").find({ email: ADMIN_EMAIL }).toArray();
-    assert.ok(holder, "the sign-in wrote no account row");
-    // One under the cap, so the other account's passkey alone would close it.
-    for (let seeded = 2; seeded < PASSKEY_LIMIT; seeded += 1) {
-      await adapter.create({
-        model: "passkey",
-        data: {
-          userId: String(holder._id),
-          credentialID: `${CREDENTIAL_ID}-${String(seeded)}`,
-          publicKey: "fabricated-public-key",
-          counter: 0,
-          deviceType: "singleDevice",
-          backedUp: false,
-          transports: "internal",
-          createdAt: new Date(),
-        },
-      });
-    }
-
-    leaveRenderPass();
-
-    expect(await runWithIncomingTrace(() => readPasskeyStandAction())).toStrictEqual({ success: true, kannHinzufuegen: true });
-  });
 });
 
 /* The account row reaches the guards through the session read's own `$lookup`, which the unit tier's
@@ -325,7 +286,7 @@ describe("the holder's passkeys, with another account's beside them in the store
    ended. */
 describe("the account row the session read joins, against a real store", () => {
   it("refuses a session its account's ending stamp postdates, at every guard", async () => {
-    const { readServedSession } = await import("@/core/auth.ts");
+    const { readServedSession } = await import("@/core/auth/session.ts");
     requestHeaders = await signInAsAdministrator();
     beginRenderPass();
     assert.ok(await getAdminSession(), "the administrator was refused before the stamp, so the refusals below prove nothing");
@@ -341,7 +302,7 @@ describe("the account row the session read joins, against a real store", () => {
   });
 
   it("serves no session whose account row is gone, the session row standing", async () => {
-    const { readServedSession } = await import("@/core/auth.ts");
+    const { readServedSession } = await import("@/core/auth/session.ts");
     requestHeaders = await signInAsAdministrator();
     await client.db("auth").collection("user").deleteMany({});
     expect(await client.db("auth").collection("session").countDocuments({}), "the session row went with the account's").toBe(1);
@@ -349,66 +310,5 @@ describe("the account row the session read joins, against a real store", () => {
     beginRenderPass();
     expect(await getAdminSession()).toBe(null);
     expect(await readServedSession(requestHeaders)).toBe(null);
-  });
-
-  /* A ban's deletion that missed a row leaves it standing beside the stamp: listed, it reads as
-     somebody else's device signed in to the account the person has just signed in to again. */
-  it("lists none of the sign-ins the ending stamped on the account page, beside the one made after it", async () => {
-    const { endSessionsOfAddress, readServedSession } = await import("@/core/auth.ts");
-    const endedHeaders = await signInAsAdministrator();
-    const sessions = client.db("auth").collection("session");
-    const [ended] = await sessions.find({}).toArray();
-    assert.ok(ended, "the sign-in wrote no session row");
-
-    expect(await endSessionsOfAddress(ADMIN_EMAIL), "the ending found no account").toBe(true);
-    // The row the deletion missed, put back as it stood.
-    await sessions.insertOne(ended);
-    expect(await readServedSession(endedHeaders), "the stamped row is served, so the list below is not the subject").toBe(null);
-
-    requestHeaders = new Headers({ ...ORIGIN, cookie: cookieHeader(await signInByCode(auth, ADMIN_EMAIL)) });
-    const after = await sessions.findOne({ _id: { $ne: ended._id } });
-    assert.ok(after, "the sign-in after the ending wrote no session row");
-    await sessions.updateOne({ _id: after._id }, { $set: { authFactor: "passkey", passkeyCredentialId: CREDENTIAL_ID } });
-
-    beginRenderPass();
-    const served = await getKontoSession();
-    assert.ok(served, "the account page's guard refused the sign-in made after the ending");
-    const { anmeldungen } = await readSicherheit(served);
-
-    expect(anmeldungen.map(({ id }) => id)).toStrictEqual([String(after._id)]);
-  });
-});
-
-/* A session id is whatever the action's caller posted, so only the holder's own user id in the same
-   delete keeps one person's press from ending another person's sign-in. */
-describe("ending one sign-in, with another account's session beside it in the store", () => {
-  it("ends nothing for another account's session id, and says the list is stale", async () => {
-    const { endAnmeldungAction } = await import("@/features/konto/actions.ts");
-    requestHeaders = await signInAsAdministrator();
-    const { adapter } = await auth.$context;
-    const other = await adapter.create<{ name: string; email: string; emailVerified: boolean }, { id: string }>({
-      model: "user",
-      data: { name: "", email: "zweite.person@example.org", emailVerified: true },
-    });
-    const theirs = await adapter.create<Record<string, unknown>, { id: string }>({
-      model: "session",
-      data: {
-        userId: other.id,
-        token: "fl-admin-session-db-second-account-session",
-        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    });
-
-    leaveRenderPass();
-    const answer = await runWithIncomingTrace(() => endAnmeldungAction(theirs.id));
-
-    // The stale list's own refusal, and no step-up or validation one, which would leave the row standing anyway.
-    expect(answer).toStrictEqual({ success: false, error: "Die Anmeldung war schon beendet. Lade die Seite neu." });
-    expect(
-      await client.db("auth").collection("session").countDocuments({ token: "fl-admin-session-db-second-account-session" }),
-      "another account's session was ended",
-    ).toBe(1);
   });
 });

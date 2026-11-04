@@ -1,17 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
 
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
 
 import { Button } from "@heroui/react/button";
 
-import { ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_DAUER } from "@/core/adresswechsel";
+import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_SPAN } from "@/core/adresswechsel";
 import { ADRESSWECHSEL_STOPPEN } from "@/core/adresswechselAntworten";
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { formatInstant } from "@/core/format";
-import { KONTO_HREF } from "@/core/kontoHref";
 import { startOf } from "@/features/adresswechsel/link";
 import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
@@ -28,23 +26,34 @@ import {
   ZurLiga,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
-import { ctaButton, formButton } from "@/shared/components/ui/formButtons";
+import { formButton } from "@/shared/components/ui/formButtons";
 import { appToast } from "@/shared/utils/appToast";
-import { ANTWORT_UNKLAR, postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
+import { ANTWORT_UNKLAR, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 
-import type { FLAddressChangeEndArt, FLAddressChangeViewPreviousState, FLAddressChangeWay } from "@/core/generated/client/types";
-import type { AdresswechselAnsicht, AdresswechselGedrueckt, AdresswechselLinkZustand, AdresswechselStart } from "@/features/adresswechsel/link";
-import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
+import type { ActionAnswer } from "@/core/action";
+import type { FLAddressChangeEndArt, FLAddressChangeWay } from "@/core/generated/client/types";
+import type {
+  AddressChangeLinkState,
+  AddressChangePressed,
+  AddressChangeStart,
+  AddressChangeView,
+  OldViewPreviousState,
+} from "@/features/adresswechsel/link";
 
-type Antwort = AdresswechselGedrueckt["antwort"];
+type Antwort = AddressChangePressed["answer"];
 
-type Beendet = Extract<AdresswechselAnsicht, { zustand: "ended" }>;
+type Beendet = Extract<AddressChangeView, { zustand: "ended" }>;
 
-/** The one route handler, which finds the change by the token's hash on either side. */
-const ROUTE = "/api/bestaetigung/adresse";
+/**
+ * What a press of this view comes to, as `app/(classic)/confirm/address/answers.ts :: verwaltungswegBeantworten`
+ * answers it: the press landed, the link stands in a state that refuses it, or the change moved since the page opened,
+ * which the link's own read says, null where that read failed.
+ */
+export type AdresswechselPresse =
+  { gedrueckt: Omit<AddressChangePressed, "success"> } | { zustand: AddressChangeLinkState } | { ansicht: AddressChangeView | null };
 
-type AdresswechselAntwort =
-  AdresswechselGedrueckt | (PublicEnvelope & { success: false; zustand?: AdresswechselLinkZustand; ansicht?: AdresswechselAnsicht | null });
+/** The action every press of this view sends through, with the link's token. */
+type Beantworten = (presse: { token: string; antwort: Antwort }) => Promise<ActionAnswer<AdresswechselPresse>>;
 
 /**
  * The new mailbox's confirmation, asking about the change and never about the mailbox: the holder of an address the league
@@ -57,10 +66,9 @@ const NICHT_MEINE_ADRESSE = "Das ist nicht meine Adresse";
 const STOPP_TITEL = "Änderung Deiner E-Mail-Adresse";
 
 /** One heading per live state. A barred link's page has none; an ended change's heading is its side's and its end's. */
-const TITEL: Record<Exclude<AdresswechselStart["zustand"], "barred" | "ended">, string> = {
+const TITEL: Record<Exclude<AddressChangeStart["zustand"], "barred" | "ended">, string> = {
   valid: "Neue E-Mail-Adresse bestätigen",
   confirmed: "Adresse bestätigt",
-  release_open: STOPP_TITEL,
   open: STOPP_TITEL,
   approval: STOPP_TITEL,
   waiting_period: STOPP_TITEL,
@@ -76,7 +84,7 @@ const TITEL: Record<Exclude<AdresswechselStart["zustand"], "barred" | "ended">, 
  * How an ended change reads from each side. A link answers after the end, so the holder of the address on file
  * learns that a change took effect rather than being told the address still holds.
  */
-const ENDE: Record<FLAddressChangeEndArt, Record<Beendet["seite"], { titel: string; satz: string }>> = {
+const ENDE: Record<FLAddressChangeEndArt, Record<Beendet["side"], { titel: string; satz: string }>> = {
   effective: {
     new: { titel: "Adresse bestätigt", satz: "Die neue E-Mail-Adresse gilt jetzt. Melde Dich mit ihr neu an." },
     previous: {
@@ -117,8 +125,8 @@ const ENDE: Record<FLAddressChangeEndArt, Record<Beendet["seite"], { titel: stri
 };
 
 /**
- * A tombstone names no way, so this holds for both: the account follows where the address on file asked for or
- * approved the change, and never after a lost mailbox, whose holder may be a stranger.
+ * A tombstone names no way, so this holds for each: the account follows where the address on file asked for the
+ * change, and never after a lost mailbox, whose holder may be a stranger.
  */
 const PASSKEY_SATZ =
   "Klappt die Anmeldung mit Deinem bisherigen Passkey nicht, melde Dich mit einem Code an die neue Adresse an und richte in Deinem Konto einen neuen ein.";
@@ -128,60 +136,57 @@ const DANACH: Readonly<Record<FLAddressChangeWay, string>> = {
   // Never "Deine Passkeys gelten weiter": a sign-in account already standing at the new address keeps them behind, and no
   // served field tells this page so.
   account: `Bis dahin meldest Du Dich mit der bisherigen an. Danach meldest Du Dich überall neu an. ${PASSKEY_SATZ}`,
-  release: `Bis dahin meldest Du Dich mit der bisherigen an. Danach meldest Du Dich überall neu an. ${PASSKEY_SATZ}`,
   waiting_period:
     "Bis dahin gilt die bisherige Adresse. Danach meldest Du Dich mit einem Code an die neue an. Passkeys der bisherigen gelten dann nicht mehr: Richte in Deinem Konto einen neuen ein.",
 };
 
 /** The state a press's answer leaves the page in, the side being the press's own. */
-function nachDruck(antwort: AdresswechselGedrueckt, way: FLAddressChangeWay): AdresswechselStart {
-  if (antwort.antwort === "declined") return { zustand: "ended", seite: "new", art: "declined" };
-  if (antwort.antwort === "stopped") return { zustand: "ended", seite: "previous", art: "stopped" };
-  if (antwort.effective) return { zustand: "ended", seite: "new", art: "effective" };
+function nachDruck(antwort: AddressChangePressed, way: FLAddressChangeWay): AddressChangeStart {
+  if (antwort.answer === "declined") return { zustand: "ended", side: "new", art: "declined" };
+  if (antwort.answer === "stopped") return { zustand: "ended", side: "previous", art: "stopped" };
+  if (antwort.effective) return { zustand: "ended", side: "new", art: "effective" };
 
   return { zustand: "confirmed", wirksamAb: antwort.effective_from, genehmigungOffen: antwort.approval_open, way: way };
 }
 
 /** Sends one answer through the link and hands its outcome to the page: a result, or the state a refused press leaves the link in. */
-function useAntwort(start: AdresswechselStart, onAbschluss: (stand: AdresswechselStart) => void) {
+function useAntwort(start: AddressChangeStart, beantworten: Beantworten, onAbschluss: (stand: AddressChangeStart) => void) {
   const [isPending, startSending] = useTransition();
   const [gedrueckt, setGedrueckt] = useState<Antwort | null>(null);
-  const token = "token" in start ? start.token : "";
-  const way = "way" in start ? start.way : "account";
+  // Only a state holding a token renders a press, and each of those names its way.
+  const link = "token" in start ? start : null;
 
   const sende = (antwort: Antwort) => {
+    if (link === null) return;
+    const { token, way } = link;
     setGedrueckt(antwort);
     startSending(async () => {
-      const gesendet = await postPublicForm<AdresswechselAntwort>(ROUTE, { token: token, antwort: antwort });
+      // A press that threw may have landed, so it is told apart from the builder's own refusal.
+      const answer = await beantworten({ token: token, antwort: antwort }).catch(() => null);
 
-      if (!gesendet.answered) {
-        appToast.danger(gesendet.wroteNothing ? ANTWORT_NICHT_GESPEICHERT : UNKLAR_TITEL, { description: gesendet.error });
-        return;
-      }
-
-      const body = gesendet.body;
       // Wrapped again: React leaves an update after an `await` outside the transition.
       startSending(() => {
-        if (body.success) {
-          onAbschluss(nachDruck(body, way));
-          return;
-        }
-        if (body.outcome === "unknown") {
+        if (answer === null) {
           appToast.danger(UNKLAR_TITEL, { description: ANTWORT_UNKLAR });
           return;
         }
+        if (!answer.ok) {
+          appToast.danger(ANTWORT_NICHT_GESPEICHERT, { description: answer.reason ?? ANTWORT_NICHT_GESPEICHERT_SATZ });
+          return;
+        }
+        const presse = answer.value;
+        if ("gedrueckt" in presse) {
+          onAbschluss(nachDruck({ success: true, ...presse.gedrueckt }, way));
+          return;
+        }
         // The change moved between the open and the press: the answer is the panel, never a toast.
-        if (body.ansicht !== undefined) {
-          onAbschluss(body.ansicht === null ? { zustand: "unlesbar" } : startOf(body.ansicht, token));
+        if ("ansicht" in presse) {
+          onAbschluss(presse.ansicht === null ? { zustand: "unlesbar" } : startOf(presse.ansicht, token));
           return;
         }
-        if (body.zustand !== undefined) {
-          const zustand = body.zustand;
-          // The decline stays open on these two, so their panel keeps the token.
-          onAbschluss(zustand === "expired" || zustand === "not_confirmable" ? { zustand, way: way, token } : { zustand });
-          return;
-        }
-        appToast.danger(ANTWORT_NICHT_GESPEICHERT, { description: body.error ?? body.unplacedError ?? ANTWORT_NICHT_GESPEICHERT_SATZ });
+        const { zustand } = presse;
+        // The decline stays open on these two, so their panel keeps the token.
+        onAbschluss(zustand === "expired" || zustand === "not_confirmable" ? { zustand, way: way, token } : { zustand });
       });
     });
   };
@@ -220,7 +225,7 @@ function AntwortPanel({ gueltigBis, way: way, antwort }: { gueltigBis: string; w
       <p className={ABSATZ_CLASSES}>
         Für ein Konto bei der Frankfurt League soll künftig diese E-Mail-Adresse gelten. Bestätigst Du sie, schreiben wir Dir hierhin, und Du
         meldest Dich mit ihr an.
-        {way === "waiting_period" && ` Sie gilt ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach Deiner Bestätigung.`}
+        {way === "waiting_period" && ` Sie gilt ${ADDRESS_CHANGE_WAIT_SPAN} nach Deiner Bestätigung.`}
       </p>
       <p className={ABSATZ_CLASSES}>
         Bis dahin gilt die bisherige Adresse. Der Link gilt bis <Wert>{formatInstant(gueltigBis)}</Wert>.
@@ -261,10 +266,7 @@ function NurAblehnen({ antwort }: { antwort: Presse }) {
 }
 
 /** The stop link's sentence for each step the change waits on, by the way it began. */
-function stoppSatz(zustand: FLAddressChangeViewPreviousState, way: FLAddressChangeWay, wirksamAb: string | null) {
-  if (zustand === "release_open") {
-    return "Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen. Sie gilt nur, wenn Du sie in Deinem Konto freigibst: Melde Dich dazu mit dieser Adresse an. Gib sie nur frei, wenn Du das selbst angefragt hast, und stoppe die Änderung sonst hier.";
-  }
+function stoppSatz(zustand: OldViewPreviousState, way: FLAddressChangeWay, wirksamAb: string | null) {
   if (zustand === "approval") {
     return "Die neue E-Mail-Adresse ist bestätigt. Sie gilt erst, wenn die Verwaltung die Änderung genehmigt hat. Bis dahin meldest Du Dich weiter mit dieser Adresse an. Hast Du das nicht angefragt, stoppe die Änderung.";
   }
@@ -279,7 +281,7 @@ function stoppSatz(zustand: FLAddressChangeViewPreviousState, way: FLAddressChan
   // Told by the way, which the read carries on this side too: a change waiting a week after its confirmation is
   // never said to take effect at the confirmation.
   if (way === "waiting_period") {
-    return `Die Verwaltung hat eine neue E-Mail-Adresse für Dein Konto eingetragen, weil diese nicht mehr erreichbar sein soll. Bestätigt die neue Adresse ihren Link, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} danach. Hast Du das nicht angefragt, stoppe die Änderung. Dann bleibt diese Adresse.`;
+    return `Die Verwaltung hat eine neue E-Mail-Adresse für Dein Konto eingetragen, weil diese nicht mehr erreichbar sein soll. Bestätigt die neue Adresse ihren Link, gilt sie ${ADDRESS_CHANGE_WAIT_SPAN} danach. Hast Du das nicht angefragt, stoppe die Änderung. Dann bleibt diese Adresse.`;
   }
   return "Für Dein Konto soll eine neue E-Mail-Adresse gelten, sobald sie bestätigt ist. Hast Du das nicht selbst angefragt, stoppe die Änderung. Dann bleibt diese Adresse.";
 }
@@ -294,7 +296,7 @@ function StoppPanel({
   wirksamAb,
   antwort,
 }: {
-  zustand: FLAddressChangeViewPreviousState;
+  zustand: OldViewPreviousState;
   way: FLAddressChangeWay;
   wirksamAb: string | null;
   antwort: Presse;
@@ -305,14 +307,6 @@ function StoppPanel({
     <BestaetigungAbschnitt titel="Deine Adresse">
       <p className={ABSATZ_CLASSES}>{stoppSatz(zustand, way, wirksamAb)}</p>
       <div className={AKTIONEN_CLASSES}>
-        {zustand === "release_open" && (
-          <Link
-            href={KONTO_HREF}
-            prefetch={false}
-            className={ctaButton({ intent: "outline", hover: "css" })}>
-            Zu Deinem Konto
-          </Link>
-        )}
         <Button
           type="button"
           isPending={isPending}
@@ -337,20 +331,24 @@ function bestaetigtSatz({ wirksamAb, genehmigungOffen }: { wirksamAb: string | n
   return "Danke. Die neue E-Mail-Adresse ist bestätigt.";
 }
 
-/** One page for every state an address link can be in, either side's, live or ended: the token says which. */
-export function AdresswechselLinkView({ start }: { start: AdresswechselStart }) {
-  const [stand, setStand] = useState<AdresswechselStart>(start);
+/**
+ * Session 7: the administrator's way, in every state either link of such a change can be in, live or awaiting
+ * an approval; the person's own way, ended changes included, is `kit/MailedPage.tsx`'s. A grant holder's own change
+ * confirmed and waiting on its approval stands here too, the approval being the administrators' page's.
+ */
+export function AdresswechselLinkView({ start, beantworten }: { start: AddressChangeStart; beantworten: Beantworten }) {
+  const [stand, setStand] = useState<AddressChangeStart>(start);
   const { ergebnisRef, beantwortet } = useLinkSeite(stand.zustand);
-  const onAbschluss = (naechster: AdresswechselStart) => {
+  const onAbschluss = (naechster: AddressChangeStart) => {
     beantwortet();
     setStand(naechster);
   };
   // Every state holding a token sends through it; a state without one renders no press.
-  const antwort = useAntwort(stand, onAbschluss);
+  const antwort = useAntwort(stand, beantworten, onAbschluss);
 
   if (stand.zustand === "barred") return <AdresseGesperrt panelRef={ergebnisRef} />;
 
-  const titel = stand.zustand === "ended" ? ENDE[stand.art][stand.seite].titel : TITEL[stand.zustand];
+  const titel = stand.zustand === "ended" ? ENDE[stand.art][stand.side].titel : TITEL[stand.zustand];
 
   return (
     <section className={SEITE_CLASSES}>
@@ -366,7 +364,7 @@ export function AdresswechselLinkView({ start }: { start: AdresswechselStart }) 
         />
       )}
 
-      {(stand.zustand === "release_open" || stand.zustand === "open" || stand.zustand === "approval" || stand.zustand === "waiting_period") && (
+      {(stand.zustand === "open" || stand.zustand === "approval" || stand.zustand === "waiting_period") && (
         <StoppPanel
           zustand={stand.zustand}
           way={stand.way}
@@ -389,9 +387,9 @@ export function AdresswechselLinkView({ start }: { start: AdresswechselStart }) 
       {stand.zustand === "ended" && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
-          tone={stand.art === "effective" && stand.seite === "previous" ? "hinweis" : "erfolg"}>
-          <p className={ABSATZ_CLASSES}>{ENDE[stand.art][stand.seite].satz}</p>
-          {stand.art === "effective" && stand.seite === "new" && <p className={ABSATZ_CLASSES}>{PASSKEY_SATZ}</p>}
+          tone={stand.art === "effective" && stand.side === "previous" ? "hinweis" : "erfolg"}>
+          <p className={ABSATZ_CLASSES}>{ENDE[stand.art][stand.side].satz}</p>
+          {stand.art === "effective" && stand.side === "new" && <p className={ABSATZ_CLASSES}>{PASSKEY_SATZ}</p>}
           <ZurLiga />
         </BestaetigungErgebnis>
       )}
@@ -403,7 +401,7 @@ export function AdresswechselLinkView({ start }: { start: AdresswechselStart }) 
             panelRef={ergebnisRef}
             tone="hinweis">
             <p className={ABSATZ_CLASSES}>
-              Dieser Link ist abgelaufen. Ein Link gilt {String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden.{" "}
+              Dieser Link ist abgelaufen. Ein Link gilt {String(ADDRESS_CHANGE_VALID_HOURS)} Stunden.{" "}
               {/* Only the person's own start can be asked again on the account page; an administrator's needs the league. */}
               {stand.way === "account"
                 ? "Hast Du die Änderung selbst angefragt, frag sie in Deinem Konto neu an."

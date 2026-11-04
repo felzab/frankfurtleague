@@ -6,7 +6,6 @@ import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 
-import type { MedienFragen } from "@/features/spieler/nachweis";
 import type { TeamSaisonMembership } from "@/features/teams/types";
 
 /**
@@ -15,15 +14,9 @@ import type { TeamSaisonMembership } from "@/features/teams/types";
  * no control here repeats it.
  */
 export function AdminKontakteEditView({
-  laufendesLabel,
-  medienFragen,
   team,
   saison,
 }: {
-  /** The label the application form runs, which a seat opened blank stamps. */
-  laufendesLabel: string | null;
-  /** Whether each stored seat's confirmation page asked the media choice. */
-  medienFragen: MedienFragen;
   team: { id: string; name: string; shorthand: string; inactive_since: string | null };
   saison: TeamSaisonMembership;
 }) {
@@ -32,8 +25,6 @@ export function AdminKontakteEditView({
   return (
     <div className={`${PAGE_RISE_CLASSES} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminKontakteEditForm
-        laufendesLabel={laufendesLabel}
-        medienFragen={medienFragen}
         teamId={team.id}
         saison={saison}
         pageHeader={{

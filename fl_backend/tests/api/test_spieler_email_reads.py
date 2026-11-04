@@ -9,11 +9,11 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.account.person_router import get_einwilligungen
 from app.api.adresswechsel.admin_router import post_address_change_verwaltung
 from app.api.adresswechsel.schemas import FLAddressChangeVerwaltungPayload
-from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
-from app.api.identitaet.person_router import get_account_erasure_view
-from app.api.konto.person_router import get_einwilligungen
+from app.api.identity.crud import find_anmeldung, find_subjekt, unreferenced_of
+from app.api.identity.person_router import get_account_erasure_view
 from app.api.registrierungen.person_router import admit, get_open_registrierungen
 from app.api.registrierungen.public_router import get_confirmation_view
 from app.api.registrierungen.schemas import (
@@ -22,7 +22,6 @@ from app.api.registrierungen.schemas import (
 )
 from app.api.spieler.person_router import get_self, patch_einwilligung
 from app.core.collections import Collection
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
@@ -30,6 +29,7 @@ from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import SPIELER_TEXT_VERSIONS
 from tests.erasure import erased
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
@@ -94,7 +94,7 @@ async def seed(database: AsyncDatabase) -> ObjectId:
                 "geburtsdatum": "2009-05-04",
                 "umfang": "intern",
                 "medien": False,
-                "text_version": "2026-09",
+                "text_versions": SPIELER_TEXT_VERSIONS,
                 "today": "2026-03-31",
                 "am": "2026-03-31T08:00:00+00:00",
             },
@@ -173,12 +173,6 @@ async def the_account_read(database: AsyncDatabase, client: AsyncMongoClient, re
     return await get_einwilligungen(
         identifier=FOLDED_EMAIL,
         spieler_collection=database[Collection.SPIELER],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        teams_collection=database[Collection.TEAMS],
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        records=record_collections(database),
         db=client,
         today=TODAY,
     )
@@ -194,7 +188,7 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
             {
                 "umfang": "intern",
                 "medien": False,
-                "text_version": LAUFENDE_FASSUNGEN["konto_spieler"],
+                "text_versions": dict(documents.SPIELER_TEXT_VERSIONS),
                 # The stand the account page served for the record as the corpus seeds it.
                 "nachweis_stand": nachweis_stand_of(bloecke=[documents.EINWILLIGUNG]),
             }
@@ -233,7 +227,9 @@ async def the_address_change_request(database: AsyncDatabase, client: AsyncMongo
     """The holder check, shared with the re-send, the link's view and its confirmation (`app/api/spieler/crud.py :: another_pupil_holds`)."""
 
     return await post_address_change_verwaltung(
-        adresswechsel_data=FLAddressChangeVerwaltungPayload(adresse=FOLDED_EMAIL, email="thessaly.neu@beispielschule.de", grund=None),
+        adresswechsel_data=FLAddressChangeVerwaltungPayload(
+            adresse=FOLDED_EMAIL, email="thessaly.neu@beispielschule.de", grund="Ausweis gesehen"
+        ),
         adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
         records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],

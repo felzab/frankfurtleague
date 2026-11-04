@@ -64,7 +64,7 @@ export const ADMIN_SHELL_FALLBACK = {
   },
 } as const satisfies { label: string; hint: SidemenuHint };
 
-/** `/bereich/admin/spiele/[spiel_id]` gets no nav entry: the nav renders a link per entry, and there is no fixture index to link to. */
+/** `/area/admin/spiele/[spiel_id]` gets no nav entry: the nav renders a link per entry, and there is no fixture index to link to. */
 export const ADMIN_SHELL_UNLISTED_SECTIONS = {
   spiele: {
     label: "Spiele",
@@ -190,7 +190,6 @@ export const ADRESSWECHSEL_EINTRAG = {
   label: "Adressänderung auf Anfrage",
   iconName: "At",
   hint: {
-    // „sagt“: the first way asks the address on file, which only approves where someone still signs in there.
     lead: "Die E-Mail-Adresse einer Person ändern, die sagt, dass sie sich nicht mehr anmelden kann.",
     points: [
       { term: "Wer sich anmelden kann", detail: "ändert die eigene Adresse selbst auf der Kontoseite." },

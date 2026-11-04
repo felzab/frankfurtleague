@@ -2,12 +2,12 @@ import { cache } from "react";
 
 import { isRecordMissing } from "@/core/errors";
 import { schiedsrichterGetSchiedsrichter, schiedsrichterGetSchiedsrichterById, schiedsrichterGetSelf } from "@/core/generated/client/sdk";
+import { runWithIncomingTrace } from "@/core/traceScope";
 import { medienNochNicht } from "@/features/bewerbungen/utils";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
-import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import { alterAusserhalb } from "./constants";
 import { postSchiedsrichterBestaetigungAnsicht } from "./mutations";
@@ -113,10 +113,6 @@ export async function mapSchiedsrichterBestaetigungRefusal(
     // backend's sends this, which a reopened link would offer again: switching it off is the repair.
     case "medien_age":
       return { error: medienNochNicht((await ansicht())?.medien_minimum_age ?? null) };
-    // The backend's judgement of the label: a page opened before a
-    // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
-    case "wording_not_allowed":
-      return { error: FASSUNG_NEU_OEFFNEN };
     case "link_invalid":
       return { zustand: "invalid" };
     // Judged ahead of the ban, which the view ranks first: an address barred since reads as a reload shows it.

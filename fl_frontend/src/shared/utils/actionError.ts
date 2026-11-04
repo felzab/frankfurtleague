@@ -144,7 +144,7 @@ const OCCUPANT_REFUSALS: Readonly<Partial<Record<Code, string>>> = {
 };
 
 /** The sentence of a write that may or may not have landed. */
-export const SPEICHERUNG_UNKLAR = buildRefusal({
+const SPEICHERUNG_UNKLAR = buildRefusal({
   reason: "Ob die Änderung gespeichert wurde, ist unklar",
   repair: "Lade die Seite neu und prüfe, ob sie da ist",
 });
@@ -169,14 +169,6 @@ export const ZU_VIELE_VERSUCHE_NICHTS_GESPEICHERT =
  * refills within the minute. The public forms' answer to the same refusal too.
  */
 export const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.";
-
-/**
- * A send's state where its action rejected with the edge's own refusal, which reached nothing past the
- * edge; any other rejection is handed back unread, to whatever its caller answers it with.
- */
-export function edgeRefusedSend(error: unknown): ActionFailure | null {
-  return isEdgeRefusal(error) ? { success: false, error: ZU_VIELE_VERSUCHE } : null;
-}
 
 /**
  * An editor's answer to its own action rejecting: the press may have reached the server, and uncaught in a

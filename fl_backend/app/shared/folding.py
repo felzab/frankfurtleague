@@ -3,7 +3,7 @@ import unicodedata
 from typing import Any, Final
 
 from email_validator import EmailNotValidError, ValidatedEmail, validate_email
-from pydantic_core import PydanticCustomError, Url, ValidationError
+from pydantic_core import PydanticCustomError
 
 # ECMAScript's `WhiteSpace` and `LineTerminator`, never `str.strip()`'s set, which takes U+0085 and
 # leaves U+FEFF: the two ends would part on a character nobody can see. Code points rather than an
@@ -17,44 +17,7 @@ _TRIMMED: Final = "".join(
 # the frontend lowers the same 26, so this step cannot part the two folds.
 _ASCII_LOWER: Final = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
 
-
-# The ASCII a URL parser reads as structure, which `fl_frontend/src/core/emailAddress.ts :: EMAIL_HOST_CHARS_REGEX`
-# keeps out of a host beside every separator, control and format character: parsed, a host holding one answers a
-# name nobody typed.
-_NOT_IN_A_HOST: Final = frozenset("!\"#$%&'()*+,/:;<=>?@[\\]^_`{|}~")
-
-
-def _ascii_domain(domain: str) -> str | None:
-    """The domain as the URL Standard's parser hosts it, pydantic-core's `Url` as the frontend's `new URL`, or `None` where it cannot."""
-
-    if not domain or any(character in _NOT_IN_A_HOST or unicodedata.category(character)[0] in "ZC" for character in domain):
-        return None
-
-    try:
-        return Url(f"https://{domain}").host
-    except ValidationError:
-        return None
-
-
-def _stored_domain(domain: str) -> str | None:
-    """The domain as `league_address` stores it, or `None` where the address rule refuses it."""
-
-    # Any local part the rule takes: it converts the domain alone.
-    try:
-        return _league_validated(f"a@{domain}").ascii_domain
-    except ValueError:
-        return None
-
-
-def _folded_domain(domain: str) -> str:
-    # A lookup held to no address rule may name its domain in Unicode,
-    # and converting it here is what joins it to the punycode spelling every payload stores.
-    if not domain.isascii():
-        # `Url` first: the frontend converts as it does, and the address rule refuses a special-use or dotless domain.
-        # The rule where `Url` refuses: its Unicode tables run ahead, and a domain it stored converted would be asked unconverted.
-        domain = _ascii_domain(domain) or _stored_domain(domain) or domain
-
-    return domain.translate(_ASCII_LOWER)
+_REFUSAL: Final = ("email_not_accepted", "this is no email address the league accepts")
 
 
 def trimmed(address: str) -> str:
@@ -63,70 +26,74 @@ def trimmed(address: str) -> str:
     return address.strip(_TRIMMED)
 
 
-def _league_validated(address: str) -> ValidatedEmail:
-    """`allow_smtputf8=False` is the address rule's whole choice: a local part in ASCII, and a Unicode domain converted to punycode."""
+def refuse_a_domain_beyond_ascii(address: str) -> str:
+    """`address` as given; the address rule's refusal where its domain holds a character beyond ASCII.
+
+    Every stored domain is ASCII, an international one in punycode, so a lookup naming one in Unicode would find nothing.
+    """
+
+    if not address.rpartition("@")[2].isascii():
+        raise PydanticCustomError(*_REFUSAL)
+
+    return address
+
+
+def _validated(address: str) -> ValidatedEmail:
+    bare = trimmed(address)
+    # Before the library, which would take a Unicode domain and answer it in punycode: a second spelling of one
+    # mailbox, which no fold of the typed address meets.
+    if not bare.isascii():
+        raise PydanticCustomError(*_REFUSAL)
 
     try:
-        return validate_email(trimmed(address), allow_smtputf8=False, check_deliverability=False)
+        return validate_email(bare, allow_smtputf8=False, check_deliverability=False)
     except EmailNotValidError:
         # `from None`, for the reason `app/core/config.py :: get_config` suppresses its own cause:
         # the library's message quotes the value it rejected, and no address reaches a traceback or
         # a log line.
-        raise PydanticCustomError("email_not_accepted", "this is no email address the league accepts") from None
+        raise PydanticCustomError(*_REFUSAL) from None
 
 
 def league_address(address: str) -> str:
-    """The form every address payload stores; `ValueError` where the rule refuses it.
+    """The form every address payload stores; `ValueError` where the address rule refuses it.
 
-    The sign-in fold of what the rule accepts, so every read of a stored address is an equality on the asker's fold.
+    The rule is ASCII throughout, so the stored form is the sign-in fold of what it accepts, and every read of a stored
+    address is an equality on the asker's fold.
     """
 
-    validated = _league_validated(address)
-
+    validated = _validated(address)
     # Set wherever `allow_smtputf8` is off, which refuses every address that would leave it unset.
     assert validated.ascii_email is not None
     return sign_in_identifier(validated.ascii_email)
 
 
+def ban_key(address: str) -> str:
+    """The form a ban is keyed on: `league_address`'s, its domain decoded from punycode; `ValueError` where the rule refuses it.
+
+    Decoded because every stored ban was keyed so, and the list holds only keyed hashes, which nothing can re-key: an
+    `xn--` key would leave each ban on an international domain standing for an address no lookup asks again. For an
+    address with no `xn--` label it is `league_address`'s own.
+    """
+
+    validated = _validated(address)
+    assert validated.ascii_local_part is not None
+    # `domain` is the library's decoding of the punycode; `lower` rather than the ASCII fold, as the stored keys were
+    # lowered, a decoded domain holding letters beyond ASCII.
+    return f"{validated.ascii_local_part.translate(_ASCII_LOWER)}@{validated.domain.lower()}"
+
+
 def sign_in_identifier(address: str) -> str:
-    """`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`'s spelling in Python.
+    """`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`'s spelling in Python: trimmed and lower-cased.
 
     A stored address is compared in this form, or one mailbox's two spellings compare unequal and
     nothing fails. It never raises, so an address no rule takes today still folds.
     """
 
-    bare = trimmed(address)
-    local, at, domain = bare.rpartition("@")
-
-    return f"{local.translate(_ASCII_LOWER)}@{_folded_domain(domain)}" if at else bare.translate(_ASCII_LOWER)
-
-
-def canonical_address(address: str) -> str:
-    """The form a ban is keyed on; `ValueError` where the address rule refuses the value.
-
-    Its domain DECODED rather than in punycode, as the stored bans were keyed,
-    Greek sigmas apart.
-    """
-
-    validated = _league_validated(address)
-    assert validated.ascii_local_part is not None
-
-    # `domain` is the library's decoding of the punycode it stores. `lower` rather than the ASCII
-    # fold: UTS46 leaves Cherokee in capitals, and the keys already stored lower-cased them.
-    return f"{validated.ascii_local_part.translate(_ASCII_LOWER)}@{validated.domain.lower()}"
+    return trimmed(address).translate(_ASCII_LOWER)
 
 
 # Escaped one character at a time, which Python's `re` and the server's PCRE read alike.
 _TRIMMED_CLASS: Final = "[" + "".join(re.escape(character) for character in _TRIMMED) + "]"
-
-
-def trimmed_prefix_pattern(prefix: str) -> str:
-    """`prefix`, an escaped `$regex` fragment, anchored at the start so that whatever `sign_in_identifier` trims may stand before it.
-
-    A pre-filter taking less than the fold leaves a row the fold would have claimed unread.
-    """
-
-    return f"^{_TRIMMED_CLASS}*{prefix}"
 
 
 def trimmed_pattern(fragment: str) -> str:

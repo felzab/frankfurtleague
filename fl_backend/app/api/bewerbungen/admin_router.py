@@ -60,7 +60,6 @@ from app.api.bewerbungen.services import (
     personen_mit_adresse,
     seat_named,
 )
-from app.api.einwilligung.services import find_fassung_refusal
 from app.api.outbox.crud import states_of
 from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData
 from app.api.outbox.services import OwedMail, enqueue_mails
@@ -337,7 +336,7 @@ async def accept_bewerbung(
                 "austritt": None,
                 "trikot_farbe": annahme_data.trikot_farbe,
                 # The three people arrive WITH the row rather than in a later write: they are what the
-                # application was, and `/bereich/admin/kontakte` reads them from here. Copied whole, each seat
+                # application was, and `/area/admin/kontakte` reads them from here. Copied whole, each seat
                 # confirmed by its own person before acceptance was allowed (`bewerbung_kontakte_unconfirmed`).
                 "kontakte": bewerbung_raw["kontakte"],
                 # Copied rather than joined on read.
@@ -741,8 +740,7 @@ async def post_kontakt_seat(
     stepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included
     (`bewerbung_seat_already_answered`); and on an address another
     contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds
-    (`bewerbung_kontakt_barred`); and on any label but the application form's running one (`wording_not_allowed`), the person
-    seated being a new acceptance. A path naming no seat is a 404.
+    (`bewerbung_kontakt_barred`). A path naming no seat is a 404.
     """
 
     # Outside the transaction, as the correction reads both.
@@ -782,8 +780,6 @@ async def post_kontakt_seat(
         refuse(find_kontakt_email_refusal(kontakte=kontakte, seats=seats, email=sitz_data.email))
         gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_kontakt_gesperrt_refusal(barred=gesperrt))
-        # A new acceptance on every seat it fills: the person seated holds no label of their own to keep.
-        refuse(find_fassung_refusal(seite="bewerbung", named=dict.fromkeys(seats, sitz_data.text_version)))
 
         bestaetigungsfrist = bestaetigungsfrist_from(today=today)
 
@@ -792,10 +788,8 @@ async def post_kontakt_seat(
             db_filter=db_filter,
             update=compose_kontakt_seat_update(
                 seats=seats,
-                # The label is excluded rather than dropped by the composer: everything left is the
-                # person as the slot stores them, so a sixth field added here reaches storage.
-                person=sitz_data.model_dump(mode="json", exclude={"text_version"}),
-                text_version=sitz_data.text_version,
+                # The person as the slot stores them, so a sixth field added here reaches storage.
+                person=sitz_data.model_dump(mode="json"),
                 today=today,
                 confirmation_deadline=bestaetigungsfrist,
             ),

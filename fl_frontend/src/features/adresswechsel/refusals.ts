@@ -1,4 +1,3 @@
-import { KONTAKT_EMAIL } from "@/core/brand";
 import { isRecordMissing } from "@/core/errors";
 import { ADRESSWECHSEL_EINTRAG } from "@/features/admin/constants";
 import { NACH_ERNENNUNG_NEU_ANMELDEN } from "@/features/berechtigungen/constants";
@@ -10,7 +9,7 @@ import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import type { Code, FLAddressChangeViewableDenied, FLApprovalDenied } from "@/core/generated/client/types";
 import type { RefusalParts } from "@/shared/utils/refusal";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { AdresswechselLinkZustand } from "./link";
+import type { AddressChangeLinkState } from "./link";
 
 // ---- The link page ------------------------------------------------------------------------------
 
@@ -18,7 +17,7 @@ import type { AdresswechselLinkZustand } from "./link";
  * A refused link read as the panel it renders, or `null` where the read failed instead. Every state a live
  * or ended change can be in answers in a 200, so a refusal is a token nothing could place.
  */
-export function mapAdresswechselAnsichtRefusal(error: unknown): "invalid" | null {
+export function mapAddressChangeViewRefusal(error: unknown): "invalid" | null {
   if (!isRefusal(error)) return null;
 
   // A token the backend will not parse matches no record, so the page calls the link void.
@@ -28,10 +27,10 @@ export function mapAdresswechselAnsichtRefusal(error: unknown): "invalid" | null
 }
 
 /** What a refused press leaves the page showing: a panel, a re-read of the link, or the sentence of a drifted body. */
-export type AdresswechselPresseRefusal = { zustand: AdresswechselLinkZustand } | { neuLesen: true } | ReturnType<typeof refusedPayloadAnswer>;
+export type AddressChangePressRefusal = { zustand: AddressChangeLinkState } | { neuLesen: true } | ReturnType<typeof refusedPayloadAnswer>;
 
 /** A refused answer or stop, or `null` where the code is none of these. */
-export function mapAdresswechselPresseRefusal(error: unknown): AdresswechselPresseRefusal | null {
+export function mapAddressChangePressRefusal(error: unknown): AddressChangePressRefusal | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
@@ -61,58 +60,6 @@ export function mapAdresswechselPresseRefusal(error: unknown): AdresswechselPres
     default:
       return null;
   }
-}
-
-// ---- The account page ---------------------------------------------------------------------------
-
-/** The new address folds to the one signed in: the box is the way out, so the sentence stands on it. */
-const SCHON_ANGEMELDET = "Mit dieser Adresse bist Du schon angemeldet.";
-
-/** The address holds nothing a change moves: only a page older than the records' end reaches it, the panel standing on the same read. */
-const KEIN_EINTRAG = `Unter Deiner Adresse steht nichts mehr, dessen Adresse sich hier ändern lässt. Schreib uns an ${KONTAKT_EMAIL}.`;
-
-/**
- * Nobody but the changed person and the change's starter could approve: an owner's change needs another
- * owner, which the last owner makes first, as the last owner's account deletion asks (`last_owner_erasure`).
- */
-const NIEMAND_GENEHMIGT =
-  "Eine neue Adresse für einen Zugang zur Verwaltung muss eine andere Person aus der Verwaltung genehmigen, und das kann gerade niemand. Ist Dein Zugang der einer Inhaberin oder eines Inhabers, mache zuerst eine andere Person zur Inhaberin oder zum Inhaber.";
-
-/** The person's own start, or `null`, which the person spine's reader answers. */
-export function mapKontoAdresswechselRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!isRefusal(error)) return null;
-
-  switch (error.serverErrorCode) {
-    case "address_change_unchanged":
-      return { error: SCHON_ANGEMELDET, fieldErrors: { email: SCHON_ANGEMELDET } };
-    case "address_change_nothing":
-      return { error: KEIN_EINTRAG };
-    case "address_change_no_approver":
-      return { error: NIEMAND_GENEHMIGT };
-    default:
-      return null;
-  }
-}
-
-/** The approval, or `null`: a shown change awaiting no approval is the 404, and one replaced or stopped since the page loaded `address_change_ended`. */
-export function mapKontoFreigabeRefusal(error: unknown): string | null {
-  if (isRecordMissing(error)) return "Es wartet keine Änderung mehr auf Deine Freigabe. Lade die Seite neu.";
-  if (!isRefusal(error)) return null;
-
-  switch (error.serverErrorCode) {
-    case "link_expired":
-      return "Die Zeit für die Freigabe ist abgelaufen. Die Änderung wird gelöscht.";
-    // Nothing approved: the page's change was replaced, and the reload shows the one standing now.
-    case "address_change_ended":
-      return "Diese Änderung ist inzwischen beendet, freigegeben ist nichts. Lade die Seite neu.";
-    default:
-      return null;
-  }
-}
-
-/** The stop, or `null`: the one refusal is a change already gone, whose page the reload brings up to date. */
-export function mapKontoStoppRefusal(error: unknown): string | null {
-  return isRecordMissing(error) ? "Es wartet keine Änderung mehr. Lade die Seite neu." : null;
 }
 
 // ---- The address tool ---------------------------------------------------------------------------
@@ -160,7 +107,7 @@ const EINTRAEGE_DA = "Unter der neuen Adresse stehen schon Einträge bei der Lig
 const NUR_VON_HAND = "Die Einträge beider Adressen lassen sich nur von Hand zusammenführen, nicht über diese Seite.";
 
 /**
- * A sign-in account at the new address, which this server reads and the backend cannot (`kontoAnNeuerAdresse`). It may
+ * A sign-in account at the new address, which this server reads and the backend cannot (`accountAtNewAddress`). It may
  * be one the hourly account sweep removes, holding nothing, so a later try is named before the work by hand.
  */
 const KONTO_DA = "Mit der neuen Adresse meldet sich schon jemand an.";

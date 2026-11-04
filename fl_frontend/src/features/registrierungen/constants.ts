@@ -1,6 +1,8 @@
 import { FLEinwilligungUmfang } from "@/core/generated/client/types";
 import { BEWERBUNG_MAX_ALTER } from "@/features/bewerbungen/constants";
 
+import type { FLMedienMinAgeYears, FLRegistrierungMinAgeYears } from "@/core/generated/client/types";
+
 // Its own module: every export of a `"use client"` view becomes a client reference, which the page cannot read.
 export const REGISTRIERUNGEN_CRUD_COPY = {
   // The pupil's name and the team are what a card shows, so they are what the bar can reach: no address.
@@ -25,21 +27,16 @@ export const BESTAETIGT_MARKE = { ja: "Bestätigt", nein: "Noch nicht bestätigt
  */
 export const REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE = 7;
 
-// Retyped from `fl_backend/app/shared/schemas/bounds.py` for the published notice, which states the
-// floor with no answer to read it off. The form still takes the served `mindestalter` below: a page
-// judging a date against this copy would refuse where the endpoint accepts.
-export const REGISTRIERUNG_MIN_ALTER = 16;
+// For the published notice, which states the floor with no answer to read it off; checked against
+// `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_MIN_AGE_YEARS`, so the backend moving it
+// fails the type check here. The form still takes the served `mindestalter`: a page judging a date
+// against this copy would refuse where the endpoint accepts.
+export const REGISTRIERUNG_MIN_ALTER = 16 satisfies FLRegistrierungMinAgeYears;
 
-// Retyped from `fl_backend/app/shared/schemas/bounds.py` for the published notice as well, which
-// states the media floor for pupils and referees alike; the pages take the served
-// `medien_mindestalter` for the reason given above.
-export const MEDIEN_MIN_ALTER = 18;
-
-/**
- * The publication question, on the confirmation page and the account page alike. The answers are the
- * registry's, this choice deciding a stored field; the question is no stamped word.
- */
-export const SPIELER_UMFANG_FRAGE = "Was darf von Deinem Namen auf der Website stehen?";
+// For the published notice as well, which states the media floor for pupils and referees alike;
+// checked against `fl_backend/app/shared/schemas/bounds.py :: MEDIEN_MIN_AGE_YEARS` as the floor above
+// is, and the pages take the served `medien_mindestalter` for the reason given above.
+export const MEDIEN_MIN_ALTER = 18 satisfies FLMedienMinAgeYears;
 
 /** The two publication scopes, both in one list: a control offering one answer and a blank reads as a default. */
 export const EINWILLIGUNG_UMFANG_OPTIONS: readonly FLEinwilligungUmfang[] = Object.values(FLEinwilligungUmfang);

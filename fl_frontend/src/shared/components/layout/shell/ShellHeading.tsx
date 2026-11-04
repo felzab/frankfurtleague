@@ -75,7 +75,7 @@ export function ShellHeading({ structure, linkPrefix, unlistedSections = {}, fal
   // and still gets a title and a hint.
   const baseSegment = pathname.replace(`${prefix}/`, "").split("/")[0];
   const activeOption = structure.flatMap((group) => group.sub_options).find((option) => option.id === baseSegment);
-  // `hasOwn`, never `in` or a bare index: the segment is whatever the address bar holds, and `/bereich/admin/constructor`
+  // `hasOwn`, never `in` or a bare index: the segment is whatever the address bar holds, and `/area/admin/constructor`
   // would otherwise select a prototype member and head the page with nothing at all.
   const unlistedSection = baseSegment !== undefined && Object.hasOwn(unlistedSections, baseSegment) ? unlistedSections[baseSegment] : undefined;
   // Matched whole and ahead of the first segment, so the one address is headed alike in whichever shell

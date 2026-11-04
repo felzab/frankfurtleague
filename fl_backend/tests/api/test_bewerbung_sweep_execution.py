@@ -44,6 +44,7 @@ from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
 from tests.delivery import a_mail_that_bounced
 from tests.documents import (
+    SEAT_TEXT_VERSIONS,
     ban_document,
     kontaktperson_document,
     rules_document,
@@ -275,7 +276,7 @@ async def confirm_every_seat(database: AsyncDatabase, bewerbung_id: ObjectId) ->
             seats=KONTAKT_ROLLEN,
             geburtsdatum=CONFIRMED_GEBURTSDATUM,
             today=MAILED_ON_THE_MARK,
-            text_version="v3",
+            text_versions=SEAT_TEXT_VERSIONS,
             whatsapp=False,
             medien=False,
             am=f"{MAILED_ON_THE_MARK}T08:00:00+00:00",

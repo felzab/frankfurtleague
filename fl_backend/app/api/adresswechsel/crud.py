@@ -23,6 +23,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.adresswechsel.services import (
     LIVE_TERMS,
+    asks_the_address_on_file,
     build_address_filter,
     build_owed_carry_filter,
     compose_end_update,
@@ -45,8 +46,8 @@ from app.api.berechtigungen.antraege import antrag_line, build_offen_filter, end
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
 from app.api.berechtigungen.loeschung import carry_authorship_in_session
 from app.api.berechtigungen.services import compose_fortgefuehrt, genehmigung_steht
-from app.api.identitaet.lookup import RecordCollections
-from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt, eigene_sitze, ist_eigener_schiedsrichter
+from app.api.identity.lookup import RecordCollections
+from app.api.identity.services import adresswechsel_einsehbar_verwehrt, eigene_sitze, ist_eigener_schiedsrichter
 from app.api.kontakte.services import find_matching_slots, rows_seating, same_address
 from app.api.outbox.schemas import (
     FLAddressChangeDiscardedData,
@@ -410,7 +411,7 @@ async def owe_the_link_in_session(
     )
 
 
-async def owe_the_hinweis_in_session(
+async def owe_the_notice_in_session(
     *,
     address_change_id: ObjectId,
     adresse: str,
@@ -877,21 +878,25 @@ async def move_the_address_in_session(
         },
         session=session,
     )
-    await enqueue_mails(
-        outbox_collection=outbox_collection,
-        session=session,
-        mails=[
-            OwedMail(
-                key=f"adresswechsel/{record['_id']}/effective",
-                an=alt,
-                # Greeting nobody on the lost-mailbox way: that mailbox may have passed to a stranger.
-                data=FLAddressChangeEffectiveData(
-                    art="address_change_effective", instant=now, vorname=None if record["way"] == "waiting_period" else holdings.vorname
-                ),
-            )
-        ],
-        now=now,
-    )
+    # The person's own change taking effect at the new mailbox's press owes the replaced mailbox nothing more: it confirmed
+    # the change through its own link, and the new mailbox confirmed it last, so both already know. One that waited on a
+    # grant's approval takes effect later, at that approval or the hourly pass, and tells the replaced mailbox then.
+    if record["way"] != "account" or record.get("confirmed_at") is not None:
+        await enqueue_mails(
+            outbox_collection=outbox_collection,
+            session=session,
+            mails=[
+                OwedMail(
+                    key=f"adresswechsel/{record['_id']}/effective",
+                    an=alt,
+                    # Greeting nobody on the lost-mailbox way: that mailbox may have passed to a stranger.
+                    data=FLAddressChangeEffectiveData(
+                        art="address_change_effective", instant=now, vorname=None if record["way"] == "waiting_period" else holdings.vorname
+                    ),
+                )
+            ],
+            now=now,
+        )
 
     # The requests for a grant it ended, each journalled by the caller as a refusal.
     return beendet
@@ -1070,7 +1075,7 @@ async def verwehrte_adressen(
 ) -> dict[str, FLAddressChangeViewableDenied]:
     """Which of these folded addresses' changes the address tool refuses this administrator, and why; one absent opens.
 
-    Judged by `app/api/identitaet/services.py :: adresswechsel_einsehbar_verwehrt`; the grants are read only where an
+    Judged by `app/api/identity/services.py :: adresswechsel_einsehbar_verwehrt`; the grants are read only where an
     address is asked, most reads serving no change.
     """
 
@@ -1095,9 +1100,9 @@ def others_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Ma
 
 
 def known_to_the_new_mailbox(rows: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
-    """The ones whose link was owed the new mailbox: a request awaiting approval has none."""
+    """The ones whose link was owed the new mailbox: one still awaiting the address on file has none."""
 
-    return [row for row in rows if row.get("way") != "release" or row.get("released_at") is not None]
+    return [row for row in rows if not asks_the_address_on_file(row)]
 
 
 _GENEHMIGUNG_AKTEURE: Final = ("approval.started_by", "approval.approved_by")

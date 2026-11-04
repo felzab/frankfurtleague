@@ -10,8 +10,8 @@ from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_nachweis import compose_geboren
-from app.shared.folding import canonical_address, sign_in_identifier
+from app.shared.einwilligung_nachweis import TextVersions, compose_geboren
+from app.shared.folding import league_address, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     MEDIEN_MIN_AGE_YEARS,
@@ -183,7 +183,7 @@ def compose_mint_update(*, today: str) -> dict[str, Any]:
     return {BESTAETIGUNG_FELD: compose_bestaetigung(today=today)}
 
 
-def compose_einwilligung(*, umfang: str, medien: bool, text_version: str, today: str) -> dict[str, Any]:
+def compose_einwilligung(*, umfang: str, medien: bool, today: str) -> dict[str, Any]:
     """The record as the person's own press writes it.
 
     `datum` and `confirmed_at` are one day here where a pupil's are two: nobody enters this record
@@ -194,12 +194,13 @@ def compose_einwilligung(*, umfang: str, medien: bool, text_version: str, today:
         "umfang": umfang,
         "datum": today,
         "confirmed_at": today,
-        "text_version": text_version,
         "medien": medien,
     }
 
 
-def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool, text_version: str, today: str, am: str) -> Mapping[str, Any]:
+def compose_confirmation_update(
+    *, geburtsdatum: str, umfang: str, medien: bool, text_versions: TextVersions, today: str, am: str
+) -> Mapping[str, Any]:
     """The ONE `$set` a confirmation is.
 
     Never two writes: between them the row would hold a birthdate nobody had yet consented to the
@@ -208,7 +209,7 @@ def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool,
 
     # Born whole rather than moved: the stamp refusal admits only a row whose stored block no answer
     # of this referee's stands on, and a dotted `$set` under a null block aborts the transaction.
-    record = compose_geboren(block=compose_einwilligung(umfang=umfang, medien=medien, text_version=text_version, today=today), am=am)
+    record = compose_geboren(block=compose_einwilligung(umfang=umfang, medien=medien, today=today), am=am, text_versions=text_versions)
 
     return {"$set": {"geburtsdatum": geburtsdatum, EINWILLIGUNG_FELD: record}}
 
@@ -379,7 +380,7 @@ def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
     # would otherwise meet as a 500.
     if email is not None:
         try:
-            canonical_address(str(email))
+            league_address(str(email))
         except ValueError:
             pass
         else:
@@ -517,10 +518,14 @@ SELBST_FIELDS: Mapping[str, int] = {
 }
 
 
+# The order a person's own pages list their referee rows in, which the account read ranks them by too.
+SELF_REFEREE_ORDER: Final[Mapping[str, int]] = {"_id": 1}
+
+
 def build_self_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """The referee rows a person's own pages read, each a candidate for `app/api/identitaet/services.py :: ist_eigener_schiedsrichter`.
+    """The referee rows the referee's own page reads, each a candidate for `app/api/identity/services.py :: ist_eigener_schiedsrichter`.
 
     Unbounded: a capped list reads as a person holding fewer records.
     """
 
-    return [{"$match": build_self_referee_filter(identifier)}, {"$project": dict(SELBST_FIELDS)}, {"$sort": {"_id": 1}}]
+    return [{"$match": build_self_referee_filter(identifier)}, {"$project": dict(SELBST_FIELDS)}, {"$sort": dict(SELF_REFEREE_ORDER)}]

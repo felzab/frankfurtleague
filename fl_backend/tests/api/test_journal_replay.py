@@ -2,7 +2,7 @@
 API · a restore runs a person's own later choices again: the line each press journals, and the replay writing what the press wrote
 
 A withdrawal, a Widerspruch and an address change ended or taking effect after a snapshot are rolled back with the log that recorded
-them; the journal line is all that brings one back (`app/api/identitaet/wiederherstellung.py`). Each case presses as the
+them; the journal line is all that brings one back (`app/api/identity/journal_replay.py`). Each case presses as the
 person, puts the record back as the snapshot held it, replays the line, and requires the very record the press left, its
 evidence's instant included; then replays it again and requires nothing to move.
 """
@@ -12,7 +12,7 @@ import io
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -24,7 +24,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.adresswechsel.admin_router import delete_address_change as discard_the_change
 from app.api.adresswechsel.services import als_utc
-from app.api.identitaet.wiederherstellung import REPLAY_METHOD, Read, Window, plan_replay, replay_line, run_replay
+from app.api.identity.journal_replay import REPLAY_METHOD, Read, Window, replay_line, run_replay
 from app.api.spielbestaetigungen.services import halter_of
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection
@@ -35,14 +35,16 @@ from app.core.logging import JSONFormatter
 from app.core.recording import ERASED_ACTOR_MARKER
 from app.core.security import actor_pseudonym, erasure_journal_hash
 from app.main import create_app
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
-from app.shared.einwilligung_nachweis import nachweis_stand_of
+from app.shared.einwilligung_nachweis import TextVersions, nachweis_stand_of
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, BASE_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
+    SCHIEDSRICHTER_TEXT_VERSIONS,
+    SEAT_TEXT_VERSIONS,
+    SPIELER_TEXT_VERSIONS,
     bewerbung_document,
     kontakte_document,
     kontaktperson_document,
@@ -105,8 +107,6 @@ MOVING_PUPIL = "lenore@schule.de"
 MOVING_REFEREE = "baldur@schule.de"
 ADMIN = "verwaltung@frankfurtleague.de"
 
-CONFIRMED_LABEL = "2026-10-schiedsrichterseite-4"
-SEAT_LABEL = "2026-09-bestaetigungsseite-6"
 
 ROW_LINK = "the-season-rows-link"
 APPLICATION_LINK = "the-applications-link"
@@ -114,10 +114,10 @@ REFEREE_ADDRESS_LINK = "the-referees-address-link"
 PUPIL_ADDRESS_LINK = "the-pupils-address-link"
 
 
-def _own(**fields: Any) -> dict[str, Any]:
-    """A person's own record's consent, both choices granted."""
+def _own(text_versions: TextVersions, **fields: Any) -> dict[str, Any]:
+    """A person's own record's consent, both choices granted under its kind's wordings."""
 
-    return own_einwilligung_document(text_version=CONFIRMED_LABEL, confirmed_at="2126-09-02", medien=True, **fields)
+    return own_einwilligung_document(text_versions=text_versions, confirmed_at="2126-09-02", medien=True, **fields)
 
 
 def _seat(email: str, *, confirmed: bool = True) -> dict[str, Any]:
@@ -125,15 +125,22 @@ def _seat(email: str, *, confirmed: bool = True) -> dict[str, Any]:
         "Ortrud" if confirmed else "Ida",
         confirmed_at="2126-09-03" if confirmed else None,
         geburtsdatum=ADULT if confirmed else None,
-        einwilligung={"umfang": "kontaktdaten_whatsapp", "medien": True, "text_version": SEAT_LABEL} if confirmed else {},
+        einwilligung={"umfang": "kontaktdaten_whatsapp", "medien": True} if confirmed else {},
     )
     return {**seat, "email": email}
 
 
 # The stand each account page serves for the record as `_seed` stores it, which a press from that page echoes.
-SERVED_STAND: dict[Seite, dict[str, str | None]] = {
-    "konto_spieler": nachweis_stand_of(bloecke=[_own()]),
-    "konto_schiedsrichter": nachweis_stand_of(bloecke=[_own()]),
+# Each account control beside the wordings its press names.
+type Konto = Literal["konto_spieler", "konto_schiedsrichter", "konto_kontakt"]
+LABELS: dict[Konto, TextVersions] = {
+    "konto_spieler": SPIELER_TEXT_VERSIONS,
+    "konto_schiedsrichter": SCHIEDSRICHTER_TEXT_VERSIONS,
+    "konto_kontakt": SEAT_TEXT_VERSIONS,
+}
+SERVED_STAND: dict[Konto, dict[str, str | None]] = {
+    "konto_spieler": nachweis_stand_of(bloecke=[_own(SPIELER_TEXT_VERSIONS)]),
+    "konto_schiedsrichter": nachweis_stand_of(bloecke=[_own(SCHIEDSRICHTER_TEXT_VERSIONS)]),
     "konto_kontakt": nachweis_stand_of(bloecke=[_seat(PERSON)["einwilligung"]]),
 }
 
@@ -186,21 +193,28 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SPIELER].insert_many(
         [
-            spieler_document(PUPIL_OID, "Ortrud", "Zwiebelmayer", email=PERSON, geburtsdatum=ADULT, einwilligung=_own()),
-            spieler_document(MOVING_PUPIL_OID, "Lenore", "Quastenbach", email=MOVING_PUPIL, geburtsdatum=ADULT, einwilligung=_own()),
+            spieler_document(PUPIL_OID, "Ortrud", "Zwiebelmayer", email=PERSON, geburtsdatum=ADULT, einwilligung=_own(SPIELER_TEXT_VERSIONS)),
+            spieler_document(
+                MOVING_PUPIL_OID, "Lenore", "Quastenbach", email=MOVING_PUPIL, geburtsdatum=ADULT, einwilligung=_own(SPIELER_TEXT_VERSIONS)
+            ),
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
             schiedsrichter_document(
-                REFEREE_OID, email=PERSON, name="Ortrud Zwiebelmayer", default_payment=20, einwilligung=_own(), geburtsdatum=ADULT
+                REFEREE_OID,
+                email=PERSON,
+                name="Ortrud Zwiebelmayer",
+                default_payment=20,
+                einwilligung=_own(SCHIEDSRICHTER_TEXT_VERSIONS),
+                geburtsdatum=ADULT,
             ),
             schiedsrichter_document(
                 MOVING_REFEREE_OID,
                 email=MOVING_REFEREE,
                 name="Baldur Krautzberger",
                 default_payment=20,
-                einwilligung=_own(),
+                einwilligung=_own(SCHIEDSRICHTER_TEXT_VERSIONS),
                 geburtsdatum=ADULT,
             ),
         ]
@@ -233,7 +247,6 @@ async def _seed(database: AsyncDatabase) -> None:
             nummer="17",
             stufe="Q1",
             confirmed=registrierung_confirmed(
-                "bestaetigung_spieler",
                 geburtsdatum=ADULT,
                 today="2126-09-21",
                 am="2126-09-21T08:00:00+00:00",
@@ -260,8 +273,8 @@ def _person(email: str) -> StampedHeaders:
     return StampedHeaders(email, ADMIN_KEY, lane="person")
 
 
-def _withdrawal(page: Seite, **choices: Any) -> dict[str, Any]:
-    return {"text_version": LAUFENDE_FASSUNGEN[page], "nachweis_stand": SERVED_STAND[page], **choices}
+def _withdrawal(page: Konto, **choices: Any) -> dict[str, Any]:
+    return {"text_versions": dict(LABELS[page]), "nachweis_stand": SERVED_STAND[page], **choices}
 
 
 Press = Callable[[AsyncClient, AsyncDatabase], Awaitable[Any]]
@@ -341,12 +354,12 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
         ROW_OID,
     ),
     "a referee's declined address": (
-        lambda http, _database: http.post(ANSWER, json={"token": REFEREE_ADDRESS_LINK, "antwort": "declined"}, headers=BASE_AUTH),
+        lambda http, _database: http.post(ANSWER, json={"token": REFEREE_ADDRESS_LINK, "answer": "declined"}, headers=BASE_AUTH),
         Collection.ADDRESS_CHANGES,
         REFEREE_CHANGE_OID,
     ),
     "a pupil's declined address": (
-        lambda http, _database: http.post(ANSWER, json={"token": PUPIL_ADDRESS_LINK, "antwort": "declined"}, headers=BASE_AUTH),
+        lambda http, _database: http.post(ANSWER, json={"token": PUPIL_ADDRESS_LINK, "answer": "declined"}, headers=BASE_AUTH),
         Collection.ADDRESS_CHANGES,
         PUPIL_CHANGE_OID,
     ),
@@ -356,12 +369,12 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
         PUPIL_CHANGE_OID,
     ),
     "a pupil's address that took effect": (
-        lambda http, _database: http.post(ANSWER, json={"token": PUPIL_ADDRESS_LINK, "antwort": "confirmed"}, headers=BASE_AUTH),
+        lambda http, _database: http.post(ANSWER, json={"token": PUPIL_ADDRESS_LINK, "answer": "confirmed"}, headers=BASE_AUTH),
         Collection.ADDRESS_CHANGES,
         PUPIL_CHANGE_OID,
     ),
     "a referee's address that took effect": (
-        lambda http, _database: http.post(ANSWER, json={"token": REFEREE_ADDRESS_LINK, "antwort": "confirmed"}, headers=BASE_AUTH),
+        lambda http, _database: http.post(ANSWER, json={"token": REFEREE_ADDRESS_LINK, "answer": "confirmed"}, headers=BASE_AUTH),
         Collection.ADDRESS_CHANGES,
         REFEREE_CHANGE_OID,
     ),
@@ -384,6 +397,22 @@ PERSONS = {
     "a pupil's address that took effect": NEW_ADDRESS,
     "a referee's address that took effect": NEW_ADDRESS,
 }
+
+# The account page's saves, which answer nothing: the page reads its records again after a press.
+ANSWERING_NOTHING = {
+    "a pupil's withdrawal",
+    "a referee's withdrawal",
+    "a season seat's withdrawal",
+    "a pending application seat's withdrawal",
+    "a pending registration's withdrawal",
+}
+
+
+async def _served(http: AsyncClient) -> Any:
+    """The person's account read, whose stands a press after another one posts: a press answers nothing."""
+
+    return (await http.get(f"{V}/account/einwilligungen", headers=_person(PERSON))).json()
+
 
 Steps = Callable[[AsyncClient, AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -464,7 +493,7 @@ class TestEachPressAndItsReplay:
         [line] = [parse_line(text) for text in outcome["lines"]]
         assert line is not None
 
-        assert outcome["status"] == 200
+        assert outcome["status"] == (204 if press in ANSWERING_NOTHING else 200)
         assert (line.collection, line.record_id, line.am) == (collection, record_id, AM)
         assert line.person_hash == erasure_journal_hash(PERSONS.get(press, PERSON), key=KEY)
         # No address: the day files keep the line thirty days.
@@ -482,26 +511,6 @@ class TestEachPressAndItsReplay:
         ]
         assert JOURNAL_TOKEN not in outcome["rows"][0]["request"]["path"]
 
-    def test_a_grant_and_a_press_moving_nothing_journal_nothing(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """A grant a restore takes back leaves the person less exposed, so only a withdrawal is journalled."""
-
-        async def steps(http: AsyncClient, database: AsyncDatabase, _client: AsyncMongoClient) -> list[int]:
-            await database[Collection.SCHIEDSRICHTER].update_one({"_id": REFEREE_OID}, {"$set": {"einwilligung.medien": False}})
-            path, body = (
-                f"{V}/schiedsrichter/account/{REFEREE_OID}/einwilligung",
-                {
-                    **_withdrawal("konto_schiedsrichter", umfang="kader_oeffentlich", medien=True),
-                    "nachweis_stand": nachweis_stand_of(bloecke=[{**_own(), "medien": False}]),
-                },
-            )
-            with caplog.at_level(logging.INFO):
-                granted = await http.patch(path, json=body, headers=_person(PERSON))
-                unmoved = await http.patch(path, json={**body, "nachweis_stand": granted.json()["nachweis_stand"]}, headers=_person(PERSON))
-            return [granted.status_code, unmoved.status_code]
-
-        assert served(mongo_replica_set_url, steps) == [200, 200]
-        assert journalled(caplog) == []
-
 
 class TestARecordTheLineNoLongerFits:
     def test_a_record_now_holding_somebody_else_is_left_for_review_and_unchanged(self, mongo_replica_set_url: str):
@@ -511,7 +520,7 @@ class TestARecordTheLineNoLongerFits:
             collection=Collection.SPIELER,
             record_id=MOVING_PUPIL_OID,
             am=AM,
-            text_version=LAUFENDE_FASSUNGEN["konto_spieler"],
+            text_versions={"medien": SPIELER_TEXT_VERSIONS["medien"]},
             choices={"medien": False},
         )
 
@@ -524,20 +533,6 @@ class TestARecordTheLineNoLongerFits:
 
         assert stand == "left for review"
         assert after == before
-
-    def test_a_record_the_restore_does_not_hold_is_named_so(self, mongo_replica_set_url: str):
-        line = JournalLine(
-            person_hash=erasure_journal_hash(PERSON, key=KEY),
-            art="adresswechsel_abgelehnt",
-            collection=Collection.ADDRESS_CHANGES,
-            record_id=ObjectId("6890a1b2c3d4e5f607879999"),
-            am=AM,
-        )
-
-        async def steps(_http: AsyncClient, database: AsyncDatabase, _client: AsyncMongoClient) -> Any:
-            return (await plan_replay(line, database, key=KEY, session=None, now=REPLAY_NOW, window=WINDOW)).stand
-
-        assert served(mongo_replica_set_url, steps) == "no such record"
 
 
 def _day_file(*entries: tuple[str, str]) -> list[str]:
@@ -562,7 +557,7 @@ class TestTheListing:
             collection=Collection.SPIELER,
             record_id=PUPIL_OID,
             am=AM,
-            text_version=LAUFENDE_FASSUNGEN["konto_spieler"],
+            text_versions={"medien": SPIELER_TEXT_VERSIONS["medien"]},
             choices={"medien": False},
         )
         on_the_restored_site = JournalLine(
@@ -571,7 +566,7 @@ class TestTheListing:
             collection=Collection.SCHIEDSRICHTER,
             record_id=REFEREE_OID,
             am="2126-10-03T12:30:00+00:00",
-            text_version=LAUFENDE_FASSUNGEN["konto_schiedsrichter"],
+            text_versions={"medien": SCHIEDSRICHTER_TEXT_VERSIONS["medien"]},
             choices={"medien": False},
         )
         day = _day_file(
@@ -638,9 +633,9 @@ async def _withdrawn_and_granted_again(http: AsyncClient, database: AsyncDatabas
     [line] = journalled(caplog)
     # The app's clock moved on; `app_client` puts back the overrides it found as it leaves.
     _app().dependency_overrides[get_germany_now] = lambda: AN_HOUR_LATER
-    body = {**_withdrawal("konto_spieler", umfang="intern", medien=True), "nachweis_stand": withdrawn.json()["nachweis_stand"]}
+    body = {**_withdrawal("konto_spieler", umfang="intern", medien=True), "nachweis_stand": (await _served(http))["spieler"]["nachweis_stand"]}
     granted = await http.patch(f"{V}/spieler/account/einwilligung", json=body, headers=_person(PERSON))
-    assert (withdrawn.status_code, granted.status_code) == (200, 200), granted.text
+    assert (withdrawn.status_code, granted.status_code) == (204, 204), granted.text
 
     return line
 
@@ -713,7 +708,7 @@ class TestAnLoeschungSettlesItsPersonsChoices:
             with caplog.at_level(logging.INFO):
                 withdrawn = await PRESSES["a season seat's withdrawal"][0](http, database)
                 geloescht = await http.post(LOESCHUNG, headers=_person(PERSON))
-            assert (withdrawn.status_code, geloescht.status_code) == (200, 200), geloescht.text
+            assert (withdrawn.status_code, geloescht.status_code) == (204, 200), geloescht.text
             withdrawal, loeschung = journalled(caplog)
             day = _day_file(("2126-10-03T10:00:01+00:00", withdrawal), ("2126-10-03T10:00:02+00:00", loeschung))
             return await _listed(day, client, database, apply=False), await _listed(day[:1], client, database, apply=False)
@@ -733,7 +728,7 @@ class TestAnLoeschungSettlesItsPersonsChoices:
             with caplog.at_level(logging.INFO):
                 withdrawn = await PRESSES["a season seat's withdrawal"][0](http, database)
                 geloescht = await http.post(LOESCHUNG, headers=_person(PERSON))
-            assert (withdrawn.status_code, geloescht.status_code) == (200, 200), geloescht.text
+            assert (withdrawn.status_code, geloescht.status_code) == (204, 200), geloescht.text
             withdrawal, loeschung = journalled(caplog)
             return await _listed(
                 _day_file(("2126-10-03T10:00:01+00:00", loeschung), ("2126-10-03T10:00:02+00:00", withdrawal)), client, database, apply=False

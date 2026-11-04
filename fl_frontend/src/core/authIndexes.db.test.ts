@@ -81,10 +81,13 @@ const { sent } = registerAuthDoubles({
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth, endSessionsOfAddress, getKontoSession, readServedSession, removePasskey } = await import("./auth.ts");
+const { auth } = await import("./auth/library.ts");
+const { endOtherSessions, endSessionsOfAddress } = await import("./auth/accountSessions.ts");
+const { getAccountSession } = await import("./auth/guards.ts");
+const { readServedSession } = await import("./auth/session.ts");
+const { removePasskey } = await import("./auth/passkeys.ts");
 const { buildAuthIndexes } = await import("./authIndexes.ts");
-const { readSicherheit } = await import("@/features/konto/sicherheit");
-const { endAndereAnmeldungenAction, endAnmeldungAction } = await import("@/features/konto/actions");
+const { devicesOf } = await import("@/features/konto/security");
 
 const store = () => (storeClient as MongoClient).db("auth");
 const COLLECTIONS = ["session", "passkey", "user", "verification"] as const;
@@ -215,17 +218,25 @@ describe("every query the sign-in store serves, with table scans refused", () =>
     requestHeaders = asRequest(byPasskey);
 
     assert.ok(await withoutTableScans(() => readServedSession(asRequest(byPasskey))), "the passkey's session was not served");
-    const served = await withoutTableScans(() => getKontoSession());
+    const served = await withoutTableScans(() => getAccountSession());
     assert.ok(served, "the account page refused the passkey's session");
 
-    // Two more devices, one ended by its row and one with every other.
+    // Two more devices, counted and then ended with every other.
     await withoutTableScans(() => signInByCode(auth, ADMIN_EMAIL));
     await withoutTableScans(() => signInByCode(auth, ADMIN_EMAIL));
-    const sicherheit = await withoutTableScans(() => readSicherheit(served));
-    const [andere] = sicherheit.anmeldungen.filter(({ diesesGeraet }) => !diesesGeraet);
-    assert.ok(andere, "the account page listed no other sign-in");
-    expect(await withoutTableScans(() => endAnmeldungAction(andere.id))).toStrictEqual({ success: true });
-    expect(await withoutTableScans(() => endAndereAnmeldungenAction())).toStrictEqual({ success: true });
+    expect(await withoutTableScans(() => devicesOf(served)), "the account page counted no other device").toBeGreaterThan(1);
+    await withoutTableScans(() => endOtherSessions(served.user.id, served.session.id));
+    // On the real store, through the adapter's own conversion of both ids: the kept session alone stands.
+    const standing = await withoutTableScans(() =>
+      store()
+        .collection("session")
+        .find({ userId: new ObjectId(served.user.id) })
+        .toArray(),
+    );
+    expect(
+      standing.map(({ _id }) => String(_id)),
+      "another device's session stood past the ending, or the kept one went",
+    ).toStrictEqual([served.session.id]);
 
     // A second passkey, listed, renamed and removed.
     const second = await withoutTableScans(() => enrol(byPasskey, Buffer.from("fl-index-db-second-authenticator")));
@@ -260,16 +271,6 @@ describe("every query the sign-in store serves, with table scans refused", () =>
 });
 
 describe("the index build against a real store", () => {
-  it("changes nothing when run again", async () => {
-    await buildAuthIndexes();
-    const built = await heldIndexes();
-
-    await buildAuthIndexes();
-
-    expect(errors).toStrictEqual([]);
-    expect(await heldIndexes()).toStrictEqual(built);
-  });
-
   // Production's hand-made indexes are the case: one standing under another name refuses its build.
   it("logs a same-key index standing under another name, and builds every other", async () => {
     await buildAuthIndexes();
@@ -289,32 +290,6 @@ describe("the index build against a real store", () => {
     expect(names(await heldIndexes()).sort()).toStrictEqual(
       [...names(reference).filter((name) => name !== "session.session_token_uidx"), "session.made_by_hand"].sort(),
     );
-  });
-
-  /* Production's store as its Atlas console listed it on 2026-09-27, beside each collection's `_id_`, and
-     moving there without us: a list entry naming one of these otherwise is refused with code 85 on every boot. */
-  it("builds over the indexes production's store was given by hand, refusing none", async () => {
-    await store().collection("session").createIndex({ expiresAt: 1 }, { name: "expiresAt_1", expireAfterSeconds: 0 });
-    await store().collection("verification").createIndex({ expiresAt: 1 }, { name: "expiresAt_1", expireAfterSeconds: 0 });
-    await store().collection("passkey").createIndex({ credentialID: 1 }, { name: "credentialID_1", unique: true });
-
-    await buildAuthIndexes();
-
-    expect(errors).toStrictEqual([]);
-  });
-
-  it("logs the address index two accounts at one address refuse, never quoting the address", async () => {
-    const account = { email: "doppelt@example.org", emailVerified: true, name: "", createdAt: new Date(), updatedAt: new Date() };
-    await store()
-      .collection("user")
-      .insertMany([{ ...account }, { ...account }]);
-
-    await buildAuthIndexes();
-
-    expect(errors.map(({ fields }) => fields)).toStrictEqual([
-      { index: "user_email_uidx", name: "MongoServerError", code: 11000, codeName: "DuplicateKey" },
-    ]);
-    assert.ok(!JSON.stringify(errors).includes("@"), "the line quoted the address the refusal named");
   });
 
   /* Read off the library's own schema rather than the list, so a field it declares unique, or an

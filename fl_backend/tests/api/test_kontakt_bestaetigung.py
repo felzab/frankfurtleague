@@ -22,7 +22,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
 from app.api.bewerbungen.services import SEAT_MIN_AGE_YEARS, bestaetigungsfrist_from
-from app.api.identitaet.crud import funktionen_of
+from app.api.identity.crud import funktionen_of
 from app.api.saisons.admin_router import activate_saison
 from app.api.teams.admin_router import invite_kontakt, patch_saison_team_kontakte, replace_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
@@ -35,7 +35,6 @@ from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import log_stamp
 from app.core.security import STEP_UP_WINDOW_S, SessionActor
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
@@ -92,7 +91,7 @@ def person(vorname: str) -> dict[str, Any]:
         "nachname": "Musterfrau",
         "email": f"{vorname.lower()}@example.com",
         "telefon": TELEFON[vorname],
-        "einwilligung": {"umfang": "kontaktdaten", "text_version": LAUFENDE_FASSUNGEN["bewerbung"], "datum": "2026-03-01"},
+        "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
     }
 
 
@@ -104,7 +103,7 @@ def stored(vorname: str, *, confirmed_at: str | None = None) -> dict[str, Any]:
     return documents.kontaktperson_document(
         vorname,
         confirmed_at=confirmed_at,
-        einwilligung={"text_version": sent["einwilligung"]["text_version"], "datum": sent["einwilligung"]["datum"]},
+        einwilligung={"datum": sent["einwilligung"]["datum"]},
         entered_by="liga",
         nachname=sent["nachname"],
         email=sent["email"],
@@ -304,25 +303,19 @@ async def ansicht(database: AsyncDatabase, token: str, *, today: str = TODAY, sa
     )
 
 
-# A seat the contacts editor entered opens the season row's page; an application's own seat the applicant's.
-SAISON_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt_saison"]
-BEWERBER_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]
-
-
 async def answer(
     database: AsyncDatabase,
     token: str,
     *,
     antwort: str = "given",
     today: str = TODAY,
-    text_version: str = SAISON_SEITE,
     medien: bool = False,
     saisons: Any = None,
     saison_teams: Any = None,
 ) -> Any:
     body: dict[str, Any] = {"token": token, "antwort": antwort}
     if antwort == "given":
-        body |= {"geburtsdatum": AN_ADULTS_BIRTHDATE, "whatsapp": True, "medien": medien, "text_version": text_version}
+        body |= {"geburtsdatum": AN_ADULTS_BIRTHDATE, "whatsapp": True, "medien": medien, "text_versions": dict(documents.SEAT_TEXT_VERSIONS)}
 
     return await post_einwilligung(
         antwort_data=TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(body),
@@ -617,11 +610,10 @@ def _seat_paths(block: str, *leaves: str) -> set[str]:
     return {f"{block}.{seat}.{leaf}" for seat in SEATS for leaf in leaves}
 
 
-# What each handler resolves off the row its token found, `_id` the answer's alone, which keys its patch on it. Neither
-# holds the wording label a seat confirmed under: the page names its own, and the press records it.
+# What each handler resolves off the row its token found, `_id` the answer's alone, which keys its patch on it.
 SAISON_ANSICHT_RESOLVES = frozenset(
     _seat_paths("confirmations", "token_hashes", "declined_at", "frist")
-    | _seat_paths("kontakte", "email", "einwilligung.confirmed_at", "einwilligung.entered_by")
+    | _seat_paths("kontakte", "email", "einwilligung.confirmed_at")
     | {"kontakte.trainer_is_also", "saison_id", "name", "austritt"}
 )
 SAISON_ANTWORT_RESOLVES = (
@@ -1086,7 +1078,7 @@ class TestAnApplicationsLinkIsAnsweredAsBefore:
                 )
             )
             view = await ansicht(database, f"{raw}-trainer")
-            answered = await answer(database, f"{raw}-trainer", text_version=BEWERBER_SEITE)
+            answered = await answer(database, f"{raw}-trainer")
 
             return view, answered
 
@@ -1336,99 +1328,6 @@ def angenommene_bewerbung(trainer: Mapping[str, Any]) -> dict[str, Any]:
     )
 
 
-class TestThePageASeasonRowsLinkOpens:
-    """A season row's seat reads the page true for its person, and its answer is judged against that page."""
-
-    def test_a_link_answering_a_mixed_pair_shows_and_takes_one_page(self, mongo_replica_set_url: str):
-        """A Trainer the applicant named, given a second seat by the editor: one link, judged against the page the view served for both.
-
-        Judged seat by seat, each against its own page, no label could ever confirm this person.
-        """
-
-        def eingetragen(vorname: str, von: str) -> dict[str, Any]:
-            seat = stored(vorname)
-            return {**seat, "einwilligung": {**seat["einwilligung"], "entered_by": von}}
-
-        paired = {
-            **STORED_UNCONFIRMED,
-            "trainer": eingetragen("Ida", "bewerbung"),
-            "stellvertretung": eingetragen("Ida", "liga"),
-            "trainer_is_also": "stellvertretung",
-        }
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            token = (await resend(database, "stellvertretung")).bestaetigung.token
-            view = await ansicht(database, token)
-            refusal = await refused(answer(database, token, text_version=BEWERBER_SEITE))
-            await answer(database, token, text_version=view.running_wording)
-
-            return view, refusal, await row_now(database)
-
-        view, refusal, row = on_a_league(mongo_replica_set_url, body, kontakte=paired)
-
-        assert view.running_wording == SAISON_SEITE
-        assert refusal == Code.WORDING_NOT_ALLOWED
-        for seat in ("trainer", "stellvertretung"):
-            assert (row["kontakte"][seat]["einwilligung"]["confirmed_at"], row["kontakte"][seat]["einwilligung"]["text_version"]) == (
-                TODAY,
-                SAISON_SEITE,
-            )
-
-    def test_a_seat_the_editor_entered_opens_the_season_rows_page_and_takes_its_label_alone(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            token = (await save(database, THREE)).confirmations[0].token
-            view = await ansicht(database, token)
-            refusal = await refused(answer(database, token, text_version=BEWERBER_SEITE))
-            unmoved = await row_now(database)
-            await answer(database, token)
-
-            return view, refusal, unmoved, await row_now(database)
-
-        view, refusal, unmoved, row = on_a_league(mongo_replica_set_url, body)
-
-        assert view.running_wording == SAISON_SEITE
-        assert refusal == Code.WORDING_NOT_ALLOWED
-        assert unmoved["kontakte"]["trainer"]["einwilligung"]["confirmed_at"] is None, "the refused answer wrote"
-        einwilligung = row["kontakte"]["trainer"]["einwilligung"]
-        assert (einwilligung["confirmed_at"], einwilligung["text_version"]) == (TODAY, SAISON_SEITE)
-        assert einwilligung["nachweis"]["umfang"]["text_version"] == SAISON_SEITE
-        # The editor seated this person, and the answer leaves that standing.
-        assert einwilligung["entered_by"] == "liga"
-
-    def test_a_seat_stored_before_the_field_opens_the_season_rows_page_whoever_named_its_person(self, mongo_replica_set_url: str):
-        """The accepted application named this person in this seat, and the link still opens the page true of a season row's link."""
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            await database[Collection.BEWERBUNGEN].insert_one(angenommene_bewerbung(documents.kontaktperson_document("Ida")))
-            token = (await resend(database, "trainer")).bestaetigung.token
-            view = await ansicht(database, token)
-            refusal = await refused(answer(database, token, text_version=BEWERBER_SEITE))
-
-            return view, refusal, await answer(database, token)
-
-        view, refusal, answered = on_a_league(mongo_replica_set_url, body, kontakte=STORED_UNCONFIRMED)
-
-        assert (view.running_wording, refusal, answered.ergebnis) == (SAISON_SEITE, Code.WORDING_NOT_ALLOWED, "confirmed")
-
-    def test_a_seat_carried_from_the_application_keeps_the_applicants_page(self, mongo_replica_set_url: str):
-        """It names the application as who seated its person, so no application is asked and none needs to be kept."""
-
-        carried = {
-            **STORED_UNCONFIRMED,
-            "trainer": {
-                **STORED_UNCONFIRMED["trainer"],
-                "einwilligung": {**STORED_UNCONFIRMED["trainer"]["einwilligung"], "entered_by": "bewerbung"},
-            },
-        }
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            token = (await resend(database, "trainer")).bestaetigung.token
-
-            return await ansicht(database, token)
-
-        assert on_a_league(mongo_replica_set_url, body, kontakte=carried).running_wording == BEWERBER_SEITE
-
-
 ACCEPTED_OID = ObjectId("6890a1b2c3d4e5f607a50041")
 
 
@@ -1465,10 +1364,10 @@ async def the_application(database: AsyncDatabase) -> tuple[dict[str, Any], list
 
 
 class TestTheReplacementTakesThemOffTheApplication:
-    """The row's page promises its people deletion at once when another club takes the place, and the application seated them first."""
+    """A row's people are deleted at once when another club takes the place, and the application seated them first."""
 
     def test_people_the_editor_reseated_leave_the_application_with_the_row(self, mongo_replica_set_url: str):
-        """Keep the application as it was and this fails: the page Ida was shown promised her deletion, and her number stays."""
+        """Keep the application as it was and this fails: Ida is owed her deletion, and her number stays."""
 
         copied = {
             "trainer": carried("Ida"),
@@ -1479,23 +1378,20 @@ class TestTheReplacementTakesThemOffTheApplication:
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].insert_one(accepted(copied))
-            # Ida and Klara swap seats, so each is seated afresh and Ida's link opens the row's page.
+            # Ida and Klara swap seats, so each is seated afresh.
             swapped = {
                 "trainer": person("Klara"),
                 "ansprechperson": person("Jonas"),
                 "stellvertretung": person("Ida"),
                 "trainer_is_also": None,
             }
-            response = await save(database, swapped)
-            link = next(mint for mint in response.confirmations if "stellvertretung" in mint.rollen)
-            view = await ansicht(database, link.token)
+            await save(database, swapped)
             await replace(database)
 
-            return view, *await the_application(database)
+            return await the_application(database)
 
-        view, application, log = on_a_league(mongo_replica_set_url, body, kontakte=copied)
+        application, log = on_a_league(mongo_replica_set_url, body, kontakte=copied)
 
-        assert view.running_wording == SAISON_SEITE
         assert [seat for seat in SEATS if application["kontakte"][seat] is not None] == []
         assert log, "the clearing filed no image, so the log's assertion below proves nothing"
         assert [vorname for vorname in ("ida", "jonas", "klara") if f"{vorname}@example.com" in str((application, log))] == []

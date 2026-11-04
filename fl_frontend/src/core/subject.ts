@@ -2,7 +2,9 @@ import "server-only";
 
 import { cache } from "react";
 
-import { isAdminSession, isWithinPersonLifetime, readRequestSession, requestActorOf } from "./auth";
+import { isAdminSession, requestActorOf } from "./auth/guards";
+import { readRequestSession } from "./auth/session";
+import { isWithinPersonLifetime } from "./auth/sessionStamps";
 import { asSignInIdentifier } from "./emailAddress";
 import { setRequestActor } from "./requestScope";
 import { lookUpSubjekt } from "./signInGate";
@@ -31,7 +33,7 @@ type SubjectRecords = {
 };
 
 /**
- * `admin` is the administrator's whole verdict (`fl_frontend/src/core/auth.ts :: isAdminSession`),
+ * `admin` is the administrator's whole verdict (`fl_frontend/src/core/auth/guards.ts :: isAdminSession`),
  * so a control gated on it admits exactly the sessions the administrator's own lane admits.
  */
 export type SubjectSession = { readonly email: string; readonly admin: boolean; readonly subject: SubjectRecords };

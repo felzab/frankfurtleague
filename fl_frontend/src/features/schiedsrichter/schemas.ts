@@ -1,9 +1,10 @@
 import z from "zod";
 
+import { SCHIEDSRICHTER_TEXT_VERSIONS } from "@/core/consentWordings";
 import { FLEinwilligungUmfang } from "@/core/generated/client/types";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
-import { FLSpielerKontoEinwilligungPayloadSchema, LinkAntwortTextVersionSchema } from "@/features/spieler/schemas";
+import { LINK_FASSUNG_FEHLT, textVersionsSchema } from "@/features/spieler/schemas";
 import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, FLKontaktPayloadSchema, PersonNameSchema } from "@/shared/schemas";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -104,9 +105,9 @@ export const FLSchiedsrichterBestaetigungPayloadSchema = z.object({
   // Never optional: the record stores the key either way, so an omitted one would store the model's
   // default in place of the person's answer.
   medien: z.boolean(),
-  // The version this page rendered, never one a browser chose: the record has to cite the words the
+  // The wordings this page rendered, never ones a browser chose: the record has to cite the words the
   // confirming person read.
-  text_version: LinkAntwortTextVersionSchema,
+  text_versions: textVersionsSchema(SCHIEDSRICHTER_TEXT_VERSIONS, LINK_FASSUNG_FEHLT),
 });
 export type FLSchiedsrichterConfirmationPayload = z.infer<typeof FLSchiedsrichterBestaetigungPayloadSchema>;
 
@@ -126,7 +127,3 @@ export const buildSchiedsrichterBestaetigungPayloadSchema = (mindestalter: numbe
       { error: alterAusserhalb(mindestalter) },
     ),
   });
-
-// Redesign: goes with its last importer.
-/** The pupil's payload, as the backend publishes one declaration under two names: the two writes cannot drift. */
-export const FLSchiedsrichterKontoEinwilligungPayloadSchema = FLSpielerKontoEinwilligungPayloadSchema;

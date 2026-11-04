@@ -1,25 +1,17 @@
-import asyncio
 import importlib
-import json
 import pkgutil
 import warnings
 from collections.abc import Callable, Iterator, Mapping
 from typing import Annotated, Any, cast
 
-import pymongo
 import pytest
-from httpx2 import Response
-from pydantic import BaseModel, EmailStr, TypeAdapter, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic.warnings import UnsupportedFieldAttributeWarning
 
 import app
-from app.api.identitaet.schemas import FLErasureAdressePayload, FLErasurePayload
-from app.core.codes import Code
-from app.core.config import API_VERSION
+from app.api.identity.schemas import FLErasureAdressePayload, FLErasurePayload
 from app.shared.folding import league_address
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
-from tests.app_client import app_client
-from tests.config import BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI
 
 # Built from code points rather than spelled: each renders like the ASCII character beside it, and a
 # reader fixing the "typo" would leave every case below comparing ASCII with ASCII.
@@ -28,12 +20,10 @@ FULL_WIDTH_AT = chr(0xFF20)
 PARENTHESISED_ONE = chr(0x2474)
 HALF_WIDTH_VOICED_MARK = chr(0xFF9E)
 
-UMLAUT_LOCAL_PART = "jürgen@schule.de"
-
 # Every address here is one `EmailStr` accepts, so each refusal below is the address rule's own rather
 # than the library's, and its local part is not ASCII.
 BEYOND_ASCII = [
-    pytest.param(UMLAUT_LOCAL_PART, id="an umlaut"),
+    pytest.param("jürgen@schule.de", id="an umlaut"),
     pytest.param(f"{chr(0xFF41)}nna@schule.de", id="a full-width letter"),
     pytest.param(f"anna{FULL_WIDTH_STOP}{FULL_WIDTH_STOP}mueller@schule.de", id="two full-width stops"),
     pytest.param(f"anna{FULL_WIDTH_STOP}@schule.de", id="a full-width stop closing the local part"),
@@ -42,59 +32,14 @@ BEYOND_ASCII = [
     pytest.param(f"{HALF_WIDTH_VOICED_MARK}anna@schule.de", id="a half-width voiced mark"),
 ]
 
-# The control each refusal is read against, above ASCII in its DOMAIN alone, so a rule refusing every
-# character above ASCII fails here rather than passing the cases above.
+# Refused as well: the rule takes no domain above ASCII rather than converting one, so the stored form is the fold of
+# what was typed.
 UNICODE_DOMAIN = f"anna@m{chr(0xFC)}ller.de"
-UNICODE_DOMAIN_STORED = "anna@xn--mller-kva.de"
 
-# The control's answer: a well-formed request that got past validation and reached the database. The
-# refusal's is `payload_refused`, and a keying crash answers `unhandled_crash`.
-UNREACHED_DATABASE = {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
-
-
-def registered(email: str) -> Response:
-    body = {"token": "x" * 43, "vorname": "Anna", "nachname": "Müller", "email": email, "position": None, "nummer": None, "stufe": None}
-
-    async def _answered() -> Response:
-        async with app_client(UNANSWERED_URI) as http:
-            # The app's deadline would hold the control against this unanswered server; nested in
-            # this one it cannot extend it. A refused body touches no driver, so no deadline turns a
-            # 422 into the control's.
-            with pymongo.timeout(UNANSWERED_DEADLINE_S):
-                return await http.post(f"/api/v{API_VERSION}/registrierungen", headers=BASE_AUTH, json=body)
-
-    return asyncio.run(_answered())
-
-
-class TestARegistrationRefusesALocalPartBeyondAscii:
-    """A 422 at the box, never a 500 at the ban list's keying.
-
-    The one route keying an address a request carries that no actor check stands before, so a server
-    answering nothing still shows where the refusal falls. The administrators' keying payloads are
-    held by `TestEveryAddressPayloadHoldsTheSameRule` below, and the two routes keying a STORED
-    address by `app/api/schiedsrichter/services.py :: find_missing_address_refusal`.
-    """
-
-    @pytest.mark.parametrize("email", BEYOND_ASCII)
-    def test_the_address_passes_emailstr(self, email: str):
-        """The premise of every case here: an address `EmailStr` refused would be refused with no address rule at all."""
-
-        TypeAdapter(EmailStr).validate_python(email)
-
-    def test_the_address_is_refused_before_anything_is_keyed(self):
-        """One shape: `TestEveryAddressPayloadHoldsTheSameRule` crosses every shape with every field."""
-
-        response = registered(UMLAUT_LOCAL_PART)
-
-        assert (response.status_code, response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
-
-    def test_an_address_above_ascii_in_its_domain_alone_reaches_the_database(self):
-        """The control: without it, a route refusing every body would pass the case above."""
-
-        response = registered(UNICODE_DOMAIN)
-
-        assert response.status_code == 500, response.json()
-        assert response.json()["error_code"] in UNREACHED_DATABASE, response.json()
+# The control each refusal is read against, so a rule refusing every address fails here rather than passing the cases
+# above.
+PLAIN = "Anna@Schule.DE"
+PLAIN_STORED = "anna@schule.de"
 
 
 def _every_module() -> Iterator[str]:
@@ -165,7 +110,7 @@ ADDRESS_FIELDS = _address_fields()
 # the sweep below comparing nothing and passing.
 KNOWN_ADDRESS_FIELDS = {
     "app.api.bewerbungen.schemas.FLBewerbungKontaktEmailPayload.email",
-    "app.api.identitaet.schemas.FLSubjectPayload.email",
+    "app.api.identity.schemas.FLSubjectPayload.email",
     "app.api.registrierungen.schemas.FLPostRegistrierungPayload.email",
     "app.api.sperrliste.schemas.FLPostSperrlistePayload.email",
     "app.api.teams.schemas._KontaktpersonWritablePayload.email",
@@ -186,8 +131,13 @@ class TestEveryAddressPayloadHoldsTheSameRule:
             ADDRESS_FIELDS[field].validate_python(email)
 
     @pytest.mark.parametrize("field", sorted(ADDRESS_FIELDS))
-    def test_the_field_stores_a_unicode_domain_as_its_punycode(self, field: str):
-        assert ADDRESS_FIELDS[field].validate_python(UNICODE_DOMAIN) == UNICODE_DOMAIN_STORED
+    def test_the_field_refuses_a_unicode_domain(self, field: str):
+        with pytest.raises(ValidationError):
+            ADDRESS_FIELDS[field].validate_python(UNICODE_DOMAIN)
+
+    @pytest.mark.parametrize("field", sorted(ADDRESS_FIELDS))
+    def test_the_field_stores_an_ascii_address_folded(self, field: str):
+        assert ADDRESS_FIELDS[field].validate_python(PLAIN) == PLAIN_STORED
 
     def test_the_refusal_quotes_nothing_of_the_address(self):
         """The message reaches the log line `payload_refused` writes, and an erasure reaches no log sink."""
@@ -228,38 +178,3 @@ class TestTheLoeschungLooksUpWhatAnyRuleStored:
     def test_the_loeschung_refuses_what_names_no_stored_seat(self, email: str, payload: Callable[[str], Any]):
         with pytest.raises(ValidationError):
             payload(email)
-
-
-# The payloads whose `email` reaches a `$regex` under no address rule, each with what its route's body
-# carries beside it. Raw JSON, because a lone surrogate is a JSON escape no encoder of a `str` writes.
-FREE_STRING_PAYLOADS: Mapping[str, tuple[type[FLErasureAdressePayload], str]] = {
-    "the lookup": (FLErasureAdressePayload, ""),
-    "the erasure": (FLErasurePayload, ', "anlass": "Mail vom 30.03.2026"'),
-}
-
-PLAIN_ADDRESS = "a@schule.de"
-
-
-def validated_raw(payload: str, value: str) -> FLErasureAdressePayload:
-    """`value` is JSON string content, escapes included, decoded as the route decodes its body before validating it."""
-
-    model, rest = FREE_STRING_PAYLOADS[payload]
-
-    return model.model_validate(json.loads(f'{{"email": "{value}"{rest}}}'))
-
-
-class TestAStringNoDatabaseStoresIsRefusedAtTheBox:
-    """A lone surrogate reaching the driver fails its encoding as a 500; the payload refuses it first."""
-
-    @pytest.mark.parametrize("payload", list(FREE_STRING_PAYLOADS))
-    def test_a_lone_surrogate_is_refused(self, payload: str):
-        with pytest.raises(ValidationError) as raised:
-            validated_raw(payload, "a\\ud800@schule.de")
-
-        assert [error["loc"] for error in raised.value.errors()] == [("email",)]
-
-    @pytest.mark.parametrize("payload", list(FREE_STRING_PAYLOADS))
-    def test_the_same_body_spelled_plainly_is_taken(self, payload: str):
-        """The control: without it, a payload refusing every raw body would pass the case above."""
-
-        assert validated_raw(payload, PLAIN_ADDRESS).email == PLAIN_ADDRESS

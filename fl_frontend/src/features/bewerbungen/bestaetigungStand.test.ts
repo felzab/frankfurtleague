@@ -28,7 +28,6 @@ function person(vorname: string, bestaetigtAm: string | null): Person {
     telefon: "069 1234567",
     geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
     einwilligung: kenntnisnahme({
-      text_version: "2026-09-bestaetigungsseite",
       datum: "2026-09-01",
       confirmed_at: bestaetigtAm,
     }),

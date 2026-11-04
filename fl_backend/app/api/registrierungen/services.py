@@ -26,7 +26,7 @@ from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_nachweis import compose_erneuert, compose_geboren
+from app.shared.einwilligung_nachweis import TextVersions, compose_erneuert, compose_geboren
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -247,7 +247,7 @@ def build_registrierungen_sort(*, sort_by: str, order: str) -> list[tuple[str, i
 # confirm".
 
 
-# The two pages one link opens, each with its running label (`app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`).
+# The two pages one link opens.
 SEITE_NEU: Final[FLRegistrierungSeite] = "bestaetigung_spieler"
 SEITE_WIEDERKEHREND: Final[FLRegistrierungSeite] = "bestaetigung_spieler_wiederkehrend"
 
@@ -274,7 +274,7 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     "team_id": 1,
     "vorname": 1,
     # Both read for the join finding the person the league may already hold, and answered by
-    # neither read: the name narrows the address, for the reason `persons_named` gives.
+    # neither read: the name narrows the address, for the reason `person_named` gives.
     "nachname": 1,
     "email": 1,
     # The stamp alone: nothing the pupil answered reaches the link's view.
@@ -433,27 +433,16 @@ def person_name(raw: Mapping[str, Any]) -> tuple[str, ...] | None:
     return name if all(name) else None
 
 
-def persons_named(rows: Sequence[Mapping[str, Any]], *, vorname: Any, nachname: Any) -> list[Mapping[str, Any]]:
-    """Every row at this address whose stored name is the registration's own.
+def person_named(person_raw: Mapping[str, Any] | None, *, vorname: Any, nachname: Any) -> Mapping[str, Any] | None:
+    """The person stored at this address where their stored name is the registration's own, else `None`.
 
-    An address holds one stored person (`docs/datenschutz.md :: "One address is one person"`), but a
-    sibling registering from a mailbox shared anyway would be shown that person's birthdate.
+    An address holds one stored person (`app/core/constraints.py :: uniq_spieler_email`), but a sibling
+    registering from a mailbox shared anyway would be shown that person's birthdate.
     """
 
-    if (wanted := person_name({"vorname": vorname, "nachname": nachname})) is None:
-        return []
+    wanted = person_name({"vorname": vorname, "nachname": nachname})
 
-    return [row for row in rows if person_name(row) == wanted]
-
-
-def sole_person(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None:
-    """The one person this narrowed set holds, or `None` where it holds several.
-
-    Anything but exactly one row shows the pupil nothing and asks them as a first-timer, which is
-    never wrong; guessing is.
-    """
-
-    return rows[0] if len(rows) == 1 else None
+    return person_raw if wanted is not None and person_raw is not None and person_name(person_raw) == wanted else None
 
 
 def seite_of(*, registrierung_raw: Mapping[str, Any], person_raw: Mapping[str, Any] | None) -> FLRegistrierungSeite:
@@ -462,8 +451,7 @@ def seite_of(*, registrierung_raw: Mapping[str, Any], person_raw: Mapping[str, A
     It asks no choice, saying the stored ones stand: an unconfirmed record's were given by no person.
     """
 
-    rows = [] if person_raw is None else [person_raw]
-    named = sole_person(persons_named(rows, vorname=registrierung_raw.get("vorname"), nachname=registrierung_raw.get("nachname")))
+    named = person_named(person_raw, vorname=registrierung_raw.get("vorname"), nachname=registrierung_raw.get("nachname"))
 
     return SEITE_WIEDERKEHREND if named is not None and is_confirmed(named.get("einwilligung")) else SEITE_NEU
 
@@ -477,14 +465,14 @@ def gespeichertes_geburtsdatum(*, seite: FLRegistrierungSeite, person_raw: Mappi
     return person_raw["geburtsdatum"] if seite == SEITE_WIEDERKEHREND and person_raw is not None else None
 
 
-def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any, geburtsdatum: Any) -> WriteRefusal | None:
+def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any, text_versions: Any, geburtsdatum: Any) -> WriteRefusal | None:
     """`registrierung_choices_unsuitable`: the body answers what its page did not ask, or leaves out what it did.
 
-    Both choices and a birthdate on the new pupil's page, none of the three on the returning pupil's.
+    Both choices, their wordings and a birthdate on the new pupil's page, none of the four on the returning pupil's.
     """
 
     gefragt = seite == SEITE_NEU
-    if (umfang is not None) == gefragt and (medien is not None) == gefragt and (geburtsdatum is not None) == gefragt:
+    if all((wert is not None) == gefragt for wert in (umfang, medien, text_versions, geburtsdatum)):
         return None
 
     return WriteRefusal(
@@ -511,7 +499,7 @@ def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> Write
 
 
 def compose_confirmation_update(
-    *, geburtsdatum: str, umfang: str | None, medien: bool | None, text_version: str, today: str, am: str
+    *, geburtsdatum: str, umfang: str | None, medien: bool | None, text_versions: TextVersions | None, today: str, am: str
 ) -> Mapping[str, Any]:
     """The ONE `$set` a confirmation is: the whole consent record beside the date.
 
@@ -522,9 +510,9 @@ def compose_confirmation_update(
     if umfang is None and medien is None:
         # The returning pupil's page asked nothing, so the record holds no choice, no evidence and no
         # `datum`, the day a consent was given.
-        return {"$set": {"geburtsdatum": geburtsdatum, "einwilligung": {"confirmed_at": today, "text_version": text_version}}}
+        return {"$set": {"geburtsdatum": geburtsdatum, "einwilligung": {"confirmed_at": today}}}
 
-    if umfang is None or medien is None:
+    if umfang is None or medien is None or text_versions is None:
         raise ValueError("a confirmation answers both choices or neither, as `find_wahlen_refusal` holds a body to its page")
 
     # Born whole rather than moved: the submission stores no record and a second press is refused, so
@@ -536,10 +524,10 @@ def compose_confirmation_update(
             # consent and the confirming of it.
             "datum": today,
             "confirmed_at": today,
-            "text_version": text_version,
             "medien": medien,
         },
         am=am,
+        text_versions=text_versions,
     )
 
     return {"$set": {"geburtsdatum": geburtsdatum, "einwilligung": record}}

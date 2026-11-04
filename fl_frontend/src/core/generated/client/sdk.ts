@@ -19,7 +19,6 @@ import type {
   FLAcceptBewerbungResponse,
   FLAccountAddressChangeMintResponse,
   FLAccountAddressChangePayload,
-  FLAccountAddressChangeReleasePayload,
   FLAccountAddressChangeResponse,
   FLAccountEinwilligungenResponse,
   FLAccountEinwilligungPayload,
@@ -29,8 +28,8 @@ import type {
   FLActivateSaisonResponse,
   FLAddressChangeAdressePayload,
   FLAddressChangeAdresseResponse,
-  FLAddressChangeAntwortPayload,
-  FLAddressChangeAntwortResponse,
+  FLAddressChangeAnswerPayload,
+  FLAddressChangeAnswerResponse,
   FLAddressChangeApprovalResponse,
   FLAddressChangeIdResponse,
   FLAddressChangeMovesDonePayload,
@@ -43,7 +42,6 @@ import type {
   FLAddressChangeVerwaltungViewPayload,
   FLAddressChangeVerwaltungViewResponse,
   FLAddressChangeViewResponse,
-  FLBewerbungAccountEinwilligungResponse,
   FLBewerbungEinwilligungAntwortResponse,
   FLBewerbungEinwilligungDeclined,
   FLBewerbungEinwilligungGiven,
@@ -63,8 +61,6 @@ import type {
   FLCreatedResponse,
   FLDeclineBewerbungPayload,
   FLDeclineBewerbungResponse,
-  FLEinwilligungSeitenResponse,
-  FLEinwilligungWordingResponse,
   FLErasureAdressePayload,
   FLErasurePayload,
   FLErasurePreviewResponse,
@@ -133,7 +129,6 @@ import type {
   FLPostTeamPayload,
   FLReferencesPayload,
   FLReferencesResponse,
-  FLRegistrierungAccountEinwilligungResponse,
   FLRegistrierungAdmissionResponse,
   FLRegistrierungAdmitPayload,
   FLRegistrierungConfirmationPayload,
@@ -149,11 +144,10 @@ import type {
   FLSaisonsAdminListResponse,
   FLSaisonSpielerResponse,
   FLSaisonsSingleResponse,
-  FLSaisonTeamAccountEinwilligungResponse,
   FLSaisonTeamEinwilligungAntwortResponse,
   FLSaisonTeamResponse,
   FLSaisonTeamsResponse,
-  FLSchiedsrichterAccountEinwilligungResponse,
+  FLSchiedsrichterAccountEinwilligungPayload,
   FLSchiedsrichterConfirmationPayload,
   FLSchiedsrichterConfirmationResponse,
   FLSchiedsrichterConfirmationViewResponse,
@@ -184,7 +178,6 @@ import type {
   FLSpieleActionRequiredResponse,
   FLSpieleAdminListResponse,
   FLSpieleAdminSingleResponse,
-  FLSpielerAccountEinwilligungResponse,
   FLSpielerAdminSingleResponse,
   FLSpielerNachnominierungResponse,
   FLSpielerSaisonsResponse,
@@ -234,9 +227,10 @@ export const getAccountDeleteAddressChangeUrl = () => {
 };
 
 /**
- * Stop the change pending on the signed-in address, the stop link's twin: its new address goes, out of every log image too.
+ * Stop the change pending on the signed-in address at any step: its new address goes, out of every log image too.
  *
- * Asks no fresh confirmation and counts nothing: a stop hands nothing over. 404 where no change is pending on the address.
+ * Its address on file's question unanswered too, which the link mailed there declines rather than stops. Asks no fresh
+ * confirmation and counts nothing: a stop hands nothing over. 404 where no change is pending on the address.
  * @summary Stop the address change pending on the signed-in person
  */
 export const accountDeleteAddressChange = async (
@@ -253,14 +247,16 @@ export const getAccountGetAddressChangeUrl = () => {
 };
 
 /**
- * Answer whether the signed-in address holds anything its own change moves, and the change pending on it.
+ * Answer the change pending on the signed-in address, null where none is.
  *
- * PERSON TIER. `possible` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a
- * registration or a grant. **The pending address is served masked where an administrator started the change**, whole
+ * PERSON TIER. Whether the address holds anything a change moves is the start's to answer, refused
+ * `address_change_nothing`. **The pending address is served masked where an administrator started the change**, whole
  * only where the person typed it here: a change an administrator started may be a pretext whose target the holder of
- * the address on file must not learn. `approval` is the approval a change moving the person's grant waits on;
- * `abgelaufen` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
- * @summary Whether a signed-in person may change their address
+ * the address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change
+ * mailed the address on file, which this page answers nothing of. `approval` is the approval a change moving the
+ * person's grant waits on;
+ * `expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
+ * @summary The address change pending on a signed-in person
  */
 export const accountGetAddressChange = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAccountAddressChangeResponse> => {
   return adminKeyTransport<FLAccountAddressChangeResponse>(getAccountGetAddressChangeUrl(), {
@@ -274,19 +270,19 @@ export const getAccountPostAddressChangeUrl = () => {
 };
 
 /**
- * Start a change of the address the person signs in on, its two mails owed in the same transaction and no link answered.
+ * Start a change of the address the person signs in on, its first mail owed in the same transaction and no link answered.
  *
- * The new mailbox is owed its link, and the address on file a notice with a stop link; **everything the address holds
- * as its person's own moves when the new mailbox confirms**, within `ADDRESS_CHANGE_VALID_HOURS`. Where it holds a
- * grant, the change also waits on another administrator's approval, an owner's for an owner's grant. The address's live
- * change ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.
+ * **The address on file confirms first**: it is owed a link, and only its confirmation owes the new mailbox the
+ * second; **everything the address holds as its person's own moves when the new mailbox confirms**, each link within
+ * `ADDRESS_CHANGE_VALID_HOURS`, and declining either ends the change. Where it holds a grant, the change also waits on
+ * another administrator's approval, an owner's for an owner's grant. The address's live change ends replaced, an
+ * administrator's too: a sign-in at the address on file proves the mailbox is not lost.
  * **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
  * answers alike whatever the new address holds.
  *
- * Refused `confirmation_required` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
- * address holds a grant;
- * `address_change_nothing` where the address holds nothing a change moves; `address_change_unchanged` where the typed address is the one
- * signed in; and `address_change_no_approver` where nobody could approve the grant's move, the last owner making another first.
+ * Refused `address_change_nothing` where the address holds nothing a change moves; `address_change_unchanged` where the
+ * typed address is the one signed in; and `address_change_no_approver` where nobody could approve the grant's move, the
+ * last owner making another first.
  * @summary Start a change of the signed-in person's address
  */
 export const accountPostAddressChange = async (
@@ -313,45 +309,6 @@ export const accountPostAddressChange = async (
   });
 };
 
-export const getAccountPostAddressChangeReleaseUrl = () => {
-  return `/api/v0/account/address_change/release`;
-};
-
-/**
- * Approve the change `id` names, which an administrator started without a reason, owing the new mailbox its link.
- *
- * **Nothing reaches the new mailbox before this press**. Nothing about the new address is
- * judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
- * change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
- *
- * Refused `confirmation_required` as the start is; `address_change_ended` where the change `id` names has ended; 404 where it
- * is no change of this address awaiting its approval; and `link_expired` past the approval's deadline.
- * @summary Approve the address change an administrator asked of the signed-in person
- */
-export const accountPostAddressChangeRelease = async (
-  fLAccountAddressChangeReleasePayload: FLAccountAddressChangeReleasePayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAccountAddressChangeMintResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return adminKeyTransport<FLAccountAddressChangeMintResponse>(getAccountPostAddressChangeReleaseUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAccountAddressChangeReleasePayload),
-  });
-};
-
 export const getAccountGetEinwilligungenUrl = () => {
   return `/api/v0/account/einwilligungen`;
 };
@@ -366,8 +323,7 @@ export const getAccountGetEinwilligungenUrl = () => {
  *
  * PERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered
  * `spieler: null` and four empty lists, never refused. A retired record, a past season's seat and a withdrawn team's
- * seat are served too, a withdrawal staying open wherever a consent stands; `context` carries what the record's
- * confirmation page filled its words with, as those records stand today; `givable` says whether a grant is
+ * seat are served too, a withdrawal staying open wherever a consent stands; `givable` says whether a grant is
  * admitted, `medien_offered` whether the media consent may be switched on. A record awaiting its person's
  * confirmation is not served: there is nothing on it yet to change.
  * @summary A signed-in person's own consent records
@@ -427,12 +383,12 @@ export const getAddressChangePostAddressChangeVerwaltungUrl = () => {
 /**
  * Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
  *
- * **Nothing moves here.** Without a `grund` the change asks the address on file first: it is owed the request with its
- * stop link, and nothing goes to the new mailbox until that address approves on its account page. With a `grund`,
- * recording how the administrator established who asks, the new mailbox is owed its link and the address on file a
- * notice with its stop link; the change then takes effect `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox
- * confirms. Where the address holds a grant, the change also waits on another administrator's approval, never this
- * one's. No link is answered. The address's live change ends replaced.
+ * **Nothing moves here.** The `grund` records how the administrator established who asks, the address on file being
+ * lost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link
+ * and the address on file a notice with its stop link; the change then takes effect
+ * `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms. Where the address holds a grant, the change also
+ * waits on another administrator's approval, never this one's. No link is answered. The address's live change ends
+ * replaced.
  *
  * Refused the administrator's own address (`own_adresse`), a grant holder's without an owner's power
  * (`verwaltung_adresse`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds
@@ -503,14 +459,21 @@ export const addressChangeGetAddressChangeAdresse = async (
   });
 };
 
-export const getAddressChangePostAddressChangeAntwortUrl = () => {
+export const getAddressChangePostAddressChangeAnswerUrl = () => {
   return `/api/v0/address_change/confirmation`;
 };
 
 /**
  * Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.
  *
- * **A confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's
+ * **The person's own change asks the address on file first**: its link's confirmation owes the new mailbox its link,
+ * and nothing moves yet, answering `confirmed` with `effective` false, `effective_from` null and `approval_open` saying
+ * whether the change will wait on another administrator's approval of the grant it moves; refused `link_expired` past
+ * that link's deadline and `address_change_ended` once answered or ended, a decline refused only the latter, and a
+ * decline is the one way this link ends the change before it confirmed (`/stop` refuses it). Every other link the
+ * address on file was mailed answers no confirmation (`link_invalid`).
+ *
+ * The new mailbox's link: **a confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's
  * start with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this
  * transaction: every pupil row, confirmed referee row, confirmed contact seat, registration and grant the address on
  * file holds moves to the new one, asking no consent and writing none, and `effective` says so; its completion notice is
@@ -532,10 +495,10 @@ export const getAddressChangePostAddressChangeAntwortUrl = () => {
  * `link_barred` tell a caller what the view's `not_confirmable` keeps alike; only the edge keeps them from the link's holder.
  * @summary Confirm or decline a pending address
  */
-export const addressChangePostAddressChangeAntwort = async (
-  fLAddressChangeAntwortPayload: FLAddressChangeAntwortPayload,
+export const addressChangePostAddressChangeAnswer = async (
+  fLAddressChangeAnswerPayload: FLAddressChangeAnswerPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLAddressChangeAntwortResponse> => {
+): Promise<FLAddressChangeAnswerResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -548,11 +511,11 @@ export const addressChangePostAddressChangeAntwort = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLAddressChangeAntwortResponse>(getAddressChangePostAddressChangeAntwortUrl(), {
+  return baseKeyTransport<FLAddressChangeAnswerResponse>(getAddressChangePostAddressChangeAnswerUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAddressChangeAntwortPayload),
+    body: JSON.stringify(fLAddressChangeAnswerPayload),
   });
 };
 
@@ -561,10 +524,14 @@ export const getAddressChangePostAddressChangeStopUrl = () => {
 };
 
 /**
- * Stop the change the address on file was told of: its new address goes, out of every log image of the change too.
+ * Stop the change the address on file was mailed about: its new address goes, out of every log image of the change too.
  *
- * **Refused nothing but a token no change holds** (`link_invalid`) **and a change ended** (`address_change_ended`): a stop
- * hands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends.
+ * **Refused nothing but a token no change holds, a change ended, and the person's own change before its address on file
+ * confirmed it**: a stop hands nothing over, so it answers past every deadline, a barred address's holder too, until
+ * the change ends. A token no change holds answers `link_invalid` and an ended change `address_change_ended`. The
+ * person's own change offers this link no stop until its address on file confirmed it, and answers `link_invalid` as
+ * the unknown token does, the page offering no stop then: the question's decline is the one way that link ends it
+ * before, so one act keeps one ending. From that confirmation on, the same link is the change's stop on every way.
  * @summary Stop a pending address change
  */
 export const addressChangePostAddressChangeStop = async (
@@ -596,19 +563,21 @@ export const getAddressChangeGetAddressChangeViewUrl = () => {
 };
 
 /**
- * Answer what this token opens: the new mailbox's link, the stop link the address on file was mailed, or how either's change ended.
+ * Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
  *
- * **Nothing else about the change**: never a name, either address or the id. A POST that reads, so the token travels in
- * a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's
- * links answer `ended` and how it ended for as long as its record is kept.
+ * **Nothing else about the change**: never a name or the id, and the new address only on the two questions, the new
+ * mailbox's `valid` link and the address on file's `release_open` link of the person's own change. A POST that reads,
+ * so the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's
+ * links answer `ended`, how it ended and on which day, for as long as its record is kept.
  *
  * The new mailbox's side is served in a state: once pressed, `confirmed`, or `approval_expired` where its
  * approval week lapsed unapproved; else `barred` wherever the ban list holds the address the link was mailed to, then
- * `abgelaufen`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would
+ * `expired`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would
  * find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
  * answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
- * `nginx/shared/site.conf` routes no public call to this service. The stop side answers the step the change waits on and
- * until when, and never whether it could be confirmed: the stop is refused nothing.
+ * the proxy routes no public call to this service. The address on file's side answers the step the change waits on
+ * and until when, `release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,
+ * never whether the new mailbox could confirm, and the day it confirmed once it has.
  * @summary What one address link opens
  */
 export const addressChangeGetAddressChangeView = async (
@@ -644,8 +613,8 @@ export const getAddressChangeSweepAddressChangeUrl = (params?: AddressChangeSwee
 /**
  * End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
  *
- * **A lapsed change** -- its link, the approval it asked of the address on file, or its grant's approval by another
- * administrator -- ends as `abgelaufen`: its address and reason out of the record and every log image of it
+ * **A lapsed change** -- its new mailbox's link, the question it asked the address on file, or its grant's approval by
+ * another administrator -- ends as `expired`: its address and reason out of the record and every log image of it
  * (`removed`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still
  * holds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil
  * signing in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move
@@ -840,7 +809,7 @@ export const getAddressChangeInviteAddressChangeUrl = (addressChangeId: string) 
  * (`address_change_barred`), where another pupil has come to sign in on it (`address_change_taken`), where an entry has come to name it,
  * confirmed or not (`address_change_occupied`), where a grant's approval week has passed (`link_expired`), and where the change ended
  * (`address_change_ended`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on
- * file's approval, or confirmed, has no link to re-send.
+ * file's confirmation, or confirmed, has no link to re-send.
  * @summary Send a pending address a fresh link
  */
 export const addressChangeInviteAddressChange = async (
@@ -895,9 +864,6 @@ export const getBewerbungenPostBewerbungUrl = () => {
  * (`bewerbung_key_differing`).
  *
  * An address the ban list holds, on any seat, is refused (`bewerbung_adresse_barred`) on a first press.
- *
- * A seat naming a consent wording other than the one the form now shows is refused (`wording_not_allowed`),
- * and only once the key has been looked up: a stored key is answered whatever wording it names.
  * @summary Submit a Bewerbung
  */
 export const bewerbungenPostBewerbung = async (
@@ -933,8 +899,8 @@ export const getBewerbungenPostEinwilligungUrl = () => {
  *
  * A decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who
  * refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
- * `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `link_barred`, `wording_not_allowed`,
- * `medien_age`, and on a team's season row `link_expired` and `kontakt_saison_past`.
+ * `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `link_barred`, `medien_age`, and
+ * on a team's season row `link_expired` and `kontakt_saison_past`.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
 export const bewerbungenPostEinwilligung = async (
@@ -1182,15 +1148,15 @@ export const getBewerbungenPatchEinwilligungUrl = (bewerbungId: string) => {
 /**
  * Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
  *
- * A grant is refused. Refuses, writing nothing: `role_not_held`, `wording_not_allowed` (the choices moved since the
- * page was served), `giving_not_allowed` and `wording_not_allowed`.
+ * A grant is refused. Refuses, writing nothing: `role_not_held`, `choices_stale` and
+ * `giving_not_allowed`.
  * @summary Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung
  */
 export const bewerbungenPatchEinwilligung = async (
   bewerbungId: string,
   fLSeatEinwilligungPayload: FLSeatEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLBewerbungAccountEinwilligungResponse> => {
+): Promise<void> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -1203,7 +1169,7 @@ export const bewerbungenPatchEinwilligung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLBewerbungAccountEinwilligungResponse>(getBewerbungenPatchEinwilligungUrl(bewerbungId), {
+  return adminKeyTransport<void>(getBewerbungenPatchEinwilligungUrl(bewerbungId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1293,8 +1259,7 @@ export const getBewerbungenPostKontaktSeatUrl = (bewerbungId: string, seat: stri
  * stepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included
  * (`bewerbung_seat_already_answered`); and on an address another
  * contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds
- * (`bewerbung_kontakt_barred`); and on any label but the application form's running one (`wording_not_allowed`), the person
- * seated being a new acceptance. A path naming no seat is a 404.
+ * (`bewerbung_kontakt_barred`). A path naming no seat is a 404.
  * @summary Seat another person where a contact person stepped out
  */
 export const bewerbungenPostKontaktSeat = async (
@@ -1368,41 +1333,6 @@ export const bewerbungenPostKontaktEmail = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLBewerbungKontaktEmailPayload),
-  });
-};
-
-export const getEinwilligungGetSeitenUrl = () => {
-  return `/api/v0/einwilligung/seiten`;
-};
-
-/**
- * For every page that stamps a consent label, the label a new acceptance on it must name.
- *
- * A deploy moves it, so a reader caches it no longer than a request.
- * @summary The consent label each page stamps today
- */
-export const einwilligungGetSeiten = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLEinwilligungSeitenResponse> => {
-  return baseKeyTransport<FLEinwilligungSeitenResponse>(getEinwilligungGetSeitenUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getEinwilligungGetWordingUrl = (textVersion: string) => {
-  return `/api/v0/einwilligung/wordings/${encodeURIComponent(String(textVersion))}`;
-};
-
-/**
- * The words a consent label names, which never change, so the answer may be cached; 404 for a label the registry lacks.
- * @summary The words one consent label names
- */
-export const einwilligungGetWording = async (
-  textVersion: string,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLEinwilligungWordingResponse> => {
-  return baseKeyTransport<FLEinwilligungWordingResponse>(getEinwilligungGetWordingUrl(textVersion), {
-    ...options,
-    method: "GET",
   });
 };
 
@@ -1637,9 +1567,8 @@ export const getIdentityPostAccountErasureUrl = () => {
  * Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.
  *
  * PERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one
- * (`last_owner_erasure`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest
- * from a passkey sign-in `ENROLMENT_WINDOW_MINUTES` old at most, as a revoke asks, else `confirmation_required`. No other
- * precondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still
+ * (`last_owner_erasure`), since nobody else could ever make an owner again, and a person holding a live grant erases it with
+ * the rest. No other precondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still
  * to be played included. Nothing is counted against the person's day.
  *
  * Removed: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record,
@@ -2223,14 +2152,14 @@ export const getRegistrierungenPatchEinwilligungUrl = (registrierungId: string) 
  * Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
  *
  * A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `role_not_held`,
- * `wording_not_allowed` (the wording or the choices moved since the page was served) and `giving_not_allowed`.
+ * `choices_stale` and `giving_not_allowed`.
  * @summary Withdraw a pupil's own publication and media consent on their pending registration
  */
 export const registrierungenPatchEinwilligung = async (
   registrierungId: string,
   fLAccountEinwilligungPayload: FLAccountEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLRegistrierungAccountEinwilligungResponse> => {
+): Promise<void> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -2243,7 +2172,7 @@ export const registrierungenPatchEinwilligung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLRegistrierungAccountEinwilligungResponse>(getRegistrierungenPatchEinwilligungUrl(registrierungId), {
+  return adminKeyTransport<void>(getRegistrierungenPatchEinwilligungUrl(registrierungId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -2259,7 +2188,7 @@ export const getRegistrierungenPostConfirmationUrl = () => {
  * Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
  *
  * Refuses, writing nothing: `link_invalid`, `link_expired`, `confirmation_exists`, `confirmation_age`, `medien_age`,
- * `link_barred`, `registrierung_choices_unsuitable` and `wording_not_allowed`.
+ * `link_barred` and `registrierung_choices_unsuitable`.
  * @summary Confirm one registration and record the pupil's consent
  */
 export const registrierungenPostConfirmation = async (
@@ -3099,19 +3028,19 @@ export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string) 
  *
  * Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
  * `nachweis_stand` other than the record's own, either choice having moved since the page was served
- * (`wording_not_allowed`); a grant on a retired record (`giving_not_allowed`); a `text_version` naming no version of
- * the account page's referee control, or a grant naming any but the page's running one (`wording_not_allowed`);
- * `medien` moving to `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing
- * (`medien_age`). Each refusal writes nothing.
+ * (`choices_stale`); a grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label
+ * other than its current wording's, the page loaded before a rewording (`grant_wording_stale`); `medien` moving to
+ * `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each
+ * refusal writes nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
  * @summary Change a signed-in referee's own publication and media consent
  */
 export const schiedsrichterPatchEinwilligung = async (
   schiedsrichterId: string,
-  fLAccountEinwilligungPayload: FLAccountEinwilligungPayload,
+  fLSchiedsrichterAccountEinwilligungPayload: FLSchiedsrichterAccountEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSchiedsrichterAccountEinwilligungResponse> => {
+): Promise<void> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -3124,11 +3053,11 @@ export const schiedsrichterPatchEinwilligung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLSchiedsrichterAccountEinwilligungResponse>(getSchiedsrichterPatchEinwilligungUrl(schiedsrichterId), {
+  return adminKeyTransport<void>(getSchiedsrichterPatchEinwilligungUrl(schiedsrichterId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAccountEinwilligungPayload),
+    body: JSON.stringify(fLSchiedsrichterAccountEinwilligungPayload),
   });
 };
 
@@ -3139,16 +3068,16 @@ export const getSchiedsrichterPostConfirmationUrl = () => {
 /**
  * Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.
  *
- * The consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were
- * shown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,
- * which the fixture list joins at read time to decide whether to publish the name each fixture stores.
+ * The consent carries the publication scope they chose, the media answer beside it, the stamp and, on each choice's
+ * evidence, the wording they were shown. It reaches this one collection and writes nothing on any fixture: a referee's
+ * publication scope has one home, which the fixture list joins at read time to decide whether to publish the name each
+ * fixture stores.
  *
  * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already confirmed
- * (`confirmation_exists`), a link whose deadline has passed (`link_expired`), any label but the referee
- * page's running one (`wording_not_allowed`), a link mailed to an address the ban list holds now, whenever the link
- * was minted (`link_barred`), an age outside what this consent asks (`confirmation_age`), and a media
- * consent from a referee below `medien_minimum_age` (`medien_age`) -- the label and the last two judged
- * before anything is written, so a reloaded page or a mistyped year spends nothing.
+ * (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
+ * list holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks
+ * (`confirmation_age`), and a media consent from a referee below `medien_minimum_age` (`medien_age`) -- the last two
+ * judged before anything is written, so a mistyped year spends nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:
  * a withheld name would go on being served for as long as that entry lives.
@@ -4175,9 +4104,9 @@ export const getSpielerPatchEinwilligungUrl = () => {
  * taken on a live record alone; a withdrawal on a retired one too.
  *
  * Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `nachweis_stand`
- * other than the record's own, either choice having moved since the page was served (`wording_not_allowed`); a
- * grant on a retired record (`giving_not_allowed`); a `text_version` naming no version of the account page's pupil
- * control, or a grant naming any but the page's running one (`wording_not_allowed`); `medien` moving to `true` where
+ * other than the record's own, either choice having moved since the page was served (`choices_stale`); a
+ * grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label other than its
+ * current wording's, the page loaded before a rewording (`grant_wording_stale`); `medien` moving to `true` where
  * the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each
  * refusal writes nothing.
  *
@@ -4188,7 +4117,7 @@ export const getSpielerPatchEinwilligungUrl = () => {
 export const spielerPatchEinwilligung = async (
   fLAccountEinwilligungPayload: FLAccountEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielerAccountEinwilligungResponse> => {
+): Promise<void> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -4201,7 +4130,7 @@ export const spielerPatchEinwilligung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLSpielerAccountEinwilligungResponse>(getSpielerPatchEinwilligungUrl(), {
+  return adminKeyTransport<void>(getSpielerPatchEinwilligungUrl(), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -5090,8 +5019,8 @@ export const getTeamsPatchEinwilligungUrl = (teamId: string, saisonId: string) =
  *
  * Refuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a
  * `nachweis_stand` other than the held seats' own, either choice having moved since the page was served
- * (`wording_not_allowed`); a grant where the row grants no panel (`giving_not_allowed`); a `text_version` naming no
- * version of the account page's seat control, or a grant naming any but its running one (`wording_not_allowed`);
+ * (`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); a choice moving onto a grant
+ * under a label other than its current wording's, the page loaded before a rewording (`grant_wording_stale`);
  * `medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is
  * missing (`medien_age`). Each refusal writes nothing.
  * @summary Change a seat holder's own WhatsApp and media consent on one team's season
@@ -5101,7 +5030,7 @@ export const teamsPatchEinwilligung = async (
   saisonId: string,
   fLSeatEinwilligungPayload: FLSeatEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSaisonTeamAccountEinwilligungResponse> => {
+): Promise<void> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -5114,7 +5043,7 @@ export const teamsPatchEinwilligung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLSaisonTeamAccountEinwilligungResponse>(getTeamsPatchEinwilligungUrl(teamId, saisonId), {
+  return adminKeyTransport<void>(getTeamsPatchEinwilligungUrl(teamId, saisonId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -5276,9 +5205,7 @@ export const getTeamsPatchSaisonTeamKontakteUrl = (teamId: string, saisonId: str
  *
  * **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
  * or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
- * person's own write grants one. Such a seat's label must be the application form's running one
- * (`wording_not_allowed`). A kept seat may name its stored label back, whichever page it is a version of, or the
- * running one, and its record is carried either way.
+ * person's own write grants one.
  * @summary Rewrite a team's season contacts, and nothing else on the row
  */
 export const teamsPatchSaisonTeamKontakte = async (

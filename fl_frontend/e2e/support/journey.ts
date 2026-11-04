@@ -23,8 +23,12 @@ import type { Socket } from "node:net";
 export type JourneyOptions = {
   /** An administrator's grant. */
   administrator: string;
-  /** A referee's address, which admits a sign-in and grants no Verwaltung. */
-  person: string;
+  /** A referee's address the account acts sign in as on two devices, and then end the other device's session. */
+  twoDevices: string;
+  /** A referee's address the account acts move to a new mailbox. */
+  mover: string;
+  /** A referee's address the account acts delete. */
+  leaver: string;
 };
 
 type JourneyFixtures = {
@@ -32,14 +36,23 @@ type JourneyFixtures = {
   visitor: string;
 };
 
-/**
- * The addresses one worker hands out, each to one journey. A worker replacing a failed one has the
- * next `workerIndex` and so the next block, never an address a journey before it spent.
- */
-const ADDRESSES_PER_WORKER = 16;
+type WorkerFixtures = {
+  /** The next address of this worker's own block, a new one on every call. */
+  nextVisitor: () => string;
+};
 
-/** The journeys this worker has started. */
-let started = 0;
+/**
+ * The address of journey `started` in worker `workerIndex`, from RFC 2544's benchmarking range 198.18.0.0/15, which
+ * no real visitor holds: a /24 for each worker, its 254 host addresses one per journey, spelled
+ * `198.18.<worker>.<journey + 1>` for the first 256 workers. A worker replacing a failed one has the next `workerIndex`
+ * and so the next block, never an address a journey before it spent. The range is 512 such blocks, so running out is a
+ * suite of hundreds of journeys, where this throws rather than hand out an address twice.
+ */
+function visitorAddress(workerIndex: number, started: number): string {
+  if (started > 253 || workerIndex > 511)
+    throw new Error(`198.18.0.0/15 holds no address for journey ${String(started)} of worker ${String(workerIndex)}`);
+  return `198.${String(18 + Math.floor(workerIndex / 256))}.${String(workerIndex % 256)}.${String(started + 1)}`;
+}
 
 /** The header Cloudflare names the visitor in, and the one `nginx/e2e/e2e.conf` trusts from the host. */
 const VISITOR_HEADER = "cf-connecting-ip";
@@ -129,8 +142,9 @@ async function startVisitorProxy(origin: string, visitor: string): Promise<{ ser
     pipeline(incoming, upstream, endedEarly);
   });
 
-  // Every tunnel passes untouched: the sign-in's bot check loads from Cloudflare's own over TLS. One to
-  // the stack would reach its edge unnamed, which the edge check reports.
+  // Every tunnel passes untouched: the sign-in's bot check loads from Cloudflare's own over TLS. One to the
+  // stack would reach its edge unnamed, which the edge check reports: Playwright's own request client
+  // (`page.request`, `route.fetch()`) tunnels to every target of a proxied context, so no journey uses it.
   server.on("connect", (incoming: IncomingMessage, socket: Socket, head: Buffer) => {
     detach(socket);
     const target = URL.parse(`http://${incoming.url ?? ""}`);
@@ -178,22 +192,31 @@ export function hydrated(page: Page): Promise<Request> {
   });
 }
 
-export const test = base.extend<JourneyFixtures & JourneyOptions>({
+export const test = base.extend<JourneyFixtures & JourneyOptions, WorkerFixtures>({
   // Empty until a project sets them, which `fl_frontend/playwright.config.ts` does for each.
   administrator: ["", { option: true }],
-  person: ["", { option: true }],
+  twoDevices: ["", { option: true }],
+  mover: ["", { option: true }],
+  leaver: ["", { option: true }],
+
+  // `provide` is the fixture's `use`, named apart from React's hook, which a lint rule reads it as.
+  // Worker-scoped, so the count lives as long as the worker and a replacement worker starts its own block
+  // (https://playwright.dev/docs/test-fixtures#worker-scoped-fixtures).
+  nextVisitor: [
+    async ({}, provide, workerInfo) => {
+      let started = 0;
+      await provide(() => visitorAddress(workerInfo.workerIndex, started++));
+    },
+    { scope: "worker" },
+  ],
 
   // Each journey is one visitor, as each person on the site is: the edge's rate limits are per visitor,
   // and every journey shares one address with the others unless it names its own
   // (`nginx/e2e/e2e.conf`). Per journey rather than per project, so no journey spends another's
-  // budget. RFC 5737's documentation range, which no real visitor holds.
-  // `provide` is the fixture's `use`, named apart from React's hook, which a lint rule reads it as.
+  // budget.
   visitor: [
-    async ({}, provide, testInfo) => {
-      if (started === ADDRESSES_PER_WORKER)
-        throw new Error(`a worker has ${String(ADDRESSES_PER_WORKER)} visitor addresses, and every one is spent`);
-      const address = `198.51.100.${String(1 + ((testInfo.workerIndex * ADDRESSES_PER_WORKER + started) % 254))}`;
-      started += 1;
+    async ({ nextVisitor }, provide) => {
+      const address = nextVisitor();
 
       const logged = await accessLogEnd();
       await provide(address);

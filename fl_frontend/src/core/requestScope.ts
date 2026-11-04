@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import { cache } from "react";
 
-import type { AuthFactor } from "./auth";
+import type { AuthFactor } from "./auth/sessionStamps";
 
 // Under `nginx/shared/site.conf :: proxy_read_timeout` by the proxy's session read before this scope
 // opens. Next streams an action's answer once it returns, the re-render following in chunks, and nginx
@@ -21,7 +21,7 @@ export type ActorLane = "admin" | "person";
 /**
  * Who the request acts for, as `fl_frontend/src/core/api.ts :: sendToBackend` states them beside the admin
  * key: the folded address, when its session was made in whole seconds, and by which factor
- * (`fl_frontend/src/core/auth.ts :: requestActorOf`).
+ * (`fl_frontend/src/core/auth/guards.ts :: requestActorOf`).
  */
 export type RequestActor = { readonly email: string; readonly lane: ActorLane; readonly authTime: number; readonly factor: AuthFactor };
 
@@ -35,14 +35,12 @@ interface RequestScope {
   // action builder clears the site's cache tag by it, where an action declaring its writes would repeat what each call
   // already says. Held by reference, so the scope `runAnsweringOwnCut` derives counts into it.
   standing: { writes: number };
-  // Redesign: the three flags below go with the write-outcome functions further down, and so do the lines that seed
+  // Redesign: the two flags below go with the write-outcome functions further down, and so do the lines that seed
   // them in each scope and set `outcomeUnknown` in `boundCall`.
   // Set as a write is sent, whatever its answer, which the old write path's spines judge a throw by.
   writeSent: boolean;
   // Set where a call may have landed unanswered, which the spines read once the request's work is done.
   outcomeUnknown: boolean;
-  // Set before a write that may end the session the request carries: the spine then renders no page again.
-  endsOwnSession: boolean;
   // `oncePerRequest`'s reads, by the function each wraps. Held by reference, so the scope
   // `runAnsweringOwnCut` derives shares it.
   memo: Map<() => Promise<unknown>, Promise<unknown>>;
@@ -70,7 +68,6 @@ export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "ac
     standing: { writes: 0 },
     outcomeUnknown: false,
     writeSent: false,
-    endsOwnSession: false,
     memo: new Map(),
     background: false,
   };
@@ -107,7 +104,6 @@ export function runBehindTheResponse(traceId: string, work: () => Promise<void>)
     standing: { writes: 0 },
     outcomeUnknown: false,
     writeSent: false,
-    endsOwnSession: false,
     memo: new Map(),
     background: false,
   };
@@ -133,7 +129,6 @@ export function runInBackground<T>(traceId: string, pass: () => Promise<T>): Pro
     standing: { writes: 0 },
     outcomeUnknown: false,
     writeSent: false,
-    endsOwnSession: false,
     memo: new Map(),
     background: true,
   };
@@ -187,12 +182,11 @@ export function boundCall(ownBoundMs: number): AbortSignal {
 
 /**
  * Records a write as it is sent, counted as standing until its own answer refuses it: one never answered may still
- * have landed. Answers the withdrawal, which takes that one write back and no other. Its callers are of two kinds:
- * `fl_frontend/src/core/apiDispatch.ts :: dispatchRequest`, for every write the generated client sends; and the old
- * write path's actions in `features/konto/` and `features/passkeys/`, which record a sign-in store write by hand for
- * their spines' reading of an unknown outcome. A builder action records none: a write through the sign-in store's own
- * client moves nothing a cached read serves, so recorded it would clear the site's cache tag for nothing, and an
- * action changing that store calls Next's `refresh()` itself. A no-op outside a scope.
+ * have landed. Answers the withdrawal, which takes that one write back and no other. Its one caller is
+ * `fl_frontend/src/core/apiDispatch.ts :: dispatchRequest`, for every write the generated client sends. A write
+ * through the sign-in store's own client is recorded by none: it moves nothing a cached read serves, so recorded it
+ * would clear the site's cache tag for nothing, and an action changing that store calls Next's `refresh()` itself.
+ * A no-op outside a scope.
  */
 export function recordWriteSent(): () => void {
   const store = storage.getStore();
@@ -232,27 +226,12 @@ export async function runAnsweringOwnCut<T>(fn: () => Promise<T>): Promise<T> {
     return await storage.run(own, fn);
   } finally {
     if (own.writeSent) store.writeSent = true;
-    if (own.endsOwnSession) store.endsOwnSession = true;
   }
 }
 
 /** Whether the deadline cut a call of this request. `false` outside a scope. */
 export function requestOutcomeUnknown(): boolean {
   return storage.getStore()?.outcomeUnknown === true;
-}
-
-/**
- * Called before a write that may end the session the request carries, answered or not: one never answered may
- * have ended it. A no-op outside a scope.
- */
-export function recordOwnSessionEnding(): void {
-  const store = storage.getStore();
-  if (store !== undefined) store.endsOwnSession = true;
-}
-
-/** Whether this request sent a write that may have ended its own session. `false` outside a scope. */
-export function requestEndsOwnSession(): boolean {
-  return storage.getStore()?.endsOwnSession === true;
 }
 
 export function getRequestTraceId(): string | undefined {

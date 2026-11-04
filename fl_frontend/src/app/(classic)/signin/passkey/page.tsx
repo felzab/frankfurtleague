@@ -1,13 +1,14 @@
-import { Suspense } from "react";
 import { redirect } from "next/navigation";
 
-import { SignInSkeleton } from "@/kit/SignInPage";
+import { SignInShell } from "@/kit/SignInShell";
 
-import { getPasskeyStep } from "@/core/auth";
+import { getPasskeyStep } from "@/core/auth/landing";
+import { RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { ROUTES } from "@/core/routes";
 import { PasskeyStep } from "@/features/auth/components/forms/PasskeyStep";
 import { pageMetadata } from "@/shared/utils/metadata";
 
+import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata, ResolvingMetadata } from "next";
 
 /** No description, as `/signin` carries none. */
@@ -15,7 +16,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return pageMetadata(parent, ROUTES.signInPasskey, ROUTES.signInPasskey.path());
 }
 
-// Never under `/bereich/admin`: the session that must reach this page is the one the admin guard is
+// Never under `/area/admin`: the session that must reach this page is the one the admin guard is
 // refusing, so a page behind that guard is a page nobody can open.
 
 /**
@@ -23,19 +24,25 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
  * function of the session on the request. It waits in the sign-in's skeleton, as `/signin` does, its title a bar:
  * the step the session reads names it.
  */
-export default function PasskeyPage() {
+export default function PasskeyPage({ searchParams }: NextPageProps) {
   return (
-    <Suspense fallback={<SignInSkeleton title={null} />}>
-      <PasskeyInhalt />
-    </Suspense>
+    <SignInShell
+      title={null}
+      view={readView(searchParams)}
+    />
   );
 }
 
-async function PasskeyInhalt() {
+async function readView(searchParams: NextPageProps["searchParams"]) {
   // Which control stands here is the guard's answer and never this page's: the requirement it
   // enforces is judged per request, beside the session lifetimes.
   const schritt = await getPasskeyStep();
-  if (schritt === null) redirect(ROUTES.signInLanding.path());
+  if (schritt === null) {
+    // A session the step does not hold goes on to the landing with the address a mailed link asked for, which the
+    // landing honours where the allowlist holds it.
+    const asked = (await searchParams)[RETURN_PARAMETER];
+    redirect(withReturnAddress(ROUTES.signInLanding.path(), typeof asked === "string" ? asked : null));
+  }
 
   // „Später“ goes past the landing rather than to it, which would offer the passkey again.
   return schritt.step === "offer" ? (
@@ -43,7 +50,7 @@ async function PasskeyInhalt() {
       step="offer"
       address={schritt.email}
       next={ROUTES.signInLanding.path()}
-      later="/bereich"
+      later={ROUTES.area.path()}
     />
   ) : (
     <PasskeyStep

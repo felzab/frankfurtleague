@@ -1,18 +1,16 @@
 "use server";
 
-import { mapEigeneEinwilligungRefusal, MedienMindestalterSchema, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
 import { refusalResult } from "@/shared/utils/adminMutation";
-import { runPersonMutation, runPersonRecordMutation } from "@/shared/utils/personMutation";
+import { runPersonMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { KADER_AUSTRAGEN_FOLGE } from "./constants";
-import { deleteKaderZeile, patchKaderZeile, patchSpielerKontoEinwilligung } from "./mutations";
+import { deleteKaderZeile, patchKaderZeile } from "./mutations";
 import { mapKaderZeileRefusal } from "./refusals";
-import { FLKaderZeileKeyPayloadSchema, FLPatchKaderZeilePayloadSchema, FLSpielerKontoEinwilligungPayloadSchema } from "./schemas";
+import { FLKaderZeileKeyPayloadSchema, FLPatchKaderZeilePayloadSchema } from "./schemas";
 
-import type { FLEinwilligungStand, FLKaderRow } from "@/core/generated/client/types";
+import type { FLKaderRow } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
-import type z from "zod";
 import type { FLKaderZeileKeyPayload, FLPatchKaderRowPayload } from "./schemas";
 
 /** A seat holder's edit of one live squad row: number, position, level and captaincy, nothing else. */
@@ -49,35 +47,5 @@ export async function deleteKaderZeileAction(rawPayload: FLKaderZeileKeyPayload)
     const kaderZeile = await deleteKaderZeile(validated.data);
 
     return { success: true, kader_zeile: kaderZeile, message: KADER_AUSTRAGEN_FOLGE };
-  });
-}
-
-/**
- * The pupil's own consent, pressed on the account page, which binds the record's media floor. It claims
- * the pupil's record rather than a seat, so a retired pupil reaches the backend to withdraw a consent
- * the league still holds.
- */
-export async function patchSpielerEinwilligungAction(
-  medienMindestalter: number,
-  rawPayload: z.input<typeof FLSpielerKontoEinwilligungPayloadSchema>,
-): Promise<ActionResult<{ nachweis_stand: FLEinwilligungStand }>> {
-  return runPersonRecordMutation("patchSpielerEinwilligungAction", async () => {
-    const boden = MedienMindestalterSchema.safeParse(medienMindestalter);
-    const validated = FLSpielerKontoEinwilligungPayloadSchema.safeParse(rawPayload);
-
-    if (!boden.success || !validated.success) {
-      return { success: false, error: VALIDATION_FAILED, fieldErrors: validated.success ? undefined : toFieldErrors(validated.error) };
-    }
-
-    let antwort;
-    try {
-      antwort = await patchSpielerKontoEinwilligung(validated.data);
-    } catch (error) {
-      const refusal = mapEigeneEinwilligungRefusal(error, boden.data);
-      if (refusal !== null) return refusalResult(refusal);
-      throw error;
-    }
-
-    return { success: true, message: WAHL_GESPEICHERT, nachweis_stand: antwort.nachweis_stand };
   });
 }

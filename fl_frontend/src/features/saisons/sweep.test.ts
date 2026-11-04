@@ -29,8 +29,8 @@ const laufCalls: { params: Record<string, string> }[] = [];
 
 // Replaced at the module boundary: the real client reaches a backend no test process runs.
 doubleApiClient(async ({ endpoint }) => {
-  // The grants' pass is armed by the same boot and answers to its own suite
-  // (`fl_frontend/src/features/berechtigungen/abgleich.test.ts`): here it claims nothing and is not recorded.
+  // The grants' pass is armed by the same boot and answers to the suite of the comparison it asks for
+  // (`fl_backend/tests/api/test_berechtigungen_execution.py`): here it claims nothing and is not recorded.
   if (endpoint.startsWith("/grants")) return NOTHING_CLAIMED;
   // The generated call carries its query in the endpoint.
   const sent = new URL(endpoint, "http://backend");

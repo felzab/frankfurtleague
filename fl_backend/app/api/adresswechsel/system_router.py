@@ -28,7 +28,7 @@ from app.api.adresswechsel.services import (
     build_parked_terms,
     ist_abgelaufen,
 )
-from app.api.identitaet.lookup import RecordCollections, SubjektLookup
+from app.api.identity.lookup import RecordCollections, SubjektLookup
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, sperrliste_saison
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -269,8 +269,8 @@ async def sweep_address_change(
     """
     End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
 
-    **A lapsed change** -- its link, the approval it asked of the address on file, or its grant's approval by another
-    administrator -- ends as `abgelaufen`: its address and reason out of the record and every log image of it
+    **A lapsed change** -- its new mailbox's link, the question it asked the address on file, or its grant's approval by
+    another administrator -- ends as `expired`: its address and reason out of the record and every log image of it
     (`removed`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still
     holds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil
     signing in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move

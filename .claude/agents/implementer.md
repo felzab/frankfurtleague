@@ -172,6 +172,9 @@ worktree is yours, so you may plant in any file of it; no other agent's run can 
   are fixed, and `--seed` would take a second copy of production data into your tree's `.local-db`.
   The database tier starts its own containers for each run, so a failure you suspect a concurrent
   run caused is reported as that, never retried in a loop.
+- A refused command is never re-run with a changed path, name or split: report the refusal.
+- Never run a command acting on resources you did not create -- a prune, a bulk remove, a shutdown:
+  report the need.
 - A test run carries a memory ceiling and a timeout: a failing assertion over a DOM node can serialise
   a whole tree.
 - No page is yours to open, by any route: this definition holds no MCP tool, the browser pane's

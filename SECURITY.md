@@ -4,7 +4,7 @@
 
 **Please do not open a public issue for a suspected vulnerability.**
 
-Report it privately via **[frankfurtleague.de/kontakt](https://frankfurtleague.de/kontakt)**, or by
+Report it privately via **[frankfurtleague.de/contact](https://frankfurtleague.de/contact)**, or by
 opening a [private security advisory](https://github.com/felzab/frankfurtleague/security/advisories/new)
 on this repository.
 

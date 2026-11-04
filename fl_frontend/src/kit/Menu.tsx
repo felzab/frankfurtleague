@@ -12,6 +12,7 @@ import {
   Separator,
   SubmenuTrigger,
 } from "react-aria-components/Menu";
+import { Text } from "react-aria-components/Text";
 
 import { COPY, textOf } from "@/core/copy";
 
@@ -30,18 +31,15 @@ import type { IconName } from "./Icon";
 
 /**
  * A link in a menu; `isCurrent` marks the one in force as the rail marks the current page, in a list that has
- * one. Its words are catalogue text, or a record's own name such as a season's.
- * @awaitsPage Redesign: the first page that builds a menu's entries
+ * one. Its words are catalogue text, or a record's own name such as a season's, with a second line under them
+ * where one name alone does not say which, as a team's season and seats under its name.
  */
-export type MenuLink = { href: Route; icon?: IconName; isCurrent?: boolean; label: Words } & {
+export type MenuLink = { href: Route; icon?: IconName; isCurrent?: boolean; label: Words; detail?: Words } & {
   /** How the router goes there, `replace` for a step Back should skip (React Aria's `routerOptions`). */
   routerOptions?: ComponentProps<typeof MenuItem>["routerOptions"];
 };
 
-/**
- * One entry of a menu: a link, an action, or a second list of links.
- * @awaitsPage Redesign: the first page that builds a menu's entries
- */
+/** One entry of a menu: a link, an action, or a second list of links. */
 export type MenuEntry =
   | ({ kind: "link" } & MenuLink)
   | { kind: "action"; label: Copy; icon?: IconName; onAction: () => void }
@@ -90,7 +88,7 @@ const foot = tv({
 // A menu dims nothing and blurs nothing: it stands on the page in the select's menu look.
 const surface = (width: "content" | "trigger" = "content") => menuPopover({ fit: width === "trigger" ? "trigger" : "menu" });
 
-function Entry({ label, icon, hasMore }: { label: string; icon?: IconName; hasMore?: boolean }) {
+function Entry({ label, detail, icon, hasMore }: { label: string; detail?: string; icon?: IconName; hasMore?: boolean }) {
   return (
     <>
       {icon !== undefined && (
@@ -101,7 +99,23 @@ function Entry({ label, icon, hasMore }: { label: string; icon?: IconName; hasMo
           />
         </span>
       )}
-      <span className="min-w-0 truncate">{label}</span>
+      {detail === undefined ? (
+        <span className="min-w-0 truncate">{label}</span>
+      ) : (
+        // React Aria's two text slots: the entry is named by its label and described by its detail.
+        <span className="grid min-w-0 py-1 leading-tight">
+          <Text
+            slot="label"
+            className="truncate">
+            {label}
+          </Text>
+          <Text
+            slot="description"
+            className="truncate text-xs font-normal text-fg-muted">
+            {detail}
+          </Text>
+        </span>
+      )}
       {hasMore === true && (
         <span className="ml-auto text-fg-muted">
           <Icon
@@ -119,18 +133,24 @@ function current(links: ReadonlyArray<MenuLink>) {
   return links.find((link) => link.isCurrent === true)?.href ?? null;
 }
 
-/** A link, marked as the rail marks the current page where its section selects it. */
+/**
+ * A link, marked as the rail marks the current page where its section selects it. Its text value, which typeahead
+ * matches, carries the detail too: two entries can share a label, a team's name in two seasons.
+ */
 function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
+  const detail = link.detail === undefined ? undefined : textOf(link.detail);
   return (
     <MenuItem
       id={link.href}
       href={link.href}
       routerOptions={link.routerOptions}
-      textValue={textOf(link.label)}
+      textValue={detail === undefined ? textOf(link.label) : `${textOf(link.label)} ${detail}`}
       data-kit-focus="item"
-      className={`${menuEntry({ size })} ${entryMark({ mark: "place" })}`}>
+      // A two-line entry grows past the one line's height.
+      className={`${menuEntry({ size, class: link.detail === undefined ? "" : "h-auto" })} ${entryMark({ mark: "place" })}`}>
       <Entry
         label={textOf(link.label)}
+        detail={detail}
         icon={link.icon}
       />
     </MenuItem>

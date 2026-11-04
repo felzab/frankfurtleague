@@ -1,5 +1,4 @@
 import { SPERRLISTE_EINTRAG } from "@/features/admin/constants";
-import { BEWERBUNG_VERALTET } from "@/features/bewerbungen/utils";
 import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
@@ -40,10 +39,6 @@ export function mapKontakteRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
-    // The backend's judgement of a seat's label: an editor opened
-    // before a deploy moved the form's label sends it for a person the row did not hold.
-    case "wording_not_allowed":
-      return BEWERBUNG_VERALTET;
     case "kontakte_moved_under_the_save":
       return buildRefusal({
         reason:

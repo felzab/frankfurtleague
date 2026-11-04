@@ -42,14 +42,14 @@ export const messageLine = tv({
 
 /**
  * A form's status line, at its acts: always there and at least one line tall, so an outcome appearing moves
- * nothing. Beside the acts in a row it shares the row and is cut at its second line; under them in a column,
- * as on the sign-in, it takes every line a refusal needs.
+ * nothing, and never cut, since a sentence's end is what says what happened. Beside the acts in a row it takes the
+ * room the acts leave, wrapping there; under them in a column, as on the sign-in, it takes the whole width.
  */
 export const statusLine = tv({
   base: "min-h-5 text-sm",
   variants: {
     placement: {
-      row: "line-clamp-2 min-w-0 flex-1",
+      row: "min-w-0 flex-1",
       column: "",
     },
     tone: {
@@ -182,13 +182,11 @@ export const calendarCell = tv({
 /**
  * A checkbox or a switch with its message line: the drawn box's column, then the label's, so the line under
  * the row starts where the label does, whatever the box's width.
- * @awaitsProduction session 4's `Checkbox`, session 5's `Switch`
  */
 export const toggleField = tv({ base: "grid w-full grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1" });
 
 /**
  * A checkbox, a radio or a switch: the drawn box, its label 10 px to the right.
- * @awaitsProduction session 4's `Checkbox` and `RadioGroup`, session 5's `Switch`
  */
 export const toggleRow = tv({
   base: "items-start text-sm text-fg data-disabled:opacity-50",
@@ -205,7 +203,6 @@ export const toggleRow = tv({
  * The drawn box of a checkbox or a radio, a pixel down so it centres on the label's first line. Checked or
  * chosen, it fills with the link green: a checkbox's tick on it is the page's ground, white in the light
  * theme and near-black in the dark, and a radio keeps a 4-px ring of it around a dot of the ground.
- * @awaitsProduction session 4's `Checkbox` and `RadioGroup`
  */
 export const toggleBox = tv({
   base: "mt-px flex size-4.5 shrink-0 items-center justify-center border transition-colors duration-(--motion-state)",
@@ -233,14 +230,12 @@ export const toggleBox = tv({
 /**
  * A checkbox's or a switch's message line, in the label's column. A grid, so the line inside it is a block at
  * its own 16-px height, as a field's line is, rather than an inline span set in the page's taller line box.
- * @awaitsProduction session 4's `Checkbox`, session 5's `Switch`
  */
 export const toggleLine = tv({ base: "col-start-2 grid" });
 
 /**
  * A radio group's answers: one under another, or, where each answer is described, side by side as cards,
  * one equal column per answer on desktop so the row is always full.
- * @awaitsProduction session 4's `RadioGroup`
  */
 export const radioList = tv({
   variants: {
@@ -254,7 +249,6 @@ export const radioList = tv({
 /**
  * A described answer drawn as a card: its circle, then its title over its line, 10 px apart as a box and its
  * label are; the chosen card edged 2 px in the link green.
- * @awaitsProduction session 4's `RadioGroup`
  */
 export const choiceCard = tv({
   slots: {
@@ -267,7 +261,6 @@ export const choiceCard = tv({
 
 /**
  * The dot inside a chosen radio, in the page's ground.
- * @awaitsProduction session 4's `RadioGroup`
  */
 export const radioDot = tv({ base: "size-2.5 rounded-full bg-bg" });
 

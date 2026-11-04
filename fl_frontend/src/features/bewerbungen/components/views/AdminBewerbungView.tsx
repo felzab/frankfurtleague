@@ -16,9 +16,7 @@ import { BewerbungAngabenPanel } from "./BewerbungAngabenPanel";
 import { BewerbungBestaetigungStrip } from "./BewerbungBestaetigungStrip";
 
 import type { FLBewerbung } from "@/core/generated/client/types";
-import type { MedienFragen } from "@/features/spieler/nachweis";
 import type { GruppeOffer } from "@/features/teams/types";
-import type { Neubesetzung } from "./BewerbungBestaetigungStrip";
 
 /**
  * One application, with the two decisions it is still open to. **Nothing on this page is a draft
@@ -31,8 +29,6 @@ export function AdminBewerbungView({
   teamName,
   saisonStatus,
   gruppeOffer,
-  neubesetzung,
-  medienFragen,
 }: {
   bewerbung: FLBewerbung;
   /** Whether its confirmation deadline has passed, as the read judged it on the server's day. */
@@ -42,9 +38,6 @@ export function AdminBewerbungView({
   /** The state of the season this application is for, or `null` where no season carries its id. */
   saisonStatus: "past" | "active" | "future" | null;
   gruppeOffer: readonly GruppeOffer[];
-  /** `null` where the registry could not be read, which closes the reseat. */
-  neubesetzung: Neubesetzung | null;
-  medienFragen: MedienFragen;
 }) {
   const saisonHref = useSaisonHref();
 
@@ -63,7 +56,7 @@ export function AdminBewerbungView({
       className={`${PAGE_RISE_CLASSES} w-full p-6 sm:p-8`}
       {...focusSection("bewerbung")}>
       <div className="mx-auto flex w-full max-w-page flex-col">
-        <BackButton fallbackHref={saisonHref("/bereich/admin/bewerbungen")} />
+        <BackButton fallbackHref={saisonHref("/area/admin/bewerbungen")} />
 
         <header className="mb-6 flex w-full flex-row items-center gap-x-3">
           {/* `h2`, never `h1`: the shell's top bar owns the page's one heading. */}
@@ -80,7 +73,6 @@ export function AdminBewerbungView({
         <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-6 xl:mx-0 xl:max-w-none">
           <BewerbungBestaetigungStrip
             bewerbungId={bewerbung.id}
-            neubesetzung={neubesetzung}
             staende={staende}
             frist={bewerbung.confirmation_deadline}
             fristAbgelaufen={fristAbgelaufen}
@@ -93,7 +85,6 @@ export function AdminBewerbungView({
             bewerbung={bewerbung}
             teamName={teamName}
             staende={staende}
-            medienFragen={medienFragen}
           />
 
           {/* Standing whatever the endpoint would refuse, its own control closed with the reason

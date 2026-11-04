@@ -8,6 +8,7 @@ replay reading it are `tests/api/test_journal_replay.py`'s.
 
 import asyncio
 import logging
+from collections.abc import Mapping
 from typing import cast
 
 import pytest
@@ -19,6 +20,7 @@ from app.core.collections import Collection
 from app.core.journal import JOURNAL_TOKEN, Journal, JournalLine, lost_its_answer, parse_line
 from app.core.logging import FL_LOGGER_NAME, JOURNAL_LOGGER_SUFFIX
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
+from app.shared.einwilligung_nachweis import FLEinwilligungChoice
 
 PERSON = "a" * 64
 PSEUDONYM = "c" * 64
@@ -40,7 +42,7 @@ LINES = {
         collection=Collection.SPIELER,
         record_id=RECORD,
         am=AM,
-        text_version="2026-10-konto-spieler",
+        text_versions={"umfang": "2026-11-name-kader-1", "medien": "2026-11-medien-1"},
         choices={"umfang": "intern", "medien": False},
     ),
     "a Widerspruch": JournalLine(
@@ -76,7 +78,8 @@ def test_an_erasure_is_spelled_as_the_export_and_the_restore_read_it():
     assert LINES["an erasure naming no holder"].text() == f"{JOURNAL_TOKEN} {PERSON} loeschung pseudonym={PSEUDONYM}"
     assert LINES["an older erasure"].text() == f"{JOURNAL_TOKEN} {PERSON} loeschung"
     assert LINES["a withdrawal"].text() == (
-        f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version=2026-10-konto-spieler umfang=intern medien=false"
+        f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version.umfang=2026-11-name-kader-1 "
+        "text_version.medien=2026-11-medien-1 umfang=intern medien=false"
     )
     assert (
         LINES["an address change taking effect"].text()
@@ -96,10 +99,6 @@ def test_the_replay_names_a_line_by_its_act_alone(line: JournalLine):
     assert all(keyed not in line.act() for keyed in (PERSON, PSEUDONYM, HALTER, BEFORE, JOURNAL_TOKEN))
 
 
-def test_a_message_of_another_kind_is_no_line():
-    assert parse_line("The grants went unchecked after an erasure: OperationFailure") is None
-
-
 @pytest.mark.parametrize(
     "message",
     [
@@ -109,13 +108,15 @@ def test_a_message_of_another_kind_is_no_line():
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} loeschung spieler/{RECORD}", id="an erasure naming a record"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} medien=false", id="a withdrawal without its label"),
         pytest.param(
-            f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version=2026-10-konto-spieler medien=true", id="a grant"
+            f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version.medien=2026-11-medien-1 medien=true", id="a grant"
         ),
         pytest.param(
-            f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version=2026-10-konto-spieler umfang=x@y.de",
+            f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version.umfang=2026-11-name-kader-1 umfang=x@y.de",
             id="an address as a value",
         ),
-        pytest.param(f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am=2026-10-15T10:00:00 text_version=v umfang=intern", id="no offset"),
+        pytest.param(
+            f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am=2026-10-15T10:00:00 text_version.umfang=v umfang=intern", id="no offset"
+        ),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} widerspruch spieler/{RECORD} am={AM} sitze=trainer", id="a Widerspruch on a pupil"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} widerspruch bewerbungen/{RECORD} am={AM}", id="a Widerspruch naming no seat"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt adresswechsel/{RECORD} am={AM} am={AM}", id="a value twice"),
@@ -146,11 +147,55 @@ def test_a_message_of_another_kind_is_no_line():
             f"{JOURNAL_TOKEN} {PERSON} adresswechsel_wirksam adresswechsel/{RECORD} am={AM} zuvor=anna@example.com",
             id="an address for the replaced one",
         ),
+        pytest.param(
+            f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version=2026-10-konto-spieler "
+            "text_version.medien=2026-11-medien-1 medien=false",
+            id="a press's label beside a choice's",
+        ),
+        pytest.param(
+            f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version=a text_version=b medien=false", id="two press labels"
+        ),
+        pytest.param(
+            f"{JOURNAL_TOKEN} {PERSON} widerruf spiele/{RECORD} am={AM} text_version=2026-10-konto medien=false",
+            id="a press's label on a collection holding no consent",
+        ),
+        pytest.param(f"{JOURNAL_TOKEN} {PERSON} widerruf am={AM} text_version=2026-10-konto medien=false", id="a press's label on no record"),
     ],
 )
 def test_a_line_nothing_could_replay_is_refused_rather_than_read(message: str):
     with pytest.raises(ValueError):
         parse_line(message)
+
+
+@pytest.mark.parametrize(
+    ("collection", "labels"),
+    [
+        pytest.param(Collection.SPIELER, {"umfang": "2026-11-name-kader-1", "medien": "2026-11-medien-1"}, id="a pupil"),
+        pytest.param(Collection.REGISTRIERUNGEN, {"umfang": "2026-11-name-kader-1", "medien": "2026-11-medien-1"}, id="a registration"),
+        pytest.param(Collection.SCHIEDSRICHTER, {"umfang": "2026-11-name-spielplan-1", "medien": "2026-11-medien-1"}, id="a referee"),
+        pytest.param(Collection.SAISON_TEAMS, {"umfang": "2026-11-whatsapp-1", "medien": "2026-11-medien-1"}, id="a contact seat"),
+        pytest.param(Collection.BEWERBUNGEN, {"umfang": "2026-11-whatsapp-1", "medien": "2026-11-medien-1"}, id="an application's seat"),
+    ],
+)
+def test_a_withdrawal_naming_one_label_for_its_press_replays_under_its_kinds_labels(
+    collection: Collection, labels: Mapping[FLEinwilligungChoice, str]
+):
+    """An older day file's spelling: refused, the restore would leave every such withdrawal's consent restored."""
+
+    umfang = "intern" if collection in (Collection.SPIELER, Collection.REGISTRIERUNGEN, Collection.SCHIEDSRICHTER) else "kontaktdaten"
+    line = parse_line(
+        f"{JOURNAL_TOKEN} {PERSON} widerruf {collection}/{RECORD} am={AM} text_version=2026-10-konto umfang={umfang} medien=false"
+    )
+
+    assert line == JournalLine(
+        person_hash=PERSON,
+        art="widerruf",
+        collection=collection,
+        record_id=RECORD,
+        am=AM,
+        text_versions=labels,
+        choices={"umfang": umfang, "medien": False},
+    )
 
 
 def _committed(journal: Journal, caplog: pytest.LogCaptureFixture, *, failure: BaseException | None, attempts: int = 1) -> list[str]:

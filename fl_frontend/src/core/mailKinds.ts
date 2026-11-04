@@ -1,10 +1,10 @@
 import "server-only";
 
 import {
-  buildAdresswechselEmail,
-  buildAdresswechselHinweisEmail,
-  buildAdresswechselNichtWirksamEmail,
-  buildAdresswechselWirksamEmail,
+  buildAddressChangeDiscardedEmail,
+  buildAddressChangeEffectiveEmail,
+  buildAddressChangeEmail,
+  buildAddressChangeNoticeEmail,
 } from "./adresswechselEmail";
 import { buildCodeEmail } from "./authEmail";
 import { buildBerechtigungEmail } from "./berechtigungEmail";
@@ -109,11 +109,11 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   kontakt_confirmation: (data, handout) => buildKontaktBestaetigungEmail(data, minted(handout)),
   sperre: buildSperreEmail,
   grant: buildBerechtigungEmail,
-  address_change_link: (data, handout) => buildAdresswechselEmail(data, minted(handout)),
+  address_change_link: (data, handout) => buildAddressChangeEmail(data, minted(handout)),
   // The stop link, minted into the change's `stopp.token_hashes`.
-  address_change_notice: (data, handout) => buildAdresswechselHinweisEmail(data, minted(handout)),
-  address_change_effective: buildAdresswechselWirksamEmail,
-  address_change_discarded: buildAdresswechselNichtWirksamEmail,
+  address_change_notice: (data, handout) => buildAddressChangeNoticeEmail(data, minted(handout)),
+  address_change_effective: buildAddressChangeEffectiveEmail,
+  address_change_discarded: buildAddressChangeDiscardedEmail,
   bewerbung_received: (data, handout) => buildBewerbungEingangEmail(data, minted(handout)),
   bewerbung_confirmation: (data, handout) => buildBewerbungBestaetigungEmail(data, minted(handout)),
   bewerbung_reminder: (data, handout) => buildBewerbungErinnerungEmail(data, minted(handout)),
@@ -123,7 +123,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   bewerbung_widerspruch: buildBewerbungWiderspruchEmail,
 };
 
-/** A secret kind's secret, which its every row carries (`fl_frontend/src/core/auth.ts :: oweSignInMail`). */
+/** A secret kind's secret, which its every row carries (`fl_frontend/src/core/auth/mails.ts :: oweSignInMail`). */
 function secretOf(secret: string | null): string {
   if (secret === null) throw new Error("The mail's kind carries a secret, and its row holds none.");
 

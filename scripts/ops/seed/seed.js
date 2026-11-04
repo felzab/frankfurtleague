@@ -1,8 +1,9 @@
 // SCRIPTS · the made-up seed: a league nobody plays in, for daily work and the end-to-end journeys.
 //
-// Two seasons, eight clubs, five venues, four referees, an owner and four administrators, every one of them
-// invented, so no machine needs production's personal data to show a page in each of its states.
-// The states are the ones the Spielplan, the sign-in, the match editor and the Spielorte table draw:
+// Two seasons, eight clubs, five venues, four referees the fixtures book and the journeys' own people, an
+// owner and four administrators, every one of them invented, so no machine needs production's personal
+// data to show a page in each of its states. The states are the ones the Spielplan, the sign-in, the
+// match editor and the Spielorte table draw:
 //
 // - a finished season: every fixture played, the match for third place among them, the final decided on
 //   penalties;
@@ -10,15 +11,17 @@
 //   open and a cancelled fixture, next week's matchday holding an undated fixture, and a knockout
 //   round drawn but not yet decided;
 // - venues with and without rent, one retired and one with a name long enough to test a row's width;
-//   referees with and without an address, one retired;
+//   referees, every one with the address both referee payloads require, one retired;
 // - an owner and four administrators.
 //
-// The administrators and the two referees with an address are the journeys' people: one
-// administrator and one referee per end-to-end project (`fl_frontend/playwright.config.ts`), the
-// third administrator the desktop journey's whose save meets the proxy signed out
-// (`fl_frontend/e2e/desktop/signedOutSave.spec.ts`), and the fourth the administration's journey's
-// (`fl_frontend/e2e/desktop/verwaltung.spec.ts`): each sets up its own passkey, which no other journey
-// could then answer. The owner signs in in none.
+// Every journey that writes signs in as a person no other journey signs in as, since one journey's
+// writes would change what another reads (https://playwright.dev/docs/auth). One administrator per
+// end-to-end project (`fl_frontend/playwright.config.ts`), the third the desktop journey's whose save
+// meets the proxy signed out (`fl_frontend/e2e/desktop/signedOutSave.spec.ts`), and the fourth the
+// administration's journey's (`fl_frontend/e2e/desktop/verwaltung.spec.ts`): each sets up its own
+// passkey, which no other journey could then answer. The referees `journeyPerson` writes, each one
+// journey's, are the account acts' three per project and the desktop passkey journeys' two. The owner's
+// code is asked for and never typed (`fl_frontend/e2e/signin.spec.ts`).
 //
 // Run by `./scripts/ops/local.sh --e2e` and `--seed-made-up`, and by the journeys' CI job, with
 // mongosh INSIDE the stack's own database container, at `mongodb://127.0.0.1:27017/<DB_BASE_NAME>`
@@ -109,23 +112,78 @@ function referee(name, schule, payment, email, inactiveSince) {
   return { _id: ObjectId(), name, schule, default_payment: payment, kontakt: { telefon: null, email }, inactive_since: inactiveSince };
 }
 
+// Every person's consent as their own confirmation wrote it, on one day, each choice evidenced under its wording's
+// label (`fl_frontend/src/core/consentWordings.ts`): a pupil's (`SPIELER_TEXT_VERSIONS`), whose media wording every
+// kind shares.
+const CONSENTED = day(-60);
+const LABELS = { umfang: "2026-11-name-kader-1", medien: "2026-11-medien-1" };
+
+// A journey's person: a referee no fixture books, as their own confirmation leaves the row
+// (`fl_backend/app/api/schiedsrichter/services.py :: compose_confirmation_update`), in its one write: the birthdate and
+// the consent, the name kept off the public pages and no media, its name's choice under the referees' own wording
+// (`SCHIEDSRICHTER_TEXT_VERSIONS`). A referee row is its person's own only once confirmed
+// (`fl_backend/app/api/identity/services.py :: ist_eigener_schiedsrichter`), so an address change or an erasure moves
+// nothing of a row without one.
+function journeyPerson(name, email) {
+  const evidence = (textVersion) => ({ am: `${CONSENTED}T10:00:00+00:00`, text_version: textVersion });
+  return {
+    ...referee(name, null, 20, email, null),
+    geburtsdatum: day(-20 * 365),
+    einwilligung: {
+      umfang: "intern",
+      datum: CONSENTED,
+      confirmed_at: CONSENTED,
+      medien: false,
+      nachweis: { umfang: evidence("2026-11-name-spielplan-1"), medien: evidence(LABELS.medien) },
+    },
+  };
+}
+
 const REFEREES = [
   referee("Anna Ahrens", "Ahorn-Gymnasium", 20, "anna.ahrens@example.com", null),
   referee("Ben Brandt", null, 25, "ben.brandt@example.com", null),
-  referee("Carla Conrad", "Ulme-Gymnasium", 20, null, null),
-  referee("Dieter Dorn", null, 15, null, day(-90)),
+  referee("Carla Conrad", "Ulme-Gymnasium", 20, "carla.conrad@example.com", null),
+  referee("Dieter Dorn", null, 15, "dieter.dorn@example.com", day(-90)),
+  // The journeys' own, after every referee a fixture books, so no fixture's booking (`booked`, by index) changes. Each
+  // project's account acts (`fl_frontend/e2e/accountActs.spec.ts`), in its order: the person signed in on a second
+  // device, the one whose address changes, and the one who deletes the account.
+  journeyPerson("Frieda Falk", "frieda.falk@example.com"),
+  journeyPerson("Clara Kranz", "clara.kranz@example.com"),
+  journeyPerson("Hanna Hahn", "hanna.hahn@example.com"),
+  journeyPerson("Gustav Gerber", "gustav.gerber@example.com"),
+  journeyPerson("Dora Dahl", "dora.dahl@example.com"),
+  journeyPerson("Ingo Imhof", "ingo.imhof@example.com"),
+  // The desktop passkey journeys' (`fl_frontend/e2e/desktop/kontoPasskeys.spec.ts`), one each.
+  journeyPerson("Emil Ernst", "emil.ernst@example.com"),
+  journeyPerson("Jana Jansen", "jana.jansen@example.com"),
 ];
 
 // --- Grants --------------------------------------------------------------------------------------
 
+// Each grant as the grant page's write leaves it (`fl_backend/app/api/berechtigungen/crud.py :: grant_in_session`):
+// seen as it is written, and announced by a row of its own, so the reconciliation's first pass, a minute after the
+// frontend starts, finds nothing to date afresh. Written as a Playground paste instead, each would be found then and
+// dated by that moment, and every administrator's session signed in before it sent back to the sign-in on its next
+// page (`docs/ops/runbooks.md` §3). Its notice is owed nobody: no administrator was told of a grant before it.
 // Folded as the sign-in folds an address, or the grant admits nobody (`docs/ops/runbooks.md` §3).
+const GRANTED_AT = new Date();
 const GRANTS = [
   ["inhaber@example.com", "owner"],
   ["admin.desktop@example.com", "administration"],
   ["admin.telefon@example.com", "administration"],
   ["admin.editor@example.com", "administration"],
   ["admin.verwaltung@example.com", "administration"],
-].map(([adresse, verwaltung]) => ({ _id: ObjectId(), adresse, verwaltung, granted_by: "MADE-UP-SEED", granted_at: new Date() }));
+].map(([adresse, verwaltung]) => ({
+  _id: ObjectId(),
+  adresse,
+  verwaltung,
+  granted_by: "MADE-UP-SEED",
+  granted_at: GRANTED_AT,
+  gesehen_am: GRANTED_AT,
+}));
+
+// The announced record of each, keyed by its grant's id: `fl_backend/app/api/berechtigungen/services.py :: compose_announced`.
+const ANNOUNCED = GRANTS.map(({ _id, adresse, verwaltung }) => ({ _id, adresse, verwaltung, angekuendigt_am: GRANTED_AT }));
 
 // --- Seasons -------------------------------------------------------------------------------------
 
@@ -386,13 +444,9 @@ const GHOST_SPIELER = {
   inactive_since: "2000-01-01",
 };
 
-// Each pupil's consent as their own confirmation wrote it, publishing the name and no media: the wording a
-// confirmation records today (`fl_backend/app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`).
-const CONSENTED = day(-60);
-const WORDING = "2026-10-spielerseite-5";
-
+// Each pupil's consent, publishing the name and no media, on the day and under the labels above `REFEREES`.
 function pupil(vorname, nachname) {
-  const evidence = { am: `${CONSENTED}T10:00:00+00:00`, text_version: WORDING };
+  const evidence = (choice) => ({ am: `${CONSENTED}T10:00:00+00:00`, text_version: LABELS[choice] });
   return {
     _id: ObjectId(),
     vorname,
@@ -403,9 +457,8 @@ function pupil(vorname, nachname) {
       umfang: "kader_oeffentlich",
       datum: CONSENTED,
       confirmed_at: CONSENTED,
-      text_version: WORDING,
       medien: false,
-      nachweis: { umfang: evidence, medien: evidence },
+      nachweis: { umfang: evidence("umfang"), medien: evidence("medien") },
     },
     inactive_since: null,
   };
@@ -504,5 +557,10 @@ for (const [name, documents] of Object.entries(DOCUMENTS)) {
   const inserted = db.getCollection(name).insertMany(versioned, { ordered: true }).insertedIds;
   print(`seeded ${name}: ${Object.keys(inserted).length} document(s)`);
 }
+
+// The grants' announced record is bookkeeping no form edits: outside `EDITED_COLLECTIONS`, its documents carry no
+// `version`, and its record model refuses one.
+const announced = db.getCollection("berechtigungen_angekuendigt").insertMany(ANNOUNCED, { ordered: true }).insertedIds;
+print(`seeded berechtigungen_angekuendigt: ${Object.keys(announced).length} document(s)`);
 
 print(`made-up seed written to '${db.getName()}', today being ${TODAY}`);

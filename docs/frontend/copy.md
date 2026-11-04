@@ -12,7 +12,7 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
 | [Voice](#the-voice-is-plain-and-says-du)                                  | Address, who speaks, gendering, how a message reads        |
 | [Lengths](#each-kind-of-string-has-a-ceiling)                             | How long a label, a button, a message or a mail may be     |
 | [Fixed patterns](#a-recurring-job-takes-its-fixed-pattern)                | Which catalogue entry a recurring job takes, and when      |
-| [Help text](#help-text-is-one-of-three-kinds)                             | How a field, a section or a state is explained             |
+| [Help text](#help-text-is-one-of-four-kinds)                              | How a field, a section or a state is explained             |
 | [Formats](#dates-and-numbers-go-through-the-formatting-module)            | How a date, a time, a number or a score is written         |
 | [Punctuation](#punctuation-is-german-and-sparse)                          | Quotation marks, the ellipsis, the dash, the banned words  |
 | [Mail](#a-mail-is-one-small-set-of-data)                                  | What a mail holds and how its lines are written            |
@@ -36,7 +36,9 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
 
 - **One typed catalogue, German only, keyed by area.** Its `shared` section comes first and every
   area draws from it; an area adds a key of its own only for a string `shared` lacks. No test hunts
-  duplicate text, so review is what keeps a second „Gespeichert“ out.
+  duplicate text, so review is what keeps a second „Gespeichert“ out. A string only the server
+  reads, a mail, a refusal's sentence or a page's description among them, lives in its second
+  object, `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY`, so no client bundle carries it.
 - **A component's text prop takes `fl_frontend/src/core/copy.ts :: Copy`, or a record's own data as
   `{ record }` (`Words`)**, so a string typed into a page does not compile, and lint refuses a
   literal inside a `{ record }`. A prop holding a block, such as a door's act, takes a
@@ -46,8 +48,8 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
   string to pass through: the plural of an empty state is the list's own title entry, a date is a
   stored `YYYY-MM-DD` day, a year a range ends on is `{ year }`. A name that may be the catalogue's
   or a record's is `Words`, and lint refuses an entry returning its argument as it came.
-- **Every date, time, number, amount, score and season label goes through
-  `fl_frontend/src/core/format.ts`**, and the current time is read through
+- **Every date, time, number, amount and score goes through `fl_frontend/src/core/format.ts`, and
+  every season's name through `COPY.shared.saisonName`**, and the current time is read through
   `fl_frontend/src/core/clock.ts :: now` alone. Parsing a given date is not reading the clock.
 - **No string is rewritten for a screen about to change or go**: a change writes the strings of what
   it builds.
@@ -94,6 +96,7 @@ there.
 | Field label             | 3 words                                                  | a noun, no colon                                                                              |
 | Button                  | 3 words                                                  | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)          |
 | Field description       | 1 sentence, 90 characters, one visible line              | says what the thing is; none where the label suffices; no field has a placeholder             |
+| Box description         | 1 sentence, 90 characters, one visible line              | says what a Konto box holds, under its title                                                  |
 | Tooltip                 | 5 words                                                  | names an icon-only control, nothing more                                                      |
 | Section info tip (ⓘ)    | 2 sentences, about 200 characters                        | only where a named question needs it                                                          |
 | Field error             | one phrase, one line, 80 characters                      | a fixed pattern                                                                               |
@@ -124,7 +127,7 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   `failure` line: `stale` for a stale page or a concurrent change, `signInExpired` for an ended
   sign-in, `unexpected` for anything else.
 - **A saved record** shows `saved` beside its save button, never as a toast.
-- **A toast** is one of `toast`'s four titles, and only for an action that leaves nothing on the page
+- **A toast** is one of `toast`'s five titles, and only for an action that leaves nothing on the page
   to change.
 - **A busy button** keeps its label and shows a spinner named `loading`; no „Speichert …“.
 - **An empty list** says `empty.search`, `empty.filter` or `empty.none` with its own plural;
@@ -134,12 +137,16 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
 - **A page a mail opens** ends in one of `end`'s states: done, already done saying what the person
   did and when, or `linkInvalid`, one message for an expired, mistyped or tampered link alike.
   Each ends in one button to the logical next step: `verb.signIn` after a confirmed seat or address
-  change, `end.toHome` after anything else.
+  change, `end.toAccount` where Konto is the one place to change what was done and for an address
+  change's or a deletion's link that no longer holds, `end.toHome` after anything else.
 - **A Vorschau line** names the changed fields by their own labels; there are no change-list labels.
 
-## Help text is one of three kinds
+## Help text is one of four kinds
 
 - **A field description**: one visible line under the field, saying what the thing is.
+- **A box's description**: one sentence under the title of each box of a Konto page, saying what
+  the box holds, the one section that carries a sentence under its title, since Konto's boxes are
+  one shape whatever each holds.
 - **One ⓘ per section**, right after its title, opening help a person sometimes needs. Text the
   reader needs is never hidden behind it.
 - **A callout**: one visible state or consequence.
@@ -150,8 +157,9 @@ placeholders, no truncation banners.
 ## Dates and numbers go through the formatting module
 
 `fl_frontend/src/core/format.ts` holds each form beside the function writing it: a date in a list or
-a field message, a date in a sentence or a mail, a time, a moment, a range, a number, an amount, a
-score and a season. Two rules no function states:
+a field message, a date in a sentence or a mail, a time, a moment, a range, a number, an amount and a
+score; a season's name is the catalogue's `COPY.shared.saisonName`, since its id is its year and
+needs no formatting. Two rules no function states:
 
 - **A range is the only place a dash appears**, and the locale writes it, dropping what both ends
   share.
@@ -187,4 +195,11 @@ A date field shows „tt.mm.jjjj“ and a time field „––:––“ while e
 ## Legal text keeps its own rules
 
 - **Semicolons are allowed here alone.**
-- **A consent wording a stored record references stays as it was shown**, superseded or not.
+- **A consent's label is its whole sentence**, past a field label's 3 words, because the sentence
+  is what the person agrees to.
+- **A consent wording stays as it was shown**, because a stored record cites its words by label: it
+  lives outside the catalogue, in `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`,
+  where new words are a new label beside it. The one exception is the paste the deploy of the
+  current wordings owes, which re-points every stored record's label to its consent's current
+  wording, so a record stamped before that deploy cites words its person was not shown
+  ([the `Fassung` entry](../glossary.md#fassung--wording--one-frozen-consent-wording-a-person-was-shown-under-its-label)).

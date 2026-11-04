@@ -1,4 +1,3 @@
-import type { GekeyteFassung, SpielerAbsatzSchluessel, SpielerWiederkehrendAbsatzSchluessel } from "@/core/einwilligungSeiten";
 import type {
   FLEinwilligungUmfang,
   FLInvitationViewResponse,
@@ -77,17 +76,7 @@ export type SpielerBestaetigungGespeichert = {
 };
 
 /**
- * The stamped words this page renders, handed in by the page rather than imported by the view: the
- * label freezes what a reader saw, and a component reaching for the current one would render words
- * no record cites.
+ * Which of the two pages a link opens, handed in by the page: the new pupil's asks the two consents of
+ * `fl_frontend/src/core/consentWordings.ts :: SPIELER_WORDINGS`, the returning pupil's none.
  */
-// TOTAL over the enum, so a scope the label has no words for fails at the page that reads it rather
-// than rendering as a chip with no text and a readout with an empty row.
-export type SpielerFassung = GekeyteFassung<SpielerAbsatzSchluessel, FLEinwilligungUmfang> & { readonly seite: "bestaetigung_spieler" };
-
-// No control keys: the page asks no choice and shows none.
-type SpielerWiederkehrendFassung = GekeyteFassung<SpielerWiederkehrendAbsatzSchluessel> & {
-  readonly seite: "bestaetigung_spieler_wiederkehrend";
-};
-
-export type SpielerSeitenFassung = SpielerFassung | SpielerWiederkehrendFassung;
+export type SpielerSeitenFassung = { readonly seite: "bestaetigung_spieler" } | { readonly seite: "bestaetigung_spieler_wiederkehrend" };

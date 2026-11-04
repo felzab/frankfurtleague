@@ -46,22 +46,64 @@ export async function mailedCode(address: string, before: ReadonlySet<string>): 
   return code;
 }
 
-async function codeAmong(address: string, before: ReadonlySet<string>): Promise<string | null> {
+/**
+ * The link a message filed after `before` carries to `address` under `subject`, as the address and query the page
+ * opens at: the mail is spelled on the serving origin, which the journey's own `baseURL` reaches.
+ */
+export async function mailedLink(address: string, subject: string, before: ReadonlySet<string>): Promise<string> {
+  let link: string | null = null;
+
+  await expect
+    .poll(
+      async () => {
+        link = await linkAmong(address, subject, before);
+        return link;
+      },
+      { message: `a mail „${subject}“ to ${address} in ${MAIL_SINK}`, timeout: 20_000 },
+    )
+    .not.toBeNull();
+
+  if (link === null) throw new Error(`no mail „${subject}“ reached ${address}`);
+  return link;
+}
+
+async function linkAmong(address: string, subject: string, before: ReadonlySet<string>): Promise<string | null> {
+  for (const lines of await headersAmong(before)) {
+    if (!lines.includes(`To: ${address}`) || !lines.includes(`Subject: ${subject}`)) continue;
+
+    // The button's link, printed to copy under it in the plain-text part.
+    const found = lines.join("\n").match(/https?:\/\/[^\s"<>]+\?token=[A-Za-z0-9_%-]+/);
+    if (found !== null) {
+      const url = new URL(found[0]);
+      return `${url.pathname}${url.search}`;
+    }
+  }
+
+  return null;
+}
+
+/** Each message filed after `before`, newest first, as its envelope's and plain-text part's lines. */
+async function headersAmong(before: ReadonlySet<string>): Promise<string[][]> {
   // Newest first: a name opens with the moment it was filed (`fl_frontend/src/core/mail.ts :: sinkFileStem`).
   const filed = (await readdir(MAIL_SINK))
     .filter((name) => name.endsWith(".html") && !before.has(name))
     .sort()
     .reverse();
 
+  const headers: string[][] = [];
   for (const name of filed) {
     const document = await readFile(path.join(MAIL_SINK, name), "utf8");
-    // The comment heading the file carries the envelope and the plain-text part, where the code
-    // stands on a line of its own (`fl_frontend/src/core/mail.ts :: sinkDocument`).
-    const header = document.slice(document.indexOf("<!--") + "<!--".length, document.indexOf("-->"));
-    const lines = header.split("\n");
+    // The comment heading the file carries the envelope and the plain-text part (`fl_frontend/src/core/mail.ts :: sinkDocument`).
+    headers.push(document.slice(document.indexOf("<!--") + "<!--".length, document.indexOf("-->")).split("\n"));
+  }
+  return headers;
+}
 
+async function codeAmong(address: string, before: ReadonlySet<string>): Promise<string | null> {
+  for (const lines of await headersAmong(before)) {
     if (!lines.includes(`To: ${address}`) || !lines.some((line) => line.startsWith(CODE_SUBJECT))) continue;
 
+    // The code stands on a line of its own in the plain-text part.
     const code = lines.find((line) => /^\d{6}$/.test(line));
     if (code !== undefined) return code;
   }

@@ -98,8 +98,9 @@ const refusalOf = async ({ res, traceId, endpoint, sent }: { res: Response; trac
  * through here.
  */
 export async function sendToBackend<T>(endpoint: string, options: FetchOptions): Promise<T> {
-  // Unseeded means a `"use cache"` fill, where Next refuses request APIs. Minting there is safe:
-  // the ids reach the header and the errors, never the returned value.
+  // Unseeded means a call no request scope encloses: a `"use cache"` fill, where Next refuses request APIs, or a
+  // hook of the sign-in library's own route handler. Minting there is safe: the ids reach the header and the
+  // errors, never the returned value.
   const traceId = getRequestTraceId() ?? mintTraceId();
 
   const { authType, readOnly, ...customOptions } = options;

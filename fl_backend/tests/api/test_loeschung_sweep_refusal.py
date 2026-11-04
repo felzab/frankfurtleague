@@ -9,12 +9,12 @@ from typing import Any
 
 import pytest
 
-from app.api.identitaet import system_router
-from app.api.identitaet.services import (
+from app.api.identity import system_router
+from app.api.identity.services import (
     abgeschlossene_saison_id,
     behaltene_saison_ids,
+    erasure_due,
     geschlossen_durch,
-    loeschung_faellig,
     offene_adressen,
     statuses_after_activating,
 )
@@ -28,7 +28,7 @@ ADDRESS = "thessaly.okonkwo@beispielschule.de"
 def faellig(
     kader: list[str], *, statuses: dict[str, FLSaisonStatus] = LEAGUE, offene: frozenset[str] = frozenset(), email: Any = ADDRESS
 ) -> bool:
-    return loeschung_faellig(email=email, kader_saison_ids=kader, offene=offene, behalten=behaltene_saison_ids(statuses))
+    return erasure_due(email=email, kader_saison_ids=kader, offene=offene, behalten=behaltene_saison_ids(statuses))
 
 
 class TestTheKeptSeasons:

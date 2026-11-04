@@ -3,7 +3,7 @@ import { DAY_MS, HOUR_MS } from "./timeUnits";
 /** How long a session of one kind survives without use, and how long it survives at all. */
 export type Lifetime = { readonly idle: number; readonly absolute: number };
 
-// Here rather than in `fl_frontend/src/core/auth.ts`, which enforces them: the privacy notice states
+// Here rather than in `fl_frontend/src/core/auth/library.ts`, which enforces them: the privacy notice states
 // these figures too, and importing them from there would load Better Auth into the page.
 
 // NIST SP 800-63B-4 §2.2.3 (read 2026-10-15): the overall timeout "SHOULD be no more than 24 hours at
@@ -29,30 +29,38 @@ export const PERSON_LIFETIME: Lifetime = { idle: 14 * DAY_MS, absolute: PERSON_W
 // one: an absolute figure here would keep a person's idle row alive past its own window.
 export const SESSION_EXPIRES_IN_DAYS = Math.max(ADMIN_LIFETIME.idle, PERSON_LIFETIME.idle) / DAY_MS;
 
+// How recent a passkey sign-in the passkey touch is: an act the touch guards asks one this recent of every person
+// holding a passkey, every time.
+export const PASSKEY_TOUCH_SECONDS = 60;
+
+// Redesign: goes with its last importer.
 // GitHub's re-authentication window, the widely adopted figure: a change to passkeys or sign-ins asks
 // again past it. Mirrored in `fl_backend/app/shared/schemas/bounds.py`,
 // whose step-up check refuses an administrator's step-up write from a sign-in older than it.
 export const STEP_UP_WINDOW_MS = 2 * HOUR_MS;
 
-// Narrower for ADDING a passkey, which outlives the session that adds it: a borrowed session would
-// otherwise leave its borrower a way in for good.
+// Redesign: goes with its last importer.
+// Narrower, for the administration's step-up before a write granting, moving, changing or ending access to the
+// administration, which outlives the session confirming it.
 export const ENROLMENT_WINDOW_MS = 5 * 60 * 1000;
 
 function isYoungerThan(createdAt: Date | string, window: number): boolean {
   const created = new Date(createdAt).getTime();
 
   // An unreadable stamp is no step-up rather than an unbounded one, as
-  // `fl_frontend/src/core/auth.ts :: withinLifetime` reads one.
+  // `fl_frontend/src/core/auth/sessionStamps.ts :: withinLifetime` reads one.
   return Number.isFinite(created) && Date.now() - created < window;
 }
 
-// Both windows' predicates beside their figures rather than in `auth.ts`: every spine judging one reads
+// Redesign: goes with its last importer.
+// Both windows' predicates beside their figures rather than in `fl_frontend/src/core/auth/`: every spine judging one reads
 // it here, and the suites doubling the sign-in store keep it real.
 export function isWithinStepUpWindow(createdAt: Date | string): boolean {
   return isYoungerThan(createdAt, STEP_UP_WINDOW_MS);
 }
 
-/** Adding a passkey asks a sign-in or confirmation this recent, whoever adds it. */
+// Redesign: goes with its last importer.
+/** The administration's narrower step-up, before a write on its access, asks a sign-in this recent. */
 export function isWithinEnrolmentWindow(createdAt: Date | string): boolean {
   return isYoungerThan(createdAt, ENROLMENT_WINDOW_MS);
 }

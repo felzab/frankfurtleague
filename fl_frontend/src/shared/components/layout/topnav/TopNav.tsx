@@ -37,7 +37,7 @@ export function TopNav() {
           {/* To everyone, as the chrome of a public page knows no session: a visitor signed in nowhere is
               sent on to the sign-in by the area's own guard. */}
           <Link
-            href="/bereich"
+            href="/area"
             className="rounded-full px-4 py-1.5 fluid-sm font-semibold text-foreground transition-colors hover:bg-hover">
             {DEIN_BEREICH_TITEL}
           </Link>
@@ -69,7 +69,7 @@ export function TopNav() {
             <Dropdown.Item
               id="bereich"
               textValue={DEIN_BEREICH_TITEL}
-              href="/bereich"
+              href="/area"
               className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
               <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">{DEIN_BEREICH_TITEL}</Label>
               <Person
@@ -109,7 +109,7 @@ export function TopNav() {
             <Dropdown.Item
               id="kontakt"
               textValue={KONTAKT_TITEL}
-              href="/kontakt"
+              href="/contact"
               className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
               <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">{KONTAKT_TITEL}</Label>
               <At

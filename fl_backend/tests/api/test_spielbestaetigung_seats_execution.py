@@ -20,8 +20,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.public_router import post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungDeclined
 from app.api.bewerbungen.system_router import sweep_saison
-from app.api.identitaet.services import build_loeschung_seat_pipeline
-from app.api.identitaet.wiederherstellung import Read, Window, replay_line
+from app.api.identity.journal_replay import Read, Window, replay_line
+from app.api.identity.services import build_loeschung_seat_pipeline
 from app.api.kontakte.crud import loeschen_kontaktperson_in_session
 from app.api.spielbestaetigungen.public_router import get_spielbestaetigung_view
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
@@ -33,7 +33,6 @@ from app.core.exceptions import APIError
 from app.core.journal import JournalLine
 from app.core.security import erasure_journal_hash
 from app.core.transactions import transaction_session
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
@@ -66,9 +65,6 @@ ANSWERED_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b60022")
 REASON_SPIEL_OIDS = [ObjectId(f"6890a1b2c3d4e5f607b6003{position}") for position in range(5)]
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607b60041")
 
-FORM_LABEL = LAUFENDE_FASSUNGEN["bewerbung"]
-SEAT_PAGE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt_saison"]
-
 TELEFON = {"Ida": "+4917010000001", "Jonas": "+4917010000002", "Klara": "+4917010000003", "Lea": "+4917010000004"}
 
 
@@ -80,7 +76,7 @@ def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:
         "nachname": "Musterfrau",
         "email": email or f"{vorname.lower()}@example.com",
         "telefon": TELEFON[vorname],
-        "einwilligung": {"umfang": "kontaktdaten", "text_version": FORM_LABEL, "datum": "2026-03-01"},
+        "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
     }
 
 
@@ -91,7 +87,7 @@ def stored(vorname: str) -> dict[str, Any]:
 
     return documents.kontaktperson_document(
         vorname,
-        einwilligung={"text_version": sent["einwilligung"]["text_version"], "datum": sent["einwilligung"]["datum"]},
+        einwilligung={"datum": sent["einwilligung"]["datum"]},
         entered_by="liga",
         nachname=sent["nachname"],
         email=sent["email"],

@@ -1,8 +1,7 @@
 "use client";
 
-import { Beleg, Fassung } from "@/features/spieler/components/ui/Nachweis";
+import { Beleg } from "@/features/spieler/components/ui/Nachweis";
 import {
-  EINWILLIGUNG_FASSUNG_FRAGE,
   EINWILLIGUNG_MEDIEN_FRAGE,
   EINWILLIGUNG_MEDIEN_LABELS,
   EINWILLIGUNG_UMFANG_LABELS,
@@ -22,14 +21,7 @@ import type { FLEinwilligung } from "@/core/generated/client/types";
  * **No control and no draft field**: `fl_backend/app/api/spieler/schemas.py :: FLPatchSpielerPayload` carries no
  * consent, which only the person's own writes grant, so a picker here would offer a write no payload carries.
  */
-export function FormEinwilligungSection({
-  einwilligung,
-  istFassungBekannt,
-}: {
-  einwilligung: FLEinwilligung;
-  /** Whether the registry holds the stored label, resolved by the page through the words read. */
-  istFassungBekannt: boolean | null;
-}) {
+export function FormEinwilligungSection({ einwilligung }: { einwilligung: FLEinwilligung }) {
   const panel = formPanel();
 
   return (
@@ -71,14 +63,6 @@ export function FormEinwilligungSection({
           <Angabe label="Erteilt am">{formatSpielDatum(einwilligung.datum)}</Angabe>
           <Angabe label="Bestätigt am">
             {einwilligung.confirmed_at === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.confirmed_at)}
-          </Angabe>
-          {/* The key rather than a German gloss of it, which would be a second name for one
-                wording. */}
-          <Angabe label={EINWILLIGUNG_FASSUNG_FRAGE}>
-            <Fassung
-              textVersion={einwilligung.text_version}
-              istBekannt={istFassungBekannt}
-            />
           </Angabe>
         </dl>
 

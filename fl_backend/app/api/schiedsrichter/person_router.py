@@ -1,23 +1,21 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.identitaet.crud import funktionen_of
-from app.api.identitaet.lookup import SubjektLookup
-from app.api.identitaet.services import ist_eigener_schiedsrichter, may_grant_on_schiedsrichter
-from app.api.konto.crud import press_einwilligung
-from app.api.konto.services import (
-    KONTO_SEITE_SCHIEDSRICHTER,
+from app.api.account.crud import press_einwilligung
+from app.api.account.services import (
     compose_person_move,
     compose_schiedsrichter_self,
     find_eigener_eintrag_refusal,
     widerruf_line,
 )
+from app.api.identity.crud import funktionen_of
+from app.api.identity.lookup import SubjektLookup
+from app.api.identity.services import ist_eigener_schiedsrichter, may_grant_on_schiedsrichter
 from app.api.schiedsrichter.schemas import (
-    FLSchiedsrichterAccountEinwilligungResponse,
     FLSchiedsrichterSelfResponse,
 )
 from app.api.schiedsrichter.services import EINWILLIGUNG_FELD, build_self_referee_filter, build_self_referee_pipeline
@@ -36,9 +34,9 @@ from app.core.recording import log_stamp
 from app.core.routing import by_id
 from app.core.security import erasure_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import FLEinwilligungChoice, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomRouteObjectId
-from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
+from app.shared.schemas.einwilligung import FLSchiedsrichterAccountEinwilligungPayload, by_choice
 
 # A person's own router, apart from the admin one and the confirmation one, each binding its own actor
 # at router level: this one records every write under the referee's Funktion.
@@ -68,12 +66,12 @@ async def get_self(identifier: SchiedsrichterIdentifier, schiedsrichter_collecti
 
 @router.patch(
     f"/account{by_id('schiedsrichter_id')}/einwilligung",
-    response_model=FLSchiedsrichterAccountEinwilligungResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Change a signed-in referee's own publication and media consent",
 )
 async def patch_einwilligung(
     schiedsrichter_id: CustomRouteObjectId,
-    einwilligung_data: Annotated[FLAccountEinwilligungPayload, Body()],
+    einwilligung_data: Annotated[FLSchiedsrichterAccountEinwilligungPayload, Body()],
     identifier: SchiedsrichterIdentifier,
     schiedsrichter_collection: SchiedsrichterCollection,
     records: SubjektLookup,
@@ -81,7 +79,7 @@ async def patch_einwilligung(
     config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLSchiedsrichterAccountEinwilligungResponse:
+) -> None:
     """
     Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.
 
@@ -93,10 +91,10 @@ async def patch_einwilligung(
 
     Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
     `nachweis_stand` other than the record's own, either choice having moved since the page was served
-    (`wording_not_allowed`); a grant on a retired record (`giving_not_allowed`); a `text_version` naming no version of
-    the account page's referee control, or a grant naming any but the page's running one (`wording_not_allowed`);
-    `medien` moving to `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing
-    (`medien_age`). Each refusal writes nothing.
+    (`choices_stale`); a grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label
+    other than its current wording's, the page loaded before a rewording (`grant_wording_stale`); `medien` moving to
+    `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each
+    refusal writes nothing.
 
     **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
     """
@@ -108,7 +106,7 @@ async def patch_einwilligung(
     journal = Journal()
 
     @journal.attempted
-    async def write(session: AsyncClientSession) -> FLSchiedsrichterAccountEinwilligungResponse:
+    async def write(session: AsyncClientSession) -> None:
         row = await schiedsrichter_collection.find_one(
             eigener_eintrag, projection={"kontakt.email": 1, "geburtsdatum": 1, EINWILLIGUNG_FELD: 1}, session=session
         )
@@ -125,24 +123,22 @@ async def patch_einwilligung(
             geburtsdaten=[row.get("geburtsdatum")],
             gewaehlt=gewaehlt,
             nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
-            text_version=einwilligung_data.text_version,
-            seite=KONTO_SEITE_SCHIEDSRICHTER,
+            text_versions=einwilligung_data.text_versions,
             darf_erteilen=darf_erteilen,
             today=today,
         )
 
-        update = compose_person_move(gespeichert=gespeichert, gewaehlt=gewaehlt, am=am, text_version=einwilligung_data.text_version)
-        updated = (
-            None
-            if update is None
-            else await patch_one_in_db(
+        update = compose_person_move(
+            gespeichert=gespeichert, gewaehlt=gewaehlt, am=am, text_versions=by_choice(einwilligung_data.text_versions)
+        )
+        if update is not None:
+            await patch_one_in_db(
                 collection=schiedsrichter_collection,
                 db_filter={"_id": row["_id"]},
                 update=update,
                 session=session,
-                return_document=ReturnDocument.AFTER,
+                return_document=ReturnDocument.BEFORE,
             )
-        )
         line = widerruf_line(
             person_hash=erasure_journal_hash(identifier, key=config.sperrliste_key),
             collection=Collection.SCHIEDSRICHTER,
@@ -150,21 +146,11 @@ async def patch_einwilligung(
             bloecke=[gespeichert],
             gewaehlt=gewaehlt,
             am=am,
-            text_version=einwilligung_data.text_version,
+            text_versions=by_choice(einwilligung_data.text_versions),
         )
         if line is not None:
             journal.note(line)
-        # A press moving neither choice is no act, so nothing was written and the record answers as stored.
-        einwilligung = gespeichert if updated is None else updated[EINWILLIGUNG_FELD]
-
-        return FLSchiedsrichterAccountEinwilligungResponse.model_validate(
-            {
-                "schiedsrichter_id": schiedsrichter_id,
-                "einwilligung": einwilligung,
-                "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung]),
-            }
-        )
 
     async with journal:
         async with transaction_session(db) as session:
-            return await session.with_transaction(write)
+            await session.with_transaction(write)

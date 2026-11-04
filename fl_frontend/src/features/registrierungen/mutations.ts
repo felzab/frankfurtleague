@@ -15,7 +15,6 @@ import type {
   FLInvitationViewResponse,
   FLPostRegistrierungPayload,
   FLPostRegistrierungResponse,
-  FLRegistrierungAccountEinwilligungResponse,
   FLRegistrierungAdmissionResponse,
   FLRegistrierungAdmitPayload,
   FLRegistrierungConfirmationPayload,
@@ -80,9 +79,6 @@ export async function postRegistrierungSweep(saisonId: string): Promise<FLRegist
 
 // A pupil's own withdrawal on their pending registration, under the person lane's actor: the backend
 // judges the registration theirs and takes a withdrawal alone until the team admits it.
-export async function patchRegistrierungEinwilligung(
-  registrierungId: string,
-  payload: FLAccountEinwilligungPayload,
-): Promise<FLRegistrierungAccountEinwilligungResponse> {
+export async function patchRegistrierungEinwilligung(registrierungId: string, payload: FLAccountEinwilligungPayload): Promise<void> {
   return registrierungenPatchEinwilligung(registrierungId, payload);
 }

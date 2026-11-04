@@ -1,6 +1,6 @@
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spieler.schemas import FLEinwilligung
@@ -14,7 +14,7 @@ from app.shared.schemas.custom import (
     CustomOptionalDateString,
     CustomOptionalString,
 )
-from app.shared.schemas.einwilligung import CustomEinwilligungTextVersion, FLEinwilligungStand
+from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
 from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLConfirmationState, FLEinwilligungUmfang, FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -95,6 +95,12 @@ class FLSchiedsrichterRecord(FLSchiedsrichter, Anchored):
 
     confirmation: FLSchiedsrichterBestaetigungRecord | None = None
 
+    @model_validator(mode="after")
+    def _cites_a_referees_wordings(self) -> Self:
+        if self.einwilligung is not None:
+            cite_their_kind(self.einwilligung.nachweis, FLSchiedsrichterTextVersions)
+        return self
+
 
 FLSchiedsrichterListAdapter = TypeAdapter(list[FLSchiedsrichter])
 
@@ -163,8 +169,13 @@ class FLSchiedsrichterConfirmationPayload(BaseModel):
     # Required rather than defaulted: a page that omitted it would store the model's answer in place
     # of the person's, and an off switch is an answer.
     medien: bool
-    # The label of the words the page showed: the write refuses any but the running one.
-    text_version: CustomEinwilligungTextVersion
+    # The wordings the page showed beside the two choices.
+    text_versions: FLSchiedsrichterTextVersions
+
+    @model_validator(mode="after")
+    def _grants_name_the_current_wording(self) -> Self:
+        refuse_a_stale_grant(self.text_versions, {"umfang": self.umfang, "medien": self.medien})
+        return self
 
 
 class FLSchiedsrichterConfirmationResponse(BaseAPIResponse):
@@ -192,31 +203,30 @@ class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     delivery: FLOutboxStatus | None
 
 
-class FLSchiedsrichterSelf(BaseReadModel):
-    """One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.
+class FLSchiedsrichterSelfPerson(BaseReadModel):
+    """One referee record's stored data as its own person reads it: contact details, never the link's bookkeeping.
 
-    For `app/api/spieler/schemas.py :: FLSpielerSelf`'s reason, the account page's entry extends it.
+    Its consent is the account page's, whose entry `app/api/account/schemas.py :: FLAccountSchiedsrichterEinwilligung` extends this.
     """
 
     schiedsrichter_id: CustomObjectId
     name: CustomNonEmptyString
     schule: str | None
     kontakt: FLKontakt
+    geburtsdatum: CustomOptionalDateString = None
+
+
+class FLSchiedsrichterSelf(FLSchiedsrichterSelfPerson):
+    """The referee's own page's read: the record and its fee.
+
+    The fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.
+    """
+
     # `default_payment`, named as the screen names it: the confirmation page lists it among what is stored.
     honorar: int
-    geburtsdatum: CustomOptionalDateString = None
 
 
 class FLSchiedsrichterSelfResponse(BaseAPIResponse):
     """Every confirmed referee record the signed-in address holds, the ghost never among them."""
 
     schiedsrichter: list[FLSchiedsrichterSelf]
-
-
-class FLSchiedsrichterAccountEinwilligungResponse(BaseAPIResponse):
-    """The record as it stands after the write, everything the person did not move unchanged."""
-
-    schiedsrichter_id: CustomObjectId
-    einwilligung: FLEinwilligung
-    # For `app/api/spieler/schemas.py :: FLSpielerAccountEinwilligungResponse`'s reason.
-    nachweis_stand: FLEinwilligungStand

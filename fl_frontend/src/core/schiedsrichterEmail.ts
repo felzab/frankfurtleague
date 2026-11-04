@@ -2,13 +2,11 @@ import "server-only";
 
 import { BRAND_NAME, mailOrigin } from "./emailShell";
 import { dayOf, formatDatum } from "./format";
+import { ROUTES } from "./routes";
 
 import type { Mail } from "./emailShell";
 import type { FLSchiedsrichterConfirmationData } from "./generated/client/types";
 import type { MailLink } from "./mailKinds";
-
-/** A segment of its own rather than a query on a shared page, so the sitemap and `robots.ts` answer it by name. */
-const SCHIEDSRICHTER_BESTAETIGUNG_PATH = "/bestaetigung/schiedsrichter";
 
 /**
  * The one place the referee's confirmation link is spelled. `token` is the parameter name because
@@ -16,7 +14,7 @@ const SCHIEDSRICHTER_BESTAETIGUNG_PATH = "/bestaetigung/schiedsrichter";
  * line and the referer unredacted.
  */
 function schiedsrichterBestaetigungsLink(origin: string, token: string): string {
-  return `${origin}${SCHIEDSRICHTER_BESTAETIGUNG_PATH}?token=${encodeURIComponent(token)}`;
+  return `${origin}${ROUTES.schiedsrichterConfirmation.path()}?token=${encodeURIComponent(token)}`;
 }
 
 // No name: an administrator typed this address and nobody has confirmed it, so behind a typo its

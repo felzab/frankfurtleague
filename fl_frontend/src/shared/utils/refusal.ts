@@ -46,15 +46,6 @@ export const LADE_DIE_SEITE_NEU = "Lade die Seite neu";
 export const UNKNOWN_REFUSAL = `${LADE_NEU_UND_VERSUCHE_ES_ERNEUT}.`;
 
 /**
- * What an admin editor says where the consent registry's read failed: the one control needing a label
- * closes with it, and the rest of the page stands.
- */
-export const WORDING_UNREADABLE = buildRefusal({
-  reason: "Die laufende Fassung der Hinweise ließ sich nicht lesen",
-  repair: LADE_NEU_UND_VERSUCHE_ES_ERNEUT,
-});
-
-/**
  * The retry as a `repair`, where the same press may pass: period-free, since `buildRefusal` closes the
  * sentence it ends. „erneut“ is the one word for doing anything again, a link reopened included,
  * never „noch einmal“.

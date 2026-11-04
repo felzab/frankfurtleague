@@ -1,11 +1,10 @@
 """
 API · a referee's address in the editor: the save never moves a confirmed one, which an address change alone moves
 
-The change itself, its links and its effect are `tests/api/test_adresswechsel_execution.py`'s; here the editor's save and
-read beside a change standing on the referee's address.
+The change itself, its links and its effect are `tests/api/test_adresswechsel_execution.py`'s; here the editor's save
+beside a change standing on the referee's address.
 """
 
-import time
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -18,18 +17,17 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.adresswechsel.admin_router import post_address_change_verwaltung
 from app.api.adresswechsel.schemas import FLAddressChangeVerwaltungPayload
-from app.api.schiedsrichter.admin_router import get_schiedsrichter_by_id, invite_schiedsrichter, patch_schiedsrichter
+from app.api.schiedsrichter.admin_router import invite_schiedsrichter, patch_schiedsrichter
 from app.api.schiedsrichter.public_router import post_confirmation
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterConfirmationPayload
 from app.api.schiedsrichter.services import BESTAETIGUNG_FELD
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.bans import ban_list
-from tests.config import ADMINISTRATORS, grants_for_the_suite
+from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.outbox import MAIL_NOW, drained
 from tests.records import record_collections
@@ -97,7 +95,7 @@ def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
                             "geburtsdatum": "1984-05-09",
                             "umfang": "kader_oeffentlich",
                             "medien": True,
-                            "text_version": LAUFENDE_FASSUNGEN["bestaetigung_schiedsrichter"],
+                            "text_versions": dict(documents.SCHIEDSRICHTER_TEXT_VERSIONS),
                         }
                     ),
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
@@ -147,20 +145,6 @@ async def request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         operator="admin@frankfurtleague.de",
         auth_time=0,
         germany_now=NOW,
-    )
-
-
-async def read(database: AsyncDatabase) -> Any:
-    return await get_schiedsrichter_by_id(
-        schiedsrichter_id=SCHIEDSRICHTER_OID,
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
-        today=TODAY,
-        berechtigungen_collection=database[Collection.GRANTS],
-        berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-        outbox_collection=database[Collection.OUTBOX],
-        operator=ADMINISTRATORS[0],
-        auth_time=int(time.time()),
     )
 
 
@@ -224,34 +208,3 @@ class TestAnUnconfirmedReferee:
         assert saved.confirmation is not None
         assert (mail.an, row["kontakt"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
         assert row[BESTAETIGUNG_FELD]["token_hashes"] == [hash_token(str(mail.token))]
-
-
-class TestTheEditorsRead:
-    def test_it_names_the_live_change_of_the_referee_s_address(self, mongo_replica_set_url: str):
-        """Read off the folded address the referee stores, as the change keys it."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            before = await read(database)
-            minted = await request(database, client)
-            return before.address_change_id, (await read(database)).address_change_id, minted.id
-
-        before, after, minted = on_a_league(mongo_replica_set_url, body)
-
-        assert (before, after) == (None, minted)
-
-    def test_an_unconfirmed_referees_lapsed_consent_link_is_answered_apart_from_any_change(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            answered = await get_schiedsrichter_by_id(
-                schiedsrichter_id=SCHIEDSRICHTER_OID,
-                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
-                today="2026-04-16",
-                berechtigungen_collection=database[Collection.GRANTS],
-                berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-                outbox_collection=database[Collection.OUTBOX],
-                operator=ADMINISTRATORS[0],
-                auth_time=int(time.time()),
-            )
-            return answered.confirmation_expired, answered.address_change_id
-
-        assert on_a_league(mongo_replica_set_url, body, confirmed=False) == (True, None)

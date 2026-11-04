@@ -174,6 +174,46 @@ describe("a table on a phone", () => {
     expect(heads.map((head) => head.classList.contains("lg:hidden"))).toStrictEqual([false, false, false, true]);
   });
 
+  // On a phone a prose table's cells draw their column's label for the eye alone, and the heads stay read: a head
+  // hidden outright leaves every cell without its column for a screen reader, and a drawn label it can reach names
+  // the column twice. A sighted reader sees neither.
+  it("keeps a prose table's heads read on a phone, its cells' drawn labels hidden from the screen reader", () => {
+    render(
+      <Table
+        {...props([{ id: "1", name: { record: LONG }, cells: { stadtteil: { record: LONG } } }])}
+        prose
+      />,
+    );
+    const [, cell] = [...(screen.getByRole("row", { name: (accessible) => accessible.includes(LONG) }).children ?? [])];
+    const label = cell?.firstElementChild;
+    expect(label?.textContent).toBe(COPY.shared.startelf);
+    expect(label?.getAttribute("aria-hidden")).toBe("true");
+    for (const head of screen.getAllByRole("columnheader")) {
+      expect(head.classList).toContain("max-lg:sr-only");
+      expect(head.classList).not.toContain("max-lg:hidden");
+    }
+  });
+
+  // A row drawn as a grid on a phone loses the table semantics an engine infers from its elements, so the table, its
+  // rows, its heads and its cells say their roles in writing; a part left without one reads as a plain box there.
+  it("writes the table's, its rows', its heads' and its cells' roles, so a row drawn as a grid keeps its semantics", () => {
+    render(
+      <Table
+        {...props([{ id: "1", name: { record: "Goethe" }, href: "/saisons/2027", place: 1, cells: { stadtteil: { record: "Nordend" } } }])}
+        rankLabel={COPY.shared.saison}
+        prose
+      />,
+    );
+    const table = screen.getByRole("table");
+    expect(table.getAttribute("role")).toBe("table");
+    for (const row of table.querySelectorAll("tr")) expect(row.getAttribute("role")).toBe("row");
+    for (const head of table.querySelectorAll("th")) expect(head.getAttribute("role")).toBe("columnheader");
+    // The rank, the name, the column and the chevron in the record's row, and the chevrons' empty head.
+    const cells = table.querySelectorAll("td");
+    expect(cells).toHaveLength(5);
+    for (const cell of cells) expect(cell.getAttribute("role")).toBe("cell");
+  });
+
   it("leaves the chevron out, the whole row still the link", () => {
     render(<Table {...props([{ id: "1", name: { record: "Goethe" }, href: "/saisons/2027", cells: { stadtteil: { record: "Nordend" } } }])} />);
     const row = screen.getByRole("link", { name: "Goethe" }).closest("tr");

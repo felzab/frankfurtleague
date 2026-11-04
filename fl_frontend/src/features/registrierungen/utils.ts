@@ -4,7 +4,7 @@ import { medienNochNicht } from "@/features/bewerbungen/utils";
 import { nummerPayload } from "@/features/spieler/utils";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
-import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
+import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import { alterAusserhalb } from "./constants";
 
@@ -179,14 +179,11 @@ export async function mapBestaetigungRefusal(
     // backend's sends this, which a reopened link would offer again: switching it off is the repair.
     case "medien_age":
       return { error: medienNochNicht((await ansicht())?.medien_minimum_age ?? null) };
-    // Answers the page did not ask: a drifted client, the label check refusing a page whose person
-    // changed since it opened first. The mail's link reopens it.
+    // Answers the page did not ask, or none where it asked: a drifted client, or a page whose person changed since
+    // it opened first, a new pupil's page asking both choices and a returning pupil's neither. The mail's link
+    // reopens it.
     case "registrierung_choices_unsuitable":
       return { error: ANTWORT_NEU_OEFFNEN };
-    // The backend's judgement of the label: a page opened before a
-    // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
-    case "wording_not_allowed":
-      return { error: FASSUNG_NEU_OEFFNEN };
     case "link_invalid":
       return { zustand: "invalid" };
     // Judged ahead of a confirmation and of the ban, which the view ranks first: a link confirmed in another window,

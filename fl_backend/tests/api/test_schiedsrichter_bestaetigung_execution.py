@@ -1,6 +1,6 @@
 import dataclasses
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -9,7 +9,6 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.einwilligung import services as einwilligung_services
 from app.api.schiedsrichter.admin_router import (
     delete_schiedsrichter,
     get_schiedsrichter,
@@ -35,7 +34,6 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
-from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
@@ -79,8 +77,8 @@ TELEFON = "+49 69 1234567"
 AN_ADULTS_BIRTHDATE = "1984-05-09"
 A_CHILDS_BIRTHDATE = "2018-01-01"
 
-# The label the referee page runs, the one a new acceptance must name.
-TEXT_VERSION = LAUFENDE_FASSUNGEN["bestaetigung_schiedsrichter"]
+# The labels the referee page names beside its two choices.
+TEXT_VERSIONS = documents.SCHIEDSRICHTER_TEXT_VERSIONS
 
 # Seeded before every confirmation that asserts on it, so "the write reaches one collection" is a
 # comparison against a document that exists rather than against an empty collection.
@@ -234,7 +232,7 @@ async def confirm(database: AsyncDatabase, client: AsyncMongoClient, token: str 
         "geburtsdatum": AN_ADULTS_BIRTHDATE,
         "umfang": "kader_oeffentlich",
         "medien": True,
-        "text_version": TEXT_VERSION,
+        "text_versions": dict(TEXT_VERSIONS),
         **overrides,
     }
 
@@ -695,11 +693,10 @@ class TestTheConfirmation:
             "umfang": "kader_oeffentlich",
             "datum": TODAY,
             "confirmed_at": TODAY,
-            "text_version": TEXT_VERSION,
             "medien": True,
             "nachweis": {
-                "umfang": {"am": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSION},
-                "medien": {"am": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSION},
+                "umfang": {"am": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSIONS["umfang"]},
+                "medien": {"am": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSIONS["medien"]},
             },
         }
         assert (response.umfang, response.medien, response.confirmed_at) == ("kader_oeffentlich", True, TODAY)
@@ -794,44 +791,6 @@ class TestTheConfirmation:
         # Read back rather than inferred from the refusal: a row nulled in place would refuse the
         # same way while still holding the birthdate and the record.
         assert surviving == 0
-
-
-# An older version of the referee page, built for the case: the registry holds only the version a stored
-# record can cite, and an older one is what a page loaded before a deploy names.
-EARLIER_LABEL = "2026-01-schiedsrichterseite"
-
-
-class TestTheLabelAPressNames:
-    """`wording_not_allowed`: a referee's press names the referee page's running label and nothing else."""
-
-    @pytest.fixture(autouse=True)
-    def _an_earlier_version_of_the_page(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        running = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_schiedsrichter"]]
-        earlier = dataclasses.replace(running, applies_from=date(2026, 1, 1))
-        monkeypatch.setattr(einwilligung_services, "FASSUNGEN", {**FASSUNGEN, EARLIER_LABEL: earlier})
-
-    @pytest.mark.parametrize(
-        "named",
-        [
-            pytest.param(EARLIER_LABEL, id="a superseded label of the referee page"),
-            pytest.param(LAUFENDE_FASSUNGEN["bestaetigung_spieler"], id="the pupil page's running label"),
-            pytest.param("2026-04-schiedsrichterseite", id="a label the registry never held"),
-        ],
-    )
-    def test_any_other_label_is_refused_and_spends_nothing(self, mongo_replica_set_url: str, named: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await resend(database, client)
-            before = await stored(database)
-            with pytest.raises(APIError) as refused:
-                await confirm(database, client, minted.token, text_version=named)
-
-            return refused.value, before, await stored(database), await ansicht(database, minted.token)
-
-        refusal, before, after, view = on_a_league(mongo_replica_set_url, body)
-
-        assert (refusal.error_code, refusal.status_code) == (Code.WORDING_NOT_ALLOWED, 409)
-        assert after == before
-        assert view.state == "valid"
 
 
 class TestAWithheldNameReachesOneCollection:

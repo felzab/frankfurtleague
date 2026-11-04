@@ -8,7 +8,7 @@ from app.shared.schemas.bounds import (
     SAISON_ID_LENGTH,
 )
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand
+from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLSpielerTextVersions, cite_their_kind
 from app.shared.schemas.kontakt import CustomKontaktName
 from app.shared.schemas.literals import (
     FLAddressChangeViewableDenied,
@@ -39,10 +39,6 @@ class FLEinwilligung(BaseModel):
     datum: CustomDateString
     # The day its person confirmed it: a record is born confirmed.
     confirmed_at: CustomDateString
-    # A label of `fl_backend/app/shared/einwilligung.py :: FASSUNGEN` and never the words, as
-    # `app/api/teams/schemas.py :: FLKontaktKenntnisnahme` holds one: a rewording must not change what
-    # a stored record claims.
-    text_version: str
     # A SECOND consent under one record rather than a third `umfang` member: publication and media
     # are independent answers, so withdrawing one leaves the other standing.
     medien: bool
@@ -136,6 +132,12 @@ class FLSpielerRecord(_SpielerPerson, Anchored):
                 raise ValueError("the erased pupils' sentinel holds no address")
         elif any(value is None for value in (self.vorname, self.geburtsdatum, self.einwilligung)):
             raise ValueError("only the erased pupils' sentinel stores no forename, birthdate or consent record")
+        return self
+
+    @model_validator(mode="after")
+    def _cites_a_pupils_wordings(self) -> Self:
+        if self.einwilligung is not None:
+            cite_their_kind(self.einwilligung.nachweis, FLSpielerTextVersions)
         return self
 
 
@@ -403,25 +405,22 @@ class FLSpielerSelfKaderRow(BaseModel):
     inactive_since: CustomOptionalDateString
 
 
-class FLSpielerContext(BaseModel):
-    """What the pupil confirmation page's slots name for this record today, so its agreed words render whole.
-
-    Null where no squad row names a team and season; the words then render without them.
-    """
-
-    team: str | None
-    schule: str | None
-    saison: str | None
-
-
-class FLSpielerSelf(_SpielerPerson):
+class FLSpielerSelfPerson(_SpielerPerson):
     """One pupil record's stored data as its own person reads it: the whole surname and the birthdate, never masked.
 
-    Its consent is the account page's, whose entry extends this (`app/api/konto/schemas.py :: FLAccountSpielerEinwilligung`).
+    Its consent is the account page's, whose entry `app/api/account/schemas.py :: FLAccountSpielerEinwilligung` extends this.
     """
 
     spieler_id: CustomObjectId
     geburtsdatum: CustomDateString
+
+
+class FLSpielerSelf(FLSpielerSelfPerson):
+    """The pupil's own page's read: the record and every squad row it holds.
+
+    The squad rows are this read's alone: the account page lists none, so its entry extends the record without them.
+    """
+
     kader: list[FLSpielerSelfKaderRow]
 
 
@@ -429,12 +428,3 @@ class FLSpielerSelfResponse(BaseAPIResponse):
     """The signed-in address's own pupil record: one at most, `spieler.email` being unique."""
 
     spieler: FLSpielerSelf
-
-
-class FLSpielerAccountEinwilligungResponse(BaseAPIResponse):
-    """The record as it stands after the write, everything the person did not move unchanged."""
-
-    spieler_id: CustomObjectId
-    einwilligung: FLEinwilligung
-    # The precondition a next press on this page echoes.
-    nachweis_stand: FLEinwilligungStand

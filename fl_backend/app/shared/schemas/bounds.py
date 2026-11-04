@@ -5,7 +5,7 @@ Named here so two slices spelling the same limit cannot drift apart. A bound onl
 stays at that field, and a derived one is never re-spelled as a literal.
 """
 
-from typing import Final
+from typing import Final, Literal
 
 # The address ceilings, stated by the payload address alone so a stored value over one still reads.
 # `plz` carries none: its own pattern already fixes the width exactly.
@@ -24,10 +24,6 @@ ADDRESS_HAUSNUMMER_MAX_LENGTH: Final = 16
 # box with a generic sentence rather than the length's own German.
 KONTAKT_EMAIL_MAX_LENGTH: Final = 254
 
-# The identifier of the consent WORDING a contact person was shown, not the wording itself: the
-# text is versioned in the frontend, so what a row stores is a short tag and nothing longer is one.
-EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH: Final = 64
-
 TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
 
 # A fixture's admin note, bounded on the payload alone: a season replace or undraw logs every
@@ -40,17 +36,20 @@ SPIEL_NOTIZ_MAX_LENGTH: Final = 4096
 BEWERBUNG_GRUND_MAX_LENGTH: Final = 1000
 
 # The ceiling refuses a mistyped century rather than a real age.
-BEWERBUNG_KONTAKT_MIN_AGE_YEARS: Final = 16
+type FLBewerbungKontaktMinAgeYears = Literal[16]
+BEWERBUNG_KONTAKT_MIN_AGE_YEARS: Final[FLBewerbungKontaktMinAgeYears] = 16
 BEWERBUNG_KONTAKT_MAX_AGE_YEARS: Final = 120
 
 # The Ansprechperson's floor and the Stellvertretung's: those two sign what binds the school, which
 # asks contractual capacity rather than the age a person consents for themselves at.
-VERTRETUNG_MIN_AGE_YEARS: Final = 18
+type FLVertretungMinAgeYears = Literal[18]
+VERTRETUNG_MIN_AGE_YEARS: Final[FLVertretungMinAgeYears] = 18
 
 # How long an application's three people have to confirm their own seats before it is deleted; a
 # re-send restarts the clock. Days rather than a date, so the deadline is derived from the mint and
 # never stored twice.
-BEWERBUNG_CONFIRMATION_DEADLINE_DAYS: Final = 14
+type FLBewerbungConfirmationDeadlineDays = Literal[14]
+BEWERBUNG_CONFIRMATION_DEADLINE_DAYS: Final[FLBewerbungConfirmationDeadlineDays] = 14
 # The age at which one seat's link is due its single reminder, counted from the mint and set more
 # than a week inside `BEWERBUNG_CONFIRMATION_DEADLINE_DAYS`, so a person reminded still has time to answer.
 BEWERBUNG_REMINDER_DAYS: Final = 3
@@ -143,16 +142,25 @@ ACTOR_PSEUDONYM_SHOWN: Final = 8
 # How long a referee has to confirm; a re-send restarts it. Longer than the registration's seven
 # days, which is the window a mistyped address is caught in: this link waits on an adult with no
 # second route in.
-SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS: Final = 14
+type FLSchiedsrichterConfirmationFristDays = Literal[14]
+SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS: Final[FLSchiedsrichterConfirmationFristDays] = 14
 
-# How long a step of an address change waits from its asking: the new mailbox's link, or the address
-# on file's approval. NIST SP 800-63B-4 `#issuedrecovery` caps an emailed recovery code at 24 hours
+# How long a step of an address change waits from its asking: the new mailbox's link, or the question
+# the person's own change asks the address on file. NIST SP 800-63B-4 `#issuedrecovery` caps an emailed recovery code at 24 hours
 # (read 2026-10-20).
-ADDRESS_CHANGE_VALID_HOURS: Final = 24
+type FLAddressChangeValidHours = Literal[24]
+ADDRESS_CHANGE_VALID_HOURS: Final[FLAddressChangeValidHours] = 24
 
 # A change an administrator started with a reason waits this long after its confirmation, the address
 # on file free to stop it: a school week and its weekends, past any holiday weekend three days fit inside.
-ADDRESS_CHANGE_WAITING_PERIOD_DAYS: Final = 7
+type FLAddressChangeWaitingPeriodDays = Literal[7]
+ADDRESS_CHANGE_WAITING_PERIOD_DAYS: Final[FLAddressChangeWaitingPeriodDays] = 7
+
+# Published as schemas of their own (`app/main.py :: with_mirrored_constants`), though no operation names one: the
+# privacy notice, the mails and the link page state both figures, and `fl_frontend/src/core/adresswechsel.ts` checks
+# its constants against them, so a bound moved here alone fails the frontend's type check rather than the notice
+# stating a figure the backend no longer keeps. Each value is typed by its alias, so neither moves without the other.
+ADDRESS_CHANGE_BOUNDS: Final = (FLAddressChangeValidHours, FLAddressChangeWaitingPeriodDays)
 
 # How long a write waiting on a second administrator's approval waits from its start before it lapses: a week, so an
 # approver away for a weekend is no reason to start it again.
@@ -198,12 +206,26 @@ REGISTRIERUNG_REMINDER_DAYS: Final = 3
 # The age a pupil consents at. Its own constant rather than the referee's or the application
 # contact's, though the numbers agree: the floors are separate judgements, so raising one must not
 # silently raise another.
-REGISTRIERUNG_MIN_AGE_YEARS: Final = 16
+type FLRegistrierungMinAgeYears = Literal[16]
+REGISTRIERUNG_MIN_AGE_YEARS: Final[FLRegistrierungMinAgeYears] = 16
 
 # ONE constant for the pupil and the referee, unlike the floors above: the media consent is one
 # judgement over every record carrying `medien`, and nobody below it is recognisable in a published
 # photograph or video, or interviewed.
-MEDIEN_MIN_AGE_YEARS: Final = 18
+type FLMedienMinAgeYears = Literal[18]
+MEDIEN_MIN_AGE_YEARS: Final[FLMedienMinAgeYears] = 18
+
+# Published as `ADDRESS_CHANGE_BOUNDS` are, for the same reason: the privacy notice and the consent pages state each
+# figure, and `fl_frontend/src/features/bewerbungen/constants.ts`, `registrierungen/constants.ts` and
+# `schiedsrichter/constants.ts` check their constants against these aliases.
+CONSENT_BOUNDS: Final = (
+    FLBewerbungConfirmationDeadlineDays,
+    FLBewerbungKontaktMinAgeYears,
+    FLVertretungMinAgeYears,
+    FLSchiedsrichterConfirmationFristDays,
+    FLRegistrierungMinAgeYears,
+    FLMedienMinAgeYears,
+)
 
 # The frontend's administrator cap, NIST SP 800-63B-4 §2.2.3's AAL2 overall timeout (read 2026-10-15):
 # the backend refuses an administrator's session whose sign-in is older, as a looser backend honours a
@@ -216,8 +238,10 @@ PERSON_WINDOW_DAYS: Final = 30
 
 # The frontend's enrolment window, which it holds a grant, a revoke and a tier change to as well: the
 # backend refuses those writes from a sign-in older than it, so one the page failed to step up still meets it.
+# Redesign: goes with its last importer.
 ENROLMENT_WINDOW_MINUTES: Final = 5
 
 # The frontend's step-up window, which it holds every other step-up write to: the backend refuses
 # those writes from a sign-in older than it, so one the page failed to step up still meets it.
+# Redesign: goes with its last importer.
 STEP_UP_WINDOW_HOURS: Final = 2

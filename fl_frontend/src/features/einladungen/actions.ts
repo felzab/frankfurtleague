@@ -1,6 +1,6 @@
 "use server";
 
-import { isFreshlySignedIn } from "@/core/auth";
+import { isFreshlySignedIn } from "@/core/auth/sessionStamps";
 import { frontend_config } from "@/core/config";
 import { einladungsLink } from "@/core/einladungEmail";
 import { isRecordMissing } from "@/core/errors";

@@ -1,9 +1,9 @@
 import { cache } from "react";
 
 import { registrierungenGetOpenRegistrierungen, registrierungenGetRegistrierungen } from "@/core/generated/client/sdk";
+import { runWithIncomingTrace } from "@/core/traceScope";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { postBestaetigungAnsicht, postEinladungAnsicht } from "./mutations";
 import { einladungZustand, mapRegistrierungAnsichtRefusal } from "./utils";

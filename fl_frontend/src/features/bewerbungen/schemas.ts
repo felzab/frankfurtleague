@@ -1,11 +1,11 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
-import { FLKontaktKenntnisnahmeUmfang, FLKontaktRolle } from "@/core/generated/client/types";
+import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings";
+import { FLKontaktRolle } from "@/core/generated/client/types";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
-import { FLSpielerKontoEinwilligungPayloadSchema, LinkAntwortTextVersionSchema, WAHL_UNBEKANNT } from "@/features/spieler/schemas";
+import { LINK_FASSUNG_FEHLT, textVersionsSchema } from "@/features/spieler/schemas";
 import {
-  EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
   KONTAKT_NAME_MAX_LENGTH,
   KONTAKT_NAME_ZU_LANG,
   TEAM_FULL_NAME_MAX_LENGTH,
@@ -75,15 +75,6 @@ export const FLAblehnenBewerbungPayloadSchema = z.object({
  * around it, so no visitor can claim an administrative transcription or backdate a Kenntnisnahme.
  */
 const FLBewerbungEinwilligungPayloadSchema = z.object({
-  // Written by the form from the label the backend runs rather than typed: a label names one
-  // frozen wording, so a later rewording never changes what a stored record claims.
-  text_version: z
-    .string()
-    .trim()
-    .nonempty({ error: "Die Kenntnisnahme nennt keine Fassung. Lade die Seite neu." })
-    .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
-      error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
-    }),
   // `true` alone, never a boolean: an unticked box is an acknowledgement nobody made, and a payload
   // carrying `false` would record the absence as an answer.
   given: z.literal(true, { error: "Ohne diese Kenntnisnahme können wir die Bewerbung nicht annehmen." }),
@@ -314,9 +305,8 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
         // Never optional, as `whatsapp` is not: a page that dropped the switch is refused rather than
         // read as a no.
         medien: z.boolean(),
-        // The version this page rendered, never the one the submission stamped: the seat's record has to
-        // cite the words the confirming person read, and the two are months apart.
-        text_version: LinkAntwortTextVersionSchema,
+        // The wordings this page rendered beside the two switches, which the seat's evidence cites.
+        text_versions: textVersionsSchema(SEAT_TEXT_VERSIONS, LINK_FASSUNG_FEHLT),
       }),
       z.object({ antwort: z.literal("declined" satisfies FLBewerbungEinwilligungDeclined["antwort"]), token: einwilligungToken }),
     ],
@@ -336,16 +326,6 @@ export const FLBewerbungEinwilligungAntwortPayloadSchema = buildEinwilligungAntw
 export const FLEinwilligungErneutPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   rolle: FLKontaktRolleSchema,
-});
-
-/**
- * A seat holder's two choices from the account page, one declaration the backend publishes for an
- * application's seats and a season row's alike. A pending application's seats take a withdrawal alone,
- * which the backend judges; the page offers no grant there.
- */
-export const FLBewerbungPersonEinwilligungPayloadSchema = FLSpielerKontoEinwilligungPayloadSchema.extend({
-  // Both choices on every press, so moving one never leaves the other judged by nothing.
-  umfang: z.enum(FLKontaktKenntnisnahmeUmfang, { error: WAHL_UNBEKANNT }),
 });
 
 /**
@@ -372,7 +352,4 @@ export const FLBewerbungKontaktSitzPayloadSchema = z.object({
   nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   email: KontaktEmailSchema,
   telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
-  // The label alone and no `erteilt`: it says which wording the new person will be shown, and their
-  // own link is what asks them to answer it.
-  text_version: FLBewerbungEinwilligungPayloadSchema.shape.text_version,
 });

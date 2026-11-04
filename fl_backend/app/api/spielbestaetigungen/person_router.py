@@ -5,9 +5,9 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.identitaet.crud import funktionen_of
-from app.api.identitaet.lookup import SubjektLookup
-from app.api.konto.services import find_eigener_eintrag_refusal
+from app.api.account.services import find_eigener_eintrag_refusal
+from app.api.identity.crud import funktionen_of
+from app.api.identity.lookup import SubjektLookup
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
 from app.api.spielbestaetigungen.crud import (
     EIGENE_ZEILE_FIELDS,

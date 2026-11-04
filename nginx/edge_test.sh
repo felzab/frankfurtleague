@@ -15,7 +15,7 @@
 # - No visitor is named in the container's own streams.
 # - Each upstream is found by name as nginx serves, and the capabilities the model grants are enough
 #   to start it.
-# - `docs/ops/spec.md` §1.3's server-action, link-page and account-page pairs.
+# - `docs/ops/spec.md` §1.3's server-action, link-page and account-page pairs, and the code check's.
 #
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
 #   ./nginx/edge_test.sh --help
@@ -252,13 +252,13 @@ done
 CASES=(
   # The pages a mailed link lands on: pins against narrowing the map, which matches the parameter
   # wherever it sits, to a path list.
-  "LEAK|${BASE}/bestaetigung/schiedsrichter?token=${TOK}"
-  "LEAK|${BASE}/bestaetigung/spieler?token=${TOK}"
-  "LEAK|${BASE}/bestaetigung/adresse?token=${TOK}"
-  "LEAK|${BASE}/bestaetigung/kontakt?token=${TOK}"
-  "LEAK|${BASE}/bestaetigung/spiel?token=${TOK}"
+  "LEAK|${BASE}/confirm/schiedsrichter?token=${TOK}"
+  "LEAK|${BASE}/confirm/spieler?token=${TOK}"
+  "LEAK|${BASE}/confirm/address?token=${TOK}"
+  "LEAK|${BASE}/confirm/kontakt?token=${TOK}"
+  "LEAK|${BASE}/confirm/spiel?token=${TOK}"
   "LEAK|${BASE}/registrierung?token=${TOK}"
-  "LEAK|${BASE}/loeschung?token=${TOK}"
+  "LEAK|${BASE}/erasure?token=${TOK}"
   "LEAK|${BASE}/signin?token=${TOK}"
   "LEAK|${BASE}/signin?foo=1&token=${TOK}"
   "LEAK|${BASE}/signin?foo=1&EMAIL=${EM}"
@@ -273,6 +273,14 @@ CASES=(
   "LEAK|${BASE}/signin%3Ftoken=${TOK}"
   "LEAK|${BASE}/teams%3Femail=${EM}"
   "LEAK|${BASE}/teams%3Ftoken%3D${TOK}"
+
+  # A token inside another parameter's value, its `=` encoded, a spelling no page writes but a visitor
+  # can. The URI holds a literal `?`, but no `token=` follows it, so only the backstop reaches this one
+  # either. Each of the sign-in's three addresses taking a `return`: the sign-in, the passkey offer
+  # and the landing, the last two on blocks of their own (`nginx/shared/site.conf`).
+  "LEAK|${BASE}/signin?return=%2Ferasure%3Ftoken%3D${TOK}"
+  "LEAK|${BASE}/signin/passkey?return=%2Ferasure%3Ftoken%3D${TOK}"
+  "LEAK|${BASE}/signin/continue?return=%2Ferasure%3Ftoken%3D${TOK}"
 
   # The token VALUE holding each delimiter a class-bounded expression fails open on. Nothing here
   # inspects the value; these exist so that stays true on purpose rather than by luck.
@@ -289,10 +297,13 @@ CASES=(
   "LEAK-REF|http://localhost/x?a=1&token=${TOK}"
   "LEAK-REF|http://localhost/x/token=${TOK}"
   "LEAK-REF|http://localhost/signin?token=a%20b${TOK}"
+  # The page after the sign-in's code step names the sign-in, here with a link a visitor put in its `return`.
+  "LEAK-REF|http://localhost/signin?return=%2Ferasure%3Ftoken%3D${TOK}"
+  "LEAK-REF|http://localhost/signin/passkey?return=%2Ferasure%3Ftoken%3D${TOK}"
 
   # A typed search query, which no page writes: an address in the first parameter, a name past
   # another on the Spielsuche's own address, and the page a visitor came from, plain and encoded.
-  "LEAK|${BASE}/bereich/admin/sperrliste?q=${EM}"
+  "LEAK|${BASE}/area/admin/sperrliste?q=${EM}"
   "LEAK|${BASE}/saisons/2026/search?a=1&q=${TOK}"
   "LEAK-REF|http://localhost/saisons/2026/search?q=${TOK}"
   "LEAK-REF|http://localhost/x%3Fq%3D${TOK}"
@@ -305,7 +316,7 @@ CASES=(
   "KEEP|${BASE}/teams?saison_id=abc&seq=2|seq=2"
   "KEEP-REF|http://localhost/teams?saison_id=abc&seq=2|seq=2"
   "KEEP|${BASE}/teams?saison_id=abc&shorthand=FCB|shorthand=FCB"
-  "KEEP|${BASE}/bereich/admin/spiele?saison_id=abc|saison_id=abc"
+  "KEEP|${BASE}/area/admin/spiele?saison_id=abc|saison_id=abc"
 
   # A control over the CLIENT: it fails when `--path-as-is` stops taking effect, and every
   # spelling above is then graded on a path nginx never received.
@@ -696,7 +707,7 @@ ACTION_REQUESTS=()
 # Twenty saves at once, under the burst of thirty.
 for _ in $(seq 1 20); do
   action_request rhythm -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
-    --data '[]' "${BASE}/bereich/admin/spiele"
+    --data '[]' "${BASE}/area/admin/spiele"
 done
 # Thirty more inside the same seconds: the burst and the second or two of refill are spent.
 for _ in $(seq 1 30); do
@@ -710,7 +721,7 @@ spent_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-T
 # An id opening with a colon, which a key joined on `:` would read as no id at all.
 spent_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 # Each link page's block, whose own pair has room left here, so only its restated action pair refuses.
-LINK_ACTION_PATHS=( /bestaetigung/spiel /registrierung /registrierung/ /loeschung /loeschung/ )
+LINK_ACTION_PATHS=( /confirm/spiel /registrierung /registrierung/ /erasure /erasure/ )
 for _i in "${!LINK_ACTION_PATHS[@]}"; do
   spent_request "link-action-${_i}" -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' \
     "${BASE}${LINK_ACTION_PATHS[_i]}"
@@ -731,43 +742,52 @@ mapfile -t ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
 ACTION_SENT=${#ACTION_LABELS[@]}
 ACTION_REQUESTS=()
 
-# The link pages' pair, every request it meters a page render. Its burst read off the file, so a
-# burst moved there is still flooded past, with twenty more for the refill the run takes.
-LINK_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=linkseite burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
-[[ -n "$LINK_BURST" ]] || refuse "nginx/shared/site.conf declares no linkseite burst this test can read."
+# The link pages' pair, every request it meters a page render or the proxy's redirect into one. Its
+# burst read off the file, so a burst moved there is still flooded past, with twenty more for the
+# refill the run takes.
+LINK_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=linkpage burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
+[[ -n "$LINK_BURST" ]] || refuse "nginx/shared/site.conf declares no linkpage burst this test can read."
 for _ in $(seq 1 $(( LINK_BURST + 20 ))); do
-  action_request link-flood "${BASE}/bestaetigung/spiel?token=${TOK}"
+  action_request link-flood "${BASE}/confirm/spiel?token=${TOK}"
 done
 # The key spent: every link page, each block's own twin and the spellings nginx resolves before
 # choosing a location, each kept whole, since a block declaring its own error_page answers 429 too.
 LINK_MARKER="fl-link"
 LINK_SPENT=(
-  "/bestaetigung/kontakt?token=${TOK}"
-  "/bestaetigung/schiedsrichter?token=${TOK}"
-  "/bestaetigung/spieler?token=${TOK}"
-  "/bestaetigung/adresse?token=${TOK}"
+  "/confirm/kontakt?token=${TOK}"
+  "/confirm/schiedsrichter?token=${TOK}"
+  "/confirm/spieler?token=${TOK}"
+  "/confirm/address?token=${TOK}"
   "/registrierung?token=${TOK}"
   "/registrierung/?token=${TOK}"
-  "/loeschung?token=${TOK}"
-  "/loeschung/?token=${TOK}"
-  "//bestaetigung/spiel?token=${TOK}"
-  "/bestaetigung/./spiel?token=${TOK}"
-  "/%62estaetigung/spiel?token=${TOK}"
+  "/erasure?token=${TOK}"
+  "/erasure/?token=${TOK}"
+  "//confirm/spiel?token=${TOK}"
+  "/confirm/./spiel?token=${TOK}"
+  "/%63onfirm/spiel?token=${TOK}"
 )
 for _i in "${!LINK_SPENT[@]}"; do
   spent_request "link-spent-${_i}" --path-as-is -A "$LINK_MARKER" "${BASE}${LINK_SPENT[_i]}"
 done
 # A key covering GETs alone lets both of these through, and one exempting HEAD, which a mail
 # gateway's link check may send, the second.
-spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/bestaetigung/spiel?token=${TOK}"
-spent_request link-head -A "$LINK_MARKER" --head "${BASE}/bestaetigung/spiel?token=${TOK}"
+spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/confirm/spiel?token=${TOK}"
+spent_request link-head -A "$LINK_MARKER" --head "${BASE}/confirm/spiel?token=${TOK}"
 
-# The account page's pair, on JSON posts the action pair's key leaves out, so only `account` can refuse.
+# Konto's pair, on JSON posts to one of its pages the action pair's key leaves out, so only `account` can refuse.
 # Its burst read off the file, flooded past with five more for the refill the run takes.
 ACCOUNT_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=account burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
 [[ -n "$ACCOUNT_BURST" ]] || refuse "nginx/shared/site.conf declares no account burst this test can read."
 for _ in $(seq 1 $(( ACCOUNT_BURST + 5 ))); do
-  action_request account-flood -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/bereich/konto"
+  action_request account-flood -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/account/signin"
+done
+
+# The code check's pair, read off its own block and flooded past with five more: the library's prefix
+# block meters the same path five times as loosely, so a check fallen back to it answers no 429 here.
+CODE_BURST="$(sed -n '/^location = \/api\/auth\/sign-in\/email-otp {$/,/^}$/s/^[[:space:]]*limit_req zone=confirmation burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf")"
+[[ -n "$CODE_BURST" ]] || refuse "nginx/shared/site.conf declares no confirmation burst on the code check this test can read."
+for _ in $(seq 1 $(( CODE_BURST + 5 ))); do
+  action_request code-flood -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/api/auth/sign-in/email-otp"
 done
 
 mapfile -t -O "$ACTION_SENT" ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
@@ -814,7 +834,7 @@ grade_refusal() { # $1 the transfer's label, its files named for it
   fi
   grade_security_headers "the edge's own 429, $1"
 }
-# The page `nginx/shared/site.conf :: @edge_refusal_seite` returns, read off the file as nginx sends it:
+# The page `nginx/shared/site.conf :: @edge_refusal_page` returns, read off the file as nginx sends it:
 # the single-quoted string, its newlines kept.
 REFUSAL_PAGE="${SCRATCH}/refusal-page.html"
 awk "/^[[:space:]]*return 429 '/ { open = 1; sub(/^[[:space:]]*return 429 '/, \"\") }
@@ -882,7 +902,7 @@ grade_page() { # $1 the transfer's label, its files named for it; $2 "head" wher
   fi
   if [[ "${2:-}" != head ]] && ! cmp -s "${SCRATCH}/$1.body" "$REFUSAL_PAGE"; then
     fail "ACTION $1"
-    detail "expected the body of nginx/shared/site.conf :: @edge_refusal_seite, nginx sent $(wc -c < "${SCRATCH}/$1.body" 2>/dev/null || echo no) bytes"
+    detail "expected the body of nginx/shared/site.conf :: @edge_refusal_page, nginx sent $(wc -c < "${SCRATCH}/$1.body" 2>/dev/null || echo no) bytes"
     ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
   fi
   # The file is what the body is compared to, so a page losing either passes that comparison. Its URL carries the
@@ -938,6 +958,7 @@ grade_spent link-json
 expect_action link-head some:429
 grade_spent link-head head
 expect_action account-flood some:429
+expect_action code-flood some:429
 
 # A refusal's error line repeats the request line, live token included, so `limit_req_log_level` keeps
 # it below the log's own level. Read once every kept refusal's access line is written, which comes

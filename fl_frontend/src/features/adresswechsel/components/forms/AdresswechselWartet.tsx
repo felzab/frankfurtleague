@@ -44,14 +44,13 @@ const VERWERFEN_FOLGE =
 /** How the change began, as the panel names it: the administrator reads off it who still has to act. */
 const WEG_LABEL: Readonly<Record<FLAddressChangeWay, string>> = {
   account: "Im Konto angefragt",
-  release: "Freigabe durch die bisherige Adresse",
   waiting_period: "Ohne die bisherige Adresse",
 };
 
 /** The step the change waits on, as the read serves it and never derived here. */
 const WARTET: Readonly<Record<FLAddressChangeWaitsOn, string>> = {
-  release: "Neue Adresse wartet auf Freigabe durch die bisherige",
-  new_adresse: "Neue Adresse wartet auf Bestätigung",
+  previous_address: "Neue Adresse wartet auf Freigabe durch die bisherige",
+  new_address: "Neue Adresse wartet auf Bestätigung",
   approval: "Neue Adresse wartet auf Genehmigung durch die Verwaltung",
   waiting_period: "Neue Adresse wartet auf das Ende der Wartezeit",
 };
@@ -159,7 +158,7 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAddress
         {offen.grund !== null && <Angabe label="Grund">{offen.grund}</Angabe>}
         {/* Only this step sent a link to the new mailbox: the request before it went to the address on file, and a
               confirmed change's link is spent. */}
-        {offen.waits_on === "new_adresse" && offen.valid_until !== null && (
+        {offen.waits_on === "new_address" && offen.valid_until !== null && (
           <LinkStandAngaben
             verschicktAm={offen.sent_at}
             frist={offen.valid_until}
@@ -168,7 +167,7 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAddress
             zustellung={offen.delivery}
           />
         )}
-        {offen.waits_on === "release" && (
+        {offen.waits_on === "previous_address" && (
           <>
             <Angabe label="Anfrage gesendet am">{formatSpielDatum(offen.sent_at)}</Angabe>
             {offen.valid_until !== null && <Angabe label="Freigabe bis">{zeitpunktText(offen.valid_until)}</Angabe>}
@@ -185,7 +184,7 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAddress
                 Offen bis {zeitpunktText(genehmigung.bis)}.{" "}
                 {/* Pressed on the grant's own row, where granting and revoking already are: one place for the approval. */}
                 <Link
-                  href={saisonHref("/bereich/admin/administratoren")}
+                  href={saisonHref("/area/admin/administratoren")}
                   prefetch={false}
                   className={textLink()}>
                   Zu den Administratoren
@@ -205,7 +204,7 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAddress
       )}
 
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        {offen.waits_on === "new_adresse" && (
+        {offen.waits_on === "new_address" && (
           <FocusSlot name="adresswechsel-einladen">
             <Button
               type="button"

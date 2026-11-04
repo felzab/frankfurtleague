@@ -65,16 +65,26 @@ CODE_EXTENSIONS: Final = tuple(Path(name).suffix for name in ROUTE_FILES)
 PAGE_FILES: Final = tuple(f"page{suffix}" for suffix in CODE_EXTENSIONS)
 
 # A link page's own module names `token` and its search parameters, the hook's spelling included, or
-# a module mints its link: the minter finds a page reading the token elsewhere, the read a page whose
-# link nothing here mints.
+# calls the proxy's mailed-link reader, which takes the token from the cookie the proxy moved it into
+# (`fl_frontend/src/core/mailedLink.ts :: mailedLinkToken`), or a module mints its link: the minter
+# finds a page reading the token elsewhere, the read a page whose link nothing here mints.
 LINK_TOKEN_RE: Final = re.compile(r"\btoken\b")
 LINK_QUERY_RE: Final = re.compile(r"searchParams", re.IGNORECASE)
+LINK_COOKIE_RE: Final = re.compile(r"\bmailedLinkToken\s*\(")
 
 # Every minted link writes `token=` literally (`nginx/shared/http.conf :: $credential_free_uri` relies
-# on it) after a template's origin and a page path its module spells; any other `?token=` refuses
-# rather than dropping a page.
+# on it) after a template's origin and a page path: its module spells the path, or names the page's
+# row in `ROUTES_MODULE`, read there. Any other `?token=` refuses rather than dropping a page.
 TOKEN_QUERY: Final = "?token="
-MINT_RE: Final = re.compile(r"\$\{[^{}]*\}(?:\$\{(?P<name>[A-Za-z_$][\w$]*)(?P<key>\[[^\[\]{}]+\])?\}|(?P<path>/[^`$?\s]*))\?token=")
+MINT_RE: Final = re.compile(
+    r"\$\{[^{}]*\}"
+    r"(?:\$\{ROUTES\.(?P<route>[A-Za-z_$][\w$]*)\.path\(\)\}"
+    r"|\$\{(?P<name>[A-Za-z_$][\w$]*)(?P<key>\[[^\[\]{}]+\])?\}"
+    r"|(?P<path>/[^`$?\s]*))\?token="
+)
+
+# The pages' one table, under the source tree `minted` walks (`fl_frontend/src/core/routes.ts :: ROUTES`).
+ROUTES_MODULE: Final = "core/routes.ts"
 
 # A spread, a computed key or a value that is no literal matches nothing, so a record refuses whole: a
 # value skipped would drop its page.
@@ -86,7 +96,7 @@ TEST_SUFFIXES: Final = tuple(f".test{suffix}" for suffix in CODE_EXTENSIONS)
 
 # The pair `nginx/shared/http.conf` declares for the link pages, metering every request and method,
 # which a link page's own location and its twin's must both name.
-LINK_ZONES: Final = frozenset({"linkseite", "linkseite48"})
+LINK_ZONES: Final = frozenset({"linkpage", "linkpage48"})
 
 # The prefix of a `limit_req` argument naming its zone.
 ZONE: Final = "zone="
@@ -551,12 +561,12 @@ def interceptions(paged: tuple[Handler, ...], app_dir: Path, root: Path) -> list
 
 
 def link_pages(found: tuple[Handler, ...]) -> tuple[Handler, ...]:
-    """Every page reading a mailed link's token from its search parameters."""
+    """Every page reading a mailed link's token from its search parameters or through the proxy's mailed-link reader."""
     linked: list[Handler] = []
     for page in found:
         # Bytes, as the configuration is read, so no platform's decoding default decides the match.
         text = page.path.read_bytes().decode("utf-8")
-        if LINK_TOKEN_RE.search(text) and LINK_QUERY_RE.search(text):
+        if (LINK_TOKEN_RE.search(text) and LINK_QUERY_RE.search(text)) or LINK_COOKIE_RE.search(text):
             linked.append(page)
     return tuple(linked)
 
@@ -571,12 +581,24 @@ def minted(source: Path) -> tuple[tuple[Path, str], ...]:
         if len(hits) != text.count(TOKEN_QUERY):
             raise RouteShape(f"{module}: a `{TOKEN_QUERY}` behind no origin and page path this reader can place")
         for hit in hits:
-            found += ((module, path) for path in _link_paths(hit, text, module))
+            found += ((module, path) for path in _link_paths(hit, text, module, source))
     return tuple(found)
 
 
-def _link_paths(hit: re.Match[str], text: str, module: Path) -> tuple[str, ...]:
+def _route_path(key: str, source: Path, module: Path) -> str:
+    """The fixed path `ROUTES.<key>` answers, read off its row: a row taking segments names no one page a mail opens."""
+    table = source / ROUTES_MODULE
+    text = table.read_bytes().decode("utf-8") if table.is_file() else ""
+    row = re.search(rf"^\s*{re.escape(key)}:\s*\{{\s*path:\s*\(\)\s*=>\s*\"(?P<path>/[^\"]*)\"\s+as\s+const\b", text, re.MULTILINE)
+    if row is None:
+        raise RouteShape(f"{module}: the link path ROUTES.{key}, which no row of {table} answers with one fixed path")
+    return row["path"]
+
+
+def _link_paths(hit: re.Match[str], text: str, module: Path, source: Path) -> tuple[str, ...]:
     """The page path, or every path a record may hand it, one `MINT_RE` hit places."""
+    if hit["route"] is not None:
+        return (_route_path(hit["route"], source, module),)
     if hit["path"] is not None:
         return (hit["path"],)
     name = re.escape(hit["name"])

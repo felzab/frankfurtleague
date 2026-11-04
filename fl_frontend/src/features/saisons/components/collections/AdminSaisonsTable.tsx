@@ -77,7 +77,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
   const renderActions = (saison: AdminSaisonRow) => (
     <RowActions>
       <RowActionLink
-        href={saisonHref(`/bereich/admin/saisons/${saison.id}`)}
+        href={saisonHref(`/area/admin/saisons/${saison.id}`)}
         label="Bearbeiten"
         subject={`Saison ${saison.id}`}>
         <Pencil
@@ -90,7 +90,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
       <RowActionMenu subject={`Saison ${saison.id}`}>
         <RowActionMenuItem
           id="spieltage"
-          href={`/bereich/admin/spieltage?saison_id=${encodeURIComponent(saison.id)}`}
+          href={`/area/admin/spieltage?saison_id=${encodeURIComponent(saison.id)}`}
           label={SPIELTAGE_EINTRAG.label}>
           <Calendar
             aria-hidden="true"
@@ -99,7 +99,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
         </RowActionMenuItem>
         <RowActionMenuItem
           id="teams"
-          href={`/bereich/admin/teams?saison_id=${encodeURIComponent(saison.id)}`}
+          href={`/area/admin/teams?saison_id=${encodeURIComponent(saison.id)}`}
           label={TEAMS_EINTRAG.label}>
           <Persons
             aria-hidden="true"

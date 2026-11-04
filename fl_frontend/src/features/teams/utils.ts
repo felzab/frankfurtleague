@@ -75,17 +75,14 @@ export const describeReplacementUmfang = ({
  * A blank contact person, for the moment the editor's contact block is switched on. The stamp and the
  * date stay unanswered: whether the person answered, and when, is the one thing nobody may guess for the league.
  */
-export const buildEmptyKontaktperson = (textVersion: string): KontaktpersonDraft => ({
+export const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
   vorname: "",
   nachname: "",
   email: "",
   telefon: "",
   geburtsdatum: "",
-  // Stamped, never typed: the version names the wording this person is being asked to agree to, and
-  // an admin transcribing a version number is a value nobody decided stored as though they had.
   einwilligung: {
     umfang: EINWILLIGUNG_UMFANG,
-    text_version: textVersion,
     datum: "",
     // A confirmation link is the only writer of this stamp, so a seat an administrator opened here
     // has none and the blank is the truth rather than a value still to be filled in.
@@ -101,10 +98,10 @@ export const buildEmptyKontaktperson = (textVersion: string): KontaktpersonDraft
  * The three blank seats, for the same moment. All three are PRESENT: a new block asks for three whole
  * people, and a seat left empty is one the admin switches off rather than the state it starts in.
  */
-export const buildEmptyKontakte = (textVersion: string): SaisonTeamKontakteDraft => ({
-  trainer: buildEmptyKontaktperson(textVersion),
-  ansprechperson: buildEmptyKontaktperson(textVersion),
-  stellvertretung: buildEmptyKontaktperson(textVersion),
+export const buildEmptyKontakte = (): SaisonTeamKontakteDraft => ({
+  trainer: buildEmptyKontaktperson(),
+  ansprechperson: buildEmptyKontaktperson(),
+  stellvertretung: buildEmptyKontaktperson(),
   trainer_is_also: null,
 });
 

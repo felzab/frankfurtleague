@@ -1,8 +1,6 @@
-import { Suspense } from "react";
+import { SignInShell } from "@/kit/SignInShell";
 
-import { SignInSkeleton } from "@/kit/SignInPage";
-
-import { getSignedInAddress } from "@/core/auth";
+import { getSignedInAddress } from "@/core/auth/landing";
 import { frontend_config } from "@/core/config";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -19,17 +17,19 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 /**
  * Resolves nothing itself: the view is a function of the request's session, and a top-level await would
- * tie the static shell to one visitor. The session's read waits as every template's read does.
+ * tie the static shell to one visitor. The session's read waits in the template's boundary, as every
+ * template's read does.
  */
 export default function AnmeldenPage() {
   return (
-    <Suspense fallback={<SignInSkeleton title={COPY.signIn.title} />}>
-      <Anmelden />
-    </Suspense>
+    <SignInShell
+      title={COPY.signIn.title}
+      view={readView()}
+    />
   );
 }
 
-async function Anmelden() {
+async function readView() {
   const address = await getSignedInAddress();
   // The key off the request's settings, past the session read: a prerendered shell would carry the build's, which is none.
   return address === null ? (

@@ -14,11 +14,11 @@ function funktionHref(funktion: Role): string {
     case "kontakt":
       return teamHref(funktion.team_id, funktion.saison_id);
     case "spieler":
-      return "/bereich/spieler";
+      return "/area/spieler";
     case "schiedsrichter":
-      return "/bereich/schiedsrichter";
+      return "/area/schiedsrichter";
     case "administration":
-      return "/bereich/admin";
+      return "/area/admin";
   }
 }
 
@@ -39,6 +39,16 @@ export function zieleOf(funktionen: readonly Role[]): FunktionZiel[] {
   }
 
   return [...byHref].map(([href, held]) => ({ href: href, funktionen: held }));
+}
+
+/**
+ * The team a person's landing sends them straight on to, or `null` where the Übersicht stands: a team's own landing
+ * is one, so a lone team goes straight on, and any other lone place is one card of the Übersicht. Every way into the
+ * person area asks this, so a sign-in lands where `/area` would send it.
+ */
+export function soleTeamOf(ziele: readonly FunktionZiel[]): string | null {
+  const [erstes, ...weitere] = ziele;
+  return erstes !== undefined && weitere.length === 0 && erstes.funktionen[0].art === "kontakt" ? erstes.href : null;
 }
 
 /** One address's two lines: what it is, and which of the person's Funktionen lead there. */

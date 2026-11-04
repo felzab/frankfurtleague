@@ -111,8 +111,23 @@
     :root {
       --motion-state: 100ms;
       --motion-in: 200ms;
+      /* An overlay's exit, and the cross-fade between pages and from a template's skeleton to its content. */
       --motion-out: 150ms;
     }
+  }
+
+  /* Every view transition is the kit's cross-fade (`kit/PageFade.tsx`), of opacity alone: each part's old
+     picture fades out as its new one fades in. A part present on both sides takes its new place and size at
+     once, since the browser's default would glide it there. The pictures inherit the group's duration, so
+     under reduced motion, where the token is unset, both fall back to 0s and the swap is immediate. */
+  ::view-transition-group(*) {
+    animation-name: none;
+    animation-duration: var(--motion-out);
+  }
+
+  /* The overlay a transition draws over the page would otherwise take the clicks meant for the page. */
+  ::view-transition {
+    pointer-events: none;
   }
 }
 

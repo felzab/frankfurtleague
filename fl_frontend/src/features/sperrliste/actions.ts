@@ -1,6 +1,7 @@
 "use server";
 
-import { accountStandsAt, endSessionsOfAddress } from "@/core/auth";
+import { accountStandsAt } from "@/core/auth/accounts";
+import { endSessionsOfAddress } from "@/core/auth/accountSessions";
 import { logger } from "@/core/logging";
 import { readLoeschungAnsicht } from "@/features/funktionen/mutations";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";

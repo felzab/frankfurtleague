@@ -2,22 +2,21 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.identitaet.crud import funktionen_of, refuse_without_a_seat
-from app.api.identitaet.lookup import SubjektLookup
-from app.api.identitaet.services import ist_eigener_spieler, may_grant_on_spieler
-from app.api.konto.crud import press_einwilligung
-from app.api.konto.services import (
-    KONTO_SEITE_SPIELER,
+from app.api.account.crud import press_einwilligung
+from app.api.account.services import (
     compose_person_move,
     compose_spieler_self,
     find_eigener_eintrag_refusal,
     widerruf_line,
 )
+from app.api.identity.crud import funktionen_of, refuse_without_a_seat
+from app.api.identity.lookup import SubjektLookup
+from app.api.identity.services import ist_eigener_spieler, may_grant_on_spieler
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier, SpielerIdentifier
 from app.api.spieler.crud import refuse_a_taken_rolle
@@ -25,7 +24,6 @@ from app.api.spieler.schemas import (
     FLKaderResponse,
     FLKaderRow,
     FLPatchKaderRowPayload,
-    FLSpielerAccountEinwilligungResponse,
     FLSpielerSelfResponse,
 )
 from app.api.spieler.services import (
@@ -51,9 +49,9 @@ from app.core.recording import log_stamp
 from app.core.routing import by_id
 from app.core.security import erasure_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import FLEinwilligungChoice, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
-from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
+from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_choice
 from app.shared.schemas.literals import FLSpielerStufe
 
 # The person lane's binder IN PLACE of `bind_actor` and the grants check, which a seat holder holding
@@ -300,7 +298,7 @@ async def get_self(identifier: SpielerIdentifier, spieler_collection: SpielerCol
 
 @spieler_router.patch(
     "/account/einwilligung",
-    response_model=FLSpielerAccountEinwilligungResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Change a signed-in pupil's own publication and media consent",
 )
 async def patch_einwilligung(
@@ -312,7 +310,7 @@ async def patch_einwilligung(
     config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLSpielerAccountEinwilligungResponse:
+) -> None:
     """
     Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.
 
@@ -322,9 +320,9 @@ async def patch_einwilligung(
     taken on a live record alone; a withdrawal on a retired one too.
 
     Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `nachweis_stand`
-    other than the record's own, either choice having moved since the page was served (`wording_not_allowed`); a
-    grant on a retired record (`giving_not_allowed`); a `text_version` naming no version of the account page's pupil
-    control, or a grant naming any but the page's running one (`wording_not_allowed`); `medien` moving to `true` where
+    other than the record's own, either choice having moved since the page was served (`choices_stale`); a
+    grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label other than its
+    current wording's, the page loaded before a rewording (`grant_wording_stale`); `medien` moving to `true` where
     the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each
     refusal writes nothing.
 
@@ -339,7 +337,7 @@ async def patch_einwilligung(
     journal = Journal()
 
     @journal.attempted
-    async def write(session: AsyncClientSession) -> FLSpielerAccountEinwilligungResponse:
+    async def write(session: AsyncClientSession) -> None:
         row = await spieler_collection.find_one(eigener_eintrag, projection={"einwilligung": 1, "geburtsdatum": 1}, session=session)
         refuse(find_eigener_eintrag_refusal(gehalten=row is not None and ist_eigener_spieler(row)))
         assert row is not None
@@ -353,24 +351,22 @@ async def patch_einwilligung(
             geburtsdaten=[row.get("geburtsdatum")],
             gewaehlt=gewaehlt,
             nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
-            text_version=einwilligung_data.text_version,
-            seite=KONTO_SEITE_SPIELER,
+            text_versions=einwilligung_data.text_versions,
             darf_erteilen=darf_erteilen,
             today=today,
         )
 
-        update = compose_person_move(gespeichert=gespeichert, gewaehlt=gewaehlt, am=am, text_version=einwilligung_data.text_version)
-        updated = (
-            None
-            if update is None
-            else await patch_one_in_db(
+        update = compose_person_move(
+            gespeichert=gespeichert, gewaehlt=gewaehlt, am=am, text_versions=by_choice(einwilligung_data.text_versions)
+        )
+        if update is not None:
+            await patch_one_in_db(
                 collection=spieler_collection,
                 db_filter={"_id": row["_id"]},
                 update=update,
                 session=session,
-                return_document=ReturnDocument.AFTER,
+                return_document=ReturnDocument.BEFORE,
             )
-        )
         line = widerruf_line(
             person_hash=erasure_journal_hash(identifier, key=config.sperrliste_key),
             collection=Collection.SPIELER,
@@ -378,17 +374,11 @@ async def patch_einwilligung(
             bloecke=[gespeichert],
             gewaehlt=gewaehlt,
             am=am,
-            text_version=einwilligung_data.text_version,
+            text_versions=by_choice(einwilligung_data.text_versions),
         )
         if line is not None:
             journal.note(line)
-        # A press moving neither choice is no act, so nothing was written and the record answers as stored.
-        einwilligung = gespeichert if updated is None else updated["einwilligung"]
-
-        return FLSpielerAccountEinwilligungResponse.model_validate(
-            {"spieler_id": row["_id"], "einwilligung": einwilligung, "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung])}
-        )
 
     async with journal:
         async with transaction_session(db) as session:
-            return await session.with_transaction(write)
+            await session.with_transaction(write)

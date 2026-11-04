@@ -13,8 +13,8 @@ export const ADRESSE_IM_GRUND_REGEX = /[^\s@]+@[^\s@]+\.[A-Za-z]{2,}/;
 
 /** The create dialog's draft, held to the ban's own rules in German: the browser checks it before the press. */
 export const FLPostSperrlistePayloadSchema = z.object({
-  // `KontaktEmailSchema` and never `z.email()`, whose alphabet refuses the umlaut domain the API
-  // converts: an address this turned away is one that would never have been banned.
+  // `KontaktEmailSchema` and never `z.email()`, whose alphabet refuses atext characters the API
+  // takes: an address this turned away is one that would never have been banned.
   email: KontaktEmailSchema,
   // Trimmed before any bound counts it, as at the API, which refuses a blank reason, one over the
   // ceiling and one holding a line break with a generic `payload_refused` sentence: a looser draft

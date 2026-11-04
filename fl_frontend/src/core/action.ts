@@ -1,27 +1,28 @@
 import "server-only";
 
 import { updateTag } from "next/cache";
-import { headers } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
 
-import { judgeAdminRequest } from "./auth";
+import { z } from "zod";
+
+import { getAccountSession, judgeAdminRequest, passesPasskeyTouch } from "./auth/guards";
 import { COPY } from "./copy";
+import { asSignInIdentifier, KONTAKT_EMAIL_MAX_LENGTH } from "./emailAddress";
 import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
 import { logger } from "./logging";
 import { logRefused } from "./refused";
-import { requestWriteMayStand, runWithRequestScope } from "./requestScope";
+import { getRequestActor, requestWriteMayStand } from "./requestScope";
 import { isSeatAt, rolesOf } from "./roles";
 import { isWordedRule, ruleMessage } from "./ruleMessage";
 import { SERVER_COPY } from "./serverCopy";
 import { SITE_CACHE_TAG } from "./siteCache";
 import { getSubjectSession } from "./subject";
-import { mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "./trace";
+import { runWithIncomingTrace } from "./traceScope";
 import { turnstileRefusal } from "./turnstile";
 import { TURNSTILE_FIELD } from "./turnstileToken";
 import { fieldMessage } from "./zodGerman";
 
-import type { z } from "zod";
-import type { AdminRefusal } from "./auth";
+import type { AdminRefusal, JudgedSession } from "./auth/guards";
 import type { Copy } from "./copy";
 import type { Code, FLRefusedField } from "./generated/client/types";
 import type { Role } from "./roles";
@@ -85,21 +86,45 @@ type Declared<Schema extends z.ZodType> = {
 
 type Run<Schema extends z.ZodType, Context, Value> = (input: z.output<Schema>, context: Context) => Promise<ActionAnswer<Value>>;
 
-/** An administrator's write: the administrator's guard admits the caller before anything else runs. */
-type AdminLane<Schema extends z.ZodType, Value> = Declared<Schema> & {
-  readonly lane: "admin";
-  // Session 4: builds the passkey check for its fixed list of acts here, the slot typed shut until then.
-  readonly passkey?: never;
-  readonly run: Run<Schema, undefined, Value>;
-};
+/**
+ * The address the page was drawn for, which every act of the account and every act behind the passkey touch posts: a
+ * page whose own session has ended acts as whichever account the browser holds now, and its touch asks a prompt naming
+ * nobody, which any account's passkey answers, signing that account in.
+ */
+export const PAGE_HOLDER = { holder: z.string().min(1).max(KONTAKT_EMAIL_MAX_LENGTH) };
+
+/** Declarable only over an input carrying `PAGE_HOLDER`, so no such act is posted without it. */
+type Held<Schema extends z.ZodType> = z.output<Schema> extends { readonly holder: string } ? unknown : never;
 
 /**
- * A person's write, by the claim it makes: a seat the session must hold at the team and season its input names,
- * or a record of the person's own, which the backend authorises in its transaction.
+ * The passkey touch, which an act on its fixed list declares: the browser asks it before every press, and the act runs
+ * only on a session a passkey sign-in made within `PASSKEY_TOUCH_SECONDS`, for a person holding a passkey, and only
+ * for the address its page was drawn for; a person holding none passes.
  */
-type PersonLane<Schema extends z.ZodType, Value> = Declared<Schema> & { readonly lane: "person" } & (
+type Touched<Schema extends z.ZodType> = { readonly passkey?: never } | ({ readonly passkey: true } & Held<Schema>);
+
+/** An administrator's write: the administrator's guard admits the caller before anything else runs. */
+type AdminLane<Schema extends z.ZodType, Value> = Declared<Schema> &
+  Touched<Schema> & {
+    readonly lane: "admin";
+    readonly run: Run<Schema, undefined, Value>;
+  };
+
+/**
+ * A person's write, by the claim it makes: a seat the session must hold at the team and season its input names; a
+ * record of the person's own, which the backend authorises in its transaction; or an act only Konto's pages reach,
+ * which the account's own guard admits too (`fl_frontend/src/core/auth/guards.ts :: getAccountSession`), handing the
+ * body the session it judged, so a session an administrator's mailbox made changes nothing of that administrator's
+ * account, their consents among it. An act of the account runs only for the address its page was drawn for.
+ */
+type PersonLane<Schema extends z.ZodType, Value> = Declared<Schema> &
+  Touched<Schema> & { readonly lane: "person" } & (
     | { readonly claim: "seat"; readonly run: Run<Schema, { readonly subject: SubjectSession; readonly seats: readonly Seat[] }, Value> }
     | { readonly claim: "record"; readonly run: Run<Schema, { readonly subject: SubjectSession }, Value> }
+    | ({
+        readonly claim: "account";
+        readonly run: Run<Schema, { readonly subject: SubjectSession; readonly served: JudgedSession }, Value>;
+      } & Held<Schema>)
   );
 
 /**
@@ -122,6 +147,14 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "wiring_seed_past_the_opening_round",
   "wiring_gruppe_not_run",
   "role_not_held",
+  // A consent's choices moved since the page was served.
+  "choices_stale",
+  // A grant offered on a record that since takes a withdrawal alone.
+  "giving_not_allowed",
+  // A choice moved onto a grant under a label reworded since the page was served.
+  "grant_wording_stale",
+  // The address holds nothing a change moves, its records erased since the page was served.
+  "address_change_nothing",
   // A team's refusals, which a screen setting no team meets only where the fixture changed under it; a screen
   // setting one words them as its own.
   "ergebnis_side_emptied",
@@ -311,29 +344,68 @@ function turnedAwayPerson(operation: string, refusal: "keine_sitzung" | "kein_si
   return { ok: false, reason: refusal === "keine_sitzung" ? COPY.shared.failure.signInExpired : COPY.shared.failure.stale };
 }
 
-/** The lane's guard, the parse and the body, in that order: no part of the input is read before the guard admits. */
+/**
+ * An act whose recorded actor is not the address its page was drawn for: the page's own session ended and the browser
+ * holds another account's now, a touch's sign-in or any other, so the act would run as that account. Answered as the
+ * page's sign-in ended, which is what happened to it. `undefined` where the two are one address.
+ */
+function anotherHolder(input: unknown): ActionAnswer<never> | undefined {
+  // `Held` declares the touch and the account's claim only over an input carrying the holder.
+  const { holder } = input as { readonly holder: string };
+  return asSignInIdentifier(holder) === getRequestActor()?.email ? undefined : { ok: false, reason: COPY.shared.failure.signInExpired };
+}
+
+/**
+ * Past a lane's guard: the touch it declares, judged on the actor the guard recorded, the parse, the holder a touched
+ * act's or an account act's input names, then `run` on the input, in that order.
+ */
+async function admitted<Schema extends z.ZodType, Value>(
+  lane: Lane<Schema, Value>,
+  raw: unknown,
+  run: (input: z.output<Schema>) => Promise<ActionAnswer<Value>>,
+): Promise<ActionAnswer<Value>> {
+  const touched = "passkey" in lane && lane.passkey === true;
+  if (touched && !(await passesPasskeyTouch(getRequestActor()))) return { ok: false, reason: COPY.signIn.refusal.touchMissing };
+  const read = parsed(lane, raw);
+  if ("answer" in read) return read.answer;
+  const held = touched || (lane.lane === "person" && lane.claim === "account");
+  return (held ? anotherHolder(read.input) : undefined) ?? run(read.input);
+}
+
+/**
+ * The lane's guard, the touch it declares, the parse and the body, in that order: no part of the input is read before
+ * the guard admits.
+ */
 async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value>, raw: unknown): Promise<ActionAnswer<Value>> {
   switch (lane.lane) {
     case "admin": {
       const judged = await judgeAdminRequest();
       if ("refused" in judged) return { ok: false, reason: TURNED_AWAY[judged.refused] };
-      const read = parsed(lane, raw);
-      return "answer" in read ? read.answer : body(lane, () => lane.run(read.input, undefined));
+      return admitted(lane, raw, (input) => body(lane, () => lane.run(input, undefined)));
     }
     case "person": {
       const subject = await getSubjectSession();
       if (subject === null) return turnedAwayPerson(lane.name, "keine_sitzung");
-      const read = parsed(lane, raw);
-      if ("answer" in read) return read.answer;
-      if (lane.claim === "record") return body(lane, () => lane.run(read.input, { subject }));
-
-      // A request can hand an action anything at all, so the claim is read as possibly absent.
-      const claim = (read.input ?? {}) as Partial<SeatClaim>;
-      const { team_id: team, saison_id: saison } = claim;
-      const seats =
-        typeof team === "string" && typeof saison === "string" ? rolesOf(subject).roles.filter((role) => isSeatAt(role, team, saison)) : [];
-      if (seats.length === 0) return turnedAwayPerson(lane.name, "kein_sitz");
-      return body(lane, () => lane.run(read.input, { subject, seats }));
+      switch (lane.claim) {
+        case "record":
+          return admitted(lane, raw, (input) => body(lane, () => lane.run(input, { subject })));
+        case "account": {
+          const served = await getAccountSession();
+          if (served === null) return turnedAwayPerson(lane.name, "keine_sitzung");
+          return admitted(lane, raw, (input) => body(lane, () => lane.run(input, { subject, served })));
+        }
+        case "seat":
+          return admitted(lane, raw, (input) => {
+            // A request can hand an action anything at all, so the claim is read as possibly absent.
+            const { team_id: team, saison_id: saison } = (input ?? {}) as Partial<SeatClaim>;
+            const seats =
+              typeof team === "string" && typeof saison === "string"
+                ? rolesOf(subject).roles.filter((role) => isSeatAt(role, team, saison))
+                : [];
+            if (seats.length === 0) return Promise.resolve(turnedAwayPerson(lane.name, "kein_sitz"));
+            return body(lane, () => lane.run(input, { subject, seats }));
+          });
+      }
     }
     case "public": {
       if ("botCheck" in lane) {
@@ -384,8 +456,21 @@ async function body<Schema extends z.ZodType, Value>(
 export function action<Schema extends z.ZodType, Value = undefined>(
   lane: Lane<Schema, Value>,
 ): (raw: z.input<Schema> | FormData) => Promise<ActionAnswer<Value>> {
-  return async (raw) => {
-    const incoming = readTraceparent((await headers()).get(TRACEPARENT_HEADER));
-    return runWithRequestScope({ traceId: incoming ?? mintTraceId() }, () => guarded(lane, raw));
-  };
+  // An async function, as Next defines a server action, though its check at runtime sees only a function.
+  return async (raw) => runWithIncomingTrace(() => answered(lane, raw));
+}
+
+/**
+ * The lane, its guards' own failures answered as the unexpected failure, as the body answers its own: a guard whose
+ * lookup the backend could not answer has written nothing, while the browser's catch of a thrown action reads the page
+ * again as though the press may have landed (`fl_frontend/src/kit/useFormAction.ts :: answering`).
+ */
+async function answered<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value>, raw: unknown): Promise<ActionAnswer<Value>> {
+  try {
+    return await guarded(lane, raw);
+  } catch (error) {
+    unstable_rethrow(error);
+    logFailure(lane.name, error);
+    return UNEXPECTED;
+  }
 }

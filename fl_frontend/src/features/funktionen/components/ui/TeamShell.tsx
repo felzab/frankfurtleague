@@ -1,6 +1,6 @@
 "use client";
 
-import { KONTO_HREF } from "@/core/kontoHref";
+import { ROUTES } from "@/core/routes";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
 import { ShellHeading } from "@/shared/components/layout/shell/ShellHeading";
 import { SidemenuEntries } from "@/shared/components/layout/sidemenu/SidemenuNavLinks";
@@ -49,7 +49,7 @@ export function TeamShell({
       funktionSwitcher={funktionSwitcher}
       fallbackTitle={TEAM_SHELL_FALLBACK.label}
       fallbackHint={TEAM_SHELL_FALLBACK.hint}
-      kontoHref={KONTO_HREF}
+      kontoHref={ROUTES.account.path()}
       onSignOut={signOut}>
       {children}
     </AppShell>
@@ -66,7 +66,7 @@ export function TeamShellHeading({ isRefused }: { isRefused: boolean }) {
       structure={isRefused ? [] : TEAM_SIDEMENU_STRUCTURE}
       linkPrefix={teamPrefixOf}
       fallback={isRefused ? TEAM_SHELL_REFUSAL : TEAM_SHELL_FALLBACK}
-      kontoHref={KONTO_HREF}
+      kontoHref={ROUTES.account.path()}
     />
   );
 }

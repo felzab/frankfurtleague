@@ -11,14 +11,14 @@ const gespeichert = (vorname: string, email: string): FLKontaktperson => ({
   email,
   telefon: "069 501",
   geburtsdatum: null,
-  einwilligung: kenntnisnahme({ text_version: "1", datum: "2026-10-03", confirmed_at: null }),
+  einwilligung: kenntnisnahme({ datum: "2026-10-03", confirmed_at: null }),
 });
 const gesendet = (vorname: string, email: string, telefon = "069 501"): FLKontaktpersonPayload => ({
   vorname,
   nachname: "Meier",
   email,
   telefon,
-  einwilligung: { umfang: "kontaktdaten", text_version: "1", datum: "2026-10-03" },
+  einwilligung: { umfang: "kontaktdaten", datum: "2026-10-03" },
 });
 
 const STORED = { trainer: null, ansprechperson: gespeichert("Anna", "anna@schule.example"), stellvertretung: null, trainer_is_also: null };

@@ -4,7 +4,7 @@
  * nginx writes one JSON line per request (`nginx/shared/http.conf :: fl_json`), `client` being the
  * address its rate zones key on once realip has run, and docker-compose.e2e.yml mounts the log at
  * `.tmp-e2e/nginx-log` in the checkout. A journey names its own address in `CF-Connecting-IP`, which
- * the edge takes only from the one source `nginx/e2e/e2e.conf` trusts; from any other, `client` is
+ * the edge takes only from the two gateways `nginx/e2e/e2e.conf` trusts; from any other, `client` is
  * that source, and every journey then spends one budget of every limit, the sign-in's among them.
  */
 import { open, stat } from "node:fs/promises";
@@ -13,8 +13,8 @@ import path from "node:path";
 /** In the checkout's root, three levels above `fl_frontend/e2e/support/`, as the mail sink is. */
 const ACCESS_LOG = path.resolve(__dirname, "..", "..", "..", ".tmp-e2e", "nginx-log", "access.log");
 
-/** RFC 5737's documentation range, from which `./journey.ts` hands every journey its address. */
-const VISITOR_RANGE = /^198\.51\.100\.\d{1,3}$/;
+/** RFC 2544's benchmarking range, 198.18.0.0/15, from which `./journey.ts` hands every journey its address. */
+const VISITOR_RANGE = /^198\.1[89]\.\d{1,3}\.\d{1,3}$/;
 
 /** Where the log ends now, so a reading later takes only the lines written since. */
 export async function accessLogEnd(): Promise<number> {
@@ -33,7 +33,7 @@ export async function expectEdgeSawVisitor(visitor: string, from: number): Promi
   if (strangers.length > 0)
     throw new Error(
       `the e2e edge judged requests by ${strangers.join(", ")} rather than by the journeys' own addresses: ` +
-        "it trusts CF-Connecting-IP from the one source nginx/e2e/e2e.conf names, and these arrived from another, " +
+        "it trusts CF-Connecting-IP from the two gateways nginx/e2e/e2e.conf names, and these arrived from another, " +
         `so every journey shares their limits (${ACCESS_LOG})`,
     );
 

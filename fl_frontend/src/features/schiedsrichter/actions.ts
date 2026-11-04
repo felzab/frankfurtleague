@@ -1,6 +1,6 @@
 "use server";
 
-import { isFreshlySignedIn } from "@/core/auth";
+import { isFreshlySignedIn } from "@/core/auth/sessionStamps";
 import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
