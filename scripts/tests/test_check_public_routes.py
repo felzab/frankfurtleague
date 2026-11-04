@@ -451,7 +451,7 @@ def test_a_recorded_answer_no_location_names_is_a_finding(monkeypatch):
 
 
 SERVER_READ = "export default async function Page(props) {\n  const { token } = await props.searchParams;\n}\n"
-LINK_PAIR = "        limit_req zone=linkseite burst=60 nodelay;\n        limit_req zone=linkseite48 burst=600 nodelay;\n"
+LINK_PAIR = "        limit_req zone=linkpage burst=60 nodelay;\n        limit_req zone=linkpage48 burst=600 nodelay;\n"
 
 
 def link_page(url: str, text: str = SERVER_READ) -> Path:
@@ -572,7 +572,7 @@ def test_a_link_block_metering_the_link_zone_on_another_burst_is_a_finding():
     findings = routes.uneven_links(where, SOURCE)
 
     assert severities(findings) == ["fail"]
-    assert "`location = /neu/` meters linkseite with `limit_req zone=linkseite burst=61 nodelay`" in details(findings)
+    assert "`location = /neu/` meters linkpage with `limit_req zone=linkpage burst=61 nodelay`" in details(findings)
 
 
 def test_the_repository_own_link_pages_are_on_the_link_pair():
