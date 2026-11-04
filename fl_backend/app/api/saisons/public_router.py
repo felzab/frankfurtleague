@@ -293,8 +293,8 @@ async def get_landing(
     return FLLandingResponse(saison=saison, bewerbung_window=window)
 
 
-# Declared after `/active`, `/frame` and `/landing`: routes match in declaration order, and the
-# `objectid` convertor cannot help here, a season id being a four-character string.
+# Declared after `/frame` and `/landing`, which it would otherwise answer as season ids: routes match in
+# declaration order, and the `objectid` convertor cannot help here, a season id being a four-character string.
 @router.get("/{saison_id}", response_model=FLSaisonsSingleResponse, summary="One Saison")
 async def get_saison(saison_id: str, saisons_collection: SaisonsCollection) -> FLSaisonsSingleResponse:
     """One season the public may read, by its id.
