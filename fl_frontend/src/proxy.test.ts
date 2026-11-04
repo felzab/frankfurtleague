@@ -281,7 +281,7 @@ describe("which addresses the proxy is run on", () => {
       "http://localhost:3000/area/%61dmin/spiele",
       "http://localhost:3000/admin/spielorte",
       "http://localhost:3000/signin",
-      "http://localhost:3000/signin/weiter",
+      "http://localhost:3000/signin/continue",
     ]) {
       expect(matched(url), `${url} runs no proxy`).toBe(true);
     }
@@ -374,7 +374,7 @@ describe("which addresses the proxy is run on", () => {
 
   // The sign-in's own pages are where a visitor holding no session is sent, so they turn nobody away.
   it("lets every sign-in page through with no session", async () => {
-    for (const url of ["http://localhost:3000/signin", "http://localhost:3000/signin/weiter"]) {
+    for (const url of ["http://localhost:3000/signin", "http://localhost:3000/signin/continue", "http://localhost:3000/signin/passkey"]) {
       expect((await callProxy({ url })).headers.get("x-middleware-next"), `${url} turned a visitor away`).toBe("1");
     }
   });

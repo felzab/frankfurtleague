@@ -2,6 +2,7 @@ import "server-only";
 
 import { COPY } from "./copy";
 import { mailOrigin } from "./emailShell";
+import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Mail } from "./emailShell";
@@ -14,16 +15,13 @@ export const LOESCHUNG_LINK_GUELTIG_STUNDEN = 24;
 
 const WORDS = SERVER_COPY.mail.erasureLink;
 
-/** A segment of its own, which `fl_frontend/src/app/robots.ts` disallows and the sitemap's withheld list names. */
-const LOESCHUNG_PATH = "/erasure";
-
 /**
  * The one place the deletion link is spelled, from the token alone and never the library's own `url`,
  * which deletes on a GET. `token` is the name
  * `nginx/shared/http.conf :: $credential_free_uri` redacts.
  */
 function loeschungsLink(origin: string, token: string): string {
-  return `${origin}${LOESCHUNG_PATH}?token=${encodeURIComponent(token)}`;
+  return `${origin}${ROUTES.accountErasure.path()}?token=${encodeURIComponent(token)}`;
 }
 
 // The link opens on any browser: a signed-out one is led through the sign-in and back to it

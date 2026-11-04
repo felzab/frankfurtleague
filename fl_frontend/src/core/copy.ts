@@ -155,7 +155,7 @@ export const COPY = catalogue({
 
     /** The five toast titles; a toast carries no body. */
     toast: {
-      // Redesign: these two are read once copying and signing out each toast through the kit.
+      // Redesign: `copied` and `signedOut` are read once copying and signing out each toast through the kit.
       copied: "Kopiert",
       linkSent: "Link gesendet",
       signedOut: "Abgemeldet",
@@ -197,7 +197,6 @@ export const COPY = catalogue({
     /** Between a pairing's two sides where no score stands between them, as a fixture's pairing reads: a glyph, not a word. */
     versus: "–",
     overview: "Übersicht",
-    // Redesign: the account menu reads it once it offers a second role.
     switchRole: "Funktion wechseln",
     loadMore: "Weitere 50 laden",
     kORunde: K_O_RUNDE,

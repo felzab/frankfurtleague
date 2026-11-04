@@ -2,6 +2,7 @@ import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "./brand";
 import { COPY } from "./copy";
+import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 /** The league's name as every message spells it. */
@@ -270,8 +271,8 @@ function buttonBlocks(button: Button): Block[] {
 
 function legalLinks(origin: string): readonly { readonly label: string; readonly href: string }[] {
   return [
-    { label: COPY.page.privacyNotice, href: `${origin}/datenschutz` },
-    { label: COPY.page.legalNotice, href: `${origin}/impressum` },
+    { label: COPY.page.privacyNotice, href: `${origin}${ROUTES.privacyNotice.path()}` },
+    { label: COPY.page.legalNotice, href: `${origin}${ROUTES.legalNotice.path()}` },
   ];
 }
 
