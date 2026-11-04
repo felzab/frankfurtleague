@@ -1030,10 +1030,6 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
   (<https://developers.cloudflare.com/bots/additional-configurations/managed-robots-txt/>), and
   `fl_frontend/src/app/robots.ts` writes one rule for every crawler alike, so while the setting is
   off the block above enforces the opt-out and nothing declares it.
-- **A Managed Challenge meets a navigation to `/signin` and to `/bewerbung/*`, and meets nothing
-  else** — not `/api/*`, and not a server action's POST, for the reason §2 gives. It
-  guards the page load alone: no rule checks the POST behind either page, which the Turnstile
-  widget below is for.
 - **A Turnstile widget serves the bot check**, in Managed mode, on the hostname
   `frankfurtleague.de` alone, `www` redirecting before any form renders. Its site key is the
   server's `TURNSTILE_SITE_KEY` and its secret `./secrets/turnstile_secret_key` (§1.2); that the
