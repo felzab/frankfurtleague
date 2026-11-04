@@ -762,12 +762,12 @@ done
 spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/bestaetigung/spiel?token=${TOK}"
 spent_request link-head -A "$LINK_MARKER" --head "${BASE}/bestaetigung/spiel?token=${TOK}"
 
-# The account page's pair, on JSON posts the action pair's key leaves out, so only `account` can refuse.
+# Konto's pair, on JSON posts to one of its pages the action pair's key leaves out, so only `account` can refuse.
 # Its burst read off the file, flooded past with five more for the refill the run takes.
 ACCOUNT_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=account burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
 [[ -n "$ACCOUNT_BURST" ]] || refuse "nginx/shared/site.conf declares no account burst this test can read."
 for _ in $(seq 1 $(( ACCOUNT_BURST + 5 ))); do
-  action_request account-flood -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/bereich/konto"
+  action_request account-flood -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/account/signin"
 done
 
 # The code check's pair, read off its own block and flooded past with five more: the library's prefix
