@@ -292,6 +292,25 @@ class TestTheStandAPressEchoes:
 
         assert nachweis_stand_of(bloecke=[granted])["medien"] != nachweis_stand_of(bloecke=[withdrawn])["medien"]
 
+    def test_a_whatsapp_grant_its_withdrawal_and_its_renewal_answer_three_umfang_stands(self):
+        """A contact seat's `umfang`, digested from its own value and its own evidence, as `medien` is.
+
+        The withdrawal in the grant's second differs by the value alone, the renewal later by the evidence alone, so a
+        page served before either is refused. The media choice, alike in all three, keeps one stand: the press judges
+        each choice by its own.
+        """
+
+        beleg = {"am": WITHDRAWN_AT, "text_version": ACCOUNT_LABEL}
+        medien = {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL}
+        granted = {**SEATED, "umfang": "kontaktdaten_whatsapp", "nachweis": {"umfang": beleg, "medien": medien}}
+        withdrawn = {**granted, "umfang": "kontaktdaten"}
+        renewed = {**granted, "nachweis": {"umfang": {"am": LATER, "text_version": ACCOUNT_LABEL}, "medien": medien}}
+
+        stands = [nachweis_stand_of(bloecke=[block]) for block in (granted, withdrawn, renewed)]
+
+        assert len({stand["umfang"] for stand in stands}) == 3
+        assert len({stand["medien"] for stand in stands}) == 1
+
     def test_an_act_on_any_one_of_several_blocks_moves_the_stand(self):
         """One press moves every held seat, so a stale page holding one seat's old stand is refused on all of them."""
 

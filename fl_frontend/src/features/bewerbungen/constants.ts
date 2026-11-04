@@ -1,7 +1,12 @@
 import { rollenText } from "@/core/teamVocabulary";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
-import type { FLBewerbungStatus } from "@/core/generated/client/types";
+import type {
+  FLBewerbungConfirmationDeadlineDays,
+  FLBewerbungKontaktMinAgeYears,
+  FLBewerbungStatus,
+  FLVertretungMinAgeYears,
+} from "@/core/generated/client/types";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { PillTone } from "@/shared/components/ui/badges";
 
@@ -87,11 +92,12 @@ export const BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH = 120;
 export const BEWERBUNG_STUFENGROESSE_MAX = 999;
 
 /**
- * The span a contact person's birthdate has to fall in, mirrored from
- * `fl_backend/app/shared/schemas/bounds.py`. The ceiling refuses a
- * mistyped century rather than a real age, and no other date in an application gains a bound.
+ * The span a contact person's birthdate has to fall in. The floor is checked against the bound
+ * `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS` publishes, so the backend moving it
+ * fails the type check here; the ceiling, mirrored from the same file, refuses a mistyped century rather than a real
+ * age, and no other date in an application gains a bound.
  */
-export const BEWERBUNG_MIN_ALTER = 16;
+export const BEWERBUNG_MIN_ALTER = 16 satisfies FLBewerbungKontaktMinAgeYears;
 export const BEWERBUNG_MAX_ALTER = 120;
 
 /**
@@ -108,11 +114,11 @@ export const rollenLangform = (rollen: readonly (KontaktRolle | null)[]): string
   rollenText(rollen.filter((rolle): rolle is KontaktRolle => rolle !== null));
 
 /**
- * The floor the Ansprechperson and the Stellvertretung clear, mirrored from
- * `fl_backend/app/shared/schemas/bounds.py`. Those two sign what binds the school, which asks
- * contractual capacity rather than the age a person consents for themselves at.
+ * The floor the Ansprechperson and the Stellvertretung clear, checked against
+ * `fl_backend/app/shared/schemas/bounds.py :: VERTRETUNG_MIN_AGE_YEARS` as the contact's floor is. Those two sign what
+ * binds the school, which asks contractual capacity rather than the age a person consents for themselves at.
  */
-export const VERTRETUNG_MIN_ALTER = 18;
+export const VERTRETUNG_MIN_ALTER = 18 satisfies FLVertretungMinAgeYears;
 
 // Both bounds, never the floor alone: named for the floor, a mistyped year would answer a
 // 190-year-old date with „mindestens 16“, which is a different fault.
@@ -120,12 +126,14 @@ export const alterAusserhalb = (mindestalter: number): string =>
   `Für Deine Bestätigung musst Du mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein.`;
 
 /**
- * The two clocks a confirmation link runs on, mirrored from `fl_backend/app/shared/schemas/bounds.py`
- * so the page states the deadline the sweep deletes on rather than a literal of its own.
+ * The deadline a confirmation link runs on, so the page states the day the sweep deletes on; checked against
+ * `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_CONFIRMATION_DEADLINE_DAYS`, so the backend moving it fails
+ * the type check here.
  */
-export const BEWERBUNG_BESTAETIGUNG_FRIST_TAGE = 14;
+export const BEWERBUNG_BESTAETIGUNG_FRIST_TAGE = 14 satisfies FLBewerbungConfirmationDeadlineDays;
 /**
- * The reminder's clock, which the mails' day-count test holds them to.
+ * The reminder's clock, mirrored from `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_REMINDER_DAYS`, which
+ * the mails' day-count test holds them to.
  * @internal
  */
 export const BEWERBUNG_ERINNERUNG_TAGE = 3;

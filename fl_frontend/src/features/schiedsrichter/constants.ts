@@ -2,6 +2,8 @@ import { FLEinwilligungUmfang } from "@/core/generated/client/types";
 import { BEWERBUNG_MAX_ALTER } from "@/features/bewerbungen/constants";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
+import type { FLSchiedsrichterConfirmationFristDays } from "@/core/generated/client/types";
+
 // Its own module: every export of a `"use client"` view becomes a client reference.
 export const SCHIEDSRICHTER_CRUD_COPY = {
   searchLabel: "Schiedsrichter suchen",
@@ -43,11 +45,13 @@ export const SCHIEDSRICHTER_RETIREMENT_CONSEQUENCE =
   "Schon eingetragene Spiele behalten diese Person. Für neue Spiele steht sie nicht mehr zur Auswahl.";
 
 /**
- * Mirrored from `fl_backend/app/shared/schemas/bounds.py`, so the dead-link panel states the day the
- * endpoint refuses on. Fourteen rather than the registration's seven: this link waits on an adult
- * with no second route in.
+ * The days a referee's link answers, so the dead-link panel and the privacy notice state the day the endpoint refuses
+ * on; checked against
+ * `fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS`, so the backend moving it fails
+ * the type check here. Fourteen rather than the registration's seven: this link waits on an adult with no second
+ * route in.
  */
-export const SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE = 14;
+export const SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE = 14 satisfies FLSchiedsrichterConfirmationFristDays;
 
 // Both bounds, never the floor alone: named for the floor, a mistyped year would answer a
 // 190-year-old date with „mindestens 16“, which is a different fault.

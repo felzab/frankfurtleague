@@ -9,16 +9,16 @@ its invalidation live here rather than in the backend.
 
 ## How it is organised
 
-| Folder                   | Holds                                                                                                                                                       |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/app/`               | The routes: the public pages, `saisons/` for the season pages, `area/`, `admin/` and `account/` for the signed-in areas                                     |
-| `src/kit/`               | The design system's components, built on React Aria Components                                                                                              |
-| `src/core/`              | What the server process is and what every surface needs: configuration, the API client, auth, mail, logging, the string catalogue and the formatting module |
-| `src/shared/`            | What a rendered page is built from beside the kit: components, hooks and the utilities those call                                                           |
-| `src/features/<domain>/` | One slice per domain: its cached reads, server actions, schemas and the components of its pages                                                             |
-| `src/proxy.ts`           | The request proxy in front of every signed-in area                                                                                                          |
-| `src/test-support/`      | What the unit and database tests share and production never imports: doubles, fixtures, the test setup and the sweeps' tree walk                            |
-| `e2e/`                   | The Playwright journeys against the end-to-end stack, one project's under `desktop/` or `phone/`, and `support/`, the fixtures and helpers they import      |
+| Folder                   | Holds                                                                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/`               | The routes: the public pages, `saisons/` for the season pages, `area/`, `admin/` and `account/` for the signed-in areas                                                               |
+| `src/kit/`               | The design system's components, built on React Aria Components                                                                                                                        |
+| `src/core/`              | What the server process is and what every surface needs: configuration, the API client, auth, mail, logging, the string catalogue and the formatting module                           |
+| `src/shared/`            | What a rendered page is built from beside the kit: components, hooks and the utilities those call                                                                                     |
+| `src/features/<domain>/` | One slice per domain: its cached reads, server actions, schemas and the components of its pages                                                                                       |
+| `src/proxy.ts`           | The request proxy in front of every signed-in area                                                                                                                                    |
+| `src/test-support/`      | What the unit and database tests share and production never imports: doubles, fixtures, the test setup and the sweeps' tree walk                                                      |
+| `e2e/`                   | The Playwright journeys against the end-to-end stack, every project's at its top and one project's under `desktop/` or `phone/`, and `support/`, the fixtures and helpers they import |
 
 **Routes are thin**: a page fetches, then hands off to its slice. A slice holds only the modules it
 needs: `queries.ts` for reads, `mutations.ts` for the calls that write, `actions.ts` for the server

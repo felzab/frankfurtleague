@@ -10,11 +10,6 @@ import { filedMessages, mailedCode } from "./mailSink";
 
 import type { BrowserContext, Locator, Page } from "@playwright/test";
 
-export type Passkey = Awaited<ReturnType<BrowserContext["credentials"]["get"]>>[number];
-
-/** The relying party the local `AUTH_URL` names, which is where an enrolled passkey belongs. */
-const RELYING_PARTY = "localhost";
-
 /** The step a send that mailed a code, or would have, shows in the address step's place. */
 export const codeStep = (page: Page): Locator => page.getByRole("main").getByRole("status").filter({ hasText: "Prüfe dein Postfach" });
 
@@ -82,8 +77,8 @@ export async function expectAccountPageOf(page: Page, address: string): Promise<
   await expect(page.getByRole("main").getByText(address, { exact: true })).toBeVisible();
 }
 
-/** An administrator's first passkey, set up where a code-borne sign-in lands; answers the passkey the authenticator now holds. */
-export async function enrolPasskey(page: Page, context: BrowserContext): Promise<Passkey> {
+/** An administrator's first passkey, set up where a code-borne sign-in lands. */
+export async function enrolPasskey(page: Page, context: BrowserContext): Promise<void> {
   // The code alone does not open the Verwaltung: an administrator's first sign-in sets up a passkey.
   await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
 
@@ -94,8 +89,4 @@ export async function enrolPasskey(page: Page, context: BrowserContext): Promise
   // Every administrator lands on the Übersicht, which a session short of the passkey would leave for
   // `/area/admin` and the passkey step (`fl_frontend/src/core/auth/landing.ts :: destinationOf`).
   await expect(page).toHaveURL((url) => url.pathname === "/area");
-
-  const [passkey] = await context.credentials.get({ rpId: RELYING_PARTY });
-  if (passkey === undefined) throw new Error("the enrolment left the authenticator holding no passkey");
-  return passkey;
 }

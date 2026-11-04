@@ -725,19 +725,19 @@ export const SERVER_COPY = catalogue({
    */
   description: {
     home: COPY.brand.description,
-    about: "Wer in der Frankfurt League spielt, nach welchen Regeln und wofür, und wer die Liga organisiert.",
+    about: `Wer in der ${COPY.brand.name} spielt, nach welchen Regeln und wofür, und wer die Liga organisiert.`,
     spielplan: (saison: string) =>
-      `Alle Spiele der ${COPY.shared.saisonName(saison)} der Frankfurt League, Spieltag für Spieltag, mit Datum, Uhrzeit und Ort.`,
+      `Alle Spiele der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}, Spieltag für Spieltag, mit Datum, Uhrzeit und Ort.`,
     tabelle: (saison: string) =>
-      `Die Tabelle der ${COPY.shared.saisonName(saison)} der Frankfurt League: jede Gruppe mit Spielen, Toren und Punkten.`,
-    teams: (saison: string) => `Alle Teams der ${COPY.shared.saisonName(saison)} der Frankfurt League, mit Gruppe und Kader.`,
-    team: (team: string, saison: string) => `${team} in der ${COPY.shared.saisonName(saison)} der Frankfurt League: Stand, Spiele und Kader.`,
-    kORunde: (saison: string) => `Die K.-o.-Runde der ${COPY.shared.saisonName(saison)} der Frankfurt League: der K.-o.-Baum bis zum Finale.`,
+      `Die Tabelle der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}: jede Gruppe mit Spielen, Toren und Punkten.`,
+    teams: (saison: string) => `Alle Teams der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}, mit Gruppe und Kader.`,
+    team: (team: string, saison: string) => `${team} in der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}: Stand, Spiele und Kader.`,
+    kORunde: (saison: string) => `Die K.-o.-Runde der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}: der K.-o.-Baum bis zum Finale.`,
     spiel: (team1: Words, team2: Words, saison: string) =>
-      `${textOf(team1)} gegen ${textOf(team2)} in der ${COPY.shared.saisonName(saison)} der Frankfurt League: Termin, Ort, Ergebnis und Aufstellungen.`,
-    contact: "Die Frankfurt League erreichst du per E-Mail, auf Instagram und auf Threads.",
-    sponsors: "Die Sponsoren der Frankfurt League, und wie du die Liga unterstützen kannst.",
-    legalNotice: "Anbieterkennzeichnung der Frankfurt League nach § 5 DDG.",
-    privacyNotice: "Welche Daten die Frankfurt League verarbeitet, auf welcher Grundlage und wie lange.",
+      `${textOf(team1)} gegen ${textOf(team2)} in der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}: Termin, Ort, Ergebnis und Aufstellungen.`,
+    contact: `Die ${COPY.brand.name} erreichst du per E-Mail, auf Instagram und auf Threads.`,
+    sponsors: `Die Sponsoren der ${COPY.brand.name}, und wie du die Liga unterstützen kannst.`,
+    legalNotice: `Anbieterkennzeichnung der ${COPY.brand.name} nach § 5 DDG.`,
+    privacyNotice: `Welche Daten die ${COPY.brand.name} verarbeitet, auf welcher Grundlage und wie lange.`,
   } satisfies Record<ListedRoute, string | ((...names: never) => string)>,
 });

@@ -492,7 +492,8 @@ export const COPY = catalogue({
       noApprover: "Gerade kann niemand aus der Verwaltung die Änderung genehmigen.",
     },
     erasure: {
-      // What outlives an erasure is the privacy notice's to list. The deletion mail reads this sentence, and the done page says it in the done state.
+      // What outlives an erasure is the privacy notice's to list. Konto's deletion box and the deletion mail read this
+      // sentence; the done page states it as done, `SERVER_COPY.accountErasure.doneSentence`.
       description: `Dein Konto und deine Angaben werden gelöscht, bis auf das, was unter „${PRIVACY_NOTICE}“ steht.`,
       consequence: "Den Link zum Löschen bekommst du per E-Mail.",
     },

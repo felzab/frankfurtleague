@@ -17,8 +17,9 @@ import type { EndState, OneShotAction } from "./OneShot";
 import type { StatusCardProps } from "./StatusPage";
 
 /**
- * Every page a mail opens carries its link's token in its address: no outbound request may send that
- * address on as its referrer. Each of the seven pages spreads this into the metadata it answers.
+ * A page a mail opens carries its link's token in its address, the first request of one in
+ * `fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES` included: no outbound request may send that address on
+ * as its referrer. Each such page spreads this into the metadata it answers, or sets the same referrer itself.
  */
 export const MAILED_PAGE_METADATA = { referrer: "no-referrer" } as const satisfies Metadata;
 

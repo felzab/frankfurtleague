@@ -65,10 +65,12 @@ CODE_EXTENSIONS: Final = tuple(Path(name).suffix for name in ROUTE_FILES)
 PAGE_FILES: Final = tuple(f"page{suffix}" for suffix in CODE_EXTENSIONS)
 
 # A link page's own module names `token` and its search parameters, the hook's spelling included, or
-# a module mints its link: the minter finds a page reading the token elsewhere, the read a page whose
-# link nothing here mints.
+# calls the proxy's mailed-link reader, which takes the token from the cookie the proxy moved it into
+# (`fl_frontend/src/core/mailedLink.ts :: mailedLinkToken`), or a module mints its link: the minter
+# finds a page reading the token elsewhere, the read a page whose link nothing here mints.
 LINK_TOKEN_RE: Final = re.compile(r"\btoken\b")
 LINK_QUERY_RE: Final = re.compile(r"searchParams", re.IGNORECASE)
+LINK_COOKIE_RE: Final = re.compile(r"\bmailedLinkToken\s*\(")
 
 # Every minted link writes `token=` literally (`nginx/shared/http.conf :: $credential_free_uri` relies
 # on it) after a template's origin and a page path: its module spells the path, or names the page's
@@ -559,12 +561,12 @@ def interceptions(paged: tuple[Handler, ...], app_dir: Path, root: Path) -> list
 
 
 def link_pages(found: tuple[Handler, ...]) -> tuple[Handler, ...]:
-    """Every page reading a mailed link's token from its search parameters."""
+    """Every page reading a mailed link's token from its search parameters or through the proxy's mailed-link reader."""
     linked: list[Handler] = []
     for page in found:
         # Bytes, as the configuration is read, so no platform's decoding default decides the match.
         text = page.path.read_bytes().decode("utf-8")
-        if LINK_TOKEN_RE.search(text) and LINK_QUERY_RE.search(text):
+        if (LINK_TOKEN_RE.search(text) and LINK_QUERY_RE.search(text)) or LINK_COOKIE_RE.search(text):
             linked.append(page)
     return tuple(linked)
 
