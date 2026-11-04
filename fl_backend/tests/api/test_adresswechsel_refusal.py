@@ -29,7 +29,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.constraints import SUPPORT_INDEXES, UNIQUE_INDEXES
 from app.core.recording import ERASED_ACTOR_MARKER
-from app.shared.folding import canonical_address
+from app.shared.folding import league_address
 from app.shared.schemas.responses import BaseAPIResponse
 from tests.config import BASE_AUTH
 from tests.core.app_source import application
@@ -64,7 +64,7 @@ class TestTheMask:
         """The account page masks what is stored, and a stored value the rule refuses would answer it a 500."""
 
         with pytest.raises(ValueError):
-            canonical_address(email)
+            league_address(email)
         assert maskierte_adresse(email) == masked
 
     def test_two_addresses_differing_past_their_first_letters_mask_alike(self):

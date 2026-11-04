@@ -42,10 +42,14 @@ BEYOND_ASCII = [
     pytest.param(f"{HALF_WIDTH_VOICED_MARK}anna@schule.de", id="a half-width voiced mark"),
 ]
 
-# The control each refusal is read against, above ASCII in its DOMAIN alone, so a rule refusing every
-# character above ASCII fails here rather than passing the cases above.
+# Refused as well: the rule takes no domain above ASCII rather than converting one, so the stored form is the fold of
+# what was typed.
 UNICODE_DOMAIN = f"anna@m{chr(0xFC)}ller.de"
-UNICODE_DOMAIN_STORED = "anna@xn--mller-kva.de"
+
+# The control each refusal is read against, so a rule refusing every address fails here rather than passing the cases
+# above.
+PLAIN = "Anna@Schule.DE"
+PLAIN_STORED = "anna@schule.de"
 
 # The control's answer: a well-formed request that got past validation and reached the database. The
 # refusal's is `payload_refused`, and a keying crash answers `unhandled_crash`.
@@ -88,10 +92,10 @@ class TestARegistrationRefusesALocalPartBeyondAscii:
 
         assert (response.status_code, response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
 
-    def test_an_address_above_ascii_in_its_domain_alone_reaches_the_database(self):
+    def test_an_ascii_address_reaches_the_database(self):
         """The control: without it, a route refusing every body would pass the case above."""
 
-        response = registered(UNICODE_DOMAIN)
+        response = registered(PLAIN)
 
         assert response.status_code == 500, response.json()
         assert response.json()["error_code"] in UNREACHED_DATABASE, response.json()
@@ -186,8 +190,13 @@ class TestEveryAddressPayloadHoldsTheSameRule:
             ADDRESS_FIELDS[field].validate_python(email)
 
     @pytest.mark.parametrize("field", sorted(ADDRESS_FIELDS))
-    def test_the_field_stores_a_unicode_domain_as_its_punycode(self, field: str):
-        assert ADDRESS_FIELDS[field].validate_python(UNICODE_DOMAIN) == UNICODE_DOMAIN_STORED
+    def test_the_field_refuses_a_unicode_domain(self, field: str):
+        with pytest.raises(ValidationError):
+            ADDRESS_FIELDS[field].validate_python(UNICODE_DOMAIN)
+
+    @pytest.mark.parametrize("field", sorted(ADDRESS_FIELDS))
+    def test_the_field_stores_an_ascii_address_folded(self, field: str):
+        assert ADDRESS_FIELDS[field].validate_python(PLAIN) == PLAIN_STORED
 
     def test_the_refusal_quotes_nothing_of_the_address(self):
         """The message reaches the log line `payload_refused` writes, and an erasure reaches no log sink."""

@@ -1052,9 +1052,8 @@ SEAT_IDENTITY_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
 def _identity_of(seat: Mapping[str, Any]) -> tuple[str, ...]:
     """Who this seat holds, folded so two spellings of one person compare equal."""
 
-    # The address as sign-in folds it, so a stamp never crosses to a domain the sign-in fold reads as
-    # another inbox, „strasse“ for „straße“ among them; re-typing „ida“ as „Ida“ still costs nobody a
-    # fresh confirmation.
+    # The address as sign-in folds it, so a stamp never crosses to another inbox, and re-typing „ida“
+    # as „Ida“ still costs nobody a fresh confirmation.
     return tuple(
         sign_in_identifier(str(seat.get(field) or "")) if field == "email" else person_name_key(seat.get(field))
         for field in SEAT_IDENTITY_FIELDS

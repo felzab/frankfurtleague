@@ -77,8 +77,8 @@ PAST, ACTIVE = "2025", "2026"
 
 # One address holding every kind, several records of some and every state of each.
 WILTRUDIS = "wiltrudis.ehrenpreis@schule.de"
-# Asked with its domain in Unicode, stored in punycode.
-KAETHE = "käthe@müller.de"
+# Asked with its domain in capitals, stored folded.
+KAETHE = "käthe@XN--MLLER-KVA.DE"
 NIEMAND = "niemand@schule.de"
 
 TEAMS = [ObjectId(f"6890a1b2c3d4e5f6078600{n:02d}") for n in range(1, 6)]
@@ -255,7 +255,7 @@ def _gezaehlt(eintraege: frozenset[tuple[str, Any]]) -> set[tuple[str, str]]:
 
 
 @pytest.mark.db
-@pytest.mark.parametrize("address", list(EXPECTED), ids=["every kind and state", "a Unicode domain", "nothing held"])
+@pytest.mark.parametrize("address", list(EXPECTED), ids=["every kind and state", "a domain asked in capitals", "nothing held"])
 def test_the_gate_counts_exactly_what_the_account_page_serves(mongo_replica_set_url: str, address: str):
     async def run() -> tuple[set[tuple[str, str]], set[tuple[str, str]]]:
         async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):

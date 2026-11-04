@@ -15,7 +15,7 @@ from pydantic import SecretStr
 
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
-from app.shared.folding import canonical_address, sign_in_identifier
+from app.shared.folding import league_address, sign_in_identifier
 from app.shared.schemas.bounds import SAISON_ID_LENGTH, SPERRE_DURATION_SAISONS
 from app.shared.sub_keys import derive_sub_key
 
@@ -34,7 +34,7 @@ def adresse_hash(address: str, *, key: SecretStr) -> str:
 
     # The rule every address payload runs too (`app/shared/schemas/kontakt.py :: CustomEmail`), so an
     # address a payload admitted keys a ban rather than answering 500.
-    return hmac.new(derive_sub_key(key, SPERRLISTE_SCHLUESSEL_VERSION), canonical_address(address).encode("utf-8"), hashlib.sha256).hexdigest()
+    return hmac.new(derive_sub_key(key, SPERRLISTE_SCHLUESSEL_VERSION), league_address(address).encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def withheld_actor(actor: str | None, barred: Collection[str]) -> str | None:

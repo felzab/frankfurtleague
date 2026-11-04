@@ -191,10 +191,10 @@ describe("FLKontaktPayloadSchema", () => {
     expect(FLKontaktPayloadSchema.safeParse({ telefon: "   ", email: ADRESSE }).success).toBe(true);
   });
 
-  // Each is a value the API takes and stores: an umlaut host it converts to punycode, an atext
-  // character outside zod's class, and a local part past RFC 5321's 64.
+  // Each is a value the API takes and stores: a punycode host, an atext character outside zod's
+  // class, and a local part past RFC 5321's 64.
   it("takes every address the API stores, whose rule no zod pattern spells", () => {
-    for (const email of ["kaethe@käthe-schule.example", "a!b@example.de", `${"a".repeat(70)}@example.de`]) {
+    for (const email of ["kaethe@xn--kthe-schule-l8a.example", "a!b@example.de", `${"a".repeat(70)}@example.de`]) {
       expect(FLKontaktPayloadSchema.safeParse({ telefon: null, email }).success, `expected "${email}" to be accepted`).toBe(true);
     }
   });
@@ -209,16 +209,10 @@ const RESERVIERT = "Diese Adresse können wir nicht nutzen: Der Teil nach dem @ 
 describe("KontaktEmailSchema", () => {
   const refusals = (value: unknown): string[] => KontaktEmailSchema.safeParse(value).error?.issues.map((issue) => issue.message) ?? [];
 
-  // Each is a value the API takes, and `z.email()`'s alphabet refuses the umlaut domain and the atext
-  // character: a school whose contact address holds one could not submit an application at all.
-  it("takes every address the API stores, umlaut domains and atext characters and all", () => {
-    const addresses = [
-      "kaethe@käthe-schule.example",
-      "kaethe@xn--kthe-schule-l8a.example",
-      "a!b@example.de",
-      `${"a".repeat(70)}@example.de`,
-      "Anna@Example.DE",
-    ];
+  // Each is a value the API takes, and `z.email()`'s alphabet refuses the atext character: a school
+  // whose contact address holds one could not submit an application at all.
+  it("takes every address the API stores, punycode domains and atext characters and all", () => {
+    const addresses = ["kaethe@xn--kthe-schule-l8a.example", "a!b@example.de", `${"a".repeat(70)}@example.de`, "Anna@Example.DE"];
 
     for (const email of addresses) {
       expect(KontaktEmailSchema.safeParse(email).success, `expected "${email}" to be accepted`).toBe(true);
@@ -243,18 +237,12 @@ describe("KontaktEmailSchema", () => {
       "an,na@example.de",
       "an na@example.de",
       "anna@@example.de",
+      "kaethe@käthe-schule.example",
     ];
 
     for (const email of addresses) {
       expect(KontaktEmailSchema.safeParse(email).success, `expected "${email}" to be rejected`).toBe(false);
     }
-  });
-
-  // The label cap is 63 OCTETS of the punycoded host and an umlaut costs more than one, so read on the
-  // value as typed the second of these is 58 characters and passes.
-  it("measures the label cap on the punycoded host rather than on what was typed", () => {
-    expect(KontaktEmailSchema.safeParse(`anna@${"ä".repeat(57)}.de`).success).toBe(true);
-    expect(KontaktEmailSchema.safeParse(`anna@${"ä".repeat(58)}.de`).success).toBe(false);
   });
 
   // Pydantic strips before it validates, so the API takes this and stores it trimmed. The padding is

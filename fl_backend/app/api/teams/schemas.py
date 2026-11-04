@@ -396,8 +396,7 @@ class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
         seats = [seat for seat in KONTAKT_ROLLEN if seat != self.trainer_is_also]
         people: list[_KontaktpersonWritablePayload] = [person for seat in seats if (person := getattr(self, seat)) is not None]
 
-        # On the sign-in fold: two seats one sign-in reaches are one identity, and `casefold` would
-        # refuse „strasse“ beside „straße“, two domains to IDNA 2008.
+        # On the sign-in fold: two seats one sign-in reaches are one identity.
         emails = [sign_in_identifier(person.email) for person in people]
         if len(set(emails)) != len(emails):
             raise PydanticCustomError("kontakt_email_twice", "two contact persons share one email address")

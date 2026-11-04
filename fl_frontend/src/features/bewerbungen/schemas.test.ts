@@ -72,14 +72,15 @@ describe("what the public submission schema accepts", () => {
     expect(refusedPaths(validDraft())).toStrictEqual([]);
   });
 
-  /* The API stores an umlaut domain as its punycode and refuses an umlaut before the at sign, so the
+  /* The API takes a domain spelled in punycode and refuses an umlaut on either side of the at sign, so the
      one school applies and the other is told so at the box. */
-  it("accepts a contact address with an umlaut domain and refuses one with an umlaut before the at sign", () => {
+  it("accepts a contact address with a punycode domain and refuses one with an umlaut", () => {
     const draft = validDraft();
     const withAddress = (email: string) => validDraft({ kontakte: { ...draft.kontakte, trainer: person("Tim", { email }) } });
 
-    expect(refusedPaths(withAddress("erika@käthe-schule.example"))).toStrictEqual([]);
+    expect(refusedPaths(withAddress("erika@xn--kthe-schule-l8a.example"))).toStrictEqual([]);
     expect(refusedPaths(withAddress("käthe@beispiel.de"))).toStrictEqual(["kontakte.trainer.email"]);
+    expect(refusedPaths(withAddress("erika@käthe-schule.example"))).toStrictEqual(["kontakte.trainer.email"]);
   });
 
   /* The API answers a hyphen-final label with a payload_refused that marks the box with a generic
@@ -660,7 +661,7 @@ describe("the one field of a submitted application an administrator may move", (
   /* The correction exists to reach a mailbox the submission could not, so an address the API stores
      has to pass here: refused, the seat stays unreachable and no other route moves it. */
   it("takes every address the API stores, so any mailbox can be corrected to", () => {
-    for (const email of ["erika@käthe-schule.example", "a!b@schule.de"]) {
+    for (const email of ["erika@xn--kthe-schule-l8a.example", "a!b@schule.de"]) {
       expect(refusalFor({ ...CORRECTION, email }), email).toStrictEqual({});
     }
   });
@@ -673,13 +674,11 @@ describe("the one field of a submitted application an administrator may move", (
     expect(gleicheAdresse("", ""), "two empty boxes read as one address, which would refuse a seat that has none").toBe(false);
   });
 
-  /* The sign-in fold, as the API compares: an umlaut domain is its punycode, a full-width „e“ before the
-     at sign is another address (built from its code point, rendering as the ASCII one), and „strasse“
-     is not „straße“. */
+  /* The sign-in fold, as the API compares: ASCII case alone, so a full-width „e“ before the at sign is
+     another address (built from its code point, rendering as the ASCII one). */
   it("folds as sign-in folds, never as a case-fold would", () => {
-    expect(gleicheAdresse("erika@müller.de", "Erika@xn--mller-kva.de")).toBe(true);
+    expect(gleicheAdresse("erika@XN--MLLER-KVA.de", "Erika@xn--mller-kva.de")).toBe(true);
     expect(gleicheAdresse(`${String.fromCharCode(0xff45)}rika@schule.de`, "erika@schule.de")).toBe(false);
-    expect(gleicheAdresse("erika@straße.de", "erika@strasse.de")).toBe(false);
   });
 });
 

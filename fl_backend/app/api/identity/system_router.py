@@ -88,7 +88,7 @@ async def get_subject(
     identifier = sign_in_identifier(str(subjekt_data.email))
 
     # Keyed from the payload's own value, as the ban write keys it: that payload type runs the rule
-    # `canonical_address` runs, so an address the hash would refuse was answered 422 before here.
+    # `league_address` runs, so an address the hash would refuse was answered 422 before here.
     ban_key = sperrliste.hash_of(str(subjekt_data.email))
 
     # Concurrently, every page a signed-in person or an administrator renders waiting on this answer:

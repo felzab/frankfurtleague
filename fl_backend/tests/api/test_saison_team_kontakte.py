@@ -673,16 +673,6 @@ class TestTheCompositionDecidesFromItsArguments:
         assert composed["trainer"]["einwilligung"]["confirmed_at"] == CONFIRMED_ON
         assert composed["trainer"]["geburtsdatum"] == GEBURTSDATUM
 
-    def test_a_domain_spelled_with_ss_where_it_held_sharp_s_is_another_mailbox(self):
-        """IDNA 2008 and the sign-in fold read „straße“ and „strasse“ as two domains: a stamp carried across confirms an unproven inbox."""
-
-        held = {**PARTLY_CONFIRMED, "trainer": stored_person("Ida", email="ida@straße.de", confirmed_at=CONFIRMED_ON)}
-        moved = {**held, "trainer": person("Ida", email="ida@strasse.de")}
-        composed = compose_kontakte_herkunft(kontakte=moved, stored=held)
-
-        assert composed is not None
-        assert composed["trainer"]["einwilligung"]["confirmed_at"] is None
-
     def test_a_null_slot_is_left_null(self):
         composed = compose_kontakte_herkunft(kontakte=ONE_SLOT_FILLED, stored=PARTLY_CONFIRMED)
 

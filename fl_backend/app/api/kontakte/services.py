@@ -6,7 +6,7 @@ from typing import Any
 from app.core.collections import Collection
 from app.core.crud import literal_pattern
 from app.core.recording import row_images
-from app.shared.folding import person_name_key, sign_in_identifier, trimmed_pattern, trimmed_prefix_pattern
+from app.shared.folding import person_name_key, sign_in_identifier, trimmed_pattern
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 
@@ -19,17 +19,9 @@ def same_address(identifier: str) -> Mapping[str, Any]:
     """
 
     # Folded here whatever a caller hands on: built off an unfolded spelling, a padded or a blank one above all, the
-    # pattern reads less than that spelling's fold claims.
-    folded = sign_in_identifier(identifier)
-    local, at, _ = folded.rpartition("@")
-    # No `@`, so no local part: the fold equates the identifier whole, and a start alone, anchoring an empty
-    # prefix, reads every stored string.
-    if not at:
-        return {"$regex": trimmed_pattern(literal_pattern(folded)), "$options": "i"}
-
-    # Anchored on the local part and its `@`, which the fold changes by ASCII case alone (`i`): it maps a
-    # domain from more spellings than a pattern lists, so the read takes every mailbox sharing that local part.
-    return {"$regex": trimmed_prefix_pattern(literal_pattern(local + at)), "$options": "i"}
+    # pattern reads less than that spelling's fold claims. The fold moves a value by its trim and its ASCII case alone,
+    # which the pattern's anchors and `i` take.
+    return {"$regex": trimmed_pattern(literal_pattern(sign_in_identifier(identifier))), "$options": "i"}
 
 
 def rows_seating(*identifiers: str) -> Mapping[str, Any]:
@@ -83,11 +75,7 @@ def build_seat_images_filter(identifier: str) -> Mapping[str, Any]:
 
 
 def find_matching_slots(row: Mapping[str, Any], identifier: str) -> tuple[str, ...]:
-    """Which of this row's slots name the asker, each stored address on the sign-in fold.
-
-    Never `casefold`, which reads „straße“ and „strasse“ as one domain and so clears a second
-    person's seat on the first person's request.
-    """
+    """Which of this row's slots name the asker, each stored address on the sign-in fold the identifier was taken on."""
 
     # Every shape checked before it is read: a log image is whatever a row held when its write ran,
     # and a person's Widerspruch must not answer 500 over an older one.

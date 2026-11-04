@@ -26,7 +26,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError
 from app.main import create_app
-from app.shared.folding import canonical_address
+from app.shared.folding import league_address
 from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_FRIST_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
@@ -760,7 +760,7 @@ class TestWhatASubmissionIsRefused:
 
             return refused.value.error_code
 
-        assert canonical_address(BANNED_EMAIL.upper()) == canonical_address(BANNED_EMAIL)
+        assert league_address(BANNED_EMAIL.upper()) == league_address(BANNED_EMAIL)
         assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == Code.REGISTRIERUNG_ADRESSE_BARRED
 
     def test_an_address_no_row_holds_registers(self, mongo_replica_set_url: str):

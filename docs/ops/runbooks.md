@@ -310,7 +310,7 @@ administration is shut while it is down. Each of these is easy to get wrong:
   `mongosh`, into the `berechtigungen` collection of the application database (`DB_BASE_NAME`,
   which `fl_backend/.env` names). The row holds five fields: `adresse`,
   the address in the form the sign-in stores it (`fl_backend/app/shared/folding.py ::
-sign_in_identifier`) — trimmed, the letters of both halves lower-case, the domain in punycode —
+sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
   which the application then reads as typed; `verwaltung`, `owner` or `administration`; `granted_by`, a marker naming the
   paste, such as `PLAYGROUND`; `granted_at`, a date rather than a string; and `version: 0`, which
   the tier change takes into its filter, so on a row without it every tier change is refused as stale. Removing the row by its
@@ -336,9 +336,9 @@ sign_in_identifier`) — trimmed, the letters of both halves lower-case, the dom
   nothing, so deleting it by hand is tidying rather than revocation.
 - **A grant to an address the sign-in library will not take admits nobody**: that person is mailed
   no code. The grant page refuses such an address; the Playground
-  refuses nothing. An umlaut before the at sign is the case that turns up: the sign-in box takes no
-  such address, so that person needs a mailbox it will accept before a grant is worth writing. An umlaut domain is stored in punycode,
-  which the sign-in box converts either spelling to.
+  refuses nothing. An umlaut is the case that turns up: the sign-in box takes no address outside
+  ASCII, so that person needs a mailbox it will accept before a grant is worth writing. A domain
+  already spelled in punycode (`xn--`) is taken as typed.
 - **A grant admits every passkey the address already holds.** A person enrols passkeys with a mailed
   code, or brings them along on an address change the new mailbox confirmed while nothing named it
   and no grant was asked for it, the same authority an
