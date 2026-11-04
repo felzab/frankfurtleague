@@ -3,7 +3,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.api.adresswechsel.schemas import FLAddressChangeApprovalState
 from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelf
-from app.api.spieler.schemas import FLEinwilligung, FLSpielerSelf
+from app.api.spieler.schemas import FLEinwilligung, FLSpielerSelfPerson
 from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomEmail
@@ -19,7 +19,7 @@ from app.shared.schemas.literals import (
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
-class FLAccountSpielerEinwilligung(FLSpielerSelf):
+class FLAccountSpielerEinwilligung(FLSpielerSelfPerson):
     """The pupil's record on the account page: its stored data and the consent the page moves."""
 
     # Required: only a confirmed record is served, so the block is always there.
@@ -58,7 +58,7 @@ class FLAccountSeatEinwilligung(BaseModel):
     # Each on where any held slot's is, so a withdrawal stays offered.
     umfang: FLKontaktKenntnisnahmeUmfang
     medien: bool
-    # Over every held slot, for `app/api/spieler/schemas.py :: FLSpielerSelf`'s reason.
+    # Over every held slot, for `FLAccountSpielerEinwilligung.nachweis_stand`'s reason.
     nachweis_stand: FLEinwilligungStand
     medien_offered: bool
     givable: bool

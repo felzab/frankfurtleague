@@ -1126,13 +1126,6 @@
             "title": "Givable",
             "type": "boolean"
           },
-          "kader": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielerSelfKaderRow"
-            },
-            "title": "Kader",
-            "type": "array"
-          },
           "medien_minimum_age": {
             "exclusiveMinimum": 0.0,
             "title": "Medien Minimum Age",
@@ -1172,7 +1165,6 @@
           "nachname",
           "spieler_id",
           "geburtsdatum",
-          "kader",
           "einwilligung",
           "nachweis_stand",
           "givable",
@@ -16100,7 +16092,7 @@
         "type": "object"
       },
       "FLSpielerSelf": {
-        "description": "One pupil record's stored data as its own person reads it: the whole surname and the birthdate, never masked.\n\nIts consent is the account page's, whose entry `FLAccountSpielerEinwilligung` extends this.",
+        "description": "The pupil's own page's read: the record and every squad row it holds.\n\nThe squad rows are this read's alone: the account page lists none, so its entry extends the record without them.",
         "properties": {
           "geburtsdatum": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",

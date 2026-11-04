@@ -19,7 +19,7 @@ from app.api.identity.services import eigene_sitze, holds_a_seat, ist_eigene_reg
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
 from app.api.schiedsrichter.services import SELF_REFEREE_ORDER, build_self_referee_pipeline
-from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_pipeline
+from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_filter
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
@@ -206,23 +206,39 @@ def kontext_teams_lookup(local_field: str) -> Mapping[str, Any]:
     }
 
 
-def compose_spieler_self(row: Mapping[str, Any]) -> dict[str, Any]:
-    """One pupil row's stored data, as `app/api/spieler/services.py :: build_self_pupil_pipeline` reads it."""
-
+def _compose_spieler_person(row: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "spieler_id": row["_id"],
         "vorname": row["vorname"],
         "nachname": row.get("nachname"),
         "geburtsdatum": row.get("geburtsdatum"),
-        "kader": row["kader"],
     }
 
 
+def compose_spieler_self(row: Mapping[str, Any]) -> dict[str, Any]:
+    """One pupil row's stored data and its squad rows, as `app/api/spieler/services.py :: build_self_pupil_pipeline` reads them."""
+
+    return {**_compose_spieler_person(row), "kader": row["kader"]}
+
+
+def build_account_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+    """This address's pupil row as its account entry and the Funktionen the page judges a grant by read it.
+
+    Its own rather than `app/api/spieler/services.py :: build_self_pupil_pipeline`, whose lookups join every squad row
+    the pupil holds for an entry serving none.
+    """
+
+    return [
+        {"$match": build_self_pupil_filter(identifier)},
+        {"$project": {"vorname": 1, "nachname": 1, "geburtsdatum": 1, "inactive_since": 1, "einwilligung": 1}},
+    ]
+
+
 def compose_spieler_account(row: Mapping[str, Any], *, givable: bool, today: str) -> dict[str, Any]:
-    """The pupil's account entry: its stored data and its consent."""
+    """The pupil's account entry: its stored data and its consent, never its squad rows, which the page lists none of."""
 
     return {
-        **compose_spieler_self(row),
+        **_compose_spieler_person(row),
         "einwilligung": row["einwilligung"],
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "givable": givable,
@@ -487,7 +503,7 @@ def build_account_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """
 
     return [
-        *_arm("spieler", build_self_pupil_pipeline(identifier), order=SELF_PUPIL_ORDER),
+        *_arm("spieler", build_account_pupil_pipeline(identifier), order=SELF_PUPIL_ORDER),
         {
             "$unionWith": {
                 "coll": DbCollection.SCHIEDSRICHTER,

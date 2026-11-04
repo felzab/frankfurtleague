@@ -535,29 +535,6 @@ export interface FLAccountSeatEinwilligung {
   umfang: FLKontaktKenntnisnahmeUmfang;
 }
 
-export type FLSpielerRolle = (typeof FLSpielerRolle)[keyof typeof FLSpielerRolle];
-
-export const FLSpielerRolle = {
-  kapitaen: "kapitaen",
-  co_kapitaen: "co_kapitaen",
-} as const;
-
-/**
- * One squad row as its own pupil reads it, with the name the club played that season under.
- */
-export interface FLSpielerSelfKaderRow {
-  inactive_since: string | null;
-  is_nachnominiert: boolean;
-  nummer: string | null;
-  position: FLSpielerPosition | null;
-  rolle: FLSpielerRolle | null;
-  saison_id: string;
-  stufe: FLSpielerStufe | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  team_name: string;
-}
-
 /**
  * The pupil's record on the account page: its stored data and the consent the page moves.
  */
@@ -566,7 +543,6 @@ export interface FLAccountSpielerEinwilligung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   geburtsdatum: string;
   givable: boolean;
-  kader: FLSpielerSelfKaderRow[];
   /** @exclusiveMinimum 0 */
   medien_minimum_age: number;
   medien_offered: boolean;
@@ -2791,6 +2767,13 @@ export interface FLInvitationWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
 }
+
+export type FLSpielerRolle = (typeof FLSpielerRolle)[keyof typeof FLSpielerRolle];
+
+export const FLSpielerRolle = {
+  kapitaen: "kapitaen",
+  co_kapitaen: "co_kapitaen",
+} as const;
 
 /**
  * One squad row as its team's seat holder reads it (`READ-KADER-001`).
@@ -5529,9 +5512,25 @@ export interface FLSpielerSaisonsResponse {
 }
 
 /**
- * One pupil record's stored data as its own person reads it: the whole surname and the birthdate, never masked.
+ * One squad row as its own pupil reads it, with the name the club played that season under.
+ */
+export interface FLSpielerSelfKaderRow {
+  inactive_since: string | null;
+  is_nachnominiert: boolean;
+  nummer: string | null;
+  position: FLSpielerPosition | null;
+  rolle: FLSpielerRolle | null;
+  saison_id: string;
+  stufe: FLSpielerStufe | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+  team_name: string;
+}
+
+/**
+ * The pupil's own page's read: the record and every squad row it holds.
  *
- * Its consent is the account page's, whose entry `FLAccountSpielerEinwilligung` extends this.
+ * The squad rows are this read's alone: the account page lists none, so its entry extends the record without them.
  */
 export interface FLSpielerSelf {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
