@@ -274,6 +274,11 @@ CASES=(
   "LEAK|${BASE}/teams%3Femail=${EM}"
   "LEAK|${BASE}/teams%3Ftoken%3D${TOK}"
 
+  # A token inside another parameter's value, its `=` encoded, as the sign-in's `return` carries the
+  # mailed deletion link (`fl_frontend/src/core/auth/returnAddress.ts :: withReturnAddress`). The URI
+  # holds a literal `?`, but no `token=` follows it, so only the backstop reaches this one either.
+  "LEAK|${BASE}/signin?return=%2Ferasure%3Ftoken%3D${TOK}"
+
   # The token VALUE holding each delimiter a class-bounded expression fails open on. Nothing here
   # inspects the value; these exist so that stays true on purpose rather than by luck.
   "LEAK|${BASE}/signin?token=a/b${TOK}"
@@ -733,8 +738,8 @@ ACTION_REQUESTS=()
 
 # The link pages' pair, every request it meters a page render. Its burst read off the file, so a
 # burst moved there is still flooded past, with twenty more for the refill the run takes.
-LINK_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=linkseite burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
-[[ -n "$LINK_BURST" ]] || refuse "nginx/shared/site.conf declares no linkseite burst this test can read."
+LINK_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=linkpage burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
+[[ -n "$LINK_BURST" ]] || refuse "nginx/shared/site.conf declares no linkpage burst this test can read."
 for _ in $(seq 1 $(( LINK_BURST + 20 ))); do
   action_request link-flood "${BASE}/confirm/spiel?token=${TOK}"
 done
@@ -822,7 +827,7 @@ grade_refusal() { # $1 the transfer's label, its files named for it
   fi
   grade_security_headers "the edge's own 429, $1"
 }
-# The page `nginx/shared/site.conf :: @edge_refusal_seite` returns, read off the file as nginx sends it:
+# The page `nginx/shared/site.conf :: @edge_refusal_page` returns, read off the file as nginx sends it:
 # the single-quoted string, its newlines kept.
 REFUSAL_PAGE="${SCRATCH}/refusal-page.html"
 awk "/^[[:space:]]*return 429 '/ { open = 1; sub(/^[[:space:]]*return 429 '/, \"\") }
@@ -890,7 +895,7 @@ grade_page() { # $1 the transfer's label, its files named for it; $2 "head" wher
   fi
   if [[ "${2:-}" != head ]] && ! cmp -s "${SCRATCH}/$1.body" "$REFUSAL_PAGE"; then
     fail "ACTION $1"
-    detail "expected the body of nginx/shared/site.conf :: @edge_refusal_seite, nginx sent $(wc -c < "${SCRATCH}/$1.body" 2>/dev/null || echo no) bytes"
+    detail "expected the body of nginx/shared/site.conf :: @edge_refusal_page, nginx sent $(wc -c < "${SCRATCH}/$1.body" 2>/dev/null || echo no) bytes"
     ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
   fi
   # The file is what the body is compared to, so a page losing either passes that comparison. Its URL carries the
