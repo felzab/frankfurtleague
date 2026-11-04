@@ -428,9 +428,6 @@ def build_self_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]
                     "vorname",
                     "nachname",
                     "geburtsdatum",
-                    "nummer",
-                    "position",
-                    "stufe",
                     "einwilligung",
                 )
             }
@@ -458,7 +455,7 @@ def compose_registrierungen_self(
                 "umfang": block.get("umfang"),
                 "medien": is_given("medien", block.get("medien")) if traegt_wahlen(block) else None,
                 "nachweis_stand": nachweis_stand_of(bloecke=[block]),
-                **{field: row.get(field) for field in ("vorname", "nachname", "geburtsdatum", "nummer", "position", "stufe")},
+                **{field: row.get(field) for field in ("vorname", "nachname", "geburtsdatum")},
             }
         )
 

@@ -13,8 +13,6 @@ from app.shared.schemas.literals import (
     FLEinwilligungUmfang,
     FLKontaktKenntnisnahmeUmfang,
     FLKontaktRolle,
-    FLSpielerPosition,
-    FLSpielerStufe,
 )
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -96,13 +94,10 @@ class FLAccountRegistrierungEinwilligung(BaseModel):
     umfang: FLEinwilligungUmfang | None
     medien: bool | None
     nachweis_stand: FLEinwilligungStand
-    # As the registration stores them: the account page shows what is kept about the pupil.
+    # As the registration stores them: the facts the account page's box names its pupil by.
     vorname: str
     nachname: str
     geburtsdatum: CustomOptionalDateString
-    nummer: str | None
-    position: FLSpielerPosition | None
-    stufe: FLSpielerStufe | None
 
 
 class FLAccountAddressChangeOpen(BaseModel):

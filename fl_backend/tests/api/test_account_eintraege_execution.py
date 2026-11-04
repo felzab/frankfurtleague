@@ -277,7 +277,7 @@ def test_the_gate_counts_exactly_what_the_account_page_serves(mongo_replica_set_
 
 @pytest.mark.db
 def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_replica_set_url: str):
-    """The stamped promise that the account shows what is kept: the stored fields, and the words' fill read today."""
+    """The stored fields the box names its pupil by, and the words' fill read today."""
 
     async def run() -> Any:
         async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
@@ -298,9 +298,6 @@ def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_rep
         "vorname": "Wiltrudis",
         "nachname": "Ehrenpreis",
         "geburtsdatum": "2008-05-09",
-        "nummer": "17",
-        "position": "Mittelfeld",
-        "stufe": "Q1",
     }
     assert set(entry["nachweis_stand"]) == {"umfang", "medien"}
     assert all(isinstance(value, str) for value in entry["nachweis_stand"].values())

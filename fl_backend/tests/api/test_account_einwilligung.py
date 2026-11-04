@@ -1233,12 +1233,7 @@ class TestAPendingRegistration:
         assert sorted(entries) == sorted([str(REGISTRIERUNG_OWN), str(REGISTRIERUNG_RETURNING)])
         returning = entries[str(REGISTRIERUNG_RETURNING)]
         assert (returning["umfang"], returning["medien"], returning["nachweis_stand"]) == (None, None, {"umfang": None, "medien": None})
-        assert (returning["nummer"], returning["position"], returning["stufe"], returning["geburtsdatum"]) == (
-            "17",
-            "Mittelfeld",
-            "Q1",
-            SEVENTEEN_BIRTHDATE,
-        )
+        assert returning["geburtsdatum"] == SEVENTEEN_BIRTHDATE
         assert (entries[str(REGISTRIERUNG_OWN)]["umfang"], entries[str(REGISTRIERUNG_OWN)]["medien"]) == ("kader_oeffentlich", True)
 
 

@@ -886,27 +886,6 @@
           "nachweis_stand": {
             "$ref": "#/components/schemas/FLEinwilligungStand"
           },
-          "nummer": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nummer"
-          },
-          "position": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerPosition"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "registrierung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Registrierung Id",
@@ -915,16 +894,6 @@
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
-          },
-          "stufe": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerStufe"
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "team_name": {
             "anyOf": [
@@ -961,10 +930,7 @@
           "nachweis_stand",
           "vorname",
           "nachname",
-          "geburtsdatum",
-          "nummer",
-          "position",
-          "stufe"
+          "geburtsdatum"
         ],
         "title": "FLAccountRegistrierungEinwilligung",
         "type": "object"

@@ -402,26 +402,6 @@ export interface FLAccountEinwilligungPayload {
   umfang: FLEinwilligungUmfang;
 }
 
-export type FLSpielerPosition = (typeof FLSpielerPosition)[keyof typeof FLSpielerPosition];
-
-export const FLSpielerPosition = {
-  Tor: "Tor",
-  Abwehr: "Abwehr",
-  Mittelfeld: "Mittelfeld",
-  Angriff: "Angriff",
-} as const;
-
-export type FLSpielerStufe = (typeof FLSpielerStufe)[keyof typeof FLSpielerStufe];
-
-export const FLSpielerStufe = {
-  E1: "E1",
-  E2: "E2",
-  Q1: "Q1",
-  Q2: "Q2",
-  Q3: "Q3",
-  Q4: "Q4",
-} as const;
-
 /**
  * One pending registration its pupil confirmed: its choices to withdraw, and what it stores.
  */
@@ -430,12 +410,9 @@ export interface FLAccountRegistrierungEinwilligung {
   medien: boolean | null;
   nachname: string;
   nachweis_stand: FLEinwilligungStand;
-  nummer: string | null;
-  position: FLSpielerPosition | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   registrierung_id: string;
   saison_id: string;
-  stufe: FLSpielerStufe | null;
   team_name: string | null;
   umfang: FLEinwilligungUmfang | null;
   vorname: string;
@@ -1160,6 +1137,15 @@ export const FLApprovalDenied = {
   started: "started",
   owner: "owner",
   younger: "younger",
+} as const;
+
+export type FLSpielerPosition = (typeof FLSpielerPosition)[keyof typeof FLSpielerPosition];
+
+export const FLSpielerPosition = {
+  Tor: "Tor",
+  Abwehr: "Abwehr",
+  Mittelfeld: "Mittelfeld",
+  Angriff: "Angriff",
 } as const;
 
 export type FLSpielberichtSpielerType = (typeof FLSpielberichtSpielerType)[keyof typeof FLSpielberichtSpielerType];
@@ -2730,6 +2716,17 @@ export interface FLInvitationResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
 }
+
+export type FLSpielerStufe = (typeof FLSpielerStufe)[keyof typeof FLSpielerStufe];
+
+export const FLSpielerStufe = {
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
+} as const;
 
 export type FLSaisonStatus = (typeof FLSaisonStatus)[keyof typeof FLSaisonStatus];
 
