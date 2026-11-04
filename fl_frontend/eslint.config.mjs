@@ -1459,7 +1459,16 @@ const eslintConfig = defineConfig([
   // registers it, and registering it twice is a flat-config error.
   {
     files: ["src/**/*.{ts,tsx}"],
-    rules: jsxA11y.flatConfigs.recommended.rules,
+    rules: {
+      ...jsxA11y.flatConfigs.recommended.rules,
+      // A `td` may say `cell` beside the roles the recommended options allow: the rule's role table takes a `td` for
+      // a grid's interactive cell, and a table whose rows a phone draws as grids writes every part's role, its cells'
+      // included, since `display: grid` drops the semantics an engine infers from the elements.
+      "jsx-a11y/no-interactive-element-to-noninteractive-role": [
+        "error",
+        { ...jsxA11y.flatConfigs.recommended.rules["jsx-a11y/no-interactive-element-to-noninteractive-role"][1], td: ["cell"] },
+      ],
+    },
   },
 
   // The token file's colours, held to one list and to the contrast each pair's job needs.

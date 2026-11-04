@@ -237,7 +237,9 @@ function NameCell({ row, barred, compact, prose }: { row: TableRow; barred: Tabl
       </>
     );
   return (
-    <td className={s.name()}>
+    <td
+      role="cell"
+      className={s.name()}>
       <span className="flex min-w-0 items-center gap-2">
         <span
           className={prose ? "min-w-0" : "min-w-0 truncate"}
@@ -261,9 +263,8 @@ function NameCell({ row, barred, compact, prose }: { row: TableRow; barred: Tabl
 /**
  * A list of records: rows 52 px high on desktop and 56 on a phone, lines between them, under a head of
  * muted capitals. A row opens its record, a chevron at its end saying so. Few columns: the name with its plaque
- * and chip, then a few facts. The table, its rows and its heads carry their table roles in writing, since a prose
- * row's `display: grid` on a phone drops the semantics an engine infers from the elements alone; a cell's role
- * stays the element's own, the lint's table of roles taking a `td` for a grid's cell.
+ * and chip, then a few facts. The table, its rows, its heads and its cells carry their table roles in writing, since a
+ * prose row's `display: grid` on a phone drops the semantics an engine infers from the elements alone.
  */
 export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare = false, compact = false, prose = false }: TableProps) {
   const nameHead = table({ align: "start", compact, prose }).head();
@@ -322,7 +323,12 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                 </th>
               ))}
               {/* The chevrons' column names nothing, so its head is no header cell. */}
-              {isLinked && <td className={table({ phone: "hidden" }).head()} />}
+              {isLinked && (
+                <td
+                  role="cell"
+                  className={table({ phone: "hidden" }).head()}
+                />
+              )}
             </tr>
           </thead>
           <tbody>
@@ -335,7 +341,9 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                   role="row"
                   className={table({ ...marks, prose }).row()}>
                   {rankLabel !== undefined && (
-                    <td className={table({ align: "centre", figures: true, qualifies: row.qualifies, compact }).cell()}>
+                    <td
+                      role="cell"
+                      className={table({ align: "centre", figures: true, qualifies: row.qualifies, compact }).cell()}>
                       {row.place == null ? COPY.shared.noValue : formatNumber(row.place)}
                     </td>
                   )}
@@ -357,6 +365,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                     return (
                       <td
                         key={column.key}
+                        role="cell"
                         className={s.cell()}>
                         {prose && (
                           <span
@@ -372,7 +381,13 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                       </td>
                     );
                   })}
-                  {isLinked && <td className={table().end()}>{row.href !== undefined && <RowEnd />}</td>}
+                  {isLinked && (
+                    <td
+                      role="cell"
+                      className={table().end()}>
+                      {row.href !== undefined && <RowEnd />}
+                    </td>
+                  )}
                 </tr>
               );
             })}
