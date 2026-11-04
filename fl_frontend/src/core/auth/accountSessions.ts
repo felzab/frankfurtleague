@@ -30,8 +30,6 @@ export type LiveSessionRow = {
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly expiresAt: Date;
-  readonly authFactor?: unknown;
-  readonly passkeyCredentialId?: unknown;
 };
 
 /**
