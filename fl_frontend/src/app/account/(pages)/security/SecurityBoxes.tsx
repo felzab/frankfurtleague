@@ -27,7 +27,7 @@ const SET_UP_REFUSED = (status: number): Copy => (status === 403 ? COPY.konto.pa
  * passkey touch first; `setUpClosed` closes the set-up where the page knows it would be refused, and `lastKept` the
  * removal of the one passkey an administrator must keep.
  */
-export function SicherheitBoxes({
+export function SecurityBoxes({
   passkeys,
   setUpClosed,
   lastKept,

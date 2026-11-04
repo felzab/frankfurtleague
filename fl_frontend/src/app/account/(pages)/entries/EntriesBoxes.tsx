@@ -198,7 +198,7 @@ function MediaChoice({ entry }: { entry: Entry }) {
  * Deine Einträge: every record of the person's own, one box each, with what the league stores of it and its two
  * choices under their wordings, saved together by the footer's „Speichern“ and by nothing else.
  */
-export function EintraegeBoxes({ entries }: { entries: readonly Entry[] }) {
+export function EntriesBoxes({ entries }: { entries: readonly Entry[] }) {
   return entries.map((entry) => (
     <AccountBox
       key={entry.id}

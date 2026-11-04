@@ -14,7 +14,7 @@ import { passkeyStandOf } from "@/features/passkeys/bestand";
 import { PASSKEY_NAME_MAX, PasskeyNameSchema } from "@/features/passkeys/schemas";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { SicherheitBoxes } from "./SicherheitBoxes";
+import { SecurityBoxes } from "./SecurityBoxes";
 
 import type { Copy } from "@/core/copy";
 import type { PasskeyStand } from "@/features/passkeys/bestand";
@@ -41,14 +41,14 @@ function setUpClosedOf(
 }
 
 /** The passkeys and the devices, read for the session the page is drawn for. */
-async function Sicherheit() {
+async function SecurityContent() {
   await requireKontoSubject();
   // The account page's own verdict on the session, which holds an administrator's address to the administrator's lane.
   const served = await getKontoSession();
   if (served === null) redirect(ROUTES.signIn.path());
   const [stand, devices] = await Promise.all([passkeyStandOf(served), devicesOf(served)]);
   return (
-    <SicherheitBoxes
+    <SecurityBoxes
       passkeys={stand.rows}
       setUpClosed={setUpClosedOf(served, stand)}
       // An administrator's last passkey is their only way into the administration, which the removal refuses.
@@ -60,10 +60,10 @@ async function Sicherheit() {
 }
 
 /** Sicherheit: the passkeys, and „Alle anderen abmelden“. */
-export default function SicherheitPage() {
+export default function AccountSecurityPage() {
   return (
     <AccountPage route="accountSecurity">
-      <Sicherheit />
+      <SecurityContent />
     </AccountPage>
   );
 }

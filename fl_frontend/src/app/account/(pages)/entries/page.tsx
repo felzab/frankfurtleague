@@ -7,13 +7,13 @@ import { requireKontoSubject } from "@/features/konto/account";
 import { getKontoEinwilligungen } from "@/features/konto/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { EintraegeBoxes } from "./EintraegeBoxes";
+import { EntriesBoxes } from "./EntriesBoxes";
 
 import type { Copy } from "@/core/copy";
 import type { FLAccountEinwilligungenResponse } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 import type { Metadata, ResolvingMetadata } from "next";
-import type { Entry } from "./EintraegeBoxes";
+import type { Entry } from "./EntriesBoxes";
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return pageMetadata(parent, ROUTES.accountEntries, ROUTES.accountEntries.path());
@@ -127,7 +127,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
 }
 
 /** The person's records, read for the session the page is drawn for. */
-async function Eintraege() {
+async function EntriesContent() {
   await requireKontoSubject();
   const entries = entriesOf(await getKontoEinwilligungen());
   return entries.length === 0 ? (
@@ -136,15 +136,15 @@ async function Eintraege() {
       glyph="entries"
     />
   ) : (
-    <EintraegeBoxes entries={entries} />
+    <EntriesBoxes entries={entries} />
   );
 }
 
 /** Deine Einträge: each record of the person's own, with its consents. */
-export default function EintraegePage() {
+export default function AccountEntriesPage() {
   return (
     <AccountPage route="accountEntries">
-      <Eintraege />
+      <EntriesContent />
     </AccountPage>
   );
 }
