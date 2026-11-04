@@ -53,15 +53,22 @@ services:
       - ./nginx/shared:/etc/nginx/shared:ro
       - ./.tmp-e2e/nginx-log:/var/log/frankfurtleague/nginx
 
-# The network the published port forwards the host's requests on, with a subnet and gateway of its
-# own rather than the daemon's pick, so `nginx/e2e/e2e.conf` trusts that one gateway by address. It
-# sits beside the 172.30.0.0/24 docker-compose.yml gives the connector's network.
+# nginx stands on both networks, and the published port reaches it through either one's gateway:
+# Docker does not say which, and two starts of this stack have taken each. So each gateway is pinned
+# rather than the daemon's pick, and `nginx/e2e/e2e.conf` trusts the two by address and nothing wider.
+# The application pair's network takes a subnet of its own; the connector's keeps the 172.30.0.0/24
+# docker-compose.yml gives it, its whole list restated, since a merge would append a second entry.
 networks:
   frankfurtleague-app:
     ipam:
       config:
         - subnet: 172.30.1.0/24
           gateway: 172.30.1.1
+  frankfurtleague-net:
+    ipam:
+      config: !override
+        - subnet: 172.30.0.0/24
+          gateway: 172.30.0.1
 
 # The local stack's five files, each one this stack's start generated.
 secrets: !override
