@@ -12,6 +12,8 @@ import { getKontoSession } from "@/core/auth/guards";
 import { notifyPasskeyRemoved } from "@/core/auth/mails";
 import { passkeysOf, removePasskey, renamePasskey } from "@/core/auth/passkeys";
 import { COPY } from "@/core/copy";
+import { RolledBackError } from "@/core/errors";
+import { logger } from "@/core/logging";
 
 import { PasskeyNameSchema } from "./schemas";
 
@@ -46,7 +48,17 @@ export const removePasskeyAction = action({
     const thisDevice = (await passkeysOf(served.user.id)).some(
       (row) => row.id === id && row.credentialID === served.session.passkeyCredentialId,
     );
-    const removal = await removePasskey({ id: served.user.id, verwaltung: served.verwaltung }, id);
+    let removal: Awaited<ReturnType<typeof removePasskey>>;
+    try {
+      removal = await removePasskey({ id: served.user.id, verwaltung: served.verwaltung }, id);
+    } catch (failed) {
+      // A rollback removed nothing, so the shared failure line stands and a press again is safe.
+      if (failed instanceof RolledBackError) throw failed;
+      // Any other failure may be the commit's, landed or not: a reload shows which. Nothing renders again, since the
+      // removal may have ended the session this page would render under.
+      logger.error("passkeys.removal_outcome_unknown", undefined, { name: failed instanceof Error ? failed.name : "unknown" });
+      return { ok: false, reason: COPY.shared.failure.stale };
+    }
     if (removal === "last") return { ok: false, reason: COPY.konto.passkeys.lastKept };
     if (removal === "absent") return { ok: false, reason: COPY.shared.failure.stale };
 

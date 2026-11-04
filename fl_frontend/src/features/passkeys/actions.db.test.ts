@@ -491,9 +491,9 @@ describe("the sessions a removal ends, against a real database", () => {
     }).toStrictEqual({ answer: UNEXPECTED, rows: 2, open: [true, true], warnings: [] });
   });
 
-  /* The commit landed and the client timed out before its answer came back: the shared failure line, which says
-     nothing of what became of it, the removal standing all the same. */
-  it("answers the shared failure where the commit's own answer is lost, the removal standing", async () => {
+  /* The commit landed and the client timed out before its answer came back: the stale-page line, whose reload shows
+     what became of it, the removal standing all the same, and the failure logged by its name. */
+  it("answers the stale-page line where the commit's own answer is lost, the removal standing", async () => {
     const other = await steppedUpAdmin(REMOVED);
     const own = await steppedUpAdmin();
     const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
@@ -509,10 +509,12 @@ describe("the sessions a removal ends, against a real database", () => {
       answer: answer,
       rows: (await passkeyRows()).length,
       open: [await opens(other.cookie), await opens(own.cookie)],
+      errors: [...errors],
     }).toStrictEqual({
-      answer: UNEXPECTED,
+      answer: { ok: false, reason: GLEICHZEITIG_GEAENDERT },
       rows: 1,
       open: [false, true],
+      errors: ["passkeys.removal_outcome_unknown"],
     });
   });
 });
