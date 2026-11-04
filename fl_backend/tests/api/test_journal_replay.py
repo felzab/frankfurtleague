@@ -354,12 +354,12 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
         ROW_OID,
     ),
     "a referee's declined address": (
-        lambda http, _database: http.post(ANSWER, json={"token": REFEREE_ADDRESS_LINK, "antwort": "declined"}, headers=BASE_AUTH),
+        lambda http, _database: http.post(ANSWER, json={"token": REFEREE_ADDRESS_LINK, "answer": "declined"}, headers=BASE_AUTH),
         Collection.ADDRESS_CHANGES,
         REFEREE_CHANGE_OID,
     ),
     "a pupil's declined address": (
-        lambda http, _database: http.post(ANSWER, json={"token": PUPIL_ADDRESS_LINK, "antwort": "declined"}, headers=BASE_AUTH),
+        lambda http, _database: http.post(ANSWER, json={"token": PUPIL_ADDRESS_LINK, "answer": "declined"}, headers=BASE_AUTH),
         Collection.ADDRESS_CHANGES,
         PUPIL_CHANGE_OID,
     ),
@@ -369,12 +369,12 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
         PUPIL_CHANGE_OID,
     ),
     "a pupil's address that took effect": (
-        lambda http, _database: http.post(ANSWER, json={"token": PUPIL_ADDRESS_LINK, "antwort": "confirmed"}, headers=BASE_AUTH),
+        lambda http, _database: http.post(ANSWER, json={"token": PUPIL_ADDRESS_LINK, "answer": "confirmed"}, headers=BASE_AUTH),
         Collection.ADDRESS_CHANGES,
         PUPIL_CHANGE_OID,
     ),
     "a referee's address that took effect": (
-        lambda http, _database: http.post(ANSWER, json={"token": REFEREE_ADDRESS_LINK, "antwort": "confirmed"}, headers=BASE_AUTH),
+        lambda http, _database: http.post(ANSWER, json={"token": REFEREE_ADDRESS_LINK, "answer": "confirmed"}, headers=BASE_AUTH),
         Collection.ADDRESS_CHANGES,
         REFEREE_CHANGE_OID,
     ),
