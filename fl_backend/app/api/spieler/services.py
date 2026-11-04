@@ -1,7 +1,7 @@
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from http import HTTPStatus
-from typing import Any, NamedTuple
+from typing import Any, Final, NamedTuple
 
 from app.api.adresswechsel.services import LIVE_KEYED_TERMS
 from app.api.spieler.schemas import FLSpielerRolle
@@ -423,6 +423,10 @@ def build_self_pupil_filter(identifier: str) -> Mapping[str, Any]:
     return {"email": {"$eq": identifier, "$type": "string"}}
 
 
+# The order the person's own pages list their pupil rows in, which the account read ranks them by too.
+SELF_PUPIL_ORDER: Final[Mapping[str, int]] = {"_id": 1}
+
+
 def build_self_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """This address's pupil row with every squad row it holds and the name each club played that season under.
 
@@ -469,5 +473,5 @@ def build_self_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "as": "kader",
             }
         },
-        {"$sort": {"_id": 1}},
+        {"$sort": dict(SELF_PUPIL_ORDER)},
     ]

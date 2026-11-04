@@ -518,10 +518,14 @@ SELBST_FIELDS: Mapping[str, int] = {
 }
 
 
+# The order a person's own pages list their referee rows in, which the account read ranks them by too.
+SELF_REFEREE_ORDER: Final[Mapping[str, int]] = {"_id": 1}
+
+
 def build_self_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """The referee rows a person's own pages read, each a candidate for `app/api/identity/services.py :: ist_eigener_schiedsrichter`.
 
     Unbounded: a capped list reads as a person holding fewer records.
     """
 
-    return [{"$match": build_self_referee_filter(identifier)}, {"$project": dict(SELBST_FIELDS)}, {"$sort": {"_id": 1}}]
+    return [{"$match": build_self_referee_filter(identifier)}, {"$project": dict(SELBST_FIELDS)}, {"$sort": dict(SELF_REFEREE_ORDER)}]
