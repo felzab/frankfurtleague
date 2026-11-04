@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.konto.services import KONTO_SEITE_SPIELER
+from app.api.account.services import KONTO_SEITE_SPIELER
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION

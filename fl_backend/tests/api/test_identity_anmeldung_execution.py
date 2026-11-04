@@ -10,11 +10,10 @@ from fastapi import FastAPI
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet import crud as identitaet_crud
-from app.api.identitaet.crud import find_subjekt
-from app.api.identitaet.schemas import FLSignInResponse, FLSubjectPayload
-from app.api.identitaet.services import eigene_eintraege
-from app.api.identitaet.system_router import get_sign_in
+from app.api.identity import crud as identity_crud
+from app.api.identity.crud import find_eigene_eintraege
+from app.api.identity.schemas import FLSignInResponse, FLSubjectPayload
+from app.api.identity.system_router import get_sign_in
 from app.api.registrierungen.services import compose_confirmation_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -43,7 +42,7 @@ from tests.worker import worker_database
 
 from .conftest import AUSTRITT, config_for
 
-DATABASE_NAME = worker_database("fl_identitaet_anmeldung_test")
+DATABASE_NAME = worker_database("fl_identity_anmeldung_test")
 
 PATH = f"/api/v{API_VERSION}/identity/sign_in"
 
@@ -257,7 +256,7 @@ def answered(url: str, email: str) -> FLSignInResponse:
 
 def own_records(url: str, email: str) -> frozenset[tuple[str, Any]]:
     async def body(database: AsyncDatabase) -> frozenset[tuple[str, Any]]:
-        _, eintraege = await identitaet_crud.find_eigene_eintraege(sign_in_identifier(email), record_collections(database))
+        _, eintraege = await identity_crud.find_eigene_eintraege(sign_in_identifier(email), record_collections(database))
 
         return eintraege
 
@@ -342,50 +341,31 @@ class TestTheFlagsBesideIt:
         assert (answer.verwaltung, answer.account, answer.barred) == ("administration", False, False)
 
 
-def test_every_funktion_list_is_drawn_from_the_own_records(monkeypatch: pytest.MonkeyPatch):
-    """Rows the reads answer with, judged without a database: an unconfirmed seat, a retired pupil and a withdrawn row among them.
+@pytest.mark.db
+def test_every_funktion_list_is_drawn_from_the_own_records(mongo_replica_set_url: str):
+    """One row seating the mailbox confirmed and again unconfirmed in another spelling, and an unconfirmed referee row.
 
     Kills a Funktion list built from the rows the pre-filter matched rather than from the own records.
     """
 
     identifier = "ortrud.zwiebelmayer@schule.de"
-    team_id = ObjectId("6890a1b2c3d4e5f607860061")
-    rows: dict[str, list[Mapping[str, Any]]] = {
-        "saison_teams": [
-            {
-                "_id": ObjectId(),
-                "saison_id": ACTIVE_SAISON,
-                "team_id": team_id,
-                "name": "Helmholtz",
-                "austritt": None,
-                "kontakte": {
-                    "trainer": {"email": identifier, "einwilligung": {"confirmed_at": STAMP}},
-                    "ansprechperson": {"email": identifier.upper(), "einwilligung": {"confirmed_at": None}},
-                },
-            }
-        ],
-        "spieler": [{"_id": ObjectId(), "inactive_since": None, "einwilligung": {"confirmed_at": STAMP}}],
-        "schiedsrichter": [{"_id": ObjectId(), "inactive_since": None, "kontakt": {"email": identifier}, "einwilligung": None}],
-        "saisons": [{"_id": ACTIVE_SAISON, "status": "active"}],
-    }
 
-    async def aggregate_many_from_db(*, collection: str, pipeline: Any, session: object = None) -> list[Mapping[str, Any]]:
-        return rows.get(collection, [])
+    async def body(database: AsyncDatabase) -> Any:
+        await database[Collection.SAISON_TEAMS].insert_one(
+            _row(
+                TEAM_OIDS[4],
+                ACTIVE_SAISON,
+                "OZX",
+                trainer=_seat(identifier),
+                ansprechperson=_seat(identifier.upper(), confirmed_at=None),
+            )
+        )
+        await database[Collection.SPIELER].insert_one(spieler_document(ObjectId(), "Ortrud", "Zwiebelmayer", email=identifier))
+        await database[Collection.SCHIEDSRICHTER].insert_one(_referee(ObjectId(), identifier, "O. Zwiebelmayer", einwilligung=None))
 
-    monkeypatch.setattr(identitaet_crud, "aggregate_many_from_db", aggregate_many_from_db)
-    records = record_collections(
-        {Collection(name): name for name in ("saison_teams", "saisons", "spieler", "schiedsrichter", "bewerbungen", "registrierungen")}
-    )
+        return await find_eigene_eintraege(identifier, record_collections(database))
 
-    subjekt = asyncio.run(find_subjekt(identifier, records))
-    eintraege = eigene_eintraege(
-        identifier,
-        seat_rows=rows["saison_teams"],
-        referee_rows=rows["schiedsrichter"],
-        pupil_rows=rows["spieler"],
-        bewerbung_rows=[],
-        registrierung_rows=[],
-    )
+    subjekt, eintraege = on_a_league(mongo_replica_set_url, body)
 
     assert [sitz.rolle for sitz in subjekt.seats] == ["trainer"]
     assert {("sitze", (sitz.team_id, sitz.saison_id)) for sitz in subjekt.seats} | {

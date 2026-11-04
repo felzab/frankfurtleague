@@ -33,7 +33,7 @@ from tests.worker import worker_database
 
 from .conftest import AUSTRITT, config_for
 
-DATABASE_NAME = worker_database("fl_identitaet_referenzen_test")
+DATABASE_NAME = worker_database("fl_identity_referenzen_test")
 
 PATH = f"/api/v{API_VERSION}/identity/references"
 

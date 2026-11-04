@@ -8,15 +8,15 @@ from app.api.adresswechsel.crud import others_naming
 from app.api.berechtigungen.antraege import read_the_antraege_of
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, LoeschungJournal, loeschen_everything, resolve_subject
-from app.api.identitaet.schemas import (
+from app.api.identity.crud import JEDE_PERSONENGRUPPE, LoeschungJournal, loeschen_everything, resolve_subject
+from app.api.identity.schemas import (
     FLErasureAdressePayload,
     FLErasurePayload,
     FLErasureResponse,
     FLErasureViewResponse,
     FLSignOutResponse,
 )
-from app.api.identitaet.services import (
+from app.api.identity.services import (
     JEDE_VERWALTUNG,
     NUR_INHABER,
     adresswechsel_einsehbar_verwehrt,

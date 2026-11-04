@@ -411,7 +411,7 @@ def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, all
 
 
 # --- The pupil's OWN record. What its consent PATCH shares with the referee's and a seat's is
-# `app/api/konto/services.py`'s.
+# `app/api/account/services.py`'s.
 
 
 def build_self_pupil_filter(identifier: str) -> Mapping[str, Any]:

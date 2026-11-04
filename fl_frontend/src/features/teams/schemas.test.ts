@@ -60,13 +60,14 @@ describe("FLSaisonTeamKontaktePayloadSchema", () => {
     expect(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: "Erika Mustermann" }))).toStrictEqual(["trainer"]);
   });
 
-  /* The API stores an umlaut domain as its punycode and refuses an umlaut before the at sign, so the
-     one seat saves here and the other is marked at its box rather than failing the save whole. */
-  it("takes a seat whose address carries an umlaut domain, and marks one with an umlaut before the at sign", () => {
+  /* The API takes a domain spelled in punycode and refuses an umlaut on either side of the at sign, so the
+     one seat saves here and the others are marked at their box rather than failing the save whole. */
+  it("takes a seat whose address carries a punycode domain, and marks one with an umlaut", () => {
     const withAddress = (email: string) => kontaktePayload({ trainer: kontaktpersonPayload({ email }) });
 
-    expect(pathsRefused(FLSaisonTeamKontaktePayloadSchema, withAddress("kaethe@käthe-schule.example"))).toStrictEqual([]);
+    expect(pathsRefused(FLSaisonTeamKontaktePayloadSchema, withAddress("kaethe@xn--kthe-schule-l8a.example"))).toStrictEqual([]);
     expect(pathsRefused(FLSaisonTeamKontaktePayloadSchema, withAddress("käthe@beispiel.de"))).toStrictEqual(["trainer.email"]);
+    expect(pathsRefused(FLSaisonTeamKontaktePayloadSchema, withAddress("kaethe@käthe-schule.example"))).toStrictEqual(["trainer.email"]);
   });
 
   /* The API answers a hyphen-final label with a payload_refused that marks the box with a generic

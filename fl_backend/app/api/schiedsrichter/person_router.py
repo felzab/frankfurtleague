@@ -5,17 +5,17 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.identitaet.crud import funktionen_of
-from app.api.identitaet.lookup import SubjektLookup
-from app.api.identitaet.services import ist_eigener_schiedsrichter, may_grant_on_schiedsrichter
-from app.api.konto.crud import press_einwilligung
-from app.api.konto.services import (
+from app.api.account.crud import press_einwilligung
+from app.api.account.services import (
     KONTO_SEITE_SCHIEDSRICHTER,
     compose_person_move,
     compose_schiedsrichter_self,
     find_eigener_eintrag_refusal,
     widerruf_line,
 )
+from app.api.identity.crud import funktionen_of
+from app.api.identity.lookup import SubjektLookup
+from app.api.identity.services import ist_eigener_schiedsrichter, may_grant_on_schiedsrichter
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterAccountEinwilligungResponse,
     FLSchiedsrichterSelfResponse,

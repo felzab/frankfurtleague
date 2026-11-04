@@ -52,10 +52,10 @@ ERIKA_TYPED = "Erika.Zwirbelmoos@FrankfurtLeague.de"
 NAHE = "erikaxzwirbelmoos@frankfurtleague.de"
 # Another mailbox, a long s where hers has an s: the pattern's `i` may read it as hers, the fold does not.
 LANGES_S = ERIKA.replace("moos@", f"moo{chr(0x17F)}@")
-# Her mailbox at a Unicode domain, whose fold is punycode, and as a paste would spell it, the full stop
-# fullwidth: the fold equates the two, and a read narrowed on any listed spelling of her domain misses it.
-ERIKA_UNICODE = "erika@xn--mller-kva.de"
-ERIKA_UNICODE_PASTED = "Erika@MÜLLER．de"
+# Her mailbox at a punycode domain, and as a hand-typed paste may spell it, in capitals and padded: the fold equates
+# the two, and a read asking the stored spelling alone misses it.
+ERIKA_PUNYCODE = "erika@xn--mller-kva.de"
+ERIKA_PUNYCODE_PASTED = f"Erika@XN--MLLER-KVA.DE{chr(0xA0)}"
 # Another `owner`, erasing her as the administrator's own route will.
 DORA = "dora.inhaberin@frankfurtleague.de"
 BERND = "bernd.admin@frankfurtleague.de"
@@ -305,25 +305,25 @@ class TestHerGrantsGo:
 
         assert on_a_league(mongo_replica_set_url, body) == [str(BERND_ID)]
 
-    def test_a_grant_pasted_with_her_domain_in_unicode_goes_and_her_pasted_authorship_with_it(self, mongo_replica_set_url: str):
-        """Catches a read narrowed on spellings of her domain, which leaves this grant and its authorship standing."""
+    def test_a_grant_pasted_unfolded_goes_and_her_pasted_authorship_with_it(self, mongo_replica_set_url: str):
+        """Catches a read asking the stored spelling alone, which leaves this grant and its authorship standing."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, Any, dict[str, list[str]]]:
             pasted, granted = ObjectId(), ObjectId()
             await database[Collection.GRANTS].insert_many(
                 [
-                    grant_row(pasted, ERIKA_UNICODE_PASTED, "administration", "PLAYGROUND"),
-                    grant_row(granted, "neu@frankfurtleague.de", "administration", ERIKA_UNICODE_PASTED),
+                    grant_row(pasted, ERIKA_PUNYCODE_PASTED, "administration", "PLAYGROUND"),
+                    grant_row(granted, "neu@frankfurtleague.de", "administration", ERIKA_PUNYCODE_PASTED),
                 ]
             )
-            await geloescht(database, client, identifier=ERIKA_UNICODE)
+            await geloescht(database, client, identifier=ERIKA_PUNYCODE)
             stands = await database[Collection.GRANTS].find_one({"_id": pasted}) is not None
             row = await database[Collection.GRANTS].find_one({"_id": granted})
             assert row is not None
 
-            return stands, row["granted_by"], await where_held(database, "MÜLLER")
+            return stands, row["granted_by"], await where_held(database, "MLLER-KVA", folded=True)
 
-        assert on_a_league(mongo_replica_set_url, body) == (False, ERASED_ACTOR_MARKER, {"MÜLLER": []})
+        assert on_a_league(mongo_replica_set_url, body) == (False, ERASED_ACTOR_MARKER, {"MLLER-KVA": []})
 
 
 class TestTheNotices:

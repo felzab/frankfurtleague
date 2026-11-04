@@ -2,7 +2,7 @@
 API · a restore runs a person's own later choices again: the line each press journals, and the replay writing what the press wrote
 
 A withdrawal, a Widerspruch and an address change ended or taking effect after a snapshot are rolled back with the log that recorded
-them; the journal line is all that brings one back (`app/api/identitaet/wiederherstellung.py`). Each case presses as the
+them; the journal line is all that brings one back (`app/api/identity/wiederherstellung.py`). Each case presses as the
 person, puts the record back as the snapshot held it, replays the line, and requires the very record the press left, its
 evidence's instant included; then replays it again and requires nothing to move.
 """
@@ -24,7 +24,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.adresswechsel.admin_router import delete_address_change as discard_the_change
 from app.api.adresswechsel.services import als_utc
-from app.api.identitaet.wiederherstellung import REPLAY_METHOD, Read, Window, plan_replay, replay_line, run_replay
+from app.api.identity.wiederherstellung import REPLAY_METHOD, Read, Window, plan_replay, replay_line, run_replay
 from app.api.spielbestaetigungen.services import halter_of
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection

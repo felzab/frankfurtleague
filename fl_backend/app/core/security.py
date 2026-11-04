@@ -185,16 +185,20 @@ def get_actor_auth_time(actor: Annotated[SessionActor, Depends(verify_admin_acto
     return actor.auth_time
 
 
+# Redesign: goes with its last importer.
 ENROLMENT_WINDOW_S: Final = ENROLMENT_WINDOW_MINUTES * 60
+# Redesign: goes with its last importer.
 STEP_UP_WINDOW_S: Final = STEP_UP_WINDOW_HOURS * 3600
 
 
+# Redesign: goes with its last importer.
 def confirmed_before(actor: SessionActor, window_s: int) -> bool:
     """Whether the actor's sign-in or confirmation is older than `window_s`, which `confirmation_required` refuses a write for."""
 
     return session_age_s(actor) > window_s
 
 
+# Redesign: goes with its last importer.
 def confirmation_required(window_s: int) -> APIError:
     """`confirmation_required`'s refusal of a write asking a sign-in or confirmation inside `window_s`, every raise of it built here."""
 
@@ -203,6 +207,7 @@ def confirmation_required(window_s: int) -> APIError:
     return APIError(HTTPStatus.UNAUTHORIZED, Code.CONFIRMATION_REQUIRED, headers={"WWW-Authenticate": challenge})
 
 
+# Redesign: goes with its last importer.
 def verify_recent_confirmation(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> None:
     """Refuse a write the page steps up to the enrolment window from an older sign-in or confirmation.
 
@@ -213,6 +218,7 @@ def verify_recent_confirmation(actor: Annotated[SessionActor, Depends(verify_adm
         raise confirmation_required(ENROLMENT_WINDOW_S)
 
 
+# Redesign: goes with its last importer.
 def verify_step_up(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> None:
     """Refuse a write stepped up from a sign-in or confirmation older than the step-up window.
 
@@ -221,26 +227,6 @@ def verify_step_up(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) 
 
     if confirmed_before(actor, STEP_UP_WINDOW_S):
         raise confirmation_required(STEP_UP_WINDOW_S)
-
-
-def verify_person_passkey_confirmation(actor: SessionActor) -> None:
-    """Refuse a person's write ending or handing over their grant without a fresh passkey, as a revoke does.
-
-    The person's lane admits a sign-in by code, so the handler calls this on exactly the calls it judges to reach a grant.
-    """
-
-    if actor.factor != PASSKEY_FACTOR or confirmed_before(actor, ENROLMENT_WINDOW_S):
-        raise confirmation_required(ENROLMENT_WINDOW_S)
-
-
-def verify_recent_person_confirmation(actor: Annotated[SessionActor, Depends(verify_person_actor)]) -> None:
-    """Refuse a person's address change from a sign-in or confirmation older than the enrolment window.
-
-    Either factor: a code reaches the address on file, which OWASP asks to confirm before it is replaced.
-    """
-
-    if confirmed_before(actor, ENROLMENT_WINDOW_S):
-        raise confirmation_required(ENROLMENT_WINDOW_S)
 
 
 @dataclass(frozen=True)

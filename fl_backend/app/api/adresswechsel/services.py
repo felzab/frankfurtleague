@@ -63,8 +63,8 @@ def wirksam_ab_von(confirmed_at: datetime) -> datetime:
     return confirmed_at.astimezone(UTC) + timedelta(days=ADDRESS_CHANGE_WAITING_PERIOD_DAYS)
 
 
-def _german_day(now: datetime) -> str:
-    # The day the restore planner judges a link's send by (`app/api/identitaet/wiederherstellung.py :: Window`).
+def german_day(now: datetime) -> str:
+    # The day the restore planner judges a link's send by (`app/api/identity/wiederherstellung.py :: Window`).
     return now.astimezone(_GERMANY).strftime("%Y-%m-%d")
 
 
@@ -103,7 +103,7 @@ def compose_record(
         "way": way,
         "token_hashes": [],
         "stop": {"token_hashes": []},
-        "sent_at": _german_day(now),
+        "sent_at": german_day(now),
         "valid_until": gueltig_bis_ab(now),
         "released_at": None,
         "grund": grund,
@@ -115,12 +115,12 @@ def compose_record(
 
 
 def compose_link_update(*, now: datetime, freigabe: bool) -> dict[str, Any]:
-    """A fresh deadline for the new mailbox's link, for the approval of the address on file or a re-send; the stop link stays.
+    """A fresh deadline for the new mailbox's link, for the address on file's approval or a re-send; its own link stays.
 
     The link itself is minted as its mail is handed out, replacing the one before (`owe_the_link_in_session`).
     """
 
-    gesetzt: dict[str, Any] = {"valid_until": gueltig_bis_ab(now), "sent_at": _german_day(now)}
+    gesetzt: dict[str, Any] = {"valid_until": gueltig_bis_ab(now), "sent_at": german_day(now)}
     if freigabe:
         gesetzt["released_at"] = now.astimezone(UTC)
 
@@ -217,10 +217,21 @@ def build_awaiting_approval_terms() -> dict[str, Any]:
     return {"way": "release", "released_at": None, "confirmed_at": None}
 
 
+# The ways whose new mailbox is asked only once the address on file approved: an administrator's start without a reason,
+# approved on the account page, and the person's own, confirmed by the link the address on file was mailed.
+ASKS_THE_ADDRESS_ON_FILE_FIRST: Final[tuple[FLAddressChangeWay, ...]] = ("release", "account")
+
+
 def build_resendable_terms() -> dict[str, Any]:
     """A change waiting on the new mailbox: one awaiting the address on file's approval, or confirmed, has no link to re-send."""
 
-    return {"$nor": [{"way": "release", "released_at": None}], "confirmed_at": None}
+    return {"$nor": [{"way": {"$in": list(ASKS_THE_ADDRESS_ON_FILE_FIRST)}, "released_at": None}], "confirmed_at": None}
+
+
+def build_previous_link_terms(stop_hash: str) -> dict[str, Any]:
+    """The person's own change while it waits on the link the address on file was mailed: answered once, it takes no second."""
+
+    return {"stop.token_hashes": stop_hash, "way": "account", "released_at": None, **LIVE_TERMS}
 
 
 def build_open_link_terms(token_hash: str) -> dict[str, Any]:
@@ -308,7 +319,7 @@ def wartet_auf(record: Mapping[str, Any]) -> FLAddressChangeWaitsOn:
         # A confirmed change with no waiting time stands only while its grant's approval is owed.
         return "waiting_period" if record.get("effective_from") is not None else "approval"
 
-    if record.get("way") == "release" and record.get("released_at") is None:
+    if record.get("way") in ASKS_THE_ADDRESS_ON_FILE_FIRST and record.get("released_at") is None:
         return "release"
 
     return "new_adresse"

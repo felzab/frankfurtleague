@@ -10,7 +10,7 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
-from app.api.identitaet.schemas import FLErasureResponse
+from app.api.identity.schemas import FLErasureResponse
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.schiedsrichter.admin_router import (
     delete_schiedsrichter,

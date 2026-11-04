@@ -23,8 +23,8 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.berechtigungen.antraege import compose_antrag
-from app.api.identitaet.admin_router import get_erasure_view, post_erasure
-from app.api.identitaet.schemas import (
+from app.api.identity.admin_router import get_erasure_view, post_erasure
+from app.api.identity.schemas import (
     FLErasureAdressePayload,
     FLErasurePayload,
     FLErasureResponse,

@@ -7,6 +7,7 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.routing import APIRoute
 from pydantic.json_schema import models_json_schema
 
+from app.api.account.person_router import router as account_person_router
 from app.api.adresswechsel.admin_router import router as address_change_admin_router
 from app.api.adresswechsel.public_router import router as address_change_public_router
 from app.api.adresswechsel.system_router import router as address_change_system_router
@@ -18,10 +19,9 @@ from app.api.bewerbungen.person_router import router as bewerbungen_person_route
 from app.api.bewerbungen.public_router import router as bewerbungen_public_router
 from app.api.bewerbungen.system_router import router as bewerbungen_system_router
 from app.api.einwilligung.public_router import router as einwilligung_public_router
-from app.api.identitaet.admin_router import router as identity_admin_router
-from app.api.identitaet.person_router import router as identity_person_router
-from app.api.identitaet.system_router import router as identity_system_router
-from app.api.konto.person_router import router as account_person_router
+from app.api.identity.admin_router import router as identity_admin_router
+from app.api.identity.person_router import router as identity_person_router
+from app.api.identity.system_router import router as identity_system_router
 from app.api.outbox.system_router import router as outbox_system_router
 from app.api.registrierungen.admin_router import router as registrierungen_admin_router
 from app.api.registrierungen.person_router import router as registrierungen_person_router

@@ -13,8 +13,8 @@ from app.api.adresswechsel.crud import (
     end_the_change_in_session,
     ending_line,
     lage_of_the_link,
-    owe_the_hinweis_in_session,
     owe_the_link_in_session,
+    owe_the_notice_in_session,
     read_the_bestand,
     refusal_of,
     start_the_change_in_session,
@@ -58,8 +58,8 @@ from app.api.adresswechsel.services import (
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.berechtigungen.services import genehmiger_of, genehmigung_verwehrt, holds_an_owners_power
-from app.api.identitaet.lookup import SubjektLookup
-from app.api.identitaet.services import JEDE_VERWALTUNG, find_eigene_adresse_refusal, find_verwaltung_adresse_refusal
+from app.api.identity.lookup import SubjektLookup
+from app.api.identity.services import JEDE_VERWALTUNG, find_eigene_adresse_refusal, find_verwaltung_adresse_refusal
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.spieler.crud import another_pupil_holds
@@ -370,7 +370,7 @@ async def post_address_change_verwaltung(
             session=session,
         )
         # The notice first and the link after, as the address on file is told before the new mailbox can answer.
-        await owe_the_hinweis_in_session(
+        await owe_the_notice_in_session(
             address_change_id=address_change_id,
             adresse=identifier,
             way=weg,

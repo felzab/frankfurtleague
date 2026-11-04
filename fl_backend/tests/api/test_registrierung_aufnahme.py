@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.konto.services import compose_person_move
+from app.api.account.services import compose_person_move
 from app.api.registrierungen import person_router
 from app.api.registrierungen.person_router import get_open_registrierungen
 from app.api.registrierungen.person_router import patch_einwilligung as patch_registrierung_einwilligung

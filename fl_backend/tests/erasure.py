@@ -5,14 +5,13 @@ from typing import Any
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.crud import LOESCHUNG_STEPS
-from app.api.identitaet.person_router import post_account_erasure
-from app.api.identitaet.schemas import FLErasureResponse
+from app.api.identity.crud import LOESCHUNG_STEPS
+from app.api.identity.person_router import post_account_erasure
+from app.api.identity.schemas import FLErasureResponse
 from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
 from tests.bans import ban_list
 from tests.config import build_test_config
-from tests.session_headers import fresh_admin_actor
 
 _CONFIG = build_test_config()
 
@@ -20,7 +19,7 @@ _CONFIG = build_test_config()
 def erasure_collections(database: AsyncDatabase | Mapping[Collection, Any], **replaced: Any) -> dict[str, Any]:
     """Every collection the registry's steps reach, keyed as the routes take them, any replaced by name.
 
-    Read off `app/api/identitaet/crud.py :: LOESCHUNG_STEPS`: a step reaching a collection no route takes, or the reverse,
+    Read off `app/api/identity/crud.py :: LOESCHUNG_STEPS`: a step reaching a collection no route takes, or the reverse,
     fails the call.
     """
 
@@ -40,8 +39,6 @@ async def erased(
         identifier=sign_in_identifier(address),
         **erasure_collections(database, **replaced),
         sperrliste=ban_list(database),
-        # Refusing none: a grant holder's passkey is held over HTTP, in `tests/api/test_step_up_execution.py`.
-        actor=fresh_admin_actor(),
         db=client,
         config=_CONFIG,
         germany_now=germany_now,

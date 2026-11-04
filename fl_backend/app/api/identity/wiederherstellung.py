@@ -28,6 +28,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
+from app.api.account.services import compose_person_move, compose_sitz_move
 from app.api.adresswechsel.crud import (
     Belegung,
     adresse_belegt,
@@ -47,10 +48,9 @@ from app.api.bewerbungen.services import (
     seat_adressen,
     seat_is_answered,
 )
-from app.api.identitaet.crud import unattribute_pseudonym_in_session
-from app.api.identitaet.lookup import RecordCollections
+from app.api.identity.crud import unattribute_pseudonym_in_session
+from app.api.identity.lookup import RecordCollections
 from app.api.kontakte.crud import redact_the_decliner, remove_the_holders_reasons, remove_their_reasons
-from app.api.konto.services import compose_person_move, compose_sitz_move
 from app.api.sperrliste.lookup import BanList
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import build_contact_reason_images_filter, build_contact_reasons_filter, kontakte_ohne, seat_void_of
@@ -737,7 +737,7 @@ def _main() -> int:
     """The exit contract: 0 nothing left, 1 lines left, 2 nothing judged (the arguments, the settings or the database), 3 a crash."""
 
     parser = argparse.ArgumentParser(
-        prog="python -m app.api.identitaet.wiederherstellung",
+        prog="python -m app.api.identity.wiederherstellung",
         description="Match the journal lines on stdin against the restored database, and replay the choices they name.",
     )
     parser.add_argument("--since", required=True, help="the instant the restored snapshot was taken, ISO 8601 with its offset")

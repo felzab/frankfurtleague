@@ -204,7 +204,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
     (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). A record of its own is one its person
     confirmed, whose consent the account page offers back: a contact seat of any season or of a
     pending application, a pupil or referee row retired or not, and a pending registration carrying
-    a choice (`fl_backend/app/api/identitaet/services.py :: eigene_eintraege`). So a decided
+    a choice (`fl_backend/app/api/identity/services.py :: eigene_eintraege`). So a decided
     application, a declined registration, and an application or registration nobody has confirmed
     admit nobody.
 
@@ -249,19 +249,22 @@ Every ruling below is the sign-up flow as it stands for the next season.
   link is ever minted to a row holding no usable address, the mint refusing it as none
   (`fl_backend/app/api/schiedsrichter/services.py :: find_missing_address_refusal`).
 - **Every account's address changes only once the new mailbox confirms it, and the address on file
-  can stop the change until it takes effect**, because the address is what the person's sign-in and
+  can end the change until it takes effect**, because the address is what the person's sign-in and
   every record of theirs are keyed on — a pupil's row, a confirmed referee's, contact seats,
   registrations and a grant of access alike: moved at once, it would hand those records to whoever
-  holds a mistyped or a hijacked address. Ruled 2026-10-04, the process re-ruled 2026-10-20. The
-  person starts a change on their account page after confirming themselves by a passkey or a code to
-  the address on file; an administrator starts one only for a person who says they cannot sign in,
+  holds a mistyped or a hijacked address. Ruled 2026-10-04, the process re-ruled 2026-10-20 and
+  2026-11-04. The person starts a change on their account page, a person holding a passkey touching
+  it first; the address on file is mailed a link that confirms or declines the change, and only its
+  confirmation mails the new mailbox its own link, whose confirmation makes the change take effect,
+  a decline at either ending it. An administrator starts one only for a person who says they cannot sign in,
   asking the address on file to approve it on its account page first, so a mailbox that still works
   decides, or, with a recorded reason, for one whose mailbox there is lost, holding its effect a week
   past its confirmation. A change moving a grant of access also waits on another
   administrator's approval, an owner's for an owner's grant, and lapses unapproved a week after its
-  start (`fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS`). The address
-  on file is mailed a link that stops the change at its start and a notice once it took effect, and
-  neither names the new address; until a change takes effect the new address reaches nothing of the
+  start (`fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS`). On an administrator's change
+  the address on file is mailed a link that stops the change at its start and a notice once it took
+  effect; the person's own change mails nothing past its two links. No mail to the address on file
+  names the new address, and until a change takes effect the new address reaches nothing of the
   person's. The sign-in account moves with a change its person started or the address on file
   approved, every session of it ended, unless the new address holds an account of its own, where the
   old account keeps its sessions until the account sweep. A new address that any entry names,
@@ -649,7 +652,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   until the remarks go. The request an
   administrator's erasure answers
   (`aktionen.anlass`) stands on every log row that erasure files, for the log's twelve months. It is refused where it holds an address
-  (`fl_backend/app/api/identitaet/schemas.py :: refuse_an_address_in_the_anlass`) and checked for no
+  (`fl_backend/app/api/identity/schemas.py :: refuse_an_address_in_the_anlass`) and checked for no
   name, so a name the administrator types into it stands for those twelve months.
 - **A retired row is never removed because of its age.** A referee who stopped, a club that left
   and a past season all keep their rows, and a player who left a squad keeps theirs until the
@@ -770,7 +773,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   the person is erased with it or the new mailbox's holder's own erasure ends it alone, and it ends within the hour after the step it waits on lapses**: the address
   may be a stranger's, typed in by mistake, who never asked to be stored. Each link lasts a day from its sending
   (`fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS`) and a re-send
-  restarts it, the stop link lasting as long as the change stands; a change an administrator
+  restarts it, an administrator's change's stop link lasting as long as the change stands; a change an administrator
   started with a reason takes effect a week after its confirmation (`:: ADDRESS_CHANGE_WAITING_PERIOD_DAYS`),
   and one waiting on another administrator's approval lapses a week after its start
   (`:: APPROVAL_DAYS`). The hourly pass ends a lapsed one as a discard does, its
@@ -786,8 +789,8 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   is mailed nothing. The published notice states the ending and the thirty days
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06, its timing re-ruled 2026-10-15 and
   2026-10-20. **The notice an end owes is owed in the Postausgang in the end's own transaction**, so a
-  lost answer loses no notice: an effect's to the replaced address, greeting the first name where the
-  address on file asked for or approved the change, a refusal's to the new address alone. Its row
+  lost answer loses no notice: an effect's to the replaced address on an administrator's change,
+  greeting the first name where the address on file approved it, a refusal's to the new address alone. Its row
   keeps no facts once it is sent or given up, and its recipient thirty days longer; an erasure of
   either address deletes it. An effect that carries the account owes the carry on the ended change
   itself, which keeps the two addresses until the carry is done, and the keyed check values of both
@@ -840,7 +843,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   account's deletion link goes sooner, when that secret lapses (`:: row_of`). The published
   notice's retention table says the same (`DatenschutzView.tsx :: FRISTEN`). An erasure of its recipient deletes it
   at once, sent or owed, the sign-in library's deletion link alone excepted
-  (`fl_backend/app/api/identitaet/crud.py :: loeschen_the_mails_in_session`; `docs/glossary.md ::
+  (`fl_backend/app/api/identity/crud.py :: loeschen_the_mails_in_session`; `docs/glossary.md ::
 Zustellstand`). No record the message was about carries it, so a row can outlive that record by
   its thirty days, and no longer. Ruled 2026-10-26. **A Widerspruch empties the seat and keeps its
   link entry**, on an application until the application goes and on a team's season row until a
@@ -900,7 +903,7 @@ Zustellstand`). No record the message was about carries it, so a row can outlive
   `fl_backend/app/api/registrierungen/system_router.py :: sweep_registrierungen` per season, then
   `fl_backend/app/api/adresswechsel/system_router.py :: sweep_address_change`, `POST /address_change/sweep`; and
   `fl_frontend/src/features/saisons/sweep.ts :: runLoeschungSweep`, which calls
-  `fl_backend/app/api/identitaet/system_router.py :: sweep_erasure`). Every job runs on every pass, with no
+  `fl_backend/app/api/identity/system_router.py :: sweep_erasure`). Every job runs on every pass, with no
   switch to hold one back. A pass pings the heartbeat monitor, and `/fail` naming each job that threw or left an owed
   deletion or erasure, so a claim that one of their periods was honoured rests on that report and on each job's
   per-pass line in the frontend's log rather than on reading the data
@@ -939,7 +942,7 @@ Zustellstand`). No record the message was about carries it, so a row can outlive
   request's line keys the address the grant was asked for**, which may be a stranger's an
   administrator mistyped (`fl_backend/app/api/berechtigungen/antraege.py :: antrag_line`); a
   restore replays it, so an ended request does not come back to be approved
-  (`fl_backend/app/api/identitaet/wiederherstellung.py :: _plan_antrag_ende`). The day file keeps each line's whole log
+  (`fl_backend/app/api/identity/wiederherstellung.py :: _plan_antrag_ende`). The day file keeps each line's whole log
   envelope, its trace and span ids among them,
   and the trace id joins the line to the edge's access line, which names the visitor's address for
   that log's eight days. Each line is copied into its day file hourly so that a restore can run

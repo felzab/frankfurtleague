@@ -1,5 +1,4 @@
 import re
-import unicodedata
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -7,13 +6,12 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.identitaet.schemas import FLErasureResponse, FLErasureViewResponse
-from app.api.identitaet.services import build_loeschung_seat_pipeline
+from app.api.identity.schemas import FLErasureResponse, FLErasureViewResponse
+from app.api.identity.services import build_loeschung_seat_pipeline
 from app.api.kontakte.crud import loeschen_kontaktperson_in_session
 from app.api.kontakte.services import (
     build_clearing_update,
@@ -29,7 +27,6 @@ from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_one_in_db
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
@@ -832,34 +829,14 @@ NO_AT_UNCLAIMED: tuple[str, ...] = ("kein-atx", "kein-at@example.com", "xkein-at
 # take every value the fold would claim. Built from code points, since both are whitespace.
 PADDED_SPELLINGS: tuple[str, ...] = (f"{chr(0x20)}{GELOESCHT_EMAIL}", f"{GELOESCHT_EMAIL}{chr(0xA0)}")
 
-# Domains a hand-typed row may spell otherwise than the punycode or ASCII a payload stores, each folding
-# to it under the international domain-name rules: more spellings than any pattern listing them holds.
-UNICODE_DOMAIN = "anna@xn--mller-kva.de"
-UNICODE_DOMAIN_SPELLINGS: tuple[str, ...] = (
-    "anna@müller.de",
-    unicodedata.normalize("NFD", "anna@müller.de"),
-    f"anna@müller{chr(0xFF0E)}de",
-)
-ASCII_DOMAIN_SPELLINGS: tuple[str, ...] = (
-    GELOESCHT_EMAIL.replace("example", "".join(chr(ord(letter) + 0xFEE0) for letter in "example")),
-    GELOESCHT_EMAIL.replace("example.com", f"example{chr(0x3002)}com"),
-    GELOESCHT_EMAIL.replace("@e", f"@{chr(0x212F)}"),
-)
-
 
 @pytest.mark.parametrize(
     ("asked", "taken", "missed"),
     [
-        pytest.param(VARIANT_REQUEST_EMAIL, (*CASE_VARIANTS, *PADDED_SPELLINGS, *ASCII_DOMAIN_SPELLINGS), OTHER_LOCAL_PARTS, id="one spelling"),
-        # Asked in Unicode, which the fold converts before the pattern is built from it.
-        pytest.param(
-            "anna@MÜLLER.de", ("anna@xn--mller-kva.de", "ANNA@xn--mller-kva.de"), ("xanna@xn--mller-kva.de",), id="a Unicode domain asked"
-        ),
-        pytest.param(UNICODE_DOMAIN, (UNICODE_DOMAIN, *UNICODE_DOMAIN_SPELLINGS), ("xanna@müller.de",), id="a Unicode domain stored otherwise"),
-        # The fold equates it whole, so both ends are anchored; one anchor alone takes the start's or the end's near miss.
+        pytest.param(VARIANT_REQUEST_EMAIL, (*CASE_VARIANTS, *PADDED_SPELLINGS), NEAR_MISSES, id="one spelling"),
+        # Both ends are anchored; one anchor alone takes the start's or the end's near miss.
         pytest.param(NO_AT_IDENTIFIER, NO_AT_CLAIMED, NO_AT_UNCLAIMED, id="no @"),
-        # An `@` and an empty local part: a prefix still, the domain folding beyond what a whole-value pattern spells.
-        pytest.param("@x.de", ("@x.de", "@X.DE", f"@{chr(0xFF58)}.de"), ("x@x.de",), id="an empty local part"),
+        pytest.param("@x.de", ("@x.de", "@X.DE"), ("x@x.de", "@x.dex"), id="an empty local part"),
         # Padded or blank as stored, which a pattern built off that spelling reads less of than its fold claims.
         pytest.param(
             f"{chr(0x20)}{VARIANT_REQUEST_EMAIL}{chr(0xA0)}", (*CASE_VARIANTS, *PADDED_SPELLINGS), OTHER_LOCAL_PARTS, id="a padded spelling"
@@ -867,7 +844,7 @@ ASCII_DOMAIN_SPELLINGS: tuple[str, ...] = (
         pytest.param(chr(0x20) * 3, ("", chr(0x20), chr(0xA0)), ("x",), id="a blank"),
     ],
 )
-def test_the_pattern_takes_every_spelling_the_fold_claims_and_no_other_local_part(asked: str, taken: tuple[str, ...], missed: tuple[str, ...]):
+def test_the_pattern_takes_every_spelling_the_fold_claims_and_no_other_address(asked: str, taken: tuple[str, ...], missed: tuple[str, ...]):
     """Python's `re` stands in for the server's engine, the two agreeing on an escaped literal compared in ASCII.
 
     Each spelling taken is first held to the fold's claim, so the case never asks the pattern for more.
@@ -928,15 +905,16 @@ def test_the_server_reads_each_pattern_as_python_does_and_misses_nothing_the_fol
         python = {value for value in SERVER_CORPUS if re.search(pattern["$regex"], value, re.IGNORECASE if pattern["$options"] == "i" else 0)}
         server = {value for value, row_id in row_ids.items() if row_id in read[identifier]}
         claimed = {value for value in SERVER_CORPUS if sign_in_identifier(value) == sign_in_identifier(identifier)}
-        # With no `@` the fold equates the value whole, so the read is the claim exactly: an end left open reads a near miss.
-        whole = "@" not in sign_in_identifier(identifier)
+        # The fold equates the value whole, so an ASCII read is the claim exactly: an end left open reads a near miss. A
+        # case partner outside ASCII is the `i` flag's, which the fold then decides.
+        unclaimed = {value for value in server - claimed if value.isascii()}
         # The last, a whole-collection read for an identifier naming anything, is a pattern that takes nothing out.
-        if server != python or claimed - server or (whole and server != claimed) or (identifier.strip() and server == set(SERVER_CORPUS)):
+        if server != python or claimed - server or unclaimed or (identifier.strip() and server == set(SERVER_CORPUS)):
             parted[identifier] = {
                 "server alone": server - python,
                 "python alone": python - server,
                 "claimed and missed": claimed - server,
-                "read and unclaimed": server - claimed if whole else set(),
+                "read and unclaimed": unclaimed,
             }
 
     assert parted == {}
@@ -987,7 +965,7 @@ class TestTheSeatJudgesReadWhateverAnImageHolds:
         assert seat_image_edits(image, ("x@example.com",), links=False, names={("", "")}) == {"kontakte.trainer": None}
 
 
-# Two domains to IDNA 2008 and to sign-in, so two people an application may seat side by side.
+# Two domains to the sign-in fold, so two people an application may seat side by side.
 SHARP_S_EMAIL = "wiltrudis.quastenflosser@straße.de"
 DOUBLE_S_EMAIL = "wiltrudis.quastenflosser@strasse.de"
 SHARP_S_ROW_OID = ObjectId("6890a1b2c3d4e5f607816001")
@@ -1035,48 +1013,6 @@ def test_a_seat_stored_under_an_address_no_payload_takes_now_is_geloescht(mongo_
         return (await stored_rows(database))[HAND_EDITED_ROW_OID]["kontakte"]["trainer"]
 
     assert on_a_league(mongo_replica_set_url, body) is None
-
-
-IDNA_ROW_OID = ObjectId("6890a1b2c3d4e5f607816003")
-
-CHEROKEE_CAPITALS = f"{chr(0x13A0)}{chr(0x13A1)}"
-
-# A seat as a payload stores it, asked for in another spelling of the same mailbox. Built from code
-# points where a character renders like its neighbour.
-IDNA_SPELLINGS = [
-    pytest.param("anna@xn--mller-kva.de", "anna@MÜLLER.de", id="stored in punycode, asked in Unicode"),
-    pytest.param("anna@schule.de", f"anna@schule{chr(0x3002)}de", id="an ideographic full stop"),
-    pytest.param("anna@xn--58dc.de", f"anna@{CHEROKEE_CAPITALS}.de", id="Cherokee stored in punycode"),
-    pytest.param("anna@xn--x-7p6m.de", f"anna@{chr(0x16D43)}x.de", id="a Unicode 16 letter the URL parser refuses"),
-]
-
-
-@pytest.mark.parametrize(("stored", "asked"), IDNA_SPELLINGS)
-def test_each_stored_spelling_is_one_a_payload_stored(stored: str, asked: str):
-    """The premise the database case below rests on: seeded any other way, it would compare a spelling no write produced."""
-
-    assert TypeAdapter(CustomEmail).validate_python(stored) == stored
-
-
-@pytest.mark.parametrize(("stored", "asked"), IDNA_SPELLINGS)
-def test_the_asker_is_keyed_as_the_stored_address_folds(stored: str, asked: str):
-    assert sign_in_identifier(asked) == sign_in_identifier(stored)
-
-
-@pytest.mark.db
-@pytest.mark.parametrize(("stored", "asked"), IDNA_SPELLINGS)
-def test_a_seat_asked_for_in_another_spelling_of_its_domain_is_named_and_cleared(mongo_replica_set_url: str, stored: str, asked: str):
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await database[Collection.SAISON_TEAMS].insert_one(a_row_naming(IDNA_ROW_OID, stored))
-        ansicht = await call_ansicht(database, client, asked)
-        await call_loeschung(database, client, asked)
-
-        return ansicht, (await stored_rows(database))[IDNA_ROW_OID]["kontakte"]["trainer"]
-
-    ansicht, trainer = on_a_league(mongo_replica_set_url, body)
-
-    assert [(sitz.nachname, sitz.saison_id) for sitz in ansicht.seats] == [(UNREACHED_NACHNAME, LATER_SAISON)]
-    assert trainer is None
 
 
 @pytest.mark.db

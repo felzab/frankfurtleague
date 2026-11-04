@@ -8,8 +8,8 @@ from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomOptionalPhoneSt
 
 # Every address payload's type but the erasure's lookup.
 # Never `EmailStr`, which never turns `allow_smtputf8` off and so stores a Unicode local part and
-# domain. The published schema states the ceiling and no `format`: a generated `z.email()` would
-# refuse an umlaut domain `league_address` accepts, and this check is the one authority.
+# domain. The published schema states the ceiling and no `format`: this check is the one authority,
+# and a generated pattern would be a second rule beside it.
 CustomEmail = Annotated[str, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH), AfterValidator(league_address)]
 
 # A person's name, or one part of one: what the public application form takes, and every payload
