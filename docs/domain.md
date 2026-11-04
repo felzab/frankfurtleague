@@ -194,8 +194,9 @@ start; after a match it would reopen what the start locks closed.
   what the round set can hold (`rules_bracket_impossible`), because a knockout ladder halves each round down to one
   final and the podium needs semi-finals to fill four places; the rounds are
   `fl_backend/app/api/spiele/schemas.py :: KNOCKOUT_PHASES`, declared in playing order, and each of them is
-  one matchday. The two semi-final losers play for third place on the Finale's
-  matchday, ahead of the final and under its phase (`fl_backend/app/api/saisons/schedule.py :: plays_for_third_place`).
+  one matchday. Every bracket therefore plays for third place: the two semi-final losers meet on the Finale's
+  matchday, ahead of the final and under its phase, where the draw writes that match
+  (`fl_backend/app/api/saisons/spielplan.py :: draw_spielplan`).
 - **A bracket fixture is drawn naming its sources rather than its teams.** A side is fed by a group placing,
   or by which side came out of an earlier fixture — so the whole season is drawn end to end before anybody has
   qualified for anything, and entering a result is what fills the slots downstream.

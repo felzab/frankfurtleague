@@ -7,7 +7,6 @@ from app.api.saisons.schedule import (
     group_matchdays,
     group_matches_per_matchday,
     knockout_phases_for,
-    plays_for_third_place,
     qualifier_count,
     schedule_for,
     total_group_matches,
@@ -152,14 +151,6 @@ class TestTheBracket:
 
 
 class TestTheMatchForThirdPlace:
-    @pytest.mark.parametrize("qualifiers", [4, 8, 16])
-    def test_every_bracket_plays_one(self, qualifiers: int):
-        assert plays_for_third_place(qualifiers) is True
-
-    @pytest.mark.parametrize("qualifiers", [0, 1, 2, 3, 6, 32])
-    def test_a_field_with_no_bracket_plays_none(self, qualifiers: int):
-        assert plays_for_third_place(qualifiers) is False
-
     @pytest.mark.parametrize(("groups", "qualifiers", "finale"), [(2, 2, 2), (4, 2, 2), (4, 4, 2)])
     def test_the_finale_matchday_counts_it_beside_the_final(self, groups: int, qualifiers: int, finale: int):
         """Every other round keeps half the field that entered it."""
