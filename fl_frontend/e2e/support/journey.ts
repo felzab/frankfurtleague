@@ -108,10 +108,12 @@ async function startVisitorProxy(origin: string, visitor: string): Promise<{ ser
     detached.add(socket);
     socket.once("close", () => detached.delete(socket));
   };
+  // Tunnels to the stack, whose requests the server below reads as it reads the rest.
+  const toTheStack = new WeakSet<Socket>();
 
   const server = createServer((incoming, outgoing) => {
-    // A request to a proxy names its target in absolute form.
-    const target = URL.parse(incoming.url ?? "");
+    // A request to a proxy names its target in absolute form; one inside a tunnel to the stack names its path alone.
+    const target = URL.parse(incoming.url ?? "", toTheStack.has(incoming.socket) ? origin : undefined);
     if (target === null) {
       outgoing.writeHead(400).end();
       return;
@@ -131,13 +133,23 @@ async function startVisitorProxy(origin: string, visitor: string): Promise<{ ser
     pipeline(incoming, upstream, endedEarly);
   });
 
-  // Every tunnel passes untouched: the sign-in's bot check loads from Cloudflare's own over TLS. One to
-  // the stack would reach its edge unnamed, which the edge check reports.
+  // Every other tunnel passes untouched: the sign-in's bot check loads from Cloudflare's own over TLS. A
+  // tunnel to the stack is Playwright's own request client, which `route.fetch()` sends through: it reaches
+  // every target of a proxied context by CONNECT, plain HTTP included. Its requests are handed to the server
+  // above as a connection of its own, the way Node documents for injecting one
+  // (https://nodejs.org/api/http.html#event-connection), and named as every other request to the stack is.
   server.on("connect", (incoming: IncomingMessage, socket: Socket, head: Buffer) => {
     detach(socket);
     const target = URL.parse(`http://${incoming.url ?? ""}`);
     if (target === null) {
       socket.destroy();
+      return;
+    }
+    if (target.origin === origin) {
+      toTheStack.add(socket);
+      socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+      if (head.length > 0) socket.unshift(head);
+      server.emit("connection", socket);
       return;
     }
     const tunnel = connect(Number(target.port || "443"), hostOf(target), () => {
