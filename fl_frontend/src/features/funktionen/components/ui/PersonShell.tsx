@@ -35,7 +35,7 @@ export function PersonShell({
     <AppShell
       structure={structure}
       entries={entries}
-      linkPrefix="/bereich"
+      linkPrefix="/area"
       iconDictionary={PERSON_SIDEMENU_ICONS}
       // A person's pages are scoped to the person rather than to a season, so no season slot stands
       // and no link carries one.

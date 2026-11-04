@@ -26,7 +26,7 @@ export function AdminShell({
   return (
     <AppShell
       structure={ADMIN_SIDEMENU_STRUCTURE}
-      linkPrefix="/bereich/admin"
+      linkPrefix="/area/admin"
       keepsSaisonQuery
       iconDictionary={ADMIN_SIDEMENU_ICONS}
       saisonMetadataDisplay={saisonMetadataDisplay}
