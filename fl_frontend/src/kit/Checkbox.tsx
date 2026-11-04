@@ -25,9 +25,12 @@ export function Checkbox({
   isSelected,
   defaultSelected,
   onChange,
+  ...described
 }: {
   label: Words;
   description?: Copy;
+  /** A line outside the field describing it, such as a consent's, by its id; read with the description's own. */
+  "aria-describedby"?: string;
   isRequired?: boolean;
   isDisabled?: boolean;
   name?: string;
@@ -38,6 +41,7 @@ export function Checkbox({
   return (
     <CheckboxField
       className={toggleField()}
+      aria-describedby={described["aria-describedby"]}
       name={name}
       isSelected={isSelected}
       defaultSelected={defaultSelected}
