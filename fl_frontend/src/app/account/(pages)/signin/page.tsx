@@ -20,17 +20,13 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return pageMetadata(parent, ROUTES.accountSignIn, ROUTES.accountSignIn.path());
 }
 
-/**
- * Whether the person's own change waits on the address on file's link, which confirms first, rather than on the new
- * address's own: the step the backend serves as `release` on the account's own way.
- */
-const waitsOnPrevious = (open: FLAccountAddressChangeOpen): boolean => open.waits_on === "release" && open.way === "account";
-
 /** The change pending on the address, worded on the server, where its deadline is written in the league's time zone. */
 function pendingOf(open: FLAccountAddressChangeOpen): Pending {
   const { pending } = COPY.konto.address;
+  // The person's own change asks the address on file's link first, then the new address's own.
+  const previous = open.waits_on === "previous_address";
   return {
-    parts: { before: pending.before, after: waitsOnPrevious(open) ? pending.previous(open.valid_until) : pending.new(open.valid_until) },
+    parts: { before: pending.before, after: previous ? pending.previous(open.valid_until) : pending.new(open.valid_until) },
     email: open.email,
     lapsed: open.expired,
     grant: open.approval !== null && !open.approval.approved,

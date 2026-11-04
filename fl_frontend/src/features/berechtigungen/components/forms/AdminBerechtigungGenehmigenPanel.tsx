@@ -33,9 +33,8 @@ function begonnen(adresswechsel: FLGrantAddressChange): string {
     adresswechsel.started_by === null && !adresswechsel.started_by_barred
       ? "Aus der Verwaltung begonnen"
       : `Begonnen von ${nachVonOderGesperrt(adresswechsel.started_by, adresswechsel.started_by_barred)}`;
-  const weg = adresswechsel.way === "release" ? "mit Freigabe durch die bisherige Adresse" : "ohne die bisherige Adresse";
 
-  return `${von}, ${weg}.${adresswechsel.grund === null ? "" : ` Grund: ${adresswechsel.grund}`}`;
+  return `${von}, ohne die bisherige Adresse.${adresswechsel.grund === null ? "" : ` Grund: ${adresswechsel.grund}`}`;
 }
 
 /** The new address, or why the row withholds it. */

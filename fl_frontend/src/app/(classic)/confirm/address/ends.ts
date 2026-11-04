@@ -17,7 +17,7 @@ export const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accou
 const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path() };
 
 /** The link's side, the address on file's or the new mailbox's, which words its question and its ends. */
-export type Seite = "previous" | "new";
+export type Side = "previous" | "new";
 
 /** A link that holds no more at the press: answered, ended or refused since the page opened. */
 export const LINK_INVALID: MailedEnd = linkInvalid(TO_ACCOUNT);
@@ -33,9 +33,9 @@ const DONE = {
  * Konto, where the change waits on the new mailbox; a decline, on the danger tint, to the start page. A grant holder's
  * confirmed change still waits on its approval, which the done state says in place of the sign-in.
  */
-export function endOf(seite: Seite, antwort: "confirmed" | "declined", approvalOpen: boolean): MailedEnd {
+export function endOf(side: Side, antwort: "confirmed" | "declined", approvalOpen: boolean): MailedEnd {
   if (antwort === "declined") return { tone: "danger", title: WORDS.declined, sentence: WORDS.declinedSentence, next: TO_HOME };
-  if (seite === "previous") return { tone: "success", title: DONE.previous, sentence: WORDS.previous.confirmedSentence, next: TO_ACCOUNT };
+  if (side === "previous") return { tone: "success", title: DONE.previous, sentence: WORDS.previous.confirmedSentence, next: TO_ACCOUNT };
   if (approvalOpen) return { tone: "success", title: DONE.new, sentence: WORDS.new.awaitsApproval, next: TO_ACCOUNT };
   return {
     tone: "success",
@@ -46,7 +46,7 @@ export function endOf(seite: Seite, antwort: "confirmed" | "declined", approvalO
 }
 
 /** A link opened again: what its holder did, and the day, with the one place to change it, or the start page after a decline. */
-export function doneOnEnd(seite: Seite, antwort: "confirmed" | "declined", day: CalendarDay) {
+export function doneOnEnd(side: Side, antwort: "confirmed" | "declined", day: CalendarDay) {
   return antwort === "declined"
     ? {
         state: "schonErledigt" as const,
@@ -55,5 +55,5 @@ export function doneOnEnd(seite: Seite, antwort: "confirmed" | "declined", day: 
         next: TO_HOME,
         declined: true,
       }
-    : { state: "schonErledigt" as const, title: DONE[seite], sentence: COPY.shared.end.doneOn(DONE[seite], day), next: TO_ACCOUNT };
+    : { state: "schonErledigt" as const, title: DONE[side], sentence: COPY.shared.end.doneOn(DONE[side], day), next: TO_ACCOUNT };
 }

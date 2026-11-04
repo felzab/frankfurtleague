@@ -52,7 +52,7 @@ export function buildAdresswechselEmail({ way: weg, valid_until: gueltigBis }: F
     };
   }
 
-  // Session 7: the administrator's ways take their final words.
+  // Session 7: the administrator's way takes its final words.
   return {
     kind: "security",
     subjectLine: "Neue E-Mail-Adresse bestätigen",

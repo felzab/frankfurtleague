@@ -62,7 +62,7 @@ export type MailedState =
   | { state: "schonErledigt"; title: Copy; sentence: Copy; next: StatusCardProps["next"]; declined?: boolean }
   | { state: "ungueltig"; next: StatusCardProps["next"] }
   | ({ state: "ende" } & EndState)
-  // Redesign: goes with the address change's old view, which the administrator's ways keep until session 7.
+  // Redesign: goes with the address change's old view, which the administrator's way keeps until session 7.
   | { state: "alt"; view: ReactNode };
 
 /** The page once its link is read, in the boundary's place. */

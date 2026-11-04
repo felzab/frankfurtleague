@@ -6,7 +6,7 @@ import { ADRESSE_IM_GRUND_REGEX } from "@/features/sperrliste/schemas";
 import { CustomObjectIdStringSchema, KontaktEmailSchema, singleLineName } from "@/shared/schemas";
 
 /** The reason box, to the erasure occasion's bounds: copied into the start's log row and kept with the log. */
-export const AdresswechselGrundSchema = singleLineName(
+const AdresswechselGrundSchema = singleLineName(
   z
     .string({ error: "Bitte gib einen Grund ein." })
     .trim()
@@ -30,14 +30,11 @@ export const FLAdresswechselVerwaltungAnsichtPayloadSchema = z
     error: "Gib eine E-Mail-Adresse ein.",
   });
 
-/**
- * The start's draft, for a person who says they cannot sign in. `grund` null asks the address on file to approve
- * first; a reason starts the waiting time.
- */
+/** The start's draft, for a person who says they cannot sign in: its reason starts the waiting time. */
 export const FLAdresswechselVerwaltungPayloadSchema = z.object({
   adresse: KontaktEmailSchema,
   email: KontaktEmailSchema,
-  grund: AdresswechselGrundSchema.nullable(),
+  grund: AdresswechselGrundSchema,
 });
 
 /** The re-send, the discard and the approval: the id in the path, no request body. One schema per control. */

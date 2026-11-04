@@ -590,16 +590,16 @@
   },
   "src/features/adresswechsel/components/views/AdresswechselLinkView.tsx": {
     "@typescript-eslint/no-restricted-imports": {
-      "count": 5
+      "count": 4
     },
     "no-restricted-syntax": {
       "count": 27
     },
     "react/forbid-component-props": {
-      "count": 5
+      "count": 4
     },
     "react/jsx-no-literals": {
-      "count": 20
+      "count": 19
     }
   },
   "src/features/adresswechsel/refusals.ts": {

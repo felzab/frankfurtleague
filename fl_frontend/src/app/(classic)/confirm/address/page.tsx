@@ -21,7 +21,7 @@ import type { FLAddressChangeViewResponse } from "@/core/generated/client/types"
 import type { MailedState } from "@/kit/MailedPage";
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata, ResolvingMetadata } from "next";
-import type { Seite } from "./ends";
+import type { Side } from "./ends";
 
 /** A row no crawler fetches, and no referrer: the URL carries the link's token. The title fits both links. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
@@ -65,7 +65,7 @@ async function ownWay(view: FLAddressChangeViewResponse["view"], token: string):
     const released = dayOf(view.released_on);
     // The new mailbox ends it by its own answer alone; the address on file by its decline, or by the change it
     // confirmed first, whichever way the new mailbox answered after.
-    if (view.seite === "new") {
+    if (view.side === "new") {
       if (view.art === "effective") return doneOnEnd("new", "confirmed", ended);
       return view.art === "declined" ? doneOnEnd("new", "declined", ended) : INVALID;
     }
@@ -73,7 +73,7 @@ async function ownWay(view: FLAddressChangeViewResponse["view"], token: string):
     return view.art === "declined" ? doneOnEnd("previous", "declined", ended) : INVALID;
   }
 
-  if (view.seite === "previous") {
+  if (view.side === "previous") {
     if (view.state === "release_open" && view.email !== null) {
       return question(
         "previous",
@@ -98,7 +98,7 @@ async function ownWay(view: FLAddressChangeViewResponse["view"], token: string):
 }
 
 /** A link's question: the change's new address as the one fact, confirmed by the main act and declined by the other. */
-function question(seite: Seite, token: string, title: Copy, label: Copy, email: string, sentence: Copy): MailedState {
+function question(side: Side, token: string, title: Copy, label: Copy, email: string, sentence: Copy): MailedState {
   return {
     state: "frage",
     title: title,
@@ -106,11 +106,11 @@ function question(seite: Seite, token: string, title: Copy, label: Copy, email: 
     sentence: sentence,
     action: adresseBeantworten,
     acts: { primary: COPY.shared.verb.confirm, secondary: COPY.shared.verb.decline },
-    carry: { token: token, seite: seite },
+    carry: { token: token, side: side },
   };
 }
 
-/** Session 7: the administrator's ways, which keep the old view. */
+/** Session 7: the administrator's way, which keeps the old view. */
 async function administratorsWay(read: FLAddressChangeViewResponse, token: string): Promise<MailedState> {
   const gelesen = ansichtOf(read);
   // The backend cannot see the sign-in store, so its view offers the press an account at the new address closes.

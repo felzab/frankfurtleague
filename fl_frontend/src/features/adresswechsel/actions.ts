@@ -65,8 +65,8 @@ export async function readAdresswechselAnsichtAction(
 }
 
 /**
- * An administrator's start of a change for a person who says they cannot sign in: without a reason the address on
- * file approves it first, with one a waiting time follows the confirmation. Either way it gets a stop link.
+ * An administrator's start of a change for a person who says they cannot sign in: a recorded reason, and a waiting
+ * time after the confirmation. It gets a stop link.
  */
 export async function beantrageAdresswechselAction(rawPayload: FLAddressChangeVerwaltungPayload): Promise<AdresswechselGesendet> {
   return runAdminMutation("beantrageAdresswechselAction", { stepUp: true }, async () => {
