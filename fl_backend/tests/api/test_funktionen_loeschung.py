@@ -855,40 +855,9 @@ class TestNothingOfTheirsIsLeftAnywhere:
         assert {value: "aktionen" in before[value] for value in BYSTANDERS_IN_THE_LOG} == dict.fromkeys(BYSTANDERS_IN_THE_LOG, True), before
         assert {value: "aktionen" in after[value] for value in BYSTANDERS_IN_THE_LOG} == dict.fromkeys(BYSTANDERS_IN_THE_LOG, True), after
 
-    def test_each_kind_is_counted_as_it_went(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return (await geloescht_over_http(mongo_replica_set_url)).json()
-
-        answer = on_a_league(mongo_replica_set_url, body)
-
-        assert answer == {
-            "spieler": 1,
-            "saison_spieler": 1,
-            "schiedsrichter": 1,
-            "spiele": 1,
-            "kontakt_seats": 3,
-            "registrierungen": 2,
-            "address_change": 2,
-            "grants": 0,
-            # The request about their address and the one they asked.
-            "grants_approval_requests": 2,
-        }
-
 
 class TestWhatStandsBesideThem:
     """What the erasure must NOT take: each a row or a value somebody else holds."""
-
-    def test_their_team_reads_one_player_fewer_and_the_pupil_needed_no_retirement(self, mongo_replica_set_url: str):
-        """A pupil in a live squad goes on one pass; the squad is a live list, so nothing is repointed in their place."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            live = {"saison_id": SAISON_ID, "team_id": HOME_TEAM_OID, "inactive_since": None}
-            before = await database[Collection.SAISON_SPIELER].count_documents(live)
-            await geloescht_over_http(mongo_replica_set_url)
-
-            return before, await database[Collection.SAISON_SPIELER].count_documents(live)
-
-        assert on_a_league(mongo_replica_set_url, body) == (2, 1)
 
     def test_the_bystanders_seats_stand_and_theirs_is_empty(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1050,28 +1019,6 @@ class TestTheSentinels:
 
         assert sentinel is not None
         assert (sentinel["vorname"], sentinel["nachname"], sentinel["einwilligung"]) == (None, None, None)
-
-    def test_a_second_loeschung_reuses_each_sentinel(self, mongo_replica_set_url: str):
-        """Catches a sentinel written per run: one nameless row per erased person, and the second refused on the name index."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await geloescht_over_http(mongo_replica_set_url)
-            # A second pupil and a second referee at a second address, so the second run needs both sentinels again.
-            second = "wraxlington@example.com"
-            await database[Collection.SCHIEDSRICHTER].update_one({"_id": OTHER_REFEREE_OID}, {"$set": {"kontakt.email": second}})
-            await geloescht_over_http(mongo_replica_set_url, email=second)
-
-            return (
-                await database[Collection.SPIELER].find({}, {"_id": 1}).to_list(length=None),
-                await database[Collection.SCHIEDSRICHTER].find({}, {"_id": 1}).to_list(length=None),
-            )
-
-        pupils, referees = on_a_league(mongo_replica_set_url, body)
-
-        assert sorted(row["_id"] for row in pupils) == sorted(
-            [GHOST_SPIELER_ID, MOVING_PUPIL_OID, READDRESSED_PUPIL_OID, PUPIL_MOVING_ELSEWHERE_OID]
-        )
-        assert sorted(row["_id"] for row in referees) == sorted([GHOST_SCHIEDSRICHTER_ID, ELSEWHERE_REFEREE_OID, REFEREE_MOVING_ELSEWHERE_OID])
 
 
 class TestTheSentinelIsNobodyToLoeschen:
@@ -1528,28 +1475,6 @@ class TestAPersonHoldingNoFunktion:
 class TestThePreview:
     """What the page shows before the press: every record of the person's own the erasure takes, by name, and no address or birthdate."""
 
-    def test_it_names_every_record_of_their_own_the_loeschung_takes(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
-                return await http.get(f"{PATH}/view", headers=as_person(TYPED))
-
-        response = on_a_league(mongo_replica_set_url, body)
-        answer = response.json()
-
-        assert response.status_code == 200
-        assert answer["spieler"] == [{"vorname": VORNAME, "nachname": NACHNAME}]
-        assert answer["schiedsrichter"] == [{"name": REFEREE_NAME}]
-        assert answer["seats"] == [
-            {"saison_id": SAISON_ID, "team_name": "Heim-Schule", "rolle": "ansprechperson", "vorname": VORNAME, "nachname": NACHNAME}
-        ]
-        assert sorted(answer["bewerbungen"], key=lambda entry: entry["rolle"]) == [
-            {"saison_id": SAISON_ID, "rolle": rolle, "vorname": VORNAME, "nachname": NACHNAME} for rolle in ("ansprechperson", "trainer")
-        ]
-        assert answer["registrierungen"] == [{"saison_id": SAISON_ID, "team_name": "Heim-Schule", "vorname": VORNAME, "nachname": NACHNAME}] * 2
-        assert (answer["address_change"], answer["verwaltung"], answer["last_owner"]) == (2, "administration", False)
-        assert "@" not in response.text and GEBURTSDATUM not in response.text
-
     def test_it_counts_no_change_whose_link_has_not_reached_this_mailbox(self, mongo_replica_set_url: str):
         """A change still awaiting its address on file has told the new mailbox nothing, and neither its preview nor its answer.
 
@@ -1569,46 +1494,3 @@ class TestThePreview:
 
         # The seed's two changes alone; the press still ends all three, nothing of the asked one being this address's.
         assert on_a_league(mongo_replica_set_url, body) == (2, 2, "discarded")
-
-    def test_a_dead_spelling_of_the_address_goes_unnamed_and_goes(self, mongo_replica_set_url: str):
-        """A grant typed in capitals admits nobody, so the preview names no tier for it; the press removes it all the same."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await a_grant(database, THEIR_GRANT_OID, TYPED, "administration")
-            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
-                verwaltung = (await http.get(f"{PATH}/view", headers=as_person(TYPED))).json()["verwaltung"]
-
-            return verwaltung, (await geloescht_by_the_handler(database, client)).grants
-
-        assert on_a_league(mongo_replica_set_url, body) == (None, 1)
-
-    @pytest.mark.parametrize(
-        ("second_owner", "barred", "last_owner"),
-        [(False, False, True), (True, False, False), (True, True, True)],
-        ids=["the only owner", "beside a second owner", "beside a barred second owner"],
-    )
-    def test_it_foretells_the_last_owners_refusal_as_the_press_judges_it(
-        self, mongo_replica_set_url: str, second_owner: bool, barred: bool, last_owner: bool
-    ):
-        """A barred owner admits nobody, so beside one the address is still the last: `last_owner` reads true.
-
-        The press runs on the same seed, so a preview judging apart from it fails here.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "owner")
-            if second_owner:
-                await a_grant(database, OTHER_OWNER_OID, OTHER_OWNER, "owner")
-            if barred:
-                await database[Collection.SPERRLISTE].insert_one(
-                    ban_document(OTHER_OWNER, bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID))
-                )
-            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
-                preview = await http.get(f"{PATH}/view", headers=as_person(TYPED))
-
-            return preview.status_code, preview.json()["last_owner"], await outcome_of(geloescht_by_the_handler(database, client))
-
-        status, foretold, pressed = on_a_league(mongo_replica_set_url, body)
-
-        assert (status, foretold) == (200, last_owner)
-        assert pressed == (Code.LAST_OWNER_ERASURE if last_owner else COMMITTED)

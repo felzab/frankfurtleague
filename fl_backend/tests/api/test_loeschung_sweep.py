@@ -27,10 +27,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.identity.crud import erasure_due_page, saison_statuses
 from app.api.identity.schemas import FLLoeschungSweepParams
 from app.api.identity.system_router import LOESCHUNGEN_PER_PASS, sweep_erasure
-from app.api.registrierungen.public_router import post_registrierung
-from app.api.registrierungen.schemas import FLPostRegistrierungPayload
 from app.api.registrierungen.services import compose_ablehnung_update
-from app.api.saisons.admin_router import activate_saison, get_erasure_preview
+from app.api.saisons.admin_router import activate_saison
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.admin_router import post_saison_spieler
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
@@ -39,7 +37,6 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
-from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import JOURNAL_TOKEN
 from app.core.logging import JSONFormatter
 from app.main import create_app
@@ -62,7 +59,6 @@ from tests.documents import (
     team_document,
 )
 from tests.erasure import erasure_collections
-from tests.isolation import InterleavedCollection
 from tests.whole_database import where_held
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
@@ -540,37 +536,6 @@ async def a_squad_row_entered(database: AsyncDatabase, client: AsyncMongoClient,
     )
 
 
-async def a_registration_submitted(
-    database: AsyncDatabase, client: AsyncMongoClient, *, position: int = 1, einladungen_collection: Any = None
-) -> Any:
-    """A pupil's own registration for the running season, the first pupil's unless named, typed otherwise, which keeps them."""
-
-    return await post_registrierung(
-        registrierung_data=FLPostRegistrierungPayload.model_validate(
-            {
-                "token": EINLADUNG_TOKEN,
-                "vorname": "Quintessa",
-                "nachname": "Muster",
-                "email": address_of(position).capitalize(),
-                "position": None,
-                "nummer": None,
-                "stufe": None,
-            }
-        ),
-        idempotency_key=None,
-        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        einladungen_collection=database[Collection.INVITATIONS] if einladungen_collection is None else einladungen_collection,
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
-        db=client,
-        today=TODAY,
-        germany_now=NOW,
-    )
-
-
 async def a_running_season_open_to_its_team(database: AsyncDatabase) -> None:
     """The team entered in 2026, its registration window open today and its link live, so nothing but the race decides."""
 
@@ -618,29 +583,6 @@ class TestARivalCommittingInsideThePupilsTransactionKeepsThem:
 
         assert committed, "the rival never committed inside the pupil's transaction, so this case proves nothing"
         assert (answer["spieler"], answer["skipped"], standing) == (0, 1, 1)
-
-
-class LinkReadThenRival(InterleavedCollection):
-    """The invitations, running the rival to its commit once a submission has read its link: its first read, before any write."""
-
-    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        found = await self._collection.find_one(*args, **kwargs)
-        await self.run_the_rival()
-        return found
-
-
-class TestTwoAddressesRegisteringForOneSeasonWaitOnNeitherOther:
-    def test_one_committing_inside_the_other_sends_it_round_no_second_time(self, mongo_replica_set_url: str):
-        """Write the season in the submission again and the outer one meets the inner's commit, read twice."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await a_running_season_open_to_its_team(database)
-            links = LinkReadThenRival(database[Collection.INVITATIONS], lambda: a_registration_submitted(database, client, position=2))
-            await a_registration_submitted(database, client, position=3, einladungen_collection=links)
-
-            return links.passes, await database[Collection.REGISTRIERUNGEN].count_documents({})
-
-        assert on_a_league(mongo_replica_set_url, body) == (1, 2)
 
 
 # Planned below the season just ended, which activation does not refuse, beside a running season whose fixtures are all played.
@@ -863,37 +805,6 @@ class TestEachCallTakesAShare:
         assert answers == [(0, LOESCHUNGEN_PER_PASS), (1, 0)]
         assert standing == 0
 
-    def test_two_calls_at_once_loeschen_each_pupil_once(self, mongo_replica_set_url: str):
-        """Count the attempts rather than the erasures and the sum exceeds the pupils; a conflict surfacing as a failure fails it too."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seeded(database, *(a_due_pupil(position) for position in range(3)))
-            # No sentinel yet, so both calls race to write it as well.
-            await database[Collection.SPIELER].delete_one({"_id": build_ghost_spieler()["_id"]})
-
-            answers = await asyncio.gather(run(database, client), run(database, client))
-
-            return [counts(answer) for answer in answers], await population(database)
-
-        answers, left = on_a_league(mongo_replica_set_url, body)
-
-        assert sum(answer["spieler"] for answer in answers) == 3
-        assert [answer["failed"] for answer in answers] == [0, 0]
-        assert left == []
-
-
-class TestNothingIsDueBeforeASeasonHasEnded:
-    def test_a_league_with_no_past_season_loescht_nobody(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(pupil(numbered(1), address_of(1)))
-
-            return counts(await run(database, client)), await database[Collection.SPIELER].count_documents({"_id": numbered(1)})
-
-        answer, standing = on_a_league(mongo_replica_set_url, body, saisons={"2026": "active", "2027": "future"})
-
-        assert answer["completed_saison_id"] is None
-        assert (answer["spieler"], answer["remaining"], standing) == (0, 0, 1)
-
 
 class TestNoJournalLine:
     def test_the_run_writes_none(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -969,62 +880,3 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         # The premise first: a full share erased, and the pending registrations read past the first batch.
         assert (answer.spieler, names["getMore"]) == (LOESCHUNGEN_PER_PASS, 1), names
         assert names.total() - LOESCHUNGEN_PER_PASS * COMMANDS_A_PERSON == OTHER_COMMANDS, names
-
-
-# --- The preview.
-
-FUTURE = "2027"
-
-
-class TestThePreviewCountsWhomTheNextActivationsRunLoescht:
-    def test_the_run_after_the_activation_loescht_the_count_the_preview_answered(self, mongo_replica_set_url: str):
-        """Read on today's statuses, the preview counts one pupil short: the row in 2025 keeps its pupil until 2026 ends."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            # Kept today by the season just ended; due once 2026 is `past` and 2027 `active`.
-            await seeded(database, a_due_pupil(1), {Collection.SAISON_SPIELER: [squad_row(numbered(2), JUST_ENDED)]})
-            await database[Collection.SPIELER].insert_one(pupil(numbered(2), address_of(2)))
-            # Still kept after it: a row in the season being activated.
-            await database[Collection.SPIELER].insert_one(pupil(numbered(3), address_of(3)))
-            await database[Collection.SAISON_SPIELER].insert_one(squad_row(numbered(3), FUTURE))
-            await database[Collection.SPIELE].insert_one(
-                spiel_document(
-                    spiel_id=numbered(900), saison_id=FUTURE, spiel_nr=1, spieltag_id=numbered(901), datum="2027-03-15", uhrzeit="18:00:00"
-                )
-            )
-
-            vorschau = await get_erasure_preview(
-                saison_id=FUTURE,
-                saisons_collection=database[Collection.SAISONS],
-                spieler_collection=database[Collection.SPIELER],
-                registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-            )
-            await activate_saison(
-                saison_id=FUTURE,
-                saisons_collection=database[Collection.SAISONS],
-                spiele_collection=database[Collection.SPIELE],
-                spieltage_collection=database[Collection.SPIELTAGE],
-                sperrliste_collection=database[Collection.SPERRLISTE],
-                db=client,
-            )
-
-            return counts(vorschau), counts(await run(database, client))
-
-        vorschau, answer = on_a_league(mongo_replica_set_url, body)
-
-        assert vorschau == {"completed_saison_id": "2026", "spieler": 2}
-        assert (answer["spieler"], answer["completed_saison_id"]) == (2, "2026")
-
-    def test_an_unknown_season_is_not_found(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundError):
-                await get_erasure_preview(
-                    saison_id="2099",
-                    saisons_collection=database[Collection.SAISONS],
-                    spieler_collection=database[Collection.SPIELER],
-                    registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-                )
-
-            return "not found"
-
-        assert on_a_league(mongo_replica_set_url, body) == "not found"

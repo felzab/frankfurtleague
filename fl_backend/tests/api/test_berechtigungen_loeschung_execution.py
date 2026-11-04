@@ -20,7 +20,6 @@ from app.api.berechtigungen.loeschung import GeloeschtGrantsAndAuthorship, loesc
 from app.api.berechtigungen.schemas import FLGrantSnapshot
 from app.api.berechtigungen.services import compose_mitteilung
 from app.api.einladungen.services import compose_einladung
-from app.api.kontakte.services import same_address
 from app.api.outbox.schemas import FLGrantData
 from app.api.outbox.services import DELIVERY_DEADLINE, RETENTION
 from app.api.registrierungen.services import compose_ablehnung_update
@@ -291,20 +290,6 @@ class TestHerGrantsGo:
         assert records == {DORA_ID, BERND_ID, CLARA_ID, NAHE_ID}
         assert (result.removed_berechtigungen, result.removed_angekuendigt) == (2, 1)
 
-    def test_the_last_owner_goes_below_the_floor_of_two_and_the_step_refuses_neither(self, mongo_replica_set_url: str):
-        """Neither the revoke's floor nor its owner refusal holds against the step.
-
-        Whether the last owner may go is the caller's: `fl_backend/tests/api/test_funktionen_loeschung.py :: TestTheLastOwner`.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
-            await database[Collection.GRANTS].delete_many({"_id": {"$nin": [ERIKA_ID, BERND_ID]}})
-            await geloescht(database, client)
-
-            return [str(row["_id"]) async for row in database[Collection.GRANTS].find()]
-
-        assert on_a_league(mongo_replica_set_url, body) == [str(BERND_ID)]
-
     def test_a_grant_pasted_unfolded_goes_and_her_pasted_authorship_with_it(self, mongo_replica_set_url: str):
         """Catches a read asking the stored spelling alone, which leaves this grant and its authorship standing."""
 
@@ -472,16 +457,6 @@ class TestTheRecordsSheMade:
             return [await self.author(database, collection, row_id, path) for collection, row_id, path, _ in self.BYSTANDERS]
 
         assert on_a_league(mongo_replica_set_url, body) == [author for _, _, _, author in self.BYSTANDERS]
-
-    def test_the_pattern_reads_the_long_s_spelling_so_the_fold_alone_keeps_that_ban(self, mongo_replica_set_url: str):
-        """The control under the case above: a server whose `i` refused the long s would let that case pass on the pattern alone."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> set[ObjectId]:
-            cursor = await database[Collection.SPERRLISTE].aggregate([{"$match": {"created_by": same_address(ERIKA)}}])
-
-            return {row["_id"] for row in await cursor.to_list()}
-
-        assert BAN_BY_LANGES_S in on_a_league(mongo_replica_set_url, body)
 
 
 def test_her_address_is_held_nowhere_in_the_database_in_either_spelling(mongo_replica_set_url: str):

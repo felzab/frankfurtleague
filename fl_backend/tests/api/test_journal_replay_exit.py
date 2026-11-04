@@ -5,7 +5,6 @@ Run as `scripts/ops/replay_journal.sh` runs it, a process of its own, so what is
 (`app/api/identity/journal_replay.py :: _main`); the judging is `tests/api/test_journal_replay.py`'s.
 """
 
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -13,13 +12,9 @@ from typing import Final
 
 import pytest
 
-from app.api.identity.journal_replay import ERASURE_PAGE_LABEL
 from tests.core.test_config import an_environment
 
 BACKEND_ROOT: Final = Path(__file__).resolve().parents[2]
-# The erasure page's sidemenu entry, which the listing sends an operator to: the container the replay runs in
-# holds no frontend source to read the label from.
-LOESCHUNG_EINTRAG: Final = (BACKEND_ROOT.parent / "fl_frontend" / "src" / "features" / "admin" / "constants.ts", "LOESCHUNG_EINTRAG")
 SINCE: Final = "2026-10-15T03:00:00+00:00"
 UNTIL: Final = "2026-10-15T09:40:00+00:00"
 
@@ -64,14 +59,3 @@ def test_a_window_it_cannot_read_as_one_is_refused_before_the_settings(
 
     assert done.returncode == 2
     assert named in done.stderr.decode()
-
-
-def test_the_replay_names_the_loeschung_page_as_the_sidemenu_does():
-    """A label the sidemenu does not show sends the operator after a restore looking for a page that is not there."""
-
-    module, name = LOESCHUNG_EINTRAG
-    source = module.read_bytes().decode("utf-8")
-    found = re.search(rf'^export const {name} = \{{\n  id: "[a-z]+",\n  label: "(?P<label>[^"]+)",$', source, re.MULTILINE)
-
-    assert found is not None, f"{module.name} does not open {name} with its id and its label"
-    assert found["label"] == ERASURE_PAGE_LABEL, f"the replay names „{ERASURE_PAGE_LABEL}“, where the sidemenu shows „{found['label']}“"

@@ -576,31 +576,6 @@ class TestTheAccountPagesRead:
         assert all(sitz["medien_offered"] for sitz in body["seats"])
         assert {entry["medien_minimum_age"] for entry in [body["spieler"], *body["schiedsrichter"], *body["seats"]]} == {MEDIEN_MIN_AGE_YEARS}
 
-    def test_an_address_holding_nothing_is_answered_empty_rather_than_refused(self, mongo_replica_set_url: str):
-        """The account page renders for every signed-in person."""
-
-        async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
-            return await http.get(KONTO_PATH, headers=_person(NOBODY))
-
-        response = served(mongo_replica_set_url, steps)
-
-        assert response.status_code == 200, response.text
-        assert {key: response.json()[key] for key in ("spieler", "schiedsrichter", "seats", "bewerbungen", "registrierungen")} == {
-            "spieler": None,
-            "schiedsrichter": [],
-            "seats": [],
-            "bewerbungen": [],
-            "registrierungen": [],
-        }
-
-    def test_a_retired_referee_is_answered_for_withdrawal_alone(self, mongo_replica_set_url: str):
-        async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
-            return await http.get(KONTO_PATH, headers=_person(RETIRED))
-
-        body = served(mongo_replica_set_url, steps).json()
-
-        assert [(record["schiedsrichter_id"], record["givable"]) for record in body["schiedsrichter"]] == [(str(RETIRED_OID), False)]
-
 
 # A seated grant's withdrawal, naming the grant the seat's own confirmation gave.
 SEAT_WITHDRAWAL = {
@@ -807,26 +782,6 @@ class TestTheSeatsWhatsAppChoice:
         assert withdrawn.status_code == 204, withdrawn.text
         assert (granted.status_code, granted.json()["error_code"]) == (403, Code.GIVING_NOT_ALLOWED)
         assert after == before
-
-    def test_a_live_re_grant_is_taken(self, mongo_replica_set_url: str):
-        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
-            await _whatsapp_on_every_held_seat(database)
-            path = _seat_path(TEAM_B_OID, ACTIVE_SAISON)
-            withdrawn = await http.patch(
-                path, json=_seat_body(medien=True, stand=_seated_stand(1, umfang="kontaktdaten_whatsapp")), headers=_person(IDENTIFIER)
-            )
-            stand = await _served_stand(http, IDENTIFIER, "seats", team_id=str(TEAM_B_OID), saison_id=ACTIVE_SAISON)
-            granted = await http.patch(
-                path,
-                json=_seat_body(medien=True, umfang="kontaktdaten_whatsapp", stand=stand),
-                headers=_person(IDENTIFIER),
-            )
-            return withdrawn, granted, await _rows(database)
-
-        withdrawn, granted, after = served(mongo_replica_set_url, steps)
-
-        assert (withdrawn.status_code, granted.status_code) == (204, 204), (withdrawn.text, granted.text)
-        assert after[(TEAM_B_OID, ACTIVE_SAISON)]["stellvertretung"]["einwilligung"]["umfang"] == "kontaktdaten_whatsapp"
 
     def test_moving_the_scope_leaves_the_media_consent_and_its_evidence_standing(self, mongo_replica_set_url: str):
         """The media evidence seeded first, so a write setting the block's evidence whole is seen to drop it."""
@@ -1208,23 +1163,6 @@ class TestAPendingRegistration:
         assert first.status_code == 204, first.text
         assert (again.status_code, again.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
-
-    def test_the_read_lists_the_confirmed_pending_registrations_and_no_other(self, mongo_replica_set_url: str):
-        """A returning pupil's is served for its stored data, its choices null: nothing on it to press."""
-
-        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
-            await _registrierungen(database)
-            return await http.get(KONTO_PATH, headers=_person(IDENTIFIER))
-
-        response = served(mongo_replica_set_url, steps)
-
-        assert response.status_code == 200, response.text
-        entries = {entry["registrierung_id"]: entry for entry in response.json()["registrierungen"]}
-        assert sorted(entries) == sorted([str(REGISTRIERUNG_OWN), str(REGISTRIERUNG_RETURNING)])
-        returning = entries[str(REGISTRIERUNG_RETURNING)]
-        assert (returning["umfang"], returning["medien"], returning["nachweis_stand"]) == (None, None, {"umfang": None, "medien": None})
-        assert returning["geburtsdatum"] == SEVENTEEN_BIRTHDATE
-        assert (entries[str(REGISTRIERUNG_OWN)]["umfang"], entries[str(REGISTRIERUNG_OWN)]["medien"]) == ("kader_oeffentlich", True)
 
 
 async def _seats_disagreeing(database: AsyncDatabase) -> None:

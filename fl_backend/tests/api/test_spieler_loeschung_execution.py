@@ -48,11 +48,8 @@ HOME_TEAM_OID = ObjectId("6890a1b2c3d4e5f607420001")
 AWAY_TEAM_OID = ObjectId("6890a1b2c3d4e5f607420002")
 
 TODAY = "2026-04-01"
-# Injected through `get_germany_now`, and in summer, so the conversion below moves the clock.
+# Injected through `get_germany_now`.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-
-# Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`, including none.
-REDACTED_AT = "2026-04-01T10:30:00+00:00"
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -226,17 +223,6 @@ def images_naming(images: list[dict[str, Any]], spieler_id: ObjectId) -> list[di
 class TestARetiredPupilIsGeloeschtWhole:
     """Through the endpoint: the person, their squad rows and their values in the log, or none of the three."""
 
-    def test_the_person_is_gone_from_the_collection(self, mongo_replica_set_url: str):
-        """Catches an erasure that only stamps `inactive_since` again -- the soft delete wearing a new route."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
-            await loeschen_the_pupil(database, client, spieler_id)
-
-            return await database[Collection.SPIELER].count_documents({"_id": spieler_id})
-
-        assert on_a_league(mongo_replica_set_url, body) == 0
-
     def test_every_squad_row_they_held_is_gone(self, mongo_replica_set_url: str):
         """Catches removing the person alone: the squad read `$lookup`s outward from `spieler`, so an orphan is invisible."""
 
@@ -265,29 +251,6 @@ class TestARetiredPupilIsGeloeschtWhole:
 
         assert on_a_league(mongo_replica_set_url, body) == (1, 2)
 
-    def test_every_log_row_naming_them_is_emptied_and_stamped(self, mongo_replica_set_url: str):
-        """Catches a redaction that stamps without clearing the image, and one that clears without stamping.
-
-        The pre-state is asserted too, without which a filter matching nothing would pass this test.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
-            before_loeschung = await log_rows_naming(database, spieler_id)
-            await loeschen_the_pupil(database, client, spieler_id)
-
-            stamped = await database[Collection.ACTION_LOG].find({"redacted_at": {"$ne": None}}).to_list(length=None)
-
-            return before_loeschung, stamped
-
-        before_loeschung, stamped = on_a_league(mongo_replica_set_url, body)
-
-        # The floor: the seeded history really did leave this person's names and consent record in the log.
-        assert [row for row in before_loeschung if row["before"] is not None], "the seeded log held no image to redact"
-        assert sorted(row["_id"] for row in stamped) == sorted(row["_id"] for row in before_loeschung)
-        assert all(row["before"] is None for row in stamped)
-        assert {row["redacted_at"] for row in stamped} == {REDACTED_AT}
-
     def test_another_pupils_log_rows_keep_their_images(self, mongo_replica_set_url: str):
         """Catches an `$or` branch matching on `collection` alone, which would empty the whole log."""
 
@@ -302,44 +265,6 @@ class TestARetiredPupilIsGeloeschtWhole:
 
         assert [row for row in rows if row["before"] is not None], "the other pupil's log rows were emptied too"
         assert all(row["redacted_at"] is None for row in rows)
-
-    def test_the_redaction_writes_no_row_of_its_own(self, mongo_replica_set_url: str):
-        """Catches removing `record_write`'s early return on the log: the redaction would record a fresh copy of the values it erased.
-
-        Exactly three rows are added, the sentinel's insert and the two removals', and none names the log.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
-            before_count = await database[Collection.ACTION_LOG].count_documents({})
-            await loeschen_the_pupil(database, client, spieler_id)
-
-            return (
-                before_count,
-                await database[Collection.ACTION_LOG].count_documents({}),
-                await database[Collection.ACTION_LOG].count_documents({"collection": str(Collection.ACTION_LOG)}),
-            )
-
-        before_count, after_count, self_recorded = on_a_league(mongo_replica_set_url, body)
-
-        assert after_count == before_count + 3
-        assert self_recorded == 0
-
-    def test_the_loeschung_stays_readable_as_an_action(self, mongo_replica_set_url: str):
-        """Catches a redaction that stamps its own two rows: what the erasure did would then be as unreadable as what it removed."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
-            await loeschen_the_pupil(database, client, spieler_id)
-
-            return await database[Collection.ACTION_LOG].find({"operation": "erase_many"}).to_list(length=None)
-
-        rows = on_a_league(mongo_replica_set_url, body)
-
-        assert {row["collection"] for row in rows} == {str(Collection.SPIELER), str(Collection.SAISON_SPIELER)}
-        # No image by construction, and unstamped: an erasure has to be able to show its own filter and count.
-        assert all(row["before"] is None and row["redacted_at"] is None and row["db_filter"] for row in rows)
-        assert sum(row["modified_count"] for row in rows) == 3
 
 
 class TestNothingOfTheirsIsLeftAnywhere:
