@@ -534,6 +534,48 @@ def test_a_link_through_a_record_of_paths_mints_one_to_each_of_its_values():
     assert [path for _, path in routes.minted(root)] == ["/neuhilfe", "/neuhilfe/zwei"]
 
 
+ROUTES_TABLE = (
+    "export const ROUTES = {\n"
+    '  neuhilfe: { path: () => "/neuhilfe" as const, title: null, crawl: "disallow" },\n'
+    "  neuZwei: {\n"
+    '    path: () => "/neuhilfe/zwei" as const,\n'
+    "    title: null,\n"
+    '    crawl: "disallow",\n'
+    "  },\n"
+    '  neuSaison: { path: (saison: string) => `/neuhilfe/${saison}` as const, title: null, crawl: "disallow" },\n'
+    "};\n"
+)
+
+
+def test_a_link_through_a_routes_row_mints_one_to_that_row_s_path():
+    """The page's address is spelled once, in the table, so the link is placed where the table places it."""
+    root = new_root("check-public-routes-")
+    write(root, "core/routes.ts", ROUTES_TABLE)
+    write(
+        root,
+        "core/neuLink.ts",
+        "export const eins = (origin: string, token: string) => `${origin}${ROUTES.neuhilfe.path()}?token=${token}`;\n"
+        "export const zwei = (origin: string, token: string) => `${origin}${ROUTES.neuZwei.path()}?token=${token}`;\n",
+    )
+
+    assert [path for _, path in routes.minted(root)] == ["/neuhilfe", "/neuhilfe/zwei"]
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["neuDrei", "neuSaison"],
+    ids=["a-row-the-table-does-not-hold", "a-row-taking-segments"],
+)
+def test_a_link_through_a_routes_row_this_reader_cannot_place_refuses(monkeypatch, key):
+    """A row it skipped would drop its page from the listing; a row taking segments names no one page."""
+    app = link_page("/neuhilfe")
+    write(app.parent, "core/routes.ts", ROUTES_TABLE)
+    minter = "export const neuLink = (origin: string, token: string) => `${origin}${ROUTES." + key + ".path()}?token=${token}`;\n"
+    write(app.parent, "core/neuLink.ts", minter)
+
+    assert run_main(app, "server {\n" + CATCH_ALL + "}\n", monkeypatch) == routes.EXIT_REFUSED
+
+
 @pytest.mark.parametrize(
     "text",
     [

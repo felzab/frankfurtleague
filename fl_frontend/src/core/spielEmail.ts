@@ -3,6 +3,7 @@ import "server-only";
 import { COPY } from "./copy";
 import { BRAND_NAME, mailOrigin } from "./emailShell";
 import { dayOf, formatDatum, formatUhrzeit, timeOf } from "./format";
+import { ROUTES } from "./routes";
 import { DEIN_BEREICH_TITEL, EINSAETZE_TITEL } from "./seitenNamen";
 
 import type { Fact, Mail, Run } from "./emailShell";
@@ -17,15 +18,12 @@ import type {
 } from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
 
-/** Under the segment `fl_frontend/src/app/robots.ts` already turns crawlers back from, so a live token is never indexed. */
-export const SPIEL_BESTAETIGUNG_PATH = "/confirm/spiel";
-
 /**
  * The one place this link is spelled. `token` is the name `nginx/shared/http.conf :: $credential_free_uri`
  * redacts, and the origin goes through `mailOrigin` here, so the link and the message's close stand on one host.
  */
 export function spielBestaetigungsLink(origin: string, token: string): string {
-  return `${mailOrigin(origin)}${SPIEL_BESTAETIGUNG_PATH}?token=${encodeURIComponent(token)}`;
+  return `${mailOrigin(origin)}${ROUTES.spielbestaetigung.path()}?token=${encodeURIComponent(token)}`;
 }
 
 /** One fixture as a message states it. No person, the referee included. */
