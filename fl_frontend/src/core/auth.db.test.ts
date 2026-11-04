@@ -540,7 +540,7 @@ describe("a set-up the gate refuses, against a real database", () => {
     const refused = await verify(offered, AUTHENTICATOR_A, { createSession: true });
 
     expect(refused.status, await refused.clone().text()).toBe(403);
-    expect(((await refused.clone().json()) as { code?: string }).code).toBe("SIGN_IN_HOLDS_NOTHING");
+    expect(((await refused.clone().json()) as { code?: string }).code).toBe("SIGN_IN_REFUSED");
     expect(await passkeyRows(), "the refused set-up left its passkey behind").toStrictEqual([]);
     expect((await sessionRows()).map(({ authFactor }) => authFactor)).toStrictEqual(["code"]);
   });
@@ -590,7 +590,7 @@ describe("a code sign-in through the mint, against a real database", () => {
 
     gateAnswer = { seats: [SEAT], barred: true, account: true };
     await expect(signInByCode(auth, PERSON, { ...ORIGIN, cookie: held })).rejects.toSatisfy((error: { body?: { code?: unknown } }) => {
-      return error.body?.code === "SIGN_IN_BARRED";
+      return error.body?.code === "SIGN_IN_REFUSED";
     });
 
     expect(await sessionRows(), "a refused code sign-in minted a session or ended the held one").toStrictEqual(before);

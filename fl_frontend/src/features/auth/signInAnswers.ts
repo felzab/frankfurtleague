@@ -1,6 +1,6 @@
 import { ADDRESS_ATTEMPTS_EXHAUSTED } from "@/core/auth/codeRefusal";
 import { COPY } from "@/core/copy";
-import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING } from "@/core/passkeyRefusal";
+import { SIGN_IN_REFUSED } from "@/core/passkeyRefusal";
 
 import { refusalCode, refusalStatus } from "./passkeyAnswers";
 
@@ -24,17 +24,16 @@ export function signInAnswer(satz: string | undefined): Copy {
 
 /**
  * The library's refusals of a typed code by their code. Each reaches an address holding an account and one holding
- * none alike, so none of them names which it met; the mint's two, met only past a right code, are worded as one, so
- * that no answer tells a barred address from one holding no record. A code never mailed, one already spent and one a
- * newer mail replaced are `INVALID_OTP` too: the row is gone either way.
+ * none alike, so none of them names which it met; the mint's, met only past a right code, is one code for a barred
+ * address and one holding no record. A code never mailed, one already spent and one a newer mail replaced are
+ * `INVALID_OTP` too: the row is gone either way.
  */
 const CODE_REFUSALS: ReadonlyMap<string, Copy> = new Map([
   ["INVALID_OTP", refusal.codeWrong],
   ["OTP_EXPIRED", refusal.codeExpired],
   ["TOO_MANY_ATTEMPTS", refusal.codeTooOften],
   [ADDRESS_ATTEMPTS_EXHAUSTED, refusal.addressTooOften],
-  [SIGN_IN_BARRED, refusal.noRecord],
-  [SIGN_IN_HOLDS_NOTHING, refusal.noRecord],
+  [SIGN_IN_REFUSED, refusal.noRecord],
 ]);
 
 /** The mint's backend did not answer, after the code was already spent: retyping it would meet a wrong code. */

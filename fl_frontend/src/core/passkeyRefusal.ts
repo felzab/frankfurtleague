@@ -5,8 +5,8 @@
  */
 export const USER_VERIFICATION_REFUSED = "USER_VERIFICATION_REQUIRED";
 
-/** A sign-in the gate turned away as the session was minted: the address is barred. */
-export const SIGN_IN_BARRED = "SIGN_IN_BARRED";
-
-/** The same, for an address holding no record of its own in the league. */
-export const SIGN_IN_HOLDS_NOTHING = "SIGN_IN_HOLDS_NOTHING";
+/**
+ * A sign-in the gate turned away as the session was minted, a barred address and one holding no record of its own
+ * alike: one code on the wire, so no answer the browser reads tells who stands on the ban list.
+ */
+export const SIGN_IN_REFUSED = "SIGN_IN_REFUSED";

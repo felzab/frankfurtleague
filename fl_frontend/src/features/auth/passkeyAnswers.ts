@@ -1,5 +1,5 @@
 import { COPY } from "@/core/copy";
-import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "@/core/passkeyRefusal";
+import { SIGN_IN_REFUSED, USER_VERIFICATION_REFUSED } from "@/core/passkeyRefusal";
 
 import type { Copy } from "@/core/copy";
 
@@ -9,10 +9,7 @@ import type { Copy } from "@/core/copy";
  */
 const OHNE_BESTAETIGUNG = COPY.signIn.refusal.unverified;
 
-/**
- * An address holding no record of its own in the league, or a barred one, which a retry would not change.
- * One sentence for both, so no answer here tells who stands on the ban list.
- */
+/** An address holding no record of its own in the league, or a barred one, which a retry would not change. */
 const OHNE_EINTRAG = COPY.signIn.refusal.noRecord;
 
 /** Read off the answer rather than off its type: the client declares no `code`, and the body has one. */
@@ -26,8 +23,7 @@ export const refusalStatus = (error: unknown): number | undefined =>
 /** Every refusal a retry of the same press would meet again, by its code. */
 const WORDED: ReadonlyMap<string, Copy> = new Map([
   [USER_VERIFICATION_REFUSED, OHNE_BESTAETIGUNG],
-  [SIGN_IN_BARRED, OHNE_EINTRAG],
-  [SIGN_IN_HOLDS_NOTHING, OHNE_EINTRAG],
+  [SIGN_IN_REFUSED, OHNE_EINTRAG],
 ]);
 
 /**

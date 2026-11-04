@@ -6,7 +6,7 @@ import { makeSignature } from "better-auth/crypto";
 import { now } from "../clock";
 import { asSignInIdentifier } from "../emailAddress";
 import { logger } from "../logging";
-import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING } from "../passkeyRefusal";
+import { SIGN_IN_REFUSED } from "../passkeyRefusal";
 import { CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS } from "../signInCode";
 import { HOUR_MS } from "../timeUnits";
 
@@ -99,7 +99,7 @@ export const attemptRows = new WeakMap<object, string>();
  */
 export function refusedAtMint(returned: APIError): boolean {
   const code: unknown = returned.body?.code;
-  return code === SIGN_IN_BARRED || code === SIGN_IN_HOLDS_NOTHING || returned.status === "SERVICE_UNAVAILABLE";
+  return code === SIGN_IN_REFUSED || returned.status === "SERVICE_UNAVAILABLE";
 }
 
 /**
