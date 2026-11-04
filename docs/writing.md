@@ -26,7 +26,10 @@ check is on this page.
   a visitor reads is not a name and keeps its words. A page address and a mailed link's address follow
   this rule as a name does, each segment a league word or English, save `/impressum` and `/datenschutz`,
   the words German law and a German visitor look for (`fl_frontend/src/core/routes.ts :: ADDRESS_WORDS`,
-  which `fl_frontend/src/core/routes.test.ts` holds every address to). A
+  which `fl_frontend/src/core/routes.test.ts` holds every address to but those under the two trees its
+  `UNHELD` names: `/area/admin`, the administration's old pages, until sessions 5 to 7 rebuild them,
+  and `/api/bestaetigung`, the confirmation handlers, until sessions 5, 6 and 8 move their last
+  importers). A
   data noun stored or served under its German name (`datum`, `vorname`, `grund`, `art`) keeps it,
   and a stored field name or value already in production keeps its spelling unless a paste is owed
   anyway. A name the production host or a deploy holds (a secret file, an environment variable, a

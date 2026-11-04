@@ -86,7 +86,7 @@ TEST_SUFFIXES: Final = tuple(f".test{suffix}" for suffix in CODE_EXTENSIONS)
 
 # The pair `nginx/shared/http.conf` declares for the link pages, metering every request and method,
 # which a link page's own location and its twin's must both name.
-LINK_ZONES: Final = frozenset({"linkseite", "linkseite48"})
+LINK_ZONES: Final = frozenset({"linkpage", "linkpage48"})
 
 # The prefix of a `limit_req` argument naming its zone.
 ZONE: Final = "zone="
