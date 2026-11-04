@@ -66,7 +66,12 @@ SPIELER_OIDS = {
     "Weber": ObjectId("6890a1b2c3d4e5f607390015"),
     # The other way round, so the one match that stays is pinned by a row it really removes.
     "Kraus": ObjectId("6890a1b2c3d4e5f607390016"),
+    # A squad row only: no person holds this id, as after a hand edit removed the person and left the row.
+    "Niemand": ObjectId("6890a1b2c3d4e5f607390017"),
 }
+
+# The shirt of that row, which no other row wears, searched for as an absence.
+NOBODYS_NUMMER = "99"
 
 STORED_SURNAMES = ("Müller", "Adler", "Öztürk", "Weber")
 
@@ -365,6 +370,25 @@ class TestTheBaseTierReadExecuted:
         """The retirement this read does filter on, so dropping the person's match cannot be mistaken for dropping both."""
         assert RETIRED_ROW_VORNAME not in self._by_vorname(seeded_url)
 
+    def test_a_squad_row_naming_no_person_serves_no_slot(self, seeded_url: str):
+        """The join is strict: a row whose person is gone would reach the page with no name, which `FLSpielerPublic` refuses.
+
+        Asked of the pipeline's rows before the page, so a lenient join fails here on the row it lets through rather than
+        on the validation error it raises for the whole squad.
+        """
+
+        async def body(database: AsyncDatabase) -> Any:
+            row = await database.saison_spieler.find_one({"spieler_id": SPIELER_OIDS["Niemand"]})
+
+            return row, await database.spieler.count_documents({"_id": SPIELER_OIDS["Niemand"]})
+
+        row, persons = on_a_database(seeded_url, body)
+
+        # The premise first: the row is stored, live, in the season the page reads, and nobody holds its person.
+        assert (row["saison_id"], row["inactive_since"], persons) == (SAISON, None, 0)
+        assert NOBODYS_NUMMER not in [yielded.get("nummer") for yielded in self._rows(seeded_url)]
+        assert NOBODYS_NUMMER not in [served["nummer"] for served in self._read(seeded_url)["kader"]]
+
     def test_a_stored_surname_is_served_as_an_initial(self, seeded_url: str):
         assert self._by_vorname(seeded_url)["Maxim"]["nachname"] == "M."
 
@@ -459,10 +483,10 @@ class TestTheBaseTierReadExecuted:
 # from being left as a claim.
 @pytest.fixture(scope="module")
 def seeded_url(mongo_url: str) -> Iterator[str]:
-    """Six people and their squad rows.
+    """Six people and their squad rows, and a squad row naming nobody.
 
-    A retired person beside a live row, a retired row, a surname whose initial is two bytes, and a
-    person carrying no surname at all.
+    A retired person beside a live row, a retired row, a surname whose initial is two bytes, a
+    person carrying no surname at all, and a live row whose person no record holds.
     """
 
     async def _seed() -> None:
@@ -489,6 +513,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
                     _squad_row("Oeztuerk", nummer="5", position="Mittelfeld", stufe="Q1"),
                     _squad_row("Weber", nummer="1", position="Tor", stufe="Q2"),
                     _squad_row("Kraus", nummer="12", position="Angriff", stufe="Q4", inactive_since="2026-03-01"),
+                    _squad_row("Niemand", nummer=NOBODYS_NUMMER, position="Tor", stufe="Q1"),
                 ]
             )
 
