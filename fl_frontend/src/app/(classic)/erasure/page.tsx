@@ -85,7 +85,7 @@ async function readState(searchParams: NextPageProps["searchParams"]): Promise<M
 /** What goes, one row per label, the records the erasure view reads under it: the list a deletion erases. */
 function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResponse): Fact[] {
   const { spieler, schiedsrichter, seats, bewerbungen, registrierungen, address_change, verwaltung } = view;
-  // One row per label, since a label keys its row: two seats held as one role name both under it.
+  // One row per label, so the list reads each kind of record once: two seats held as one role name both under it.
   const records = new Map<Copy, Words[]>();
   const add = (label: Copy, record: Words) => records.set(label, [...(records.get(label) ?? []), record]);
 
