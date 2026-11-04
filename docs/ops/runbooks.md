@@ -179,10 +179,10 @@ the machine is outside the repository. What it does tell you:
   - that build's boot attaches its own validators again, which refuse any write over either row.
 - **Never deploy by tag a build published before `sha-3eebe79`, the first build requiring the
   records as the deletion of every pupil and referee row and the emptying of the action log left
-  them; roll forward instead.** Such a build's returning pupil's page stamps a consent label
-  the current registry does not hold (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`), so a
-  record it confirms cites words nobody can produce, and no check compares a stored label with the
-  registry.
+  them; roll forward instead.** Such a build stamps consent labels the current wordings do not hold
+  (`fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`), so a record it confirms cites
+  words nobody can produce; `python -m app.readback` names each such record, the evidence's label
+  being a `Literal` of the current ones.
 - **After serving a build older than the season-row confirmation links, re-send the link of every
   contact seat that build re-staffed, once the current build is back.** That build's contacts editor
   leaves a row's links standing when it hands a seat to another person, and the confirmation finds a
@@ -526,7 +526,7 @@ question is answered at all. Each of its rows is gone twelve months after the wr
 Send the categories, the values, where each came from, who receives them
 ([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)'s processor table), how long
 they are kept, and the address for a complaint to the supervisory authority. Point at the published
-notice (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) for the standing text
+notice at `/datenschutz` for the standing text
 rather than restating it in the mail. A contact seat's WhatsApp evidence may be a copy a hand paste
 made from its confirmation's log row before the log was emptied
 ([`../datenschutz.md`](../datenschutz.md#11-open-and-owed-a-decision)): say so where an answer sends
@@ -1379,7 +1379,7 @@ Then the read-back (§2): exit 0.
 ## 13. After a restore from a snapshot
 
 **The published notice promises that nothing comes back from a backup without the person's erasure
-being run again** (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`), and this is
+being run again** (`/datenschutz`), and this is
 how that promise is kept ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)).
 Two things a restore is contemplated for: a hand-run migration that succeeded against a mistyped path
 (§2), and a mistaken erasure, for which the snapshot window is the only route back. Write down the
