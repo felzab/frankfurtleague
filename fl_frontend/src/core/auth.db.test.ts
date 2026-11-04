@@ -870,7 +870,11 @@ describe("an account deleted, against a real database", () => {
         },
         () => deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => Promise.resolve({})),
       ),
-    ).rejects.toThrow(/planted: the user row's delete fails/);
+      // Past the library's spend of the link, so of an outcome the press cannot name, the planted failure its cause.
+    ).rejects.toSatisfy(
+      (thrown: Error) =>
+        thrown.name === "DeletionOutcomeUnknown" && /planted: the user row's delete fails/.test((thrown.cause as Error).message),
+    );
 
     expect(await heldOf(person)).toStrictEqual({ user: 1, sessions: 0, passkeys: 0, pending: 0 });
   });
