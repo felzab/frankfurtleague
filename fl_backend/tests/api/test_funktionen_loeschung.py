@@ -101,8 +101,8 @@ NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # The person as a request or a pasted grant may spell them, and the fold every record the league writes stores.
 TYPED = "Zorbanax.Quillfeather@Example.org"
 IDENTIFIER = "zorbanax.quillfeather@example.org"
-# As a hand-typed row may spell it, the domain fullwidth: the fold equates it with theirs, a pattern listing domains never.
-PASTED = IDENTIFIER.replace("example", "".join(chr(ord(letter) + 0xFEE0) for letter in "example"))
+# As a hand-typed row may spell it, in capitals: the fold equates it with theirs, an equality on the stored spelling never.
+PASTED = IDENTIFIER.upper()
 VORNAME, NACHNAME = "Zorbanax", "Quillfeather"
 TELEFON = "+49 69 7771234"
 GEBURTSDATUM = "2008-07-14"
