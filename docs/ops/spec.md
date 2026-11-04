@@ -232,12 +232,12 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | `= /api/client-error`                | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30` ([`docs/logging/overview.md`](../logging/overview.md))                                             |
 | `= /api/bewerbung`                   | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's |
 | `= /api/bewerbung/kuerzel`           | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                             |
-| `= /api/bestaetigung/kontakt`        | `frontend:3000` | Next route handler, the contact person's confirmation — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                             |
+| `= /api/bestaetigung/kontakt`        | `frontend:3000` | Next route handler, the contact person's confirmation — paired `limit_req` `zone=confirmation burst=3` and `zone=confirmation48 burst=30`, and `client_max_body_size 8k`                             |
 | `= /api/registrierung`               | `frontend:3000` | Next route handler, a pupil's registration through their team's invite — paired `limit_req` `zone=registrierung burst=40` and `zone=registrierung48 burst=400`, and `client_max_body_size 8k`        |
 | `= /api/bestaetigung/spieler`        | `frontend:3000` | Next route handler, the pupil's confirmation — paired `limit_req` `zone=spielerlink burst=40` and `zone=spielerlink48 burst=400`, and `client_max_body_size 8k`                                      |
-| `= /api/bestaetigung/schiedsrichter` | `frontend:3000` | Next route handler, the referee's confirmation link — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                               |
+| `= /api/bestaetigung/schiedsrichter` | `frontend:3000` | Next route handler, the referee's confirmation link — paired `limit_req` `zone=confirmation burst=3` and `zone=confirmation48 burst=30`, and `client_max_body_size 8k`                               |
 | `= /api/bestaetigung/spiel`          | `frontend:3000` | Next route handler, a club's answer to a fixture confirmation link — paired `limit_req` `zone=spielbestaetigung burst=10` and `zone=spielbestaetigung48 burst=100`, and `client_max_body_size 8k`    |
-| `= /api/mail/delivery`               | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`, and `client_max_body_size 8k`                          |
+| `= /api/mail/delivery`               | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=delivery burst=300` and `zone=delivery48 burst=3000`, and `client_max_body_size 8k`                              |
 | the `/` twins                        | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
 | `= /api/v0/system/is_live`           | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (§3)                                                                                                  |
 | `= /signin`                          | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
@@ -647,9 +647,9 @@ offered a sign-in only where the local backend holds records for their address (
 `/area/admin` there**: the code stamps its session `code` where the admin guard wants `passkey`
 (`fl_frontend/src/core/auth/guards.ts :: isAdminSession`), so `/signin/passkey` offers an enrolment first —
 bound to this machine's own authenticator and to `localhost`, the relying party the local `AUTH_URL`
-gives. Every machine, and every `--fresh`, enrols again. A second passkey is added from the
-sidemenu's options menu rather than from `/signin/passkey`, and adding or removing one asks for a
-passkey the machine already holds.
+gives. Every machine, and every `--fresh`, enrols again. A second passkey is added on Konto's
+„Sicherheit“ page, `/account/security`, rather than from `/signin/passkey`, and adding or removing
+one asks for a passkey sign-in the machine made within the last minute.
 
 **The production tier's limitations shape that command**, and they are the fastest-rotting fact on
 this page: read from MongoDB's Atlas Flex limitations documentation, 2026-08-27. What each denial

@@ -196,6 +196,9 @@ A date field shows „tt.mm.jjjj“ and a time field „––:––“ while e
 - **Semicolons are allowed here alone.**
 - **A consent's label is its whole sentence**, past a field label's 3 words, because the sentence
   is what the person agrees to.
-- **A consent wording a stored record references stays as it was shown**, superseded or not: it
+- **A consent wording stays as it was shown**, because a stored record cites its words by label: it
   lives outside the catalogue, in `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`,
-  where new words are a new label beside it.
+  where new words are a new label beside it. The one exception is the paste the deploy of the
+  current wordings owes, which re-points every stored record's label to its consent's current
+  wording, so a record stamped before that deploy cites words its person was not shown
+  ([the `Fassung` entry](../glossary.md#fassung--wording--one-frozen-consent-wording-a-person-was-shown-under-its-label)).
