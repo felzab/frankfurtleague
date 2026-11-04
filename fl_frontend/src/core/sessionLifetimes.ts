@@ -40,7 +40,8 @@ export const PASSKEY_TOUCH_SECONDS = 60;
 export const STEP_UP_WINDOW_MS = 2 * HOUR_MS;
 
 // Redesign: goes with its last importer.
-// Narrower for a confirmation the old account forms ask before a change to passkeys.
+// Narrower, for the administration's step-up before a write granting, moving, changing or ending access to the
+// administration, which outlives the session confirming it.
 export const ENROLMENT_WINDOW_MS = 5 * 60 * 1000;
 
 function isYoungerThan(createdAt: Date | string, window: number): boolean {
@@ -59,7 +60,7 @@ export function isWithinStepUpWindow(createdAt: Date | string): boolean {
 }
 
 // Redesign: goes with its last importer.
-/** The old account forms' confirmation before a change to passkeys asks a sign-in this recent. */
+/** The administration's narrower step-up, before a write on its access, asks a sign-in this recent. */
 export function isWithinEnrolmentWindow(createdAt: Date | string): boolean {
   return isYoungerThan(createdAt, ENROLMENT_WINDOW_MS);
 }

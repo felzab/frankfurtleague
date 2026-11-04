@@ -118,6 +118,9 @@ const REFEREES = [
   // fixture's booking (`booked`, by index) changes, and no other journey signs in as either.
   referee("Clara Kranz", null, 20, "clara.kranz@example.com", null),
   referee("Dora Dahl", null, 20, "dora.dahl@example.com", null),
+  // The desktop passkey journey's own person, whose passkeys it sets up and removes: no other journey signs in as them,
+  // so a run it leaves halfway hands no passkey to the sign-in journey's person.
+  referee("Emil Ernst", null, 20, "emil.ernst@example.com", null),
 ];
 
 // --- Grants --------------------------------------------------------------------------------------

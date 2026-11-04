@@ -34,14 +34,14 @@ its squad, and a search over the season's matches (_Spielsuche_).
 
 The site also supports the season's organisation:
 
-| Who                    | What the site lets them do                                                                  |
-| ---------------------- | ------------------------------------------------------------------------------------------- |
-| **Schools**            | Apply to play a season (_Bewerbung_), each contact person confirming by email               |
-| **Contact people**     | Keep their team's squad list (_Kader_), and accept or decline the pupils who registered     |
-| **Pupils**             | Register through their team's link (_Einladung_), and choose what is published about them   |
-| **Referees**           | Confirm the details the league entered for them                                             |
-| **Everyone signed in** | Manage passkeys, sign-ins and consents on one account page (_Konto_), or delete the account |
-| **Administrators**     | Run the season, its draw and results, clubs, referees, venues, applications and access      |
+| Who                    | What the site lets them do                                                                                      |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Schools**            | Apply to play a season (_Bewerbung_), each contact person confirming by email                                   |
+| **Contact people**     | Keep their team's squad list (_Kader_), and accept or decline the pupils who registered                         |
+| **Pupils**             | Register through their team's link (_Einladung_), and choose what is published about them                       |
+| **Referees**           | Confirm the details the league entered for them                                                                 |
+| **Everyone signed in** | Manage their address, passkeys, sign-ins and consents on their account's pages (_Konto_), or delete the account |
+| **Administrators**     | Run the season, its draw and results, clubs, referees, venues, applications and access                          |
 
 Sign-ups open with the coming season.
 

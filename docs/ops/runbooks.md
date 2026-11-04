@@ -363,10 +363,11 @@ ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `granted_at`, or by
 - **The grant is the access; the person's own next sign-in enrols the passkey.** An address holding
   a grant and no passkey is answered the enrolment page and reaches no admin route until one stands,
   so there is nothing to prepare for them and nothing to hand over.
-- **A lost passkey is the administrator's own to replace while they still hold another**: the
-  account page, `/account`, lists what they hold, adds one behind a passkey sign-in of the last
-  minute and removes one behind a passkey sign-in or confirmation inside the step-up window, and the
-  last row cannot be removed.
+- **A lost passkey is the administrator's own to replace while they still hold another**: Konto's
+  „Sicherheit“ page, `/account/security`, lists what they hold, and adds one and removes one each
+  behind a passkey sign-in of the last minute
+  (`fl_frontend/src/core/sessionLifetimes.ts :: PASSKEY_TOUCH_SECONDS`), and their last row cannot
+  be removed.
   Removing one signs out the devices that passkey signed in, and no other.
 - **An administrator who has lost every passkey is recovered in the Atlas console**, by deleting
   their rows in the `passkey` collection of the `auth` database; their next sign-in by mailed
@@ -555,8 +556,9 @@ season's matches, a referee not being season-scoped.
 change of an address moves, in one step, every pupil row, confirmed referee row, confirmed contact
 seat, registration and grant the address holds, so one sign-in stays whole.
 
-- **The person can still sign in.** Point them to their account page, `/account`, „E-Mail-Adresse
-  ändern“. They type the new address, a person holding a passkey touching it first, confirm the
+- **The person can still sign in.** Point them to Konto's „Anmeldung“ page, `/account/signin`, and
+  its box „E-Mail-Adresse“. They type the new address under „Neue E-Mail-Adresse“ and press „Link
+  senden“, a person holding a passkey touching it first, confirm the
   change by the link mailed to the address on file, and then by the link that confirmation mails the
   new address, each within `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS`
   hours; declining at either link ends it. Never start a change for a
@@ -641,8 +643,8 @@ afresh in the contacts editor under the new address: the seat is then a new entr
 media choice and birthdate asked again through the fresh link, and the old entry's records stay at
 the old address.
 
-**Withdrawing a consent is the person's own write on their account page, `/account`, and
-never an erasure or an edit by hand**. Point a request
+**Withdrawing a consent is the person's own write on Konto's „Deine Einträge“,
+`/account/entries`, and never an erasure or an edit by hand**. Point a request
 arriving by mail at the control for its record, which the person reaches by signing in with the
 address that record holds:
 
@@ -701,8 +703,8 @@ by mail instead has two answers, and which one you give is the person's to choos
 - **They want off the website and out of the league.** „Löschung auf Anfrage“ on the address their
   record holds, which takes the squad rows with the person and asks no retirement first.
 - **They want their name withheld and their place kept.** Answer by pointing them to the control
-  on their account page, `/account`, which they reach by signing in with the address their
-  record holds. **Never edit a consent block by hand**, in the console or anywhere else: a choice
+  on Konto's „Deine Einträge“, `/account/entries`, which they reach by signing in with the address
+  their record holds. **Never edit a consent block by hand**, in the console or anywhere else: a choice
   the person did not make is not their consent. The write that
   withholds the name drops the cached
   squad list, and the next read serves the row as a nameless slot; check the public squad page before you answer.
@@ -1394,6 +1396,15 @@ registry does not hold, which §2's read-back passes, a record model taking any 
 snapshot taken before that moment, its snapshot window being about eight days
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); delete it then.
 
+**A snapshot taken before the deploy of the current consent wordings brings back the labels that
+deploy's paste re-pointed: once the restore has completed, run that paste again, before the replay
+below.** It is the paste the owner's checklist holds for that deploy, moving every stored label, a
+withdrawal's `given_before` among them, to its consent's current wording. Skipped, every read of a record citing an older label is refused, the read models
+admitting the current labels alone (`fl_backend/app/shared/schemas/einwilligung.py ::
+FLEinwilligungTextVersion`) while §2's read-back passes them, and the replay would stamp the current
+label on a withdrawal whose `given_before` keeps the old one. This lapses with the rule above, once
+the hosting holds no snapshot taken before that deploy; delete it then.
+
 **Before restoring, start the frontend held: add `RESTORE_HOLD=on` to the server's
 `fl_frontend/.env` and deploy (§1), and take the line out again only at the last step below.** The
 steps below are done on the admin pages, so the frontend runs throughout, and every hourly pass
@@ -1443,7 +1454,7 @@ the stream remove it, and the replay refuses then as well.
 
 It hands the day files from the snapshot's day on to the backend's container, which reads every line
 written after the first moment and no later than the second, and matches it against the restored
-database under the journal's key (`fl_backend/app/api/identity/wiederherstellung.py`), so **the key
+database under the journal's key (`fl_backend/app/api/identity/journal_replay.py`), so **the key
 is never typed, and no address, no hash and no key is printed**. Before the container is asked, it
 refuses a moment naming no offset, a restore's end no later than the snapshot, and a snapshot's day
 the export wrote no file for. Each line is listed by its act and its record, never by its person:
