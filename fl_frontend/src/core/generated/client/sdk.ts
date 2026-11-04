@@ -252,16 +252,16 @@ export const getAccountGetAddressChangeUrl = () => {
 };
 
 /**
- * Answer whether the signed-in address holds anything its own change moves, and the change pending on it.
+ * Answer the change pending on the signed-in address, null where none is.
  *
- * PERSON TIER. `possible` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a
- * registration or a grant. **The pending address is served masked where an administrator started the change**, whole
+ * PERSON TIER. Whether the address holds anything a change moves is the start's to answer, refused
+ * `address_change_nothing`. **The pending address is served masked where an administrator started the change**, whole
  * only where the person typed it here: a change an administrator started may be a pretext whose target the holder of
  * the address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change
  * mailed the address on file, which this page answers nothing of. `approval` is the approval a change moving the
  * person's grant waits on;
  * `expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
- * @summary Whether a signed-in person may change their address
+ * @summary The address change pending on a signed-in person
  */
 export const accountGetAddressChange = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAccountAddressChangeResponse> => {
   return adminKeyTransport<FLAccountAddressChangeResponse>(getAccountGetAddressChangeUrl(), {

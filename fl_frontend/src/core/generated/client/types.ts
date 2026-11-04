@@ -319,11 +319,10 @@ export interface FLAccountAddressChangePayload {
 }
 
 /**
- * Whether the signed-in address may change, and the change pending on it.
+ * The change pending on the signed-in address.
  */
 export interface FLAccountAddressChangeResponse {
   open: FLAccountAddressChangeOpen | null;
-  possible: boolean;
 }
 
 /**

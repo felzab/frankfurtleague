@@ -477,7 +477,7 @@
         "type": "object"
       },
       "FLAccountAddressChangeResponse": {
-        "description": "Whether the signed-in address may change, and the change pending on it.",
+        "description": "The change pending on the signed-in address.",
         "properties": {
           "open": {
             "anyOf": [
@@ -488,14 +488,9 @@
                 "type": "null"
               }
             ]
-          },
-          "possible": {
-            "title": "Possible",
-            "type": "boolean"
           }
         },
         "required": [
-          "possible",
           "open"
         ],
         "title": "FLAccountAddressChangeResponse",
@@ -18031,7 +18026,7 @@
         ]
       },
       "get": {
-        "description": "Answer whether the signed-in address holds anything its own change moves, and the change pending on it.\n\nPERSON TIER. `possible` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a\nregistration or a grant. **The pending address is served masked where an administrator started the change**, whole\nonly where the person typed it here: a change an administrator started may be a pretext whose target the holder of\nthe address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change\nmailed the address on file, which this page answers nothing of. `approval` is the approval a change moving the\nperson's grant waits on;\n`expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.",
+        "description": "Answer the change pending on the signed-in address, null where none is.\n\nPERSON TIER. Whether the address holds anything a change moves is the start's to answer, refused\n`address_change_nothing`. **The pending address is served masked where an administrator started the change**, whole\nonly where the person typed it here: a change an administrator started may be a pretext whose target the holder of\nthe address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change\nmailed the address on file, which this page answers nothing of. `approval` is the approval a change moving the\nperson's grant waits on;\n`expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.",
         "operationId": "account_get_address_change",
         "responses": {
           "200": {
@@ -18086,7 +18081,7 @@
             "AdminKey": []
           }
         ],
-        "summary": "Whether a signed-in person may change their address",
+        "summary": "The address change pending on a signed-in person",
         "tags": [
           "account"
         ]

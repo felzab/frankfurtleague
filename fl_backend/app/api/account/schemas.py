@@ -137,10 +137,8 @@ class FLAccountAddressChangeOpen(BaseModel):
 
 
 class FLAccountAddressChangeResponse(BaseAPIResponse):
-    """Whether the signed-in address may change, and the change pending on it."""
+    """The change pending on the signed-in address."""
 
-    # The address holds anything a change moves, a grant included.
-    possible: bool
     open: FLAccountAddressChangeOpen | None
 
 

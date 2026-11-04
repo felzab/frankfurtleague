@@ -143,13 +143,20 @@ def journal_of(caplog: pytest.LogCaptureFixture) -> Iterator[list[Any]]:
 
 
 class TestTheAccountPagesRead:
-    def test_it_offers_a_change_wherever_the_address_holds_anything_a_change_moves(self, mongo_replica_set_url: str):
+    def test_a_change_starts_wherever_the_address_holds_anything_a_change_moves(self, mongo_replica_set_url: str):
         """A grant alone is enough: an administrator's address is theirs to change like anyone's."""
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return [(await read(database, client, address)).possible for address in (EMAIL, OTHER_EMAIL, ADMIN, "nobody@schule.example")]
+        async def refusal(database: AsyncDatabase, client: AsyncMongoClient, address: str) -> str | None:
+            try:
+                await start(database, client, identifier=address, released=False)
+            except APIError as refused:
+                return refused.error_code
+            return None
 
-        assert on_a_person(mongo_replica_set_url, body) == [True, True, True, False]
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            return [await refusal(database, client, address) for address in (EMAIL, OTHER_EMAIL, ADMIN, "nobody@schule.example")]
+
+        assert on_a_person(mongo_replica_set_url, body) == [None, None, None, Code.ADDRESS_CHANGE_NOTHING]
 
     def test_the_person_s_own_change_shows_its_address_whole(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
