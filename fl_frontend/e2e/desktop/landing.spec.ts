@@ -1,8 +1,9 @@
 /**
- * E2E · the landing and the public pages around it, under the desktop project: the hero's „Spielplan“ through
- * `/saisons`'s redirect to the season the site is on, a match of the season card opened as the pop-up over the
- * landing and closed by Back, the rail's four season pages and the sponsors page each under its own heading, and an
- * address no page answers any more meeting the not-found page. The made-up seed's running season is 2027.
+ * E2E · the landing and the public pages around it, under the desktop project: the hero's „Spielplan“ straight to
+ * the season the site is on, a match of the season card opened as the pop-up over the landing and closed by Back,
+ * `/saisons`'s redirect to the same season and from there the rail's four season pages, the sponsors page under its
+ * own heading, and an address no page answers any more meeting the not-found page. The made-up seed's running season
+ * is 2027.
  */
 import { expect } from "@playwright/test";
 
@@ -37,7 +38,7 @@ test("the landing's Spielplan leads to the season's Spielplan, and a landing mat
   await expect(page.getByRole("heading", { level: 1, name: TAGLINE })).toBeVisible();
   await ready;
 
-  // The hero's first act leads to `/saisons`, which sends the browser on to the season the site is on in-stream.
+  // The hero's first act leads straight to the Spielplan of the season the site is on.
   await page.getByRole("main").getByRole("link", { name: "Spielplan", exact: true }).click();
   await expect(page).toHaveURL(/\/saisons\/2027$/);
   await expect(page.getByRole("heading", { level: 1, name: "Spielplan" })).toBeVisible();
@@ -63,7 +64,10 @@ test("the landing's Spielplan leads to the season's Spielplan, and a landing mat
 });
 
 test("the rail's four season pages and the sponsors page each stand under their own heading", async ({ page }) => {
-  await page.goto("/saisons/2027");
+  // `/saisons`, the address a link uses where it cannot know the season, sends the browser on to the season the site
+  // is on in-stream.
+  await page.goto("/saisons");
+  await expect(page).toHaveURL(/\/saisons\/2027$/);
   await expect(page.getByRole("heading", { level: 1, name: "Spielplan" })).toBeVisible();
 
   // The rail's entries in its order, each a link to the season's page of that name.

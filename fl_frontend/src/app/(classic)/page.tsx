@@ -181,6 +181,9 @@ async function contentOf(): Promise<LandingContent> {
   await connection();
   const { saison, bewerbung_window: window } = await readLanding();
   return {
+    // The season's own Spielplan, the address the header's season entry takes, so the press lands in one hop;
+    // `/saisons` only while the league has no season, where it shows the card saying so rather than redirecting.
+    primary: { label: COPY.page.spielplan, href: saison === null ? ROUTES.saisons.path() : ROUTES.spielplan.path(saison.id) },
     secondary: window === null ? ABOUT : { label: words.toBewerbung, href: ROUTES.bewerbung.path(window.saison_id) },
     aside: asideOf(saison, window),
     sections: sectionsOf(saison, window),
@@ -195,7 +198,6 @@ export default function HomePage() {
       <LandingPage
         title={words.tagline}
         lead={words.paragraph}
-        primary={{ label: COPY.page.spielplan, href: ROUTES.saisons.path() }}
         content={contentOf()}
       />
     </>

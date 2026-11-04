@@ -21,6 +21,7 @@ vi.mock("next/link", () => ({
 const { landing } = SERVER_COPY;
 
 const CONTENT: LandingContent = {
+  primary: { label: COPY.page.spielplan, href: ROUTES.spielplan.path("2027") },
   secondary: { label: COPY.page.about, href: ROUTES.about.path() },
   aside: (
     <SaisonBlock
@@ -41,7 +42,6 @@ function landingWith(content: Promise<LandingContent>): ReactElement {
     <LandingPage
       title={landing.tagline}
       lead={landing.paragraph}
-      primary={{ label: COPY.page.spielplan, href: ROUTES.saisons.path() }}
       content={content}
     />
   );
@@ -74,7 +74,7 @@ describe("the landing while its read is on its way", () => {
 });
 
 describe("the landing once read", () => {
-  it("adds the second way on, the season's card and the sections, and no skeleton", async () => {
+  it("adds the two ways on, the season's card and the sections, and no skeleton", async () => {
     const page = await streamed(landingWith(Promise.resolve(CONTENT)));
     expect(
       within(page)
