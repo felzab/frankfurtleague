@@ -1,10 +1,10 @@
+import { runWithIncomingTrace } from "@/core/traceScope";
 import { AdminSpieleActionRequiredView } from "@/features/admin/components/views/AdminSpieleActionRequiredView";
 import { getAdminSpieleActionRequired } from "@/features/admin/queries";
 import { requireAdminSaison } from "@/features/saisons/resolvers";
 import { getSpielbestaetigungen } from "@/features/spielbestaetigungen/queries";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { NextPageProps } from "@/shared/types/types";
 

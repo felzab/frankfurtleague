@@ -48,7 +48,7 @@ const { getSubjectSession } = await import("@/core/subject.ts");
 const { devicesOf } = await import("@/features/konto/security.ts");
 const { heldPasskeysOf } = await import("@/features/passkeys/held.ts");
 const { runAdminRead } = await import("@/shared/utils/adminRead.ts");
-const { runWithIncomingTrace } = await import("@/shared/utils/traceScope.ts");
+const { runWithIncomingTrace } = await import("@/core/traceScope.ts");
 
 // Production's indexes under every case, so the library is driven over what it meets there, and an
 // empty store, each case signing the administrator in afresh.

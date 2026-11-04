@@ -33,7 +33,10 @@ const CONFIG_DOUBLE = configDouble(
   { internalApiKeyBase: () => "fabricated-base-not-a-credential", internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" },
 );
 
-/** Each arrival at the session read, which every uncached pass through the guard makes. */
+/**
+ * Each read of the request's headers: the session read's, and the lookup's for its trace, each of which every uncached
+ * pass through the guard makes.
+ */
 let headerReadCount = 0;
 
 /** What the request a case arrives as carries, which `arriveAs` sets. */
@@ -126,6 +129,7 @@ const { lookUpSubjekt } = await import("./signInGate.ts");
 const { verwaltungOf } = await import("./verwaltung.ts");
 const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
 const { APINetworkError } = await import("./errors.ts");
+const { readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -139,9 +143,10 @@ async function signIn(email: string): Promise<{ cookie: string; row: SessionRow 
   return session;
 }
 
-/** Answers the guard as one request would: the cookie it reads off `headers()`. */
-function arriveAs(cookie: string | null): void {
+/** Answers the guard as one request would: the cookie it reads off `headers()`, and the edge's trace where one is given. */
+function arriveAs(cookie: string | null, traceparent?: string): void {
   requestHeaders = new Headers(cookie === null ? ORIGIN : { ...ORIGIN, cookie });
+  if (traceparent !== undefined) requestHeaders.set(TRACEPARENT_HEADER, traceparent);
 }
 
 function ageRow(row: SessionRow, { created = 0, idle = 0 }: { created?: number; idle?: number }): void {
@@ -165,6 +170,21 @@ async function guardInScope(): Promise<{ answer: Awaited<ReturnType<typeof getSu
 
 /** Zero before any case has reached the session read, so a case run alone still counts. */
 const headerReads = (): number => headerReadCount;
+
+/**
+ * The header reads one call of `guard` makes on a fresh render pass, leaving a fresh pass behind it: a case counting a
+ * pass's reads compares against this rather than a figure naming which reads a guard makes.
+ */
+async function readsOfOneGuard(guard: () => Promise<unknown>): Promise<number> {
+  beginRenderPass();
+  const before = headerReads();
+  await guard();
+  const reads = headerReads() - before;
+  beginRenderPass();
+
+  assert.ok(reads > 0, "one guard read nothing off the request, so the counts compared against it count nothing");
+  return reads;
+}
 
 const lastSent = (): Sent => {
   const call = sent.at(-1);
@@ -402,6 +422,20 @@ describe("the request the seam makes", () => {
     expect(call.headers.get("x-fl-actor")).toBe(null);
   });
 
+  /* A frame's guard reads the subject before any page read has opened the render's scope: a lookup sent under a
+     trace of its own is a backend line no edge line joins. */
+  it("goes out under the edge's trace from a render no scope encloses yet", async () => {
+    const edgeTrace = "4bf92f3577b34da6a3ce929d0e0e4736";
+    const { cookie } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie, `00-${edgeTrace}-00f067aa0ba902b7-01`);
+
+    assert.ok(await getSubjectSession(), "the guard refused, so the call below is not the lookup it made");
+    const call = lastSent();
+
+    expect(new URL(call.url).pathname).toBe("/api/v0/identity/subject");
+    expect(readTraceparent(call.headers.get(TRACEPARENT_HEADER)), "the lookup went out under a trace the edge never issued").toBe(edgeTrace);
+  });
+
   /* An error boundary replacing the panel is the fail-closed answer: `null` would offer a sign-in
      to somebody already signed in, and an empty subject would tell a seat holder the league holds
      nothing of theirs. */
@@ -564,13 +598,14 @@ describe("the guard across one render pass", () => {
   it("records its actor in a scope opened after its memo was filled, reading the session once", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
+    const oneGuard = await readsOfOneGuard(getSubjectSession);
     const readsBefore = headerReads();
 
     assert.ok(await getSubjectSession(), "the guard refused, so the scope below is asked about nothing");
     const { actor } = await guardInScope();
 
     expect(actor?.email, "the memo answered, and the scope names nobody").toBe(PERSON_EMAIL);
-    expect(headerReads() - readsBefore, "the second call read the session again rather than the memo").toBe(1);
+    expect(headerReads() - readsBefore, "the second call read the session again rather than the memo").toBe(oneGuard);
   });
 
   /* The admin layout's hold runs before any read opens the scope an admin-tier call is
@@ -579,6 +614,7 @@ describe("the guard across one render pass", () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     arriveAs(cookie);
+    const oneGuard = await readsOfOneGuard(getAdminSession);
     const readsBefore = headerReads();
 
     assert.ok(await getAdminSession(), "the guard refused, so the scope below is asked about nothing");
@@ -589,13 +625,14 @@ describe("the guard across one render pass", () => {
 
     expect(actor?.email, "the memo answered, and the scope names nobody").toBe(ADMIN_EMAIL);
     expect(actor?.lane).toBe("admin");
-    expect(headerReads() - readsBefore, "the second call read the session again rather than the memo").toBe(1);
+    expect(headerReads() - readsBefore, "the second call read the session again rather than the memo").toBe(oneGuard);
   });
 
   /* A layout, a guard and a page each asking inside one render pass. */
   it("reads the session and asks the backend once for every guard of one render pass", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
+    const oneGuard = await readsOfOneGuard(getSubjectSession);
     const readsBefore = headerReads();
     const sentBefore = sent.length;
 
@@ -607,13 +644,13 @@ describe("the guard across one render pass", () => {
       answers.every((answer) => answer?.email === PERSON_EMAIL),
       "a guard was refused, so the counts below count refusals",
     );
-    expect(headerReads() - readsBefore, "the guards of one render pass each read the session").toBe(1);
+    expect(headerReads() - readsBefore, "the guards of one render pass each read the session").toBe(oneGuard);
     expect(sent.length - sentBefore, "the guards of one render pass each asked the backend").toBe(1);
 
     // The control: the next request is a new pass and reads again, so the counters count reads.
     beginRenderPass();
     await getSubjectSession();
-    expect(headerReads() - readsBefore, "a second request was answered from the first one's read").toBe(2);
+    expect(headerReads() - readsBefore, "a second request was answered from the first one's read").toBe(2 * oneGuard);
     expect(sent.length - sentBefore, "a second request was answered from the first one's lookup").toBe(2);
   });
 
@@ -651,12 +688,14 @@ describe("the guard across one render pass", () => {
     assert.ok((await getAdminSession()) !== first, "a second request was handed the first one's session");
   });
 
-  /* Each guard called once, so each one's own memo is idle and the count is the session read's alone. */
+  /* Each guard called once, so each one's own memo is idle and the count is the reads the three share: the session
+     read's and the lookup's. */
   it("reads the session once for the person guard, the account guard and the administrator's guard of one render pass", async () => {
     const { getAccountSession } = await import("./auth/guards.ts");
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     arriveAs(cookie);
+    const oneGuard = await readsOfOneGuard(getSubjectSession);
     const readsBefore = headerReads();
 
     const answers = await Promise.all([getSubjectSession(), getAccountSession(), getAdminSession()]);
@@ -665,7 +704,7 @@ describe("the guard across one render pass", () => {
       answers.every((answer) => answer !== null),
       "a guard refused, so the count below counts a refusal",
     );
-    expect(headerReads() - readsBefore, "the guards of one render pass each read the session").toBe(1);
+    expect(headerReads() - readsBefore, "the guards of one render pass each read the session").toBe(oneGuard);
   });
 
   /* The admin layout's hold, its switcher and the administrators page each read the grant or the

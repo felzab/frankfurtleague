@@ -11,7 +11,7 @@ import type { ReactElement } from "react";
 
 const read = vi.hoisted(() => ({ view: null as FLAddressChangeViewResponse["view"] | null }));
 
-vi.mock("@/shared/utils/traceScope", () => ({ runWithIncomingTrace: <T,>(fn: () => Promise<T>) => fn() }));
+vi.mock("@/core/traceScope", () => ({ runWithIncomingTrace: <T,>(fn: () => Promise<T>) => fn() }));
 vi.mock("@/features/adresswechsel/mutations", async (original) => ({
   ...(await original<object>()),
   postAddressChangeView: async () => ({ view: read.view }),

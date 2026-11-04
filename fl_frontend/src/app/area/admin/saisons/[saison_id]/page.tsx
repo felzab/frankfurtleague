@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
+import { runWithIncomingTrace } from "@/core/traceScope";
 import { buildReplacementContext } from "@/features/saisons/components/forms/AdminSaisonEditForm/replacementOffer";
 import { AdminSaisonEditView } from "@/features/saisons/components/views/AdminSaisonEditView";
 import { getAdminSaisons, getLoeschungVorschau } from "@/features/saisons/queries";
@@ -18,7 +19,6 @@ import { getAdminSpieltage } from "@/features/spieltage/queries";
 import { getAdminTeams, getTeamSaisons } from "@/features/teams/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { FLErasurePreviewResponse } from "@/core/generated/client/types";
 import type { SaisonGruppenSwapContext, SaisonOffeneSpiel, SaisonRolloverContext, SaisonSpielplanContext } from "@/features/saisons/types";

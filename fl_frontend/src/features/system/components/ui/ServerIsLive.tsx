@@ -1,6 +1,6 @@
 // Redesign: goes with its last importer.
+import { runWithIncomingTrace } from "@/core/traceScope";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { checkIsLive } from "../../queries";
 

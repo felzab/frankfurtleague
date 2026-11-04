@@ -2,12 +2,12 @@ import { Suspense } from "react";
 
 import { frontend_config } from "@/core/config";
 import { ROUTES } from "@/core/routes";
+import { runWithIncomingTrace } from "@/core/traceScope";
 import { RegistrierungView } from "@/features/registrierungen/components/views/RegistrierungView";
 import { getEinladungAnsicht } from "@/features/registrierungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { pageMetadata } from "@/shared/utils/metadata";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { RegistrierungStart } from "@/features/registrierungen/types";
 import type { NextPageProps } from "@/shared/types/types";

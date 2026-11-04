@@ -3,8 +3,7 @@ import { redirect } from "next/navigation";
 import { judgeAdminRequest } from "@/core/auth/guards";
 import { UnreadGrantError } from "@/core/errors";
 import { ROUTES } from "@/core/routes";
-
-import { runWithIncomingTrace } from "./traceScope";
+import { runWithIncomingTrace } from "@/core/traceScope";
 
 /**
  * The admin pages' own check, and their one turn-away: the layout redirects nobody, a redirect there unmounting the
