@@ -19,9 +19,9 @@ import type { Page } from "@playwright/test";
 /** A code-borne sign-in past the passkey offer, which this journey leaves for later. */
 async function signIn(page: Page, address: string): Promise<void> {
   await signInWithCode(page, address);
-  await expect(page).toHaveURL(/\/signin\/passkey/);
+  await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
   await page.getByRole("button", { name: "Später" }).click();
-  await expect(page).toHaveURL(/\/area/);
+  await expect(page).toHaveURL((url) => url.pathname === "/area");
 }
 
 test("„Alle anderen abmelden“ ends a second device's session and keeps this one", async ({ page, browser, proxy, baseURL, twoDevices }) => {
@@ -35,15 +35,16 @@ test("„Alle anderen abmelden“ ends a second device's session and keeps this 
   await page.goto("/account/security");
   await page.getByRole("button", { name: "Alle anderen abmelden" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Abmelden" }).click();
-  await expect(page.getByText("Alle abgemeldet", { exact: true })).toBeVisible();
-  await expect(page.getByText("Du bist auf 1 Gerät angemeldet.")).toBeVisible();
+  // The toast stands outside `main`, in the region React Aria draws in the document's body (`fl_frontend/src/kit/Toast.tsx`).
+  await expect(page.getByRole("alertdialog", { name: "Alle abgemeldet" })).toBeVisible();
+  await expect(page.getByRole("main").getByText("Du bist auf 1 Gerät angemeldet.")).toBeVisible();
   // The page's own guard sends the ended session to the sign-in. Judged on the whole path, since `/account/signin`
   // itself ends in `/signin`.
   await elsewhere.goto("/account/signin");
   await expect(elsewhere).toHaveURL((url) => url.pathname === "/signin");
   expect(await sessionCookies(other, baseURL), "the other device still holds its ended session's cookie").toEqual([]);
   await page.goto("/account/signin");
-  await expect(page).toHaveURL(/\/account\/signin$/);
+  await expect(page).toHaveURL((url) => url.pathname === "/account/signin");
   await other.close();
 });
 
@@ -68,24 +69,24 @@ test("a person changes their address: the address on file confirms first, then t
   // The address on file's link asks it first, naming the address the change goes to.
   const previousLink = await mailedLink(mover, "Änderung der E-Mail-Adresse", before);
   await page.goto(previousLink);
-  await expect(page.getByRole("heading", { name: "Änderung bestätigen" })).toBeVisible();
-  await expect(page.getByText(newAddress, { exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { name: "Änderung bestätigen" })).toBeVisible();
+  await expect(page.getByRole("main").getByText(newAddress, { exact: true })).toBeVisible();
   const afterTheFirst = await filedMessages();
   await page.getByRole("button", { name: "Bestätigen" }).click();
   // The press's own end, by its sentence: the answer also renders the page again, and the link read again is in the
   // opened-again state, whose title and way on are the same.
-  await expect(page.getByRole("heading", { name: "Änderung bestätigt" })).toBeVisible();
-  await expect(page.getByText("Die neue Adresse bekommt jetzt ihren Link.")).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { name: "Änderung bestätigt" })).toBeVisible();
+  await expect(page.getByRole("main").getByText("Die neue Adresse bekommt jetzt ihren Link.")).toBeVisible();
   await expect(page.getByRole("main").getByRole("link", { name: "Zum Konto" })).toBeVisible();
 
   // Only now the new mailbox is asked; its confirmation makes the change take effect.
   const newLink = await mailedLink(newAddress, "Neue E-Mail-Adresse bestätigen", afterTheFirst);
   await context.clearCookies();
   await page.goto(newLink);
-  await expect(page.getByRole("heading", { name: "E-Mail-Adresse bestätigen" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { name: "E-Mail-Adresse bestätigen" })).toBeVisible();
   await page.getByRole("button", { name: "Bestätigen" }).click();
-  await expect(page.getByRole("heading", { name: "Adresse bestätigt" })).toBeVisible();
-  await expect(page.getByText("Mit dieser Adresse meldest du dich ab jetzt an.")).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { name: "Adresse bestätigt" })).toBeVisible();
+  await expect(page.getByRole("main").getByText("Mit dieser Adresse meldest du dich ab jetzt an.")).toBeVisible();
   // In the page's own end: the classic header holds an „Anmelden“ of its own on a desktop.
   await expect(page.getByRole("main").getByRole("link", { name: "Anmelden" })).toBeVisible();
 });
@@ -103,20 +104,20 @@ test("the person deletes their account from the mailed link, signed out when it 
   // Opened signed out, the link leads through the sign-in and back to itself.
   await context.clearCookies();
   await page.goto(link);
-  await expect(page.getByText("Du bist nicht angemeldet.")).toBeVisible();
+  await expect(page.getByRole("main").getByText("Du bist nicht angemeldet.")).toBeVisible();
   await page.getByRole("main").getByRole("link", { name: "Anmelden" }).click();
-  await expect(page).toHaveURL(/\/signin\?return=/);
+  await expect(page).toHaveURL((url) => url.pathname === "/signin" && url.searchParams.has("return"));
   await signInWithCodeHere(page, leaver);
   // The passkey offer's „Später“ goes on to the address the link asked for, as the code's landing does.
-  await expect(page).toHaveURL(/\/signin\/passkey\?return=/);
+  await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey" && url.searchParams.has("return"));
   await page.getByRole("button", { name: "Später" }).click();
-  await expect(page).toHaveURL(/\/erasure\?token=/);
+  await expect(page).toHaveURL((url) => url.pathname === "/erasure" && url.searchParams.has("token"));
 
-  // The list of what goes names the account's address, as the value of its row. Asked by role: the sign-in's steps
-  // stay in the document hidden, as Next keeps the routes a visitor came through, and they name the address too.
-  await expect(page.getByRole("heading", { name: "Konto löschen" })).toBeVisible();
-  await expect(page.getByRole("definition").filter({ hasText: leaver })).toHaveText(leaver);
-  await expect(page.getByText("Alles oben wird endgültig gelöscht.")).toBeVisible();
+  // The list of what goes names the account's address, as the value of its row.
+  const erasure = page.getByRole("main");
+  await expect(erasure.getByRole("heading", { name: "Konto löschen" })).toBeVisible();
+  await expect(erasure.getByRole("definition").filter({ hasText: leaver })).toHaveText(leaver);
+  await expect(erasure.getByText("Alles oben wird endgültig gelöscht.")).toBeVisible();
 
   // The deletion leads to the page that needs no session.
   await page.getByRole("main").getByRole("button", { name: "Konto löschen" }).click();

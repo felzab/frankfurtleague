@@ -13,16 +13,19 @@ test("an administrator's mailed code leads to setting up a passkey", async ({ pa
 
   // The code alone does not open the Verwaltung: the card requires the passkey, where a person's
   // offers it with a way past.
-  await expect(page).toHaveURL(/\/signin\/passkey$/);
-  await expect(page.getByText("Die Verwaltung ist erst mit einem Passkey erreichbar.")).toBeVisible();
-  await expect(page.getByText(administrator, { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Jetzt einrichten" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Später" })).toHaveCount(0);
+  await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
+  // In `main` and by role: the code step the browser came through stays in the document, hidden, and names the address
+  // too.
+  const card = page.getByRole("main");
+  await expect(card.getByText("Die Verwaltung ist erst mit einem Passkey erreichbar.")).toBeVisible();
+  await expect(card.getByText(administrator, { exact: true })).toBeVisible();
+  await expect(card.getByRole("button", { name: "Jetzt einrichten" })).toBeVisible();
+  await expect(card.getByRole("button", { name: "Später" })).toHaveCount(0);
 
   // Asked for by its address, a Verwaltung page shows the session nothing: its read turns the session
   // to the sign-in's landing, which sends an administrator who owes a passkey back to this card.
   await page.goto("/admin/spielorte");
-  await expect(page).toHaveURL(/\/signin\/passkey$/);
-  await expect(page.getByText("Die Verwaltung ist erst mit einem Passkey erreichbar.")).toBeVisible();
-  await expect(page.getByRole("heading", { level: 1, name: "Spielorte", exact: true })).toHaveCount(0);
+  await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
+  await expect(card.getByText("Die Verwaltung ist erst mit einem Passkey erreichbar.")).toBeVisible();
+  await expect(card.getByRole("heading", { level: 1, name: "Spielorte", exact: true })).toHaveCount(0);
 });

@@ -10,8 +10,8 @@ import { enrolPasskey, signInWithCode } from "../support/signIn";
 /** The administrator this journey alone signs in as (`scripts/ops/seed/seed.js`). */
 const EDITOR = "admin.editor@example.com";
 
-/** A venue's own editor, whatever season the list's link carries along. */
-const EDITOR_URL = /\/area\/admin\/spielorte\/[0-9a-f]{24}(?:\?|$)/;
+/** A venue's own editor, by its pathname: the list's link carries a season along in its query. */
+const EDITOR_PATH = /^\/area\/admin\/spielorte\/[0-9a-f]{24}$/;
 
 test("a save the proxy finds signed out lands on the sign-in page", async ({ page, context }) => {
   await signInWithCode(page, EDITOR);
@@ -24,7 +24,7 @@ test("a save the proxy finds signed out lands on the sign-in page", async ({ pag
   const editor = await page.getByRole("link", { name: "Bearbeiten: Spielort Sporthalle Birkenallee" }).getAttribute("href");
   if (editor === null) throw new Error("the Spielorte list has no editor link for Sporthalle Birkenallee");
   await page.goto(editor);
-  await expect(page).toHaveURL(EDITOR_URL);
+  await expect(page).toHaveURL((url) => EDITOR_PATH.test(url.pathname));
   // By its role: the number field's two stepper buttons carry its label too.
   const rent = page.getByRole("textbox", { name: "Standard-Mietpreis" });
   await expect(rent).toBeVisible();
@@ -39,8 +39,8 @@ test("a save the proxy finds signed out lands on the sign-in page", async ({ pag
   await rent.fill("45");
   await rent.press("Tab");
   // Still the editor: nothing but the save below may be what meets the proxy signed out.
-  await expect(page).toHaveURL(EDITOR_URL);
+  await expect(page).toHaveURL((url) => EDITOR_PATH.test(url.pathname));
   await page.getByRole("button", { name: "Speichern" }).click();
 
-  await expect(page).toHaveURL(/\/signin$/);
+  await expect(page).toHaveURL((url) => url.pathname === "/signin");
 });

@@ -16,10 +16,10 @@ export type Passkey = Awaited<ReturnType<BrowserContext["credentials"]["get"]>>[
 const RELYING_PARTY = "localhost";
 
 /** The step a send that mailed a code, or would have, shows in the address step's place. */
-export const codeStep = (page: Page): Locator => page.getByRole("status").filter({ hasText: "Prüfe dein Postfach" });
+export const codeStep = (page: Page): Locator => page.getByRole("main").getByRole("status").filter({ hasText: "Prüfe dein Postfach" });
 
 /** The sign-in's one line under its acts, where a send that did not go through says why: a polite status. */
-export const failureLine = (page: Page): Locator => page.getByRole("status");
+export const failureLine = (page: Page): Locator => page.getByRole("main").getByRole("status");
 
 /** Asks for a code on `/signin`, as far as the step a send that mailed one shows. */
 export async function askForCode(page: Page, address: string): Promise<void> {
@@ -77,7 +77,7 @@ export async function sessionCookies(context: BrowserContext, site: string | und
 export async function expectAccountPageOf(page: Page, address: string): Promise<void> {
   await page.goto("/account/signin");
 
-  await expect(page).toHaveURL(/\/account\/signin$/);
+  await expect(page).toHaveURL((url) => url.pathname === "/account/signin");
   // The page's own E-Mail-Adresse box, in `main`: the rail's account row outside it names the address too.
   await expect(page.getByRole("main").getByText(address, { exact: true })).toBeVisible();
 }
@@ -85,7 +85,7 @@ export async function expectAccountPageOf(page: Page, address: string): Promise<
 /** An administrator's first passkey, set up where a code-borne sign-in lands; answers the passkey the authenticator now holds. */
 export async function enrolPasskey(page: Page, context: BrowserContext): Promise<Passkey> {
   // The code alone does not open the Verwaltung: an administrator's first sign-in sets up a passkey.
-  await expect(page).toHaveURL(/\/signin\/passkey$/);
+  await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
 
   // Installed only now, on the page whose ceremony it answers, and the page loaded again under it.
   await context.credentials.install();
@@ -93,7 +93,7 @@ export async function enrolPasskey(page: Page, context: BrowserContext): Promise
   await page.getByRole("button", { name: "Jetzt einrichten" }).click();
   // Every administrator lands on the Übersicht, which a session short of the passkey would leave for
   // `/area/admin` and the passkey step (`fl_frontend/src/core/auth/landing.ts :: destinationOf`).
-  await expect(page).toHaveURL(/\/area$/);
+  await expect(page).toHaveURL((url) => url.pathname === "/area");
 
   const [passkey] = await context.credentials.get({ rpId: RELYING_PARTY });
   if (passkey === undefined) throw new Error("the enrolment left the authenticator holding no passkey");

@@ -22,7 +22,7 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   const first = tabs.getByRole("link", { name: "1. Spieltag" });
   await first.click();
   await expect(first).toHaveAttribute("aria-current", "page");
-  await expect(page).toHaveURL(/\/saisons\/2027\?tab=gruppenphase-1$/);
+  await expect(page).toHaveURL((url) => url.pathname === "/saisons/2027" && url.searchParams.get("tab") === "gruppenphase-1");
 
   // A match row is a link to the match's page, which opens over the Spielplan. Only the chosen matchday's
   // matches are on the page, so the row's name finds it.
@@ -30,7 +30,7 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   const popup = page.getByRole("dialog", { name: "Ahorn gegen Kastanie" });
   await expect(popup).toBeVisible();
   await expect(popup.getByText("2:1")).toBeVisible();
-  await expect(page).toHaveURL(/\/saisons\/2027\/spiele\/[0-9a-f]{24}$/);
+  await expect(page).toHaveURL((url) => /^\/saisons\/2027\/spiele\/[0-9a-f]{24}$/.test(url.pathname));
   // The Spielplan stays beneath it, on the matchday it showed. The open pop-up hides everything outside
   // itself from the accessibility tree, which a role query skips unless told to include it.
   const beneath = page.getByRole("navigation", { name: "Spieltage", includeHidden: true });
@@ -41,12 +41,12 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   // Back closes the pop-up and leaves the Spielplan on the matchday it showed.
   await page.goBack();
   await expect(popup).toBeHidden();
-  await expect(page).toHaveURL(/\/saisons\/2027\?tab=gruppenphase-1$/);
+  await expect(page).toHaveURL((url) => url.pathname === "/saisons/2027" && url.searchParams.get("tab") === "gruppenphase-1");
   await expect(first).toHaveAttribute("aria-current", "page");
 
   // Loaded directly, the same address is the match's own page, with no pop-up.
   await page.goto(matchPage);
-  await expect(page.getByRole("heading", { level: 1, name: "Ahorn gegen Kastanie" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "Ahorn gegen Kastanie" })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
@@ -62,7 +62,7 @@ test("a club's name in the pop-up opens the club's page and closes the pop-up", 
   // A client navigation leaves a parallel slot showing its last page unless the new address matches one of
   // its routes; the slot's catch-all matches the club's page and draws no pop-up.
   await popup.getByRole("link", { name: "Ahorn", exact: true }).click();
-  await expect(page).toHaveURL(/\/saisons\/2027\/teams\/[0-9a-f]{24}$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Ahorn" })).toBeVisible();
+  await expect(page).toHaveURL((url) => /^\/saisons\/2027\/teams\/[0-9a-f]{24}$/.test(url.pathname));
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "Ahorn" })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
