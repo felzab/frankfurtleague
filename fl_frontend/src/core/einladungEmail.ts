@@ -1,6 +1,7 @@
 import "server-only";
 
 import { BRAND_NAME, mailOrigin } from "./emailShell";
+import { ROUTES } from "./routes";
 
 import type { Mail } from "./emailShell";
 import type { FLInvitationData } from "./generated/client/types";
@@ -11,7 +12,7 @@ import type { MailLink } from "./mailKinds";
  * `token` is its parameter name for the reason `fl_frontend/src/core/kontaktLink.ts :: kontaktBestaetigungsLink` records.
  */
 export function einladungsLink(origin: string, token: string): string {
-  return `${origin}/registrierung?token=${encodeURIComponent(token)}`;
+  return `${origin}${ROUTES.registrierung.path()}?token=${encodeURIComponent(token)}`;
 }
 
 /**

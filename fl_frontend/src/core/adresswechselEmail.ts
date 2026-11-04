@@ -6,6 +6,7 @@ import { KONTAKT_EMAIL } from "./brand";
 import { COPY } from "./copy";
 import { BRAND_NAME, mailOrigin } from "./emailShell";
 import { formatInstant } from "./format";
+import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Mail, Paragraph } from "./emailShell";
@@ -17,15 +18,12 @@ import type {
 } from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
 
-/** The one address page, both links' and every record's, under the segment `robots.ts` already turns crawlers back from. */
-const ADRESSWECHSEL_PFAD = "/confirm/address";
-
 /**
  * The one spelling of the address page's link, the stop link's too, the page telling them apart by hash.
  * `token`, because `nginx/shared/http.conf :: $credential_free_uri` redacts that name alone.
  */
 function adresswechselLink(origin: string, token: string): string {
-  return `${origin}${ADRESSWECHSEL_PFAD}?token=${encodeURIComponent(token)}`;
+  return `${origin}${ROUTES.addressChangeConfirmation.path()}?token=${encodeURIComponent(token)}`;
 }
 
 const WORDS = SERVER_COPY.addressChange;
