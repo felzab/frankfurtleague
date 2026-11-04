@@ -184,6 +184,23 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
             },
         )
 
+    def test_an_older_answer_on_the_first_choice_leaves_a_newer_one_on_the_second_to_renew(self):
+        """The mirror, the stored scope set after the registration: its media withdrawal still lands, naming the grant it ended."""
+
+        scope_moved_later = {**CONFIRMED, "nachweis": {**CONFIRMED["nachweis"], "umfang": {"am": LATER, "text_version": ACCOUNT_LABEL}}}
+
+        update = renew(scope_moved_later, {**REGISTERED, "medien": False})
+
+        assert "einwilligung.umfang" not in update and "einwilligung.nachweis.umfang" not in update
+        assert (update["einwilligung.medien"], update["einwilligung.nachweis.medien"]) == (
+            False,
+            {
+                "am": REGISTERED_AT,
+                "text_version": "2026-10-spielerseite-5",
+                "given_before": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL},
+            },
+        )
+
     def test_every_field_but_the_choices_is_renewed(self):
         """The day and the stamp follow the newer confirmation whole."""
 
