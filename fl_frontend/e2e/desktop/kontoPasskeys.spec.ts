@@ -1,8 +1,8 @@
 /**
- * E2E · J8's passkeys on Konto: a person sets one up and removes it behind the passkey touch, which ends the
- * session this device's set-up signed in, and the page leaves for the sign-in. Then a passkey holder starts an address
- * change and deletes the account, each behind its own touch. Desktop alone, for the reason
- * `fl_frontend/playwright.config.ts` gives at its projects.
+ * E2E · J8's passkeys on Konto: a person sets one up and removes it behind the passkey touch, which signs this device in
+ * by that passkey, so the removal ends the session its own touch made and the page leaves for the sign-in. Then a
+ * passkey holder starts an address change and deletes the account, each behind its own touch. Desktop alone, for the
+ * reason `fl_frontend/playwright.config.ts` gives at its projects.
  */
 import { expect } from "@playwright/test";
 
